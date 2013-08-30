@@ -118,4 +118,4 @@ inline uint64 Hash128to64(const uint128& x) {
   return b;
 }
 
-#endif  // __OCLRASTER_CITY_HASH_H__
+#endif
