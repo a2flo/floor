@@ -19,8 +19,8 @@
 #ifndef __FLOOR_UTIL_HPP__
 #define __FLOOR_UTIL_HPP__
 
-#include "core/cpp_headers.h"
-#include "core/functor.h"
+#include "core/cpp_headers.hpp"
+#include "core/functor.hpp"
 
 template<int i> struct int2type {
 	enum { value = i };
@@ -38,7 +38,7 @@ template<typename T1, typename T2> struct type_select<false, T1, T2> {
 };
 
 // convert functions
-#define OCLRASTER_CONVERT_VAR_TO_BUFFER \
+#define FLOOR_CONVERT_VAR_TO_BUFFER \
 stringstream buffer; \
 buffer.precision(10); \
 buffer.setf(ios::fixed, ios::floatfield); \
@@ -52,24 +52,24 @@ template <typename type_from, typename type_to> struct converter {
 
 template <typename type_from> struct converter<type_from, string> {
 	static string convert(const type_from& var) {
-		OCLRASTER_CONVERT_VAR_TO_BUFFER;
+		FLOOR_CONVERT_VAR_TO_BUFFER;
 		return buffer.str();
 	}
 };
 
 #if defined(__WINDOWS__) && !defined(WIN_UNIXENV)
 template <> float converter<string, float>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return strtof(buffer.str().c_str(), nullptr);
 }
 
 template <> unsigned int converter<string, unsigned int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (unsigned int)strtoul(buffer.str().c_str(), nullptr, 10);
 }
 
 template <> int converter<string, int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (int)strtol(buffer.str().c_str(), nullptr, 10);
 }
 
@@ -78,18 +78,18 @@ template <> bool converter<string, bool>::convert(const string& var) {
 }
 
 template <> unsigned long long int converter<string, unsigned long long int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return strtoull(buffer.str().c_str(), nullptr, 10);
 }
 
 #if defined(PLATFORM_X64)
 template <> size_t converter<string, size_t>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (size_t)strtoull(buffer.str().c_str(), nullptr, 10);
 }
 
 template <> ssize_t converter<string, ssize_t>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (ssize_t)strtoll(buffer.str().c_str(), nullptr, 10);
 }
 #endif
@@ -102,7 +102,7 @@ template <> bool converter<string, bool>::convert(const string& var);
 #if !defined(WIN_UNIXENV)
 template <> unsigned long long int converter<string, unsigned long long int>::convert(const string& var);
 #endif
-#if defined(OCLRASTER_IOS)
+#if defined(FLOOR_IOS)
 template <> unsigned long int converter<string, unsigned long int>::convert(const string& var);
 #endif
 #if defined(PLATFORM_X64)
@@ -128,12 +128,12 @@ template <> ssize_t converter<string, ssize_t>::convert(const string& var);
 #define ull2string(value) converter<unsigned long long int, string>::convert(value)
 
 // misc
-class OCLRASTER_API oclraster_exception : public exception {
+class FLOOR_API floor_exception : public exception {
 protected:
 	string error_str;
 public:
-	oclraster_exception(const string& error_str_) : error_str(error_str_) {}
-	virtual ~oclraster_exception() throw() {}
+	floor_exception(const string& error_str_) : error_str(error_str_) {}
+	virtual ~floor_exception() throw() {}
     virtual const char* what() const throw ();
 };
 

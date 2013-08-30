@@ -20,20 +20,20 @@
 #define __FLOOR_CPP_HEADERS_HPP__
 
 // on windows exports/imports: apparently these have to be treated separately,
-// always use dllexport for oclraster/c++ stuff and depending on compiling or using
-// oclraster, use dllexport or dllimport for all opengl functions
-#if defined(OCLRASTER_EXPORTS)
+// always use dllexport for floor/c++ stuff and depending on compiling or using
+// floor, use dllexport or dllimport for all opengl functions
+#if defined(FLOOR_EXPORTS)
 #pragma warning(disable: 4251)
-#define OCLRASTER_API __declspec(dllexport)
+#define FLOOR_API __declspec(dllexport)
 #define OGL_API __declspec(dllexport)
-#elif defined(OCLRASTER_IMPORTS)
+#elif defined(FLOOR_IMPORTS)
 #pragma warning(disable: 4251)
-#define OCLRASTER_API __declspec(dllexport)
+#define FLOOR_API __declspec(dllexport)
 #define OGL_API __declspec(dllimport)
 #else
-#define OCLRASTER_API
+#define FLOOR_API
 #define OGL_API
-#endif // OCLRASTER_API_EXPORT
+#endif // FLOOR_API_EXPORT
 
 #if defined(__WINDOWS__) || defined(MINGW)
 #include <windows.h>
@@ -75,14 +75,14 @@
 using namespace std;
 
 //
-#define oclr_unused __attribute__((unused))
+#define floor_unused __attribute__((unused))
 
 // we don't need these
 #undef min
 #undef max
 
 // cbegin/cend
-#if !defined(OCLRASTER_HAS_CBEGIN_CEND) && \
+#if !defined(FLOOR_HAS_CBEGIN_CEND) && \
 	/* now part of c++14 and implemented in libc++ */ \
 	(!defined(_LIBCPP_STD_VER) || !(_LIBCPP_STD_VER > 11))
 
@@ -96,7 +96,7 @@ template <class T, size_t N> const T* cend(const T (&array)[N]) { return array +
 #endif
 
 // make_unique
-#if !defined(OCLRASTER_HAS_MAKE_UNIQUE) && \
+#if !defined(FLOOR_HAS_MAKE_UNIQUE) && \
 	/* now part of c++14 and implemented in libc++ */ \
 	(!defined(_LIBCPP_STD_VER) || !(_LIBCPP_STD_VER > 11))
 

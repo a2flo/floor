@@ -16,23 +16,23 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "util.h"
-#include "platform.h"
-#include "core/event_objects.h"
+#include "util.hpp"
+#include "platform.hpp"
+#include "core/event_objects.hpp"
 
 #if !defined(__WINDOWS__) || defined(WIN_UNIXENV)
 template <> float converter<string, float>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return strtof(buffer.str().c_str(), nullptr);
 }
 
 template <> unsigned int converter<string, unsigned int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (unsigned int)strtoul(buffer.str().c_str(), nullptr, 10);
 }
 
 template <> int converter<string, int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (int)strtol(buffer.str().c_str(), nullptr, 10);
 }
 
@@ -42,32 +42,32 @@ template <> bool converter<string, bool>::convert(const string& var) {
 
 #if !defined(WIN_UNIXENV)
 template <> unsigned long long int converter<string, unsigned long long int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return strtoull(buffer.str().c_str(), nullptr, 10);
 }
 #endif
 
-#if defined(OCLRASTER_IOS)
+#if defined(FLOOR_IOS)
 template <> unsigned long int converter<string, unsigned long int>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (unsigned long int)strtoull(buffer.str().c_str(), nullptr, 10);
 }
 #endif
 
 #if defined(PLATFORM_X64)
 template <> size_t converter<string, size_t>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (size_t)strtoull(buffer.str().c_str(), nullptr, 10);
 }
 
 template <> ssize_t converter<string, ssize_t>::convert(const string& var) {
-	OCLRASTER_CONVERT_VAR_TO_BUFFER;
+	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (ssize_t)strtoll(buffer.str().c_str(), nullptr, 10);
 }
 #endif
 #endif
 
-const char* oclraster_exception::what() const throw () {
+const char* floor_exception::what() const throw () {
 	return error_str.c_str();
 }
 

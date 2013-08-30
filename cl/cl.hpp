@@ -157,7 +157,7 @@
 #endif
 
 #if defined(__APPLE__) || defined(__MACOSX)
-#if !defined(OCLRASTER_IOS)
+#if !defined(FLOOR_IOS)
 #include <OpenGL/OpenGL.h>
 #else
 #include <OpenGLES/ES2/gl.h>

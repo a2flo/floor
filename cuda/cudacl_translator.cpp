@@ -16,13 +16,12 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 
-#include "cudacl_translator.h"
-#include "core/core.h"
-#include "core/gl_support.h"
-#include "oclraster.h"
-#include "core/timer.h"
+#include "cudacl_translator.hpp"
+#include "core/core.hpp"
+#include "floor/floor.hpp"
+#include "core/timer.hpp"
 #include <regex>
 
 #if defined(__APPLE__)
@@ -80,17 +79,17 @@ void cudacl_translate(const string& cl_source,
 					  bool& found_in_cache,
 					  uint128& kernel_hash,
 					  std::function<bool(const uint128&)> hash_lookup) {
-#define OCLRASTER_REGEX_MARKER "$$$OCLRASTER_REGEX_MARKER$$$"
+#define FLOOR_REGEX_MARKER "$$$FLOOR_REGEX_MARKER$$$"
 	static constexpr char cuda_preprocess_header[] {
-		"#include \"oclr_cudacl.h\"\n"
-		OCLRASTER_REGEX_MARKER "\n"
+		"#include \"floor_cudacl.h\"\n"
+		FLOOR_REGEX_MARKER "\n"
 	};
 	static constexpr char cuda_header[] {
 		"#include \"cuda_runtime.h\"\n"
 		"#undef signbit\n" // must undef cudas signbit define to extend functionality to vector types
 	};
 	
-	oclr_timer timer;
+	floor_timer timer;
 	
 	cuda_source = cuda_preprocess_header + cl_source;
 	timer.add("source string", false);
@@ -109,9 +108,9 @@ void cudacl_translate(const string& cl_source,
 		state->output_type = TCC_OUTPUT_PREPROCESS;
 		
 		// split build options and let tcc parse them
-		const string build_options = ("-I" + core::strip_path(oclraster::kernel_path("")) + " " +
-									  "-I" + core::strip_path(oclraster::kernel_path("cuda")) + " " +
-									  "-I " + oclraster::get_cuda_base_dir() + "/include/ " + preprocess_options);
+		const string build_options = ("-I" + core::strip_path(floor::kernel_path("")) + " " +
+									  "-I" + core::strip_path(floor::kernel_path("cuda")) + " " +
+									  "-I " + floor::get_cuda_base_dir() + "/include/ " + preprocess_options);
 		const auto build_option_args = core::tokenize(build_options, ' ');
 		const size_t argc = build_option_args.size();
 		vector<const char*> argv;
@@ -139,8 +138,8 @@ void cudacl_translate(const string& cl_source,
 	kernel_hash = src_hash;
 	
 	// in preprocessed source: find regex marker, erase it, only apply regex on actual user code (add cuda header stuff later)
-	const size_t regex_marker_pos = kernel_source.find(OCLRASTER_REGEX_MARKER);
-	kernel_source.erase(regex_marker_pos, sizeof(OCLRASTER_REGEX_MARKER));
+	const size_t regex_marker_pos = kernel_source.find(FLOOR_REGEX_MARKER);
+	kernel_source.erase(regex_marker_pos, sizeof(FLOOR_REGEX_MARKER));
 	string cl_kernel_source = kernel_source.substr(regex_marker_pos);
 	cuda_source = cl_kernel_source;
 	
@@ -357,7 +356,7 @@ void cudacl_translate(const string& cl_source,
 					   cuda_header + kernel_source.substr(0, regex_marker_pos) +
 					   // also add a dummy ident struct, so it can be replaced by the
 					   // actual kernel name later on
-					   "struct __oclraster_ident_placeholder {};\n");
+					   "struct __floor_ident_placeholder {};\n");
 	timer.add("end src string", false);
 #if 0
 	timer.end(true);

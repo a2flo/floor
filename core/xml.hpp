@@ -19,8 +19,8 @@
 #ifndef __FLOOR_XML_HPP__
 #define __FLOOR_XML_HPP__
 
-#include "oclraster/global.h"
-#include "core/core.h"
+#include "floor/floor.hpp"
+#include "core/core.hpp"
 
 #include <libxml/xmlreader.h>
 #include <libxml/xmlwriter.h>
@@ -29,7 +29,7 @@
  *  @brief xml functions
  */
 
-class OCLRASTER_API xml {
+class FLOOR_API xml {
 public:
 	xml();
 	~xml();

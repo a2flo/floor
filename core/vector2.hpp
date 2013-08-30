@@ -19,7 +19,7 @@
 #ifndef __FLOOR_VECTOR_2_HPP__
 #define __FLOOR_VECTOR_2_HPP__
 
-#include "core/cpp_headers.h"
+#include "core/cpp_headers.hpp"
 
 template <typename T> class vector2;
 typedef vector2<float> float2;
@@ -41,7 +41,7 @@ typedef vector2<float> coord;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class OCLRASTER_API __attribute__((packed, aligned(sizeof(T)))) vector2 {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(sizeof(T)))) vector2 {
 public:
 	union {
 		T x, u;
@@ -310,7 +310,7 @@ template<typename T> vector2<T> vector2<T>::abs() const {
 	return vector2<T>((T)::llabs(x), (T)::llabs(y));
 }
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 // only instantiate this in the vector2.cpp
 extern template class vector2<float>;
 extern template class vector2<double>;

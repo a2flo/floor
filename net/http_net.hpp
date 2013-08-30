@@ -19,10 +19,10 @@
 #ifndef __FLOOR_HTTP_NET_HPP__
 #define __FLOOR_HTTP_NET_HPP__
 
-#include "platform.h"
-#include "net.h"
-#include "net_protocol.h"
-#include "net_tcp.h"
+#include "platform.hpp"
+#include "net.hpp"
+#include "net_protocol.hpp"
+#include "net_tcp.hpp"
 
 // TODO: add events (for received packets and failed requests?)
 template <class protocol_policy> class http_net : public net<protocol_policy> {
@@ -70,8 +70,8 @@ protected:
 	using net<protocol_policy>::send_store;
 };
 
-// unibot_http_net
-typedef http_net<UNIBOT_NET_PROTOCOL> unibot_http_net;
+// floor_http_net
+typedef http_net<FLOOR_NET_PROTOCOL> floor_http_net;
 
 
 template <class protocol_policy> http_net<protocol_policy>::http_net(config* conf) :
@@ -140,7 +140,7 @@ template <class protocol_policy> void http_net<protocol_policy>::send_http_reque
 	packet << "GET " << url << " HTTP/1.1" << endl;
 	packet << "Accept-Charset: UTF-8" << endl;
 	//packet << "Connection: close" << endl;
-	packet << "User-Agent: UniBot" << endl;
+	packet << "User-Agent: floor" << endl; // TODO: version?
 	packet << "Host: " << host << endl;
 	packet << endl;
 	

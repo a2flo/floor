@@ -19,8 +19,8 @@
 #ifndef __FLOOR_MATRIX4_HPP__
 #define __FLOOR_MATRIX4_HPP__
 
-#include "core/cpp_headers.h"
-#include "core/basic_math.h"
+#include "core/cpp_headers.hpp"
+#include "core/basic_math.hpp"
 
 template <typename T> class matrix4;
 typedef matrix4<float> matrix4f;
@@ -35,7 +35,7 @@ template <typename T> class vector4;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class OCLRASTER_API __attribute__((packed, aligned(16))) matrix4 {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(16))) matrix4 {
 public:
 	array<T, 16> data;
 	
@@ -405,7 +405,7 @@ template<typename T> matrix4<T>& matrix4<T>::ortho(const T left, const T right, 
 	return *this;
 }
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 // only instantiate this in the matrix4.cpp
 extern template class matrix4<float>;
 extern template class matrix4<double>;

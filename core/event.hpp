@@ -19,17 +19,17 @@
 #ifndef __FLOOR_EVENT_HPP__
 #define __FLOOR_EVENT_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
-#include "core/core.h"
-#include "threading/thread_base.h"
-#include "event_objects.h"
+#include "core/core.hpp"
+#include "threading/thread_base.hpp"
+#include "event_objects.hpp"
 
 /*! @class event
  *  @brief (sdl) event handler
  */
 
-class OCLRASTER_API event : public thread_base {
+class FLOOR_API event : public thread_base {
 public:
 	event();
 	virtual ~event();

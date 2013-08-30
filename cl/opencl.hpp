@@ -19,12 +19,11 @@
 #ifndef __FLOOR_OPENCL_HPP__
 #define __FLOOR_OPENCL_HPP__
 
-#include "oclraster/global.h"
-#include "core/file_io.h"
-#include "core/core.h"
-#include "core/vector2.h"
-#include "core/gl_support.h"
-#include "hash/city.h"
+#include "floor/floor.hpp"
+#include "core/file_io.hpp"
+#include "core/core.hpp"
+#include "core/vector2.hpp"
+#include "hash/city.hpp"
 
 // necessary for now (when compiling with opencl 1.2+ headers)
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS 1
@@ -35,7 +34,7 @@
 #include <OpenCL/cl_platform.h>
 #include <OpenCL/cl_ext.h>
 #include <OpenCL/cl_gl.h>
-#if !defined(OCLRASTER_IOS)
+#if !defined(FLOOR_IOS)
 #include <OpenGL/CGLContext.h>
 #include <OpenGL/CGLCurrent.h>
 #include <OpenGL/CGLDevice.h>
@@ -55,7 +54,7 @@
 #endif
 
 //
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 #if defined(__APPLE__)
 #include <CUDA/cuda.h>
 #include <CUDA/cudaGL.h>
@@ -69,7 +68,7 @@ enum class IMAGE_TYPE : unsigned short int;
 enum class IMAGE_CHANNEL : unsigned short int;
 
 // opencl base interface
-class OCLRASTER_API opencl_base {
+class FLOOR_API opencl_base {
 public:
 	struct kernel_object;
 	struct buffer_object;
@@ -130,7 +129,7 @@ public:
 		CL_1_2,
 		CL_2_0,
 	};
-	// <vendor, index/identifier for use in oclraster config>
+	// <vendor, index/identifier for use in floor config>
 	static vector<pair<PLATFORM_VENDOR, string>> get_platforms();
 	static string platform_vendor_to_str(const PLATFORM_VENDOR& pvendor);
 	PLATFORM_VENDOR get_platform_vendor() const;
@@ -496,7 +495,7 @@ template<typename T> bool opencl_base::set_kernel_argument(const unsigned int& i
 }
 	
 // actual opencl implementation
-class OCLRASTER_API opencl : public opencl_base {
+class FLOOR_API opencl : public opencl_base {
 public:
 	//
 	opencl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_);
@@ -632,10 +631,10 @@ protected:
 	
 };
 
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 // opencl_base implementation on top of cuda
 struct cuda_kernel_object;
-class OCLRASTER_API cudacl : public opencl_base {
+class FLOOR_API cudacl : public opencl_base {
 public:
 	cudacl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_);
 	virtual ~cudacl();

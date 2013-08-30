@@ -19,13 +19,13 @@
 #ifndef __FLOOR_UNICODE_HPP__
 #define __FLOOR_UNICODE_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
 /*! @class unicode
  *  @brief unicode routines
  */
 
-class OCLRASTER_API unicode {
+class FLOOR_API unicode {
 public:
 	unicode() = delete;
 	~unicode() = delete;

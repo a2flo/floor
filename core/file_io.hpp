@@ -19,13 +19,13 @@
 #ifndef __FLOOR_FILE_IO_HPP__
 #define __FLOOR_FILE_IO_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
 /*! @class file_io
  *  @brief file input/output
  */
 
-class OCLRASTER_API file_io {
+class FLOOR_API file_io {
 public:
 	enum class OPEN_TYPE {
 		READ,

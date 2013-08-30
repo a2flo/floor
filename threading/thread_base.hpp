@@ -19,7 +19,7 @@
 #ifndef __FLOOR_THREAD_BASE_HPP__
 #define __FLOOR_THREAD_BASE_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
 #include <thread>
 #include <mutex>

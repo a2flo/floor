@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "unicode.h"
+#include "unicode.hpp"
 
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
 	vector<unsigned int> ret;

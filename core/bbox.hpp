@@ -19,9 +19,9 @@
 #ifndef __FLOOR_BBOX_HPP__
 #define __FLOOR_BBOX_HPP__
 
-#include "core/cpp_headers.h"
-#include "core/vector3.h"
-#include "core/ray.h"
+#include "core/cpp_headers.hpp"
+#include "core/vector3.hpp"
+#include "core/ray.hpp"
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -31,7 +31,7 @@
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 #endif
 
-class OCLRASTER_API __attribute__((packed, aligned(4))) bbox {
+class FLOOR_API __attribute__((packed, aligned(4))) bbox {
 public:
 	float3 min;
 	float3 max;
@@ -115,7 +115,7 @@ public:
 };
 
 //! extended bound box (including position and model view matrix)
-class OCLRASTER_API __attribute__((packed)) extbbox : public bbox {
+class FLOOR_API __attribute__((packed)) extbbox : public bbox {
 public:
 	float3 pos;
 	matrix4f mview;
@@ -150,7 +150,7 @@ public:
 		bbox::intersect(ret, tr);
 	}
 	
-	bool is_intersection(const extbbox& box oclr_unused) const {
+	bool is_intersection(const extbbox& box floor_unused) const {
 		// TODO: implement this at some point:
 		// http://en.wikipedia.org/wiki/Separating_axis_theorem
 		// http://www.gamasutra.com/view/feature/3383/simple_intersection_tests_for_games.php?page=5

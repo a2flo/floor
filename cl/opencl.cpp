@@ -16,15 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "opencl.h"
-#include "pipeline/image.h"
-#include "oclraster.h"
+#include "opencl.hpp"
+#include "floor/floor.hpp"
 
 #if defined(__APPLE__)
-#if defined(OCLRASTER_IOS)
-#include "ios/ios_helper.h"
+#if defined(FLOOR_IOS)
+#include "ios/ios_helper.hpp"
 #else
-#include "osx/osx_helper.h"
+#include "osx/osx_helper.hpp"
 #endif
 #endif
 
@@ -130,7 +129,7 @@ vector<pair<opencl_base::PLATFORM_VENDOR, string>> opencl_base::get_platforms() 
 	available_platforms.push_back({ PLATFORM_VENDOR::APPLE, "0" });
 #endif
 	
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 	available_platforms.push_back({ PLATFORM_VENDOR::CUDA, "cuda" });
 #endif
 	
@@ -238,7 +237,7 @@ void opencl_base::reload_kernels() {
 	}
 	
 	// emit kernel reload event
-	oclraster::get_event()->add_event(EVENT_TYPE::KERNEL_RELOAD, make_shared<kernel_reload_event>(SDL_GetTicks()));
+	floor::get_event()->add_event(EVENT_TYPE::KERNEL_RELOAD, make_shared<kernel_reload_event>(SDL_GetTicks()));
 }
 
 void opencl_base::load_internal_kernels() {
@@ -416,7 +415,7 @@ const vector<cl::ImageFormat>& opencl_base::get_image_formats() const {
 cl::ImageFormat opencl_base::get_image_format(const IMAGE_TYPE& data_type, const IMAGE_CHANNEL channel_type) const {
 	const auto data_idx = (typename underlying_type<IMAGE_TYPE>::type)data_type;
 	const auto channel_idx = (typename underlying_type<IMAGE_CHANNEL>::type)channel_type;
-#if defined(OCLRASTER_DEBUG)
+#if defined(FLOOR_DEBUG)
 	if(data_idx >= internal_image_format_mapping.size()) {
 		oclr_error("invalid data_type: %u!", data_idx);
 		return cl::ImageFormat(0, 0);
@@ -619,7 +618,7 @@ opencl::opencl(const char* kernel_path, SDL_Window* wnd, const bool clear_cache)
 	build_options += " -cl-single-precision-constant";
 	build_options += " -cl-denorms-are-zero";
 	
-#if !defined(OCLRASTER_DEBUG)
+#if !defined(FLOOR_DEBUG)
 	build_options += " -w";
 #endif
 	
@@ -702,7 +701,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		cl_context_properties cl_properties[] {
 			CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[platform_index](),
 			apple_gl_sharing ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
-#if !defined(OCLRASTER_IOS)
+#if !defined(FLOOR_IOS)
 			apple_gl_sharing ? (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()) : 0,
 #else
 			apple_gl_sharing ? (cl_context_properties)ios_helper::get_eagl_sharegroup() : 0,
@@ -1048,7 +1047,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		
 		// no supported devices found
 		if(devices.empty()) {
-			throw oclraster_exception("no supported device found for this platform!");
+			throw floor_exception("no supported device found for this platform!");
 		}
 		
 		// check if all devices support doubles
@@ -1063,7 +1062,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		// create a (single) command queue for each device
 		for(const auto& device : devices) {
 			queues[&device->device] = new cl::CommandQueue(*context, device->device,
-#if !defined(OCLRASTER_PROFILING)
+#if !defined(FLOOR_PROFILING)
 														   0,
 #else
 														   CL_QUEUE_PROFILING_ENABLE,
@@ -1105,7 +1104,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 			init(use_platform_devices, platform_index+1);
 		}
 	__HANDLE_CL_EXCEPTION_END
-	catch(oclraster_exception& e) {
+	catch(floor_exception& e) {
 		oclr_debug("%s", e.what());
 		// try another time w/o using the platform devices
 		if(platform_index+1 < platforms.size()) {
@@ -1316,7 +1315,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 	options += " -DOCLRASTER_IMAGE_HEADER_SIZE="+size_t2string(image::header_size());
 	
 	// the same goes for the general struct alignment
-	options += " -DOCLRASTER_STRUCT_ALIGNMENT="+uint2string(OCLRASTER_STRUCT_ALIGNMENT);
+	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
 	
 	try {
 		if(!additional_options.empty()) {
@@ -1379,7 +1378,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 			
 			device_options += " -DPLATFORM_"+platform_vendor_to_str(platform_vendor);
 			device_options += " -DLOCAL_MEM_SIZE="+ull2string(device->local_mem_size);
-			if(device->double_support) device_options += " -DOCLRASTER_DOUBLE_SUPPORT";
+			if(device->double_support) device_options += " -DFLOOR_DOUBLE_SUPPORT";
 			
 			kernel_ptr->program->build({ device->device }, (options+device_options).c_str());
 		}
@@ -1435,7 +1434,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 		//log_program_binary(kernel_ptr, options);
 		return null_kernel_object;
 	__HANDLE_CL_EXCEPTION_END
-	if(oclraster::get_log_binaries()) {
+	if(floor::get_log_binaries()) {
 		log_program_binary(kernel_ptr);
 	}
 	kernel_ptr->valid = true;
@@ -2084,7 +2083,7 @@ void opencl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 			functor->second.local_ = kernel_ptr->local;
 		}
 		
-#if !defined(OCLRASTER_PROFILING)
+#if !defined(FLOOR_PROFILING)
 		functor->second();
 		//functor->second().wait();
 #else
@@ -2330,7 +2329,7 @@ void opencl::unmap_buffer(opencl::buffer_object* buffer_obj, void* map_ptr) {
 	__HANDLE_CL_EXCEPTION("unmap_buffer")
 }
 
-#if defined(CL_VERSION_1_2) && !defined(OCLRASTER_POCL)
+#if defined(CL_VERSION_1_2) && !defined(FLOOR_POCL)
 void opencl::_fill_buffer(buffer_object* buffer_obj,
 						  const void* pattern,
 						  const size_t& pattern_size,
@@ -2351,11 +2350,11 @@ void opencl::_fill_buffer(buffer_object* buffer_obj,
 	__HANDLE_CL_EXCEPTION("fill_buffer")
 }
 #else
-void opencl::_fill_buffer(buffer_object* buffer_obj oclr_unused,
-						  const void* pattern oclr_unused,
-						  const size_t& pattern_size oclr_unused,
-						  const size_t offset oclr_unused,
-						  const size_t size_ oclr_unused) {
+void opencl::_fill_buffer(buffer_object* buffer_obj floor_unused,
+						  const void* pattern floor_unused,
+						  const size_t& pattern_size floor_unused,
+						  const size_t offset floor_unused,
+						  const size_t size_ floor_unused) {
 }
 #endif
 

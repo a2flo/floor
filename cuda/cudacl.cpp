@@ -16,22 +16,21 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 
-#include "opencl.h"
-#include "cudacl_translator.h"
-#include "cudacl_compiler.h"
-#include "pipeline/image.h"
-#include "oclraster.h"
+#include "opencl.hpp"
+#include "cudacl_translator.hpp"
+#include "cudacl_compiler.hpp"
+#include "floor/floor.hpp"
 
 #if defined(__APPLE__)
-#if !defined(OCLRASTER_IOS)
-#include "osx/osx_helper.h"
+#if !defined(FLOOR_IOS)
+#include "osx/osx_helper.hpp"
 #endif
 #endif
 
 #if (CUDA_VERSION < 5050)
-#error "oclraster must be compiled with at least CUDA 5.5!"
+#error "floor must be compiled with at least CUDA 5.5!"
 #endif
 
 //
@@ -188,7 +187,7 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 	
 	build_options = "-I" + kernel_path_str;
 	build_options += " -I" + kernel_path_str + "cuda";
-	build_options += " -DOCLRASTER_CUDA_CL";
+	build_options += " -DFLOOR_CUDA_CL";
 	
 #if defined(__APPLE__)
 	// add defines for the compile-time and run-time os x versions
@@ -213,7 +212,7 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 	int driver_version = 0;
 	cuDriverGetVersion(&driver_version);
 	if(driver_version < 5050) {
-		oclr_error("oclraster requires at least CUDA 5.5!");
+		oclr_error("floor requires at least CUDA 5.5!");
 		valid = false;
 	}
 	
@@ -292,8 +291,8 @@ cudacl::~cudacl() {
 	oclr_debug("cudacl object deleted");
 }
 
-void cudacl::init(bool use_platform_devices oclr_unused, const size_t platform_index oclr_unused,
-				  const set<string> device_restriction oclr_unused, const bool gl_sharing oclr_unused) {
+void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_index floor_unused,
+				  const set<string> device_restriction floor_unused, const bool gl_sharing floor_unused) {
 	//
 	if(!supported) return;
 	
@@ -581,7 +580,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 	options += " -DOCLRASTER_IMAGE_HEADER_SIZE="+size_t2string(image::header_size());
 	
 	// the same goes for the general struct alignment
-	options += " -DOCLRASTER_STRUCT_ALIGNMENT="+uint2string(OCLRASTER_STRUCT_ALIGNMENT);
+	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
 	
 	// user options
 	options += additional_options;
@@ -604,8 +603,8 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 		//
 		string ptx_code = "", cuda_source = "";
 		
-		const bool use_cache = oclraster::get_cuda_use_cache();
-		const bool keep_binaries = oclraster::get_cuda_keep_binaries();
+		const bool use_cache = floor::get_cuda_use_cache();
+		const bool keep_binaries = floor::get_cuda_keep_binaries();
 		bool found_in_cache = false;
 		uint128 kernel_hash { 0, 0 };
 		cudacl_translate(src, options, cuda_source, kernels_info, use_cache, found_in_cache, kernel_hash,
@@ -733,8 +732,8 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			};
 		} jit_option_values[] {
 			{ .ui = cc_target },
-			{ .ui = (oclraster::get_cuda_profiling() || oclraster::get_cuda_debug()) ? 1u : 0u },
-			{ .ui = oclraster::get_cuda_debug() ? 1u : 0u },
+			{ .ui = (floor::get_cuda_profiling() || floor::get_cuda_debug()) ? 1u : 0u },
+			{ .ui = floor::get_cuda_debug() ? 1u : 0u },
 			{ .ui = 32u }
 		};
 		static_assert(option_count == (sizeof(jit_option_values) / sizeof(void*)), "mismatching option count");
@@ -948,9 +947,9 @@ opencl_base::buffer_object* cudacl::create_sub_buffer(const buffer_object* paren
 	return nullptr;
 }
 
-opencl_base::buffer_object* cudacl::create_image2d_buffer(const opencl_base::BUFFER_FLAG type oclr_unused,
-														  const cl_channel_order channel_order oclr_unused, const cl_channel_type channel_type oclr_unused,
-														  const size_t width oclr_unused, const size_t height oclr_unused, const void* data oclr_unused) {
+opencl_base::buffer_object* cudacl::create_image2d_buffer(const opencl_base::BUFFER_FLAG type floor_unused,
+														  const cl_channel_order channel_order floor_unused, const cl_channel_type channel_type floor_unused,
+														  const size_t width floor_unused, const size_t height floor_unused, const void* data floor_unused) {
 	assert(false && "create_image2d_buffer not implemented yet!");
 	// TODO
 	/*try {
@@ -959,9 +958,9 @@ opencl_base::buffer_object* cudacl::create_image2d_buffer(const opencl_base::BUF
 	return nullptr;
 }
 
-opencl_base::buffer_object* cudacl::create_image3d_buffer(const opencl_base::BUFFER_FLAG type oclr_unused,
-														  const cl_channel_order channel_order oclr_unused, const cl_channel_type channel_type oclr_unused,
-														  const size_t width oclr_unused, const size_t height oclr_unused, const size_t depth oclr_unused, const void* data oclr_unused) {
+opencl_base::buffer_object* cudacl::create_image3d_buffer(const opencl_base::BUFFER_FLAG type floor_unused,
+														  const cl_channel_order channel_order floor_unused, const cl_channel_type channel_type floor_unused,
+														  const size_t width floor_unused, const size_t height floor_unused, const size_t depth floor_unused, const void* data floor_unused) {
 	assert(false && "create_image3d_buffer not implemented yet!");
 	// TODO
 	/*try {
@@ -1017,7 +1016,7 @@ opencl_base::buffer_object* cudacl::create_ogl_buffer(const opencl_base::BUFFER_
 	return nullptr;
 }
 
-opencl_base::buffer_object* cudacl::create_ogl_image2d_buffer(BUFFER_FLAG type oclr_unused, GLuint texture oclr_unused, GLenum target oclr_unused) {
+opencl_base::buffer_object* cudacl::create_ogl_image2d_buffer(BUFFER_FLAG type floor_unused, GLuint texture floor_unused, GLenum target floor_unused) {
 	assert(false && "create_ogl_image2d_buffer not implemented yet!");
 	// TODO
 	/*try {
@@ -1026,7 +1025,7 @@ opencl_base::buffer_object* cudacl::create_ogl_image2d_buffer(BUFFER_FLAG type o
 	return nullptr;
 }
 
-opencl_base::buffer_object* cudacl::create_ogl_image2d_renderbuffer(BUFFER_FLAG type oclr_unused, GLuint renderbuffer oclr_unused) {
+opencl_base::buffer_object* cudacl::create_ogl_image2d_renderbuffer(BUFFER_FLAG type floor_unused, GLuint renderbuffer floor_unused) {
 	assert(false && "create_ogl_image2d_renderbuffer not implemented yet!");
 	// TODO
 	/*try {
@@ -1137,12 +1136,12 @@ void cudacl::write_buffer(opencl_base::buffer_object* buffer_obj, const void* sr
 	}
 }
 
-void cudacl::write_buffer_rect(buffer_object* buffer_obj oclr_unused, const void* src oclr_unused,
-							   const size3 buffer_origin oclr_unused,
-							   const size3 host_origin oclr_unused,
-							   const size3 region oclr_unused,
-							   const size_t buffer_row_pitch oclr_unused, const size_t buffer_slice_pitch oclr_unused,
-							   const size_t host_row_pitch oclr_unused, const size_t host_slice_pitch oclr_unused) {
+void cudacl::write_buffer_rect(buffer_object* buffer_obj floor_unused, const void* src floor_unused,
+							   const size3 buffer_origin floor_unused,
+							   const size3 host_origin floor_unused,
+							   const size3 region floor_unused,
+							   const size_t buffer_row_pitch floor_unused, const size_t buffer_slice_pitch floor_unused,
+							   const size_t host_row_pitch floor_unused, const size_t host_slice_pitch floor_unused) {
 	try {
 		// TODO
 		assert(false && "write_buffer_rect not implemented yet!");
@@ -1150,7 +1149,7 @@ void cudacl::write_buffer_rect(buffer_object* buffer_obj oclr_unused, const void
 	__HANDLE_CL_EXCEPTION("write_buffer_rect")
 }
 
-void cudacl::write_image(opencl::buffer_object* buffer_obj oclr_unused, const void* src oclr_unused, const size3 origin oclr_unused, const size3 region oclr_unused) {
+void cudacl::write_image(opencl::buffer_object* buffer_obj floor_unused, const void* src floor_unused, const size3 origin floor_unused, const size3 region floor_unused) {
 	try {
 		// TODO
 		assert(false && "write_image not implemented yet!");
@@ -1158,8 +1157,8 @@ void cudacl::write_image(opencl::buffer_object* buffer_obj oclr_unused, const vo
 	__HANDLE_CL_EXCEPTION("write_image")
 }
 
-void cudacl::copy_buffer(const buffer_object* src_buffer oclr_unused, buffer_object* dst_buffer oclr_unused,
-						 const size_t src_offset oclr_unused, const size_t dst_offset oclr_unused, const size_t size oclr_unused) {
+void cudacl::copy_buffer(const buffer_object* src_buffer floor_unused, buffer_object* dst_buffer floor_unused,
+						 const size_t src_offset floor_unused, const size_t dst_offset floor_unused, const size_t size floor_unused) {
 	try {
 		// TODO
 		assert(false && "copy_buffer not implemented yet!");
@@ -1167,11 +1166,11 @@ void cudacl::copy_buffer(const buffer_object* src_buffer oclr_unused, buffer_obj
 	__HANDLE_CL_EXCEPTION("copy_buffer")
 }
 
-void cudacl::copy_buffer_rect(const buffer_object* src_buffer oclr_unused, buffer_object* dst_buffer oclr_unused,
-							  const size3 src_origin oclr_unused, const size3 dst_origin oclr_unused,
-							  const size3 region oclr_unused,
-							  const size_t src_row_pitch oclr_unused, const size_t src_slice_pitch oclr_unused,
-							  const size_t dst_row_pitch oclr_unused, const size_t dst_slice_pitch oclr_unused) {
+void cudacl::copy_buffer_rect(const buffer_object* src_buffer floor_unused, buffer_object* dst_buffer floor_unused,
+							  const size3 src_origin floor_unused, const size3 dst_origin floor_unused,
+							  const size3 region floor_unused,
+							  const size_t src_row_pitch floor_unused, const size_t src_slice_pitch floor_unused,
+							  const size_t dst_row_pitch floor_unused, const size_t dst_slice_pitch floor_unused) {
 	try {
 		// TODO
 		assert(false && "copy_buffer_rect not implemented yet!");
@@ -1179,8 +1178,8 @@ void cudacl::copy_buffer_rect(const buffer_object* src_buffer oclr_unused, buffe
 	__HANDLE_CL_EXCEPTION("copy_buffer_rect")
 }
 
-void cudacl::copy_image(const buffer_object* src_buffer oclr_unused, buffer_object* dst_buffer oclr_unused,
-						const size3 src_origin oclr_unused, const size3 dst_origin oclr_unused, const size3 region oclr_unused) {
+void cudacl::copy_image(const buffer_object* src_buffer floor_unused, buffer_object* dst_buffer floor_unused,
+						const size3 src_origin floor_unused, const size3 dst_origin floor_unused, const size3 region floor_unused) {
 	try {
 		// TODO
 		assert(false && "copy_image not implemented yet!");
@@ -1188,8 +1187,8 @@ void cudacl::copy_image(const buffer_object* src_buffer oclr_unused, buffer_obje
 	__HANDLE_CL_EXCEPTION("copy_image")
 }
 
-void cudacl::copy_buffer_to_image(const buffer_object* src_buffer oclr_unused, buffer_object* dst_buffer oclr_unused,
-								  const size_t src_offset oclr_unused, const size3 dst_origin oclr_unused, const size3 dst_region oclr_unused) {
+void cudacl::copy_buffer_to_image(const buffer_object* src_buffer floor_unused, buffer_object* dst_buffer floor_unused,
+								  const size_t src_offset floor_unused, const size3 dst_origin floor_unused, const size3 dst_region floor_unused) {
 	try {
 		// TODO
 		assert(false && "copy_buffer_to_image not implemented yet!");
@@ -1197,8 +1196,8 @@ void cudacl::copy_buffer_to_image(const buffer_object* src_buffer oclr_unused, b
 	__HANDLE_CL_EXCEPTION("copy_buffer_to_image")
 }
 
-void cudacl::copy_image_to_buffer(const buffer_object* src_buffer oclr_unused, buffer_object* dst_buffer oclr_unused,
-								  const size3 src_origin oclr_unused, const size3 src_region oclr_unused, const size_t dst_offset oclr_unused) {
+void cudacl::copy_image_to_buffer(const buffer_object* src_buffer floor_unused, buffer_object* dst_buffer floor_unused,
+								  const size3 src_origin floor_unused, const size3 src_region floor_unused, const size_t dst_offset floor_unused) {
 	try {
 		// TODO
 		assert(false && "copy_image_to_buffer not implemented yet!");
@@ -1226,12 +1225,12 @@ void cudacl::read_buffer(void* dst, const opencl_base::buffer_object* buffer_obj
 	__HANDLE_CL_EXCEPTION("read_buffer")
 }
 
-void cudacl::read_buffer_rect(void* dst oclr_unused, const buffer_object* buffer_obj oclr_unused,
-							  const size3 buffer_origin oclr_unused,
-							  const size3 host_origin oclr_unused,
-							  const size3 region oclr_unused,
-							  const size_t buffer_row_pitch oclr_unused, const size_t buffer_slice_pitch oclr_unused,
-							  const size_t host_row_pitch oclr_unused, const size_t host_slice_pitch oclr_unused) {
+void cudacl::read_buffer_rect(void* dst floor_unused, const buffer_object* buffer_obj floor_unused,
+							  const size3 buffer_origin floor_unused,
+							  const size3 host_origin floor_unused,
+							  const size3 region floor_unused,
+							  const size_t buffer_row_pitch floor_unused, const size_t buffer_slice_pitch floor_unused,
+							  const size_t host_row_pitch floor_unused, const size_t host_slice_pitch floor_unused) {
 	try {
 		// TODO
 		assert(false && "read_buffer_rect not implemented yet!");
@@ -1239,8 +1238,8 @@ void cudacl::read_buffer_rect(void* dst oclr_unused, const buffer_object* buffer
 	__HANDLE_CL_EXCEPTION("read_buffer_rect")
 }
 
-void cudacl::read_image(void* dst oclr_unused, const opencl::buffer_object* buffer_obj oclr_unused, const size3 origin oclr_unused, const size3 region oclr_unused,
-						const size_t image_row_pitch oclr_unused, const size_t image_slice_pitch oclr_unused) {
+void cudacl::read_image(void* dst floor_unused, const opencl::buffer_object* buffer_obj floor_unused, const size3 origin floor_unused, const size3 region floor_unused,
+						const size_t image_row_pitch floor_unused, const size_t image_slice_pitch floor_unused) {
 	try {
 		// TODO
 		assert(false && "read_image not implemented yet!");
@@ -1337,12 +1336,12 @@ void* __attribute__((aligned(128))) cudacl::map_buffer(opencl_base::buffer_objec
 	return nullptr;
 }
 
-void* __attribute__((aligned(128))) cudacl::map_image(opencl_base::buffer_object* buffer_obj oclr_unused,
-													  const MAP_BUFFER_FLAG access_type oclr_unused,
-													  const size3 origin oclr_unused,
-													  const size3 region oclr_unused,
-													  size_t* image_row_pitch oclr_unused,
-													  size_t* image_slice_pitch oclr_unused) {
+void* __attribute__((aligned(128))) cudacl::map_image(opencl_base::buffer_object* buffer_obj floor_unused,
+													  const MAP_BUFFER_FLAG access_type floor_unused,
+													  const size3 origin floor_unused,
+													  const size3 region floor_unused,
+													  size_t* image_row_pitch floor_unused,
+													  size_t* image_slice_pitch floor_unused) {
 	// TODO
 	assert(false && "map_image not implemented yet!");
 	return nullptr;
@@ -1692,7 +1691,7 @@ void cudacl::release_gl_object(buffer_object* gl_buffer_obj) {
 	CU(cuGraphicsUnmapResources(1, cuda_gl_buffer, stream));
 }
 
-void cudacl::set_active_device(const opencl_base::DEVICE_TYPE& dev oclr_unused) {
+void cudacl::set_active_device(const opencl_base::DEVICE_TYPE& dev floor_unused) {
 	// TODO: select corresponding cuda device
 	active_device = fastest_gpu;
 }

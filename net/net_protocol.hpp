@@ -19,7 +19,7 @@
 #ifndef __FLOOR_NET_PROTOCOL_HPP__
 #define __FLOOR_NET_PROTOCOL_HPP__
 
-#include "platform.h"
+#include "platform.hpp"
 
 #include <boost/asio.hpp>
 using boost::asio::ip::tcp;

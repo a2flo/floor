@@ -19,9 +19,9 @@
 #ifndef __FLOOR_VECTOR_4_HPP__
 #define __FLOOR_VECTOR_4_HPP__
 
-#include "core/cpp_headers.h"
-#include "core/vector3.h"
-#include "core/vector2.h"
+#include "core/cpp_headers.hpp"
+#include "core/vector3.hpp"
+#include "core/vector2.hpp"
 
 template <typename T> class vector4;
 typedef vector4<float> float4;
@@ -45,7 +45,7 @@ typedef vector4<unsigned long long int> ulong4;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class OCLRASTER_API __attribute__((packed, aligned(sizeof(T)))) vector4 : public vector3<T> {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(sizeof(T)))) vector4 : public vector3<T> {
 public:
 	union {
 		T w, a;
@@ -307,7 +307,7 @@ template<typename T> vector4<T> vector4<T>::rounded() const {
 	return vector4<T>(::round(this->x), ::round(this->y), ::round(this->z), ::round(this->w));
 }
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 // only instantiate this in the vector4.cpp
 extern template class vector4<float>;
 extern template class vector4<unsigned int>;

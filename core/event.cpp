@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "event.h"
-#include "oclraster/oclraster.h"
+#include "event.hpp"
+#include "core/unicode.hpp"
 
 constexpr int event::handlers_locked;
 
@@ -49,7 +49,7 @@ void event::run() {
  */
 void event::handle_events() {
 	// always acquire the gl context for internal handlers, since these are very likely to modify gl data
-	oclraster::acquire_context();
+	floor::acquire_context();
 	
 	// internal engine event handler
 	while(SDL_PollEvent(&event_handle)) {
@@ -269,7 +269,7 @@ void event::handle_events() {
 		}
 	}
 	
-	oclraster::release_context();
+	floor::release_context();
 }
 
 /*! gets the mouses position (pnt)

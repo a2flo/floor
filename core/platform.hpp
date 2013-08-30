@@ -64,11 +64,11 @@
 // Mac OS X
 #elif defined(__APPLE__)
 #include <dirent.h>
-#define OCLRASTER_API
+#define FLOOR_API
 
 // everything else (Linux, *BSD, ...)
 #else
-#define OCLRASTER_API
+#define FLOOR_API
 #include <dirent.h>
 
 #if !defined(SIZE_T_MAX)
@@ -118,27 +118,27 @@
 #include <unistd.h>
 #endif
 
-#if !defined(OCLRASTER_IOS)
-#define OCLRASTER_DEFAULT_FRAMEBUFFER 0
+#if !defined(FLOOR_IOS)
+#define FLOOR_DEFAULT_FRAMEBUFFER 0
 #else
-#define OCLRASTER_DEFAULT_FRAMEBUFFER 1
+#define FLOOR_DEFAULT_FRAMEBUFFER 1
 #endif
 
 // c++ headers
-#include "core/cpp_headers.h"
+#include "core/cpp_headers.hpp"
 
-// oclraster logger
-#include "core/logger.h"
+// floor logger
+#include "core/logger.hpp"
 
 // utility functions/classes/...
-#include "core/util.h"
+#include "core/util.hpp"
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0
 #endif
 
 #if defined(__clang__) || defined(__GNUC__)
-#define oclr_unreachable __builtin_unreachable
+#define floor_unreachable __builtin_unreachable
 #else
-#define oclr_unreachable
+#define floor_unreachable
 #endif

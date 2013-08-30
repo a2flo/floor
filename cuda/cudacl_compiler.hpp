@@ -19,9 +19,9 @@
 #ifndef __FLOOR_CUDACL_COMPILER_HPP__
 #define __FLOOR_CUDACL_COMPILER_HPP__
 
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
 class cudacl_compiler {
 public:

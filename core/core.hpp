@@ -19,21 +19,21 @@
 #ifndef __FLOOR_CORE_HPP__
 #define __FLOOR_CORE_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 
-#include "core/basic_math.h"
-#include "core/vector2.h"
-#include "core/vector3.h"
-#include "core/vector4.h"
-#include "core/matrix4.h"
-#include "core/file_io.h"
+#include "core/basic_math.hpp"
+#include "core/vector2.hpp"
+#include "core/vector3.hpp"
+#include "core/vector4.hpp"
+#include "core/matrix4.hpp"
+#include "core/file_io.hpp"
 #include <random>
 
 /*! @class core
  *  @brief core stuff
  */
 
-class OCLRASTER_API core {
+class FLOOR_API core {
 public:
 	core() = delete;
 	~core() = delete;

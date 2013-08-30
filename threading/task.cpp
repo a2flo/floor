@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "task.h"
+#include "task.hpp"
 
 task::task(std::function<void()> op_) :
 op(op_),

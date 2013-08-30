@@ -19,11 +19,11 @@
 #ifndef __FLOOR_EVENT_OBJECTS_HPP__
 #define __FLOOR_EVENT_OBJECTS_HPP__
 
-#if !defined(OCLRASTER_USER_EVENT_TYPES)
-#define OCLRASTER_USER_EVENT_TYPES
+#if !defined(FLOOR_USER_EVENT_TYPES)
+#define FLOOR_USER_EVENT_TYPES
 #endif
 
-#include "core/vector2.h"
+#include "core/vector2.hpp"
 
 // general/global event types
 enum class EVENT_TYPE : unsigned int {
@@ -72,9 +72,9 @@ enum class EVENT_TYPE : unsigned int {
 	CLIPBOARD_UPDATE,
 	
 	__USER_EVENT_START = __USER_EVENT + 1,
-	OCLRASTER_USER_EVENT_TYPES
+	FLOOR_USER_EVENT_TYPES
 };
-OCLRASTER_API EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
+FLOOR_API EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
 namespace std {
 	template <> struct hash<EVENT_TYPE> : public hash<unsigned int> {
 		size_t operator()(EVENT_TYPE type) const throw() {

@@ -19,12 +19,12 @@
 #ifndef __FLOOR_TIMER_HPP__
 #define __FLOOR_TIMER_HPP__
 
-#include "core/platform.h"
+#include "core/platform.hpp"
 
-class OCLRASTER_API oclr_timer {
+class FLOOR_API floor_timer {
 public:
-	oclr_timer() { add("start", false); }
-	~oclr_timer() {}
+	floor_timer() { add("start", false); }
+	~floor_timer() {}
 	
 	void add(const string& name, const bool print_diff = true) {
 		entries.emplace_back(name, SDL_GetPerformanceCounter());

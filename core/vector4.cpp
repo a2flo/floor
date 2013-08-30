@@ -16,9 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "vector4.h"
+#include "vector4.hpp"
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 template class vector4<float>;
 template class vector4<unsigned int>;
 template class vector4<int>;
@@ -33,7 +33,7 @@ template class vector4<long long int>;
 template class vector4<unsigned long long int>;
 #endif
 
-template<> OCLRASTER_API float4& vector4<float>::floor() {
+template<> FLOOR_API float4& vector4<float>::floor() {
 	x = floorf(x);
 	y = floorf(y);
 	z = floorf(z);
@@ -41,7 +41,7 @@ template<> OCLRASTER_API float4& vector4<float>::floor() {
 	return *this;
 }
 
-template<> OCLRASTER_API float4& vector4<float>::ceil() {
+template<> FLOOR_API float4& vector4<float>::ceil() {
 	x = ceilf(x);
 	y = ceilf(y);
 	z = ceilf(z);
@@ -49,7 +49,7 @@ template<> OCLRASTER_API float4& vector4<float>::ceil() {
 	return *this;
 }
 
-template<> OCLRASTER_API float4& vector4<float>::round() {
+template<> FLOOR_API float4& vector4<float>::round() {
 	x = roundf(x);
 	y = roundf(y);
 	z = roundf(z);
@@ -57,39 +57,39 @@ template<> OCLRASTER_API float4& vector4<float>::round() {
 	return *this;
 }
 
-template<> OCLRASTER_API float4 vector4<float>::floored() const {
+template<> FLOOR_API float4 vector4<float>::floored() const {
 	return float4(floorf(x), floorf(y), floorf(z), floorf(w));
 }
 
-template<> OCLRASTER_API float4 vector4<float>::ceiled() const {
+template<> FLOOR_API float4 vector4<float>::ceiled() const {
 	return float4(ceilf(x), ceilf(y), ceilf(z), ceilf(w));
 }
 
-template<> OCLRASTER_API float4 vector4<float>::rounded() const {
+template<> FLOOR_API float4 vector4<float>::rounded() const {
 	return float4(roundf(x), roundf(y), roundf(z), roundf(w));
 }
 
 //
-template<> OCLRASTER_API bool4& vector4<bool>::floor() {
+template<> FLOOR_API bool4& vector4<bool>::floor() {
 	return *this;
 }
 
-template<> OCLRASTER_API bool4& vector4<bool>::ceil() {
+template<> FLOOR_API bool4& vector4<bool>::ceil() {
 	return *this;
 }
 
-template<> OCLRASTER_API bool4& vector4<bool>::round() {
+template<> FLOOR_API bool4& vector4<bool>::round() {
 	return *this;
 }
 
-template<> OCLRASTER_API bool4 vector4<bool>::floored() const {
+template<> FLOOR_API bool4 vector4<bool>::floored() const {
 	return *this;
 }
 
-template<> OCLRASTER_API bool4 vector4<bool>::ceiled() const {
+template<> FLOOR_API bool4 vector4<bool>::ceiled() const {
 	return *this;
 }
 
-template<> OCLRASTER_API bool4 vector4<bool>::rounded() const {
+template<> FLOOR_API bool4 vector4<bool>::rounded() const {
 	return *this;
 }

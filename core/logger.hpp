@@ -19,10 +19,10 @@
 #ifndef __FLOOR_LOGGER_HPP__
 #define __FLOOR_LOGGER_HPP__
 
-#include "cpp_headers.h"
+#include "cpp_headers.hpp"
 using namespace std;
 
-//! oclraster logging functions, use appropriately
+//! floor logging functions, use appropriately
 //! note that you don't actually have to use a specific character for %_ to print the
 //! correct type (the ostream operator<< is used and the %_ character is ignored - except
 //! for %x and %X which will print out an integer in hex format)
@@ -31,7 +31,7 @@ using namespace std;
 #define oclr_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, __FILE__, __func__, __VA_ARGS__)
 #define oclr_log(...) logger::log(logger::LOG_TYPE::NONE, __FILE__, __func__, __VA_ARGS__)
 
-class OCLRASTER_API logger {
+class FLOOR_API logger {
 public:
 	enum class LOG_TYPE {
 		NONE,		//!< enum message with no prefix

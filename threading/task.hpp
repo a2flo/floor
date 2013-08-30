@@ -19,7 +19,7 @@
 #ifndef __FLOOR_TASK_HPP__
 #define __FLOOR_TASK_HPP__
 
-#include "oclraster/global.h"
+#include "floor/floor.hpp"
 #include <thread>
 
 class task {

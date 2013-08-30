@@ -16,92 +16,92 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "vector3.h"
+#include "core/vector3.hpp"
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 // instantiate
-OCLRASTER_API template class vector3<float>;
-OCLRASTER_API template class vector3<double>;
-OCLRASTER_API template class vector3<unsigned int>;
-OCLRASTER_API template class vector3<int>;
-OCLRASTER_API template class vector3<short>;
-OCLRASTER_API template class vector3<unsigned short>;
-OCLRASTER_API template class vector3<char>;
-OCLRASTER_API template class vector3<unsigned char>;
-//OCLRASTER_API template class vector3<bool>;
-OCLRASTER_API template class vector3<size_t>;
-OCLRASTER_API template class vector3<ssize_t>;
+FLOOR_API template class vector3<float>;
+FLOOR_API template class vector3<double>;
+FLOOR_API template class vector3<unsigned int>;
+FLOOR_API template class vector3<int>;
+FLOOR_API template class vector3<short>;
+FLOOR_API template class vector3<unsigned short>;
+FLOOR_API template class vector3<char>;
+FLOOR_API template class vector3<unsigned char>;
+//FLOOR_API template class vector3<bool>;
+FLOOR_API template class vector3<size_t>;
+FLOOR_API template class vector3<ssize_t>;
 #endif
 
-template<> OCLRASTER_API vector3<float> vector3<float>::abs() const {
+template<> FLOOR_API vector3<float> vector3<float>::abs() const {
 	return vector3<float>(fabs(x), fabs(y), fabs(z));
 }
 
-template<> OCLRASTER_API vector3<bool> vector3<bool>::abs() const {
+template<> FLOOR_API vector3<bool> vector3<bool>::abs() const {
 	return vector3<bool>(x, y, z);
 }
 
-template<> OCLRASTER_API bool vector3<bool>::any() const {
+template<> FLOOR_API bool vector3<bool>::any() const {
 	return (x || y || z);
 }
 
-template<> OCLRASTER_API bool vector3<bool>::all() const {
+template<> FLOOR_API bool vector3<bool>::all() const {
 	return (x && y && z);
 }
 
-template<> OCLRASTER_API bool3 vector3<bool>::operator^(const bool3& bv) const {
+template<> FLOOR_API bool3 vector3<bool>::operator^(const bool3& bv) const {
 	return bool3(x ^ bv.x, y ^ bv.y, z ^ bv.z);
 }
 
-template<> OCLRASTER_API float3 vector3<float>::operator%(const float3& v) const {
+template<> FLOOR_API float3 vector3<float>::operator%(const float3& v) const {
 	return float3(fmodf(x, v.x), fmodf(y, v.y), fmodf(z, v.z));
 }
 
-template<> OCLRASTER_API float3& vector3<float>::operator%=(const float3& v) {
+template<> FLOOR_API float3& vector3<float>::operator%=(const float3& v) {
 	x = fmodf(x, v.x);
 	y = fmodf(y, v.y);
 	z = fmodf(z, v.z);
 	return *this;
 }
 
-template<> OCLRASTER_API float3& vector3<float>::floor() {
+template<> FLOOR_API float3& vector3<float>::floor() {
 	x = floorf(x);
 	y = floorf(y);
 	z = floorf(z);
 	return *this;
 }
 
-template<> OCLRASTER_API float3& vector3<float>::ceil() {
+template<> FLOOR_API float3& vector3<float>::ceil() {
 	x = ceilf(x);
 	y = ceilf(y);
 	z = ceilf(z);
 	return *this;
 }
 
-template<> OCLRASTER_API float3& vector3<float>::round() {
+template<> FLOOR_API float3& vector3<float>::round() {
 	x = roundf(x);
 	y = roundf(y);
 	z = roundf(z);
 	return *this;
 }
 
-template<> OCLRASTER_API float3 vector3<float>::floored() const {
+template<> FLOOR_API float3 vector3<float>::floored() const {
 	return float3(floorf(x), floorf(y), floorf(z));
 }
 
-template<> OCLRASTER_API float3 vector3<float>::ceiled() const {
+template<> FLOOR_API float3 vector3<float>::ceiled() const {
 	return float3(ceilf(x), ceilf(y), ceilf(z));
 }
 
-template<> OCLRASTER_API float3 vector3<float>::rounded() const {
+template<> FLOOR_API float3 vector3<float>::rounded() const {
 	return float3(roundf(x), roundf(y), roundf(z));
 }
 
-template<> OCLRASTER_API double3 vector3<double>::operator%(const double3& v) const {
+template<> FLOOR_API double3 vector3<double>::operator%(const double3& v) const {
 	return double3(fmod(x, v.x), fmod(y, v.y), fmod(z, v.z));
 }
 
-template<> OCLRASTER_API double3& vector3<double>::operator%=(const double3& v) {
+template<> FLOOR_API double3& vector3<double>::operator%=(const double3& v) {
 	x = fmod(x, v.x);
 	y = fmod(y, v.y);
 	z = fmod(z, v.z);

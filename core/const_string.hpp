@@ -20,7 +20,7 @@
 #define __FLOOR_CONST_STRING_HPP__
 
 #include <type_traits>
-#include "core/platform.h"
+#include "core/platform.hpp"
 
 // NOTE: unless you have a lot of RAM and time to spare,
 // don't try this with strings that have a length > 10000.

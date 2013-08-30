@@ -16,8 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "xml.h"
-#include "oclraster/oclraster.h"
+#include "xml.hpp"
 #include <libxml/encoding.h>
 #include <libxml/catalog.h>
 #include <libxml/parser.h>
@@ -32,14 +31,14 @@ xml::xml() {
 	xmlCatalogSetDefaults(XML_CATA_ALLOW_ALL);
 	
 #if !defined(__WINDOWS__)
-#define OCLRASTER_XML_DTD_PATH_PREFIX "file://"
+#define FLOOR_XML_DTD_PATH_PREFIX "file://"
 #else
-#define OCLRASTER_XML_DTD_PATH_PREFIX "file:///"
+#define FLOOR_XML_DTD_PATH_PREFIX "file:///"
 #endif
 	
 	if(xmlCatalogAdd(BAD_CAST "public",
-					 BAD_CAST "-//OCLRASTER//DTD config 1.0//EN",
-					 BAD_CAST (OCLRASTER_XML_DTD_PATH_PREFIX+oclraster::data_path("dtd/config.dtd")).c_str()) != 0) {
+					 BAD_CAST "-//FLOOR//DTD config 1.0//EN",
+					 BAD_CAST (FLOOR_XML_DTD_PATH_PREFIX+floor::data_path("dtd/config.dtd")).c_str()) != 0) {
 		const auto error_ptr = xmlGetLastError();
 		oclr_error("failed to add catalog for config: %s", (error_ptr != nullptr ? error_ptr->message : ""));
 	}
@@ -232,7 +231,7 @@ xml::xml_doc xml::process_data(const string& data, const bool validate) const {
 		return doc;
 	}
 	
-	xmlDocPtr xmldoc = xmlCtxtReadDoc(ctx, (const xmlChar*)data.c_str(), oclraster::data_path("dtd/shader.xml").c_str(), nullptr,
+	xmlDocPtr xmldoc = xmlCtxtReadDoc(ctx, (const xmlChar*)data.c_str(), floor::data_path("dtd/shader.xml").c_str(), nullptr,
 									  (validate ? XML_PARSE_DTDLOAD | XML_PARSE_DTDVALID : 0));
 	if(xmldoc == nullptr) {
 		oclr_error("failed to parse data!");

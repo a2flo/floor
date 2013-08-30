@@ -19,11 +19,11 @@
 #ifndef __FLOOR_IRC_NET_HPP__
 #define __FLOOR_IRC_NET_HPP__
 
-#include "platform.h"
-#include "net.h"
-#include "net_protocol.h"
-#include "net_tcp.h"
-#include "config.h"
+#include "platform.hpp"
+#include "net.hpp"
+#include "net_protocol.hpp"
+#include "net_tcp.hpp"
+#include "config.hpp"
 
 template <class protocol_policy> class irc_net : public net<protocol_policy> {
 public:
@@ -53,8 +53,8 @@ protected:
 	using net<protocol_policy>::packets_per_second;
 };
 
-// unibot_irc_net
-typedef irc_net<UNIBOT_NET_PROTOCOL> unibot_irc_net;
+// floor_irc_net
+typedef irc_net<FLOOR_NET_PROTOCOL> floor_irc_net;
 
 
 template <class protocol_policy> irc_net<protocol_policy>::irc_net(config* conf) :

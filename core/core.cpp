@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core.h"
+#include "core/core.hpp"
 
 #if !(defined(__clang__) && defined(WIN_UNIXENV))
 random_device core::rd;

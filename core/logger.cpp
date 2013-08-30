@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "logger.h"
+#include "logger.hpp"
 #include <thread>
 
 #if defined(__APPLE__) || defined(WIN_UNIXENV)
@@ -25,13 +25,14 @@
 #include <SDL.h>
 #endif
 
-#if !defined(OCLRASTER_IOS)
-#define OCLRASTER_LOG_FILENAME "log.txt"
+// TODO: program dependent log filename
+#if !defined(FLOOR_IOS)
+#define FLOOR_LOG_FILENAME "log.txt"
 #else
-#define OCLRASTER_LOG_FILENAME "/tmp/oclraster_log.txt"
+#define FLOOR_LOG_FILENAME "/tmp/floor_log.txt"
 #endif
 
-static ofstream* log_file = new ofstream(OCLRASTER_LOG_FILENAME);
+static ofstream* log_file = new ofstream(FLOOR_LOG_FILENAME);
 static atomic<unsigned int> err_counter { 0 };
 static mutex output_lock;
 

@@ -19,10 +19,10 @@
 #ifndef __FLOOR_CUDACL_TRANSLATOR_HPP__
 #define __FLOOR_CUDACL_TRANSLATOR_HPP__
 
-#if defined(OCLRASTER_CUDA_CL)
+#if defined(FLOOR_CUDA_CL)
 
-#include "oclraster/global.h"
-#include "hash/city.h"
+#include "floor/floor.hpp"
+#include "hash/city.hpp"
 
 enum class CUDACL_PARAM_ADDRESS_SPACE : unsigned int {
 	NONE,
@@ -45,7 +45,7 @@ enum class CUDACL_PARAM_ACCESS : unsigned int {
 	READ_WRITE,
 };
 
-struct OCLRASTER_API cudacl_kernel_info {
+struct FLOOR_API cudacl_kernel_info {
 	// name, address space, type, access
 	typedef tuple<string, CUDACL_PARAM_ADDRESS_SPACE, CUDACL_PARAM_TYPE, CUDACL_PARAM_ACCESS> kernel_param;
 	
@@ -68,7 +68,7 @@ struct OCLRASTER_API cudacl_kernel_info {
 	cudacl_kernel_info(const string& kernel_name, const vector<kernel_param>& params) : name(kernel_name), parameters(params) {}
 };
 
-extern void OCLRASTER_API cudacl_translate(const string& cl_source,
+extern void FLOOR_API cudacl_translate(const string& cl_source,
 										   const string& preprocess_options,
 										   string& cuda_source,
 										   vector<cudacl_kernel_info>& kernels,

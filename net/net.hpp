@@ -19,13 +19,13 @@
 #ifndef __FLOOR_NET_HPP__
 #define __FLOOR_NET_HPP__
 
-#include "platform.h"
-#include "event_handler.h"
-#include "net_protocol.h"
-#include "net_tcp.h"
-#include "config.h"
-#include "logger.h"
-#include "threading/thread_base.h"
+#include "platform.hpp"
+#include "event_handler.hpp"
+#include "net_protocol.hpp"
+#include "net_tcp.hpp"
+#include "config.hpp"
+#include "logger.hpp"
+#include "threading/thread_base.hpp"
 
 #define PACKET_MAX_LEN 65536
 
@@ -81,7 +81,7 @@ template <class protocol_policy> net<protocol_policy>::~net() {
 template <class protocol_policy>
 bool net<protocol_policy>::connect_to_server(const char* server_name,
 											 const unsigned short int port,
-											 const unsigned short int local_port unibot_unused) {
+											 const unsigned short int local_port floor_unused) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
 	
 	try {
@@ -189,7 +189,7 @@ template <class protocol_policy> int net<protocol_policy>::receive_packet(char* 
 	return len;
 }
 
-template <class protocol_policy> int net<protocol_policy>::process_packet(const string& data, const unsigned int max_len unibot_unused) {
+template <class protocol_policy> int net<protocol_policy>::process_packet(const string& data, const unsigned int max_len floor_unused) {
 	size_t old_pos = 0, pos = 0;
 	size_t lb_offset = 1;
 	const size_t len = data.length();

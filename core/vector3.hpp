@@ -19,9 +19,9 @@
 #ifndef __FLOOR_VECTOR_3_HPP__
 #define __FLOOR_VECTOR_3_HPP__
 
-#include "core/cpp_headers.h"
-#include "core/matrix4.h"
-#include "core/vector2.h"
+#include "core/cpp_headers.hpp"
+#include "core/matrix4.hpp"
+#include "core/vector2.hpp"
 
 template <typename T> class vector3;
 typedef vector3<float> float3;
@@ -43,7 +43,7 @@ typedef vector3<ssize_t> ssize3;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class OCLRASTER_API __attribute__((packed, aligned(sizeof(T)))) vector3 {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(sizeof(T)))) vector3 {
 public:
 	union {
 		T x, r;
@@ -659,7 +659,7 @@ template<typename T> vector3<T> vector3<T>::sign() const {
 					  (z < (T)0) ? ((T)-1) : ((T)1));
 }
 
-#if defined(OCLRASTER_EXPORT)
+#if defined(FLOOR_EXPORT)
 // only instantiate this in the vector3.cpp
 extern template class vector3<float>;
 extern template class vector3<double>;
