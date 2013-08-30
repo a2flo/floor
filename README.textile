@@ -1,0 +1,7 @@
+
+*Flo's Open libRary*
+
+This is a C++ core library that is used in several of my projects:
+* "oclraster":https://github.com/a2flo/oclraster
+* "a2elight":https://github.com/a2flo/a2elight
+* "unibot":https://github.com/a2flo/unibot
