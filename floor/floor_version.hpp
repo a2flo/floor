@@ -20,7 +20,7 @@
 #define __FLOOR_VERSION_HPP__
 
 // floor version and build/compiler info
-#include "floor/build_version.h"
+#include "floor/build_version.hpp"
 #include "core/util.hpp"
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"

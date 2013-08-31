@@ -11,7 +11,7 @@ if [ ${NEW_SOURCE_COUNT} -gt 0 ]; then
         echo "# increased build version to ${BUILD_VERSION}"
 fi;
 
-# generate build_version.h if it's nonexistent or build version was increased
-if [ ! -f floor/build_version.h -o ${NEW_SOURCE_COUNT} -gt 0 ]; then
-        echo "#define FLOOR_BUILD_VERSION ${BUILD_VERSION}" > floor/build_version.h
+# generate build_version.hpp if it's nonexistent or build version was increased
+if [ ! -f floor/build_version.hpp -o ${NEW_SOURCE_COUNT} -gt 0 ]; then
+        echo "#define FLOOR_BUILD_VERSION ${BUILD_VERSION}" > floor/build_version.hpp
 fi;
