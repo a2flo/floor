@@ -40,7 +40,7 @@ public:
 			}
 		}
 		const auto total_diff = entries.back().second - entries.front().second;
-		oclr_log("[TOTAL] %_s # %_ms # %_",
+		log_undecorated("[TOTAL] %_s # %_ms # %_",
 				 double(total_diff) / double(ticks_per_second),
 				 double(total_diff) / double(ticks_per_second / 1000ull),
 				 total_diff);
@@ -56,7 +56,7 @@ protected:
 		
 		const auto prev_iter = iter - 1;
 		const auto diff = iter->second - prev_iter->second;
-		oclr_log("[%_] %_ms # %_",
+		log_undecorated("[%_] %_ms # %_",
 				 iter->first,
 				 double(diff) / double(ticks_per_second / 1000ull),
 				 diff);

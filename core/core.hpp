@@ -19,8 +19,7 @@
 #ifndef __FLOOR_CORE_HPP__
 #define __FLOOR_CORE_HPP__
 
-#include "floor/floor.hpp"
-
+#include "core/cpp_headers.hpp"
 #include "core/basic_math.hpp"
 #include "core/vector2.hpp"
 #include "core/vector3.hpp"

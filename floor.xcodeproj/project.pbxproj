@@ -63,6 +63,20 @@
 		5C1091E017D1427F007F536E /* tcc.h in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091DB17D1427F007F536E /* tcc.h */; };
 		5C1091E117D1427F007F536E /* tccgen.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DC17D1427F007F536E /* tccgen.c */; };
 		5C1091E217D1427F007F536E /* tccpp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DD17D1427F007F536E /* tccpp.c */; };
+		5C1091ED17D1484C007F536E /* floor_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EA17D1484C007F536E /* floor_Prefix.pch */; };
+		5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EB17D1484C007F536E /* osx_helper.hpp */; };
+		5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091EC17D1484C007F536E /* osx_helper.mm */; };
+		5C1091F117D148AD007F536E /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F017D148AD007F536E /* SDL2.framework */; };
+		5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F217D148B8007F536E /* OpenCL.framework */; };
+		5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F317D148B8007F536E /* OpenGL.framework */; };
+		5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F617D148C5007F536E /* Cocoa.framework */; };
+		5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F817D148CB007F536E /* AppKit.framework */; };
+		5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FA17D148D0007F536E /* ApplicationServices.framework */; };
+		5C1091FD17D148DB007F536E /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FC17D148DB007F536E /* libxml2.dylib */; };
+		5C10920017D14C95007F536E /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
+		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
+		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
+		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -124,6 +138,20 @@
 		5C1091DB17D1427F007F536E /* tcc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tcc.h; path = tccpp/tcc.h; sourceTree = "<group>"; };
 		5C1091DC17D1427F007F536E /* tccgen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccgen.c; path = tccpp/tccgen.c; sourceTree = "<group>"; };
 		5C1091DD17D1427F007F536E /* tccpp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccpp.c; path = tccpp/tccpp.c; sourceTree = "<group>"; };
+		5C1091EA17D1484C007F536E /* floor_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = floor_Prefix.pch; sourceTree = "<group>"; };
+		5C1091EB17D1484C007F536E /* osx_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = osx_helper.hpp; sourceTree = "<group>"; };
+		5C1091EC17D1484C007F536E /* osx_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = osx_helper.mm; sourceTree = "<group>"; };
+		5C1091F017D148AD007F536E /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = Library/Frameworks/SDL2.framework; sourceTree = SDKROOT; };
+		5C1091F217D148B8007F536E /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = System/Library/Frameworks/OpenCL.framework; sourceTree = SDKROOT; };
+		5C1091F317D148B8007F536E /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
+		5C1091F617D148C5007F536E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		5C1091F817D148CB007F536E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		5C1091FA17D148D0007F536E /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
+		5C1091FC17D148DB007F536E /* libxml2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.dylib; path = usr/lib/libxml2.dylib; sourceTree = SDKROOT; };
+		5C1091FF17D14C95007F536E /* floor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = floor.cpp; sourceTree = "<group>"; };
+		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
+		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
+		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +159,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
+				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
+				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
+				5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */,
+				5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */,
+				5C1091F117D148AD007F536E /* SDL2.framework in Frameworks */,
+				5C1091FD17D148DB007F536E /* libxml2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -141,6 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				5C1091D317D11547007F536E /* src */,
+				5C1091FE17D148EF007F536E /* libs */,
 				5C10915F17D114BC007F536E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -178,6 +214,8 @@
 				5C10917317D1153E007F536E /* file_io.cpp */,
 				5C10917417D1153E007F536E /* file_io.hpp */,
 				5C10917517D1153E007F536E /* functor.hpp */,
+				5C10920117D1F80E007F536E /* gl_support.cpp */,
+				5C10920517D1F81B007F536E /* gl_support.hpp */,
 				5C10917617D1153E007F536E /* logger.cpp */,
 				5C10917717D1153E007F536E /* logger.hpp */,
 				5C10917817D1153E007F536E /* matrix4.cpp */,
@@ -263,6 +301,7 @@
 				5C1091D617D14095007F536E /* floor */,
 				5C10918E17D1153E007F536E /* hash */,
 				5C10919117D1153E007F536E /* net */,
+				5C1091E317D1480A007F536E /* osx */,
 				5C1091D817D14272007F536E /* tccpp */,
 				5C10919B17D1153E007F536E /* threading */,
 			);
@@ -272,7 +311,9 @@
 		5C1091D617D14095007F536E /* floor */ = {
 			isa = PBXGroup;
 			children = (
+				5C1091FF17D14C95007F536E /* floor.cpp */,
 				5C1091D717D14095007F536E /* floor.hpp */,
+				5C10920717D1FA12007F536E /* floor_version.hpp */,
 			);
 			path = floor;
 			sourceTree = "<group>";
@@ -289,6 +330,30 @@
 			name = tccpp;
 			sourceTree = "<group>";
 		};
+		5C1091E317D1480A007F536E /* osx */ = {
+			isa = PBXGroup;
+			children = (
+				5C1091EA17D1484C007F536E /* floor_Prefix.pch */,
+				5C1091EB17D1484C007F536E /* osx_helper.hpp */,
+				5C1091EC17D1484C007F536E /* osx_helper.mm */,
+			);
+			path = osx;
+			sourceTree = "<group>";
+		};
+		5C1091FE17D148EF007F536E /* libs */ = {
+			isa = PBXGroup;
+			children = (
+				5C1091FC17D148DB007F536E /* libxml2.dylib */,
+				5C1091FA17D148D0007F536E /* ApplicationServices.framework */,
+				5C1091F817D148CB007F536E /* AppKit.framework */,
+				5C1091F617D148C5007F536E /* Cocoa.framework */,
+				5C1091F217D148B8007F536E /* OpenCL.framework */,
+				5C1091F317D148B8007F536E /* OpenGL.framework */,
+				5C1091F017D148AD007F536E /* SDL2.framework */,
+			);
+			name = libs;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -300,10 +365,13 @@
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C1091A317D1153E007F536E /* basic_math.hpp in Headers */,
 				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
+				5C1091ED17D1484C007F536E /* floor_Prefix.pch in Headers */,
 				5C1091BC17D1153E007F536E /* vector3.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
 				5C1091BE17D1153E007F536E /* vector4.hpp in Headers */,
+				5C10920817D1FA12007F536E /* floor_version.hpp in Headers */,
 				5C1091B817D1153E007F536E /* util.hpp in Headers */,
+				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C1091A417D1153E007F536E /* bbox.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
@@ -328,6 +396,7 @@
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
+				5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */,
 				5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */,
 				5C1091A217D1153E007F536E /* opencl.hpp in Headers */,
 			);
@@ -340,6 +409,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5C10916217D114BC007F536E /* Build configuration list for PBXNativeTarget "floor" */;
 			buildPhases = (
+				5C10920917D1FB91007F536E /* ShellScript */,
 				5C10915A17D114BC007F536E /* Sources */,
 				5C10915B17D114BC007F536E /* Frameworks */,
 				5C10915C17D114BC007F536E /* Headers */,
@@ -379,6 +449,22 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		5C10920917D1FB91007F536E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ./floor/build_version.sh;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		5C10915A17D114BC007F536E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -393,8 +479,11 @@
 				5C1091DE17D1427F007F536E /* libtcc.c in Sources */,
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5C1091E117D1427F007F536E /* tccgen.c in Sources */,
+				5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
+				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
+				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
 				5C1091C217D1153E007F536E /* cudacl_compiler.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
@@ -415,15 +504,15 @@
 		5C10916017D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -438,7 +527,7 @@
 				CURRENT_PROJECT_VERSION = 0.1;
 				DYLIB_COMPATIBILITY_VERSION = 0.1;
 				DYLIB_CURRENT_VERSION = 0.1;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
@@ -474,6 +563,8 @@
 					/usr/X11/include,
 					"-isystem",
 					/usr/include/libxml2,
+					"-isystem",
+					/usr/local/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -531,15 +622,15 @@
 		5C10916117D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_ARC = NO;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
@@ -556,7 +647,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 0.1;
 				DYLIB_CURRENT_VERSION = 0.1;
 				ENABLE_NS_ASSERTIONS = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
@@ -587,6 +678,8 @@
 					/usr/X11/include,
 					"-isystem",
 					/usr/include/libxml2,
+					"-isystem",
+					/usr/local/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -645,10 +738,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
-				HEADER_SEARCH_PATHS = (
-					.,
-					/usr/local/include,
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -657,10 +746,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
-				HEADER_SEARCH_PATHS = (
-					.,
-					/usr/local/include,
-				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

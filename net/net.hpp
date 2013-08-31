@@ -70,12 +70,12 @@ protected:
 
 template <class protocol_policy> net<protocol_policy>::net(config* conf) :
 thread_base(), conf(conf), protocol(), last_packet_remains(""), received_length(0), packets_per_second(0), last_packet_send(0) {
-	unibot_debug("net initialized!");
+	log_debug("net initialized!");
 	this->start(); // start thread
 }
 
 template <class protocol_policy> net<protocol_policy>::~net() {
-	unibot_debug("net deleted!");
+	log_debug("net deleted!");
 }
 
 template <class protocol_policy>
@@ -91,11 +91,11 @@ bool net<protocol_policy>::connect_to_server(const char* server_name,
 		if(!protocol.open_socket(server_name, port)) throw exception();
 		
 		// connection created - data transfer is now possible
-		unibot_debug("successfully connected to server!");
+		log_debug("successfully connected to server!");
 		connected = true;
 	}
 	catch(...) {
-		unibot_error("failed to connect to server!");
+		log_error("failed to connect to server!");
 		unlock();
 		set_thread_should_finish(); // and quit ...
 		return false;
@@ -140,13 +140,13 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 		else throw runtime_error("invalid protocol");
 	}
 	catch(exception& e) {
-		unibot_error("net error: %s", e.what());
+		log_error("net error: %s", e.what());
 		set_thread_should_finish();
 		return;
 	}
 	catch(...) {
 		// something is wrong, finsh and return
-		unibot_error("unknown net error, exiting ...");
+		log_error("unknown net error, exiting ...");
 		set_thread_should_finish();
 		return;
 	}
@@ -174,7 +174,7 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 
 template <class protocol_policy> int net<protocol_policy>::receive_packet(char* data, const unsigned int max_len) {
 	if(!protocol.is_valid()) {
-		unibot_error("invalid protocol and/or sockets!");
+		log_error("invalid protocol and/or sockets!");
 		return -1;
 	}
 	
@@ -182,7 +182,7 @@ template <class protocol_policy> int net<protocol_policy>::receive_packet(char* 
 	int len = protocol.receive(data, max_len);
 	// received packet length is equal or less than zero, return -1
 	if(len <= 0) {
-		unibot_error("invalid data received!");
+		log_error("invalid data received!");
 		return -1;
 	}
 	
@@ -226,10 +226,10 @@ template <class protocol_policy> int net<protocol_policy>::process_packet(const 
 
 template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const unsigned int len) {
 	if(!protocol.send(data, len)) {
-		unibot_error("couldn't send packet!");
+		log_error("couldn't send packet!");
 	}
 	else if(conf->get_verbosity() >= logger::LOG_TYPE::DEBUG_MSG) {
-		unibot_debug("send (%i): %s", len, string(data).substr(0, len-1));
+		log_debug("send (%i): %s", len, string(data).substr(0, len-1));
 	}
 }
 

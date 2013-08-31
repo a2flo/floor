@@ -19,8 +19,6 @@
 #ifndef __FLOOR_EVENT_HPP__
 #define __FLOOR_EVENT_HPP__
 
-#include "floor/floor.hpp"
-
 #include "core/core.hpp"
 #include "threading/thread_base.hpp"
 #include "event_objects.hpp"

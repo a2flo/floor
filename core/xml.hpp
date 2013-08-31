@@ -19,7 +19,7 @@
 #ifndef __FLOOR_XML_HPP__
 #define __FLOOR_XML_HPP__
 
-#include "floor/floor.hpp"
+#include "core/platform.hpp"
 #include "core/core.hpp"
 
 #include <libxml/xmlreader.h>
@@ -100,7 +100,7 @@ public:
 				return converter<string, T>::convert(string((const char*)cur_attr->children->content));
 			}
 		}
-		oclr_error("element has no attribute named %s!", attr_name);
+		log_error("element has no attribute named %s!", attr_name);
 		return (T)nullptr;
 	}
 	bool is_attribute(const xmlAttribute* attr, const char* attr_name) {

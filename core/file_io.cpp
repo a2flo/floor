@@ -41,7 +41,7 @@ file_io::~file_io() {
  */
 bool file_io::open(const string& filename, OPEN_TYPE open_type_) {
 	if(check_open()) {
-		oclr_error("a file is already opened! can't open another file!");
+		log_error("a file is already opened! can't open another file!");
 		return false;
 	}
 
@@ -80,7 +80,7 @@ bool file_io::open(const string& filename, OPEN_TYPE open_type_) {
 	}
 
 	if(!filestream.is_open()) {
-		oclr_error("error while loading file %s!", filename);
+		log_error("error while loading file %s!", filename);
 		filestream.clear();
 		return false;
 	}

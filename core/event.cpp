@@ -17,6 +17,7 @@
  */
 
 #include "event.hpp"
+#include "floor/floor.hpp"
 #include "core/unicode.hpp"
 
 constexpr int event::handlers_locked;

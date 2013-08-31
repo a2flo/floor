@@ -1,0 +1,6 @@
+
+#include <iostream>
+
+#if defined(__OBJC__)
+#import <Foundation/Foundation.h>
+#endif

@@ -23,6 +23,7 @@
 #include "core/file_io.hpp"
 #include "core/core.hpp"
 #include "core/vector2.hpp"
+#include "core/gl_support.hpp"
 #include "hash/city.hpp"
 
 // necessary for now (when compiling with opencl 1.2+ headers)
@@ -304,7 +305,6 @@ public:
 	void set_manual_gl_sharing(buffer_object* gl_buffer_obj, const bool state);
 	
 	const vector<cl::ImageFormat>& get_image_formats() const;
-	cl::ImageFormat get_image_format(const IMAGE_TYPE& data_type, const IMAGE_CHANNEL channel_type) const;
 	
 	//! note: this is only available in opencl 1.2
 	virtual void _fill_buffer(buffer_object* buffer_obj,
@@ -475,11 +475,11 @@ template<typename T> bool opencl_base::set_kernel_argument(const unsigned int& i
 		set_kernel_argument(index, sizeof(T), (void*)&arg);
 	}
 	catch(cl::Error err) {
-		oclr_error("%s (%d: %s)!", err.what(), err.err(), error_code_to_string(err.err()));
+		log_error("%s (%d: %s)!", err.what(), err.err(), error_code_to_string(err.err()));
 		return false;
 	}
 	catch(...) {
-		oclr_error("unknown error!");
+		log_error("unknown error!");
 		return false;
 	}
 	

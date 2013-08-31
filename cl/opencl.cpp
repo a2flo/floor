@@ -36,9 +36,6 @@
 
 shared_ptr<opencl::kernel_object> opencl_base::null_kernel_object { nullptr };
 
-// 2d array: [IMAGE_TYPE][IMAGE_CHANNEL] -> cl::ImageFormat (-> will be (0, 0) if not supported)
-static array<array<cl::ImageFormat, (size_t)IMAGE_CHANNEL::__MAX_CHANNEL>, (size_t)IMAGE_TYPE::__MAX_TYPE> internal_image_format_mapping;
-
 // these functions are not part of the FreeBSD libOpenCL.so, so define them here
 #if defined(__FreeBSD__)
 CL_API_ENTRY cl_int CL_API_CALL
@@ -48,7 +45,7 @@ clEnqueueAcquireGLObjects(cl_command_queue      /* command_queue */,
                           cl_uint               /* num_events_in_wait_list */,
                           const cl_event *      /* event_wait_list */,
                           cl_event *            /* event */) {
-	oclr_error("don't use gl sharing functions on FreeBSD!");
+	log_error("don't use gl sharing functions on FreeBSD!");
 	throw runtime_error("don't use gl sharing functions on FreeBSD!");
 }
 
@@ -59,7 +56,7 @@ clEnqueueReleaseGLObjects(cl_command_queue      /* command_queue */,
                           cl_uint               /* num_events_in_wait_list */,
                           const cl_event *      /* event_wait_list */,
                           cl_event *            /* event */) {
-	oclr_error("don't use gl sharing functions on FreeBSD!");
+	log_error("don't use gl sharing functions on FreeBSD!");
 	throw runtime_error("don't use gl sharing functions on FreeBSD!");
 }
 CL_API_ENTRY cl_mem CL_API_CALL
@@ -69,7 +66,7 @@ clCreateFromGLTexture2D(cl_context      /* context */,
                         cl_GLint        /* miplevel */,
                         cl_GLuint       /* texture */,
                         cl_int *        /* errcode_ret */) {
-	oclr_error("don't use gl sharing functions on FreeBSD!");
+	log_error("don't use gl sharing functions on FreeBSD!");
 	throw runtime_error("don't use gl sharing functions on FreeBSD!");
 }
 CL_API_ENTRY cl_mem CL_API_CALL
@@ -77,7 +74,7 @@ clCreateFromGLRenderbuffer(cl_context   /* context */,
                            cl_mem_flags /* flags */,
                            cl_GLuint    /* renderbuffer */,
                            cl_int *     /* errcode_ret */) {
-	oclr_error("don't use gl sharing functions on FreeBSD!");
+	log_error("don't use gl sharing functions on FreeBSD!");
 	throw runtime_error("don't use gl sharing functions on FreeBSD!");
 }
 
@@ -86,7 +83,7 @@ clCreateFromGLBuffer(cl_context     /* context */,
                      cl_mem_flags   /* flags */,
                      cl_GLuint      /* bufobj */,
                      int *          /* errcode_ret */) {
-	oclr_error("don't use gl sharing functions on FreeBSD!");
+	log_error("don't use gl sharing functions on FreeBSD!");
 	throw runtime_error("don't use gl sharing functions on FreeBSD!");
 }
 #endif
@@ -164,7 +161,7 @@ void opencl_base::destroy_kernels() {
 	for(auto& k : kernels) {
 		kernel_object::unassociate_buffers(k.second);
 		if(k.second.use_count() > 1) {
-			oclr_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
+			log_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
 					   k.second.get(), k.second.use_count());
 		}
 		k.second = nullptr; // implicit delete
@@ -187,7 +184,7 @@ weak_ptr<opencl_base::kernel_object> opencl_base::add_kernel_file(const string& 
 	kernels_lock.lock();
 	const auto existing_kernel = kernels.find(identifier);
 	if(existing_kernel != kernels.end()) {
-		oclr_error("kernel \"%s\" already exists!", identifier);
+		log_error("kernel \"%s\" already exists!", identifier);
 		auto ret_kernel = existing_kernel->second;
 		kernels_lock.unlock();
 		return ret_kernel;
@@ -210,7 +207,7 @@ weak_ptr<opencl_base::kernel_object> opencl_base::add_kernel_file(const string& 
 
 void opencl_base::check_compilation(const bool ret, const string& filename) {
 	if(!ret) {
-		oclr_error("internal kernel \"%s\" didn't compile successfully!", filename.c_str());
+		log_error("internal kernel \"%s\" didn't compile successfully!", filename.c_str());
 		successful_internal_compilation = false;
 	}
 }
@@ -230,10 +227,10 @@ void opencl_base::reload_kernels() {
 	}
 	kernels_lock.unlock();
 	
-	if(successful_internal_compilation) oclr_debug("internal kernels loaded successfully!");
+	if(successful_internal_compilation) log_debug("internal kernels loaded successfully!");
 	else {
 		// one or more kernels didn't compile
-		oclr_error("there were problems loading/compiling the internal kernels!");
+		log_error("there were problems loading/compiling the internal kernels!");
 	}
 	
 	// emit kernel reload event
@@ -251,7 +248,7 @@ void opencl_base::use_kernel(const string& identifier) {
 	lock_guard<recursive_mutex> lock(kernels_lock);
 	const auto kernel_iter = kernels.find(identifier);
 	if(kernel_iter == kernels.end()) {
-		oclr_error("kernel \"%s\" doesn't exist!", identifier.c_str());
+		log_error("kernel \"%s\" doesn't exist!", identifier.c_str());
 		cur_kernel = nullptr;
 		return;
 	}
@@ -275,7 +272,7 @@ void opencl_base::run_kernel(const string& identifier) {
 		run_kernel(kernel_ptr);
 	}
 	kernels_lock.unlock();
-	oclr_error("kernel \"%s\" doesn't exist!", identifier);
+	log_error("kernel \"%s\" doesn't exist!", identifier);
 }
 
 void opencl_base::delete_kernel(const string& identifier) {
@@ -287,7 +284,7 @@ void opencl_base::delete_kernel(const string& identifier) {
 		delete_kernel(kernel_ptr);
 	}
 	kernels_lock.unlock();
-	oclr_error("kernel \"%s\" doesn't exist!", identifier);
+	log_error("kernel \"%s\" doesn't exist!", identifier);
 }
 
 opencl_base::device_object* opencl_base::get_device(const opencl_base::DEVICE_TYPE& device) {
@@ -344,7 +341,7 @@ pair<cl::NDRange, cl::NDRange> opencl_base::compute_kernel_ranges(const size_t& 
 	const size_t local_range = (wg_size > active_device->max_wi_sizes.x ?
 								active_device->max_wi_sizes.x : wg_size);
 	const size_t global_range = next_divisible_number(work_items, local_range);
-	/*oclr_msg("%s (%v -> %v; %v) overlap: %f%%",
+	/*log_msg("%s (%v -> %v; %v) overlap: %f%%",
 			 cur_kernel->name, work_items, global_range, local_range,
 			 ((float(global_range) / float(work_items)) - 1.0f) * 100.0f);*/
 	return { cl::NDRange(global_range), cl::NDRange(local_range) };
@@ -375,7 +372,7 @@ pair<cl::NDRange, cl::NDRange> opencl_base::compute_kernel_ranges(const size_t& 
 		next_divisible_number(work_items_x, local_x_size),
 		next_divisible_number(work_items_y, local_y_size)
 	};
-	/*oclr_msg("%s (%v -> %v; %v) overlap: %f%% %f%%, #%f%%",
+	/*log_msg("%s (%v -> %v; %v) overlap: %f%% %f%%, #%f%%",
 			 cur_kernel->name, size2(work_items_x, work_items_y), global_range, size2(local_x_size, local_y_size),
 			 ((float(global_range.x) / float(work_items_x)) - 1.0f) * 100.0f,
 			 ((float(global_range.y) / float(work_items_y)) - 1.0f) * 100.0f,
@@ -401,7 +398,7 @@ pair<cl::NDRange, cl::NDRange> opencl_base::compute_kernel_ranges(const size_t& 
 void opencl_base::set_manual_gl_sharing(buffer_object* gl_buffer_obj, const bool state) {
 	if((gl_buffer_obj->type & BUFFER_FLAG::OPENGL_BUFFER) == BUFFER_FLAG::NONE ||
 	   gl_buffer_obj->ogl_buffer == 0) {
-		oclr_error("this is not a gl object!");
+		log_error("this is not a gl object!");
 		return;
 	}
 	
@@ -410,22 +407,6 @@ void opencl_base::set_manual_gl_sharing(buffer_object* gl_buffer_obj, const bool
 
 const vector<cl::ImageFormat>& opencl_base::get_image_formats() const {
 	return img_formats;
-}
-
-cl::ImageFormat opencl_base::get_image_format(const IMAGE_TYPE& data_type, const IMAGE_CHANNEL channel_type) const {
-	const auto data_idx = (typename underlying_type<IMAGE_TYPE>::type)data_type;
-	const auto channel_idx = (typename underlying_type<IMAGE_CHANNEL>::type)channel_type;
-#if defined(FLOOR_DEBUG)
-	if(data_idx >= internal_image_format_mapping.size()) {
-		oclr_error("invalid data_type: %u!", data_idx);
-		return cl::ImageFormat(0, 0);
-	}
-	if(channel_idx >= internal_image_format_mapping[data_idx].size()) {
-		oclr_error("invalid channel_type: %u!", channel_idx);
-		return cl::ImageFormat(0, 0);
-	}
-#endif
-	return internal_image_format_mapping[data_idx][channel_idx];
 }
 
 bool opencl_base::check_image_origin_and_size(const opencl_base::buffer_object* image_obj, cl::size_t<3>& origin, cl::size_t<3>& region) const {
@@ -447,7 +428,7 @@ bool opencl_base::check_image_origin_and_size(const opencl_base::buffer_object* 
 			image_dim = 3;
 			break;
 		case buffer_object::IMAGE_TYPE::IMAGE_NONE:
-			oclr_error("this is not an image object!");
+			log_error("this is not an image object!");
 			return false;
 	}
 	
@@ -457,17 +438,17 @@ bool opencl_base::check_image_origin_and_size(const opencl_base::buffer_object* 
 			region[dim] = image_obj->image_size[dim];
 		}
 		if(origin[dim] >= image_obj->image_size[dim]) {
-			oclr_error("image %s-origin (%u) out of bound!",
+			log_error("image %s-origin (%u) out of bound!",
 					   dim_str, origin[dim]);
 			return false;
 		}
 		if(region[dim] > image_obj->image_size[dim]) {
-			oclr_error("image %s-region (%u) out of bound!",
+			log_error("image %s-region (%u) out of bound!",
 					   dim_str, region[dim]);
 			return false;
 		}
 		if((origin[dim]+region[dim]) > image_obj->image_size[dim]) {
-			oclr_error("combined image %s-region (%u) and image %s-origin (%u) are out of bound!",
+			log_error("combined image %s-region (%u) and image %s-origin (%u) are out of bound!",
 					   dim_str, dim_str, region[dim], origin[dim]);
 			return false;
 		}
@@ -590,7 +571,7 @@ string opencl::error_code_to_string(cl_int error_code) const {
 #define __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_START_EXT(func_str, "")
 #define __HANDLE_CL_EXCEPTION_START_EXT(func_str, additional_info)									\
 catch(cl::Error err) {																				\
-	oclr_error("line #%s, " func_str "(): %s (%d: %s)%s!", \
+	log_error("line #%s, " func_str "(): %s (%d: %s)%s!", \
 			  __LINE__, err.what(), err.err(), error_code_to_string(err.err()), additional_info);
 #define __HANDLE_CL_EXCEPTION_END }
 #define __HANDLE_CL_EXCEPTION(func_str) __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_END
@@ -649,7 +630,7 @@ opencl::opencl(const char* kernel_path, SDL_Window* wnd, const bool clear_cache)
 /*! opencl destructor
  */
 opencl::~opencl() {
-	oclr_debug("deleting opencl object");
+	log_debug("deleting opencl object");
 	
 	for(const auto& buf : buffers) {
 		delete buf->buffer;
@@ -665,7 +646,7 @@ opencl::~opencl() {
 	
 	if(context != nullptr) delete context;
 	
-	oclr_debug("opencl object deleted");
+	log_debug("opencl object deleted");
 }
 
 void opencl::init(bool use_platform_devices, const size_t platform_index,
@@ -679,12 +660,12 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 			platforms[platform_index].getDevices(CL_DEVICE_TYPE_ALL, &internal_devices);
 		}
 		else {
-			oclr_error("no opencl platform available!");
+			log_error("no opencl platform available!");
 			return;
 		}
-		oclr_debug("%u opencl platform%s found!", platforms.size(), (platforms.size() > 1 ? "s" : ""));
+		log_debug("%u opencl platform%s found!", platforms.size(), (platforms.size() > 1 ? "s" : ""));
 		if(use_platform_devices) {
-			oclr_debug("%u opencl device%s found!", internal_devices.size(), (internal_devices.size() > 1 ? "s" : ""));
+			log_debug("%u opencl device%s found!", internal_devices.size(), (internal_devices.size() > 1 ? "s" : ""));
 		}
 		
 #if defined(__APPLE__)
@@ -694,7 +675,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		// an opengl sharegroup (gl sharing) may not be used, since this would add gpu devices to the context
 		bool apple_gl_sharing = gl_sharing;
 		if(!device_restriction.empty() && device_restriction.count("GPU") == 0) {
-			oclr_error("opencl device restriction set to disallow GPUs, but gl sharing is enabled - disabling gl sharing!");
+			log_error("opencl device restriction set to disallow GPUs, but gl sharing is enabled - disabling gl sharing!");
 			apple_gl_sharing = false;
 		}
 		
@@ -748,7 +729,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		SDL_SysWMinfo wm_info;
 		SDL_VERSION(&wm_info.version);
 		if(SDL_GetWindowWMInfo(sdl_wnd, &wm_info) != 1) {
-			oclr_error("couldn't get window manger info!");
+			log_error("couldn't get window manger info!");
 			return;
 		}
 		
@@ -816,7 +797,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		const string cl_version_str = platforms[platform_index].getInfo<CL_PLATFORM_VERSION>();
 		const auto extracted_cl_version = extract_cl_version(cl_version_str, "OpenCL "); // "OpenCL X.Y" required by spec
 		if(!extracted_cl_version.first) {
-			oclr_error("invalid opencl platform version string: %s", cl_version_str);
+			log_error("invalid opencl platform version string: %s", cl_version_str);
 		}
 		platform_cl_version = extracted_cl_version.second;
 		
@@ -826,7 +807,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		}
 
 		//
-		oclr_debug("opencl platform #%u vendor: %s (version CL%s)",
+		log_debug("opencl platform #%u vendor: %s (version CL%s)",
 				   platform_index, platform_vendor_to_str(platform_vendor),
 				   (platform_cl_version == CL_VERSION::CL_1_0 ? "1.0" :
 					(platform_cl_version == CL_VERSION::CL_1_1 ? "1.1" :
@@ -834,9 +815,9 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		
 		internal_devices.clear();
 		internal_devices = context->getInfo<CL_CONTEXT_DEVICES>();
-		oclr_debug("%u opencl device%s found!", internal_devices.size(), (internal_devices.size() > 1 ? "s" : ""));
+		log_debug("%u opencl device%s found!", internal_devices.size(), (internal_devices.size() > 1 ? "s" : ""));
 		
-		oclr_debug("opencl context successfully created!");
+		log_debug("opencl context successfully created!");
 		
 		string dev_type_str;
 		unsigned int gpu_counter = (unsigned int)DEVICE_TYPE::GPU0;
@@ -890,34 +871,34 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 								   internal_device.getInfo<CL_DEVICE_IMAGE3D_MAX_DEPTH>());
 			device->double_support = (internal_device.getInfo<CL_DEVICE_DOUBLE_FP_CONFIG>() != 0);
 			
-			oclr_msg("address space size: %u", internal_device.getInfo<CL_DEVICE_ADDRESS_BITS>());
-			oclr_msg("max mem alloc: %u bytes / %u MB",
+			log_msg("address space size: %u", internal_device.getInfo<CL_DEVICE_ADDRESS_BITS>());
+			log_msg("max mem alloc: %u bytes / %u MB",
 					 device->max_alloc,
 					 device->max_alloc / 1024ULL / 1024ULL);
-			oclr_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+			log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
 					 device->mem_size / 1024ULL / 1024ULL,
 					 device->local_mem_size / 1024ULL,
 					 device->constant_mem_size / 1024ULL);
-			oclr_msg("mem base address alignment: %u", internal_device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>());
-			oclr_msg("min data type alignment size: %u", internal_device.getInfo<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>());
-			oclr_msg("host unified memory: %u", internal_device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>());
-			oclr_msg("max_wi_sizes: %v", device->max_wi_sizes);
-			oclr_msg("max_wg_size: %u", device->max_wg_size);
-			oclr_msg("max param size: %u", internal_device.getInfo<CL_DEVICE_MAX_PARAMETER_SIZE>());
-			oclr_msg("double support: %b", device->double_support);
-			oclr_msg("image support: %b", device->img_support);
+			log_msg("mem base address alignment: %u", internal_device.getInfo<CL_DEVICE_MEM_BASE_ADDR_ALIGN>());
+			log_msg("min data type alignment size: %u", internal_device.getInfo<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>());
+			log_msg("host unified memory: %u", internal_device.getInfo<CL_DEVICE_HOST_UNIFIED_MEMORY>());
+			log_msg("max_wi_sizes: %v", device->max_wi_sizes);
+			log_msg("max_wg_size: %u", device->max_wg_size);
+			log_msg("max param size: %u", internal_device.getInfo<CL_DEVICE_MAX_PARAMETER_SIZE>());
+			log_msg("double support: %b", device->double_support);
+			log_msg("image support: %b", device->img_support);
 #if defined(CL_VERSION_1_2)
 			if(platform_cl_version >= CL_VERSION::CL_1_2 &&
 			   // pocl has no support for this yet
 			   platform_vendor != PLATFORM_VENDOR::POCL) {
 				const unsigned long long int printf_buffer_size = internal_device.getInfo<CL_DEVICE_PRINTF_BUFFER_SIZE>();
-				oclr_msg("printf buffer size: %u bytes / %u MB",
+				log_msg("printf buffer size: %u bytes / %u MB",
 						 printf_buffer_size,
 						 printf_buffer_size / 1024ULL / 1024ULL);
-				oclr_msg("max sub-devices: %u", internal_device.getInfo<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>());
+				log_msg("max sub-devices: %u", internal_device.getInfo<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>());
 				if(platform_vendor != PLATFORM_VENDOR::FREEOCL) {
 					// this is broken on freeocl
-					oclr_msg("built-in kernels: %s", internal_device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>());
+					log_msg("built-in kernels: %s", internal_device.getInfo<CL_DEVICE_BUILT_IN_KERNELS>());
 				}
 			}
 #endif
@@ -1019,20 +1000,20 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 			const string cl_c_version_str = internal_device.getInfo<CL_DEVICE_OPENCL_C_VERSION>();
 			const auto extracted_cl_c_version = extract_cl_version(cl_c_version_str, "OpenCL C "); // "OpenCL C X.Y" required by spec
 			if(!extracted_cl_c_version.first) {
-				oclr_error("invalid opencl c version string: %s", cl_c_version_str);
+				log_error("invalid opencl c version string: %s", cl_c_version_str);
 			}
 			device->cl_c_version = extracted_cl_c_version.second;
 			
 			// cl_khr_byte_addressable_store support is mandatory
 			if(device->extensions.find("cl_khr_byte_addressable_store") == string::npos) {
-				oclr_msg("opencl device \"%s %s\" does not support \"cl_khr_byte_addressable_store\"!", device->vendor, device->name);
+				log_msg("opencl device \"%s %s\" does not support \"cl_khr_byte_addressable_store\"!", device->vendor, device->name);
 				delete device;
 				continue;
 			}
 			devices.push_back(device);
 			
 			// TYPE (Units: %, Clock: %): Name, Vendor, Version, Driver Version
-			oclr_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
+			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
 					   dev_type_str,
 					   device->units,
 					   device->clock,
@@ -1070,29 +1051,12 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 														   &ierr);
 		}
 		
-		if(fastest_cpu != nullptr) oclr_debug("fastest CPU device: %s %s (score: %u)", fastest_cpu->vendor.c_str(), fastest_cpu->name.c_str(), fastest_cpu_score);
-		if(fastest_gpu != nullptr) oclr_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
+		if(fastest_cpu != nullptr) log_debug("fastest CPU device: %s %s (score: %u)", fastest_cpu->vendor.c_str(), fastest_cpu->name.c_str(), fastest_cpu_score);
+		if(fastest_gpu != nullptr) log_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
 		
 		// compile internal kernels
-		internal_kernels = { // first time init:
-			make_tuple("BIN_RASTERIZE", "bin_rasterize.cl", "oclraster_bin",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)),
-			
-			make_tuple("PROCESSING.PERSPECTIVE", "processing.cl", "oclraster_processing",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)+
-					   " -DOCLRASTER_PROJECTION_PERSPECTIVE"),
-			
-			make_tuple("PROCESSING.ORTHOGRAPHIC", "processing.cl", "oclraster_processing",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)+
-					   " -DOCLRASTER_PROJECTION_ORTHOGRAPHIC"),
-			
-#if defined(OCLRASTER_FXAA)
-			make_tuple("FXAA.LUMA", "luma_pass.cl", "framebuffer_luma", ""),
-			make_tuple("FXAA", "fxaa_pass.cl", "framebuffer_fxaa", ""),
-#endif
+		// TODO: "external" lib internal kernels
+		internal_kernels = {
 		};
 		
 		load_internal_kernels();
@@ -1100,15 +1064,15 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 	__HANDLE_CL_EXCEPTION_START("init")
 		// try another time w/o using the platform devices
 		if(platform_index+1 < platforms.size()) {
-			oclr_debug("trying next platform ...");
+			log_debug("trying next platform ...");
 			init(use_platform_devices, platform_index+1);
 		}
 	__HANDLE_CL_EXCEPTION_END
 	catch(floor_exception& e) {
-		oclr_debug("%s", e.what());
+		log_debug("%s", e.what());
 		// try another time w/o using the platform devices
 		if(platform_index+1 < platforms.size()) {
-			oclr_debug("trying next platform ...");
+			log_debug("trying next platform ...");
 			init(use_platform_devices, platform_index+1);
 		}
 	}
@@ -1124,7 +1088,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 	if(platform_vendor != PLATFORM_VENDOR::POCL) {
 		context->getSupportedImageFormats(CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, &img_formats);
 		if(img_formats.empty()) {
-			oclr_error("no supported image formats!");
+			log_error("no supported image formats!");
 		}
 	}
 	else {
@@ -1203,82 +1167,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 	};
 	
 	for(const auto& format : img_formats) {
-		oclr_log("\t%s %s", channel_order_to_string(format.image_channel_order), channel_type_to_string(format.image_channel_data_type));
-	}
-#endif
-	
-	// create image type/channel mappings
-	static const array<vector<cl_channel_type>, (size_t)IMAGE_TYPE::__MAX_TYPE> type_mapping {
-		{
-			{}, // NONE
-			{ CL_SNORM_INT8, CL_SIGNED_INT8 }, // INT_8
-			{ CL_SNORM_INT16, CL_SIGNED_INT16 }, // INT_16
-			{ CL_SIGNED_INT32 }, // INT_32
-			{  }, // INT_64 (not supported by opencl)
-			{ CL_UNORM_INT8, CL_UNSIGNED_INT8 }, // UINT_8
-			{ CL_UNORM_INT16, CL_UNSIGNED_INT16 }, // UINT_16
-			{ CL_UNSIGNED_INT32 }, // UINT_32
-			{  }, // UINT_64 (not supported by opencl)
-			{ CL_HALF_FLOAT }, // FLOAT_16
-			{ CL_FLOAT }, // FLOAT_32
-			{  } // FLOAT_64 (not supported by opencl)
-		}
-	};
-	static const array<vector<cl_channel_order>, (size_t)IMAGE_CHANNEL::__MAX_CHANNEL> channel_mapping {
-		{
-			{}, // NONE
-			{ CL_R, CL_Rx, CL_INTENSITY, CL_LUMINANCE }, // R
-			{ CL_RG, CL_RGx }, // RG
-			{ CL_RGB, CL_RGBx }, // RGB
-			{ CL_RGBA, CL_BGRA, CL_ARGB } // RGBA
-		}
-	};
-	
-	// fill internal_image_format_mapping with appropriate info/mappings
-	for(size_t data_idx = 0; data_idx < type_mapping.size(); data_idx++) {
-		if(type_mapping[data_idx].empty()) continue;
-		for(size_t channel_idx = 0; channel_idx < channel_mapping.size(); channel_idx++) {
-			if(channel_mapping[channel_idx].empty()) continue;
-			bool found = false;
-			for(const auto& req_data_type : type_mapping[data_idx]) {
-				for(const auto& req_channel_type : channel_mapping[channel_idx]) {
-					for(const auto& format : img_formats) {
-						if(req_data_type == format.image_channel_data_type &&
-						   req_channel_type == format.image_channel_order) {
-							internal_image_format_mapping[data_idx][channel_idx] = cl::ImageFormat(req_channel_type, req_data_type);
-							found = true;
-#if 0
-							oclr_log("native image support: %s -> %s %s",
-									 image_type { (IMAGE_TYPE)data_idx, (IMAGE_CHANNEL)channel_idx }.to_string(),
-									 channel_type_to_string(format.image_channel_data_type),
-									 channel_order_to_string(format.image_channel_order));
-#endif
-							break;
-						}
-					}
-					if(found) break;
-				}
-				if(found) break;
-			}
-		}
-	}
-	
-#if defined(__APPLE__)
-	if(fastest_gpu != nullptr) {
-		// workaround: when a shared cpu/gpu context is used, apple falsely advertises CL_Rx, CL_RGx, CL_RGBx in combination with CL_FLOAT
-		// as supported, when they're actually not -> use CL_R, CL_RG, CL_RGB instead, which do work, but are not officially listed
-		auto& r_float_mapping = internal_image_format_mapping[(size_t)IMAGE_TYPE::FLOAT_32][(size_t)IMAGE_CHANNEL::R];
-		auto& rg_float_mapping = internal_image_format_mapping[(size_t)IMAGE_TYPE::FLOAT_32][(size_t)IMAGE_CHANNEL::RG];
-		auto& rgb_float_mapping = internal_image_format_mapping[(size_t)IMAGE_TYPE::FLOAT_32][(size_t)IMAGE_CHANNEL::RGB];
-		if(r_float_mapping.image_channel_data_type != 0 && r_float_mapping.image_channel_order != 0) {
-			r_float_mapping = cl::ImageFormat(CL_R, CL_FLOAT);
-		}
-		if(rg_float_mapping.image_channel_data_type != 0 && rg_float_mapping.image_channel_order != 0) {
-			rg_float_mapping = cl::ImageFormat(CL_RG, CL_FLOAT);
-		}
-		if(rgb_float_mapping.image_channel_data_type != 0 && rgb_float_mapping.image_channel_order != 0) {
-			rgb_float_mapping = cl::ImageFormat(CL_RGB, CL_FLOAT);
-		}
+		log_undecorated("\t%s %s", channel_order_to_string(format.image_channel_order), channel_type_to_string(format.image_channel_data_type));
 	}
 #endif
 }
@@ -1290,7 +1179,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 	
 	const auto existing_kernel = kernels.find(identifier);
 	if(existing_kernel != kernels.end()) {
-		oclr_error("kernel \"%s\" already exists!", identifier);
+		log_error("kernel \"%s\" already exists!", identifier);
 		auto ret_kernel = existing_kernel->second;
 		kernels_lock.unlock();
 		return ret_kernel;
@@ -1299,7 +1188,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 	auto kernel_ptr = make_shared<opencl::kernel_object>();
 	if(kernel_ptr == nullptr) {
 		// complete failure
-		oclr_error("could not create kernel_object for \"%s\"!", identifier);
+		log_error("could not create kernel_object for \"%s\"!", identifier);
 		return null_kernel_object;
 	}
 	kernels.emplace(identifier, kernel_ptr);
@@ -1307,15 +1196,13 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 	kernels_lock.unlock();
 	
 	//
-	oclr_debug("compiling \"%s\" kernel!", identifier);
+	log_debug("compiling \"%s\" kernel!", identifier);
 	string options = build_options;
 	
-	// just define this everywhere to make using image support
-	// easier without having to specify this every time
-	options += " -DOCLRASTER_IMAGE_HEADER_SIZE="+size_t2string(image::header_size());
-	
-	// the same goes for the general struct alignment
+	// just define this everywhere:
 	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
+	
+	// TODO: external lib defines
 	
 	try {
 		if(!additional_options.empty()) {
@@ -1394,19 +1281,19 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 			char build_log[CLINFO_STR_SIZE];
 			memset(build_log, 0, CLINFO_STR_SIZE);
 			kernel_ptr->program->getBuildInfo(internal_device, CL_PROGRAM_BUILD_LOG, &build_log);
-			oclr_debug("build log: %s", build_log);
+			log_debug("build log: %s", build_log);
 		}*/
 		
 #if 0
 		size_t device_num = 0;
 		for(const auto& device : devices) {
-			oclr_log("%s (dev #%u): work group size: %u", identifier, device_num,
+			log_undecorated("%s (dev #%u): work group size: %u", identifier, device_num,
 					 kernel_ptr->kernel->getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device->device));
-			oclr_log("%s (dev #%u): kernel preferred wg size multiple: %u", identifier, device_num,
+			log_undecorated("%s (dev #%u): kernel preferred wg size multiple: %u", identifier, device_num,
 					 kernel_ptr->kernel->getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device->device));
-			oclr_log("%s (dev #%u): kernel local memory: %u", identifier, device_num,
+			log_undecorated("%s (dev #%u): kernel local memory: %u", identifier, device_num,
 					 kernel_ptr->kernel->getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device->device));
-			oclr_log("%s (dev #%u): kernel private memory: %u", identifier, device_num,
+			log_undecorated("%s (dev #%u): kernel private memory: %u", identifier, device_num,
 					 kernel_ptr->kernel->getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(device->device));
 			device_num++;
 		}
@@ -1418,13 +1305,13 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 			char build_log[CLINFO_STR_SIZE];
 			memset(build_log, 0, CLINFO_STR_SIZE);
 			kernel_ptr->program->getBuildInfo(device->device, CL_PROGRAM_BUILD_LOG, &build_log);
-			oclr_error("build log (%s): %s", identifier, build_log);
+			log_error("build log (%s): %s", identifier, build_log);
 			
 			// print out current build options
 			char buildoptions[CLINFO_STR_SIZE];
 			memset(buildoptions, 0, CLINFO_STR_SIZE);
 			kernel_ptr->program->getBuildInfo(device->device, CL_PROGRAM_BUILD_OPTIONS, &buildoptions);
-			oclr_debug("build options: %s", buildoptions);
+			log_debug("build options: %s", buildoptions);
 		}
 		
 		weak_ptr<opencl::kernel_object> delete_ptr = kernel_ptr;
@@ -1463,14 +1350,14 @@ void opencl::delete_kernel(weak_ptr<opencl::kernel_object> kernel_obj) {
 			kernel_object::unassociate_buffers(kernel_ptr);
 			kernels.erase(kernel.first);
 			if(kernel_ptr.use_count() > 1) {
-				oclr_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
+				log_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
 						   kernel_ptr.get(), kernel_ptr.use_count());
 			}
 			return; // implicit delete of kernel_ptr and the kernel_object
 		}
 	}
 	
-	oclr_error("couldn't find kernel object!");
+	log_error("couldn't find kernel object!");
 }
 
 void opencl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) {
@@ -1505,7 +1392,7 @@ void opencl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) 
 					
 					fstream bin_file(file_name.c_str(), fstream::out | fstream::binary | fstream::trunc);
 					if(!bin_file.is_open()) {
-						oclr_error("couldn't save cl-binary file \"%s\"!", file_name.c_str());
+						log_error("couldn't save cl-binary file \"%s\"!", file_name.c_str());
 						return;
 					}
 					
@@ -1652,15 +1539,15 @@ opencl::buffer_object* opencl::create_sub_buffer(const buffer_object* parent_buf
 												 const size_t offset,
 												 const size_t size) {
 	if(parent_buffer == nullptr || parent_buffer->buffer == nullptr) {
-		oclr_error("invalid buffer object!");
+		log_error("invalid buffer object!");
 		return nullptr;
 	}
 	if(size == 0 || size > parent_buffer->size) {
-		oclr_error("invalid size (%u) - must be > 0 and <= buffer size (%u)!", size, parent_buffer->size);
+		log_error("invalid size (%u) - must be > 0 and <= buffer size (%u)!", size, parent_buffer->size);
 		return nullptr;
 	}
 	if(offset >= parent_buffer->size || (size+offset) > parent_buffer->size) {
-		oclr_error("invalid offset (%u) - offset must be < buffer size (%u) and offset+size (%u) must be <= buffer size (%u)!",
+		log_error("invalid offset (%u) - offset must be < buffer size (%u) and offset+size (%u) must be <= buffer size (%u)!",
 				   size, parent_buffer->size, size+offset, parent_buffer->size);
 		return nullptr;
 	}
@@ -1872,7 +1759,7 @@ void opencl::write_buffer(opencl::buffer_object* buffer_obj, const void* src, co
 	size_t write_size = size;
 	if(write_size == 0) {
 		if(buffer_obj->size == 0) {
-			oclr_error("can't write 0 bytes (size of 0)!");
+			log_error("can't write 0 bytes (size of 0)!");
 			return;
 		}
 		else write_size = buffer_obj->size;
@@ -1880,11 +1767,11 @@ void opencl::write_buffer(opencl::buffer_object* buffer_obj, const void* src, co
 	
 	size_t write_offset = offset;
 	if(write_offset >= buffer_obj->size) {
-		oclr_error("write offset (%d) out of bound!", write_offset);
+		log_error("write offset (%d) out of bound!", write_offset);
 		return;
 	}
 	if(write_offset+write_size > buffer_obj->size) {
-		oclr_error("write offset (%d) or write size (%d) is too big - using write size of (%d) instead!",
+		log_error("write offset (%d) or write size (%d) is too big - using write size of (%d) instead!",
 				   write_offset, write_size, (buffer_obj->size - write_offset));
 		write_size = buffer_obj->size - write_offset;
 	}
@@ -2034,7 +1921,7 @@ void opencl::read_image(void* dst, const opencl::buffer_object* buffer_obj, cons
 void opencl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 	auto kernel_ptr = kernel_obj.lock();
 	if(kernel_ptr == nullptr) {
-		oclr_error("invalid kernel object (nullptr)!");
+		log_error("invalid kernel object (nullptr)!");
 		return;
 	}
 	
@@ -2042,7 +1929,7 @@ void opencl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 		bool all_set = true;
 		for(unsigned int i = 0; i < kernel_ptr->args_passed.size(); i++) {
 			if(!kernel_ptr->args_passed[i]) {
-				oclr_error("kernel %s: argument #%u not set!", kernel_ptr->name, i);
+				log_error("kernel %s: argument #%u not set!", kernel_ptr->name, i);
 				all_set = false;
 			}
 		}
@@ -2096,7 +1983,7 @@ void opencl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 		const auto ns_to_ms = [](const unsigned long long int& t) {
 			return ((double)t) / 1000000.0;
 		};
-		oclr_msg("profiling %s:\n"
+		log_msg("profiling %s:\n"
 				 "\t%u (queued->submit), %u (submit->start), %u (start->end), %u (submit->end)\n"
 				 "\t%ums (queued->submit), %ums (submit->start), %ums (start->end), %ums (submit->end)",
 				 kernel_ptr->name,
@@ -2189,14 +2076,14 @@ void* __attribute__((aligned(128))) opencl::map_buffer(opencl::buffer_object* bu
 		
 		if((access_type & MAP_BUFFER_FLAG::READ_WRITE) != MAP_BUFFER_FLAG::NONE &&
 		   (access_type & MAP_BUFFER_FLAG::WRITE_INVALIDATE) != MAP_BUFFER_FLAG::NONE) {
-			oclr_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
+			log_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
 			return nullptr;
 		}
 		
 		size_t map_size = size;
 		if(map_size == 0) {
 			if(buffer_obj->size == 0) {
-				oclr_error("can't map 0 bytes (size of 0)!");
+				log_error("can't map 0 bytes (size of 0)!");
 				return nullptr;
 			}
 			else map_size = buffer_obj->size;
@@ -2204,11 +2091,11 @@ void* __attribute__((aligned(128))) opencl::map_buffer(opencl::buffer_object* bu
 		
 		size_t map_offset = offset;
 		if(map_offset >= buffer_obj->size) {
-			oclr_error("map offset (%d) out of bound!", map_offset);
+			log_error("map offset (%d) out of bound!", map_offset);
 			return nullptr;
 		}
 		if(map_offset+map_size > buffer_obj->size) {
-			oclr_error("map offset (%d) or map size (%d) is too big - using map size of (%d) instead!",
+			log_error("map offset (%d) or map size (%d) is too big - using map size of (%d) instead!",
 					   map_offset, map_size, (buffer_obj->size - map_offset));
 			map_size = buffer_obj->size - map_offset;
 		}
@@ -2235,11 +2122,11 @@ void* __attribute__((aligned(128))) opencl::map_buffer(opencl::buffer_object* bu
 			map_ptr = queues[&active_device->device]->enqueueMapBuffer(*buffer_obj->buffer, blocking, map_flags, map_offset, map_size);
 		}
 		else if(buffer_obj->image_buffer != nullptr) {
-			oclr_error("use map_image to map an image buffer object!");
+			log_error("use map_image to map an image buffer object!");
 			return nullptr;
 		}
 		else {
-			oclr_error("unknown buffer object!");
+			log_error("unknown buffer object!");
 			return nullptr;
 		}
 		return map_ptr;
@@ -2259,7 +2146,7 @@ void* __attribute__((aligned(128))) opencl::map_image(opencl_base::buffer_object
 		
 		if((access_type & MAP_BUFFER_FLAG::READ_WRITE) != MAP_BUFFER_FLAG::NONE &&
 		   (access_type & MAP_BUFFER_FLAG::WRITE_INVALIDATE) != MAP_BUFFER_FLAG::NONE) {
-			oclr_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
+			log_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
 			return nullptr;
 		}
 		
@@ -2291,11 +2178,11 @@ void* __attribute__((aligned(128))) opencl::map_image(opencl_base::buffer_object
 																	  image_row_pitch, image_slice_pitch);
 		}
 		else if(buffer_obj->buffer != nullptr) {
-			oclr_error("use map_buffer to map a buffer object!");
+			log_error("use map_buffer to map a buffer object!");
 			return nullptr;
 		}
 		else {
-			oclr_error("unknown buffer object!");
+			log_error("unknown buffer object!");
 			return nullptr;
 		}
 		return map_ptr;
@@ -2321,7 +2208,7 @@ void opencl::unmap_buffer(opencl::buffer_object* buffer_obj, void* map_ptr) {
 		if(buffer_obj->buffer != nullptr) buffer_ptr = buffer_obj->buffer;
 		else if(buffer_obj->image_buffer != nullptr) buffer_ptr = buffer_obj->image_buffer;
 		else {
-			oclr_error("unknown buffer object!");
+			log_error("unknown buffer object!");
 			return;
 		}
 		queues[&active_device->device]->enqueueUnmapMemObject(*(cl::Memory*)buffer_ptr, map_ptr);
@@ -2423,17 +2310,17 @@ void opencl::set_active_device(const opencl_base::DEVICE_TYPE& dev) {
 	}
 	
 	if(active_device != nullptr) {
-		oclr_error("can't use device %u - keeping current one (%u)!", dev, active_device->type);
+		log_error("can't use device %u - keeping current one (%u)!", dev, active_device->type);
 	}
 	else {
 		// try to use _any_ device if there is at least one available ...
 		if(!devices.empty()) {
 			active_device = devices[0];
-			oclr_error("can't use device %u (doesn't exist or isn't available) - using %s (%u) instead!",
+			log_error("can't use device %u (doesn't exist or isn't available) - using %s (%u) instead!",
 					   dev, active_device->name, active_device->type);
 		}
 		else {
-			oclr_error("can't use device %u and no other device is currently available!", dev);
+			log_error("can't use device %u and no other device is currently available!", dev);
 		}
 	}
 }

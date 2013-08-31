@@ -43,12 +43,12 @@ template<> struct std_protocol<tcp::socket> {
 		boost::asio::connect(socket, endpoint_iterator, ec);
 		
 		if(ec) {
-			unibot_error("socket connection error: %s", ec.message());
+			log_error("socket connection error: %s", ec.message());
 			valid = false;
 			return false;
 		}
 		if(!socket.is_open()) {
-			unibot_error("couldn't open socket!");
+			log_error("couldn't open socket!");
 			valid = false;
 			return false;
 		}
@@ -65,7 +65,7 @@ template<> struct std_protocol<tcp::socket> {
 		boost::system::error_code ec;
 		auto data_received = socket.receive(boost::asio::buffer(data, max_len), 0, ec);
 		if(ec) {
-			unibot_error("error while receiving data: %s", ec.message());
+			log_error("error while receiving data: %s", ec.message());
 			valid = false;
 			return 0;
 		}
@@ -81,12 +81,12 @@ template<> struct std_protocol<tcp::socket> {
 		boost::system::error_code ec;
 		const auto data_sent = boost::asio::write(socket, boost::asio::buffer(data, len), ec);
 		if(ec) {
-			unibot_error("error while sending data: %s", ec.message());
+			log_error("error while sending data: %s", ec.message());
 			valid = false;
 			return false;
 		}
 		if(data_sent != (size_t)len) {
-			unibot_error("error while sending data: sent data length (%u) != requested data length (%u)!",
+			log_error("error while sending data: sent data length (%u) != requested data length (%u)!",
 						 data_sent, len);
 			valid = false;
 			return false;

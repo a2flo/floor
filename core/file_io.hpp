@@ -19,7 +19,7 @@
 #ifndef __FLOOR_FILE_IO_HPP__
 #define __FLOOR_FILE_IO_HPP__
 
-#include "floor/floor.hpp"
+#include "core/platform.hpp"
 
 /*! @class file_io
  *  @brief file input/output

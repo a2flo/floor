@@ -155,7 +155,7 @@ const int& cudacl_exception::code() const throw () {
 #define __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_START_EXT(func_str, "")
 #define __HANDLE_CL_EXCEPTION_START_EXT(func_str, additional_info)				\
 catch(cudacl_exception err) {													\
-	oclr_error("line #%s, " func_str "(): %s (%d)%s!",							\
+	log_error("line #%s, " func_str "(): %s (%d)%s!",							\
 			  __LINE__, err.what(), err.code(), additional_info);
 #define __HANDLE_CL_EXCEPTION_END }
 #define __HANDLE_CL_EXCEPTION(func_str) __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_END
@@ -167,7 +167,7 @@ catch(cudacl_exception err) {													\
 	/* check if call was successful, or if cuda is already shutting down, */	\
 	/* in which case we just pretend nothing happened and continue ...    */	\
 	if(_cu_err != CUDA_SUCCESS && _cu_err != CUDA_ERROR_DEINITIALIZED) {		\
-		oclr_error("cuda driver error #%i: %s (%s)",							\
+		log_error("cuda driver error #%i: %s (%s)",							\
 				  _cu_err, error_code_to_string(_cu_err), #_CUDA_CALL);			\
 		throw cudacl_exception(CL_OUT_OF_RESOURCES, "cuda driver error");		\
 	}																			\
@@ -204,7 +204,7 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 	CUresult cu_err = CUDA_SUCCESS;
 	cu_err = cuInit(0);
 	if(cu_err != CUDA_SUCCESS) {
-		oclr_error("failed to initialize CUDA: %i", cu_err);
+		log_error("failed to initialize CUDA: %i", cu_err);
 		valid = false;
 	}
 	
@@ -212,18 +212,18 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 	int driver_version = 0;
 	cuDriverGetVersion(&driver_version);
 	if(driver_version < 5050) {
-		oclr_error("floor requires at least CUDA 5.5!");
+		log_error("floor requires at least CUDA 5.5!");
 		valid = false;
 	}
 	
 	//
 	int device_count = 0;
 	if(cuDeviceGetCount(&device_count) != CUDA_SUCCESS) {
-		oclr_error("cuDeviceGetCount failed!");
+		log_error("cuDeviceGetCount failed!");
 		valid = false;
 	}
 	if(device_count == 0) {
-		oclr_error("there is no device that supports CUDA!");
+		log_error("there is no device that supports CUDA!");
 		valid = false;
 	}
 	if(!valid) {
@@ -240,7 +240,7 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 		if(cache_file.first.find(".") != string::npos) continue;
 		// all remaining files don't have a file extension -> must be cache files
 		if(cache_file.first.size() != 32) {
-			oclr_error("invalid cache filename: %s", cache_file.first);
+			log_error("invalid cache filename: %s", cache_file.first);
 			continue;
 		}
 		
@@ -253,7 +253,7 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 }
 
 cudacl::~cudacl() {
-	oclr_debug("deleting cudacl object");
+	log_debug("deleting cudacl object");
 	
 	// delete cl/cuda buffers
 	while(!buffers.empty()) {
@@ -288,7 +288,7 @@ cudacl::~cudacl() {
 	}
 	devices.clear();
 	
-	oclr_debug("cudacl object deleted");
+	log_debug("cudacl object deleted");
 }
 
 void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_index floor_unused,
@@ -311,7 +311,7 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			CUdevice& cuda_device = *cuda_dev;
 			CUresult cu_err = cuDeviceGet(cuda_dev, cur_device);
 			if(cu_err != CUDA_SUCCESS) {
-				oclr_error("failed to get device #%i: %i", cur_device, cu_err);
+				log_error("failed to get device #%i: %i", cur_device, cu_err);
 				delete cuda_dev;
 				continue;
 			}
@@ -323,7 +323,7 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			pair<int, int> cc;
 			CU(cuDeviceComputeCapability(&cc.first, &cc.second, cuda_device));
 			if(cc.first < 2) {
-				oclr_error("unsupported cuda device \"%s\": at least compute capability 2.0 is required (has %u.%u)!",
+				log_error("unsupported cuda device \"%s\": at least compute capability 2.0 is required (has %u.%u)!",
 						   dev_name, cc.first, cc.second);
 				delete cuda_dev;
 				continue;
@@ -333,7 +333,7 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			// get all attributes
 			switch(cc.first) {
 				case 0:
-					oclr_error("invalid compute capability: %u.%u", cc.first, cc.second);
+					log_error("invalid compute capability: %u.%u", cc.first, cc.second);
 					break;
 				case 1:
 					switch(cc.second) {
@@ -487,23 +487,23 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			devices.push_back(device);
 			
 			// additional info
-			oclr_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+			log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
 					 device->mem_size / 1024ULL / 1024ULL,
 					 device->local_mem_size / 1024ULL,
 					 device->constant_mem_size / 1024ULL);
-			oclr_msg("host unified memory: %u", unified_memory);
-			oclr_msg("max_wi_sizes: %v", device->max_wi_sizes);
-			oclr_msg("max_wg_size: %u", device->max_wg_size);
-			oclr_msg("double support: %b", device->double_support);
+			log_msg("host unified memory: %u", unified_memory);
+			log_msg("max_wi_sizes: %v", device->max_wi_sizes);
+			log_msg("max_wg_size: %u", device->max_wg_size);
+			log_msg("double support: %b", device->double_support);
 			size_t printf_buffer_size = 0;
 			cuCtxGetLimit(&printf_buffer_size, CU_LIMIT_PRINTF_FIFO_SIZE);
-			oclr_msg("printf buffer size: %u bytes / %u MB",
+			log_msg("printf buffer size: %u bytes / %u MB",
 					 printf_buffer_size,
 					 printf_buffer_size / 1024ULL / 1024ULL);
 			
 			// TYPE (Units: %, Clock: %): Name, Vendor, Version, Driver Version
 			const string dev_type_str = "GPU ";
-			oclr_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s",
+			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s",
 					  dev_type_str,
 					  device->units,
 					  device->clock,
@@ -516,7 +516,7 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 		
 		// no supported devices found -> disable opencl/cudacl support
 		if(devices.empty()) {
-			oclr_error("no supported device found for this platform!");
+			log_error("no supported device found for this platform!");
 			supported = false;
 			return;
 		}
@@ -533,54 +533,36 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 		}
 		CU(cuCtxSetCurrent(*cuda_contexts[cuda_devices[0]]));
 		
-		if(fastest_gpu != nullptr) oclr_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
+		if(fastest_gpu != nullptr) log_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
 		
 		// compile internal kernels
 		//size_t local_size_limit = std::max((size_t)512, devices[0]->max_wg_size); // default to 512
 		//const string lsl_str = " -DLOCAL_SIZE_LIMIT="+size_t2string(local_size_limit);
 		
+		// TODO: "external" lib internal kernels
+		
 		internal_kernels = { // first time init:
-			make_tuple("BIN_RASTERIZE", "bin_rasterize.cl", "oclraster_bin",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)),
-			
-			make_tuple("PROCESSING.PERSPECTIVE", "processing.cl", "oclraster_processing",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)+
-					   " -DOCLRASTER_PROJECTION_PERSPECTIVE"),
-			
-			make_tuple("PROCESSING.ORTHOGRAPHIC", "processing.cl", "oclraster_processing",
-					   " -DBIN_SIZE="+uint2string(OCLRASTER_BIN_SIZE)+
-					   " -DBATCH_SIZE="+uint2string(OCLRASTER_BATCH_SIZE)+
-					   " -DOCLRASTER_PROJECTION_ORTHOGRAPHIC"),
-			
-#if defined(OCLRASTER_FXAA)
-			make_tuple("FXAA.LUMA", "luma_pass.cl", "framebuffer_luma", ""),
-			make_tuple("FXAA", "fxaa_pass.cl", "framebuffer_fxaa", ""),
-#endif
 		};
 		
 		load_internal_kernels();
 	}
 	catch(cudacl_exception& exc) {
-		oclr_error("failed to initialize cuda: %X: %s!", exc.code(), exc.what());
+		log_error("failed to initialize cuda: %X: %s!", exc.code(), exc.what());
 		supported = false;
 		valid = false;
 	}
 }
 
 weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identifier, const string& src, const string& func_name, const string additional_options) {
-	oclr_debug("compiling \"%s\" kernel!", identifier);
+	log_debug("compiling \"%s\" kernel!", identifier);
 	
 	//
 	string options = build_options;
 	
-	// just define this everywhere to make using image support
-	// easier without having to specify this every time
-	options += " -DOCLRASTER_IMAGE_HEADER_SIZE="+size_t2string(image::header_size());
-	
-	// the same goes for the general struct alignment
+	// just define this everywhere:
 	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
+	
+	// TODO: consolidate with opencl! also: external lib defines
 	
 	// user options
 	options += additional_options;
@@ -588,7 +570,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 	string error_log = "", build_cmd = "";
 	try {
 		if(kernels.count(identifier) != 0) {
-			oclr_error("kernel \"%s\" already exists!", identifier);
+			log_error("kernel \"%s\" already exists!", identifier);
 			return kernels[identifier];
 		}
 		
@@ -613,7 +595,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			if(iter == cuda_cache_hashes.end()) return false;
 			if(iter->first == hash) return true;
 			// else: ouch, collision
-			oclr_error("cuda cache hash collision");
+			log_error("cuda cache hash collision");
 			cuda_cache_hashes.reserve(cuda_cache_hashes.size() * 4);
 			return false;
 		});
@@ -634,7 +616,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			const auto cache_iter = cuda_cache_binaries.find(kernel_hash);
 			if(cache_iter != cuda_cache_binaries.end()) {
 				ptx_code = cache_iter->second;
-				oclr_debug("using cached binary for \"%s\"!", identifier);
+				log_debug("using cached binary for \"%s\"!", identifier);
 				
 				// add entry for this identifier if there isn't one already
 				bool found_entry = false;
@@ -653,11 +635,11 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			// if not, read the file
 			else {
 				if(!file_io::file_to_string(cache_path + hash_filename, ptx_code)) {
-					oclr_error("couldn't read cached binary \"%s\" for \"%s\"!", hash_filename, identifier);
+					log_error("couldn't read cached binary \"%s\" for \"%s\"!", hash_filename, identifier);
 					found_in_cache = false; // compile the code
 				}
 				else {
-					oclr_debug("using cached binary for \"%s\"!", identifier);
+					log_debug("using cached binary for \"%s\"!", identifier);
 					cuda_cache_binaries.emplace(kernel_hash, ptx_code);
 				}
 			}
@@ -683,7 +665,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			// TODO: cleanup if keep flag is not set!
 			
 			if(!info_log.empty()) {
-				oclr_debug("%s info log:\n%s", identifier, info_log);
+				log_debug("%s info log:\n%s", identifier, info_log);
 			}
 			if(!error_log.empty()) {
 				throw cudacl_exception("error during kernel compilation!");
@@ -692,7 +674,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			// if compiled binaries should be cached
 			if(keep_binaries) {
 				if(!file_io::string_to_file(cache_path + hash_filename, ptx_code)) {
-					oclr_error("couldn't cache binary \"%s\" for \"%s\"!", hash_filename, identifier);
+					log_error("couldn't cache binary \"%s\" for \"%s\"!", hash_filename, identifier);
 				}
 			}
 			cuda_cache_hashes.emplace(kernel_hash, identifier);
@@ -757,8 +739,8 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 	}
 	__HANDLE_CL_EXCEPTION_START("add_kernel")
 		// print out build log and build options
-		oclr_error("error log (%s): %s", identifier, error_log);
-		oclr_error("build command (%s): %s", identifier, build_cmd);
+		log_error("error log (%s): %s", identifier, error_log);
+		log_error("build command (%s): %s", identifier, build_cmd);
 	__HANDLE_CL_EXCEPTION_END
 	
 	return kernels[identifier];
@@ -780,7 +762,7 @@ void cudacl::delete_kernel(weak_ptr<opencl::kernel_object> kernel_obj) {
 	
 	const auto iter = cuda_kernels.find(kernel_ptr);
 	if(iter == cuda_kernels.end()) {
-		oclr_error("couldn't find cuda kernel object!");
+		log_error("couldn't find cuda kernel object!");
 		return;
 	}
 	delete iter->second;
@@ -791,14 +773,14 @@ void cudacl::delete_kernel(weak_ptr<opencl::kernel_object> kernel_obj) {
 			kernel_object::unassociate_buffers(kernel_ptr);
 			kernels.erase(kernel.first);
 			if(kernel_ptr.use_count() > 1) {
-				oclr_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
+				log_error("kernel object (%X) use count > 1 (%u) - kernel object is still used somewhere!",
 						   kernel_ptr.get(), kernel_ptr.use_count());
 			}
 			return; // implicit delete of kernel_ptr and the kernel_object
 		}
 	}
 	
-	oclr_error("couldn't find kernel object!");
+	log_error("couldn't find kernel object!");
 }
 
 void cudacl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) {
@@ -915,15 +897,15 @@ opencl_base::buffer_object* cudacl::create_sub_buffer(const buffer_object* paren
 													  const size_t offset,
 													  const size_t size) {
 	if(parent_buffer == nullptr || parent_buffer->image_type != buffer_object::IMAGE_TYPE::IMAGE_NONE) {
-		oclr_error("invalid buffer object!");
+		log_error("invalid buffer object!");
 		return nullptr;
 	}
 	if(size == 0 || size > parent_buffer->size) {
-		oclr_error("invalid size (%u) - must be > 0 and <= buffer size (%u)!", size, parent_buffer->size);
+		log_error("invalid size (%u) - must be > 0 and <= buffer size (%u)!", size, parent_buffer->size);
 		return nullptr;
 	}
 	if(offset >= parent_buffer->size || (size+offset) > parent_buffer->size) {
-		oclr_error("invalid offset (%u) - offset must be < buffer size (%u) and offset+size (%u) must be <= buffer size (%u)!",
+		log_error("invalid offset (%u) - offset must be < buffer size (%u) and offset+size (%u) must be <= buffer size (%u)!",
 				   size, parent_buffer->size, size+offset, parent_buffer->size);
 		return nullptr;
 	}
@@ -1104,7 +1086,7 @@ void cudacl::write_buffer(opencl_base::buffer_object* buffer_obj, const void* sr
 	size_t write_size = size;
 	if(write_size == 0) {
 		if(buffer_obj->size == 0) {
-			oclr_error("can't write 0 bytes (size of 0)!");
+			log_error("can't write 0 bytes (size of 0)!");
 			return;
 		}
 		else write_size = buffer_obj->size;
@@ -1112,12 +1094,12 @@ void cudacl::write_buffer(opencl_base::buffer_object* buffer_obj, const void* sr
 	
 	size_t write_offset = offset;
 	if(write_offset >= buffer_obj->size) {
-		oclr_error("write offset (%d) out of bound!", write_offset);
+		log_error("write offset (%d) out of bound!", write_offset);
 		return;
 	}
 	
 	if(write_offset+write_size > buffer_obj->size) {
-		oclr_error("write offset (%d) or write size (%d) is too big - using write size of (%d) instead!",
+		log_error("write offset (%d) or write size (%d) is too big - using write size of (%d) instead!",
 				  write_offset, write_size, (buffer_obj->size - write_offset));
 		write_size = buffer_obj->size - write_offset;
 	}
@@ -1256,14 +1238,14 @@ void* __attribute__((aligned(128))) cudacl::map_buffer(opencl_base::buffer_objec
 		
 		if((access_type & MAP_BUFFER_FLAG::READ_WRITE) != MAP_BUFFER_FLAG::NONE &&
 		   (access_type & MAP_BUFFER_FLAG::WRITE_INVALIDATE) != MAP_BUFFER_FLAG::NONE) {
-			oclr_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
+			log_error("READ or WRITE access and WRITE_INVALIDATE are mutually exclusive!");
 			return nullptr;
 		}
 		
 		size_t map_size = size;
 		if(map_size == 0) {
 			if(buffer_obj->size == 0) {
-				oclr_error("can't map 0 bytes (size of 0)!");
+				log_error("can't map 0 bytes (size of 0)!");
 				return nullptr;
 			}
 			else map_size = buffer_obj->size;
@@ -1271,11 +1253,11 @@ void* __attribute__((aligned(128))) cudacl::map_buffer(opencl_base::buffer_objec
 		
 		size_t map_offset = offset;
 		if(map_offset >= buffer_obj->size) {
-			oclr_error("map offset (%d) out of bound!", map_offset);
+			log_error("map offset (%d) out of bound!", map_offset);
 			return nullptr;
 		}
 		if(map_offset+map_size > buffer_obj->size) {
-			oclr_error("map offset (%d) or map size (%d) is too big - using map size of (%d) instead!",
+			log_error("map offset (%d) or map size (%d) is too big - using map size of (%d) instead!",
 					   map_offset, map_size, (buffer_obj->size - map_offset));
 			map_size = buffer_obj->size - map_offset;
 		}
@@ -1327,7 +1309,7 @@ void* __attribute__((aligned(128))) cudacl::map_buffer(opencl_base::buffer_objec
 		}
 		else {
 			// image
-			oclr_error("use map_image to map an image buffer object!");
+			log_error("use map_image to map an image buffer object!");
 			return nullptr;
 		}
 		return map_ptr;
@@ -1365,7 +1347,7 @@ void cudacl::unmap_buffer(opencl_base::buffer_object* buffer_obj, void* map_ptr)
 			// unmap buffer
 			const auto map_iter = cuda_mem_mappings.find(map_ptr);
 			if(map_iter == cuda_mem_mappings.end()) {
-				oclr_error("map_ptr is not a valid memory mapping pointer!");
+				log_error("map_ptr is not a valid memory mapping pointer!");
 				return;
 			}
 			
@@ -1398,11 +1380,11 @@ void cudacl::_fill_buffer(buffer_object* buffer_obj,
 						  const size_t size) {
 	//
 	if((offset % pattern_size) != 0) {
-		oclr_error("offset must be a multiple of pattern_size!");
+		log_error("offset must be a multiple of pattern_size!");
 		return;
 	}
 	if((size % pattern_size) != 0) {
-		oclr_error("size must be a multiple of pattern_size!");
+		log_error("size must be a multiple of pattern_size!");
 		return;
 	}
 	
@@ -1410,7 +1392,7 @@ void cudacl::_fill_buffer(buffer_object* buffer_obj,
 	size_t fill_size = size;
 	if(fill_size == 0) {
 		if(buffer_obj->size == 0) {
-			oclr_error("can't fill 0 byte buffer (size of 0)!");
+			log_error("can't fill 0 byte buffer (size of 0)!");
 			return;
 		}
 		else fill_size = buffer_obj->size;
@@ -1418,11 +1400,11 @@ void cudacl::_fill_buffer(buffer_object* buffer_obj,
 	
 	size_t fill_offset = offset;
 	if(fill_offset >= buffer_obj->size) {
-		oclr_error("fill offset (%d) out of bound!", fill_offset);
+		log_error("fill offset (%d) out of bound!", fill_offset);
 		return;
 	}
 	if(fill_offset+fill_size > buffer_obj->size) {
-		oclr_error("fill offset (%d) or fill size (%d) is too big - using fill size of (%d) instead!",
+		log_error("fill offset (%d) or fill size (%d) is too big - using fill size of (%d) instead!",
 				   fill_offset, fill_size, (buffer_obj->size - fill_offset));
 		fill_size = buffer_obj->size - fill_offset;
 	}
@@ -1461,7 +1443,7 @@ void cudacl::_fill_buffer(buffer_object* buffer_obj,
 void cudacl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 	auto kernel_ptr = kernel_obj.lock();
 	if(kernel_ptr == nullptr) {
-		oclr_error("invalid kernel object (nullptr)!");
+		log_error("invalid kernel object (nullptr)!");
 		return;
 	}
 	
@@ -1469,7 +1451,7 @@ void cudacl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 		bool all_set = true;
 		for(unsigned int i = 0; i < kernel_ptr->args_passed.size(); i++) {
 			if(!kernel_ptr->args_passed[i]) {
-				oclr_error("argument #%u not set!", i);
+				log_error("argument #%u not set!", i);
 				all_set = false;
 			}
 		}

@@ -21,6 +21,7 @@
 #include <libxml/catalog.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+#include "floor/floor.hpp"
 
 /*! create and initialize the xml class
  */
@@ -40,7 +41,7 @@ xml::xml() {
 					 BAD_CAST "-//FLOOR//DTD config 1.0//EN",
 					 BAD_CAST (FLOOR_XML_DTD_PATH_PREFIX+floor::data_path("dtd/config.dtd")).c_str()) != 0) {
 		const auto error_ptr = xmlGetLastError();
-		oclr_error("failed to add catalog for config: %s", (error_ptr != nullptr ? error_ptr->message : ""));
+		log_error("failed to add catalog for config: %s", (error_ptr != nullptr ? error_ptr->message : ""));
 	}
 }
 
@@ -50,7 +51,7 @@ xml::~xml() {
 bool xml::save_file(const xml_doc& doc, const string& filename, const string doc_type) const {
 	//
 	if(!doc.valid) {
-		oclr_error("can't write invalid xml doc!");
+		log_error("can't write invalid xml doc!");
 		return false;
 	}
 	
@@ -65,14 +66,14 @@ bool xml::save_file(const xml_doc& doc, const string& filename, const string doc
 	
 	*writer = xmlNewTextWriterFilename(filename.c_str(), 0);
 	if(*writer == nullptr) {
-		oclr_error("unable to write to file \"%s\"!", filename);
+		log_error("unable to write to file \"%s\"!", filename);
 		close_writer();
 		return false;
 	}
 	
 	if(xmlTextWriterStartDocument(*writer, nullptr, "UTF-8",
 								  (doc_type.empty() ? nullptr : "no")) < 0) {
-		oclr_error("unable to start document \"%s\"!", filename);
+		log_error("unable to start document \"%s\"!", filename);
 		close_writer();
 		return false;
 	}
@@ -88,7 +89,7 @@ bool xml::save_file(const xml_doc& doc, const string& filename, const string doc
 	for(const auto& node : doc.nodes) {
 		if(!write_node(*node.second, writer, filename, tabs, first_node)) {
 			close_writer();
-			oclr_error("failed to write document \"%s\"!", filename);
+			log_error("failed to write document \"%s\"!", filename);
 			return false;
 		}
 	}
@@ -113,7 +114,7 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 		
 		// start node:
 		if(xmlTextWriterStartElement(*writer, BAD_CAST node.name().c_str()) < 0) {
-			oclr_error("unable to start element \"%s\" in file \"%s\"!",
+			log_error("unable to start element \"%s\" in file \"%s\"!",
 					  node.name(), filename);
 			return false;
 		}
@@ -123,7 +124,7 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 		for(const auto& attr : node.attributes) {
 			if(xmlTextWriterWriteAttribute(*writer, BAD_CAST attr.first.c_str(),
 										   BAD_CAST attr.second.c_str()) < 0) {
-				oclr_error("error while writing attribute \"%s\" in node \"%s\" in file %s!",
+				log_error("error while writing attribute \"%s\" in node \"%s\" in file %s!",
 						  attr.first, node.name(), filename);
 			}
 		}
@@ -136,7 +137,7 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 			bool child_first_node = true;
 			for(const auto& child : node.children) {
 				if(!write_node(*child.second, writer, filename, tabs, child_first_node)) {
-					oclr_error("failed to write node \"%s\"!", child.first);
+					log_error("failed to write node \"%s\"!", child.first);
 					return false;
 				}
 			}
@@ -144,7 +145,7 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 			// content:
 			if(has_conent) {
 				if(xmlTextWriterWriteString(*writer, BAD_CAST node.content().c_str()) < 0) {
-					oclr_error("error while writing content \"%s\" of node \"%s\" in file %s!",
+					log_error("error while writing content \"%s\" of node \"%s\" in file %s!",
 							  node.content(), node.name(), filename);
 				}
 			}
@@ -152,14 +153,14 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 			// end node:
 			xmlTextWriterWriteRaw(*writer, BAD_CAST tab_str.c_str());
 			if(xmlTextWriterEndElement(*writer) < 0) {
-				oclr_error("unable to end element \"%s\" in file \"%s\"!",
+				log_error("unable to end element \"%s\" in file \"%s\"!",
 						  node.name(), filename);
 				return false;
 			}
 		}
 		else {
 			if(xmlTextWriterEndElement(*writer) < 0) {
-				oclr_error("unable to end element \"%s\" in file \"%s\"!",
+				log_error("unable to end element \"%s\" in file \"%s\"!",
 						  node.name(), filename);
 				return false;
 			}
@@ -175,7 +176,7 @@ bool xml::write_node(const xml_node& node, xmlTextWriterPtr* writer, const strin
 		xmlTextWriterWriteComment(*writer, BAD_CAST node.content().c_str());
 	}
 	else {
-		oclr_error("unknown node type \"%s\" in file \"%s\"!", node.name(), filename);
+		log_error("unknown node type \"%s\" in file \"%s\"!", node.name(), filename);
 		return false;
 	}
 	xmlTextWriterWriteRaw(*writer, (const xmlChar*)"\n");
@@ -188,7 +189,7 @@ xml::xml_doc xml::process_file(const string& filename, const bool validate) cons
 	// read/parse/validate
 	xmlParserCtxtPtr ctx = xmlNewParserCtxt();
 	if(ctx == nullptr) {
-		oclr_error("failed to allocate parser context for \"%s\"!", filename);
+		log_error("failed to allocate parser context for \"%s\"!", filename);
 		doc.valid = false;
 		return doc;
 	}
@@ -196,14 +197,14 @@ xml::xml_doc xml::process_file(const string& filename, const bool validate) cons
 	xmlDocPtr xmldoc = xmlCtxtReadFile(ctx, filename.c_str(), nullptr,
 									   (validate ? XML_PARSE_DTDLOAD | XML_PARSE_DTDVALID : 0));
 	if(xmldoc == nullptr) {
-		oclr_error("failed to parse \"%s\"!", filename);
+		log_error("failed to parse \"%s\"!", filename);
 		doc.valid = false;
 		return doc;
 	}
 	else {
 		if(ctx->valid == 0) {
 			xmlFreeDoc(xmldoc);
-			oclr_error("failed to validate \"%s\"!", filename);
+			log_error("failed to validate \"%s\"!", filename);
 			doc.valid = false;
 			return doc;
 		}
@@ -226,7 +227,7 @@ xml::xml_doc xml::process_data(const string& data, const bool validate) const {
 	// read/parse/validate
 	xmlParserCtxtPtr ctx = xmlNewParserCtxt();
 	if(ctx == nullptr) {
-		oclr_error("failed to allocate parser context!");
+		log_error("failed to allocate parser context!");
 		doc.valid = false;
 		return doc;
 	}
@@ -234,14 +235,14 @@ xml::xml_doc xml::process_data(const string& data, const bool validate) const {
 	xmlDocPtr xmldoc = xmlCtxtReadDoc(ctx, (const xmlChar*)data.c_str(), floor::data_path("dtd/shader.xml").c_str(), nullptr,
 									  (validate ? XML_PARSE_DTDLOAD | XML_PARSE_DTDVALID : 0));
 	if(xmldoc == nullptr) {
-		oclr_error("failed to parse data!");
+		log_error("failed to parse data!");
 		doc.valid = false;
 		return doc;
 	}
 	else {
 		if(ctx->valid == 0) {
 			xmlFreeDoc(xmldoc);
-			oclr_error("failed to validate data!");
+			log_error("failed to validate data!");
 			doc.valid = false;
 			return doc;
 		}

@@ -20,6 +20,7 @@
 
 #include "cudacl_translator.hpp"
 #include "core/core.hpp"
+#include "core/gl_support.hpp"
 #include "floor/floor.hpp"
 #include "core/timer.hpp"
 #include <regex>
