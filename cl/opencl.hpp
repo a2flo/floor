@@ -421,14 +421,28 @@ public:
 		return kernel_path_str + file_name;
 	}
 	
+	// identifier -> { file_name, func_name, options }
+	struct internal_kernel_info {
+		string identifier;
+		string filename;
+		string func_name;
+		string options;
+	};
+	void add_internal_kernels(const vector<internal_kernel_info>& internal_kernels);
+	void remove_internal_kernels(const vector<string>& identifiers);
+	
+	//
+	void add_global_kernel_defines(const string& defines);
+	
 protected:
 	SDL_Window* sdl_wnd;
 	bool supported = true;
 	bool full_double_support = false;
 	
-	string build_options;
-	string nv_build_options;
-	string kernel_path_str;
+	string build_options { "" };
+	string nv_build_options { "" };
+	string global_defines { "" };
+	string kernel_path_str { "" };
 	
 	virtual buffer_object* create_buffer_object(const BUFFER_FLAG type, const void* data = nullptr) = 0;
 	void load_internal_kernels();
@@ -465,8 +479,7 @@ protected:
 	
 	unordered_map<const cl::Device*, cl::CommandQueue*> queues;
 	
-	// identifier -> <file_name, func_name, options>
-	vector<tuple<string, string, string, string>> internal_kernels;
+	vector<internal_kernel_info> internal_kernels;
 	
 };
 

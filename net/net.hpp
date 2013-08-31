@@ -117,7 +117,7 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 				memset(receive_data, 0, PACKET_MAX_LEN);
 				len = receive_packet(receive_data, PACKET_MAX_LEN);
 				if(len <= 0) {
-					// failure, end bot
+					// failure, kill this object/thread
 					throw exception();
 				}
 				else {

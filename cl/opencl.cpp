@@ -219,11 +219,11 @@ void opencl_base::reload_kernels() {
 	successful_internal_compilation = true;
 	
 	for(const auto& int_kernel : internal_kernels) {
-		check_compilation(add_kernel_file(get<0>(int_kernel),
-										  make_kernel_path(get<1>(int_kernel)),
-										  get<2>(int_kernel),
-										  get<3>(int_kernel)).use_count() > 0,
-						  get<1>(int_kernel));
+		check_compilation(add_kernel_file(int_kernel.identifier,
+										  make_kernel_path(int_kernel.filename),
+										  int_kernel.func_name,
+										  int_kernel.options).use_count() > 0,
+						  int_kernel.filename);
 	}
 	kernels_lock.unlock();
 	
@@ -486,6 +486,28 @@ void opencl_base::dump_buffer(buffer_object* buffer_obj,
 	
 	dump_file.close();
 	unmap_buffer(buffer_obj, data_ptr);
+}
+
+void opencl_base::add_internal_kernels(const vector<internal_kernel_info>& internal_kernels_) {
+	internal_kernels.insert(internal_kernels.end(),
+							internal_kernels_.begin(), internal_kernels_.end());
+	load_internal_kernels();
+}
+
+void opencl_base::remove_internal_kernels(const vector<string>& identifiers) {
+	for(auto iter = internal_kernels.begin(); iter != internal_kernels.end(); iter++) {
+		if(std::find(begin(identifiers), end(identifiers), iter->identifier) != end(identifiers)) {
+			// remove
+			iter = internal_kernels.erase(iter);
+			
+			// TODO: actually delete the kernel object? (need to take care of duplicates)
+		}
+	}
+}
+
+void opencl_base::add_global_kernel_defines(const string& defines) {
+	global_defines += " "; // just to be safe
+	global_defines += defines;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1017,7 +1039,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 					   dev_type_str,
 					   device->units,
 					   device->clock,
-					   (unsigned int)(device->mem_size / 1024ul / 1024ul),
+					   (unsigned int)(device->mem_size / 1024ull / 1024ull),
 					   device->vendor,
 					   device->name,
 					   device->version,
@@ -1054,8 +1076,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		if(fastest_cpu != nullptr) log_debug("fastest CPU device: %s %s (score: %u)", fastest_cpu->vendor.c_str(), fastest_cpu->name.c_str(), fastest_cpu_score);
 		if(fastest_gpu != nullptr) log_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
 		
-		// compile internal kernels
-		// TODO: "external" lib internal kernels
+		// compile internal kernels (there are no built-in ones currently)
 		internal_kernels = {
 		};
 		
@@ -1202,7 +1223,8 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 	// just define this everywhere:
 	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
 	
-	// TODO: external lib defines
+	// external lib defines
+	options += global_defines;
 	
 	try {
 		if(!additional_options.empty()) {
