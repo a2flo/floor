@@ -170,7 +170,7 @@ void floor::init(const char* callpath_, const char* datapath_) {
 	event_handler_fnctr = new event::handler(&floor::event_handler);
 	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
-	// print out oclraster info
+	// print out floor info
 	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
 	
 	// load config
@@ -216,7 +216,7 @@ void floor::init(const char* callpath_, const char* datapath_) {
 }
 
 void floor::destroy() {
-	log_debug("destroying oclraster ...");
+	log_debug("destroying floor ...");
 	
 	acquire_context();
 	
@@ -234,7 +234,7 @@ void floor::destroy() {
 	
 	release_context();
 
-	log_debug("oclraster destroyed!");
+	log_debug("floor destroyed!");
 	
 	SDL_GL_DeleteContext(config.ctx);
 	SDL_DestroyWindow(config.wnd);
@@ -244,7 +244,7 @@ void floor::destroy() {
 }
 
 void floor::init_internal() {
-	log_debug("initializing oclraster");
+	log_debug("initializing floor");
 
 	// initialize sdl
 	if(SDL_Init(SDL_INIT_VIDEO) == -1) {
@@ -310,9 +310,9 @@ void floor::init_internal() {
 
 	// create screen
 #if !defined(FLOOR_IOS)
-	config.wnd = SDL_CreateWindow("oclraster", windows_pos.x, windows_pos.y, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+	config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (unsigned int)config.width, (unsigned int)config.height, config.flags);
 #else
-	config.wnd = SDL_CreateWindow("oclraster", 0, 0, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+	config.wnd = SDL_CreateWindow("floor", 0, 0, (unsigned int)config.width, (unsigned int)config.height, config.flags);
 #endif
 	if(config.wnd == nullptr) {
 		log_error("can't create window: %s", SDL_GetError());

@@ -80,7 +80,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		5C10915E17D114BC007F536E /* libfloor.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libfloor.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		5C10915E17D114BC007F536E /* libfloord.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libfloord.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C10916617D1153E007F536E /* cl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cl.hpp; sourceTree = "<group>"; };
 		5C10916717D1153E007F536E /* opencl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl.cpp; sourceTree = "<group>"; };
 		5C10916817D1153E007F536E /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl.hpp; sourceTree = "<group>"; };
@@ -184,7 +184,7 @@
 		5C10915F17D114BC007F536E /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5C10915E17D114BC007F536E /* libfloor.dylib */,
+				5C10915E17D114BC007F536E /* libfloord.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -420,7 +420,7 @@
 			);
 			name = floor;
 			productName = floor;
-			productReference = 5C10915E17D114BC007F536E /* libfloor.dylib */;
+			productReference = 5C10915E17D114BC007F536E /* libfloord.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
@@ -522,9 +522,10 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
-				CONFIGURATION_BUILD_DIR = ../bin;
+				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 0.1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
 				DYLIB_COMPATIBILITY_VERSION = 0.1;
 				DYLIB_CURRENT_VERSION = 0.1;
 				GCC_C_LANGUAGE_STANDARD = c11;
@@ -541,6 +542,7 @@
 					"TCC_LIB_ONLY=1",
 					"FLOOR_CUDA_CL=1",
 					PLATFORM_X64,
+					"FLOOR_NET_PROTOCOL=TCP_protocol",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_UNROLL_LOOPS = YES;
@@ -640,7 +642,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
-				CONFIGURATION_BUILD_DIR = ../bin;
+				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = YES;
 				CURRENT_PROJECT_VERSION = 0.1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -658,6 +660,7 @@
 					"TCC_LIB_ONLY=1",
 					"FLOOR_CUDA_CL=1",
 					PLATFORM_X64,
+					"FLOOR_NET_PROTOCOL=TCP_protocol",
 				);
 				GCC_UNROLL_LOOPS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
@@ -737,16 +740,12 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				EXECUTABLE_PREFIX = lib;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
 		};
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				EXECUTABLE_PREFIX = lib;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};

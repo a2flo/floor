@@ -21,7 +21,7 @@
 
 #if defined(__APPLE__)
 
-#if !defined(OCLRASTER_IOS)
+#if !defined(FLOOR_IOS)
 #include <OpenGL/gl3.h>
 #include <OpenGL/gl3ext.h>
 
@@ -101,7 +101,7 @@ void init_gl_funcs();
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
 
-#if !defined(OCLRASTER_USE_DRAW_PIXELS)
+#if !defined(FLOOR_USE_DRAW_PIXELS)
 
 //
 OGL_API extern PFNGLISRENDERBUFFERPROC _glIsRenderbuffer_ptr; // ARB_framebuffer_object

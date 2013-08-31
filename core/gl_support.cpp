@@ -22,7 +22,7 @@
 #include "core/logger.h"
 
 // no need to get any fbo function pointers if glDrawPixels is used
-#if !defined(OCLRASTER_USE_DRAW_PIXELS)
+#if !defined(FLOOR_USE_DRAW_PIXELS)
 
 #if defined(__WINDOWS__) || defined(WIN_UNIXENV)
 #define glGetProcAddress(x) wglGetProcAddress(x)
@@ -113,24 +113,24 @@ void init_gl_funcs() {
 	if(_glBlitFramebuffer_ptr == nullptr) _glBlitFramebuffer_ptr = (PFNGLBLITFRAMEBUFFERPROC)glGetProcAddress((ProcType)"glBlitFramebufferEXT"); // EXT_framebuffer_blit
 	
 	// check gl function pointers (print error if nullptr)
-	if(_glIsRenderbuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glIsRenderbuffer\"!");
-	if(_glBindRenderbuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glBindRenderbuffer\"!");
-	if(_glDeleteRenderbuffers_ptr == nullptr) oclr_error("couldn't get function pointer to \"glDeleteRenderbuffers\"!");
-	if(_glGenRenderbuffers_ptr == nullptr) oclr_error("couldn't get function pointer to \"glGenRenderbuffers\"!");
-	if(_glRenderbufferStorage_ptr == nullptr) oclr_error("couldn't get function pointer to \"glRenderbufferStorage\"!");
-	if(_glGetRenderbufferParameteriv_ptr == nullptr) oclr_error("couldn't get function pointer to \"glGetRenderbufferParameteriv\"!");
-	if(_glIsFramebuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glIsFramebuffer\"!");
-	if(_glBindFramebuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glBindFramebuffer\"!");
-	if(_glDeleteFramebuffers_ptr == nullptr) oclr_error("couldn't get function pointer to \"glDeleteFramebuffers\"!");
-	if(_glGenFramebuffers_ptr == nullptr) oclr_error("couldn't get function pointer to \"glGenFramebuffers\"!");
-	if(_glCheckFramebufferStatus_ptr == nullptr) oclr_error("couldn't get function pointer to \"glCheckFramebufferStatus\"!");
-	if(_glFramebufferTexture1D_ptr == nullptr) oclr_error("couldn't get function pointer to \"glFramebufferTexture1D\"!");
-	if(_glFramebufferTexture2D_ptr == nullptr) oclr_error("couldn't get function pointer to \"glFramebufferTexture2D\"!");
-	if(_glFramebufferTexture3D_ptr == nullptr) oclr_error("couldn't get function pointer to \"glFramebufferTexture3D\"!");
-	if(_glFramebufferRenderbuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glFramebufferRenderbuffer\"!");
-	if(_glGetFramebufferAttachmentParameteriv_ptr == nullptr) oclr_error("couldn't get function pointer to \"glGetFramebufferAttachmentParameteriv\"!");
-	if(_glGenerateMipmap_ptr == nullptr) oclr_error("couldn't get function pointer to \"glGenerateMipmap\"!");
-	if(_glBlitFramebuffer_ptr == nullptr) oclr_error("couldn't get function pointer to \"glBlitFramebuffer\"!");
+	if(_glIsRenderbuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glIsRenderbuffer\"!");
+	if(_glBindRenderbuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glBindRenderbuffer\"!");
+	if(_glDeleteRenderbuffers_ptr == nullptr) log_error("couldn't get function pointer to \"glDeleteRenderbuffers\"!");
+	if(_glGenRenderbuffers_ptr == nullptr) log_error("couldn't get function pointer to \"glGenRenderbuffers\"!");
+	if(_glRenderbufferStorage_ptr == nullptr) log_error("couldn't get function pointer to \"glRenderbufferStorage\"!");
+	if(_glGetRenderbufferParameteriv_ptr == nullptr) log_error("couldn't get function pointer to \"glGetRenderbufferParameteriv\"!");
+	if(_glIsFramebuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glIsFramebuffer\"!");
+	if(_glBindFramebuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glBindFramebuffer\"!");
+	if(_glDeleteFramebuffers_ptr == nullptr) log_error("couldn't get function pointer to \"glDeleteFramebuffers\"!");
+	if(_glGenFramebuffers_ptr == nullptr) log_error("couldn't get function pointer to \"glGenFramebuffers\"!");
+	if(_glCheckFramebufferStatus_ptr == nullptr) log_error("couldn't get function pointer to \"glCheckFramebufferStatus\"!");
+	if(_glFramebufferTexture1D_ptr == nullptr) log_error("couldn't get function pointer to \"glFramebufferTexture1D\"!");
+	if(_glFramebufferTexture2D_ptr == nullptr) log_error("couldn't get function pointer to \"glFramebufferTexture2D\"!");
+	if(_glFramebufferTexture3D_ptr == nullptr) log_error("couldn't get function pointer to \"glFramebufferTexture3D\"!");
+	if(_glFramebufferRenderbuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glFramebufferRenderbuffer\"!");
+	if(_glGetFramebufferAttachmentParameteriv_ptr == nullptr) log_error("couldn't get function pointer to \"glGetFramebufferAttachmentParameteriv\"!");
+	if(_glGenerateMipmap_ptr == nullptr) log_error("couldn't get function pointer to \"glGenerateMipmap\"!");
+	if(_glBlitFramebuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glBlitFramebuffer\"!");
 }
 #else
 void init_gl_funcs() {}
