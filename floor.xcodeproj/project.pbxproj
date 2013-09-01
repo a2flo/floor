@@ -554,7 +554,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = .;
 				INSTALL_PATH = "@executable_path/../Resources";
-				LD_DYLIB_INSTALL_NAME = "@executable_path/../Resources/$(PRODUCT_NAME).dylib\n";
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib\n";
 				LIBRARY_SEARCH_PATHS = /usr/X11/lib;
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
@@ -671,7 +671,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = .;
 				INSTALL_PATH = "@executable_path/../Resources";
-				LD_DYLIB_INSTALL_NAME = "@executable_path/../Resources/$(PRODUCT_NAME).dylib\n";
+				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib\n";
 				LIBRARY_SEARCH_PATHS = /usr/X11/lib;
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
