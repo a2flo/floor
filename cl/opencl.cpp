@@ -1256,7 +1256,7 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 		
 		// compile for each device independently to add device-specific defines
 		for(const auto& device : devices) {
-			string device_options = "";
+			string device_options = options;
 			switch(device->vendor_type) {
 				case VENDOR::NVIDIA:
 					device_options += nv_build_options;
@@ -1289,7 +1289,9 @@ weak_ptr<opencl::kernel_object> opencl::add_kernel_src(const string& identifier,
 			device_options += " -DLOCAL_MEM_SIZE="+ull2string(device->local_mem_size);
 			if(device->double_support) device_options += " -DFLOOR_DOUBLE_SUPPORT";
 			
-			kernel_ptr->program->build({ device->device }, (options+device_options).c_str());
+			// apparently double+ spaces lead to an "invalid build options" error on some compilers
+			core::find_and_replace(device_options, "  ", " ");
+			kernel_ptr->program->build({ device->device }, device_options.c_str());
 		}
 		
 		kernel_ptr->kernel = new cl::Kernel(*kernel_ptr->program, func_name.c_str(), &ierr);
