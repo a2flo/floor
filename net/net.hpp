@@ -19,19 +19,17 @@
 #ifndef __FLOOR_NET_HPP__
 #define __FLOOR_NET_HPP__
 
-#include "platform.hpp"
-#include "event_handler.hpp"
-#include "net_protocol.hpp"
-#include "net_tcp.hpp"
-#include "config.hpp"
-#include "logger.hpp"
+#include "core/platform.hpp"
+#include "net/net_protocol.hpp"
+#include "net/net_tcp.hpp"
+#include "core/logger.hpp"
 #include "threading/thread_base.hpp"
 
 #define PACKET_MAX_LEN 65536
 
 template <class protocol_policy> class net : public thread_base {
 public:
-	net(config* conf);
+	net();
 	virtual ~net();
 	
 	virtual void run();
@@ -50,7 +48,6 @@ public:
 	virtual protocol_policy& get_protocol();
 
 protected:
-	config* conf;
 	protocol_policy protocol;
 	atomic<bool> connected { false };
 	
@@ -68,8 +65,8 @@ protected:
 	
 };
 
-template <class protocol_policy> net<protocol_policy>::net(config* conf) :
-thread_base(), conf(conf), protocol(), last_packet_remains(""), received_length(0), packets_per_second(0), last_packet_send(0) {
+template <class protocol_policy> net<protocol_policy>::net() :
+thread_base(), protocol(), last_packet_remains(""), received_length(0), packets_per_second(0), last_packet_send(0) {
 	log_debug("net initialized!");
 	this->start(); // start thread
 }
@@ -228,9 +225,10 @@ template <class protocol_policy> void net<protocol_policy>::send_packet(const ch
 	if(!protocol.send(data, len)) {
 		log_error("couldn't send packet!");
 	}
-	else if(conf->get_verbosity() >= logger::LOG_TYPE::DEBUG_MSG) {
+	// TODO: config / verbosity setting
+	/*else if(conf->get_verbosity() >= logger::LOG_TYPE::DEBUG_MSG) {
 		log_debug("send (%i): %s", len, string(data).substr(0, len-1));
-	}
+	}*/
 }
 
 template <class protocol_policy> bool net<protocol_policy>::is_received_data() const {

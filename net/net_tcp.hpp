@@ -19,8 +19,8 @@
 #ifndef __FLOOR_NET_TCP_HPP__
 #define __FLOOR_NET_TCP_HPP__
 
-#include "platform.hpp"
-#include "net_protocol.hpp"
+#include "core/platform.hpp"
+#include "net/net_protocol.hpp"
 
 template<> struct std_protocol<tcp::socket> {
 	std_protocol<tcp::socket>() : io_service(), resolver(io_service), socket(io_service) {

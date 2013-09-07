@@ -19,10 +19,10 @@
 #ifndef __FLOOR_HTTP_NET_HPP__
 #define __FLOOR_HTTP_NET_HPP__
 
-#include "platform.hpp"
-#include "net.hpp"
-#include "net_protocol.hpp"
-#include "net_tcp.hpp"
+#include "core/platform.hpp"
+#include "net/net.hpp"
+#include "net/net_protocol.hpp"
+#include "net/net_tcp.hpp"
 
 // TODO: add events (for received packets and failed requests?)
 template <class protocol_policy> class http_net : public net<protocol_policy> {

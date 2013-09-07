@@ -54,8 +54,14 @@
 #endif
 #endif
 
+#if !defined(ssize_t)
+#define ssize_t SSIZE_T
+#endif
+
 #undef getcwd
 #define getcwd _getcwd
+
+#define setenv(var_name, var_value, x) SetEnvironmentVariable(var_name, var_value)
 
 #pragma warning(disable: 4251)
 #pragma warning(disable: 4290) // unnecessary exception throw warning

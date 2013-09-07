@@ -19,15 +19,14 @@
 #ifndef __FLOOR_IRC_NET_HPP__
 #define __FLOOR_IRC_NET_HPP__
 
-#include "platform.hpp"
-#include "net.hpp"
-#include "net_protocol.hpp"
-#include "net_tcp.hpp"
-#include "config.hpp"
+#include "core/platform.hpp"
+#include "net/net.hpp"
+#include "net/net_protocol.hpp"
+#include "net/net_tcp.hpp"
 
 template <class protocol_policy> class irc_net : public net<protocol_policy> {
 public:
-	irc_net(config* conf);
+	irc_net();
 	virtual ~irc_net() {} 
 	
 	void send(const string& data);
@@ -47,7 +46,6 @@ public:
 	
 protected:
 	// seems like the compiler needs to know about these when using template inheritance
-	using net<protocol_policy>::conf;
 	using net<protocol_policy>::receive_store;
 	using net<protocol_policy>::send_store;
 	using net<protocol_policy>::packets_per_second;
@@ -57,8 +55,7 @@ protected:
 typedef irc_net<FLOOR_NET_PROTOCOL> floor_irc_net;
 
 
-template <class protocol_policy> irc_net<protocol_policy>::irc_net(config* conf) :
-net<protocol_policy>(conf) {
+template <class protocol_policy> irc_net<protocol_policy>::irc_net() : net<protocol_policy>() {
 	packets_per_second = 5;
 	this->set_thread_delay(100); // 100ms should suffice
 }
@@ -113,15 +110,18 @@ template <class protocol_policy> void irc_net<protocol_policy>::send_identify(co
 }
 
 template <class protocol_policy> void irc_net<protocol_policy>::send_channel_msg(const string& msg) {
-	send("PRIVMSG " + conf->get_channel() + " :" + msg);
+	// TODO: config
+	//send("PRIVMSG " + conf->get_channel() + " :" + msg);
 }
 
 template <class protocol_policy> void irc_net<protocol_policy>::send_kick(const string& who, const string& reason) {
-	send("KICK " + conf->get_channel() + " " + who + " :" + reason);
+	// TODO: config
+	//send("KICK " + conf->get_channel() + " " + who + " :" + reason);
 }
 
 template <class protocol_policy> void irc_net<protocol_policy>::part() {
-	send("PART " + conf->get_channel() + " :EOL");
+	// TODO: config
+	//send("PART " + conf->get_channel() + " :EOL");
 }
 
 template <class protocol_policy> void irc_net<protocol_policy>::quit() {
