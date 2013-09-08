@@ -27,7 +27,7 @@
 // TODO: add events (for received packets and failed requests?)
 template <class protocol_policy> class http_net : public net<protocol_policy> {
 public:
-	http_net(config* conf);
+	http_net();
 	virtual ~http_net() {} 
 
 	enum HTTP_STATUS_CODE {
@@ -74,8 +74,8 @@ protected:
 typedef http_net<FLOOR_NET_PROTOCOL> floor_http_net;
 
 
-template <class protocol_policy> http_net<protocol_policy>::http_net(config* conf) :
-net<protocol_policy>(conf), request_timeout(30), server_name(""), server_url("/"), page_data(""), header_read(false), header_end(),
+template <class protocol_policy> http_net<protocol_policy>::http_net() :
+net<protocol_policy>(), request_timeout(30), server_name(""), server_url("/"), page_data(""), header_read(false), header_end(),
 start_time(0), status_code(http_net::SC_NONE), packet_type(http_net::NORMAL), header_length(0), content_length(0) {
 	this->set_thread_delay(20); // 20ms should suffice
 }

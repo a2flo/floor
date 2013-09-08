@@ -377,3 +377,36 @@ float core::rand(const float& min, const float& max) {
 void core::set_random_seed(const unsigned int& seed) {
 	gen.seed(seed);
 }
+
+string core::encode_url(const string& url) {
+	stringstream result;
+	for(auto citer = url.begin(); citer != url.end(); citer++) {
+		switch(*citer) {
+			case '!':
+			case '#':
+			case '$':
+			case ';':
+			case ':':
+			case '=':
+			case '?':
+			case '@':
+				result << *citer;
+				break;
+			default:
+				if((*citer >= 'a' && *citer <= 'z') ||
+				   (*citer >= 'A' && *citer <= 'Z') ||
+				   (*citer >= '0' && *citer <= '9') ||
+				   (*citer >= '&' && *citer <= '*') ||
+				   (*citer >= ',' && *citer <= '/') ||
+				   (*citer >= '[' && *citer <= '`') ||
+				   (*citer >= '{' && *citer <= '~')
+				   ) {
+					result << *citer;
+					break;
+				}
+				result << '%' << uppercase << hex << (*citer & 0xFF);
+				break;
+		}
+	}
+	return result.str();
+}

@@ -96,6 +96,7 @@ public:
 	static void str_to_upper_inplace(string& str);
 	static string str_to_lower(const string& str);
 	static string str_to_upper(const string& str);
+	static string encode_url(const string& url);
 	
 	// folder/path functions
 	static map<string, file_io::FILE_TYPE> get_file_list(const string& directory, const string file_extension = "");

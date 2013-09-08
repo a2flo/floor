@@ -39,7 +39,7 @@ template<> struct std_protocol<tcp::socket> {
 		socket_set = true;
 		
 		boost::system::error_code ec;
-		auto endpoint_iterator = resolver.resolve({ address, to_str(port) });
+		auto endpoint_iterator = resolver.resolve({ address, uint2string(port) });
 		boost::asio::connect(socket, endpoint_iterator, ec);
 		
 		if(ec) {

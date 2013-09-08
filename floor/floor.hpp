@@ -65,6 +65,7 @@ public:
 	static string data_path(const string& str);
 	static string kernel_path(const string& str);
 	static string strip_data_path(const string& str);
+	static string get_absolute_path();
 	
 	static void reload_kernels();
 	
@@ -177,6 +178,7 @@ protected:
 	static string rel_datapath;
 	static string callpath;
 	static string kernelpath;
+	static string abs_bin_path;
 
 	// fps counting
 	static unsigned int fps;

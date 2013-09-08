@@ -67,14 +67,18 @@
 #pragma warning(disable: 4290) // unnecessary exception throw warning
 #pragma warning(disable: 4503) // srsly microsoft? this ain't the '80s ...
 
+#define FLOOR_OS_DIR_SLASH "\\"
+
 // Mac OS X
 #elif defined(__APPLE__)
 #include <dirent.h>
 #define FLOOR_API
+#define FLOOR_OS_DIR_SLASH "/"
 
 // everything else (Linux, *BSD, ...)
 #else
 #define FLOOR_API
+#define FLOOR_OS_DIR_SLASH "/"
 #include <dirent.h>
 
 #if !defined(SIZE_T_MAX)

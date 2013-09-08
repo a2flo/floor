@@ -39,6 +39,7 @@ string floor::datapath = "";
 string floor::rel_datapath = "";
 string floor::callpath = "";
 string floor::kernelpath = "";
+string floor::abs_bin_path = "";
 
 unsigned int floor::fps = 0;
 unsigned int floor::fps_counter = 0;
@@ -96,15 +97,15 @@ void floor::init(const char* callpath_, const char* datapath_) {
 	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {
-		floor::datapath = datapath.substr(0, datapath.rfind(dir_slash)+1) + rel_datapath;
+		floor::datapath = datapath.substr(0, datapath.rfind(dir_slash)+1);
 	}
 	// absolute path
-	else floor::datapath = rel_datapath;
+	else floor::datapath = "";
 	
 #if defined(CYGWIN)
 	floor::callpath = "./";
 	floor::datapath = callpath_;
-	floor::datapath = datapath.substr(0, datapath.rfind("/")+1) + rel_datapath;
+	floor::datapath = datapath.substr(0, datapath.rfind("/")+1);
 #endif
 	
 	// create
@@ -150,7 +151,10 @@ void floor::init(const char* callpath_, const char* datapath_) {
 	}
 #endif
 	
-	// condense datapath
+	// condense abs_bin_path and datapath
+	abs_bin_path = datapath;
+	abs_bin_path = core::strip_path(abs_bin_path);
+	datapath += rel_datapath;
 	datapath = core::strip_path(datapath);
 	
 	kernelpath = "kernels/";
@@ -895,4 +899,8 @@ bool floor::get_cuda_keep_binaries() {
 
 bool floor::get_cuda_use_cache() {
 	return config.cuda_use_cache;
+}
+
+string floor::get_absolute_path() {
+	return abs_bin_path;
 }
