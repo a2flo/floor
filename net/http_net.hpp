@@ -30,10 +30,10 @@ public:
 	http_net();
 	virtual ~http_net() {} 
 
-	enum HTTP_STATUS_CODE {
-		SC_NONE = 0,
-		SC_200 = 200,
-		SC_404 = 404
+	enum class HTTP_STATUS {
+		NONE = 0,
+		CODE_200 = 200,
+		CODE_404 = 404
 	};
 	
 	void open_url(const char* url, const size_t timeout = 30);
@@ -49,9 +49,9 @@ protected:
 	
 	size_t start_time;
 	
-	HTTP_STATUS_CODE status_code;
+	HTTP_STATUS status_code;
 	
-	enum PACKET_TYPE {
+	enum class PACKET_TYPE {
 		NORMAL,
 		CHUNKED
 	};
@@ -76,7 +76,7 @@ typedef http_net<FLOOR_NET_PROTOCOL> floor_http_net;
 
 template <class protocol_policy> http_net<protocol_policy>::http_net() :
 net<protocol_policy>(), request_timeout(30), server_name(""), server_url("/"), page_data(""), header_read(false), header_end(),
-start_time(0), status_code(http_net::SC_NONE), packet_type(http_net::NORMAL), header_length(0), content_length(0) {
+start_time(0), status_code(http_net::HTTP_STATUS::NONE), packet_type(http_net::PACKET_TYPE::NORMAL), header_length(0), content_length(0) {
 	this->set_thread_delay(20); // 20ms should suffice
 }
 
@@ -172,13 +172,13 @@ template <class protocol_policy> void http_net<protocol_policy>::run() {
 		// if header was found previously, try to find the message end
 		else {
 			bool packet_complete = false;
-			if(packet_type == http_net::NORMAL && content_length == (received_length - header_length)) {
+			if(packet_type == http_net::PACKET_TYPE::NORMAL && content_length == (received_length - header_length)) {
 				packet_complete = true;
 				for(auto line = receive_store.begin(); line != receive_store.end(); line++) {
 					page_data += *line + '\n';
 				}
 			}
-			else if(packet_type == http_net::CHUNKED) {
+			else if(packet_type == http_net::PACKET_TYPE::CHUNKED) {
 				// note: this iterates over the receive store twice, once to check if all data was received and sizes are correct and
 				// a second time to write the chunk data to page_data
 				for(auto line = receive_store.begin(); line != receive_store.end(); line++) {
@@ -230,8 +230,8 @@ template <class protocol_policy> void http_net<protocol_policy>::check_header() 
 	// first line contains status code
 	const size_t space_1 = line->find(" ")+1;
 	const size_t space_2 = line->find(" ", space_1);
-	status_code = (HTTP_STATUS_CODE)strtoul(line->substr(space_1, space_2-space_1).c_str(), nullptr, 10);
-	if(status_code != SC_200) {
+	status_code = (HTTP_STATUS)strtoul(line->substr(space_1, space_2-space_1).c_str(), nullptr, 10);
+	if(status_code != HTTP_STATUS::CODE_200) {
 		log_error("%s%s: received status code %i!", server_name, server_url, status_code);
 		this->set_thread_should_finish();
 		return;
@@ -242,13 +242,13 @@ template <class protocol_policy> void http_net<protocol_policy>::check_header() 
 		string line_str = str_to_lower(*line);
 		if(line_str.find("transfer-encoding:") == 0) {
 			if(line_str.find("chunked") != string::npos) {
-				packet_type = http_net::CHUNKED;
+				packet_type = http_net::PACKET_TYPE::CHUNKED;
 			}
 		}
 		else if(line_str.find("content-length:") == 0) {
 			// ignore content length if a chunked transfer-encoding was already specified (rfc2616 4.4.3)
-			if(packet_type != http_net::CHUNKED) {
-				packet_type = http_net::NORMAL;
+			if(packet_type != http_net::PACKET_TYPE::CHUNKED) {
+				packet_type = http_net::PACKET_TYPE::NORMAL;
 				
 				const size_t cl_space = line_str.find(" ")+1;
 				size_t non_digit = line_str.find_first_not_of("0123456789", cl_space);

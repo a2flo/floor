@@ -37,6 +37,9 @@ public:
 	core() = delete;
 	~core() = delete;
 	
+	//
+	static void init();
+	
 	// 3d math functions
 	static ipnt get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
 	static float3 get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
@@ -45,9 +48,6 @@ public:
 	static void compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
 												float3& normal, float3& binormal, float3& tangent,
 												const coord& t1, const coord& t2, const coord& t3);
-
-	// stringstream functions
-	static void reset(stringstream& sstr);
 
 	// misc math functions
 	static size_t lcm(size_t v1, size_t v2);
@@ -108,7 +108,7 @@ public:
 	
 protected:
 	// random_device with libc++ on windows/mingw is not supported right now (no /dev/urandom)
-	// -> use default mt19937
+	// -> use default mt19937 and seed+warm-up manually
 #if !(defined(__clang__) && defined(WIN_UNIXENV))
 	static random_device rd;
 #endif

@@ -73,18 +73,10 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 /*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
  *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
  */
-void floor::init(const char* callpath_, const char* datapath_) {
-	logger::init();
-	
+void floor::init(const char* callpath_, const char* datapath_, const bool console_only_) {
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
-	
-#if !defined(__WINDOWS__)
-	const char dir_slash = '/';
-#else
-	const char dir_slash = '\\';
-#endif
 	
 #if defined(FLOOR_IOS)
 	// strip one "../"
@@ -97,7 +89,7 @@ void floor::init(const char* callpath_, const char* datapath_) {
 	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {
-		floor::datapath = datapath.substr(0, datapath.rfind(dir_slash)+1);
+		floor::datapath = datapath.substr(0, datapath.rfind(FLOOR_OS_DIR_SLASH)+1);
 	}
 	// absolute path
 	else floor::datapath = "";
@@ -168,16 +160,11 @@ void floor::init(const char* callpath_, const char* datapath_) {
 	frame_time_counter = 0;
 	new_fps_count = false;
 	
+	// init core (atm this only initializes the rng on windows)
+	core::init();
+	
+	// init xml and load config
 	x = new xml();
-	evt = new event();
-	
-	event_handler_fnctr = new event::handler(&floor::event_handler);
-	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
-	
-	// print out floor info
-	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
-	
-	// load config
 	const string config_filename(string("config.xml") +
 								 (file_io::is_file(data_path("config.xml.local")) ? ".local" : ""));
 	config_doc = x->process_file(data_path(config_filename));
@@ -186,6 +173,12 @@ void floor::init(const char* callpath_, const char* datapath_) {
 		config.height = config_doc.get<size_t>("config.screen.height", 720);
 		config.fullscreen = config_doc.get<bool>("config.screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("config.screen.vsync", false);
+		
+		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);
+		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
+		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
+		config.log_filename = config_doc.get<string>("config.logging.log_filename", "log.txt");
+		config.msg_filename = config_doc.get<string>("config.logging.msg_filename", "msg.txt");
 		
 		config.fov = config_doc.get<float>("config.projection.fov", 72.0f);
 		config.near_far_plane.x = config_doc.get<float>("config.projection.near", 1.0f);
@@ -215,8 +208,18 @@ void floor::init(const char* callpath_, const char* datapath_) {
 		config.cuda_use_cache = config_doc.get<bool>("config.cuda.use_cache", true);
 	}
 	
+	// init logger and print out floor info
+	logger::init(config.verbosity, config.separate_msg_file, config.append_mode,
+				 config.log_filename, config.msg_filename);
+	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
+	
 	//
-	init_internal();
+	evt = new event();
+	event_handler_fnctr = new event::handler(&floor::event_handler);
+	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
+	
+	//
+	init_internal(console_only_);
 }
 
 void floor::destroy() {
@@ -247,12 +250,12 @@ void floor::destroy() {
 	logger::destroy();
 }
 
-void floor::init_internal() {
+void floor::init_internal(const bool console_only) {
 	log_debug("initializing floor");
 
 	// initialize sdl
-	if(SDL_Init(SDL_INIT_VIDEO) == -1) {
-		log_error("can't init SDL: %s", SDL_GetError());
+	if(SDL_Init(console_only ? 0 : SDL_INIT_VIDEO) == -1) {
+		log_error("failed to initialize SDL: %s", SDL_GetError());
 		exit(1);
 	}
 	else {
@@ -260,212 +263,212 @@ void floor::init_internal() {
 	}
 	atexit(SDL_Quit);
 
-	// set some flags
-	config.flags |= SDL_WINDOW_OPENGL;
-	
+	// only initialize opengl/opencl and create a window when not in console-only mode
+	if(!console_only) {
+		// set window creation flags
+		config.flags |= SDL_WINDOW_OPENGL;
+		
 #if !defined(FLOOR_IOS)
-	config.flags |= SDL_WINDOW_RESIZABLE;
-
-	int2 windows_pos(SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-	if(config.fullscreen) {
-		config.flags |= SDL_WINDOW_FULLSCREEN;
-		config.flags |= SDL_WINDOW_BORDERLESS;
-		windows_pos.set(0, 0);
-		log_debug("fullscreen enabled");
-	}
-	else {
-		log_debug("fullscreen disabled");
-	}
+		config.flags |= SDL_WINDOW_RESIZABLE;
+		
+		int2 windows_pos(SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		if(config.fullscreen) {
+			config.flags |= SDL_WINDOW_FULLSCREEN;
+			config.flags |= SDL_WINDOW_BORDERLESS;
+			windows_pos.set(0, 0);
+			log_debug("fullscreen enabled");
+		}
+		else {
+			log_debug("fullscreen disabled");
+		}
 #else
-	config.flags |= SDL_WINDOW_FULLSCREEN;
-	config.flags |= SDL_WINDOW_RESIZABLE;
-	config.flags |= SDL_WINDOW_BORDERLESS;
+		config.flags |= SDL_WINDOW_FULLSCREEN;
+		config.flags |= SDL_WINDOW_RESIZABLE;
+		config.flags |= SDL_WINDOW_BORDERLESS;
 #endif
-
-	log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
-	
-	// gl attributes
-	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-	
+		
+		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
+		
+		// gl attributes
+		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+		
 #if !defined(FLOOR_IOS)
 #if defined(__APPLE__) // only default to opengl 3.2 core on os x for now (opengl version doesn't really matter on other platforms)
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-	//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 #endif
 #else
-	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-	
-	//
-	SDL_DisplayMode fullscreen_mode;
-	SDL_zero(fullscreen_mode);
-	fullscreen_mode.format = SDL_PIXELFORMAT_RGBA8888;
-	fullscreen_mode.w = config.width;
-	fullscreen_mode.h = config.height;
+		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		
+		//
+		SDL_DisplayMode fullscreen_mode;
+		SDL_zero(fullscreen_mode);
+		fullscreen_mode.format = SDL_PIXELFORMAT_RGBA8888;
+		fullscreen_mode.w = config.width;
+		fullscreen_mode.h = config.height;
 #endif
-
-	// create screen
+		
+		// create screen
 #if !defined(FLOOR_IOS)
-	config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+		config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (unsigned int)config.width, (unsigned int)config.height, config.flags);
 #else
-	config.wnd = SDL_CreateWindow("floor", 0, 0, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+		config.wnd = SDL_CreateWindow("floor", 0, 0, (unsigned int)config.width, (unsigned int)config.height, config.flags);
 #endif
-	if(config.wnd == nullptr) {
-		log_error("can't create window: %s", SDL_GetError());
-		exit(1);
-	}
-	else {
+		if(config.wnd == nullptr) {
+			log_error("can't create window: %s", SDL_GetError());
+			exit(1);
+		}
+		else {
+			SDL_GetWindowSize(config.wnd, (int*)&config.width, (int*)&config.height);
+			log_debug("video mode set: w%u h%u", config.width, config.height);
+		}
+		
+#if defined(FLOOR_IOS)
+		if(SDL_SetWindowDisplayMode(config.wnd, &fullscreen_mode) < 0) {
+			log_error("can't set up fullscreen display mode: %s", SDL_GetError());
+			exit(1);
+		}
 		SDL_GetWindowSize(config.wnd, (int*)&config.width, (int*)&config.height);
-		log_debug("video mode set: w%u h%u", config.width, config.height);
-	}
-	
-#if defined(FLOOR_IOS)
-	if(SDL_SetWindowDisplayMode(config.wnd, &fullscreen_mode) < 0) {
-		log_error("can't set up fullscreen display mode: %s", SDL_GetError());
-		exit(1);
-	}
-	SDL_GetWindowSize(config.wnd, (int*)&config.width, (int*)&config.height);
-	log_debug("fullscreen mode set: w%u h%u", config.width, config.height);
-	SDL_ShowWindow(config.wnd);
+		log_debug("fullscreen mode set: w%u h%u", config.width, config.height);
+		SDL_ShowWindow(config.wnd);
 #endif
-	
-	config.ctx = SDL_GL_CreateContext(config.wnd);
-	if(config.ctx == nullptr) {
-		log_error("can't create opengl context: %s", SDL_GetError());
-		exit(1);
-	}
+		
+		config.ctx = SDL_GL_CreateContext(config.wnd);
+		if(config.ctx == nullptr) {
+			log_error("can't create opengl context: %s", SDL_GetError());
+			exit(1);
+		}
 #if !defined(FLOOR_IOS)
-	// has to be set after context creation
-	if(config.vsync && SDL_GL_SetSwapInterval(1) == -1) {
-		log_error("error setting the gl swap interval to 1 (vsync): %s", SDL_GetError());
-		SDL_ClearError();
-	}
-	
-	// enable multi-threaded opengl context when on os x
+		// has to be set after context creation
+		if(config.vsync && SDL_GL_SetSwapInterval(1) == -1) {
+			log_error("error setting the gl swap interval to 1 (vsync): %s", SDL_GetError());
+			SDL_ClearError();
+		}
+		
+		// enable multi-threaded opengl context when on os x
 #if defined(__APPLE__) && 0
-	CGLContextObj cgl_ctx = CGLGetCurrentContext();
-	CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
-	if(cgl_err != kCGLNoError) {
-		log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
-				  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
-	}
-	else {
-		log_debug("multi-threaded opengl context enabled!");
-	}
-#endif
-#endif
-	
-	acquire_context();
-	
-	// initialize opengl functions (get function pointers) on non-apple platforms
-#if !defined(__APPLE__)
-	init_gl_funcs();
-#endif
-	
-	// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
-#if defined(FLOOR_IOS)
-	ios_helper::compile_shaders();
-#endif
-	
-	// check if a cudacl or pure opencl context should be created
-	// use absolute path
-#if defined(FLOOR_CUDA_CL)
-	if(config.opencl_platform == "cuda") {
-		ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-	}
-	else {
-#else
-		if(config.opencl_platform == "cuda") {
-			log_error("CUDA support is not enabled!");
+		CGLContextObj cgl_ctx = CGLGetCurrentContext();
+		CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
+		if(cgl_err != kCGLNoError) {
+			log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
+					  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
+		}
+		else {
+			log_debug("multi-threaded opengl context enabled!");
 		}
 #endif
-		ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-#if defined(FLOOR_CUDA_CL)
-	}
 #endif
-	
-	// make an early clear
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	swap();
-	evt->handle_events(); // this will effectively create/open the window on some platforms
-	
-	//
-	int tmp = 0;
-	SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
-	log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
-
-	// print out some opengl informations
-	log_debug("vendor: %s", glGetString(GL_VENDOR));
-	log_debug("renderer: %s", glGetString(GL_RENDERER));
-	log_debug("version: %s", glGetString(GL_VERSION));
-	
-	if(SDL_GetCurrentVideoDriver() == nullptr) {
-		log_error("couldn't get video driver: %s!", SDL_GetError());
-	}
-	else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
-	
-	evt->set_ldouble_click_time((unsigned int)config.ldouble_click_time);
-	evt->set_rdouble_click_time((unsigned int)config.rdouble_click_time);
-	evt->set_mdouble_click_time((unsigned int)config.mdouble_click_time);
-	
-	// initialize ogl
-	init_gl();
-	log_debug("opengl initialized");
-
-	// resize stuff
-	resize_window();
-
-	// seed (just in case someone is still using the c random functions)
-	srand((unsigned int)time(nullptr));
-	
-	// retrieve dpi info
-	if(config.dpi == 0) {
+		
+		acquire_context();
+		
+		// initialize opengl functions (get function pointers) on non-apple platforms
+#if !defined(__APPLE__)
+		init_gl_funcs();
+#endif
+		
+		// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
+#if defined(FLOOR_IOS)
+		ios_helper::compile_shaders();
+#endif
+		
+		// check if a cudacl or pure opencl context should be created
+		// use absolute path
+#if defined(FLOOR_CUDA_CL)
+		if(config.opencl_platform == "cuda") {
+			ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
+		}
+		else {
+#else
+			if(config.opencl_platform == "cuda") {
+				log_error("CUDA support is not enabled!");
+			}
+#endif
+			ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
+#if defined(FLOOR_CUDA_CL)
+		}
+#endif
+		
+		// make an early clear
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		swap();
+		evt->handle_events(); // this will effectively create/open the window on some platforms
+		
+		//
+		int tmp = 0;
+		SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
+		log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
+		
+		// print out some opengl informations
+		log_debug("vendor: %s", glGetString(GL_VENDOR));
+		log_debug("renderer: %s", glGetString(GL_RENDERER));
+		log_debug("version: %s", glGetString(GL_VERSION));
+		
+		if(SDL_GetCurrentVideoDriver() == nullptr) {
+			log_error("couldn't get video driver: %s!", SDL_GetError());
+		}
+		else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
+		
+		evt->set_ldouble_click_time((unsigned int)config.ldouble_click_time);
+		evt->set_rdouble_click_time((unsigned int)config.rdouble_click_time);
+		evt->set_mdouble_click_time((unsigned int)config.mdouble_click_time);
+		
+		// initialize ogl
+		init_gl();
+		log_debug("opengl initialized");
+		
+		// resize stuff
+		resize_window();
+		
+		// retrieve dpi info
+		if(config.dpi == 0) {
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
-		config.dpi = osx_helper::get_dpi(config.wnd);
+			config.dpi = osx_helper::get_dpi(config.wnd);
 #else
-		// TODO: iOS
-		config.dpi = 326;
+			// TODO: iOS
+			config.dpi = 326;
 #endif
 #elif defined(__WINDOWS__)
-		HDC hdc = wglGetCurrentDC();
-		const size2 display_res(GetDeviceCaps(hdc, HORZRES), GetDeviceCaps(hdc, VERTRES));
-		const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
-		const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
-								 (float(display_res.y) / display_phys_size.y) * 25.4f);
-		config.dpi = floorf(std::max(display_dpi.x, display_dpi.y));
-#else // x11
-		SDL_SysWMinfo wm_info;
-		SDL_VERSION(&wm_info.version);
-		if(SDL_GetWindowWMInfo(config.wnd, &wm_info) == 1) {
-			Display* display = wm_info.info.x11.display;
-			const size2 display_res(DisplayWidth(display, 0), DisplayHeight(display, 0));
-			const float2 display_phys_size(DisplayWidthMM(display, 0), DisplayHeightMM(display, 0));
+			HDC hdc = wglGetCurrentDC();
+			const size2 display_res(GetDeviceCaps(hdc, HORZRES), GetDeviceCaps(hdc, VERTRES));
+			const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
 			const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
 									 (float(display_res.y) / display_phys_size.y) * 25.4f);
 			config.dpi = floorf(std::max(display_dpi.x, display_dpi.y));
-		}
+#else // x11
+			SDL_SysWMinfo wm_info;
+			SDL_VERSION(&wm_info.version);
+			if(SDL_GetWindowWMInfo(config.wnd, &wm_info) == 1) {
+				Display* display = wm_info.info.x11.display;
+				const size2 display_res(DisplayWidth(display, 0), DisplayHeight(display, 0));
+				const float2 display_phys_size(DisplayWidthMM(display, 0), DisplayHeightMM(display, 0));
+				const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
+										 (float(display_res.y) / display_phys_size.y) * 25.4f);
+				config.dpi = floorf(std::max(display_dpi.x, display_dpi.y));
+			}
 #endif
+		}
+		
+		// set dpi lower bound to 72
+		if(config.dpi < 72) config.dpi = 72;
+		
+		// init opencl
+		ocl->init(false,
+				  config.opencl_platform == "cuda" ? 0 : string2size_t(config.opencl_platform),
+				  config.cl_device_restriction, config.gl_sharing);
+		
+		release_context();
 	}
-	
-	// set dpi lower bound to 72
-	if(config.dpi < 72) config.dpi = 72;
-	
-	// init opencl
-	ocl->init(false,
-			  config.opencl_platform == "cuda" ? 0 : string2size_t(config.opencl_platform),
-			  config.cl_device_restriction, config.gl_sharing);
-	
-	release_context();
 }
 
 /*! sets the windows width

@@ -29,38 +29,27 @@ using namespace std;
 #define log_error(...) logger::log(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_debug(...) logger::log(logger::LOG_TYPE::DEBUG_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, __FILE__, __func__, __VA_ARGS__)
-#define log_undecorated(...) logger::log(logger::LOG_TYPE::NONE, __FILE__, __func__, __VA_ARGS__)
+#define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, __FILE__, __func__, __VA_ARGS__)
 
 class FLOOR_API logger {
 public:
-	enum class LOG_TYPE {
-		NONE,		//!< enum message with no prefix
-		SIMPLE_MSG,	//!< enum simple message
-		ERROR_MSG,	//!< enum error message
-		DEBUG_MSG	//!< enum debug message
+	enum class LOG_TYPE : size_t {
+		ERROR_MSG	= 1, //!< enum error message
+		DEBUG_MSG	= 2, //!< enum debug message
+		SIMPLE_MSG	= 3, //!< enum simple message
+		UNDECORATED	= 4, //!< enum message with no prefix (undecorated)
 	};
 	
-	static void init();
+	static void init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
+					 const string log_filename, const string msg_filename);
 	static void destroy();
-	
-	//
-	static const char* type_to_str(const LOG_TYPE& type) {
-		switch(type) {
-			case LOG_TYPE::NONE: return "";
-			case LOG_TYPE::SIMPLE_MSG: return "[ MSG ]";
-			case LOG_TYPE::ERROR_MSG: return "[ERROR]";
-			case LOG_TYPE::DEBUG_MSG: return "[DEBUG]";
-		}
-		assert(false && "invalid log type");
-		return "UNKNOWN";
-	}
 	
 	// log entry function, this will create a buffer and insert the log msgs start info (type, file name, ...) and
 	// finally call the internal log function (that does the actual logging)
 	template<typename... Args> static void log(const LOG_TYPE type, const char* file, const char* func, const char* str, Args&&... args) {
 		stringstream buffer;
-		prepare_log(buffer, type, file, func);
-		_log(buffer, str, std::forward<Args>(args)...);
+		if(!prepare_log(buffer, type, file, func)) return;
+		log_internal(buffer, type, str, std::forward<Args>(args)...);
 	}
 	
 protected:
@@ -69,7 +58,7 @@ protected:
 	logger& operator=(const logger& l) = delete;
 	
 	//
-	static void prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
+	static bool prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
 	
 	//! handles the log format
 	//! only %x and %X are supported at the moment, in all other cases the standard ostream operator<< is used!
@@ -79,16 +68,17 @@ protected:
 	template <typename U> struct enum_helper_type<true, U> {
 		typedef typename underlying_type<U>::type type;
 	};
-	template <typename T> static void handle_format(stringstream& buffer, const char& format, T value) {
-		typedef typename conditional<is_enum<T>::value,
-									 typename enum_helper_type<is_enum<T>::value, T>::type,
-									 typename conditional<is_pointer<T>::value &&
-														  !is_same<T, char*>::value &&
-														  !is_same<T, const char*>::value &&
-														  !is_same<T, unsigned char*>::value &&
-														  !is_same<T, const unsigned char*>::value,
+	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
+		typedef typename decay<T>::type decayed_type;
+		typedef typename conditional<is_enum<decayed_type>::value,
+									 typename enum_helper_type<is_enum<decayed_type>::value, decayed_type>::type,
+									 typename conditional<is_pointer<decayed_type>::value &&
+														  !is_same<decayed_type, char*>::value &&
+														  !is_same<decayed_type, const char*>::value &&
+														  !is_same<decayed_type, unsigned char*>::value &&
+														  !is_same<decayed_type, const unsigned char*>::value,
 														  size_t,
-														  T>::type>::type print_type;
+														  decayed_type>::type>::type print_type;
 		
 		switch(format) {
 			case 'x':
@@ -104,12 +94,12 @@ protected:
 	}
 	
 	// internal logging functions
-	static void _log(stringstream& buffer, const char* str); // will be called in the end (when there are no more args)
-	template<typename T, typename... Args> static void _log(stringstream& buffer, const char* str, T value, Args&&... args) {
+	static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str); // will be called in the end (when there are no more args)
+	template<typename T, typename... Args> static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str, T&& value, Args&&... args) {
 		while(*str) {
 			if(*str == '%' && *(++str) != '%') {
 				handle_format(buffer, *str, value);
-				_log(buffer, ++str, std::forward<Args>(args)...);
+				log_internal(buffer, type, ++str, std::forward<Args>(args)...);
 				return;
 			}
 			buffer << *str++;

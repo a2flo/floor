@@ -36,7 +36,7 @@ extern opencl_base* ocl;
 
 class FLOOR_API floor {
 public:
-	static void init(const char* callpath_, const char* datapath_);
+	static void init(const char* callpath, const char* datapath, const bool console_only = false);
 	static void destroy();
 	
 	// graphic control functions
@@ -129,12 +129,19 @@ protected:
 	static event* evt;
 	static xml* x;
 	
-	static void init_internal();
+	static void init_internal(const bool console_only);
 	
 	static struct floor_config {
 		// screen
 		size_t width = 1280, height = 720, dpi = 0;
 		bool fullscreen = false, vsync = false;
+		
+		// logging
+		size_t verbosity = 4;
+		bool separate_msg_file = false;
+		bool append_mode = false;
+		string log_filename = "log.txt";
+		string msg_filename = "msg.txt";
 		
 		// projection
 		float fov = 72.0f;

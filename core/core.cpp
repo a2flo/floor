@@ -17,13 +17,32 @@
  */
 
 #include "core/core.hpp"
+#include <thread>
 
 #if !(defined(__clang__) && defined(WIN_UNIXENV))
+// use this on all platforms except clang+windows
+// note that this uses /dev/urandom when using libc++
 random_device core::rd;
 mt19937 core::gen(core::rd());
 #else
+// use this with clang/libc++ on windows
 mt19937 core::gen;
 #endif
+
+void core::init() {
+#if defined(__clang__) && defined(WIN_UNIXENV)
+	// seed and warm-up the random generator on windows (with clang/libc++)
+	unsigned int rd_seed = 0xF1002;
+	const auto perf_counter = SDL_GetPerformanceCounter();
+	rd_seed += (unsigned int)(perf_counter & 0xFFFFFFFFull);
+	rd_seed ^= (unsigned int)(perf_counter >> 32ull);
+	rd_seed ^= (unsigned int)time(nullptr);
+	gen.seed(rd_seed);
+	gen.discard(500000);
+	atomic_thread_fence(std::memory_order_acquire);
+	gen.discard(SDL_GetTicks() & 0x3FFF);
+#endif
+}
 
 /*! converts (projects) a 3d vertex to a 2d screen position
  *  @param v the 3d vertex
@@ -52,13 +71,6 @@ float3 core::get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f&
 						 (((p.y - float(viewport[1])) * 2.0f) / float(viewport[3])) - 1.0f,
 						 1.0f);
 	return (wnd_vec * ipm);
-}
-
-void core::reset(stringstream& sstr) {
-	sstr.seekp(0);
-	sstr.seekg(0);
-	sstr.clear();
-	sstr.str("");
 }
 
 /*! returns the nearest power of two value of num (only numerical upwards)

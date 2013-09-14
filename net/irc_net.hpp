@@ -30,16 +30,16 @@ public:
 	virtual ~irc_net() {} 
 	
 	void send(const string& data);
-	void send_channel_msg(const string& msg);
+	void send_channel_msg(const string& channel, const string& msg);
 	void send_private_msg(const string& where, const string& msg);
 	void send_action_msg(const string& where, const string& msg);
 	void send_ctcp_msg(const string& where, const string& type, const string& msg);
 	void send_ctcp_request(const string& where, const string& type);
-	void send_kick(const string& who, const string& reason);
+	void send_kick(const string& channel, const string& who, const string& reason);
 	void send_connect(const string& name, const string& real_name);
 	void send_identify(const string& password);
 	void send_nick(const string& nick);
-	void part();
+	void part(const string& channel);
 	void quit();
 	void join_channel(const string& channel);
 	void ping(const string& server_name);
@@ -109,19 +109,16 @@ template <class protocol_policy> void irc_net<protocol_policy>::send_identify(co
 	send_private_msg("NickServ", "identify " + password);
 }
 
-template <class protocol_policy> void irc_net<protocol_policy>::send_channel_msg(const string& msg) {
-	// TODO: config
-	//send("PRIVMSG " + conf->get_channel() + " :" + msg);
+template <class protocol_policy> void irc_net<protocol_policy>::send_channel_msg(const string& channel, const string& msg) {
+	send("PRIVMSG " + channel + " :" + msg);
 }
 
-template <class protocol_policy> void irc_net<protocol_policy>::send_kick(const string& who, const string& reason) {
-	// TODO: config
-	//send("KICK " + conf->get_channel() + " " + who + " :" + reason);
+template <class protocol_policy> void irc_net<protocol_policy>::send_kick(const string& channel, const string& who, const string& reason) {
+	send("KICK " + channel + " " + who + " :" + reason);
 }
 
-template <class protocol_policy> void irc_net<protocol_policy>::part() {
-	// TODO: config
-	//send("PART " + conf->get_channel() + " :EOL");
+template <class protocol_policy> void irc_net<protocol_policy>::part(const string& channel) {
+	send("PART " + channel + " :EOL");
 }
 
 template <class protocol_policy> void irc_net<protocol_policy>::quit() {
