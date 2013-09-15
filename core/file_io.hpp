@@ -86,6 +86,7 @@ public:
 
 	//
 	static bool is_file(const string& filename);
+	static bool is_directory(const string& dirname);
 	bool eof() const;
 	bool good() const;
 	bool fail() const;

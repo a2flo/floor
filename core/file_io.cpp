@@ -288,6 +288,25 @@ bool file_io::is_file(const string& filename) {
 	return true;
 }
 
+bool file_io::is_directory(const string& dirname) {
+	if(dirname.empty()) return false;
+	
+#if !defined(__WINDOWS__)
+	const auto dir = opendir(dirname.c_str());
+	if(dir != nullptr) {
+		closedir(dir);
+		return true;
+	}
+	return false;
+#else
+	const auto attr = GetFileAttributesA(dirname.c_str());
+	if(attr == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+	return (attr & FILE_ATTRIBUTE_DIRECTORY) != 0;
+#endif
+}
+
 /*! checks if a file is already opened - if so, return true, otherwise false
  */
 bool file_io::check_open() {
