@@ -73,7 +73,7 @@ void logger_thread::run() {
 				msg_file->close();
 				msg_file->clear();
 			}
-			msg_file->open(log_filename, ofstream::app | ofstream::out);
+			msg_file->open(msg_filename, ofstream::app | ofstream::out);
 		}
 	}
 	
