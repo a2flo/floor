@@ -82,7 +82,7 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 
 // we only need to get opengl functions pointers on windows, linux, *bsd, ...
 #else
-#include "cpp_headers.h"
+#include "core/cpp_headers.hpp"
 
 #if defined(MINGW)
 #define GL3_PROTOTYPES
@@ -100,8 +100,6 @@ void init_gl_funcs();
 //
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
-
-#if !defined(FLOOR_USE_DRAW_PIXELS)
 
 //
 OGL_API extern PFNGLISRENDERBUFFERPROC _glIsRenderbuffer_ptr; // ARB_framebuffer_object
@@ -141,8 +139,6 @@ OGL_API extern PFNGLBLITFRAMEBUFFERPROC _glBlitFramebuffer_ptr; // ARB_framebuff
 #define glGetFramebufferAttachmentParameteriv ((PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC)_glGetFramebufferAttachmentParameteriv_ptr)
 #define glGenerateMipmap ((PFNGLGENERATEMIPMAPPROC)_glGenerateMipmap_ptr)
 #define glBlitFramebuffer ((PFNGLBLITFRAMEBUFFERPROC)_glBlitFramebuffer_ptr)
-
-#endif
 
 #endif
 

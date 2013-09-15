@@ -539,15 +539,6 @@ void floor::set_vsync(const bool& state) {
  */
 void floor::start_draw() {
 	acquire_context();
-	
-	// draws ogl stuff
-#if !defined(FLOOR_USE_DRAW_PIXELS)
-	glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
-#endif
-	glViewport(0, 0, (unsigned int)config.width, (unsigned int)config.height);
-	
-	// clear the color and depth buffers
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 /*! stops drawing the window

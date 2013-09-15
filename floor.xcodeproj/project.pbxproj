@@ -152,6 +152,9 @@
 		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
 		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
+		5C81C42D17E59A3400FE6791 /* premake.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = premake.sh; sourceTree = "<group>"; };
+		5C81C42E17E59A3400FE6791 /* premake4.lua */ = {isa = PBXFileReference; lastKnownFileType = text; path = premake4.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
+		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -175,6 +178,7 @@
 		5C10915517D114BC007F536E = {
 			isa = PBXGroup;
 			children = (
+				5C81C42C17E59A1A00FE6791 /* build */,
 				5C1091D317D11547007F536E /* src */,
 				5C1091FE17D148EF007F536E /* libs */,
 				5C10915F17D114BC007F536E /* Products */,
@@ -352,6 +356,16 @@
 				5C1091F017D148AD007F536E /* SDL2.framework */,
 			);
 			name = libs;
+			sourceTree = "<group>";
+		};
+		5C81C42C17E59A1A00FE6791 /* build */ = {
+			isa = PBXGroup;
+			children = (
+				5C81C42D17E59A3400FE6791 /* premake.sh */,
+				5C81C42E17E59A3400FE6791 /* premake4.lua */,
+				5C81C42F17E59FE800FE6791 /* install.sh */,
+			);
+			name = build;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

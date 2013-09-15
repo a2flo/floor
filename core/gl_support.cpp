@@ -19,10 +19,7 @@
 #if !defined(__APPLE__)
 
 #include "gl_support.hpp"
-#include "core/logger.h"
-
-// no need to get any fbo function pointers if glDrawPixels is used
-#if !defined(FLOOR_USE_DRAW_PIXELS)
+#include "core/logger.hpp"
 
 #if defined(__WINDOWS__) || defined(WIN_UNIXENV)
 #define glGetProcAddress(x) wglGetProcAddress(x)
@@ -132,8 +129,5 @@ void init_gl_funcs() {
 	if(_glGenerateMipmap_ptr == nullptr) log_error("couldn't get function pointer to \"glGenerateMipmap\"!");
 	if(_glBlitFramebuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glBlitFramebuffer\"!");
 }
-#else
-void init_gl_funcs() {}
-#endif
 
 #endif
