@@ -77,6 +77,7 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
+	floor::abs_bin_path = callpath_;
 	
 #if defined(FLOOR_IOS)
 	// strip one "../"
@@ -87,17 +88,35 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	}
 #endif
 	
+	// get working directory
+	char working_dir[16384];
+	memset(working_dir, 0, 16384);
+	getcwd(working_dir, 16383);
+	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {
-		floor::datapath = datapath.substr(0, datapath.rfind(FLOOR_OS_DIR_SLASH)+1);
+		datapath = datapath.substr(0, datapath.rfind(FLOOR_OS_DIR_SLASH)+1) + rel_datapath;
 	}
 	// absolute path
-	else floor::datapath = "";
+	else datapath = rel_datapath;
+	
+	// same for abs bin path (no '/' -> relative path)
+	if(abs_bin_path[0] != '/') {
+		bool direct_rel_path = false;
+		if(abs_bin_path.size() > 2 && abs_bin_path[0] == '.' && abs_bin_path[1] == '/') {
+			direct_rel_path = true;
+		}
+		abs_bin_path = FLOOR_OS_DIR_SLASH + abs_bin_path.substr(direct_rel_path ? 2 : 0,
+																abs_bin_path.rfind(FLOOR_OS_DIR_SLASH) + 1
+																- (direct_rel_path ? 2 : 0));
+		abs_bin_path = working_dir + abs_bin_path; // just add the working dir -> done
+	}
+	// else: we already have the absolute path
 	
 #if defined(CYGWIN)
-	floor::callpath = "./";
-	floor::datapath = callpath_;
-	floor::datapath = datapath.substr(0, datapath.rfind("/")+1);
+	callpath = "./";
+	datapath = callpath_;
+	datapath = datapath.substr(0, datapath.rfind("/")+1) + rel_datapath;
 #endif
 	
 	// create
@@ -105,20 +124,11 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	if(datapath.size() > 0 && datapath[0] == '.') {
 		// strip leading '.' from datapath if there is one
 		datapath.erase(0, 1);
-		
-		char working_dir[8192];
-		memset(working_dir, 0, 8192);
-		getcwd(working_dir, 8192);
-		
 		datapath = working_dir + datapath;
 	}
 #elif defined(CYGWIN)
 	// do nothing
 #else
-	char working_dir[8192];
-	memset(working_dir, 0, 8192);
-	getcwd(working_dir, 8192);
-	
 	size_t strip_pos = datapath.find("\\.\\");
 	if(strip_pos != string::npos) {
 		datapath.erase(strip_pos, 3);
@@ -143,11 +153,9 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	}
 #endif
 	
-	// condense abs_bin_path and datapath
-	abs_bin_path = datapath;
-	abs_bin_path = core::strip_path(abs_bin_path);
-	datapath += rel_datapath;
+	// condense datapath and abs_bin_path
 	datapath = core::strip_path(datapath);
+	abs_bin_path = core::strip_path(abs_bin_path);
 	
 	kernelpath = "kernels/";
 	cursor_visible = true;
