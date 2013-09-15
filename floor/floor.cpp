@@ -40,6 +40,7 @@ string floor::rel_datapath = "";
 string floor::callpath = "";
 string floor::kernelpath = "";
 string floor::abs_bin_path = "";
+string floor::config_name = "config.xml";
 
 unsigned int floor::fps = 0;
 unsigned int floor::fps_counter = 0;
@@ -73,11 +74,12 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 /*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
  *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
  */
-void floor::init(const char* callpath_, const char* datapath_, const bool console_only_) {
+void floor::init(const char* callpath_, const char* datapath_, const bool console_only_, const string config_name_) {
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
 	floor::abs_bin_path = callpath_;
+	floor::config_name = config_name_;
 	
 #if defined(FLOOR_IOS)
 	// strip one "../"
@@ -173,8 +175,8 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	
 	// init xml and load config
 	x = new xml();
-	const string config_filename(string("config.xml") +
-								 (file_io::is_file(data_path("config.xml.local")) ? ".local" : ""));
+	const string config_filename(config_name +
+								 (file_io::is_file(data_path(config_name + ".local")) ? ".local" : ""));
 	config_doc = x->process_file(data_path(config_filename));
 	if(config_doc.valid) {
 		config.width = config_doc.get<size_t>("config.screen.width", 1280);

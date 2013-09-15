@@ -36,7 +36,8 @@ extern opencl_base* ocl;
 
 class FLOOR_API floor {
 public:
-	static void init(const char* callpath, const char* datapath, const bool console_only = false);
+	static void init(const char* callpath, const char* datapath,
+					 const bool console_only = false, const string config_name = "config.xml");
 	static void destroy();
 	
 	// graphic control functions
@@ -122,7 +123,7 @@ public:
 	static bool get_cuda_use_cache();
 	
 protected:
-	floor(const char* callpath_, const char* datapath_) = delete;
+	floor() = delete;
 	~floor() = delete;
 	floor& operator=(const floor&) = delete;
 	
@@ -186,6 +187,7 @@ protected:
 	static string callpath;
 	static string kernelpath;
 	static string abs_bin_path;
+	static string config_name;
 
 	// fps counting
 	static unsigned int fps;
