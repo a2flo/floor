@@ -66,6 +66,8 @@ public:
 	
 	static int rand(const int& max);
 	static int rand(const int& min, const int& max);
+	static unsigned int rand(const unsigned int& max);
+	static unsigned int rand(const unsigned int& min, const unsigned int& max);
 	static float rand(const float& max);
 	static float rand(const float& min, const float& max);
 	static void set_random_seed(const unsigned int& seed);

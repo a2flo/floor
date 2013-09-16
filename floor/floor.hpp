@@ -88,6 +88,7 @@ public:
 	static uint2 get_screen_size();
 	static bool get_fullscreen();
 	static bool get_vsync();
+	static bool get_stereo();
 	static const size_t& get_dpi();
 	
 	static void set_width(const unsigned int& width);
@@ -129,13 +130,14 @@ protected:
 	
 	static event* evt;
 	static xml* x;
+	static bool console_only;
 	
-	static void init_internal(const bool console_only);
+	static void init_internal();
 	
 	static struct floor_config {
 		// screen
 		size_t width = 1280, height = 720, dpi = 0;
-		bool fullscreen = false, vsync = false;
+		bool fullscreen = false, vsync = false, stereo = false;
 		
 		// logging
 		size_t verbosity = 4;
@@ -146,7 +148,7 @@ protected:
 		
 		// projection
 		float fov = 72.0f;
-		float2 near_far_plane { 0.1f, 1000.0f }; // TODO: still necessary?
+		float2 near_far_plane { 0.1f, 1000.0f };
 		float upscaling = 1.0f;
 		
 		// input

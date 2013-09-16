@@ -19,6 +19,7 @@
 #include "core/core.hpp"
 #include <thread>
 
+// TODO: add thread safety for gen and rd?
 #if !(defined(__clang__) && defined(WIN_UNIXENV))
 // use this on all platforms except clang+windows
 // note that this uses /dev/urandom when using libc++
@@ -32,12 +33,14 @@ mt19937 core::gen;
 void core::init() {
 #if defined(__clang__) && defined(WIN_UNIXENV)
 	// seed and warm-up the random generator on windows (with clang/libc++)
-	unsigned int rd_seed = 0xF1002;
 	const auto perf_counter = SDL_GetPerformanceCounter();
-	rd_seed += (unsigned int)(perf_counter & 0xFFFFFFFFull);
-	rd_seed ^= (unsigned int)(perf_counter >> 32ull);
-	rd_seed ^= (unsigned int)time(nullptr);
-	gen.seed(rd_seed);
+	seed_seq seq {
+		0xF1002u,
+		(unsigned int)(perf_counter & 0xFFFFFFFFull),
+		(unsigned int)(perf_counter >> 32ull),
+		(unsigned int)time(nullptr)
+	};
+	gen.seed(seq);
 	gen.discard(500000);
 	atomic_thread_fence(std::memory_order_acquire);
 	gen.discard(SDL_GetTicks() & 0x3FFF);
@@ -373,6 +376,16 @@ int core::rand(const int& max) {
 
 int core::rand(const int& min, const int& max) {
 	uniform_int_distribution<> dist(min, max-1);
+	return dist(gen);
+}
+
+unsigned int core::rand(const unsigned int& max) {
+	uniform_int_distribution<unsigned int> dist(0u, max-1u);
+	return dist(gen);
+}
+
+unsigned int core::rand(const unsigned int& min, const unsigned int& max) {
+	uniform_int_distribution<unsigned int> dist(min, max-1u);
 	return dist(gen);
 }
 

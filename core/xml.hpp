@@ -46,11 +46,11 @@ public:
 		
 	public:
 		xml_doc() : nodes(), valid(true) {}
-		xml_doc(xml_doc&& doc) {
+		xml_doc(xml_doc&& doc) noexcept {
 			nodes.swap(doc.nodes);
 			valid = doc.valid;
 		}
-		xml_doc& operator=(xml_doc&& doc) {
+		xml_doc& operator=(xml_doc&& doc) noexcept {
 			nodes.swap(doc.nodes);
 			valid = doc.valid;
 			return *this;

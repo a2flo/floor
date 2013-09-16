@@ -31,6 +31,7 @@
 event* floor::evt = nullptr;
 xml* floor::x = nullptr;
 opencl_base* ocl = nullptr;
+bool floor::console_only = false;
 
 struct floor::floor_config floor::config;
 xml::xml_doc floor::config_doc;
@@ -80,6 +81,7 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	floor::rel_datapath = datapath_;
 	floor::abs_bin_path = callpath_;
 	floor::config_name = config_name_;
+	floor::console_only = console_only_;
 	
 #if defined(FLOOR_IOS)
 	// strip one "../"
@@ -183,6 +185,7 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 		config.height = config_doc.get<size_t>("config.screen.height", 720);
 		config.fullscreen = config_doc.get<bool>("config.screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("config.screen.vsync", false);
+		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
 		
 		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);
 		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
@@ -229,13 +232,13 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
-	init_internal(console_only_);
+	init_internal();
 }
 
 void floor::destroy() {
 	log_debug("destroying floor ...");
 	
-	acquire_context();
+	if(!console_only) acquire_context();
 	
 	evt->remove_event_handler(*event_handler_fnctr);
 	delete event_handler_fnctr;
@@ -249,18 +252,19 @@ void floor::destroy() {
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) delete evt;
 	
-	release_context();
-
-	log_debug("floor destroyed!");
-	
-	SDL_GL_DeleteContext(config.ctx);
-	SDL_DestroyWindow(config.wnd);
+	if(!console_only) {
+		release_context();
+		
+		SDL_GL_DeleteContext(config.ctx);
+		SDL_DestroyWindow(config.wnd);
+	}
 	SDL_Quit();
 	
+	log_debug("floor destroyed!");
 	logger::destroy();
 }
 
-void floor::init_internal(const bool console_only) {
+void floor::init_internal() {
 	log_debug("initializing floor");
 
 	// initialize sdl
@@ -737,6 +741,10 @@ bool floor::get_fullscreen() {
 
 bool floor::get_vsync() {
 	return config.vsync;
+}
+
+bool floor::get_stereo() {
+	return config.stereo;
 }
 
 unsigned int floor::get_width() {
