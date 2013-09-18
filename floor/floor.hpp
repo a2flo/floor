@@ -37,7 +37,8 @@ extern opencl_base* ocl;
 class FLOOR_API floor {
 public:
 	static void init(const char* callpath, const char* datapath,
-					 const bool console_only = false, const string config_name = "config.xml");
+					 const bool console_only = false, const string config_name = "config.xml",
+					 const bool use_gl32_core = false);
 	static void destroy();
 	
 	// graphic control functions
@@ -132,7 +133,7 @@ protected:
 	static xml* x;
 	static bool console_only;
 	
-	static void init_internal();
+	static void init_internal(const bool use_gl32_core);
 	
 	static struct floor_config {
 		// screen

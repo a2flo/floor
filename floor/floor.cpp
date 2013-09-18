@@ -75,7 +75,9 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 /*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
  *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
  */
-void floor::init(const char* callpath_, const char* datapath_, const bool console_only_, const string config_name_) {
+void floor::init(const char* callpath_, const char* datapath_,
+				 const bool console_only_, const string config_name_,
+				 const bool use_gl32_core_) {
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
@@ -232,7 +234,7 @@ void floor::init(const char* callpath_, const char* datapath_, const bool consol
 	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
-	init_internal();
+	init_internal(use_gl32_core_);
 }
 
 void floor::destroy() {
@@ -264,7 +266,7 @@ void floor::destroy() {
 	logger::destroy();
 }
 
-void floor::init_internal() {
+void floor::init_internal(const bool use_gl32_core) {
 	log_debug("initializing floor");
 
 	// initialize sdl
@@ -310,13 +312,18 @@ void floor::init_internal() {
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 		
 #if !defined(FLOOR_IOS)
-#if defined(__APPLE__) // only default to opengl 3.2 core on os x for now (opengl version doesn't really matter on other platforms)
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+#if defined(__APPLE__)
+		// only default to opengl 3.2 core on os x for now (opengl version doesn't really matter on other platforms)
+		if(use_gl32_core) {
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		}
+		else {
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+		}
 #endif
 #else
 		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
