@@ -535,13 +535,8 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 		
 		if(fastest_gpu != nullptr) log_debug("fastest GPU device: %s %s (score: %u)", fastest_gpu->vendor.c_str(), fastest_gpu->name.c_str(), fastest_gpu_score);
 		
-		// compile internal kernels
-		//size_t local_size_limit = std::max((size_t)512, devices[0]->max_wg_size); // default to 512
-		//const string lsl_str = " -DLOCAL_SIZE_LIMIT="+size_t2string(local_size_limit);
-		
-		// TODO: "external" lib internal kernels
-		
-		internal_kernels = { // first time init:
+		// compile internal kernels (there are no built-in ones currently)
+		internal_kernels = {
 		};
 		
 		load_internal_kernels();
@@ -556,13 +551,18 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identifier, const string& src, const string& func_name, const string additional_options) {
 	log_debug("compiling \"%s\" kernel!", identifier);
 	
+	// make cuda context current (in case this is called from different threads)
+	// TODO: actual thread safe compilation (-> opencl class)
+	CU(cuCtxSetCurrent(*cuda_contexts[cuda_devices[0]]));
+	
 	//
 	string options = build_options;
 	
 	// just define this everywhere:
 	options += " -DFLOOR_STRUCT_ALIGNMENT="+uint2string(FLOOR_STRUCT_ALIGNMENT);
 	
-	// TODO: consolidate with opencl! also: external lib defines
+	// external lib defines
+	options += global_defines;
 	
 	// user options
 	options += additional_options;
@@ -705,7 +705,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 			CU_JIT_GENERATE_DEBUG_INFO,
 			CU_JIT_MAX_REGISTERS
 		};
-		const unsigned int option_count = sizeof(jit_options) / sizeof(CUjit_option);
+		constexpr auto option_count = sizeof(jit_options) / sizeof(CUjit_option);
 		const struct alignas(void*) {
 			union {
 				unsigned int ui;
