@@ -82,7 +82,7 @@ void cudacl_translate(const string& cl_source,
 					  std::function<bool(const uint128&)> hash_lookup) {
 #define FLOOR_REGEX_MARKER "$$$FLOOR_REGEX_MARKER$$$"
 	static constexpr char cuda_preprocess_header[] {
-		"#include \"floor_cudacl.h\"\n"
+		"#include \"floor_cudacl.hpp\"\n"
 		FLOOR_REGEX_MARKER "\n"
 	};
 	static constexpr char cuda_header[] {

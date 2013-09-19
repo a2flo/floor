@@ -93,12 +93,12 @@ string cudacl_compiler::compile(const string& code,
 	string code_step1 = cudacl_preprocess(string {
 											  // include floors vector lib header before the cuda runtime header,
 											  // since floor completely replaces all cuda vector types
-											  "#include \"floor_cuda_vector_lib.h\"\n"
+											  "#include \"floor_cuda_vector_lib.hpp\"\n"
 											  "#include \"cuda_runtime.h\"\n"
 											  // after both the vector lib (vector base classes) and cuda runtime header,
 											  // include the vector math header that provides all additional vector functions
 											  // necessary for opencl emulation/wrapping (and are external to the vector classes)
-											  "#include \"floor_cuda_vector_math.h\"\n"
+											  "#include \"floor_cuda_vector_math.hpp\"\n"
 										  } + code,
 										  // general cuda defines
 										  cuda_defines +
