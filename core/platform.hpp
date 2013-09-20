@@ -135,13 +135,13 @@
 #endif
 
 // c++ headers
-#include "core/cpp_headers.hpp"
+#include <floor/core/cpp_headers.hpp>
 
 // floor logger
-#include "core/logger.hpp"
+#include <floor/core/logger.hpp>
 
 // utility functions/classes/...
-#include "core/util.hpp"
+#include <floor/core/util.hpp>
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0
