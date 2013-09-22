@@ -22,9 +22,11 @@
 #include "core/platform.hpp"
 
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
+#include <boost/bind.hpp>
 using boost::asio::ip::tcp;
 
-template <class socket_type>
+template <class socket_type, bool use_ssl>
 struct std_protocol {
 	// these declarations aren't actually needed, but for the sake of understanding the "interface"
 	// or getting an overview of it, i put these here
@@ -37,10 +39,6 @@ public:
 	
 	int receive(void* data, const unsigned int max_len);
 	bool send(const char* data, const int len);
-	
-protected:
-	bool valid { false };
-	socket_type socket {};
 	
 };
 

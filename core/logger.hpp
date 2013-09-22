@@ -29,7 +29,7 @@ using namespace std;
 #define log_error(...) logger::log(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_debug(...) logger::log(logger::LOG_TYPE::DEBUG_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, __FILE__, __func__, __VA_ARGS__)
-#define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, __FILE__, __func__, __VA_ARGS__)
+#define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, "", "", __VA_ARGS__)
 
 class FLOOR_API logger {
 public:

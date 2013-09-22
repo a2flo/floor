@@ -22,15 +22,66 @@
 #include "core/platform.hpp"
 #include "net/net_protocol.hpp"
 
-template<> struct std_protocol<tcp::socket> {
-	std_protocol<tcp::socket>() : io_service(), resolver(io_service), socket(io_service) {
-	}
-	~std_protocol<tcp::socket>() {
-		socket.close();
-	}
+// non-ssl and ssl specific implementation
+namespace floor_net {
+	template <bool use_ssl> struct protocol_details {};
+	
+	// non-ssl
+	template <> struct protocol_details<false> {
+		tcp::socket socket;
+		protocol_details<false>(boost::asio::io_service& io_service) :
+		socket(io_service) {
+		}
+		~protocol_details<false>() {
+			socket.close();
+		}
+		
+		bool handle_post_connect() { return true; }
+	};
+	
+	// ssl
+	template <> struct protocol_details<true> {
+		boost::asio::ssl::context context;
+		boost::asio::ssl::stream<tcp::socket> socket;
+		protocol_details<true>(boost::asio::io_service& io_service) :
+		context(boost::asio::ssl::context::tlsv12), socket(io_service, context) {
+			context.set_default_verify_paths();
+			socket.set_verify_mode(boost::asio::ssl::verify_peer);
+			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
+		}
+		~protocol_details<true>() {
+			socket.shutdown();
+		}
+		
+		//
+		bool verify_certificate(bool preverified floor_unused, boost::asio::ssl::verify_context& ctx) {
+			char subject_name[256];
+			X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
+			X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
+			log_msg("cert subject name: %s", subject_name);
+			return true;
+		}
+		
+		bool handle_post_connect() {
+			boost::system::error_code ec;
+			socket.handshake(boost::asio::ssl::stream_base::client);
+			if(ec) {
+				log_error("handshake failed: %s", ec.message());
+				return false;
+			}
+			return true;
+		}
+	};
+};
+
+// combined/common ssl and non-ssl protocol implementation
+template<bool use_ssl> struct std_protocol<tcp::socket, use_ssl> {
+public:
+	std_protocol<tcp::socket, use_ssl>() :
+	io_service(), resolver(io_service), data(io_service) {}
 	
 	bool is_valid() const {
-		return (valid && ((socket_set && socket.is_open()) ||
+		return (valid && ((socket_set && data.socket.is_open()) ||
 						  !socket_set));
 	}
 	
@@ -40,15 +91,21 @@ template<> struct std_protocol<tcp::socket> {
 		
 		boost::system::error_code ec;
 		auto endpoint_iterator = resolver.resolve({ address, uint2string(port) });
-		boost::asio::connect(socket, endpoint_iterator, ec);
+		boost::asio::connect(data.socket, endpoint_iterator, ec);
 		
 		if(ec) {
 			log_error("socket connection error: %s", ec.message());
 			valid = false;
 			return false;
 		}
-		if(!socket.is_open()) {
+		if(!data.socket.is_open()) {
 			log_error("couldn't open socket!");
+			valid = false;
+			return false;
+		}
+		
+		//
+		if(!data.handle_post_connect()) {
 			valid = false;
 			return false;
 		}
@@ -56,14 +113,14 @@ template<> struct std_protocol<tcp::socket> {
 		// set keep-alive flag (this only handles the simple cases and
 		// usually has a big timeout value, but still better than nothing)
 		boost::asio::socket_base::keep_alive option(true);
-		socket.set_option(option);
+		data.socket.set_option(option);
 		
 		return true;
 	}
 	
-	int receive(void* data, const unsigned int max_len) {
+	int receive(void* recv_data, const unsigned int max_len) {
 		boost::system::error_code ec;
-		auto data_received = socket.receive(boost::asio::buffer(data, max_len), 0, ec);
+		auto data_received = data.socket.receive(boost::asio::buffer(recv_data, max_len), 0, ec);
 		if(ec) {
 			log_error("error while receiving data: %s", ec.message());
 			valid = false;
@@ -74,12 +131,12 @@ template<> struct std_protocol<tcp::socket> {
 	
 	bool ready() const {
 		if(!socket_set || !valid) return false;
-		return (socket.available() > 0);
+		return (data.socket.available() > 0);
 	}
 	
-	bool send(const char* data, const int len) {
+	bool send(const char* send_data, const int len) {
 		boost::system::error_code ec;
-		const auto data_sent = boost::asio::write(socket, boost::asio::buffer(data, len), ec);
+		const auto data_sent = boost::asio::write(data.socket, boost::asio::buffer(send_data, len), ec);
 		if(ec) {
 			log_error("error while sending data: %s", ec.message());
 			valid = false;
@@ -87,7 +144,7 @@ template<> struct std_protocol<tcp::socket> {
 		}
 		if(data_sent != (size_t)len) {
 			log_error("error while sending data: sent data length (%u) != requested data length (%u)!",
-						 data_sent, len);
+					  data_sent, len);
 			valid = false;
 			return false;
 		}
@@ -95,17 +152,17 @@ template<> struct std_protocol<tcp::socket> {
 	}
 	
 	boost::asio::ip::address get_local_address() const {
-		return socket.local_endpoint().address();
+		return data.socket.local_endpoint().address();
 	}
 	unsigned short int get_local_port() const {
-		return socket.local_endpoint().port();
+		return data.socket.local_endpoint().port();
 	}
 	
 	boost::asio::ip::address get_remote_address() const {
-		return socket.remote_endpoint().address();
+		return data.socket.remote_endpoint().address();
 	}
 	unsigned short int get_remote_port() const {
-		return socket.remote_endpoint().port();
+		return data.socket.remote_endpoint().port();
 	}
 	
 	void invalidate() {
@@ -118,10 +175,11 @@ protected:
 	
 	boost::asio::io_service io_service;
 	tcp::resolver resolver;
-	tcp::socket socket;
 	
+	floor_net::protocol_details<use_ssl> data;
 };
 
-typedef std_protocol<tcp::socket> TCP_protocol;
+typedef std_protocol<tcp::socket, false> TCP_protocol;
+typedef std_protocol<tcp::socket, true> TCP_ssl_protocol;
 
 #endif

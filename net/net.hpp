@@ -46,6 +46,9 @@ public:
 	
 	virtual const protocol_policy& get_protocol() const;
 	virtual protocol_policy& get_protocol();
+	
+	virtual void set_max_packets_per_second(const size_t& packets_per_second);
+	virtual const size_t& get_max_packets_per_second() const;
 
 protected:
 	protocol_policy protocol;
@@ -110,7 +113,6 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	try {
 		if(protocol.is_valid()) {
 			if(protocol.ready()) {
-				//cout << "server_ready" << endl;
 				memset(receive_data, 0, PACKET_MAX_LEN);
 				len = receive_packet(receive_data, PACKET_MAX_LEN);
 				if(len <= 0) {
@@ -212,10 +214,8 @@ template <class protocol_policy> int net<protocol_policy>::process_packet(const 
 		}
 		
 		receive_store.push_back(data.substr(old_pos, pos - old_pos - lb_offset + 1));
-		//cout << "received (" << old_pos << "/" << (pos - old_pos) << "/" << data.length() << "): " << receive_store.back() << endl;
 		old_pos = pos + 1;
 	}
-	//cout << ":: end " << old_pos << endl;
 	
 	received_length += old_pos;
 	return (int)old_pos;
@@ -225,10 +225,6 @@ template <class protocol_policy> void net<protocol_policy>::send_packet(const ch
 	if(!protocol.send(data, len)) {
 		log_error("couldn't send packet!");
 	}
-	// TODO: config / verbosity setting
-	/*else if(conf->get_verbosity() >= logger::LOG_TYPE::DEBUG_MSG) {
-		log_debug("send (%i): %s", len, string(data).substr(0, len-1));
-	}*/
 }
 
 template <class protocol_policy> bool net<protocol_policy>::is_received_data() const {
@@ -268,6 +264,14 @@ template <class protocol_policy> const protocol_policy& net<protocol_policy>::ge
 
 template <class protocol_policy> protocol_policy& net<protocol_policy>::get_protocol() {
 	return protocol;
+}
+
+template <class protocol_policy> void net<protocol_policy>::set_max_packets_per_second(const size_t& packets_per_second_) {
+	packets_per_second = packets_per_second_;
+}
+
+template <class protocol_policy> const size_t& net<protocol_policy>::get_max_packets_per_second() const {
+	return packets_per_second;
 }
 
 #endif
