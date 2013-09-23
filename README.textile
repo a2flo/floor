@@ -3,5 +3,5 @@
 
 This is a C++ core library that is used in several of my projects:
 * "oclraster":https://github.com/a2flo/oclraster (migrated)
-* "a2elight":https://github.com/a2flo/a2elight (migration not done yet)
+* "a2elight":https://github.com/a2flo/a2elight (migrated)
 * "unibot":https://github.com/a2flo/unibot (migrated)

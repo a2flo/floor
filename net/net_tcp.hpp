@@ -55,6 +55,8 @@ namespace floor_net {
 		
 		//
 		bool verify_certificate(bool preverified floor_unused, boost::asio::ssl::verify_context& ctx) {
+			// TODO: actually verify cert
+			// TODO: don't use deprecated/legacy functions
 			char subject_name[256];
 			X509* cert = X509_STORE_CTX_get_current_cert(ctx.native_handle());
 			X509_NAME_oneline(X509_get_subject_name(cert), subject_name, 256);
@@ -62,6 +64,7 @@ namespace floor_net {
 			return true;
 		}
 		
+		// TODO: client/server specific code (+option)
 		bool handle_post_connect() {
 			boost::system::error_code ec;
 			socket.handshake(boost::asio::ssl::stream_base::client);
@@ -177,6 +180,7 @@ protected:
 	tcp::resolver resolver;
 	
 	floor_net::protocol_details<use_ssl> data;
+	
 };
 
 typedef std_protocol<tcp::socket, false> TCP_protocol;
