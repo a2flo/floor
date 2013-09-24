@@ -39,18 +39,25 @@ namespace floor_net {
 		bool handle_post_connect() { return true; }
 	};
 	
+	// ignore ssl deprecation warnings on os x
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+	
 	// ssl
 	template <> struct protocol_details<true> {
 		boost::asio::ssl::context context;
-		boost::asio::ssl::stream<tcp::socket> socket;
+		boost::asio::ssl::stream<tcp::socket> ssl_stream;
+		tcp::socket& socket;
 		protocol_details<true>(boost::asio::io_service& io_service) :
-		context(boost::asio::ssl::context::tlsv12), socket(io_service, context) {
+		context(io_service, boost::asio::ssl::context::tlsv1), ssl_stream(io_service, context), socket(ssl_stream.next_layer()) {
 			context.set_default_verify_paths();
-			socket.set_verify_mode(boost::asio::ssl::verify_peer);
-			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
+			ssl_stream.set_verify_mode(boost::asio::ssl::verify_peer);
+			ssl_stream.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
 		}
 		~protocol_details<true>() {
-			socket.shutdown();
+			ssl_stream.shutdown();
 		}
 		
 		//
@@ -67,7 +74,7 @@ namespace floor_net {
 		// TODO: client/server specific code (+option)
 		bool handle_post_connect() {
 			boost::system::error_code ec;
-			socket.handshake(boost::asio::ssl::stream_base::client);
+			ssl_stream.handshake(boost::asio::ssl::stream_base::client);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -75,6 +82,11 @@ namespace floor_net {
 			return true;
 		}
 	};
+	
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 };
 
 // combined/common ssl and non-ssl protocol implementation
@@ -121,7 +133,7 @@ public:
 		return true;
 	}
 	
-	int receive(void* recv_data, const unsigned int max_len) {
+	int receive(void* recv_data, const size_t max_len) {
 		boost::system::error_code ec;
 		auto data_received = data.socket.receive(boost::asio::buffer(recv_data, max_len), 0, ec);
 		if(ec) {
@@ -137,7 +149,7 @@ public:
 		return (data.socket.available() > 0);
 	}
 	
-	bool send(const char* send_data, const int len) {
+	bool send(const char* send_data, const size_t len) {
 		boost::system::error_code ec;
 		const auto data_sent = boost::asio::write(data.socket, boost::asio::buffer(send_data, len), ec);
 		if(ec) {

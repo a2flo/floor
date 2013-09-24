@@ -26,10 +26,15 @@
 
 template <class protocol_policy, class ssl_protocol_policy> class irc_net {
 public:
-	irc_net() : plain_protocol(), ssl_protocol() {
+	irc_net(const bool& use_ssl_) : plain_protocol(), ssl_protocol(), use_ssl(use_ssl_) {
 		plain_protocol.set_max_packets_per_second(5);
 		ssl_protocol.set_max_packets_per_second(5);
-		this->set_thread_delay(100); // 100ms should suffice
+		plain_protocol.set_thread_delay(100); // 100ms should suffice
+		ssl_protocol.set_thread_delay(100);
+		
+		// kill the other protocol
+		if(use_ssl) plain_protocol.set_thread_should_finish();
+		else ssl_protocol.set_thread_should_finish();
 	}
 	
 	void send(const string& data) {
@@ -40,19 +45,19 @@ public:
 			
 			size_t old_newline_pos = colon_pos;
 			size_t newline_pos = 0;
-			this->lock(); // lock before modifying send store
+			vector<vector<char>> packets;
 			while((newline_pos = data.find("\n", old_newline_pos+1)) != string::npos) {
-				string msg = data.substr(old_newline_pos+1, newline_pos-old_newline_pos-1);
-				send_store.push_back(msg_type + msg + "\n");
+				string msg = msg_type + data.substr(old_newline_pos+1, newline_pos-old_newline_pos-1) + "\n";
+				packets.emplace_back(begin(msg), end(msg));
 				old_newline_pos = newline_pos;
 			}
-			this->unlock();
+			if(use_ssl) ssl_protocol.send_data(packets);
+			else plain_protocol.send_data(packets);
 		}
 		// just send the msg
 		else {
-			this->lock(); // lock before modifying send store
-			send_store.push_back(data + "\n");
-			this->unlock();
+			if(use_ssl) ssl_protocol.send_data(data + "\n");
+			else plain_protocol.send_data(data + "\n");
 		}
 	}
 	
@@ -97,9 +102,45 @@ public:
 		send("PING " + server_name);
 	}
 	
+	void invalidate() {
+		if(use_ssl) ssl_protocol.invalidate();
+		else plain_protocol.invalidate();
+	}
+	
+	// protocol passthrough functions
+	bool connect_to_server(const string& server_name,
+						   const unsigned short int port) {
+		return (use_ssl ? ssl_protocol.connect_to_server(server_name, port) : plain_protocol.connect_to_server(server_name, port));
+	}
+	bool is_running() const {
+		return (use_ssl ? ssl_protocol.is_running() : plain_protocol.is_running());
+	}
+	bool is_received_data() const {
+		return (use_ssl ? ssl_protocol.is_received_data() : plain_protocol.is_received_data());
+	}
+	void clear_received_data() {
+		(use_ssl ? ssl_protocol.clear_received_data() : plain_protocol.clear_received_data());
+	}
+	deque<vector<char>> get_and_clear_received_data() {
+		return (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
+	}
+	boost::asio::ip::address get_local_address() const {
+		return (use_ssl ? ssl_protocol.get_local_address() : plain_protocol.get_local_address());
+	}
+	unsigned short int get_local_port() const {
+		return (use_ssl ? ssl_protocol.get_local_port() : plain_protocol.get_local_port());
+	}
+	boost::asio::ip::address get_remote_address() const {
+		return (use_ssl ? ssl_protocol.get_remote_address() : plain_protocol.get_remote_address());
+	}
+	unsigned short int get_remote_port() const {
+		return (use_ssl ? ssl_protocol.get_remote_port() : plain_protocol.get_remote_port());
+	}
+	
 protected:
 	net<protocol_policy> plain_protocol;
 	net<ssl_protocol_policy> ssl_protocol;
+	const bool use_ssl;
 	
 };
 

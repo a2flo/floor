@@ -25,19 +25,26 @@
 #include "core/logger.hpp"
 #include "threading/thread_base.hpp"
 
-#define PACKET_MAX_LEN 65536
-
 template <class protocol_policy> class net : public thread_base {
 public:
 	net();
 	virtual ~net();
 	
 	virtual void run();
-	virtual bool connect_to_server(const char* server_name, const unsigned short int port, const unsigned short int local_port = 65535);
+	virtual bool connect_to_server(const string& server_name,
+								   const unsigned short int port,
+								   const unsigned short int local_port = 65535);
 	
 	virtual bool is_received_data() const;
-	virtual deque<string> get_and_clear_received_data();
+	virtual deque<vector<char>> get_and_clear_received_data();
 	virtual void clear_received_data();
+	
+	// multi-packet send
+	virtual void send_data(const vector<vector<char>>& packets_data);
+	// single-packet send
+	virtual void send_data(const vector<char>& packet_data);
+	virtual void send_data(const string& packet_data);
+	virtual void send_data(const char* packet_data, const size_t length);
 	
 	virtual boost::asio::ip::address get_local_address() const;
 	virtual unsigned short int get_local_port() const;
@@ -49,37 +56,37 @@ public:
 	
 	virtual void set_max_packets_per_second(const size_t& packets_per_second);
 	virtual const size_t& get_max_packets_per_second() const;
+	
+	virtual void invalidate();
 
 protected:
 	protocol_policy protocol;
 	atomic<bool> connected { false };
 	
-	string last_packet_remains;
-	size_t received_length;
-	size_t packets_per_second;
-	size_t last_packet_send;
-	deque<string> receive_store;
-	deque<string> send_store;
+	string last_packet_remains { "" }; // TODO: remove?
+	size_t received_length { 0 };
+	size_t packets_per_second { 0 };
+	size_t last_packet_send { 0 };
+	deque<vector<char>> receive_store;
+	deque<vector<char>> send_store;
 	
-	char receive_data[PACKET_MAX_LEN];
-	virtual int receive_packet(char* data, const unsigned int max_len);
-	virtual void send_packet(const char* data, const unsigned int len);
-	virtual int process_packet(const string& data, const unsigned int max_len);
+	static constexpr size_t packet_max_len { 4096 };
+	array<char, packet_max_len> receive_data;
+	virtual int receive_packet(char* data, const size_t max_len);
+	virtual void send_packet(const char* data, const size_t len);
+	virtual int process_packet(const string& data, const size_t max_len);
 	
 };
 
-template <class protocol_policy> net<protocol_policy>::net() :
-thread_base(), protocol(), last_packet_remains(""), received_length(0), packets_per_second(0), last_packet_send(0) {
-	log_debug("net initialized!");
+template <class protocol_policy> net<protocol_policy>::net() : thread_base(), protocol() {
 	this->start(); // start thread
 }
 
 template <class protocol_policy> net<protocol_policy>::~net() {
-	log_debug("net deleted!");
 }
 
 template <class protocol_policy>
-bool net<protocol_policy>::connect_to_server(const char* server_name,
+bool net<protocol_policy>::connect_to_server(const string& server_name,
 											 const unsigned short int port,
 											 const unsigned short int local_port floor_unused) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
@@ -87,11 +94,10 @@ bool net<protocol_policy>::connect_to_server(const char* server_name,
 	try {
 		if(!protocol.is_valid()) throw exception();
 		
-		// create server socket
+		// open socket to the server
 		if(!protocol.open_socket(server_name, port)) throw exception();
 		
 		// connection created - data transfer is now possible
-		log_debug("successfully connected to server!");
 		connected = true;
 	}
 	catch(...) {
@@ -113,14 +119,14 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	try {
 		if(protocol.is_valid()) {
 			if(protocol.ready()) {
-				memset(receive_data, 0, PACKET_MAX_LEN);
-				len = receive_packet(receive_data, PACKET_MAX_LEN);
+				receive_data.fill(0);
+				len = receive_packet(&receive_data[0], packet_max_len);
 				if(len <= 0) {
 					// failure, kill this object/thread
 					throw exception();
 				}
 				else {
-					string data = receive_data;
+					string data(receive_data.data());
 					if(last_packet_remains.length() > 0) {
 						data = last_packet_remains + data;
 						len += (int)last_packet_remains.length();
@@ -152,26 +158,27 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	
 	// send data - if possible
 	if(!send_store.empty()) {
-		deque<string>::iterator send_end = send_store.end();
-		if(packets_per_second != 0 && last_packet_send > SDL_GetTicks()-1000) {
+		if(packets_per_second != 0 && last_packet_send > (SDL_GetTicks() - 1000u)) {
 			// wait
 		}
 		else {
+			const auto send_begin = send_store.begin();
+			auto send_end = send_store.end();
 			if(packets_per_second != 0 && send_store.size() > packets_per_second) {
-				send_end = send_store.begin()+packets_per_second;
+				send_end = send_begin + packets_per_second;
 			}
 			
-			for(auto send_iter = send_store.begin(); send_iter != send_end; send_iter++) {
-				send_packet(send_iter->c_str(), (int)send_iter->length());
+			for(auto send_iter = send_begin; send_iter != send_end; send_iter++) {
+				send_packet(send_iter->data(), send_iter->size());
 			}
 			if(packets_per_second != 0) last_packet_send = SDL_GetTicks();
 			
-			send_store.erase(send_store.begin(), send_end);
+			send_store.erase(send_begin, send_end);
 		}
 	}
 }
 
-template <class protocol_policy> int net<protocol_policy>::receive_packet(char* data, const unsigned int max_len) {
+template <class protocol_policy> int net<protocol_policy>::receive_packet(char* data, const size_t max_len) {
 	if(!protocol.is_valid()) {
 		log_error("invalid protocol and/or sockets!");
 		return -1;
@@ -188,7 +195,7 @@ template <class protocol_policy> int net<protocol_policy>::receive_packet(char* 
 	return len;
 }
 
-template <class protocol_policy> int net<protocol_policy>::process_packet(const string& data, const unsigned int max_len floor_unused) {
+template <class protocol_policy> int net<protocol_policy>::process_packet(const string& data, const size_t max_len floor_unused) {
 	size_t old_pos = 0, pos = 0;
 	size_t lb_offset = 1;
 	const size_t len = data.length();
@@ -213,7 +220,8 @@ template <class protocol_policy> int net<protocol_policy>::process_packet(const 
 			lb_offset = 2;
 		}
 		
-		receive_store.push_back(data.substr(old_pos, pos - old_pos - lb_offset + 1));
+		const auto recv_data = data.substr(old_pos, pos - old_pos - lb_offset + 1);
+		receive_store.emplace_back(begin(recv_data), end(recv_data));
 		old_pos = pos + 1;
 	}
 	
@@ -221,7 +229,8 @@ template <class protocol_policy> int net<protocol_policy>::process_packet(const 
 	return (int)old_pos;
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const unsigned int len) {
+template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const size_t len) {
+	// TODO: add to send store instead
 	if(!protocol.send(data, len)) {
 		log_error("couldn't send packet!");
 	}
@@ -231,17 +240,40 @@ template <class protocol_policy> bool net<protocol_policy>::is_received_data() c
 	return !receive_store.empty();
 }
 
-template <class protocol_policy> deque<string> net<protocol_policy>::get_and_clear_received_data() {
-	deque<string> ret;
+template <class protocol_policy> deque<vector<char>> net<protocol_policy>::get_and_clear_received_data() {
+	decltype(receive_store) ret;
 	this->lock();
-	std::swap(ret, receive_store);
-	receive_store.clear();
+	receive_store.swap(ret);
 	this->unlock();
 	return ret;
 }
 
 template <class protocol_policy> void net<protocol_policy>::clear_received_data() {
 	receive_store.clear();
+}
+
+template <class protocol_policy> void net<protocol_policy>::send_data(const vector<vector<char>>& packets_data) {
+	this->lock();
+	send_store.insert(end(send_store), cbegin(packets_data), cend(packets_data));
+	this->unlock();
+}
+
+template <class protocol_policy> void net<protocol_policy>::send_data(const vector<char>& packet_data) {
+	this->lock();
+	send_store.emplace_back(cbegin(packet_data), cend(packet_data));
+	this->unlock();
+}
+
+template <class protocol_policy> void net<protocol_policy>::send_data(const string& packet_data) {
+	this->lock();
+	send_store.emplace_back(cbegin(packet_data), cend(packet_data));
+	this->unlock();
+}
+
+template <class protocol_policy> void net<protocol_policy>::send_data(const char* packet_data, const size_t length) {
+	this->lock();
+	send_store.emplace_back(packet_data, packet_data + length);
+	this->unlock();
 }
 
 template <class protocol_policy> boost::asio::ip::address net<protocol_policy>::get_local_address() const {
@@ -272,6 +304,10 @@ template <class protocol_policy> void net<protocol_policy>::set_max_packets_per_
 
 template <class protocol_policy> const size_t& net<protocol_policy>::get_max_packets_per_second() const {
 	return packets_per_second;
+}
+
+template <class protocol_policy> void net<protocol_policy>::invalidate() {
+	protocol.invalidate();
 }
 
 #endif
