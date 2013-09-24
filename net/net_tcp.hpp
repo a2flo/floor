@@ -29,8 +29,9 @@ namespace floor_net {
 	// non-ssl
 	template <> struct protocol_details<false> {
 		tcp::socket socket;
+		tcp::socket& socket_layer; // ref to the actual socket layer
 		protocol_details<false>(boost::asio::io_service& io_service) :
-		socket(io_service) {
+		socket(io_service), socket_layer(socket) {
 		}
 		~protocol_details<false>() {
 			socket.close();
@@ -48,16 +49,16 @@ namespace floor_net {
 	// ssl
 	template <> struct protocol_details<true> {
 		boost::asio::ssl::context context;
-		boost::asio::ssl::stream<tcp::socket> ssl_stream;
-		tcp::socket& socket;
+		boost::asio::ssl::stream<tcp::socket> socket;
+		tcp::socket& socket_layer; // ref to the actual socket layer
 		protocol_details<true>(boost::asio::io_service& io_service) :
-		context(io_service, boost::asio::ssl::context::tlsv1), ssl_stream(io_service, context), socket(ssl_stream.next_layer()) {
+		context(io_service, boost::asio::ssl::context::tlsv1), socket(io_service, context), socket_layer(socket.next_layer()) {
 			context.set_default_verify_paths();
-			ssl_stream.set_verify_mode(boost::asio::ssl::verify_peer);
-			ssl_stream.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
+			socket.set_verify_mode(boost::asio::ssl::verify_peer);
+			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
 		}
 		~protocol_details<true>() {
-			ssl_stream.shutdown();
+			socket.shutdown();
 		}
 		
 		//
@@ -74,7 +75,7 @@ namespace floor_net {
 		// TODO: client/server specific code (+option)
 		bool handle_post_connect() {
 			boost::system::error_code ec;
-			ssl_stream.handshake(boost::asio::ssl::stream_base::client);
+			socket.handshake(boost::asio::ssl::stream_base::client);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -96,7 +97,7 @@ public:
 	io_service(), resolver(io_service), data(io_service) {}
 	
 	bool is_valid() const {
-		return (valid && ((socket_set && data.socket.is_open()) ||
+		return (valid && ((socket_set && data.socket_layer.is_open()) ||
 						  !socket_set));
 	}
 	
@@ -106,14 +107,14 @@ public:
 		
 		boost::system::error_code ec;
 		auto endpoint_iterator = resolver.resolve({ address, uint2string(port) });
-		boost::asio::connect(data.socket, endpoint_iterator, ec);
+		boost::asio::connect(data.socket_layer, endpoint_iterator, ec);
 		
 		if(ec) {
 			log_error("socket connection error: %s", ec.message());
 			valid = false;
 			return false;
 		}
-		if(!data.socket.is_open()) {
+		if(!data.socket_layer.is_open()) {
 			log_error("couldn't open socket!");
 			valid = false;
 			return false;
@@ -128,25 +129,25 @@ public:
 		// set keep-alive flag (this only handles the simple cases and
 		// usually has a big timeout value, but still better than nothing)
 		boost::asio::socket_base::keep_alive option(true);
-		data.socket.set_option(option);
+		data.socket_layer.set_option(option);
 		
 		return true;
 	}
 	
-	int receive(void* recv_data, const size_t max_len) {
+	size_t receive(void* recv_data, const size_t max_len) {
 		boost::system::error_code ec;
-		auto data_received = data.socket.receive(boost::asio::buffer(recv_data, max_len), 0, ec);
+		size_t data_received = data.socket.read_some(boost::asio::buffer(recv_data, max_len), ec);
 		if(ec) {
 			log_error("error while receiving data: %s", ec.message());
 			valid = false;
 			return 0;
 		}
-		return (int)data_received;
+		return data_received;
 	}
 	
 	bool ready() const {
 		if(!socket_set || !valid) return false;
-		return (data.socket.available() > 0);
+		return (data.socket_layer.available() > 0);
 	}
 	
 	bool send(const char* send_data, const size_t len) {
@@ -167,17 +168,17 @@ public:
 	}
 	
 	boost::asio::ip::address get_local_address() const {
-		return data.socket.local_endpoint().address();
+		return data.socket_layer.local_endpoint().address();
 	}
 	unsigned short int get_local_port() const {
-		return data.socket.local_endpoint().port();
+		return data.socket_layer.local_endpoint().port();
 	}
 	
 	boost::asio::ip::address get_remote_address() const {
-		return data.socket.remote_endpoint().address();
+		return data.socket_layer.remote_endpoint().address();
 	}
 	unsigned short int get_remote_port() const {
-		return data.socket.remote_endpoint().port();
+		return data.socket_layer.remote_endpoint().port();
 	}
 	
 	void invalidate() {

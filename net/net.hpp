@@ -70,11 +70,11 @@ protected:
 	deque<vector<char>> receive_store;
 	deque<vector<char>> send_store;
 	
-	static constexpr size_t packet_max_len { 4096 };
+	static constexpr size_t packet_max_len { 16384 };
 	array<char, packet_max_len> receive_data;
-	virtual int receive_packet(char* data, const size_t max_len);
+	virtual size_t receive_packet(char* data, const size_t max_len);
 	virtual void send_packet(const char* data, const size_t len);
-	virtual int process_packet(const string& data, const size_t max_len);
+	virtual size_t process_packet(const string& data, const size_t max_len);
 	
 };
 
@@ -115,13 +115,13 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	if(!connected) return;
 	
 	// receive data - if possible
-	int len = 0, used = 0;
+	size_t len = 0, used = 0;
 	try {
 		if(protocol.is_valid()) {
 			if(protocol.ready()) {
 				receive_data.fill(0);
 				len = receive_packet(&receive_data[0], packet_max_len);
-				if(len <= 0) {
+				if(len == 0 || len > packet_max_len) {
 					// failure, kill this object/thread
 					throw exception();
 				}
@@ -129,7 +129,7 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 					string data(receive_data.data());
 					if(last_packet_remains.length() > 0) {
 						data = last_packet_remains + data;
-						len += (int)last_packet_remains.length();
+						len += last_packet_remains.length();
 						last_packet_remains = "";
 					}
 					
@@ -178,16 +178,16 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	}
 }
 
-template <class protocol_policy> int net<protocol_policy>::receive_packet(char* data, const size_t max_len) {
+template <class protocol_policy> size_t net<protocol_policy>::receive_packet(char* data, const size_t max_len) {
 	if(!protocol.is_valid()) {
 		log_error("invalid protocol and/or sockets!");
 		return -1;
 	}
 	
 	// receive the package
-	int len = protocol.receive(data, max_len);
+	size_t len = protocol.receive(data, max_len);
 	// received packet length is equal or less than zero, return -1
-	if(len <= 0) {
+	if(len == 0 || len > packet_max_len) {
 		log_error("invalid data received!");
 		return -1;
 	}
@@ -195,7 +195,7 @@ template <class protocol_policy> int net<protocol_policy>::receive_packet(char* 
 	return len;
 }
 
-template <class protocol_policy> int net<protocol_policy>::process_packet(const string& data, const size_t max_len floor_unused) {
+template <class protocol_policy> size_t net<protocol_policy>::process_packet(const string& data, const size_t max_len floor_unused) {
 	size_t old_pos = 0, pos = 0;
 	size_t lb_offset = 1;
 	const size_t len = data.length();
@@ -226,7 +226,7 @@ template <class protocol_policy> int net<protocol_policy>::process_packet(const 
 	}
 	
 	received_length += old_pos;
-	return (int)old_pos;
+	return old_pos;
 }
 
 template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const size_t len) {
