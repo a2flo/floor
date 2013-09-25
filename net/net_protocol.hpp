@@ -1,19 +1,19 @@
 /*
  *  Flo's Open libRary (floor)
  *  Copyright (C) 2004 - 2013 Florian Ziesche
- *
+ *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation, either version 3 of the License, or
- *  (at your option) any later version.
- *
+ *  the Free Software Foundation; version 2 of the License only.
+ *  
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <http://www.gnu.org/licenses/>
+ *  
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
 #ifndef __FLOOR_NET_PROTOCOL_HPP__
@@ -33,12 +33,13 @@ struct std_protocol {
 	
 public:
 	bool is_valid();
-	bool ready();
+	bool ready() const;
+	void invalidate();
 	
-	bool open_socket(const string& address, const string& port);
+	bool open_socket(const string& address, const unsigned short int& port);
 	
-	int receive(void* data, const unsigned int max_len);
-	bool send(const char* data, const int len);
+	size_t receive(void* recv_data, const size_t max_len);
+	bool send(const char* data, const size_t len);
 	
 };
 

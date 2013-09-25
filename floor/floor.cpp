@@ -77,7 +77,11 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
  */
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
-				 const bool use_gl32_core_) {
+				 const bool use_gl32_core_
+#if !defined(__APPLE__)
+				 floor_unused // use_gl32_core_ is only used on os x
+#endif
+				 ) {
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
