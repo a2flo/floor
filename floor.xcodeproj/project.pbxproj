@@ -80,6 +80,8 @@
 		5C7B324917E7224000153798 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B324617E7224000153798 /* quaternion.cpp */; };
 		5C7B324E17E7225A00153798 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324C17E7225A00153798 /* quaternion.hpp */; };
 		5C7B324F17E7225A00153798 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324D17E7225A00153798 /* ray.hpp */; };
+		5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
+		5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -158,6 +160,8 @@
 		5C7B324617E7224000153798 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5C7B324C17E7225A00153798 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5C7B324D17E7225A00153798 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
+		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
+		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
 		5C81C42D17E59A3400FE6791 /* premake.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = premake.sh; sourceTree = "<group>"; };
 		5C81C42E17E59A3400FE6791 /* premake4.lua */ = {isa = PBXFileReference; lastKnownFileType = text; path = premake4.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
 		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
@@ -281,6 +285,8 @@
 				5C10919817D1153E007F536E /* net.hpp */,
 				5C10919917D1153E007F536E /* net_protocol.hpp */,
 				5C10919A17D1153E007F536E /* net_tcp.hpp */,
+				5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */,
+				5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */,
 			);
 			path = net;
 			sourceTree = "<group>";
@@ -384,6 +390,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */,
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C1091A317D1153E007F536E /* basic_math.hpp in Headers */,
@@ -517,6 +524,7 @@
 				5C1091D517D117B8007F536E /* city.cpp in Sources */,
 				5C1091B917D1153E007F536E /* vector2.cpp in Sources */,
 				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
+				5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */,
 				5C1091BD17D1153E007F536E /* vector4.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
 				5C1091E217D1427F007F536E /* tccpp.c in Sources */,

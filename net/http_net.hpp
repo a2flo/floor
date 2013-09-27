@@ -36,51 +36,48 @@ public:
 		CODE_404 = 404
 	};
 	
-	void open_url(const char* url, const size_t timeout = 30);
+	void open_url(const string& url, const size_t timeout = 30);
 	virtual void run();
 	
 protected:
-	size_t request_timeout;
-	string server_name;
-	string server_url;
-	string page_data;
-	bool header_read;
+	size_t request_timeout { request_timeout };
+	string server_name { "" };
+	string server_url { "/" };
+	string page_data { "" };
+	bool header_read { false };
 	deque<string>::iterator header_end;
 	
-	size_t start_time;
+	size_t start_time { 0 };
 	
-	HTTP_STATUS status_code;
+	HTTP_STATUS status_code { HTTP_STATUS::NONE };
 	
 	enum class PACKET_TYPE {
 		NORMAL,
 		CHUNKED
 	};
-	PACKET_TYPE packet_type;
-	size_t header_length;
-	size_t content_length;
+	PACKET_TYPE packet_type { PACKET_TYPE::NORMAL };
+	size_t header_length { 0 };
+	size_t content_length { 0 };
 	
 	void check_header();
 	void send_http_request(const char* url, const char* host);
 	
 	// seems like the compiler needs to know about these when using template inheritance
-	using net<protocol_policy>::server_ip;
-	using net<protocol_policy>::local_ip;
 	using net<protocol_policy>::received_length;
 	using net<protocol_policy>::receive_store;
 	using net<protocol_policy>::send_store;
 };
 
-// floor_http_net
-typedef http_net<FLOOR_NET_PROTOCOL> floor_http_net;
+// floor_http_net/floor_https_net
+typedef http_net<TCP_protocol> floor_http_net;
+typedef http_net<TCP_ssl_protocol> floor_https_net;
 
 
-template <class protocol_policy> http_net<protocol_policy>::http_net() :
-net<protocol_policy>(), request_timeout(30), server_name(""), server_url("/"), page_data(""), header_read(false), header_end(),
-start_time(0), status_code(http_net::HTTP_STATUS::NONE), packet_type(http_net::PACKET_TYPE::NORMAL), header_length(0), content_length(0) {
+template <class protocol_policy> http_net<protocol_policy>::http_net() : net<protocol_policy>() {
 	this->set_thread_delay(20); // 20ms should suffice
 }
 
-template <class protocol_policy> void http_net<protocol_policy>::open_url(const char* url, const size_t timeout) {
+template <class protocol_policy> void http_net<protocol_policy>::open_url(const string& url, const size_t timeout) {
 	request_timeout = timeout;
 	start_time = SDL_GetTicks();
 	server_name = "";
