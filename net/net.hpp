@@ -63,7 +63,7 @@ protected:
 	protocol_policy protocol;
 	atomic<bool> connected { false };
 	
-	string last_packet_remains { "" }; // TODO: remove?
+	string last_packet_remains { "" };
 	size_t received_length { 0 };
 	size_t packets_per_second { 0 };
 	size_t last_packet_send { 0 };

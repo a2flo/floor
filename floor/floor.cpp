@@ -77,11 +77,7 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
  */
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
-				 const bool use_gl32_core_
-#if !defined(__APPLE__)
-				 floor_unused // use_gl32_core_ is only used on os x
-#endif
-				 ) {
+				 const bool use_gl32_core_) {
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
@@ -270,7 +266,11 @@ void floor::destroy() {
 	logger::destroy();
 }
 
-void floor::init_internal(const bool use_gl32_core) {
+void floor::init_internal(const bool use_gl32_core
+#if !defined(__APPLE__)
+						  floor_unused // use_gl32_core is only used on os x
+#endif
+						  ) {
 	log_debug("initializing floor");
 
 	// initialize sdl
