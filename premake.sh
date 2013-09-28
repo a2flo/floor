@@ -38,7 +38,7 @@ fi
 case $( uname | tr [:upper:] [:lower:] ) in
 	"darwin")
 		BUILD_OS="macosx"
-		BUILD_CPU_COUNT=$(sysctl 'machdep.cpu.thread_count' | sed -E 's/.*(: )([:digit:]*)/\2/g')
+		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
 		;;
 	"linux")
 		BUILD_OS="linux"
@@ -48,7 +48,7 @@ case $( uname | tr [:upper:] [:lower:] ) in
 	[a-z0-9]*"bsd")
 		BUILD_OS="bsd"
 		BUILD_MAKE="gmake"
-		BUILD_CPU_COUNT=$(sysctl hw.ncpu | sed -E 's/.*(: )([:digit:]*)/\2/g')
+		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
 		;;
 	"cygwin"*)
 		BUILD_OS="windows"

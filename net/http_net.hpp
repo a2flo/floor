@@ -24,7 +24,6 @@
 #include "net/net_protocol.hpp"
 #include "net/net_tcp.hpp"
 
-// TODO: add events (for received packets and failed requests?)
 class http_net : public thread_base {
 public:
 	static constexpr size_t default_timeout { 10 };
