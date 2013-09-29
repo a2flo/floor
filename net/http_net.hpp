@@ -64,13 +64,11 @@ protected:
 	string server_name { "" };
 	string server_url { "/" };
 	unsigned short int server_port { 80 };
+	
+	deque<vector<char>> receive_store;
 	string page_data { "" };
 	bool header_read { false };
-	deque<string>::iterator header_end;
-	
-	size_t start_time { SDL_GetTicks() };
-	
-	HTTP_STATUS status_code { HTTP_STATUS::NONE };
+	void check_header(decltype(receive_store)::const_iterator header_end_iter);
 	
 	enum class PACKET_TYPE {
 		NORMAL,
@@ -79,10 +77,11 @@ protected:
 	PACKET_TYPE packet_type { PACKET_TYPE::NORMAL };
 	size_t header_length { 0 };
 	size_t content_length { 0 };
+	HTTP_STATUS status_code { HTTP_STATUS::NONE };
+	size_t start_time { SDL_GetTicks() };
 	
 	//
 	virtual void run();
-	void check_header();
 	void send_http_request(const string& url, const string& host);
 	
 };
@@ -195,20 +194,20 @@ void http_net::run() {
 	else if(!use_ssl && !plain_protocol.is_received_data()) return;
 	
 	// first, try to get the header
-	const auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
+	auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
+	receive_store.insert(end(receive_store), begin(received_data), end(received_data));
 	if(!header_read) {
 		header_length = 0;
-		for(auto line = receive_store.begin(); line != receive_store.end(); line++) {
-			header_length += line->size() + 2; // +2 == CRLF
+		for(auto line_iter = cbegin(receive_store), end_iter = cend(receive_store); line_iter != end_iter; line_iter++) {
+			header_length += line_iter->size() + 2; // +2 == CRLF
 			// check for empty line
-			if(line->length() == 0) {
+			if(line_iter->size() == 0) {
 				header_read = true;
-				header_end = line;
-				check_header();
+				check_header(line_iter);
 				
 				// remove header from receive store
-				header_end++;
-				receive_store.erase(receive_store.begin(), header_end);
+				line_iter++;
+				receive_store.erase(begin(receive_store), line_iter);
 				break;
 			}
 		}
@@ -218,14 +217,14 @@ void http_net::run() {
 		bool packet_complete = false;
 		if(packet_type == http_net::PACKET_TYPE::NORMAL && content_length == (received_length - header_length)) {
 			packet_complete = true;
-			for(auto line = receive_store.begin(); line != receive_store.end(); line++) {
+			for(const auto& line : receive_store) {
 				page_data += *line + '\n';
 			}
 		}
 		else if(packet_type == http_net::PACKET_TYPE::CHUNKED) {
 			// note: this iterates over the receive store twice, once to check if all data was received and sizes are correct and
 			// a second time to write the chunk data to page_data
-			for(auto line = receive_store.begin(); line != receive_store.end(); line++) {
+			for(const auto& line : receive_store) {
 				// get chunk length
 				size_t chunk_len = strtoull(line->c_str(), nullptr, 16);
 				if(chunk_len == 0 && line->length() == 1) {
@@ -253,31 +252,30 @@ void http_net::run() {
 		}
 		
 		if(packet_complete) {
-			// TODO: add http-packet-received event
+			receive_cb(this, status_code, server_name, page_data);
 			
 			// we're done here, clear and finish
-			this->clear_received_data();
 			this->set_thread_should_finish();
 		}
 	}
 }
 
-void http_net::check_header() {
+void http_net::check_header(decltype(receive_store)::const_iterator header_end_iter) {
 	auto line = receive_store.begin();
 	
 	// first line contains status code
-	const size_t space_1 = line->find(" ")+1;
-	const size_t space_2 = line->find(" ", space_1);
-	status_code = (HTTP_STATUS)strtoul(line->substr(space_1, space_2-space_1).c_str(), nullptr, 10);
+	const size_t space_1 = line.find(" ")+1;
+	const size_t space_2 = line.find(" ", space_1);
+	status_code = (HTTP_STATUS)strtoul(line.substr(space_1, space_2-space_1).c_str(), nullptr, 10);
 	if(status_code != HTTP_STATUS::CODE_200) {
-		log_error("%s%s: received status code %i!", server_name, server_url, status_code);
+		receive_cb(this, status_code, server_name, page_data);
 		this->set_thread_should_finish();
 		return;
 	}
 	
 	// continue ...
-	for(line++; line != header_end; line++) {
-		string line_str = str_to_lower(*line);
+	for(line++; line != header_end_iter; line++) {
+		string line_str = core::str_to_lower(string(line.begin(), line.end()));
 		if(line_str.find("transfer-encoding:") == 0) {
 			if(line_str.find("chunked") != string::npos) {
 				packet_type = http_net::PACKET_TYPE::CHUNKED;
