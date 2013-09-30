@@ -20,6 +20,7 @@
 #define __FLOOR_HTTP_NET_HPP__
 
 #include "core/platform.hpp"
+#include "core/core.hpp"
 #include "net/net.hpp"
 #include "net/net_protocol.hpp"
 #include "net/net_tcp.hpp"
@@ -215,39 +216,46 @@ void http_net::run() {
 	// if header has been found previously, try to find the message end
 	else {
 		bool packet_complete = false;
-		if(packet_type == http_net::PACKET_TYPE::NORMAL && content_length == (received_length - header_length)) {
+		const auto received_length = (use_ssl ? ssl_protocol.get_received_length() : plain_protocol.get_received_length());
+		if(packet_type == http_net::PACKET_TYPE::NORMAL && content_length >= (received_length - header_length)) {
 			packet_complete = true;
 			for(const auto& line : receive_store) {
-				page_data += *line + '\n';
+				page_data += string(line.data(), line.size());
+				page_data += '\n';
 			}
+			
+			// reset received data counter
+			if(use_ssl) ssl_protocol.subtract_received_length(content_length);
+			else plain_protocol.subtract_received_length(content_length);
 		}
 		else if(packet_type == http_net::PACKET_TYPE::CHUNKED) {
 			// note: this iterates over the receive store twice, once to check if all data was received and sizes are correct and
 			// a second time to write the chunk data to page_data
-			for(const auto& line : receive_store) {
+			for(auto line_iter = cbegin(receive_store), line_end = cend(receive_store); line_iter != line_end; line_iter++) {
 				// get chunk length
-				size_t chunk_len = strtoull(line->c_str(), nullptr, 16);
-				if(chunk_len == 0 && line->length() == 1) {
+				const string line_str(line_iter->data(), line_iter->size());
+				size_t chunk_len = strtoull(line_str.c_str(), nullptr, 16);
+				if(chunk_len == 0 && line_str.size() == 1) {
 					if(packet_complete) break; // second run is complete, break
 					packet_complete = true;
 					
 					// packet complete, start again, add data to page_data this time
-					line = receive_store.begin();
-					chunk_len = strtoull(line->c_str(), nullptr, 16);
+					line_iter = cbegin(receive_store);
+					chunk_len = strtoull(line_str.c_str(), nullptr, 16);
 				}
 				
 				size_t chunk_received_len = 0;
-				while(++line != receive_store.end()) {
+				while(++line_iter != cend(receive_store)) {
 					// append chunk data
-					if(packet_complete) page_data += *line + '\n';
-					chunk_received_len += line->size();
+					if(packet_complete) page_data += line_str + '\n';
+					chunk_received_len += line_str.size();
 					
 					// check if complete chunk was received
 					if(chunk_len == chunk_received_len) break;
 					chunk_received_len++; // newline
 				}
 				
-				if(line == receive_store.end()) break;
+				if(line_iter == cend(receive_store)) break;
 			}
 		}
 		
@@ -264,9 +272,10 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 	auto line = receive_store.begin();
 	
 	// first line contains status code
-	const size_t space_1 = line.find(" ")+1;
-	const size_t space_2 = line.find(" ", space_1);
-	status_code = (HTTP_STATUS)strtoul(line.substr(space_1, space_2-space_1).c_str(), nullptr, 10);
+	const string status_line_str(line->data(), line->size());
+	const size_t space_1 = status_line_str.find(" ")+1;
+	const size_t space_2 = status_line_str.find(" ", space_1);
+	status_code = (HTTP_STATUS)strtoul(status_line_str.substr(space_1, space_2 - space_1).c_str(), nullptr, 10);
 	if(status_code != HTTP_STATUS::CODE_200) {
 		receive_cb(this, status_code, server_name, page_data);
 		this->set_thread_should_finish();
@@ -275,7 +284,7 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 	
 	// continue ...
 	for(line++; line != header_end_iter; line++) {
-		string line_str = core::str_to_lower(string(line.begin(), line.end()));
+		const string line_str = core::str_to_lower(string(line->data(), line->size()));
 		if(line_str.find("transfer-encoding:") == 0) {
 			if(line_str.find("chunked") != string::npos) {
 				packet_type = http_net::PACKET_TYPE::CHUNKED;

@@ -612,6 +612,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CUDA,
+					"-lcrypto",
+					"-lssl",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libfloord;
@@ -730,6 +732,8 @@
 				OTHER_LDFLAGS = (
 					"-weak_framework",
 					CUDA,
+					"-lcrypto",
+					"-lssl",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libfloor;

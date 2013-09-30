@@ -58,6 +58,11 @@ public:
 	virtual const size_t& get_max_packets_per_second() const;
 	
 	virtual void invalidate();
+	
+	// blocking calls!
+	virtual size_t get_received_length();
+	virtual void reset_received_length();
+	virtual void subtract_received_length(const size_t& value);
 
 protected:
 	protocol_policy protocol;
@@ -308,6 +313,28 @@ template <class protocol_policy> const size_t& net<protocol_policy>::get_max_pac
 
 template <class protocol_policy> void net<protocol_policy>::invalidate() {
 	protocol.invalidate();
+}
+
+template <class protocol_policy> size_t net<protocol_policy>::get_received_length() {
+	lock();
+	const auto ret = received_length;
+	unlock();
+	return ret;
+}
+
+template <class protocol_policy> void net<protocol_policy>::reset_received_length() {
+	lock();
+	received_length = 0;
+	unlock();
+}
+
+template <class protocol_policy> void net<protocol_policy>::subtract_received_length(const size_t& value) {
+	lock();
+	if(value > received_length) {
+		received_length = 0;
+	}
+	else received_length -= value;
+	unlock();
 }
 
 #endif
