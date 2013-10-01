@@ -143,7 +143,7 @@ bool http_net::reconnect() {
 	return success;
 }
 
-http_net::http_net(const string& server_url, receive_functor receive_cb_, const size_t timeout) : http_net(server_url, timeout) {
+http_net::http_net(const string& server_url_, receive_functor receive_cb_, const size_t timeout) : http_net(server_url_, timeout) {
 	// note: server_url has already been extracted in the delegated http_net constructor
 	receive_cb = receive_cb_;
 	send_http_request(server_url, server_name);
