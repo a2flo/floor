@@ -20,6 +20,9 @@
  *  do/include platform specific stuff here
  */
 
+#ifndef __FLOOR_PLATFORM_HPP__
+#define __FLOOR_PLATFORM_HPP__
+
 ///////////////////////////////////////////////////////////////
 // Windows
 #if (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__WINDOWS__) || defined(MINGW)) && !defined(CYGWIN)
@@ -151,4 +154,6 @@
 #define floor_unreachable __builtin_unreachable
 #else
 #define floor_unreachable
+#endif
+
 #endif
