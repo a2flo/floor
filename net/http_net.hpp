@@ -29,7 +29,7 @@ class http_net : public thread_base {
 public:
 	static constexpr size_t default_timeout { 10 };
 
-	enum class HTTP_STATUS {
+	enum class HTTP_STATUS : unsigned int {
 		NONE = 0,
 		CODE_200 = 200,
 		CODE_404 = 404
@@ -150,8 +150,10 @@ http_net::http_net(const string& server_url_, receive_functor receive_cb_, const
 }
 
 http_net::~http_net() {
+	lock(); // lock this to make sure that there are no request callbacks still running
 	ssl_protocol.set_thread_should_finish();
 	plain_protocol.set_thread_should_finish();
+	unlock();
 }
 
 const string& http_net::get_server_name() const {
