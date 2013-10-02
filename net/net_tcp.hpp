@@ -34,7 +34,12 @@ namespace floor_net {
 		socket(io_service), socket_layer(socket) {
 		}
 		~protocol_details<false>() {
-			socket.close();
+			try {
+				socket.close();
+			}
+			catch(...) {
+				// catch uninitialized exceptions
+			}
 		}
 		
 		bool handle_post_connect() { return true; }
@@ -58,7 +63,13 @@ namespace floor_net {
 			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
 		}
 		~protocol_details<true>() {
-			socket.shutdown();
+			try {
+				socket_layer.close();
+				socket.shutdown();
+			}
+			catch(...) {
+				// catch uninitialized exceptions
+			}
 		}
 		
 		//

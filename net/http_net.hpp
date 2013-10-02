@@ -31,6 +31,7 @@ public:
 
 	enum class HTTP_STATUS : unsigned int {
 		NONE = 0,
+		TIMEOUT = 1,
 		CODE_200 = 200,
 		CODE_404 = 404
 	};
@@ -104,7 +105,7 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	
 	// extract server name and server url from url
 	const size_t server_name_start_pos = (use_ssl ? 8 : 7);
-	size_t server_name_end_pos = server_name_start_pos;
+	size_t server_name_end_pos = server.size();
 	
 	// first slash ("server" might be a complete url)
 	const size_t slash_pos = server.find("/", server_name_start_pos);
@@ -126,10 +127,13 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 		server_name = server_name.substr(0, colon_pos);
 	}
 	
-	// finally: open connection
+	// finally: open connection ...
 	if(!reconnect()) {
 		throw floor_exception("couldn't connect to server: "+server);
 	}
+	
+	// ... and start the worker thread
+	this->start();
 }
 
 bool http_net::reconnect() {
@@ -150,10 +154,10 @@ http_net::http_net(const string& server_url_, receive_functor receive_cb_, const
 }
 
 http_net::~http_net() {
-	lock(); // lock this to make sure that there are no request callbacks still running
-	ssl_protocol.set_thread_should_finish();
-	plain_protocol.set_thread_should_finish();
-	unlock();
+	// if status_code hasn't been changed (-> no other callback happened), call the callback function to signal destruction
+	if(status_code == HTTP_STATUS::NONE) {
+		receive_cb(this, HTTP_STATUS::NONE, server_name, "destructor");
+	}
 }
 
 const string& http_net::get_server_name() const {
@@ -176,7 +180,7 @@ void http_net::send_http_request(const string& url, const string& host) {
 	stringstream packet;
 	packet << "GET " << url << " HTTP/1.1" << endl;
 	packet << "Accept-Charset: UTF-8" << endl;
-	//packet << "Connection: close" << endl;
+	packet << "Connection: close" << endl; // TODO: make this configurable
 	packet << "User-Agent: floor" << endl; // TODO: version?
 	packet << "Host: " << host << endl;
 	packet << endl;
@@ -188,13 +192,17 @@ void http_net::send_http_request(const string& url, const string& host) {
 void http_net::run() {
 	// timeout handling
 	if((start_time + request_timeout * 1000) < SDL_GetTicks()) {
+		if(status_code == HTTP_STATUS::NONE) {
+			status_code = HTTP_STATUS::TIMEOUT;
+		}
 		log_error("timeout for %s%s request!", server_name, server_url);
+		receive_cb(this, status_code, server_name, "timeout");
 		this->set_thread_should_finish();
 	}
 	
 	// if there is no data to handle, return
-	if(use_ssl && !ssl_protocol.is_received_data()) return;
-	else if(!use_ssl && !plain_protocol.is_received_data()) return;
+	if(use_ssl) { if(!ssl_protocol.is_received_data()) return; }
+	else { if(!plain_protocol.is_received_data()) return; }
 	
 	// first, try to get the header
 	auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
