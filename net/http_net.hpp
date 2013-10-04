@@ -154,10 +154,15 @@ http_net::http_net(const string& server_url_, receive_functor receive_cb_, const
 }
 
 http_net::~http_net() {
+	lock(); // must be locked so that the worker thread won't be running
+	set_thread_should_finish();
+	
 	// if status_code hasn't been changed (-> no other callback happened), call the callback function to signal destruction
 	if(status_code == HTTP_STATUS::NONE) {
 		receive_cb(this, HTTP_STATUS::NONE, server_name, "destructor");
 	}
+	
+	unlock();
 }
 
 const string& http_net::get_server_name() const {
