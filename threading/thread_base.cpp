@@ -48,16 +48,23 @@ void thread_base::restart() {
 
 int thread_base::_thread_run(thread_base* this_thread_obj) {
 	while(true) {
+		// wait until we get the thread lock
 		if(this_thread_obj->try_lock()) {
-			this_thread_obj->run();
+			// if the "finish flag" has been set in the mean time, don't call the run method!
+			if(!this_thread_obj->thread_should_finish()) {
+				this_thread_obj->run();
+			}
 			this_thread_obj->unlock();
 			
-			// reduce system load and make other locks possible
-			const size_t thread_delay = this_thread_obj->get_thread_delay();
-			if(thread_delay > 0) {
-				this_thread::sleep_for(chrono::milliseconds(thread_delay));
+			// again: if the "finish flag" has been set, don't wait, but continue immediately
+			if(!this_thread_obj->thread_should_finish()) {
+				// reduce system load and make other locks possible
+				const size_t thread_delay = this_thread_obj->get_thread_delay();
+				if(thread_delay > 0) {
+					this_thread::sleep_for(chrono::milliseconds(thread_delay));
+				}
+				else this_thread::yield(); // just yield when delay == 0
 			}
-			else this_thread::yield(); // just yield when delay == 0
 		}
 		else this_thread::yield();
 		
