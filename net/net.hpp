@@ -83,7 +83,7 @@ protected:
 	
 };
 
-template <class protocol_policy> net<protocol_policy>::net() : thread_base(), protocol() {
+template <class protocol_policy> net<protocol_policy>::net() : thread_base("net"), protocol() {
 	this->start(); // start thread
 }
 
