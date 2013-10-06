@@ -232,7 +232,7 @@ void http_net::run() {
 	else {
 		bool packet_complete = false;
 		const auto received_length = (use_ssl ? ssl_protocol.get_received_length() : plain_protocol.get_received_length());
-		if(packet_type == http_net::PACKET_TYPE::NORMAL && content_length >= (received_length - header_length)) {
+		if(packet_type == http_net::PACKET_TYPE::NORMAL && (received_length - header_length) == content_length) {
 			packet_complete = true;
 			for(const auto& line : receive_store) {
 				page_data += string(line.data(), line.size());
