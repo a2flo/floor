@@ -24,6 +24,9 @@
 #include "net/net.hpp"
 #include "net/net_protocol.hpp"
 #include "net/net_tcp.hpp"
+#include "floor/floor.hpp"
+
+#define http_endl "\r\n"
 
 class http_net : public thread_base {
 public:
@@ -183,12 +186,12 @@ void http_net::open_url(const string& url, receive_functor receive_cb_, const si
 
 void http_net::send_http_request(const string& url, const string& host) {
 	stringstream packet;
-	packet << "GET " << url << " HTTP/1.1" << endl;
-	packet << "Accept-Charset: UTF-8" << endl;
-	packet << "Connection: close" << endl; // TODO: make this configurable
-	packet << "User-Agent: floor" << endl; // TODO: version?
-	packet << "Host: " << host << endl;
-	packet << endl;
+	packet << "GET " << url << " HTTP/1.1" << http_endl;
+	packet << "Accept-Charset: UTF-8" << http_endl;
+	//packet << "Connection: close" << http_endl; // TODO: make this configurable
+	packet << "User-Agent: " << floor::get_version() << http_endl; // TODO: make user-agant configurable
+	packet << "Host: " << host << http_endl;
+	packet << http_endl;
 	
 	if(use_ssl) ssl_protocol.send_data(packet.str());
 	else plain_protocol.send_data(packet.str());
@@ -228,8 +231,9 @@ void http_net::run() {
 			}
 		}
 	}
-	// if header has been found previously, try to find the message end
-	else {
+	
+	// if header has been found (previously or just now), try to find the message end
+	if(header_read) {
 		bool packet_complete = false;
 		const auto received_length = (use_ssl ? ssl_protocol.get_received_length() : plain_protocol.get_received_length());
 		if(packet_type == http_net::PACKET_TYPE::NORMAL && (received_length - header_length) == content_length) {
@@ -242,6 +246,7 @@ void http_net::run() {
 			// reset received data counter
 			if(use_ssl) ssl_protocol.subtract_received_length(content_length);
 			else plain_protocol.subtract_received_length(content_length);
+			// TODO: reset for chunked packets as well
 		}
 		else if(packet_type == http_net::PACKET_TYPE::CHUNKED) {
 			// note: this iterates over the receive store twice, once to check if all data was received and sizes are correct and

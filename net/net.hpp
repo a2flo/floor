@@ -235,7 +235,6 @@ template <class protocol_policy> size_t net<protocol_policy>::process_packet(con
 }
 
 template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const size_t len) {
-	// TODO: add to send store instead
 	if(!protocol.send(data, len)) {
 		log_error("couldn't send packet!");
 	}
