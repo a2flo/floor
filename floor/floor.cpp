@@ -568,9 +568,9 @@ void floor::start_draw() {
 
 /*! stops drawing the window
  */
-void floor::stop_draw() {
-	//
-	swap();
+void floor::stop_draw(const bool window_swap) {
+	// optional window swap (client code might want to swap the window by itself)
+	if(window_swap) swap();
 	
 	GLenum error = glGetError();
 	switch(error) {
@@ -631,7 +631,7 @@ void floor::set_caption(const string& caption) {
 
 /*! returns the window caption
  */
-const char* floor::get_caption() {
+string floor::get_caption() {
 	return SDL_GetWindowTitle(config.wnd);
 }
 
@@ -788,6 +788,14 @@ unsigned int floor::get_rdouble_click_time() {
 
 SDL_Window* floor::get_window() {
 	return config.wnd;
+}
+
+unsigned int floor::get_window_flags() {
+	return config.flags;
+}
+
+SDL_GLContext floor::get_context() {
+	return config.ctx;
 }
 
 const string floor::get_version() {

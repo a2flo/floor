@@ -43,7 +43,7 @@ public:
 	
 	// graphic control functions
 	static void start_draw();
-	static void stop_draw();
+	static void stop_draw(const bool window_swap = true);
 	static void init_gl();
 	static void resize_window();
 	static void swap();
@@ -55,7 +55,7 @@ public:
 
 	// miscellaneous control functions
 	static void set_caption(const string& caption);
-	static const char* get_caption();
+	static string get_caption();
 
 	static void set_cursor_visible(const bool& state);
 	static bool get_cursor_visible();
@@ -84,6 +84,8 @@ public:
 	
 	// screen/window
 	static SDL_Window* get_window();
+	static unsigned int get_window_flags();
+	static SDL_GLContext get_context();
 	static unsigned int get_width();
 	static unsigned int get_height();
 	static uint2 get_screen_size();
