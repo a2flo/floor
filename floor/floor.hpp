@@ -38,7 +38,19 @@ class FLOOR_API floor {
 public:
 	static void init(const char* callpath, const char* datapath,
 					 const bool console_only = false, const string config_name = "config.xml",
-					 const bool use_gl32_core = false);
+					 const bool use_gl32_core = false,
+					 // sdl window creation flags
+					 // note: fullscreen + borderless flag will be set automatically depending on the config setting
+#if !defined(FLOOR_IOS)
+					 const unsigned int window_flags = (SDL_WINDOW_OPENGL |
+														SDL_WINDOW_RESIZABLE)
+#else
+					 const unsigned int window_flags = (SDL_WINDOW_OPENGL |
+														SDL_WINDOW_RESIZABLE |
+														SDL_WINDOW_BORDERLESS |
+														SDL_WINDOW_FULLSCREEN)
+#endif
+	);
 	static void destroy();
 	
 	// graphic control functions
@@ -135,7 +147,7 @@ protected:
 	static xml* x;
 	static bool console_only;
 	
-	static void init_internal(const bool use_gl32_core);
+	static void init_internal(const bool use_gl32_core, const unsigned int window_flags);
 	
 	static struct floor_config {
 		// screen
