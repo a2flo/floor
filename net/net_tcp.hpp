@@ -111,6 +111,9 @@ public:
 		return (valid && ((socket_set && data.socket_layer.is_open()) ||
 						  !socket_set));
 	}
+	bool is_closed() const {
+		return closed;
+	}
 	
 	bool open_socket(const string& address, const unsigned short int& port) {
 		if(!valid) return false;
@@ -137,6 +140,8 @@ public:
 			return false;
 		}
 		
+		closed = false;
+		
 		// set keep-alive flag (this only handles the simple cases and
 		// usually has a big timeout value, but still better than nothing)
 		boost::asio::socket_base::keep_alive option(true);
@@ -148,8 +153,13 @@ public:
 	size_t receive(void* recv_data, const size_t max_len) {
 		boost::system::error_code ec;
 		size_t data_received = data.socket.read_some(boost::asio::buffer(recv_data, max_len), ec);
+		if(ec == boost::asio::error::eof) {
+			valid = false;
+			closed = true;
+			return 0;
+		}
 		if(ec) {
-			log_error("error while receiving data: %s", ec.message());
+			log_error("error while receiving data (received %u): %s", data_received, ec.message());
 			valid = false;
 			return 0;
 		}
@@ -164,8 +174,13 @@ public:
 	bool send(const char* send_data, const size_t len) {
 		boost::system::error_code ec;
 		const auto data_sent = boost::asio::write(data.socket, boost::asio::buffer(send_data, len), ec);
+		if(ec == boost::asio::error::eof) {
+			valid = false;
+			closed = true;
+			return 0;
+		}
 		if(ec) {
-			log_error("error while sending data: %s", ec.message());
+			log_error("error while sending data (sent %u): %s", data_sent, ec.message());
 			valid = false;
 			return false;
 		}
@@ -199,6 +214,7 @@ public:
 protected:
 	atomic<bool> socket_set { false };
 	atomic<bool> valid { true };
+	atomic<bool> closed { true };
 	
 	boost::asio::io_service io_service;
 	tcp::resolver resolver;

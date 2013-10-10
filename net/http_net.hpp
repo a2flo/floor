@@ -209,8 +209,12 @@ void http_net::run() {
 	}
 	
 	// if there is no data to handle, return
-	if(use_ssl) { if(!ssl_protocol.is_received_data()) return; }
-	else { if(!plain_protocol.is_received_data()) return; }
+	if(use_ssl) {
+		if(ssl_protocol.is_running() && !ssl_protocol.is_received_data()) return;
+	}
+	else {
+		if(plain_protocol.is_running() && !plain_protocol.is_received_data()) return;
+	}
 	
 	// first, try to get the header
 	auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
@@ -253,7 +257,7 @@ void http_net::run() {
 			// a second time to write the chunk data to page_data
 			for(auto line_iter = cbegin(receive_store), line_end = cend(receive_store); line_iter != line_end; line_iter++) {
 				// get chunk length
-				const string line_str(line_iter->data(), line_iter->size());
+				string line_str(line_iter->data(), line_iter->size());
 				size_t chunk_len = strtoull(line_str.c_str(), nullptr, 16);
 				if(chunk_len == 0 && line_str.size() == 1) {
 					if(packet_complete) break; // second run is complete, break
@@ -261,12 +265,13 @@ void http_net::run() {
 					
 					// packet complete, start again, add data to page_data this time
 					line_iter = cbegin(receive_store);
-					chunk_len = strtoull(line_str.c_str(), nullptr, 16);
+					chunk_len = strtoull(string(line_iter->data(), line_iter->size()).c_str(), nullptr, 16);
 				}
 				
 				size_t chunk_received_len = 0;
 				while(++line_iter != cend(receive_store)) {
 					// append chunk data
+					line_str = string(line_iter->data(), line_iter->size());
 					if(packet_complete) page_data += line_str + '\n';
 					chunk_received_len += line_str.size();
 					

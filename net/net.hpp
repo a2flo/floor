@@ -126,12 +126,17 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 			if(protocol.ready()) {
 				receive_data.fill(0);
 				len = receive_packet(&receive_data[0], packet_max_len);
-				if(len == 0 || len > packet_max_len) {
+				if(protocol.is_closed()) {
+					connected = false;
+					set_thread_should_finish();
+					return;
+				}
+				else if(len == 0 || len > packet_max_len) {
 					// failure, kill this object/thread
 					throw exception();
 				}
 				else {
-					string data(receive_data.data());
+					string data(receive_data.data(), len);
 					if(last_packet_remains.length() > 0) {
 						data = last_packet_remains + data;
 						len += last_packet_remains.length();
@@ -151,12 +156,14 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	}
 	catch(exception& e) {
 		log_error("net error: %s", e.what());
+		connected = false;
 		set_thread_should_finish();
 		return;
 	}
 	catch(...) {
 		// something is wrong, finsh and return
 		log_error("unknown net error, exiting ...");
+		connected = false;
 		set_thread_should_finish();
 		return;
 	}
@@ -189,10 +196,9 @@ template <class protocol_policy> size_t net<protocol_policy>::receive_packet(cha
 		return -1;
 	}
 	
-	// receive the package
+	// receive data (note: on eof, this will set the closed flag; otherwise, a received length of 0 signals an error)
 	size_t len = protocol.receive(data, max_len);
-	// received packet length is equal or less than zero, return -1
-	if(len == 0 || len > packet_max_len) {
+	if(!protocol.is_closed() && (len == 0 || len > packet_max_len)) {
 		log_error("invalid data received!");
 		return -1;
 	}
