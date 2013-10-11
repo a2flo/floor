@@ -75,7 +75,7 @@ protected:
 	deque<vector<char>> receive_store;
 	deque<vector<char>> send_store;
 	
-	static constexpr size_t packet_max_len { 16384 };
+	static constexpr size_t packet_max_len { 128 * 1024 };
 	array<char, packet_max_len> receive_data;
 	virtual size_t receive_packet(char* data, const size_t max_len);
 	virtual void send_packet(const char* data, const size_t len);
