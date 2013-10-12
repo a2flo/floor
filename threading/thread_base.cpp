@@ -18,13 +18,18 @@
 
 #include "thread_base.hpp"
 
-thread_base::thread_base(const string name) : thread_name(name), thread_obj(nullptr), thread_lock(), thread_status(THREAD_STATUS::INIT), thread_delay(50) {
+thread_base::thread_base(const string name) : thread_name(name) {
 	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running
-	thread_obj = new std::thread(&thread_base::_thread_run, this);
+	thread_obj = make_unique<std::thread>(&thread_base::_thread_run, this);
 }
 
 thread_base::~thread_base() {
 	finish();
+	
+	// when destructing a mutex it must not be locked!
+	for(unsigned int i = 0, unlocks = thread_lock_count; i < unlocks; i++) {
+		this->unlock();
+	}
 }
 
 void thread_base::start() {
@@ -39,10 +44,18 @@ void thread_base::start() {
 }
 
 void thread_base::restart() {
-	thread_should_finish_flag = false;
 	this->lock();
-	thread_status = THREAD_STATUS::INIT;
-	thread_obj = new thread(_thread_run, this);
+	
+	// terminate old thread if it is still running
+	if(thread_obj != nullptr) {
+		if(thread_obj->joinable()) {
+			thread_should_finish_flag = true;
+			thread_obj->join();
+		}
+	}
+	thread_should_finish_flag = false;
+	
+	thread_obj = make_unique<std::thread>(_thread_run, this);
 	start();
 }
 
@@ -78,18 +91,26 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 }
 
 void thread_base::finish() {
-	if(get_thread_status() == THREAD_STATUS::FINISHED && !thread_obj->joinable()) {
-		return; // nothing to do here
+	if(thread_obj != nullptr) {
+		if((get_thread_status() == THREAD_STATUS::FINISHED || get_thread_status() == THREAD_STATUS::INIT) &&
+		   !thread_obj->joinable()) {
+			// already finished or uninitialized, nothing to do here
+		}
+		else {
+			// signal thread to finish
+			set_thread_should_finish();
+			
+			// wait a few ms
+			this_thread::sleep_for(chrono::milliseconds(100));
+			
+			// this will block until the thread is finished
+			if(thread_obj->joinable()) thread_obj->join();
+		}
+		
+		// finally: kill the thread object
+		thread_obj = nullptr;
 	}
-	
-	// signal thread to finish
-	set_thread_should_finish();
-	
-	// wait a few ms
-	this_thread::sleep_for(chrono::milliseconds(100));
-	
-	// this will block until the thread is finished
-	if(thread_obj->joinable()) thread_obj->join();
+	// else: thread doesn't exist
 	
 	set_thread_status(THREAD_STATUS::FINISHED);
 }
@@ -97,6 +118,7 @@ void thread_base::finish() {
 void thread_base::lock() {
 	try {
 		thread_lock.lock();
+		thread_lock_count++;
 	}
 	catch(system_error& sys_err) {
 		cout << "unable to lock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
@@ -108,7 +130,9 @@ void thread_base::lock() {
 
 bool thread_base::try_lock() {
 	try {
-		return thread_lock.try_lock();
+		const bool ret = thread_lock.try_lock();
+		if(ret) thread_lock_count++;
+		return ret;
 	}
 	catch(system_error& sys_err) {
 		cout << "unable to try-lock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
@@ -122,6 +146,7 @@ bool thread_base::try_lock() {
 void thread_base::unlock() {
 	try {
 		thread_lock.unlock();
+		thread_lock_count--;
 	}
 	catch(system_error& sys_err) {
 		cout << "unable to unlock thread: " << sys_err.code() << ": " << sys_err.what() << endl;
@@ -132,9 +157,7 @@ void thread_base::unlock() {
 }
 
 void thread_base::set_thread_status(const thread_base::THREAD_STATUS status) {
-	this->lock();
 	thread_status = status;
-	this->unlock();
 }
 
 thread_base::THREAD_STATUS thread_base::get_thread_status() const {
