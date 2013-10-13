@@ -70,8 +70,9 @@ protected:
 	string server_url { "/" };
 	unsigned short int server_port { 80 };
 	
-	deque<vector<char>> receive_store;
+	vector<string> receive_store;
 	string page_data { "" };
+	bool prev_crlf { false };
 	bool header_read { false };
 	void check_header(decltype(receive_store)::const_iterator header_end_iter);
 	
@@ -216,9 +217,33 @@ void http_net::run() {
 		if(plain_protocol.is_running() && !plain_protocol.is_received_data()) return;
 	}
 	
-	// first, try to get the header
+	// get and process new data (first concat everything, then split after \r\n)
 	auto received_data = (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
-	receive_store.insert(end(receive_store), begin(received_data), end(received_data));
+	string received_data_str = "";
+	for(const auto& recv_elem : received_data) {
+		received_data_str += string(recv_elem.data(), recv_elem.size());
+	}
+	vector<string> lines { core::tokenize(received_data_str, "\r\n") };
+	
+	// if the received data ends on "\r\n", tokenize will create an additional unwanted empty line -> remove it
+	// also: ending data on "\r\n" will also signal the next received data not to append the first line to the last received line (see below)
+	const size_t recv_lev = received_data_str.size();
+	const bool cur_crlf = (recv_lev >= 2 && received_data_str[recv_lev - 2] == '\r' && received_data_str[recv_lev - 1] == '\n');
+	if(cur_crlf) {
+		lines.pop_back();
+	}
+	
+	// insert new lines into receive store
+	auto lines_begin = begin(lines);
+	if(!receive_store.empty() && !prev_crlf) {
+		// if the previous received data didn't end on "\r\n", add the first line to the last line/element of the receive store
+		receive_store.back() += lines[0];
+		lines_begin++; // insert from the next line onwards
+	}
+	receive_store.insert(end(receive_store), lines_begin, end(lines));
+	prev_crlf = cur_crlf;
+	
+	// first, try to get the header
 	if(!header_read) {
 		header_length = 0;
 		for(auto line_iter = cbegin(receive_store), end_iter = cend(receive_store); line_iter != end_iter; line_iter++) {
@@ -243,8 +268,8 @@ void http_net::run() {
 		if(packet_type == http_net::PACKET_TYPE::NORMAL && (received_length - header_length) == content_length) {
 			packet_complete = true;
 			for(const auto& line : receive_store) {
-				page_data += string(line.data(), line.size());
-				page_data += '\n';
+				page_data += line;
+				page_data += "\r\n";
 			}
 			
 			// reset received data counter
@@ -257,27 +282,25 @@ void http_net::run() {
 			// a second time to write the chunk data to page_data
 			for(auto line_iter = cbegin(receive_store), line_end = cend(receive_store); line_iter != line_end; line_iter++) {
 				// get chunk length
-				string line_str(line_iter->data(), line_iter->size());
-				size_t chunk_len = strtoull(line_str.c_str(), nullptr, 16);
-				if(chunk_len == 0 && line_str.size() == 1) {
+				size_t chunk_len = strtoull(line_iter->c_str(), nullptr, 16);
+				if(chunk_len == 0 && line_iter->size() == 1) {
 					if(packet_complete) break; // second run is complete, break
 					packet_complete = true;
 					
 					// packet complete, start again, add data to page_data this time
 					line_iter = cbegin(receive_store);
-					chunk_len = strtoull(string(line_iter->data(), line_iter->size()).c_str(), nullptr, 16);
+					chunk_len = strtoull(line_iter->c_str(), nullptr, 16);
 				}
 				
 				size_t chunk_received_len = 0;
 				while(++line_iter != cend(receive_store)) {
 					// append chunk data
-					line_str = string(line_iter->data(), line_iter->size());
-					if(packet_complete) page_data += line_str + '\n';
-					chunk_received_len += line_str.size();
+					if(packet_complete) page_data += *line_iter + "\r\n";
+					chunk_received_len += line_iter->size();
 					
 					// check if complete chunk was received
 					if(chunk_len == chunk_received_len) break;
-					chunk_received_len++; // newline
+					chunk_received_len += 2; // newline / data \r\n (not part of the protocol)
 				}
 				
 				if(line_iter == cend(receive_store)) break;
@@ -297,10 +320,9 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 	auto line = receive_store.begin();
 	
 	// first line contains status code
-	const string status_line_str(line->data(), line->size());
-	const size_t space_1 = status_line_str.find(" ")+1;
-	const size_t space_2 = status_line_str.find(" ", space_1);
-	status_code = (HTTP_STATUS)strtoul(status_line_str.substr(space_1, space_2 - space_1).c_str(), nullptr, 10);
+	const size_t space_1 = line->find(" ")+1;
+	const size_t space_2 = line->find(" ", space_1);
+	status_code = (HTTP_STATUS)strtoul(line->substr(space_1, space_2 - space_1).c_str(), nullptr, 10);
 	if(status_code != HTTP_STATUS::CODE_200) {
 		receive_cb(this, status_code, server_name, page_data);
 		this->set_thread_should_finish();
@@ -309,21 +331,20 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 	
 	// continue ...
 	for(line++; line != header_end_iter; line++) {
-		const string line_str = core::str_to_lower(string(line->data(), line->size()));
-		if(line_str.find("transfer-encoding:") == 0) {
-			if(line_str.find("chunked") != string::npos) {
+		if(line->find("Transfer-Encoding:") == 0) {
+			if(line->find("chunked") != string::npos) {
 				packet_type = http_net::PACKET_TYPE::CHUNKED;
 			}
 		}
-		else if(line_str.find("content-length:") == 0) {
+		else if(line->find("Content-Length:") == 0) {
 			// ignore content length if a chunked transfer-encoding was already specified (rfc2616 4.4.3)
 			if(packet_type != http_net::PACKET_TYPE::CHUNKED) {
 				packet_type = http_net::PACKET_TYPE::NORMAL;
 				
-				const size_t cl_space = line_str.find(" ")+1;
-				size_t non_digit = line_str.find_first_not_of("0123456789", cl_space);
-				if(non_digit == string::npos) non_digit = line_str.length();
-				content_length = strtoull(line_str.substr(cl_space, non_digit-cl_space).c_str(), nullptr, 10);
+				const size_t cl_space = line->find(" ") + 1;
+				size_t non_digit = line->find_first_not_of("0123456789", cl_space);
+				if(non_digit == string::npos) non_digit = line->size();
+				content_length = strtoull(line->substr(cl_space, non_digit - cl_space).c_str(), nullptr, 10);
 			}
 		}
 	}

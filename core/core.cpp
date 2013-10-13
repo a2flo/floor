@@ -115,19 +115,27 @@ void core::find_and_replace(string& str, const string& find, const string& repl)
 	}
 }
 
+#define tokenize_algorithm(delim_size) \
+vector<string> dst; \
+size_t pos = 0; \
+size_t old_pos = 0; \
+if(src.find(delim, pos) != string::npos) { \
+	while((pos = src.find(delim, old_pos)) != string::npos) { \
+		dst.emplace_back(src.substr(old_pos, pos - old_pos)); \
+		old_pos = pos + delim_size; \
+	} \
+	dst.emplace_back(src.substr(old_pos, pos - old_pos)); \
+} \
+else dst.emplace_back(src); \
+return dst;
+
 vector<string> core::tokenize(const string& src, const char& delim) {
-	vector<string> dst;
-	size_t pos = 0;
-	size_t old_pos = 0;
-	if(src.find(delim, pos) != string::npos) {
-		while((pos = src.find(delim, old_pos)) != string::npos) {
-			dst.push_back(src.substr(old_pos, pos-old_pos).c_str());
-			old_pos = pos+1;
-		}
-		dst.push_back(src.substr(old_pos, pos-old_pos).c_str());
-	}
-	else dst.push_back(src.c_str());
-	return dst;
+	tokenize_algorithm(1)
+}
+
+vector<string> core::tokenize(const string& src, const string& delim) {
+	const size_t delim_size = delim.size();
+	tokenize_algorithm(delim_size)
 }
 
 void core::str_to_lower_inplace(string& str) {

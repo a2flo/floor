@@ -94,6 +94,7 @@ public:
 	static string trim(const string& str);
 	static string escape_string(const string& str);
 	static vector<string> tokenize(const string& src, const char& delim);
+	static vector<string> tokenize(const string& src, const string& delim);
 	static void str_to_lower_inplace(string& str);
 	static void str_to_upper_inplace(string& str);
 	static string str_to_lower(const string& str);

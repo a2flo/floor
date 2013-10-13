@@ -144,7 +144,6 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 					}
 					
 					used = process_packet(data, len);
-					
 					len -= used;
 					if(used == 0 || len > 0) {
 						last_packet_remains = data.substr(used, len);
@@ -206,8 +205,8 @@ template <class protocol_policy> size_t net<protocol_policy>::receive_packet(cha
 	return len;
 }
 
-template <class protocol_policy> size_t net<protocol_policy>::process_packet(const string& data, const size_t max_len floor_unused) {
-	size_t old_pos = 0, pos = 0;
+template <class protocol_policy> size_t net<protocol_policy>::process_packet(const string& data, const size_t max_len) {
+	/*size_t old_pos = 0, pos = 0;
 	size_t lb_offset = 1;
 	const size_t len = data.length();
 	for(;;) {
@@ -237,7 +236,14 @@ template <class protocol_policy> size_t net<protocol_policy>::process_packet(con
 	}
 	
 	received_length += old_pos;
-	return old_pos;
+	return old_pos;*/
+	
+	// TODO: make this configurable
+	
+	received_length += max_len;
+	receive_store.emplace_back(begin(data), end(data));
+	
+	return max_len;
 }
 
 template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const size_t len) {
