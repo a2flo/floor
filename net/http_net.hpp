@@ -60,8 +60,8 @@ public:
 	bool uses_ssl() const { return use_ssl; }
 	
 protected:
-	net<TCP_protocol> plain_protocol;
-	net<TCP_ssl_protocol> ssl_protocol;
+	net<TCP_protocol, net_receive_raw> plain_protocol;
+	net<TCP_ssl_protocol, net_receive_raw> ssl_protocol;
 	const bool use_ssl;
 	
 	receive_functor receive_cb;

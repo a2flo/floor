@@ -25,7 +25,10 @@
 #include "core/logger.hpp"
 #include "threading/thread_base.hpp"
 
-template <class protocol_policy> class net : public thread_base {
+struct net_receive_raw;
+struct net_receive_split_on_newline;
+template <class protocol_policy = TCP_protocol, class reception_policy = net_receive_raw>
+class net : public thread_base {
 public:
 	net();
 	virtual ~net();
@@ -83,15 +86,15 @@ protected:
 	
 };
 
-template <class protocol_policy> net<protocol_policy>::net() : thread_base("net"), protocol() {
+template <class protocol_policy, class reception_policy> net<protocol_policy, reception_policy>::net() : thread_base("net"), protocol() {
 	this->start(); // start thread
 }
 
-template <class protocol_policy> net<protocol_policy>::~net() {
+template <class protocol_policy, class reception_policy> net<protocol_policy, reception_policy>::~net() {
 }
 
-template <class protocol_policy>
-bool net<protocol_policy>::connect_to_server(const string& server_name,
+template <class protocol_policy, class reception_policy>
+bool net<protocol_policy, reception_policy>::connect_to_server(const string& server_name,
 											 const unsigned short int port,
 											 const unsigned short int local_port floor_unused) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
@@ -116,7 +119,7 @@ bool net<protocol_policy>::connect_to_server(const string& server_name,
 	return true;
 }
 
-template <class protocol_policy> void net<protocol_policy>::run() {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::run() {
 	if(!connected) return;
 	
 	// receive data - if possible
@@ -189,7 +192,7 @@ template <class protocol_policy> void net<protocol_policy>::run() {
 	}
 }
 
-template <class protocol_policy> size_t net<protocol_policy>::receive_packet(char* data, const size_t max_len) {
+template <class protocol_policy, class reception_policy> size_t net<protocol_policy, reception_policy>::receive_packet(char* data, const size_t max_len) {
 	if(!protocol.is_valid()) {
 		log_error("invalid protocol and/or sockets!");
 		return -1;
@@ -205,58 +208,21 @@ template <class protocol_policy> size_t net<protocol_policy>::receive_packet(cha
 	return len;
 }
 
-template <class protocol_policy> size_t net<protocol_policy>::process_packet(const string& data, const size_t max_len) {
-	/*size_t old_pos = 0, pos = 0;
-	size_t lb_offset = 1;
-	const size_t len = data.length();
-	for(;;) {
-		// handle \n and \r\n newlines
-		if((pos = data.find("\r", old_pos)) == string::npos) {
-			if((pos = data.find("\n", old_pos)) == string::npos) {
-				break;
-			}
-			else lb_offset = 1;
-		}
-		else {
-			if(pos+1 >= len) {
-				// \n not received yet
-				break;
-			}
-			if(data[pos+1] != '\n') {
-				// \r must be followed by \n!
-				break;
-			}
-			pos++;
-			lb_offset = 2;
-		}
-		
-		const auto recv_data = data.substr(old_pos, pos - old_pos - lb_offset + 1);
-		receive_store.emplace_back(begin(recv_data), end(recv_data));
-		old_pos = pos + 1;
-	}
-	
-	received_length += old_pos;
-	return old_pos;*/
-	
-	// TODO: make this configurable
-	
-	received_length += max_len;
-	receive_store.emplace_back(begin(data), end(data));
-	
-	return max_len;
+template <class protocol_policy, class reception_policy> size_t net<protocol_policy, reception_policy>::process_packet(const string& data, const size_t max_len) {
+	return reception_policy::process_packet(data, max_len, receive_store, received_length);
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_packet(const char* data, const size_t len) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::send_packet(const char* data, const size_t len) {
 	if(!protocol.send(data, len)) {
 		log_error("couldn't send packet!");
 	}
 }
 
-template <class protocol_policy> bool net<protocol_policy>::is_received_data() const {
+template <class protocol_policy, class reception_policy> bool net<protocol_policy, reception_policy>::is_received_data() const {
 	return !receive_store.empty();
 }
 
-template <class protocol_policy> deque<vector<char>> net<protocol_policy>::get_and_clear_received_data() {
+template <class protocol_policy, class reception_policy> deque<vector<char>> net<protocol_policy, reception_policy>::get_and_clear_received_data() {
 	decltype(receive_store) ret;
 	this->lock();
 	receive_store.swap(ret);
@@ -264,82 +230,82 @@ template <class protocol_policy> deque<vector<char>> net<protocol_policy>::get_a
 	return ret;
 }
 
-template <class protocol_policy> void net<protocol_policy>::clear_received_data() {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::clear_received_data() {
 	receive_store.clear();
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_data(const vector<vector<char>>& packets_data) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::send_data(const vector<vector<char>>& packets_data) {
 	this->lock();
 	send_store.insert(end(send_store), cbegin(packets_data), cend(packets_data));
 	this->unlock();
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_data(const vector<char>& packet_data) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::send_data(const vector<char>& packet_data) {
 	this->lock();
 	send_store.emplace_back(cbegin(packet_data), cend(packet_data));
 	this->unlock();
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_data(const string& packet_data) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::send_data(const string& packet_data) {
 	this->lock();
 	send_store.emplace_back(cbegin(packet_data), cend(packet_data));
 	this->unlock();
 }
 
-template <class protocol_policy> void net<protocol_policy>::send_data(const char* packet_data, const size_t length) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::send_data(const char* packet_data, const size_t length) {
 	this->lock();
 	send_store.emplace_back(packet_data, packet_data + length);
 	this->unlock();
 }
 
-template <class protocol_policy> boost::asio::ip::address net<protocol_policy>::get_local_address() const {
+template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_local_address() const {
 	return protocol.get_local_address();
 }
-template <class protocol_policy> unsigned short int net<protocol_policy>::get_local_port() const {
+template <class protocol_policy, class reception_policy> unsigned short int net<protocol_policy, reception_policy>::get_local_port() const {
 	return protocol.get_local_port();
 }
 
-template <class protocol_policy> boost::asio::ip::address net<protocol_policy>::get_remote_address() const {
+template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_remote_address() const {
 	return protocol.get_remote_address();
 }
-template <class protocol_policy> unsigned short int net<protocol_policy>::get_remote_port() const {
+template <class protocol_policy, class reception_policy> unsigned short int net<protocol_policy, reception_policy>::get_remote_port() const {
 	return protocol.get_remote_port();
 }
 
-template <class protocol_policy> const protocol_policy& net<protocol_policy>::get_protocol() const {
+template <class protocol_policy, class reception_policy> const protocol_policy& net<protocol_policy, reception_policy>::get_protocol() const {
 	return protocol;
 }
 
-template <class protocol_policy> protocol_policy& net<protocol_policy>::get_protocol() {
+template <class protocol_policy, class reception_policy> protocol_policy& net<protocol_policy, reception_policy>::get_protocol() {
 	return protocol;
 }
 
-template <class protocol_policy> void net<protocol_policy>::set_max_packets_per_second(const size_t& packets_per_second_) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::set_max_packets_per_second(const size_t& packets_per_second_) {
 	packets_per_second = packets_per_second_;
 }
 
-template <class protocol_policy> const size_t& net<protocol_policy>::get_max_packets_per_second() const {
+template <class protocol_policy, class reception_policy> const size_t& net<protocol_policy, reception_policy>::get_max_packets_per_second() const {
 	return packets_per_second;
 }
 
-template <class protocol_policy> void net<protocol_policy>::invalidate() {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::invalidate() {
 	protocol.invalidate();
 }
 
-template <class protocol_policy> size_t net<protocol_policy>::get_received_length() {
+template <class protocol_policy, class reception_policy> size_t net<protocol_policy, reception_policy>::get_received_length() {
 	lock();
 	const auto ret = received_length;
 	unlock();
 	return ret;
 }
 
-template <class protocol_policy> void net<protocol_policy>::reset_received_length() {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::reset_received_length() {
 	lock();
 	received_length = 0;
 	unlock();
 }
 
-template <class protocol_policy> void net<protocol_policy>::subtract_received_length(const size_t& value) {
+template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::subtract_received_length(const size_t& value) {
 	lock();
 	if(value > received_length) {
 		received_length = 0;
@@ -347,5 +313,60 @@ template <class protocol_policy> void net<protocol_policy>::subtract_received_le
 	else received_length -= value;
 	unlock();
 }
+
+/////////////////////////
+// net reception policies
+
+// raw: just dump all received data into the receive_store (one element per call/packet)
+struct net_receive_raw {
+public:
+	static size_t process_packet(const string& data, const size_t max_len,
+								 deque<vector<char>>& receive_store,
+								 size_t& received_length) {
+		received_length += max_len;
+		receive_store.emplace_back(begin(data), end(data));
+		return max_len;
+	}
+};
+
+// split_on_newline: splits the received data on every \n (one element per \n/newline)
+struct net_receive_split_on_newline {
+public:
+	static size_t process_packet(const string& data, const size_t max_len floor_unused,
+								 deque<vector<char>>& receive_store,
+								 size_t& received_length) {
+		size_t old_pos = 0, pos = 0;
+		size_t lb_offset = 1;
+		const size_t len = data.length();
+		for(;;) {
+			// handle \n and \r\n newlines
+			if((pos = data.find("\r", old_pos)) == string::npos) {
+				if((pos = data.find("\n", old_pos)) == string::npos) {
+					break;
+				}
+				else lb_offset = 1;
+			}
+			else {
+				if(pos+1 >= len) {
+					// \n not received yet
+					break;
+				}
+				if(data[pos+1] != '\n') {
+					// \r must be followed by \n!
+					break;
+				}
+				pos++;
+				lb_offset = 2;
+			}
+			
+			const auto recv_data = data.substr(old_pos, pos - old_pos - lb_offset + 1);
+			receive_store.emplace_back(begin(recv_data), end(recv_data));
+			old_pos = pos + 1;
+		}
+		
+		received_length += old_pos;
+		return old_pos;
+	}
+};
 
 #endif

@@ -138,8 +138,8 @@ public:
 	}
 	
 protected:
-	net<protocol_policy> plain_protocol;
-	net<ssl_protocol_policy> ssl_protocol;
+	net<protocol_policy, net_receive_split_on_newline> plain_protocol;
+	net<ssl_protocol_policy, net_receive_split_on_newline> ssl_protocol;
 	const bool use_ssl;
 	
 };
