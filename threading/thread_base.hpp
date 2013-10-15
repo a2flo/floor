@@ -47,11 +47,17 @@ public:
 	
 	void set_thread_status(const thread_base::THREAD_STATUS status);
 	THREAD_STATUS get_thread_status() const;
+	
 	bool is_running() const; // shortcut for get_thread_status() == RUNNING || INIT
+	
 	void set_thread_should_finish();
 	bool thread_should_finish();
-	void set_thread_delay(const unsigned int delay);
+	
+	void set_thread_delay(const size_t delay);
 	size_t get_thread_delay() const;
+	
+	void set_yield_after_run(const bool state);
+	bool get_yield_after_run() const;
 	
 protected:
 	const string thread_name;
@@ -61,7 +67,8 @@ protected:
 	atomic<unsigned int> thread_lock_count { 0 };
 	atomic<THREAD_STATUS> thread_status { THREAD_STATUS::INIT };
 	atomic<bool> thread_should_finish_flag { false };
-	size_t thread_delay { 50 };
+	atomic<size_t> thread_delay { 50 };
+	atomic<bool> yield_after_run { true };
 	
 	void start();
 	static int _thread_run(thread_base* this_thread_obj);

@@ -76,10 +76,19 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 				if(thread_delay > 0) {
 					this_thread::sleep_for(chrono::milliseconds(thread_delay));
 				}
-				else this_thread::yield(); // just yield when delay == 0
+				else {
+					if(this_thread_obj->get_yield_after_run()) {
+						// just yield when delay == 0 and "yield after run" flag is set
+						this_thread::yield();
+					}
+				}
 			}
 		}
-		else this_thread::yield();
+		else {
+			if(this_thread_obj->get_yield_after_run()) {
+				this_thread::yield();
+			}
+		}
 		
 		if(this_thread_obj->thread_should_finish()) {
 			break;
@@ -178,12 +187,18 @@ bool thread_base::thread_should_finish() {
 	return thread_should_finish_flag;
 }
 
-void thread_base::set_thread_delay(const unsigned int delay) {
-	this->lock();
+void thread_base::set_thread_delay(const size_t delay) {
 	thread_delay = delay;
-	this->unlock();
 }
 
 size_t thread_base::get_thread_delay() const {
 	return thread_delay;
+}
+
+void thread_base::set_yield_after_run(const bool state) {
+	yield_after_run = state;
+}
+
+bool thread_base::get_yield_after_run() const {
+	return yield_after_run;
 }

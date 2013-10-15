@@ -25,8 +25,11 @@
 #include "core/logger.hpp"
 #include "threading/thread_base.hpp"
 
+// reception_policies (see explanations at the bottom of this header)
 struct net_receive_raw;
 struct net_receive_split_on_newline;
+
+//
 template <class protocol_policy = TCP_protocol, class reception_policy = net_receive_raw>
 class net : public thread_base {
 public:
