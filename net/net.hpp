@@ -105,8 +105,8 @@ bool net<protocol_policy, reception_policy>::connect_to_server(const string& ser
 	try {
 		if(!protocol.is_valid()) throw exception();
 		
-		// open socket to the server
-		if(!protocol.open_socket(server_name, port)) throw exception();
+		// connect to the server
+		if(!protocol.connect(server_name, port)) throw exception();
 		
 		// connection created - data transfer is now possible
 		connected = true;

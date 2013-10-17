@@ -42,7 +42,8 @@ namespace floor_net {
 			}
 		}
 		
-		bool handle_post_connect() { return true; }
+		bool handle_post_client_connect() { return true; }
+		bool handle_post_server_connect() { return true; }
 	};
 	
 	// ignore ssl deprecation warnings on os x
@@ -83,10 +84,18 @@ namespace floor_net {
 			return true;
 		}
 		
-		// TODO: client/server specific code (+option)
-		bool handle_post_connect() {
+		bool handle_post_client_connect() {
 			boost::system::error_code ec;
 			socket.handshake(boost::asio::ssl::stream_base::client);
+			if(ec) {
+				log_error("handshake failed: %s", ec.message());
+				return false;
+			}
+			return true;
+		}
+		bool handle_post_server_connect() {
+			boost::system::error_code ec;
+			socket.handshake(boost::asio::ssl::stream_base::server);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -115,7 +124,7 @@ public:
 		return closed;
 	}
 	
-	bool open_socket(const string& address, const unsigned short int& port) {
+	bool connect(const string& address, const unsigned short int& port) {
 		if(!valid) return false;
 		socket_set = true;
 		
@@ -135,7 +144,7 @@ public:
 		}
 		
 		//
-		if(!data.handle_post_connect()) {
+		if(!data.handle_post_client_connect()) {
 			valid = false;
 			return false;
 		}
@@ -149,6 +158,7 @@ public:
 		
 		return true;
 	}
+	// TODO: server socket open
 	
 	size_t receive(void* recv_data, const size_t max_len) {
 		boost::system::error_code ec;
