@@ -393,7 +393,7 @@ namespace floor_http_net {
 constexpr const char* http_net::status_code_to_string(const HTTP_STATUS& code) {
 	return (code >= HTTP_STATUS::CODE_100 && code <= HTTP_STATUS::CODE_599 ?
 			floor_http_net::codes[((unsigned int)code - 100u) / 100u][(unsigned int)code - 100u * ((unsigned int)code / 100u)] :
-			"unknown code");
+			"invalid code");
 }
 
 #endif
