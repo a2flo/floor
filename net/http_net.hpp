@@ -35,9 +35,13 @@ public:
 	enum class HTTP_STATUS : unsigned int {
 		NONE = 0,
 		TIMEOUT = 1,
+		CODE_100 = 100,
 		CODE_200 = 200,
-		CODE_404 = 404
+		CODE_404 = 404,
+		CODE_599 = 599,
 	};
+	static constexpr const char* status_code_to_string(const HTTP_STATUS& code);
+	
 	// (this, return http status, server, data) -> success bool
 	typedef std::function<bool(http_net*, HTTP_STATUS, const string&, const string&)> receive_functor;
 	
@@ -348,6 +352,48 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 			}
 		}
 	}
+}
+
+// TODO: when c++14 comes around, do this inside the constexpr (switch)
+namespace floor_http_net {
+	// https://en.wikipedia.org/wiki/List_of_HTTP_status_codes
+	// note: only standardized, rfc and widely used codes are included
+	static constexpr array<array<const char*, 100>, 5> codes {{
+		{{
+			"Continue", "Switching Protocols", "Processing"
+		}},
+		{{
+			"OK", "Created", "Accepted", "Non-Authoritative Information", "No Content",
+			"Reset Content", "Partial Content", "Multi-Status", "Already Reported", "",
+			"", "", "", "", "", "", "", "", "", "",
+			"", "", "", "", "", "", "IM Used", "", "", "",
+		}},
+		{{
+			"Multiple Choices", "Moved Permanently", "Found", "See Other", "Not Modified",
+			"Use Proxy", "Switch Proxy", "Temporary Redirect", "Permanent Redirect", "",
+		}},
+		{{
+			"Bad Request", "Unauthorized", "Payment Required", "Forbidden", "Not Found",
+			"Method Not Allowed", "Not Acceptable", "Proxy Authentication Required", "Request Timeout", "Conflict",
+			"Gone", "Length Required", "Precondition Failed", "Request Entity Too Large", "Request-URI Too Long",
+			"Unsupported Media Type", "Requested Range Not Satisfiable", "Expectation Failed", "I'm a teapot", "Authentication Timeout",
+			"", "", "Unprocessable Entity", "Locked", "Failed Dependency",
+			"Unordered Collection", "Upgrade Required", "", "Precondition Required", "Too Many Requests",
+			"", "Request Header Fields Too Large", "", "", "",
+		}},
+		{{
+			"Internal Server Error", "Not Implemented", "Bad Gateway", "Service Unavailable", "Gateway Timeout",
+			"HTTP Version Not Supported", "Variant Also Negotiates", "Insufficient Storage", "Loop Detected", "Bandwidth Limit Exceeded",
+			"Not Extended", "Network Authentication Required", "", "", "",
+			"", "", "", "", "",
+			"", "", "Connection timed out", "", "",
+		}},
+	}};
+};
+constexpr const char* http_net::status_code_to_string(const HTTP_STATUS& code) {
+	return (code >= HTTP_STATUS::CODE_100 && code <= HTTP_STATUS::CODE_599 ?
+			floor_http_net::codes[((unsigned int)code - 100u) / 100u][(unsigned int)code - 100u * ((unsigned int)code / 100u)] :
+			"unknown code");
 }
 
 #endif
