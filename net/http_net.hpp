@@ -283,7 +283,7 @@ void http_net::run() {
 			for(auto line_iter = cbegin(receive_store), line_end = cend(receive_store); line_iter != line_end; line_iter++) {
 				// get chunk length
 				size_t chunk_len = strtoull(line_iter->c_str(), nullptr, 16);
-				if(chunk_len == 0 && line_iter->size() == 1) {
+				if(chunk_len == 0 && line_iter->size() > 0) {
 					if(packet_complete) break; // second run is complete, break
 					packet_complete = true;
 					
