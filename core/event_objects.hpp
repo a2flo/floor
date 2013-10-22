@@ -78,7 +78,7 @@ enum class EVENT_TYPE : unsigned int {
 FLOOR_API EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
 namespace std {
 	template <> struct hash<EVENT_TYPE> : public hash<unsigned int> {
-		size_t operator()(EVENT_TYPE type) const throw() {
+		size_t operator()(EVENT_TYPE type) const noexcept {
 			return hash<unsigned int>::operator()((unsigned int)type);
 		}
 	};

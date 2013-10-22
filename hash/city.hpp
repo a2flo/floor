@@ -74,7 +74,7 @@ typedef uint64_t uint64;
 typedef std::pair<uint64, uint64> uint128;
 namespace std {
 	template <> struct hash<uint128> : public hash<size_t> {
-		size_t operator()(uint128 value) const throw() {
+		size_t operator()(uint128 value) const noexcept {
 			return (size_t)value.first; // this has to suffice for now
 		}
 	};

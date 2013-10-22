@@ -67,7 +67,7 @@ template <> ssize_t converter<string, ssize_t>::convert(const string& var) {
 #endif
 #endif
 
-const char* floor_exception::what() const throw () {
+const char* floor_exception::what() const noexcept {
 	return error_str.c_str();
 }
 

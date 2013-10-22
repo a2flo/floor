@@ -141,14 +141,13 @@ public:
 	cudacl_exception(const int& err_code) : error_code(err_code), error_str("") {}
 	cudacl_exception(const string& err_str) : error_code(~0), error_str(err_str) {}
 	cudacl_exception(const int& err_code, const string& err_str) : error_code(err_code), error_str(err_str) {}
-	~cudacl_exception() throw() {}
-	virtual const char* what() const throw ();
-	virtual const int& code() const throw ();
+	virtual const char* what() const noexcept;
+	virtual const int& code() const noexcept;
 };
-const char* cudacl_exception::what() const throw () {
+const char* cudacl_exception::what() const noexcept {
 	return error_str.c_str();
 }
-const int& cudacl_exception::code() const throw () {
+const int& cudacl_exception::code() const noexcept {
 	return error_code;
 }
 
