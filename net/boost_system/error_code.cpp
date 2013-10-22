@@ -154,7 +154,6 @@ namespace
 #   endif
 
       if ( sz > sizeof(buf) ) std::free( bp );
-      sz = 0;
       return msg;
   #  endif   // else POSIX version of strerror_r
   # endif  // else use strerror_r
