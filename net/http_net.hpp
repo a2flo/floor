@@ -46,14 +46,17 @@ public:
 	typedef std::function<bool(http_net*, HTTP_STATUS, const string&, const string&)> receive_functor;
 	
 	// construct the http_net object and only connect to server (no request is being sent)
-	http_net(const string& server, const size_t timeout = default_timeout);
+	http_net(const string& server,
+			 const size_t timeout = default_timeout, const bool continue_on_error_status = true);
 	// construct the http_net object, connect to the server and send a url request
-	http_net(const string& server_url, receive_functor receive_cb, const size_t timeout = default_timeout);
+	http_net(const string& server_url, receive_functor receive_cb,
+			 const size_t timeout = default_timeout, const bool continue_on_error_status = true);
 	// deconstructer -> disconnect from the server
 	virtual ~http_net();
 	
 	//
-	void open_url(const string& url, receive_functor receive_cb, const size_t timeout = default_timeout);
+	void open_url(const string& url, receive_functor receive_cb,
+				  const size_t timeout = default_timeout, const bool continue_on_error_status = true);
 	
 	// tries to connect to the previously defined server again (note: connection must be closed before calling this)
 	bool reconnect();
@@ -70,6 +73,7 @@ protected:
 	
 	receive_functor receive_cb;
 	size_t request_timeout { default_timeout };
+	bool continue_on_error_status { true };
 	string server_name { "" };
 	string server_url { "/" };
 	unsigned short int server_port { 80 };
@@ -96,8 +100,8 @@ protected:
 	
 };
 
-http_net::http_net(const string& server, const size_t timeout) :
-thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https"), request_timeout(timeout) {
+http_net::http_net(const string& server, const size_t timeout, const bool continue_on_error_status_) :
+thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https"), request_timeout(timeout), continue_on_error_status(continue_on_error_status_) {
 	this->set_thread_delay(20); // 20ms should suffice
 	
 	// kill the other protocol
@@ -155,7 +159,9 @@ bool http_net::reconnect() {
 	return success;
 }
 
-http_net::http_net(const string& server_url_, receive_functor receive_cb_, const size_t timeout) : http_net(server_url_, timeout) {
+http_net::http_net(const string& server_url_, receive_functor receive_cb_,
+				   const size_t timeout, const bool continue_on_error_status_) :
+http_net(server_url_, timeout, continue_on_error_status_) {
 	// note: server_url has already been extracted in the delegated http_net constructor
 	receive_cb = receive_cb_;
 	send_http_request(server_url, server_name);
@@ -181,10 +187,11 @@ const string& http_net::get_server_url() const {
 	return server_url;
 }
 
-void http_net::open_url(const string& url, receive_functor receive_cb_, const size_t timeout) {
+void http_net::open_url(const string& url, receive_functor receive_cb_, const size_t timeout, const bool continue_on_error_status_) {
 	// set the new server_url (note that any amount of urls can be requested consecutively on the same connection)
 	server_url = url;
 	request_timeout = timeout;
+	continue_on_error_status = continue_on_error_status_;
 	receive_cb = receive_cb_;
 	send_http_request(url, server_name);
 }
@@ -327,7 +334,7 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 	const size_t space_1 = line->find(" ")+1;
 	const size_t space_2 = line->find(" ", space_1);
 	status_code = (HTTP_STATUS)strtoul(line->substr(space_1, space_2 - space_1).c_str(), nullptr, 10);
-	if(status_code != HTTP_STATUS::CODE_200) {
+	if(status_code != HTTP_STATUS::CODE_200 && !continue_on_error_status) {
 		receive_cb(this, status_code, server_name, page_data);
 		this->set_thread_should_finish();
 		return;
