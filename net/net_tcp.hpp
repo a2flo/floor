@@ -114,7 +114,7 @@ namespace floor_net {
 template<bool use_ssl> struct std_protocol<tcp::socket, use_ssl> {
 public:
 	std_protocol<tcp::socket, use_ssl>() :
-	io_service(), resolver(io_service), data(io_service) {}
+	io_service(), resolver(io_service), acceptor(io_service), data(io_service) {}
 	
 	bool is_valid() const {
 		return (valid && ((socket_set && data.socket_layer.is_open()) ||
@@ -183,6 +183,7 @@ public:
 		}
 		
 		acceptor.listen();
+		return true;
 	}
 	
 	size_t receive(void* recv_data, const size_t max_len) {
