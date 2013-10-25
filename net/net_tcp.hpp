@@ -124,6 +124,7 @@ public:
 		return closed;
 	}
 	
+	// client connect
 	bool connect(const string& address, const unsigned short int& port) {
 		if(!valid) return false;
 		socket_set = true;
@@ -158,7 +159,31 @@ public:
 		
 		return true;
 	}
-	// TODO: server socket open
+	
+	// server listen/open
+	bool open_socket(const string& address, const unsigned short int& port) {
+		if(!valid) return false;
+		socket_set = true;
+		
+		boost::system::error_code ec;
+		auto endpoint = *resolver.resolve({ address, uint2string(port) });
+		acceptor.open(endpoint.protocol(), ec);
+		if(ec) {
+			log_error("couldn't open server socket: %s", ec.message());
+			valid = false;
+			return false;
+		}
+		
+		acceptor.set_option(tcp::acceptor::reuse_address(true));
+		acceptor.bind(endpoint, ec);
+		if(ec) {
+			log_error("couldn't bind to endpoint: %s", ec.message());
+			valid = false;
+			return false;
+		}
+		
+		acceptor.listen();
+	}
 	
 	size_t receive(void* recv_data, const size_t max_len) {
 		boost::system::error_code ec;
@@ -228,6 +253,7 @@ protected:
 	
 	boost::asio::io_service io_service;
 	tcp::resolver resolver;
+	tcp::acceptor acceptor;
 	
 	floor_net::protocol_details<use_ssl> data;
 	
