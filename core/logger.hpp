@@ -19,7 +19,10 @@
 #ifndef __FLOOR_LOGGER_HPP__
 #define __FLOOR_LOGGER_HPP__
 
-#include "cpp_headers.hpp"
+#include <string>
+#include <sstream>
+#include <type_traits>
+#include <iostream>
 using namespace std;
 
 //! floor logging functions, use appropriately
@@ -31,7 +34,7 @@ using namespace std;
 #define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, "", "", __VA_ARGS__)
 
-class FLOOR_API logger {
+class logger {
 public:
 	enum class LOG_TYPE : size_t {
 		ERROR_MSG	= 1, //!< enum error message

@@ -18,6 +18,7 @@
 
 #include "logger.hpp"
 #include "threading/thread_base.hpp"
+#include "core/cpp_headers.hpp"
 
 #if defined(__APPLE__) || defined(WIN_UNIXENV)
 #include <SDL2/SDL.h>

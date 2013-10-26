@@ -17,6 +17,7 @@
  */
 
 #include "thread_base.hpp"
+#include "core/cpp_headers.hpp"
 
 thread_base::thread_base(const string name) : thread_name(name) {
 	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running

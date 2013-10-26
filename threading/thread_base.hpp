@@ -19,10 +19,10 @@
 #ifndef __FLOOR_THREAD_BASE_HPP__
 #define __FLOOR_THREAD_BASE_HPP__
 
-#include "core/cpp_headers.hpp"
-
 #include <thread>
 #include <mutex>
+#include <string>
+using namespace std;
 
 class thread_base {
 public:
