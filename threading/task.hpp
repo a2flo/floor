@@ -25,8 +25,13 @@ using namespace std;
 
 class task {
 public:
+	//! task constructor, don't use this directly (use task::spawn instead)
 	task(std::function<void()> op);
 	
+	//! creates ("spawns") a new task that asynchronously executes the supplied function in a separate thread
+	//! NOTE: memory management of the task object is not necessary as it will automatically self-destruct
+	//! after completing the task op or after encountering an unhandled exception.
+	//! NOTE: example usage: task::spawn([]() { cout << "do something in here" << endl; });
 	static void spawn(std::function<void()> op) {
 		new task(op);
 	}
@@ -36,10 +41,12 @@ protected:
 	thread thread_obj;
 	atomic<bool> initialized { false };
 	
+	//! the tasks threads run method (only used internally)
 	static void run(task* this_task, std::function<void()> task_op);
 	
-	// prevent destruction from the outside, since we'll self-destruct
-	~task();
+	//! destruction from the outside is not allowed, since the task will automatically self-destruct
+	~task() = default;
+	// prohibit copying
 	task(const task& tsk) = delete;
 	task& operator=(const task& tsk) = delete;
 	

@@ -18,6 +18,7 @@
 
 #include "thread_base.hpp"
 #include "core/cpp_headers.hpp"
+#include "core/logger.hpp"
 
 thread_base::thread_base(const string name) : thread_name(name) {
 	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running
@@ -66,7 +67,17 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 		if(this_thread_obj->try_lock()) {
 			// if the "finish flag" has been set in the mean time, don't call the run method!
 			if(!this_thread_obj->thread_should_finish()) {
-				this_thread_obj->run();
+				try {
+					this_thread_obj->run();
+				}
+				catch(exception& exc) {
+					log_error("encountered an unhandled exception while running a thread \"%s\": %s",
+							  this_thread_obj->thread_name, exc.what());
+				}
+				catch(...) {
+					log_error("encountered an unhandled exception while running a thread \"%s\"",
+							  this_thread_obj->thread_name);
+				}
 			}
 			this_thread_obj->unlock();
 			

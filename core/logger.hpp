@@ -36,15 +36,18 @@ using namespace std;
 
 class logger {
 public:
+	//! the kind of log message (this determines the output stream and potentially output formatting)
 	enum class LOG_TYPE : size_t {
-		ERROR_MSG	= 1, //!< enum error message
-		DEBUG_MSG	= 2, //!< enum debug message
-		SIMPLE_MSG	= 3, //!< enum simple message
-		UNDECORATED	= 4, //!< enum message with no prefix (undecorated)
+		ERROR_MSG	= 1, //!< error message
+		DEBUG_MSG	= 2, //!< debug message
+		SIMPLE_MSG	= 3, //!< simple message
+		UNDECORATED	= 4, //!< message with no prefix (undecorated)
 	};
 	
+	//! initializes the logger (opens the log files and creates the logger thread)
 	static void init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
 					 const string log_filename, const string msg_filename);
+	//! destroys the logger (also makes sure everything has been written to the console and log file)
 	static void destroy();
 	
 	// log entry function, this will create a buffer and insert the log msgs start info (type, file name, ...) and
@@ -56,21 +59,23 @@ public:
 	}
 	
 protected:
+	// static class
 	logger(const logger& l) = delete;
 	~logger() = delete;
 	logger& operator=(const logger& l) = delete;
 	
-	//
+	//! handles the formatting of log messages
 	static bool prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
 	
-	//! handles the log format
-	//! only %x and %X are supported at the moment, in all other cases the standard ostream operator<< is used!
+	//
 	template <bool is_enum_flag, typename U> struct enum_helper_type {
 		typedef U type;
 	};
 	template <typename U> struct enum_helper_type<true, U> {
 		typedef typename underlying_type<U>::type type;
 	};
+	//! handles the log format
+	//! only %x and %X are supported at the moment, in all other cases the standard ostream operator<< is used!
 	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
 		typedef typename decay<T>::type decayed_type;
 		typedef typename conditional<is_enum<decayed_type>::value,
@@ -96,9 +101,11 @@ protected:
 		}
 	}
 	
-	// internal logging functions
-	static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str); // will be called in the end (when there are no more args)
-	template<typename T, typename... Args> static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str, T&& value, Args&&... args) {
+	//! internal logging function (will be called in the end when there are no more args)
+	static void log_internal(stringstream& buffer, const LOG_TYPE& type, const char* str);
+	//! internal logging function (entry point and arg iteration)
+	template<typename T, typename... Args> static void log_internal(stringstream& buffer, const LOG_TYPE& type,
+																	const char* str, T&& value, Args&&... args) {
 		while(*str) {
 			if(*str == '%' && *(++str) != '%') {
 				handle_format(buffer, *str, value);

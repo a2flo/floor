@@ -17,20 +17,30 @@
  */
 
 #include "task.hpp"
+#include "core/logger.hpp"
 
 task::task(std::function<void()> op_) :
 op(op_),
 thread_obj(&task::run, this, [this]() {
+	// the task thread is not allowed to run until the task thread object has been detached from the callers thread
 	while(!initialized) { this_thread::yield(); }
+	// finally: call the users task op
 	op();
 }) {
 	thread_obj.detach();
 	initialized = true;
 }
 
-task::~task() {}
-
 void task::run(task* this_task, std::function<void()> task_op) {
-	task_op();
+	try {
+		// NOTE: this is the function object created above (not the users task op!)
+		task_op();
+	}
+	catch(exception& exc) {
+		log_error("encountered an unhandled exception while running a task: %s", exc.what());
+	}
+	catch(...) {
+		log_error("encountered an unhandled exception while running a task");
+	}
 	delete this_task;
 }

@@ -134,7 +134,7 @@ protected:
 public:
 	floor_exception(const string& error_str_) : error_str(error_str_) {}
 	virtual ~floor_exception() noexcept {}
-    virtual const char* what() const noexcept;
+	virtual const char* what() const noexcept;
 };
 
 #define enum_class_bitwise_or(enum_class) \
