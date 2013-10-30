@@ -39,7 +39,7 @@ public:
 	virtual ~thread_base();
 	
 	//! determines the status of the thread
-	enum class THREAD_STATUS : int32_t {
+	enum class THREAD_STATUS : int {
 		INVALID = -1,	//!< the thread is in an invalid state (do panic!)
 		INIT = 0,		//!< the thread is currently being initialized (start hasn't been called yet)
 		RUNNING = 1,	//!< start has been called and the thread is still running
