@@ -160,7 +160,7 @@ friend enum_class& operator&=(enum_class& e0, const enum_class& e1) { \
 #define enum_class_hash(enum_class) \
 namespace std { \
 	template <> struct hash<enum_class> : public hash<typename underlying_type<enum_class>::type> { \
-		size_t operator()(enum_class type) const throw() { \
+		size_t operator()(enum_class type) const noexcept { \
 			return hash<typename underlying_type<enum_class>::type>::operator()((typename underlying_type<enum_class>::type)type); \
 		} \
 	}; \
