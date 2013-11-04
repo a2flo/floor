@@ -30,22 +30,22 @@ size_t osx_helper::get_dpi(SDL_Window* wnd) {
 	float2 display_res(float2(CGDisplayPixelsWide(CGMainDisplayID()),
 							  CGDisplayPixelsHigh(CGMainDisplayID())) * get_scale_factor(wnd));
 	const CGSize display_phys_size(CGDisplayScreenSize(CGMainDisplayID()));
-	const float2 display_dpi((display_res.x / display_phys_size.width) * 25.4f,
-							 (display_res.y / display_phys_size.height) * 25.4f);
-	return floorf(std::max(display_dpi.x, display_dpi.y));
+	const float2 display_dpi((display_res.x / (float)display_phys_size.width) * 25.4f,
+							 (display_res.y / (float)display_phys_size.height) * 25.4f);
+	return (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
 }
 
 float osx_helper::get_scale_factor(SDL_Window* wnd) {
 	SDL_SysWMinfo wm_info;
 	SDL_VERSION(&wm_info.version);
 	if(SDL_GetWindowWMInfo(wnd, &wm_info) == 1) {
-		return [wm_info.info.cocoa.window backingScaleFactor];
+		return (float)[wm_info.info.cocoa.window backingScaleFactor];
 	}
 	return 1.0f;
 }
 
 float osx_helper::get_menu_bar_height() {
-	return [[[NSApplication sharedApplication] mainMenu] menuBarHeight];
+	return (float)[[[NSApplication sharedApplication] mainMenu] menuBarHeight];
 }
 
 size_t osx_helper::get_system_version() {

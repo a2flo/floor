@@ -62,7 +62,7 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 		if((code & 0xFFFFFF80) == 0) {
 			// ascii char, only accept 0x09 (tab) and 0x20 to 0x7F (0x00 to 0x1F are used as control bytes)
 			if(code >= 0x20 || code == 0x09) {
-				ret += (unsigned char)(code & 0xFF);
+				ret += (char)(code & 0xFF);
 			}
 		}
 		else {
@@ -70,23 +70,23 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 			if(code >= 0x80 && code <= 0x7FF) {
 				// unicode: 00000yyy xxxxxxxx
 				// uft-8  : 110yyyxx 10xxxxxx
-				ret += (unsigned char)(0xC0 | ((code & 0x7C0) >> 6));
-				ret += (unsigned char)(0x80 | (code & 0x3F));
+				ret += (char)(0xC0 | ((code & 0x7C0) >> 6));
+				ret += (char)(0x80 | (code & 0x3F));
 			}
 			else if(code >= 0x800 && code <= 0xFFFF) {
 				// unicode: yyyyyyyy xxxxxxxx
 				// uft-8  : 1110yyyy 10yyyyxx 10xxxxxx
-				ret += (unsigned char)(0xE0 | ((code & 0xF000) >> 12));
-				ret += (unsigned char)(0x80 | ((code & 0xFC0) >> 6));
-				ret += (unsigned char)(0x80 | (code & 0x3F));
+				ret += (char)(0xE0 | ((code & 0xF000) >> 12));
+				ret += (char)(0x80 | ((code & 0xFC0) >> 6));
+				ret += (char)(0x80 | (code & 0x3F));
 			}
 			else if(code >= 0x10000 && code <= 0x1FFFFF) {
 				// unicode: 000zzzzz yyyyyyyy xxxxxxxx
 				// uft-8  : 11110zzz 10zzyyyy 10yyyyxx 10xxxxxx
-				ret += (unsigned char)(0xF0 | ((code & 0x1C0000) >> 18));
-				ret += (unsigned char)(0x80 | ((code & 0x3F000) >> 12));
-				ret += (unsigned char)(0x80 | ((code & 0xFC0) >> 6));
-				ret += (unsigned char)(0x80 | (code & 0x3F));
+				ret += (char)(0xF0 | ((code & 0x1C0000) >> 18));
+				ret += (char)(0x80 | ((code & 0x3F000) >> 12));
+				ret += (char)(0x80 | ((code & 0xFC0) >> 6));
+				ret += (char)(0x80 | (code & 0x3F));
 			}
 			else {
 				// invalid -> abort

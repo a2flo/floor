@@ -56,7 +56,7 @@ public:
 
 	bool open(const string& filename, OPEN_TYPE open_type);
 	void close();
-	uint64_t get_filesize();
+	long long int get_filesize();
 	fstream* get_filestream();
 	void seek(size_t offset);
 	streampos get_current_offset();
@@ -65,7 +65,7 @@ public:
 	bool read_file(stringstream& buffer);
 	bool read_file(string& str);
 	void get_line(char* finput, unsigned int length);
-	void get_block(char* data, size_t size);
+	void get_block(char* data, streamsize size);
 	void get_terminated_block(string& str, const char terminator);
 	char get_char();
 	unsigned short int get_usint();

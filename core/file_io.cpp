@@ -138,7 +138,7 @@ void file_io::get_line(char* finput, unsigned int length) {
  *  @param data a pointer to a char where the block is written to
  *  @param size the amount of bytes we want to get
  */
-void file_io::get_block(char* data, size_t size) {
+void file_io::get_block(char* data, streamsize size) {
 	filestream.read(data, size);
 }
 
@@ -156,7 +156,7 @@ unsigned short int file_io::get_usint() {
 	unsigned char tmp[2] { 0, 0 };
 	unsigned short int us = 0;
 	filestream.read((char*)tmp, 2);
-	us = (tmp[0] << 8) + tmp[1];
+	us = (unsigned short int)(tmp[0] << 8) + (unsigned short int)tmp[1];
 	return us;
 }
 
@@ -166,7 +166,7 @@ unsigned int file_io::get_uint() {
 	unsigned char tmp[4] { 0, 0, 0, 0 };
 	unsigned int u = 0;
 	filestream.read((char*)tmp, 4);
-	u = (tmp[0] << 24) + (tmp[1] << 16) + (tmp[2] << 8) + tmp[3];
+	u = (unsigned int)(tmp[0] << 24) + (unsigned int)(tmp[1] << 16) + (unsigned int)(tmp[2] << 8) + (unsigned int)tmp[3];
 	return u;
 }
 
@@ -180,13 +180,13 @@ float file_io::get_float() {
 
 /*! returns the filesize
  */
-uint64_t file_io::get_filesize() {
+long long int file_io::get_filesize() {
 	// get current get pointer position
 	streampos cur_position = filestream.tellg();
 
 	// get the file size
 	filestream.seekg(0, ios::end);
-	uint64_t size = filestream.tellg();
+	long long int size = filestream.tellg();
 	filestream.seekg(0, ios::beg);
 
 	// reset get pointer position
@@ -208,11 +208,11 @@ void file_io::seek(size_t offset) {
 }
 
 void file_io::seek_read(size_t offset) {
-	filestream.seekg(offset, ios::beg);
+	filestream.seekg((long long int)offset, ios::beg);
 }
 
 void file_io::seek_write(size_t offset) {
-	filestream.seekp(offset, ios::beg);
+	filestream.seekp((long long int)offset, ios::beg);
 }
 
 /*! returns the current file offset
@@ -234,7 +234,7 @@ streampos file_io::get_current_write_offset() {
 }
 
 void file_io::write_file(string& str) {
-	filestream.write(&str.front(), str.size());
+	filestream.write(&str.front(), (streamsize)str.size());
 }
 
 /*! writes a block to the current file (offset)
@@ -252,7 +252,7 @@ void file_io::write_block(const char* data, size_t size, bool check_size) {
 		}
 	}
 	else {
-		filestream.write(data, size);
+		filestream.write(data, (streamsize)size);
 	}
 }
 
@@ -355,10 +355,10 @@ fstream* file_io::get_filestream() {
 }
 
 bool file_io::read_file(stringstream& buffer) {
-	const size_t size = (size_t)get_filesize();
+	const streamsize size = get_filesize();
 	char* data = new char[size+1];
-	if(data == nullptr) return false;
-	memset(data, 0, size+1);
+	if(data == nullptr || size < 0) return false;
+	memset(data, 0, (size_t)(size + 1));
 	filestream.read(data, size);
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
@@ -372,7 +372,7 @@ bool file_io::read_file(string& str) {
 	const size_t size = (size_t)get_filesize();
 	str.resize(size);
 	if(str.size() != size) return false;
-	filestream.read(&str.front(), size);
+	filestream.read(&str.front(), (streamsize)size);
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
 	filestream.clear();

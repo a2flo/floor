@@ -1420,7 +1420,7 @@ void opencl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) 
 						return;
 					}
 					
-					bin_file.write((const char*)program_binaries[device_num], program_sizes[device_num]);
+					bin_file.write((const char*)program_binaries[device_num], (streamsize)program_sizes[device_num]);
 					bin_file.flush();
 					bin_file.close();
 					
@@ -1439,7 +1439,7 @@ void opencl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) 
 						const string base64_binary { binary_xml.substr(base64_binary_start,
 																	   end_pos - base64_binary_start) };
 						fstream base64_file(file_name+".b64", fstream::out | fstream::binary | fstream::trunc);
-						base64_file.write(base64_binary.c_str(), base64_binary.size());
+						base64_file.write(base64_binary.c_str(), (streamsize)base64_binary.size());
 						base64_file.flush();
 						base64_file.close();
 						core::system("base64 -D -i "+file_name+".b64 -o "+file_name);
@@ -1455,7 +1455,7 @@ void opencl::log_program_binary(const shared_ptr<opencl::kernel_object> kernel) 
 					else if(device->vendor_type == VENDOR::NVIDIA) {
 						const string elf_data { file_io::file_to_string(file_name) };
 						fstream elf_file(file_name, fstream::out | fstream::binary | fstream::trunc);
-						elf_file.write(elf_data.c_str()+12, elf_data.size()-12);
+						elf_file.write(elf_data.c_str()+12, (streamsize)(elf_data.size()-12));
 						elf_file.flush();
 						elf_file.close();
 						core::system("cuobjdump -elf -sort -sass "+file_name+" > "+file_name+".asm");

@@ -204,7 +204,7 @@ void event::handle_events() {
 			// touch event handling
 			const int2 finger_coord = int2(event_handle.tfinger.x, event_handle.tfinger.y);
 			const unsigned int pressure = event_handle.tfinger.pressure;
-			const unsigned long long int finger_id = event_handle.tfinger.fingerId;
+			const auto finger_id = event_handle.tfinger.fingerId;
 			
 			if(event_type == SDL_FINGERDOWN) {
 				if(event_handle.tfinger.type == SDL_FINGERDOWN) {
@@ -223,7 +223,7 @@ void event::handle_events() {
 			const int2 abs_pos = int2(event_handle.tfinger.x, event_handle.tfinger.y);
 			const int2 rel_move = int2(event_handle.tfinger.dx, event_handle.tfinger.dy);
 			const unsigned int pressure = event_handle.tfinger.pressure;
-			const unsigned long long int finger_id = event_handle.tfinger.fingerId;
+			const auto finger_id = event_handle.tfinger.fingerId;
 			handle_event(EVENT_TYPE::FINGER_MOVE,
 						 make_shared<finger_move_event>(cur_ticks, abs_pos, rel_move, pressure, finger_id));
 		}
@@ -253,7 +253,7 @@ void event::handle_events() {
 				break;
 				case SDL_WINDOWEVENT:
 					if(event_handle.window.event == SDL_WINDOWEVENT_RESIZED) {
-						const size2 new_size(event_handle.window.data1, event_handle.window.data2);
+						const size2 new_size((size_t)event_handle.window.data1, (size_t)event_handle.window.data2);
 						handle_event(EVENT_TYPE::WINDOW_RESIZE,
 									 make_shared<window_resize_event>(cur_ticks, new_size));
 					}

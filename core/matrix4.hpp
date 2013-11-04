@@ -266,9 +266,9 @@ template<typename T> matrix4<T>& matrix4<T>::scale(const T x, const T y, const T
 }
 
 template<typename T> matrix4<T>& matrix4<T>::rotate_x(const T x) {
-	const T angle(DEG2RAD(x));
-	const T sinx(sin(angle));
-	const T cosx(cos(angle));
+	const T angle((T)DEG2RAD(x));
+	const T sinx((T)sin(angle));
+	const T cosx((T)cos(angle));
 	
 	data[0] = ((T)1);
 	data[1] = ((T)0);
@@ -294,9 +294,9 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_x(const T x) {
 }
 
 template<typename T> matrix4<T>& matrix4<T>::rotate_y(const T y) {
-	const T angle(DEG2RAD(y));
-	const T siny(sin(angle));
-	const T cosy(cos(angle));
+	const T angle((T)DEG2RAD(y));
+	const T siny((T)sin(angle));
+	const T cosy((T)cos(angle));
 	
 	data[0] = cosy;
 	data[1] = ((T)0);
@@ -322,9 +322,9 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_y(const T y) {
 }
 
 template<typename T> matrix4<T>& matrix4<T>::rotate_z(const T z) {
-	const T angle(DEG2RAD(z));
-	const T sinz(sin(angle));
-	const T cosz(cos(angle));
+	const T angle((T)DEG2RAD(z));
+	const T sinz((T)sin(angle));
+	const T cosz((T)cos(angle));
 	
 	data[0] = cosz;
 	data[1] = sinz;
@@ -351,16 +351,16 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_z(const T z) {
 
 // projection
 template<typename T> matrix4<T>& matrix4<T>::perspective(const T fov, const T aspect, const T z_near, const T z_far) {
-	const typename conditional<is_floating_point<T>::value, T, float>::type f = ((T)1) / tan(fov * _PIDIV360);
+	const typename conditional<is_floating_point<T>::value, T, float>::type f = (T)(((T)1) / tan(fov * _PIDIV360));
 	
 	////
-	data[0] = f / aspect;
+	data[0] = (T)f / (T)aspect;
 	data[1] = (T)0;
 	data[2] = (T)0;
 	data[3] = (T)0;
 	
 	data[4] = (T)0;
-	data[5] = f;
+	data[5] = (T)f;
 	data[6] = (T)0;
 	data[7] = (T)0;
 	

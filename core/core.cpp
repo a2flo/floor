@@ -398,12 +398,12 @@ unsigned int core::rand(const unsigned int& min, const unsigned int& max) {
 }
 
 float core::rand(const float& max) {
-	uniform_real_distribution<> dist(0.0f, max);
+	uniform_real_distribution<float> dist(0.0f, max);
 	return dist(gen);
 }
 
 float core::rand(const float& min, const float& max) {
-	uniform_real_distribution<> dist(min, max);
+	uniform_real_distribution<float> dist(min, max);
 	return dist(gen);
 }
 

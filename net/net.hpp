@@ -182,7 +182,7 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 			const auto send_begin = send_store.begin();
 			auto send_end = send_store.end();
 			if(packets_per_second != 0 && send_store.size() > packets_per_second) {
-				send_end = send_begin + packets_per_second;
+				send_end = send_begin + (long int)packets_per_second;
 			}
 			
 			for(auto send_iter = send_begin; send_iter != send_end; send_iter++) {
@@ -198,14 +198,14 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 template <class protocol_policy, class reception_policy> size_t net<protocol_policy, reception_policy>::receive_packet(char* data, const size_t max_len) {
 	if(!protocol.is_valid()) {
 		log_error("invalid protocol and/or sockets!");
-		return -1;
+		return 0;
 	}
 	
 	// receive data (note: on eof, this will set the closed flag; otherwise, a received length of 0 signals an error)
 	size_t len = protocol.receive(data, max_len);
 	if(!protocol.is_closed() && (len == 0 || len > packet_max_len)) {
 		log_error("invalid data received!");
-		return -1;
+		return 0;
 	}
 	
 	return len;

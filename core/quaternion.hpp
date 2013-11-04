@@ -235,10 +235,10 @@ template<typename T> matrix4<T> quaternion<T>::to_matrix4() const {
 }
 
 template<typename T> void quaternion<T>::from_euler(const vector3<T>& v) {
-	x = sin((v.x - v.z) / ((T)2)) / sinf(v.y / ((T)2));
-	y = -sin((v.x + v.z) / ((T)2)) / cosf(v.y / ((T)2));
-	z = cos((v.x + v.z) / ((T)2)) / cosf(v.y / ((T)2));
-	r = -cos((v.x - v.z) / ((T)2)) / sinf(v.y / ((T)2));
+	x = sin((v.x - v.z) / ((T)2)) / sin(v.y / ((T)2));
+	y = -sin((v.x + v.z) / ((T)2)) / cos(v.y / ((T)2));
+	z = cos((v.x + v.z) / ((T)2)) / cos(v.y / ((T)2));
+	r = -cos((v.x - v.z) / ((T)2)) / sin(v.y / ((T)2));
 }
 
 #if defined(FLOOR_EXPORT)

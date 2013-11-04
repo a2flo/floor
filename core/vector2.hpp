@@ -139,7 +139,7 @@ public:
 	vector2& operator%=(const vector2& v);
 	
 	T length() const {
-		return sqrt(dot());
+		return (T)sqrt(dot());
 	}
 
 	T distance(const vector2<T>& vec2) const {
@@ -227,24 +227,24 @@ template<typename T> vector2<T>& vector2<T>::operator%=(const vector2<T>& v) {
 template<> vector2<bool>& vector2<bool>::floor();
 template<> vector2<float>& vector2<float>::floor();
 template<typename T> vector2<T>& vector2<T>::floor() {
-	x = ::floor(x);
-	y = ::floor(y);
+	x = (T)::floor(x);
+	y = (T)::floor(y);
 	return *this;
 }
 
 template<> vector2<bool>& vector2<bool>::ceil();
 template<> vector2<float>& vector2<float>::ceil();
 template<typename T> vector2<T>& vector2<T>::ceil() {
-	x = ::ceil(x);
-	y = ::ceil(y);
+	x = (T)::ceil(x);
+	y = (T)::ceil(y);
 	return *this;
 }
 
 template<> vector2<bool>& vector2<bool>::round();
 template<> vector2<float>& vector2<float>::round();
 template<typename T> vector2<T>& vector2<T>::round() {
-	x = ::round(x);
-	y = ::round(y);
+	x = (T)::round(x);
+	y = (T)::round(y);
 	return *this;
 }
 
@@ -258,19 +258,19 @@ template<typename T> vector2<T>& vector2<T>::normalize() {
 template<> vector2<bool> vector2<bool>::floored() const;
 template<> vector2<float> vector2<float>::floored() const;
 template<typename T> vector2<T> vector2<T>::floored() const {
-	return vector2<T>(::floor(x), ::floor(y));
+	return vector2<T>((T)::floor(x), (T)::floor(y));
 }
 
 template<> vector2<bool> vector2<bool>::ceiled() const;
 template<> vector2<float> vector2<float>::ceiled() const;
 template<typename T> vector2<T> vector2<T>::ceiled() const {
-	return vector2<T>(::ceil(x), ::ceil(y));
+	return vector2<T>((T)::ceil(x), (T)::ceil(y));
 }
 
 template<> vector2<bool> vector2<bool>::rounded() const;
 template<> vector2<float> vector2<float>::rounded() const;
 template<typename T> vector2<T> vector2<T>::rounded() const {
-	return vector2<T>(::round(x), ::round(y));
+	return vector2<T>((T)::round(x), (T)::round(y));
 }
 template<typename T> vector2<T> vector2<T>::normalized() const {
 	vector2 ret;
@@ -307,7 +307,7 @@ template<typename T> bool vector2<T>::is_inf() const {
 template<> vector2<float> vector2<float>::abs() const; // specialize for float
 template<> vector2<bool> vector2<bool>::abs() const; // specialize for bool, no need for abs here
 template<typename T> vector2<T> vector2<T>::abs() const {
-	return vector2<T>((T)::llabs(x), (T)::llabs(y));
+	return vector2<T>((T)::llabs((long long int)x), (T)::llabs((long long int)y));
 }
 
 #if defined(FLOOR_EXPORT)
