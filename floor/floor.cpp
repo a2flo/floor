@@ -342,9 +342,9 @@ void floor::init_internal(const bool use_gl32_core
 		
 		// create screen
 #if !defined(FLOOR_IOS)
-		config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+		config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (int)config.width, (int)config.height, config.flags);
 #else
-		config.wnd = SDL_CreateWindow("floor", 0, 0, (unsigned int)config.width, (unsigned int)config.height, config.flags);
+		config.wnd = SDL_CreateWindow("floor", 0, 0, (int)config.width, (int)config.height, config.flags);
 #endif
 		if(config.wnd == nullptr) {
 			log_error("can't create window: %s", SDL_GetError());

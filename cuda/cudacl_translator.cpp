@@ -346,7 +346,7 @@ void cudacl_translate(const string& cl_source,
 			}
 			repl += ">(" + match.str(1) + (get<2>(rx_vec_access) ? ("(" + match.str(2) + ")") : "") + ")";
 			
-			cuda_source.replace(match.position(), match.length(), repl);
+			cuda_source.replace((size_t)match.position(), (size_t)match.length(), repl);
 		}
 	}
 	timer.add("vec regex", false);

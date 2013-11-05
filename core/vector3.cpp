@@ -41,14 +41,6 @@ template<> FLOOR_API vector3<bool> vector3<bool>::abs() const {
 	return vector3<bool>(x, y, z);
 }
 
-template<> FLOOR_API bool vector3<bool>::any() const {
-	return (x || y || z);
-}
-
-template<> FLOOR_API bool vector3<bool>::all() const {
-	return (x && y && z);
-}
-
 template<> FLOOR_API bool3 vector3<bool>::operator^(const bool3& bv) const {
 	return bool3(x ^ bv.x, y ^ bv.y, z ^ bv.z);
 }

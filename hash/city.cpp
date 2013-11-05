@@ -185,7 +185,7 @@ static uint32 Hash32Len0to4(const char *s, size_t len) {
   uint32 c = 9;
   for (size_t i = 0; i < len; i++) {
     signed char v = s[i];
-    b = b * c1 + v;
+    b = b * c1 + (unsigned int)v;
     c ^= b;
   }
   return fmix(Mur(b, Mur((uint32)len, c)));
@@ -308,9 +308,9 @@ static uint64 HashLen0to16(const char *s, size_t len) {
     return HashLen16(len + (a << 3), Fetch32(s + len - 4), mul);
   }
   if (len > 0) {
-    uint8_t a = s[0];
-    uint8_t b = s[len >> 1];
-    uint8_t c = s[len - 1];
+    uint8_t a = (uint8_t)s[0];
+    uint8_t b = (uint8_t)s[len >> 1];
+    uint8_t c = (uint8_t)s[len - 1];
     uint32 y = static_cast<uint32>(a) + (static_cast<uint32>(b) << 8);
     uint32 z = ((uint32)len) + (static_cast<uint32>(c) << 2);
     return ShiftMix(y * k2 ^ z * k0) * k2;
@@ -430,7 +430,7 @@ static uint128 CityMurmur(const char *s, size_t len, uint128 seed) {
   uint64 b = Uint128High64(seed);
   uint64 c = 0;
   uint64 d = 0;
-  signed long l = len - 16;
+  signed long l = (signed long)(len - (size_t)16);
   if (l <= 0) {  // len <= 16
     a = ShiftMix(a * k1) * k1;
     c = b * k1 + HashLen0to16(s, len);

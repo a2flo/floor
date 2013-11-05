@@ -262,49 +262,49 @@ template<typename T> void vector4<T>::scale(const vector4<T>& v) {
 template<> vector4<bool>& vector4<bool>::floor();
 template<> vector4<float>& vector4<float>::floor();
 template<typename T> vector4<T>& vector4<T>::floor() {
-	this->x = ::floor(this->x);
-	this->y = ::floor(this->y);
-	this->z = ::floor(this->z);
-	this->w = ::floor(this->w);
+	this->x = (T)::floor(this->x);
+	this->y = (T)::floor(this->y);
+	this->z = (T)::floor(this->z);
+	this->w = (T)::floor(this->w);
 	return *this;
 }
 
 template<> vector4<bool>& vector4<bool>::ceil();
 template<> vector4<float>& vector4<float>::ceil();
 template<typename T> vector4<T>& vector4<T>::ceil() {
-	this->x = ::ceil(this->x);
-	this->y = ::ceil(this->y);
-	this->z = ::ceil(this->z);
-	this->w = ::ceil(this->w);
+	this->x = (T)::ceil(this->x);
+	this->y = (T)::ceil(this->y);
+	this->z = (T)::ceil(this->z);
+	this->w = (T)::ceil(this->w);
 	return *this;
 }
 
 template<> vector4<bool>& vector4<bool>::round();
 template<> vector4<float>& vector4<float>::round();
 template<typename T> vector4<T>& vector4<T>::round() {
-	this->x = ::round(this->x);
-	this->y = ::round(this->y);
-	this->z = ::round(this->z);
-	this->w = ::round(this->w);
+	this->x = (T)::round(this->x);
+	this->y = (T)::round(this->y);
+	this->z = (T)::round(this->z);
+	this->w = (T)::round(this->w);
 	return *this;
 }
 
 template<> vector4<bool> vector4<bool>::floored() const;
 template<> vector4<float> vector4<float>::floored() const;
 template<typename T> vector4<T> vector4<T>::floored() const {
-	return vector4<T>(::floor(this->x), ::floor(this->y), ::floor(this->z), ::floor(this->w));
+	return vector4<T>((T)::floor(this->x), (T)::floor(this->y), (T)::floor(this->z), (T)::floor(this->w));
 }
 
 template<> vector4<bool> vector4<bool>::ceiled() const;
 template<> vector4<float> vector4<float>::ceiled() const;
 template<typename T> vector4<T> vector4<T>::ceiled() const {
-	return vector4<T>(::ceil(this->x), ::ceil(this->y), ::ceil(this->z), ::ceil(this->w));
+	return vector4<T>((T)::ceil(this->x), (T)::ceil(this->y), (T)::ceil(this->z), (T)::ceil(this->w));
 }
 
 template<> vector4<bool> vector4<bool>::rounded() const;
 template<> vector4<float> vector4<float>::rounded() const;
 template<typename T> vector4<T> vector4<T>::rounded() const {
-	return vector4<T>(::round(this->x), ::round(this->y), ::round(this->z), ::round(this->w));
+	return vector4<T>((T)::round(this->x), (T)::round(this->y), (T)::round(this->z), (T)::round(this->w));
 }
 
 #if defined(FLOOR_EXPORT)

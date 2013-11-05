@@ -74,14 +74,14 @@ public:
 	vector3 operator/(const vector3& v) const;
 	vector3 operator*(const T& f) const;
 	T operator*(const vector3& v) const;		// dot product
-	vector3 operator*(const matrix4f& mat) const;
+	vector3 operator*(const matrix4<T>& mat) const;
 	vector3 operator^(const vector3& v) const;	// cross product
 	vector3& operator^=(const vector3& v);		// cross product
 	vector3& operator+=(const vector3& v);
 	vector3& operator-=(const vector3& v);
 	vector3& operator*=(const T& f);
 	vector3& operator*=(const vector3& v);		// dot product
-	vector3& operator*=(const matrix4f& mat);
+	vector3& operator*=(const matrix4<T>& mat);
 	vector3& operator/=(const T& f);
 	vector3& operator/=(const vector3& v);
 	vector3 operator%(const vector3& v) const;
@@ -96,18 +96,30 @@ public:
 	bool3 operator>(const vector3& v) const;
 	bool3 operator<=(const vector3& v) const;
 	bool3 operator>=(const vector3& v) const;
+	
+	// note: the following are only enabled for bool3
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
 	bool3 operator&(const bool3& bv) const {
 		return bool3(x && bv.x, y && bv.y, z && bv.z);
 	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
 	bool3 operator|(const bool3& bv) const{
 		return bool3(x || bv.x, y || bv.y, z || bv.z);
 	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
 	bool3 operator^(const bool& bl) const{
-		return bool3(bool(x) ^ bl, bool(y) ^ bl, bool(z) ^ bl);
+		return bool3(x ^ bl, y ^ bl, z ^ bl);
 	}
-	bool any() const; //! only bool3!
-	bool all() const; //! only bool3!
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool any() const {
+		return (x || y || z);
+	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool all() const {
+		return (x && y && z);
+	}
 	
+	//
 	friend vector3 operator*(const T& f, const vector3& v) {
 		return vector3<T>(f * v.x, f * v.y, f * v.z);
 	}
@@ -196,7 +208,7 @@ public:
 	static const vector3 refract(const vector3& N, const vector3& I, const T& eta) {
 		const T dNI(N * I);
 		const T k(((T)1) - (eta * eta) * (((T)1) - dNI * dNI));
-		return (k < ((T)0) ? vector3((T)0) : (eta * I - (eta * dNI + sqrt(k)) * N));
+		return (k < ((T)0) ? vector3((T)0) : (eta * I - (eta * dNI + (T)sqrt(k)) * N));
 	}
 	
 	T dot(const vector3& v) const;
@@ -299,7 +311,7 @@ template<typename T> vector3<T>& vector3<T>::operator*=(const vector3<T>& v) {
 	return *this;
 }
 
-template<typename T> vector3<T> vector3<T>::operator*(const matrix4f& mat) const {
+template<typename T> vector3<T> vector3<T>::operator*(const matrix4<T>& mat) const {
 	return {
 		mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12],
 		mat.data[1] * x + mat.data[5] * y + mat.data[9] * z + mat.data[13],
@@ -307,7 +319,7 @@ template<typename T> vector3<T> vector3<T>::operator*(const matrix4f& mat) const
 	};
 }
 
-template<typename T> vector3<T>& vector3<T>::operator*=(const matrix4f& mat) {
+template<typename T> vector3<T>& vector3<T>::operator*=(const matrix4<T>& mat) {
 	*this = *this * mat;
 	return *this;
 }
@@ -382,16 +394,6 @@ template<typename T> bool3 vector3<T>::operator<=(const vector3<T>& v) const {
  */
 template<typename T> bool3 vector3<T>::operator>=(const vector3<T>& v) const {
 	return bool3(this->x >= v.x, this->y >= v.y, this->z >= v.z);
-}
-
-template<> bool vector3<bool>::any() const; // specialize for bool, makes no sense for all other types
-template<typename T> bool vector3<T>::any() const {
-	return false;
-}
-
-template<> bool vector3<bool>::all() const; // specialize for bool, makes no sense for all other types
-template<typename T> bool vector3<T>::all() const {
-	return false;
 }
 
 /*! returns a normalized vector3 object
@@ -487,7 +489,7 @@ template<typename T> template<typename Function> void vector3<T>::apply_if(const
 }
 
 template<typename T> T vector3<T>::length() const {
-	return sqrt(*this * *this);
+	return (T)sqrt(*this * *this);
 }
 
 /*! computes the angle between this vector and the given one, both their origin is (0, 0, 0)!
@@ -496,7 +498,7 @@ template<typename T> T vector3<T>::length() const {
 template<typename T> T vector3<T>::angle(const vector3<T>& v) const {
 	if(is_null() || v.is_null()) return (T)0;
 	// acos(<x, y> / |x|*|y|)
-	return acos((v * *this) / (length() * v.length()));
+	return (T)acos((v * *this) / (length() * v.length()));
 }
 
 template<typename T> T vector3<T>::distance(const vector3<T>& v) const {
@@ -506,7 +508,7 @@ template<typename T> T vector3<T>::distance(const vector3<T>& v) const {
 template<> vector3<float> vector3<float>::abs() const; // specialize for float
 template<> vector3<bool> vector3<bool>::abs() const; // specialize for bool, no need for abs here
 template<typename T> vector3<T> vector3<T>::abs() const {
-	return vector3<T>((T)::llabs(x), (T)::llabs(y), (T)::llabs(z));
+	return vector3<T>((T)::llabs((long long int)x), (T)::llabs((long long int)y), (T)::llabs((long long int)z));
 }
 
 template<typename T> vector3<T>& vector3<T>::min(const vector3<T>& v) {
@@ -583,12 +585,12 @@ template<typename T> vector3<T> vector3<T>::refract(const vector3& I, const T& e
 }
 
 template<typename T> vector3<T>& vector3<T>::rotate(const T& x_rotation, const T& y_rotation, const T& z_rotation) {
-	const T sinx(sin(x_rotation));
-	const T siny(sin(y_rotation));
-	const T sinz(sin(z_rotation));
-	const T cosx(cos(x_rotation));
-	const T cosy(cos(y_rotation));
-	const T cosz(cos(z_rotation));
+	const T sinx((T)sin(x_rotation));
+	const T siny((T)sin(y_rotation));
+	const T sinz((T)sin(z_rotation));
+	const T cosx((T)cos(x_rotation));
+	const T cosy((T)cos(y_rotation));
+	const T cosz((T)cos(z_rotation));
 	
 	// is this correct? -- works at least for the camera stuff
 	*this = {
@@ -616,41 +618,41 @@ template<typename T> vector3<T>& vector3<T>::operator%=(const vector3<T>& v) {
 
 template<> vector3<float>& vector3<float>::floor();
 template<typename T> vector3<T>& vector3<T>::floor() {
-	x = ::floor(x);
-	y = ::floor(y);
-	z = ::floor(z);
+	x = (T)::floor(x);
+	y = (T)::floor(y);
+	z = (T)::floor(z);
 	return *this;
 }
 
 template<> vector3<float>& vector3<float>::ceil();
 template<typename T> vector3<T>& vector3<T>::ceil() {
-	x = ::ceil(x);
-	y = ::ceil(y);
-	z = ::ceil(z);
+	x = (T)::ceil(x);
+	y = (T)::ceil(y);
+	z = (T)::ceil(z);
 	return *this;
 }
 
 template<> vector3<float>& vector3<float>::round();
 template<typename T> vector3<T>& vector3<T>::round() {
-	x = ::round(x);
-	y = ::round(y);
-	z = ::round(z);
+	x = (T)::round(x);
+	y = (T)::round(y);
+	z = (T)::round(z);
 	return *this;
 }
 
 template<> vector3<float> vector3<float>::floored() const;
 template<typename T> vector3<T> vector3<T>::floored() const {
-	return vector3<T>(::floor(x), ::floor(y), ::floor(z));
+	return vector3<T>((T)::floor(x), (T)::floor(y), (T)::floor(z));
 }
 
 template<> vector3<float> vector3<float>::ceiled() const;
 template<typename T> vector3<T> vector3<T>::ceiled() const {
-	return vector3<T>(::ceil(x), ::ceil(y), ::ceil(z));
+	return vector3<T>((T)::ceil(x), (T)::ceil(y), (T)::ceil(z));
 }
 
 template<> vector3<float> vector3<float>::rounded() const;
 template<typename T> vector3<T> vector3<T>::rounded() const {
-	return vector3<T>(::round(x), ::round(y), ::round(z));
+	return vector3<T>((T)::round(x), (T)::round(y), (T)::round(z));
 }
 
 template<typename T> vector3<T> vector3<T>::sign() const {

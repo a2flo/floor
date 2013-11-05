@@ -452,11 +452,11 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			device_map[device] = cuda_dev;
 			device->device = nullptr;
 			device->internal_type = CL_DEVICE_TYPE_GPU;
-			device->units = proc_count;
-			device->clock = clock_rate / 1000;
+			device->units = (unsigned int)proc_count;
+			device->clock = (unsigned int)clock_rate / 1000u;
 			device->mem_size = global_mem;
-			device->local_mem_size = local_mem;
-			device->constant_mem_size = const_mem;
+			device->local_mem_size = (unsigned long long int)local_mem;
+			device->constant_mem_size = (unsigned long long int)const_mem;
 			device->name = dev_name;
 			device->vendor = "NVIDIA";
 			device->version = "OpenCL 1.2";
@@ -466,11 +466,11 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			device->vendor_type = VENDOR::NVIDIA;
 			device->type = (opencl_base::DEVICE_TYPE)cur_device;
 			device->max_alloc = global_mem;
-			device->max_wi_sizes.set(get<0>(max_work_item_size), get<1>(max_work_item_size), get<2>(max_work_item_size));
-			device->max_wg_size = max_work_group_size;
+			device->max_wi_sizes.set((size_t)get<0>(max_work_item_size), (size_t)get<1>(max_work_item_size), (size_t)get<2>(max_work_item_size));
+			device->max_wg_size = (size_t)max_work_group_size;
 			device->img_support = true;
-			device->max_img_2d.set(get<0>(max_image_2d), get<1>(max_image_2d));
-			device->max_img_3d.set(get<0>(max_image_3d), get<1>(max_image_3d), get<2>(max_image_3d));
+			device->max_img_2d.set((size_t)get<0>(max_image_2d), (size_t)get<1>(max_image_2d));
+			device->max_img_3d.set((size_t)get<0>(max_image_3d), (size_t)get<1>(max_image_3d), (size_t)get<2>(max_image_3d));
 			
 			if(fastest_gpu == nullptr) {
 				fastest_gpu = device;
@@ -1649,7 +1649,7 @@ size_t cudacl::get_kernel_work_group_size() const {
 		CUfunction* cuda_function = cuda_kernels.at(cur_kernel)->function;
 		int ret = 0;
 		CU(cuFuncGetAttribute(&ret, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, *cuda_function));
-		return ret;
+		return (size_t)ret;
 	}
 	__HANDLE_CL_EXCEPTION("get_kernel_work_group_size")
 	return 0;
