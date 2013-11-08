@@ -17,7 +17,7 @@ This is a C++ core library that is used in several of my projects:
 * after a submodule update / pull: git submodule update
 
 on Linux and FreeBSD:
-* install all necessary libraries and programs, including clang 3.2+ and libc++ (currently 1101) (-> Credits)
+* install all necessary libraries and programs, including clang 3.3+ and libc++ (currently 1101) (-> Credits)
 ** on "Arch Linux":https://www.archlinux.org (sub-dependencies are installed automatically): pacman -S clang libc++ sdl2 sdl2_image libxml2 premake freetype2 boost opencl-headers cuda
 ** any of: opencl-nvidia (in addition to Nvidia drivers), intel-opencl-sdk (from AUR, CPU only or in addition to Intel GPU drivers) or "catalyst":https://wiki.archlinux.org/index.php/AMD_Catalyst + "misc":https://wiki.archlinux.org/index.php/AMD_Catalyst#OpenCL_and_OpenGL_development
 * run ./premake.sh or "./premake.sh pocl" on FreeBSD
@@ -31,7 +31,7 @@ on Linux and FreeBSD:
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 
 on Windows/MinGW:
-* install custom MinGW builds "gcc-dw2-4.6":http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/rubenvb/gcc-dw2-4.6-release/ and "clang-3.2":http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/rubenvb/clang-3.2-release/ (thanks to "rubenvb":https://github.com/rubenvb for providing these!)
+* install custom MinGW builds (with clang 3.3+ and libc++)
 * install "MSYS":http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/ to your MinGW folder
 * build/install all necessary libraries, including libc++ (-> Credits)
 * add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/mingw/mingw32/")
