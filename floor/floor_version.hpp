@@ -78,8 +78,8 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 2)
-#error "Sorry, but you need Clang 3.2+ to compile floor"
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 3)
+#error "Sorry, but you need Clang 3.3+ to compile floor"
 #endif
 
 // gcc check
