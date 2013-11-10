@@ -43,6 +43,7 @@ on Windows/MinGW:
 
 on OS X:
 * install Xcode 5.0+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
+* if you haven't installed the Xcode command line tools yet, run: xcode-select --install
 * if you're using /Library/Frameworks:
 ** 10.8 SDK: ln -sf /Library /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.8.sdk/Library
 ** 10.9 SDK: ln -sf /Library /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.9.sdk/Library
@@ -51,7 +52,6 @@ on OS X:
 ** if /usr/local or any sub-folders do not exist, create them (sudo mkdir -p /usr/local/{include,lib})
 ** sudo ln -sf /path/to/floor/bin/libfloor{,d}.dylib /usr/local/lib/
 ** sudo ln -sf /path/to/floor /usr/local/include/floor
-* compile any samples you like
 
 *Optional:*
 In the future, there will be configuration options (defines) that can disable certain parts of floor that aren't wanted or needed (e.g. networking or OpenCL).
