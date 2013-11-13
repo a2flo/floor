@@ -103,7 +103,7 @@ solution "floor"
 		add_include("/usr/local/include/libxml2")
 		add_include("/usr/include/freetype2")
 		add_include("/usr/local/include/freetype2")
-		buildoptions { "-std=c++11 -Wall" }
+		buildoptions { "-std=c++1y -Wall" }
 		
 		if(clang_libcxx) then
 			buildoptions { "-stdlib=libc++" }

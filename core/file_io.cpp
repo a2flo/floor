@@ -355,15 +355,19 @@ fstream* file_io::get_filestream() {
 }
 
 bool file_io::read_file(stringstream& buffer) {
-	const streamsize size = get_filesize();
-	char* data = new char[size+1];
-	if(data == nullptr || size < 0) return false;
-	memset(data, 0, (size_t)(size + 1));
-	filestream.read(data, size);
+	const streamsize size_ll = get_filesize();
+	if(size_ll < 0) return false;
+	
+	const unsigned long long int size = (unsigned long long int)size_ll;
+	char* data = new char[size + 1ull];
+	if(data == nullptr) return false;
+	
+	memset(data, 0, size + 1ull);
+	filestream.read(data, size_ll);
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
 	filestream.clear();
-	buffer.write(data, size);
+	buffer.write(data, size_ll);
 	delete [] data;
 	return true;
 }

@@ -156,4 +156,6 @@
 #define floor_unreachable
 #endif
 
+#define floor_unused __attribute__((unused))
+
 #endif

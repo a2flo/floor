@@ -20,7 +20,6 @@
 #define __FLOOR_UTIL_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "core/functor.hpp"
 
 template<int i> struct int2type {
 	enum { value = i };
@@ -133,7 +132,6 @@ protected:
 	string error_str;
 public:
 	floor_exception(const string& error_str_) : error_str(error_str_) {}
-	virtual ~floor_exception() noexcept {}
 	virtual const char* what() const noexcept;
 };
 

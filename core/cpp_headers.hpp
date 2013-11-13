@@ -74,64 +74,12 @@
 
 using namespace std;
 
-//
-#define floor_unused __attribute__((unused))
-
 // we don't need these
+#if defined(min)
 #undef min
-#undef max
-
-// cbegin/cend
-#if !defined(FLOOR_HAS_CBEGIN_CEND) && \
-	/* now part of c++14 and implemented in libc++ */ \
-	(!defined(_LIBCPP_STD_VER) || !(_LIBCPP_STD_VER > 11))
-
-template <class C> auto cbegin(C& c) -> decltype(c.cbegin()) { return c.cbegin(); }
-template <class C> auto cbegin(const C& c) -> decltype(c.cbegin()) { return c.cbegin(); }
-template <class C> auto cend(C& c) -> decltype(c.cend()) { return c.cend(); }
-template <class C> auto cend(const C& c) -> decltype(c.cend()) { return c.cend(); }
-template <class T, size_t N> const T* cbegin(const T (&array)[N]) { return array; }
-template <class T, size_t N> const T* cend(const T (&array)[N]) { return array + N; }
-
 #endif
-
-// make_unique
-#if !defined(FLOOR_HAS_MAKE_UNIQUE) && \
-	/* now part of c++14 and implemented in libc++ */ \
-	(!defined(_LIBCPP_STD_VER) || !(_LIBCPP_STD_VER > 11))
-// since a make_unique function was forgotten in the c++11 standard, add it here.
-// use this to create any unique_ptr<> object.
-// code from: http://isocpp.org/files/papers/N3656.txt
-
-template<class T> struct floor_Unique_if {
-	typedef unique_ptr<T> _Single_object;
-};
-
-template<class T> struct floor_Unique_if<T[]> {
-	typedef unique_ptr<T[]> _Unknown_bound;
-};
-
-template<class T, size_t N> struct floor_Unique_if<T[N]> {
-	typedef void _Known_bound;
-};
-
-template<class T, class... Args>
-typename floor_Unique_if<T>::_Single_object
-make_unique(Args&&... args) {
-	return unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
-
-template<class T>
-typename floor_Unique_if<T>::_Unknown_bound
-make_unique(size_t n) {
-	typedef typename remove_extent<T>::type U;
-	return unique_ptr<T>(new U[n]());
-}
-
-template<class T, class... Args>
-typename floor_Unique_if<T>::_Known_bound
-make_unique(Args&&...) = delete;
-
+#if defined(max)
+#undef max
 #endif
 
 #endif

@@ -103,9 +103,9 @@ if [ $BUILD_USE_CLANG == 1 ]; then
 	cat Makefile.tmp >> Makefile
 	rm Makefile.tmp
 fi
-sed -i -e 's/-std=c++11/-std=c11/g' libfloor.make
+sed -i -e 's/-std=c++1y/-std=c11/g' libfloor.make
 sed -i -e 's/-Wall -stdlib=libc++/-Wall/g' libfloor.make
-sed -i -e 's/CXXFLAGS  += $(CFLAGS)/CXXFLAGS  += $(CFLAGS) -std=c++11 -stdlib=libc++/g' libfloor.make
+sed -i -e 's/CXXFLAGS  += $(CFLAGS)/CXXFLAGS  += $(CFLAGS) -std=c++1y -stdlib=libc++/g' libfloor.make
 
 chmod +x floor/build_version.sh
 

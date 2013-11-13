@@ -36,7 +36,7 @@ public:
 	void add_event(const EVENT_TYPE type, shared_ptr<event_object> obj);
 	
 	// <returns true if handled, pointer to object, event type>
-	typedef functor<bool, EVENT_TYPE, shared_ptr<event_object>> handler;
+	typedef function<bool(EVENT_TYPE, shared_ptr<event_object>)> handler;
 	void add_event_handler(handler& handler_, EVENT_TYPE type);
 	template<typename... event_types> void add_event_handler(handler& handler_, event_types&&... types) {
 		// unwind types, always call the simple add handler for each type

@@ -25,7 +25,7 @@
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"
 #define FLOOR_REVISION_VERSION "0"
-#define FLOOR_DEV_STAGE_VERSION "d2"
+#define FLOOR_DEV_STAGE_VERSION "d3"
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__
 
@@ -78,8 +78,8 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 3)
-#error "Sorry, but you need Clang 3.3+ to compile floor"
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 4)
+#error "Sorry, but you need Clang 3.4+ to compile floor"
 #endif
 
 // gcc check
