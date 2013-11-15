@@ -64,6 +64,7 @@ public:
 	constexpr vector4(const vector2<T>& vec2) noexcept : vector3<T>(vec2.x, vec2.y, (T)0), w((T)1) {}
 	constexpr vector4(const vector2<T>& vec2_0, const vector2<T>& vec2_1) noexcept : vector3<T>(vec2_0.x, vec2_0.y, vec2_1.x), w(vec2_1.y) {}
 	constexpr vector4(const vector2<T>& vec2, const T& vz, const T& vw) noexcept : vector3<T>(vec2.x, vec2.y, vz), w(vw) {}
+	~vector4() noexcept {}
 	
 	// overloading routines
 	T& operator[](size_t index);

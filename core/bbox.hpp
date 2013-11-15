@@ -39,6 +39,7 @@ public:
 	constexpr bbox() noexcept : min(__FLT_MAX__), max(__FLT_MIN__) {}
 	constexpr bbox(const bbox& box) noexcept : min(box.min), max(box.max) {}
 	constexpr bbox(const float3& bmin, const float3& bmax) noexcept : min(bmin), max(bmax) {}
+	~bbox() noexcept {}
 
 	void extend(const float3& v) {
 		min.min(v);
@@ -123,6 +124,7 @@ public:
 	constexpr extbbox() noexcept : pos(), mview() {}
 	constexpr extbbox(const extbbox& ebox) noexcept  : pos(ebox.pos), mview(ebox.mview) {}
 	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept  : bbox(bmin, bmax), pos(bpos), mview(bmview) {}
+	~extbbox() noexcept {}
 	
 	extbbox& operator=(const extbbox& box) {
 		min = box.min;

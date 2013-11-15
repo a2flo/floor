@@ -62,6 +62,7 @@ public:
 	constexpr vector3(const T& vx, const T& vy, const T& vz) noexcept : x(vx), y(vy), z(vz) {}
 	constexpr vector3(const T& f) noexcept : x(f), y(f), z(f) {}
 	template <typename U> constexpr vector3(const vector3<U>& vec3) noexcept : x((T)vec3.x), y((T)vec3.y), z((T)vec3.z) {}
+	~vector3() noexcept {}
 	
 	T& operator[](size_t index);
 	const T& operator[](size_t index) const;
