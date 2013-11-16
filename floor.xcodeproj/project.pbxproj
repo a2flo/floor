@@ -65,7 +65,6 @@
 		5C1091ED17D1484C007F536E /* floor_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EA17D1484C007F536E /* floor_Prefix.pch */; };
 		5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EB17D1484C007F536E /* osx_helper.hpp */; };
 		5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091EC17D1484C007F536E /* osx_helper.mm */; };
-		5C1091F117D148AD007F536E /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F017D148AD007F536E /* SDL2.framework */; };
 		5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F217D148B8007F536E /* OpenCL.framework */; };
 		5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F317D148B8007F536E /* OpenGL.framework */; };
 		5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F617D148C5007F536E /* Cocoa.framework */; };
@@ -175,7 +174,6 @@
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
 				5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */,
 				5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */,
-				5C1091F117D148AD007F536E /* SDL2.framework in Frameworks */,
 				5C1091FD17D148DB007F536E /* libxml2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -561,6 +559,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DYLIB_COMPATIBILITY_VERSION = 0.1;
 				DYLIB_CURRENT_VERSION = 0.1;
+				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -600,7 +599,10 @@
 				INSTALL_PATH = "@rpath";
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
-				LIBRARY_SEARCH_PATHS = /usr/X11/lib;
+				LIBRARY_SEARCH_PATHS = (
+					/usr/X11/lib,
+					/usr/local/opt/openssl/lib,
+				);
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
@@ -612,6 +614,10 @@
 					/usr/include/libxml2,
 					"-isystem",
 					/usr/local/include,
+					"-isystem",
+					/usr/local/opt/openssl/include,
+					"-iframework",
+					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -620,6 +626,8 @@
 					"-fdiagnostics-show-template-tree",
 				);
 				OTHER_LDFLAGS = (
+					"-framework",
+					SDL2,
 					"-weak_framework",
 					CUDA,
 					"-lcrypto",
@@ -683,6 +691,7 @@
 				DYLIB_COMPATIBILITY_VERSION = 0.1;
 				DYLIB_CURRENT_VERSION = 0.1;
 				ENABLE_NS_ASSERTIONS = NO;
+				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
@@ -718,7 +727,10 @@
 				INSTALL_PATH = "@rpath";
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
-				LIBRARY_SEARCH_PATHS = /usr/X11/lib;
+				LIBRARY_SEARCH_PATHS = (
+					/usr/X11/lib,
+					/usr/local/opt/openssl/lib,
+				);
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				OTHER_CFLAGS = (
@@ -729,6 +741,10 @@
 					/usr/include/libxml2,
 					"-isystem",
 					/usr/local/include,
+					"-isystem",
+					/usr/local/opt/openssl/include,
+					"-iframework",
+					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -737,6 +753,8 @@
 					"-fdiagnostics-show-template-tree",
 				);
 				OTHER_LDFLAGS = (
+					"-framework",
+					SDL2,
 					"-weak_framework",
 					CUDA,
 					"-lcrypto",

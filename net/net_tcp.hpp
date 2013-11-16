@@ -58,7 +58,7 @@ namespace floor_net {
 		boost::asio::ssl::stream<tcp::socket> socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
 		protocol_details<true>(boost::asio::io_service& io_service) :
-		context(io_service, boost::asio::ssl::context::tlsv1), socket(io_service, context), socket_layer(socket.next_layer()) {
+		context(io_service, boost::asio::ssl::context::tlsv12), socket(io_service, context), socket_layer(socket.next_layer()) {
 			context.set_default_verify_paths();
 			socket.set_verify_mode(boost::asio::ssl::verify_peer);
 			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
