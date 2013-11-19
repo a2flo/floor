@@ -44,7 +44,7 @@ on Windows/MinGW:
 on OS X:
 * install Xcode 5.0+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
 * if you haven't installed the Xcode command line tools yet, run: ==xcode-select --install==
-* install "homebrew":http://brew.sh: ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"
+* install "homebrew":http://brew.sh: ==ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"==
 * install openssl 1.0.1e+ (OS X only provides 0.9.8 - this is w/o TLS 1.1/1.2 support!): brew install openssl
 * add this to your ~/.profile file: export DYLD_LIBRARY_PATH=/usr/local/opt/openssl/lib:${DYLD_LIBRARY_PATH}
 * compile floor.xcodeproj
