@@ -20,7 +20,7 @@ case $FLOOR_PLATFORM_TEST_STRING in
 		exit;;
 esac
 
-declare -a paths=( cl core cuda floor hash net threading )
+declare -a paths=( cl core cuda floor hash net tccpp threading )
 case $( uname | tr [:upper:] [:lower:] ) in
 	"linux"|[a-z0-9]*"BSD")
 		FLOOR_INCLUDE_PATH="/usr/local/include"
