@@ -62,9 +62,9 @@ on iOS:
 * symlink the OpenCL.framework/Headers folder of your OS X SDK to the iPhoneOS SDKs PrivateFrameworks/OpenCL.framework/ folder
 * compile floor.xcodeproj (floor_ios target)
 * install/symlink floor .a and lib folder:
-** if /usr/local or any sub-folders do not exist, create them (sudo mkdir -p /usr/local/{include,lib})
 ** sudo ln -sf /path/to/floor/bin/libfloor{,d}.a {iPhoneOS/iPhoneSimulator folders}/usr/lib/
 ** sudo ln -sf /path/to/floor {iPhoneOS/iPhoneSimulator folders}/usr/include/floor
+* linker flags for a depending project: -lSDL2 -lSDL2_image -lfloor -lcrypto -lssl
 
 *Optional:*
 In the future, there will be more configuration options (defines) that can disable certain parts of floor that aren't wanted or needed (e.g. networking).
