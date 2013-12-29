@@ -80,6 +80,37 @@
 		5C7B324F17E7225A00153798 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324D17E7225A00153798 /* ray.hpp */; };
 		5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
 		5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */; };
+		5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916717D1153E007F536E /* opencl.cpp */; };
+		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
+		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
+		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
+		5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
+		5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917617D1153E007F536E /* logger.cpp */; };
+		5CAEC248186799BE00BEC3A3 /* matrix4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917817D1153E007F536E /* matrix4.cpp */; };
+		5CAEC249186799BE00BEC3A3 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B324617E7224000153798 /* quaternion.cpp */; };
+		5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917C17D1153E007F536E /* unicode.cpp */; };
+		5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
+		5CAEC24C186799BE00BEC3A3 /* vector2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918017D1153E007F536E /* vector2.cpp */; };
+		5CAEC24D186799BE00BEC3A3 /* vector3.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918217D1153E007F536E /* vector3.cpp */; };
+		5CAEC24E186799BE00BEC3A3 /* vector4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918417D1153E007F536E /* vector4.cpp */; };
+		5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918617D1153E007F536E /* xml.cpp */; };
+		5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
+		5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D417D117B8007F536E /* city.cpp */; };
+		5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
+		5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D917D1427F007F536E /* libtcc.c */; };
+		5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DC17D1427F007F536E /* tccgen.c */; };
+		5CAEC255186799BF00BEC3A3 /* tccpp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DD17D1427F007F536E /* tccpp.c */; };
+		5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919C17D1153E007F536E /* task.cpp */; };
+		5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
+		5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919317D1153E007F536E /* error_code.cpp */; };
+		5CAEC25C18679A0F00BEC3A3 /* ios_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */; };
+		5CAEC25E18679A8900BEC3A3 /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC25D18679A8900BEC3A3 /* OpenGLES.framework */; };
+		5CAEC26018679AE800BEC3A3 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC25F18679AE800BEC3A3 /* UIKit.framework */; };
+		5CAEC26918679B0800BEC3A3 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC26718679B0800BEC3A3 /* CoreAudio.framework */; };
+		5CAEC26C18679B1600BEC3A3 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC26B18679B1600BEC3A3 /* AudioToolbox.framework */; };
+		5CAEC26E18679B1D00BEC3A3 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC26D18679B1D00BEC3A3 /* QuartzCore.framework */; };
+		5CAEC2771867AC4A00BEC3A3 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */; };
+		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -162,6 +193,25 @@
 		5C81C42D17E59A3400FE6791 /* premake.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = premake.sh; sourceTree = "<group>"; };
 		5C81C42E17E59A3400FE6791 /* premake4.lua */ = {isa = PBXFileReference; lastKnownFileType = text; path = premake4.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
 		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
+		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
+		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
+		5CAEC25D18679A8900BEC3A3 /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/OpenGLES.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC25F18679AE800BEC3A3 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26118679AF000BEC3A3 /* CoreImage.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreImage.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/CoreImage.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26218679AF000BEC3A3 /* ImageIO.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ImageIO.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/ImageIO.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26518679AFA00BEC3A3 /* libxml2.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.2.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/lib/libxml2.2.dylib; sourceTree = DEVELOPER_DIR; };
+		5CAEC26718679B0800BEC3A3 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/CoreAudio.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26818679B0800BEC3A3 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26B18679B1600BEC3A3 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/AudioToolbox.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26D18679B1D00BEC3A3 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/QuartzCore.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC26F18679B2800BEC3A3 /* MobileCoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileCoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/Frameworks/MobileCoreServices.framework; sourceTree = DEVELOPER_DIR; };
+		5CAEC2721867A41500BEC3A3 /* libSDL2_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2_image.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/lib/libSDL2_image.a; sourceTree = DEVELOPER_DIR; };
+		5CAEC2731867A41500BEC3A3 /* libSDL2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/lib/libSDL2.a; sourceTree = DEVELOPER_DIR; };
+		5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/PrivateFrameworks/OpenCL.framework; sourceTree = DEVELOPER_DIR; };
+		5CC2F77518678AAC0031E08D /* libfloord.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		5CC2F78518678AAD0031E08D /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
+		5CC2F78818678AAD0031E08D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -178,6 +228,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5CC2F77218678AAC0031E08D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5CAEC26C18679B1600BEC3A3 /* AudioToolbox.framework in Frameworks */,
+				5CAEC26918679B0800BEC3A3 /* CoreAudio.framework in Frameworks */,
+				5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */,
+				5CAEC2771867AC4A00BEC3A3 /* OpenCL.framework in Frameworks */,
+				5CAEC25E18679A8900BEC3A3 /* OpenGLES.framework in Frameworks */,
+				5CAEC26E18679B1D00BEC3A3 /* QuartzCore.framework in Frameworks */,
+				5CAEC26018679AE800BEC3A3 /* UIKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -187,6 +251,7 @@
 				5C81C42C17E59A1A00FE6791 /* build */,
 				5C1091D317D11547007F536E /* src */,
 				5C1091FE17D148EF007F536E /* libs */,
+				5CC2F77618678AAD0031E08D /* Frameworks */,
 				5C10915F17D114BC007F536E /* Products */,
 			);
 			sourceTree = "<group>";
@@ -195,6 +260,7 @@
 			isa = PBXGroup;
 			children = (
 				5C10915E17D114BC007F536E /* libfloord.dylib */,
+				5CC2F77518678AAC0031E08D /* libfloord.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -314,6 +380,7 @@
 				5C10918817D1153E007F536E /* cuda */,
 				5C1091D617D14095007F536E /* floor */,
 				5C10918E17D1153E007F536E /* hash */,
+				5CAEC259186799E300BEC3A3 /* ios */,
 				5C10919117D1153E007F536E /* net */,
 				5C1091E317D1480A007F536E /* osx */,
 				5C1091D817D14272007F536E /* tccpp */,
@@ -376,6 +443,38 @@
 				5C81C42F17E59FE800FE6791 /* install.sh */,
 			);
 			name = build;
+			sourceTree = "<group>";
+		};
+		5CAEC259186799E300BEC3A3 /* ios */ = {
+			isa = PBXGroup;
+			children = (
+				5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */,
+				5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */,
+			);
+			name = ios;
+			sourceTree = "<group>";
+		};
+		5CC2F77618678AAD0031E08D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */,
+				5CAEC2721867A41500BEC3A3 /* libSDL2_image.a */,
+				5CAEC2731867A41500BEC3A3 /* libSDL2.a */,
+				5CAEC26F18679B2800BEC3A3 /* MobileCoreServices.framework */,
+				5CAEC26D18679B1D00BEC3A3 /* QuartzCore.framework */,
+				5CAEC26B18679B1600BEC3A3 /* AudioToolbox.framework */,
+				5CAEC26718679B0800BEC3A3 /* CoreAudio.framework */,
+				5CAEC26818679B0800BEC3A3 /* CoreGraphics.framework */,
+				5CAEC26518679AFA00BEC3A3 /* libxml2.2.dylib */,
+				5CAEC26118679AF000BEC3A3 /* CoreImage.framework */,
+				5CAEC26218679AF000BEC3A3 /* ImageIO.framework */,
+				5CAEC25F18679AE800BEC3A3 /* UIKit.framework */,
+				5CAEC25D18679A8900BEC3A3 /* OpenGLES.framework */,
+				5CC2F77718678AAD0031E08D /* Foundation.framework */,
+				5CC2F78518678AAD0031E08D /* XCTest.framework */,
+				5CC2F78818678AAD0031E08D /* UIKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -449,6 +548,23 @@
 			productReference = 5C10915E17D114BC007F536E /* libfloord.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
+		5CC2F77418678AAC0031E08D /* floor_ios */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5CC2F79918678AAD0031E08D /* Build configuration list for PBXNativeTarget "floor_ios" */;
+			buildPhases = (
+				5C47A5D4186B435000BE743A /* ShellScript */,
+				5CC2F77118678AAC0031E08D /* Sources */,
+				5CC2F77218678AAC0031E08D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = floor_ios;
+			productName = floor_ios;
+			productReference = 5CC2F77518678AAC0031E08D /* libfloord.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -471,12 +587,26 @@
 			projectRoot = "";
 			targets = (
 				5C10915D17D114BC007F536E /* floor */,
+				5CC2F77418678AAC0031E08D /* floor_ios */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		5C10920917D1FB91007F536E /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = ./floor/build_version.sh;
+		};
+		5C47A5D4186B435000BE743A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -526,6 +656,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5CC2F77118678AAC0031E08D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */,
+				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
+				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
+				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,
+				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
+				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
+				5CAEC248186799BE00BEC3A3 /* matrix4.cpp in Sources */,
+				5CAEC249186799BE00BEC3A3 /* quaternion.cpp in Sources */,
+				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
+				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
+				5CAEC24C186799BE00BEC3A3 /* vector2.cpp in Sources */,
+				5CAEC24D186799BE00BEC3A3 /* vector3.cpp in Sources */,
+				5CAEC24E186799BE00BEC3A3 /* vector4.cpp in Sources */,
+				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
+				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
+				5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */,
+				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
+				5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */,
+				5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */,
+				5CAEC255186799BF00BEC3A3 /* tccpp.c in Sources */,
+				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
+				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
+				5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */,
+				5CAEC25C18679A0F00BEC3A3 /* ios_helper.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
@@ -555,10 +716,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.1;
+				CURRENT_PROJECT_VERSION = 0.1.1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.1;
-				DYLIB_CURRENT_VERSION = 0.1;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.1;
+				DYLIB_CURRENT_VERSION = 0.1.1;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = c11;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -572,8 +733,6 @@
 					"FLOOR_DEBUG=1",
 					"FLOOR_EXPORT=1",
 					"TCC_LIB_ONLY=1",
-					"FLOOR_CUDA_CL=1",
-					PLATFORM_X64,
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_UNROLL_LOOPS = YES;
@@ -589,7 +748,7 @@
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -597,27 +756,16 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = .;
 				INSTALL_PATH = "@rpath";
+				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
-				LIBRARY_SEARCH_PATHS = (
-					/usr/X11/lib,
-					/usr/local/opt/openssl/lib,
-				);
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
 					"-isystem",
-					/usr/X11/include,
-					"-isystem",
 					/usr/include/libxml2,
-					"-isystem",
-					/usr/local/include,
-					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-iframework",
-					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -686,10 +834,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.1;
+				CURRENT_PROJECT_VERSION = 0.1.1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.1;
-				DYLIB_CURRENT_VERSION = 0.1;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.1;
+				DYLIB_CURRENT_VERSION = 0.1.1;
 				ENABLE_NS_ASSERTIONS = NO;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
 				GCC_C_LANGUAGE_STANDARD = c11;
@@ -701,8 +849,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"FLOOR_EXPORT=1",
 					"TCC_LIB_ONLY=1",
-					"FLOOR_CUDA_CL=1",
-					PLATFORM_X64,
 				);
 				GCC_UNROLL_LOOPS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -717,7 +863,7 @@
 				GCC_WARN_SHADOW = YES;
 				GCC_WARN_SIGN_COMPARE = YES;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNKNOWN_PRAGMAS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
@@ -725,26 +871,15 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = .;
 				INSTALL_PATH = "@rpath";
+				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
-				LIBRARY_SEARCH_PATHS = (
-					/usr/X11/lib,
-					/usr/local/opt/openssl/lib,
-				);
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
 					"-isystem",
-					/usr/X11/include,
-					"-isystem",
 					/usr/include/libxml2,
-					"-isystem",
-					/usr/local/include,
-					"-isystem",
-					/usr/local/opt/openssl/include,
-					"-iframework",
-					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -790,12 +925,149 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"FLOOR_CUDA_CL=1",
+					PLATFORM_X64,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					/usr/X11/lib,
+					/usr/local/opt/openssl/lib,
+				);
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-isystem",
+					/opt/X11/include,
+					"-isystem",
+					/usr/local/include,
+					"-isystem",
+					/usr/local/opt/openssl/include,
+					"-iframework",
+					/Library/Frameworks,
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 			};
 			name = Debug;
 		};
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"FLOOR_CUDA_CL=1",
+					PLATFORM_X64,
+				);
+				LIBRARY_SEARCH_PATHS = (
+					/usr/X11/lib,
+					/usr/local/opt/openssl/lib,
+				);
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-isystem",
+					/opt/X11/include,
+					"-isystem",
+					/usr/local/include,
+					"-isystem",
+					/usr/local/opt/openssl/include,
+					"-iframework",
+					/Library/Frameworks,
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+			};
+			name = Release;
+		};
+		5CC2F79518678AAD0031E08D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_ios.dst;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_IOS,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
+					"$(inherited)",
+					PLATFORM_X64,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7]" = (
+					"$(inherited)",
+					PLATFORM_X32,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7s]" = (
+					"$(inherited)",
+					PLATFORM_X32,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					PLATFORM_X64,
+					FLOOR_NO_OPENCL,
+				);
+				INSTALL_PATH = /usr/lib/;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-isystem",
+					"$(SDKROOT)/usr/include",
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = floord;
+				SDKROOT = iphoneos7.0;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
+			};
+			name = Debug;
+		};
+		5CC2F79618678AAD0031E08D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_X86_VECTOR_INSTRUCTIONS = default;
+				DSTROOT = /tmp/floor_ios.dst;
+				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					FLOOR_IOS,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
+					"$(inherited)",
+					PLATFORM_X64,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7]" = (
+					"$(inherited)",
+					PLATFORM_X32,
+				);
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=armv7s]" = (
+					"$(inherited)",
+					PLATFORM_X32,
+				);
+				INSTALL_PATH = /usr/lib/;
+				LD_DYLIB_INSTALL_NAME = "";
+				LD_RUNPATH_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = "";
+				ONLY_ACTIVE_ARCH = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-isystem",
+					"$(SDKROOT)/usr/include",
+				);
+				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = floor;
+				SDKROOT = iphoneos7.0;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
 			};
 			name = Release;
 		};
@@ -816,6 +1088,15 @@
 			buildConfigurations = (
 				5C10916317D114BC007F536E /* Debug */,
 				5C10916417D114BC007F536E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5CC2F79918678AAD0031E08D /* Build configuration list for PBXNativeTarget "floor_ios" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5CC2F79518678AAD0031E08D /* Debug */,
+				5CC2F79618678AAD0031E08D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

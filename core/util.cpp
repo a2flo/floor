@@ -47,7 +47,7 @@ template <> unsigned long long int converter<string, unsigned long long int>::co
 }
 #endif
 
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) && defined(PLATFORM_X32)
 template <> unsigned long int converter<string, unsigned long int>::convert(const string& var) {
 	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (unsigned long int)strtoull(buffer.str().c_str(), nullptr, 10);

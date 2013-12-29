@@ -16,6 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#if !defined(FLOOR_NO_OPENCL)
+
 #include "opencl.hpp"
 #include "floor/floor.hpp"
 
@@ -592,7 +594,7 @@ string opencl::error_code_to_string(cl_int error_code) const {
 
 #define __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_START_EXT(func_str, "")
 #define __HANDLE_CL_EXCEPTION_START_EXT(func_str, additional_info)									\
-catch(cl::Error err) {																				\
+catch(cl::Err& err) {																				\
 	log_error("line #%s, " func_str "(): %s (%d: %s)%s!", \
 			  __LINE__, err.what(), err.err(), error_code_to_string(err.err()), additional_info);
 #define __HANDLE_CL_EXCEPTION_END }
@@ -632,9 +634,14 @@ opencl::opencl(const char* kernel_path, SDL_Window* wnd, const bool clear_cache)
 #else
 	build_options += " -cl-auto-vectorize-enable";
 	
-	// add defines for the compile-time and run-time os x versions
+	// add defines for the compile-time and run-time os x / ios versions
+#if !defined(FLOOR_IOS)
 	build_options += " -DOS_X_VERSION_COMPILED=" + size_t2string(osx_helper::get_compiled_system_version());
 	build_options += " -DOS_X_VERSION=" + size_t2string(osx_helper::get_system_version());
+#else
+	build_options += " -DIOS_VERSION_COMPILED=" + size_t2string(ios_helper::get_compiled_system_version());
+	build_options += " -DIOS_VERSION=" + size_t2string(ios_helper::get_system_version());
+#endif
 #endif
 	
 	// clear opencl cache
@@ -2255,7 +2262,7 @@ void opencl::_fill_buffer(buffer_object* buffer_obj,
 		const cl_int err = clEnqueueFillBuffer((*cmd_queue)(), (*buffer_obj->buffer)(),
 											   pattern, pattern_size, offset, size, 0, nullptr, nullptr);
 		if(err != CL_SUCCESS) {
-			throw cl::Error(err);
+			throw cl::Err(err);
 		}
 	}
 	__HANDLE_CL_EXCEPTION("fill_buffer")
@@ -2348,3 +2355,5 @@ void opencl::set_active_device(const opencl_base::DEVICE_TYPE& dev) {
 		}
 	}
 }
+
+#endif

@@ -64,12 +64,14 @@ public:
 	// file input:
 	bool read_file(stringstream& buffer);
 	bool read_file(string& str);
-	void get_line(char* finput, unsigned int length);
+	void get_line(char* finput, streamsize length);
 	void get_block(char* data, streamsize size);
 	void get_terminated_block(string& str, const char terminator);
 	char get_char();
 	unsigned short int get_usint();
 	unsigned int get_uint();
+	unsigned short int get_swapped_usint();
+	unsigned int get_swapped_uint();
 	float get_float();
 	void seek_read(size_t offset);
 	streampos get_current_read_offset();

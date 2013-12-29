@@ -124,7 +124,7 @@
  * 
  *       event.wait();
  *     }
- *     catch (cl::Error err) {
+ *     catch (cl::Err err) {
  *        std::cerr 
  *           << "ERROR: "
  *           << err.what()
@@ -160,8 +160,13 @@
 #if !defined(FLOOR_IOS)
 #include <OpenGL/OpenGL.h>
 #else
+#if defined(PLATFORM_X64)
+#include <OpenGLES/ES3/gl.h>
+#include <OpenGLES/ES3/glext.h>
+#else
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
+#endif
 #endif
 #include <OpenCL/opencl.h>
 #else
@@ -213,10 +218,10 @@ class Memory;
 
 #if defined(__CL_ENABLE_EXCEPTIONS)
 #include <exception>
-/*! \class Error
+/*! \class Err
  * \brief Exception class
  */
-class Error : public std::exception
+class Err : public std::exception
 {
 private:
     cl_int err_;
@@ -225,10 +230,10 @@ public:
     /*! Create a new CL error exception for a given error code
      *  and corresponding message.
      */
-    Error(cl_int err, const char * errStr = nullptr) : err_(err), errStr_(errStr)
+    Err(cl_int err, const char * errStr = nullptr) : err_(err), errStr_(errStr)
     {}
 
-    ~Error() noexcept {}
+    ~Err() noexcept {}
 
     /*! \brief Get error string associated with exception
      *
@@ -1191,10 +1196,10 @@ protected:
 #if defined(__CL_ENABLE_EXCEPTIONS)
 static inline cl_int errHandler (
     cl_int err,
-    const char * errStr = nullptr) throw(Error)
+    const char * errStr = nullptr) throw(Err)
 {
     if (err != CL_SUCCESS) {
-        throw Error(err, errStr);
+        throw Err(err, errStr);
     }
     return err;
 }
@@ -1389,7 +1394,7 @@ public:
      *  determine which device(s) to use.
      *
      * \note In the case that exceptions are enabled and a return value
-     * other than CL_SUCCESS is generated, then cl::Error exception is
+     * other than CL_SUCCESS is generated, then cl::Err exception is
      * generated.
      */
     cl_int getDevices(

@@ -101,7 +101,7 @@ template <> bool converter<string, bool>::convert(const string& var);
 #if !defined(WIN_UNIXENV)
 template <> unsigned long long int converter<string, unsigned long long int>::convert(const string& var);
 #endif
-#if defined(FLOOR_IOS)
+#if defined(FLOOR_IOS) && defined(PLATFORM_X32)
 template <> unsigned long int converter<string, unsigned long int>::convert(const string& var);
 #endif
 #if defined(PLATFORM_X64)
@@ -136,7 +136,7 @@ public:
 };
 
 #define enum_class_bitwise_or(enum_class) \
-friend enum_class operator|(const enum_class& e0, const enum_class& e1) { \
+friend constexpr enum_class operator|(const enum_class& e0, const enum_class& e1) { \
 	return (enum_class)((typename underlying_type<enum_class>::type)e0 | \
 						(typename underlying_type<enum_class>::type)e1); \
 } \
@@ -146,11 +146,39 @@ friend enum_class& operator|=(enum_class& e0, const enum_class& e1) { \
 }
 
 #define enum_class_bitwise_and(enum_class) \
-friend enum_class operator&(const enum_class& e0, const enum_class& e1) { \
+friend constexpr enum_class operator&(const enum_class& e0, const enum_class& e1) { \
 	return (enum_class)((typename underlying_type<enum_class>::type)e0 & \
 						(typename underlying_type<enum_class>::type)e1); \
 } \
 friend enum_class& operator&=(enum_class& e0, const enum_class& e1) { \
+	e0 = e0 & e1; \
+	return e0; \
+}
+
+#define enum_class_bitwise_or_global(enum_class) \
+enum_class operator|(const enum_class& e0, const enum_class& e1); \
+enum_class& operator|=(enum_class& e0, const enum_class& e1);
+
+#define enum_class_bitwise_or_global_impl(enum_class) \
+enum_class operator|(const enum_class& e0, const enum_class& e1) { \
+	return (enum_class)((typename underlying_type<enum_class>::type)e0 | \
+						(typename underlying_type<enum_class>::type)e1); \
+} \
+enum_class& operator|=(enum_class& e0, const enum_class& e1) { \
+	e0 = e0 | e1; \
+	return e0; \
+}
+
+#define enum_class_bitwise_and_global(enum_class) \
+enum_class operator&(const enum_class& e0, const enum_class& e1); \
+enum_class& operator&=(enum_class& e0, const enum_class& e1);
+
+#define enum_class_bitwise_and_global_impl(enum_class) \
+enum_class operator&(const enum_class& e0, const enum_class& e1) { \
+	return (enum_class)((typename underlying_type<enum_class>::type)e0 & \
+						(typename underlying_type<enum_class>::type)e1); \
+} \
+enum_class& operator&=(enum_class& e0, const enum_class& e1) { \
 	e0 = e0 & e1; \
 	return e0; \
 }

@@ -104,11 +104,11 @@ public:
 		return bool3(x && bv.x, y && bv.y, z && bv.z);
 	}
 	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
-	bool3 operator|(const bool3& bv) const{
+	bool3 operator|(const bool3& bv) const {
 		return bool3(x || bv.x, y || bv.y, z || bv.z);
 	}
 	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
-	bool3 operator^(const bool& bl) const{
+	bool3 operator^(const bool& bl) const {
 		return bool3(x ^ bl, y ^ bl, z ^ bl);
 	}
 	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>

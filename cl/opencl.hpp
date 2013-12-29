@@ -19,6 +19,8 @@
 #ifndef __FLOOR_OPENCL_HPP__
 #define __FLOOR_OPENCL_HPP__
 
+#if !defined(FLOOR_NO_OPENCL)
+
 #include "floor/floor.hpp"
 #include "core/file_io.hpp"
 #include "core/core.hpp"
@@ -30,6 +32,11 @@
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS 1
 
 #if defined(__APPLE__)
+#if defined(FLOOR_IOS)
+// don't let cl_gl_ext.h get included (it won't work anyways)
+#define __OPENCL_CL_GL_EXT_H
+#define __GCL_H
+#endif
 #include <OpenCL/OpenCL.h>
 #include <OpenCL/cl.h>
 #include <OpenCL/cl_platform.h>
@@ -487,7 +494,7 @@ template<typename T> bool opencl_base::set_kernel_argument(const unsigned int& i
 	try {
 		set_kernel_argument(index, sizeof(T), (void*)&arg);
 	}
-	catch(cl::Error err) {
+	catch(cl::Err& err) {
 		log_error("%s (%d: %s)!", err.what(), err.err(), error_code_to_string(err.err()));
 		return false;
 	}
@@ -815,6 +822,8 @@ protected:
 	virtual string error_code_to_string(cl_int error_code) const;
 	
 };
+#endif
+
 #endif
 
 #endif

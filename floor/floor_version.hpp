@@ -24,8 +24,8 @@
 #include "core/util.hpp"
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"
-#define FLOOR_REVISION_VERSION "0"
-#define FLOOR_DEV_STAGE_VERSION "d3"
+#define FLOOR_REVISION_VERSION "1"
+#define FLOOR_DEV_STAGE_VERSION "d1"
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__
 
@@ -59,7 +59,7 @@
 #if !defined(FLOOR_IOS)
 #define FLOOR_PLATFORM (sizeof(void*) == 4 ? "x86" : (sizeof(void*) == 8 ? "x64" : "unknown"))
 #else
-#define FLOOR_PLATFORM (sizeof(void*) == 4 ? "ARM" : (sizeof(void*) == 8 ? "ARM64" : "unknown"))
+#define FLOOR_PLATFORM (sizeof(void*) == 4 ? "ARM32" : (sizeof(void*) == 8 ? "ARM64" : "unknown"))
 #endif
 
 #define FLOOR_VERSION_STRING (string("floor ")+FLOOR_PLATFORM+FLOOR_DEBUG_STR \
@@ -90,6 +90,22 @@
 
 // just fall through ...
 #else
+#endif
+
+// library checks:
+#include "core/platform.hpp"
+#include <openssl/opensslv.h>
+
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 1101)
+#error "You need to install libc++ 1101+ to compile floor"
+#endif
+
+#if !SDL_VERSION_ATLEAST(2, 0, 0)
+#error "You need to install SDL 2.0.0+ to compile floor"
+#endif
+
+#if (OPENSSL_VERSION_NUMBER < 0x1000105fL)
+#error "You need to install OpenSSL 1.0.1e+ to compile floor"
 #endif
 
 #endif

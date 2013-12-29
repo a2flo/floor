@@ -75,12 +75,7 @@ public:
 		
 		const string& name() const { return node_name; }
 		const string& content() const { return node_content; }
-		const string& operator[](const string& attr_name) const {
-			static const string invalid_attr = "INVALID";
-			const auto attr = attributes.find(attr_name);
-			if(attr == attributes.end()) return invalid_attr;
-			return attr->second;
-		}
+		const string& operator[](const string& attr_name) const;
 		bool set(const string& attr_name, const string& value) {
 			const auto attr = attributes.find(attr_name);
 			if(attr == attributes.end()) return false;
@@ -88,8 +83,20 @@ public:
 			return true;
 		}
 	};
-	xml_doc process_file(const string& filename, const bool validate = true) const;
-	xml_doc process_data(const string& data, const bool validate = true) const;
+	xml_doc process_file(const string& filename,
+#if !defined(FLOOR_IOS)
+						 const bool validate = true
+#else
+						 const bool validate = false
+#endif
+						 ) const;
+	xml_doc process_data(const string& data,
+#if !defined(FLOOR_IOS)
+						 const bool validate = true
+#else
+						 const bool validate = false
+#endif
+						 ) const;
 	
 	bool save_file(const xml_doc& doc, const string& filename, const string doc_type) const;
 

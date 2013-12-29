@@ -130,7 +130,7 @@ string file_io::file_to_string(const string& filename) {
 /*! reads a line from the current input stream (senseless if we have a binary file)
  *  @param finput a pointer to a char where the line is written to
  */
-void file_io::get_line(char* finput, unsigned int length) {
+void file_io::get_line(char* finput, streamsize length) {
 	filestream.getline(finput, length);
 }
 
@@ -160,6 +160,14 @@ unsigned short int file_io::get_usint() {
 	return us;
 }
 
+unsigned short int file_io::get_swapped_usint() {
+	unsigned char tmp[2] { 0, 0 };
+	unsigned short int us = 0;
+	filestream.read((char*)tmp, 2);
+	us = (unsigned short int)(tmp[1] << 8) + (unsigned short int)tmp[0];
+	return us;
+}
+
 /*! reads a single unsigned int from the current file input stream and returns it
  */
 unsigned int file_io::get_uint() {
@@ -167,6 +175,14 @@ unsigned int file_io::get_uint() {
 	unsigned int u = 0;
 	filestream.read((char*)tmp, 4);
 	u = (unsigned int)(tmp[0] << 24) + (unsigned int)(tmp[1] << 16) + (unsigned int)(tmp[2] << 8) + (unsigned int)tmp[3];
+	return u;
+}
+
+unsigned int file_io::get_swapped_uint() {
+	unsigned char tmp[4] { 0, 0, 0, 0 };
+	unsigned int u = 0;
+	filestream.read((char*)tmp, 4);
+	u = (unsigned int)(tmp[3] << 24) + (unsigned int)(tmp[2] << 16) + (unsigned int)(tmp[1] << 8) + (unsigned int)tmp[0];
 	return u;
 }
 

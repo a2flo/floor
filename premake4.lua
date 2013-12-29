@@ -215,7 +215,7 @@ solution "floor"
 		defines { "PLATFORM_X64" }
 
 	configuration { "x32" }
-		defines { "PLATFORM_X86" }
+		defines { "PLATFORM_X32" }
 
 -------------------------------------------------------------------------------
 -- floor base lib

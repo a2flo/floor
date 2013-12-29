@@ -30,11 +30,15 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 }
 #else
 
+#define CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE 0x10000000
+
+#if defined(PLATFORM_X32) // arm7, arm7s (gl es 2.0 only hardware)
 #include <OpenGLES/ES2/gl.h>
 #include <OpenGLES/ES2/glext.h>
 
 // gl es compat
 #define GL_RENDERBUFFER_SAMPLES GL_RENDERBUFFER_SAMPLES_APPLE
+#define GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE_APPLE
 #define GL_MAX_SAMPLES GL_MAX_SAMPLES_APPLE
 #define GL_READ_FRAMEBUFFER GL_READ_FRAMEBUFFER_APPLE
 #define GL_DRAW_FRAMEBUFFER GL_DRAW_FRAMEBUFFER_APPLE
@@ -66,16 +70,36 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 
 #define GL_TEXTURE_MAX_LEVEL GL_TEXTURE_MAX_LEVEL_APPLE
 
+#define glRenderbufferStorageMultisample glRenderbufferStorageMultisampleAPPLE
+#define glResolveMultisampleFramebuffer glResolveMultisampleFramebufferAPPLE
+
 #define glBindVertexArray glBindVertexArrayOES
 #define glDeleteVertexArrays glDeleteVertexArraysOES
 #define glGenVertexArrays glGenVertexArraysOES
 #define glIsVertexArray glIsVertexArrayOES
 
 #define glGetBufferPointerv glGetBufferPointervOES
-#define glMapBufferOES glMapBuffer
+#define glMapBufferRange glMapBufferRangeEXT
+#define glFlushMappedBufferRange glFlushMappedBufferRangeEXT
 #define glUnmapBuffer glUnmapBufferOES
 #define GL_VERTEX_ARRAY_BINDING GL_VERTEX_ARRAY_BINDING_OES
 
+#define GL_DEPTH_STENCIL GL_DEPTH_STENCIL_OES
+#define GL_UNSIGNED_INT_24_8 GL_UNSIGNED_INT_24_8_OES
+#define GL_DEPTH24_STENCIL8 GL_DEPTH24_STENCIL8_OES
+// TODO: check if this actually works
+#define GL_DEPTH_STENCIL_ATTACHMENT 0x821A
+
+// unsupported
+#define GL_TEXTURE_2D_ARRAY GL_TEXTURE_2D
+
+#else // arm64 (gl es 3.0 hardware)
+#include <OpenGLES/ES3/gl.h>
+#include <OpenGLES/ES3/glext.h>
+// NOTE: opengl es 3.0 supports all of the above (except for glResolveMultisampleFramebuffer which was replaced by glBlitFramebuffer)
+#endif
+
+// generic redefines (apply to both es 2.0 and 3.0)
 #define glClearDepth glClearDepthf
 
 #endif

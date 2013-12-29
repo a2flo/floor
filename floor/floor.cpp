@@ -24,7 +24,13 @@
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
 #include "osx/osx_helper.hpp"
+#else
+#include "ios/ios_helper.hpp"
 #endif
+#endif
+
+#if defined(FLOOR_NO_OPENCL)
+class opencl_base {};
 #endif
 
 // init statics
@@ -85,15 +91,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 	floor::config_name = config_name_;
 	floor::console_only = console_only_;
 	
-#if defined(FLOOR_IOS)
-	// strip one "../"
-	const size_t cdup_pos = rel_datapath.find("../");
-	if(cdup_pos != string::npos) {
-		rel_datapath = (rel_datapath.substr(0, cdup_pos) +
-						rel_datapath.substr(cdup_pos+3, rel_datapath.length()-cdup_pos-3));
-	}
-#endif
-	
 	// get working directory
 	char working_dir[16384];
 	memset(working_dir, 0, 16384);
@@ -152,11 +149,16 @@ void floor::init(const char* callpath_, const char* datapath_,
 #endif
 	
 #if defined(__APPLE__)
+#if !defined(FLOOR_IOS)
 	// check if datapath contains a 'MacOS' string (indicates that the binary is called from within an OS X .app or via complete path from the shell)
 	if(datapath.find("MacOS") != string::npos) {
 		// if so, add "../../../" to the datapath, since we have to relocate the datapath if the binary is inside an .app
 		datapath.insert(datapath.find("MacOS")+6, "../../../");
 	}
+#else
+	datapath = datapath_;
+	rel_datapath = datapath;
+#endif
 #endif
 	
 	// condense datapath and abs_bin_path
@@ -246,10 +248,12 @@ void floor::destroy() {
 	delete event_handler_fnctr;
 	
 	if(x != nullptr) delete x;
+#if !defined(FLOOR_NO_OPENCL)
 	if(ocl != nullptr) {
 		delete ocl;
 		ocl = nullptr;
 	}
+#endif
 	
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) delete evt;
@@ -267,7 +271,7 @@ void floor::destroy() {
 }
 
 void floor::init_internal(const bool use_gl32_core
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) || defined(FLOOR_IOS)
 						  floor_unused // use_gl32_core is only used on os x
 #endif
 						  , const unsigned int window_flags) {
@@ -301,8 +305,11 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #else
 		// always set fullscreen + borderless on iOS
+		config.flags |= SDL_WINDOW_OPENGL;
 		config.flags |= SDL_WINDOW_FULLSCREEN;
 		config.flags |= SDL_WINDOW_BORDERLESS;
+		config.flags |= SDL_WINDOW_RESIZABLE;
+		config.flags |= SDL_WINDOW_SHOWN;
 #endif
 		
 		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
@@ -328,16 +335,23 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #endif
 #else
+#if defined(PLATFORM_X32)
 		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#else
+		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles3");
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+#endif
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 		
 		//
 		SDL_DisplayMode fullscreen_mode;
 		SDL_zero(fullscreen_mode);
 		fullscreen_mode.format = SDL_PIXELFORMAT_RGBA8888;
-		fullscreen_mode.w = config.width;
-		fullscreen_mode.h = config.height;
+		fullscreen_mode.w = (int)config.width;
+		fullscreen_mode.h = (int)config.height;
 #endif
 		
 		// create screen
@@ -392,6 +406,7 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 		
 		acquire_context();
+		log_debug("window and opengl context created and acquired!");
 		
 		// initialize opengl functions (get function pointers) on non-apple platforms
 #if !defined(__APPLE__)
@@ -401,12 +416,15 @@ void floor::init_internal(const bool use_gl32_core
 		// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
 #if defined(FLOOR_IOS)
 		ios_helper::compile_shaders();
+		log_debug("iOS blit shader compiled");
 #endif
 		
+#if !defined(FLOOR_NO_OPENCL)
 		// check if a cudacl or pure opencl context should be created
 		// use absolute path
 #if defined(FLOOR_CUDA_CL)
 		if(config.opencl_platform == "cuda") {
+			log_debug("initializing cuda ...");
 			ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
 		}
 		else {
@@ -415,9 +433,11 @@ void floor::init_internal(const bool use_gl32_core
 				log_error("CUDA support is not enabled!");
 			}
 #endif
+			log_debug("initializing opencl ...");
 			ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
 #if defined(FLOOR_CUDA_CL)
 		}
+#endif
 #endif
 		
 		// make an early clear
@@ -485,10 +505,12 @@ void floor::init_internal(const bool use_gl32_core
 		// set dpi lower bound to 72
 		if(config.dpi < 72) config.dpi = 72;
 		
+#if !defined(FLOOR_NO_OPENCL)
 		// init opencl
 		ocl->init(false,
 				  config.opencl_platform == "cuda" ? 0 : string2size_t(config.opencl_platform),
 				  config.cl_device_restriction, config.gl_sharing);
+#endif
 		
 		release_context();
 	}
@@ -567,9 +589,6 @@ void floor::start_draw() {
 /*! stops drawing the window
  */
 void floor::stop_draw(const bool window_swap) {
-	// optional window swap (client code might want to swap the window by itself)
-	if(window_swap) swap();
-	
 	GLenum error = glGetError();
 	switch(error) {
 		case GL_NO_ERROR:
@@ -594,6 +613,9 @@ void floor::stop_draw(const bool window_swap) {
 			break;
 	}
 	
+	// optional window swap (client code might want to swap the window by itself)
+	if(window_swap) swap();
+	
 	frame_time_sum += SDL_GetTicks() - frame_time_counter;
 
 	// handle fps count
@@ -610,12 +632,14 @@ void floor::stop_draw(const bool window_swap) {
 	frame_time_counter = SDL_GetTicks();
 	
 	// check for kernel reload (this is safe to do here)
+#if !defined(FLOOR_NO_OPENCL)
 	if(reload_kernels_flag) {
 		reload_kernels_flag = false;
 		ocl->flush();
 		ocl->finish();
 		ocl->reload_kernels();
 	}
+#endif
 	
 	release_context();
 }
@@ -843,9 +867,11 @@ void floor::acquire_context() {
 			log_error("couldn't make gl context current: %s!", SDL_GetError());
 			return;
 		}
+#if !defined(FLOOR_NO_OPENCL)
 		if(ocl != nullptr && ocl->is_supported()) {
 			ocl->activate_context();
 		}
+#endif
 	}
 #if defined(FLOOR_IOS)
 	glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
@@ -856,10 +882,12 @@ void floor::release_context() {
 	// only call SDL_GL_MakeCurrent with nullptr, when this is the last lock
 	const unsigned int cur_active_locks = --config.ctx_active_locks;
 	if(cur_active_locks == 0) {
+#if !defined(FLOOR_NO_OPENCL)
 		if(ocl != nullptr && ocl->is_supported()) {
 			ocl->finish();
 			ocl->deactivate_context();
 		}
+#endif
 		if(SDL_GL_MakeCurrent(config.wnd, nullptr) != 0) {
 			log_error("couldn't release current gl context: %s!", SDL_GetError());
 			return;
