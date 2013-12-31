@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,7 +62,6 @@ public:
 	constexpr vector3(const T& vx, const T& vy, const T& vz) noexcept : x(vx), y(vy), z(vz) {}
 	constexpr vector3(const T& f) noexcept : x(f), y(f), z(f) {}
 	template <typename U> constexpr vector3(const vector3<U>& vec3) noexcept : x((T)vec3.x), y((T)vec3.y), z((T)vec3.z) {}
-	~vector3() noexcept {}
 	
 	T& operator[](size_t index);
 	const T& operator[](size_t index) const;

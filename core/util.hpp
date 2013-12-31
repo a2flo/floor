@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,21 +20,6 @@
 #define __FLOOR_UTIL_HPP__
 
 #include "core/cpp_headers.hpp"
-
-template<int i> struct int2type {
-	enum { value = i };
-};
-
-template<typename T> struct type2type {
-	typedef T orig_type;
-};
-
-template<bool flag, typename T1, typename T2> struct type_select {
-	typedef T1 result;
-};
-template<typename T1, typename T2> struct type_select<false, T1, T2> {
-	typedef T2 result;
-};
 
 // convert functions
 #define FLOOR_CONVERT_VAR_TO_BUFFER \

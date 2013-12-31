@@ -62,7 +62,6 @@
 		5C1091E017D1427F007F536E /* tcc.h in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091DB17D1427F007F536E /* tcc.h */; };
 		5C1091E117D1427F007F536E /* tccgen.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DC17D1427F007F536E /* tccgen.c */; };
 		5C1091E217D1427F007F536E /* tccpp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DD17D1427F007F536E /* tccpp.c */; };
-		5C1091ED17D1484C007F536E /* floor_Prefix.pch in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EA17D1484C007F536E /* floor_Prefix.pch */; };
 		5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EB17D1484C007F536E /* osx_helper.hpp */; };
 		5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091EC17D1484C007F536E /* osx_helper.mm */; };
 		5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F217D148B8007F536E /* OpenCL.framework */; };
@@ -171,7 +170,6 @@
 		5C1091DB17D1427F007F536E /* tcc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tcc.h; path = tccpp/tcc.h; sourceTree = "<group>"; };
 		5C1091DC17D1427F007F536E /* tccgen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccgen.c; path = tccpp/tccgen.c; sourceTree = "<group>"; };
 		5C1091DD17D1427F007F536E /* tccpp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccpp.c; path = tccpp/tccpp.c; sourceTree = "<group>"; };
-		5C1091EA17D1484C007F536E /* floor_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = floor_Prefix.pch; sourceTree = "<group>"; };
 		5C1091EB17D1484C007F536E /* osx_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = osx_helper.hpp; sourceTree = "<group>"; };
 		5C1091EC17D1484C007F536E /* osx_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = osx_helper.mm; sourceTree = "<group>"; };
 		5C1091F017D148AD007F536E /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = Library/Frameworks/SDL2.framework; sourceTree = SDKROOT; };
@@ -185,6 +183,7 @@
 		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
 		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
+		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7B324617E7224000153798 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5C7B324C17E7225A00153798 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5C7B324D17E7225A00153798 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
@@ -414,7 +413,6 @@
 		5C1091E317D1480A007F536E /* osx */ = {
 			isa = PBXGroup;
 			children = (
-				5C1091EA17D1484C007F536E /* floor_Prefix.pch */,
 				5C1091EB17D1484C007F536E /* osx_helper.hpp */,
 				5C1091EC17D1484C007F536E /* osx_helper.mm */,
 			);
@@ -441,6 +439,7 @@
 				5C81C42D17E59A3400FE6791 /* premake.sh */,
 				5C81C42E17E59A3400FE6791 /* premake4.lua */,
 				5C81C42F17E59FE800FE6791 /* install.sh */,
+				5C782595187226DA00725EAF /* floor_prefix.pch */,
 			);
 			name = build;
 			sourceTree = "<group>";
@@ -489,7 +488,6 @@
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C1091A317D1153E007F536E /* basic_math.hpp in Headers */,
 				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
-				5C1091ED17D1484C007F536E /* floor_Prefix.pch in Headers */,
 				5C1091BC17D1153E007F536E /* vector3.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
 				5C1091BE17D1153E007F536E /* vector4.hpp in Headers */,
@@ -728,10 +726,10 @@
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = floor_prefix.pch;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					DEBUG,
 					"FLOOR_DEBUG=1",
-					"FLOOR_EXPORT=1",
 					"TCC_LIB_ONLY=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -846,10 +844,8 @@
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"FLOOR_EXPORT=1",
-					"TCC_LIB_ONLY=1",
-				);
+				GCC_PREFIX_HEADER = floor_prefix.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = "TCC_LIB_ONLY=1";
 				GCC_UNROLL_LOOPS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
@@ -984,7 +980,6 @@
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
@@ -1034,7 +1029,6 @@
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,

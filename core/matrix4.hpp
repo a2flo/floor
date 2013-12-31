@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,7 +71,6 @@ public:
 		(T)mat4.data[4], (T)mat4.data[5], (T)mat4.data[6], (T)mat4.data[7],
 		(T)mat4.data[8], (T)mat4.data[9], (T)mat4.data[10], (T)mat4.data[11],
 		(T)mat4.data[12], (T)mat4.data[13], (T)mat4.data[14], (T)mat4.data[15] }}) {}
-	~matrix4() noexcept {}
 	
 	matrix4& operator=(const matrix4& mat) {
 		memcpy(&data[0], &mat.data[0], sizeof(T)*16);

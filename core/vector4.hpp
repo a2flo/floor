@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,6 @@ public:
 	constexpr vector4(const vector2<T>& vec2) noexcept : vector3<T>(vec2.x, vec2.y, (T)0), w((T)1) {}
 	constexpr vector4(const vector2<T>& vec2_0, const vector2<T>& vec2_1) noexcept : vector3<T>(vec2_0.x, vec2_0.y, vec2_1.x), w(vec2_1.y) {}
 	constexpr vector4(const vector2<T>& vec2, const T& vz, const T& vw) noexcept : vector3<T>(vec2.x, vec2.y, vz), w(vw) {}
-	~vector4() noexcept {}
 	
 	// overloading routines
 	T& operator[](size_t index);
@@ -143,7 +142,6 @@ public:
 	vector8() : lo(), hi() {}
 	vector8(const vector8<T>& vec8) : lo(vec8.lo), hi(vec8.hi) {}
 	vector8(const vector4<T>& vec4_lo, const vector4<T>& vec4_hi) : lo(vec4_lo), hi(vec4_hi) {}
-	~vector8() {}
 	
 	T& operator[](size_t index) {
 		return index < 4 ? lo[index] : hi[index-4];
@@ -178,7 +176,6 @@ public:
 		hi.lo = float4(floats[8], floats[9], floats[10], floats[11]);
 		hi.hi = float4(floats[12], floats[13], floats[14], floats[15]); 
 	}
-	~vector16() {}
 	
 	T& operator[](size_t index) {
 		return index < 8 ? lo[index] : hi[index-8];

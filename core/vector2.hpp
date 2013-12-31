@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,7 +57,6 @@ public:
 	constexpr vector2(const T& vx, const T& vy) noexcept : x(vx), y(vy) {}
 	constexpr vector2(const T& f) noexcept : x(f), y(f) {}
 	template <typename U> constexpr vector2(const vector2<U>& vec2) noexcept : x((T)vec2.x), y((T)vec2.y) {}
-	~vector2() noexcept {}
 	
 	vector2& operator=(const vector2& vec2) {
 		this->x = vec2.x;

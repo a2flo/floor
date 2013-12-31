@@ -1,6 +1,6 @@
 /*
  *  Flo's Open libRary (floor)
- *  Copyright (C) 2004 - 2013 Florian Ziesche
+ *  Copyright (C) 2004 - 2014 Florian Ziesche
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -140,6 +140,55 @@ public:
 		return (cstr != str);
 	}
 	
+	//! computes the hash of the const_string (32-bit MurmurHash3)
+	constexpr unsigned int hash() const {
+		// credits: https://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp
+		// -> MurmurHash3_x86_32, modified for constexpr
+		constexpr const unsigned int seed = 0xF1002A2Eu;
+		constexpr const unsigned int c1 = 0xcc9e2d51u;
+		constexpr const unsigned int c2 = 0x1b873593u;
+		const size_t nblocks = count / (size_t)4;
+		unsigned int h1 = seed;
+		
+		//----------
+		// body
+		size_t offset = 0;
+		for(size_t i = 0; i < nblocks; ++i, offset += 4) {
+			unsigned int k1 = ((content.data[offset + 3] << 24u) |
+							   (content.data[offset + 2] << 16u) |
+							   (content.data[offset + 1] << 8u) |
+							   (content.data[offset + 0]));
+			
+			k1 *= c1;
+			k1 = rotl32(k1, 15);
+			k1 *= c2;
+			
+			h1 ^= k1;
+			h1 = rotl32(h1, 13);
+			h1 = h1 * 5 + 0xe6546b64;
+		}
+		
+		//----------
+		// tail
+		unsigned int k1 = 0;
+		switch(count & 3u) {
+			case 3: k1 ^= content.data[offset + 2] << 16u;
+			case 2: k1 ^= content.data[offset + 1] << 8u;
+			case 1: k1 ^= content.data[offset + 0];
+				k1 *= c1; k1 = rotl32(k1, 15); k1 *= c2; h1 ^= k1;
+		};
+		
+		//----------
+		// finalization
+		h1 ^= (unsigned int)count;
+		h1 ^= h1 >> 16;
+		h1 *= 0x85ebca6b;
+		h1 ^= h1 >> 13;
+		h1 *= 0xc2b2ae35;
+		h1 ^= h1 >> 16;
+		return h1;
+	}
+	
 protected:
 	//! creates a storage_array from a c string
 	template <size_t n> static constexpr storage_array<n> make_array(const char (&str)[n]) {
@@ -163,6 +212,11 @@ protected:
 			ret.data[i] = str_1[j];
 		}
 		return ret;
+	}
+	
+	//! hash computation helper function
+	static constexpr unsigned int rotl32(unsigned int x, int r) {
+		return (x << r) | (x >> (32 - r));
 	}
 };
 
