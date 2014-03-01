@@ -45,7 +45,7 @@ public:
 	template <size_t n> constexpr const_string<n + count - 1> operator+(const const_string<n>& str) const {
 		return make_concat_array<n + count - 1>(count - 1, n, data(), str.data()).data;
 	}
-	//! concat operator: with another a c string
+	//! concat operator: with a c string
 	template <size_t n> constexpr const_string<n + count - 1> operator+(const char (&str)[n]) const {
 		return make_concat_array<n + count - 1>(count - 1, n, data(), str).data;
 	}
@@ -138,6 +138,11 @@ public:
 	}
 	template <size_t len_0> friend bool operator!=(const string& str, const const_string<len_0>& cstr) {
 		return (cstr != str);
+	}
+	
+	//
+	constexpr const char& operator[](const size_t& index) const {
+		return content.data[index];
 	}
 	
 	//! computes the hash of the const_string (32-bit MurmurHash3)

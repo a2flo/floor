@@ -93,6 +93,9 @@ public:
 	//! returns the "yield after run" flag
 	bool get_yield_after_run() const;
 	
+	//! returns the given name of the thread
+	const string& get_thread_name() const;
+	
 protected:
 	const string thread_name;
 	unique_ptr<thread> thread_obj { nullptr };

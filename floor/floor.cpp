@@ -59,7 +59,7 @@ bool floor::new_fps_count = false;
 
 bool floor::cursor_visible = true;
 
-event::handler* floor::event_handler_fnctr = nullptr;
+event::handler floor::event_handler_fnctr { &floor::event_handler };
 
 atomic<bool> floor::reload_kernels_flag { false };
 
@@ -190,6 +190,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.fullscreen = config_doc.get<bool>("config.screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("config.screen.vsync", false);
 		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
+		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
 		
 		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);
 		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
@@ -232,8 +233,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	
 	//
 	evt = new event();
-	event_handler_fnctr = new event::handler(&floor::event_handler);
-	evt->add_internal_event_handler(*event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
+	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
 	init_internal(use_gl32_core_, window_flags);
@@ -244,8 +244,7 @@ void floor::destroy() {
 	
 	if(!console_only) acquire_context();
 	
-	evt->remove_event_handler(*event_handler_fnctr);
-	delete event_handler_fnctr;
+	evt->remove_event_handler(event_handler_fnctr);
 	
 	if(x != nullptr) delete x;
 #if !defined(FLOOR_NO_OPENCL)
@@ -504,6 +503,7 @@ void floor::init_internal(const bool use_gl32_core
 		
 		// set dpi lower bound to 72
 		if(config.dpi < 72) config.dpi = 72;
+		log_debug("dpi: %u", config.dpi);
 		
 #if !defined(FLOOR_NO_OPENCL)
 		// init opencl

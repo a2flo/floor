@@ -42,11 +42,21 @@ public:
 	
 	file_io();
 	file_io(const string& filename, const OPEN_TYPE open_type = OPEN_TYPE::READWRITE_BINARY);
+	file_io(file_io&& fio);
 	~file_io();
+	file_io& operator=(file_io&& fio);
 	
 	enum class FILE_TYPE : unsigned int {
-		NONE,
-		DIR,
+		NONE,			//!< any file or folder
+		DIR,			//!< any folder
+		TEXT,			//!< *.txt
+		IMAGE,			//!< *.png
+		XML,			//!< *.xml
+		OPENCL,			//!< *.cl *.clh *.h
+		A2E_MODEL,		//!< *.a2m
+		A2E_ANIMATION,	//!< *.a2a
+		A2E_MATERIAL,	//!< *.a2mat
+		A2E_UI,			//!< *.a2eui
 	};
 	
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
@@ -66,12 +76,14 @@ public:
 	bool read_file(string& str);
 	void get_line(char* finput, streamsize length);
 	void get_block(char* data, streamsize size);
-	void get_terminated_block(string& str, const char terminator);
-	char get_char();
-	unsigned short int get_usint();
-	unsigned int get_uint();
-	unsigned short int get_swapped_usint();
-	unsigned int get_swapped_uint();
+	void get_terminated_block(string& str, const uint8_t terminator);
+	uint8_t get_char();
+	uint16_t get_usint();
+	uint32_t get_uint();
+	uint64_t get_ullint();
+	uint16_t get_swapped_usint();
+	uint32_t get_swapped_uint();
+	uint64_t get_swapped_ullint();
 	float get_float();
 	void seek_read(size_t offset);
 	streampos get_current_read_offset();
@@ -79,9 +91,11 @@ public:
 	// file output:
 	void write_file(string& str);
 	void write_block(const char* data, size_t size, bool check_size = false);
-	void write_terminated_block(const string& str, const char terminator);
-	void write_char(const unsigned char& ch);
-	void write_uint(const unsigned int& ui);
+	void write_terminated_block(const string& str, const uint8_t terminator);
+	void write_char(const uint8_t& ch);
+	void write_usint(const uint16_t& usi);
+	void write_uint(const uint32_t& ui);
+	void write_ullint(const uint64_t& ulli);
 	void write_float(const float& f);
 	void seek_write(size_t offset);
 	streampos get_current_write_offset();

@@ -17,6 +17,7 @@
  */
 
 #include "core/core.hpp"
+#include "core/unicode.hpp"
 #include <thread>
 
 // TODO: add thread safety for gen and rd?
@@ -248,7 +249,9 @@ string core::escape_string(const string& str) {
 	return ret;
 }
 
-map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory, const string file_extension) {
+map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
+													const string file_extension,
+													const bool always_get_folders) {
 	map<string, file_io::FILE_TYPE> file_list;
 	string dir_str = directory;
 	size_t pos;
@@ -276,15 +279,21 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory, con
 		
 		_findclose(h_file);
 	}
-#else // works under Linux and OS X
+#else // works under Linux, OS X, FreeBSD (and probably all other posix systems)
 	struct dirent** namelist = nullptr;
 	
 	dir_str += ".";
 	int n = scandir(dir_str.c_str(), &namelist, 0, alphasort);
 	
 	for(int j = 1; j < n; j++) {
+#if !defined(__APPLE__)
+		// TODO: this probably needs some conversion as well, but there is no way to find out using only posix functions ...
 		const string name = namelist[j]->d_name;
-		if(file_extension != "") {
+#else
+		const string name = unicode::utf8_decomp_to_precomp(namelist[j]->d_name);
+#endif
+		const bool is_folder = (namelist[j]->d_type == 4);
+		if(file_extension != "" && (!is_folder || (is_folder && !always_get_folders))) {
 			if((pos = name.rfind(".")) != string::npos) {
 				if(name.substr(pos+1, name.size()-pos-1) != file_extension) continue;
 			}
@@ -293,7 +302,7 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory, con
 
 		// TODO: use sys/stat.h instead (glibc has some issues where DT_DIR is not defined or recursively-self-defined ...)
 		// note: 4 == DT_DIR
-		if(namelist[j]->d_type == 4) file_list[name] = file_io::FILE_TYPE::DIR;
+		if(is_folder) file_list[name] = file_io::FILE_TYPE::DIR;
 		else file_list[name] = file_io::FILE_TYPE::NONE;
 	}
 	
@@ -432,8 +441,7 @@ string core::encode_url(const string& url) {
 				   (*citer >= '&' && *citer <= '*') ||
 				   (*citer >= ',' && *citer <= '/') ||
 				   (*citer >= '[' && *citer <= '`') ||
-				   (*citer >= '{' && *citer <= '~')
-				   ) {
+				   (*citer >= '{' && *citer <= '~')) {
 					result << *citer;
 					break;
 				}
@@ -442,4 +450,8 @@ string core::encode_url(const string& url) {
 		}
 	}
 	return result.str();
+}
+
+uint32_t core::unix_timestamp() {
+	return (uint32_t)chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
 }

@@ -161,4 +161,10 @@
 
 #define floor_unused __attribute__((unused))
 
+#if defined(__clang__) || defined(__GNUC__)
+#define floor_packed __attribute__((packed))
+#else
+#define floor_packed
+#endif
+
 #endif

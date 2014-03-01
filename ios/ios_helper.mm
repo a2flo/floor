@@ -33,7 +33,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-map<string, shader_object*> ios_helper::shader_objects;
+map<string, floor_shader_object*> ios_helper::shader_objects;
 
 void* ios_helper::get_eagl_sharegroup() {
 	return (__bridge void*)[[EAGLContext currentContext] sharegroup];
@@ -66,6 +66,7 @@ static void log_pretty_print(const char* log, const char* code) {
 	}
 }
 
+#if 0
 static bool is_gl_sampler_type(const GLenum& type) {
 	switch(type) {
 		case GL_SAMPLER_2D: return true;
@@ -74,16 +75,17 @@ static bool is_gl_sampler_type(const GLenum& type) {
 	}
 	return false;
 }
+#endif
 
 #define OCLRASTER_SHADER_LOG_SIZE 65535
-static void compile_shader(shader_object& shd, const char* vs_text, const char* fs_text) {
+static void compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text) {
 	// success flag (if it's 1 (true), we successfully created a shader object)
 	GLint success = 0;
 	GLchar info_log[OCLRASTER_SHADER_LOG_SIZE+1];
 	info_log[OCLRASTER_SHADER_LOG_SIZE] = 0;
 	
 	// add a new program object to this shader
-	shader_object::internal_shader_object& shd_obj = shd.program;
+	floor_shader_object::internal_shader_object& shd_obj = shd.program;
 	
 	// create the vertex shader object
 	shd_obj.vertex_shader = glCreateShader(GL_VERTEX_SHADER);
@@ -127,9 +129,11 @@ static void compile_shader(shader_object& shd, const char* vs_text, const char* 
 	
 	// grab number and names of all attributes and uniforms and get their locations (needs to be done before validation, b/c we have to set sampler locations)
 	GLint attr_count = 0, uni_count = 0, max_attr_len = 0, max_uni_len = 0;
+#if 0
 	GLint var_location = 0;
 	GLint var_size = 0;
 	GLenum var_type = 0;
+#endif
 	
 	glGetProgramiv(shd_obj.program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_attr_len);
 	glGetProgramiv(shd_obj.program, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_uni_len);
@@ -154,7 +158,7 @@ static void compile_shader(shader_object& shd, const char* vs_text, const char* 
 		cout << "attribute_name: " << attribute_name << endl;
 		if(attribute_name.find("[") != string::npos) attribute_name = attribute_name.substr(0, attribute_name.find("["));
 		shd_obj.attributes.emplace(attribute_name,
-								   shader_object::internal_shader_object::shader_variable {
+								   floor_shader_object::internal_shader_object::shader_variable {
 									   (size_t)var_location,
 									   (size_t)var_size,
 									   var_type });
@@ -174,7 +178,7 @@ static void compile_shader(shader_object& shd, const char* vs_text, const char* 
 		cout << "uniform_name: " << uniform_name << endl;
 		if(uniform_name.find("[") != string::npos) uniform_name = uniform_name.substr(0, uniform_name.find("["));
 		shd_obj.uniforms.emplace(uniform_name,
-								 shader_object::internal_shader_object::shader_variable {
+								 floor_shader_object::internal_shader_object::shader_variable {
 									 (size_t)var_location,
 									 (size_t)var_size,
 									 var_type });
@@ -229,12 +233,12 @@ void ios_helper::compile_shaders() {
 		}
 	)OCLRASTER_RAWSTR"};
 		
-	shader_object* shd = new shader_object("BLIT");
+	floor_shader_object* shd = new floor_shader_object("BLIT");
 	compile_shader(*shd, blit_vs_text, blit_fs_text);
 	shader_objects.emplace("BLIT", shd);
 }
 
-shader_object* ios_helper::get_shader(const string& name) {
+floor_shader_object* ios_helper::get_shader(const string& name) {
 	const auto iter = shader_objects.find(name);
 	if(iter == shader_objects.end()) return nullptr;
 	return iter->second;
@@ -311,6 +315,14 @@ size_t ios_helper::get_dpi() {
 		return 264;
 #endif
 	}
+}
+
+string ios_helper::get_computer_name() {
+	return [[[UIDevice currentDevice] name] UTF8String];
+}
+		
+string ios_helper::utf8_decomp_to_precomp(const string& str) {
+	return [[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String];
 }
 
 #if defined(__clang__)

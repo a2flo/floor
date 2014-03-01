@@ -72,6 +72,7 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 
 #define glRenderbufferStorageMultisample glRenderbufferStorageMultisampleAPPLE
 #define glResolveMultisampleFramebuffer glResolveMultisampleFramebufferAPPLE
+#define glInvalidateFramebuffer glDiscardFramebufferEXT
 
 #define glBindVertexArray glBindVertexArrayOES
 #define glDeleteVertexArrays glDeleteVertexArraysOES

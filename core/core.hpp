@@ -56,7 +56,7 @@ public:
 	static unsigned int next_pot(const unsigned int& num);
 	static unsigned long long int next_pot(const unsigned long long int& num);
 	
-	template<typename T> static T clamp(const T& var, const T& min, const T& max) {
+	template <typename T> static T clamp(const T& var, const T& min, const T& max) {
 		return (var < min ? min : (var > max ? max : var));
 	}
 	
@@ -72,7 +72,7 @@ public:
 	static float rand(const float& min, const float& max);
 	static void set_random_seed(const unsigned int& seed);
 	
-	template<typename T> static set<T> power_set(set<T> input_set) {
+	template <typename T> static set<T> power_set(set<T> input_set) {
 		if(input_set.empty()) return set<T> {};
 		
 		const T elem(*input_set.begin());
@@ -86,6 +86,10 @@ public:
 		}
 		
 		return ret;
+	}
+	
+	template <typename T> static T interpolate(const T& v0, const T& v1, const T& interp) {
+		return ((v1 - v0) * interp + v0);
 	}
 	
 	// string functions
@@ -102,12 +106,32 @@ public:
 	static string encode_url(const string& url);
 	
 	// folder/path functions
-	static map<string, file_io::FILE_TYPE> get_file_list(const string& directory, const string file_extension = "");
+	static map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
+														 const string file_extension = "",
+														 const bool always_get_folders = false);
 	static string strip_path(const string& in_path);
 	
 	// system functions
 	static void system(const string& cmd);
 	static void system(const string& cmd, string& output);
+	
+	// misc functions
+	template <class container_type>
+	static inline void erase_if(container_type& container,
+								function<bool(const typename container_type::iterator&)> erase_if_function) {
+		for(auto iter = container.begin(); iter != container.end();) {
+			if(erase_if_function(iter)) {
+				iter = container.erase(iter);
+			}
+			else ++iter;
+		}
+	}
+	
+	static uint32_t unix_timestamp();
+	template <typename clock_type>
+	static inline uint32_t unix_timestamp(const chrono::time_point<clock_type>& time_point) {
+		return (uint32_t)chrono::duration_cast<chrono::seconds>(time_point.time_since_epoch()).count();
+	}
 	
 protected:
 	// random_device with libc++ on windows/mingw is not supported right now (no /dev/urandom)

@@ -23,7 +23,7 @@
 #include "core/cpp_headers.hpp"
 #include <regex>
 
-struct shader_object {
+struct floor_shader_object {
 	struct internal_shader_object {
 		unsigned int program { 0 };
 		unsigned int vertex_shader { 0 };
@@ -49,21 +49,23 @@ struct shader_object {
 	const string name;
 	internal_shader_object program;
 	
-	shader_object(const string& shd_name) : name(shd_name) {}
-	~shader_object() {}
+	floor_shader_object(const string& shd_name) : name(shd_name) {}
+	~floor_shader_object() {}
 };
 
 class ios_helper {
 public:
 	static void* get_eagl_sharegroup();
 	static void compile_shaders();
-	static shader_object* get_shader(const string& name);
+	static floor_shader_object* get_shader(const string& name);
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();
 	static size_t get_dpi();
+	static string get_computer_name();
+	static string utf8_decomp_to_precomp(const string& str);
 	
 protected:
-	static map<string, shader_object*> shader_objects;
+	static map<string, floor_shader_object*> shader_objects;
 	
 };
 

@@ -35,35 +35,7 @@ public:
 	~xml();
 
 	// new, easy xml document handling
-	struct xml_node;
-	struct xml_doc {
-	private:
-		template<typename T> class default_value {
-		public: static T def() { return T(); }
-		};
-		const string& extract_attr(const string& path) const;
-		bool set_attr(const string& path, const string& value);
-		
-	public:
-		xml_doc() : nodes(), valid(true) {}
-		xml_doc(xml_doc&& doc) noexcept {
-			nodes.swap(doc.nodes);
-			valid = doc.valid;
-		}
-		xml_doc& operator=(xml_doc&& doc) noexcept {
-			nodes.swap(doc.nodes);
-			valid = doc.valid;
-			return *this;
-		}
-		vector<pair<string, xml_node*>> nodes;
-		bool valid;
-		
-		xml_node* get_node(const string& path) const;
-		
-		//! "root.subnode.subnode.attr"
-		template<typename T> T get(const string& path, const T default_val = default_value<T>::def()) const;
-		template<typename T> bool set(const string& path, const T& value);
-	};
+	// TODO: continuous alloc?
 	struct xml_node {
 		xml_node(const xmlNode* node, const string name);
 		xml_node(const xmlNode* node);
@@ -82,6 +54,34 @@ public:
 			attr->second = value;
 			return true;
 		}
+	};
+	struct xml_doc {
+	private:
+		template<typename T> class default_value {
+		public: static T def() { return T(); }
+		};
+		const string& extract_attr(const string& path) const;
+		bool set_attr(const string& path, const string& value);
+		
+	public:
+		xml_doc() = default;
+		xml_doc(xml_doc&& doc) noexcept {
+			nodes.swap(doc.nodes);
+			valid = doc.valid;
+		}
+		xml_doc& operator=(xml_doc&& doc) noexcept {
+			nodes.swap(doc.nodes);
+			valid = doc.valid;
+			return *this;
+		}
+		vector<pair<string, xml_node*>> nodes;
+		bool valid { true };
+		
+		xml_node* get_node(const string& path) const;
+		
+		//! "root.subnode.subnode.attr"
+		template<typename T> T get(const string& path, const T default_val = default_value<T>::def()) const;
+		template<typename T> bool set(const string& path, const T& value);
 	};
 	xml_doc process_file(const string& filename,
 #if !defined(FLOOR_IOS)

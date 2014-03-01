@@ -18,6 +18,14 @@
 
 #include "unicode.hpp"
 
+#if defined(__APPLE__)
+#if !defined(FLOOR_IOS)
+#include "osx/osx_helper.hpp"
+#else
+#include "ios/ios_helper.hpp"
+#endif
+#endif
+
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
 	vector<unsigned int> ret;
 	
@@ -96,3 +104,13 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 	}
 	return ret;
 }
+
+#if defined(__APPLE__)
+string unicode::utf8_decomp_to_precomp(const string& str) {
+#if !defined(FLOOR_IOS)
+	return osx_helper::utf8_decomp_to_precomp(str);
+#else
+	return ios_helper::utf8_decomp_to_precomp(str);
+#endif
+}
+#endif

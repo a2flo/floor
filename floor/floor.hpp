@@ -219,7 +219,7 @@ protected:
 	static bool cursor_visible;
 	
 	// window event handlers
-	static event::handler* event_handler_fnctr;
+	static event::handler event_handler_fnctr;
 	static bool event_handler(EVENT_TYPE type, shared_ptr<event_object> obj);
 	
 	// misc

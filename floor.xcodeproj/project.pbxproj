@@ -569,7 +569,7 @@
 		5C10915617D114BC007F536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0500;
+				LastUpgradeCheck = 0510;
 				ORGANIZATIONNAME = "Florian Ziesche";
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
@@ -763,6 +763,10 @@
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
 					"-isystem",
+					"$(DT_TOOLCHAIN_DIR)/usr/include",
+					"-isystem",
+					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
+					"-isystem",
 					/usr/include/libxml2,
 				);
 				OTHER_CPLUSPLUSFLAGS = (
@@ -874,6 +878,10 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
+					"-isystem",
+					"$(DT_TOOLCHAIN_DIR)/usr/include",
+					"-isystem",
+					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
 					"-isystem",
 					/usr/include/libxml2,
 				);

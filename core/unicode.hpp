@@ -33,6 +33,10 @@ public:
 	static vector<unsigned int> utf8_to_unicode(const string& str);
 	static string unicode_to_utf8(const vector<unsigned int>& codes);
 	
+#if defined(__APPLE__)
+	static string utf8_decomp_to_precomp(const string& str);
+#endif
+	
 };
 
 #endif

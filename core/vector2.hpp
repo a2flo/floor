@@ -183,6 +183,33 @@ public:
 		return vector2(std::max(v1.x, v2.x), std::max(v1.y, v2.y));
 	}
 	
+	//
+	bool2 operator==(const vector2& v) const {
+		return bool2(this->x == v.x, this->y == v.y);
+	}
+	
+	// note: the following are only enabled for bool2
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool2 operator&(const bool2& bv) const {
+		return bool2(x && bv.x, y && bv.y);
+	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool2 operator|(const bool2& bv) const {
+		return bool2(x || bv.x, y || bv.y);
+	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool2 operator^(const bool& bl) const {
+		return bool2(x ^ bl, y ^ bl);
+	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool any() const {
+		return (x || y);
+	}
+	template<class B = T, class = typename enable_if<is_same<B, bool>::value>::type>
+	bool all() const {
+		return (x && y);
+	}
+	
 };
 
 struct rect {

@@ -63,6 +63,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <atomic>
+#include <chrono>
 #include <ctime>
 #include <cstring>
 #include <cmath>

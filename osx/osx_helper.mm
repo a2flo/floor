@@ -80,3 +80,11 @@ size_t osx_helper::get_compiled_system_version() {
 	// this is a number: 1090 (10.9), 1080 (10.8), ...
 	return MAC_OS_X_VERSION_MAX_ALLOWED;
 }
+
+string osx_helper::get_computer_name() {
+	return [[[NSHost currentHost] localizedName] UTF8String];
+}
+
+string osx_helper::utf8_decomp_to_precomp(const string& str) {
+	return [[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String];
+}

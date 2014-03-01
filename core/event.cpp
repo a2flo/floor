@@ -61,6 +61,11 @@ void event::handle_events() {
 		   event_type == SDL_MOUSEBUTTONUP) {
 			// mouse event handling
 			const int2 mouse_coord = int2(event_handle.button.x, event_handle.button.y);
+#if defined(__APPLE__) // currently only enabled in my patched/customized SDL lib
+			const float pressure = event_handle.button.pressure;
+#else
+			const float pressure = 0.0f;
+#endif
 			
 			switch(event_type) {
 				case SDL_MOUSEBUTTONDOWN: {
@@ -68,19 +73,19 @@ void event::handle_events() {
 						case SDL_BUTTON_LEFT:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_DOWN,
-											 make_shared<mouse_left_down_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_left_down_event>(cur_ticks, mouse_coord, pressure));
 							}
 							break;
 						case SDL_BUTTON_RIGHT:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_DOWN,
-											 make_shared<mouse_right_down_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_right_down_event>(cur_ticks, mouse_coord, pressure));
 							}
 							break;
 						case SDL_BUTTON_MIDDLE:
 							if(event_handle.button.state == SDL_PRESSED) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_DOWN,
-											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_middle_down_event>(cur_ticks, mouse_coord, pressure));
 							}
 							break;
 					}
@@ -91,7 +96,7 @@ void event::handle_events() {
 						case SDL_BUTTON_LEFT:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_LEFT_UP,
-											 make_shared<mouse_left_up_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_left_up_event>(cur_ticks, mouse_coord, pressure));
 								
 								if(cur_ticks - lm_double_click_timer < ldouble_click_time) {
 									// emit a double click event
@@ -116,7 +121,7 @@ void event::handle_events() {
 						case SDL_BUTTON_RIGHT:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_RIGHT_UP,
-											 make_shared<mouse_right_up_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_right_up_event>(cur_ticks, mouse_coord, pressure));
 								
 								if(cur_ticks - rm_double_click_timer < rdouble_click_time) {
 									// emit a double click event
@@ -141,7 +146,7 @@ void event::handle_events() {
 						case SDL_BUTTON_MIDDLE:
 							if(event_handle.button.state == SDL_RELEASED) {
 								handle_event(EVENT_TYPE::MOUSE_MIDDLE_UP,
-											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord));
+											 make_shared<mouse_middle_up_event>(cur_ticks, mouse_coord, pressure));
 								
 								if(SDL_GetTicks() - mm_double_click_timer < mdouble_click_time) {
 									// emit a double click event
@@ -174,8 +179,13 @@ void event::handle_events() {
 				case SDL_MOUSEMOTION: {
 					const int2 abs_pos = int2(event_handle.motion.x, event_handle.motion.y);
 					const int2 rel_move = int2(event_handle.motion.xrel, event_handle.motion.yrel);
+#if defined(__APPLE__) // currently only enabled in my patched/customized SDL lib
+					const float pressure = event_handle.motion.pressure;
+#else
+					const float pressure = 0.0f;
+#endif
 					handle_event(EVENT_TYPE::MOUSE_MOVE,
-								 make_shared<mouse_move_event>(cur_ticks, abs_pos, rel_move));
+								 make_shared<mouse_move_event>(cur_ticks, abs_pos, rel_move, pressure));
 				}
 				break;
 				case SDL_MOUSEWHEEL: {
@@ -199,11 +209,12 @@ void event::handle_events() {
 				break;
 			}
 		}
-		if(event_type == SDL_FINGERDOWN ||
-		   event_type == SDL_FINGERUP) {
+		else if(event_type == SDL_FINGERDOWN ||
+				event_type == SDL_FINGERUP ||
+				event_type == SDL_FINGERMOTION) {
 			// touch event handling
-			const int2 finger_coord = int2(event_handle.tfinger.x, event_handle.tfinger.y);
-			const unsigned int pressure = event_handle.tfinger.pressure;
+			const float2 finger_coord { event_handle.tfinger.x, event_handle.tfinger.y };
+			const float pressure = event_handle.tfinger.pressure;
 			const auto finger_id = event_handle.tfinger.fingerId;
 			
 			if(event_type == SDL_FINGERDOWN) {
@@ -218,14 +229,13 @@ void event::handle_events() {
 								 make_shared<finger_up_event>(cur_ticks, finger_coord, pressure, finger_id));
 				}
 			}
-		}
-		else if(event_type == SDL_FINGERMOTION) {
-			const int2 abs_pos = int2(event_handle.tfinger.x, event_handle.tfinger.y);
-			const int2 rel_move = int2(event_handle.tfinger.dx, event_handle.tfinger.dy);
-			const unsigned int pressure = event_handle.tfinger.pressure;
-			const auto finger_id = event_handle.tfinger.fingerId;
-			handle_event(EVENT_TYPE::FINGER_MOVE,
-						 make_shared<finger_move_event>(cur_ticks, abs_pos, rel_move, pressure, finger_id));
+			else if(event_type == SDL_FINGERMOTION) {
+				if(event_handle.tfinger.type == SDL_FINGERMOTION) {
+					const float2 rel_move { event_handle.tfinger.dx, event_handle.tfinger.dy };
+					handle_event(EVENT_TYPE::FINGER_MOVE,
+								 make_shared<finger_move_event>(cur_ticks, finger_coord, rel_move, pressure, finger_id));
+				}
+			}
 		}
 		else {
 			// key, etc. event handling

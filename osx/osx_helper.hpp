@@ -32,6 +32,8 @@ public:
 	static float get_menu_bar_height();
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();
+	static string get_computer_name();
+	static string utf8_decomp_to_precomp(const string& str);
 	
 };
 

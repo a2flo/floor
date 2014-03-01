@@ -35,6 +35,15 @@ file_io::~file_io() {
 	}
 }
 
+file_io::file_io(file_io&& fio) : open_type(fio.open_type), filestream(move(fio.filestream)) {
+}
+
+file_io& file_io::operator=(file_io&& fio) {
+	open_type = fio.open_type;
+	filestream = move(fio.filestream);
+	return *this;
+}
+
 /*! opens a input file stream
  *  @param filename the name of the file
  *  @param open_type enum that specifies how we want to open the file (like "r", "wb", etc. ...)
@@ -144,46 +153,72 @@ void file_io::get_block(char* data, streamsize size) {
 
 /*! reads a single char from the current file input stream and returns it
  */
-char file_io::get_char() {
-	char c = '\0'; // must be initialized, since fstream get might fail!
-	filestream.get(c);
+uint8_t file_io::get_char() {
+	uint8_t c = '\0'; // must be initialized, since fstream get might fail!
+	filestream.get((char&)c);
 	return c;
 }
 
-/*! reads a single unsigned short int from the current file input stream and returns it
+/*! reads a single uint16_t from the current file input stream and returns it
  */
-unsigned short int file_io::get_usint() {
-	unsigned char tmp[2] { 0, 0 };
-	unsigned short int us = 0;
+uint16_t file_io::get_usint() {
+	uint8_t tmp[2] { 0, 0 };
 	filestream.read((char*)tmp, 2);
-	us = (unsigned short int)(tmp[0] << 8) + (unsigned short int)tmp[1];
-	return us;
+	return (uint16_t)(tmp[0] << 8u) + (uint16_t)tmp[1];
 }
 
-unsigned short int file_io::get_swapped_usint() {
-	unsigned char tmp[2] { 0, 0 };
-	unsigned short int us = 0;
+uint16_t file_io::get_swapped_usint() {
+	uint8_t tmp[2] { 0, 0 };
 	filestream.read((char*)tmp, 2);
-	us = (unsigned short int)(tmp[1] << 8) + (unsigned short int)tmp[0];
-	return us;
+	return (uint16_t)(tmp[1] << 8u) + (uint16_t)tmp[0];
 }
 
-/*! reads a single unsigned int from the current file input stream and returns it
+/*! reads a single uint32_t from the current file input stream and returns it
  */
-unsigned int file_io::get_uint() {
-	unsigned char tmp[4] { 0, 0, 0, 0 };
-	unsigned int u = 0;
+uint32_t file_io::get_uint() {
+	uint8_t tmp[4] { 0, 0, 0, 0 };
 	filestream.read((char*)tmp, 4);
-	u = (unsigned int)(tmp[0] << 24) + (unsigned int)(tmp[1] << 16) + (unsigned int)(tmp[2] << 8) + (unsigned int)tmp[3];
-	return u;
+	return (((uint32_t)tmp[0] << 24u) +
+			((uint32_t)tmp[1] << 16u) +
+			((uint32_t)tmp[2] << 8u) +
+			((uint32_t)tmp[3]));
 }
 
-unsigned int file_io::get_swapped_uint() {
-	unsigned char tmp[4] { 0, 0, 0, 0 };
-	unsigned int u = 0;
+uint32_t file_io::get_swapped_uint() {
+	uint8_t tmp[4] { 0, 0, 0, 0 };
 	filestream.read((char*)tmp, 4);
-	u = (unsigned int)(tmp[3] << 24) + (unsigned int)(tmp[2] << 16) + (unsigned int)(tmp[1] << 8) + (unsigned int)tmp[0];
-	return u;
+	return (((uint32_t)tmp[3] << 24u) +
+			((uint32_t)tmp[2] << 16u) +
+			((uint32_t)tmp[1] << 8u) +
+			((uint32_t)tmp[0]));
+}
+
+/*! reads a single uint64_t from the current file input stream and returns it
+ */
+uint64_t file_io::get_ullint() {
+	uint8_t tmp[8] { 0, 0, 0, 0, 0, 0, 0, 0 };
+	filestream.read((char*)tmp, 8);
+	return (((uint64_t)tmp[0] << 56ull) +
+			((uint64_t)tmp[1] << 48ull) +
+			((uint64_t)tmp[2] << 40ull) +
+			((uint64_t)tmp[3] << 32ull) +
+			((uint64_t)tmp[4] << 24ull) +
+			((uint64_t)tmp[5] << 16ull) +
+			((uint64_t)tmp[6] << 8ull) +
+			((uint64_t)tmp[7]));
+}
+
+uint64_t file_io::get_swapped_ullint() {
+	uint8_t tmp[8] { 0, 0, 0, 0, 0, 0, 0, 0 };
+	filestream.read((char*)tmp, 8);
+	return (((uint64_t)tmp[7] << 56ull) +
+			((uint64_t)tmp[6] << 48ull) +
+			((uint64_t)tmp[5] << 40ull) +
+			((uint64_t)tmp[4] << 32ull) +
+			((uint64_t)tmp[3] << 24ull) +
+			((uint64_t)tmp[2] << 16ull) +
+			((uint64_t)tmp[1] << 8ull) +
+			((uint64_t)tmp[0]));
 }
 
 /*! reads a single float from the current file input stream and returns it
@@ -272,18 +307,40 @@ void file_io::write_block(const char* data, size_t size, bool check_size) {
 	}
 }
 
-void file_io::write_char(const unsigned char& ch) {
-	filestream.write((char*)&ch, 1);
+void file_io::write_char(const uint8_t& ch) {
+	filestream.put((char&)ch);
 }
 
-void file_io::write_uint(const unsigned int& ui) {
-	const char chui[4] = {
-		(char)((ui & 0xFF000000) >> 24),
-		(char)((ui & 0xFF0000) >> 16),
-		(char)((ui & 0xFF00) >> 8),
-		(char)(ui & 0xFF)
+void file_io::write_usint(const uint16_t& usi) {
+	const char chui[2] {
+		(char)((usi & 0xFF00u) >> 8u),
+		(char)(usi & 0xFFu)
+	};
+	filestream.write(chui, 2);
+}
+
+void file_io::write_uint(const uint32_t& ui) {
+	const char chui[4] {
+		(char)((ui & 0xFF000000u) >> 24u),
+		(char)((ui & 0xFF0000u) >> 16u),
+		(char)((ui & 0xFF00u) >> 8u),
+		(char)(ui & 0xFFu)
 	};
 	filestream.write(chui, 4);
+}
+
+void file_io::write_ullint(const uint64_t& ulli) {
+	const char chui[8] {
+		(char)((ulli & 0xFF00000000000000ull) >> 56ull),
+		(char)((ulli & 0xFF000000000000ull) >> 48ull),
+		(char)((ulli & 0xFF0000000000ull) >> 40ull),
+		(char)((ulli & 0xFF00000000ull) >> 32ull),
+		(char)((ulli & 0xFF000000ull) >> 24ull),
+		(char)((ulli & 0xFF0000ull) >> 16ull),
+		(char)((ulli & 0xFF00ull) >> 8ull),
+		(char)(ulli & 0xFFull)
+	};
+	filestream.write(chui, 8);
 }
 
 void file_io::write_float(const float& f) {
@@ -355,15 +412,15 @@ bool file_io::is_open() const {
 	return filestream.is_open();
 }
 
-void file_io::get_terminated_block(string& str, const char terminator) {
-	for(char c = get_char(); c != terminator; c = get_char()) {
-		str += c;
+void file_io::get_terminated_block(string& str, const uint8_t terminator) {
+	for(uint8_t c = get_char(); c != terminator; c = get_char()) {
+		str += (char&)c;
 	}
 }
 
-void file_io::write_terminated_block(const string& str, const char terminator) {
+void file_io::write_terminated_block(const string& str, const uint8_t terminator) {
 	write_block(str.c_str(), (unsigned int)str.length());
-	filestream.put(terminator);
+	filestream.put((char&)terminator);
 }
 
 fstream* file_io::get_filestream() {
