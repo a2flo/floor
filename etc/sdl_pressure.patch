@@ -1,0 +1,308 @@
+diff -r 2c63c27c4d1d include/SDL_events.h
+--- a/include/SDL_events.h	Sun Feb 23 01:24:46 2014 -0500
++++ b/include/SDL_events.h	Sat Mar 01 16:03:53 2014 +0100
+@@ -229,6 +229,7 @@
+     Sint32 y;           /**< Y coordinate, relative to window */
+     Sint32 xrel;        /**< The relative motion in the X direction */
+     Sint32 yrel;        /**< The relative motion in the Y direction */
++    float pressure;     /**< Normalized in the range 0...1 */
+ } SDL_MouseMotionEvent;
+ 
+ /**
+@@ -246,6 +247,7 @@
+     Uint8 padding1;
+     Sint32 x;           /**< X coordinate, relative to window */
+     Sint32 y;           /**< Y coordinate, relative to window */
++    float pressure;     /**< Normalized in the range 0...1 */
+ } SDL_MouseButtonEvent;
+ 
+ /**
+diff -r 2c63c27c4d1d src/events/SDL_mouse.c
+--- a/src/events/SDL_mouse.c	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/events/SDL_mouse.c	Sat Mar 01 16:03:53 2014 +0100
+@@ -38,7 +38,7 @@
+ static int SDL_double_click_radius = 1;
+ 
+ static int
+-SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y);
++SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y, float pressure);
+ 
+ /* Public functions */
+ int
+@@ -93,7 +93,7 @@
+ #endif
+     for (i = 1; i <= sizeof(mouse->buttonstate)*8; ++i) {
+         if (mouse->buttonstate & SDL_BUTTON(i)) {
+-            SDL_SendMouseButton(mouse->focus, mouse->mouseID, SDL_RELEASED, i);
++            SDL_SendMouseButton(mouse->focus, mouse->mouseID, SDL_RELEASED, i, 1.0f);
+         }
+     }
+     SDL_assert(mouse->buttonstate == 0);
+@@ -137,7 +137,7 @@
+ 
+ /* Check to see if we need to synthesize focus events */
+ static SDL_bool
+-SDL_UpdateMouseFocus(SDL_Window * window, int x, int y, Uint32 buttonstate)
++SDL_UpdateMouseFocus(SDL_Window * window, int x, int y, Uint32 buttonstate, float pressure)
+ {
+     SDL_Mouse *mouse = SDL_GetMouse();
+     int w, h;
+@@ -168,7 +168,7 @@
+ #ifdef DEBUG_MOUSE
+             printf("Mouse left window, synthesizing move & focus lost event\n");
+ #endif
+-            SDL_PrivateSendMouseMotion(window, mouse->mouseID, 0, x, y);
++            SDL_PrivateSendMouseMotion(window, mouse->mouseID, 0, x, y, pressure);
+             SDL_SetMouseFocus(NULL);
+         }
+         return SDL_FALSE;
+@@ -179,26 +179,26 @@
+          printf("Mouse entered window, synthesizing focus gain & move event\n");
+ #endif
+          SDL_SetMouseFocus(window);
+-         SDL_PrivateSendMouseMotion(window, mouse->mouseID, 0, x, y);
++         SDL_PrivateSendMouseMotion(window, mouse->mouseID, 0, x, y, pressure);
+     }
+     return SDL_TRUE;
+ }
+ 
+ int
+-SDL_SendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y)
++SDL_SendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y, float pressure)
+ {
+     if (window && !relative) {
+         SDL_Mouse *mouse = SDL_GetMouse();
+-        if (!SDL_UpdateMouseFocus(window, x, y, mouse->buttonstate)) {
++        if (!SDL_UpdateMouseFocus(window, x, y, mouse->buttonstate, pressure)) {
+             return 0;
+         }
+     }
+ 
+-    return SDL_PrivateSendMouseMotion(window, mouseID, relative, x, y);
++    return SDL_PrivateSendMouseMotion(window, mouseID, relative, x, y, pressure);
+ }
+ 
+ static int
+-SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y)
++SDL_PrivateSendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y, float pressure)
+ {
+     SDL_Mouse *mouse = SDL_GetMouse();
+     int posted;
+@@ -286,6 +286,7 @@
+         event.motion.y = mouse->y;
+         event.motion.xrel = xrel;
+         event.motion.yrel = yrel;
++        event.motion.pressure = pressure;
+         posted = (SDL_PushEvent(&event) > 0);
+     }
+     /* Use unclamped values if we're getting events outside the window */
+@@ -312,7 +313,7 @@
+ }
+ 
+ int
+-SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button)
++SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button, float pressure)
+ {
+     SDL_Mouse *mouse = SDL_GetMouse();
+     int posted;
+@@ -338,7 +339,7 @@
+ 
+     /* We do this after calculating buttonstate so button presses gain focus */
+     if (window && state == SDL_PRESSED) {
+-        SDL_UpdateMouseFocus(window, mouse->x, mouse->y, buttonstate);
++        SDL_UpdateMouseFocus(window, mouse->x, mouse->y, buttonstate, pressure);
+     }
+ 
+     if (buttonstate == mouse->buttonstate) {
+@@ -380,12 +381,13 @@
+         event.button.clicks = click_count;
+         event.button.x = mouse->x;
+         event.button.y = mouse->y;
++        event.button.pressure = pressure;
+         posted = (SDL_PushEvent(&event) > 0);
+     }
+ 
+     /* We do this after dispatching event so button releases can lose focus */
+     if (window && state == SDL_RELEASED) {
+-        SDL_UpdateMouseFocus(window, mouse->x, mouse->y, buttonstate);
++        SDL_UpdateMouseFocus(window, mouse->x, mouse->y, buttonstate, pressure);
+     }
+ 
+     return posted;
+@@ -490,7 +492,7 @@
+     if (mouse->WarpMouse) {
+         mouse->WarpMouse(window, x, y);
+     } else {
+-        SDL_SendMouseMotion(window, mouse->mouseID, 0, x, y);
++        SDL_SendMouseMotion(window, mouse->mouseID, 0, x, y, 1.0f);
+     }
+ }
+ 
+diff -r 2c63c27c4d1d src/events/SDL_mouse_c.h
+--- a/src/events/SDL_mouse_c.h	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/events/SDL_mouse_c.h	Sat Mar 01 16:03:53 2014 +0100
+@@ -105,10 +105,10 @@
+ extern void SDL_SetMouseFocus(SDL_Window * window);
+ 
+ /* Send a mouse motion event */
+-extern int SDL_SendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y);
++extern int SDL_SendMouseMotion(SDL_Window * window, SDL_MouseID mouseID, int relative, int x, int y, float pressure);
+ 
+ /* Send a mouse button event */
+-extern int SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button);
++extern int SDL_SendMouseButton(SDL_Window * window, SDL_MouseID mouseID, Uint8 state, Uint8 button, float pressure);
+ 
+ /* Send a mouse wheel event */
+ extern int SDL_SendMouseWheel(SDL_Window * window, SDL_MouseID mouseID, int x, int y);
+diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoamouse.m
+--- a/src/video/cocoa/SDL_cocoamouse.m	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/video/cocoa/SDL_cocoamouse.m	Sat Mar 01 16:03:53 2014 +0100
+@@ -228,7 +228,7 @@
+         /* CGWarpMouseCursorPosition doesn't generate a window event, unlike our
+          * other implementations' APIs.
+          */
+-        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 0, x, y);
++        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 0, x, y, 1.0f);
+     }
+ }
+ 
+@@ -282,7 +282,7 @@
+         float y = [event deltaY] + driverdata->deltaYOffset;
+         driverdata->deltaXOffset = driverdata->deltaYOffset = 0;
+ 
+-        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)x, (int)y);
++        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)x, (int)y, [event pressure]);
+     }
+ }
+ 
+diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoawindow.m
+--- a/src/video/cocoa/SDL_cocoawindow.m	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/video/cocoa/SDL_cocoawindow.m	Sat Mar 01 16:03:53 2014 +0100
+@@ -416,7 +416,7 @@
+         y = (int)(window->h - point.y);
+ 
+         if (x >= 0 && x < window->w && y >= 0 && y < window->h) {
+-            SDL_SendMouseMotion(window, 0, 0, x, y);
++            SDL_SendMouseMotion(window, 0, 0, x, y, 1.0f);
+         }
+     }
+ 
+@@ -553,7 +553,7 @@
+         button = [theEvent buttonNumber] + 1;
+         break;
+     }
+-    SDL_SendMouseButton(_data->window, 0, SDL_PRESSED, button);
++    SDL_SendMouseButton(_data->window, 0, SDL_PRESSED, button, [theEvent pressure]);
+ }
+ 
+ - (void)rightMouseDown:(NSEvent *)theEvent
+@@ -589,7 +589,7 @@
+         button = [theEvent buttonNumber] + 1;
+         break;
+     }
+-    SDL_SendMouseButton(_data->window, 0, SDL_RELEASED, button);
++    SDL_SendMouseButton(_data->window, 0, SDL_RELEASED, button, [theEvent pressure]);
+ }
+ 
+ - (void)rightMouseUp:(NSEvent *)theEvent
+@@ -650,7 +650,7 @@
+ #endif
+         }
+     }
+-    SDL_SendMouseMotion(window, 0, 0, x, y);
++    SDL_SendMouseMotion(window, 0, 0, x, y, [theEvent pressure]);
+ }
+ 
+ - (void)mouseDragged:(NSEvent *)theEvent
+diff -r 2c63c27c4d1d src/video/uikit/SDL_uikitview.m
+--- a/src/video/uikit/SDL_uikitview.m	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/video/uikit/SDL_uikitview.m	Sat Mar 01 16:03:53 2014 +0100
+@@ -91,10 +91,10 @@
+             CGPoint locationInView = [self touchLocation:touch shouldNormalize:NO];
+ 
+             /* send moved event */
+-            SDL_SendMouseMotion(NULL, SDL_TOUCH_MOUSEID, 0, locationInView.x, locationInView.y);
++            SDL_SendMouseMotion(NULL, SDL_TOUCH_MOUSEID, 0, locationInView.x, locationInView.y, 1.0f);
+ 
+             /* send mouse down event */
+-            SDL_SendMouseButton(NULL, SDL_TOUCH_MOUSEID, SDL_PRESSED, SDL_BUTTON_LEFT);
++            SDL_SendMouseButton(NULL, SDL_TOUCH_MOUSEID, SDL_PRESSED, SDL_BUTTON_LEFT, 1.0f);
+ 
+             leftFingerDown = touch;
+         }
+@@ -130,7 +130,7 @@
+     while(touch) {
+         if (touch == leftFingerDown) {
+             /* send mouse up */
+-            SDL_SendMouseButton(NULL, SDL_TOUCH_MOUSEID, SDL_RELEASED, SDL_BUTTON_LEFT);
++            SDL_SendMouseButton(NULL, SDL_TOUCH_MOUSEID, SDL_RELEASED, SDL_BUTTON_LEFT, 1.0f);
+             leftFingerDown = nil;
+         }
+ 
+@@ -173,7 +173,7 @@
+             CGPoint locationInView = [self touchLocation:touch shouldNormalize:NO];
+ 
+             /* send moved event */
+-            SDL_SendMouseMotion(NULL, SDL_TOUCH_MOUSEID, 0, locationInView.x, locationInView.y);
++            SDL_SendMouseMotion(NULL, SDL_TOUCH_MOUSEID, 0, locationInView.x, locationInView.y, 1.0f);
+         }
+ 
+         CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
+diff -r 2c63c27c4d1d src/video/x11/SDL_x11events.c
+--- a/src/video/x11/SDL_x11events.c	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/video/x11/SDL_x11events.c	Sat Mar 01 16:03:53 2014 +0100
+@@ -368,7 +368,7 @@
+             SDL_SetMouseFocus(data->window);
+ 
+             if (!SDL_GetMouse()->relative_mode) {
+-                SDL_SendMouseMotion(data->window, 0, 0, xevent.xcrossing.x, xevent.xcrossing.y);
++                SDL_SendMouseMotion(data->window, 0, 0, xevent.xcrossing.x, xevent.xcrossing.y, 1.0f);
+             }
+         }
+         break;
+@@ -385,7 +385,7 @@
+                 printf("Mode: NotifyUngrab\n");
+ #endif
+             if (!SDL_GetMouse()->relative_mode) {
+-                SDL_SendMouseMotion(data->window, 0, 0, xevent.xcrossing.x, xevent.xcrossing.y);
++                SDL_SendMouseMotion(data->window, 0, 0, xevent.xcrossing.x, xevent.xcrossing.y, 1.0f);
+             }
+ 
+             if (xevent.xcrossing.mode != NotifyGrab &&
+@@ -702,7 +702,7 @@
+                 printf("window %p: X11 motion: %d,%d\n", xevent.xmotion.x, xevent.xmotion.y);
+ #endif
+ 
+-                SDL_SendMouseMotion(data->window, 0, 0, xevent.xmotion.x, xevent.xmotion.y);
++                SDL_SendMouseMotion(data->window, 0, 0, xevent.xmotion.x, xevent.xmotion.y, 1.0f);
+             }
+         }
+         break;
+@@ -712,13 +712,13 @@
+             if (X11_IsWheelEvent(display,&xevent,&ticks)) {
+                 SDL_SendMouseWheel(data->window, 0, 0, ticks);
+             } else {
+-                SDL_SendMouseButton(data->window, 0, SDL_PRESSED, xevent.xbutton.button);
++                SDL_SendMouseButton(data->window, 0, SDL_PRESSED, xevent.xbutton.button, 1.0f);
+             }
+         }
+         break;
+ 
+     case ButtonRelease:{
+-            SDL_SendMouseButton(data->window, 0, SDL_RELEASED, xevent.xbutton.button);
++            SDL_SendMouseButton(data->window, 0, SDL_RELEASED, xevent.xbutton.button, 1.0f);
+         }
+         break;
+ 
+diff -r 2c63c27c4d1d src/video/x11/SDL_x11xinput2.c
+--- a/src/video/x11/SDL_x11xinput2.c	Sun Feb 23 01:24:46 2014 -0500
++++ b/src/video/x11/SDL_x11xinput2.c	Sat Mar 01 16:03:53 2014 +0100
+@@ -140,7 +140,7 @@
+ 
+             parse_valuators(rawev->raw_values,rawev->valuators.mask,
+                             rawev->valuators.mask_len,relative_cords,2);
+-            SDL_SendMouseMotion(mouse->focus,mouse->mouseID,1,(int)relative_cords[0],(int)relative_cords[1]);
++            SDL_SendMouseMotion(mouse->focus,mouse->mouseID,1,(int)relative_cords[0],(int)relative_cords[1], 1.0f);
+             return 1;
+             }
+             break;
