@@ -19,8 +19,8 @@
 #include "task.hpp"
 #include "core/logger.hpp"
 
-task::task(std::function<void()> op_) :
-op(op_),
+task::task(std::function<void()> op_, const string task_name_) :
+op(op_), task_name(task_name_),
 thread_obj(&task::run, this, [this]() {
 	// the task thread is not allowed to run until the task thread object has been detached from the callers thread
 	while(!initialized) { this_thread::yield(); }
@@ -32,6 +32,10 @@ thread_obj(&task::run, this, [this]() {
 }
 
 void task::run(task* this_task, std::function<void()> task_op) {
+#if defined(__APPLE__)
+	pthread_setname_np(this_task->task_name.c_str());
+#endif
+	
 	try {
 		// NOTE: this is the function object created above (not the users task op!)
 		task_op();

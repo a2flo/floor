@@ -110,6 +110,7 @@ public:
 														 const string file_extension = "",
 														 const bool always_get_folders = false);
 	static string strip_path(const string& in_path);
+	static string strip_filename(const string& in_path);
 	
 	// system functions
 	static void system(const string& cmd);

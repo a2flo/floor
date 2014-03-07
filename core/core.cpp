@@ -199,6 +199,23 @@ string core::strip_path(const string& in_path) {
 	return path;
 }
 
+string core::strip_filename(const string& in_path) {
+	string filename = in_path;
+	const auto slash_pos = in_path.rfind('/');
+	if(slash_pos != string::npos) {
+		filename = filename.substr(slash_pos + 1);
+	}
+	
+#if defined(__WINDOWS__)
+	const auto backslash_pos = in_path.rfind('\\');
+	if(backslash_pos != string::npos) {
+		filename = filename.substr(backslash_pos + 1);
+	}
+#endif
+	
+	return filename;
+}
+
 size_t core::lcm(size_t v1, size_t v2) {
 	size_t lcm_ = 1, div = 2;
 	while(v1 != 1 || v2 != 1) {

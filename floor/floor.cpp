@@ -477,8 +477,7 @@ void floor::init_internal(const bool use_gl32_core
 #if !defined(FLOOR_IOS)
 			config.dpi = osx_helper::get_dpi(config.wnd);
 #else
-			// TODO: iOS
-			config.dpi = 326;
+			config.dpi = ios_helper::get_dpi();
 #endif
 #elif defined(__WINDOWS__)
 			HDC hdc = wglGetCurrentDC();

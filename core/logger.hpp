@@ -37,11 +37,11 @@ using namespace std;
 class logger {
 public:
 	//! the kind of log message (this determines the output stream and potentially output formatting)
-	enum class LOG_TYPE : size_t {
-		ERROR_MSG	= 1, //!< error message
-		DEBUG_MSG	= 2, //!< debug message
-		SIMPLE_MSG	= 3, //!< simple message
-		UNDECORATED	= 4, //!< message with no prefix (undecorated)
+	enum class LOG_TYPE : uint32_t {
+		ERROR_MSG	= 1u, //!< error message
+		DEBUG_MSG	= 2u, //!< debug message
+		SIMPLE_MSG	= 3u, //!< simple message
+		UNDECORATED	= 4u, //!< message with no prefix (undecorated)
 	};
 	
 	//! initializes the logger (opens the log files and creates the logger thread)
