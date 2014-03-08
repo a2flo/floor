@@ -65,7 +65,7 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 #if defined(_PTHREAD_H)
 	pthread_setname_np(
 #if !defined(__APPLE__)
-					   this_thread_obj->thread_obj.native_handle(),
+					   this_thread_obj->thread_obj->native_handle(),
 #endif
 					   this_thread_obj->thread_name.c_str());
 #endif
