@@ -21,6 +21,7 @@
 
 #include <thread>
 #include <atomic>
+#include <string>
 using namespace std;
 
 class task {
