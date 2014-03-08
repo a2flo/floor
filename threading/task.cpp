@@ -33,7 +33,11 @@ thread_obj(&task::run, this, [this]() {
 
 void task::run(task* this_task, std::function<void()> task_op) {
 #if defined(_PTHREAD_H)
-	pthread_setname_np(this_task->task_name.c_str());
+	pthread_setname_np(
+#if !defined(__APPLE__)
+					   this_task->thread_obj.native_handle(),
+#endif
+					   this_task->task_name.c_str());
 #endif
 	
 	try {
