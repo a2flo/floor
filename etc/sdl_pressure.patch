@@ -1,6 +1,6 @@
-diff -r 2c63c27c4d1d include/SDL_events.h
---- a/include/SDL_events.h	Sun Feb 23 01:24:46 2014 -0500
-+++ b/include/SDL_events.h	Sat Mar 01 16:03:53 2014 +0100
+diff -r 28cfd3a2886f include/SDL_events.h
+--- a/include/SDL_events.h	Fri Mar 07 23:16:24 2014 -0800
++++ b/include/SDL_events.h	Sat Mar 08 09:24:20 2014 +0100
 @@ -229,6 +229,7 @@
      Sint32 y;           /**< Y coordinate, relative to window */
      Sint32 xrel;        /**< The relative motion in the X direction */
@@ -17,9 +17,9 @@ diff -r 2c63c27c4d1d include/SDL_events.h
  } SDL_MouseButtonEvent;
  
  /**
-diff -r 2c63c27c4d1d src/events/SDL_mouse.c
---- a/src/events/SDL_mouse.c	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/events/SDL_mouse.c	Sat Mar 01 16:03:53 2014 +0100
+diff -r 28cfd3a2886f src/events/SDL_mouse.c
+--- a/src/events/SDL_mouse.c	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/events/SDL_mouse.c	Sat Mar 08 09:24:20 2014 +0100
 @@ -38,7 +38,7 @@
  static int SDL_double_click_radius = 1;
  
@@ -138,9 +138,9 @@ diff -r 2c63c27c4d1d src/events/SDL_mouse.c
      }
  }
  
-diff -r 2c63c27c4d1d src/events/SDL_mouse_c.h
---- a/src/events/SDL_mouse_c.h	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/events/SDL_mouse_c.h	Sat Mar 01 16:03:53 2014 +0100
+diff -r 28cfd3a2886f src/events/SDL_mouse_c.h
+--- a/src/events/SDL_mouse_c.h	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/events/SDL_mouse_c.h	Sat Mar 08 09:24:20 2014 +0100
 @@ -105,10 +105,10 @@
  extern void SDL_SetMouseFocus(SDL_Window * window);
  
@@ -154,10 +154,10 @@ diff -r 2c63c27c4d1d src/events/SDL_mouse_c.h
  
  /* Send a mouse wheel event */
  extern int SDL_SendMouseWheel(SDL_Window * window, SDL_MouseID mouseID, int x, int y);
-diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoamouse.m
---- a/src/video/cocoa/SDL_cocoamouse.m	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/video/cocoa/SDL_cocoamouse.m	Sat Mar 01 16:03:53 2014 +0100
-@@ -228,7 +228,7 @@
+diff -r 28cfd3a2886f src/video/cocoa/SDL_cocoamouse.m
+--- a/src/video/cocoa/SDL_cocoamouse.m	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/video/cocoa/SDL_cocoamouse.m	Sat Mar 08 09:24:20 2014 +0100
+@@ -237,7 +237,7 @@
          /* CGWarpMouseCursorPosition doesn't generate a window event, unlike our
           * other implementations' APIs.
           */
@@ -166,28 +166,28 @@ diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoamouse.m
      }
  }
  
-@@ -282,7 +282,7 @@
-         float y = [event deltaY] + driverdata->deltaYOffset;
-         driverdata->deltaXOffset = driverdata->deltaYOffset = 0;
- 
--        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)x, (int)y);
-+        SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)x, (int)y, [event pressure]);
+@@ -351,7 +351,7 @@
+         DLog("Motion was (%g, %g), offset to (%g, %g)", [event deltaX], [event deltaY], deltaX, deltaY);
      }
+ 
+-    SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)deltaX, (int)deltaY);
++    SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 1, (int)deltaX, (int)deltaY, [event pressure]);
  }
  
-diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoawindow.m
---- a/src/video/cocoa/SDL_cocoawindow.m	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/video/cocoa/SDL_cocoawindow.m	Sat Mar 01 16:03:53 2014 +0100
-@@ -416,7 +416,7 @@
+ void
+diff -r 28cfd3a2886f src/video/cocoa/SDL_cocoawindow.m
+--- a/src/video/cocoa/SDL_cocoawindow.m	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/video/cocoa/SDL_cocoawindow.m	Sat Mar 08 09:24:20 2014 +0100
+@@ -502,7 +502,7 @@
          y = (int)(window->h - point.y);
  
          if (x >= 0 && x < window->w && y >= 0 && y < window->h) {
 -            SDL_SendMouseMotion(window, 0, 0, x, y);
-+            SDL_SendMouseMotion(window, 0, 0, x, y, 1.0f);
++            SDL_SendMouseMotion(window, 0, 0, x, y, 0.0f);
          }
      }
  
-@@ -553,7 +553,7 @@
+@@ -673,7 +673,7 @@
          button = [theEvent buttonNumber] + 1;
          break;
      }
@@ -196,7 +196,7 @@ diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoawindow.m
  }
  
  - (void)rightMouseDown:(NSEvent *)theEvent
-@@ -589,7 +589,7 @@
+@@ -709,7 +709,7 @@
          button = [theEvent buttonNumber] + 1;
          break;
      }
@@ -205,7 +205,7 @@ diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoawindow.m
  }
  
  - (void)rightMouseUp:(NSEvent *)theEvent
-@@ -650,7 +650,7 @@
+@@ -772,7 +772,7 @@
  #endif
          }
      }
@@ -214,9 +214,9 @@ diff -r 2c63c27c4d1d src/video/cocoa/SDL_cocoawindow.m
  }
  
  - (void)mouseDragged:(NSEvent *)theEvent
-diff -r 2c63c27c4d1d src/video/uikit/SDL_uikitview.m
---- a/src/video/uikit/SDL_uikitview.m	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/video/uikit/SDL_uikitview.m	Sat Mar 01 16:03:53 2014 +0100
+diff -r 28cfd3a2886f src/video/uikit/SDL_uikitview.m
+--- a/src/video/uikit/SDL_uikitview.m	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/video/uikit/SDL_uikitview.m	Sat Mar 08 09:24:20 2014 +0100
 @@ -91,10 +91,10 @@
              CGPoint locationInView = [self touchLocation:touch shouldNormalize:NO];
  
@@ -248,9 +248,9 @@ diff -r 2c63c27c4d1d src/video/uikit/SDL_uikitview.m
          }
  
          CGPoint locationInView = [self touchLocation:touch shouldNormalize:YES];
-diff -r 2c63c27c4d1d src/video/x11/SDL_x11events.c
---- a/src/video/x11/SDL_x11events.c	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/video/x11/SDL_x11events.c	Sat Mar 01 16:03:53 2014 +0100
+diff -r 28cfd3a2886f src/video/x11/SDL_x11events.c
+--- a/src/video/x11/SDL_x11events.c	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/video/x11/SDL_x11events.c	Sat Mar 08 09:24:20 2014 +0100
 @@ -368,7 +368,7 @@
              SDL_SetMouseFocus(data->window);
  
@@ -294,10 +294,10 @@ diff -r 2c63c27c4d1d src/video/x11/SDL_x11events.c
          }
          break;
  
-diff -r 2c63c27c4d1d src/video/x11/SDL_x11xinput2.c
---- a/src/video/x11/SDL_x11xinput2.c	Sun Feb 23 01:24:46 2014 -0500
-+++ b/src/video/x11/SDL_x11xinput2.c	Sat Mar 01 16:03:53 2014 +0100
-@@ -140,7 +140,7 @@
+diff -r 28cfd3a2886f src/video/x11/SDL_x11xinput2.c
+--- a/src/video/x11/SDL_x11xinput2.c	Fri Mar 07 23:16:24 2014 -0800
++++ b/src/video/x11/SDL_x11xinput2.c	Sat Mar 08 09:24:20 2014 +0100
+@@ -144,7 +144,7 @@
  
              parse_valuators(rawev->raw_values,rawev->valuators.mask,
                              rawev->valuators.mask_len,relative_cords,2);

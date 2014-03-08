@@ -20,13 +20,9 @@
 #include "core/cpp_headers.hpp"
 #include "core/logger.hpp"
 
-#if defined(__APPLE__)
-#include <pthread.h>
-#endif
-
 thread_base::thread_base(const string name) : thread_name(name) {
 	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running
-	thread_obj = make_unique<std::thread>(&thread_base::_thread_run, this);
+	thread_obj = make_unique<std::thread>(_thread_run, this);
 }
 
 thread_base::~thread_base() {
@@ -66,7 +62,7 @@ void thread_base::restart() {
 }
 
 int thread_base::_thread_run(thread_base* this_thread_obj) {
-#if defined(__APPLE__)
+#if defined(_PTHREAD_H)
 	pthread_setname_np(this_thread_obj->get_thread_name().c_str());
 #endif
 	
