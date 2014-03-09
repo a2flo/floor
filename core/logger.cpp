@@ -120,14 +120,14 @@ void logger_thread::run() {
 void logger::init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
 				  const string log_filename_, const string msg_filename_) {
 	log_filename = log_filename_;
-	log_file = make_unique<ofstream>(log_filename);
+	log_file = make_unique<ofstream>(log_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 	if(!log_file->is_open()) {
 		cout << "LOG ERROR: couldn't open log file!" << endl;
 	}
 	
 	if(separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
 		msg_filename = msg_filename_;
-		msg_file = make_unique<ofstream>(msg_filename);
+		msg_file = make_unique<ofstream>(msg_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 		if(!msg_file->is_open()) {
 			cout << "LOG ERROR: couldn't open msg log file!" << endl;
 		}

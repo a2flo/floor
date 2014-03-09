@@ -167,4 +167,10 @@
 #define floor_packed
 #endif
 
+#if defined(__clang__)
+#define floor_fallthrough [[clang::fallthrough]]
+#else
+#define floor_fallthrough
+#endif
+
 #endif
