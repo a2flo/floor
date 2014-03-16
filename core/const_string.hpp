@@ -79,7 +79,7 @@ public:
 		}
 		return true;
 	}
-	template <size_t n> constexpr bool operator==(const char* str) const {
+	constexpr bool operator==(const char* str) const {
 		if(str == nullptr) return false;
 		for(size_t i = 0; i < count; ++i) {
 			if(content.data[i] != str[i]) {
@@ -113,7 +113,7 @@ public:
 	template <size_t n> constexpr bool operator!=(const char (&str)[n]) const {
 		return !(*this == str);
 	}
-	template <size_t n> constexpr bool operator!=(const char* str) const {
+	constexpr bool operator!=(const char* str) const {
 		return !(*this == str);
 	}
 	bool operator!=(const string& str) const {

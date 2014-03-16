@@ -307,7 +307,7 @@ size_t ios_helper::get_dpi() {
 		size_t size = machine.size() - 1;
 		sysctlbyname("hw.machine", &machine[0], &size, nullptr, 0);
 		machine.back() = 0;
-		if(machine == "iPad4,4" || machine == "iPad4,5") {
+		if(machine == "iPad4,4" || machine == "iPad4,5" || machine == "iPad4,6") {
 			// ipad mini retina (for now ...)
 			return 326;
 		}

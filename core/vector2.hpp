@@ -91,10 +91,12 @@ public:
 	vector2& ceil();
 	vector2& round();
 	vector2& normalize();
+	vector2& perpendicular();
 	vector2 floored() const;
 	vector2 ceiled() const;
 	vector2 rounded() const;
 	vector2 normalized() const;
+	vector2 perpendiculared() const;
 	
 	friend vector2 operator*(const T& f, const vector2& v) {
 		return vector2<T>(f * v.x, f * v.y);
@@ -156,6 +158,8 @@ public:
 	bool is_null() const;
 	bool is_nan() const;
 	bool is_inf() const;
+	bool is_equal(const vector2& v) const;
+	bool is_equal(const vector2& v, const float epsilon) const;
 	
 	vector2 abs() const;
 	
@@ -282,6 +286,13 @@ template<typename T> vector2<T>& vector2<T>::normalize() {
 	return *this;
 }
 
+template<typename T> vector2<T>& vector2<T>::perpendicular() {
+	const T tmp = x;
+	x = -y;
+	y = tmp;
+	return *this;
+}
+
 template<> vector2<bool> vector2<bool>::floored() const;
 template<> vector2<float> vector2<float>::floored() const;
 template<typename T> vector2<T> vector2<T>::floored() const {
@@ -306,6 +317,9 @@ template<typename T> vector2<T> vector2<T>::normalized() const {
 	}
 	return ret;
 }
+template<typename T> vector2<T> vector2<T>::perpendiculared() const {
+	return vector2<T>((T)-y, (T)x);
+}
 
 template<typename T> bool vector2<T>::is_null() const {
 	return (this->x == (T)0 && this->y == (T)0 ? true : false);
@@ -326,6 +340,21 @@ template<typename T> bool vector2<T>::is_inf() const {
 	
 	const T inf(numeric_limits<T>::infinity());
 	if(x == inf || x == -inf || y == inf || y == -inf) {
+		return true;
+	}
+	return false;
+}
+
+template<typename T> bool vector2<T>::is_equal(const vector2& v) const {
+	if(this->x == v.x && this->y == v.y) {
+		return true;
+	}
+	return false;
+}
+
+template<typename T> bool vector2<T>::is_equal(const vector2& v, const float epsilon) const {
+	if((v.x - epsilon < x && x < v.x + epsilon) &&
+	   (v.y - epsilon < y && y < v.y + epsilon)) {
 		return true;
 	}
 	return false;
