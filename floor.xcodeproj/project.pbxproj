@@ -74,6 +74,16 @@
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
+		5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C7173A818D7144E00DDF097 /* OpenALSoft.framework */; };
+		5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
+		5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
+		5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173AC18D717EB00DDF097 /* audio_headers.hpp */; };
+		5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AD18D717EB00DDF097 /* audio_store.cpp */; };
+		5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AD18D717EB00DDF097 /* audio_store.cpp */; };
+		5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173AE18D717EB00DDF097 /* audio_store.hpp */; };
+		5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
+		5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
+		5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173C218D7288900DDF097 /* audio_controller.hpp */; };
 		5C7B324917E7224000153798 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B324617E7224000153798 /* quaternion.cpp */; };
 		5C7B324E17E7225A00153798 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324C17E7225A00153798 /* quaternion.hpp */; };
 		5C7B324F17E7225A00153798 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324D17E7225A00153798 /* ray.hpp */; };
@@ -183,6 +193,13 @@
 		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
 		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
+		5C7173A818D7144E00DDF097 /* OpenALSoft.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenALSoft.framework; path = ../../../../Library/Frameworks/OpenALSoft.framework; sourceTree = "<group>"; };
+		5C7173AB18D717EB00DDF097 /* audio_headers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_headers.cpp; path = audio/audio_headers.cpp; sourceTree = "<group>"; };
+		5C7173AC18D717EB00DDF097 /* audio_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_headers.hpp; path = audio/audio_headers.hpp; sourceTree = "<group>"; };
+		5C7173AD18D717EB00DDF097 /* audio_store.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_store.cpp; path = audio/audio_store.cpp; sourceTree = "<group>"; };
+		5C7173AE18D717EB00DDF097 /* audio_store.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_store.hpp; path = audio/audio_store.hpp; sourceTree = "<group>"; };
+		5C7173C118D7288900DDF097 /* audio_controller.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_controller.cpp; path = audio/audio_controller.cpp; sourceTree = "<group>"; };
+		5C7173C218D7288900DDF097 /* audio_controller.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_controller.hpp; path = audio/audio_controller.hpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7B324617E7224000153798 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5C7B324C17E7225A00153798 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
@@ -218,6 +235,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */,
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
@@ -374,6 +392,7 @@
 		5C1091D317D11547007F536E /* src */ = {
 			isa = PBXGroup;
 			children = (
+				5C7173AA18D7147F00DDF097 /* audio */,
 				5C10916517D1153E007F536E /* cl */,
 				5C10916917D1153E007F536E /* core */,
 				5C10918817D1153E007F536E /* cuda */,
@@ -433,6 +452,19 @@
 			name = libs;
 			sourceTree = "<group>";
 		};
+		5C7173AA18D7147F00DDF097 /* audio */ = {
+			isa = PBXGroup;
+			children = (
+				5C7173C118D7288900DDF097 /* audio_controller.cpp */,
+				5C7173C218D7288900DDF097 /* audio_controller.hpp */,
+				5C7173AB18D717EB00DDF097 /* audio_headers.cpp */,
+				5C7173AC18D717EB00DDF097 /* audio_headers.hpp */,
+				5C7173AD18D717EB00DDF097 /* audio_store.cpp */,
+				5C7173AE18D717EB00DDF097 /* audio_store.hpp */,
+			);
+			name = audio;
+			sourceTree = "<group>";
+		};
 		5C81C42C17E59A1A00FE6791 /* build */ = {
 			isa = PBXGroup;
 			children = (
@@ -456,6 +488,7 @@
 		5CC2F77618678AAD0031E08D /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				5C7173A818D7144E00DDF097 /* OpenALSoft.framework */,
 				5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */,
 				5CAEC2721867A41500BEC3A3 /* libSDL2_image.a */,
 				5CAEC2731867A41500BEC3A3 /* libSDL2.a */,
@@ -493,6 +526,7 @@
 				5C1091BE17D1153E007F536E /* vector4.hpp in Headers */,
 				5C10920817D1FA12007F536E /* floor_version.hpp in Headers */,
 				5C1091B817D1153E007F536E /* util.hpp in Headers */,
+				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C1091A417D1153E007F536E /* bbox.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
@@ -505,6 +539,7 @@
 				5C1091C017D1153E007F536E /* xml.hpp in Headers */,
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
 				5C1091DF17D1427F007F536E /* libtcc.h in Headers */,
+				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C1091C317D1153E007F536E /* cudacl_compiler.hpp in Headers */,
 				5C1091C717D1153E007F536E /* city.hpp in Headers */,
 				5C1091BA17D1153E007F536E /* vector2.hpp in Headers */,
@@ -519,6 +554,7 @@
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
+				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
 				5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */,
 				5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */,
 				5C1091A217D1153E007F536E /* opencl.hpp in Headers */,
@@ -627,6 +663,7 @@
 				5C1091BB17D1153E007F536E /* vector3.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
+				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5C1091B117D1153E007F536E /* matrix4.cpp in Sources */,
@@ -639,7 +676,9 @@
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
+				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C1091C217D1153E007F536E /* cudacl_compiler.cpp in Sources */,
+				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5C7B324917E7224000153798 /* quaternion.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
@@ -659,8 +698,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */,
+				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
+				5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,
 				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
@@ -669,6 +710,7 @@
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5CAEC24C186799BE00BEC3A3 /* vector2.cpp in Sources */,
+				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC24D186799BE00BEC3A3 /* vector3.cpp in Sources */,
 				5CAEC24E186799BE00BEC3A3 /* vector4.cpp in Sources */,
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
@@ -929,6 +971,10 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FLOOR_CUDA_CL=1",
@@ -956,6 +1002,10 @@
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LOCAL_LIBRARY_DIR)/Frameworks",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FLOOR_CUDA_CL=1",
@@ -991,6 +1041,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
+					FLOOR_NO_OPENAL,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
 					"$(inherited)",
@@ -1040,6 +1091,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
+					FLOOR_NO_OPENAL,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
 					"$(inherited)",

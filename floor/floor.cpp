@@ -20,6 +20,7 @@
 #include "floor/floor_version.hpp"
 #include "cl/opencl.hpp"
 #include "core/gl_support.hpp"
+#include "audio/audio_controller.hpp"
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
@@ -243,6 +244,10 @@ void floor::destroy() {
 	log_debug("destroying floor ...");
 	
 	if(!console_only) acquire_context();
+	
+#if !defined(FLOOR_NO_OPENAL)
+	audio_controller::destroy();
+#endif
 	
 	evt->remove_event_handler(event_handler_fnctr);
 	
@@ -513,6 +518,12 @@ void floor::init_internal(const bool use_gl32_core
 		
 		release_context();
 	}
+	
+#if !defined(FLOOR_NO_OPENAL)
+	// check if openal functions have been correctly initialized and initialize openal
+	floor_audio::check_openal_efx_funcs();
+	audio_controller::init();
+#endif
 }
 
 /*! sets the windows width

@@ -71,6 +71,7 @@ enum class EVENT_TYPE : unsigned int {
 	KERNEL_RELOAD, // note: used for opencl class kernels
 	SHADER_RELOAD, // note: used in a2elight
 	CLIPBOARD_UPDATE,
+	AUDIO_STORE_LOAD,
 	
 	__USER_EVENT_START = __USER_EVENT + 1,
 	FLOOR_USER_EVENT_TYPES
@@ -198,5 +199,12 @@ template<EVENT_TYPE event_type> struct window_resize_event_base : public event_o
 	window_resize_event_base(const unsigned int& time_, const size2& size_) : event_object_base<event_type>(time_), size(size_) {}
 };
 typedef window_resize_event_base<EVENT_TYPE::WINDOW_RESIZE> window_resize_event;
+
+// audio store events
+struct audio_store_load_event : public event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD> {
+	const string identifier;
+	audio_store_load_event(const unsigned int& time_, const string& identifier_)
+	: event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD>(time_), identifier(identifier_) {}
+};
 
 #endif

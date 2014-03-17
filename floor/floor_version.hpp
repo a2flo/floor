@@ -25,7 +25,7 @@
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"
 #define FLOOR_REVISION_VERSION "1"
-#define FLOOR_DEV_STAGE_VERSION "d1"
+#define FLOOR_DEV_STAGE_VERSION "d2"
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__
 
@@ -100,8 +100,8 @@
 #error "You need to install libc++ 1101+ to compile floor"
 #endif
 
-#if !SDL_VERSION_ATLEAST(2, 0, 0)
-#error "You need to install SDL 2.0.0+ to compile floor"
+#if !SDL_VERSION_ATLEAST(2, 0, 2)
+#error "You need to install SDL 2.0.2+ to compile floor"
 #endif
 
 #if (OPENSSL_VERSION_NUMBER < 0x1000105fL)
