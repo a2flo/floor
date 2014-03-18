@@ -20,6 +20,7 @@
 
 #include "audio/audio_controller.hpp"
 #include "audio/audio_store.hpp"
+#include "floor/floor.hpp"
 
 ALCdevice* audio_controller::device { nullptr };
 ALCcontext* audio_controller::context { nullptr };
@@ -27,8 +28,9 @@ recursive_mutex audio_controller::ctx_lock {};
 atomic<unsigned int> audio_controller::ctx_active_locks { 0u };
 
 void audio_controller::init() {
-	// open device (TODO: add config option for device name)
-	device = alcOpenDevice(nullptr);
+	// open device
+	const string& device_name { floor::get_audio_device_name() };
+	device = alcOpenDevice(device_name.empty() ? nullptr : device_name.c_str());
 	if(device == nullptr) {
 		log_error("failed to open default openal device!");
 		return;
@@ -41,6 +43,9 @@ void audio_controller::init() {
 	
 	context = alcCreateContext(device, attrlist);
 	alcMakeContextCurrent(context);
+	
+	// use an exponential distance model for now
+	AL(alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED));
 	
 	log_debug("openal initialized");
 	

@@ -84,6 +84,9 @@
 		5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
 		5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173C118D7288900DDF097 /* audio_controller.cpp */; };
 		5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173C218D7288900DDF097 /* audio_controller.hpp */; };
+		5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173CA18D8AE0700DDF097 /* audio_source.hpp */; };
+		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
+		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7B324917E7224000153798 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7B324617E7224000153798 /* quaternion.cpp */; };
 		5C7B324E17E7225A00153798 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324C17E7225A00153798 /* quaternion.hpp */; };
 		5C7B324F17E7225A00153798 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7B324D17E7225A00153798 /* ray.hpp */; };
@@ -200,6 +203,8 @@
 		5C7173AE18D717EB00DDF097 /* audio_store.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_store.hpp; path = audio/audio_store.hpp; sourceTree = "<group>"; };
 		5C7173C118D7288900DDF097 /* audio_controller.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_controller.cpp; path = audio/audio_controller.cpp; sourceTree = "<group>"; };
 		5C7173C218D7288900DDF097 /* audio_controller.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_controller.hpp; path = audio/audio_controller.hpp; sourceTree = "<group>"; };
+		5C7173CA18D8AE0700DDF097 /* audio_source.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_source.hpp; path = audio/audio_source.hpp; sourceTree = "<group>"; };
+		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7B324617E7224000153798 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5C7B324C17E7225A00153798 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
@@ -459,6 +464,8 @@
 				5C7173C218D7288900DDF097 /* audio_controller.hpp */,
 				5C7173AB18D717EB00DDF097 /* audio_headers.cpp */,
 				5C7173AC18D717EB00DDF097 /* audio_headers.hpp */,
+				5C7173CB18D8AE0700DDF097 /* audio_source.cpp */,
+				5C7173CA18D8AE0700DDF097 /* audio_source.hpp */,
 				5C7173AD18D717EB00DDF097 /* audio_store.cpp */,
 				5C7173AE18D717EB00DDF097 /* audio_store.hpp */,
 			);
@@ -520,6 +527,7 @@
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C1091A317D1153E007F536E /* basic_math.hpp in Headers */,
+				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
 				5C1091BC17D1153E007F536E /* vector3.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
@@ -662,6 +670,7 @@
 			files = (
 				5C1091BB17D1153E007F536E /* vector3.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
+				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
@@ -716,6 +725,7 @@
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
 				5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */,
+				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
 				5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */,
 				5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */,

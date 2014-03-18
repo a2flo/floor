@@ -35,6 +35,7 @@ void audio_store::destroy() {
 			alDeleteBuffers(1, &data.second->buffer);
 		}
 	}
+	store.clear();
 }
 
 weak_ptr<audio_store::audio_data> audio_store::load_file(const string& filename,

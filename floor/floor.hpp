@@ -112,6 +112,13 @@ public:
 	static void set_fullscreen(const bool& state);
 	static void set_vsync(const bool& state);
 	
+	// audio
+	static void set_music_volume(const float& volume);
+	static const float& get_music_volume();
+	static void set_sound_volume(const float& volume);
+	static const float& get_sound_volume();
+	static const string& get_audio_device_name();
+	
 	// projection
 	static const float& get_fov();
 	static const float2& get_near_far_plane();
@@ -153,6 +160,10 @@ protected:
 		// screen
 		size_t width = 1280, height = 720, dpi = 0;
 		bool fullscreen = false, vsync = false, stereo = false;
+		
+		// audio
+		float music_volume = 1.0f, sound_volume = 1.0f;
+		string audio_device_name = "";
 		
 		// logging
 		size_t verbosity = 4;

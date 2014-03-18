@@ -193,6 +193,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
 		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
 		
+		config.music_volume = core::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
+		config.sound_volume = core::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
+		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
+		
 		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);
 		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
 		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
@@ -970,4 +974,24 @@ bool floor::get_cuda_use_cache() {
 
 string floor::get_absolute_path() {
 	return abs_bin_path;
+}
+
+void floor::set_music_volume(const float& volume) {
+	config.music_volume = volume; // TODO: apply volume in audio_controller and audio_source
+}
+
+const float& floor::get_music_volume() {
+	return config.music_volume;
+}
+
+void floor::set_sound_volume(const float& volume) {
+	config.sound_volume = volume; // TODO: apply volume in audio_controller and audio_source
+}
+
+const float& floor::get_sound_volume() {
+	return config.sound_volume;
+}
+
+const string& floor::get_audio_device_name() {
+	return config.audio_device_name;
 }
