@@ -977,7 +977,8 @@ string floor::get_absolute_path() {
 }
 
 void floor::set_music_volume(const float& volume) {
-	config.music_volume = volume; // TODO: apply volume in audio_controller and audio_source
+	config.music_volume = volume;
+	audio_controller::update_music_volumes();
 }
 
 const float& floor::get_music_volume() {
@@ -985,7 +986,8 @@ const float& floor::get_music_volume() {
 }
 
 void floor::set_sound_volume(const float& volume) {
-	config.sound_volume = volume; // TODO: apply volume in audio_controller and audio_source
+	config.sound_volume = volume;
+	audio_controller::update_sound_volumes();
 }
 
 const float& floor::get_sound_volume() {

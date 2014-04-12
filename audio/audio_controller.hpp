@@ -22,19 +22,54 @@
 #if !defined(FLOOR_NO_OPENAL)
 
 #include "audio/audio_headers.hpp"
+#include "audio/audio_source.hpp"
 
 class audio_controller {
 public:
+	//
 	static void init();
 	static void destroy();
 	
+	//! call this to update the listener position and orientation
 	static void update(const float3& position,
 					   const float3& forward_vec,
 					   const float3& up_vec);
 	
+	//
 	static void acquire_context();
 	static bool try_acquire_context();
 	static void release_context();
+	
+	//! creates an audio_source from an already loaded audio_store object
+	static weak_ptr<audio_source> add_source(const string& store_identifier,
+											 const audio_source::SOURCE_TYPE type = audio_source::SOURCE_TYPE::AUDIO_3D,
+											 const string source_identifier = "");
+	//! creates an audio_source from an already loaded audio_store object
+	static weak_ptr<audio_source> add_source(weak_ptr<audio_store::audio_data> data,
+											 const audio_source::SOURCE_TYPE type = audio_source::SOURCE_TYPE::AUDIO_3D,
+											 const string source_identifier = "");
+	
+	//! loads an audio file via the audio_store and creates an audio_source from it
+	static weak_ptr<audio_source> add_source(const string& filename,
+											 const string& store_identifier,
+											 const audio_source::SOURCE_TYPE type = audio_source::SOURCE_TYPE::AUDIO_3D,
+											 const string source_identifier = "",
+											 const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
+	
+	//! removes an audio_source from the audio_controller and deletes its data
+	static bool remove_source(weak_ptr<audio_source> source);
+	//! removes an audio_source from the audio_controller and deletes its data
+	static bool remove_source(const string& source_identifier);
+	
+	//! applies the global volume set in floor::set_music_volume()
+	//! to all audio sources managed by the audio controller
+	static void update_music_volumes();
+	//! applies the global volume set in floor::set_sound_volume()
+	//! to all audio sources managed by the audio controller
+	static void update_sound_volumes();
+	
+	//! the available efx slots
+	static const vector<ALuint>& get_effect_slots();
 	
 protected:
 	// static class
@@ -50,6 +85,16 @@ protected:
 	static recursive_mutex ctx_lock;
 	static atomic<unsigned int> ctx_active_locks;
 	static void handle_acquire();
+	
+	//
+	static unordered_map<string, shared_ptr<audio_source>> sources;
+	static weak_ptr<audio_source> internal_add_source(const string& store_identifier,
+													  weak_ptr<audio_store::audio_data> data,
+													  const audio_source::SOURCE_TYPE type,
+													  const string source_identifier);
+	
+	//
+	static vector<ALuint> effect_slots;
 	
 };
 

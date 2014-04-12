@@ -20,6 +20,7 @@
 
 #include "audio_source.hpp"
 #include "audio_controller.hpp"
+#include "floor/floor.hpp"
 
 audio_source::audio_source(const string& identifier_,
 						   const SOURCE_TYPE& type_,
@@ -50,10 +51,88 @@ identifier(identifier_), type(type_), data(data_) {
 		loop(true);
 	}
 	
+	if(!data_ptr->effects.empty()) {
+		//
+		const auto max_effect_count = std::min((size_t)2u, data_ptr->effects.size());
+		if(max_effect_count < data_ptr->effects.size()) {
+			log_error("can't use #%u effects specified in the audio data!",
+					  data_ptr->effects.size() - max_effect_count);
+		}
+		
+		// create effects and filters (for now: 2 effects + 1 filter)
+		effects.resize(max_effect_count, 0);
+		filters.resize(1, 0);
+		
+		AL_CLEAR_ERROR();
+		AL(alGenFilters((ALsizei)filters.size(), &filters[0]));
+		if(AL_IS_ERROR()) {
+			log_error("failed to generate filters!");
+		}
+
+		AL_CLEAR_ERROR();
+		AL(alGenEffects((ALsizei)effects.size(), &effects[0]));
+		if(AL_IS_ERROR()) {
+			log_error("failed to generate effects!");
+		}
+		
+		// set lowpass filter (TODO: make the gain configurable)
+		AL(alFilteri(filters[0], AL_FILTER_TYPE, AL_FILTER_LOWPASS));
+		AL(alFilterf(filters[0], AL_LOWPASS_GAIN, 0.5f));
+		AL(alFilterf(filters[0], AL_LOWPASS_GAINHF, 0.5f));
+		
+		// apply effects (TODO: make effect vars configurable)
+		// TODO: check if this can be applied for all audio sources/effects
+		const auto& slots = audio_controller::get_effect_slots();
+		for(size_t i = 0; i < max_effect_count; ++i) {
+			switch(data_ptr->effects[i]) {
+				case AUDIO_EFFECT::ECHO:
+					AL(alEffecti(effects[i], AL_EFFECT_TYPE, AL_EFFECT_ECHO));
+					AL(alEffectf(effects[i], AL_ECHO_FEEDBACK, 0.5f));
+					AL(alAuxiliaryEffectSloti(slots[0], AL_EFFECTSLOT_EFFECT, (ALint)effects[i]));
+					break;
+				case AUDIO_EFFECT::REVERB:
+					AL(alEffecti(effects[i], AL_EFFECT_TYPE, AL_EFFECT_REVERB));
+					AL(alEffectf(effects[i], AL_REVERB_DECAY_TIME, 5.0f));
+					AL(alAuxiliaryEffectSloti(slots[0], AL_EFFECTSLOT_EFFECT, (ALint)effects[i]));
+					break;
+			}
+		}
+		
+		// configure source with effects/filters
+		// TODO: check if this is correct (do both slots have to be used?)
+		AL(alSource3i(source, AL_AUXILIARY_SEND_FILTER, (ALint)slots[0], 0, (ALint)filters[0]));
+		AL(alSource3i(source, AL_AUXILIARY_SEND_FILTER, (ALint)slots[1], 0, (ALint)filters[1]));
+		
+		AL(alSourcei(source, AL_DIRECT_FILTER, (ALint)filters[0]));
+		if(!AL_IS_ERROR()) { // TODO: why !error?
+			AL(alSourcei(source, AL_DIRECT_FILTER, AL_FILTER_NULL));
+		}
+		
+		AL(alSource3i(source, AL_AUXILIARY_SEND_FILTER, (ALint)slots[0], 0, (ALint)filters[0]));
+		if(!AL_IS_ERROR()) { // TODO: again: why !error?
+			AL(alSource3i(source, AL_AUXILIARY_SEND_FILTER,(ALint)slots[0], 0, AL_FILTER_NULL));
+		}
+		
+		// TODO: add unset effect function (if necessary)
+		//AL(alSource3i(source, AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL, 0, AL_FILTER_NULL));
+	}
+	
 	audio_controller::release_context();
 }
 
 audio_source::~audio_source() noexcept {
+	for(const auto& effect : effects) {
+		if(alIsEffect(effect)) {
+			alDeleteEffects(1, &effect);
+		}
+	}
+	
+	for(const auto& filter : filters) {
+		if(alIsFilter(filter)) {
+			alDeleteFilters(1, &filter);
+		}
+	}
+	
 	if(alIsSource(source)) {
 		alDeleteSources(1, &source);
 	}
@@ -99,10 +178,16 @@ void audio_source::loop(const bool state) {
 }
 
 void audio_source::set_volume(const float& volume_) {
-	audio_controller::acquire_context();
-	AL(alSourcef(source, AL_GAIN, volume_));
-	audio_controller::release_context();
 	volume = volume_;
+	update_volume();
+}
+
+void audio_source::update_volume() const {
+	const auto& global_volume = (type == SOURCE_TYPE::AUDIO_3D ?
+								 floor::get_sound_volume() : floor::get_music_volume());
+	audio_controller::acquire_context();
+	AL(alSourcef(source, AL_GAIN, volume * global_volume));
+	audio_controller::release_context();
 }
 
 const float& audio_source::get_volume() const {
@@ -111,6 +196,10 @@ const float& audio_source::get_volume() const {
 
 const string& audio_source::get_identifier() const {
 	return identifier;
+}
+
+const audio_source::SOURCE_TYPE& audio_source::get_type() const {
+	return type;
 }
 
 bool audio_source::is_playing() const {

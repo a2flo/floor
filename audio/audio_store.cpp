@@ -102,17 +102,17 @@ weak_ptr<audio_store::audio_data> audio_store::load_file(const string& filename,
 	return iter.first->second;
 }
 
-bool audio_store::has_audio_data(const string& identifier) const {
+bool audio_store::has_audio_data(const string& identifier) {
 	return (store.count(identifier) > 0);
 }
 
-weak_ptr<audio_store::audio_data> audio_store::get_audio_data(const string& identifier) const {
+weak_ptr<audio_store::audio_data> audio_store::get_audio_data(const string& identifier) {
 	const auto iter = store.find(identifier);
 	if(iter == store.end()) return weak_ptr<audio_store::audio_data> {};
 	return iter->second;
 }
 
-const unordered_map<string, shared_ptr<audio_store::audio_data>>& audio_store::get_store() const {
+const unordered_map<string, shared_ptr<audio_store::audio_data>>& audio_store::get_store() {
 	return store;
 }
 

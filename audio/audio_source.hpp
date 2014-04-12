@@ -30,6 +30,9 @@ public:
 		AUDIO_BACKGROUND,
 	};
 	
+	//! NOTE: don't create these directly, but rather use the functions provided
+	//! by the audio_controller to create sources (this way, the audio_controller
+	//! will do the memory and openal management + handle the global volume control)
 	audio_source(const string& identifier,
 				 const SOURCE_TYPE& type,
 				 weak_ptr<audio_store::audio_data> data) noexcept;
@@ -55,8 +58,10 @@ public:
 	
 	// misc
 	const string& get_identifier() const;
+	const SOURCE_TYPE& get_type() const;
 	
 	void set_volume(const float& volume);
+	void update_volume() const;
 	const float& get_volume() const;
 	
 	// 3d/effect functions
@@ -78,8 +83,8 @@ protected:
 	
 	ALuint source { 0u };
 	
+	// misc state
 	float volume { 1.0f };
-	
 	bool playing { false };
 	bool paused { true };
 	bool looping { false };
@@ -91,7 +96,9 @@ protected:
 	float rolloff_factor { 0.0f };
 	float max_distance { 0.0f };
 	
-	// TODO: effects and filters
+	// (efx) effects and filters
+	vector<ALuint> effects;
+	vector<ALuint> filters;
 	
 };
 

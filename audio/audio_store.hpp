@@ -27,7 +27,6 @@
 
 //! these are the only effects supported by all openal implementations
 enum class AUDIO_EFFECT : unsigned int {
-	NONE,
 	REVERB,
 	ECHO
 };
@@ -56,14 +55,14 @@ public:
 		const vector<AUDIO_EFFECT> effects;
 	};
 	
-	weak_ptr<audio_data> load_file(const string& filename,
-								   const string& identifier,
-								   const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
+	static weak_ptr<audio_data> load_file(const string& filename,
+										  const string& identifier,
+										  const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
 	
-	bool has_audio_data(const string& identifier) const;
-	weak_ptr<audio_data> get_audio_data(const string& identifier) const;
+	static bool has_audio_data(const string& identifier);
+	static weak_ptr<audio_data> get_audio_data(const string& identifier);
 	
-	const unordered_map<string, shared_ptr<audio_data>>& get_store() const;
+	static const unordered_map<string, shared_ptr<audio_data>>& get_store();
 	
 protected:
 	// static class
