@@ -16,17 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_BASIC_MATH_HPP__
-#define __FLOOR_BASIC_MATH_HPP__
+#include "lang/grammar.hpp"
 
-#define PI 3.1415926535897932384626433832795
-#define _180DIVPI 57.295779513082322
-#define _PIDIV180 0.01745329251994
-#define _PIDIV360 0.00872664625997
-#define RAD2DEG(rad) (rad * _180DIVPI)
-#define DEG2RAD(deg) (deg * _PIDIV180)
+void move_matches(parser_context::match_list& dst_matches,
+				  parser_context::match_list& src_matches) {
+	for(auto& match : src_matches.list) {
+		dst_matches.list.emplace_back(move(match));
+	}
+}
 
-#define FLOAT_EPSILON 0.00001f
-#define FLOAT_EQ(x, v) ((((v) - FLOAT_EPSILON) < (x)) && ((x) < ((v) + FLOAT_EPSILON)))
-
-#endif
+parser_node_wrapper_base::~parser_node_wrapper_base() noexcept {}

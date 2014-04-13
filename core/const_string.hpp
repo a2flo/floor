@@ -227,7 +227,7 @@ protected:
 
 //! const_string udl for number literals only
 template <char... chars> constexpr auto operator"" _cs() {
-    return const_string<sizeof...(chars)> {{ chars... }};
+	return const_string<sizeof...(chars)> {{ chars... }};
 }
 
 //! create a const_string<*> from a c string (with size info)

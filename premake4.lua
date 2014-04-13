@@ -229,11 +229,13 @@ project "libfloor"
 	basedir "."
 	targetdir "bin"
 	includedirs { ".",
+				  "audio/",
 				  "cl/",
 				  "core/",
 				  "cuda/",
 				  "floor/",
 				  "hash/",
+				  "lang/",
 				  "net/",
 				  "tccpp/",
 				  "threading/" }
