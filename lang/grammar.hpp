@@ -190,7 +190,8 @@ struct parser_context {
 	}
 	token_iterator pop() {
 		if(iter_stack.empty()) {
-			PANIC("can't pop from an empty iterator stack!");
+			log_error("can't pop from an empty iterator stack!");
+			return token_iterator {};
 		}
 		auto ret = iter_stack.back();
 		iter_stack.pop_back();
@@ -198,7 +199,8 @@ struct parser_context {
 	}
 	token_iterator pop_restore() {
 		if(iter_stack.empty()) {
-			PANIC("can't pop from an empty iterator stack!");
+			log_error("can't pop from an empty iterator stack!");
+			return token_iterator {};
 		}
 		iter = iter_stack.back();
 		iter_stack.pop_back();
@@ -294,7 +296,7 @@ public parser_node_base<literal_matcher<FLOOR_KEYWORD, TOKEN_TYPE::KEYWORD>> {
 	constexpr literal_matcher(const FLOOR_KEYWORD& keyword_) noexcept : keyword(keyword_) {}
 	match_return_type match(parser_context& ctx) const {
 #if defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_MATCHES_ONLY)
-		ctx.print_at_depth(string("matching ") + c);
+		ctx.print_at_depth("matching IDENTIFIER");
 #endif
 		if(ctx.at_end() || (ctx.iter->first & TOKEN_TYPE::KEYWORD) == TOKEN_TYPE::INVALID) {
 			return { false, false, {} };
@@ -316,7 +318,7 @@ public parser_node_base<literal_matcher<FLOOR_PUNCTUATOR, TOKEN_TYPE::PUNCTUATOR
 	constexpr literal_matcher(const FLOOR_PUNCTUATOR& punctuator_) noexcept : punctuator(punctuator_) {}
 	match_return_type match(parser_context& ctx) const {
 #if defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_MATCHES_ONLY)
-		ctx.print_at_depth(string("matching ") + c);
+		ctx.print_at_depth("matching PUNCTUATOR");
 #endif
 		if(ctx.at_end() || (ctx.iter->first & TOKEN_TYPE::PUNCTUATOR) == TOKEN_TYPE::INVALID) {
 			return { false, false, {} };
@@ -416,6 +418,38 @@ public parser_node_base<literal_matcher<const char*, TOKEN_TYPE::STRING_LITERAL>
 		ctx.print_at_depth("matching STRING-LITERAL");
 #endif
 		if(!ctx.at_end() && (ctx.iter->first & TOKEN_TYPE::STRING_LITERAL) == TOKEN_TYPE::STRING_LITERAL) {
+			match_return_type ret { ctx.iter };
+			ctx.next();
+			return ret;
+		}
+		return { false, false, {} };
+	}
+};
+//! constant matcher (only matches token type, string/char is unimportant)
+template <> struct literal_matcher<const char*, TOKEN_TYPE::INTEGER_CONSTANT> :
+public parser_node_base<literal_matcher<const char*, TOKEN_TYPE::INTEGER_CONSTANT>> {
+	typedef const literal_matcher<const char*, TOKEN_TYPE::INTEGER_CONSTANT>& storage_type;
+	match_return_type match(parser_context& ctx) const {
+#if defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_MATCHES_ONLY)
+		ctx.print_at_depth("matching INTEGER-CONSTANT");
+#endif
+		if(!ctx.at_end() && (ctx.iter->first & TOKEN_TYPE::INTEGER_CONSTANT) == TOKEN_TYPE::INTEGER_CONSTANT) {
+			match_return_type ret { ctx.iter };
+			ctx.next();
+			return ret;
+		}
+		return { false, false, {} };
+	}
+};
+//! constant matcher (only matches token type, string/char is unimportant)
+template <> struct literal_matcher<const char*, TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT> :
+public parser_node_base<literal_matcher<const char*, TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT>> {
+	typedef const literal_matcher<const char*, TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT>& storage_type;
+	match_return_type match(parser_context& ctx) const {
+#if defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_MATCHES_ONLY)
+		ctx.print_at_depth("matching UNSIGNED-INTEGER-CONSTANT");
+#endif
+		if(!ctx.at_end() && (ctx.iter->first & TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT) == TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT) {
 			match_return_type ret { ctx.iter };
 			ctx.next();
 			return ret;

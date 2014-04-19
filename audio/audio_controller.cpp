@@ -38,19 +38,6 @@ void audio_controller::init() {
 		return;
 	}
 	
-	// create context
-	static const ALCint attrlist[] {
-		// try to get 8 aux send slots
-		ALC_MAX_AUXILIARY_SENDS, 8,
-		0
-	};
-	
-	context = alcCreateContext(device, attrlist);
-	alcMakeContextCurrent(context);
-	
-	// use an exponential distance model for now
-	AL(alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED));
-	
 	// check extensions
 	ALint aux_sends = 0;
 	if(!alcIsExtensionPresent(device, "ALC_EXT_EFX")) {
@@ -58,15 +45,29 @@ void audio_controller::init() {
 	}
 	else {
 		// check how many aux send slots we actually got + create efx slots
-		AL_CLEAR_ERROR();
-		AL(alcGetIntegerv(device, ALC_MAX_AUXILIARY_SENDS, 1, &aux_sends));
-		
+		alcGetIntegerv(device, ALC_MAX_AUXILIARY_SENDS, 1, &aux_sends);
+	}
+	log_debug("openal: got %u auxillary send slots", aux_sends);
+	
+	// create context
+	const ALCint attrlist[] {
+		ALC_MAX_AUXILIARY_SENDS, aux_sends,
+		0
+	};
+	
+	context = alcCreateContext(device, attrlist);
+	alcMakeContextCurrent(context);
+	
+	// create efx slots
+	if(aux_sends > 0) {
 		AL_CLEAR_ERROR();
 		effect_slots.resize((size_t)aux_sends, 0);
 		AL(alGenAuxiliaryEffectSlots(aux_sends, &effect_slots[0]));
 		AL_IS_ERROR();
 	}
-	log_debug("openal: got %u auxillary send slots", aux_sends);
+	
+	// use an exponential distance model for now
+	AL(alDistanceModel(AL_EXPONENT_DISTANCE_CLAMPED));
 	
 	// init store
 	audio_store::init();
@@ -165,7 +166,7 @@ weak_ptr<audio_source> audio_controller::add_source(const string& filename,
 													const string source_identifier,
 													const vector<AUDIO_EFFECT> effects) {
 	return internal_add_source(store_identifier,
-							   audio_store::load_file(filename, store_identifier, effects),
+							   audio_store::add_file(filename, store_identifier, effects),
 							   type, source_identifier);
 }
 

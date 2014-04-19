@@ -38,9 +38,9 @@ void audio_store::destroy() {
 	store.clear();
 }
 
-weak_ptr<audio_store::audio_data> audio_store::load_file(const string& filename,
-														 const string& identifier,
-														 const vector<AUDIO_EFFECT> effects) {
+weak_ptr<audio_store::audio_data> audio_store::add_file(const string& filename,
+														const string& identifier,
+														const vector<AUDIO_EFFECT> effects) {
 	Uint8* audio_buffer = nullptr;
 	Uint32 audio_len = 0;
 	SDL_AudioSpec audio_spec;
@@ -51,7 +51,7 @@ weak_ptr<audio_store::audio_data> audio_store::load_file(const string& filename,
 	}
 	
 	log_debug("\"%s\": rate %u, channels %u, encoding %X",
-			  identifier, audio_spec.freq, audio_spec.channels, audio_spec.format);
+			  identifier, audio_spec.freq, (size_t)audio_spec.channels, audio_spec.format);
 	
 	ALenum format;
 	switch(audio_spec.format) {
@@ -95,6 +95,38 @@ weak_ptr<audio_store::audio_data> audio_store::load_file(const string& filename,
 	audio_controller::release_context();
 	
 	SDL_FreeWAV(audio_buffer);
+	
+	floor::get_event()->add_event(EVENT_TYPE::AUDIO_STORE_LOAD,
+								  make_shared<audio_store_load_event>(SDL_GetTicks(), identifier));
+	
+	return iter.first->second;
+}
+
+weak_ptr<audio_store::audio_data> audio_store::add_raw(const uint8_t* raw_data,
+													   const ALsizei& raw_data_len,
+													   const ALenum& format,
+													   const ALsizei& frequency,
+													   const string& identifier,
+													   const vector<AUDIO_EFFECT> effects) {
+	audio_controller::acquire_context();
+	AL_CLEAR_ERROR(); // clear error code
+	ALuint buffer_data = 0;
+	AL(alGenBuffers(1, &buffer_data));
+	AL(alBufferData(buffer_data, format, raw_data, raw_data_len, frequency));
+	
+	auto iter = store.emplace(identifier, make_shared<audio_data>(audio_data {
+		"RAW:"+identifier,
+		buffer_data,
+		format,
+		frequency,
+		default_velocity,
+		default_volume,
+		default_reference_distance,
+		default_rolloff_factor,
+		default_max_distance,
+		effects
+	}));
+	audio_controller::release_context();
 	
 	floor::get_event()->add_event(EVENT_TYPE::AUDIO_STORE_LOAD,
 								  make_shared<audio_store_load_event>(SDL_GetTicks(), identifier));

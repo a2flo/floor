@@ -37,27 +37,11 @@ bool source_range::operator==(const char* str) const {
 	floor_unreachable();
 }
 
-bool source_range::operator==(const string& str) const {
-	if(size() != str.size()) return false;
-	
-	string::const_iterator str_iter = str.begin();
-	for(auto iter = begin; iter != end; ++iter, ++str_iter) {
-		if(*iter != *str_iter) {
-			return false;
-		}
-	}
-	return true;
-}
-
 bool source_range::operator==(const char& ch) const {
 	return (size() == 1 && *begin == ch);
 }
 
 bool source_range::operator!=(const char* str) const {
-	return !(*this == str);
-}
-
-bool source_range::operator!=(const string& str) const {
 	return !(*this == str);
 }
 

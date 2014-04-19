@@ -39,10 +39,8 @@ struct source_range {
 	source_iterator end;
 	
 	bool operator==(const char*) const;
-	bool operator==(const string&) const;
 	bool operator==(const char&) const;
 	bool operator!=(const char*) const;
-	bool operator!=(const string&) const;
 	bool operator!=(const char&) const;
 	bool equal(const char*, const size_t&) const;
 	bool unequal(const char*, const size_t&) const;
@@ -154,20 +152,21 @@ enum class FLOOR_PUNCTUATOR : uint16_t {
 //! full internal type of the token
 enum class TOKEN_TYPE : uint32_t {
 	// invalid type (for mask testing and other purposes)
-	INVALID				= 0u,
+	INVALID						= 0u,
 	
 	// base type according to (6.4)
-	KEYWORD				= (1u << 31u),
-	IDENTIFIER			= (1u << 30u),
-	CONSTANT			= (1u << 29u),
-	STRING_LITERAL		= (1u << 28u),
-	PUNCTUATOR			= (1u << 27u),
-	__BASE_TYPE_MASK	= (KEYWORD | IDENTIFIER | CONSTANT | STRING_LITERAL | PUNCTUATOR),
+	KEYWORD						= (1u << 31u),
+	IDENTIFIER					= (1u << 30u),
+	CONSTANT					= (1u << 29u),
+	STRING_LITERAL				= (1u << 28u),
+	PUNCTUATOR					= (1u << 27u),
+	__BASE_TYPE_MASK			= (KEYWORD | IDENTIFIER | CONSTANT | STRING_LITERAL | PUNCTUATOR),
 	
 	// sub-types (for easier differentiation)
-	INTEGER_CONSTANT 	= (1u << 0u) | CONSTANT,
-	CHARACTER_CONSTANT	= (1u << 1u) | CONSTANT,
-	__SUB_TYPE_MASK		= (0xFFFFu)
+	INTEGER_CONSTANT 			= (1u << 0u) | CONSTANT,
+	UNSIGNED_INTEGER_CONSTANT 	= (1u << 1u) | CONSTANT,
+	CHARACTER_CONSTANT			= (1u << 2u) | CONSTANT,
+	__SUB_TYPE_MASK				= (0xFFFFu)
 };
 constexpr TOKEN_TYPE operator&(const TOKEN_TYPE& e0, const TOKEN_TYPE& e1) {
 	return (TOKEN_TYPE)((typename underlying_type<TOKEN_TYPE>::type)e0 &

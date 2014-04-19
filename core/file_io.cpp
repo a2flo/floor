@@ -35,15 +35,6 @@ file_io::~file_io() {
 	}
 }
 
-file_io::file_io(file_io&& fio) : open_type(fio.open_type), filestream(move(fio.filestream)) {
-}
-
-file_io& file_io::operator=(file_io&& fio) {
-	open_type = fio.open_type;
-	filestream = move(fio.filestream);
-	return *this;
-}
-
 /*! opens a input file stream
  *  @param filename the name of the file
  *  @param open_type enum that specifies how we want to open the file (like "r", "wb", etc. ...)

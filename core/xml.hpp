@@ -65,15 +65,10 @@ public:
 		
 	public:
 		xml_doc() = default;
-		xml_doc(xml_doc&& doc) noexcept {
-			nodes.swap(doc.nodes);
-			valid = doc.valid;
-		}
-		xml_doc& operator=(xml_doc&& doc) noexcept {
-			nodes.swap(doc.nodes);
-			valid = doc.valid;
-			return *this;
-		}
+		xml_doc(xml_doc&) = delete;
+		xml_doc(xml_doc&&) = default;
+		xml_doc& operator=(xml_doc&) = delete;
+		xml_doc& operator=(xml_doc&&) = default;
 		vector<pair<string, xml_node*>> nodes;
 		bool valid { true };
 		
