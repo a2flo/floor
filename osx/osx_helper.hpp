@@ -19,11 +19,8 @@
 #ifndef __FLOOR_OSX_HELPER_HPP__
 #define __FLOOR_OSX_HELPER_HPP__
 
-#if !defined(__MAC_10_8)
-#include "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk/System/Library/Frameworks/ApplicationServices.framework/Frameworks/CoreGraphics.framework/Headers/CoreGraphics.h"
-#else
 #include <CoreGraphics/CoreGraphics.h>
-#endif
+#include "core/platform.hpp"
 
 class osx_helper {
 public:

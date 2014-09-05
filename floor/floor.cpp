@@ -194,8 +194,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
 		
 		config.audio_disabled = config_doc.get<bool>("config.audio.disabled", false);
-		config.music_volume = core::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
-		config.sound_volume = core::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
+		config.music_volume = const_math::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
+		config.sound_volume = const_math::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
 		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
 		
 		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);

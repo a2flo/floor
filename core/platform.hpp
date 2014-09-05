@@ -140,6 +140,9 @@
 // c++ headers
 #include <floor/core/cpp_headers.hpp>
 
+// constexpr math functions
+#include <floor/constexpr/const_math.hpp>
+
 // floor logger
 #include <floor/core/logger.hpp>
 

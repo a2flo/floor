@@ -19,6 +19,7 @@
 #if !defined(FLOOR_NO_OPENAL)
 
 #include "audio_headers.hpp"
+#include "core/logger.hpp"
 
 LPALGENEFFECTS alGenEffects { (LPALGENEFFECTS)alGetProcAddress("alGenEffects") };
 LPALDELETEEFFECTS alDeleteEffects { (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects") };

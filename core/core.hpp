@@ -45,41 +45,6 @@ public:
 	static void compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
 												float3& normal, float3& binormal, float3& tangent,
 												const coord& t1, const coord& t2, const coord& t3);
-
-	// misc math functions
-	static constexpr size_t lcm(size_t v1, size_t v2) {
-		size_t lcm_ = 1u, div = 2u;
-		while(v1 != 1u || v2 != 1u) {
-			if((v1 % div) == 0 || (v2 % div) == 0u) {
-				if((v1 % div) == 0u) v1 /= div;
-				if((v2 % div) == 0u) v2 /= div;
-				lcm_ *= div;
-			}
-			else ++div;
-		}
-		return lcm_;
-	}
-	static constexpr size_t gcd(size_t v1, size_t v2) {
-		return ((v1 * v2) / lcm(v1, v2));
-	}
-	
-	static unsigned int next_pot(const unsigned int& num);
-	static unsigned long long int next_pot(const unsigned long long int& num);
-	
-	// TODO: use const_math::clamp instead
-	template <typename T> [[deprecated]] static constexpr T clamp(const T& var, const T& min, const T& max) {
-		return (var < min ? min : (var > max ? max : var));
-	}
-	
-	// TODO: use const_math::wrap instead
-	[[deprecated]] static float wrap(const float& var, const float& max) {
-		return (var < 0.0f ? (max - fmodf(fabs(var), max)) : fmodf(var, max));
-	}
-	
-	// TODO: use const_math::interpolate instead
-	template <typename T> [[deprecated]] static constexpr T interpolate(const T& v0, const T& v1, const T& interp) {
-		return ((v1 - v0) * interp + v0);
-	}
 	
 	// random functions
 	static void set_random_seed(const unsigned int& seed);

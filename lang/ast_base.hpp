@@ -25,7 +25,7 @@
 #include <type_traits>
 #include <string>
 #include <unordered_map>
-#include "core/util.hpp"
+#include "core/platform.hpp"
 #include "lang/source_types.hpp"
 using namespace std;
 

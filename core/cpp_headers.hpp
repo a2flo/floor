@@ -68,6 +68,7 @@
 #include <cstring>
 #include <cmath>
 #include <cassert>
+#include <stdbool.h>
 
 #if defined(CYGWIN)
 #include <sys/wait.h>
@@ -84,6 +85,12 @@ using namespace std;
 #endif
 #if defined(bool) /* srsly? */
 #undef bool
+#endif
+#if defined(true)
+#undef true
+#endif
+#if defined(false)
+#undef false
 #endif
 
 #endif

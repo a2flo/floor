@@ -1,6 +1,6 @@
 
 #if defined(__cplusplus) && !defined(__OBJC__)
-#include "core/vector2.hpp"
+/*#include "core/vector2.hpp"
 #include "core/vector3.hpp"
 #include "core/vector4.hpp"
 #include "constexpr/const_string.hpp"
@@ -8,7 +8,7 @@
 #include "core/core.hpp"
 #include "core/cpp_headers.hpp"
 #include "core/logger.hpp"
-#include "core/platform.hpp"
+#include "core/platform.hpp"*/
 #elif !defined(__OBJC__)
 #include <stdlib.h>
 #include <stdio.h>

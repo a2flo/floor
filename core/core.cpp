@@ -82,26 +82,6 @@ float3 core::get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f&
 	return (wnd_vec * ipm);
 }
 
-/*! returns the nearest power of two value of num (only numerical upwards)
- *  @param num the number which next pot value we want to have
- */
-unsigned int core::next_pot(const unsigned int& num) {
-	unsigned int tmp = 2;
-	for(unsigned int i = 0; i < (sizeof(unsigned int)*8)-1; i++) {
-		if(tmp >= num) return tmp;
-		tmp <<= 1;
-	}
-	return 0;
-}
-unsigned long long int core::next_pot(const unsigned long long int& num) {
-	unsigned long long int tmp = 2;
-	for(unsigned long long int i = 0; i < (sizeof(unsigned long long int)*8)-1; i++) {
-		if(tmp >= num) return tmp;
-		tmp <<= 1;
-	}
-	return 0;
-}
-
 string core::find_and_replace(const string& str, const string& find, const string& repl) {
 	string ret = str;
 	find_and_replace(ret, find, repl);

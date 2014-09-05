@@ -17,7 +17,7 @@
  */
 
 #include "lang/source_types.hpp"
-#include "core/util.hpp"
+#include "core/platform.hpp"
 
 bool source_range::operator==(const char* str) const {
 	const char* cptr = str;

@@ -143,6 +143,8 @@
 		5CAEC26E18679B1D00BEC3A3 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC26D18679B1D00BEC3A3 /* QuartzCore.framework */; };
 		5CAEC2771867AC4A00BEC3A3 /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
+		5CE0BDC919BA3469000B28B3 /* const_math.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDC819BA3469000B28B3 /* const_math.cpp */; };
+		5CE0BDCA19BA3469000B28B3 /* const_math.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDC819BA3469000B28B3 /* const_math.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -272,6 +274,7 @@
 		5CC2F78518678AAD0031E08D /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		5CC2F78818678AAD0031E08D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
+		5CE0BDC819BA3469000B28B3 /* const_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = const_math.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -514,6 +517,7 @@
 			isa = PBXGroup;
 			children = (
 				5C366DDE19A65E11006D1D09 /* const_helpers.hpp */,
+				5CE0BDC819BA3469000B28B3 /* const_math.cpp */,
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
 			);
@@ -793,6 +797,7 @@
 				5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */,
 				5C1091BD17D1153E007F536E /* vector4.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
+				5CE0BDC919BA3469000B28B3 /* const_math.cpp in Sources */,
 				5C1091E217D1427F007F536E /* tccpp.c in Sources */,
 				5C1091C417D1153E007F536E /* cudacl_translator.cpp in Sources */,
 			);
@@ -808,6 +813,7 @@
 				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C4A85BD18F95EE40039BFD4 /* parser.cpp in Sources */,
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
+				5CE0BDCA19BA3469000B28B3 /* const_math.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
 				5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */,
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
@@ -850,7 +856,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
@@ -948,7 +954,7 @@
 				PRODUCT_NAME = libfloord;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				STRIP_STYLE = debugging;
+				STRIP_STYLE = all;
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Weverything",
@@ -979,7 +985,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
@@ -1016,6 +1022,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = floor_prefix.pch;
 				GCC_PREPROCESSOR_DEFINITIONS = "TCC_LIB_ONLY=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_UNROLL_LOOPS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
@@ -1071,7 +1078,7 @@
 				PRODUCT_NAME = libfloor;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
-				STRIP_STYLE = debugging;
+				STRIP_STYLE = all;
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Weverything",

@@ -791,12 +791,20 @@ public:
 	
 	//////////////////////////////////////////
 	// misc
-	constexpr FLOOR_VECNAME min(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME& min(const FLOOR_VECNAME& vec) {
+		*this = this->mined(vec);
+		return *this;
+	}
+	constexpr FLOOR_VECNAME& max(const FLOOR_VECNAME& vec) {
+		*this = this->maxed(vec);
+		return *this;
+	}
+	constexpr FLOOR_VECNAME minned(const FLOOR_VECNAME& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::min, , FLOOR_COMMA)
 		};
 	}
-	constexpr FLOOR_VECNAME max(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME maxed(const FLOOR_VECNAME& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::max, , FLOOR_COMMA)
 		};

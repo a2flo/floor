@@ -25,6 +25,12 @@
 // for long double support
 #include <tgmath.h>
 
+// misc c++ headers
+#include <type_traits>
+#include <utility>
+#include <limits>
+using namespace std;
+
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons
 #if defined(__clang__)
@@ -490,6 +496,39 @@ namespace const_math {
 	constexpr arithmetic_type interpolate(const arithmetic_type& a, const arithmetic_type& b, const arithmetic_type& interp) {
 		return ((b - a) * interp + a);
 	}
+	
+	//! computes the least common multiple of v1 and v2
+	template <typename int_type, typename enable_if<is_integral<int_type>::value && is_signed<int_type>::value, int>::type = 0>
+	constexpr int_type lcm(int_type v1, int_type v2) {
+		int_type lcm_ = 1, div = 2;
+		while(v1 != 1 || v2 != 1) {
+			if((v1 % div) == 0 || (v2 % div) == 0) {
+				if((v1 % div) == 0) v1 /= div;
+				if((v2 % div) == 0) v2 /= div;
+				lcm_ *= div;
+			}
+			else ++div;
+		}
+		return lcm_;
+	}
+	
+	//! computes the greatest common divisor of v1 and v2
+	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	constexpr int_type gcd(const int_type& v1, const int_type& v2) {
+		return ((v1 * v2) / const_math::lcm(v1, v2));
+	}
+	
+	//! returns the nearest power of two value of num (only numerical upwards)
+	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	constexpr int_type next_pot(const int_type& num) {
+		int_type tmp = 2;
+		for(size_t i = 0; i < ((sizeof(int_type) * 8) - 1); ++i) {
+			if(tmp >= num) return tmp;
+			tmp <<= 1;
+		}
+		return 0;
+	}
+	
 }
 
 // reenable warnings
@@ -548,26 +587,23 @@ namespace const_math_select {
 	// least I haven't figured out a workaround yet), thus support for different types
 	// has to be handled/added manually.
 	
+	// decl here, constexpr impl here, non-constexpr impl in const_math.cpp
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
-	__attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
-	__attribute__((always_inline)) constexpr type_name func_name (type_name val) \
+	extern __attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
+	extern __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
 	__attribute__((enable_if(!__builtin_constant_p(val), ""))) asm("floor__const_math_" #func_name type_suffix ); \
-	__attribute__((always_inline)) type_name func_name (type_name val) { \
-		return rt_func ; \
-	} \
+	\
 	__attribute__((always_inline)) constexpr type_name func_name (type_name val) \
 	__attribute__((enable_if(!__builtin_constant_p(val), ""))) { \
 		return const_math:: func_name (val); \
 	}
 
 #define FLOOR_CONST_MATH_SELECT_2(func_name, rt_func, type_name, type_suffix) \
-	__attribute__((always_inline)) type_name func_name (type_name y, type_name x) asm("floor__const_math_" #func_name type_suffix ); \
-	__attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
+	extern __attribute__((always_inline)) type_name func_name (type_name y, type_name x) asm("floor__const_math_" #func_name type_suffix ); \
+	extern __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
 	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(x), ""))) asm("floor__const_math_" #func_name type_suffix ); \
-	__attribute__((always_inline)) type_name func_name (type_name y, type_name x) { \
-		return rt_func ; \
-	} \
+	\
 	__attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
 	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(x), ""))) { \
