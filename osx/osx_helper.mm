@@ -21,7 +21,7 @@
 #include <SDL2/SDL_syswm.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
-#include "core/vector2.hpp"
+#include "math/vector_lib.hpp"
 #include "core/logger.hpp"
 #include "core/util.hpp"
 #include "osx/osx_helper.hpp"

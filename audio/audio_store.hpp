@@ -22,7 +22,7 @@
 #if !defined(FLOOR_NO_OPENAL)
 
 #include "core/cpp_headers.hpp"
-#include "core/vector3.hpp"
+#include "math/vector_lib.hpp"
 #include "audio/audio_headers.hpp"
 
 //! these are the only effects supported by all openal implementations

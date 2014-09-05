@@ -32,18 +32,45 @@
 // forwarder for many math functions for all necessary base types
 #include "math/vector_helper.hpp"
 
-// old vector classes (TODO: remove this)
-#include "core/vector2.hpp"
-#include "core/vector3.hpp"
-#include "core/vector4.hpp"
-
 // forward declare all vector types because of inter-dependencies
-template <typename scalar_type> class vector1_test;
-template <typename scalar_type> class vector2_test;
-template <typename scalar_type> class vector3_test;
-template <typename scalar_type> class vector4_test;
+template <typename scalar_type> class vector1;
+template <typename scalar_type> class vector2;
+template <typename scalar_type> class vector3;
+template <typename scalar_type> class vector4;
 
-//
+// pod type -> typedef name prefix
+#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(float, float, vec_width) \
+F(double, double, vec_width) \
+F(long double, ldouble, vec_width) \
+F(int8_t, char, vec_width) \
+F(uint8_t, uchar, vec_width) \
+F(int16_t, short, vec_width) \
+F(uint16_t, ushort, vec_width) \
+F(int32_t, int, vec_width) \
+F(uint32_t, uint, vec_width) \
+F(ssize_t, ssize, vec_width) \
+F(size_t, size, vec_width) \
+F(int64_t, long, vec_width) \
+F(uint64_t, ulong, vec_width) \
+F(bool, bool, vec_width)
+
+// typedefs for all types and widths
+#define FLOOR_VECTOR_TYPEDEF(pod_type, prefix, vec_width) \
+typedef vector##vec_width<pod_type> prefix##vec_width;
+
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 1)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 2)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 3)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 4)
+
+// misc aliases
+typedef uint2 pnt;
+typedef int2 ipnt;
+typedef float2 coord;
+typedef uint3 index3;
+
+// implementation for each vector width
 #define FLOOR_VECTOR_WIDTH 1
 #include "math/vector.hpp"
 #undef FLOOR_VECTOR_WIDTH
@@ -57,8 +84,16 @@ template <typename scalar_type> class vector4_test;
 #include "math/vector.hpp"
 #undef FLOOR_VECTOR_WIDTH
 
-// TODO: instantiate all types (extern template + create new .cpp file)
-// TODO: sizeof checks for all types
+// extern template instantiation
+#if defined(FLOOR_EXPORT)
+#define FLOOR_VECTOR_EXTERN_TMPL(pod_type, prefix, vec_width) \
+extern template class vector##vec_width<pod_type>;
+
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_EXTERN_TMPL, 1)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_EXTERN_TMPL, 2)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_EXTERN_TMPL, 3)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_EXTERN_TMPL, 4)
+#endif
 
 // reenable warnings
 #if defined(__clang__)

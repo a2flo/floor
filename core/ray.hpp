@@ -20,7 +20,7 @@
 #define __FLOOR_RAY_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "core/vector3.hpp"
+#include "math/vector_lib.hpp"
 
 class FLOOR_API ray {
 public:

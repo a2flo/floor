@@ -27,7 +27,7 @@
 #include "core/file_io.hpp"
 #include "core/event.hpp"
 #include "core/xml.hpp"
-#include "core/vector3.hpp"
+#include "math/vector_lib.hpp"
 #include "core/matrix4.hpp"
 #include "core/unicode.hpp"
 

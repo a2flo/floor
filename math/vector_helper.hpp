@@ -21,6 +21,7 @@
 
 #include <type_traits>
 #include <limits>
+#include <cstdint>
 #include "constexpr/const_math.hpp"
 using namespace std;
 
@@ -302,6 +303,44 @@ F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
 )
 
+#define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2) FLOOR_VH_IMPL(ssize_t, ssize_t, \
+F2(modulo, constexpr, lhs % rhs) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(inv_sqrt, constexpr, val) \
+F1(abs, constexpr, const_math::abs(val)) \
+F1(floor, constexpr, val) \
+F1(ceil, constexpr, val) \
+F1(round, constexpr, val) \
+F1(trunc, constexpr, val) \
+F1(rint, constexpr, val) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+)
+
+#define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2) FLOOR_VH_IMPL(size_t, ssize_t, \
+F2(modulo, constexpr, lhs % rhs) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(inv_sqrt, constexpr, val) \
+F1(abs, constexpr, val) \
+F1(floor, constexpr, val) \
+F1(ceil, constexpr, val) \
+F1(round, constexpr, val) \
+F1(trunc, constexpr, val) \
+F1(rint, constexpr, val) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+)
+
 #define FLOOR_VH_IMPL_DEF_BOOL(F1, F2) FLOOR_VH_IMPL(bool, bool, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, val) \
@@ -332,6 +371,8 @@ FLOOR_VH_IMPL_DEF_INT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
 FLOOR_VH_IMPL_DEF_UINT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
 FLOOR_VH_IMPL_DEF_INT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
 FLOOR_VH_IMPL_DEF_UINT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
+FLOOR_VH_IMPL_DEF_SSIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
+FLOOR_VH_IMPL_DEF_SIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
 FLOOR_VH_IMPL_DEF_BOOL(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
 
 #endif

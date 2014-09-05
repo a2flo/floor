@@ -20,12 +20,14 @@
 #error "don't include this header file - include vector_lib.hpp"
 #endif
 
-#define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width##_test
+#define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width
 #define FLOOR_VECNAME_EVAL(vec_width) FLOOR_VECNAME_CONCAT(vec_width)
 #define FLOOR_VECNAME FLOOR_VECNAME_EVAL(FLOOR_VECTOR_WIDTH)
 #define FLOOR_VECNAME_N(vec_width) FLOOR_VECNAME_EVAL(vec_width)<scalar_type>
 
 #include "math/vector_ops.hpp"
+#include "core/matrix4.hpp"
+#include <type_traits>
 
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },
 //! and is instantiated for all float types (float, double, long double), all unsigned types from
@@ -44,7 +46,20 @@ public:
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
-	constexpr FLOOR_VECNAME() noexcept {}
+	
+	//! zero initialization
+	constexpr FLOOR_VECNAME() noexcept :
+	x((scalar_type)0)
+#if FLOOR_VECTOR_WIDTH >= 2
+	, y((scalar_type)0)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+	, z((scalar_type)0)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+	, w((scalar_type)0)
+#endif
+	{}
 	
 	constexpr FLOOR_VECNAME(const FLOOR_VECNAME& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
@@ -77,11 +92,16 @@ public:
 	constexpr FLOOR_VECNAME(const scalar_type& val) noexcept :
 	FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , (val)) {}
 	
+	//! construct with conversion
+	template <typename from_scalar_type>
+	constexpr FLOOR_VECNAME(const FLOOR_VECNAME<from_scalar_type>& vec) noexcept :
+	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT (scalar_type), FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+	
 	// construction from lower types
 #if FLOOR_VECTOR_WIDTH == 3
 	//! construction from <vector2, scalar>
 	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(2)& vec,
-							const scalar_type& val) noexcept :
+							const scalar_type val = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val) {}
 	//! construction from <scalar, vector2>
 	constexpr FLOOR_VECNAME(const scalar_type& val,
@@ -91,8 +111,8 @@ public:
 #if FLOOR_VECTOR_WIDTH == 4
 	//! construction from <vector2, scalar, scalar>
 	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(2)& vec,
-							const scalar_type& val_z,
-							const scalar_type& val_w) noexcept :
+							const scalar_type val_z = (scalar_type)0,
+							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val_z), w(val_w) {}
 	//! construction from <scalar, vector2, scalar>
 	constexpr FLOOR_VECNAME(const scalar_type& val_x,
@@ -111,7 +131,7 @@ public:
 	
 	//! construction from <vector3, scalar>
 	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(3)& vec,
-							const scalar_type& val_w) noexcept :
+							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(vec.z), w(val_w) {}
 	//! construction from <scalar, vector3>
 	constexpr FLOOR_VECNAME(const scalar_type& val_x,
@@ -340,10 +360,60 @@ public:
 						(const scalar_type& max),
 						max)
 	
+	constexpr FLOOR_VECNAME& clamp(const FLOOR_VECNAME& min, const FLOOR_VECNAME& max) {
+		x = const_math::clamp(x, min.x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::clamp(y, min.y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::clamp(z, min.z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::clamp(w, min.w, max.w);
+#endif
+		return *this;
+	}
+	constexpr FLOOR_VECNAME clamped(const FLOOR_VECNAME& min, const FLOOR_VECNAME& max) const {
+		return FLOOR_VECNAME(*this).clamp(min, max);
+	}
+	constexpr FLOOR_VECNAME& clamp(const FLOOR_VECNAME& max) {
+		x = const_math::clamp(x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::clamp(y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::clamp(z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::clamp(w, max.w);
+#endif
+		return *this;
+	}
+	constexpr FLOOR_VECNAME clamped(const FLOOR_VECNAME& max) const {
+		return FLOOR_VECNAME(*this).clamp(max);
+	}
+	
 	//!
 	FLOOR_VEC_FUNC_ARGS(const_math::wrap, wrap, wrapped,
 						(const scalar_type& max),
 						max)
+	
+	constexpr FLOOR_VECNAME& wrap(const FLOOR_VECNAME& max) {
+		x = const_math::wrap(x, max.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::wrap(y, max.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::wrap(z, max.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::wrap(w, max.w);
+#endif
+		return *this;
+	}
+	constexpr FLOOR_VECNAME wrapped(const FLOOR_VECNAME& max) const {
+		return FLOOR_VECNAME(*this).wrap(max);
+	}
 	
 	//////////////////////////////////////////
 	// geometric
@@ -618,26 +688,26 @@ public:
 	// functional / algorithm
 	
 	//! same as operator=(vec)
-	template <typename unary_function> constexpr FLOOR_VECNAME& set(const FLOOR_VECNAME& vec) {
+	constexpr FLOOR_VECNAME& set(const FLOOR_VECNAME& vec) {
 		*this = vec;
 		return *this;
 	}
 	
 	//! same as operator=(scalar)
-	template <typename unary_function> constexpr FLOOR_VECNAME& set(const scalar_type& val) {
+	constexpr FLOOR_VECNAME& set(const scalar_type& val) {
 		*this = val;
 		return *this;
 	}
 	
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! same as operator=(vector# { val_x, ... })
-	template <typename unary_function> constexpr FLOOR_VECNAME& set(const scalar_type& vec_x
-																	, const scalar_type& vec_y
+	constexpr FLOOR_VECNAME& set(const scalar_type& vec_x
+								 , const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
-																	, const scalar_type& vec_z
+								 , const scalar_type& vec_z
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-																	, const scalar_type& vec_w
+								 , const scalar_type& vec_w
 #endif
 	) {
 		x = vec_x;
@@ -653,8 +723,8 @@ public:
 #endif
 	
 	//!
-	template <typename unary_function> constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-																	   const FLOOR_VECNAME& vec) {
+	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+									const FLOOR_VECNAME& vec) {
 		if(cond_vec.x) x = vec.x;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = vec.y;
@@ -669,8 +739,8 @@ public:
 	}
 	
 	//!
-	template <typename unary_function> constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-																	   const scalar_type& val) {
+	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+									const scalar_type& val) {
 		if(cond_vec.x) x = val;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = val;
@@ -686,14 +756,14 @@ public:
 	
 #if FLOOR_VECTOR_WIDTH >= 2
 	//!
-	template <typename unary_function> constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-																	   const scalar_type& vec_x
-																	   , const scalar_type& vec_y
+	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+									const scalar_type& vec_x
+									, const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
-																	   , const scalar_type& vec_z
+									, const scalar_type& vec_z
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-																	   , const scalar_type& vec_w
+									, const scalar_type& vec_w
 #endif
 	) {
 		if(cond_vec.x) x = vec_x;
@@ -792,7 +862,7 @@ public:
 	//////////////////////////////////////////
 	// misc
 	constexpr FLOOR_VECNAME& min(const FLOOR_VECNAME& vec) {
-		*this = this->mined(vec);
+		*this = this->minned(vec);
 		return *this;
 	}
 	constexpr FLOOR_VECNAME& max(const FLOOR_VECNAME& vec) {
@@ -950,13 +1020,9 @@ public:
 	}
 	
 	//!
-	static FLOOR_VECNAME random(const scalar_type max = (scalar_type)1) {
-		return { FLOOR_VEC_EXPAND_NO_ELEMS((core::rand(max))) };
-	}
+	static FLOOR_VECNAME random(const scalar_type max = (scalar_type)1);
 	//!
-	static FLOOR_VECNAME random(const scalar_type min, const scalar_type max) {
-		return { FLOOR_VEC_EXPAND_NO_ELEMS((core::rand(min, max))) };
-	}
+	static FLOOR_VECNAME random(const scalar_type min, const scalar_type max);
 	
 	//////////////////////////////////////////
 	// TODO: type conversion

@@ -24,7 +24,7 @@
 #include "core/util.hpp"
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"
-#define FLOOR_REVISION_VERSION "2"
+#define FLOOR_REVISION_VERSION "3"
 #define FLOOR_DEV_STAGE_VERSION "d1"
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__

@@ -24,7 +24,7 @@
 #include "floor/floor.hpp"
 #include "core/file_io.hpp"
 #include "core/core.hpp"
-#include "core/vector2.hpp"
+#include "math/vector_lib.hpp"
 #include "core/gl_support.hpp"
 #include "hash/city.hpp"
 

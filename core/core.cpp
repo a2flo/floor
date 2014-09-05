@@ -328,10 +328,10 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 										   float3& normal, float3& binormal, float3& tangent,
 										   const coord& t1, const coord& t2, const coord& t3) {
 	// compute deltas
-	float delta_x1 = t2.u - t1.u;
-	float delta_y1 = t2.v - t1.v;
-	float delta_x2 = t3.u - t1.u;
-	float delta_y2 = t3.v - t1.v;
+	float delta_x1 = t2.x - t1.x;
+	float delta_y1 = t2.y - t1.y;
+	float delta_x2 = t3.x - t1.x;
+	float delta_y2 = t3.y - t1.y;
 	
 	// normal
 	float3 edge1(v2 - v1);

@@ -20,7 +20,7 @@
 #define __FLOOR_BBOX_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "core/vector3.hpp"
+#include "math/vector_lib.hpp"
 #include "core/ray.hpp"
 
 #if defined(__clang__)
@@ -91,8 +91,8 @@ public:
 		float3 t1 = (v1 - r.origin) / div;
 		float3 t2 = (v2 - r.origin) / div;
 		
-		float3 tmin = float3::min(t1, t2);
-		float3 tmax = float3::max(t1, t2);
+		float3 tmin = t1.minned(t2);
+		float3 tmax = t1.maxed(t2);
 		
 		return { tmin.max_element(), tmax.min_element() };
 	}
