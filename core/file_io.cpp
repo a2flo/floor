@@ -355,7 +355,7 @@ bool file_io::is_file(const string& filename) {
 bool file_io::is_directory(const string& dirname) {
 	if(dirname.empty()) return false;
 	
-#if !defined(__WINDOWS__)
+#if !defined(_MSC_VER)
 	const auto dir = opendir(dirname.c_str());
 	if(dir != nullptr) {
 		closedir(dir);
@@ -453,6 +453,16 @@ bool file_io::string_to_file(const string& filename, string& str) {
 		return false;
 	}
 	file.write_file(str);
+	file.close();
+	return true;
+}
+
+bool file_io::buffer_to_file(const string& filename, const char* buffer, const size_t& size) {
+	file_io file(filename, file_io::OPEN_TYPE::WRITE_BINARY);
+	if(!file.is_open()) {
+		return false;
+	}
+	file.write_block(buffer, size);
 	file.close();
 	return true;
 }

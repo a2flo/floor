@@ -3,7 +3,7 @@
 #include "core/vector2.hpp"
 #include "core/vector3.hpp"
 #include "core/vector4.hpp"
-#include "core/const_string.hpp"
+#include "constexpr/const_string.hpp"
 #include "core/util.hpp"
 #include "core/core.hpp"
 #include "core/cpp_headers.hpp"

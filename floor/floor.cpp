@@ -193,6 +193,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
 		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
 		
+		config.audio_disabled = config_doc.get<bool>("config.audio.disabled", false);
 		config.music_volume = core::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
 		config.sound_volume = core::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
 		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
@@ -250,7 +251,9 @@ void floor::destroy() {
 	if(!console_only) acquire_context();
 	
 #if !defined(FLOOR_NO_OPENAL)
-	audio_controller::destroy();
+	if(!config.audio_disabled) {
+		audio_controller::destroy();
+	}
 #endif
 	
 	evt->remove_event_handler(event_handler_fnctr);
@@ -275,7 +278,6 @@ void floor::destroy() {
 	SDL_Quit();
 	
 	log_debug("floor destroyed!");
-	logger::destroy();
 }
 
 void floor::init_internal(const bool use_gl32_core
@@ -524,9 +526,11 @@ void floor::init_internal(const bool use_gl32_core
 	}
 	
 #if !defined(FLOOR_NO_OPENAL)
-	// check if openal functions have been correctly initialized and initialize openal
-	floor_audio::check_openal_efx_funcs();
-	audio_controller::init();
+	if(!config.audio_disabled) {
+		// check if openal functions have been correctly initialized and initialize openal
+		floor_audio::check_openal_efx_funcs();
+		audio_controller::init();
+	}
 #endif
 }
 
@@ -851,7 +855,7 @@ const float& floor::get_fov() {
 }
 
 void floor::set_fov(const float& fov) {
-	if(config.fov == fov) return;
+	if(FLOAT_EQ(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
 				   make_shared<window_resize_event>(SDL_GetTicks(), size2(config.width, config.height)));
@@ -976,7 +980,12 @@ string floor::get_absolute_path() {
 	return abs_bin_path;
 }
 
+bool floor::is_audio_disabled() {
+	return config.audio_disabled;
+}
+
 void floor::set_music_volume(const float& volume) {
+	if(config.audio_disabled) return;
 	config.music_volume = volume;
 	audio_controller::update_music_volumes();
 }
@@ -986,6 +995,7 @@ const float& floor::get_music_volume() {
 }
 
 void floor::set_sound_volume(const float& volume) {
+	if(config.audio_disabled) return;
 	config.sound_volume = volume;
 	audio_controller::update_sound_volumes();
 }

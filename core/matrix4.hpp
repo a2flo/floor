@@ -351,7 +351,7 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_z(const T z) {
 
 // projection
 template<typename T> matrix4<T>& matrix4<T>::perspective(const T fov, const T aspect, const T z_near, const T z_far) {
-	const typename conditional<is_floating_point<T>::value, T, float>::type f = (T)(((T)1) / tan(fov * _PIDIV360));
+	const typename conditional<is_floating_point<T>::value, T, float>::type f = (T)(((T)1) / tan(fov * (T)PI_DIV_360));
 	
 	////
 	data[0] = (T)f / (T)aspect;

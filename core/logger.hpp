@@ -60,9 +60,9 @@ public:
 	
 protected:
 	// static class
-	logger(const logger& l) = delete;
+	logger(const logger&) = delete;
 	~logger() = delete;
-	logger& operator=(const logger& l) = delete;
+	logger& operator=(const logger&) = delete;
 	
 	//! handles the formatting of log messages
 	static bool prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func);
@@ -114,7 +114,7 @@ protected:
 			}
 			buffer << *str++;
 		}
-		cout << "LOG ERROR: unused extra arguments specified in: \"" << buffer.str() << "\"!" << endl;
+		cerr << "LOG ERROR: unused extra arguments specified in: \"" << buffer.str() << "\"!" << endl;
 	}
 	
 };

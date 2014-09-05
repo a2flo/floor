@@ -34,9 +34,6 @@
 
 class FLOOR_API core {
 public:
-	core() = delete;
-	~core() = delete;
-	
 	//
 	static void init();
 	
@@ -50,27 +47,70 @@ public:
 												const coord& t1, const coord& t2, const coord& t3);
 
 	// misc math functions
-	static size_t lcm(size_t v1, size_t v2);
-	static size_t gcd(size_t v1, size_t v2);
+	static constexpr size_t lcm(size_t v1, size_t v2) {
+		size_t lcm_ = 1u, div = 2u;
+		while(v1 != 1u || v2 != 1u) {
+			if((v1 % div) == 0 || (v2 % div) == 0u) {
+				if((v1 % div) == 0u) v1 /= div;
+				if((v2 % div) == 0u) v2 /= div;
+				lcm_ *= div;
+			}
+			else ++div;
+		}
+		return lcm_;
+	}
+	static constexpr size_t gcd(size_t v1, size_t v2) {
+		return ((v1 * v2) / lcm(v1, v2));
+	}
 	
 	static unsigned int next_pot(const unsigned int& num);
 	static unsigned long long int next_pot(const unsigned long long int& num);
 	
-	template <typename T> static T clamp(const T& var, const T& min, const T& max) {
+	// TODO: use const_math::clamp instead
+	template <typename T> [[deprecated]] static constexpr T clamp(const T& var, const T& min, const T& max) {
 		return (var < min ? min : (var > max ? max : var));
 	}
 	
-	static float wrap(const float& var, const float& max) {
+	// TODO: use const_math::wrap instead
+	[[deprecated]] static float wrap(const float& var, const float& max) {
 		return (var < 0.0f ? (max - fmodf(fabs(var), max)) : fmodf(var, max));
 	}
 	
-	static int rand(const int& max);
-	static int rand(const int& min, const int& max);
-	static unsigned int rand(const unsigned int& max);
-	static unsigned int rand(const unsigned int& min, const unsigned int& max);
-	static float rand(const float& max);
-	static float rand(const float& min, const float& max);
+	// TODO: use const_math::interpolate instead
+	template <typename T> [[deprecated]] static constexpr T interpolate(const T& v0, const T& v1, const T& interp) {
+		return ((v1 - v0) * interp + v0);
+	}
+	
+	// random functions
 	static void set_random_seed(const unsigned int& seed);
+	
+	//! random number in [0, max)
+	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	static int_type rand(const int_type& max) {
+		uniform_int_distribution<int_type> dist((int_type)0, max - (int_type)1);
+		return dist(gen);
+	}
+	
+	//! random number in [min, max)
+	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	static int_type rand(const int_type& min, const int_type& max) {
+		uniform_int_distribution<int_type> dist(min, max - (int_type)1);
+		return dist(gen);
+	}
+	
+	//! random number in [0, max)
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	static fp_type rand(const fp_type& max) {
+		uniform_real_distribution<fp_type> dist((fp_type)0, max);
+		return dist(gen);
+	}
+	
+	//! random number in [min, max)
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	static fp_type rand(const fp_type& min, const fp_type& max) {
+		uniform_real_distribution<fp_type> dist(min, max);
+		return dist(gen);
+	}
 	
 	template <typename T> static set<T> power_set(set<T> input_set) {
 		if(input_set.empty()) return set<T> {};
@@ -86,10 +126,6 @@ public:
 		}
 		
 		return ret;
-	}
-	
-	template <typename T> static T interpolate(const T& v0, const T& v1, const T& interp) {
-		return ((v1 - v0) * interp + v0);
 	}
 	
 	// string functions
@@ -109,7 +145,9 @@ public:
 	static map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
 														 const string file_extension = "",
 														 const bool always_get_folders = false);
+	//! extracts the path from in_path and tries to condense it if it contains "../"
 	static string strip_path(const string& in_path);
+	//! extracts the filename from in_path
 	static string strip_filename(const string& in_path);
 	
 	// system functions
@@ -134,7 +172,14 @@ public:
 		return (uint32_t)chrono::duration_cast<chrono::seconds>(time_point.time_since_epoch()).count();
 	}
 	
+	static uint32_t get_hw_thread_count();
+	
 protected:
+	// static class
+	core(const core&) = delete;
+	~core() = delete;
+	core& operator=(const core&) = delete;
+	
 	// random_device with libc++ on windows/mingw is not supported right now (no /dev/urandom)
 	// -> use default mt19937 and seed+warm-up manually
 #if !(defined(__clang__) && defined(WIN_UNIXENV))

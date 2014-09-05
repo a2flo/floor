@@ -41,6 +41,7 @@ typedef vector3<ssize_t> ssize3;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wtautological-compare"
 #pragma clang diagnostic ignored "-Wpacked"
+#pragma clang diagnostic ignored "-Wfloat-equal"
 #endif
 
 template <typename T> class FLOOR_API __attribute__((packed, aligned(sizeof(T)))) vector3 {
@@ -73,14 +74,14 @@ public:
 	vector3 operator/(const T& f) const;
 	vector3 operator/(const vector3& v) const;
 	vector3 operator*(const T& f) const;
-	T operator*(const vector3& v) const;		// dot product
+	[[deprecated]] T operator*(const vector3& v) const;
 	vector3 operator*(const matrix4<T>& mat) const;
-	vector3 operator^(const vector3& v) const;	// cross product
-	vector3& operator^=(const vector3& v);		// cross product
+	[[deprecated]] vector3 operator^(const vector3& v) const;	// cross product
+	[[deprecated]] vector3& operator^=(const vector3& v);		// cross product
 	vector3& operator+=(const vector3& v);
 	vector3& operator-=(const vector3& v);
 	vector3& operator*=(const T& f);
-	vector3& operator*=(const vector3& v);		// dot product
+	[[deprecated]] vector3& operator*=(const vector3& v);
 	vector3& operator*=(const matrix4<T>& mat);
 	vector3& operator/=(const T& f);
 	vector3& operator/=(const vector3& v);
@@ -89,6 +90,7 @@ public:
 	
 	// comparisons
 	bool is_equal(const vector3& v) const;
+	bool is_equal(const vector3& v, const float eps) const;
 	bool is_unequal(const vector3& v) const;
 	bool3 operator==(const vector3& v) const;
 	bool3 operator!=(const vector3& v) const;
@@ -135,7 +137,7 @@ public:
 	}
 	
 	vector3 normalized() const;
-	vector3 scaled(const vector3& v) const;
+	[[deprecated]] vector3 scaled(const vector3& v) const;
 	vector3& normalize();
 	vector3& floor();
 	vector3& ceil();
@@ -144,7 +146,7 @@ public:
 	vector3 ceiled() const;
 	vector3 rounded() const;
 	vector3 sign() const;
-	void scale(const vector3& v);
+	[[deprecated]] void scale(const vector3& v);
 	void clamp(const T& min, const T& max);
 	vector3 clamped(const T& max) const;
 	vector3 clamped(const T& min, const T& max) const;
@@ -154,7 +156,7 @@ public:
 	void set_if(const bool3& bv, const vector3 v);
 	template<typename Function> void apply(Function f);
 	template<typename Function> void apply_if(const bool3& bv, Function f);
-	vector3& rotate(const T& x_rotation, const T& y_rotation, const T& z_rotation);
+	[[deprecated]] vector3& rotate(const T& x_rotation, const T& y_rotation, const T& z_rotation);
 	T length() const;
 	T angle(const vector3& v) const;
 	T distance(const vector3& v) const;
@@ -168,55 +170,59 @@ public:
 	template<unsigned int comp1, unsigned int comp2, unsigned int comp3> vector3 swizzle() const {
 		return vector3(((T*)this)[comp1], ((T*)this)[comp2], ((T*)this)[comp3]);
 	}
+	T average() const {
+		return (x + y + z) / ((T)3);
+	}
 	
 	bool is_null() const;
 	bool is_nan() const;
 	bool is_inf() const;
-		
+	
 	// a component-wise minimum between two vector3s
-	static const vector3 min(const vector3& v1, const vector3& v2) {
+	[[deprecated]] static const vector3 min(const vector3& v1, const vector3& v2) {
 		return vector3(std::min(v1.x, v2.x), std::min(v1.y, v2.y), std::min(v1.z, v2.z));
 	}
 	
 	// a component-wise maximum between two vector3s
-	static const vector3 max(const vector3& v1, const vector3& v2) {
+	[[deprecated]] static const vector3 max(const vector3& v1, const vector3& v2) {
 		return vector3(std::max(v1.x, v2.x), std::max(v1.y, v2.y), std::max(v1.z, v2.z));
 	}
 	
 	// linear interpolation between the points v1 and v2: v2 + (v1 - v2) * coef
-	static const vector3 mix(const vector3& v1, const vector3& v2, const vector3& v3, const T& u, const T& v) {
+	[[deprecated]] static const vector3 mix(const vector3& v1, const vector3& v2, const vector3& v3, const T& u, const T& v) {
 		return vector3(v1.x * u + v2.x * v + v3.x * ((T)1 - u - v),
 					   v1.y * u + v2.y * v + v3.y * ((T)1 - u - v),
 					   v1.z * u + v2.z * v + v3.z * ((T)1 - u - v));
 	}
-	static const vector3 mix(const vector3& v1, const vector3& v2, const T& coef) {
+	[[deprecated]] static const vector3 mix(const vector3& v1, const vector3& v2, const T& coef) {
 		return vector3(v1.x * coef + v2.x * ((T)1 - coef),
 					   v1.y * coef + v2.y * ((T)1 - coef),
 					   v1.z * coef + v2.z * ((T)1 - coef));
 	}
 	
 	static const vector3 faceforward(const vector3& N, const vector3& I, const vector3& Nref) {
-		return ((Nref * I) < ((T)0) ? N : -N);
+		return (Nref.dot(I) < ((T)0) ? N : -N);
 	}
 	
 	//! N must be normalized
 	static const vector3 reflect(const vector3& N, const vector3& I) {
-		return I - ((T)2) * (N * I) * N;
+		return I - ((T)2) * N.dot(I) * N;
 	}
 	
 	//! N, I must be normalized
 	static const vector3 refract(const vector3& N, const vector3& I, const T& eta) {
-		const T dNI(N * I);
+		const T dNI(N.dot(I));
 		const T k(((T)1) - (eta * eta) * (((T)1) - dNI * dNI));
 		return (k < ((T)0) ? vector3((T)0) : (eta * I - (eta * dNI + (T)sqrt(k)) * N));
 	}
 	
 	T dot(const vector3& v) const;
+	T dot() const;
 	vector3 cross(const vector3& v) const;
-	vector3 mix(const vector3& v2, const T& coef) const;
-	vector3 faceforward(const vector3& I, const vector3& Nref) const;
-	vector3 reflect(const vector3& I) const;
-	vector3 refract(const vector3& I, const T& eta) const;
+	[[deprecated]] vector3 mix(const vector3& v2, const T& coef) const;
+	[[deprecated]] vector3 faceforward(const vector3& I, const vector3& Nref) const;
+	[[deprecated]] vector3 reflect(const vector3& I) const;
+	[[deprecated]] vector3 refract(const vector3& I, const T& eta) const;
 	
 	//
 	vector2<T> xy() const { return vector2<T> { x, y }; }
@@ -353,6 +359,12 @@ template<typename T> bool vector3<T>::is_equal(const vector3<T>& v) const {
 	}
 	return false;
 }
+template<typename T> bool vector3<T>::is_equal(const vector3<T>& v, const float eps) const {
+	if(FLOAT_EQ_EPS(this->x, v.x, eps) && FLOAT_EQ_EPS(this->y, v.y, eps) && FLOAT_EQ_EPS(this->z, v.z, eps)) {
+		return true;
+	}
+	return false;
+}
 
 /*! != operator overload
  */
@@ -415,12 +427,10 @@ template<typename T> vector3<T>& vector3<T>::normalize() {
  */
 template<> vector3<bool> vector3<bool>::operator^(const bool3& v) const; // specialize for bool (xor)
 template<typename T> vector3<T> vector3<T>::operator^(const vector3<T>& v) const {
-	return vector3<T>(this->y * v.z - this->z * v.y,
-					  this->z * v.x - this->x * v.z,
-					  this->x * v.y - this->y * v.x);
+	return this->cross(v);
 }
 
-/*! * operator overload / dot product
+/*! * operator overload
  */
 template<typename T> T vector3<T>::operator*(const vector3<T>& v) const {
 	return (this->x * v.x + this->y * v.y + this->z * v.z);
@@ -489,7 +499,7 @@ template<typename T> template<typename Function> void vector3<T>::apply_if(const
 }
 
 template<typename T> T vector3<T>::length() const {
-	return (T)sqrt(*this * *this);
+	return (T)sqrt(this->dot(*this));
 }
 
 /*! computes the angle between this vector and the given one, both their origin is (0, 0, 0)!
@@ -498,7 +508,7 @@ template<typename T> T vector3<T>::length() const {
 template<typename T> T vector3<T>::angle(const vector3<T>& v) const {
 	if(is_null() || v.is_null()) return (T)0;
 	// acos(<x, y> / |x|*|y|)
-	return (T)acos((v * *this) / (length() * v.length()));
+	return (T)acos(v.dot(*this) / (length() * v.length()));
 }
 
 template<typename T> T vector3<T>::distance(const vector3<T>& v) const {
@@ -562,10 +572,15 @@ template<typename T> bool vector3<T>::is_inf() const {
 }
 
 template<typename T> T vector3<T>::dot(const vector3& v) const {
-	return *this * v;
+	return (this->x * v.x + this->y * v.y + this->z * v.z);
+}
+template<typename T> T vector3<T>::dot() const {
+	return (this->x * this->x + this->y * this->y + this->z * this->z);
 }
 template<typename T> vector3<T> vector3<T>::cross(const vector3& v) const {
-	return *this ^ v;
+	return vector3<T>(this->y * v.z - this->z * v.y,
+					  this->z * v.x - this->x * v.z,
+					  this->x * v.y - this->y * v.x);
 }
 
 template<typename T> vector3<T> vector3<T>::mix(const vector3& v2, const T& coef) const {

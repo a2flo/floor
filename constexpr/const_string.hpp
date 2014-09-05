@@ -22,6 +22,10 @@
 #include <type_traits>
 #include "core/platform.hpp"
 
+// NOTE: there now is a std proposal that would add something very similar to this
+// to the c++ standard (-> if this gets approved and implemented, replace this code)
+// http://isocpp.org/files/papers/n4121.pdf
+
 template <size_t count> struct const_string {
 public:
 	//! since we can't assign c arrays directly, do this via a helper class
@@ -146,23 +150,23 @@ public:
 	}
 	
 	//! computes the hash of the const_string (32-bit MurmurHash3)
-	constexpr unsigned int hash() const {
+	constexpr uint32_t hash() const {
 		// credits: https://smhasher.googlecode.com/svn/trunk/MurmurHash3.cpp
 		// -> MurmurHash3_x86_32, modified for constexpr
-		constexpr const unsigned int seed = 0xF1002A2Eu;
-		constexpr const unsigned int c1 = 0xcc9e2d51u;
-		constexpr const unsigned int c2 = 0x1b873593u;
+		constexpr const uint32_t seed = 0xF1002A2Eu;
+		constexpr const uint32_t c1 = 0xcc9e2d51u;
+		constexpr const uint32_t c2 = 0x1b873593u;
 		const size_t nblocks = count / (size_t)4;
-		unsigned int h1 = seed;
+		uint32_t h1 = seed;
 		
 		//----------
 		// body
 		size_t offset = 0;
 		for(size_t i = 0; i < nblocks; ++i, offset += 4) {
-			unsigned int k1 = ((content.data[offset + 3] << 24u) |
-							   (content.data[offset + 2] << 16u) |
-							   (content.data[offset + 1] << 8u) |
-							   (content.data[offset + 0]));
+			uint32_t k1 = (uint32_t(content.data[offset + 3] << 24u) |
+						   uint32_t(content.data[offset + 2] << 16u) |
+						   uint32_t(content.data[offset + 1] << 8u) |
+						   uint32_t(content.data[offset + 0]));
 			
 			k1 *= c1;
 			k1 = rotl32(k1, 15);
@@ -175,17 +179,38 @@ public:
 		
 		//----------
 		// tail
-		unsigned int k1 = 0;
+		// -- include hell, need to do this here again
+#if !defined(floor_fallthrough)
+#if defined(__clang__)
+#define floor_fallthrough [[clang::fallthrough]]
+#else
+#define floor_fallthrough
+#endif
+#endif
+		uint32_t k1 = 0;
 		switch(count & 3u) {
-			case 3: k1 ^= content.data[offset + 2] << 16u;
-			case 2: k1 ^= content.data[offset + 1] << 8u;
-			case 1: k1 ^= content.data[offset + 0];
-				k1 *= c1; k1 = rotl32(k1, 15); k1 *= c2; h1 ^= k1;
+			case 3:
+				k1 ^= (uint32_t)(content.data[offset + 2] << 16u);
+			
+			floor_fallthrough;
+			case 2:
+				k1 ^= (uint32_t)(content.data[offset + 1] << 8u);
+				
+			floor_fallthrough;
+			case 1:
+				k1 ^= (uint32_t)(content.data[offset + 0]);
+				k1 *= c1;
+				k1 = rotl32(k1, 15);
+				k1 *= c2;
+				h1 ^= k1;
+				break;
+			
+			case 0: break;
 		};
 		
 		//----------
 		// finalization
-		h1 ^= (unsigned int)count;
+		h1 ^= (uint32_t)count;
 		h1 ^= h1 >> 16;
 		h1 *= 0x85ebca6b;
 		h1 ^= h1 >> 13;
@@ -220,7 +245,7 @@ protected:
 	}
 	
 	//! hash computation helper function
-	static constexpr unsigned int rotl32(unsigned int x, int r) {
+	static constexpr uint32_t rotl32(uint32_t x, int r) {
 		return (x << r) | (x >> (32 - r));
 	}
 };

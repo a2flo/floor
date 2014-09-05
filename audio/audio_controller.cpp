@@ -50,6 +50,7 @@ void audio_controller::init() {
 	log_debug("openal: got %u auxillary send slots", aux_sends);
 	
 	// create context
+	aux_sends = std::max(aux_sends, 2); // request 2 aux sends max
 	const ALCint attrlist[] {
 		ALC_MAX_AUXILIARY_SENDS, aux_sends,
 		0

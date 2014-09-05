@@ -130,7 +130,7 @@ void thread_base::finish() {
 			set_thread_should_finish();
 			
 			// wait a few ms
-			this_thread::sleep_for(chrono::milliseconds(100));
+			this_thread::sleep_for(100ms);
 			
 			// this will block until the thread is finished
 			if(thread_obj->joinable()) thread_obj->join();

@@ -113,6 +113,7 @@ public:
 	static void set_vsync(const bool& state);
 	
 	// audio
+	static bool is_audio_disabled();
 	static void set_music_volume(const float& volume);
 	static const float& get_music_volume();
 	static void set_sound_volume(const float& volume);
@@ -146,7 +147,8 @@ public:
 	static bool get_cuda_use_cache();
 	
 protected:
-	floor() = delete;
+	// static class
+	floor(const floor&) = delete;
 	~floor() = delete;
 	floor& operator=(const floor&) = delete;
 	
@@ -162,6 +164,7 @@ protected:
 		bool fullscreen = false, vsync = false, stereo = false;
 		
 		// audio
+		bool audio_disabled = false;
 		float music_volume = 1.0f, sound_volume = 1.0f;
 		string audio_device_name = "";
 		

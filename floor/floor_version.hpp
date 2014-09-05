@@ -24,8 +24,8 @@
 #include "core/util.hpp"
 #define FLOOR_MAJOR_VERSION "0"
 #define FLOOR_MINOR_VERSION "1"
-#define FLOOR_REVISION_VERSION "1"
-#define FLOOR_DEV_STAGE_VERSION "d2"
+#define FLOOR_REVISION_VERSION "2"
+#define FLOOR_DEV_STAGE_VERSION "d1"
 #define FLOOR_BUILD_TIME __TIME__
 #define FLOOR_BUILD_DATE __DATE__
 
@@ -78,14 +78,14 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 4)
-#error "Sorry, but you need Clang 3.4+ to compile floor"
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 5)
+#error "Sorry, but you need Clang 3.5+ to compile floor"
 #endif
 
 // gcc check
 #elif defined(__GNUC__)
-#if (__GNUC__ < 4) || (__GNUC__ == 4 && __GNUC_MINOR__ < 9)
-#error "Sorry, but you need GCC 4.9+ to compile floor"
+#if (__GNUC__ < 5)
+#error "Sorry, but you need GCC 5.x+ to compile floor"
 #endif
 
 // just fall through ...

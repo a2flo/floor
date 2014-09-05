@@ -34,7 +34,7 @@ static bool log_append_mode { false };
 static vector<pair<logger::LOG_TYPE, string>> log_store, log_output_store;
 static mutex log_store_lock;
 
-class logger_thread : thread_base {
+class logger_thread final : thread_base {
 public:
 	logger_thread() : thread_base("logger") {
 		this->set_thread_delay(20); // lower to 20ms
@@ -46,7 +46,7 @@ public:
 		run();
 	}
 	
-	virtual void run();
+	void run() override;
 };
 static unique_ptr<logger_thread> log_thread;
 
@@ -83,7 +83,11 @@ void logger_thread::run() {
 		// TODO: color config setting + timestamp setting?
 		
 		// finally: output
-		cout << entry.second;
+		if(entry.first != logger::LOG_TYPE::ERROR_MSG) {
+			cout << entry.second;
+		}
+		else cerr << entry.second;
+		
 		if(entry.second[0] == 0x1B) {
 			// strip the color information when writing to the log file
 			entry.second.erase(0, 5);
@@ -98,6 +102,7 @@ void logger_thread::run() {
 		else *log_file << entry.second;
 	}
 	cout.flush();
+	cerr.flush();
 	log_file->flush();
 	if(msg_file != nullptr) {
 		msg_file->flush();
@@ -119,17 +124,26 @@ void logger_thread::run() {
 
 void logger::init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
 				  const string log_filename_, const string msg_filename_) {
+	// only allow single init
+	static bool initialized = false;
+	if(initialized) return;
+	initialized = true;
+	
+	// always call destroy on program exit
+	atexit([] { logger::destroy(); });
+	
+	//
 	log_filename = log_filename_;
 	log_file = make_unique<ofstream>(log_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 	if(!log_file->is_open()) {
-		cout << "LOG ERROR: couldn't open log file!" << endl;
+		cerr << "LOG ERROR: couldn't open log file!" << endl;
 	}
 	
 	if(separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
 		msg_filename = msg_filename_;
 		msg_file = make_unique<ofstream>(msg_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 		if(!msg_file->is_open()) {
-			cout << "LOG ERROR: couldn't open msg log file!" << endl;
+			cerr << "LOG ERROR: couldn't open msg log file!" << endl;
 		}
 	}
 	
@@ -188,8 +202,7 @@ void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char
 	// this is the final log function
 	while(*str) {
 		if(*str == '%' && *(++str) != '%') {
-			cout << "LOG ERROR: invalid log format, missing arguments!" << endl;
-			cout.flush();
+			cerr << "LOG ERROR: invalid log format, missing arguments!" << endl;
 		}
 		buffer << *str++;
 	}

@@ -75,12 +75,15 @@
 
 using namespace std;
 
-// we don't need these
+// we don't need these and they cause issues
 #if defined(min)
 #undef min
 #endif
 #if defined(max)
 #undef max
+#endif
+#if defined(bool) /* srsly? */
+#undef bool
 #endif
 
 #endif

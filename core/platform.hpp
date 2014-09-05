@@ -147,7 +147,7 @@
 #include <floor/core/util.hpp>
 
 // const_string
-#include <floor/core/const_string.hpp>
+#include <floor/constexpr/const_string.hpp>
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0

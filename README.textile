@@ -7,18 +7,19 @@ This is a C++ core library that is used in several of my projects:
 * "unibot":https://github.com/a2flo/unibot
 
 *Requirements:*
-* Windows: NT 6.0+ x86 (Vista/7/8/2008/2008R2/2012/2012R2); NT 5.1/5.2 x86 (XP/2003) support is uncertain
+* Windows: NT 6.0+ x86 (Vista/7/8/2008/2008R2/2012/2012R2)
 * OS X: 10.7+
 * iOS: 7.0+ (armv7/armv7s/arm64)
 * Linux: any x64 distribution that supports the AMD, Intel or Nvidia OpenCL SDK/drivers
 * FreeBSD: 10.0+ (amd64; i386 support is uncertain)
+* OpenBSD: soon (5.5+)
 
 *Build Instructions:*
 * after cloning: git submodule init && git submodule update
 * after a submodule update / pull: git submodule update
 
 on Linux and FreeBSD:
-* install all necessary libraries and programs, including clang 3.4+ and libc++ (currently 1101) (-> Credits)
+* install all necessary libraries and programs, including clang 3.5+ and libc++ (currently 1101) (-> Credits)
 ** on "Arch Linux":https://www.archlinux.org (sub-dependencies are installed automatically): pacman -S clang libc++ sdl2 sdl2_image libxml2 premake freetype2 boost opencl-headers cuda
 ** any of: opencl-nvidia (in addition to Nvidia drivers), intel-opencl-sdk (from AUR, CPU only or in addition to Intel GPU drivers) or "catalyst":https://wiki.archlinux.org/index.php/AMD_Catalyst + "misc":https://wiki.archlinux.org/index.php/AMD_Catalyst#OpenCL_and_OpenGL_development
 * run ./premake.sh or "./premake.sh pocl" on FreeBSD
@@ -32,7 +33,7 @@ on Linux and FreeBSD:
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 
 on Windows/MinGW:
-* install custom MinGW builds (with clang 3.4+ and libc++)
+* install custom MinGW builds (with clang 3.5+ and libc++)
 * install "MSYS":http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/ to your MinGW folder
 * build/install all necessary libraries, including libc++ (-> Credits)
 * add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/mingw/mingw32/")
@@ -43,7 +44,7 @@ on Windows/MinGW:
 * note: to make things easier, I might provide a full MinGW package containing all required libraries at a later point
 
 on OS X:
-* install Xcode 5.1+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
+* install Xcode 6.0+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
 * if you haven't installed the Xcode command line tools yet, run: ==xcode-select --install==
 * install "homebrew":http://brew.sh: ==ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"==
 * install openssl 1.0.1e+ (OS X only provides 0.9.8 - this is w/o TLS 1.1/1.2 support!): brew install openssl
@@ -55,7 +56,7 @@ on OS X:
 ** sudo ln -sf /path/to/floor /usr/local/include/floor
 
 on iOS:
-* install Xcode 5.1+
+* install Xcode 6.0+
 * compile static libs for SDL2 (2.0.2+), SDL2_image and OpenSSL (1.0.1e+), then symlink or copy them into your iPhoneOS and iPhoneSimulator /usr/{lib,include} folders
 * symlink or copy boost header folder to your iPhoneOS and iPhoneSimulator /usr/include/ folder
 * symlink the OpenCL.framework/Headers folder of your OS X SDK to the iPhoneOS SDKs PrivateFrameworks/OpenCL.framework/ folder
@@ -70,6 +71,7 @@ In the future, there will be more configuration options (defines) that can disab
 Right now, only CUDA and OpenCL can be disabled:
 * to disable CUDA: don't define "FLOOR_CUDA_CL"
 * to disable OpenCL: define "FLOOR_NO_OPENCL"
+* to disable OpenAL: define "FLOOR_NO_OPENAL"
 
 *Credits:*
 * http://www.libsdl.org / SDL2 and SDL2_image

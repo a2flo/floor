@@ -104,8 +104,8 @@ protected:
 	// there is no way in c++ to figure out if a lock is still held -> count the locks/unlocks manually
 	atomic<unsigned int> thread_lock_count { 0 };
 	atomic<THREAD_STATUS> thread_status { THREAD_STATUS::INIT };
-	atomic<bool> thread_should_finish_flag { false };
 	atomic<size_t> thread_delay { 50 };
+	atomic<bool> thread_should_finish_flag { false };
 	atomic<bool> yield_after_run { true };
 	
 	//! this _must_ be called from the inheriting class to actually start the thread

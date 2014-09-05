@@ -84,22 +84,22 @@ public:
 	
 	void set(const T& vx, const T& vy, const T& vz, const T& vw);
 	void set(const vector4& v);
-	void scale(const T& f);
-	void scale(const vector4& v);
+	[[deprecated]] void scale(const T& f);
+	[[deprecated]] void scale(const vector4& v);
 	
 	template<size_t comp1, size_t comp2, size_t comp3, size_t comp4> vector4 swizzle() const {
 		return vector4(((T*)this)[comp1], ((T*)this)[comp2], ((T*)this)[comp3], ((T*)this)[comp4]);
 	}
 	
 	// a component-wise minimum between two vector4s
-	static const vector4 min(const vector4& v1, const vector4& v2) {
-		return vector4(std::min(v1.x, v2.x), std::min(v1.y, v2.y), 
+	[[deprecated]] static const vector4 min(const vector4& v1, const vector4& v2) {
+		return vector4(std::min(v1.x, v2.x), std::min(v1.y, v2.y),
 					   std::min(v1.z, v2.z), std::min(v1.w, v2.w));
 	}
 	
 	// a component-wise maximum between two vector4s
-	static const vector4 max(const vector4& v1, const vector4& v2) {
-		return vector4(std::max(v1.x, v2.x), std::max(v1.y, v2.y), 
+	[[deprecated]] static const vector4 max(const vector4& v1, const vector4& v2) {
+		return vector4(std::max(v1.x, v2.x), std::max(v1.y, v2.y),
 					   std::max(v1.z, v2.z), std::max(v1.w, v2.w));
 	}
 	
@@ -107,7 +107,7 @@ public:
 		return (this->x * v.x + this->y * v.y + this->z * v.z + this->w * v.w);
 	}
 	
-	static const vector4 mix(const vector4& v1, const vector4& v2, const T& coef) {
+	[[deprecated]] static const vector4 mix(const vector4& v1, const vector4& v2, const T& coef) {
 		return vector4(v1.x * coef + v2.x * ((T)1 - coef),
 					   v1.y * coef + v2.y * ((T)1 - coef),
 					   v1.z * coef + v2.z * ((T)1 - coef),
@@ -135,6 +135,7 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 // additional vector types
+#if 0
 template <typename T> class vector8 {
 public:
 	vector4<T> lo, hi;
@@ -174,7 +175,7 @@ public:
 		lo.lo = float4(floats[0], floats[1], floats[2], floats[3]);
 		lo.hi = float4(floats[4], floats[5], floats[6], floats[7]);
 		hi.lo = float4(floats[8], floats[9], floats[10], floats[11]);
-		hi.hi = float4(floats[12], floats[13], floats[14], floats[15]); 
+		hi.hi = float4(floats[12], floats[13], floats[14], floats[15]);
 	}
 	
 	T& operator[](size_t index) {
@@ -197,6 +198,7 @@ public:
 typedef vector16<float> float16;
 typedef vector16<unsigned int> uint16;
 typedef vector16<int> int16;
+#endif
 ////////////////////////////////////////////////////////////////////////////////
 
 template<typename T> T& vector4<T>::operator[](size_t index) {

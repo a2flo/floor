@@ -63,6 +63,7 @@ public:
 	static bool file_to_string(const string& filename, string& str);
 	static string file_to_string(const string& filename);
 	static bool string_to_file(const string& filename, string& str);
+	static bool buffer_to_file(const string& filename, const char* buffer, const size_t& size);
 
 	bool open(const string& filename, OPEN_TYPE open_type);
 	void close();

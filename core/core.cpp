@@ -20,6 +20,11 @@
 #include "core/unicode.hpp"
 #include <thread>
 
+#if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 // TODO: add thread safety for gen and rd?
 #if !(defined(__clang__) && defined(WIN_UNIXENV))
 // use this on all platforms except clang+windows
@@ -78,7 +83,7 @@ float3 core::get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f&
 }
 
 /*! returns the nearest power of two value of num (only numerical upwards)
- *  @param num the number which next pot value we want to have 
+ *  @param num the number which next pot value we want to have
  */
 unsigned int core::next_pot(const unsigned int& num) {
 	unsigned int tmp = 2;
@@ -164,7 +169,7 @@ string core::str_to_upper(const string& str) {
 string core::strip_path(const string& in_path) {
 	string path = in_path;
 	size_t pos = 0, erase_pos;
-	while((pos = path.find("../", 0)) != string::npos) {
+	while((pos = path.find("../", 0)) != string::npos && pos != 0) {
 		erase_pos = path.rfind("/", pos-2);
 #if defined(__WINDOWS__)
 		if(erase_pos == string::npos) erase_pos = path.rfind("\\", pos-2);
@@ -176,7 +181,7 @@ string core::strip_path(const string& in_path) {
 	
 #if defined(__WINDOWS__) // additional windows path handling
 	pos = 0;
-	while((pos = path.find("..\\", 0)) != string::npos) {
+	while((pos = path.find("..\\", 0)) != string::npos && pos != 0) {
 		erase_pos = path.rfind("/", pos-2);
 		if(erase_pos == string::npos) erase_pos = path.rfind("\\", pos-2);
 		if(erase_pos != string::npos) {
@@ -214,24 +219,6 @@ string core::strip_filename(const string& in_path) {
 #endif
 	
 	return filename;
-}
-
-size_t core::lcm(size_t v1, size_t v2) {
-	size_t lcm_ = 1, div = 2;
-	while(v1 != 1 || v2 != 1) {
-		if((v1 % div) == 0 || (v2 % div) == 0) {
-			if((v1 % div) == 0) v1 /= div;
-			if((v2 % div) == 0) v2 /= div;
-			
-			lcm_ *= div;
-		}
-		else div++;
-	}
-	return lcm_;
-}
-
-size_t core::gcd(size_t v1, size_t v2) {
-	return ((v1 * v2) / lcm(v1, v2));
 }
 
 string core::trim(const string& str) {
@@ -341,7 +328,7 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
  *  @param normal the "output" normal
  */
 void core::compute_normal(const float3& v1, const float3& v2, const float3& v3, float3& normal) {
-	normal = (v2 - v1) ^ (v3 - v1);
+	normal = (v2 - v1).cross(v3 - v1);
 	normal.normalize();
 }
 
@@ -369,7 +356,7 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 	// normal
 	float3 edge1(v2 - v1);
 	float3 edge2(v3 - v1);
-	normal = (edge1 ^ edge2);
+	normal = edge1.cross(edge2);
 	normal.normalize();
 	
 	// binormal
@@ -381,8 +368,11 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 	tangent.normalize();
 	
 	// adjust
-	float3 txb = tangent ^ binormal;
-	(normal * txb > 0.0f) ? tangent *= -1.0f : binormal *= -1.0f;
+	float3 txb = tangent.cross(binormal);
+	if(normal.dot(txb) > 0.0f) {
+		tangent *= -1.0f;
+	}
+	else binormal *= -1.0f;
 }
 
 void core::system(const string& cmd) {
@@ -401,36 +391,6 @@ void core::system(const string& cmd, string& output) {
 		memset(buffer, 0, buffer_size); // size+1 is always 0
 	}
 	pclose(sys_pipe);
-}
-
-int core::rand(const int& max) {
-	uniform_int_distribution<> dist(0, max-1);
-	return dist(gen);
-}
-
-int core::rand(const int& min, const int& max) {
-	uniform_int_distribution<> dist(min, max-1);
-	return dist(gen);
-}
-
-unsigned int core::rand(const unsigned int& max) {
-	uniform_int_distribution<unsigned int> dist(0u, max-1u);
-	return dist(gen);
-}
-
-unsigned int core::rand(const unsigned int& min, const unsigned int& max) {
-	uniform_int_distribution<unsigned int> dist(min, max-1u);
-	return dist(gen);
-}
-
-float core::rand(const float& max) {
-	uniform_real_distribution<float> dist(0.0f, max);
-	return dist(gen);
-}
-
-float core::rand(const float& min, const float& max) {
-	uniform_real_distribution<float> dist(min, max);
-	return dist(gen);
 }
 
 void core::set_random_seed(const unsigned int& seed) {
@@ -471,4 +431,28 @@ string core::encode_url(const string& url) {
 
 uint32_t core::unix_timestamp() {
 	return (uint32_t)chrono::duration_cast<chrono::seconds>(chrono::system_clock::now().time_since_epoch()).count();
+}
+
+uint32_t core::get_hw_thread_count() {
+	uint32_t hw_thread_count = 1; // default to 1
+#if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
+	size_t size = sizeof(hw_thread_count);
+#if !defined(__OpenBSD__)
+	sysctlbyname("hw.ncpu", &hw_thread_count, &size, nullptr, 0);
+#else
+	static const int sysctl_cmd[2] { CTL_HW, HW_NCPU };
+	sysctl(sysctl_cmd, 2, &hw_thread_count, &size, nullptr, 0);
+#endif
+#elif defined(__linux__)
+	hw_thread_count = (uint32_t)sysconf(_SC_NPROCESSORS_CONF);
+#elif defined(__WINDOWS__)
+	constexpr const size_t buffer_size { 16u };
+	size_t size = buffer_size - 1;
+	char output[buffer_size];
+	GetEnvironmentVariable("NUMBER_OF_PROCESSORS", output, size);
+	output[buffer_size - 1] = 0;
+	hw_thread_count = (uint32_t)stoul(output);
+#else // other platforms?
+#endif
+	return hw_thread_count;
 }

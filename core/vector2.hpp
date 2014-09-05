@@ -178,12 +178,12 @@ public:
 	}
 	
 	// a component-wise minimum between two vector2s
-	static const vector2 min(const vector2& v1, const vector2& v2) {
+	[[deprecated]] static const vector2 min(const vector2& v1, const vector2& v2) {
 		return vector2(std::min(v1.x, v2.x), std::min(v1.y, v2.y));
 	}
 	
 	// a component-wise maximum between two vector2s
-	static const vector2 max(const vector2& v1, const vector2& v2) {
+	[[deprecated]] static const vector2 max(const vector2& v1, const vector2& v2) {
 		return vector2(std::max(v1.x, v2.x), std::max(v1.y, v2.y));
 	}
 	

@@ -41,9 +41,9 @@ public:
 		}
 		const auto total_diff = entries.back().second - entries.front().second;
 		log_undecorated("[TOTAL] %_s # %_ms # %_",
-				 double(total_diff) / double(ticks_per_second),
-				 double(total_diff) / double(ticks_per_second / 1000ull),
-				 total_diff);
+						double(total_diff) / double(ticks_per_second),
+						double(total_diff) / double(ticks_per_second / 1000ull),
+						total_diff);
 	}
 	
 protected:
@@ -57,11 +57,41 @@ protected:
 		const auto prev_iter = iter - 1;
 		const auto diff = iter->second - prev_iter->second;
 		log_undecorated("[%_] %_ms # %_",
-				 iter->first,
-				 double(diff) / double(ticks_per_second / 1000ull),
-				 diff);
+						iter->first,
+						double(diff) / double(ticks_per_second / 1000ull),
+						diff);
 	}
 	
 };
+
+// TODO: merge with other timer class
+// timer needs a monotonic/steady clock, try using high_resolution_clock as default if it is steady, otherwise use steady_clock
+template <class clock_type = typename conditional<chrono::high_resolution_clock::is_steady,
+												  chrono::high_resolution_clock,
+												  chrono::steady_clock>::type>
+//! simple timer class based on std chrono functionality and capable of using arbitrary duration types (defaults to ms)
+class floor_timer2_t {
+public:
+	//! "starts" the timer: returns the current time_point of a monotonic clock
+	static chrono::time_point<clock_type> start() {
+		return clock_type::now();
+	}
+	
+	//! "stops" the timer: substracts the start time_point from the current time_point of a monotonic clock
+	//! and casts the result to a specified duration type (or milliseconds by default)
+	template <typename duration_type = chrono::milliseconds>
+	static uint64_t stop(const chrono::time_point<clock_type>& start_time) {
+		return (uint64_t)chrono::duration_cast<duration_type>(clock_type::now() - start_time).count();
+	}
+	
+protected:
+	// static class
+	floor_timer2_t(const floor_timer2_t&) = delete;
+	~floor_timer2_t() = delete;
+	floor_timer2_t& operator=(const floor_timer2_t&) = delete;
+	
+};
+//! floor_timer_t with default clock_type (this is for easier use, so <> doesn't have to be used all the time)
+using floor_timer2 = floor_timer2_t<>;
 
 #endif

@@ -49,6 +49,7 @@ float osx_helper::get_menu_bar_height() {
 }
 
 size_t osx_helper::get_system_version() {
+	// TODO: fix for 10.10
 	// add a define for the run time os x version
 	string osrelease(16, 0);
 	size_t size = osrelease.size() - 1;
@@ -77,6 +78,7 @@ size_t osx_helper::get_system_version() {
 }
 
 size_t osx_helper::get_compiled_system_version() {
+	// TODO: fix for 10.10
 	// this is a number: 1090 (10.9), 1080 (10.8), ...
 	return MAC_OS_X_VERSION_MAX_ALLOWED;
 }

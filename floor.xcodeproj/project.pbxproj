@@ -12,7 +12,6 @@
 		5C1091A217D1153E007F536E /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916817D1153E007F536E /* opencl.hpp */; };
 		5C1091A317D1153E007F536E /* basic_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916A17D1153E007F536E /* basic_math.hpp */; };
 		5C1091A417D1153E007F536E /* bbox.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916B17D1153E007F536E /* bbox.hpp */; };
-		5C1091A517D1153E007F536E /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916C17D1153E007F536E /* const_string.hpp */; };
 		5C1091A617D1153E007F536E /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5C1091A717D1153E007F536E /* core.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916E17D1153E007F536E /* core.hpp */; };
 		5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916F17D1153E007F536E /* cpp_headers.hpp */; };
@@ -74,6 +73,9 @@
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
+		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
+		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
+		5C366DDF19A65E11006D1D09 /* const_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDE19A65E11006D1D09 /* const_helpers.hpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -144,13 +146,16 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5C0DF00819B8C79200331AAC /* vector.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector.hpp; sourceTree = "<group>"; };
+		5C0DF00919B8C79200331AAC /* vector_helper.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_helper.hpp; sourceTree = "<group>"; };
+		5C0DF00A19B8C79200331AAC /* vector_lib.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_lib.hpp; sourceTree = "<group>"; };
+		5C0DF00B19B8C79200331AAC /* vector_ops.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops.hpp; sourceTree = "<group>"; };
 		5C10915E17D114BC007F536E /* libfloord.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libfloord.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C10916617D1153E007F536E /* cl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cl.hpp; sourceTree = "<group>"; };
 		5C10916717D1153E007F536E /* opencl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl.cpp; sourceTree = "<group>"; };
 		5C10916817D1153E007F536E /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl.hpp; sourceTree = "<group>"; };
 		5C10916A17D1153E007F536E /* basic_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = basic_math.hpp; sourceTree = "<group>"; };
 		5C10916B17D1153E007F536E /* bbox.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = bbox.hpp; sourceTree = "<group>"; };
-		5C10916C17D1153E007F536E /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C10916D17D1153E007F536E /* core.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = core.cpp; sourceTree = "<group>"; };
 		5C10916E17D1153E007F536E /* core.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = core.hpp; sourceTree = "<group>"; };
 		5C10916F17D1153E007F536E /* cpp_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_headers.hpp; sourceTree = "<group>"; };
@@ -214,6 +219,9 @@
 		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
 		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
 		5C10920717D1FA12007F536E /* floor_version.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_version.hpp; sourceTree = "<group>"; };
+		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
+		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
+		5C366DDE19A65E11006D1D09 /* const_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_helpers.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A618F953590039BFD4 /* lang_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lang_context.cpp; sourceTree = "<group>"; };
@@ -263,6 +271,7 @@
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5CC2F78518678AAD0031E08D /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
 		5CC2F78818678AAD0031E08D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
+		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -297,6 +306,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5C0DF00719B8C79200331AAC /* math */ = {
+			isa = PBXGroup;
+			children = (
+				5C0DF00A19B8C79200331AAC /* vector_lib.hpp */,
+				5C0DF00819B8C79200331AAC /* vector.hpp */,
+				5C0DF00919B8C79200331AAC /* vector_helper.hpp */,
+				5C0DF00B19B8C79200331AAC /* vector_ops.hpp */,
+				5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */,
+			);
+			path = math;
+			sourceTree = "<group>";
+		};
 		5C10915517D114BC007F536E = {
 			isa = PBXGroup;
 			children = (
@@ -332,7 +353,6 @@
 			children = (
 				5C10916A17D1153E007F536E /* basic_math.hpp */,
 				5C10916B17D1153E007F536E /* bbox.hpp */,
-				5C10916C17D1153E007F536E /* const_string.hpp */,
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
 				5C10916F17D1153E007F536E /* cpp_headers.hpp */,
@@ -429,12 +449,14 @@
 			children = (
 				5C7173AA18D7147F00DDF097 /* audio */,
 				5C10916517D1153E007F536E /* cl */,
+				5C366DD919A64FF2006D1D09 /* constexpr */,
 				5C10916917D1153E007F536E /* core */,
 				5C10918817D1153E007F536E /* cuda */,
 				5C1091D617D14095007F536E /* floor */,
 				5C10918E17D1153E007F536E /* hash */,
 				5CAEC259186799E300BEC3A3 /* ios */,
 				5C4A85A018F9527E0039BFD4 /* lang */,
+				5C0DF00719B8C79200331AAC /* math */,
 				5C10919117D1153E007F536E /* net */,
 				5C1091E317D1480A007F536E /* osx */,
 				5C1091D817D14272007F536E /* tccpp */,
@@ -486,6 +508,16 @@
 				5C1091F017D148AD007F536E /* SDL2.framework */,
 			);
 			name = libs;
+			sourceTree = "<group>";
+		};
+		5C366DD919A64FF2006D1D09 /* constexpr */ = {
+			isa = PBXGroup;
+			children = (
+				5C366DDE19A65E11006D1D09 /* const_helpers.hpp */,
+				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
+				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
+			);
+			path = constexpr;
 			sourceTree = "<group>";
 		};
 		5C4A85A018F9527E0039BFD4 /* lang */ = {
@@ -578,9 +610,11 @@
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C1091A317D1153E007F536E /* basic_math.hpp in Headers */,
 				5C4A85BE18F95EE40039BFD4 /* parser.hpp in Headers */,
+				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
 				5C4A85B918F955B30039BFD4 /* ast_base.hpp in Headers */,
 				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
+				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C1091BC17D1153E007F536E /* vector3.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
 				5C1091BE17D1153E007F536E /* vector4.hpp in Headers */,
@@ -611,7 +645,6 @@
 				5C7B324E17E7225A00153798 /* quaternion.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
-				5C1091A517D1153E007F536E /* const_string.hpp in Headers */,
 				5C1091E017D1427F007F536E /* tcc.h in Headers */,
 				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
@@ -619,6 +652,7 @@
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
 				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
+				5C366DDF19A65E11006D1D09 /* const_helpers.hpp in Headers */,
 				5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */,
 				5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */,
 				5C1091A217D1153E007F536E /* opencl.hpp in Headers */,
@@ -669,7 +703,7 @@
 		5C10915617D114BC007F536E /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0510;
+				LastUpgradeCheck = 0600;
 				ORGANIZATIONNAME = "Florian Ziesche";
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
@@ -816,10 +850,11 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_ASSIGN_ENUM = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
@@ -829,23 +864,27 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.1.1;
+				CURRENT_PROJECT_VERSION = 0.1.2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.1.1;
-				DYLIB_CURRENT_VERSION = 0.1.1;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.2;
+				DYLIB_CURRENT_VERSION = 0.1.2;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_FAST_MATH = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = floor_prefix.pch;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					DEBUG,
@@ -877,6 +916,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
+				LLVM_LTO = NO;
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				ONLY_ACTIVE_ARCH = YES;
@@ -891,7 +931,6 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=c++1y",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 				);
@@ -927,7 +966,7 @@
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
-					"-Wno-float-equal",
+					"-Wno-old-style-cast",
 				);
 			};
 			name = Debug;
@@ -940,10 +979,11 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++14";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_WARN_ASSIGN_ENUM = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES;
@@ -953,23 +993,27 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.1.1;
+				CURRENT_PROJECT_VERSION = 0.1.2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.1.1;
-				DYLIB_CURRENT_VERSION = 0.1.1;
+				DYLIB_COMPATIBILITY_VERSION = 0.1.2;
+				DYLIB_CURRENT_VERSION = 0.1.2;
 				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
-				GCC_C_LANGUAGE_STANDARD = c11;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_FAST_MATH = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
 				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
 				GCC_OPTIMIZATION_LEVEL = fast;
-				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
 				GCC_PREFIX_HEADER = floor_prefix.pch;
 				GCC_PREPROCESSOR_DEFINITIONS = "TCC_LIB_ONLY=1";
 				GCC_UNROLL_LOOPS = YES;
@@ -996,6 +1040,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
+				LLVM_LTO = NO;
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.7;
 				OTHER_CFLAGS = (
@@ -1009,7 +1054,6 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
-					"-std=c++1y",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 				);
@@ -1045,7 +1089,7 @@
 					"-Wno-exit-time-destructors",
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
-					"-Wno-float-equal",
+					"-Wno-old-style-cast",
 				);
 			};
 			name = Release;
@@ -1155,7 +1199,7 @@
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = floord;
-				SDKROOT = iphoneos7.0;
+				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
@@ -1200,7 +1244,7 @@
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = floor;
-				SDKROOT = iphoneos7.0;
+				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";

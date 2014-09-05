@@ -33,10 +33,10 @@
 
 class FLOOR_API __attribute__((packed, aligned(4))) bbox {
 public:
-	float3 min;
-	float3 max;
+	float3 min { __FLT_MAX__ };
+	float3 max { -__FLT_MAX__ };
 	
-	constexpr bbox() noexcept : min(__FLT_MAX__), max(__FLT_MIN__) {}
+	constexpr bbox() noexcept = default;
 	constexpr bbox(const bbox& box) noexcept : min(box.min), max(box.max) {}
 	constexpr bbox(const float3& bmin, const float3& bmax) noexcept : min(bmin), max(bmax) {}
 	
@@ -53,7 +53,7 @@ public:
 	static bbox empty() {
 		bbox ret;
 		ret.min = float3(__FLT_MAX__);
-		ret.max = float3(__FLT_MIN__);
+		ret.max = float3(-__FLT_MAX__);
 		return ret;
 	}
 	
@@ -81,7 +81,7 @@ public:
 		return sstr.str();
 	}
 	
-	void intersect(pair<float, float>& ret, const ray& r) const {
+	pair<float, float> intersect(const ray& r) const {
 		float3 v1 = min, v2 = max;
 		const float3 bbox_eps(0.0000001f);
 		
@@ -94,12 +94,10 @@ public:
 		float3 tmin = float3::min(t1, t2);
 		float3 tmax = float3::max(t1, t2);
 		
-		ret.first = std::max(std::max(tmin.x, tmin.y), tmin.z);
-		ret.second = std::min(std::min(tmax.x, tmax.y), tmax.z);
+		return { tmin.max_element(), tmax.min_element() };
 	}
 	bool is_intersection(const ray& r) const {
-		pair<float, float> ret;
-		intersect(ret, r);
+		pair<float, float> ret = intersect(r);
 		return (ret.first <= ret.second);
 	}
 	
@@ -147,7 +145,7 @@ public:
 		tr.direction *= mview;
 		tr.direction.normalize();
 		
-		bbox::intersect(ret, tr);
+		ret = bbox::intersect(tr);
 	}
 	
 	bool is_intersection(const extbbox& box floor_unused) const {
@@ -171,7 +169,7 @@ public:
 	static extbbox empty() {
 		extbbox ret;
 		ret.min = float3(__FLT_MAX__);
-		ret.max = float3(__FLT_MIN__);
+		ret.max = float3(-__FLT_MAX__);
 		ret.mview.identity();
 		ret.pos = float3(0.0f);
 		return ret;
