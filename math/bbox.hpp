@@ -21,7 +21,7 @@
 
 #include "core/cpp_headers.hpp"
 #include "math/vector_lib.hpp"
-#include "core/ray.hpp"
+#include "math/ray.hpp"
 
 #if defined(__clang__)
 #pragma clang diagnostic push

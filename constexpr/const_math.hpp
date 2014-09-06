@@ -20,7 +20,7 @@
 #define __FLOOR_CONST_MATH_HPP__
 
 // TODO: rather define the constants here, possibly using template vars
-#include "core/basic_math.hpp"
+#include "math/basic_math.hpp"
 
 // for long double support
 #include <tgmath.h>

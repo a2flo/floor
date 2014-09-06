@@ -26,7 +26,7 @@
 #define FLOOR_VECNAME_N(vec_width) FLOOR_VECNAME_EVAL(vec_width)<scalar_type>
 
 #include "math/vector_ops.hpp"
-#include "core/matrix4.hpp"
+#include "math/matrix4.hpp"
 #include <type_traits>
 
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },

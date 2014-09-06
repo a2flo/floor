@@ -28,7 +28,7 @@
 #include "core/event.hpp"
 #include "core/xml.hpp"
 #include "math/vector_lib.hpp"
-#include "core/matrix4.hpp"
+#include "math/matrix4.hpp"
 #include "core/unicode.hpp"
 
 class opencl_base;

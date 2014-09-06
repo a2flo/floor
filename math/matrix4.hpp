@@ -20,7 +20,7 @@
 #define __FLOOR_MATRIX4_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "core/basic_math.hpp"
+#include "math/basic_math.hpp"
 
 template <typename T> class matrix4;
 typedef matrix4<float> matrix4f;
