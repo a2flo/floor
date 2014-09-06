@@ -23,7 +23,6 @@
 #define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width
 #define FLOOR_VECNAME_EVAL(vec_width) FLOOR_VECNAME_CONCAT(vec_width)
 #define FLOOR_VECNAME FLOOR_VECNAME_EVAL(FLOOR_VECTOR_WIDTH)
-#define FLOOR_VECNAME_N(vec_width) FLOOR_VECNAME_EVAL(vec_width)<scalar_type>
 
 #include "math/vector_ops.hpp"
 #include "math/matrix4.hpp"
@@ -42,7 +41,8 @@
 template <typename scalar_type> class FLOOR_VECNAME {
 public:
 	FLOOR_UNDERLYING_VECTOR_TYPE()
-	typedef FLOOR_VECNAME<typename vector_helper<scalar_type>::signed_type> signed_vector;
+	typedef FLOOR_VECNAME<scalar_type> vector_type;
+	typedef FLOOR_VECNAME<typename vector_helper<scalar_type>::signed_type> signed_vector_type;
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -61,13 +61,13 @@ public:
 #endif
 	{}
 	
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME& vec) noexcept :
+	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME* vec) noexcept :
+	constexpr FLOOR_VECNAME(const vector_type* vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec->, FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
-	constexpr FLOOR_VECNAME(FLOOR_VECNAME&& vec) noexcept :
+	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -100,70 +100,70 @@ public:
 	// construction from lower types
 #if FLOOR_VECTOR_WIDTH == 3
 	//! construction from <vector2, scalar>
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(2)& vec,
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec,
 							const scalar_type val = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val) {}
 	//! construction from <scalar, vector2>
 	constexpr FLOOR_VECNAME(const scalar_type& val,
-							const FLOOR_VECNAME_N(2)& vec) noexcept :
+							const vector2<scalar_type>& vec) noexcept :
 	x(val), y(vec.x), z(vec.y) {}
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
 	//! construction from <vector2, scalar, scalar>
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(2)& vec,
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec,
 							const scalar_type val_z = (scalar_type)0,
 							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val_z), w(val_w) {}
 	//! construction from <scalar, vector2, scalar>
 	constexpr FLOOR_VECNAME(const scalar_type& val_x,
-							const FLOOR_VECNAME_N(2)& vec,
+							const vector2<scalar_type>& vec,
 							const scalar_type& val_w) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(val_w) {}
 	//! construction from <scalar, scalar, vector2>
 	constexpr FLOOR_VECNAME(const scalar_type& val_x,
 							const scalar_type& val_y,
-							const FLOOR_VECNAME_N(2)& vec) noexcept :
+							const vector2<scalar_type>& vec) noexcept :
 	x(val_x), y(val_y), z(vec.x), w(vec.y) {}
 	//! construction from <vector2, vector2>
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(2)& vec_lo,
-							const FLOOR_VECNAME_N(2)& vec_hi) noexcept :
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec_lo,
+							const vector2<scalar_type>& vec_hi) noexcept :
 	x(vec_lo.x), y(vec_lo.y), z(vec_hi.x), w(vec_hi.y) {}
 	
 	//! construction from <vector3, scalar>
-	constexpr FLOOR_VECNAME(const FLOOR_VECNAME_N(3)& vec,
+	constexpr FLOOR_VECNAME(const vector3<scalar_type>& vec,
 							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(vec.z), w(val_w) {}
 	//! construction from <scalar, vector3>
 	constexpr FLOOR_VECNAME(const scalar_type& val_x,
-							const FLOOR_VECNAME_N(3)& vec) noexcept :
+							const vector3<scalar_type>& vec) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
-	constexpr FLOOR_VECNAME& operator=(const FLOOR_VECNAME& vec) noexcept {
+	constexpr vector_type& operator=(const vector_type& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr FLOOR_VECNAME& operator=(FLOOR_VECNAME&& vec) noexcept {
+	constexpr vector_type& operator=(vector_type&& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr FLOOR_VECNAME& operator=(const scalar_type& val) noexcept {
+	constexpr vector_type& operator=(const scalar_type& val) noexcept {
 		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
 	// assignment from lower types
 #if FLOOR_VECTOR_WIDTH >= 3
-	constexpr FLOOR_VECNAME& operator=(const FLOOR_VECNAME_N(2)& vec) noexcept {
+	constexpr vector_type& operator=(const vector2<scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		return *this;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-	constexpr FLOOR_VECNAME& operator=(const FLOOR_VECNAME_N(3)& vec) noexcept {
+	constexpr vector_type& operator=(const vector3<scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		z = vec.z;
@@ -190,7 +190,7 @@ public:
 	
 	//! constexpr helper function to get a const& to a vector component from an index
 	template <size_t index>
-	static constexpr const scalar_type& component_select(const FLOOR_VECNAME& vec) {
+	static constexpr const scalar_type& component_select(const vector_type& vec) {
 		static_assert(index < FLOOR_VECTOR_WIDTH, "invalid index");
 		switch(index) {
 			case 0: return vec.x;
@@ -292,7 +292,7 @@ public:
 		};
 	}
 #endif
-	constexpr FLOOR_VECNAME& operator*=(const matrix4<scalar_type>& mat) {
+	constexpr vector_type& operator*=(const matrix4<scalar_type>& mat) {
 		*this = *this * mat;
 		return *this;
 	}
@@ -360,7 +360,7 @@ public:
 						(const scalar_type& max),
 						max)
 	
-	constexpr FLOOR_VECNAME& clamp(const FLOOR_VECNAME& min, const FLOOR_VECNAME& max) {
+	constexpr vector_type& clamp(const vector_type& min, const vector_type& max) {
 		x = const_math::clamp(x, min.x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::clamp(y, min.y, max.y);
@@ -373,10 +373,10 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME clamped(const FLOOR_VECNAME& min, const FLOOR_VECNAME& max) const {
+	constexpr FLOOR_VECNAME clamped(const vector_type& min, const vector_type& max) const {
 		return FLOOR_VECNAME(*this).clamp(min, max);
 	}
-	constexpr FLOOR_VECNAME& clamp(const FLOOR_VECNAME& max) {
+	constexpr vector_type& clamp(const vector_type& max) {
 		x = const_math::clamp(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::clamp(y, max.y);
@@ -389,7 +389,7 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME clamped(const FLOOR_VECNAME& max) const {
+	constexpr FLOOR_VECNAME clamped(const vector_type& max) const {
 		return FLOOR_VECNAME(*this).clamp(max);
 	}
 	
@@ -398,7 +398,7 @@ public:
 						(const scalar_type& max),
 						max)
 	
-	constexpr FLOOR_VECNAME& wrap(const FLOOR_VECNAME& max) {
+	constexpr vector_type& wrap(const vector_type& max) {
 		x = const_math::wrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::wrap(y, max.y);
@@ -411,7 +411,7 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME wrapped(const FLOOR_VECNAME& max) const {
+	constexpr FLOOR_VECNAME wrapped(const vector_type& max) const {
 		return FLOOR_VECNAME(*this).wrap(max);
 	}
 	
@@ -420,12 +420,12 @@ public:
 	constexpr scalar_type dot() const {
 		return FLOOR_VEC_EXPAND_DUAL(, *, +);
 	}
-	constexpr scalar_type dot(const FLOOR_VECNAME& vec) const {
+	constexpr scalar_type dot(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., *, +);
 	}
 	
 #if FLOOR_VECTOR_WIDTH == 2
-	constexpr FLOOR_VECNAME& perpendicular() {
+	constexpr vector_type& perpendicular() {
 		const scalar_type tmp = x;
 		x = -y;
 		y = tmp;
@@ -436,7 +436,7 @@ public:
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
-	constexpr FLOOR_VECNAME cross(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME cross(const vector_type& vec) const {
 		return {
 			y * vec.z - z * vec.y,
 			z * vec.x - x * vec.z,
@@ -449,11 +449,11 @@ public:
 		return vector_helper<scalar_type>::sqrt(dot());
 	}
 	
-	constexpr scalar_type distance(const FLOOR_VECNAME& vec) const {
+	constexpr scalar_type distance(const vector_type& vec) const {
 		return (vec - *this).length();
 	}
 	
-	constexpr scalar_type angle(const FLOOR_VECNAME& vec) const {
+	constexpr scalar_type angle(const vector_type& vec) const {
 		// if either vector is 0, there is no angle -> return 0
 		if(is_null() || vec.is_null()) return (scalar_type)0;
 		
@@ -472,41 +472,41 @@ public:
 	
 	
 	//!
-	static constexpr FLOOR_VECNAME faceforward(const FLOOR_VECNAME& N,
-											   const FLOOR_VECNAME& I,
-											   const FLOOR_VECNAME& Nref) {
+	static constexpr FLOOR_VECNAME faceforward(const vector_type& N,
+											   const vector_type& I,
+											   const vector_type& Nref) {
 		return (Nref.dot(I) < ((scalar_type)0) ? N : -N);
 	}
 	
 	//!
-	constexpr FLOOR_VECNAME& faceforward(const FLOOR_VECNAME& N, const FLOOR_VECNAME& Nref) {
+	constexpr vector_type& faceforward(const vector_type& N, const vector_type& Nref) {
 		*this = FLOOR_VECNAME::faceforward(N, *this, Nref);
 		return *this;
 	}
 	//!
-	constexpr FLOOR_VECNAME faceforwarded(const FLOOR_VECNAME& N, const FLOOR_VECNAME& Nref) const {
+	constexpr FLOOR_VECNAME faceforwarded(const vector_type& N, const vector_type& Nref) const {
 		return FLOOR_VECNAME::faceforward(N, *this, Nref);
 	}
 	
 	//! reflection of the incident vector I according to the normal N, N must be normalized
-	static constexpr FLOOR_VECNAME reflect(const FLOOR_VECNAME& N,
-										   const FLOOR_VECNAME& I) {
+	static constexpr FLOOR_VECNAME reflect(const vector_type& N,
+										   const vector_type& I) {
 		return I - ((scalar_type)2) * N.dot(I) * N;
 	}
 	
 	//! reflects this vector according to the normal N, N must be normalized
-	constexpr FLOOR_VECNAME& reflect(const FLOOR_VECNAME& N) {
+	constexpr vector_type& reflect(const vector_type& N) {
 		*this = FLOOR_VECNAME::reflect(N, *this);
 		return *this;
 	}
 	//! returns the reflected vector of *this according to the normal N, N must be normalized
-	constexpr FLOOR_VECNAME reflected(const FLOOR_VECNAME& N) const {
+	constexpr FLOOR_VECNAME reflected(const vector_type& N) const {
 		return FLOOR_VECNAME::reflect(N, *this);
 	}
 	
 	//! N and I must be normalized
-	static constexpr FLOOR_VECNAME refract(const FLOOR_VECNAME& N,
-										   const FLOOR_VECNAME& I,
+	static constexpr FLOOR_VECNAME refract(const vector_type& N,
+										   const vector_type& I,
 										   const scalar_type& eta) {
 		const scalar_type dNI = N.dot(I);
 		const scalar_type k = ((scalar_type)1) - (eta * eta) * (((scalar_type)1) - dNI * dNI);
@@ -517,13 +517,13 @@ public:
 	
 	//! refract this vector (the incident vector) according to the normal N and the refraction index eta,
 	//! *this and N must be normalized
-	constexpr FLOOR_VECNAME& refract(const FLOOR_VECNAME& N, const scalar_type& eta) {
+	constexpr vector_type& refract(const vector_type& N, const scalar_type& eta) {
 		*this = FLOOR_VECNAME::refract(N, *this, eta);
 		return *this;
 	}
 	//! returns the refracted vector of *this (the incident vector) according to the normal N and
 	//! the refraction index eta, *this and N must be normalized
-	constexpr FLOOR_VECNAME refracted(const FLOOR_VECNAME& N, const scalar_type& eta) const {
+	constexpr FLOOR_VECNAME refracted(const vector_type& N, const scalar_type& eta) const {
 		return FLOOR_VECNAME::refract(N, *this, eta);
 	}
 	
@@ -538,7 +538,7 @@ public:
 	
 	//! tests each component if it is < edge vector component, resulting in 0 if true, else 1,
 	//! and returns that result in the resp. component of the return vector
-	constexpr FLOOR_VECNAME step(const FLOOR_VECNAME& edge_vec) const {
+	constexpr FLOOR_VECNAME step(const vector_type& edge_vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(edge_vec., <, , ? (scalar_type)0 : (scalar_type)1, FLOOR_COMMA)
 		};
@@ -569,7 +569,7 @@ public:
 	//! for each component:
 	//! results in 0 if component <= edge_vec_0 component, 1 if component >= edge_vec_1 component and
 	//! performs smooth hermite interpolation between 0 and 1 if: edge_vec_0 comp < component < edge_vec_1 comp
-	constexpr FLOOR_VECNAME smoothstep(const FLOOR_VECNAME& edge_vec_0, const FLOOR_VECNAME& edge_vec_1) const {
+	constexpr FLOOR_VECNAME smoothstep(const vector_type& edge_vec_0, const vector_type& edge_vec_1) const {
 		// t = clamp((x - edge_0) / (edge_1 - edge_0), 0, 1)
 		const FLOOR_VECNAME t_vec { FLOOR_VECNAME {
 			(x - edge_vec_0.x) / (edge_vec_1.x - edge_vec_0.x)
@@ -602,66 +602,66 @@ public:
 	// NOTE: for logic && and || use the bit-wise operators, which have the same effect on bool#
 	
 	// comparisons returning component-wise results
-	constexpr FLOOR_VECNAME<bool> operator==(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator==(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., ==, FLOOR_COMMA) };
 	}
-	constexpr FLOOR_VECNAME<bool> operator!=(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator!=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., !=, FLOOR_COMMA) };
 	}
-	constexpr FLOOR_VECNAME<bool> operator<(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator<(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., <, FLOOR_COMMA) };
 	}
-	constexpr FLOOR_VECNAME<bool> operator<=(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator<=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., <=, FLOOR_COMMA) };
 	}
-	constexpr FLOOR_VECNAME<bool> operator>(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator>(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., >, FLOOR_COMMA) };
 	}
-	constexpr FLOOR_VECNAME<bool> operator>=(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME<bool> operator>=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., >=, FLOOR_COMMA) };
 	}
 	
 	// comparisons returning ANDed component-wise results
-	constexpr bool is_equal(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., ==, &&);
 	}
-	constexpr bool is_unequal(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_unequal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., !=, &&);
 	}
-	constexpr bool is_less(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_less(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., <, &&);
 	}
-	constexpr bool is_less_or_equal(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_less_or_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., <=, &&);
 	}
-	constexpr bool is_greater(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_greater(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., >, &&);
 	}
-	constexpr bool is_greater_or_equal(const FLOOR_VECNAME& vec) const {
+	constexpr bool is_greater_or_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., >=, &&);
 	}
 	
 	// comparisons with an +/- epsilon returning ANDed component-wise results
-	constexpr bool is_equal(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_EQ_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
-	constexpr bool is_unequal(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_unequal(const vector_type& vec, const scalar_type& epsilon) const {
 		return !is_equal(vec, epsilon);
 	}
-	constexpr bool is_less(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_less(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
-	constexpr bool is_less_or_equal(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_less_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
-	constexpr bool is_greater(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_greater(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
-	constexpr bool is_greater_or_equal(const FLOOR_VECNAME& vec, const scalar_type& epsilon) const {
+	constexpr bool is_greater_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
@@ -688,20 +688,20 @@ public:
 	// functional / algorithm
 	
 	//! same as operator=(vec)
-	constexpr FLOOR_VECNAME& set(const FLOOR_VECNAME& vec) {
+	constexpr vector_type& set(const vector_type& vec) {
 		*this = vec;
 		return *this;
 	}
 	
 	//! same as operator=(scalar)
-	constexpr FLOOR_VECNAME& set(const scalar_type& val) {
+	constexpr vector_type& set(const scalar_type& val) {
 		*this = val;
 		return *this;
 	}
 	
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! same as operator=(vector# { val_x, ... })
-	constexpr FLOOR_VECNAME& set(const scalar_type& vec_x
+	constexpr vector_type& set(const scalar_type& vec_x
 								 , const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
 								 , const scalar_type& vec_z
@@ -723,8 +723,8 @@ public:
 #endif
 	
 	//!
-	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-									const FLOOR_VECNAME& vec) {
+	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+									const vector_type& vec) {
 		if(cond_vec.x) x = vec.x;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = vec.y;
@@ -739,7 +739,7 @@ public:
 	}
 	
 	//!
-	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
 									const scalar_type& val) {
 		if(cond_vec.x) x = val;
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -756,7 +756,7 @@ public:
 	
 #if FLOOR_VECTOR_WIDTH >= 2
 	//!
-	constexpr FLOOR_VECNAME& set_if(const FLOOR_VECNAME<bool>& cond_vec,
+	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
 									const scalar_type& vec_x
 									, const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
@@ -779,7 +779,7 @@ public:
 #endif
 	
 	//! sets each component to the result of the function call with the resp. component (uf(x), ...)
-	template <typename unary_function> constexpr FLOOR_VECNAME& apply(unary_function uf) {
+	template <typename unary_function> constexpr vector_type& apply(unary_function uf) {
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, uf, FLOOR_NOP, FLOOR_SEMICOLON, FLOOR_VEC_RHS_NOP,
 								 FLOOR_NOP, FLOOR_VEC_ASSIGN_SET);
 		return *this;
@@ -787,7 +787,7 @@ public:
 	
 	//! if the corresponding component in cond_vec is true, this will apply / set the component
 	//! to the result of the function call with the resp. component
-	template <typename unary_function> constexpr FLOOR_VECNAME& apply_if(const FLOOR_VECNAME<bool>& cond_vec,
+	template <typename unary_function> constexpr vector_type& apply_if(const FLOOR_VECNAME<bool>& cond_vec,
 																		 unary_function uf) {
 		if(cond_vec.x) x = uf(x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -849,7 +849,7 @@ public:
 	
 	//////////////////////////////////////////
 	// I/O
-	friend ostream& operator<<(ostream& output, const FLOOR_VECNAME& vec) {
+	friend ostream& operator<<(ostream& output, const vector_type& vec) {
 		output << "(" << FLOOR_VEC_EXPAND_ENCLOSED(<< ", " <<, vec., ) << ")";
 		return output;
 	}
@@ -861,25 +861,25 @@ public:
 	
 	//////////////////////////////////////////
 	// misc
-	constexpr FLOOR_VECNAME& min(const FLOOR_VECNAME& vec) {
+	constexpr vector_type& min(const vector_type& vec) {
 		*this = this->minned(vec);
 		return *this;
 	}
-	constexpr FLOOR_VECNAME& max(const FLOOR_VECNAME& vec) {
+	constexpr vector_type& max(const vector_type& vec) {
 		*this = this->maxed(vec);
 		return *this;
 	}
-	constexpr FLOOR_VECNAME minned(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME minned(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::min, , FLOOR_COMMA)
 		};
 	}
-	constexpr FLOOR_VECNAME maxed(const FLOOR_VECNAME& vec) const {
+	constexpr FLOOR_VECNAME maxed(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::max, , FLOOR_COMMA)
 		};
 	}
-	constexpr pair<FLOOR_VECNAME, FLOOR_VECNAME> minmax(const FLOOR_VECNAME& vec) const {
+	constexpr pair<FLOOR_VECNAME, FLOOR_VECNAME> minmax(const vector_type& vec) const {
 		FLOOR_VECNAME min_vec, max_vec;
 		if(x >= vec.x) {
 			min_vec[0] = vec.x;
@@ -946,9 +946,11 @@ public:
 				y >= z ? (y >= w ? y : w) : (z >= w ? z : w));
 #endif
 	}
-	constexpr FLOOR_VECNAME_N(2) minmax_element() const {
+#if FLOOR_VECTOR_WIDTH >= 2
+	constexpr vector2<scalar_type> minmax_element() const {
 		return { min_element(), max_element() };
 	}
+#endif
 	
 	constexpr size_t min_element_index() const {
 #if FLOOR_VECTOR_WIDTH == 1
@@ -976,23 +978,25 @@ public:
 				 (z >= w ? 2u : 3u)));
 #endif
 	}
-	constexpr FLOOR_VECNAME_N(2) minmax_element_index() const {
+#if FLOOR_VECTOR_WIDTH >= 2
+	constexpr vector2<size_t> minmax_element_index() const {
 		return { min_element_index(), max_element_index() };
 	}
+#endif
 	
 	//!
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::abs, abs, absed)
 	
 	//! linear interpolation
 	FLOOR_VEC_FUNC_ARGS_VEC(const_math::interpolate, interpolate, interpolated,
-							(const FLOOR_VECNAME& vec, const scalar_type& interp),
+							(const vector_type& vec, const scalar_type& interp),
 							vec., FLOOR_VEC_RHS_VEC,
 							interp)
 	
 	//!
 	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
-	constexpr signed_vector sign() const {
+	constexpr signed_vector_type sign() const {
 		// signed version
 		return {
 			FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0 ? (signed_type)-1 : (signed_type)1)
@@ -1000,7 +1004,7 @@ public:
 	}
 	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
 			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
-	constexpr signed_vector sign() const {
+	constexpr signed_vector_type sign() const {
 		// unsigned version
 		return { (signed_type)1 };
 	}
@@ -1020,9 +1024,9 @@ public:
 	}
 	
 	//!
-	static FLOOR_VECNAME random(const scalar_type max = (scalar_type)1);
+	static vector_type random(const scalar_type max = (scalar_type)1);
 	//!
-	static FLOOR_VECNAME random(const scalar_type min, const scalar_type max);
+	static vector_type random(const scalar_type min, const scalar_type max);
 	
 	//////////////////////////////////////////
 	// TODO: type conversion
@@ -1035,4 +1039,3 @@ public:
 #undef FLOOR_VECNAME_CONCAT
 #undef FLOOR_VECNAME_EVAL
 #undef FLOOR_VECNAME
-#undef FLOOR_VECNAME_N

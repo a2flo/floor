@@ -167,59 +167,59 @@
 
 // simple vector operation that either returns a new vector object or is the resp. assignment operation
 #define FLOOR_VEC_OP(op) \
-	constexpr FLOOR_VECNAME operator op (const scalar_type& val) const { \
+	constexpr vector_type operator op (const scalar_type& val) const { \
 		return { FLOOR_VEC_OP_EXPAND(this->, op, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR) }; \
 	} \
-	constexpr FLOOR_VECNAME operator op (const FLOOR_VECNAME& vec) const { \
+	constexpr vector_type operator op (const vector_type& vec) const { \
 		return { FLOOR_VEC_OP_EXPAND(this->, op, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC) }; \
 	} \
-	constexpr friend FLOOR_VECNAME operator op (const scalar_type& val, const FLOOR_VECNAME& v) { \
+	constexpr friend vector_type operator op (const scalar_type& val, const vector_type& v) { \
 		return { FLOOR_VEC_OP_EXPAND(v., op, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR) }; \
 	} \
-	constexpr FLOOR_VECNAME & operator op##= (const scalar_type& val) { \
+	constexpr vector_type& operator op##= (const scalar_type& val) { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR); \
 		return *this; \
 	} \
-	constexpr FLOOR_VECNAME & operator op##= (const FLOOR_VECNAME& vec) { \
+	constexpr vector_type& operator op##= (const vector_type& vec) { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC); \
 		return *this; \
 	}
 
 // TODO
 #define FLOOR_VEC_OP_FUNC(op, func_name) \
-	constexpr FLOOR_VECNAME operator op (const scalar_type& val) const { \
+	constexpr vector_type operator op (const scalar_type& val) const { \
 		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
-	constexpr FLOOR_VECNAME operator op (const FLOOR_VECNAME& vec) const { \
+	constexpr vector_type operator op (const vector_type& vec) const { \
 		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
-	constexpr friend FLOOR_VECNAME operator op (const scalar_type& val, const FLOOR_VECNAME& v) { \
+	constexpr friend vector_type operator op (const scalar_type& val, const vector_type& v) { \
 		return { FLOOR_VEC_FUNC_OP_EXPAND(v., vector_helper<scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
-	constexpr FLOOR_VECNAME & operator op##= (const scalar_type& val) { \
+	constexpr vector_type& operator op##= (const scalar_type& val) { \
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	} \
-	constexpr FLOOR_VECNAME & operator op##= (const FLOOR_VECNAME& vec) { \
+	constexpr vector_type& operator op##= (const vector_type& vec) { \
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	}
 
 // TODO
 #define FLOOR_VEC_UNARY_OP(op) \
-	constexpr FLOOR_VECNAME operator op () const { \
+	constexpr vector_type operator op () const { \
 		return { FLOOR_VEC_UNARY_OP_EXPAND(op, this->, FLOOR_COMMA) }; \
 	}
 
 // TODO
 #define FLOOR_VEC_UNARY_OP_NON_CONST(op) \
-	constexpr FLOOR_VECNAME operator op () { \
+	constexpr vector_type operator op () { \
 		return { FLOOR_VEC_UNARY_OP_EXPAND(op, this->, FLOOR_COMMA) }; \
 	}
 
 // TODO
 #define FLOOR_VEC_UNARY_POSTFIX_OP(op) \
-	constexpr FLOOR_VECNAME operator op (int) { \
+	constexpr vector_type operator op (int) { \
 		return { FLOOR_VEC_OP_EXPAND(this->, op, FLOOR_NOP, FLOOR_COMMA, FLOOR_VEC_RHS_NOP) }; \
 	}
 
@@ -237,13 +237,13 @@ FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, FLOOR_NOP, fu
 FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, FLOOR_NOP, func_args, rhs, FLOOR_COMMA_FUNC, rhs_sel, __VA_ARGS__)
 
 #define FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, func_ext, func_args, rhs, rhs_sep, rhs_sel, ...) \
-	constexpr FLOOR_VECNAME & func_name_this func_args { \
+	constexpr vector_type& func_name_this func_args { \
 		func_ext \
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, func_name, rhs, FLOOR_SEMICOLON, rhs_sel, rhs_sep(), \
 								 FLOOR_VEC_ASSIGN_SET, ##__VA_ARGS__); \
 		return *this; \
 	} \
-	constexpr FLOOR_VECNAME func_name_copy func_args const { \
+	constexpr vector_type func_name_copy func_args const { \
 		func_ext \
 		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, func_name, rhs, FLOOR_COMMA, rhs_sel, \
 										  rhs_sep(), FLOOR_VEC_ASSIGN_NOP, ##__VA_ARGS__) }; \
