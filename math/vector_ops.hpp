@@ -24,28 +24,6 @@
 #error "unsupported FLOOR_VECTOR_WIDTH - must be between 1 and 4!"
 #endif
 
-// the underlying vector type
-// assumes the existance of "scalar_type" and "FLOOR_VECTOR_WIDTH"
-#if (FLOOR_VECTOR_WIDTH == 1)
-#define FLOOR_UNDERLYING_VECTOR_TYPE() \
-	scalar_type x;
-#elif (FLOOR_VECTOR_WIDTH == 2)
-#define FLOOR_UNDERLYING_VECTOR_TYPE() \
-	scalar_type x; \
-	scalar_type y;
-#elif (FLOOR_VECTOR_WIDTH == 3)
-#define FLOOR_UNDERLYING_VECTOR_TYPE() \
-	scalar_type x; \
-	scalar_type y; \
-	scalar_type z;
-#elif (FLOOR_VECTOR_WIDTH == 4)
-#define FLOOR_UNDERLYING_VECTOR_TYPE() \
-	scalar_type x; \
-	scalar_type y; \
-	scalar_type z; \
-	scalar_type w;
-#endif
-
 // TODO: more unification
 
 // major macro voodoo to expand vector ops

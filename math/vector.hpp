@@ -40,9 +40,65 @@
 //! -- "one vector class to rule them all, ... and in the darkness bind them."
 template <typename scalar_type> class FLOOR_VECNAME {
 public:
-	FLOOR_UNDERLYING_VECTOR_TYPE()
+	// the underlying type of the vector
+	union {
+		// scalar accessors
+		struct {
+			scalar_type x;
+#if FLOOR_VECTOR_WIDTH >= 2
+			scalar_type y;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			scalar_type z;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			scalar_type w;
+#endif
+		};
+		
+		// accessors that are directly usable (.xy, .zw, .xyz)
+		// other kinds must be made via a function call
+#if FLOOR_VECTOR_WIDTH >= 3
+		struct {
+			vector2<scalar_type> xy;
+#if FLOOR_VECTOR_WIDTH >= 4
+			vector2<scalar_type> zw;
+#endif
+		};
+#endif
+		
+#if FLOOR_VECTOR_WIDTH >= 4
+		struct {
+			vector3<scalar_type> xyz;
+		};
+#endif
+		
+		// lo/hi accessors
+#if FLOOR_VECTOR_WIDTH == 2
+		struct {
+			vector1<scalar_type> lo;
+			vector1<scalar_type> hi;
+		};
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		struct {
+			vector2<scalar_type> lo;
+#if FLOOR_VECTOR_WIDTH == 3
+			vector1<scalar_type> hi;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			vector2<scalar_type> hi;
+#endif
+		};
+#endif
+	};
+	
+	// "this" vector type
 	typedef FLOOR_VECNAME<scalar_type> vector_type;
-	typedef FLOOR_VECNAME<typename vector_helper<scalar_type>::signed_type> signed_vector_type;
+	// decayed scalar type (removes refs/etc.)
+	typedef decay_t<scalar_type> decayed_scalar_type;
+	// signed vector type corresponding to this type
+	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -139,31 +195,32 @@ public:
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
-	constexpr vector_type& operator=(const vector_type& vec) noexcept {
+	// assignments (note: these also work if scalar_type is a reference)
+	constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr vector_type& operator=(vector_type&& vec) noexcept {
+	constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr vector_type& operator=(const scalar_type& val) noexcept {
+	constexpr vector_type& operator=(const decayed_scalar_type& val) noexcept {
 		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
 	// assignment from lower types
 #if FLOOR_VECTOR_WIDTH >= 3
-	constexpr vector_type& operator=(const vector2<scalar_type>& vec) noexcept {
+	constexpr vector_type& operator=(const vector2<decayed_scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		return *this;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-	constexpr vector_type& operator=(const vector3<scalar_type>& vec) noexcept {
+	constexpr vector_type& operator=(const vector3<decayed_scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		z = vec.z;
@@ -181,11 +238,17 @@ public:
 		// TODO: proper constexpr support
 		return ((scalar_type*)this)[index];
 	}
-	const scalar_type* data() const {
-		return (scalar_type*)this;
+	
+	//! c array style access (not enabled if scalar_type is a reference)
+	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
+	const ptr_base_type* data() const {
+		return (ptr_base_type*)this;
 	}
-	scalar_type* data() {
-		return (scalar_type*)this;
+	
+	//! c array style access (not enabled if scalar_type is a reference)
+	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
+	ptr_base_type* data() {
+		return (ptr_base_type*)this;
 	}
 	
 	//! constexpr helper function to get a const& to a vector component from an index
@@ -994,7 +1057,7 @@ public:
 							interp)
 	
 	//!
-	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
+	template <typename signed_type = signed_vector_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
 		// signed version
@@ -1002,7 +1065,7 @@ public:
 			FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0 ? (signed_type)-1 : (signed_type)1)
 		};
 	}
-	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
+	template <typename signed_type = signed_vector_type,
 			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
 		// unsigned version
@@ -1010,13 +1073,13 @@ public:
 	}
 	
 	//!
-	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
+	template <typename signed_type = signed_vector_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
 	}
-	template <typename signed_type = typename vector_helper<scalar_type>::signed_type,
+	template <typename signed_type = signed_vector_type,
 			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// unsigned version
