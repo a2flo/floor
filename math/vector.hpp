@@ -41,6 +41,7 @@
 template <typename scalar_type> class FLOOR_VECNAME {
 public:
 	// the underlying type of the vector
+	// NOTE: only .xyzw are usable with constexpr
 	union {
 		// scalar accessors
 		struct {
@@ -55,6 +56,63 @@ public:
 			scalar_type w;
 #endif
 		};
+		
+		// scalar accessors (.rgba)
+		struct {
+			scalar_type r;
+#if FLOOR_VECTOR_WIDTH >= 2
+			scalar_type g;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			scalar_type b;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			scalar_type a;
+#endif
+		};
+		
+		// scalar accessors (.stpq)
+		struct {
+			scalar_type s;
+#if FLOOR_VECTOR_WIDTH >= 2
+			scalar_type t;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			scalar_type p;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			scalar_type q;
+#endif
+		};
+		
+		// scalar accessors (.s0/.s1/.s2/.s3)
+		struct {
+			scalar_type s0;
+#if FLOOR_VECTOR_WIDTH >= 2
+			scalar_type s1;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			scalar_type s2;
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			scalar_type s3;
+#endif
+		};
+		// two-component .s* accessors
+#if FLOOR_VECTOR_WIDTH >= 3
+		struct {
+			vector2<scalar_type> s01;
+#if FLOOR_VECTOR_WIDTH >= 4
+			vector2<scalar_type> s23;
+#endif
+		};
+#endif
+		// three-component .s* accessors
+#if FLOOR_VECTOR_WIDTH >= 4
+		struct {
+			vector3<scalar_type> s012;
+		};
+#endif
 		
 		// accessors that are directly usable (.xy, .zw, .xyz)
 		// other kinds must be made via a function call
