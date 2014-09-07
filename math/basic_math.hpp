@@ -61,7 +61,8 @@
 
 #define FLOAT_EPSILON 0.00001f
 #define FLOAT_EQ(x, v) ((((v) - FLOAT_EPSILON) < (x)) && ((x) < ((v) + FLOAT_EPSILON)))
-#define FLOAT_EQ_EPS(x, v, eps) ((((v) - eps) < (x)) && ((x) < ((v) + eps)))
+#define FLOAT_EQ_EPS(x, v, eps) ((((x) > (v) - eps)) && ((x) < ((v) + eps)))
+#define FLOAT_NE_EPS(x, v, eps) ((((x) < (v) - eps)) || ((x) > ((v) + eps)))
 #define FLOAT_LT_EPS(x, v, eps) ((((x) < (v) - eps)) && ((x) < ((v) + eps)))
 #define FLOAT_LE_EPS(x, v, eps) ((((x) <= (v) - eps)) && ((x) <= ((v) + eps)))
 #define FLOAT_GT_EPS(x, v, eps) ((((x) > (v) - eps)) && ((x) > ((v) + eps)))

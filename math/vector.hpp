@@ -43,7 +43,7 @@ public:
 	// the underlying type of the vector
 	// NOTE: only .xyzw are usable with constexpr
 	union {
-		// scalar accessors
+		// main scalar accessors (.xyzw)
 		struct {
 			scalar_type x;
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -293,14 +293,66 @@ public:
 	
 	//////////////////////////////////////////
 	// access
-	constexpr const scalar_type& operator[](const size_t& index) const {
-		// TODO: proper constexpr support
+	
+	//! const subscript access, with index in [0, #components - 1]
+	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
+	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
+	const scalar_type& operator[](const size_t& index) const {
 		return ((scalar_type*)this)[index];
 	}
-	constexpr scalar_type& operator[](const size_t& index) {
-		// TODO: proper constexpr support
+	
+	//! subscript access, with index in [0, #components - 1]
+	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
+	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
+	scalar_type& operator[](const size_t& index) {
 		return ((scalar_type*)this)[index];
 	}
+	
+	//! constexpr subscript access, with index == 0
+	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
+		return x;
+	}
+#if FLOOR_VECTOR_WIDTH >= 2
+	//! constexpr subscript access, with index == 1
+	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 1, "index is const"))) {
+		return y;
+	}
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+	//! constexpr subscript access, with index == 2
+	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 2, "index is const"))) {
+		return z;
+	}
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+	//! constexpr subscript access, with index == 3
+	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 3, "index is const"))) {
+		return w;
+	}
+#endif
+	
+	//! constexpr subscript access, with index == 0
+	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 0, "index is const"))) {
+		return x;
+	}
+#if FLOOR_VECTOR_WIDTH >= 2
+	//! constexpr subscript access, with index == 1
+	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 1, "index is const"))) {
+		return y;
+	}
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+	//! constexpr subscript access, with index == 2
+	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 2, "index is const"))) {
+		return z;
+	}
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+	//! constexpr subscript access, with index == 3
+	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 3, "index is const"))) {
+		return w;
+	}
+#endif
 	
 	//! c array style access (not enabled if scalar_type is a reference)
 	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
@@ -502,10 +554,16 @@ public:
 	
 	//////////////////////////////////////////
 	// rounding / clamping / wrapping
+	//! rounds towards nearest integer value in fp format and halfway cases away from 0
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::round, round, rounded)
+	//! rounds downwards, to the largest integer value in fp format that is not greater than the current value
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::floor, floor, floored)
+	//! rounds upwards, to the smallest integer value in fp format that is not less than the current value
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::ceil, ceil, ceiled)
+	//! computes the nearest integer value in fp format that is not greater in magnitude than the current value
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::trunc, trunc, truncated)
+	//! rounds to an integer value in fp format using the current rounding mode
+	//! NOTE: if constexpr, this will return the same as floor(...)
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::rint, rint, rinted)
 	
 	//! clamps all components of this vector to [min, max]
@@ -535,6 +593,7 @@ public:
 	constexpr vector_type clamped(const vector_type& min, const vector_type& max) const {
 		return vector_type(*this).clamp(min, max);
 	}
+	//! clamps all components of this vector to [0, max]
 	constexpr vector_type& clamp(const vector_type& max) {
 		x = const_math::clamp(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -618,14 +677,22 @@ public:
 	}
 #endif
 	
+	//! returns the length of this vector
 	constexpr scalar_type length() const {
 		return vector_helper<scalar_type>::sqrt(dot());
 	}
 	
+	//! returns the distance between this vector and another vector
 	constexpr scalar_type distance(const vector_type& vec) const {
 		return (vec - *this).length();
 	}
 	
+	//! returns the squared distance between this vector and another vector
+	constexpr scalar_type distance_squared(const vector_type& vec) const {
+		return (vec - *this).dot();
+	}
+	
+	//! returns the angle between this vector and another vector
 	constexpr scalar_type angle(const vector_type& vec) const {
 		// if either vector is 0, there is no angle -> return 0
 		if(is_null() || vec.is_null()) return (scalar_type)0;
@@ -634,6 +701,7 @@ public:
 		return vector_helper<scalar_type>::acos(this->dot(vec) / (length() * vec.length()));
 	}
 	
+	//! normalizes this vector / returns a normalized vector of this vector
 	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"
 					   inv_length * ,
 					   normalize, normalized,
@@ -644,19 +712,19 @@ public:
 					   )
 	
 	
-	//!
+	//! returns N if Nref.dot(I) < 0, else -N
 	static constexpr vector_type faceforward(const vector_type& N,
 											 const vector_type& I,
 											 const vector_type& Nref) {
 		return (Nref.dot(I) < ((scalar_type)0) ? N : -N);
 	}
 	
-	//!
+	//! sets this vector to N if Nref.dot(this) < 0, else to -N
 	constexpr vector_type& faceforward(const vector_type& N, const vector_type& Nref) {
 		*this = vector_type::faceforward(N, *this, Nref);
 		return *this;
 	}
-	//!
+	//! returns N if Nref.dot(this) < 0, else -N
 	constexpr vector_type faceforwarded(const vector_type& N, const vector_type& Nref) const {
 		return vector_type::faceforward(N, *this, Nref);
 	}
@@ -775,68 +843,118 @@ public:
 	// NOTE: for logic && and || use the bit-wise operators, which have the same effect on bool#
 	
 	// comparisons returning component-wise results
+	//! component-wise equal comparison
 	constexpr FLOOR_VECNAME<bool> operator==(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., ==, FLOOR_COMMA) };
 	}
+	//! component-wise unequal comparison
 	constexpr FLOOR_VECNAME<bool> operator!=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., !=, FLOOR_COMMA) };
 	}
+	//! component-wise less-than comparison (this < another vector)
 	constexpr FLOOR_VECNAME<bool> operator<(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., <, FLOOR_COMMA) };
 	}
+	//! component-wise less-or-equal comparison (this <= another vector)
 	constexpr FLOOR_VECNAME<bool> operator<=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., <=, FLOOR_COMMA) };
 	}
+	//! component-wise greater-than comparison (this > another vector)
 	constexpr FLOOR_VECNAME<bool> operator>(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., >, FLOOR_COMMA) };
 	}
+	//! component-wise greater-or-equal comparison (this >= another vector)
 	constexpr FLOOR_VECNAME<bool> operator>=(const vector_type& vec) const {
 		return { FLOOR_VEC_EXPAND_DUAL(vec., >=, FLOOR_COMMA) };
 	}
 	
 	// comparisons returning ANDed component-wise results
+	//! returns true if all components are equal to the corresponding components of another vector
 	constexpr bool is_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., ==, &&);
 	}
+	//! returns true if all components are unequal to the corresponding components of another vector
 	constexpr bool is_unequal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., !=, &&);
 	}
+	//! returns true if all components are less than to the corresponding components of another vector
 	constexpr bool is_less(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., <, &&);
 	}
+	//! returns true if all components are less than or equal to the corresponding components of another vector
 	constexpr bool is_less_or_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., <=, &&);
 	}
+	//! returns true if all components are greater than to the corresponding components of another vector
 	constexpr bool is_greater(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., >, &&);
 	}
+	//! returns true if all components are greater than or equal to the corresponding components of another vector
 	constexpr bool is_greater_or_equal(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., >=, &&);
 	}
 	
 	// comparisons with an +/- epsilon returning ANDed component-wise results
+	//! returns true if all components are equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_EQ_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
+	//! returns true if all components are unequal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_unequal(const vector_type& vec, const scalar_type& epsilon) const {
-		return !is_equal(vec, epsilon);
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_NE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
+	//! returns true if all components are less than to the corresponding components of another vector +/- epsilon
 	constexpr bool is_less(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
+	//! returns true if all components are less than or equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_less_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
+	//! returns true if all components are greater than to the corresponding components of another vector +/- epsilon
 	constexpr bool is_greater(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
+	//! returns true if all components are greater than or equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_greater_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
 		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
+	}
+	
+	//! component-wise equal comparison +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_EQ_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
+	}
+	//! component-wise unequal comparison +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_unequal_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_NE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
+	}
+	//! component-wise less-than comparison (this < another vector) +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_less_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LT_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
+	}
+	//! component-wise less-or-equal comparison (this <= another vector) +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_less_or_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
+	}
+	//! component-wise greater-than comparison (this > another vector) +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_greater_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GT_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
+	}
+	//! component-wise greater-or-equal comparison (this >= another vector) +/- epsilon
+	constexpr FLOOR_VECNAME<bool> is_greater_or_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	
 	//! returns true if any component is true
@@ -875,12 +993,12 @@ public:
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! same as operator=(vector# { val_x, ... })
 	constexpr vector_type& set(const scalar_type& vec_x
-								 , const scalar_type& vec_y
+							   , const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
-								 , const scalar_type& vec_z
+							   , const scalar_type& vec_z
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-								 , const scalar_type& vec_w
+							   , const scalar_type& vec_w
 #endif
 	) {
 		x = vec_x;
@@ -895,9 +1013,10 @@ public:
 	}
 #endif
 	
-	//!
+	//! sets the components of this vector to the components of another vector if the corresponding component
+	//! in the condition bool vector is set to true
 	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-									const vector_type& vec) {
+								  const vector_type& vec) {
 		if(cond_vec.x) x = vec.x;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = vec.y;
@@ -911,9 +1030,10 @@ public:
 		return *this;
 	}
 	
-	//!
+	//! sets the components of this vector to a scalar value if the corresponding component in the condition
+	//! bool vector is set to true
 	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-									const scalar_type& val) {
+								  const scalar_type& val) {
 		if(cond_vec.x) x = val;
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = val;
@@ -928,15 +1048,16 @@ public:
 	}
 	
 #if FLOOR_VECTOR_WIDTH >= 2
-	//!
+	//! sets the components of this vector to the corresponding scalar value if the corresponding component
+	//! in the condition bool vector is set to true
 	constexpr vector_type& set_if(const FLOOR_VECNAME<bool>& cond_vec,
-									const scalar_type& vec_x
-									, const scalar_type& vec_y
+								  const scalar_type& vec_x
+								  , const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
-									, const scalar_type& vec_z
+								  , const scalar_type& vec_z
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-									, const scalar_type& vec_w
+								  , const scalar_type& vec_w
 #endif
 	) {
 		if(cond_vec.x) x = vec_x;
@@ -961,7 +1082,7 @@ public:
 	//! if the corresponding component in cond_vec is true, this will apply / set the component
 	//! to the result of the function call with the resp. component
 	template <typename unary_function> constexpr vector_type& apply_if(const FLOOR_VECNAME<bool>& cond_vec,
-																		 unary_function uf) {
+																	   unary_function uf) {
 		if(cond_vec.x) x = uf(x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		if(cond_vec.y) y = uf(y);
@@ -1038,24 +1159,29 @@ public:
 	
 	//////////////////////////////////////////
 	// misc
+	//! assigns the minimum between each component of this vector and the corresponding component of another vector to this vector
 	constexpr vector_type& min(const vector_type& vec) {
 		*this = this->minned(vec);
 		return *this;
 	}
+	//! assigns the maximum between each component of this vector and the corresponding component of another vector to this vector
 	constexpr vector_type& max(const vector_type& vec) {
 		*this = this->maxed(vec);
 		return *this;
 	}
+	//! returns a vector of the minimum between each component of this vector and the corresponding component of another vector
 	constexpr vector_type minned(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::min, , FLOOR_COMMA)
 		};
 	}
+	//! returns a vector of the maximum between each component of this vector and the corresponding component of another vector
 	constexpr vector_type maxed(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::max, , FLOOR_COMMA)
 		};
 	}
+	//! returns the minimum value and maximum value vector of the components of this vector and another vector
 	constexpr pair<vector_type, vector_type> minmax(const vector_type& vec) const {
 		vector_type min_vec, max_vec;
 		if(x >= vec.x) {
