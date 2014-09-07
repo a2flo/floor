@@ -281,7 +281,7 @@ public:
 			  , size_t c3
 #endif
 			 >
-	constexpr FLOOR_VECNAME swizzle() const {
+	constexpr vector_type swizzle() const {
 		return {
 			component_select<c0>(*this)
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -326,7 +326,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 2
 	//! 4x4 matrix * vector2 multiplication
 	//! -> implicit vector4 with .z = 0 and .w = 1 and dropping the bottom two rows of the matrix
-	constexpr FLOOR_VECNAME operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[12],
 			mat.data[1] * x + mat.data[5] * y + mat.data[13],
@@ -336,7 +336,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 3
 	//! 4x4 matrix * vector3 multiplication
 	//! -> implicit vector4 with .w = 1 and dropping the bottom row of the matrix
-	constexpr FLOOR_VECNAME operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12],
 			mat.data[1] * x + mat.data[5] * y + mat.data[9] * z + mat.data[13],
@@ -346,7 +346,7 @@ public:
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
 	//! 4x4 matrix * vector4 multiplication
-	constexpr FLOOR_VECNAME operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12] * w,
 			mat.data[1] * x + mat.data[5] * y + mat.data[9] * z + mat.data[13] * w,
@@ -464,8 +464,8 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME clamped(const vector_type& min, const vector_type& max) const {
-		return FLOOR_VECNAME(*this).clamp(min, max);
+	constexpr vector_type clamped(const vector_type& min, const vector_type& max) const {
+		return vector_type(*this).clamp(min, max);
 	}
 	constexpr vector_type& clamp(const vector_type& max) {
 		x = const_math::clamp(x, max.x);
@@ -480,8 +480,8 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME clamped(const vector_type& max) const {
-		return FLOOR_VECNAME(*this).clamp(max);
+	constexpr vector_type clamped(const vector_type& max) const {
+		return vector_type(*this).clamp(max);
 	}
 	
 	//!
@@ -502,8 +502,8 @@ public:
 #endif
 		return *this;
 	}
-	constexpr FLOOR_VECNAME wrapped(const vector_type& max) const {
-		return FLOOR_VECNAME(*this).wrap(max);
+	constexpr vector_type wrapped(const vector_type& max) const {
+		return vector_type(*this).wrap(max);
 	}
 	
 	//////////////////////////////////////////
@@ -522,12 +522,12 @@ public:
 		y = tmp;
 		return *this;
 	}
-	constexpr FLOOR_VECNAME perpendiculared() const {
+	constexpr vector_type perpendiculared() const {
 		return { -y, x };
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
-	constexpr FLOOR_VECNAME cross(const vector_type& vec) const {
+	constexpr vector_type cross(const vector_type& vec) const {
 		return {
 			y * vec.z - z * vec.y,
 			z * vec.x - x * vec.z,
@@ -563,64 +563,64 @@ public:
 	
 	
 	//!
-	static constexpr FLOOR_VECNAME faceforward(const vector_type& N,
-											   const vector_type& I,
-											   const vector_type& Nref) {
+	static constexpr vector_type faceforward(const vector_type& N,
+											 const vector_type& I,
+											 const vector_type& Nref) {
 		return (Nref.dot(I) < ((scalar_type)0) ? N : -N);
 	}
 	
 	//!
 	constexpr vector_type& faceforward(const vector_type& N, const vector_type& Nref) {
-		*this = FLOOR_VECNAME::faceforward(N, *this, Nref);
+		*this = vector_type::faceforward(N, *this, Nref);
 		return *this;
 	}
 	//!
-	constexpr FLOOR_VECNAME faceforwarded(const vector_type& N, const vector_type& Nref) const {
-		return FLOOR_VECNAME::faceforward(N, *this, Nref);
+	constexpr vector_type faceforwarded(const vector_type& N, const vector_type& Nref) const {
+		return vector_type::faceforward(N, *this, Nref);
 	}
 	
 	//! reflection of the incident vector I according to the normal N, N must be normalized
-	static constexpr FLOOR_VECNAME reflect(const vector_type& N,
-										   const vector_type& I) {
+	static constexpr vector_type reflect(const vector_type& N,
+										 const vector_type& I) {
 		return I - ((scalar_type)2) * N.dot(I) * N;
 	}
 	
 	//! reflects this vector according to the normal N, N must be normalized
 	constexpr vector_type& reflect(const vector_type& N) {
-		*this = FLOOR_VECNAME::reflect(N, *this);
+		*this = vector_type::reflect(N, *this);
 		return *this;
 	}
 	//! returns the reflected vector of *this according to the normal N, N must be normalized
-	constexpr FLOOR_VECNAME reflected(const vector_type& N) const {
-		return FLOOR_VECNAME::reflect(N, *this);
+	constexpr vector_type reflected(const vector_type& N) const {
+		return vector_type::reflect(N, *this);
 	}
 	
 	//! N and I must be normalized
-	static constexpr FLOOR_VECNAME refract(const vector_type& N,
-										   const vector_type& I,
-										   const scalar_type& eta) {
+	static constexpr vector_type refract(const vector_type& N,
+										 const vector_type& I,
+										 const scalar_type& eta) {
 		const scalar_type dNI = N.dot(I);
 		const scalar_type k = ((scalar_type)1) - (eta * eta) * (((scalar_type)1) - dNI * dNI);
 		return (k < ((scalar_type)0) ?
-				FLOOR_VECNAME { (scalar_type)0 } :
+				vector_type { (scalar_type)0 } :
 				(eta * I - (eta * dNI + vector_helper<scalar_type>::sqrt(k)) * N));
 	}
 	
 	//! refract this vector (the incident vector) according to the normal N and the refraction index eta,
 	//! *this and N must be normalized
 	constexpr vector_type& refract(const vector_type& N, const scalar_type& eta) {
-		*this = FLOOR_VECNAME::refract(N, *this, eta);
+		*this = vector_type::refract(N, *this, eta);
 		return *this;
 	}
 	//! returns the refracted vector of *this (the incident vector) according to the normal N and
 	//! the refraction index eta, *this and N must be normalized
-	constexpr FLOOR_VECNAME refracted(const vector_type& N, const scalar_type& eta) const {
-		return FLOOR_VECNAME::refract(N, *this, eta);
+	constexpr vector_type refracted(const vector_type& N, const scalar_type& eta) const {
+		return vector_type::refract(N, *this, eta);
 	}
 	
 	//! tests each component if it is < edge, resulting in 0 if true, else 1,
 	//! and returns that result in the resp. component of the return vector
-	constexpr FLOOR_VECNAME step(const scalar_type& edge) const {
+	constexpr vector_type step(const scalar_type& edge) const {
 		// x < edge ? 0 : 1
 		return {
 			FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < edge ? (scalar_type)0 : (scalar_type)1)
@@ -629,7 +629,7 @@ public:
 	
 	//! tests each component if it is < edge vector component, resulting in 0 if true, else 1,
 	//! and returns that result in the resp. component of the return vector
-	constexpr FLOOR_VECNAME step(const vector_type& edge_vec) const {
+	constexpr vector_type step(const vector_type& edge_vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(edge_vec., <, , ? (scalar_type)0 : (scalar_type)1, FLOOR_COMMA)
 		};
@@ -637,9 +637,9 @@ public:
 	
 	//! for each component: results in 0 if component <= edge_0, 1 if component >= edge_1 and
 	//! performs smooth hermite interpolation between 0 and 1 if: edge_0 < component < edge_1
-	constexpr FLOOR_VECNAME smoothstep(const scalar_type& edge_0, const scalar_type& edge_1) const {
+	constexpr vector_type smoothstep(const scalar_type& edge_0, const scalar_type& edge_1) const {
 		// t = clamp((x - edge_0) / (edge_1 - edge_0), 0, 1)
-		const FLOOR_VECNAME t_vec { FLOOR_VECNAME {
+		const vector_type t_vec { vector_type {
 			FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, FLOOR_PAREN_LEFT,
 									  - edge_0 FLOOR_PAREN_RIGHT / (edge_1 - edge_0))
 		}.clamped((scalar_type)0, (scalar_type)1) };
@@ -660,9 +660,9 @@ public:
 	//! for each component:
 	//! results in 0 if component <= edge_vec_0 component, 1 if component >= edge_vec_1 component and
 	//! performs smooth hermite interpolation between 0 and 1 if: edge_vec_0 comp < component < edge_vec_1 comp
-	constexpr FLOOR_VECNAME smoothstep(const vector_type& edge_vec_0, const vector_type& edge_vec_1) const {
+	constexpr vector_type smoothstep(const vector_type& edge_vec_0, const vector_type& edge_vec_1) const {
 		// t = clamp((x - edge_0) / (edge_1 - edge_0), 0, 1)
-		const FLOOR_VECNAME t_vec { FLOOR_VECNAME {
+		const vector_type t_vec { vector_type {
 			(x - edge_vec_0.x) / (edge_vec_1.x - edge_vec_0.x)
 #if FLOOR_VECTOR_WIDTH >= 2
 			, (y - edge_vec_0.y) / (edge_vec_1.y - edge_vec_0.y)
@@ -960,18 +960,18 @@ public:
 		*this = this->maxed(vec);
 		return *this;
 	}
-	constexpr FLOOR_VECNAME minned(const vector_type& vec) const {
+	constexpr vector_type minned(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::min, , FLOOR_COMMA)
 		};
 	}
-	constexpr FLOOR_VECNAME maxed(const vector_type& vec) const {
+	constexpr vector_type maxed(const vector_type& vec) const {
 		return {
 			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::max, , FLOOR_COMMA)
 		};
 	}
-	constexpr pair<FLOOR_VECNAME, FLOOR_VECNAME> minmax(const vector_type& vec) const {
-		FLOOR_VECNAME min_vec, max_vec;
+	constexpr pair<vector_type, vector_type> minmax(const vector_type& vec) const {
+		vector_type min_vec, max_vec;
 		if(x >= vec.x) {
 			min_vec[0] = vec.x;
 			max_vec[0] = x;
