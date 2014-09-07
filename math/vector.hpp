@@ -151,11 +151,11 @@ public:
 #endif
 	};
 	
-	// "this" vector type
+	//! "this" vector type
 	typedef FLOOR_VECNAME<scalar_type> vector_type;
-	// decayed scalar type (removes refs/etc.)
+	//! decayed scalar type (removes refs/etc.)
 	typedef decay_t<scalar_type> decayed_scalar_type;
-	// signed vector type corresponding to this type
+	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	
 	//////////////////////////////////////////
@@ -175,15 +175,19 @@ public:
 #endif
 	{}
 	
+	//! copy-construct from same vector_type
 	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
+	//! copy-construct from same vector_type (pointer)
 	constexpr FLOOR_VECNAME(const vector_type* vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec->, FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
+	//! copy-construct from same vector_type (rvalue)
 	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
+	//! construct by specifying each component
 #if FLOOR_VECTOR_WIDTH >= 2
 	constexpr FLOOR_VECNAME(const scalar_type& vec_x, const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
@@ -203,10 +207,11 @@ public:
 	{}
 #endif
 	
+	//! construct by setting all components to the same scalar value
 	constexpr FLOOR_VECNAME(const scalar_type& val) noexcept :
 	FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , (val)) {}
 	
-	//! construct with conversion
+	//! construct with type conversion from identically-sized vector
 	template <typename from_scalar_type>
 	constexpr FLOOR_VECNAME(const FLOOR_VECNAME<from_scalar_type>& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT (scalar_type), FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
@@ -418,6 +423,7 @@ public:
 		return *this;
 	}
 	
+	//! fused-multiply-add assign of "this = (this * b_vec) + c_vec"
 	constexpr vector_type& fma(const vector_type& b_vec, const vector_type& c_vec) {
 		x = vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -431,6 +437,7 @@ public:
 #endif
 		return *this;
 	}
+	//! fused-multiply-add copy of "(this * b_vec) + c_vec"
 	constexpr vector_type fmaed(const vector_type& b_vec, const vector_type& c_vec) const {
 		return {
 			vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x)
@@ -501,14 +508,16 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::trunc, trunc, truncated)
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::rint, rint, rinted)
 	
-	//!
+	//! clamps all components of this vector to [min, max]
 	FLOOR_VEC_FUNC_ARGS(const_math::clamp, clamp, clamped,
 						(const scalar_type& min, const scalar_type& max),
 						min, max)
+	//! clamps all components of this vector to [0, max]
 	FLOOR_VEC_FUNC_ARGS(const_math::clamp, clamp, clamped,
 						(const scalar_type& max),
 						max)
 	
+	//! clamps all components of this vector to [min, max]
 	constexpr vector_type& clamp(const vector_type& min, const vector_type& max) {
 		x = const_math::clamp(x, min.x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -522,6 +531,7 @@ public:
 #endif
 		return *this;
 	}
+	//! clamps all components of this vector to [min, max]
 	constexpr vector_type clamped(const vector_type& min, const vector_type& max) const {
 		return vector_type(*this).clamp(min, max);
 	}
@@ -538,15 +548,17 @@ public:
 #endif
 		return *this;
 	}
+	//! clamps all components of this vector to [0, max]
 	constexpr vector_type clamped(const vector_type& max) const {
 		return vector_type(*this).clamp(max);
 	}
 	
-	//!
+	//! wraps all components of this vector around/to [0, max]
 	FLOOR_VEC_FUNC_ARGS(const_math::wrap, wrap, wrapped,
 						(const scalar_type& max),
 						max)
 	
+	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type& wrap(const vector_type& max) {
 		x = const_math::wrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -560,32 +572,44 @@ public:
 #endif
 		return *this;
 	}
+	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type wrapped(const vector_type& max) const {
 		return vector_type(*this).wrap(max);
 	}
 	
 	//////////////////////////////////////////
 	// geometric
+	
+	//! dot product of this vector with itself
 	constexpr scalar_type dot() const {
 		return FLOOR_VEC_EXPAND_DUAL(, *, +);
 	}
+	//! dot product of this vector with another vector
 	constexpr scalar_type dot(const vector_type& vec) const {
 		return FLOOR_VEC_EXPAND_DUAL(vec., *, +);
 	}
 	
 #if FLOOR_VECTOR_WIDTH == 2
+	//! sets this vector to a vector perpendicular to this vector (-90° rotation)
 	constexpr vector_type& perpendicular() {
 		const scalar_type tmp = x;
 		x = -y;
 		y = tmp;
 		return *this;
 	}
+	//! returns a vector perpendicular to this vector (-90° rotation)
 	constexpr vector_type perpendiculared() const {
 		return { -y, x };
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
-	constexpr vector_type cross(const vector_type& vec) const {
+	//! sets this vector to the cross product of this vector with another vector
+	constexpr vector_type& cross(const vector_type& vec) {
+		*this = crossed(vec);
+		return *this;
+	}
+	//! computes the cross product of this vector with another vector
+	constexpr vector_type crossed(const vector_type& vec) const {
 		return {
 			y * vec.z - z * vec.y,
 			z * vec.x - x * vec.z,
@@ -983,25 +1007,29 @@ public:
 		return ret;
 	}
 	
-	//!
+	//! sum of all components / #components
 	constexpr scalar_type average() const {
 		return { (FLOOR_VEC_EXPAND(+)) / (scalar_type)FLOOR_VECTOR_WIDTH };
 	}
 	
-	//!
+	//! sum of all components
 	constexpr scalar_type accumulate() const {
 		return { FLOOR_VEC_EXPAND(+) };
 	}
+	//! sum of all components
 	constexpr scalar_type sum() const {
 		return accumulate();
 	}
 	
 	//////////////////////////////////////////
 	// I/O
+	
+	//! ostream output of this vector
 	friend ostream& operator<<(ostream& output, const vector_type& vec) {
 		output << "(" << FLOOR_VEC_EXPAND_ENCLOSED(<< ", " <<, vec., ) << ")";
 		return output;
 	}
+	//! returns a string representation of this vector
 	string to_string() const {
 		stringstream sstr;
 		sstr << *this;
@@ -1071,6 +1099,7 @@ public:
 		return { min_vec, max_vec };
 	}
 	
+	//! returns the smallest component
 	constexpr scalar_type min_element() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return x;
@@ -1083,6 +1112,7 @@ public:
 				y <= z ? (y <= w ? y : w) : (z <= w ? z : w));
 #endif
 	}
+	//! returns the largest component
 	constexpr scalar_type max_element() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return x;
@@ -1096,11 +1126,13 @@ public:
 #endif
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
+	//! returns <minimal component, maximal component>
 	constexpr vector2<scalar_type> minmax_element() const {
 		return { min_element(), max_element() };
 	}
 #endif
 	
+	//! returns the index of the smallest component
 	constexpr size_t min_element_index() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return 0u;
@@ -1114,6 +1146,7 @@ public:
 				 (z <= w ? 2u : 3u)));
 #endif
 	}
+	//! returns the index of the largest component
 	constexpr size_t max_element_index() const {
 #if FLOOR_VECTOR_WIDTH == 1
 		return 0u;
@@ -1128,12 +1161,13 @@ public:
 #endif
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
+	//! returns <index minimal component, index maximal component>
 	constexpr vector2<size_t> minmax_element_index() const {
 		return { min_element_index(), max_element_index() };
 	}
 #endif
 	
-	//!
+	//! absolute value/vector
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::abs, abs, absed)
 	
 	//! linear interpolation
@@ -1268,7 +1302,8 @@ public:
 		};
 	}
 	
-	//!
+	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
+	//! sign: -1, no sign: 1
 	template <typename signed_type = signed_vector_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
@@ -1277,6 +1312,8 @@ public:
 			FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0 ? (signed_type)-1 : (signed_type)1)
 		};
 	}
+	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
+	//! uint -> all 1
 	template <typename signed_type = signed_vector_type,
 			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
@@ -1284,13 +1321,16 @@ public:
 		return { (signed_type)1 };
 	}
 	
-	//!
+	//! returns a bool vector with each component representing the sign of the corresponding component in this vector:
+	//! true: sign, false: no sign
 	template <typename signed_type = signed_vector_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
 	}
+	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
+	//! uint -> all false
 	template <typename signed_type = signed_vector_type,
 			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
@@ -1377,10 +1417,15 @@ public:
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parityll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
 	}
 	
-	//!
+	//! returns a randomized vector using a uniform distribution with each component in [0, max)
 	static vector_type random(const scalar_type max = (scalar_type)1);
-	//!
+	//! returns a randomized vector using a uniform distribution with each component in [min, max)
 	static vector_type random(const scalar_type min, const scalar_type max);
+	
+	//! returns an integer value representing the number of components of this vector
+	constexpr int vec_step() const {
+		return FLOOR_VECTOR_WIDTH;
+	}
 	
 	//////////////////////////////////////////
 	// TODO: type conversion

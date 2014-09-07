@@ -328,15 +328,15 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 										   float3& normal, float3& binormal, float3& tangent,
 										   const coord& t1, const coord& t2, const coord& t3) {
 	// compute deltas
-	float delta_x1 = t2.x - t1.x;
-	float delta_y1 = t2.y - t1.y;
-	float delta_x2 = t3.x - t1.x;
-	float delta_y2 = t3.y - t1.y;
+	const float delta_x1 = t2.x - t1.x;
+	const float delta_y1 = t2.y - t1.y;
+	const float delta_x2 = t3.x - t1.x;
+	const float delta_y2 = t3.y - t1.y;
 	
 	// normal
-	float3 edge1(v2 - v1);
-	float3 edge2(v3 - v1);
-	normal = edge1.cross(edge2);
+	const float3 edge1(v2 - v1);
+	const float3 edge2(v3 - v1);
+	normal = edge1.crossed(edge2);
 	normal.normalize();
 	
 	// binormal
@@ -348,7 +348,7 @@ void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, c
 	tangent.normalize();
 	
 	// adjust
-	float3 txb = tangent.cross(binormal);
+	float3 txb = tangent.crossed(binormal);
 	if(normal.dot(txb) > 0.0f) {
 		tangent *= -1.0f;
 	}
