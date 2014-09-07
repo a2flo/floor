@@ -1,12 +1,13 @@
 
 #if defined(__cplusplus) && !defined(__OBJC__)
-/*#include "math/vector_lib.hpp"
+#include "math/vector_lib.hpp"
 #include "constexpr/const_string.hpp"
+#include "constexpr/const_math.hpp"
 #include "core/util.hpp"
 #include "core/core.hpp"
 #include "core/cpp_headers.hpp"
 #include "core/logger.hpp"
-#include "core/platform.hpp"*/
+#include "core/platform.hpp"
 #elif !defined(__OBJC__)
 #include <stdlib.h>
 #include <stdio.h>

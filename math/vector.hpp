@@ -360,6 +360,34 @@ public:
 		return *this;
 	}
 	
+	constexpr vector_type& fma(const vector_type& b_vec, const vector_type& c_vec) {
+		x = vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = vector_helper<scalar_type>::fma(y, b_vec.y, c_vec.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = vector_helper<scalar_type>::fma(z, b_vec.z, c_vec.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = vector_helper<scalar_type>::fma(w, b_vec.w, c_vec.w);
+#endif
+		return *this;
+	}
+	constexpr vector_type fmaed(const vector_type& b_vec, const vector_type& c_vec) const {
+		return {
+			vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x)
+#if FLOOR_VECTOR_WIDTH >= 2
+			, vector_helper<scalar_type>::fma(y, b_vec.y, c_vec.y)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			, vector_helper<scalar_type>::fma(z, b_vec.z, c_vec.z)
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			, vector_helper<scalar_type>::fma(w, b_vec.w, c_vec.w)
+#endif
+		};
+	}
+	
 	//////////////////////////////////////////
 	// bit ops
 	//! component-wise bit-wise OR
@@ -1056,6 +1084,132 @@ public:
 							vec., FLOOR_VEC_RHS_VEC,
 							interp)
 	
+	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+											 const vector_type& interp) {
+		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::cubic_interpolate(a_prev.z, z, b.z, b_next.z, interp.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::cubic_interpolate(a_prev.w, w, b.w, b_next.w, interp.w);
+#endif
+		return *this;
+	}
+	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+											 const vector_type& interp) const {
+		return {
+			const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp.x),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp.y),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::cubic_interpolate(a_prev.z, z, b.z, b_next.z, interp.z),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::cubic_interpolate(a_prev.w, w, b.w, b_next.w, interp.w)
+#endif
+		};
+	}
+	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+											 const scalar_type& interp) {
+		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::cubic_interpolate(a_prev.z, z, b.z, b_next.z, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::cubic_interpolate(a_prev.w, w, b.w, b_next.w, interp);
+#endif
+		return *this;
+	}
+	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+											 const scalar_type& interp) const {
+		return {
+			const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::cubic_interpolate(a_prev.z, z, b.z, b_next.z, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::cubic_interpolate(a_prev.w, w, b.w, b_next.w, interp)
+#endif
+		};
+	}
+	
+	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+												   const vector_type& interp) {
+		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::catmull_rom_interpolate(a_prev.z, z, b.z, b_next.z, interp.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::catmull_rom_interpolate(a_prev.w, w, b.w, b_next.w, interp.w);
+#endif
+		return *this;
+	}
+	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+												   const vector_type& interp) const {
+		return {
+			const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp.x),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp.y),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::catmull_rom_interpolate(a_prev.z, z, b.z, b_next.z, interp.z),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::catmull_rom_interpolate(a_prev.w, w, b.w, b_next.w, interp.w)
+#endif
+		};
+	}
+	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+												   const scalar_type& interp) {
+		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::catmull_rom_interpolate(a_prev.z, z, b.z, b_next.z, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::catmull_rom_interpolate(a_prev.w, w, b.w, b_next.w, interp);
+#endif
+		return *this;
+	}
+	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
+												   const scalar_type& interp) const {
+		return {
+			const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::catmull_rom_interpolate(a_prev.z, z, b.z, b_next.z, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::catmull_rom_interpolate(a_prev.w, w, b.w, b_next.w, interp)
+#endif
+		};
+	}
+	
 	//!
 	template <typename signed_type = signed_vector_type,
 			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
@@ -1084,6 +1238,85 @@ public:
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// unsigned version
 		return { false };
+	}
+	
+	//! returns an int vector containing the number of 1-bits of each component in this vector
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> popcount() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_popcount FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the number of 1-bits of each component in this vector
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> popcount() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_popcountll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	}
+	
+	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 2, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> clz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clzs FLOOR_PAREN_LEFT (uint16_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 4, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> clz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clz FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> clz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clzll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	}
+	
+	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 2, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> ctz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctzs FLOOR_PAREN_LEFT (uint16_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 4, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> ctz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctz FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> ctz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctzll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	}
+	
+	//! returns an int vector containing 1 + the index of the least significant 1-bit of each component in this vector,
+	//! or 0 if the component is 0
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> ffs() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ffs FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing 1 + the index of the least significant 1-bit of each component in this vector,
+	//! or 0 if the component is 0
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> ffs() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ffsll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	}
+	
+	//! returns an int vector containing the parity of each component in this vector (#1-bits % 2)
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> parity() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parity FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
+	}
+	//! returns an int vector containing the parity of each component in this vector (#1-bits % 2)
+	template <typename integral_type = decayed_scalar_type,
+			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
+	constexpr FLOOR_VECNAME<int> parity() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parityll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
 	}
 	
 	//!

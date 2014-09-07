@@ -492,9 +492,59 @@ namespace const_math {
 	}
 	
 	//! computes the linear interpolation between a and b
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
-	constexpr arithmetic_type interpolate(const arithmetic_type& a, const arithmetic_type& b, const arithmetic_type& interp) {
-		return ((b - a) * interp + a);
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
+		return ((b - a) * t + a);
+	}
+	
+	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type cubic_interpolate(const fp_type& a_prev,
+										const fp_type& a,
+										const fp_type& b,
+										const fp_type& b_next,
+										const fp_type& t) {
+		// simple cubic interpolation
+		// ref: http://paulbourke.net/miscellaneous/interpolation/
+		//                        |  0   1   0   0 |   | a3 |
+		//                        | -1   0   1   0 |   | a2 |
+		// c(t) = (1 t t^2 t^3) * |  2  -2   1  -1 | * | a1 |
+		//                        | -1   1  -1   1 |   | a0 |
+		const auto t_2 = t * t;
+		const auto a_diff = (a_prev - a);
+		const auto b_diff = (b_next - b);
+		const auto A = b_diff - a_diff;
+		return {
+			(A * t * t_2) +
+			((a_diff - A) * t_2) +
+			((b - a_prev) * t) +
+			a
+		};
+	}
+	
+	//! computes the cubic catmull-rom interpolation between a and b, requiring the "point" prior to a and the "point" after b
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type catmull_rom_interpolate(const fp_type& a_prev,
+											  const fp_type& a,
+											  const fp_type& b,
+											  const fp_type& b_next,
+											  const fp_type& t) {
+		// cubic catmull-rom interpolation
+		// ref: http://en.wikipedia.org/wiki/Cubic_Hermite_spline
+		//                              |  0   2   0   0 |   | a3 |
+		//                              | -1   0   1   0 |   | a2 |
+		// c(t) = 0.5 * (1 t t^2 t^3) * |  2  -5   4  -1 | * | a1 |
+		//                              | -1   3  -3   1 |   | a0 |
+		const auto t_2 = t * t;
+		const auto a_diff = (a_prev - a);
+		const auto b_diff = (b_next - b);
+		const auto A = b_diff - a_diff;
+		return {
+			(((fp_type(3.0L) * (a - b) - a_prev + b_next) * t * t_2) +
+			 ((fp_type(2.0L) * a_prev - fp_type(5.0L) * a + fp_type(4.0L) * b - b_next) * t_2) +
+			 ((b - a_prev) * t))
+			* fp_type(0.5L) + a
+		};
 	}
 	
 	//! computes the least common multiple of v1 and v2
@@ -527,6 +577,16 @@ namespace const_math {
 			tmp <<= 1;
 		}
 		return 0;
+	}
+	
+	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"
+	//! note: all arguments are cast to long double, then used to do the computation and then cast back to the return type
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type fma(fp_type mul_a, fp_type mul_b, fp_type add_c) {
+		long double ldbl_a = (long double)mul_a;
+		long double ldbl_b = (long double)mul_b;
+		long double ldbl_c = (long double)add_c;
+		return fp_type((ldbl_a * ldbl_b) + ldbl_c);
 	}
 	
 }
@@ -609,6 +669,21 @@ namespace const_math_select {
 	__attribute__((enable_if(!__builtin_constant_p(x), ""))) { \
 		return const_math:: func_name (y, x); \
 	}
+
+#define FLOOR_CONST_MATH_SELECT_3(func_name, rt_func, type_name, type_suffix) \
+	extern __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) \
+	asm("floor__const_math_" #func_name type_suffix ); \
+	extern __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
+	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(c), ""))) asm("floor__const_math_" #func_name type_suffix ); \
+	\
+	__attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
+	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
+	__attribute__((enable_if(!__builtin_constant_p(c), ""))) { \
+		return const_math:: func_name (a, b, c); \
+	}
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodf(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtf(val), float, "f")
@@ -626,6 +701,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acosf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(atan, std::atanf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2f(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmaf(a, b, c), float, "f")
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), double, "d")
@@ -643,6 +719,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acos(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(atan, std::atan(val), double, "d")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fma(a, b, c), double, "d")
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodl(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtl(val), long double, "l")
@@ -660,9 +737,11 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acosl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(atan, std::atanl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2l(y, x), long double, "l")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmal(a, b, c), long double, "l")
 	
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
+#undef FLOOR_CONST_MATH_SELECT_3
 	
 }
 

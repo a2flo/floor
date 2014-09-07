@@ -45,6 +45,7 @@ public:
 	static constexpr T acos(const T& val);
 	static constexpr T atan(const T& val);
 	static constexpr T atan2(const T& lhs, const T& rhs);
+	static constexpr T fma(const T& a, const T& b, const T& c);
 	
 	// TODO: inc, dec, bit ops (&, |, ^, ~, !), I/O?
 	
@@ -71,6 +72,11 @@ static func_constexpr scalar_type func_name (const scalar_type& val) { \
 static func_constexpr scalar_type func_name (const scalar_type& lhs, const scalar_type& rhs) { \
 	return func_impl; \
 }
+//! macro that defines a static "func_constexpr" function, taking three arguments with the name "func_name"
+#define FLOOR_VH_FUNC_IMPL_3(func_name, func_constexpr, func_impl) \
+static func_constexpr scalar_type func_name (const scalar_type& a, const scalar_type& b, const scalar_type& c) { \
+	return func_impl; \
+}
 
 //! implements the vector_helper class for a specific "vh_type" and it's function implementations
 #define FLOOR_VH_IMPL(vh_type, vh_sign_type, func_impl) \
@@ -94,7 +100,7 @@ protected: \
 //              -> bool, int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t
 // float base types: float, double, long double
 
-#define FLOOR_VH_IMPL_DEF_FLOAT(F1, F2) FLOOR_VH_IMPL(float, float, \
+#define FLOOR_VH_IMPL_DEF_FLOAT(F1, F2, F3) FLOOR_VH_IMPL(float, float, \
 F2(modulo, constexpr, const_math_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_math_select::sqrt(val)) \
 F1(inv_sqrt, constexpr, const_math_select::inv_sqrt(val)) \
@@ -111,9 +117,10 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_DOUBLE(F1, F2) FLOOR_VH_IMPL(double, double, \
+#define FLOOR_VH_IMPL_DEF_DOUBLE(F1, F2, F3) FLOOR_VH_IMPL(double, double, \
 F2(modulo, constexpr, const_math_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_math_select::sqrt(val)) \
 F1(inv_sqrt, constexpr, const_math_select::inv_sqrt(val)) \
@@ -130,9 +137,10 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_LDOUBLE(F1, F2) FLOOR_VH_IMPL(long double, long double, \
+#define FLOOR_VH_IMPL_DEF_LDOUBLE(F1, F2, F3) FLOOR_VH_IMPL(long double, long double, \
 F2(modulo, constexpr, const_math_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_math_select::sqrt(val)) \
 F1(inv_sqrt, constexpr, const_math_select::inv_sqrt(val)) \
@@ -149,9 +157,10 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_INT32(F1, F2) FLOOR_VH_IMPL(int32_t, int32_t, \
+#define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F3) FLOOR_VH_IMPL(int32_t, int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -168,9 +177,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_UINT32(F1, F2) FLOOR_VH_IMPL(uint32_t, int32_t, \
+#define FLOOR_VH_IMPL_DEF_UINT32(F1, F2, F3) FLOOR_VH_IMPL(uint32_t, int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -187,9 +197,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_INT8(F1, F2) FLOOR_VH_IMPL(int8_t, int8_t, \
+#define FLOOR_VH_IMPL_DEF_INT8(F1, F2, F3) FLOOR_VH_IMPL(int8_t, int8_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -206,9 +217,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_UINT8(F1, F2) FLOOR_VH_IMPL(uint8_t, int8_t, \
+#define FLOOR_VH_IMPL_DEF_UINT8(F1, F2, F3) FLOOR_VH_IMPL(uint8_t, int8_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -225,9 +237,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_INT16(F1, F2) FLOOR_VH_IMPL(int16_t, int16_t, \
+#define FLOOR_VH_IMPL_DEF_INT16(F1, F2, F3) FLOOR_VH_IMPL(int16_t, int16_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -244,9 +257,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_UINT16(F1, F2) FLOOR_VH_IMPL(uint16_t, int16_t, \
+#define FLOOR_VH_IMPL_DEF_UINT16(F1, F2, F3) FLOOR_VH_IMPL(uint16_t, int16_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -263,9 +277,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_INT64(F1, F2) FLOOR_VH_IMPL(int64_t, int64_t, \
+#define FLOOR_VH_IMPL_DEF_INT64(F1, F2, F3) FLOOR_VH_IMPL(int64_t, int64_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -282,9 +297,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_UINT64(F1, F2) FLOOR_VH_IMPL(uint64_t, int64_t, \
+#define FLOOR_VH_IMPL_DEF_UINT64(F1, F2, F3) FLOOR_VH_IMPL(uint64_t, int64_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -301,9 +317,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2) FLOOR_VH_IMPL(ssize_t, ssize_t, \
+#define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2, F3) FLOOR_VH_IMPL(ssize_t, ssize_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -320,9 +337,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2) FLOOR_VH_IMPL(size_t, ssize_t, \
+#define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2, F3) FLOOR_VH_IMPL(size_t, ssize_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
 F1(inv_sqrt, constexpr, val) \
@@ -339,9 +357,10 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-#define FLOOR_VH_IMPL_DEF_BOOL(F1, F2) FLOOR_VH_IMPL(bool, bool, \
+#define FLOOR_VH_IMPL_DEF_BOOL(F1, F2, F3) FLOOR_VH_IMPL(bool, bool, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, val) \
 F1(inv_sqrt, constexpr, val) \
@@ -358,21 +377,22 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F3(fma, constexpr, ((a * b) + c)) \
 )
 
-FLOOR_VH_IMPL_DEF_FLOAT(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_DOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_LDOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_INT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_UINT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_INT8(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_UINT8(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_INT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_UINT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_INT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_UINT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_SSIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_SIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
-FLOOR_VH_IMPL_DEF_BOOL(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2)
+FLOOR_VH_IMPL_DEF_FLOAT(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_DOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_LDOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_INT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_UINT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_INT8(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_UINT8(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_INT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_UINT16(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_INT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_UINT64(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_SSIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_SIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
+FLOOR_VH_IMPL_DEF_BOOL(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_3)
 
 #endif

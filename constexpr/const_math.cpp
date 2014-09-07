@@ -29,6 +29,11 @@ namespace const_math_select {
 		return rt_func ; \
 	}
 	
+#define FLOOR_CONST_MATH_SELECT_3(func_name, rt_func, type_name, type_suffix) \
+	__attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) { \
+		return rt_func ; \
+	}
+	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodf(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, (1.0f / std::sqrtf(val)), float, "f")
@@ -45,6 +50,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acosf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(atan, std::atanf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2f(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmaf(a, b, c), float, "f")
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), double, "d")
@@ -62,6 +68,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acos(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(atan, std::atan(val), double, "d")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fma(a, b, c), double, "d")
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodl(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtl(val), long double, "l")
@@ -79,8 +86,10 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(acos, std::acosl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(atan, std::atanl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2l(y, x), long double, "l")
+	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmal(a, b, c), long double, "l")
 	
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
+#undef FLOOR_CONST_MATH_SELECT_3
 	
 }
