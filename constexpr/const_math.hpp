@@ -27,6 +27,7 @@
 #include <utility>
 #include <limits>
 #include <cmath>
+#include <cstdint>
 #include <unistd.h>
 using namespace std;
 
