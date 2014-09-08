@@ -109,9 +109,10 @@ solution "floor"
 			buildoptions { "-stdlib=libc++" }
 			buildoptions { "-Weverything" }
 			buildoptions { "-Wno-unknown-warning-option" }
-			buildoptions { "-Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-header-hygiene -Wno-gnu -Wno-float-equal" }
+			buildoptions { "-Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-header-hygiene -Wno-gnu" }
 			buildoptions { "-Wno-documentation -Wno-system-headers -Wno-global-constructors -Wno-padded -Wno-packed" }
 			buildoptions { "-Wno-switch-enum -Wno-sign-conversion -Wno-conversion -Wno-exit-time-destructors -Wno-nested-anon-types" }
+			buildoptions { "-Wno-old-style-cast" }
 			linkoptions { "-fvisibility=default" }
 			if(not win_unixenv) then
 				buildoptions { "-integrated-as" }
