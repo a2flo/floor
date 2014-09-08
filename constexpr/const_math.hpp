@@ -26,6 +26,8 @@
 #include <type_traits>
 #include <utility>
 #include <limits>
+#include <cmath>
+#include <unistd.h>
 using namespace std;
 
 // disable "comparing floating point with == or != is unsafe" warnings,
@@ -594,11 +596,6 @@ namespace const_math {
 #elif defined(__GNUC__)
 #pragma GCC diagnostic pop
 #endif
-
-// for long double support
-// note: must be included _after_ const_math namespace/functions,
-// because it leads to issues with glibc otherwise.
-#include <tgmath.h>
 
 namespace const_math_select {
 	// dear reader of this code,
