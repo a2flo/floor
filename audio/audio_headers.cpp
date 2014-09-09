@@ -21,25 +21,39 @@
 #include "audio_headers.hpp"
 #include "core/logger.hpp"
 
-LPALGENEFFECTS alGenEffects { (LPALGENEFFECTS)alGetProcAddress("alGenEffects") };
-LPALDELETEEFFECTS alDeleteEffects { (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects") };
-LPALISEFFECT alIsEffect { (LPALISEFFECT)alGetProcAddress("alIsEffect") };
-LPALGENAUXILIARYEFFECTSLOTS alGenAuxiliaryEffectSlots { (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots") };
-LPALEFFECTI alEffecti { (LPALEFFECTI)alGetProcAddress("alEffecti") };
-LPALEFFECTF alEffectf { (LPALEFFECTF)alGetProcAddress("alEffectf") };
-LPALGENFILTERS alGenFilters { (LPALGENFILTERS)alGetProcAddress("alGenFilters") };
-LPALISFILTER alIsFilter { (LPALISFILTER)alGetProcAddress("alIsFilter") };
-LPALFILTERI alFilteri { (LPALFILTERI)alGetProcAddress("alFilteri") };
-LPALFILTERF alFilterf { (LPALFILTERF)alGetProcAddress("alFilterf") };
-LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti { (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti") };
-LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots { (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots") };
-LPALDELETEFILTERS alDeleteFilters { (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters") };
+LPALGENEFFECTS alGenEffects;
+LPALDELETEEFFECTS alDeleteEffects;
+LPALISEFFECT alIsEffect;
+LPALGENAUXILIARYEFFECTSLOTS alGenAuxiliaryEffectSlots;
+LPALEFFECTI alEffecti;
+LPALEFFECTF alEffectf;
+LPALGENFILTERS alGenFilters;
+LPALISFILTER alIsFilter;
+LPALFILTERI alFilteri;
+LPALFILTERF alFilterf;
+LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti;
+LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
+LPALDELETEFILTERS alDeleteFilters;
 
 bool floor_audio::check_openal_efx_funcs() {
 	const auto fail = [](const string& name) -> bool {
 		log_error("failed to get function pointer for \"%s\"!", name);
 		return false;
 	};
+	
+	alGenEffects = { (LPALGENEFFECTS)alGetProcAddress("alGenEffects") };
+	alDeleteEffects = { (LPALDELETEEFFECTS)alGetProcAddress("alDeleteEffects") };
+	alIsEffect = { (LPALISEFFECT)alGetProcAddress("alIsEffect") };
+	alGenAuxiliaryEffectSlots = { (LPALGENAUXILIARYEFFECTSLOTS)alGetProcAddress("alGenAuxiliaryEffectSlots") };
+	alEffecti = { (LPALEFFECTI)alGetProcAddress("alEffecti") };
+	alEffectf = { (LPALEFFECTF)alGetProcAddress("alEffectf") };
+	alGenFilters = { (LPALGENFILTERS)alGetProcAddress("alGenFilters") };
+	alIsFilter = { (LPALISFILTER)alGetProcAddress("alIsFilter") };
+	alFilteri = { (LPALFILTERI)alGetProcAddress("alFilteri") };
+	alFilterf = { (LPALFILTERF)alGetProcAddress("alFilterf") };
+	alAuxiliaryEffectSloti = { (LPALAUXILIARYEFFECTSLOTI)alGetProcAddress("alAuxiliaryEffectSloti") };
+	alDeleteAuxiliaryEffectSlots = { (LPALDELETEAUXILIARYEFFECTSLOTS)alGetProcAddress("alDeleteAuxiliaryEffectSlots") };
+	alDeleteFilters = { (LPALDELETEFILTERS)alGetProcAddress("alDeleteFilters") };
 	
 	if(alGenEffects == nullptr) return fail("alGenEffects");
 	if(alDeleteEffects == nullptr) return fail("alDeleteEffects");

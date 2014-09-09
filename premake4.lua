@@ -171,7 +171,7 @@ solution "floor"
 		else
 			links { "pocl" }
 		end
-		links { "crypto", "ssl" }
+		links { "openal", "crypto", "ssl" }
 		libdirs { os.findlib("GL"), os.findlib("xml2"), os.findlib("OpenCL") }
 		if(not win_unixenv) then
 			links { "GL", "SDL2_image", "Xxf86vm", "xml2" }
