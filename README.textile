@@ -44,7 +44,7 @@ on Windows/MinGW:
 * note: to make things easier, I might provide a full MinGW package containing all required libraries at a later point
 
 on OS X:
-* install Xcode 6.0+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
+* install Xcode 6.1+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
 * if you haven't installed the Xcode command line tools yet, run: ==xcode-select --install==
 * install "homebrew":http://brew.sh: ==ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"==
 * install openssl 1.0.1e+ (OS X only provides 0.9.8 - this is w/o TLS 1.1/1.2 support!): brew install openssl
@@ -56,7 +56,7 @@ on OS X:
 ** sudo ln -sf /path/to/floor /usr/local/include/floor
 
 on iOS:
-* install Xcode 6.0+
+* install Xcode 6.1+
 * compile static libs for SDL2 (2.0.2+), SDL2_image and OpenSSL (1.0.1e+), then symlink or copy them into your iPhoneOS and iPhoneSimulator /usr/{lib,include} folders
 * symlink or copy boost header folder to your iPhoneOS and iPhoneSimulator /usr/include/ folder
 * symlink the OpenCL.framework/Headers folder of your OS X SDK to the iPhoneOS SDKs PrivateFrameworks/OpenCL.framework/ folder
