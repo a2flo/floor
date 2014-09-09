@@ -39,6 +39,8 @@ template <typename scalar_type> class vector3;
 template <typename scalar_type> class vector4;
 
 // pod type -> typedef name prefix
+#if !defined(__GNU_LIBRARY__)
+// all types when not compiling with glibc
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -54,6 +56,22 @@ F(size_t, size, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
+#else
+// remove size_t and ssize_t when compiling with glibc
+#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(float, float, vec_width) \
+F(double, double, vec_width) \
+F(long double, ldouble, vec_width) \
+F(int8_t, char, vec_width) \
+F(uint8_t, uchar, vec_width) \
+F(int16_t, short, vec_width) \
+F(uint16_t, ushort, vec_width) \
+F(int32_t, int, vec_width) \
+F(uint32_t, uint, vec_width) \
+F(int64_t, long, vec_width) \
+F(uint64_t, ulong, vec_width) \
+F(bool, bool, vec_width)
+#endif
 
 // typedefs for all types and widths
 #define FLOOR_VECTOR_TYPEDEF(pod_type, prefix, vec_width) \
@@ -69,6 +87,29 @@ typedef uint2 pnt;
 typedef int2 ipnt;
 typedef float2 coord;
 typedef uint3 index3;
+
+// necessary glibc aliases
+#if defined(__GNU_LIBRARY__)
+#if defined(PLATFORM_X64)
+typedef ulong1 size1;
+typedef ulong2 size2;
+typedef ulong3 size3;
+typedef ulong4 size4;
+typedef long1 ssize1;
+typedef long2 ssize2;
+typedef long3 ssize3;
+typedef long4 ssize4;
+#elif defined(PLATFORM_X32)
+typedef uint1 size1;
+typedef uint2 size2;
+typedef uint3 size3;
+typedef uint4 size4;
+typedef int1 ssize1;
+typedef int2 ssize2;
+typedef int3 ssize3;
+typedef int4 ssize4;
+#endif
+#endif
 
 // implementation for each vector width
 #define FLOOR_VECTOR_WIDTH 1
