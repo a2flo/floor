@@ -113,6 +113,7 @@ public:
 	static void set_vsync(const bool& state);
 	
 	// audio
+	static void set_audio_disabled(const bool& state);
 	static bool is_audio_disabled();
 	static void set_music_volume(const float& volume);
 	static const float& get_music_volume();
@@ -164,7 +165,7 @@ protected:
 		bool fullscreen = false, vsync = false, stereo = false;
 		
 		// audio
-		bool audio_disabled = false;
+		bool audio_disabled = true;
 		float music_volume = 1.0f, sound_volume = 1.0f;
 		string audio_device_name = "";
 		

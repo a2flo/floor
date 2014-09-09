@@ -193,7 +193,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
 		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
 		
-		config.audio_disabled = config_doc.get<bool>("config.audio.disabled", false);
+		config.audio_disabled = config_doc.get<bool>("config.audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
 		config.sound_volume = const_math::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
 		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
@@ -978,6 +978,10 @@ bool floor::get_cuda_use_cache() {
 
 string floor::get_absolute_path() {
 	return abs_bin_path;
+}
+
+void floor::set_audio_disabled(const bool& state) {
+	config.audio_disabled = state;
 }
 
 bool floor::is_audio_disabled() {
