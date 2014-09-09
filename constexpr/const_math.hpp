@@ -92,7 +92,9 @@ namespace const_math {
 	}
 	
 	//! computes |x|, the absolute value of x
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
+	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
+																	is_same<arithmetic_type, __int128_t>::value ||
+																	is_same<arithmetic_type, __uint128_t>::value)>::type>
 	constexpr arithmetic_type abs(arithmetic_type val) {
 		return (val < (arithmetic_type)0 ? -val : val);
 	}
@@ -471,6 +473,12 @@ namespace const_math {
 		return (val > max ? max : (val < min ? min : val));
 	}
 	
+	//! clamps val to the range [0, max]
+	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
+	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& max) {
+		return (val > max ? max : (val < (arithmetic_type)0 ? (arithmetic_type)0 : val));
+	}
+	
 	//! wraps val to the range [0, max]
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
@@ -536,9 +544,6 @@ namespace const_math {
 		// c(t) = 0.5 * (1 t t^2 t^3) * |  2  -5   4  -1 | * | a1 |
 		//                              | -1   3  -3   1 |   | a0 |
 		const auto t_2 = t * t;
-		const auto a_diff = (a_prev - a);
-		const auto b_diff = (b_next - b);
-		const auto A = b_diff - a_diff;
 		return {
 			(((fp_type(3.0L) * (a - b) - a_prev + b_next) * t * t_2) +
 			 ((fp_type(2.0L) * a_prev - fp_type(5.0L) * a + fp_type(4.0L) * b - b_next) * t_2) +

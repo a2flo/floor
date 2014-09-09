@@ -26,10 +26,6 @@
 #include "core/file_io.hpp"
 #include <random>
 
-/*! @class core
- *  @brief core stuff
- */
-
 class FLOOR_API core {
 public:
 	//

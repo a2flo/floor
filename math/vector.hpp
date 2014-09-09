@@ -23,6 +23,9 @@
 #define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width
 #define FLOOR_VECNAME_EVAL(vec_width) FLOOR_VECNAME_CONCAT(vec_width)
 #define FLOOR_VECNAME FLOOR_VECNAME_EVAL(FLOOR_VECTOR_WIDTH)
+#define FLOOR_VECNAME_STR_STRINGIFY(vec_name) #vec_name
+#define FLOOR_VECNAME_STR_EVAL(vec_name) FLOOR_VECNAME_STR_STRINGIFY(vec_name)
+#define FLOOR_VECNAME_STR FLOOR_VECNAME_STR_EVAL(FLOOR_VECNAME)
 
 #include "math/vector_ops.hpp"
 #include "math/matrix4.hpp"
@@ -436,8 +439,17 @@ public:
 	//! component-wise unary -
 	FLOOR_VEC_UNARY_OP(-)
 	//! component-wise unary not
-	FLOOR_VEC_UNARY_OP(!)
+	FLOOR_VEC_UNARY_OP_FUNC(!, unary_not)
 	
+#if FLOOR_VECTOR_WIDTH == 1
+	//! 4x4 matrix * vector1 multiplication
+	//! -> implicit vector4 with .y = 0, .z = 0 and .w = 1 and dropping the bottom three rows of the matrix
+	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
+		return {
+			mat.data[0] * x + mat.data[12],
+		};
+	}
+#endif
 #if FLOOR_VECTOR_WIDTH == 2
 	//! 4x4 matrix * vector2 multiplication
 	//! -> implicit vector4 with .z = 0 and .w = 1 and dropping the bottom two rows of the matrix
@@ -507,18 +519,29 @@ public:
 	
 	//////////////////////////////////////////
 	// bit ops
+	
 	//! component-wise bit-wise OR
-	FLOOR_VEC_OP(|)
+	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
+	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(|, bit_or, typename integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise AND
-	FLOOR_VEC_OP(&)
+	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
+	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(&, bit_and, typename integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise XOR
-	FLOOR_VEC_OP(^)
+	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
+	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(^, bit_xor, typename integral_eqv<decayed_scalar_type>::type)
 	//! component-wise left shift
-	FLOOR_VEC_OP(<<)
+	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
+	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(<<, bit_left_shift, typename integral_eqv<decayed_scalar_type>::type)
 	//! component-wise right shift
-	FLOOR_VEC_OP(>>)
+	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
+	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(>>, bit_right_shift, typename integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise complement
-	FLOOR_VEC_UNARY_OP(~)
+	FLOOR_VEC_UNARY_OP_FUNC(~, unary_complement)
 	
 	//////////////////////////////////////////
 	// testing
@@ -1130,12 +1153,12 @@ public:
 	
 	//! sum of all components / #components
 	constexpr scalar_type average() const {
-		return { (FLOOR_VEC_EXPAND(+)) / (scalar_type)FLOOR_VECTOR_WIDTH };
+		return (scalar_type)((FLOOR_VEC_EXPAND(+)) / (scalar_type)FLOOR_VECTOR_WIDTH);
 	}
 	
 	//! sum of all components
 	constexpr scalar_type accumulate() const {
-		return { FLOOR_VEC_EXPAND(+) };
+		return (scalar_type)(FLOOR_VEC_EXPAND(+));
 	}
 	//! sum of all components
 	constexpr scalar_type sum() const {
@@ -1296,13 +1319,71 @@ public:
 	//! absolute value/vector
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::abs, abs, absed)
 	
-	//! linear interpolation
-	FLOOR_VEC_FUNC_ARGS_VEC(const_math::interpolate, interpolate, interpolated,
-							(const vector_type& vec, const scalar_type& interp),
-							vec., FLOOR_VEC_RHS_VEC,
-							interp)
+	//! linearly interpolates this vector with another vector according to interp
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr vector_type& interpolate(const vector_type& vec, const scalar_type& interp) {
+		x = const_math::interpolate(x, vec.x, interp);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::interpolate(y, vec.y, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::interpolate(z, vec.z, interp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::interpolate(w, vec.w, interp);
+#endif
+		return *this;
+	}
+	//! linearly interpolates this vector with another vector according to interp
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr vector_type& interpolate(const vector_type& vec, const vector_type& interp) {
+		x = const_math::interpolate(x, vec.x, interp.x);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = const_math::interpolate(y, vec.y, interp.y);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = const_math::interpolate(z, vec.z, interp.z);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = const_math::interpolate(w, vec.w, interp.w);
+#endif
+		return *this;
+	}
+	//! returns the linear interpolation between this vector and another vector according to interp
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr vector_type interpolated(const vector_type& vec, const scalar_type& interp) const {
+		return {
+			const_math::interpolate(x, vec.x, interp),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::interpolate(y, vec.y, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::interpolate(z, vec.z, interp),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::interpolate(w, vec.w, interp)
+#endif
+		};
+	}
+	//! returns the linear interpolation between this vector and another vector according to interp
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr vector_type interpolated(const vector_type& vec, const vector_type& interp) const {
+		return {
+			const_math::interpolate(x, vec.x, interp.x),
+#if FLOOR_VECTOR_WIDTH >= 2
+			const_math::interpolate(y, vec.y, interp.y),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			const_math::interpolate(z, vec.z, interp.z),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			const_math::interpolate(w, vec.w, interp.w)
+#endif
+		};
+	}
 	
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 											 const vector_type& interp) {
 		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
@@ -1318,6 +1399,7 @@ public:
 		return *this;
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 											 const vector_type& interp) const {
 		return {
@@ -1334,6 +1416,7 @@ public:
 		};
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 											 const scalar_type& interp) {
 		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp);
@@ -1349,6 +1432,7 @@ public:
 		return *this;
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 											 const scalar_type& interp) const {
 		return {
@@ -1366,6 +1450,7 @@ public:
 	}
 	
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 												   const vector_type& interp) {
 		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
@@ -1381,6 +1466,7 @@ public:
 		return *this;
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 												   const vector_type& interp) const {
 		return {
@@ -1397,6 +1483,7 @@ public:
 		};
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 												   const scalar_type& interp) {
 		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp);
@@ -1412,6 +1499,7 @@ public:
 		return *this;
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
+	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
 												   const scalar_type& interp) const {
 		return {
@@ -1564,3 +1652,6 @@ public:
 #undef FLOOR_VECNAME_CONCAT
 #undef FLOOR_VECNAME_EVAL
 #undef FLOOR_VECNAME
+#undef FLOOR_VECNAME_STR_STRINGIFY
+#undef FLOOR_VECNAME_STR_EVAL
+#undef FLOOR_VECNAME_STR

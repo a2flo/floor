@@ -877,6 +877,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					DEBUG,
 					"FLOOR_DEBUG=1",
+					"FLOOR_EXPORT=1",
 					"TCC_LIB_ONLY=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -959,6 +960,7 @@
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
 					"-Wno-old-style-cast",
+					"-Wno-date-time",
 				);
 			};
 			name = Debug;
@@ -1007,7 +1009,10 @@
 				GCC_OPTIMIZATION_LEVEL = fast;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = floor_prefix.pch;
-				GCC_PREPROCESSOR_DEFINITIONS = "TCC_LIB_ONLY=1";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"TCC_LIB_ONLY=1",
+					"FLOOR_EXPORT=1",
+				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_UNROLL_LOOPS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -1087,6 +1092,7 @@
 					"-Wno-unknown-warning-option",
 					"-Wno-nested-anon-types",
 					"-Wno-old-style-cast",
+					"-Wno-date-time",
 				);
 			};
 			name = Release;

@@ -112,10 +112,9 @@ solution "floor"
 			buildoptions { "-Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-header-hygiene -Wno-gnu" }
 			buildoptions { "-Wno-documentation -Wno-system-headers -Wno-global-constructors -Wno-padded -Wno-packed" }
 			buildoptions { "-Wno-switch-enum -Wno-sign-conversion -Wno-conversion -Wno-exit-time-destructors -Wno-nested-anon-types" }
-			buildoptions { "-Wno-old-style-cast" }
+			buildoptions { "-Wno-old-style-cast -Wno-date-time" }
 			linkoptions { "-fvisibility=default" }
 			if(not win_unixenv) then
-				buildoptions { "-integrated-as" }
 				defines { "FLOOR_EXPORT=1" }
 				linkoptions { "-stdlib=libc++" }
 				if(os.is("linux")) then
