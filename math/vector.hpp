@@ -160,6 +160,8 @@ public:
 	typedef decay_t<scalar_type> decayed_scalar_type;
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
+	//! dimensionality of this vector type
+	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -357,12 +359,12 @@ public:
 	}
 #endif
 	
-	//! constexpr subscript access, with index out of bound
-	[[deprecated("index out of bound")]] constexpr const scalar_type& operator[](const size_t& index) const
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bound")));
-	//! constexpr subscript access, with index out of bound
-	[[deprecated("index out of bound")]] constexpr scalar_type& operator[](const size_t& index)
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bound")));
+	//! constexpr subscript access, with index out of bounds
+	[[deprecated("index out of bounds")]] constexpr const scalar_type& operator[](const size_t& index) const
+	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds")));
+	//! constexpr subscript access, with index out of bounds
+	[[deprecated("index out of bounds")]] constexpr scalar_type& operator[](const size_t& index)
+	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds")));
 	
 	//! c array style access (not enabled if scalar_type is a reference)
 	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
@@ -394,7 +396,7 @@ public:
 		}
 	}
 	
-	//! vector swizzle via component indices
+	//! swizzles this vector, according to the specified component indices
 	template <size_t c0
 #if FLOOR_VECTOR_WIDTH >= 2
 			  , size_t c1
@@ -406,7 +408,34 @@ public:
 			  , size_t c3
 #endif
 			 >
-	constexpr vector_type swizzle() const {
+	constexpr vector_type& swizzle() {
+#if FLOOR_VECTOR_WIDTH >= 2 // rather pointless for vector1
+		const auto tmp = *this;
+		x = component_select<c0>(tmp);
+		y = component_select<c1>(tmp);
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = component_select<c2>(tmp);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = component_select<c3>(tmp);
+#endif
+#endif
+		return *this;
+	}
+	
+	//! returns a swizzled version of this vector, according to the specified component indices
+	template <size_t c0
+#if FLOOR_VECTOR_WIDTH >= 2
+			  , size_t c1
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			  , size_t c2
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			  , size_t c3
+#endif
+			 >
+	constexpr vector_type swizzled() const {
 		return {
 			component_select<c0>(*this)
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -417,6 +446,105 @@ public:
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
 			, component_select<c3>(*this)
+#endif
+		};
+	}
+	
+	//! returns the corresponding index to the specified component char/name
+	template <char c> static constexpr size_t char_to_index() {
+		switch(c) {
+			case 'x':
+			case 'r':
+			case 's':
+				return 0;
+			case 'y':
+			case 'g':
+			case 't':
+				return 1;
+			case 'z':
+			case 'b':
+			case 'p':
+				return 2;
+			case 'w':
+			case 'a':
+			case 'q':
+				return 3;
+		}
+		return ~0u;
+	}
+	
+	//! creates a vector with components referencing the components of this vector in an arbitrary order.
+	//! components are specified via their name ('x', 'w', 'r', etc.)
+	template <char c0 = 'x'
+#if FLOOR_VECTOR_WIDTH >= 2
+			  , char c1 = 'y'
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			  , char c2 = 'z'
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			  , char c3 = 'w'
+#endif
+			  , size_t i0 = char_to_index<c0>()
+#if FLOOR_VECTOR_WIDTH >= 2
+			  , size_t i1 = char_to_index<c1>()
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			  , size_t i2 = char_to_index<c2>()
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			  , size_t i3 = char_to_index<c3>()
+#endif
+	>
+	constexpr FLOOR_VECNAME<scalar_type&> ref() {
+		static_assert(i0 < FLOOR_VECTOR_WIDTH, "invalid index");
+#if FLOOR_VECTOR_WIDTH >= 2
+		static_assert(i1 < FLOOR_VECTOR_WIDTH, "invalid index");
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		static_assert(i2 < FLOOR_VECTOR_WIDTH, "invalid index");
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		static_assert(i3 < FLOOR_VECTOR_WIDTH, "invalid index");
+#endif
+		return {
+			(*this)[i0]
+#if FLOOR_VECTOR_WIDTH >= 2
+			, (*this)[i1]
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			, (*this)[i2]
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			, (*this)[i3]
+#endif
+		};
+	}
+	
+	//! creates a vector with components referencing the components of this vector in an arbitrary order
+	//! components are specified via their index (0, 1, 2 or 3)
+	template <size_t c0 = 0
+#if FLOOR_VECTOR_WIDTH >= 2
+			  , size_t c1 = 1
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			  , size_t c2 = 2
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			  , size_t c3 = 3
+#endif
+			 >
+	constexpr FLOOR_VECNAME<scalar_type&> ref_idx() {
+		return {
+			(*this)[c0]
+#if FLOOR_VECTOR_WIDTH >= 2
+			, (*this)[c1]
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			, (*this)[c2]
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			, (*this)[c3]
 #endif
 		};
 	}
