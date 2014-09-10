@@ -45,7 +45,7 @@ enum class CUDACL_PARAM_ACCESS : unsigned int {
 	READ_WRITE,
 };
 
-struct FLOOR_API cudacl_kernel_info {
+struct cudacl_kernel_info {
 	// name, address space, type, access
 	typedef tuple<string, CUDACL_PARAM_ADDRESS_SPACE, CUDACL_PARAM_TYPE, CUDACL_PARAM_ACCESS> kernel_param;
 	
@@ -68,14 +68,14 @@ struct FLOOR_API cudacl_kernel_info {
 	cudacl_kernel_info(const string& kernel_name, const vector<kernel_param>& params) : name(kernel_name), parameters(params) {}
 };
 
-extern void FLOOR_API cudacl_translate(const string& cl_source,
-										   const string& preprocess_options,
-										   string& cuda_source,
-										   vector<cudacl_kernel_info>& kernels,
-										   const bool use_cache,
-										   bool& found_in_cache,
-										   uint128& kernel_hash,
-										   std::function<bool(const uint128&)> hash_lookup);
+extern void cudacl_translate(const string& cl_source,
+							 const string& preprocess_options,
+							 string& cuda_source,
+							 vector<cudacl_kernel_info>& kernels,
+							 const bool use_cache,
+							 bool& found_in_cache,
+							 uint128& kernel_hash,
+							 std::function<bool(const uint128&)> hash_lookup);
 
 #endif
 #endif

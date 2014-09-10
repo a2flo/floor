@@ -19,8 +19,10 @@
 #ifndef __FLOOR_QUATERNION_HPP__
 #define __FLOOR_QUATERNION_HPP__
 
-#include "core/cpp_headers.hpp"
 #include "math/vector_lib.hpp"
+#include <ostream>
+#include <sstream>
+#include <string>
 
 template <typename T> class quaternion;
 typedef quaternion<float> quaternionf;
@@ -31,7 +33,7 @@ typedef quaternion<double> quaterniond;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class FLOOR_API __attribute__((packed, aligned(4))) quaternion {
+template <typename T> class __attribute__((packed, aligned(4))) quaternion {
 public:
 	T x, y, z, r;
 	constexpr quaternion() noexcept : x(0.0f), y(0.0f), z(0.0f), r(1.0f) {}

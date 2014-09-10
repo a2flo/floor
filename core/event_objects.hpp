@@ -76,7 +76,7 @@ enum class EVENT_TYPE : unsigned int {
 	__USER_EVENT_START = __USER_EVENT + 1,
 	FLOOR_USER_EVENT_TYPES
 };
-FLOOR_API EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
+EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
 
 //
 struct event_object {

@@ -112,7 +112,7 @@ template <> ssize_t converter<string, ssize_t>::convert(const string& var);
 #define ull2string(value) converter<unsigned long long int, string>::convert(value)
 
 // misc
-class FLOOR_API floor_exception : public exception {
+class floor_exception : public exception {
 protected:
 	string error_str;
 public:

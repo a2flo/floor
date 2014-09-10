@@ -75,12 +75,10 @@
 // Mac OS X
 #elif defined(__APPLE__)
 #include <dirent.h>
-#define FLOOR_API
 #define FLOOR_OS_DIR_SLASH "/"
 
 // everything else (Linux, *BSD, ...)
 #else
-#define FLOOR_API
 #define FLOOR_OS_DIR_SLASH "/"
 #include <dirent.h>
 

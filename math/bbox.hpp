@@ -19,9 +19,11 @@
 #ifndef __FLOOR_BBOX_HPP__
 #define __FLOOR_BBOX_HPP__
 
-#include "core/cpp_headers.hpp"
 #include "math/vector_lib.hpp"
 #include "math/ray.hpp"
+#include <ostream>
+#include <sstream>
+#include <string>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -31,7 +33,7 @@
 #pragma GCC diagnostic ignored "-Wnon-virtual-dtor"
 #endif
 
-class FLOOR_API __attribute__((packed, aligned(4))) bbox {
+class __attribute__((packed, aligned(4))) bbox {
 public:
 	float3 min { __FLT_MAX__ };
 	float3 max { -__FLT_MAX__ };
@@ -113,7 +115,7 @@ public:
 };
 
 //! extended bound box (including position and model view matrix)
-class FLOOR_API __attribute__((packed)) extbbox : public bbox {
+class __attribute__((packed)) extbbox : public bbox {
 public:
 	float3 pos;
 	matrix4f mview;

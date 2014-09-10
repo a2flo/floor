@@ -21,7 +21,7 @@
 
 #include "core/platform.hpp"
 
-class FLOOR_API floor_timer {
+class floor_timer {
 public:
 	floor_timer() { add("start", false); }
 	~floor_timer() {}

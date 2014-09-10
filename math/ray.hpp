@@ -19,10 +19,9 @@
 #ifndef __FLOOR_RAY_HPP__
 #define __FLOOR_RAY_HPP__
 
-#include "core/cpp_headers.hpp"
 #include "math/vector_lib.hpp"
 
-class FLOOR_API ray {
+class ray {
 public:
 	float3 origin;
 	float3 direction;

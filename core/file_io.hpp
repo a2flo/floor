@@ -21,11 +21,8 @@
 
 #include "core/platform.hpp"
 
-/*! @class file_io
- *  @brief file input/output
- */
-
-class FLOOR_API file_io {
+//! file input/output
+class file_io {
 public:
 	enum class OPEN_TYPE {
 		READ,

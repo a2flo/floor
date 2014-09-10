@@ -20,6 +20,6 @@
 
 #if defined(FLOOR_EXPORT)
 // instantiate
-FLOOR_API template class quaternion<float>;
-FLOOR_API template class quaternion<double>;
+template class quaternion<float>;
+template class quaternion<double>;
 #endif

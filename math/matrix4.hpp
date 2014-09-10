@@ -19,7 +19,11 @@
 #ifndef __FLOOR_MATRIX4_HPP__
 #define __FLOOR_MATRIX4_HPP__
 
-#include "core/cpp_headers.hpp"
+#include <utility>
+#include <array>
+#include <ostream>
+#include <sstream>
+#include <string>
 #include "constexpr/const_math.hpp"
 
 template <typename T> class matrix4;
@@ -35,7 +39,7 @@ template <typename T> class vector4;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class FLOOR_API __attribute__((packed, aligned(16))) matrix4 {
+template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
 public:
 	array<T, 16> data;
 	

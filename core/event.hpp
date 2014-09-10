@@ -23,11 +23,8 @@
 #include "threading/thread_base.hpp"
 #include "event_objects.hpp"
 
-/*! @class event
- *  @brief (sdl) event handler
- */
-
-class FLOOR_API event : public thread_base {
+//! (sdl) event handler
+class event : public thread_base {
 public:
 	event();
 	virtual ~event();

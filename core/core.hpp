@@ -25,7 +25,7 @@
 #include "core/file_io.hpp"
 #include <random>
 
-class FLOOR_API core {
+class core {
 public:
 	//
 	static void init();

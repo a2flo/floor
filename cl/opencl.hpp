@@ -75,8 +75,8 @@
 enum class IMAGE_TYPE : unsigned short int;
 enum class IMAGE_CHANNEL : unsigned short int;
 
-// opencl base interface
-class FLOOR_API opencl_base {
+//! opencl base interface
+class opencl_base {
 public:
 	struct kernel_object;
 	struct buffer_object;
@@ -514,8 +514,8 @@ template<typename T> bool opencl_base::set_kernel_argument(const unsigned int& i
 	return true;
 }
 	
-// actual opencl implementation
-class FLOOR_API opencl : public opencl_base {
+//! actual opencl implementation
+class opencl : public opencl_base {
 public:
 	//
 	opencl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_);
@@ -652,9 +652,9 @@ protected:
 };
 
 #if defined(FLOOR_CUDA_CL)
-// opencl_base implementation on top of cuda
 struct cuda_kernel_object;
-class FLOOR_API cudacl : public opencl_base {
+//! opencl_base implementation on top of cuda
+class cudacl : public opencl_base {
 public:
 	cudacl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_);
 	virtual ~cudacl();
