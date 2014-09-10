@@ -25,6 +25,7 @@
 #include <sstream>
 #include <string>
 #include "constexpr/const_math.hpp"
+#include "math/vector_helper.hpp"
 
 template <typename T> class matrix4;
 typedef matrix4<float> matrix4f;
