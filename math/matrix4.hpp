@@ -20,7 +20,7 @@
 #define __FLOOR_MATRIX4_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "math/basic_math.hpp"
+#include "constexpr/const_math.hpp"
 
 template <typename T> class matrix4;
 typedef matrix4<float> matrix4f;
@@ -72,8 +72,10 @@ public:
 		(T)mat4.data[8], (T)mat4.data[9], (T)mat4.data[10], (T)mat4.data[11],
 		(T)mat4.data[12], (T)mat4.data[13], (T)mat4.data[14], (T)mat4.data[15] }}) {}
 	
-	matrix4& operator=(const matrix4& mat) {
-		memcpy(&data[0], &mat.data[0], sizeof(T)*16);
+	constexpr matrix4& operator=(const matrix4& mat) noexcept {
+		for(size_t i = 0; i < 16; ++i) {
+			data[i] = mat.data[i];
+		}
 		return *this;
 	}
 	
@@ -93,28 +95,28 @@ public:
 		return sstr.str();
 	}
 	
-	T& operator[](const size_t index) { return data[index]; }
-	const T& operator[](const size_t index) const { return data[index]; }
+	constexpr T& operator[](const size_t index) { return data[index]; }
+	constexpr const T& operator[](const size_t index) const { return data[index]; }
 	
-	matrix4 operator*(const matrix4& mat) const;
-	matrix4& operator*=(const matrix4& mat);
+	constexpr matrix4 operator*(const matrix4& mat) const;
+	constexpr matrix4& operator*=(const matrix4& mat);
 	
 	// basic functions
-	matrix4& invert();
-	matrix4& identity();
-	matrix4& transpose();
+	constexpr matrix4& invert();
+	constexpr matrix4& identity();
+	constexpr matrix4& transpose();
 	
 	// transformations
-	matrix4& translate(const T x, const T y, const T z);
-	matrix4& set_translation(const T x, const T y, const T z);
-	matrix4& scale(const T x, const T y, const T z);
+	constexpr matrix4& translate(const T x, const T y, const T z);
+	constexpr matrix4& set_translation(const T x, const T y, const T z);
+	constexpr matrix4& scale(const T x, const T y, const T z);
 	
-	matrix4& rotate_x(const T x);
-	matrix4& rotate_y(const T y);
-	matrix4& rotate_z(const T z);
+	constexpr matrix4& rotate_x(const T x);
+	constexpr matrix4& rotate_y(const T y);
+	constexpr matrix4& rotate_z(const T z);
 	
 	//
-	template<size_t col> vector4<T> column() const {
+	template<size_t col> constexpr vector4<T> column() const {
 		return vector4<T>(data[col*4],
 						  data[(col*4) + 1],
 						  data[(col*4) + 2],
@@ -122,11 +124,11 @@ public:
 	}
 	
 	// projection
-	matrix4& perspective(const T fov, const T aspect, const T z_near, const T z_far);
-	matrix4& ortho(const T left, const T right, const T bottom, const T top, const T z_near, const T z_far);
+	constexpr matrix4& perspective(const T fov, const T aspect, const T z_near, const T z_far);
+	constexpr matrix4& ortho(const T left, const T right, const T bottom, const T top, const T z_near, const T z_far);
 };
 
-template<typename T> matrix4<T> matrix4<T>::operator*(const matrix4<T>& mat) const {
+template<typename T> constexpr matrix4<T> matrix4<T>::operator*(const matrix4<T>& mat) const {
 	matrix4 mul_mat((T)0);
 	for(size_t mi = 0; mi < 4; mi++) { // column
 		for(size_t mj = 0; mj < 4; mj++) { // row
@@ -138,12 +140,12 @@ template<typename T> matrix4<T> matrix4<T>::operator*(const matrix4<T>& mat) con
 	return mul_mat;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::operator*=(const matrix4<T>& mat) {
+template<typename T> constexpr matrix4<T>& matrix4<T>::operator*=(const matrix4<T>& mat) {
 	*this = *this * mat;
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::invert() {
+template<typename T> constexpr matrix4<T>& matrix4<T>::invert() {
 	matrix4<T> mat;
 	
 	const T p00(data[10] * data[15]);
@@ -201,7 +203,7 @@ template<typename T> matrix4<T>& matrix4<T>::invert() {
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::identity() {
+template<typename T> constexpr matrix4<T>& matrix4<T>::identity() {
 	data[0] = ((T)1);
 	data[1] = ((T)0);
 	data[2] = ((T)0);
@@ -225,7 +227,7 @@ template<typename T> matrix4<T>& matrix4<T>::identity() {
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::transpose() {
+template<typename T> constexpr matrix4<T>& matrix4<T>::transpose() {
 	std::swap(data[1], data[4]);
 	std::swap(data[2], data[8]);
 	std::swap(data[3], data[12]);
@@ -236,7 +238,7 @@ template<typename T> matrix4<T>& matrix4<T>::transpose() {
 }
 
 // transformations
-template<typename T> matrix4<T>& matrix4<T>::translate(const T x, const T y, const T z) {
+template<typename T> constexpr matrix4<T>& matrix4<T>::translate(const T x, const T y, const T z) {
 	matrix4 trans_mat;
 	trans_mat[12] = x;
 	trans_mat[13] = y;
@@ -247,14 +249,14 @@ template<typename T> matrix4<T>& matrix4<T>::translate(const T x, const T y, con
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::set_translation(const T x, const T y, const T z) {
+template<typename T> constexpr matrix4<T>& matrix4<T>::set_translation(const T x, const T y, const T z) {
 	data[12] = x;
 	data[13] = y;
 	data[14] = z;
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::scale(const T x, const T y, const T z) {
+template<typename T> constexpr matrix4<T>& matrix4<T>::scale(const T x, const T y, const T z) {
 	matrix4 scale_mat;
 	scale_mat[0] = x;
 	scale_mat[5] = y;
@@ -265,10 +267,10 @@ template<typename T> matrix4<T>& matrix4<T>::scale(const T x, const T y, const T
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::rotate_x(const T x) {
-	const T angle((T)DEG2RAD(x));
-	const T sinx((T)sin(angle));
-	const T cosx((T)cos(angle));
+template<typename T> constexpr matrix4<T>& matrix4<T>::rotate_x(const T x) {
+	const T angle { const_math::deg_to_rad(x) };
+	const T sinx { vector_helper<T>::sin(angle) };
+	const T cosx { vector_helper<T>::cos(angle) };
 	
 	data[0] = ((T)1);
 	data[1] = ((T)0);
@@ -293,10 +295,10 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_x(const T x) {
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::rotate_y(const T y) {
-	const T angle((T)DEG2RAD(y));
-	const T siny((T)sin(angle));
-	const T cosy((T)cos(angle));
+template<typename T> constexpr matrix4<T>& matrix4<T>::rotate_y(const T y) {
+	const T angle { const_math::deg_to_rad(y) };
+	const T siny { vector_helper<T>::sin(angle) };
+	const T cosy { vector_helper<T>::cos(angle) };
 	
 	data[0] = cosy;
 	data[1] = ((T)0);
@@ -321,10 +323,10 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_y(const T y) {
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::rotate_z(const T z) {
-	const T angle((T)DEG2RAD(z));
-	const T sinz((T)sin(angle));
-	const T cosz((T)cos(angle));
+template<typename T> constexpr matrix4<T>& matrix4<T>::rotate_z(const T z) {
+	const T angle { const_math::deg_to_rad(z) };
+	const T sinz { vector_helper<T>::sin(angle) };
+	const T cosz { vector_helper<T>::cos(angle) };
 	
 	data[0] = cosz;
 	data[1] = sinz;
@@ -350,8 +352,11 @@ template<typename T> matrix4<T>& matrix4<T>::rotate_z(const T z) {
 }
 
 // projection
-template<typename T> matrix4<T>& matrix4<T>::perspective(const T fov, const T aspect, const T z_near, const T z_far) {
-	const typename conditional<is_floating_point<T>::value, T, float>::type f = (T)(((T)1) / tan(fov * (T)PI_DIV_360));
+template<typename T> constexpr matrix4<T>& matrix4<T>::perspective(const T fov, const T aspect, const T z_near, const T z_far) {
+	typedef typename conditional<is_floating_point<T>::value, T, float>::type fp_type;
+	const fp_type f {
+		(fp_type)1 / vector_helper<fp_type>::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
+	};
 	
 	////
 	data[0] = (T)f / (T)aspect;
@@ -377,7 +382,7 @@ template<typename T> matrix4<T>& matrix4<T>::perspective(const T fov, const T as
 	return *this;
 }
 
-template<typename T> matrix4<T>& matrix4<T>::ortho(const T left, const T right, const T bottom, const T top, const T z_near, const T z_far) {
+template<typename T> constexpr matrix4<T>& matrix4<T>::ortho(const T left, const T right, const T bottom, const T top, const T z_near, const T z_far) {
 	const T r_l(right - left);
 	const T t_b(top - bottom);
 	const T f_n(z_far - z_near);

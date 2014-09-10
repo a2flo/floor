@@ -920,63 +920,63 @@ public:
 	// comparisons with an +/- epsilon returning ANDed component-wise results
 	//! returns true if all components are equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_equal(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_EQ_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_equal, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	//! returns true if all components are unequal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_unequal(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_NE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_unequal, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	//! returns true if all components are less than to the corresponding components of another vector +/- epsilon
 	constexpr bool is_less(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_less, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	//! returns true if all components are less than or equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_less_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_less_or_equal, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	//! returns true if all components are greater than to the corresponding components of another vector +/- epsilon
 	constexpr bool is_greater(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GT_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_greater, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	//! returns true if all components are greater than or equal to the corresponding components of another vector +/- epsilon
 	constexpr bool is_greater_or_equal(const vector_type& vec, const scalar_type& epsilon) const {
-		return FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GE_EPS, vec., &&, FLOOR_VEC_RHS_VEC,
+		return FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_greater_or_equal, vec., &&, FLOOR_VEC_RHS_VEC,
 										FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon);
 	}
 	
 	//! component-wise equal comparison +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_EQ_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_equal, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	//! component-wise unequal comparison +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_unequal_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_NE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_unequal, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	//! component-wise less-than comparison (this < another vector) +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_less_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LT_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_less, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	//! component-wise less-or-equal comparison (this <= another vector) +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_less_or_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_LE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_less_or_equal, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	//! component-wise greater-than comparison (this > another vector) +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_greater_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GT_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_greater, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	//! component-wise greater-or-equal comparison (this >= another vector) +/- epsilon
 	constexpr FLOOR_VECNAME<bool> is_greater_or_equal_vec(const vector_type& vec, const scalar_type& epsilon) const {
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, FLOAT_GE_EPS, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, const_math::is_greater_or_equal, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC,
 										  FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP, epsilon) };
 	}
 	

@@ -855,7 +855,7 @@ const float& floor::get_fov() {
 }
 
 void floor::set_fov(const float& fov) {
-	if(FLOAT_EQ(config.fov, fov)) return;
+	if(const_math::is_equal(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
 				   make_shared<window_resize_event>(SDL_GetTicks(), size2(config.width, config.height)));

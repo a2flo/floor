@@ -154,11 +154,11 @@
 	constexpr friend vector_type operator op (const scalar_type& val, const vector_type& v) { \
 		return { FLOOR_VEC_OP_EXPAND(v., op, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR) }; \
 	} \
-	constexpr vector_type& operator op##= (const scalar_type& val) { \
+	constexpr vector_type& operator op##= (const scalar_type& val) noexcept { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR); \
 		return *this; \
 	} \
-	constexpr vector_type& operator op##= (const vector_type& vec) { \
+	constexpr vector_type& operator op##= (const vector_type& vec) noexcept { \
 		FLOOR_VEC_OP_EXPAND(this->, op##=, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC); \
 		return *this; \
 	}
@@ -175,11 +175,11 @@
 	constexpr friend vector_type operator op (const arg_scalar_type& val, const vector_type& v) { \
 		return { FLOOR_VEC_FUNC_OP_EXPAND(v., vector_helper<scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
-	constexpr vector_type& operator op##= (const arg_scalar_type& val) { \
+	constexpr vector_type& operator op##= (const arg_scalar_type& val) noexcept { \
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	} \
-	constexpr vector_type& operator op##= (const FLOOR_VECNAME<arg_scalar_type>& vec) { \
+	constexpr vector_type& operator op##= (const FLOOR_VECNAME<arg_scalar_type>& vec) noexcept { \
 		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	}

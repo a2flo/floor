@@ -201,7 +201,7 @@ template<typename T> vector3<T> quaternion<T>::rotate(const vector3<T>& v) const
 }
 
 template<typename T> void quaternion<T>::set_rotation(const T& a, const vector3<T>& v) {
-	const T angle = a * ((T)PI) / ((T)360);
+	const T angle = a * const_math::PI_DIV_360<T>;
 	const T sin_a = (T)sin(angle);
 	const T cos_a = (T)cos(angle);
 	const vector3<T> nv(v.normalized());

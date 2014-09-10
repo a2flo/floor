@@ -19,9 +19,6 @@
 #ifndef __FLOOR_CONST_MATH_HPP__
 #define __FLOOR_CONST_MATH_HPP__
 
-// TODO: rather define the constants here, possibly using template vars
-#include "math/basic_math.hpp"
-
 // misc c++ headers
 #include <type_traits>
 #include <utility>
@@ -42,6 +39,108 @@ using namespace std;
 #endif
 
 namespace const_math {
+	// misc math constants
+	//! pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI = fp_type(3.14159265358979323846264338327950288419716939937510L);
+	//! pi/2
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_DIV_2 = fp_type(1.57079632679489661923132169163975144209858469968755L);
+	//! pi/4
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_DIV_4 = fp_type(0.785398163397448309615660845819875721049292349843775L);
+	//! pi/180
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_DIV_180 = fp_type(0.0174532925199432957692369076848861271344287188854172L);
+	//! pi/360
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_DIV_360 = fp_type(0.00872664625997164788461845384244306356721435944270861L);
+	//! 2*pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_MUL_2 = fp_type(6.2831853071795864769252867665590057683943387987502L);
+	//! 4*pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type PI_MUL_4 = fp_type(12.5663706143591729538505735331180115367886775975004L);
+	//! 1/pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _1_DIV_PI = fp_type(0.318309886183790671537767526745028724068919291480913487283406L);
+	//! 1/(2*pi)
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _1_DIV_2PI = fp_type(0.159154943091895335768883763372514362034459645740456743641703L);
+	//! 2/pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _2_DIV_PI = fp_type(0.636619772367581343075535053490057448137838582961826974566812L);
+	//! 180/pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _180_DIV_PI = fp_type(57.29577951308232087679815481410517033240547246656442771101308L);
+	//! 360/pi
+	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _360_DIV_PI = fp_type(114.5915590261646417535963096282103406648109449331288554220261L);
+	
+	//! converts the input radian value to degrees
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type rad_to_deg(const fp_type& val) {
+		return _180_DIV_PI<fp_type> * val;
+	}
+	//! converts the input radian value to degrees (for non floating point types)
+	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
+	constexpr any_type rad_to_deg(const any_type& val) {
+		return any_type(_180_DIV_PI<> * (long double)val);
+	}
+	
+	//! converts the input degrees value to radian
+	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type deg_to_rad(const fp_type& val) {
+		return PI_DIV_180<fp_type> * val;
+	}
+	//! converts the input degrees value to radian (for non floating point types)
+	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
+	constexpr any_type deg_to_rad(const any_type& val) {
+		return any_type(PI_DIV_180<> * (long double)val);
+	}
+	
+	//! tests if two values are equal +/- a fixed epsilon (0.00001)
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs) {
+		return (lhs > (rhs - arithmetic_type(0.00001L)) && lhs < (rhs + arithmetic_type(0.00001L)));
+	}
+	
+	//! tests if two values are equal +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (lhs > (rhs - epsilon) && lhs < (rhs + epsilon));
+	}
+	
+	//! tests if two values are unequal +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_unequal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (lhs < (rhs - epsilon) || lhs > (rhs + epsilon));
+	}
+	
+	//! tests if the first value is less than the second value +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_less(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (lhs < (rhs + epsilon));
+	}
+	
+	//! tests if the first value is less than or equal to the second value +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_less_or_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (is_less(lhs, rhs, epsilon) || is_equal(lhs, rhs, epsilon));
+	}
+	
+	//! tests if the first value is greater than the second value +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_greater(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (lhs > (rhs - epsilon));
+	}
+	
+	//! tests if the first value is greater than or equal to the second value +/- a specified epsilon
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_greater_or_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
+		return (is_greater(lhs, rhs, epsilon) || is_equal(lhs, rhs, epsilon));
+	}
+	
 	//! decomposes a floating point value into <fp_type in [1, 2), 2^exp>
 	//! NOTE: this doesn't handle infinity, NaNs or denormals
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
@@ -349,8 +448,8 @@ namespace const_math {
 		// here: 10 iterations seem enough for now (this will go up to 20!, which is max factorial that fits into 64-bit)
 		
 		// always cast to long double precision for better accuracy + wrap to appropriate range [-pi, pi]
-		const long double lrad_angle = const_math::fmod((long double)rad_angle, _2_MUL_PI);
-		const long double ldbl_val = lrad_angle + (lrad_angle > PI ? -_2_MUL_PI : (lrad_angle < -PI ? _2_MUL_PI : 0.0L));
+		const long double lrad_angle = const_math::fmod((long double)rad_angle, PI_MUL_2<>);
+		const long double ldbl_val = lrad_angle + (lrad_angle > PI<> ? -PI_MUL_2<> : (lrad_angle < -PI<> ? PI_MUL_2<> : 0.0L));
 		
 		long double cos_x = 1.0L;
 		uint64_t factorial_2k = 1ull; // (2*k)! in the iteration
@@ -367,7 +466,7 @@ namespace const_math {
 	//! computes sin(x), the sine of the radian angle x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type sin(fp_type rad_angle) {
-		return (fp_type)const_math::cos(PI_DIV_2 - (long double)rad_angle);
+		return (fp_type)const_math::cos(PI_DIV_2<> - (long double)rad_angle);
 	}
 	
 	//! computes tan(x), the tangent of the radian angle x
@@ -404,7 +503,7 @@ namespace const_math {
 		
 		// handle |val| > 0.5
 		if(const_math::abs(ldbl_val) > 0.5L) {
-			return (fp_type)(PI_DIV_2 - 2.0L * const_math::asin(const_math::sqrt((1.0L - ldbl_val) * 0.5L)));
+			return (fp_type)(PI_DIV_2<> - 2.0L * const_math::asin(const_math::sqrt((1.0L - ldbl_val) * 0.5L)));
 		}
 		
 		// infinite series iteration
@@ -427,7 +526,7 @@ namespace const_math {
 	//! computes acos(x), the inverse cosine / arccosine of x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type acos(fp_type val) {
-		return (fp_type)(PI_DIV_2 - const_math::asin((long double)val));
+		return (fp_type)(PI_DIV_2<> - const_math::asin((long double)val));
 	}
 	
 	//! computes atan(x), the inverse tangent / arctangent of x
@@ -448,18 +547,18 @@ namespace const_math {
 		}
 		else if(x < (fp_type)0) {
 			if(y >= (fp_type)0) {
-				return (fp_type)(const_math::atan(ldbl_y / ldbl_x) + PI);
+				return (fp_type)(const_math::atan(ldbl_y / ldbl_x) + PI<>);
 			}
 			else { // y < 0
-				return (fp_type)(const_math::atan(ldbl_y / ldbl_x) - PI);
+				return (fp_type)(const_math::atan(ldbl_y / ldbl_x) - PI<>);
 			}
 		}
 		else { // x == 0
 			if(y > (fp_type)0) {
-				return (fp_type)PI_DIV_2;
+				return (fp_type)PI_DIV_2<>;
 			}
 			else if(y < (fp_type)0) {
-				return (fp_type)-PI_DIV_2;
+				return (fp_type)-PI_DIV_2<>;
 			}
 			else { // y == 0
 				return numeric_limits<fp_type>::quiet_NaN();

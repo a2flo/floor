@@ -131,7 +131,6 @@
 		5CE0BDCD19BA432C000B28B3 /* vector_lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */; };
 		5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCE19BA46E3000B28B3 /* vector.cpp */; };
 		5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCE19BA46E3000B28B3 /* vector.cpp */; };
-		5CE0BDD819BB2A75000B28B3 /* basic_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD119BB2A75000B28B3 /* basic_math.hpp */; };
 		5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD219BB2A75000B28B3 /* bbox.hpp */; };
 		5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD319BB2A75000B28B3 /* matrix4.cpp */; };
 		5CE0BDDB19BB2A75000B28B3 /* matrix4.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD319BB2A75000B28B3 /* matrix4.cpp */; };
@@ -259,7 +258,6 @@
 		5CE0BDC819BA3469000B28B3 /* const_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = const_math.cpp; sourceTree = "<group>"; };
 		5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_lib.cpp; sourceTree = "<group>"; };
 		5CE0BDCE19BA46E3000B28B3 /* vector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector.cpp; sourceTree = "<group>"; };
-		5CE0BDD119BB2A75000B28B3 /* basic_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = basic_math.hpp; sourceTree = "<group>"; };
 		5CE0BDD219BB2A75000B28B3 /* bbox.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = bbox.hpp; sourceTree = "<group>"; };
 		5CE0BDD319BB2A75000B28B3 /* matrix4.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = matrix4.cpp; sourceTree = "<group>"; };
 		5CE0BDD419BB2A75000B28B3 /* matrix4.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = matrix4.hpp; sourceTree = "<group>"; };
@@ -303,7 +301,6 @@
 		5C0DF00719B8C79200331AAC /* math */ = {
 			isa = PBXGroup;
 			children = (
-				5CE0BDD119BB2A75000B28B3 /* basic_math.hpp */,
 				5CE0BDD219BB2A75000B28B3 /* bbox.hpp */,
 				5CE0BDD319BB2A75000B28B3 /* matrix4.cpp */,
 				5CE0BDD419BB2A75000B28B3 /* matrix4.hpp */,
@@ -600,7 +597,6 @@
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5CE0BDDC19BB2A75000B28B3 /* matrix4.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
-				5CE0BDD819BB2A75000B28B3 /* basic_math.hpp in Headers */,
 				5C4A85BE18F95EE40039BFD4 /* parser.hpp in Headers */,
 				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
 				5C4A85B918F955B30039BFD4 /* ast_base.hpp in Headers */,

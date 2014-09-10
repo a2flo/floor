@@ -20,7 +20,6 @@
 #define __FLOOR_CORE_HPP__
 
 #include "core/cpp_headers.hpp"
-#include "math/basic_math.hpp"
 #include "math/vector_lib.hpp"
 #include "math/matrix4.hpp"
 #include "core/file_io.hpp"
