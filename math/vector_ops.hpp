@@ -167,20 +167,20 @@
 #define FLOOR_VEC_OP_FUNC(op, func_name) FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(op, func_name, scalar_type)
 #define FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(op, func_name, arg_scalar_type) \
 	constexpr vector_type operator op (const arg_scalar_type& val) const { \
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<decayed_scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
 	constexpr vector_type operator op (const FLOOR_VECNAME<arg_scalar_type>& vec) const { \
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<decayed_scalar_type>::func_name, vec., FLOOR_COMMA, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
 	constexpr friend vector_type operator op (const arg_scalar_type& val, const vector_type& v) { \
-		return { FLOOR_VEC_FUNC_OP_EXPAND(v., vector_helper<scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
+		return { FLOOR_VEC_FUNC_OP_EXPAND(v., vector_helper<decayed_scalar_type>::func_name, val, FLOOR_COMMA, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_NOP) }; \
 	} \
 	constexpr vector_type& operator op##= (const arg_scalar_type& val) noexcept { \
-		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
+		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<decayed_scalar_type>::func_name, val, FLOOR_SEMICOLON, FLOOR_VEC_RHS_SCALAR, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	} \
 	constexpr vector_type& operator op##= (const FLOOR_VECNAME<arg_scalar_type>& vec) noexcept { \
-		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
+		FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<decayed_scalar_type>::func_name, vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC, FLOOR_COMMA, FLOOR_VEC_ASSIGN_SET); \
 		return *this; \
 	}
 
@@ -193,7 +193,7 @@
 // TODO
 #define FLOOR_VEC_UNARY_OP_FUNC(op, func_name) \
 	constexpr vector_type operator op () const { \
-		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<scalar_type>::func_name, FLOOR_NOP, FLOOR_COMMA, FLOOR_VEC_RHS_NOP, FLOOR_NOP, FLOOR_VEC_ASSIGN_NOP) }; \
+		return { FLOOR_VEC_FUNC_OP_EXPAND(this->, vector_helper<decayed_scalar_type>::func_name, FLOOR_NOP, FLOOR_COMMA, FLOOR_VEC_RHS_NOP, FLOOR_NOP, FLOOR_VEC_ASSIGN_NOP) }; \
 	}
 
 // TODO

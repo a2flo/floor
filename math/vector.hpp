@@ -628,30 +628,30 @@ public:
 	
 	//! fused-multiply-add assign of "this = (this * b_vec) + c_vec"
 	constexpr vector_type& fma(const vector_type& b_vec, const vector_type& c_vec) {
-		x = vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x);
+		x = vector_helper<decayed_scalar_type>::fma(x, b_vec.x, c_vec.x);
 #if FLOOR_VECTOR_WIDTH >= 2
-		y = vector_helper<scalar_type>::fma(y, b_vec.y, c_vec.y);
+		y = vector_helper<decayed_scalar_type>::fma(y, b_vec.y, c_vec.y);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		z = vector_helper<scalar_type>::fma(z, b_vec.z, c_vec.z);
+		z = vector_helper<decayed_scalar_type>::fma(z, b_vec.z, c_vec.z);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-		w = vector_helper<scalar_type>::fma(w, b_vec.w, c_vec.w);
+		w = vector_helper<decayed_scalar_type>::fma(w, b_vec.w, c_vec.w);
 #endif
 		return *this;
 	}
 	//! fused-multiply-add copy of "(this * b_vec) + c_vec"
 	constexpr vector_type fmaed(const vector_type& b_vec, const vector_type& c_vec) const {
 		return {
-			vector_helper<scalar_type>::fma(x, b_vec.x, c_vec.x)
+			vector_helper<decayed_scalar_type>::fma(x, b_vec.x, c_vec.x)
 #if FLOOR_VECTOR_WIDTH >= 2
-			, vector_helper<scalar_type>::fma(y, b_vec.y, c_vec.y)
+			, vector_helper<decayed_scalar_type>::fma(y, b_vec.y, c_vec.y)
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			, vector_helper<scalar_type>::fma(z, b_vec.z, c_vec.z)
+			, vector_helper<decayed_scalar_type>::fma(z, b_vec.z, c_vec.z)
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			, vector_helper<scalar_type>::fma(w, b_vec.w, c_vec.w)
+			, vector_helper<decayed_scalar_type>::fma(w, b_vec.w, c_vec.w)
 #endif
 		};
 	}
@@ -721,16 +721,16 @@ public:
 #pragma mark rounding / clamping / wrapping
 	
 	//! rounds towards nearest integer value in fp format and halfway cases away from 0
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::round, round, rounded)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::round, round, rounded)
 	//! rounds downwards, to the largest integer value in fp format that is not greater than the current value
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::floor, floor, floored)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::floor, floor, floored)
 	//! rounds upwards, to the smallest integer value in fp format that is not less than the current value
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::ceil, ceil, ceiled)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::ceil, ceil, ceiled)
 	//! computes the nearest integer value in fp format that is not greater in magnitude than the current value
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::trunc, trunc, truncated)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::trunc, trunc, truncated)
 	//! rounds to an integer value in fp format using the current rounding mode
 	//! NOTE: if constexpr, this will return the same as floor(...)
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::rint, rint, rinted)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::rint, rint, rinted)
 	
 	//! clamps all components of this vector to [min, max]
 	FLOOR_VEC_FUNC_ARGS(const_math::clamp, clamp, clamped,
@@ -846,7 +846,7 @@ public:
 	
 	//! returns the length of this vector
 	constexpr scalar_type length() const {
-		return vector_helper<scalar_type>::sqrt(dot());
+		return vector_helper<decayed_scalar_type>::sqrt(dot());
 	}
 	
 	//! returns the distance between this vector and another vector
@@ -865,7 +865,7 @@ public:
 		if(is_null() || vec.is_null()) return (scalar_type)0;
 		
 		// acos(<x, y> / ||x||*||y||)
-		return vector_helper<scalar_type>::acos(this->dot(vec) / (length() * vec.length()));
+		return vector_helper<decayed_scalar_type>::acos(this->dot(vec) / (length() * vec.length()));
 	}
 	
 	//! normalizes this vector / returns a normalized vector of this vector
@@ -875,7 +875,7 @@ public:
 					   // if this vector is 0, there is nothing to normalize
 					   if(is_null()) return *this;
 					   // compute "1 / ||vec||"
-					   const scalar_type inv_length = vector_helper<scalar_type>::inv_sqrt(dot());
+					   const scalar_type inv_length = vector_helper<decayed_scalar_type>::inv_sqrt(dot());
 					   )
 	
 	
@@ -920,7 +920,7 @@ public:
 		const scalar_type k = ((scalar_type)1) - (eta * eta) * (((scalar_type)1) - dNI * dNI);
 		return (k < ((scalar_type)0) ?
 				vector_type { (scalar_type)0 } :
-				(eta * I - (eta * dNI + vector_helper<scalar_type>::sqrt(k)) * N));
+				(eta * I - (eta * dNI + vector_helper<decayed_scalar_type>::sqrt(k)) * N));
 	}
 	
 	//! refract this vector (the incident vector) according to the normal N and the refraction index eta,
@@ -1009,8 +1009,8 @@ public:
 	//! rotates this vector counter-clockwise according to angle (in degrees)
 	constexpr vector_type& rotate(const scalar_type& angle) {
 		const auto rad_angle = const_math::deg_to_rad(angle);
-		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
-		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		const auto x_tmp = x;
 		x = x * cos_val - y * sin_val;
 		y = x_tmp * sin_val + y * cos_val;
@@ -1020,8 +1020,8 @@ public:
 	//! returns a rotated version of this vector, rotation is counter-clockwise according to angle (in degrees)
 	constexpr vector_type rotated(const scalar_type& angle) const {
 		const auto rad_angle = const_math::deg_to_rad(angle);
-		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
-		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		return { x * cos_val - y * sin_val, x * sin_val + y * cos_val };
 	}
 #endif
@@ -1039,11 +1039,17 @@ public:
 	//! NOTE: axis must be normalized
 	constexpr vector_type rotated(const vector_type& axis, const scalar_type& angle) const {
 		const auto rad_angle = const_math::deg_to_rad(angle);
-		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
-		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		const auto sin_val = vector_helper<decayed_scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<decayed_scalar_type>::cos(rad_angle);
 		return { *this * cos_val + crossed(axis) * sin_val + axis * (dot(axis) * (scalar_type(1) - cos_val)) };
 	}
 #endif
+	
+	//! assumes that this vector contains angles in degrees and converts them to radians
+	FLOOR_VEC_FUNC(const_math::deg_to_rad, to_rad, to_raded)
+	
+	//! assumes that this vector contains angles in radians and converts them to degrees
+	FLOOR_VEC_FUNC(const_math::rad_to_deg, to_deg, to_deged)
 	
 	//////////////////////////////////////////
 	// relational
@@ -1506,7 +1512,7 @@ public:
 #endif
 	
 	//! absolute value/vector
-	FLOOR_VEC_FUNC(vector_helper<scalar_type>::abs, abs, absed)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::abs, abs, absed)
 	
 	//! linearly interpolates this vector with another vector according to interp
 	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
@@ -1829,6 +1835,31 @@ public:
 	constexpr int vec_step() const {
 		return FLOOR_VECTOR_WIDTH;
 	}
+	
+	//////////////////////////////////////////
+	// misc math
+#pragma mark misk math
+	
+	//! applies the sqrt function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sqrt, sqrt, sqrted)
+	//! applies the inv_sqrt function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::inv_sqrt, inv_sqrt, inv_sqrt)
+	//! applies the sin function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sin, sin, sined)
+	//! applies the cos function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::cos, cos, cosed)
+	//! applies the tan function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::tan, tan, taned)
+	//! applies the asin function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::asin, asin, asined)
+	//! applies the acos function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::acos, acos, acosed)
+	//! applies the atan function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::atan, atan, ataned)
+	//! applies the exp function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::exp, exp, exped)
+	//! applies the log function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log, log, loged)
 	
 	//////////////////////////////////////////
 	// TODO: type conversion

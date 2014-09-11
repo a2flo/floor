@@ -120,6 +120,8 @@ public:
 	static constexpr T acos(const T& val);
 	static constexpr T atan(const T& val);
 	static constexpr T atan2(const T& lhs, const T& rhs);
+	static constexpr T exp(const T& val);
+	static constexpr T log(const T& val);
 	static constexpr T fma(const T& a, const T& b, const T& c);
 	static constexpr T bit_and(const T& lhs, const integral_type& rhs);
 	static constexpr T bit_or(const T& lhs, const integral_type& rhs);
@@ -208,6 +210,8 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F1(exp, constexpr, const_math_select::exp(val)) \
+F1(log, constexpr, const_math_select::log(val)) \
 F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
@@ -235,6 +239,8 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F1(exp, constexpr, const_math_select::exp(val)) \
+F1(log, constexpr, const_math_select::log(val)) \
 F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs | rhs) \
@@ -262,6 +268,8 @@ F1(asin, constexpr, const_math_select::asin(val)) \
 F1(acos, constexpr, const_math_select::acos(val)) \
 F1(atan, constexpr, const_math_select::atan(val)) \
 F2(atan2, constexpr, const_math_select::atan2(lhs, rhs)) \
+F1(exp, constexpr, const_math_select::exp(val)) \
+F1(log, constexpr, const_math_select::log(val)) \
 F3(fma, constexpr, const_math_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(long double*)&ret, const auto ret = *(__uint128_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(long double*)&ret, const auto ret = *(__uint128_t*)&lhs | rhs) \
@@ -289,6 +297,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -316,6 +326,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -343,6 +355,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -370,6 +384,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -397,6 +413,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -424,6 +442,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -451,6 +471,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -478,6 +500,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -505,6 +529,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -532,6 +558,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -559,6 +587,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -586,6 +616,8 @@ F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
 F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
 F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
 F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -606,13 +638,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
+F1(sin, constexpr, val) \
+F1(cos, constexpr, val) \
+F1(tan, constexpr, val) \
+F1(asin, constexpr, val) \
+F1(acos, constexpr, val) \
+F1(atan, constexpr, val) \
+F2(atan2, constexpr, lhs & rhs) \
+F1(exp, constexpr, val) \
+F1(log, constexpr, val) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
