@@ -165,6 +165,7 @@ public:
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
+#pragma mark constructors and assignment operators
 	
 	//! zero initialization
 	constexpr FLOOR_VECNAME() noexcept :
@@ -298,6 +299,7 @@ public:
 	
 	//////////////////////////////////////////
 	// access
+#pragma mark access
 	
 	//! const subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
@@ -551,6 +553,8 @@ public:
 	
 	//////////////////////////////////////////
 	// basic ops
+#pragma mark basic ops
+	
 	//! component-wise addition
 	FLOOR_VEC_OP(+)
 	//! component-wise substraction
@@ -654,6 +658,7 @@ public:
 	
 	//////////////////////////////////////////
 	// bit ops
+#pragma mark bit ops
 	
 	//! component-wise bit-wise OR
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
@@ -680,6 +685,7 @@ public:
 	
 	//////////////////////////////////////////
 	// testing
+#pragma mark testing
 	
 	//! returns true if all components are 0
 	constexpr bool is_null() const {
@@ -712,6 +718,8 @@ public:
 	
 	//////////////////////////////////////////
 	// rounding / clamping / wrapping
+#pragma mark rounding / clamping / wrapping
+	
 	//! rounds towards nearest integer value in fp format and halfway cases away from 0
 	FLOOR_VEC_FUNC(vector_helper<scalar_type>::round, round, rounded)
 	//! rounds downwards, to the largest integer value in fp format that is not greater than the current value
@@ -796,6 +804,7 @@ public:
 	
 	//////////////////////////////////////////
 	// geometric
+#pragma mark geometric
 	
 	//! dot product of this vector with itself
 	constexpr scalar_type dot() const {
@@ -996,9 +1005,50 @@ public:
 		};
 	}
 	
+#if FLOOR_VECTOR_WIDTH == 2
+	//! rotates this vector counter-clockwise according to angle (in degrees)
+	constexpr vector_type& rotate(const scalar_type& angle) {
+		const auto rad_angle = const_math::deg_to_rad(angle);
+		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		const auto x_tmp = x;
+		x = x * cos_val - y * sin_val;
+		y = x_tmp * sin_val + y * cos_val;
+		return *this;
+	}
+	
+	//! returns a rotated version of this vector, rotation is counter-clockwise according to angle (in degrees)
+	constexpr vector_type rotated(const scalar_type& angle) const {
+		const auto rad_angle = const_math::deg_to_rad(angle);
+		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		return { x * cos_val - y * sin_val, x * sin_val + y * cos_val };
+	}
+#endif
+#if FLOOR_VECTOR_WIDTH == 3
+	//! rotates this vector around the specified rotation axis vector according to angle (in degrees)
+	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+	//! NOTE: axis must be normalized
+	constexpr vector_type& rotate(const vector_type& axis, const scalar_type& angle) {
+		*this = rotated(axis, angle);
+		return *this;
+	}
+	
+	//! return a rotated version of this vector around the specified rotation axis vector according to angle (in degrees)
+	//! ref: https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+	//! NOTE: axis must be normalized
+	constexpr vector_type rotated(const vector_type& axis, const scalar_type& angle) const {
+		const auto rad_angle = const_math::deg_to_rad(angle);
+		const auto sin_val = vector_helper<scalar_type>::sin(rad_angle);
+		const auto cos_val = vector_helper<scalar_type>::cos(rad_angle);
+		return { *this * cos_val + crossed(axis) * sin_val + axis * (dot(axis) * (scalar_type(1) - cos_val)) };
+	}
+#endif
+	
 	//////////////////////////////////////////
 	// relational
 	// NOTE: for logic && and || use the bit-wise operators, which have the same effect on bool#
+#pragma mark relational
 	
 	// comparisons returning component-wise results
 	//! component-wise equal comparison
@@ -1135,6 +1185,7 @@ public:
 	
 	//////////////////////////////////////////
 	// functional / algorithm
+#pragma mark functional / algorithm
 	
 	//! same as operator=(vec)
 	constexpr vector_type& set(const vector_type& vec) {
@@ -1302,6 +1353,7 @@ public:
 	
 	//////////////////////////////////////////
 	// I/O
+#pragma mark I/O
 	
 	//! ostream output of this vector
 	friend ostream& operator<<(ostream& output, const vector_type& vec) {
@@ -1317,6 +1369,8 @@ public:
 	
 	//////////////////////////////////////////
 	// misc
+#pragma mark misc
+	
 	//! assigns the minimum between each component of this vector and the corresponding component of another vector to this vector
 	constexpr vector_type& min(const vector_type& vec) {
 		*this = this->minned(vec);
