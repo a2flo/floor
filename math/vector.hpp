@@ -486,18 +486,18 @@ public:
 		static_assert(i2 < FLOOR_VECTOR_WIDTH || i2 == ~0u, "invalid index");
 		static_assert(i3 < FLOOR_VECTOR_WIDTH || i3 == ~0u, "invalid index");
 		
-		static constexpr size_t valid_components(size_t c0, size_t c1, size_t c2, size_t c3) {
-			if(c0 >= FLOOR_VECTOR_WIDTH) return 0; // shouldn't happen, but just in case (static_assert should trigger first)
-			if(c1 >= FLOOR_VECTOR_WIDTH) return 1;
-			if(c2 >= FLOOR_VECTOR_WIDTH) return 2;
-			if(c3 >= FLOOR_VECTOR_WIDTH) return 3;
+		static constexpr size_t valid_components() {
+			if(i0 >= FLOOR_VECTOR_WIDTH) return 0; // shouldn't happen, but just in case (static_assert should trigger first)
+			if(i1 >= FLOOR_VECTOR_WIDTH) return 1;
+			if(i2 >= FLOOR_VECTOR_WIDTH) return 2;
+			if(i3 >= FLOOR_VECTOR_WIDTH) return 3;
 			return 4;
 		}
 		
-		typedef conditional_t<valid_components(i0, i1, i2, i3) == 1, vector1<scalar_type&>,
-				conditional_t<valid_components(i0, i1, i2, i3) == 2, vector2<scalar_type&>,
-				conditional_t<valid_components(i0, i1, i2, i3) == 3, vector3<scalar_type&>,
-				conditional_t<valid_components(i0, i1, i2, i3) == 4, vector4<scalar_type&>, void>>>> type;
+		typedef conditional_t<valid_components() == 1, vector1<scalar_type&>,
+				conditional_t<valid_components() == 2, vector2<scalar_type&>,
+				conditional_t<valid_components() == 3, vector3<scalar_type&>,
+				conditional_t<valid_components() == 4, vector4<scalar_type&>, void>>>> type;
 	};
 	
 	//! don't use this, use ref or ref_idx instead!
@@ -528,7 +528,7 @@ public:
 			  size_t i0 = char_to_index<c0>(), size_t i1 = char_to_index<c1>(),
 			  size_t i2 = char_to_index<c2>(), size_t i3 = char_to_index<c3>(),
 			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
-			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components(i0, i1, i2, i3)>
+			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
 	constexpr vec_return_type ref() {
 		static_assert(!is_same<vec_return_type, void>::value, "invalid index");
 		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
@@ -539,8 +539,9 @@ public:
 	//! NOTE: opencl/glsl style vectors referencing the same component multiple types can be created!
 	template <size_t i0, size_t i1 = ~0u, size_t i2 = ~0u, size_t i3 = ~0u,
 			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
-			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components(i0, i1, i2, i3)>
+			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components()>
 	constexpr vec_return_type ref_idx() {
+		static_assert(!is_same<vec_return_type, void>::value, "invalid index");
 		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
 	}
 	
