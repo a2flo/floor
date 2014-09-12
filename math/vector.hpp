@@ -475,80 +475,73 @@ public:
 		return ~0u;
 	}
 	
+	//! depending on how many indices are valid in correct order (!), this returns the corresponding vector type
+	//! e.g.: <0, 1, 2, ~0u> -> vector3; <0, ~0u, 1, 2> -> vector1; ...
+	//! this will also fail when trying to access a component/index that is invalid for the vector width of this type
+	//! -> trying to use index 2 / component .z if this is a vector2 or vector1 will fail
+	template <size_t i0, size_t i1, size_t i2, size_t i3>
+	struct vector_ref_type_from_indices {
+		static_assert(i0 < FLOOR_VECTOR_WIDTH, "invalid index - first component must be valid!");
+		static_assert(i1 < FLOOR_VECTOR_WIDTH || i1 == ~0u, "invalid index");
+		static_assert(i2 < FLOOR_VECTOR_WIDTH || i2 == ~0u, "invalid index");
+		static_assert(i3 < FLOOR_VECTOR_WIDTH || i3 == ~0u, "invalid index");
+		
+		static constexpr size_t valid_components(size_t c0, size_t c1, size_t c2, size_t c3) {
+			if(c0 >= FLOOR_VECTOR_WIDTH) return 0; // shouldn't happen, but just in case (static_assert should trigger first)
+			if(c1 >= FLOOR_VECTOR_WIDTH) return 1;
+			if(c2 >= FLOOR_VECTOR_WIDTH) return 2;
+			if(c3 >= FLOOR_VECTOR_WIDTH) return 3;
+			return 4;
+		}
+		
+		typedef conditional_t<valid_components(i0, i1, i2, i3) == 1, vector1<scalar_type&>,
+				conditional_t<valid_components(i0, i1, i2, i3) == 2, vector2<scalar_type&>,
+				conditional_t<valid_components(i0, i1, i2, i3) == 3, vector3<scalar_type&>,
+				conditional_t<valid_components(i0, i1, i2, i3) == 4, vector4<scalar_type&>, void>>>> type;
+	};
+	
+	//! don't use this, use ref or ref_idx instead!
+	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 1, int> = 0>
+	constexpr vector1<scalar_type&> _create_vec_ref() {
+		return { (*this)[i0] };
+	}
+	//! don't use this, use ref or ref_idx instead!
+	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 2, int> = 0>
+	constexpr vector2<scalar_type&> _create_vec_ref() {
+		return { (*this)[i0], (*this)[i1] };
+	}
+	//! don't use this, use ref or ref_idx instead!
+	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 3, int> = 0>
+	constexpr vector3<scalar_type&> _create_vec_ref() {
+		return { (*this)[i0], (*this)[i1], (*this)[i2] };
+	}
+	//! don't use this, use ref or ref_idx instead!
+	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 4, int> = 0>
+	constexpr vector4<scalar_type&> _create_vec_ref() {
+		return { (*this)[i0], (*this)[i1], (*this)[i2], (*this)[i3] };
+	}
+	
 	//! creates a vector with components referencing the components of this vector in an arbitrary order.
 	//! components are specified via their name ('x', 'w', 'r', etc.)
-	template <char c0 = 'x'
-#if FLOOR_VECTOR_WIDTH >= 2
-			  , char c1 = 'y'
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			  , char c2 = 'z'
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			  , char c3 = 'w'
-#endif
-			  , size_t i0 = char_to_index<c0>()
-#if FLOOR_VECTOR_WIDTH >= 2
-			  , size_t i1 = char_to_index<c1>()
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			  , size_t i2 = char_to_index<c2>()
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			  , size_t i3 = char_to_index<c3>()
-#endif
-	>
-	constexpr FLOOR_VECNAME<scalar_type&> ref() {
-		static_assert(i0 < FLOOR_VECTOR_WIDTH, "invalid index");
-#if FLOOR_VECTOR_WIDTH >= 2
-		static_assert(i1 < FLOOR_VECTOR_WIDTH, "invalid index");
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-		static_assert(i2 < FLOOR_VECTOR_WIDTH, "invalid index");
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-		static_assert(i3 < FLOOR_VECTOR_WIDTH, "invalid index");
-#endif
-		return {
-			(*this)[i0]
-#if FLOOR_VECTOR_WIDTH >= 2
-			, (*this)[i1]
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			, (*this)[i2]
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			, (*this)[i3]
-#endif
-		};
+	//! NOTE: opencl/glsl style vectors referencing the same component multiple types can be created!
+	template <char c0, char c1 = '_', char c2 = '_', char c3 = '_',
+			  size_t i0 = char_to_index<c0>(), size_t i1 = char_to_index<c1>(),
+			  size_t i2 = char_to_index<c2>(), size_t i3 = char_to_index<c3>(),
+			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
+			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components(i0, i1, i2, i3)>
+	constexpr vec_return_type ref() {
+		static_assert(!is_same<vec_return_type, void>::value, "invalid index");
+		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
 	}
 	
 	//! creates a vector with components referencing the components of this vector in an arbitrary order
 	//! components are specified via their index (0, 1, 2 or 3)
-	template <size_t c0 = 0
-#if FLOOR_VECTOR_WIDTH >= 2
-			  , size_t c1 = 1
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			  , size_t c2 = 2
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			  , size_t c3 = 3
-#endif
-			 >
-	constexpr FLOOR_VECNAME<scalar_type&> ref_idx() {
-		return {
-			(*this)[c0]
-#if FLOOR_VECTOR_WIDTH >= 2
-			, (*this)[c1]
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			, (*this)[c2]
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			, (*this)[c3]
-#endif
-		};
+	//! NOTE: opencl/glsl style vectors referencing the same component multiple types can be created!
+	template <size_t i0, size_t i1 = ~0u, size_t i2 = ~0u, size_t i3 = ~0u,
+			  class vec_return_type = typename vector_ref_type_from_indices<i0, i1, i2, i3>::type,
+			  size_t valid_components = vector_ref_type_from_indices<i0, i1, i2, i3>::valid_components(i0, i1, i2, i3)>
+	constexpr vec_return_type ref_idx() {
+		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
 	}
 	
 	//////////////////////////////////////////
