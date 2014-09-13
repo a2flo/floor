@@ -458,19 +458,24 @@ public:
 			case 'x':
 			case 'r':
 			case 's':
+			case '0':
 				return 0;
 			case 'y':
 			case 'g':
 			case 't':
+			case '1':
 				return 1;
 			case 'z':
 			case 'b':
 			case 'p':
+			case '2':
 				return 2;
 			case 'w':
 			case 'a':
 			case 'q':
+			case '3':
 				return 3;
+			default: break;
 		}
 		return ~0u;
 	}
@@ -494,30 +499,30 @@ public:
 			return 4;
 		}
 		
-		typedef conditional_t<valid_components() == 1, vector1<scalar_type&>,
-				conditional_t<valid_components() == 2, vector2<scalar_type&>,
-				conditional_t<valid_components() == 3, vector3<scalar_type&>,
-				conditional_t<valid_components() == 4, vector4<scalar_type&>, void>>>> type;
+		typedef conditional_t<valid_components() == 1, vector1<decayed_scalar_type&>,
+				conditional_t<valid_components() == 2, vector2<decayed_scalar_type&>,
+				conditional_t<valid_components() == 3, vector3<decayed_scalar_type&>,
+				conditional_t<valid_components() == 4, vector4<decayed_scalar_type&>, void>>>> type;
 	};
 	
 	//! don't use this, use ref or ref_idx instead!
 	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 1, int> = 0>
-	constexpr vector1<scalar_type&> _create_vec_ref() {
+	constexpr vector1<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0] };
 	}
 	//! don't use this, use ref or ref_idx instead!
 	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 2, int> = 0>
-	constexpr vector2<scalar_type&> _create_vec_ref() {
+	constexpr vector2<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1] };
 	}
 	//! don't use this, use ref or ref_idx instead!
 	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 3, int> = 0>
-	constexpr vector3<scalar_type&> _create_vec_ref() {
+	constexpr vector3<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1], (*this)[i2] };
 	}
 	//! don't use this, use ref or ref_idx instead!
 	template <size_t i0, size_t i1, size_t i2, size_t i3, size_t valid_components, enable_if_t<valid_components == 4, int> = 0>
-	constexpr vector4<scalar_type&> _create_vec_ref() {
+	constexpr vector4<decayed_scalar_type&> _create_vec_ref() {
 		return { (*this)[i0], (*this)[i1], (*this)[i2], (*this)[i3] };
 	}
 	
@@ -577,7 +582,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 1
 	//! 4x4 matrix * vector1 multiplication
 	//! -> implicit vector4 with .y = 0, .z = 0 and .w = 1 and dropping the bottom three rows of the matrix
-	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[12],
 		};
@@ -586,7 +591,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 2
 	//! 4x4 matrix * vector2 multiplication
 	//! -> implicit vector4 with .z = 0 and .w = 1 and dropping the bottom two rows of the matrix
-	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[12],
 			mat.data[1] * x + mat.data[5] * y + mat.data[13],
@@ -596,7 +601,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 3
 	//! 4x4 matrix * vector3 multiplication
 	//! -> implicit vector4 with .w = 1 and dropping the bottom row of the matrix
-	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12],
 			mat.data[1] * x + mat.data[5] * y + mat.data[9] * z + mat.data[13],
@@ -606,7 +611,7 @@ public:
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
 	//! 4x4 matrix * vector4 multiplication
-	constexpr vector_type operator*(const matrix4<scalar_type>& mat) const {
+	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12] * w,
 			mat.data[1] * x + mat.data[5] * y + mat.data[9] * z + mat.data[13] * w,
@@ -615,7 +620,7 @@ public:
 		};
 	}
 #endif
-	constexpr vector_type& operator*=(const matrix4<scalar_type>& mat) {
+	constexpr vector_type& operator*=(const matrix4<decayed_scalar_type>& mat) {
 		*this = *this * mat;
 		return *this;
 	}
@@ -1465,7 +1470,7 @@ public:
 	}
 #if FLOOR_VECTOR_WIDTH >= 2
 	//! returns <minimal component, maximal component>
-	constexpr vector2<scalar_type> minmax_element() const {
+	constexpr vector2<decayed_scalar_type> minmax_element() const {
 		return { min_element(), max_element() };
 	}
 #endif
@@ -1708,7 +1713,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! sign: -1, no sign: 1
 	template <typename signed_type = signed_vector_type,
-			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
+			  typename enable_if<is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
 		// signed version
 		return {
@@ -1718,7 +1723,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all 1
 	template <typename signed_type = signed_vector_type,
-			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
+			  typename enable_if<!is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
 	constexpr signed_vector_type sign() const {
 		// unsigned version
 		return { (signed_type)1 };
@@ -1727,7 +1732,7 @@ public:
 	//! returns a bool vector with each component representing the sign of the corresponding component in this vector:
 	//! true: sign, false: no sign
 	template <typename signed_type = signed_vector_type,
-			  typename enable_if<is_same<scalar_type, signed_type>::value, int>::type = 0>
+			  typename enable_if<is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
@@ -1735,7 +1740,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all false
 	template <typename signed_type = signed_vector_type,
-			  typename enable_if<!is_same<scalar_type, signed_type>::value, int>::type = 0>
+			  typename enable_if<!is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// unsigned version
 		return { false };
