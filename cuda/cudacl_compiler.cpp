@@ -21,9 +21,9 @@
 #include "cudacl_compiler.hpp"
 #include "core/core.hpp"
 
-#include "libtcc.h"
+#include "tccpp/libtcc.h"
 extern "C" {
-#include "tcc.h"
+#include "tccpp/tcc.h"
 }
 
 static string cudacl_preprocess(const string& code, const string& build_options, const string& filename) {

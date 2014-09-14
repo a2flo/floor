@@ -178,6 +178,9 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 				buffer << "\033[31m[ERROR]\033[m";
 				buffer << " #" << log_err_counter++ << ":";
 				break;
+			case LOG_TYPE::WARNING_MSG:
+				buffer << "\033[33m[WARN ]\033[m";
+				break;
 			case LOG_TYPE::DEBUG_MSG:
 				buffer << "\033[32m[DEBUG]\033[m";
 				break;
@@ -187,13 +190,16 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 			case LOG_TYPE::UNDECORATED: break;
 		}
 		buffer << " ";
-		// prettify file string (aka strip path)
-		string file_str = file;
-		size_t slash_pos = string::npos;
-		if((slash_pos = file_str.rfind("/")) == string::npos) slash_pos = file_str.rfind("\\");
-		file_str = (slash_pos != string::npos ? file_str.substr(slash_pos+1, file_str.size()-slash_pos-1) : file_str);
-		buffer << file_str;
-		buffer << ": " << func << "(): ";
+		
+		if(type != logger::LOG_TYPE::SIMPLE_MSG) {
+			// prettify file string (aka strip path)
+			string file_str = file;
+			size_t slash_pos = string::npos;
+			if((slash_pos = file_str.rfind("/")) == string::npos) slash_pos = file_str.rfind("\\");
+			file_str = (slash_pos != string::npos ? file_str.substr(slash_pos+1, file_str.size()-slash_pos-1) : file_str);
+			buffer << file_str;
+			buffer << ": " << func << "(): ";
+		}
 	}
 	return true;
 }

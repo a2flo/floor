@@ -30,8 +30,9 @@ using namespace std;
 //! correct type (the ostream operator<< is used and the %_ character is ignored - except
 //! for %x and %X which will print out an integer in hex format)
 #define log_error(...) logger::log(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, __VA_ARGS__)
+#define log_warn(...) logger::log(logger::LOG_TYPE::WARNING_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_debug(...) logger::log(logger::LOG_TYPE::DEBUG_MSG, __FILE__, __func__, __VA_ARGS__)
-#define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, __FILE__, __func__, __VA_ARGS__)
+#define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, "", "", __VA_ARGS__)
 #define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, "", "", __VA_ARGS__)
 
 class logger {
@@ -39,9 +40,10 @@ public:
 	//! the kind of log message (this determines the output stream and potentially output formatting)
 	enum class LOG_TYPE : uint32_t {
 		ERROR_MSG	= 1u, //!< error message
-		DEBUG_MSG	= 2u, //!< debug message
-		SIMPLE_MSG	= 3u, //!< simple message
-		UNDECORATED	= 4u, //!< message with no prefix (undecorated)
+		WARNING_MSG	= 2u, //!< warning message
+		DEBUG_MSG	= 3u, //!< debug message
+		SIMPLE_MSG	= 4u, //!< simple message
+		UNDECORATED	= 5u, //!< message with no prefix (undecorated)
 	};
 	
 	//! initializes the logger (opens the log files and creates the logger thread)

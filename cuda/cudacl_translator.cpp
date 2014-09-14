@@ -33,9 +33,9 @@
 #include <cudaGL.h>
 #endif
 
-#include "libtcc.h"
+#include "tccpp/libtcc.h"
 extern "C" {
-#include "tcc.h"
+#include "tccpp/tcc.h"
 }
 
 // parameter mappings

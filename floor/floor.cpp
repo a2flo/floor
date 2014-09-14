@@ -198,7 +198,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.sound_volume = const_math::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
 		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
 		
-		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", 4);
+		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", (size_t)logger::LOG_TYPE::UNDECORATED);
 		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
 		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
 		config.log_filename = config_doc.get<string>("config.logging.log_filename", "log.txt");

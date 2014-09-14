@@ -24,7 +24,7 @@
 #endif
 #endif
 
-#include "opencl.hpp"
+#include "cl/opencl.hpp"
 #include "cudacl_translator.hpp"
 #include "cudacl_compiler.hpp"
 #include "floor/floor.hpp"

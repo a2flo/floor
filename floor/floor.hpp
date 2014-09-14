@@ -170,7 +170,7 @@ protected:
 		string audio_device_name = "";
 		
 		// logging
-		size_t verbosity = 4;
+		size_t verbosity = (size_t)logger::LOG_TYPE::UNDECORATED;
 		bool separate_msg_file = false;
 		bool append_mode = false;
 		string log_filename = "log.txt";
