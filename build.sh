@@ -409,8 +409,8 @@ esac
 
 if [ ${BUILD_VERBOSE} -gt 1 ]; then
 	CXXFLAGS="${CXXFLAGS} -v"
-	CFLAGS="${CXXFLAGS} -v"
-	LDFLAGS="${CXXFLAGS} -v"
+	CFLAGS="${CFLAGS} -v"
+	LDFLAGS="${LDFLAGS} -v"
 fi
 if [ ${BUILD_VERBOSE} -gt 0 ]; then
 	info ""
