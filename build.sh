@@ -194,14 +194,17 @@ fi
 ##########################################
 # library/dependency handling
 
-# initial lib and include setup
-LDFLAGS="${LDFLAGS}"
+# initial linker, lib and include setup
+LDFLAGS="${LDFLAGS} -stdlib=libc++ -fvisibility=default"
 LIBS="${LIBS}"
 INCLUDES="${INCLUDES}"
 COMMON_FLAGS="${COMMON_FLAGS}"
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
+	# build a shared library, strip some symbols and create a 64-bit lib (TODO: arch size handling)
+	LDFLAGS="${LDFLAGS} -s -shared -m64"
+	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES=(sdl2 SDL2_image libcrypto libssl libxml-2.0)
 	PACKAGES_OPT=(openal) # TODO: pocl handling
@@ -226,14 +229,13 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} opengl32 glu32 gdi32)
 	fi
 	
-	# linux must also link against c++abi
+	# linux:
+	#  * must also link against c++abi
+	#  * need to explicitly add the cuda lib + include folder on linux
+	#  * need to add the /lib folder
 	if [ $BUILD_OS == "linux" ]; then
 		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} c++abi)
-	fi
-	
-	# also need to explicitly add the cuda lib + include folder on linux
-	if [ $BUILD_OS == "linux" ]; then
-		LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+		LDFLAGS="${LDFLAGS} -L/lib -L/opt/cuda/lib64"
 		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
 
@@ -253,6 +255,11 @@ else
 	INCLUDES="${INCLUDES} -isystem /usr/include/libxml2"
 	INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	INCLUDES="${INCLUDES} -iframework /Library/Frameworks"
+	
+	# build a shared/dynamic library
+	LDFLAGS="${LDFLAGS} -dynamiclib"
+	
+	# additional lib paths
 	LDFLAGS="${LDFLAGS} -L/opt/X11/lib -L/usr/local/opt/openssl/lib"
 	
 	# rpath voodoo
@@ -296,12 +303,9 @@ info "building ${TARGET_NAME} v${TARGET_FULL_VERSION}"
 ##########################################
 # flags
 
-# set up initial c++, c and linker flags
+# set up initial c++ and c flags
 CXXFLAGS="${CXXFLAGS} -std=gnu++14 -stdlib=libc++"
 CFLAGS="${CFLAGS} -std=gnu11"
-LDFLAGS="${LDFLAGS} -dynamiclib"
-LDFLAGS="${LDFLAGS} -stdlib=libc++"
-LDFLAGS="${LDFLAGS} -fvisibility=default"
 
 # c++ and c flags that apply to all build configurations
 COMMON_FLAGS="${COMMON_FLAGS} -ffast-math -fstrict-aliasing"
