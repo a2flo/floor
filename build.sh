@@ -205,6 +205,10 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# build a shared library, strip some symbols and create a 64-bit lib (TODO: arch size handling)
 	LDFLAGS="${LDFLAGS} -s -shared -m64"
 	
+	# use PIC
+	LDFLAGS="${LDFLAGS} -fPIC"
+	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
+	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES=(sdl2 SDL2_image libcrypto libssl libxml-2.0)
 	PACKAGES_OPT=(openal) # TODO: pocl handling
