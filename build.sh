@@ -358,10 +358,10 @@ CFLAGS="${CFLAGS} ${COMMON_FLAGS}"
 # get all source files (c++/c/objective-c++/objective-c) and create build folders
 for dir in ${SRC_SUB_DIRS[@]}; do
 	# source files
-	CPP_FILES=(${CPP_FILES[@]} $(find ${dir} -type f -depth 1 -name '*.cpp'))
-	C_FILES=(${C_FILES[@]} $(find ${dir} -type f -depth 1 -name '*.c'))
-	OBJCPP_FILES=(${OBJCPP_FILES[@]} $(find ${dir} -type f -depth 1 -name '*.mm'))
-	OBJC_FILES=(${OBJC_FILES[@]} $(find ${dir} -type f -depth 1 -name '*.m'))
+	CPP_FILES=(${CPP_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.cpp'))
+	C_FILES=(${C_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.c'))
+	OBJCPP_FILES=(${OBJCPP_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.mm'))
+	OBJC_FILES=(${OBJC_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.m'))
 	
 	# create resp. build folder
 	mkdir -p ${BUILD_DIR}/${dir}
