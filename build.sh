@@ -230,6 +230,12 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ $BUILD_OS == "linux" ]; then
 		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} c++abi)
 	fi
+	
+	# also need to explicitly add the cuda lib + include folder on linux
+	if [ $BUILD_OS == "linux" ]; then
+		LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
+	fi
 
 	for lib in ${UNCHECKED_LIBS[@]}; do
 		LIBS="${LIBS[@]} -l${lib}"
