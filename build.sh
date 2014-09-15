@@ -249,6 +249,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ $BUILD_OS == "mingw" ]; then
 		LDFLAGS="${LDFLAGS} -lc++.dll -Wl,--allow-multiple-definition"
 	fi
+	
+	# add all libs to LDFLAGS
+	LDFLAGS="${LDFLAGS} ${LIBS}"
 else
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
 	INCLUDES="${INCLUDES} -isystem /opt/X11/include"
@@ -340,7 +343,7 @@ COMMON_FLAGS="${COMMON_FLAGS} -DFLOOR_EXPORT=1 -DFLOOR_CUDA_CL=1 -DTCC_LIB_ONLY=
 #TODO: handle PLATFORM_X32
 
 # hard-mode c++ ;) TODO: clean this up + explanations
-WARNINGS="-Weverything -Wno-gnu -Wno-c++98-compat"
+WARNINGS="${WARNINGS} -Weverything -Wno-gnu -Wno-c++98-compat"
 WARNINGS="${WARNINGS} -Wno-c++98-compat-pedantic -Wno-c99-extensions"
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation"
 WARNINGS="${WARNINGS} -Wno-system-headers -Wno-global-constructors -Wno-padded"
