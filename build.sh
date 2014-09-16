@@ -24,6 +24,7 @@ verbose() {
 # arg handling
 BUILD_MODE="release"
 BUILD_VERBOSE=0
+BUILD_JOB_COUNT=0
 
 # TODO: install/uninstall?
 # TODO: static lib
@@ -39,6 +40,7 @@ for arg in "$@"; do
 			echo "	--clean		cleans all build binaries and intermediate build files"
 			echo "	-v		verbose output (prints all executed compiler and linker commands, and some other information)"
 			echo "	-vv		very verbose output (same as -v + runs all compiler and linker commands with -v)"
+			echo "	-j#		explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
 			echo ""
 			exit 0
 			;;
@@ -56,6 +58,12 @@ for arg in "$@"; do
 			;;
 		"-vv")
 			BUILD_VERBOSE=2
+			;;
+		"-j"*)
+			BUILD_JOB_COUNT=${arg:2}
+			if [ -z ${BUILD_JOB_COUNT} ]; then
+				BUILD_JOB_COUNT=0
+			fi
 			;;
 # TODO
 #		"--cuda")
@@ -118,6 +126,11 @@ case ${BUILD_PLATFORM} in
 		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
 		;;
 esac
+
+# if an explicit job count was specified, overwrite BUILD_CPU_COUNT with it
+if [ ${BUILD_JOB_COUNT} -gt 0 ]; then
+	BUILD_CPU_COUNT=${BUILD_JOB_COUNT}
+fi
 
 # set the target binary name (depends on the platform)
 TARGET_BIN_NAME=lib${TARGET_NAME}
@@ -462,6 +475,13 @@ build_file() {
 	verbose "${build_cmd}"
 	eval ${build_cmd}
 }
+job_count() {
+	if expr `echo $SHELL` : ".*bash" >/dev/null; then
+		echo $(jobs -pr | wc -l)
+	else
+		echo $(jobs -ps | wc -l)
+	fi
+}
 
 # get the amount of source files and create a counter (this is used for some info/debug output)
 file_count=$(echo "${SRC_FILES}" | wc -w | tr -d [:space:])
@@ -471,8 +491,8 @@ for source_file in ${SRC_FILES}; do
 	# make sure that there are only $BUILD_CPU_COUNT active jobs at any time,
 	# this should be the most efficient setup for concurrently building multiple files
 	while true; do
-		job_count=$(jobs -p | wc -l)
-		if [ $job_count -lt $BUILD_CPU_COUNT ]; then
+		cur_job_count=$(job_count)
+		if [ $cur_job_count -lt $BUILD_CPU_COUNT ]; then
 			break
 		fi
 		sleep 0.25
