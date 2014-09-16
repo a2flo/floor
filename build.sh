@@ -476,14 +476,7 @@ build_file() {
 	eval ${build_cmd}
 }
 job_count() {
-	# TODO: find a reliable way to check for the actual $SHELL in use
-	# this currently fails completely on e.g. freebsd when using bash ($SHELL is bash, but this is still a sh script)
-	# -> differentiate via os for now
-	if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" -o $BUILD_OS == "linux" ]; then
-		echo $(jobs -pr | wc -l)
-	else
-		echo $(jobs -ps | wc -l)
-	fi
+	echo $(jobs -p | wc -l)
 }
 
 # get the amount of source files and create a counter (this is used for some info/debug output)
@@ -491,17 +484,24 @@ file_count=$(echo "${SRC_FILES}" | wc -w | tr -d [:space:])
 file_counter=0
 # iterate over all source files and create a build job for each of them
 for source_file in ${SRC_FILES}; do
-	# make sure that there are only $BUILD_CPU_COUNT active jobs at any time,
-	# this should be the most efficient setup for concurrently building multiple files
-	while true; do
-		cur_job_count=$(job_count)
-		if [ $cur_job_count -lt $BUILD_CPU_COUNT ]; then
-			break
-		fi
-		sleep 0.25
-	done
 	file_counter=$(expr $file_counter + 1)
-	(build_file $source_file $file_counter $file_count) &
+	
+	# if only one build job should be used, don't bother with shell jobs
+	# this also works around an issue where "jobs -p" always lists one job even after it has finished
+	if [ $BUILD_CPU_COUNT -gt 1 ]; then
+		# make sure that there are only $BUILD_CPU_COUNT active jobs at any time,
+		# this should be the most efficient setup for concurrently building multiple files
+		while true; do
+			cur_job_count=$(job_count)
+			if [ $cur_job_count -lt $BUILD_CPU_COUNT ]; then
+				break
+			fi
+			sleep 0.25
+		done
+		(build_file $source_file $file_counter $file_count) &
+	else
+		build_file $source_file $file_counter $file_count
+	fi
 done
 # all jobs were started, now we just have to wait until all are done
 sleep 0.1
