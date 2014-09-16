@@ -40,7 +40,7 @@ template <typename scalar_type> class vector4;
 
 // pod type -> typedef name prefix
 #if defined(__APPLE__)
-// all types when not compiling with glibc
+// all types when compiling on osx/ios
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -57,7 +57,7 @@ F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #else
-// remove size_t and ssize_t when compiling with glibc
+// remove size_t and ssize_t when not compiling on osx/ios
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -88,7 +88,7 @@ typedef int2 ipnt;
 typedef float2 coord;
 typedef uint3 index3;
 
-// necessary glibc aliases
+// necessary non-osx/ios aliases
 #if !defined(__APPLE__)
 #if defined(PLATFORM_X64)
 typedef ulong1 size1;
