@@ -476,7 +476,10 @@ build_file() {
 	eval ${build_cmd}
 }
 job_count() {
-	if expr `echo $SHELL` : ".*bash" >/dev/null; then
+	# TODO: find a reliable way to check for the actual $SHELL in use
+	# this currently fails completely on e.g. freebsd when using bash ($SHELL is bash, but this is still a sh script)
+	# -> differentiate via os for now
+	if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" -o $BUILD_OS == "linux" ];
 		echo $(jobs -pr | wc -l)
 	else
 		echo $(jobs -ps | wc -l)
