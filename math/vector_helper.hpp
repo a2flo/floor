@@ -56,7 +56,9 @@ struct signed_eqv<fp_type, typename enable_if<is_floating_point<fp_type>::value,
 	typedef fp_type type;
 };
 template <typename int_type>
-struct signed_eqv<int_type, typename enable_if<is_integral<int_type>::value && is_signed<int_type>::value, void>::type> {
+struct signed_eqv<int_type, typename enable_if<(is_integral<int_type>::value &&
+												is_signed<int_type>::value &&
+												!is_same<int_type, __int128_t>::value), void>::type> {
 	typedef int_type type;
 };
 template <typename uint_type>
@@ -68,6 +70,7 @@ struct signed_eqv<uint_type, typename enable_if<(is_integral<uint_type>::value &
 template <typename uint_type>
 struct signed_eqv<uint_type, typename enable_if<(is_integral<uint_type>::value &&
 												 is_unsigned<uint_type>::value &&
+												 !is_same<uint_type, __uint128_t>::value &&
 												 sizeof(uint_type) == 16), void>::type> {
 	typedef __int128_t type;
 };
@@ -88,7 +91,9 @@ struct integral_eqv<fp_type, typename enable_if<is_floating_point<fp_type>::valu
 	typedef typename sized_unsigned_eqv<fp_type>::type type;
 };
 template <typename int_type>
-struct integral_eqv<int_type, typename enable_if<is_integral<int_type>::value, void>::type> {
+struct integral_eqv<int_type, typename enable_if<(is_integral<int_type>::value &&
+												  !is_same<int_type, __int128_t>::value &&
+												  !is_same<int_type, __uint128_t>::value), void>::type> {
 	typedef int_type type;
 };
 // is_integral is not specialized for __int128_t and __uint128_t
