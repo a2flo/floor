@@ -39,7 +39,7 @@ template <typename scalar_type> class vector3;
 template <typename scalar_type> class vector4;
 
 // pod type -> typedef name prefix
-#if !defined(__GNU_LIBRARY__)
+#if defined(__APPLE__)
 // all types when not compiling with glibc
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
@@ -89,7 +89,7 @@ typedef float2 coord;
 typedef uint3 index3;
 
 // necessary glibc aliases
-#if defined(__GNU_LIBRARY__)
+#if !defined(__APPLE__)
 #if defined(PLATFORM_X64)
 typedef ulong1 size1;
 typedef ulong2 size2;
