@@ -78,7 +78,7 @@ done
 # name of the target (part of the binary name)
 TARGET_NAME=floor
 
-# check on which platform we're compiling
+# check on which platform we're compiling + check how many h/w threads can be used (logical cpus)
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
 BUILD_OS="unknown"
 BUILD_CPU_COUNT=1
@@ -151,11 +151,11 @@ TARGET_BIN=${BIN_DIR}/${TARGET_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS=(audio cl constexpr core cuda floor hash lang math net net/boost_system tccpp threading)
+SRC_SUB_DIRS="audio cl constexpr core cuda floor hash lang math net net/boost_system tccpp threading"
 if [ $BUILD_OS == "osx" ]; then
-	SRC_SUB_DIRS=(${SRC_SUB_DIRS[@]} osx)
+	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
 elif [ $BUILD_OS == "ios" ]; then
-	SRC_SUB_DIRS=(${SRC_SUB_DIRS[@]} ios)
+	SRC_SUB_DIRS="${SRC_SUB_DIRS} ios"
 fi
 
 # build directory where all temporary files are stored (*.o, etc.)
@@ -210,27 +210,27 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
-	PACKAGES=(sdl2 SDL2_image libcrypto libssl libxml-2.0)
-	PACKAGES_OPT=(openal) # TODO: pocl handling
+	PACKAGES="sdl2 SDL2_image libcrypto libssl libxml-2.0"
+	PACKAGES_OPT="openal" # TODO: pocl handling
 
 	# TODO: error checking + check if libs exist
-	for pkg in ${PACKAGES[@]}; do
-		LIBS="${LIBS[@]} $(pkg-config --libs "${pkg}")"
+	for pkg in ${PACKAGES}; do
+		LIBS="${LIBS} $(pkg-config --libs "${pkg}")"
 		COMMON_FLAGS="${COMMON_FLAGS} $(pkg-config --cflags "${pkg}")"
 	done
-	for pkg in ${PACKAGES_OPT[@]}; do
-		LIBS="${LIBS[@]} $(pkg-config --libs "${pkg}")"
+	for pkg in ${PACKAGES_OPT}; do
+		LIBS="${LIBS} $(pkg-config --libs "${pkg}")"
 		COMMON_FLAGS="${COMMON_FLAGS} $(pkg-config --cflags "${pkg}")"
 	done
 
 	# libs that don't have pkg-config
-	UNCHECKED_LIBS=(pthread OpenCL cuda cudart)
+	UNCHECKED_LIBS="pthread OpenCL cuda cudart"
 
 	# add os specific libs
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
-		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} Xxf86vm)
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} Xxf86vm"
 	elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
-		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} opengl32 glu32 gdi32)
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} opengl32 glu32 gdi32"
 	fi
 	
 	# linux:
@@ -238,13 +238,13 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	#  * need to explicitly add the cuda lib + include folder on linux
 	#  * need to add the /lib folder
 	if [ $BUILD_OS == "linux" ]; then
-		UNCHECKED_LIBS=(${UNCHECKED_LIBS[@]} c++abi)
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
 		LDFLAGS="${LDFLAGS} -L/lib -L/opt/cuda/lib64"
 		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
 
-	for lib in ${UNCHECKED_LIBS[@]}; do
-		LIBS="${LIBS[@]} -l${lib}"
+	for lib in ${UNCHECKED_LIBS}; do
+		LIBS="${LIBS} -l${lib}"
 	done
 	
 	# mingw: "--allow-multiple-definition" is necessary, because gcc is still used as a linker
@@ -373,15 +373,20 @@ CFLAGS="${CFLAGS} ${COMMON_FLAGS}"
 # targets and building
 
 # get all source files (c++/c/objective-c++/objective-c) and create build folders
-for dir in ${SRC_SUB_DIRS[@]}; do
+for dir in ${SRC_SUB_DIRS}; do
 	# source files
-	CPP_FILES=(${CPP_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.cpp'))
-	C_FILES=(${C_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.c'))
-	OBJCPP_FILES=(${OBJCPP_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.mm'))
-	OBJC_FILES=(${OBJC_FILES[@]} $(find ${dir} -maxdepth 1 -type f -name '*.m'))
+	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.cpp')"
+	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.c')"
+	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.mm')"
+	SRC_FILES="${SRC_FILES} $(find ${dir} -maxdepth 1 -type f -name '*.m')"
 	
 	# create resp. build folder
 	mkdir -p ${BUILD_DIR}/${dir}
+done
+
+# make a list of all object files
+for source_file in ${SRC_FILES}; do
+	OBJ_FILES="${OBJ_FILES} ${BUILD_DIR}/${source_file}.o"
 done
 
 # set flags depending on the build mode, or make a clean exit
@@ -430,33 +435,58 @@ if [ ${BUILD_VERBOSE} -gt 0 ]; then
 fi
 
 # build the target
-OBJ_FILES=()
-for source_file in ${CPP_FILES[@]}; do
-	info "building ${source_file}"
-	OBJ_FILES=(${OBJ_FILES[@]} ${BUILD_DIR}/${source_file}.o)
-	verbose "${CXX} ${CXXFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
-	${CXX} ${CXXFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d
-done
-for source_file in ${C_FILES[@]}; do
-	info "building ${source_file}"
-	OBJ_FILES=(${OBJ_FILES[@]} ${BUILD_DIR}/${source_file}.o)
-	verbose "${CC} ${CFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
-	${CC} ${CFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d
-done
-for source_file in ${OBJCPP_FILES[@]}; do
-	info "building ${source_file}"
-	OBJ_FILES=(${OBJ_FILES[@]} ${BUILD_DIR}/${source_file}.o)
-	verbose "${CXX} -x objective-c++ ${CXXFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
-	${CXX} -x objective-c++ ${CXXFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d
-done
-for source_file in ${OBJC_FILES[@]}; do
-	info "building ${source_file}"
-	OBJ_FILES=(${OBJ_FILES[@]} ${BUILD_DIR}/${source_file}.o)
-	verbose "${CC} -x objective-c ${CFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
-	${CC} -x objective-c ${CFLAGS} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d
-done
+build_file() {
+	# this function builds one source file
+	source_file=$1
+	file_num=$2
+	file_count=$3
+	info "building ${source_file} [${file_num}/${file_count}]"
+	case ${source_file} in
+		*".cpp")
+			build_cmd="${CXX} ${CXXFLAGS}"
+			;;
+		*".c")
+			build_cmd="${CC} ${CFLAGS}"
+			;;
+		*".mm")
+			build_cmd="${CXX} -x objective-c++ ${CXXFLAGS}"
+			;;
+		*".m")
+			build_cmd="${CC} -x objective-c ${CFLAGS}"
+			;;
+		*)
+			error "unknown source file ending: ${source_file}"
+			;;
+	esac
+	build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
+	verbose "${build_cmd}"
+	eval ${build_cmd}
+}
 
+# get the amount of source files and create a counter (this is used for some info/debug output)
+file_count=$(echo "${SRC_FILES}" | wc -w | tr -d [:space:])
+file_counter=0
+# iterate over all source files and create a build job for each of them
+for source_file in ${SRC_FILES}; do
+	# make sure that there are only $BUILD_CPU_COUNT active jobs at any time,
+	# this should be the most efficient setup for concurrently building multiple files
+	while true; do
+		job_count=$(jobs -p | wc -l)
+		if [ $job_count -lt $BUILD_CPU_COUNT ]; then
+			break
+		fi
+		sleep 0.25
+	done
+	file_counter=$(expr $file_counter + 1)
+	(build_file $source_file $file_counter $file_count) &
+done
+# all jobs were started, now we just have to wait until all are done
+sleep 0.1
+info "waiting for build jobs to finish ..."
+wait
+
+# link
 info "linking ..."
-verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES[@]} ${LDFLAGS}"
-${CXX} -o ${TARGET_BIN} ${OBJ_FILES[@]} ${LDFLAGS}
+verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
 info "built ${TARGET_NAME} v${TARGET_FULL_VERSION}"
