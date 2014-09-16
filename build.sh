@@ -6,7 +6,7 @@
 # helper functions
 error() {
 	printf "\033[1;31m>> $@ \033[m\n"
-	exit -1
+	exit 1
 }
 warning() {
 	printf "\033[1;33m>> $@ \033[m\n"
@@ -210,7 +210,7 @@ fi
 # initial linker, lib and include setup
 LDFLAGS="${LDFLAGS} -stdlib=libc++ -fvisibility=default"
 LIBS="${LIBS}"
-INCLUDES="${INCLUDES}"
+INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
 COMMON_FLAGS="${COMMON_FLAGS}"
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
