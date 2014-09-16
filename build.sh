@@ -60,7 +60,7 @@ for arg in "$@"; do
 			BUILD_VERBOSE=2
 			;;
 		"-j"*)
-			BUILD_JOB_COUNT=${arg:2}
+			BUILD_JOB_COUNT=$(echo $arg | cut -c 3-)
 			if [ -z ${BUILD_JOB_COUNT} ]; then
 				BUILD_JOB_COUNT=0
 			fi
