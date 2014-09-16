@@ -136,19 +136,19 @@
 #endif
 
 // c++ headers
-#include <floor/core/cpp_headers.hpp>
+#include "core/cpp_headers.hpp"
 
 // constexpr math functions
-#include <floor/constexpr/const_math.hpp>
+#include "constexpr/const_math.hpp"
 
 // floor logger
-#include <floor/core/logger.hpp>
+#include "core/logger.hpp"
 
 // utility functions/classes/...
-#include <floor/core/util.hpp>
+#include "core/util.hpp"
 
 // const_string
-#include <floor/constexpr/const_string.hpp>
+#include "constexpr/const_string.hpp"
 
 #if !defined(__has_feature)
 #define __has_feature(x) 0
