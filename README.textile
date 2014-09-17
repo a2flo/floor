@@ -17,12 +17,13 @@ This is a C++ core library that is used in several of my projects:
 *Build Instructions:*
 * after cloning: git submodule init && git submodule update
 * after a submodule update / pull: git submodule update
+* ./build.sh (use "./build.sh help" to get a list of all options)
 
 on Linux and FreeBSD:
 * install all necessary libraries and programs, including clang 3.5+ and libc++ (currently 1101) (-> Credits)
-** on "Arch Linux":https://www.archlinux.org (sub-dependencies are installed automatically): pacman -S clang libc++ sdl2 sdl2_image libxml2 premake freetype2 boost opencl-headers cuda
+** on "Arch Linux":https://www.archlinux.org (sub-dependencies are installed automatically): pacman -S clang libc++ sdl2 sdl2_image libxml2 freetype2 boost opencl-headers cuda
 ** any of: opencl-nvidia (in addition to Nvidia drivers), intel-opencl-sdk (from AUR, CPU only or in addition to Intel GPU drivers) or "catalyst":https://wiki.archlinux.org/index.php/AMD_Catalyst + "misc":https://wiki.archlinux.org/index.php/AMD_Catalyst#OpenCL_and_OpenGL_development
-* run ./premake.sh or "./premake.sh pocl" on FreeBSD
+* run ./build.sh or "./build.sh pocl" on FreeBSD
 * make
 * there is an install script located in the top folder which should be executed from that folder (will install to /usr/local/)
 * alternatively:
@@ -38,7 +39,7 @@ on Windows/MinGW:
 * build/install all necessary libraries, including libc++ (-> Credits)
 * add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/mingw/mingw32/")
 * add the "mingw/bin" path to the Windows system environment variable called "PATH"
-* run "./premake.sh"
+* run "./build.sh"
 * make
 * libraries and headers will be automatically installed to your previously set MinGW folder
 * note: to make things easier, I might provide a full MinGW package containing all required libraries at a later point
@@ -49,7 +50,7 @@ on OS X:
 * install "homebrew":http://brew.sh: ==ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"==
 * install openssl 1.0.1e+ (OS X only provides 0.9.8 - this is w/o TLS 1.1/1.2 support!): brew install openssl
 * add this to your ~/.profile file: export DYLD_LIBRARY_PATH=/usr/local/opt/openssl/lib:${DYLD_LIBRARY_PATH}
-* compile floor.xcodeproj (floor target)
+* compile floor.xcodeproj (floor target) or run ./build.sh
 * install/symlink floor .dylib and include folder:
 ** if /usr/local or any sub-folders do not exist, create them (sudo mkdir -p /usr/local/{include,lib})
 ** sudo ln -sf /path/to/floor/bin/libfloor{,d}.dylib /usr/local/lib/
@@ -77,7 +78,6 @@ Right now, only CUDA, OpenCL and OpenAL can be disabled:
 * http://www.libsdl.org / SDL2 and SDL2_image
 * http://www.libpng.org / libpng
 * http://www.xmlsoft.org / libxml2
-* http://www.industriousone.com/premake / premake4
 * http://mingw-w64.sourceforge.net / MinGW-w64/MSYS environment
 * http://www.freetype.org / FreeType2
 * http://www.dejavu-fonts.org / Bitstream DejaVu Fonts

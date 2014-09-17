@@ -237,8 +237,6 @@
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
 		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
-		5C81C42D17E59A3400FE6791 /* premake.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = premake.sh; sourceTree = "<group>"; };
-		5C81C42E17E59A3400FE6791 /* premake4.lua */ = {isa = PBXFileReference; lastKnownFileType = text; path = premake4.lua; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.python; };
 		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
 		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
 		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
@@ -552,8 +550,6 @@
 		5C81C42C17E59A1A00FE6791 /* build */ = {
 			isa = PBXGroup;
 			children = (
-				5C81C42D17E59A3400FE6791 /* premake.sh */,
-				5C81C42E17E59A3400FE6791 /* premake4.lua */,
 				5C81C42F17E59FE800FE6791 /* install.sh */,
 				5C782595187226DA00725EAF /* floor_prefix.pch */,
 				5C0686BC19C95FD800CF63C8 /* build.sh */,
