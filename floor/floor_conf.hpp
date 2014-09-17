@@ -20,13 +20,13 @@
 #define __FLOOR_CONF_HPP__
 
 // if defined, this disables cuda support
-#define FLOOR_NO_CUDA_CL 1
+//#define FLOOR_NO_CUDA_CL 1
 
 // if defined, this disable opencl support and possibly enabled cuda support
-#define FLOOR_NO_OPENCL 1
+//#define FLOOR_NO_OPENCL 1
 
 // if defined, this disabled openal support
-#define FLOOR_NO_OPENAL 1
+//#define FLOOR_NO_OPENAL 1
 
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)

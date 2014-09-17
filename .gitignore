@@ -32,3 +32,4 @@ config.xml.local
 *.png
 *.dat
 *.raw
+floor_conf.hpp
