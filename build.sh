@@ -239,7 +239,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2 SDL2_image libcrypto libssl libxml-2.0"
 	PACKAGES_OPT="" # TODO: pocl handling
-	if [ ${BUILD_CONF_OPENAL} -gt 0]; then
+	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openal"
 	fi
 
@@ -255,7 +255,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 
 	# libs that don't have pkg-config
 	UNCHECKED_LIBS="pthread"
-	if [ ${BUILD_CONF_OPENCL} -gt 0]; then
+	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
 	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
