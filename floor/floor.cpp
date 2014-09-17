@@ -502,11 +502,11 @@ void floor::init_internal(const bool use_gl32_core
 			SDL_VERSION(&wm_info.version);
 			if(SDL_GetWindowWMInfo(config.wnd, &wm_info) == 1) {
 				Display* display = wm_info.info.x11.display;
-				const size2 display_res(DisplayWidth(display, 0), DisplayHeight(display, 0));
+				const size2 display_res((size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0));
 				const float2 display_phys_size(DisplayWidthMM(display, 0), DisplayHeightMM(display, 0));
 				const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
 										 (float(display_res.y) / display_phys_size.y) * 25.4f);
-				config.dpi = floorf(std::max(display_dpi.x, display_dpi.y));
+				config.dpi = (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
 			}
 #endif
 		}
