@@ -1074,7 +1074,7 @@ void opencl::init(bool use_platform_devices, const size_t platform_index,
 		// create a (single) command queue for each device
 		for(const auto& device : devices) {
 			queues[&device->device] = new cl::CommandQueue(*context, device->device,
-#if !defined(FLOOR_PROFILING)
+#if !defined(FLOOR_CL_PROFILING)
 														   0,
 #else
 														   CL_QUEUE_PROFILING_ENABLE,
@@ -2003,7 +2003,7 @@ void opencl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 			functor->second.local_ = kernel_ptr->local;
 		}
 		
-#if !defined(FLOOR_PROFILING)
+#if !defined(FLOOR_CL_PROFILING)
 		functor->second();
 		//functor->second().wait();
 #else
@@ -2249,7 +2249,7 @@ void opencl::unmap_buffer(opencl::buffer_object* buffer_obj, void* map_ptr) {
 	__HANDLE_CL_EXCEPTION("unmap_buffer")
 }
 
-#if defined(CL_VERSION_1_2) && !defined(FLOOR_POCL)
+#if defined(CL_VERSION_1_2)
 void opencl::_fill_buffer(buffer_object* buffer_obj,
 						  const void* pattern,
 						  const size_t& pattern_size,

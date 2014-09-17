@@ -29,6 +29,8 @@ BUILD_JOB_COUNT=0
 BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
+BUILD_CONF_NO_CL_PROFILING=1
+BUILD_CONF_POCL=0
 
 BUILD_PLATFORM="x64"
 BUILD_PLATFORM_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
@@ -61,6 +63,8 @@ for arg in "$@"; do
 			echo "	no-opencl	disables opencl and cuda support"
 			echo "	no-cuda		disables cuda support"
 			echo "	no-openal	disables openal support"
+			echo "	cl-profiling	enables profiling of opencl kernel executions"
+			echo "	pocl		uses the pocl library instead of the systems OpenCL library"
 			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_PLATFORM}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_PLATFORM}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
@@ -106,13 +110,12 @@ for arg in "$@"; do
 		"no-openal")
 			BUILD_CONF_OPENAL=0
 			;;
-# TODO
-#		"--pocl")
-#			BUILD_ARGS=${BUILD_ARGS}" --pocl"
-#			;;
-#		"--cl-profiling")
-#			BUILD_ARGS=${BUILD_ARGS}" --cl-profiling"
-#			;;
+		"cl-profiling")
+			BUILD_CONF_NO_CL_PROFILING=0
+			;;
+		"pocl")
+			BUILD_CONF_POCL=1
+			;;
 		*)
 			;;
 	esac
@@ -213,7 +216,7 @@ fi
 BUILD_DIR=build
 
 # check if the tccpp submodule has been cloned
-if [ ! -f tccpp/tcc_.h ]; then
+if [ ! -f tccpp/tcc.h ]; then
 	error "this is probably the first time that you build floor, please clone the 'tccpp' submodule as well by executing:\n>>\n>>	git submodule init && git submodule update\n>>"
 fi
 
@@ -272,9 +275,12 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2 SDL2_image libcrypto libssl libxml-2.0"
-	PACKAGES_OPT="" # TODO: pocl handling
+	PACKAGES_OPT=""
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openal"
+	fi
+	if [ ${BUILD_CONF_POCL} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} pocl"
 	fi
 
 	# TODO: error checking + check if libs exist
@@ -289,7 +295,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 
 	# libs that don't have pkg-config
 	UNCHECKED_LIBS="pthread"
-	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
+	if [ ${BUILD_CONF_OPENCL} -gt 0 -a ${BUILD_CONF_POCL} -eq 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
 	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
@@ -395,6 +401,7 @@ set_conf_val() {
 set_conf_val "###FLOOR_CUDA_CL###" "FLOOR_NO_CUDA_CL" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
+set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
 
 # checks if any source files have updated (are newer than the target binary)
