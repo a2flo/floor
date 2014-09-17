@@ -70,8 +70,6 @@
 #endif
 
 // if any bool macros get defined for whatever insane reasons, undefine them, because they causes issues
-// -> include <cstdbool> here to prevent any future insanity
-#include <cstdbool>
 #if defined(bool)
 #undef bool
 #endif
