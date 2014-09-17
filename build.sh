@@ -212,6 +212,11 @@ fi
 # build directory where all temporary files are stored (*.o, etc.)
 BUILD_DIR=build
 
+# check if the tccpp submodule has been cloned
+if [ ! -f tccpp/tcc_.h ]; then
+	error "this is probably the first time that you build floor, please clone the 'tccpp' submodule as well by executing:\n>>\n>>	git submodule init && git submodule update\n>>"
+fi
+
 ##########################################
 # compiler setup
 
