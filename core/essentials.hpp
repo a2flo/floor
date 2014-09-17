@@ -57,6 +57,10 @@
 #define floor_fallthrough
 #endif
 
+#endif // __FLOOR_ESSENTIALS_HPP__
+
+// -> keep these outside the header guard
+
 // we don't need these and they cause issues
 #if defined(min)
 #undef min
@@ -76,6 +80,4 @@
 #endif
 #if defined(false)
 #undef false
-#endif
-
 #endif
