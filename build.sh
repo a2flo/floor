@@ -561,6 +561,7 @@ wait
 
 # link
 info "linking ..."
+mkdir -p ${BIN_DIR}
 verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
 ${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
 info "built ${TARGET_NAME} v${TARGET_FULL_VERSION}"
