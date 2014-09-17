@@ -68,8 +68,8 @@ on iOS:
 
 *Optional:*
 In the future, there will be more configuration options (defines) that can disable certain parts of floor that aren't wanted or needed (e.g. networking).
-Right now, only CUDA and OpenCL can be disabled:
-* to disable CUDA: don't define "FLOOR_CUDA_CL"
+Right now, only CUDA, OpenCL and OpenAL can be disabled:
+* to disable CUDA: define "FLOOR_NO_CUDA_CL"
 * to disable OpenCL: define "FLOOR_NO_OPENCL"
 * to disable OpenAL: define "FLOOR_NO_OPENAL"
 

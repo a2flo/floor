@@ -19,6 +19,8 @@
 #ifndef __FLOOR_AUDIO_STORE_HPP__
 #define __FLOOR_AUDIO_STORE_HPP__
 
+#include "core/essentials.hpp"
+
 #if !defined(FLOOR_NO_OPENAL)
 
 #include "core/cpp_headers.hpp"

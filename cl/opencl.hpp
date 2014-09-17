@@ -19,6 +19,8 @@
 #ifndef __FLOOR_OPENCL_HPP__
 #define __FLOOR_OPENCL_HPP__
 
+#include "core/essentials.hpp"
+
 #if !defined(FLOOR_NO_OPENCL)
 
 #include "floor/floor.hpp"
@@ -62,7 +64,7 @@
 #endif
 
 //
-#if defined(FLOOR_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA_CL)
 #if defined(__APPLE__)
 #include <CUDA/cuda.h>
 #include <CUDA/cudaGL.h>
@@ -651,7 +653,7 @@ protected:
 	
 };
 
-#if defined(FLOOR_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA_CL)
 struct cuda_kernel_object;
 //! opencl_base implementation on top of cuda
 class cudacl : public opencl_base {

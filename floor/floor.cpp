@@ -432,7 +432,7 @@ void floor::init_internal(const bool use_gl32_core
 #if !defined(FLOOR_NO_OPENCL)
 		// check if a cudacl or pure opencl context should be created
 		// use absolute path
-#if defined(FLOOR_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA_CL)
 		if(config.opencl_platform == "cuda") {
 			log_debug("initializing cuda ...");
 			ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
@@ -445,7 +445,7 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 			log_debug("initializing opencl ...");
 			ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-#if defined(FLOOR_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA_CL)
 		}
 #endif
 #endif
@@ -991,7 +991,9 @@ bool floor::is_audio_disabled() {
 void floor::set_music_volume(const float& volume) {
 	if(config.audio_disabled) return;
 	config.music_volume = volume;
+#if !defined(FLOOR_NO_OPENAL)
 	audio_controller::update_music_volumes();
+#endif
 }
 
 const float& floor::get_music_volume() {
@@ -1001,7 +1003,9 @@ const float& floor::get_music_volume() {
 void floor::set_sound_volume(const float& volume) {
 	if(config.audio_disabled) return;
 	config.sound_volume = volume;
+#if !defined(FLOOR_NO_OPENAL)
 	audio_controller::update_sound_volumes();
+#endif
 }
 
 const float& floor::get_sound_volume() {

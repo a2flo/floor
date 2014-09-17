@@ -146,11 +146,6 @@ protected:
 	
 };
 
-// if bool is a macro for whatever insane reasons, undefine it, because it causes issues here
-#if defined(bool)
-#undef bool
-#endif
-
 //! macro that defines a static "func_constexpr" function, taking a single argument with the name "func_name"
 #define FLOOR_VH_FUNC_IMPL_1(func_name, func_constexpr, func_impl) \
 static func_constexpr scalar_type func_name (const scalar_type& val) { \

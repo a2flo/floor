@@ -138,6 +138,9 @@
 // c++ headers
 #include "core/cpp_headers.hpp"
 
+// essentials (should be included after system/c++ headers)
+#include "core/essentials.hpp"
+
 // constexpr math functions
 #include "constexpr/const_math.hpp"
 
@@ -149,29 +152,5 @@
 
 // const_string
 #include "constexpr/const_string.hpp"
-
-#if !defined(__has_feature)
-#define __has_feature(x) 0
-#endif
-
-#if defined(__clang__) || defined(__GNUC__)
-#define floor_unreachable __builtin_unreachable
-#else
-#define floor_unreachable
-#endif
-
-#define floor_unused __attribute__((unused))
-
-#if defined(__clang__) || defined(__GNUC__)
-#define floor_packed __attribute__((packed))
-#else
-#define floor_packed
-#endif
-
-#if defined(__clang__)
-#define floor_fallthrough [[clang::fallthrough]]
-#else
-#define floor_fallthrough
-#endif
 
 #endif

@@ -73,21 +73,4 @@
 
 using namespace std;
 
-// we don't need these and they cause issues
-#if defined(min)
-#undef min
-#endif
-#if defined(max)
-#undef max
-#endif
-#if defined(bool) /* srsly? */
-#undef bool
-#endif
-#if defined(true)
-#undef true
-#endif
-#if defined(false)
-#undef false
-#endif
-
 #endif

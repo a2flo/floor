@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdint>
 #include <unistd.h>
+#include "core/essentials.hpp"
 using namespace std;
 
 // disable "comparing floating point with == or != is unsafe" warnings,

@@ -20,7 +20,8 @@
 #define __FLOOR_CONST_STRING_HPP__
 
 #include <type_traits>
-#include "core/platform.hpp"
+#include <cstdlib>
+#include "core/essentials.hpp"
 
 // NOTE: there now is a std proposal that would add something very similar to this
 // to the c++ standard (-> if this gets approved and implemented, replace this code)
@@ -179,14 +180,6 @@ public:
 		
 		//----------
 		// tail
-		// -- include hell, need to do this here again
-#if !defined(floor_fallthrough)
-#if defined(__clang__)
-#define floor_fallthrough [[clang::fallthrough]]
-#else
-#define floor_fallthrough
-#endif
-#endif
 		uint32_t k1 = 0;
 		switch(count & 3u) {
 			case 3:

@@ -16,6 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "core/essentials.hpp"
+
 #if !defined(FLOOR_NO_OPENAL)
 
 #include "audio/audio_controller.hpp"

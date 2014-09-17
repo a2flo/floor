@@ -16,7 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if defined(FLOOR_CUDA_CL)
+#include "core/essentials.hpp"
+
+#if !defined(FLOOR_NO_CUDA_CL)
 
 #include "cudacl_translator.hpp"
 #include "core/core.hpp"

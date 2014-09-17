@@ -26,6 +26,10 @@ BUILD_MODE="release"
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
 
+BUILD_CONF_OPENCL=1
+BUILD_CONF_CUDA=1
+BUILD_CONF_OPENAL=1
+
 # TODO: install/uninstall?
 # TODO: static lib
 for arg in "$@"; do
@@ -41,6 +45,9 @@ for arg in "$@"; do
 			echo "	-v		verbose output (prints all executed compiler and linker commands, and some other information)"
 			echo "	-vv		very verbose output (same as -v + runs all compiler and linker commands with -v)"
 			echo "	-j#		explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
+			echo "	--no-opencl	disables opencl and cuda support"
+			echo "	--no-cuda	disables cuda support"
+			echo "	--no-openal	disables openal support"
 			echo ""
 			exit 0
 			;;
@@ -65,10 +72,17 @@ for arg in "$@"; do
 				BUILD_JOB_COUNT=0
 			fi
 			;;
+		"--no-opencl")
+			BUILD_CONF_OPENCL=0
+			BUILD_CONF_CUDA=0
+			;;
+		"--no-cuda")
+			BUILD_CONF_CUDA=0
+			;;
+		"--no-openal")
+			BUILD_CONF_OPENAL=0
+			;;
 # TODO
-#		"--cuda")
-#			BUILD_ARGS=${BUILD_ARGS}" --cuda"
-#			;;
 #		"--pocl")
 #			BUILD_ARGS=${BUILD_ARGS}" --pocl"
 #			;;
@@ -224,7 +238,10 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2 SDL2_image libcrypto libssl libxml-2.0"
-	PACKAGES_OPT="openal" # TODO: pocl handling
+	PACKAGES_OPT="" # TODO: pocl handling
+	if [ ${BUILD_CONF_OPENAL} -gt 0]; then
+		PACKAGES_OPT="${PACKAGES_OPT} openal"
+	fi
 
 	# TODO: error checking + check if libs exist
 	for pkg in ${PACKAGES}; do
@@ -237,7 +254,13 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	done
 
 	# libs that don't have pkg-config
-	UNCHECKED_LIBS="pthread OpenCL cuda cudart"
+	UNCHECKED_LIBS="pthread"
+	if [ ${BUILD_CONF_OPENCL} -gt 0]; then
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
+	fi
+	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} cuda cudart"
+	fi
 
 	# add os specific libs
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
@@ -252,7 +275,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	#  * need to add the /lib folder
 	if [ $BUILD_OS == "linux" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
-		LDFLAGS="${LDFLAGS} -L/lib -L/opt/cuda/lib64"
+		LDFLAGS="${LDFLAGS} -L/lib"
+		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
+			# TODO: arch size handling
+			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+		fi
 		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
 
@@ -295,19 +322,43 @@ else
 	
 	# frameworks and libs
 	LDFLAGS="${LDFLAGS} -framework SDL2 -framework SDL2_image"
-	# TODO: proper conf handling
-	LDFLAGS="${LDFLAGS} -weak_framework CUDA"
 	LDFLAGS="${LDFLAGS} -lcrypto -lssl"
 	LDFLAGS="${LDFLAGS} -lxml2"
-	LDFLAGS="${LDFLAGS} -framework OpenALSoft"
+	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -weak_framework CUDA"
+	fi
+	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -framework OpenALSoft"
+	fi
+	
 	# system frameworks
-	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenCL -framework OpenGL"
+	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL"
+	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -framework OpenCL"
+	fi
 fi
 
 # just in case, also add these rather default ones (should also go after all previous libs/includes,
 # in case a local or otherwise set up lib is overwriting a system lib and should be used instead)
 LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib"
 INCLUDES="${INCLUDES} -isystem /usr/include -isystem /usr/local/include"
+
+# create the floor_conf.hpp file
+CONF=$(cat floor/floor_conf.hpp.in)
+set_conf_val() {
+	repl_text="$1"
+	define="$2"
+	enabled=$3
+	if [ ${enabled} -gt 0 ]; then
+		CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/\/\/#define ${define} 1/g")
+	else
+		CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/#define ${define} 1/g")
+	fi
+}
+set_conf_val "###FLOOR_CUDA_CL###" "FLOOR_NO_CUDA_CL" ${BUILD_CONF_CUDA}
+set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
+set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
+echo "${CONF}" > floor/floor_conf.hpp
 
 # checks if any source files have updated (are newer than the target binary)
 # if so, this increments the build version by one (updates the header file)
@@ -356,7 +407,7 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 fi
 
 # defines
-COMMON_FLAGS="${COMMON_FLAGS} -DFLOOR_EXPORT=1 -DFLOOR_CUDA_CL=1 -DTCC_LIB_ONLY=1 -DPLATFORM_X64"
+COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1 -DPLATFORM_X64"
 #TODO: handle PLATFORM_X32
 
 # hard-mode c++ ;) TODO: clean this up + explanations

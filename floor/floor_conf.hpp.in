@@ -1,42 +1,35 @@
 /*
  *  Flo's Open libRary (floor)
  *  Copyright (C) 2004 - 2014 Florian Ziesche
- *
+ *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; version 2 of the License only.
- *
+ *  
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
- *
+ *  
  *  You should have received a copy of the GNU General Public License along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CUDACL_COMPILER_HPP__
-#define __FLOOR_CUDACL_COMPILER_HPP__
+#ifndef __FLOOR_CONF_HPP__
+#define __FLOOR_CONF_HPP__
 
-#include "core/essentials.hpp"
+// if defined, this disables cuda support
+###FLOOR_CUDA_CL###
 
-#if !defined(FLOOR_NO_CUDA_CL)
+// if defined, this disable opencl support and possibly enabled cuda support
+###FLOOR_OPENCL###
 
-#include "floor/floor.hpp"
+// if defined, this disabled openal support
+###FLOOR_OPENAL###
 
-class cudacl_compiler {
-public:
-	// compiles .cu source code to .ptx using tccpp, cudafe and cicc
-	static string compile(const string& code,
-						  const string& identifier,
-						  const string& cc_target_str,
-						  const string& user_options,
-						  const string& tmp_name,
-						  string& error_log,
-						  string& info_log);
-	
-};
+// if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
+// and instantiate them for various basic types (float, int, ...)
+#define FLOOR_EXPORT 1
 
-#endif
 #endif

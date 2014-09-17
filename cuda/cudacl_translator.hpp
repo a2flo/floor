@@ -19,7 +19,9 @@
 #ifndef __FLOOR_CUDACL_TRANSLATOR_HPP__
 #define __FLOOR_CUDACL_TRANSLATOR_HPP__
 
-#if defined(FLOOR_CUDA_CL)
+#include "core/essentials.hpp"
+
+#if !defined(FLOOR_NO_CUDA_CL)
 
 #include "floor/floor.hpp"
 #include "hash/city.hpp"
