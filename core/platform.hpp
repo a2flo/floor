@@ -138,9 +138,6 @@
 // c++ headers
 #include "core/cpp_headers.hpp"
 
-// essentials (should be included after system/c++ headers)
-#include "core/essentials.hpp"
-
 // constexpr math functions
 #include "constexpr/const_math.hpp"
 
