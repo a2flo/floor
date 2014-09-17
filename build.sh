@@ -30,34 +30,58 @@ BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
 
+BUILD_PLATFORM="x64"
+BUILD_PLATFORM_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
+case $BUILD_PLATFORM_TEST_STRING in
+	"i386"|"i486"|"i586"|"i686"|"arm7"*|"armv7"*)
+		BUILD_PLATFORM="x32"
+		;;
+	"x86_64"|"amd64"|"arm64")
+		BUILD_PLATFORM="x64"
+		;;
+	*)
+		warning "unknown architecture (${BUILD_PLATFORM_TEST_STRING}) - using ${BUILD_PLATFORM}!"
+		;;
+esac
+
 # TODO: install/uninstall?
 # TODO: static lib
 for arg in "$@"; do
 	case $arg in
-		"--help")
-			info "build help"
+		"help"|"-help"|"--help")
+			info "build script usage:"
 			echo ""
-			echo "usage:"
+			echo "build mode options:"
 			echo "	<default>	builds this project in release mode"
-			echo "	--opt		builds this project in release mode + additional optimizations that take longer to compile (lto)"
-			echo "	--debug		builds this project in debug mode"
-			echo "	--clean		cleans all build binaries and intermediate build files"
+			echo "	opt		builds this project in release mode + additional optimizations that take longer to compile (lto)"
+			echo "	debug		builds this project in debug mode"
+			echo "	clean		cleans all build binaries and intermediate build files"
+			echo ""
+			echo "build configuration:"
+			echo "	no-opencl	disables opencl and cuda support"
+			echo "	no-cuda		disables cuda support"
+			echo "	no-openal	disables openal support"
+			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_PLATFORM}" == "x32" ]; then printf "(default on this platform)"; fi)
+			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_PLATFORM}" == "x64" ]; then printf "(default on this platform)"; fi)
+			echo ""
+			echo "misc flags:"
 			echo "	-v		verbose output (prints all executed compiler and linker commands, and some other information)"
 			echo "	-vv		very verbose output (same as -v + runs all compiler and linker commands with -v)"
 			echo "	-j#		explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
-			echo "	--no-opencl	disables opencl and cuda support"
-			echo "	--no-cuda	disables cuda support"
-			echo "	--no-openal	disables openal support"
+			echo ""
+			echo ""
+			echo "example:"
+			echo "	./build.sh -v debug no-cuda no-openal -j1"
 			echo ""
 			exit 0
 			;;
-		"--opt")
+		"opt")
 			BUILD_MODE="release_opt"
 			;;
-		"--debug")
+		"debug")
 			BUILD_MODE="debug"
 			;;
-		"--clean")
+		"clean")
 			BUILD_MODE="clean"
 			;;
 		"-v")
@@ -72,14 +96,14 @@ for arg in "$@"; do
 				BUILD_JOB_COUNT=0
 			fi
 			;;
-		"--no-opencl")
+		"no-opencl")
 			BUILD_CONF_OPENCL=0
 			BUILD_CONF_CUDA=0
 			;;
-		"--no-cuda")
+		"no-cuda")
 			BUILD_CONF_CUDA=0
 			;;
-		"--no-openal")
+		"no-openal")
 			BUILD_CONF_OPENAL=0
 			;;
 # TODO
@@ -229,8 +253,13 @@ COMMON_FLAGS="${COMMON_FLAGS}"
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
-	# build a shared library, strip some symbols and create a 64-bit lib (TODO: arch size handling)
-	LDFLAGS="${LDFLAGS} -s -shared -m64"
+	# build a shared library, strip some symbols and create a 32/64-bit lib
+	LDFLAGS="${LDFLAGS} -s -shared"
+	if [ ${BUILD_PLATFORM} == "x32" ]; then
+		LDFLAGS="${LDFLAGS} -m32"
+	else
+		LDFLAGS="${LDFLAGS} -m64"
+	fi
 	
 	# use PIC
 	LDFLAGS="${LDFLAGS} -fPIC"
@@ -277,8 +306,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
 		LDFLAGS="${LDFLAGS} -L/lib"
 		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-			# TODO: arch size handling
-			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+			if [ ${BUILD_PLATFORM} == "x32" ]; then
+				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib"
+			else
+				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+			fi
 		fi
 		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
@@ -407,8 +439,12 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 fi
 
 # defines
-COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1 -DPLATFORM_X64"
-#TODO: handle PLATFORM_X32
+COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1"
+if [ ${BUILD_PLATFORM} == "x32" ]; then
+	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X32"
+else
+	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X64"
+fi
 
 # hard-mode c++ ;) TODO: clean this up + explanations
 WARNINGS="${WARNINGS} -Weverything -Wno-gnu -Wno-c++98-compat"
