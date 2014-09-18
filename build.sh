@@ -426,9 +426,9 @@ info "build version update ..."
 . ./floor/build_version.sh
 
 # version of the target (preprocess the floor version header, grep the version defines, transform them to exports and eval)
-eval $(${CXX} -E -dM -I. floor/floor_version.hpp 2>&1 | grep -E "define FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
+eval $(${CXX} -E -dM -I. floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 TARGET_VERSION="${FLOOR_MAJOR_VERSION}.${FLOOR_MINOR_VERSION}.${FLOOR_REVISION_VERSION}"
-TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION}-${FLOOR_BUILD_VERSION}"
+TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION_STR}-${FLOOR_BUILD_VERSION}"
 info "building ${TARGET_NAME} v${TARGET_FULL_VERSION}"
 
 ##########################################
