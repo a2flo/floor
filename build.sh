@@ -25,6 +25,7 @@ verbose() {
 BUILD_MODE="release"
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
+BUILD_STATIC=0
 
 BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
@@ -47,7 +48,6 @@ case $BUILD_PLATFORM_TEST_STRING in
 esac
 
 # TODO: install/uninstall?
-# TODO: static lib
 for arg in "$@"; do
 	case $arg in
 		"help"|"-help"|"--help")
@@ -58,6 +58,7 @@ for arg in "$@"; do
 			echo "	opt		builds this project in release mode + additional optimizations that take longer to compile (lto)"
 			echo "	debug		builds this project in debug mode"
 			echo "	clean		cleans all build binaries and intermediate build files"
+			echo "	static		build a static .a library instead of a dynamic library"
 			echo ""
 			echo "build configuration:"
 			echo "	no-opencl	disables opencl and cuda support"
@@ -87,6 +88,9 @@ for arg in "$@"; do
 			;;
 		"clean")
 			BUILD_MODE="clean"
+			;;
+		"static")
+			BUILD_STATIC=1
 			;;
 		"-v")
 			BUILD_VERBOSE=1
@@ -179,16 +183,23 @@ TARGET_BIN_NAME=lib${TARGET_NAME}
 if [ $BUILD_MODE == "debug" ]; then
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}d
 fi
-# osx/ios -> .dylib
-if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
-	TARGET_BIN_NAME=${TARGET_BIN_NAME}.dylib
-# windows/mingw/cygwin -> .dll
-elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
-	TARGET_BIN_NAME=${TARGET_BIN_NAME}.dll
-# else -> .so
+
+# file ending, depending on if we're building a dynamic or static lib
+if [ ${BUILD_STATIC} -eq 0 ]; then
+	# osx/ios -> .dylib
+	if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+		TARGET_BIN_NAME=${TARGET_BIN_NAME}.dylib
+	# windows/mingw/cygwin -> .dll
+	elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
+		TARGET_BIN_NAME=${TARGET_BIN_NAME}.dll
+	# else -> .so
+	else
+		# default to .so for all other platforms (linux/*bsd/unknown)
+		TARGET_BIN_NAME=${TARGET_BIN_NAME}.so
+	fi
 else
-	# default to .so for all other platforms (linux/*bsd/unknown)
-	TARGET_BIN_NAME=${TARGET_BIN_NAME}.so
+	# use *.a for all platforms
+	TARGET_BIN_NAME=${TARGET_BIN_NAME}.a
 fi
 
 ##########################################
@@ -258,6 +269,11 @@ LDFLAGS="${LDFLAGS} -stdlib=libc++ -fvisibility=default"
 LIBS="${LIBS}"
 INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
 COMMON_FLAGS="${COMMON_FLAGS}"
+
+# if no AR is specified, set it to the default ar (only used when creating a static lib)
+if [ -z "${AR}" ]; then
+	AR=ar
+fi
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
@@ -610,6 +626,11 @@ wait
 # link
 info "linking ..."
 mkdir -p ${BIN_DIR}
-verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
-${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
+if [ ${BUILD_STATIC} -eq 0 ]; then
+	verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+	${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
+else
+	verbose "${AR} rs ${TARGET_BIN} ${OBJ_FILES}"
+	${AR} rs ${TARGET_BIN} ${OBJ_FILES}
+fi
 info "built ${TARGET_NAME} v${TARGET_FULL_VERSION}"
