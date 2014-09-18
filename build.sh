@@ -33,17 +33,17 @@ BUILD_CONF_OPENAL=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
 
-BUILD_PLATFORM="x64"
-BUILD_PLATFORM_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
-case $BUILD_PLATFORM_TEST_STRING in
+BUILD_ARCH_SIZE="x64"
+BUILD_ARCH_SIZE_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
+case $BUILD_ARCH_SIZE_TEST_STRING in
 	"i386"|"i486"|"i586"|"i686"|"arm7"*|"armv7"*)
-		BUILD_PLATFORM="x32"
+		BUILD_ARCH_SIZE="x32"
 		;;
 	"x86_64"|"amd64"|"arm64")
-		BUILD_PLATFORM="x64"
+		BUILD_ARCH_SIZE="x64"
 		;;
 	*)
-		warning "unknown architecture (${BUILD_PLATFORM_TEST_STRING}) - using ${BUILD_PLATFORM}!"
+		warning "unknown architecture (${BUILD_ARCH_SIZE_TEST_STRING}) - using ${BUILD_ARCH_SIZE}!"
 		;;
 esac
 
@@ -66,8 +66,8 @@ for arg in "$@"; do
 			echo "	no-openal	disables openal support"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
 			echo "	pocl		uses the pocl library instead of the systems OpenCL library"
-			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_PLATFORM}" == "x32" ]; then printf "(default on this platform)"; fi)
-			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_PLATFORM}" == "x64" ]; then printf "(default on this platform)"; fi)
+			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
+			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
 			echo "misc flags:"
 			echo "	-v		verbose output (prints all executed compiler and linker commands, and some other information)"
@@ -279,7 +279,7 @@ fi
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# build a shared library, strip some symbols and create a 32/64-bit lib
 	LDFLAGS="${LDFLAGS} -s -shared"
-	if [ ${BUILD_PLATFORM} == "x32" ]; then
+	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 		LDFLAGS="${LDFLAGS} -m32"
 	else
 		LDFLAGS="${LDFLAGS} -m64"
@@ -333,7 +333,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
 		LDFLAGS="${LDFLAGS} -L/lib"
 		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-			if [ ${BUILD_PLATFORM} == "x32" ]; then
+			if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib"
 			else
 				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
@@ -468,7 +468,7 @@ fi
 
 # defines
 COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1"
-if [ ${BUILD_PLATFORM} == "x32" ]; then
+if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X32"
 else
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X64"
