@@ -496,6 +496,15 @@ if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 else
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X64"
 fi
+if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
+	COMMON_FLAGS="${COMMON_FLAGS} -DWIN_UNIXENV"
+	if [ $BUILD_OS == "mingw" ]; then
+		COMMON_FLAGS="${COMMON_FLAGS} -D__WINDOWS__ -DMINGW"
+	fi
+	if [ $BUILD_OS == "cygwin" ]; then
+		COMMON_FLAGS="${COMMON_FLAGS} -DCYGWIN"
+	fi
+fi
 
 # hard-mode c++ ;) TODO: clean this up + explanations
 WARNINGS="${WARNINGS} -Weverything -Wno-gnu -Wno-c++98-compat"
