@@ -12,7 +12,7 @@ This is a C++ core library that is used in several of my projects:
 * iOS: 7.0+ (armv7/armv7s/arm64)
 * Linux: any x64 distribution that supports the AMD, Intel or Nvidia OpenCL SDK/drivers
 * FreeBSD: 10.0+ (amd64; i386 support is uncertain)
-* OpenBSD: soon (5.5+)
+* OpenBSD: as soon as libc++ is supported
 
 *Build Instructions:*
 * after cloning: git submodule init && git submodule update
