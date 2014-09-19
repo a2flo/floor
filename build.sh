@@ -67,7 +67,7 @@ for arg in "$@"; do
 			echo "	no-openal	disables openal support"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
 			echo "	pocl		use the pocl library instead of the systems OpenCL library"
-			echo "	libstdc++	use the libstdc++ library instead of libc++"
+			#echo "	libstdc++	use the libstdc++ library instead of libc++ (unsupported)"
 			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
