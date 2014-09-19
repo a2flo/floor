@@ -65,8 +65,8 @@ BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 
 BUILD_ARCH_SIZE="x64"
-BUILD_ARCH_SIZE_TEST_STRING=$(${CC} -dumpmachine | sed "s/-.*//")
-case $BUILD_ARCH_SIZE_TEST_STRING in
+BUILD_ARCH=$(${CC} -dumpmachine | sed "s/-.*//")
+case $BUILD_ARCH in
 	"i386"|"i486"|"i586"|"i686"|"arm7"*|"armv7"*)
 		BUILD_ARCH_SIZE="x32"
 		;;
@@ -74,7 +74,7 @@ case $BUILD_ARCH_SIZE_TEST_STRING in
 		BUILD_ARCH_SIZE="x64"
 		;;
 	*)
-		warning "unknown architecture (${BUILD_ARCH_SIZE_TEST_STRING}) - using ${BUILD_ARCH_SIZE}!"
+		warning "unknown architecture (${BUILD_ARCH}) - using ${BUILD_ARCH_SIZE}!"
 		;;
 esac
 
@@ -460,6 +460,34 @@ else
 	CXXFLAGS="${CXXFLAGS} -stdlib=libc++"
 fi
 CFLAGS="${CFLAGS} -std=gnu11"
+
+# arch handling
+if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+	case $BUILD_ARCH in
+		"i386"|"i486"|"i586"|"i686")
+			COMMON_FLAGS="${COMMON_FLAGS} -arch $BUILD_ARCH"
+			;;
+		"x86_64"|"amd64")
+			COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
+			;;
+		"arm"*)
+			COMMON_FLAGS="${COMMON_FLAGS} -arch armv7"
+			;;
+		*)
+			warning "unknown arch (${BUILD_ARCH}) - building for arch i686!"
+			COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
+			;;
+	esac
+else
+	case $BUILD_ARCH in
+		"arm"*)
+			COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
+			;;
+		*)
+			COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
+			;;
+	esac
+fi
 
 # c++ and c flags that apply to all build configurations
 COMMON_FLAGS="${COMMON_FLAGS} -ffast-math -fstrict-aliasing"
