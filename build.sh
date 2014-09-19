@@ -21,6 +21,36 @@ verbose() {
 }
 
 ##########################################
+# compiler setup/check
+
+# if no CXX/CC are specified, try using clang++/clang
+if [ -z "${CXX}" ]; then
+	CXX=clang++
+fi
+if [ -z "${CC}" ]; then
+	CC=clang
+fi
+
+# check if clang is the compiler, fail if not
+CXX_VERSION=$(${CXX} -v 2>&1)
+if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
+	# also check the clang version
+	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
+		# apple xcode/llvm/clang versioning scheme -> at least 6.1 is required
+		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/Apple LLVM version ([0-9.]+) .*/\1/")" \< "6.1" >/dev/null; then
+			error "at least Xcode/LLVM/clang 6.1 is required to compile this project!"
+		fi
+	else
+		# standard clang versioning scheme -> at least 3.5.0 is required
+		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/.*clang version ([0-9.]+) .*/\1/")" \< "3.5.0" >/dev/null; then
+			error "at least clang 3.5.0 is required to compile this project!"
+		fi
+	fi
+else
+	error "only clang is currently supported - please set CXX/CC to clang++/clang and try again!"
+fi
+
+##########################################
 # arg handling
 BUILD_MODE="release"
 BUILD_VERBOSE=0
@@ -35,7 +65,7 @@ BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 
 BUILD_ARCH_SIZE="x64"
-BUILD_ARCH_SIZE_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
+BUILD_ARCH_SIZE_TEST_STRING=$(${CC} -dumpmachine | sed "s/-.*//")
 case $BUILD_ARCH_SIZE_TEST_STRING in
 	"i386"|"i486"|"i586"|"i686"|"arm7"*|"armv7"*)
 		BUILD_ARCH_SIZE="x32"
@@ -240,36 +270,6 @@ BUILD_DIR=build
 # check if the tccpp submodule has been cloned
 if [ ! -f tccpp/tcc.h ]; then
 	error "this is probably the first time that you build floor, please clone the 'tccpp' submodule as well by executing:\n>>\n>>	git submodule init && git submodule update\n>>"
-fi
-
-##########################################
-# compiler setup
-
-# if no CXX/CC are specified, try using clang++/clang
-if [ -z "${CXX}" ]; then
-	CXX=clang++
-fi
-if [ -z "${CC}" ]; then
-	CC=clang
-fi
-
-# check if clang is the compiler, fail if not
-CXX_VERSION=$(${CXX} -v 2>&1)
-if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
-	# also check the clang version
-	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 6.1 is required
-		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/Apple LLVM version ([0-9.]+) .*/\1/")" \< "6.1" >/dev/null; then
-			error "at least Xcode/LLVM/clang 6.1 is required to compile this project!"
-		fi
-	else
-		# standard clang versioning scheme -> at least 3.5.0 is required
-		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/.*clang version ([0-9.]+) .*/\1/")" \< "3.5.0" >/dev/null; then
-			error "at least clang 3.5.0 is required to compile this project!"
-		fi
-	fi
-else
-	error "only clang is currently supported - please set CXX/CC to clang++/clang and try again!"
 fi
 
 ##########################################
