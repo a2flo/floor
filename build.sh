@@ -32,6 +32,7 @@ BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
+BUILD_CONF_LIBSTDCXX=0
 
 BUILD_ARCH_SIZE="x64"
 BUILD_ARCH_SIZE_TEST_STRING=$(cc -dumpmachine | sed "s/-.*//")
@@ -65,7 +66,8 @@ for arg in "$@"; do
 			echo "	no-cuda		disables cuda support"
 			echo "	no-openal	disables openal support"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
-			echo "	pocl		uses the pocl library instead of the systems OpenCL library"
+			echo "	pocl		use the pocl library instead of the systems OpenCL library"
+			echo "	libstdc++	use the libstdc++ library instead of libc++"
 			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
@@ -119,6 +121,15 @@ for arg in "$@"; do
 			;;
 		"pocl")
 			BUILD_CONF_POCL=1
+			;;
+		"libstdc++")
+			BUILD_CONF_LIBSTDCXX=1
+			;;
+		"x32")
+			BUILD_ARCH_SIZE="x32"
+			;;
+		"x64")
+			BUILD_ARCH_SIZE="x64"
 			;;
 		*)
 			;;
@@ -265,7 +276,12 @@ fi
 # library/dependency handling
 
 # initial linker, lib and include setup
-LDFLAGS="${LDFLAGS} -stdlib=libc++ -fvisibility=default"
+LDFLAGS="${LDFLAGS} -fvisibility=default"
+if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
+	LDFLAGS="${LDFLAGS} -stdlib=libstdc++"
+else
+	LDFLAGS="${LDFLAGS} -stdlib=libc++"
+fi
 LIBS="${LIBS}"
 INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
 COMMON_FLAGS="${COMMON_FLAGS}"
@@ -326,11 +342,13 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	fi
 	
 	# linux:
-	#  * must also link against c++abi
+	#  * must also link against c++abi when using libc++
 	#  * need to explicitly add the cuda lib + include folder on linux
 	#  * need to add the /lib folder
 	if [ $BUILD_OS == "linux" ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
+		if [ ${BUILD_CONF_LIBSTDCXX} -eq 0 ]; then
+			UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
+		fi
 		LDFLAGS="${LDFLAGS} -L/lib"
 		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
 			if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
@@ -349,7 +367,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# mingw: "--allow-multiple-definition" is necessary, because gcc is still used as a linker
 	# and will always link against libstdc++ (-> multiple definitions with libc++)
 	# also note: since libc++ is linked first, libc++'s functions will be used
-	if [ $BUILD_OS == "mingw" ]; then
+	if [ $BUILD_OS == "mingw" -a ${BUILD_CONF_LIBSTDCXX} -eq 0 ]; then
 		LDFLAGS="${LDFLAGS} -lc++.dll -Wl,--allow-multiple-definition"
 	fi
 	
@@ -435,7 +453,12 @@ info "building ${TARGET_NAME} v${TARGET_FULL_VERSION}"
 # flags
 
 # set up initial c++ and c flags
-CXXFLAGS="${CXXFLAGS} -std=gnu++14 -stdlib=libc++"
+CXXFLAGS="${CXXFLAGS} -std=gnu++14"
+if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
+	CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
+else
+	CXXFLAGS="${CXXFLAGS} -stdlib=libc++"
+fi
 CFLAGS="${CFLAGS} -std=gnu11"
 
 # c++ and c flags that apply to all build configurations
