@@ -51,9 +51,9 @@ case $( uname | tr [:upper:] [:lower:] ) in
 		cp bin/libfloord.a ${FLOOR_LIB_PATH}/ 2>/dev/null
 		;;
 	"mingw"*)
-		FLOOR_MINGW_ROOT="/c/mingw"
+		FLOOR_MINGW_ROOT="/c/msys/mingw32"
 		if [[ $FLOOR_PLATFORM == "x64" ]]; then
-			FLOOR_MINGW_ROOT="/c/mingw64"
+			FLOOR_MINGW_ROOT="/c/msys/mingw64"
 			if [[ $MINGW_ROOT ]]; then
 				FLOOR_MINGW_ROOT=$MINGW_ROOT
 			fi
@@ -69,9 +69,9 @@ case $( uname | tr [:upper:] [:lower:] ) in
 			fi
 		fi
 		echo "# installing to "$FLOOR_MINGW_ROOT" ..."
-		FLOOR_INCLUDE_PATH=$FLOOR_MINGW_ROOT"/msys/include"
+		FLOOR_INCLUDE_PATH=$FLOOR_MINGW_ROOT"/include"
 		FLOOR_BIN_PATH=$FLOOR_MINGW_ROOT"/bin"
-		FLOOR_LIB_PATH=$FLOOR_MINGW_ROOT"/msys/lib"
+		FLOOR_LIB_PATH=$FLOOR_MINGW_ROOT"/lib"
 
 		# create bin/export folder if it doesn't exist
 		if [[ ! -d "${FLOOR_BIN_PATH}" ]]; then
@@ -97,8 +97,8 @@ case $( uname | tr [:upper:] [:lower:] ) in
 			cp ${val}/*.hpp ${FLOOR_INCLUDE_PATH}/floor/${val}/ 2>/dev/null
 		done
 		
-		cp bin/floor.dll ${FLOOR_BIN_PATH}/ 2>/dev/null
-		cp bin/floord.dll ${FLOOR_BIN_PATH}/ 2>/dev/null
+		cp bin/libfloor.dll ${FLOOR_BIN_PATH}/ 2>/dev/null
+		cp bin/libfloord.dll ${FLOOR_BIN_PATH}/ 2>/dev/null
 		cp bin/libfloor.a ${FLOOR_LIB_PATH}/ 2>/dev/null
 		cp bin/libfloord.a ${FLOOR_LIB_PATH}/ 2>/dev/null
 		;;
