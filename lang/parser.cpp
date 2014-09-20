@@ -73,7 +73,7 @@ void parser::check_semantic(lang_context& ctx floor_unused, translation_unit& tu
 
 parser_grammar::parser_grammar() {
 	// all literal objects
-	static constexpr literal_matcher<FLOOR_KEYWORD, TOKEN_TYPE::KEYWORD>
+	static constexpr literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWORD>
 	AUTO { FLOOR_KEYWORD::AUTO }, BREAK { FLOOR_KEYWORD::BREAK }, CASE { FLOOR_KEYWORD::CASE }, CHAR { FLOOR_KEYWORD::CHAR },
 	CONST { FLOOR_KEYWORD::CONST }, CONTINUE { FLOOR_KEYWORD::CONTINUE }, DEFAULT { FLOOR_KEYWORD::DEFAULT }, DO { FLOOR_KEYWORD::DO },
 	DOUBLE { FLOOR_KEYWORD::DOUBLE }, ELSE { FLOOR_KEYWORD::ELSE }, ENUM { FLOOR_KEYWORD::ENUM }, EXTERN { FLOOR_KEYWORD::EXTERN },
@@ -87,7 +87,7 @@ parser_grammar::parser_grammar() {
 	IMAGINARY { FLOOR_KEYWORD::IMAGINARY }, NORETURN { FLOOR_KEYWORD::NORETURN }, STATIC_ASSERT { FLOOR_KEYWORD::STATIC_ASSERT },
 	THREAD_LOCAL { FLOOR_KEYWORD::THREAD_LOCAL };
 	
-	static constexpr literal_matcher<FLOOR_PUNCTUATOR, TOKEN_TYPE::PUNCTUATOR>
+	static constexpr literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUNCTUATOR>
 	LEFT_BRACKET { FLOOR_PUNCTUATOR::LEFT_BRACKET }, RIGHT_BRACKET { FLOOR_PUNCTUATOR::RIGHT_BRACKET }, LEFT_PAREN { FLOOR_PUNCTUATOR::LEFT_PAREN },
 	RIGHT_PAREN { FLOOR_PUNCTUATOR::RIGHT_PAREN }, LEFT_BRACE { FLOOR_PUNCTUATOR::LEFT_BRACE }, RIGHT_BRACE { FLOOR_PUNCTUATOR::RIGHT_BRACE },
 	DOT { FLOOR_PUNCTUATOR::DOT }, ARROW { FLOOR_PUNCTUATOR::ARROW }, INCREMENT { FLOOR_PUNCTUATOR::INCREMENT },
@@ -107,9 +107,9 @@ parser_grammar::parser_grammar() {
 	HASH { FLOOR_PUNCTUATOR::HASH }, HASH_HASH { FLOOR_PUNCTUATOR::HASH_HASH };
 	
 	// fixed token type matchers
-	static constexpr literal_matcher<const char*, TOKEN_TYPE::IDENTIFIER> IDENTIFIER {};
-	static constexpr literal_matcher<const char*, TOKEN_TYPE::STRING_LITERAL> STRING_LITERAL {};
-	static constexpr literal_matcher<const char*, TOKEN_TYPE::CONSTANT> CONSTANT {};
+	static constexpr literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFIER> IDENTIFIER {};
+	static constexpr literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_LITERAL> STRING_LITERAL {};
+	static constexpr literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT> CONSTANT {};
 	static constexpr epsilon_matcher EPSILON {};
 	
 	//

@@ -38,14 +38,14 @@ const source_iterator& lexer_error::get_iter() const noexcept {
 	return iter;
 }
 
-//! simple TOKEN_TYPE enum to C11 token name string conversion
-static constexpr const char* token_type_to_string(const TOKEN_TYPE& token_type) {
+//! simple SOURCE_TOKEN_TYPE enum to C11 token name string conversion
+static constexpr const char* token_type_to_string(const SOURCE_TOKEN_TYPE& token_type) {
 	switch(get_token_primary_type(token_type)) {
-		case TOKEN_TYPE::KEYWORD: return "keyword";
-		case TOKEN_TYPE::IDENTIFIER: return "identifier";
-		case TOKEN_TYPE::CONSTANT: return "constant";
-		case TOKEN_TYPE::STRING_LITERAL: return "string-literal";
-		case TOKEN_TYPE::PUNCTUATOR: return "punctuator";
+		case SOURCE_TOKEN_TYPE::KEYWORD: return "keyword";
+		case SOURCE_TOKEN_TYPE::IDENTIFIER: return "identifier";
+		case SOURCE_TOKEN_TYPE::CONSTANT: return "constant";
+		case SOURCE_TOKEN_TYPE::STRING_LITERAL: return "string-literal";
+		case SOURCE_TOKEN_TYPE::PUNCTUATOR: return "punctuator";
 		default: break;
 	}
 	floor_unreachable();
@@ -230,7 +230,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 					source_range range { char_iter, char_iter };
 					range.end = lex_keyword_or_identifier(char_iter, src_end);
 					tu.tokens.emplace_back(keyword_tokens.count(string(range.begin, range.end)) > 0 ?
-										   TOKEN_TYPE::KEYWORD : TOKEN_TYPE::IDENTIFIER,
+										   SOURCE_TOKEN_TYPE::KEYWORD : SOURCE_TOKEN_TYPE::IDENTIFIER,
 										   range);
 					break;
 				}
@@ -240,7 +240,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 				case '0': {
 					source_range range { char_iter, char_iter + 1 };
 					++char_iter;
-					tu.tokens.emplace_back(TOKEN_TYPE::INTEGER_CONSTANT, range);
+					tu.tokens.emplace_back(SOURCE_TOKEN_TYPE::INTEGER_CONSTANT, range);
 					break;
 				}
 					
@@ -250,7 +250,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 				case '9': {
 					source_range range { char_iter, char_iter };
 					range.end = lex_decimal_constant(char_iter, src_end);
-					tu.tokens.emplace_back(TOKEN_TYPE::INTEGER_CONSTANT, range);
+					tu.tokens.emplace_back(SOURCE_TOKEN_TYPE::INTEGER_CONSTANT, range);
 					break;
 				}
 					
@@ -258,7 +258,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 				case '\'': {
 					source_range range { char_iter, char_iter };
 					range.end = lex_character_constant(char_iter, src_end);
-					tu.tokens.emplace_back(TOKEN_TYPE::CHARACTER_CONSTANT, range);
+					tu.tokens.emplace_back(SOURCE_TOKEN_TYPE::CHARACTER_CONSTANT, range);
 					break;
 				}
 					
@@ -266,7 +266,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 				case '\"': {
 					source_range range { char_iter, char_iter };
 					range.end = lex_string_literal(char_iter, src_end);
-					tu.tokens.emplace_back(TOKEN_TYPE::STRING_LITERAL, range);
+					tu.tokens.emplace_back(SOURCE_TOKEN_TYPE::STRING_LITERAL, range);
 					break;
 				}
 				
@@ -292,7 +292,7 @@ void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
 				case ':': case ';': case ',': case '#': {
 					source_range range { char_iter, char_iter };
 					range.end = lex_punctuator(char_iter, src_end);
-					tu.tokens.emplace_back(TOKEN_TYPE::PUNCTUATOR, range);
+					tu.tokens.emplace_back(SOURCE_TOKEN_TYPE::PUNCTUATOR, range);
 					break;
 				}
 					
@@ -746,18 +746,18 @@ pair<uint32_t, uint32_t> lexer::get_line_and_column_from_iter(const translation_
 void lexer::assign_token_sub_types(translation_unit& tu) {
 	for(auto& token : tu.tokens) {
 		// skip non-keywords and non-punctuators
-		if(token.first != TOKEN_TYPE::KEYWORD &&
-		   token.first != TOKEN_TYPE::PUNCTUATOR) {
+		if(token.first != SOURCE_TOKEN_TYPE::KEYWORD &&
+		   token.first != SOURCE_TOKEN_TYPE::PUNCTUATOR) {
 			continue;
 		}
 		
 		// handle keywords
-		if(token.first == TOKEN_TYPE::KEYWORD) {
-			token.first |= (TOKEN_TYPE)keyword_tokens.find(token.second.to_string())->second;
+		if(token.first == SOURCE_TOKEN_TYPE::KEYWORD) {
+			token.first |= (SOURCE_TOKEN_TYPE)keyword_tokens.find(token.second.to_string())->second;
 		}
 		// handle punctuators
 		else {
-			token.first |= (TOKEN_TYPE)punctuator_tokens.find(token.second.to_string())->second;
+			token.first |= (SOURCE_TOKEN_TYPE)punctuator_tokens.find(token.second.to_string())->second;
 		}
 	}
 }
