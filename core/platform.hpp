@@ -56,6 +56,10 @@
 
 #define FLOOR_OS_DIR_SLASH "\\"
 
+#if defined(MINGW)
+#include <dirent.h>
+#endif
+
 // Mac OS X
 #elif defined(__APPLE__)
 #include <dirent.h>
