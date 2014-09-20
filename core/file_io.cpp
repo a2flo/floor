@@ -419,19 +419,26 @@ fstream* file_io::get_filestream() {
 }
 
 bool file_io::read_file(stringstream& buffer) {
-	const streamsize size_ll = get_filesize();
+	auto size_ll = get_filesize();
 	if(size_ll < 0) return false;
 	
+#if defined(PLATFORM_X32)
+	if(size_ll > 0x7FFFFFFF) {
+		log_error("file size %u is too large for this platform - will only read 2GB now!", size_ll);
+		size_ll = 0x7FFFFFFF;
+	}
+#endif
+	
 	const unsigned long long int size = (unsigned long long int)size_ll;
-	char* data = new char[size + 1ull];
+	char* data = new char[size_t(size + 1u)];
 	if(data == nullptr) return false;
 	
-	memset(data, 0, size + 1ull);
-	filestream.read(data, size_ll);
+	memset(data, 0, size_t(size + 1u));
+	filestream.read(data, streamsize(size_ll));
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
 	filestream.clear();
-	buffer.write(data, size_ll);
+	buffer.write(data, streamsize(size_ll));
 	delete [] data;
 	return true;
 }

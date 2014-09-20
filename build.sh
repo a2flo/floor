@@ -291,15 +291,17 @@ if [ -z "${AR}" ]; then
 	AR=ar
 fi
 
+# set the correct 32/64-bit linker flag
+if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+	LDFLAGS="${LDFLAGS} -m32"
+else
+	LDFLAGS="${LDFLAGS} -m64"
+fi
+
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
-	# build a shared library, strip some symbols and create a 32/64-bit lib
+	# build a shared library and strip some symbols
 	LDFLAGS="${LDFLAGS} -s -shared"
-	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-		LDFLAGS="${LDFLAGS} -m32"
-	else
-		LDFLAGS="${LDFLAGS} -m64"
-	fi
 	
 	# use PIC
 	LDFLAGS="${LDFLAGS} -fPIC"

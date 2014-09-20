@@ -86,6 +86,7 @@
 		5C4A85BC18F95EE40039BFD4 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85BA18F95EE40039BFD4 /* parser.cpp */; };
 		5C4A85BD18F95EE40039BFD4 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85BA18F95EE40039BFD4 /* parser.cpp */; };
 		5C4A85BE18F95EE40039BFD4 /* parser.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85BB18F95EE40039BFD4 /* parser.hpp */; };
+		5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */; };
 		5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C7173A818D7144E00DDF097 /* OpenALSoft.framework */; };
 		5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
 		5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
@@ -225,6 +226,7 @@
 		5C4A85B618F955B30039BFD4 /* ast_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ast_base.hpp; sourceTree = "<group>"; };
 		5C4A85BA18F95EE40039BFD4 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cpp; sourceTree = "<group>"; };
 		5C4A85BB18F95EE40039BFD4 /* parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = parser.hpp; sourceTree = "<group>"; };
+		5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_i128.hpp; sourceTree = "<group>"; };
 		5C7173A818D7144E00DDF097 /* OpenALSoft.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenALSoft.framework; path = ../../../../Library/Frameworks/OpenALSoft.framework; sourceTree = "<group>"; };
 		5C7173AB18D717EB00DDF097 /* audio_headers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_headers.cpp; path = audio/audio_headers.cpp; sourceTree = "<group>"; };
 		5C7173AC18D717EB00DDF097 /* audio_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_headers.hpp; path = audio/audio_headers.hpp; sourceTree = "<group>"; };
@@ -509,6 +511,7 @@
 				5CE0BDC819BA3469000B28B3 /* const_math.cpp */,
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
+				5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */,
 			);
 			path = constexpr;
 			sourceTree = "<group>";
@@ -607,6 +610,7 @@
 				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */,
 				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
+				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
 				5C10920817D1FA12007F536E /* floor_version.hpp in Headers */,

@@ -54,7 +54,7 @@ template <> unsigned long int converter<string, unsigned long int>::convert(cons
 }
 #endif
 
-#if defined(PLATFORM_X64)
+#if defined(PLATFORM_X64) || defined(__APPLE__)
 template <> size_t converter<string, size_t>::convert(const string& var) {
 	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (size_t)strtoull(buffer.str().c_str(), nullptr, 10);

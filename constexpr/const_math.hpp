@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <unistd.h>
 #include "core/essentials.hpp"
+#include "constexpr/soft_i128.hpp"
 using namespace std;
 
 // disable "comparing floating point with == or != is unsafe" warnings,
