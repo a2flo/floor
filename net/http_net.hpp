@@ -294,14 +294,14 @@ void http_net::run() {
 			// a second time to write the chunk data to page_data
 			for(auto line_iter = cbegin(receive_store), line_end = cend(receive_store); line_iter != line_end; line_iter++) {
 				// get chunk length
-				size_t chunk_len = strtoull(line_iter->c_str(), nullptr, 16);
+				size_t chunk_len = (size_t)strtoull(line_iter->c_str(), nullptr, 16);
 				if(chunk_len == 0 && line_iter->size() > 0) {
 					if(packet_complete) break; // second run is complete, break
 					packet_complete = true;
 					
 					// packet complete, start again, add data to page_data this time
 					line_iter = cbegin(receive_store);
-					chunk_len = strtoull(line_iter->c_str(), nullptr, 16);
+					chunk_len = (size_t)strtoull(line_iter->c_str(), nullptr, 16);
 				}
 				
 				size_t chunk_received_len = 0;
@@ -356,7 +356,7 @@ void http_net::check_header(decltype(receive_store)::const_iterator header_end_i
 				const size_t cl_space = line->find(" ") + 1;
 				size_t non_digit = line->find_first_not_of("0123456789", cl_space);
 				if(non_digit == string::npos) non_digit = line->size();
-				content_length = strtoull(line->substr(cl_space, non_digit - cl_space).c_str(), nullptr, 10);
+				content_length = (size_t)strtoull(line->substr(cl_space, non_digit - cl_space).c_str(), nullptr, 10);
 			}
 		}
 	}

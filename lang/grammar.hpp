@@ -530,8 +530,9 @@ grammar_rule_binary(concat, &) {
 	if(!rhs_ret.successful) {
 		ctx.pop_restore();
 		if(drop_iter_begin != drop_iter_end) {
-			match_list.list.erase(match_list.list.begin() + (long long int)drop_iter_begin,
-								  match_list.list.begin() + (long long int)drop_iter_end);
+			typedef typename vector<parser_context::match>::difference_type diff_type;
+			match_list.list.erase(next(begin(match_list.list), (diff_type)drop_iter_begin),
+								  next(begin(match_list.list), (diff_type)drop_iter_end));
 		}
 		return { false, false, {} };
 	}
