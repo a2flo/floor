@@ -19,8 +19,8 @@
 #ifndef __FLOOR_NET_HPP__
 #define __FLOOR_NET_HPP__
 
-#include "core/platform.hpp"
 #include "net/net_protocol.hpp"
+#include "core/platform.hpp"
 #include "net/net_tcp.hpp"
 #include "core/logger.hpp"
 #include "threading/thread_base.hpp"

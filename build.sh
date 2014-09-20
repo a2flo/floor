@@ -291,11 +291,13 @@ if [ -z "${AR}" ]; then
 	AR=ar
 fi
 
-# set the correct 32/64-bit linker flag
-if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-	LDFLAGS="${LDFLAGS} -m32"
-else
-	LDFLAGS="${LDFLAGS} -m64"
+# set the correct 32/64-bit linker flag (use the default on mingw)
+if [ $BUILD_OS != "mingw" ]; then
+	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+		LDFLAGS="${LDFLAGS} -m32"
+	else
+		LDFLAGS="${LDFLAGS} -m64"
+	fi
 fi
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
@@ -340,7 +342,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} GL Xxf86vm"
 	elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} opengl32 glu32 gdi32"
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} opengl32 glu32 gdi32 ws2_32"
 	fi
 	
 	# linux:
@@ -361,16 +363,59 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		fi
 		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
+	
+	# windows/mingw opencl and cuda handling
+	if [ $BUILD_OS == "mingw" ]; then
+		if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
+			if [ ! -z "${INTELOCLSDKROOT}" ]; then
+				# use intel opencl sdk
+				INTELOCLSDKROOT_FIXED=$(echo ${INTELOCLSDKROOT} | sed -E "s/\\\\/\//g")
+				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x86"
+				else
+					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x64"
+				fi
+				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
+			elif [ ! -z "${AMDAPPSDKROOT}" ]; then
+				# use amd opencl sdk
+				AMDAPPSDKROOT_FIXED=$(echo ${AMDAPPSDKROOT} | sed -E "s/\\\\/\//g")
+				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+					OPENCL_LIB_PATH="${AMDAPPSDKROOT_FIXED}lib/x86"
+				else
+					OPENCL_LIB_PATH="${AMDAPPSDKROOT_FIXED}lib/x86_64"
+				fi
+				INCLUDES="${INCLUDES} -isystem \"${AMDAPPSDKROOT_FIXED}include\""
+			elif [ ! -z "${CUDA_PATH}" ]; then
+				# use nvidia opencl/cuda sdk
+				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+					OPENCL_LIB_PATH="${CUDA_PATH}/lib/Win32"
+				else
+					OPENCL_LIB_PATH="${CUDA_PATH}/lib/x64"
+				fi
+				INCLUDES="${INCLUDES} -isystem \"${CUDA_PATH}/include\""
+			else
+				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel, AMD or NVIDIA OpenCL SDK!"
+			fi
+		fi
+		
+		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
+			if [ -z "${CUDA_PATH}" ]; then
+				error "building with CUDA support, but CUDA is not installed or CUDA_PATH is not set!"
+			fi
+			# note: put in '"' because of windows paths containing spaces
+			INCLUDES="${INCLUDES} -isystem \"${CUDA_PATH}/include\""
+		fi
+	fi
 
 	for lib in ${UNCHECKED_LIBS}; do
 		LIBS="${LIBS} -l${lib}"
 	done
 	
 	# mingw: "--allow-multiple-definition" is necessary, because gcc is still used as a linker
-	# and will always link against libstdc++ (-> multiple definitions with libc++)
+	# and will always link against libstdc++/libsupc++ (-> multiple definitions with libc++)
 	# also note: since libc++ is linked first, libc++'s functions will be used
 	if [ $BUILD_OS == "mingw" -a ${BUILD_CONF_LIBSTDCXX} -eq 0 ]; then
-		LDFLAGS="${LDFLAGS} -lc++.dll -Wl,--allow-multiple-definition"
+		LDFLAGS="${LDFLAGS} -lc++.dll -Wl,--allow-multiple-definition -lsupc++"
 	fi
 	
 	# add all libs to LDFLAGS
@@ -463,32 +508,41 @@ else
 fi
 CFLAGS="${CFLAGS} -std=gnu11"
 
-# arch handling
-if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-	case $BUILD_ARCH in
-		"i386"|"i486"|"i586"|"i686")
-			COMMON_FLAGS="${COMMON_FLAGS} -arch $BUILD_ARCH"
-			;;
-		"x86_64"|"amd64")
-			COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
-			;;
-		"arm"*)
-			COMMON_FLAGS="${COMMON_FLAGS} -arch armv7"
-			;;
-		*)
-			warning "unknown arch (${BUILD_ARCH}) - building for arch i686!"
-			COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
-			;;
-	esac
-else
-	case $BUILD_ARCH in
-		"arm"*)
-			COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
-			;;
-		*)
-			COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
-			;;
-	esac
+# arch handling (use -arch on osx/ios and -m32/-m64 everywhere else, except for mingw)
+if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+		case $BUILD_ARCH in
+			"i386"|"i486"|"i586"|"i686")
+				COMMON_FLAGS="${COMMON_FLAGS} -arch $BUILD_ARCH"
+				;;
+			"x86_64"|"amd64")
+				COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
+				;;
+			"arm"*)
+				COMMON_FLAGS="${COMMON_FLAGS} -arch armv7"
+				;;
+			*)
+				warning "unknown arch (${BUILD_ARCH}) - building for arch i686!"
+				COMMON_FLAGS="${COMMON_FLAGS} -arch i686"
+				;;
+		esac
+	else
+		case $BUILD_ARCH in
+			"arm"*)
+				COMMON_FLAGS="${COMMON_FLAGS} -arch arm64"
+				;;
+			*)
+				COMMON_FLAGS="${COMMON_FLAGS} -arch x86_64"
+				;;
+		esac
+	fi
+elif [ $BUILD_OS != "mingw" ]; then
+	# NOTE: mingw will/should/has to use the compiler default
+	if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+		COMMON_FLAGS="${COMMON_FLAGS} -m32"
+	else
+		COMMON_FLAGS="${COMMON_FLAGS} -m64"
+	fi
 fi
 
 # c++ and c flags that apply to all build configurations
@@ -519,19 +573,26 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	LDFLAGS="${LDFLAGS} -compatibility_version ${TARGET_VERSION} -current_version ${TARGET_VERSION}"
 fi
 
-# defines
+# defines:
+# use tcc/tccpp in lib-only mode (no main)
 COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1"
+# set platform size define
 if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X32"
 else
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X64"
 fi
 if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
+	# common windows "unix environment" flag
 	COMMON_FLAGS="${COMMON_FLAGS} -DWIN_UNIXENV"
 	if [ $BUILD_OS == "mingw" ]; then
+		# set __WINDOWS__ and mingw specific flag
 		COMMON_FLAGS="${COMMON_FLAGS} -D__WINDOWS__ -DMINGW"
+		# tell boost to use windows.h (will get conflicts otherwise)
+		COMMON_FLAGS="${COMMON_FLAGS} -DBOOST_USE_WINDOWS_H"
 	fi
 	if [ $BUILD_OS == "cygwin" ]; then
+		# set cygwin specific flag
 		COMMON_FLAGS="${COMMON_FLAGS} -DCYGWIN"
 	fi
 fi
@@ -547,10 +608,6 @@ WARNINGS="${WARNINGS} -Wno-old-style-cast -Wno-date-time"
 if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	# ignore warnings about required alignment increases on 32-bit platforms (won't and can't fix)
 	WARNINGS="${WARNINGS} -Wno-cast-align"
-fi
-if [ $BUILD_OS == "mingw" ]; then
-	# disable unknown pragma warnings on mingw (due to shared windows code - might remove in the future)
-	WARNINGS="${WARNINGS} -Wno-unknown-pragmas"
 fi
 COMMON_FLAGS="${COMMON_FLAGS} ${WARNINGS}"
 
@@ -697,8 +754,20 @@ wait
 info "linking ..."
 mkdir -p ${BIN_DIR}
 if [ ${BUILD_STATIC} -eq 0 ]; then
-	verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
-	${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
+	if [ $BUILD_OS != "mingw" ]; then
+		verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+		${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}
+	else
+		# escape and space char hell, I have no idea how to escape this properly (no combination of backslahes and '"' seems to work)
+		# -> specify cuda lib folder directly on mingw
+		if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+			verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} -L\"${OPENCL_LIB_PATH}\" -L\"${CUDA_PATH_ESC}/lib/Win32\" ${LDFLAGS}"
+			${CXX} -o ${TARGET_BIN} ${OBJ_FILES} -L"${OPENCL_LIB_PATH}" -L"${CUDA_PATH}/lib/Win32" ${LDFLAGS}
+		else
+			verbose "${CXX} -o ${TARGET_BIN} ${OBJ_FILES} -L\"${OPENCL_LIB_PATH}\" -L\"${CUDA_PATH_ESC}/lib/x64\" ${LDFLAGS}"
+			${CXX} -o ${TARGET_BIN} ${OBJ_FILES} -L"${OPENCL_LIB_PATH}" -L"${CUDA_PATH}/lib/x64" ${LDFLAGS}
+		fi
+	fi
 else
 	verbose "${AR} rs ${TARGET_BIN} ${OBJ_FILES}"
 	${AR} rs ${TARGET_BIN} ${OBJ_FILES}

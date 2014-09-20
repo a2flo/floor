@@ -19,12 +19,12 @@
 #ifndef __FLOOR_NET_PROTOCOL_HPP__
 #define __FLOOR_NET_PROTOCOL_HPP__
 
-#include "core/platform.hpp"
-
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/bind.hpp>
 using boost::asio::ip::tcp;
+
+#include "core/platform.hpp"
 
 template <class socket_type, bool use_ssl>
 struct std_protocol {

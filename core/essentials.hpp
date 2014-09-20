@@ -79,3 +79,9 @@
 #if defined(false)
 #undef false
 #endif
+#if defined(VOID)
+#undef VOID
+#endif
+#if defined(CONST)
+#undef CONST
+#endif

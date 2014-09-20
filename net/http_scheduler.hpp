@@ -19,10 +19,10 @@
 #ifndef __HTTP_SCHEDULER_HPP__
 #define __HTTP_SCHEDULER_HPP__
 
+#include "net/net_protocol.hpp"
 #include "core/cpp_headers.hpp"
 #include "threading/thread_base.hpp"
 #include "net/net.hpp"
-#include "net/net_protocol.hpp"
 #include "net/net_tcp.hpp"
 #include "net/http_net.hpp"
 

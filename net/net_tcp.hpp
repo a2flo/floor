@@ -19,8 +19,8 @@
 #ifndef __FLOOR_NET_TCP_HPP__
 #define __FLOOR_NET_TCP_HPP__
 
-#include "core/platform.hpp"
 #include "net/net_protocol.hpp"
+#include "core/platform.hpp"
 
 // non-ssl and ssl specific implementation
 namespace floor_net {

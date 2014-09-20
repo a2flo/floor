@@ -27,18 +27,9 @@
 // Windows
 #if (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__WINDOWS__) || defined(MINGW)) && !defined(CYGWIN)
 
-#include <windows.h>
-#include <winnt.h>
-#include <io.h>
-#include <direct.h>
-
 // defines
 #if !defined(__WINDOWS__)
 #define __WINDOWS__ 1
-#endif
-
-#if !defined(strtof)
-#define strtof(arg1, arg2) ((float)strtod(arg1, arg2))
 #endif
 
 #if !defined(__func__)
@@ -61,14 +52,7 @@
 #define ssize_t SSIZE_T
 #endif
 
-#undef getcwd
-#define getcwd _getcwd
-
 #define setenv(var_name, var_value, x) SetEnvironmentVariable(var_name, var_value)
-
-#pragma warning(disable: 4251)
-#pragma warning(disable: 4290) // unnecessary exception throw warning
-#pragma warning(disable: 4503) // srsly microsoft? this ain't the '80s ...
 
 #define FLOOR_OS_DIR_SLASH "\\"
 

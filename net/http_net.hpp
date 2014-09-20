@@ -19,10 +19,10 @@
 #ifndef __FLOOR_HTTP_NET_HPP__
 #define __FLOOR_HTTP_NET_HPP__
 
+#include "net/net_protocol.hpp"
 #include "core/platform.hpp"
 #include "core/core.hpp"
 #include "net/net.hpp"
-#include "net/net_protocol.hpp"
 #include "net/net_tcp.hpp"
 #include "floor/floor.hpp"
 
