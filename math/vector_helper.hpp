@@ -39,10 +39,7 @@ template <typename T> struct sized_unsigned_eqv<T, typename enable_if<sizeof(T) 
 template <typename T> struct sized_unsigned_eqv<T, typename enable_if<sizeof(T) == 8, void>::type> {
 	typedef uint64_t type;
 };
-template <typename T> struct sized_unsigned_eqv<T, typename enable_if<sizeof(T) == 10, void>::type> {
-	typedef __uint128_t type;
-};
-template <typename T> struct sized_unsigned_eqv<T, typename enable_if<sizeof(T) == 16, void>::type> {
+template <typename T> struct sized_unsigned_eqv<T, typename enable_if<(sizeof(T) > 8), void>::type> {
 	typedef __uint128_t type;
 };
 
