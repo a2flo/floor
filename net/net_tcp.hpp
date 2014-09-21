@@ -106,6 +106,10 @@ namespace floor_net {
 			}
 			return true;
 		}
+		
+		const char* get_current_cipher() {
+			return SSL_CIPHER_get_name(SSL_get_current_cipher(socket.native_handle()));
+		}
 	};
 	
 #if defined(__clang__)
@@ -249,6 +253,11 @@ public:
 	
 	void invalidate() {
 		valid = false;
+	}
+	
+	//! returns the protocol_details object containing the socket and context
+	floor_net::protocol_details<use_ssl>& get_protocol_details() {
+		return data;
 	}
 	
 protected:
