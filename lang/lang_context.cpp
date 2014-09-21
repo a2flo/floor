@@ -92,7 +92,7 @@ uint32_t lang_context::process_files() {
 			}
 			
 			// and read everything
-			stream.read(&source.front(), stream_size);
+			stream.read(&source.front(), (streamsize)stream_size);
 		}
 		
 		// finally: process the input according to the set compiler mode

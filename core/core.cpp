@@ -249,14 +249,15 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
 	if((h_file = _findfirst(dir_str.c_str(), &c_file)) != -1L) {
 		do {
 			const string name = c_file.name;
-			if(file_extension != "") {
+			const bool is_folder = (c_file.attrib & _A_SUBDIR);
+			if(file_extension != "" && (!is_folder || (is_folder && !always_get_folders))) {
 				if((pos = name.rfind(".")) != string::npos) {
 					if(name.substr(pos+1, name.size()-pos-1) != file_extension) continue;
 				}
 				else continue; // no extension
 			}
 			
-			if(c_file.attrib & _A_SUBDIR) file_list[name] = file_io::FILE_TYPE::DIR;
+			if(is_folder) file_list[name] = file_io::FILE_TYPE::DIR;
 			else file_list[name] = file_io::FILE_TYPE::NONE;
 		}
 		while(_findnext(h_file, &c_file) == 0);
