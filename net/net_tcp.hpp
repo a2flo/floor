@@ -66,7 +66,9 @@ namespace floor_net {
 #if !defined(FLOOR_SSL_CIPHER_LIST)
 			SSL_set_cipher_list(socket.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
 #else
-			SSL_set_cipher_list(socket.native_handle(), FLOOR_SSL_CIPHER_LIST);
+#define FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers) #ciphers
+#define FLOOR_SSL_CIPHER_LIST_STR(ciphers) FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers)
+			SSL_set_cipher_list(socket.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
 #endif
 			socket.set_verify_mode(boost::asio::ssl::verify_peer);
 			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
