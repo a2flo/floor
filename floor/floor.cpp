@@ -492,11 +492,11 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 #elif defined(__WINDOWS__)
 			HDC hdc = wglGetCurrentDC();
-			const size2 display_res(GetDeviceCaps(hdc, HORZRES), GetDeviceCaps(hdc, VERTRES));
+			const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
 			const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
 			const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
 									 (float(display_res.y) / display_phys_size.y) * 25.4f);
-			config.dpi = floorf(std::max(display_dpi.x, display_dpi.y));
+			config.dpi = (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
 #else // x11
 			SDL_SysWMinfo wm_info;
 			SDL_VERSION(&wm_info.version);

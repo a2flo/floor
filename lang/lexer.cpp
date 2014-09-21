@@ -193,7 +193,7 @@ void lexer::map_characters(lang_context& ctx floor_unused, translation_unit& tu)
 	tu.lines.insert(tu.source.cbegin() - 1);
 	// add all newline iterators (offset from the begin iterator)
 	for(const auto& line_offset : lines) {
-		tu.lines.insert(begin_iter + line_offset);
+		tu.lines.insert(begin_iter + (int32_t)line_offset);
 	}
 	// also insert the "<eof> newline" (if it hasn't been added already)
 	tu.lines.insert(tu.source.cend());

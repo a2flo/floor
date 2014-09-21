@@ -78,13 +78,13 @@ uint32_t lang_context::process_files() {
 			
 			// get the stream size and allocate enough memory
 			stream.seekg(0, ios::end);
-			const int64_t stream_size = stream.tellg();
+			const auto stream_size = stream.tellg();
 			if(stream_size < 0) {
 				log_error("invalid file size in file \"%s\"", tu_ref.file_name);
 				continue;
 			}
 			stream.seekg(0, ios::beg);
-			source.resize((uint64_t)stream_size);
+			source.resize((size_t)stream_size);
 			if(source.size() < (uint64_t)stream_size) {
 				log_error("couldn't allocate enough memory to read input from \"%s\"",
 						  tu_ref.file_name);
