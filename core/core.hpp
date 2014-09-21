@@ -138,11 +138,7 @@ protected:
 	~core() = delete;
 	core& operator=(const core&) = delete;
 	
-	// random_device with libc++ on windows/mingw is not supported right now (no /dev/urandom)
-	// -> use default mt19937 and seed+warm-up manually
-#if !(defined(__clang__) && defined(WIN_UNIXENV))
 	static random_device rd;
-#endif
 	static mt19937 gen;
 
 };

@@ -26,31 +26,10 @@
 #endif
 
 // TODO: add thread safety for gen and rd?
-#if !(defined(__clang__) && defined(WIN_UNIXENV))
-// use this on all platforms except clang+windows
-// note that this uses /dev/urandom when using libc++
 random_device core::rd;
 mt19937 core::gen(core::rd());
-#else
-// use this with clang/libc++ on windows
-mt19937 core::gen;
-#endif
 
 void core::init() {
-#if defined(__clang__) && defined(WIN_UNIXENV)
-	// seed and warm-up the random generator on windows (with clang/libc++)
-	const auto perf_counter = SDL_GetPerformanceCounter();
-	seed_seq seq {
-		0xF1002u,
-		(unsigned int)(perf_counter & 0xFFFFFFFFull),
-		(unsigned int)(perf_counter >> 32ull),
-		(unsigned int)time(nullptr)
-	};
-	gen.seed(seq);
-	gen.discard(500000);
-	atomic_thread_fence(std::memory_order_acquire);
-	gen.discard(SDL_GetTicks() & 0x3FFF);
-#endif
 }
 
 /*! converts (projects) a 3d vertex to a 2d screen position
