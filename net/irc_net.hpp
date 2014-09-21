@@ -37,6 +37,10 @@ public:
 		else ssl_protocol.set_thread_should_finish();
 	}
 	
+	bool is_ssl() const {
+		return use_ssl;
+	}
+	
 	void send(const string& data) {
 		if(data.find("\n") != string::npos) {
 			// treat \n as new msg, split string and send each line as new msg (with the same type -> string till first ':')
@@ -136,6 +140,10 @@ public:
 	unsigned short int get_remote_port() const {
 		return (use_ssl ? ssl_protocol.get_remote_port() : plain_protocol.get_remote_port());
 	}
+	
+	//
+	net<protocol_policy, net_receive_split_on_newline>& get_plain_protocol() { return plain_protocol; }
+	net<ssl_protocol_policy, net_receive_split_on_newline>& get_ssl_protocol() { return ssl_protocol; }
 	
 protected:
 	net<protocol_policy, net_receive_split_on_newline> plain_protocol;
