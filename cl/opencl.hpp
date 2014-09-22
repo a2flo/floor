@@ -784,6 +784,11 @@ public:
 	virtual void acquire_gl_object(buffer_object* gl_buffer_obj);
 	virtual void release_gl_object(buffer_object* gl_buffer_obj);
 	
+	//
+	vector<CUdevice*>& get_cuda_devices() {
+		return cuda_devices;
+	}
+	
 protected:
 	bool valid = true;
 	string cache_path = "";

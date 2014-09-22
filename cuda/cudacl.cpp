@@ -31,8 +31,8 @@
 #include "cudacl_compiler.hpp"
 #include "floor/floor.hpp"
 
-#if (CUDA_VERSION < 5050)
-#error "floor must be compiled with at least CUDA 5.5!"
+#if (CUDA_VERSION < 6050)
+#error "floor must be compiled with at least CUDA 6.5!"
 #endif
 
 //
@@ -70,68 +70,21 @@ struct cuda_kernel_object {
 	}
 };
 
-//
-#define __ERROR_CODE_INFO(F) \
-F(CUDA_SUCCESS) \
-F(CUDA_ERROR_INVALID_VALUE) \
-F(CUDA_ERROR_NOT_INITIALIZED) \
-F(CUDA_ERROR_DEINITIALIZED) \
-F(CUDA_ERROR_PROFILER_DISABLED) \
-F(CUDA_ERROR_PROFILER_NOT_INITIALIZED) \
-F(CUDA_ERROR_PROFILER_ALREADY_STARTED) \
-F(CUDA_ERROR_PROFILER_ALREADY_STOPPED) \
-F(CUDA_ERROR_NO_DEVICE) \
-F(CUDA_ERROR_INVALID_DEVICE) \
-F(CUDA_ERROR_INVALID_IMAGE) \
-F(CUDA_ERROR_INVALID_CONTEXT) \
-F(CUDA_ERROR_CONTEXT_ALREADY_CURRENT) \
-F(CUDA_ERROR_MAP_FAILED) \
-F(CUDA_ERROR_UNMAP_FAILED) \
-F(CUDA_ERROR_ARRAY_IS_MAPPED) \
-F(CUDA_ERROR_ALREADY_MAPPED) \
-F(CUDA_ERROR_NO_BINARY_FOR_GPU) \
-F(CUDA_ERROR_ALREADY_ACQUIRED) \
-F(CUDA_ERROR_NOT_MAPPED) \
-F(CUDA_ERROR_NOT_MAPPED_AS_ARRAY) \
-F(CUDA_ERROR_NOT_MAPPED_AS_POINTER) \
-F(CUDA_ERROR_ECC_UNCORRECTABLE) \
-F(CUDA_ERROR_UNSUPPORTED_LIMIT) \
-F(CUDA_ERROR_CONTEXT_ALREADY_IN_USE) \
-F(CUDA_ERROR_PEER_ACCESS_UNSUPPORTED) \
-F(CUDA_ERROR_INVALID_SOURCE) \
-F(CUDA_ERROR_FILE_NOT_FOUND) \
-F(CUDA_ERROR_SHARED_OBJECT_SYMBOL_NOT_FOUND) \
-F(CUDA_ERROR_SHARED_OBJECT_INIT_FAILED) \
-F(CUDA_ERROR_OPERATING_SYSTEM) \
-F(CUDA_ERROR_INVALID_HANDLE) \
-F(CUDA_ERROR_NOT_FOUND) \
-F(CUDA_ERROR_NOT_READY) \
-F(CUDA_ERROR_LAUNCH_FAILED) \
-F(CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES) \
-F(CUDA_ERROR_LAUNCH_TIMEOUT) \
-F(CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING) \
-F(CUDA_ERROR_PEER_ACCESS_ALREADY_ENABLED) \
-F(CUDA_ERROR_PEER_ACCESS_NOT_ENABLED) \
-F(CUDA_ERROR_PRIMARY_CONTEXT_ACTIVE) \
-F(CUDA_ERROR_CONTEXT_IS_DESTROYED) \
-F(CUDA_ERROR_ASSERT) \
-F(CUDA_ERROR_TOO_MANY_PEERS) \
-F(CUDA_ERROR_HOST_MEMORY_ALREADY_REGISTERED) \
-F(CUDA_ERROR_HOST_MEMORY_NOT_REGISTERED) \
-F(CUDA_ERROR_UNKNOWN)
-
-#define __DECLARE_ERROR_CODE_TO_STRING(code) case code: return #code;
-
 string cudacl::error_code_to_string(cl_int error_code) const {
+	const char* error_str = nullptr, *error_name = nullptr;
+	cuGetErrorString((CUresult)error_code, &error_str);
+	cuGetErrorName((CUresult)error_code, &error_name);
 	switch(error_code) {
-		__ERROR_CODE_INFO(__DECLARE_ERROR_CODE_TO_STRING);
 		case CUDA_ERROR_OUT_OF_MEMORY: {
 			size_t free_mem = 0, total_mem = 0;
 			cuMemGetInfo(&free_mem, &total_mem);
-			return "CUDA_ERROR_OUT_OF_MEMORY (" + size_t2string(free_mem) + "/" + size_t2string(total_mem) + ")";
+			return ("CUDA_ERROR_OUT_OF_MEMORY (" +
+					to_string(free_mem) + "/" + to_string(total_mem) + ")" +
+					(error_str != nullptr ? string(": ") + error_str : ""));
 		}
 		default:
-			return "UNKNOWN CUDA ERROR";
+			return ((error_name != nullptr ? error_name : "UNKNOWN CUDA ERROR") +
+					(error_str != nullptr ? string(": ") + error_str : ""));
 	}
 }
 
@@ -212,8 +165,8 @@ opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
 	//
 	int driver_version = 0;
 	cuDriverGetVersion(&driver_version);
-	if(driver_version < 5050) {
-		log_error("floor requires at least CUDA 5.5!");
+	if(driver_version < 6050) {
+		log_error("floor requires at least CUDA 6.5!");
 		valid = false;
 	}
 	
@@ -376,21 +329,38 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 							cc_target_str = "30";
 							cc_target = CU_TARGET_COMPUTE_30;
 							break;
-						case 2: // unknown?
+						case 2: // unknown? -> use 3.0 lib
 							// this is inofficial, but support it anyways ...
 							cc_target_str = "30";
-							cc_target = CU_TARGET_COMPUTE_30;
+							cc_target = CU_TARGET_COMPUTE_32;
 							break;
-						case 5: // gk110
+						case 5: // gk110 and gk20x
 						default: // ignore invalid ones / default to 3.5
 							cc_target_str = "35";
 							cc_target = CU_TARGET_COMPUTE_35;
 							break;
+						case 7: // unknown?
+							cc_target_str = "37";
+							cc_target = CU_TARGET_COMPUTE_37;
+							break;
 					}
 					break;
-				default: // default higher ones to current highest 3.5 (drivers already mention sm_40 and sm_50)
-					cc_target_str = "35";
-					cc_target = CU_TARGET_COMPUTE_35;
+				case 5:
+					switch(cc.second) {
+						case 0: // gm10x
+							cc_target_str = "50";
+							cc_target = CU_TARGET_COMPUTE_50;
+							break;
+						case 2: // gm20x?
+						default:
+							cc_target_str = "52";
+							cc_target = CU_TARGET_COMPUTE_52;
+							break;
+					}
+					break;
+				default: // default higher ones to current highest 5.2
+					cc_target_str = "52";
+					cc_target = CU_TARGET_COMPUTE_52;
 					break;
 			}
 			

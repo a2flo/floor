@@ -198,7 +198,9 @@ string cudacl_compiler::compile(const string& code,
 				 " -arch \"compute_"+cc_target_str+"\""+
 				 " -m64 -ftz=0 -prec_div=1 -prec_sqrt=1 -fmad=1"+
 				 " -nvvmir-library " + floor::get_cuda_base_dir() + "/nvvm/libdevice/libdevice.compute_"+
-				 (cc_target_str == "21" ? "20" : (cc_target_str == "32" ? "30" : cc_target_str))+
+				 // right now (updated cuda 6.5), only 20, 30 and 35 libs/bc files exist
+				 // -> update if newer ones come along and use 35 for sm_35+ for now
+				 (cc_target_str == "21" ? "20" : (cc_target_str == "32" ? "30" : "35"))+
 				 ".10.bc"+
 				 " --orig_src_file_name "+tmp_name+".cu"+
 				 " "+tmp_name+".cpp3.i"+
