@@ -354,13 +354,13 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 						case 2: // gm20x?
 						default:
 							cc_target_str = "52";
-							cc_target = CU_TARGET_COMPUTE_52;
+							cc_target = 52; // TODO: update to CU_TARGET_COMPUTE_52 if newer sdk can be used
 							break;
 					}
 					break;
 				default: // default higher ones to current highest 5.2
 					cc_target_str = "52";
-					cc_target = CU_TARGET_COMPUTE_52;
+					cc_target = 52; // TODO: update to CU_TARGET_COMPUTE_52 if newer sdk can be used
 					break;
 			}
 			
