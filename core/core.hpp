@@ -99,6 +99,12 @@ public:
 	static string str_to_upper(const string& str);
 	static string encode_url(const string& url);
 	
+	//! converts a string to a hex escaped string: "Hello" -> "\x48\x65\x6C\x6C\x6F"
+	static string str_hex_escape(const string& str);
+	//! converts generic 8-bit data (const char*) to a hex escaped string
+	//! NOTE: if size is 0, this assumes data is \0 escaped and will stop at that point
+	static string cptr_hex_escape(const char* data, const size_t size = 0);
+	
 	// folder/path functions
 	static map<string, file_io::FILE_TYPE> get_file_list(const string& directory,
 														 const string file_extension = "",
