@@ -18,8 +18,8 @@
 
 #if !defined(__APPLE__)
 
-#include "gl_support.hpp"
-#include "core/logger.hpp"
+#include <floor/gl_support.hpp>
+#include <floor/core/logger.hpp>
 
 #if defined(__WINDOWS__) || defined(WIN_UNIXENV)
 #define glGetProcAddress(x) wglGetProcAddress(x)

@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/core.hpp"
-#include "core/unicode.hpp"
+#include <floor/core/core.hpp>
+#include <floor/core/unicode.hpp>
 #include <thread>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))

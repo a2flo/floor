@@ -19,8 +19,8 @@
 #ifndef __FLOOR_XML_HPP__
 #define __FLOOR_XML_HPP__
 
-#include "core/platform.hpp"
-#include "core/core.hpp"
+#include <floor/core/platform.hpp>
+#include <floor/core/core.hpp>
 
 #include <libxml/xmlreader.h>
 #include <libxml/xmlwriter.h>

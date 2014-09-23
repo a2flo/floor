@@ -20,9 +20,9 @@
 #define __FLOOR_LEXER_HPP__
 
 #include <string>
-#include "core/util.hpp"
-#include "lang/source_types.hpp"
-#include "lang/lang_context.hpp"
+#include <floor/core/util.hpp>
+#include <floor/lang/source_types.hpp>
+#include <floor/lang/lang_context.hpp>
 using namespace std;
 
 class lexer final {

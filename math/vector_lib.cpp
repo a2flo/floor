@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "math/vector_lib.hpp"
+#include <floor/math/vector_lib.hpp>
 
 // extern template instantiation
 #if defined(FLOOR_EXPORT)

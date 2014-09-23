@@ -16,9 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/lang_context.hpp"
-#include "lang/lexer.hpp"
-#include "lang/parser.hpp"
+#include <floor/lang/lang_context.hpp>
+#include <floor/lang/lexer.hpp>
+#include <floor/lang/parser.hpp>
 #include <fstream>
 
 uint32_t lang_context::process_files() {

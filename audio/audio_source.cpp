@@ -16,13 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio_source.hpp"
-#include "audio_controller.hpp"
-#include "floor/floor.hpp"
+#include <floor/audio/audio_source.hpp>
+#include <floor/audio/audio_controller.hpp>
+#include <floor/floor/floor.hpp>
 
 audio_source::audio_source(const string& identifier_,
 						   const SOURCE_TYPE& type_,

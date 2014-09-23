@@ -16,13 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio/audio_controller.hpp"
-#include "audio/audio_store.hpp"
-#include "floor/floor.hpp"
+#include <floor/audio/audio_controller.hpp>
+#include <floor/audio/audio_store.hpp>
+#include <floor/floor/floor.hpp>
 
 ALCdevice* audio_controller::device { nullptr };
 ALCcontext* audio_controller::context { nullptr };

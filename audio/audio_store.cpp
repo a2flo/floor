@@ -16,14 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio/audio_store.hpp"
-#include "audio/audio_controller.hpp"
-#include "threading/task.hpp"
-#include "floor/floor.hpp"
+#include <floor/audio/audio_store.hpp>
+#include <floor/audio/audio_controller.hpp>
+#include <floor/threading/task.hpp>
+#include <floor/floor/floor.hpp>
 
 constexpr float3 audio_store::default_velocity;
 unordered_map<string, shared_ptr<audio_store::audio_data>> audio_store::store;

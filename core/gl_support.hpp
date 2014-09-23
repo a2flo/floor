@@ -107,7 +107,7 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 
 // we only need to get opengl functions pointers on windows, linux, *bsd, ...
 #else
-#include "core/cpp_headers.hpp"
+#include <floor/core/cpp_headers.hpp>
 
 #if defined(MINGW)
 #define GL3_PROTOTYPES

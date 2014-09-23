@@ -19,16 +19,16 @@
 #ifndef __FLOOR_OPENCL_HPP__
 #define __FLOOR_OPENCL_HPP__
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
-#include "floor/floor.hpp"
-#include "core/file_io.hpp"
-#include "core/core.hpp"
-#include "math/vector_lib.hpp"
-#include "core/gl_support.hpp"
-#include "hash/city.hpp"
+#include <floor/floor/floor.hpp>
+#include <floor/core/file_io.hpp>
+#include <floor/core/core.hpp>
+#include <floor/math/vector_lib.hpp>
+#include <floor/core/gl_support.hpp>
+#include <floor/hash/city.hpp>
 
 // necessary for now (when compiling with opencl 1.2+ headers)
 #define CL_USE_DEPRECATED_OPENCL_1_1_APIS 1
@@ -57,7 +57,7 @@
 #endif
 
 #define __CL_ENABLE_EXCEPTIONS
-#include "cl/cl.hpp"
+#include <floor/cl/cl.hpp>
 
 #if !defined(CL_MAP_WRITE_INVALIDATE_REGION)
 #define CL_MAP_WRITE_INVALIDATE_REGION (1 << 2)

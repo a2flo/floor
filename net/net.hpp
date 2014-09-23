@@ -19,11 +19,11 @@
 #ifndef __FLOOR_NET_HPP__
 #define __FLOOR_NET_HPP__
 
-#include "net/net_protocol.hpp"
-#include "core/platform.hpp"
-#include "net/net_tcp.hpp"
-#include "core/logger.hpp"
-#include "threading/thread_base.hpp"
+#include <floor/net/net_protocol.hpp>
+#include <floor/core/platform.hpp>
+#include <floor/net/net_tcp.hpp>
+#include <floor/core/logger.hpp>
+#include <floor/threading/thread_base.hpp>
 
 // reception_policies (see explanations at the bottom of this header)
 struct net_receive_raw;

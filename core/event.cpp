@@ -16,9 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "event.hpp"
-#include "floor/floor.hpp"
-#include "core/unicode.hpp"
+#include <floor/core/event.hpp>
+#include <floor/floor/floor.hpp>
+#include <floor/core/unicode.hpp>
 
 constexpr int event::handlers_locked;
 

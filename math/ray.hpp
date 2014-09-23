@@ -19,7 +19,7 @@
 #ifndef __FLOOR_RAY_HPP__
 #define __FLOOR_RAY_HPP__
 
-#include "math/vector_lib.hpp"
+#include <floor/math/vector_lib.hpp>
 
 class ray {
 public:

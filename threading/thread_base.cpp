@@ -16,9 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "thread_base.hpp"
-#include "core/cpp_headers.hpp"
-#include "core/logger.hpp"
+#include <floor/threading/thread_base.hpp>
+#include <floor/core/cpp_headers.hpp>
+#include <floor/core/logger.hpp>
 
 thread_base::thread_base(const string name) : thread_name(name) {
 	this->lock(); // lock thread, so start (or unlock) must be called before the thread starts running

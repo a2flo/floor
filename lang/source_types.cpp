@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/source_types.hpp"
-#include "core/platform.hpp"
+#include <floor/lang/source_types.hpp>
+#include <floor/core/platform.hpp>
 
 bool source_range::operator==(const char* str) const {
 	const char* cptr = str;

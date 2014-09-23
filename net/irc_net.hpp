@@ -19,10 +19,10 @@
 #ifndef __FLOOR_IRC_NET_HPP__
 #define __FLOOR_IRC_NET_HPP__
 
-#include "core/platform.hpp"
-#include "net/net.hpp"
-#include "net/net_protocol.hpp"
-#include "net/net_tcp.hpp"
+#include <floor/core/platform.hpp>
+#include <floor/net/net.hpp>
+#include <floor/net/net_protocol.hpp>
+#include <floor/net/net_tcp.hpp>
 
 template <class protocol_policy, class ssl_protocol_policy> class irc_net {
 public:

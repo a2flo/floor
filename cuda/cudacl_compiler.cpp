@@ -16,16 +16,16 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA_CL)
 
-#include "cudacl_compiler.hpp"
-#include "core/core.hpp"
+#include <floor/cuda/cudacl_compiler.hpp>
+#include <floor/core/core.hpp>
 
-#include "tccpp/libtcc.h"
+#include <floor/tccpp/libtcc.h>
 extern "C" {
-#include "tccpp/tcc.h"
+#include <floor/tccpp/tcc.h>
 }
 
 static string cudacl_preprocess(const string& code, const string& build_options, const string& filename) {

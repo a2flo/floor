@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "math/vector_lib.hpp"
-#include "core/core.hpp"
+#include <floor/math/vector_lib.hpp>
+#include <floor/core/core.hpp>
 
 template <typename scalar_type>
 vector1<scalar_type> random(const scalar_type max) {

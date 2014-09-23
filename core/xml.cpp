@@ -16,12 +16,12 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "xml.hpp"
+#include <floor/core/xml.hpp>
 #include <libxml/encoding.h>
 #include <libxml/catalog.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
-#include "floor/floor.hpp"
+#include <floor/floor/floor.hpp>
 
 /*! create and initialize the xml class
  */

@@ -16,20 +16,20 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA_CL)
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
-#include "osx/osx_helper.hpp"
+#include <floor/osx/osx_helper.hpp>
 #endif
 #endif
 
-#include "cl/opencl.hpp"
-#include "cudacl_translator.hpp"
-#include "cudacl_compiler.hpp"
-#include "floor/floor.hpp"
+#include <floor/cl/opencl.hpp>
+#include <floor/cuda/cudacl_translator.hpp>
+#include <floor/cuda/cudacl_compiler.hpp>
+#include <floor/floor/floor.hpp>
 
 #if (CUDA_VERSION < 6050)
 #error "floor must be compiled with at least CUDA 6.5!"

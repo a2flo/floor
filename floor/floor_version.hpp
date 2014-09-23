@@ -20,8 +20,8 @@
 #define __FLOOR_VERSION_HPP__
 
 // floor version and build/compiler info
-#include "floor/build_version.hpp"
-#include "core/util.hpp"
+#include <floor/floor/build_version.hpp>
+#include <floor/core/util.hpp>
 
 #define FLOOR_VERSION_STRINGIFY(ver) #ver
 #define FLOOR_VERSION_EVAL(ver) FLOOR_VERSION_STRINGIFY(ver)
@@ -30,8 +30,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 1
 #define FLOOR_REVISION_VERSION 3
-#define FLOOR_DEV_STAGE_VERSION 0xd1
-#define FLOOR_DEV_STAGE_VERSION_STR "d1"
+#define FLOOR_DEV_STAGE_VERSION 0xd2
+#define FLOOR_DEV_STAGE_VERSION_STR "d2"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -109,7 +109,7 @@
 #endif
 
 // library checks:
-#include "core/platform.hpp"
+#include <floor/core/platform.hpp>
 #include <openssl/opensslv.h>
 
 #if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 1101)

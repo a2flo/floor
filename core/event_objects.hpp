@@ -23,7 +23,7 @@
 #define FLOOR_USER_EVENT_TYPES
 #endif
 
-#include "math/vector_lib.hpp"
+#include <floor/math/vector_lib.hpp>
 
 // general/global event types
 enum class EVENT_TYPE : unsigned int {

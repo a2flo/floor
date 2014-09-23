@@ -19,7 +19,7 @@
 #ifndef __FLOOR_QUATERNION_HPP__
 #define __FLOOR_QUATERNION_HPP__
 
-#include "math/vector_lib.hpp"
+#include <floor/math/vector_lib.hpp>
 #if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>

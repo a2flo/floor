@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/parser.hpp"
+#include <floor/lang/parser.hpp>
 
 void parser::parse(lang_context& ctx, translation_unit& tu) {
 	static const parser_ast c_parser;

@@ -19,9 +19,9 @@
 #ifndef __FLOOR_EVENT_HPP__
 #define __FLOOR_EVENT_HPP__
 
-#include "core/core.hpp"
-#include "threading/thread_base.hpp"
-#include "event_objects.hpp"
+#include <floor/core/core.hpp>
+#include <floor/threading/thread_base.hpp>
+#include <floor/core/event_objects.hpp>
 
 //! (sdl) event handler
 class event : public thread_base {

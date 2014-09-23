@@ -16,15 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA_CL)
 
-#include "cudacl_translator.hpp"
-#include "core/core.hpp"
-#include "core/gl_support.hpp"
-#include "floor/floor.hpp"
-#include "core/timer.hpp"
+#include <floor/cuda/cudacl_translator.hpp>
+#include <floor/core/core.hpp>
+#include <floor/core/gl_support.hpp>
+#include <floor/floor/floor.hpp>
+#include <floor/core/timer.hpp>
 #include <regex>
 
 #if defined(__APPLE__)
@@ -35,9 +35,9 @@
 #include <cudaGL.h>
 #endif
 
-#include "tccpp/libtcc.h"
+#include <floor/tccpp/libtcc.h>
 extern "C" {
-#include "tccpp/tcc.h"
+#include <floor/tccpp/tcc.h>
 }
 
 // parameter mappings

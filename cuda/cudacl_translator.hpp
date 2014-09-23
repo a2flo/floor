@@ -19,12 +19,12 @@
 #ifndef __FLOOR_CUDACL_TRANSLATOR_HPP__
 #define __FLOOR_CUDACL_TRANSLATOR_HPP__
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA_CL)
 
-#include "floor/floor.hpp"
-#include "hash/city.hpp"
+#include <floor/floor/floor.hpp>
+#include <floor/hash/city.hpp>
 
 enum class CUDACL_PARAM_ADDRESS_SPACE : unsigned int {
 	NONE,

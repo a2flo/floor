@@ -25,8 +25,8 @@
 #include <type_traits>
 #include <string>
 #include <unordered_map>
-#include "core/platform.hpp"
-#include "lang/source_types.hpp"
+#include <floor/core/platform.hpp>
+#include <floor/lang/source_types.hpp>
 using namespace std;
 
 class lang_context;

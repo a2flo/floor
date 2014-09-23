@@ -19,8 +19,8 @@
 #ifndef __FLOOR_BBOX_HPP__
 #define __FLOOR_BBOX_HPP__
 
-#include "math/vector_lib.hpp"
-#include "math/ray.hpp"
+#include <floor/math/vector_lib.hpp>
+#include <floor/math/ray.hpp>
 #if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>

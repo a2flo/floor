@@ -30,7 +30,7 @@
 #endif
 
 // forwarder for many math functions for all necessary base types
-#include "math/vector_helper.hpp"
+#include <floor/math/vector_helper.hpp>
 
 // forward declare all vector types because of inter-dependencies
 template <typename scalar_type> class vector1;
@@ -113,16 +113,16 @@ typedef int4 ssize4;
 
 // implementation for each vector width
 #define FLOOR_VECTOR_WIDTH 1
-#include "math/vector.hpp"
+#include <floor/math/vector.hpp>
 #undef FLOOR_VECTOR_WIDTH
 #define FLOOR_VECTOR_WIDTH 2
-#include "math/vector.hpp"
+#include <floor/math/vector.hpp>
 #undef FLOOR_VECTOR_WIDTH
 #define FLOOR_VECTOR_WIDTH 3
-#include "math/vector.hpp"
+#include <floor/math/vector.hpp>
 #undef FLOOR_VECTOR_WIDTH
 #define FLOOR_VECTOR_WIDTH 4
-#include "math/vector.hpp"
+#include <floor/math/vector.hpp>
 #undef FLOOR_VECTOR_WIDTH
 
 // extern template instantiation

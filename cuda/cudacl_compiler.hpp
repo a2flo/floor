@@ -19,11 +19,11 @@
 #ifndef __FLOOR_CUDACL_COMPILER_HPP__
 #define __FLOOR_CUDACL_COMPILER_HPP__
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_CUDA_CL)
 
-#include "floor/floor.hpp"
+#include <floor/floor/floor.hpp>
 
 class cudacl_compiler {
 public:

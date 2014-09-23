@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/lexer.hpp"
+#include <floor/lang/lexer.hpp>
 #include <iostream>
 #include <unordered_set>
 #include <cstdio>

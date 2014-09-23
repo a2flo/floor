@@ -27,7 +27,7 @@
 // possible hash functions, by using SIMD instructions, or by
 // compromising on hash quality.
 
-//#include "config.hpp"
+//#include <floor/config.hpp>
 /* Define to 1 if the compiler supports __builtin_expect. */
 #define HAVE_BUILTIN_EXPECT 1
 
@@ -44,7 +44,7 @@
 #endif
 
 //
-#include "city.hpp"
+#include <floor/hash/city.hpp>
 
 #include <algorithm>
 #include <string.h>  // for memcpy and memset

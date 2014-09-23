@@ -22,9 +22,9 @@
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
 
-#include "ios_helper.hpp"
-#include "core/logger.hpp"
-#include "core/core.hpp"
+#include <floor/ios_helper.hpp>
+#include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <regex>
 
 #include <SDL2/SDL.h>

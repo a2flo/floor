@@ -24,7 +24,7 @@
 #include <boost/bind.hpp>
 using boost::asio::ip::tcp;
 
-#include "core/platform.hpp"
+#include <floor/core/platform.hpp>
 
 template <class socket_type, bool use_ssl>
 struct std_protocol {

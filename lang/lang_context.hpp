@@ -24,9 +24,9 @@
 #include <unordered_map>
 #include <set>
 #include <atomic>
-#include "core/util.hpp"
-#include "lang/source_types.hpp"
-#include "lang/ast_base.hpp"
+#include <floor/core/util.hpp>
+#include <floor/lang/source_types.hpp>
+#include <floor/lang/ast_base.hpp>
 using namespace std;
 
 //! translation unit ("source file"), managed by a lang_context

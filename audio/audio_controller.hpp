@@ -19,12 +19,12 @@
 #ifndef __FLOOR_AUDIO_CONTROLLER_HPP__
 #define __FLOOR_AUDIO_CONTROLLER_HPP__
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio/audio_headers.hpp"
-#include "audio/audio_source.hpp"
+#include <floor/audio/audio_headers.hpp>
+#include <floor/audio/audio_source.hpp>
 
 class audio_controller {
 public:

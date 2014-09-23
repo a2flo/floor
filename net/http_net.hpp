@@ -19,12 +19,12 @@
 #ifndef __FLOOR_HTTP_NET_HPP__
 #define __FLOOR_HTTP_NET_HPP__
 
-#include "net/net_protocol.hpp"
-#include "core/platform.hpp"
-#include "core/core.hpp"
-#include "net/net.hpp"
-#include "net/net_tcp.hpp"
-#include "floor/floor.hpp"
+#include <floor/net/net_protocol.hpp>
+#include <floor/core/platform.hpp>
+#include <floor/core/core.hpp>
+#include <floor/net/net.hpp>
+#include <floor/net/net_tcp.hpp>
+#include <floor/floor/floor.hpp>
 
 #define http_endl "\r\n"
 

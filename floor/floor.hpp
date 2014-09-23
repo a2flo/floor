@@ -19,17 +19,17 @@
 #ifndef __FLOOR_FLOOR_HPP__
 #define __FLOOR_FLOOR_HPP__
 
-#include "core/platform.hpp"
+#include <floor/core/platform.hpp>
 
 #define FLOOR_STRUCT_ALIGNMENT (16)
 
-#include "core/core.hpp"
-#include "core/file_io.hpp"
-#include "core/event.hpp"
-#include "core/xml.hpp"
-#include "math/vector_lib.hpp"
-#include "math/matrix4.hpp"
-#include "core/unicode.hpp"
+#include <floor/core/core.hpp>
+#include <floor/core/file_io.hpp>
+#include <floor/core/event.hpp>
+#include <floor/core/xml.hpp>
+#include <floor/math/vector_lib.hpp>
+#include <floor/math/matrix4.hpp>
+#include <floor/core/unicode.hpp>
 
 class opencl_base;
 extern opencl_base* ocl;

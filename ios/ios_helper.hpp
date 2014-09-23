@@ -19,8 +19,8 @@
 #ifndef __FLOOR_IOS_HELPER_HPP__
 #define __FLOOR_IOS_HELPER_HPP__
 
-#include "core/gl_support.hpp"
-#include "core/cpp_headers.hpp"
+#include <floor/core/gl_support.hpp>
+#include <floor/core/cpp_headers.hpp>
 #include <regex>
 
 struct floor_shader_object {

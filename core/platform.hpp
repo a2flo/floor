@@ -124,18 +124,18 @@
 #endif
 
 // c++ headers
-#include "core/cpp_headers.hpp"
+#include <floor/core/cpp_headers.hpp>
 
 // constexpr math functions
-#include "constexpr/const_math.hpp"
+#include <floor/constexpr/const_math.hpp>
 
 // floor logger
-#include "core/logger.hpp"
+#include <floor/core/logger.hpp>
 
 // utility functions/classes/...
-#include "core/util.hpp"
+#include <floor/core/util.hpp>
 
 // const_string
-#include "constexpr/const_string.hpp"
+#include <floor/constexpr/const_string.hpp>
 
 #endif

@@ -19,7 +19,7 @@
 #ifndef __FLOOR_UNICODE_HPP__
 #define __FLOOR_UNICODE_HPP__
 
-#include "floor/floor.hpp"
+#include <floor/floor/floor.hpp>
 
 //! unicode routines
 class unicode {

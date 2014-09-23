@@ -16,17 +16,17 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "floor/floor.hpp"
-#include "floor/floor_version.hpp"
-#include "cl/opencl.hpp"
-#include "core/gl_support.hpp"
-#include "audio/audio_controller.hpp"
+#include <floor/floor/floor.hpp>
+#include <floor/floor/floor_version.hpp>
+#include <floor/cl/opencl.hpp>
+#include <floor/core/gl_support.hpp>
+#include <floor/audio/audio_controller.hpp>
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
-#include "osx/osx_helper.hpp"
+#include <floor/osx/osx_helper.hpp>
 #else
-#include "ios/ios_helper.hpp"
+#include <floor/ios/ios_helper.hpp>
 #endif
 #endif
 

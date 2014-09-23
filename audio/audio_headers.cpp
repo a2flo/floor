@@ -16,12 +16,12 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio_headers.hpp"
-#include "core/logger.hpp"
+#include <floor/audio/audio_headers.hpp>
+#include <floor/core/logger.hpp>
 
 LPALGENEFFECTS alGenEffects;
 LPALDELETEEFFECTS alDeleteEffects;

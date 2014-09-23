@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "constexpr/const_math.hpp"
+#include <floor/constexpr/const_math.hpp>
 
 namespace const_math_select {
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \

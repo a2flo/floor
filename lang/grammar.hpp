@@ -19,11 +19,11 @@
 #ifndef __FLOOR_GRAMMAR_HPP__
 #define __FLOOR_GRAMMAR_HPP__
 
-#include "core/util.hpp"
-#include "lang/source_types.hpp"
-#include "lang/lang_context.hpp"
-#include "lang/lexer.hpp"
-#include "lang/ast_base.hpp"
+#include <floor/core/util.hpp>
+#include <floor/lang/source_types.hpp>
+#include <floor/lang/lang_context.hpp>
+#include <floor/lang/lexer.hpp>
+#include <floor/lang/ast_base.hpp>
 
 // uncomment this define if you want the parse tree to be printed
 //#define FLOOR_DEBUG_PARSER 1

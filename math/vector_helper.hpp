@@ -24,7 +24,7 @@
 #if !defined(FLOOR_LLVM_COMPUTE)
 #include <cstdint>
 #endif
-#include "constexpr/const_math.hpp"
+#include <floor/constexpr/const_math.hpp>
 using namespace std;
 
 //! the unsigned integer type equivalent/corresponding to the size of T

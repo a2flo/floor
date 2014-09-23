@@ -19,7 +19,7 @@
 #ifndef __FLOOR_TIMER_HPP__
 #define __FLOOR_TIMER_HPP__
 
-#include "core/platform.hpp"
+#include <floor/core/platform.hpp>
 
 class floor_timer {
 public:

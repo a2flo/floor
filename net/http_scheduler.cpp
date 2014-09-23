@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "http_scheduler.hpp"
+#include <floor/net/http_scheduler.hpp>
 
 bool http_scheduler::initialized = false;
 http_scheduler* http_scheduler::hs = nullptr;

@@ -21,10 +21,10 @@
 #include <SDL2/SDL_syswm.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
-#include "math/vector_lib.hpp"
-#include "core/logger.hpp"
-#include "core/util.hpp"
-#include "osx/osx_helper.hpp"
+#include <floor/math/vector_lib.hpp>
+#include <floor/core/logger.hpp>
+#include <floor/core/util.hpp>
+#include <floor/osx/osx_helper.hpp>
 
 size_t osx_helper::get_dpi(SDL_Window* wnd) {
 	float2 display_res(float2(CGDisplayPixelsWide(CGMainDisplayID()),

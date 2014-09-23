@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/ast_base.hpp"
+#include <floor/lang/ast_base.hpp>
 #include <algorithm>
 
 // misc functions

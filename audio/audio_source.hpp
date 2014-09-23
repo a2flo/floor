@@ -19,11 +19,11 @@
 #ifndef __FLOOR_AUDIO_SOURCE_HPP__
 #define __FLOOR_AUDIO_SOURCE_HPP__
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#include "audio_store.hpp"
+#include <floor/audio/audio_store.hpp>
 
 class audio_source {
 public:

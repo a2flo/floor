@@ -19,10 +19,10 @@
 #ifndef __FLOOR_CORE_HPP__
 #define __FLOOR_CORE_HPP__
 
-#include "core/cpp_headers.hpp"
-#include "math/vector_lib.hpp"
-#include "math/matrix4.hpp"
-#include "core/file_io.hpp"
+#include <floor/core/cpp_headers.hpp>
+#include <floor/math/vector_lib.hpp>
+#include <floor/math/matrix4.hpp>
+#include <floor/core/file_io.hpp>
 #include <random>
 
 class core {

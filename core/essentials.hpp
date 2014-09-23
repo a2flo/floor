@@ -29,8 +29,8 @@
 #endif
 
 // if the floor_conf.hpp header exists, include it
-#if __has_include("floor/floor_conf.hpp")
-#include "floor/floor_conf.hpp"
+#if __has_include(<floor/floor/floor_conf.hpp>)
+#include <floor/floor/floor_conf.hpp>
 #endif
 
 // for flagging unreachable code

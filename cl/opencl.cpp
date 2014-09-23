@@ -16,18 +16,18 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "core/essentials.hpp"
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
-#include "opencl.hpp"
-#include "floor/floor.hpp"
+#include <floor/cl/opencl.hpp>
+#include <floor/floor/floor.hpp>
 
 #if defined(__APPLE__)
 #if defined(FLOOR_IOS)
-#include "ios/ios_helper.hpp"
+#include <floor/ios/ios_helper.hpp>
 #else
-#include "osx/osx_helper.hpp"
+#include <floor/osx/osx_helper.hpp>
 #endif
 #endif
 

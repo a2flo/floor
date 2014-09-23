@@ -27,8 +27,8 @@
 #define FLOOR_VECNAME_STR_EVAL(vec_name) FLOOR_VECNAME_STR_STRINGIFY(vec_name)
 #define FLOOR_VECNAME_STR FLOOR_VECNAME_STR_EVAL(FLOOR_VECNAME)
 
-#include "math/vector_ops.hpp"
-#include "math/matrix4.hpp"
+#include <floor/math/vector_ops.hpp>
+#include <floor/math/matrix4.hpp>
 #include <type_traits>
 
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },
@@ -1870,7 +1870,7 @@ public:
 };
 
 // cleanup macros
-#include "math/vector_ops_cleanup.hpp"
+#include <floor/math/vector_ops_cleanup.hpp>
 
 #undef FLOOR_VECNAME_CONCAT
 #undef FLOOR_VECNAME_EVAL

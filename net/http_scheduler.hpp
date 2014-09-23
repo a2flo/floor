@@ -19,12 +19,12 @@
 #ifndef __HTTP_SCHEDULER_HPP__
 #define __HTTP_SCHEDULER_HPP__
 
-#include "net/net_protocol.hpp"
-#include "core/cpp_headers.hpp"
-#include "threading/thread_base.hpp"
-#include "net/net.hpp"
-#include "net/net_tcp.hpp"
-#include "net/http_net.hpp"
+#include <floor/net/net_protocol.hpp>
+#include <floor/core/cpp_headers.hpp>
+#include <floor/threading/thread_base.hpp>
+#include <floor/net/net.hpp>
+#include <floor/net/net_tcp.hpp>
+#include <floor/net/http_net.hpp>
 
 class http_scheduler : public thread_base {
 public:

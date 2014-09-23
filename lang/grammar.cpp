@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "lang/grammar.hpp"
+#include <floor/lang/grammar.hpp>
 
 void move_matches(parser_context::match_list& dst_matches,
 				  parser_context::match_list& src_matches) {

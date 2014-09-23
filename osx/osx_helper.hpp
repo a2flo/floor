@@ -20,7 +20,7 @@
 #define __FLOOR_OSX_HELPER_HPP__
 
 #include <CoreGraphics/CoreGraphics.h>
-#include "core/platform.hpp"
+#include <floor/core/platform.hpp>
 
 class osx_helper {
 public:

@@ -16,9 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "util.hpp"
-#include "platform.hpp"
-#include "core/event_objects.hpp"
+#include <floor/core/util.hpp>
+#include <floor/core/platform.hpp>
+#include <floor/core/event_objects.hpp>
 
 #if !defined(__WINDOWS__) || defined(WIN_UNIXENV)
 template <> float converter<string, float>::convert(const string& var) {

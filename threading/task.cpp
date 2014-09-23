@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "task.hpp"
-#include "core/logger.hpp"
+#include <floor/threading/task.hpp>
+#include <floor/core/logger.hpp>
 
 task::task(std::function<void()> op_, const string task_name_) :
 op(op_), task_name(task_name_),

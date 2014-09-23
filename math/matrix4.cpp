@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "matrix4.hpp"
+#include <floor/math/matrix4.hpp>
 
 #if defined(FLOOR_EXPORT)
 // instantiate
