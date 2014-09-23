@@ -21,7 +21,9 @@
 
 #include <type_traits>
 #include <limits>
+#if !defined(FLOOR_LLVM_COMPUTE)
 #include <cstdint>
+#endif
 #include "constexpr/const_math.hpp"
 using namespace std;
 

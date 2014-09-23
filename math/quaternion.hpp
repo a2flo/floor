@@ -20,9 +20,11 @@
 #define __FLOOR_QUATERNION_HPP__
 
 #include "math/vector_lib.hpp"
+#if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>
 #include <string>
+#endif
 
 template <typename T> class quaternion;
 typedef quaternion<float> quaternionf;
@@ -41,7 +43,7 @@ public:
 	constexpr quaternion(const quaternion& q) noexcept : x(q.x), y(q.y), z(q.z), r(q.r) {}
 	quaternion(const T& a, const vector3<T>& v) noexcept { set_rotation(a, v); }
 	
-	//
+#if !defined(FLOOR_NO_MATH_STR)
 	friend ostream& operator<<(ostream& output, const quaternion& q) {
 		output << "(" << q.r << ": " << q.x << ", " << q.y << ", " << q.z << ")";
 		return output;
@@ -51,6 +53,7 @@ public:
 		sstr << *this;
 		return sstr.str();
 	}
+#endif
 	
 	quaternion operator+(const quaternion& q) const;
 	quaternion operator-(const quaternion& q) const;

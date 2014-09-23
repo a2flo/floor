@@ -57,6 +57,11 @@
 #define floor_fallthrough
 #endif
 
+// compat with device code
+#if !defined(FLOOR_DEVICE)
+#define FLOOR_DEVICE
+#endif
+
 #endif // __FLOOR_ESSENTIALS_HPP__
 
 // -> keep these outside the header guard

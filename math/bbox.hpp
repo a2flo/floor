@@ -21,9 +21,11 @@
 
 #include "math/vector_lib.hpp"
 #include "math/ray.hpp"
+#if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>
 #include <string>
+#endif
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -73,6 +75,7 @@ public:
 		return *this;
 	}
 	
+#if !defined(FLOOR_NO_MATH_STR)
 	friend ostream& operator<<(ostream& output, const bbox& box) {
 		output << "(Min: " << box.min << ", Max: " << box.max << ")";
 		return output;
@@ -82,6 +85,7 @@ public:
 		sstr << *this;
 		return sstr.str();
 	}
+#endif
 	
 	pair<float, float> intersect(const ray& r) const {
 		float3 v1 = min, v2 = max;
@@ -177,6 +181,7 @@ public:
 		return ret;
 	}
 	
+#if !defined(FLOOR_NO_MATH_STR)
 	friend ostream& operator<<(ostream& output, const extbbox& box) {
 		output << "(Min: " << box.min << ", Max: " << box.max;
 		output << ", Pos: " << box.pos << ")" << endl;
@@ -188,6 +193,7 @@ public:
 		sstr << *this;
 		return sstr.str();
 	}
+#endif
 	
 };
 

@@ -23,9 +23,11 @@
 #include <type_traits>
 #include <utility>
 #include <limits>
+#if !defined(FLOOR_LLVM_COMPUTE)
 #include <cmath>
 #include <cstdint>
 #include <unistd.h>
+#endif
 #include "core/essentials.hpp"
 #include "constexpr/soft_i128.hpp"
 using namespace std;
