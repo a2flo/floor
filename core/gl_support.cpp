@@ -18,7 +18,7 @@
 
 #if !defined(__APPLE__)
 
-#include <floor/gl_support.hpp>
+#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 
 #if defined(__WINDOWS__) || defined(WIN_UNIXENV)
