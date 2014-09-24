@@ -1834,8 +1834,8 @@ public:
 	//! returns a randomized vector using a uniform distribution with each component in [min, max)
 	static vector_type random(const scalar_type min, const scalar_type max);
 	
-	//! returns an integer value representing the number of components of this vector
-	constexpr int vec_step() const {
+	//! returns an integer value representing the number of components of this vector (-> equivalent to vec_step in opencl)
+	constexpr int vector_step() const {
 		return FLOOR_VECTOR_WIDTH;
 	}
 	
