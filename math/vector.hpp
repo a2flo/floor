@@ -161,7 +161,7 @@ public:
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
-	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
+	static FLOOR_CL_CONSTANT constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -262,6 +262,46 @@ public:
 	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val_x,
 										 const vector3<scalar_type>& vec) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
+#endif
+
+	// opencl/spir construction/load from another address space
+	// NOTE: private is not needed, because it's the default and already defined above
+#if defined(__SPIR32__) || defined(__SPIR64__)
+	//! opencl/spir construction/load from global to any address space
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(global const vector_type& vec) noexcept :
+	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+	
+	//! opencl/spir construction/load from local to any address space
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(local const vector_type& vec) noexcept :
+	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+#endif
+	
+	//! generic explicit load function that will construct and return a vector in private address space (opencl),
+	//! or simply a copy function in c++ and cuda (no need for explicit address space handling there)
+	constexpr vector_type load() const {
+		return { FLOOR_VEC_EXPAND(FLOOR_COMMA) };
+	}
+	
+	//! generic explicit store function that will store/assign the vector components of the given vector
+	//! in/to this vector (opencl: private address space, cuda/c++: generic)
+	constexpr vector_type& store(const vector_type& vec) {
+		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
+		return *this;
+	}
+	
+	// +the same for local and global address spaces in opencl
+#if defined(__SPIR32__) || defined(__SPIR64__)
+	//! explicit store function, from global to any address space
+	constexpr vector_type& store(global const vector_type& vec) {
+		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
+		return *this;
+	}
+	
+	//! explicit store function, from local to any address space
+	constexpr vector_type& store(local const vector_type& vec) {
+		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
+		return *this;
+	}
 #endif
 	
 	// assignments (note: these also work if scalar_type is a reference)

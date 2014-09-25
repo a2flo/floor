@@ -61,6 +61,9 @@
 #if !defined(FLOOR_DEVICE)
 #define FLOOR_DEVICE
 #endif
+#if !defined(FLOOR_CL_CONSTANT)
+#define FLOOR_CL_CONSTANT
+#endif
 
 #endif // __FLOOR_ESSENTIALS_HPP__
 

@@ -176,10 +176,10 @@ public: \
 	typedef typename signed_eqv<vh_type>::type signed_type; \
 	typedef typename sized_unsigned_eqv<vh_type>::type sized_unsigned_type; \
 	typedef typename integral_eqv<vh_type>::type integral_type; \
-	static constexpr const scalar_type scalar_zero { (scalar_type)0 }; \
-	static constexpr const scalar_type scalar_one { (scalar_type)1 }; \
-	static constexpr const scalar_type scalar_nan { numeric_limits<scalar_type>::quiet_NaN() }; \
-	static constexpr const scalar_type scalar_inf { numeric_limits<scalar_type>::infinity() }; \
+	static FLOOR_CL_CONSTANT constexpr const scalar_type scalar_zero { (scalar_type)0 }; \
+	static FLOOR_CL_CONSTANT constexpr const scalar_type scalar_one { (scalar_type)1 }; \
+	static FLOOR_CL_CONSTANT constexpr const scalar_type scalar_nan { numeric_limits<scalar_type>::quiet_NaN() }; \
+	static FLOOR_CL_CONSTANT constexpr const scalar_type scalar_inf { numeric_limits<scalar_type>::infinity() }; \
 	func_impl \
 \
 protected: \
