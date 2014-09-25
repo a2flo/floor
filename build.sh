@@ -157,6 +157,7 @@ for arg in "$@"; do
 			BUILD_ARCH_SIZE="x64"
 			;;
 		*)
+			warning "unknown argument: ${arg}"
 			;;
 	esac
 done
@@ -613,6 +614,14 @@ COMMON_FLAGS="${COMMON_FLAGS} -fparse-all-comments -fno-elide-type -fdiagnostics
 COMMON_FLAGS="${COMMON_FLAGS} ${INCLUDES}"
 COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-I/-isystem /g")
 COMMON_FLAGS="${COMMON_FLAGS} -I../"
+
+# mingw sdl fixes
+if [ $BUILD_OS == "mingw" ]; then
+	# remove sdls main redirect, we want to use our own main
+	COMMON_FLAGS=$(echo "${COMMON_FLAGS}" | sed -E "s/-Dmain=SDL_main//g")
+	# remove windows flag -> creates a separate cmd window + working iostream output
+	LDFLAGS=$(echo "${LDFLAGS}" | sed -E "s/-mwindows//g")
+fi
 
 # finally: add all common c++ and c flags/options
 CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS}"
