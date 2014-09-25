@@ -93,3 +93,6 @@
 #if defined(CONST)
 #undef CONST
 #endif
+#if defined(ERROR)
+#undef ERROR
+#endif
