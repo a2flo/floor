@@ -76,14 +76,14 @@ public:
 		template<typename T> bool set(const string& path, const T& value);
 	};
 	xml_doc process_file(const string& filename,
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 						 const bool validate = true
 #else
 						 const bool validate = false
 #endif
 						 ) const;
 	xml_doc process_data(const string& data,
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 						 const bool validate = true
 #else
 						 const bool validate = false
