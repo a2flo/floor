@@ -241,6 +241,7 @@
 		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
 		5C7800FE19D5BC4000853135 /* llvm_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_compute.cpp; sourceTree = "<group>"; };
 		5C7800FF19D5BC4000853135 /* llvm_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_compute.hpp; sourceTree = "<group>"; };
+		5C78010319D5CC4700853135 /* compute_support.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = compute_support.hpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
 		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
@@ -559,6 +560,7 @@
 		5C7800FD19D5BC4000853135 /* compute */ = {
 			isa = PBXGroup;
 			children = (
+				5C78010319D5CC4700853135 /* compute_support.hpp */,
 				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
 				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
 			);

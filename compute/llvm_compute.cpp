@@ -30,9 +30,6 @@ void llvm_compute::init() {
 }
 
 void llvm_compute::compile_kernel(const string& code) {
-	// clang flags:
-	//  -Xclang -fcuda-is-device -D__CUDA_CLANG__ -m64 -target nvptx64-nvidia-cuda -std=cuda -fno-exceptions -Ofast -emit-llvm
-	//  -S for human-readable llvm ir
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
 	//  -enable-unsafe-fp-math
@@ -51,24 +48,13 @@ void llvm_compute::compile_kernel(const string& code) {
 		" -DFLOOR_NO_MATH_STR" \
 		" -DPLATFORM_X64" \
 		" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
-		" -include cuda_support.hpp" \
+		" -include floor/compute/compute_support.hpp" \
 		" -isystem /Users/flo/clang/libcxx/include" \
 		" -isystem /usr/local/include" \
 		" -m64 -fno-exceptions" \
 		" -o - -"
 	};
 	
-	//string preprocessed_cuda_code = "";
-	//core::system(preprocess_cuda_cmd, preprocessed_cuda_code);
-	
-	//log_msg("preproc: %s", preprocessed_cuda_code);
-	//const string printable_cuda_code { "printf \"" + core::str_hex_escape(preprocessed_cuda_code) + "\" | "};
-	//log_msg("printable_cuda_code: %s", printable_cuda_code);
-	
-	// cuda clang/llc call
-	//printable_code += "cuda_clang -Xclang -fcuda-is-device -D__CUDA_CLANG__ -m64 -target nvptx64-nvidia-cuda -std=cuda -fno-exceptions -Ofast -emit-llvm -x cuda -S -o - - | cuda_llc -mcpu=sm_30";
-	
-	//string ptx_cmd = printable_cuda_code +
 	string ptx_cmd = preprocess_cuda_cmd +
 	" | cuda_clang -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 	" -Xclang -fcuda-is-device" \
@@ -78,9 +64,9 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DPLATFORM_X64" \
 	" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 	" -Dkernel=\"__attribute__((global))\"" \
-	" -include cuda_support.hpp" \
+	" -include floor/compute/compute_support.hpp" \
 	" -isystem /Users/flo/clang/libcxx/include" \
-	" -isystem /usr/local/include/floor" \
+	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S";
 	
 	string spir_cmd = printable_code + "cuda_clang -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
@@ -94,9 +80,9 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DFLOOR_NO_MATH_STR" \
 	" -DPLATFORM_X64" \
 	" -DFLOOR_CL_CONSTANT=constant" \
-	" -include cuda_support.hpp" \
+	" -include floor/compute/compute_support.hpp" \
 	" -isystem /Users/flo/clang/libcxx/include" \
-	" -isystem /usr/local/include/floor" \
+	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S -o - -"; // TODO: 2>&1 // > code_spir64.ll";
 	
 	//const string ptx_bc_cmd = ptx_cmd + " -o - - | llvm-as -o=code_ptx.bc";
