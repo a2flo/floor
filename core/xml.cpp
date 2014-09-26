@@ -197,7 +197,8 @@ xml::xml_doc xml::process_file(const string& filename, const bool validate) cons
 	xmlDocPtr xmldoc = xmlCtxtReadFile(ctx, filename.c_str(), nullptr,
 									   (validate ? XML_PARSE_DTDLOAD | XML_PARSE_DTDVALID : 0));
 	if(xmldoc == nullptr) {
-		log_error("failed to parse \"%s\"!", filename);
+		const auto error_ptr = xmlGetLastError();
+		log_error("failed to parse \"%s\"%s!", filename, (error_ptr != nullptr ? ": "s + error_ptr->message : ""s));
 		doc.valid = false;
 		return doc;
 	}
@@ -235,7 +236,8 @@ xml::xml_doc xml::process_data(const string& data, const bool validate) const {
 	xmlDocPtr xmldoc = xmlCtxtReadDoc(ctx, (const xmlChar*)data.c_str(), floor::data_path("dtd/shader.xml").c_str(), nullptr,
 									  (validate ? XML_PARSE_DTDLOAD | XML_PARSE_DTDVALID : 0));
 	if(xmldoc == nullptr) {
-		log_error("failed to parse data!");
+		const auto error_ptr = xmlGetLastError();
+		log_error("failed to parse data%s!", (error_ptr != nullptr ? ": "s + error_ptr->message : ""s));
 		doc.valid = false;
 		return doc;
 	}
