@@ -19,7 +19,11 @@
 #ifndef __FLOOR_LLVM_COMPUTE_HPP__
 #define __FLOOR_LLVM_COMPUTE_HPP__
 
-#include "cl/opencl.hpp"
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
+
+#include <floor/cl/opencl.hpp>
 
 class llvm_compute {
 public:
@@ -48,5 +52,7 @@ protected:
 	static unordered_map<string, CUfunction> functions;
 	
 };
+
+#endif
 
 #endif

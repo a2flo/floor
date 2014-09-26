@@ -16,7 +16,9 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "llvm_compute.hpp"
+#include <floor/compute/llvm_compute.hpp>
+
+#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
 
 cudacl* llvm_compute::cucl { nullptr };
 vector<CUmodule> llvm_compute::modules;
@@ -166,3 +168,5 @@ void llvm_compute::load_module(const char* module_data, const vector<pair<string
 		functions[func.second] = cuda_func;
 	}
 }
+
+#endif
