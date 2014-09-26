@@ -100,6 +100,9 @@
 		5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173CA18D8AE0700DDF097 /* audio_source.hpp */; };
 		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
+		5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7800FE19D5BC4000853135 /* llvm_compute.cpp */; };
+		5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7800FE19D5BC4000853135 /* llvm_compute.cpp */; };
+		5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7800FF19D5BC4000853135 /* llvm_compute.hpp */; };
 		5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
 		5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */; };
 		5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916717D1153E007F536E /* opencl.cpp */; };
@@ -236,6 +239,8 @@
 		5C7173C218D7288900DDF097 /* audio_controller.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_controller.hpp; path = audio/audio_controller.hpp; sourceTree = "<group>"; };
 		5C7173CA18D8AE0700DDF097 /* audio_source.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_source.hpp; path = audio/audio_source.hpp; sourceTree = "<group>"; };
 		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
+		5C7800FE19D5BC4000853135 /* llvm_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_compute.cpp; sourceTree = "<group>"; };
+		5C7800FF19D5BC4000853135 /* llvm_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_compute.hpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
 		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
@@ -442,6 +447,7 @@
 			children = (
 				5C7173AA18D7147F00DDF097 /* audio */,
 				5C10916517D1153E007F536E /* cl */,
+				5C7800FD19D5BC4000853135 /* compute */,
 				5C366DD919A64FF2006D1D09 /* constexpr */,
 				5C10916917D1153E007F536E /* core */,
 				5C10918817D1153E007F536E /* cuda */,
@@ -550,6 +556,15 @@
 			name = audio;
 			sourceTree = "<group>";
 		};
+		5C7800FD19D5BC4000853135 /* compute */ = {
+			isa = PBXGroup;
+			children = (
+				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
+				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
+			);
+			path = compute;
+			sourceTree = "<group>";
+		};
 		5C81C42C17E59A1A00FE6791 /* build */ = {
 			isa = PBXGroup;
 			children = (
@@ -623,6 +638,7 @@
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C1091A017D1153E007F536E /* cl.hpp in Headers */,
+				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */,
 				5C1091B617D1153E007F536E /* unicode.hpp in Headers */,
@@ -772,6 +788,7 @@
 				5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */,
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
+				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
@@ -822,6 +839,7 @@
 				5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */,
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
+				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */,
 				5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */,
 				5CAEC255186799BF00BEC3A3 /* tccpp.c in Sources */,

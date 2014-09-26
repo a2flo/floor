@@ -70,7 +70,7 @@ struct cuda_kernel_object {
 	}
 };
 
-string cudacl::error_code_to_string(cl_int error_code) const {
+string cudacl::cuda_error_code_to_string(cl_int error_code) {
 	const char* error_str = nullptr, *error_name = nullptr;
 	cuGetErrorString((CUresult)error_code, &error_str);
 	cuGetErrorName((CUresult)error_code, &error_name);
@@ -88,17 +88,10 @@ string cudacl::error_code_to_string(cl_int error_code) const {
 	}
 }
 
-class cudacl_exception : public exception {
-protected:
-	const int error_code;
-	const string error_str;
-public:
-	cudacl_exception(const int& err_code) : error_code(err_code), error_str("") {}
-	cudacl_exception(const string& err_str) : error_code(~0), error_str(err_str) {}
-	cudacl_exception(const int& err_code, const string& err_str) : error_code(err_code), error_str(err_str) {}
-	virtual const char* what() const noexcept;
-	virtual const int& code() const noexcept;
-};
+string cudacl::error_code_to_string(cl_int error_code) const {
+	return cudacl::cuda_error_code_to_string(error_code);
+}
+
 const char* cudacl_exception::what() const noexcept {
 	return error_str.c_str();
 }
@@ -114,18 +107,6 @@ catch(cudacl_exception err) {													\
 #define __HANDLE_CL_EXCEPTION_END }
 #define __HANDLE_CL_EXCEPTION(func_str) __HANDLE_CL_EXCEPTION_START(func_str) __HANDLE_CL_EXCEPTION_END
 #define __HANDLE_CL_EXCEPTION_EXT(func_str, additional_info) __HANDLE_CL_EXCEPTION_START_EXT(func_str, additional_info) __HANDLE_CL_EXCEPTION_END
-
-//
-#define CU(_CUDA_CALL) {														\
-	CUresult _cu_err = _CUDA_CALL;												\
-	/* check if call was successful, or if cuda is already shutting down, */	\
-	/* in which case we just pretend nothing happened and continue ...    */	\
-	if(_cu_err != CUDA_SUCCESS && _cu_err != CUDA_ERROR_DEINITIALIZED) {		\
-		log_error("cuda driver error #%i: %s (%s)",							\
-				  _cu_err, error_code_to_string(_cu_err), #_CUDA_CALL);			\
-		throw cudacl_exception(CL_OUT_OF_RESOURCES, "cuda driver error");		\
-	}																			\
-}
 
 cudacl::cudacl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_) :
 opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {

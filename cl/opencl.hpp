@@ -789,6 +789,16 @@ public:
 		return cuda_devices;
 	}
 	
+	const string& get_cc_target_str() const {
+		return cc_target_str;
+	}
+	
+	const unsigned int& get_cc_target() const {
+		return cc_target;
+	}
+	
+	static string cuda_error_code_to_string(cl_int error_code);
+	
 protected:
 	bool valid = true;
 	string cache_path = "";
@@ -826,9 +836,36 @@ protected:
 	//
 	virtual buffer_object* create_buffer_object(const BUFFER_FLAG type, const void* data = nullptr);
 	virtual void log_program_binary(shared_ptr<kernel_object> kernel);
+	
 	virtual string error_code_to_string(cl_int error_code) const;
 	
 };
+
+class cudacl_exception : public exception {
+protected:
+	const int error_code;
+	const string error_str;
+public:
+	cudacl_exception(const int& err_code) : error_code(err_code), error_str("") {}
+	cudacl_exception(const string& err_str) : error_code(~0), error_str(err_str) {}
+	cudacl_exception(const int& err_code, const string& err_str) : error_code(err_code), error_str(err_str) {}
+	const char* what() const noexcept override;
+	const int& code() const noexcept;
+};
+
+//
+#define CU(_CUDA_CALL) {														\
+	CUresult _cu_err = _CUDA_CALL;												\
+	/* check if call was successful, or if cuda is already shutting down, */	\
+	/* in which case we just pretend nothing happened and continue ...    */	\
+	if(_cu_err != CUDA_SUCCESS && _cu_err != CUDA_ERROR_DEINITIALIZED) {		\
+		log_error("cuda driver error #%i: %s (%s)",								\
+				  _cu_err, cudacl::cuda_error_code_to_string(_cu_err),			\
+				  #_CUDA_CALL);													\
+		throw cudacl_exception(CL_OUT_OF_RESOURCES, "cuda driver error");		\
+	}																			\
+}
+
 #endif
 
 #endif

@@ -87,6 +87,8 @@
 #if defined(false)
 #undef false
 #endif
+
+// these are defined by windows headers
 #if defined(VOID)
 #undef VOID
 #endif
