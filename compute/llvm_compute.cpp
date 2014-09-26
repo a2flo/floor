@@ -20,6 +20,10 @@
 
 #if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
 
+#if !defined(FLOOR_CUDA_CL_LIBCXX_PATH)
+#define FLOOR_CUDA_CL_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
+#endif
+
 cudacl* llvm_compute::cucl { nullptr };
 vector<CUmodule> llvm_compute::modules;
 unordered_map<string, CUfunction> llvm_compute::functions;
@@ -49,7 +53,7 @@ void llvm_compute::compile_kernel(const string& code) {
 		" -DPLATFORM_X64" \
 		" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 		" -include floor/compute/compute_support.hpp" \
-		" -isystem /Users/flo/clang/libcxx/include" \
+		" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
 		" -isystem /usr/local/include" \
 		" -m64 -fno-exceptions" \
 		" -o - -"
@@ -65,7 +69,7 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 	" -Dkernel=\"__attribute__((global))\"" \
 	" -include floor/compute/compute_support.hpp" \
-	" -isystem /Users/flo/clang/libcxx/include" \
+	" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
 	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S";
 	
@@ -81,7 +85,7 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DPLATFORM_X64" \
 	" -DFLOOR_CL_CONSTANT=constant" \
 	" -include floor/compute/compute_support.hpp" \
-	" -isystem /Users/flo/clang/libcxx/include" \
+	" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
 	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S -o - -"; // TODO: 2>&1 // > code_spir64.ll";
 	
