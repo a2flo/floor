@@ -20,6 +20,14 @@
 
 #if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
 
+#if !defined(FLOOR_COMPUTE_CLANG)
+#define FLOOR_COMPUTE_CLANG "compute_clang"
+#endif
+
+#if !defined(FLOOR_COMPUTE_LLC)
+#define FLOOR_COMPUTE_LLC "compute_llc"
+#endif
+
 #if !defined(FLOOR_CUDA_CL_LIBCXX_PATH)
 #define FLOOR_CUDA_CL_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
 #endif
@@ -44,7 +52,8 @@ void llvm_compute::compile_kernel(const string& code) {
 	
 	const string preprocess_cuda_cmd {
 		printable_code +
-		"cuda_clang -E -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
+		FLOOR_COMPUTE_CLANG \
+		" -E -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 		" -Xclang -fcuda-is-device" \
 		" -D__CUDA_CLANG__" \
 		" -D__CUDA_CLANG_PREPROCESS__" \
@@ -59,8 +68,9 @@ void llvm_compute::compile_kernel(const string& code) {
 		" -o - -"
 	};
 	
-	string ptx_cmd = preprocess_cuda_cmd +
-	" | cuda_clang -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
+	string ptx_cmd = preprocess_cuda_cmd + " | " \
+	FLOOR_COMPUTE_CLANG \
+	" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 	" -Xclang -fcuda-is-device" \
 	" -D__CUDA_CLANG__" \
 	" -DFLOOR_LLVM_COMPUTE" \
@@ -73,7 +83,9 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S";
 	
-	string spir_cmd = printable_code + "cuda_clang -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
+	string spir_cmd = printable_code +
+	FLOOR_COMPUTE_CLANG \
+	" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
 	" -Xclang -cl-kernel-arg-info" \
 	" -Xclang -cl-mad-enable" \
 	" -Xclang -cl-fast-relaxed-math" \
@@ -92,7 +104,7 @@ void llvm_compute::compile_kernel(const string& code) {
 	//const string ptx_bc_cmd = ptx_cmd + " -o - - | llvm-as -o=code_ptx.bc";
 	//const string ptx_bc_cmd = ptx_cmd + " -o - - > code_ptx.ll";
 	const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.bc - 2>&1";
-	ptx_cmd += " -o - - 2>&1 | cuda_llc -mcpu=sm_" + cucl->get_cc_target_str();
+	ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + cucl->get_cc_target_str();
 	
 	string ptx_code { "" };
 	core::system(ptx_cmd, ptx_code);
