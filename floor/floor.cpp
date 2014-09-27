@@ -87,7 +87,7 @@ static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, vo
 	const auto ptr_count = backtrace(stack_ptrs, STACK_PTR_COUNT);
 	char** symbols = backtrace_symbols(stack_ptrs, ptr_count);
 	string stacktrace = "segfault/trap/abort:\n";
-	for(int i = 0; i < ptr_count; ++i) {
+	for(remove_const_t<decltype(ptr_count)> i = 0; i < ptr_count; ++i) {
 		stacktrace += "\t";
 		stacktrace += symbols[i];
 		stacktrace += "\n";
