@@ -44,6 +44,15 @@ public:
 		// finish (kill the logger thread) and run once more to make sure everything has been saved/printed
 		finish();
 		run();
+		
+		if(log_file != nullptr) {
+			log_file->close();
+			log_file.reset(nullptr);
+		}
+		if(msg_file != nullptr) {
+			msg_file->close();
+			msg_file.reset(nullptr);
+		}
 	}
 	
 	void run() override;
@@ -156,14 +165,6 @@ void logger::init(const size_t verbosity, const bool separate_msg_file, const bo
 
 void logger::destroy() {
 	log_thread.reset(nullptr);
-	if(log_file != nullptr) {
-		log_file->close();
-		log_file.reset(nullptr);
-	}
-	if(msg_file != nullptr) {
-		msg_file->close();
-		msg_file.reset(nullptr);
-	}
 }
 
 bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func) {
