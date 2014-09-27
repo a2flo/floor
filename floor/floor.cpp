@@ -98,6 +98,7 @@ static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, vo
 
 #else
 class win_exception_handler {
+public:
 	static void init() {
 		if(LoadLibraryA("exchndl.dll") == nullptr) {
 			log_error("coudln't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
