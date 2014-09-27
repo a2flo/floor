@@ -96,14 +96,6 @@ static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, vo
 	logger::destroy();
 }
 
-#if defined(__GNU_LIBRARY__)
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-#endif
-
 #endif
 
 // dll main for windows dll export
@@ -136,6 +128,16 @@ void floor::init(const char* callpath_, const char* datapath_,
 	sigaction(SIGSEGV, &act, nullptr);
 	sigaction(SIGTRAP, &act, nullptr);
 	sigaction(SIGABRT, &act, nullptr);
+
+	// reenable warnings that were disabled above, b/c of glibc
+#if defined(__GNU_LIBRARY__)
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+#endif
+	
 #endif
 	
 	floor::callpath = callpath_;
