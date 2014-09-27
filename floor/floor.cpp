@@ -66,6 +66,18 @@ atomic<bool> floor::reload_kernels_flag { false };
 
 // sig handler
 #if !defined(_MSC_VER)
+
+// disable recursive macro expansion warnings here, b/c glibc screwed up
+#if defined(__GNU_LIBRARY__)
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdisabled-macro-expansion"
+#endif
+#endif
+
 #include <signal.h>
 #include <execinfo.h>
 static struct sigaction act;
@@ -83,6 +95,15 @@ static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, vo
 	log_error("%s", stacktrace);
 	logger::destroy();
 }
+
+#if defined(__GNU_LIBRARY__)
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+#endif
+
 #endif
 
 // dll main for windows dll export
@@ -110,7 +131,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 	// sig handler setup
 	memset(&act, 0, sizeof(act));
 	act.sa_sigaction = sighandler;
-	act.sa_flags = SA_SIGINFO | SA_NODEFER | SA_RESETHAND;
+	// must cast all to int, b/c glibc ...
+	act.sa_flags = int(SA_SIGINFO) | int(SA_NODEFER) | int(SA_RESETHAND);
 	sigaction(SIGSEGV, &act, nullptr);
 	sigaction(SIGTRAP, &act, nullptr);
 	sigaction(SIGABRT, &act, nullptr);
