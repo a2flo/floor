@@ -64,6 +64,27 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 
 atomic<bool> floor::reload_kernels_flag { false };
 
+// sig handler
+#if !defined(_MSC_VER)
+#include <signal.h>
+#include <execinfo.h>
+static struct sigaction act;
+static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, void* ptr floor_unused) {
+#define STACK_PTR_COUNT 256
+	void* stack_ptrs[STACK_PTR_COUNT];
+	const auto ptr_count = backtrace(stack_ptrs, STACK_PTR_COUNT);
+	char** symbols = backtrace_symbols(stack_ptrs, ptr_count);
+	string stacktrace = "segfault/trap/abort:\n";
+	for(int i = 0; i < ptr_count; ++i) {
+		stacktrace += "\t";
+		stacktrace += symbols[i];
+		stacktrace += "\n";
+	}
+	log_error("%s", stacktrace);
+	logger::destroy();
+}
+#endif
+
 // dll main for windows dll export
 #if defined(__WINDOWS__)
 BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPVOID lpReserved floor_unused);
@@ -85,6 +106,16 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
 				 const bool use_gl32_core_, const unsigned int window_flags) {
+#if !defined(_MSC_VER)
+	// sig handler setup
+	memset(&act, 0, sizeof(act));
+	act.sa_sigaction = sighandler;
+	act.sa_flags = SA_SIGINFO | SA_NODEFER | SA_RESETHAND;
+	sigaction(SIGSEGV, &act, nullptr);
+	sigaction(SIGTRAP, &act, nullptr);
+	sigaction(SIGABRT, &act, nullptr);
+#endif
+	
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;
 	floor::rel_datapath = datapath_;
