@@ -65,7 +65,7 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 atomic<bool> floor::reload_kernels_flag { false };
 
 // sig handler
-#if !defined(_MSC_VER)
+#if !defined(__WINDOWS__)
 
 // disable recursive macro expansion warnings here, b/c glibc screwed up
 #if defined(__GNU_LIBRARY__)
@@ -96,6 +96,14 @@ static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, vo
 	logger::destroy();
 }
 
+#else
+class win_exception_handler {
+	static void init() {
+		if(LoadLibraryA("exchndl.dll") == nullptr) {
+			log_error("coudln't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
+		}
+	}
+};
 #endif
 
 // dll main for windows dll export
@@ -119,7 +127,7 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
 				 const bool use_gl32_core_, const unsigned int window_flags) {
-#if !defined(_MSC_VER)
+#if !defined(__WINDOWS__)
 	// sig handler setup
 	memset(&act, 0, sizeof(act));
 	act.sa_sigaction = sighandler;
@@ -138,6 +146,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 #endif
 #endif
 	
+#else
+	win_exception_handler::init();
 #endif
 	
 	floor::callpath = callpath_;
