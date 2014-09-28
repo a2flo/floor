@@ -297,8 +297,8 @@ fi
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
-	# build a shared library and strip some symbols
-	LDFLAGS="${LDFLAGS} -s -shared"
+	# build a shared library
+	LDFLAGS="${LDFLAGS} -shared"
 	
 	# use PIC
 	LDFLAGS="${LDFLAGS} -fPIC"
@@ -544,7 +544,12 @@ fi
 COMMON_FLAGS="${COMMON_FLAGS} -ffast-math -fstrict-aliasing"
 
 # debug flags, only used in the debug target
-DEBUG_FLAGS="-O0 -gdwarf-2 -DFLOOR_DEBUG=1 -DDEBUG"
+DEBUG_FLAGS="-O0 -DFLOOR_DEBUG=1 -DDEBUG"
+if [ $BUILD_OS != "mingw" ]; then
+	DEBUG_FLAGS="${DEBUG_FLAGS} -gdwarf-2"
+else
+	DEBUG_FLAGS="${DEBUG_FLAGS} -g"
+fi
 
 # release mode flags/optimizations
 # TODO: sse/avx selection/config? default to sse4.1 for now (core2)
