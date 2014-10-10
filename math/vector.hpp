@@ -1403,8 +1403,22 @@ public:
 #if !defined(FLOOR_NO_MATH_STR)
 	
 	//! ostream output of this vector
+	template <typename nonchar_type = scalar_type, enable_if_t<(!is_same<nonchar_type, int8_t>::value &&
+																!is_same<nonchar_type, uint8_t>::value), int> = 0>
 	friend ostream& operator<<(ostream& output, const vector_type& vec) {
 		output << "(" << FLOOR_VEC_EXPAND_ENCLOSED(<< ", " <<, vec., ) << ")";
+		return output;
+	}
+	//! ostream output of this vector (char version)
+	template <typename nonchar_type = scalar_type, enable_if_t<is_same<nonchar_type, int8_t>::value, int> = 0>
+	friend ostream& operator<<(ostream& output, const vector_type& vec) {
+		output << "(" << FLOOR_VEC_EXPAND_ENCLOSED(<< ", " <<, (int32_t)vec., ) << ")";
+		return output;
+	}
+	//! ostream output of this vector (uchar version)
+	template <typename nonchar_type = scalar_type, enable_if_t<is_same<nonchar_type, uint8_t>::value, int> = 0>
+	friend ostream& operator<<(ostream& output, const vector_type& vec) {
+		output << "(" << FLOOR_VEC_EXPAND_ENCLOSED(<< ", " <<, (uint32_t)vec., ) << ")";
 		return output;
 	}
 	//! returns a string representation of this vector
@@ -1881,7 +1895,7 @@ public:
 	
 	//////////////////////////////////////////
 	// misc math
-#pragma mark misk math
+#pragma mark misc math
 	
 	//! applies the sqrt function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sqrt, sqrt, sqrted)
