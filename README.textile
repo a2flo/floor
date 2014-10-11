@@ -15,8 +15,6 @@ This is a C++ core library that is used in several of my projects:
 * OpenBSD: as soon as libc++ is supported
 
 *Build Instructions:*
-* after cloning: git submodule init && git submodule update
-* after a submodule update / pull: git submodule update
 * ./build.sh (use "./build.sh help" to get a list of all options)
 
 on Linux and FreeBSD:
