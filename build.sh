@@ -252,7 +252,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio cl compute constexpr core cuda floor hash lang math net net/boost_system tccpp threading"
+SRC_SUB_DIRS="audio cl compute constexpr core cuda floor hash lang math net net/boost_system threading"
 if [ $BUILD_OS == "osx" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
 elif [ $BUILD_OS == "ios" ]; then
@@ -261,11 +261,6 @@ fi
 
 # build directory where all temporary files are stored (*.o, etc.)
 BUILD_DIR=build
-
-# check if the tccpp submodule has been cloned
-if [ ! -f tccpp/tcc.h ]; then
-	error "this is probably the first time that you build floor, please clone the 'tccpp' submodule as well by executing:\n>>\n>>	git submodule init && git submodule update\n>>"
-fi
 
 ##########################################
 # library/dependency handling
@@ -574,8 +569,6 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 fi
 
 # defines:
-# use tcc/tccpp in lib-only mode (no main)
-COMMON_FLAGS="${COMMON_FLAGS} -DTCC_LIB_ONLY=1"
 # set platform size define
 if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -DPLATFORM_X32"

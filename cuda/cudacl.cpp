@@ -27,8 +27,6 @@
 #endif
 
 #include <floor/cl/opencl.hpp>
-#include <floor/cuda/cudacl_translator.hpp>
-#include <floor/cuda/cudacl_compiler.hpp>
 #include <floor/floor/floor.hpp>
 
 #if (CUDA_VERSION < 6050)
@@ -39,7 +37,7 @@
 struct cuda_kernel_object {
 	CUmodule* module = nullptr;
 	CUfunction* function = nullptr;
-	const cudacl_kernel_info info;
+	//const cudacl_kernel_info info;
 	
 	// <arg#, <arg size, arg ptr>>
 	struct kernel_arg {
@@ -49,7 +47,7 @@ struct cuda_kernel_object {
 	};
 	unordered_map<cl_uint, kernel_arg> arguments;
 	
-	cuda_kernel_object(const cudacl_kernel_info& info_) : info(info_) {}
+	cuda_kernel_object(/*const cudacl_kernel_info& info_*/) /*: info(info_)*/ {}
 	~cuda_kernel_object() {
 		for(const auto& arg : arguments) {
 			if(arg.second.free_ptr &&
@@ -500,7 +498,10 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 	}
 }
 
-weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identifier, const string& src, const string& func_name, const string additional_options) {
+weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identifier,
+															const string& src floor_unused,
+															const string& func_name floor_unused,
+															const string additional_options) {
 	log_debug("compiling \"%s\" kernel!", identifier);
 	
 	// make cuda context current (in case this is called from different threads)
@@ -519,6 +520,9 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 	// user options
 	options += additional_options;
 	
+	//
+	assert(false && "cuda program compilation and opencl->cuda translation is currently not implemented!");
+#if 0
 	string error_log = "", build_cmd = "";
 	try {
 		if(kernels.count(identifier) != 0) {
@@ -694,6 +698,7 @@ weak_ptr<opencl_base::kernel_object> cudacl::add_kernel_src(const string& identi
 		log_error("error log (%s): %s", identifier, error_log);
 		log_error("build command (%s): %s", identifier, build_cmd);
 	__HANDLE_CL_EXCEPTION_END
+#endif
 	
 	return kernels[identifier];
 }
@@ -1414,10 +1419,12 @@ void cudacl::run_kernel(weak_ptr<kernel_object> kernel_obj) {
 		CUfunction* cuda_function = kernel->function;
 		CUstream* stream = cuda_queues[device_map[active_device]];
 		
-		// check if all arguments have been set
+		// check if all arguments have been set (TODO: NEWCUDA compilation/support)
+#if 0
 		if(kernel->arguments.size() != kernel->info.parameters.size()) {
 			throw cudacl_exception(CL_INVALID_KERNEL_ARGS);
 		}
+#endif
 		
 		// pre kernel-launch stuff:
 		vector<opencl_base::buffer_object*> gl_objects;
@@ -1523,7 +1530,7 @@ bool cudacl::set_kernel_argument(const unsigned int& index, const opencl_base::b
 	return set_kernel_argument(index, (opencl_base::buffer_object*)arg);
 }
 
-bool cudacl::set_kernel_argument(const unsigned int& index, size_t size, void* arg) {
+bool cudacl::set_kernel_argument(const unsigned int& index, size_t size floor_unused, void* arg floor_unused) {
 	try {
 		// alloc memory for new argument and copy data
 		cuda_kernel_object* kernel = cuda_kernels[cur_kernel];
@@ -1537,6 +1544,8 @@ bool cudacl::set_kernel_argument(const unsigned int& index, size_t size, void* a
 		kernel_arg.ptr = nullptr;
 		kernel_arg.free_ptr = true;
 		
+		// (TODO: NEWCUDA compilation/support)
+#if 0
 		switch(kernel->info.get_parameter_type(index)) {
 			case CUDACL_PARAM_TYPE::BUFFER:
 			case CUDACL_PARAM_TYPE::IMAGE_1D:
@@ -1590,6 +1599,8 @@ bool cudacl::set_kernel_argument(const unsigned int& index, size_t size, void* a
 		}
 		cur_kernel->args_passed[index] = true;
 		return true;
+#endif
+		return false;
 	}
 	__HANDLE_CL_EXCEPTION("set_kernel_argument")
 	return false;

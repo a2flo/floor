@@ -31,10 +31,6 @@
 		5C1091BF17D1153E007F536E /* xml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918617D1153E007F536E /* xml.cpp */; };
 		5C1091C017D1153E007F536E /* xml.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10918717D1153E007F536E /* xml.hpp */; };
 		5C1091C117D1153E007F536E /* cudacl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918917D1153E007F536E /* cudacl.cpp */; };
-		5C1091C217D1153E007F536E /* cudacl_compiler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918A17D1153E007F536E /* cudacl_compiler.cpp */; };
-		5C1091C317D1153E007F536E /* cudacl_compiler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10918B17D1153E007F536E /* cudacl_compiler.hpp */; };
-		5C1091C417D1153E007F536E /* cudacl_translator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918C17D1153E007F536E /* cudacl_translator.cpp */; };
-		5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10918D17D1153E007F536E /* cudacl_translator.hpp */; };
 		5C1091C717D1153E007F536E /* city.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919017D1153E007F536E /* city.hpp */; };
 		5C1091C817D1153E007F536E /* error_code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919317D1153E007F536E /* error_code.cpp */; };
 		5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919517D1153E007F536E /* local_free_on_destruction.hpp */; };
@@ -48,11 +44,6 @@
 		5C1091D117D1153E007F536E /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
 		5C1091D217D1153E007F536E /* thread_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919F17D1153E007F536E /* thread_base.hpp */; };
 		5C1091D517D117B8007F536E /* city.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D417D117B8007F536E /* city.cpp */; };
-		5C1091DE17D1427F007F536E /* libtcc.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D917D1427F007F536E /* libtcc.c */; };
-		5C1091DF17D1427F007F536E /* libtcc.h in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091DA17D1427F007F536E /* libtcc.h */; };
-		5C1091E017D1427F007F536E /* tcc.h in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091DB17D1427F007F536E /* tcc.h */; };
-		5C1091E117D1427F007F536E /* tccgen.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DC17D1427F007F536E /* tccgen.c */; };
-		5C1091E217D1427F007F536E /* tccpp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DD17D1427F007F536E /* tccpp.c */; };
 		5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C1091EB17D1484C007F536E /* osx_helper.hpp */; };
 		5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091EC17D1484C007F536E /* osx_helper.mm */; };
 		5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F217D148B8007F536E /* OpenCL.framework */; };
@@ -117,9 +108,6 @@
 		5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
 		5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D417D117B8007F536E /* city.cpp */; };
 		5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
-		5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091D917D1427F007F536E /* libtcc.c */; };
-		5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DC17D1427F007F536E /* tccgen.c */; };
-		5CAEC255186799BF00BEC3A3 /* tccpp.c in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091DD17D1427F007F536E /* tccpp.c */; };
 		5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919C17D1153E007F536E /* task.cpp */; };
 		5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
 		5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919317D1153E007F536E /* error_code.cpp */; };
@@ -178,10 +166,6 @@
 		5C10918617D1153E007F536E /* xml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = xml.cpp; sourceTree = "<group>"; };
 		5C10918717D1153E007F536E /* xml.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = xml.hpp; sourceTree = "<group>"; };
 		5C10918917D1153E007F536E /* cudacl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cudacl.cpp; sourceTree = "<group>"; };
-		5C10918A17D1153E007F536E /* cudacl_compiler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cudacl_compiler.cpp; sourceTree = "<group>"; };
-		5C10918B17D1153E007F536E /* cudacl_compiler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cudacl_compiler.hpp; sourceTree = "<group>"; };
-		5C10918C17D1153E007F536E /* cudacl_translator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cudacl_translator.cpp; sourceTree = "<group>"; };
-		5C10918D17D1153E007F536E /* cudacl_translator.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cudacl_translator.hpp; sourceTree = "<group>"; };
 		5C10919017D1153E007F536E /* city.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = city.hpp; sourceTree = "<group>"; };
 		5C10919317D1153E007F536E /* error_code.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = error_code.cpp; sourceTree = "<group>"; };
 		5C10919517D1153E007F536E /* local_free_on_destruction.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = local_free_on_destruction.hpp; sourceTree = "<group>"; };
@@ -196,11 +180,6 @@
 		5C10919F17D1153E007F536E /* thread_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = thread_base.hpp; sourceTree = "<group>"; };
 		5C1091D417D117B8007F536E /* city.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = city.cpp; sourceTree = "<group>"; };
 		5C1091D717D14095007F536E /* floor.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = floor.hpp; sourceTree = "<group>"; };
-		5C1091D917D1427F007F536E /* libtcc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = libtcc.c; path = tccpp/libtcc.c; sourceTree = "<group>"; };
-		5C1091DA17D1427F007F536E /* libtcc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libtcc.h; path = tccpp/libtcc.h; sourceTree = "<group>"; };
-		5C1091DB17D1427F007F536E /* tcc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = tcc.h; path = tccpp/tcc.h; sourceTree = "<group>"; };
-		5C1091DC17D1427F007F536E /* tccgen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccgen.c; path = tccpp/tccgen.c; sourceTree = "<group>"; };
-		5C1091DD17D1427F007F536E /* tccpp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tccpp.c; path = tccpp/tccpp.c; sourceTree = "<group>"; };
 		5C1091EB17D1484C007F536E /* osx_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = osx_helper.hpp; sourceTree = "<group>"; };
 		5C1091EC17D1484C007F536E /* osx_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = osx_helper.mm; sourceTree = "<group>"; };
 		5C1091F017D148AD007F536E /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = Library/Frameworks/SDL2.framework; sourceTree = SDKROOT; };
@@ -391,10 +370,6 @@
 			isa = PBXGroup;
 			children = (
 				5C10918917D1153E007F536E /* cudacl.cpp */,
-				5C10918A17D1153E007F536E /* cudacl_compiler.cpp */,
-				5C10918B17D1153E007F536E /* cudacl_compiler.hpp */,
-				5C10918C17D1153E007F536E /* cudacl_translator.cpp */,
-				5C10918D17D1153E007F536E /* cudacl_translator.hpp */,
 			);
 			path = cuda;
 			sourceTree = "<group>";
@@ -459,7 +434,6 @@
 				5C0DF00719B8C79200331AAC /* math */,
 				5C10919117D1153E007F536E /* net */,
 				5C1091E317D1480A007F536E /* osx */,
-				5C1091D817D14272007F536E /* tccpp */,
 				5C10919B17D1153E007F536E /* threading */,
 			);
 			name = src;
@@ -474,18 +448,6 @@
 				5C10920717D1FA12007F536E /* floor_version.hpp */,
 			);
 			path = floor;
-			sourceTree = "<group>";
-		};
-		5C1091D817D14272007F536E /* tccpp */ = {
-			isa = PBXGroup;
-			children = (
-				5C1091D917D1427F007F536E /* libtcc.c */,
-				5C1091DA17D1427F007F536E /* libtcc.h */,
-				5C1091DB17D1427F007F536E /* tcc.h */,
-				5C1091DC17D1427F007F536E /* tccgen.c */,
-				5C1091DD17D1427F007F536E /* tccpp.c */,
-			);
-			name = tccpp;
 			sourceTree = "<group>";
 		};
 		5C1091E317D1480A007F536E /* osx */ = {
@@ -626,7 +588,6 @@
 				5C4A85B918F955B30039BFD4 /* ast_base.hpp in Headers */,
 				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */,
-				5C1091C517D1153E007F536E /* cudacl_translator.hpp in Headers */,
 				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
@@ -647,16 +608,13 @@
 				5C1091C017D1153E007F536E /* xml.hpp in Headers */,
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
-				5C1091DF17D1427F007F536E /* libtcc.h in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
-				5C1091C317D1153E007F536E /* cudacl_compiler.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C1091C717D1153E007F536E /* city.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
-				5C1091E017D1427F007F536E /* tcc.h in Headers */,
 				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
@@ -780,11 +738,9 @@
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
-				5C1091DE17D1427F007F536E /* libtcc.c in Sources */,
 				5C4A85B218F953590039BFD4 /* source_types.cpp in Sources */,
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
-				5C1091E117D1427F007F536E /* tccgen.c in Sources */,
 				5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
 				5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */,
@@ -794,7 +750,6 @@
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
-				5C1091C217D1153E007F536E /* cudacl_compiler.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
@@ -806,8 +761,6 @@
 				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
 				5CE0BDC919BA3469000B28B3 /* const_math.cpp in Sources */,
-				5C1091E217D1427F007F536E /* tccpp.c in Sources */,
-				5C1091C417D1153E007F536E /* cudacl_translator.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -842,9 +795,6 @@
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
 				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
-				5CAEC253186799BE00BEC3A3 /* libtcc.c in Sources */,
-				5CAEC254186799BE00BEC3A3 /* tccgen.c in Sources */,
-				5CAEC255186799BF00BEC3A3 /* tccpp.c in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
 				5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */,

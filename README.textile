@@ -88,6 +88,5 @@ Right now, only CUDA, OpenCL and OpenAL can be disabled:
 * http://pocl.sourceforge.net / pocl (optional library)
 * http://www.boost.org / boost
 * https://code.google.com/p/cityhash / CityHash
-* http://bellard.org/tcc / Tiny C Compiler
 * http://xquartz.macosforge.org/landing / XQuartz
 * http://brew.sh / Homebrew
