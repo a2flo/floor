@@ -559,7 +559,7 @@ REL_OPT_LD_FLAGS="-flto"
 # osx/ios: set min version
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
-		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.7"
+		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.9"
 	else
 		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=7.0"
 	fi
