@@ -18,7 +18,7 @@
 
 #include <floor/compute/llvm_compute.hpp>
 
-#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA)
 
 #if !defined(FLOOR_COMPUTE_CLANG)
 #define FLOOR_COMPUTE_CLANG "compute_clang"
@@ -28,8 +28,8 @@
 #define FLOOR_COMPUTE_LLC "compute_llc"
 #endif
 
-#if !defined(FLOOR_CUDA_CL_LIBCXX_PATH)
-#define FLOOR_CUDA_CL_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
+#if !defined(FLOOR_CUDA_LIBCXX_PATH)
+#define FLOOR_CUDA_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
 #endif
 
 cudacl* llvm_compute::cucl { nullptr };
@@ -62,7 +62,7 @@ void llvm_compute::compile_kernel(const string& code) {
 		" -DPLATFORM_X64" \
 		" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 		" -include floor/compute/compute_support.hpp" \
-		" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
+		" -isystem " FLOOR_CUDA_LIBCXX_PATH \
 		" -isystem /usr/local/include" \
 		" -m64 -fno-exceptions" \
 		" -o - -"
@@ -79,7 +79,7 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 	" -Dkernel=\"__attribute__((global))\"" \
 	" -include floor/compute/compute_support.hpp" \
-	" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
+	" -isystem " FLOOR_CUDA_LIBCXX_PATH \
 	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S";
 	
@@ -97,7 +97,7 @@ void llvm_compute::compile_kernel(const string& code) {
 	" -DPLATFORM_X64" \
 	" -DFLOOR_CL_CONSTANT=constant" \
 	" -include floor/compute/compute_support.hpp" \
-	" -isystem " FLOOR_CUDA_CL_LIBCXX_PATH \
+	" -isystem " FLOOR_CUDA_LIBCXX_PATH \
 	" -isystem /usr/local/include" \
 	" -m64 -fno-exceptions -Ofast -emit-llvm -S -o - -"; // TODO: 2>&1 // > code_spir64.ll";
 	

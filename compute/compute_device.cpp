@@ -16,24 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONF_HPP__
-#define __FLOOR_CONF_HPP__
+#include <floor/compute/compute_device.hpp>
 
-// if defined, this disables cuda support
-//#define FLOOR_NO_CUDA 1
-
-// if defined, this disable opencl support and possibly enabled cuda support
-//#define FLOOR_NO_OPENCL 1
-
-// if defined, this disabled openal support
-//#define FLOOR_NO_OPENAL 1
-
-// if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
-// and instantiate them for various basic types (float, int, ...)
-#define FLOOR_EXPORT 1
-
-// if defined, this will create opencl command queues with enabled profiling and will output profiling
-// information after each kernel execution (times between queued, submit, start and end)
-//#define FLOOR_CL_PROFILING 1
-
-#endif
+compute_device::~compute_device() {}

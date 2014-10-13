@@ -64,7 +64,7 @@
 #endif
 
 //
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 #if defined(__APPLE__)
 #include <CUDA/cuda.h>
 #include <CUDA/cudaGL.h>
@@ -104,6 +104,7 @@ public:
 		GPU0,
 		GPU1,
 		GPU2,
+		GPU3,
 		GPU4,
 		GPU5,
 		GPU6,
@@ -653,7 +654,7 @@ protected:
 	
 };
 
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 struct cuda_kernel_object;
 //! opencl_base implementation on top of cuda
 class cudacl : public opencl_base {

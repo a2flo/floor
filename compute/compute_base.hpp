@@ -21,12 +21,17 @@
 
 #include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
-
 // TODO: implement these
 class compute_kernel;
 class compute_buffer;
-class compute_device;
+class compute_queue;
+#include <floor/compute/compute_device.hpp>
+
+// necessary here, because there are no out-of-line virtual method definitions
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
 
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_base {
@@ -43,35 +48,11 @@ public:
 					  const bool gl_sharing = true,
 					  const set<string> device_restriction = set<string> {}) = 0;
 	
+	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
+	virtual bool is_supported() const = 0;
+	
 	//////////////////////////////////////////
 	// enums
-	
-	//! device types for device selection
-	enum class DEVICE_TYPE : uint32_t {
-		NONE,
-		FASTEST_GPU,
-		FASTEST_CPU,
-		ALL_GPU,
-		ALL_CPU,
-		ALL_DEVICES,
-		GPU0,
-		GPU1,
-		GPU2,
-		GPU4,
-		GPU5,
-		GPU6,
-		GPU7,
-		GPU255 = GPU0+255,
-		CPU0,
-		CPU1,
-		CPU2,
-		CPU3,
-		CPU4,
-		CPU5,
-		CPU6,
-		CPU7,
-		CPU255 = CPU0+255
-	};
 	
 	//! opencl and cuda platform vendors
 	enum class PLATFORM_VENDOR : uint32_t {
@@ -85,16 +66,20 @@ public:
 		UNKNOWN
 	};
 	
-	//! opencl and cuda device vendors
-	enum class DEVICE_VENDOR : uint32_t {
-		NVIDIA,
-		INTEL,
-		AMD,
-		APPLE,
-		FREEOCL,
-		POCL,
-		UNKNOWN
-	};
+	//! returns a string representation of the specified PLATFORM_VENDOR enum
+	static constexpr const char* platform_vendor_to_str(const PLATFORM_VENDOR& pvendor) {
+		switch(pvendor) {
+			case PLATFORM_VENDOR::NVIDIA: return "NVIDIA";
+			case PLATFORM_VENDOR::INTEL: return "INTEL";
+			case PLATFORM_VENDOR::AMD: return "AMD";
+			case PLATFORM_VENDOR::APPLE: return "APPLE";
+			case PLATFORM_VENDOR::FREEOCL: return "FREEOCL";
+			case PLATFORM_VENDOR::POCL: return "POCL";
+			case PLATFORM_VENDOR::CUDA: return "CUDA";
+			case PLATFORM_VENDOR::UNKNOWN: break;
+		}
+		return "UNKNOWN";
+	}
 	
 	//////////////////////////////////////////
 	// basic control functions
@@ -133,9 +118,23 @@ public:
 	virtual void execute_kernel(weak_ptr<compute_kernel> kernel) = 0;
 	
 protected:
+	//! platform vendor enum (set after initialization)
+	PLATFORM_VENDOR platform_vendor { PLATFORM_VENDOR::UNKNOWN };
+	
+	//! true if compute support (set after initialization)
+	bool supported { false };
+	
+	//! all compute devices of the current compute context
+	vector<unique_ptr<compute_device>> devices;
+	//! pointer to the fastest cpu compute_device if it exists
+	compute_device* fastest_cpu_device { nullptr };
+	//! pointer to the fastest gpu compute_device if it exists
+	compute_device* fastest_gpu_device { nullptr };
 	
 };
 
+#if defined(__clang__)
+#pragma clang diagnostic pop
 #endif
 
 #endif

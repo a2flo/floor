@@ -21,7 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA)
 
 #include <floor/cl/opencl.hpp>
 

@@ -18,7 +18,7 @@
 
 #include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)

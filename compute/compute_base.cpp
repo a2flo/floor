@@ -18,8 +18,4 @@
 
 #include <floor/compute/compute_base.hpp>
 
-#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA_CL)
-
 compute_base::~compute_base() {}
-
-#endif

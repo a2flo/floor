@@ -133,7 +133,6 @@ for arg in "$@"; do
 			;;
 		"no-opencl")
 			BUILD_CONF_OPENCL=0
-			BUILD_CONF_CUDA=0
 			;;
 		"no-cuda")
 			BUILD_CONF_CUDA=0
@@ -252,7 +251,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio cl compute constexpr core cuda floor hash lang math net net/boost_system threading"
+SRC_SUB_DIRS="audio cl compute compute/cuda compute/opencl constexpr core cuda floor hash lang math net net/boost_system threading"
 if [ $BUILD_OS == "osx" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
 elif [ $BUILD_OS == "ios" ]; then
@@ -469,7 +468,7 @@ set_conf_val() {
 		CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/#define ${define} 1/g")
 	fi
 }
-set_conf_val "###FLOOR_CUDA_CL###" "FLOOR_NO_CUDA_CL" ${BUILD_CONF_CUDA}
+set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}

@@ -16,24 +16,35 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_CONF_HPP__
-#define __FLOOR_CONF_HPP__
+#ifndef __FLOOR_OPENCL_DEVICE_HPP__
+#define __FLOOR_OPENCL_DEVICE_HPP__
 
-// if defined, this disables cuda support
-//#define FLOOR_NO_CUDA 1
+#include <floor/core/essentials.hpp>
 
-// if defined, this disable opencl support and possibly enabled cuda support
-//#define FLOOR_NO_OPENCL 1
+#if !defined(FLOOR_NO_OPENCL)
 
-// if defined, this disabled openal support
-//#define FLOOR_NO_OPENAL 1
+#include <floor/compute/compute_device.hpp>
 
-// if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
-// and instantiate them for various basic types (float, int, ...)
-#define FLOOR_EXPORT 1
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
 
-// if defined, this will create opencl command queues with enabled profiling and will output profiling
-// information after each kernel execution (times between queued, submit, start and end)
-//#define FLOOR_CL_PROFILING 1
+enum class OPENCL_VERSION : uint32_t;
+
+class opencl_device final : public compute_device {
+public:
+	~opencl_device() override {}
+	
+	//! opencl c version of the device
+	OPENCL_VERSION c_version;
+	
+};
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
+#endif
 
 #endif

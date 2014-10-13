@@ -33,11 +33,10 @@ on Linux and FreeBSD:
 ** export LIBGL_ALWAYS_INDIRECT=yes
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 
-on Windows/MinGW:
-* install custom MinGW builds (with clang 3.5+ and libc++)
-* install "MSYS":http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29/ to your MinGW folder
-* build/install all necessary libraries, including libc++ (-> Credits)
-* add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/mingw/mingw32/")
+on Windows/MinGW/MSYS2:
+* install "MSYS2":http://sourceforge.net/projects/msys2
+* build/install all necessary libraries and clang 3.5+ for mingw32, including libc++ (-> Credits)
+* add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/msys/mingw32/")
 * add the "mingw/bin" path to the Windows system environment variable called "PATH"
 * run "./build.sh"
 * make
@@ -70,7 +69,7 @@ on iOS:
 *Optional:*
 In the future, there will be more configuration options (defines) that can disable certain parts of floor that aren't wanted or needed (e.g. networking).
 Right now, only CUDA, OpenCL and OpenAL can be disabled:
-* to disable CUDA: define "FLOOR_NO_CUDA_CL"
+* to disable CUDA: define "FLOOR_NO_CUDA"
 * to disable OpenCL: define "FLOOR_NO_OPENCL"
 * to disable OpenAL: define "FLOOR_NO_OPENAL"
 
@@ -78,7 +77,8 @@ Right now, only CUDA, OpenCL and OpenAL can be disabled:
 * http://www.libsdl.org / SDL2 and SDL2_image
 * http://www.libpng.org / libpng
 * http://www.xmlsoft.org / libxml2
-* http://mingw-w64.sourceforge.net / MinGW-w64/MSYS environment
+* http://mingw-w64.sourceforge.net / MinGW-w64 environment
+* http://sourceforge.net/projects/msys2 / MSYS2
 * http://www.freetype.org / FreeType2
 * http://www.dejavu-fonts.org / Bitstream DejaVu Fonts
 * http://clang.llvm.org / clang

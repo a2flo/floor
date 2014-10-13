@@ -498,7 +498,7 @@ void floor::init_internal(const bool use_gl32_core
 #if !defined(FLOOR_NO_OPENCL)
 		// check if a cudacl or pure opencl context should be created
 		// use absolute path
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 		if(config.opencl_platform == "cuda") {
 			log_debug("initializing cuda ...");
 			ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
@@ -511,7 +511,7 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 			log_debug("initializing opencl ...");
 			ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 		}
 #endif
 #endif

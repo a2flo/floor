@@ -130,7 +130,7 @@ vector<pair<opencl_base::PLATFORM_VENDOR, string>> opencl_base::get_platforms() 
 	available_platforms.push_back({ PLATFORM_VENDOR::APPLE, "0" });
 #endif
 	
-#if !defined(FLOOR_NO_CUDA_CL)
+#if !defined(FLOOR_NO_CUDA)
 	available_platforms.push_back({ PLATFORM_VENDOR::CUDA, "cuda" });
 #endif
 	

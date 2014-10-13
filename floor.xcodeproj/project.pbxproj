@@ -122,6 +122,18 @@
 		5CD2174119E9213B0049D6AE /* compute_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2173F19E9213B0049D6AE /* compute_base.hpp */; };
 		5CD2174219E9213B0049D6AE /* compute_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2174019E9213B0049D6AE /* compute_base.cpp */; };
 		5CD2174319E9213B0049D6AE /* compute_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2174019E9213B0049D6AE /* compute_base.cpp */; };
+		5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
+		5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
+		5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2175419E985D80049D6AE /* cuda_compute.hpp */; };
+		5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175619E985D80049D6AE /* opencl_compute.cpp */; };
+		5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175619E985D80049D6AE /* opencl_compute.cpp */; };
+		5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2175719E985D80049D6AE /* opencl_compute.hpp */; };
+		5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2175E19EA9D620049D6AE /* compute_device.hpp */; };
+		5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175F19EA9D620049D6AE /* compute_device.cpp */; };
+		5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175F19EA9D620049D6AE /* compute_device.cpp */; };
+		5CD2176519EAA8800049D6AE /* opencl_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2176319EAA8800049D6AE /* opencl_device.cpp */; };
+		5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2176319EAA8800049D6AE /* opencl_device.cpp */; };
+		5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2176419EAA8800049D6AE /* opencl_device.hpp */; };
 		5CE0BDC919BA3469000B28B3 /* const_math.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDC819BA3469000B28B3 /* const_math.cpp */; };
 		5CE0BDCA19BA3469000B28B3 /* const_math.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDC819BA3469000B28B3 /* const_math.cpp */; };
 		5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */; };
@@ -249,6 +261,15 @@
 		5CC2F78818678AAD0031E08D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = Library/Frameworks/UIKit.framework; sourceTree = DEVELOPER_DIR; };
 		5CD2173F19E9213B0049D6AE /* compute_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_base.hpp; sourceTree = "<group>"; };
 		5CD2174019E9213B0049D6AE /* compute_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_base.cpp; sourceTree = "<group>"; };
+		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
+		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
+		5CD2175619E985D80049D6AE /* opencl_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_compute.cpp; sourceTree = "<group>"; };
+		5CD2175719E985D80049D6AE /* opencl_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_compute.hpp; sourceTree = "<group>"; };
+		5CD2175E19EA9D620049D6AE /* compute_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_device.hpp; sourceTree = "<group>"; };
+		5CD2175F19EA9D620049D6AE /* compute_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_device.cpp; sourceTree = "<group>"; };
+		5CD2176319EAA8800049D6AE /* opencl_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_device.cpp; sourceTree = "<group>"; };
+		5CD2176419EAA8800049D6AE /* opencl_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_device.hpp; sourceTree = "<group>"; };
+		5CD2176819EBEC4B0049D6AE /* README.textile */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.textile; sourceTree = "<group>"; };
 		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
 		5CE0BDC819BA3469000B28B3 /* const_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = const_math.cpp; sourceTree = "<group>"; };
 		5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_lib.cpp; sourceTree = "<group>"; };
@@ -529,9 +550,13 @@
 			children = (
 				5CD2174019E9213B0049D6AE /* compute_base.cpp */,
 				5CD2173F19E9213B0049D6AE /* compute_base.hpp */,
+				5CD2175F19EA9D620049D6AE /* compute_device.cpp */,
+				5CD2175E19EA9D620049D6AE /* compute_device.hpp */,
 				5C78010319D5CC4700853135 /* compute_support.hpp */,
 				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
 				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
+				5CD2175219E985D80049D6AE /* cuda */,
+				5CD2175519E985D80049D6AE /* opencl */,
 			);
 			path = compute;
 			sourceTree = "<group>";
@@ -542,6 +567,7 @@
 				5C81C42F17E59FE800FE6791 /* install.sh */,
 				5C782595187226DA00725EAF /* floor_prefix.pch */,
 				5C0686BC19C95FD800CF63C8 /* build.sh */,
+				5CD2176819EBEC4B0049D6AE /* README.textile */,
 			);
 			name = build;
 			sourceTree = "<group>";
@@ -579,6 +605,26 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		5CD2175219E985D80049D6AE /* cuda */ = {
+			isa = PBXGroup;
+			children = (
+				5CD2175319E985D80049D6AE /* cuda_compute.cpp */,
+				5CD2175419E985D80049D6AE /* cuda_compute.hpp */,
+			);
+			path = cuda;
+			sourceTree = "<group>";
+		};
+		5CD2175519E985D80049D6AE /* opencl */ = {
+			isa = PBXGroup;
+			children = (
+				5CD2175619E985D80049D6AE /* opencl_compute.cpp */,
+				5CD2175719E985D80049D6AE /* opencl_compute.hpp */,
+				5CD2176319EAA8800049D6AE /* opencl_device.cpp */,
+				5CD2176419EAA8800049D6AE /* opencl_device.hpp */,
+			);
+			path = opencl;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -605,9 +651,11 @@
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C4A85B118F953590039BFD4 /* lexer.hpp in Headers */,
+				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C1091A017D1153E007F536E /* cl.hpp in Headers */,
+				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */,
@@ -625,7 +673,9 @@
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
 				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
+				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
+				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
 				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
@@ -736,10 +786,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
+				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
 				5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */,
+				5CD2176519EAA8800049D6AE /* opencl_device.cpp in Sources */,
 				5C4A85AC18F953590039BFD4 /* lang_context.cpp in Sources */,
 				5C4A85BC18F95EE40039BFD4 /* parser.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
@@ -760,6 +813,7 @@
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
+				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5C1091D517D117B8007F536E /* city.cpp in Sources */,
@@ -793,7 +847,9 @@
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
 				5C7173B318D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5C4A85B018F953590039BFD4 /* lexer.cpp in Sources */,
+				5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */,
 				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,
+				5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */,
 				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
@@ -803,8 +859,10 @@
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
 				5CAEC251186799BE00BEC3A3 /* city.cpp in Sources */,
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
+				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
 				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
+				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
 				5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */,

@@ -76,4 +76,10 @@ using namespace std;
 // essentials (should be included after system/c++ headers)
 #include <floor/core/essentials.hpp>
 
+// minor type_trait extension
+#if !defined(FLOOR_HAS_IS_VECTOR)
+template <typename any_type> struct is_vector : public false_type {};
+template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
+#endif
+
 #endif
