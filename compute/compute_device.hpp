@@ -19,6 +19,10 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_HPP__
 #define __FLOOR_COMPUTE_DEVICE_HPP__
 
+#include <string>
+#include <vector>
+#include <floor/math/vector.hpp>
+
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wweak-vtables"

@@ -18,6 +18,7 @@
 
 #include <floor/threading/task.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 
 task::task(std::function<void()> op_, const string task_name_) :
 op(op_), task_name(task_name_),
