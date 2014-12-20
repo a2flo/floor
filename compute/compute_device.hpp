@@ -21,7 +21,7 @@
 
 #include <string>
 #include <vector>
-#include <floor/math/vector.hpp>
+#include <floor/math/vector_lib.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
