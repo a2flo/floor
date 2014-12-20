@@ -138,4 +138,7 @@
 // const_string
 #include <floor/constexpr/const_string.hpp>
 
+// clang thread safety analysis
+#include <floor/threading/thread_safety.hpp>
+
 #endif

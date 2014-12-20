@@ -255,6 +255,10 @@
 		5CAEC2721867A41500BEC3A3 /* libSDL2_image.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2_image.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/lib/libSDL2_image.a; sourceTree = DEVELOPER_DIR; };
 		5CAEC2731867A41500BEC3A3 /* libSDL2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL2.a; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/usr/lib/libSDL2.a; sourceTree = DEVELOPER_DIR; };
 		5CAEC2761867AC4A00BEC3A3 /* OpenCL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenCL.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.sdk/System/Library/PrivateFrameworks/OpenCL.framework; sourceTree = DEVELOPER_DIR; };
+		5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = thread_safety.hpp; sourceTree = "<group>"; };
+		5CBD02E01A45F65400B1F4A1 /* atomic_shared_ptr.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomic_shared_ptr.hpp; sourceTree = "<group>"; };
+		5CBD02E11A45F65400B1F4A1 /* atomic_spin_lock.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomic_spin_lock.hpp; sourceTree = "<group>"; };
+		5CBD02E21A45F7E900B1F4A1 /* atomics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomics.hpp; sourceTree = "<group>"; };
 		5CC2F77518678AAC0031E08D /* libfloord.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		5CC2F78518678AAD0031E08D /* XCTest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XCTest.framework; path = Library/Frameworks/XCTest.framework; sourceTree = DEVELOPER_DIR; };
@@ -436,10 +440,14 @@
 		5C10919B17D1153E007F536E /* threading */ = {
 			isa = PBXGroup;
 			children = (
+				5CBD02E21A45F7E900B1F4A1 /* atomics.hpp */,
+				5CBD02E01A45F65400B1F4A1 /* atomic_shared_ptr.hpp */,
+				5CBD02E11A45F65400B1F4A1 /* atomic_spin_lock.hpp */,
 				5C10919C17D1153E007F536E /* task.cpp */,
 				5C10919D17D1153E007F536E /* task.hpp */,
 				5C10919E17D1153E007F536E /* thread_base.cpp */,
 				5C10919F17D1153E007F536E /* thread_base.hpp */,
+				5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */,
 			);
 			path = threading;
 			sourceTree = "<group>";

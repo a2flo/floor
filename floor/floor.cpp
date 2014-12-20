@@ -267,6 +267,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", (size_t)logger::LOG_TYPE::UNDECORATED);
 		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
 		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
+		config.log_use_time = config_doc.get<bool>("config.logging.use_time", true);
+		config.log_use_color = config_doc.get<bool>("config.logging.use_color", true);
 		config.log_filename = config_doc.get<string>("config.logging.log_filename", "log.txt");
 		config.msg_filename = config_doc.get<string>("config.logging.msg_filename", "msg.txt");
 		
@@ -300,6 +302,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	
 	// init logger and print out floor info
 	logger::init(config.verbosity, config.separate_msg_file, config.append_mode,
+				 config.log_use_time, config.log_use_color,
 				 config.log_filename, config.msg_filename);
 	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
 	

@@ -16,6 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <sys/time.h>
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_base.hpp>
 #include <floor/core/cpp_headers.hpp>
@@ -26,16 +27,20 @@
 #include <SDL.h>
 #endif
 
-static string log_filename = "log.txt", msg_filename = "msg.txt";
+static string log_filename { "log.txt" }, msg_filename { "msg.txt" };
 static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
 static atomic<unsigned int> log_err_counter { 0u };
 static logger::LOG_TYPE log_verbosity { logger::LOG_TYPE::UNDECORATED };
 static bool log_append_mode { false };
-static vector<pair<logger::LOG_TYPE, string>> log_store, log_output_store;
-static mutex log_store_lock;
+static safe_mutex log_store_lock;
+static vector<pair<logger::LOG_TYPE, string>> log_store GUARDED_BY(log_store_lock), log_output_store;
+static bool log_use_time { true };
+static bool log_use_color { true };
 
 class logger_thread final : thread_base {
 public:
+	atomic<uint32_t> run_num { 0 };
+	
 	logger_thread() : thread_base("logger") {
 		this->set_thread_delay(20); // lower to 20ms
 		this->start();
@@ -47,11 +52,11 @@ public:
 		
 		if(log_file != nullptr) {
 			log_file->close();
-			log_file.reset(nullptr);
+			log_file.reset();
 		}
 		if(msg_file != nullptr) {
 			msg_file->close();
-			msg_file.reset(nullptr);
+			msg_file.reset();
 		}
 	}
 	
@@ -129,10 +134,18 @@ void logger_thread::run() {
 	
 	// now that everything has been written, clear the output store
 	log_output_store.clear();
+	
+	// update #runs counter
+	++run_num;
 }
 
-void logger::init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
-				  const string log_filename_, const string msg_filename_) {
+void logger::init(const size_t verbosity,
+					 const bool separate_msg_file,
+					 const bool append_mode,
+					 const bool use_time,
+					 const bool use_color,
+					 const string log_filename_,
+					 const string msg_filename_) {
 	// only allow single init
 	static bool initialized = false;
 	if(initialized) return;
@@ -158,13 +171,29 @@ void logger::init(const size_t verbosity, const bool separate_msg_file, const bo
 	
 	log_verbosity = (logger::LOG_TYPE)verbosity;
 	log_append_mode = append_mode;
+	log_use_time = use_time;
+	log_use_color = use_color;
 	
 	// create+start the logger thread
 	log_thread = make_unique<logger_thread>();
 }
 
 void logger::destroy() {
-	log_thread.reset(nullptr);
+	// only allow single destroy
+	static bool destroyed = false;
+	if(destroyed) return;
+	destroyed = true;
+	
+	log_msg("killing logger ...");
+	log_thread.reset();
+}
+
+void logger::flush() {
+	if(!log_thread) return;
+	const uint32_t cur_run = log_thread->run_num;
+	while(cur_run == log_thread->run_num) {
+		this_thread::yield();
+	}
 }
 
 bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char* file, const char* func) {
@@ -176,21 +205,38 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 	if(type != logger::LOG_TYPE::UNDECORATED) {
 		switch(type) {
 			case LOG_TYPE::ERROR_MSG:
-				buffer << "\033[31m[ERROR]\033[m";
-				buffer << " #" << log_err_counter++ << ":";
+				buffer << (log_use_color ? "\033[31m" : "") << "[ERROR]";
 				break;
 			case LOG_TYPE::WARNING_MSG:
-				buffer << "\033[33m[WARN ]\033[m";
+				buffer << (log_use_color ? "\033[33m" : "") << "[WARNG]";
 				break;
 			case LOG_TYPE::DEBUG_MSG:
-				buffer << "\033[32m[DEBUG]\033[m";
+				buffer << (log_use_color ? "\033[32m" : "") << "[DEBUG]";
 				break;
 			case LOG_TYPE::SIMPLE_MSG:
-				buffer << "\033[34m[ MSG ]\033[m";
+				buffer << (log_use_color ? "\033[34m" : "") << "[ MSG ]";
 				break;
 			case LOG_TYPE::UNDECORATED: break;
 		}
-		buffer << " ";
+		if(log_use_color && type != LOG_TYPE::UNDECORATED) buffer << "\033[m";
+		
+		if(log_use_time) {
+			buffer << "[";
+			char time_str[64];
+			timeval tv;
+			gettimeofday(&tv, nullptr);
+			struct tm* local_time = localtime(&tv.tv_sec);
+			strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
+			buffer << time_str;
+			buffer << ".";
+			buffer << setw(6) << tv.tv_usec << setw(0);
+			buffer << "] ";
+		}
+		else buffer << " ";
+		
+		if(type == LOG_TYPE::ERROR_MSG) {
+			buffer << "#" << log_err_counter++ << ": ";
+		}
 		
 		if(type != logger::LOG_TYPE::SIMPLE_MSG) {
 			// prettify file string (aka strip path)

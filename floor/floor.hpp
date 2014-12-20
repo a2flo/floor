@@ -173,6 +173,8 @@ protected:
 		size_t verbosity = (size_t)logger::LOG_TYPE::UNDECORATED;
 		bool separate_msg_file = false;
 		bool append_mode = false;
+		bool log_use_time = true;
+		bool log_use_color = true;
 		string log_filename = "log.txt";
 		string msg_filename = "msg.txt";
 		

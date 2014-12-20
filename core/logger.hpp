@@ -23,12 +23,14 @@
 #include <sstream>
 #include <type_traits>
 #include <iostream>
+#include <iomanip>
 using namespace std;
 
 //! floor logging functions, use appropriately
 //! note that you don't actually have to use a specific character for %_ to print the
 //! correct type (the ostream operator<< is used and the %_ character is ignored - except
-//! for %x and %X which will print out an integer in hex format)
+//! for %x (lowercase), %X (uppercase) and %Y (uppercase + fill to width) which will print
+//! out an integer in hex format)
 #define log_error(...) logger::log(logger::LOG_TYPE::ERROR_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_warn(...) logger::log(logger::LOG_TYPE::WARNING_MSG, __FILE__, __func__, __VA_ARGS__)
 #define log_debug(...) logger::log(logger::LOG_TYPE::DEBUG_MSG, __FILE__, __func__, __VA_ARGS__)
@@ -47,10 +49,18 @@ public:
 	};
 	
 	//! initializes the logger (opens the log files and creates the logger thread)
-	static void init(const size_t verbosity, const bool separate_msg_file, const bool append_mode,
-					 const string log_filename, const string msg_filename);
+	static void init(const size_t verbosity,
+					 const bool separate_msg_file,
+					 const bool append_mode,
+					 const bool use_time,
+					 const bool use_color,
+					 const string log_filename,
+					 const string msg_filename);
 	//! destroys the logger (also makes sure everything has been written to the console and log file)
 	static void destroy();
+	
+	//! flushes the currently stored log messages (blocks until logger thread has run once)
+	static void flush();
 	
 	// log entry function, this will create a buffer and insert the log msgs start info (type, file name, ...) and
 	// finally call the internal log function (that does the actual logging)
@@ -77,7 +87,7 @@ protected:
 		typedef typename underlying_type<U>::type type;
 	};
 	//! handles the log format
-	//! only %x and %X are supported at the moment, in all other cases the standard ostream operator<< is used!
+	//! only %x, %X and %Y are supported at the moment, in all other cases the standard ostream operator<< is used!
 	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
 		typedef typename decay<T>::type decayed_type;
 		typedef typename conditional<is_enum<decayed_type>::value,
@@ -96,6 +106,13 @@ protected:
 				break;
 			case 'X':
 				buffer << hex << uppercase << "0x" << (print_type)value << nouppercase << dec;
+				break;
+			case 'Y':
+				buffer << hex << uppercase << "0x";
+				buffer << setw(sizeof(T) * 2) << setfill('0');
+				buffer << (print_type)value;
+				buffer << setfill(' ')<< setw(0);
+				buffer << nouppercase << dec;
 				break;
 			default:
 				buffer << (print_type)value;

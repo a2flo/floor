@@ -62,13 +62,9 @@ void thread_base::restart() {
 }
 
 int thread_base::_thread_run(thread_base* this_thread_obj) {
-#if defined(_PTHREAD_H)
-	pthread_setname_np(
-#if !defined(__APPLE__)
-					   this_thread_obj->thread_obj->native_handle(),
-#endif
-					   this_thread_obj->thread_name.c_str());
-#endif
+	this_thread_obj->lock();
+	core::set_current_thread_name(this_thread_obj->thread_name);
+	this_thread_obj->unlock();
 	
 	while(true) {
 		// wait until we get the thread lock
@@ -80,11 +76,11 @@ int thread_base::_thread_run(thread_base* this_thread_obj) {
 				}
 				catch(exception& exc) {
 					log_error("encountered an unhandled exception while running a thread \"%s\": %s",
-							  this_thread_obj->thread_name, exc.what());
+							  core::get_current_thread_name(), exc.what());
 				}
 				catch(...) {
 					log_error("encountered an unhandled exception while running a thread \"%s\"",
-							  this_thread_obj->thread_name);
+							  core::get_current_thread_name());
 				}
 			}
 			this_thread_obj->unlock();

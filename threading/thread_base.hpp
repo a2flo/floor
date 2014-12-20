@@ -23,6 +23,7 @@
 #include <mutex>
 #include <string>
 #include <atomic>
+#include <floor/threading/thread_safety.hpp>
 using namespace std;
 
 //! if you need a class that should be executed in a separate thread, you can use this simple base class to do so.

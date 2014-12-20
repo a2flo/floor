@@ -476,3 +476,26 @@ uint32_t core::get_hw_thread_count() {
 #endif
 	return hw_thread_count;
 }
+
+void core::set_current_thread_name(const string& thread_name) {
+#if defined(_PTHREAD_H)
+	// pthreads restricts name sizes to 15 characters (+one \0)
+	const string name = (thread_name.size() > 15 ? thread_name.substr(0, 15) : thread_name);
+	pthread_setname_np(
+#if !defined(__APPLE__)
+					   pthread_self(),
+#endif
+					   name.c_str());
+#endif
+}
+
+string core::get_current_thread_name() {
+#if defined(_PTHREAD_H)
+	char thread_name[16];
+	pthread_getname_np(pthread_self(), thread_name, sizeof(thread_name));
+	thread_name[15] = 0;
+	return thread_name;
+#else
+	return "<unknown>";
+#endif
+}

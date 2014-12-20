@@ -57,6 +57,20 @@
 #define floor_fallthrough
 #endif
 
+// makes sure a function is (almost) always inlined (GCC+clang)
+#if defined(__GNUC__)
+#define floor_inline_always inline __attribute__((always_inline))
+#else
+#define floor_inline_always inline
+#endif
+
+// marks a function as hidden / doesn't export it
+#if defined(__GNUC__)
+#define floor_hidden __attribute__((visibility("hidden")))
+#else
+#define floor_hidden
+#endif
+
 // compat with device code
 #if !defined(FLOOR_DEVICE)
 #define FLOOR_DEVICE
@@ -77,7 +91,7 @@
 #undef max
 #endif
 
-// if any bool macros get defined for whatever insane reasons, undefine them, because they causes issues
+// if any bool macros get defined for whatever insane reasons, undefine them, because they cause issues
 #if defined(bool)
 #undef bool
 #endif

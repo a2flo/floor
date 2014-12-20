@@ -32,23 +32,22 @@ thread_obj(&task::run, this, [this]() {
 }
 
 void task::run(task* this_task, std::function<void()> task_op) {
-#if defined(_PTHREAD_H)
-	pthread_setname_np(
-#if !defined(__APPLE__)
-					   this_task->thread_obj.native_handle(),
-#endif
-					   this_task->task_name.c_str());
-#endif
+	// the task thread is not allowed to run until the task thread object has been detached from the callers thread
+	while(!this_task->initialized) { this_thread::yield(); }
+	
+	core::set_current_thread_name(this_task->task_name);
 	
 	try {
 		// NOTE: this is the function object created above (not the users task op!)
 		task_op();
 	}
 	catch(exception& exc) {
-		log_error("encountered an unhandled exception while running a task: %s", exc.what());
+		log_error("encountered an unhandled exception while running task \"%s\": %s",
+				  core::get_current_thread_name(), exc.what());
 	}
 	catch(...) {
-		log_error("encountered an unhandled exception while running a task");
+		log_error("encountered an unhandled exception while running task \"%s\"",
+				  core::get_current_thread_name());
 	}
 	delete this_task;
 }

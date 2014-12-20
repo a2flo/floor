@@ -22,6 +22,7 @@
 #include <thread>
 #include <atomic>
 #include <string>
+#include <floor/threading/thread_safety.hpp>
 using namespace std;
 
 class task {
@@ -40,8 +41,8 @@ public:
 protected:
 	const std::function<void()> op;
 	const string task_name;
-	thread thread_obj;
 	atomic<bool> initialized { false };
+	thread thread_obj;
 	
 	//! the tasks threads run method (only used internally)
 	static void run(task* this_task, std::function<void()> task_op);

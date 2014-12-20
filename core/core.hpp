@@ -138,6 +138,12 @@ public:
 	
 	static uint32_t get_hw_thread_count();
 	
+	//! sets the name/label of the current thread to "thread_name" (only works with pthreads)
+	static void set_current_thread_name(const string& thread_name);
+	
+	//! returns the name/label of the current thread (only works with pthreads)
+	static string get_current_thread_name();
+	
 protected:
 	// static class
 	core(const core&) = delete;
