@@ -28,6 +28,8 @@
 #endif
 #endif
 
+#include <floor/constexpr/const_string.hpp>
+
 // TODO
 #define CL_CALL_RET(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); return; }
 #define CL_CALL_CONT(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); continue; }
