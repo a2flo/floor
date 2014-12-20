@@ -210,7 +210,7 @@ FLOOR_CL_INFO_TYPES(FLOOR_CL_INFO_FUNC)
 void opencl_compute::init(const bool use_platform_devices,
 						  const size_t platform_index,
 						  const bool gl_sharing,
-						  const set<string> device_restriction) {
+						  const unordered_set<string> device_restriction) {
 	// get platforms
 	cl_uint platform_count = 0;
 	CL_CALL_RET(clGetPlatformIDs(0, nullptr, &platform_count), "failed to get platform count")

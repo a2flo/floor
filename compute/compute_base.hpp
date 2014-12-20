@@ -19,6 +19,7 @@
 #ifndef __FLOOR_COMPUTE_BASE_HPP__
 #define __FLOOR_COMPUTE_BASE_HPP__
 
+#include <unordered_set>
 #include <floor/core/essentials.hpp>
 
 // TODO: implement these
@@ -46,7 +47,7 @@ public:
 	virtual void init(const bool use_platform_devices = false,
 					  const size_t platform_index = 0,
 					  const bool gl_sharing = true,
-					  const set<string> device_restriction = set<string> {}) = 0;
+					  const unordered_set<string> device_restriction = unordered_set<string> {}) = 0;
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;
