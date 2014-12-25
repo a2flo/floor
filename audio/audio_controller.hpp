@@ -56,7 +56,7 @@ public:
 											 const string& store_identifier,
 											 const audio_source::SOURCE_TYPE type = audio_source::SOURCE_TYPE::AUDIO_3D,
 											 const string source_identifier = "",
-											 const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
+											 const vector<AUDIO_EFFECT> effects = {});
 	
 	//! removes an audio_source from the audio_controller and deletes its data
 	static bool remove_source(weak_ptr<audio_source> source);

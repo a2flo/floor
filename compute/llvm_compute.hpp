@@ -29,9 +29,18 @@ class llvm_compute {
 public:
 	static void init();
 	
+	enum class TARGET {
+		SPIR,
+		PTX,
+	};
+	
 	//
-	static void compile_kernel(const string& code);
-	static void compile_kernel_file(const string& filename);
+	static void compile_kernel(const string& code,
+							   const string additional_options = "",
+							   const TARGET target = TARGET::SPIR);
+	static void compile_kernel_file(const string& filename,
+									const string additional_options = "",
+									const TARGET target = TARGET::SPIR);
 	
 	//
 	static void load_module_from_file(const string& file_name,

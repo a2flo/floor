@@ -59,14 +59,14 @@ public:
 	
 	static weak_ptr<audio_data> add_file(const string& filename,
 										 const string& identifier,
-										 const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
+										 const vector<AUDIO_EFFECT> effects = {});
 	
 	static weak_ptr<audio_data> add_raw(const uint8_t* raw_data,
 										const ALsizei& raw_data_len,
 										const ALenum& format,
 										const ALsizei& frequency,
 										const string& identifier,
-										const vector<AUDIO_EFFECT> effects = vector<AUDIO_EFFECT> {});
+										const vector<AUDIO_EFFECT> effects = {});
 	
 	static bool has_audio_data(const string& identifier);
 	static weak_ptr<audio_data> get_audio_data(const string& identifier);

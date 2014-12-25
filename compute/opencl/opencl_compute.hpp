@@ -70,7 +70,7 @@ public:
 	void init(const bool use_platform_devices = false,
 			  const size_t platform_index = 0,
 			  const bool gl_sharing = true,
-			  const unordered_set<string> device_restriction = unordered_set<string> {}) override;
+			  const unordered_set<string> device_restriction = {}) override;
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	bool is_supported() const override { return supported; }

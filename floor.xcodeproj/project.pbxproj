@@ -148,6 +148,15 @@
 		5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */; };
 		5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */; };
 		5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD719BB2A75000B28B3 /* ray.hpp */; };
+		5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
+		5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
+		5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */; };
+		5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */; };
+		5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */; };
+		5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */; };
+		5CEB9F6D1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
+		5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
+		5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -284,6 +293,12 @@
 		5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5CE0BDD719BB2A75000B28B3 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
+		5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_buffer.cpp; sourceTree = "<group>"; };
+		5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_buffer.hpp; sourceTree = "<group>"; };
+		5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_kernel.cpp; sourceTree = "<group>"; };
+		5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel.hpp; sourceTree = "<group>"; };
+		5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_queue.cpp; sourceTree = "<group>"; };
+		5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_queue.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -558,8 +573,14 @@
 			children = (
 				5CD2174019E9213B0049D6AE /* compute_base.cpp */,
 				5CD2173F19E9213B0049D6AE /* compute_base.hpp */,
+				5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */,
+				5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */,
 				5CD2175F19EA9D620049D6AE /* compute_device.cpp */,
 				5CD2175E19EA9D620049D6AE /* compute_device.hpp */,
+				5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */,
+				5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */,
+				5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */,
+				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
 				5C78010319D5CC4700853135 /* compute_support.hpp */,
 				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
 				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
@@ -678,15 +699,18 @@
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
+				5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */,
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
 				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
+				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
 				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
+				5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */,
 				5C366DDF19A65E11006D1D09 /* const_helpers.hpp in Headers */,
 				5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */,
 				5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */,
@@ -807,6 +831,7 @@
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
+				5CEB9F6D1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85B218F953590039BFD4 /* source_types.cpp in Sources */,
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
@@ -823,8 +848,10 @@
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,
+				5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5C1091D517D117B8007F536E /* city.cpp in Sources */,
+				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5C4A85B718F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
@@ -842,6 +869,7 @@
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C4A85B818F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */,
+				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85AD18F953590039BFD4 /* lang_context.cpp in Sources */,
 				5CD2174319E9213B0049D6AE /* compute_base.cpp in Sources */,
 				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
@@ -861,6 +889,7 @@
 				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
+				5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
@@ -870,6 +899,7 @@
 				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
 				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
+				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,

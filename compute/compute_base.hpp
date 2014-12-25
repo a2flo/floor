@@ -22,11 +22,10 @@
 #include <unordered_set>
 #include <floor/core/essentials.hpp>
 
-// TODO: implement these
-class compute_kernel;
-class compute_buffer;
-class compute_queue;
+#include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_device.hpp>
+#include <floor/compute/compute_kernel.hpp>
+#include <floor/compute/compute_queue.hpp>
 
 // necessary here, because there are no out-of-line virtual method definitions
 #if defined(__clang__)
@@ -47,7 +46,7 @@ public:
 	virtual void init(const bool use_platform_devices = false,
 					  const size_t platform_index = 0,
 					  const bool gl_sharing = true,
-					  const unordered_set<string> device_restriction = unordered_set<string> {}) = 0;
+					  const unordered_set<string> device_restriction = {}) = 0;
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;

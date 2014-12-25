@@ -29,6 +29,7 @@
 #endif
 
 #include <floor/constexpr/const_string.hpp>
+#include <floor/compute/llvm_compute.hpp>
 
 // TODO
 #define CL_CALL_RET(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); return; }
@@ -761,15 +762,19 @@ void opencl_compute::deactivate_context() {
 	// TODO: !
 }
 
-weak_ptr<compute_kernel> opencl_compute::add_kernel_file(const string& file_name floor_unused,
-														 const string additional_options floor_unused) {
-	// TODO: !
-	return {};
+weak_ptr<compute_kernel> opencl_compute::add_kernel_file(const string& file_name,
+														 const string additional_options) {
+	string code;
+	if(!file_io::file_to_string(file_name, code)) {
+		return {};
+	}
+	return add_kernel_source(code, additional_options);
 }
 
-weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_code floor_unused,
-														   const string additional_options floor_unused) {
+weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_code,
+														   const string additional_options) {
 	// TODO: !
+	llvm_compute::compile_kernel(source_code, additional_options, llvm_compute::TARGET::SPIR);
 	return {};
 }
 
