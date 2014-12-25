@@ -18,7 +18,7 @@
 
 #include <floor/compute/llvm_compute.hpp>
 
-#if !defined(FLOOR_NO_OPENCL) && !defined(FLOOR_NO_CUDA)
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 
 #if !defined(FLOOR_COMPUTE_CLANG)
 #define FLOOR_COMPUTE_CLANG "compute_clang"

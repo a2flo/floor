@@ -18,7 +18,10 @@
 
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/core/platform.hpp>
+#include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
+#include <floor/core/file_io.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
@@ -349,7 +352,7 @@ void opencl_compute::init(const bool use_platform_devices,
 		
 #if !defined(__APPLE__)
 		// get platform vendor
-		const string platform_str = platforms[platform_index].getInfo<CL_PLATFORM_NAME>();
+		const string platform_str = cl_get_info<CL_PLATFORM_NAME>(platform);
 		const string platform_vendor_str = core::str_to_lower(platform_str);
 		if(platform_vendor_str.find("nvidia") != string::npos) {
 			platform_vendor = PLATFORM_VENDOR::NVIDIA;
