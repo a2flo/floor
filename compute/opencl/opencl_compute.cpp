@@ -259,6 +259,7 @@ void opencl_compute::init(const bool use_platform_devices,
 		}
 		
 		//
+		vector<cl_device_id> ctx_cl_devices;
 #if defined(__APPLE__)
 		platform_vendor = PLATFORM_VENDOR::APPLE;
 		
@@ -290,7 +291,6 @@ void opencl_compute::init(const bool use_platform_devices,
 		// Note that if a CPU device is specified, the CGL share group must also include the GL float renderer;
 		// Otherwise CL_INVALID_DEVICE will be returned."
 		// -> create a vector of all cpu devices and create the context
-		vector<cl_device_id> ctx_cl_devices;
 		if(apple_gl_sharing) {
 			if(device_restriction.empty() || device_restriction.count("CPU") > 0) {
 				for(const auto& device : all_cl_devices) {
