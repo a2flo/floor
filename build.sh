@@ -350,7 +350,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
 			fi
 		fi
-		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
 	fi
 	
 	# windows/mingw opencl and cuda handling
@@ -455,6 +454,11 @@ fi
 # in case a local or otherwise set up lib is overwriting a system lib and should be used instead)
 LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib"
 INCLUDES="${INCLUDES} -isystem /usr/include -isystem /usr/local/include"
+
+# on linux: must add cuda include folder _after_ /usr/include, because its obsolete CL folder conflicts with the system one
+if [ $BUILD_OS == "linux" ]; then
+	INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
+fi
 
 # create the floor_conf.hpp file
 CONF=$(cat floor/floor_conf.hpp.in)
