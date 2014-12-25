@@ -17,6 +17,7 @@
  */
 
 #include <floor/compute/opencl/opencl_compute.hpp>
+#include <floor/core/cpp_headers.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
