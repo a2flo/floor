@@ -17,7 +17,8 @@
  */
 
 #include <floor/compute/opencl/opencl_compute.hpp>
-#include <floor/core/cpp_headers.hpp>
+#include <floor/core/platform.hpp>
+#include <floor/core/logger.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
@@ -315,20 +316,13 @@ void opencl_compute::init(const bool use_platform_devices,
 			gl_sharing ? (cl_context_properties)wglGetCurrentDC() : 0,
 			0
 		};
-#else // Linux, hopefully *BSD too
-		SDL_SysWMinfo wm_info;
-		SDL_VERSION(&wm_info.version);
-		if(SDL_GetWindowWMInfo(sdl_wnd, &wm_info) != 1) {
-			log_error("couldn't get window manger info!");
-			return;
-		}
-		
+#else // Linux and *BSD
 		cl_context_properties cl_properties[] {
 			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
 			gl_sharing ? CL_GL_CONTEXT_KHR : 0,
 			gl_sharing ? (cl_context_properties)glXGetCurrentContext() : 0,
 			gl_sharing ? CL_GLX_DISPLAY_KHR : 0,
-			gl_sharing ? (cl_context_properties)wm_info.info.x11.display : 0,
+			gl_sharing ? (cl_context_properties)glXGetCurrentDisplay() : 0,
 			0
 		};
 #endif
