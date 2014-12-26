@@ -147,6 +147,15 @@ F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \
 F(cl_context, cl_context_info, CL_CONTEXT_PROPERTIES, vector<cl_context_properties>) \
 F(cl_context, cl_context_info, CL_CONTEXT_NUM_DEVICES, cl_uint) \
+/* cl_program_info */ \
+F(cl_program, cl_program_info, CL_PROGRAM_REFERENCE_COUNT, cl_uint) \
+F(cl_program, cl_program_info, CL_PROGRAM_CONTEXT, cl_context) \
+F(cl_program, cl_program_info, CL_PROGRAM_NUM_DEVICES, cl_uint) \
+F(cl_program, cl_program_info, CL_PROGRAM_DEVICES, vector<cl_device_id>) \
+F(cl_program, cl_program_info, CL_PROGRAM_SOURCE, string) \
+F(cl_program, cl_program_info, CL_PROGRAM_BINARY_SIZES, vector<size_t>) \
+F(cl_program, cl_program_info, CL_PROGRAM_NUM_KERNELS, size_t) \
+F(cl_program, cl_program_info, CL_PROGRAM_KERNEL_NAMES, string) \
 /* cl_program_build_info */ \
 F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_STATUS, cl_build_status) \
 F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_OPTIONS, string) \
@@ -224,6 +233,28 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additiona
 }
 
 FLOOR_CL_INFO_TYPES(FLOOR_CL_INFO_FUNC)
+
+// CL_PROGRAM_BINARIES is rather complicated/different than the other clGet*Info calls, need to add special handling
+template <cl_uint info_type, enable_if_t<info_type == CL_PROGRAM_BINARIES, int> = 0>
+vector<string> cl_get_info(const cl_program& program) {
+	// need to get the binary size for each device first
+	const auto sizes = cl_get_info<CL_PROGRAM_BINARY_SIZES>(program);
+	const auto binary_count = sizes.size();
+	
+	// then allocate enough memory for each binary (+init pointers to our strings, opencl api will write uint8_t data)
+	vector<string> ret(binary_count);
+	vector<uint8_t*> binary_ptrs(binary_count);
+	for(size_t i = 0; i < binary_count; ++i) {
+		ret[i].resize(sizes[i]);
+		binary_ptrs[i] = (uint8_t*)ret[i].data();
+	}
+	
+	// finally: retrieve the binaries
+	clGetProgramInfo(program, CL_PROGRAM_BINARIES, binary_count * sizeof(unsigned char*), &binary_ptrs[0], nullptr);
+	
+	// note: clGetProgramInfo should have directly written into the strings in the return vector
+	return ret;
+}
 
 void opencl_compute::init(const bool use_platform_devices,
 						  const size_t platform_index,
@@ -837,6 +868,14 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 	for(const auto& device : ctx_devices) {
 		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(program, device));
 	}
+	
+#if 1
+	// for testing purposes: retrieve the compiled binaries again
+	const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(program);
+	for(size_t i = 0; i < binaries.size(); ++i) {
+		file_io::string_to_file("binary_" + to_string(i) + ".bin", binaries[i]);
+	}
+#endif
 	
 	return {};
 }

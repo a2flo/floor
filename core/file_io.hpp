@@ -59,7 +59,7 @@ public:
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
 	static bool file_to_string(const string& filename, string& str);
 	static string file_to_string(const string& filename);
-	static bool string_to_file(const string& filename, string& str);
+	static bool string_to_file(const string& filename, const string& str);
 	static bool buffer_to_file(const string& filename, const char* buffer, const size_t& size);
 
 	bool open(const string& filename, OPEN_TYPE open_type);
@@ -87,7 +87,7 @@ public:
 	streampos get_current_read_offset();
 	
 	// file output:
-	void write_file(string& str);
+	void write_file(const string& str);
 	void write_block(const char* data, size_t size, bool check_size = false);
 	void write_terminated_block(const string& str, const uint8_t terminator);
 	void write_char(const uint8_t& ch);

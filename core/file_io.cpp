@@ -275,8 +275,8 @@ streampos file_io::get_current_write_offset() {
 	return filestream.tellp();
 }
 
-void file_io::write_file(string& str) {
-	filestream.write(&str.front(), (streamsize)str.size());
+void file_io::write_file(const string& str) {
+	filestream.write(str.data(), (streamsize)str.size());
 }
 
 /*! writes a block to the current file (offset)
@@ -454,7 +454,7 @@ bool file_io::read_file(string& str) {
 	return true;
 }
 
-bool file_io::string_to_file(const string& filename, string& str) {
+bool file_io::string_to_file(const string& filename, const string& str) {
 	file_io file(filename, file_io::OPEN_TYPE::WRITE);
 	if(!file.is_open()) {
 		return false;
