@@ -789,7 +789,7 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
 	const auto spir_bc = llvm_compute::compile_kernel(source_code, additional_options, llvm_compute::TARGET::SPIR);
 	
-	// opencl api handling ...
+	// opencl api handling
 	vector<size_t> length_ptrs(devices.size());
 	vector<const unsigned char*> binary_ptrs(devices.size());
 	vector<cl_int> binary_status(devices.size());
@@ -799,11 +799,12 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 		binary_status[i] = CL_SUCCESS;
 	}
 	
-	cl_int build_err = CL_SUCCESS;
+	// create the program object ...
+	cl_int create_err = CL_SUCCESS;
 	const cl_program prog = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
-													  &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &build_err);
-	if(build_err != CL_SUCCESS) {
-		log_error("failed to build opencl program: %u", build_err);
+													  &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create opencl program: %u", create_err);
 		log_error("devices binary status: %s", [&binary_status] {
 			string ret;
 			for(const auto& status : binary_status) {
@@ -813,7 +814,13 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 		}());
 		return {};
 	}
-	else log_debug("successfully compiled opencl program: %u!", binary_status[0]);
+	else log_debug("successfully created opencl program!");
+	
+	// ... and build it
+	CL_CALL_ERR_PARAM_RET(clBuildProgram(prog,
+										 0, nullptr, // build for all devices specified when the program was created
+										 additional_options.c_str(), nullptr, nullptr),
+						  build_err, "", {});
 						  
 	return {};
 }
