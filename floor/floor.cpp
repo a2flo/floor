@@ -21,6 +21,7 @@
 #include <floor/cl/opencl.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/audio/audio_controller.hpp>
+#include <floor/core/sig_handler.hpp>
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
@@ -64,49 +65,6 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 
 atomic<bool> floor::reload_kernels_flag { false };
 
-// sig handler
-#if !defined(__WINDOWS__)
-
-// disable recursive macro expansion warnings here, b/c glibc screwed up
-#if defined(__GNU_LIBRARY__)
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-#elif defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdisabled-macro-expansion"
-#endif
-#endif
-
-#include <signal.h>
-#include <execinfo.h>
-static struct sigaction act;
-static void sighandler(int signum floor_unused, siginfo_t* info floor_unused, void* ptr floor_unused) {
-#define STACK_PTR_COUNT 256
-	void* stack_ptrs[STACK_PTR_COUNT];
-	const auto ptr_count = backtrace(stack_ptrs, STACK_PTR_COUNT);
-	char** symbols = backtrace_symbols(stack_ptrs, ptr_count);
-	string stacktrace = "segfault/trap/abort:\n";
-	for(remove_const_t<decltype(ptr_count)> i = 0; i < ptr_count; ++i) {
-		stacktrace += "\t";
-		stacktrace += symbols[i];
-		stacktrace += "\n";
-	}
-	log_error("%s", stacktrace);
-	logger::destroy();
-}
-
-#else
-class win_exception_handler {
-public:
-	static void init() {
-		if(LoadLibraryA("exchndl.dll") == nullptr) {
-			log_error("coudln't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
-		}
-	}
-};
-#endif
-
 // dll main for windows dll export
 #if defined(__WINDOWS__)
 BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPVOID lpReserved floor_unused);
@@ -128,28 +86,8 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
 				 const bool use_gl32_core_, const unsigned int window_flags) {
-#if !defined(__WINDOWS__)
-	// sig handler setup
-	memset(&act, 0, sizeof(act));
-	act.sa_sigaction = sighandler;
-	// must cast all to int, b/c glibc ...
-	act.sa_flags = int(SA_SIGINFO) | int(SA_NODEFER) | int(SA_RESETHAND);
-	sigaction(SIGSEGV, &act, nullptr);
-	sigaction(SIGTRAP, &act, nullptr);
-	sigaction(SIGABRT, &act, nullptr);
-
-	// reenable warnings that were disabled above, b/c of glibc
-#if defined(__GNU_LIBRARY__)
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#elif defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
-#endif
-	
-#else
-	win_exception_handler::init();
-#endif
+	//
+	register_segfault_handler();
 	
 	floor::callpath = callpath_;
 	floor::datapath = callpath_;

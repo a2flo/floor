@@ -157,6 +157,9 @@
 		5CEB9F6D1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
 		5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
 		5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */; };
+		5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
+		5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
+		5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -299,6 +302,8 @@
 		5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel.hpp; sourceTree = "<group>"; };
 		5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_queue.cpp; sourceTree = "<group>"; };
 		5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_queue.hpp; sourceTree = "<group>"; };
+		5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sig_handler.cpp; sourceTree = "<group>"; };
+		5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = sig_handler.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -400,6 +405,8 @@
 				5C10917617D1153E007F536E /* logger.cpp */,
 				5C10917717D1153E007F536E /* logger.hpp */,
 				5C10917A17D1153E007F536E /* platform.hpp */,
+				5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */,
+				5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */,
 				5C10917B17D1153E007F536E /* timer.hpp */,
 				5C10917C17D1153E007F536E /* unicode.cpp */,
 				5C10917D17D1153E007F536E /* unicode.hpp */,
@@ -706,6 +713,7 @@
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
+				5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */,
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
@@ -830,6 +838,7 @@
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
+				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5CEB9F6D1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85B218F953590039BFD4 /* source_types.cpp in Sources */,
@@ -890,6 +899,7 @@
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
 				5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
+				5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,

@@ -21,6 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 
+// TODO: make this compile with either opencl or cuda disabled (currently requires cuda if opencl is enabled)
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 
 #include <floor/cl/opencl.hpp>
