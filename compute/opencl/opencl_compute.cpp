@@ -146,7 +146,11 @@ F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, cl_uint)
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \
 F(cl_context, cl_context_info, CL_CONTEXT_PROPERTIES, vector<cl_context_properties>) \
-F(cl_context, cl_context_info, CL_CONTEXT_NUM_DEVICES, cl_uint)
+F(cl_context, cl_context_info, CL_CONTEXT_NUM_DEVICES, cl_uint) \
+/* cl_program_build_info */ \
+F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_STATUS, cl_build_status) \
+F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_OPTIONS, string) \
+F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_LOG, string)
 
 template <cl_uint info_type> struct cl_info_type;
 template <typename cl_info_object, cl_uint info_type> struct cl_is_valid_info_type : public false_type {};
@@ -160,30 +164,36 @@ template <> struct cl_is_valid_info_type<object_type, info_type> : public true_t
 
 FLOOR_CL_INFO_RET_TYPES(FLOOR_CL_INFO_RET_TYPE_SPEC)
 
+// handle additional arguments for certain clGet*Info functions
+#define FLOOR_CI_NO_ADD()
+#define FLOOR_CI_PROGRAM_BUILD_INFO_ARGS() , const cl_device_id& device
+#define FLOOR_CI_PROGRAM_BUILD_INFO_ARG_NAMES() , device
+
 // TODO
 #define FLOOR_CL_INFO_TYPES(F) \
-F(cl_platform_id, cl_platform_info, clGetPlatformInfo) \
-F(cl_device_id, cl_device_info, clGetDeviceInfo) \
-F(cl_context, cl_context_info, clGetContextInfo) \
-F(cl_command_queue, cl_command_queue_info, clGetCommandQueueInfo) \
-F(cl_mem, cl_mem_info, clGetMemObjectInfo) \
-F(cl_mem, cl_image_info, clGetImageInfo) \
-F(cl_sampler, cl_sampler_info, clGetSamplerInfo) \
-F(cl_program, cl_program_info, clGetProgramInfo) \
-F(cl_kernel, cl_kernel_info, clGetKernelInfo) \
-F(cl_event, cl_event_info, clGetEventInfo) \
-F(cl_event, cl_profiling_info, clGetEventProfilingInfo)
+F(cl_platform_id, cl_platform_info, clGetPlatformInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_device_id, cl_device_info, clGetDeviceInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_context, cl_context_info, clGetContextInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_command_queue, cl_command_queue_info, clGetCommandQueueInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_mem, cl_mem_info, clGetMemObjectInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_mem, cl_image_info, clGetImageInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_sampler, cl_sampler_info, clGetSamplerInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_program, cl_program_info, clGetProgramInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_program, cl_program_build_info, clGetProgramBuildInfo, FLOOR_CI_PROGRAM_BUILD_INFO_ARGS, FLOOR_CI_PROGRAM_BUILD_INFO_ARG_NAMES) \
+F(cl_kernel, cl_kernel_info, clGetKernelInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_event, cl_event_info, clGetEventInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD)
 
-#define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func) \
+#define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func, additional_args, additional_arg_names) \
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   !is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	ret_type ret {}; \
-	cl_info_func(obj, info_type, sizeof(ret_type), &ret, nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type, sizeof(ret_type), &ret, nullptr); \
 	return ret; \
 } \
 template <cl_uint info_type, \
@@ -191,11 +201,11 @@ template <cl_uint info_type, \
 					   is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   !is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
 	size_t buf_size = 0; \
-	cl_info_func(obj, info_type, 0, nullptr, &buf_size); \
+	cl_info_func(obj additional_arg_names() , info_type, 0, nullptr, &buf_size); \
 	vector<char> info(buf_size); \
-	cl_info_func(obj, info_type, buf_size, info.data(), nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type, buf_size, info.data(), nullptr); \
 	return (buf_size > 0 ? string(info.data(), buf_size - 1 /* trim \0 */) : ""); \
 } \
 template <cl_uint info_type, \
@@ -203,13 +213,13 @@ template <cl_uint info_type, \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	typedef typename ret_type::value_type value_type; \
 	size_t params_size = 0; \
-	cl_info_func(obj, info_type, 0, nullptr, &params_size); \
+	cl_info_func(obj additional_arg_names() , info_type, 0, nullptr, &params_size); \
 	ret_type ret(params_size / sizeof(value_type)); \
-	cl_info_func(obj, info_type, params_size, ret.data(), nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type, params_size, ret.data(), nullptr); \
 	return ret; \
 }
 
@@ -801,8 +811,8 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
-	const cl_program prog = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
-													  &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &create_err);
+	const cl_program program = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
+														 &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &create_err);
 	if(create_err != CL_SUCCESS) {
 		log_error("failed to create opencl program: %u", create_err);
 		log_error("devices binary status: %s", [&binary_status] {
@@ -817,11 +827,17 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 	else log_debug("successfully created opencl program!");
 	
 	// ... and build it
-	CL_CALL_ERR_PARAM_RET(clBuildProgram(prog,
+	CL_CALL_ERR_PARAM_RET(clBuildProgram(program,
 										 0, nullptr, // build for all devices specified when the program was created
 										 additional_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", {});
-						  
+	
+	
+	// print out build log
+	for(const auto& device : ctx_devices) {
+		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(program, device));
+	}
+	
 	return {};
 }
 
