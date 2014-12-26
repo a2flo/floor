@@ -510,6 +510,7 @@ void opencl_compute::init(const bool use_platform_devices,
 					log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
 				}
 			}
+			log_msg("extensions: \"%s\"", cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev));
 			
 			device.vendor = compute_device::VENDOR::UNKNOWN;
 			string vendor_str = core::str_to_lower(device.vendor_name);
