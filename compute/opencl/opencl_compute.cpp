@@ -348,7 +348,7 @@ void opencl_compute::init(const bool use_platform_devices,
 		log_msg("platform vendor: \"%s\"", cl_get_info<CL_PLATFORM_VENDOR>(platform));
 		log_msg("platform version: \"%s\"", cl_get_info<CL_PLATFORM_VERSION>(platform));
 		log_msg("platform profile: \"%s\"", cl_get_info<CL_PLATFORM_PROFILE>(platform));
-		log_msg("platform extensions: \"%s\"", cl_get_info<CL_PLATFORM_EXTENSIONS>(platform));
+		log_msg("platform extensions: \"%s\"", core::trim(cl_get_info<CL_PLATFORM_EXTENSIONS>(platform)));
 		
 #if !defined(__APPLE__)
 		// get platform vendor
@@ -624,6 +624,16 @@ void opencl_compute::init(const bool use_platform_devices,
 					  device.version_str,
 					  device.driver_version_str,
 					  cl_c_version_str);
+
+			// there is no spir support on apple platforms, so don't even try this
+			// TODO: figure out how to hook into apples llvm opencl compiler (which is based on clang/llvm 3.2 as well)
+#if !defined(__APPLE__)
+			if(find(begin(device.extensions), end(device.extensions), "cl_khr_spir") == end(device.extensions)) {
+				log_error("device does not support \"cl_khr_spir\", removing it!");
+				devices.pop_back();
+				continue;
+			}
+#endif
 		}
 		
 		// no supported devices found
