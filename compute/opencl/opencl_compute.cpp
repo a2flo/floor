@@ -803,6 +803,7 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 		}());
 		return {};
 	}
+	else log_debug("successfully compiled opencl program: %u!", binary_status[0]);
 						  
 	return {};
 }
