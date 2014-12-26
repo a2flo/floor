@@ -136,6 +136,7 @@ public:
 	static unsigned int get_rdouble_click_time();
 	
 	// opencl
+	static const string& get_opencl_platform();
 	static bool get_gl_sharing();
 	static bool get_log_binaries();
 	

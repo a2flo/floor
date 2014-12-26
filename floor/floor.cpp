@@ -951,6 +951,10 @@ float floor::get_scale_factor() {
 #endif
 }
 
+const string& floor::get_opencl_platform() {
+	return config.opencl_platform;
+}
+
 bool floor::get_gl_sharing() {
 	return config.gl_sharing;
 }
