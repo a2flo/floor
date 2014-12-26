@@ -41,7 +41,7 @@ void llvm_compute::init() {
 	cucl = (cudacl*)ocl;
 }
 
-void llvm_compute::compile_kernel(const string& code, const string additional_options, const TARGET target) {
+string llvm_compute::compile_kernel(const string& code, const string additional_options, const TARGET target) {
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
 	//  -enable-unsafe-fp-math
@@ -85,6 +85,10 @@ void llvm_compute::compile_kernel(const string& code, const string additional_op
 		string spir_encoder_output = "";
 		core::system(spir_3_2_encoder_cmd, spir_encoder_output);
 		log_msg("spir encoder: %s", spir_encoder_output);
+		
+		string spir_bc;
+		if(!file_io::file_to_string("spir_3_2.bc", spir_bc)) return "";
+		return spir_bc;
 	}
 	else if(target == TARGET::PTX) {
 		const string preprocess_cuda_cmd {
@@ -138,11 +142,14 @@ void llvm_compute::compile_kernel(const string& code, const string additional_op
 		string bc_output = "";
 		core::system(ptx_bc_cmd, bc_output);
 		log_msg("bc/ll: %s", bc_output);
+		
+		return ptx_code;
 	}
+	return "";
 }
 
-void llvm_compute::compile_kernel_file(const string& filename, const string additional_options, const TARGET target) {
-	compile_kernel(file_io::file_to_string(filename), additional_options, target);
+string llvm_compute::compile_kernel_file(const string& filename, const string additional_options, const TARGET target) {
+	return compile_kernel(file_io::file_to_string(filename), additional_options, target);
 }
 
 void llvm_compute::load_module_from_file(const string& file_name, const vector<pair<string, string>>& function_mappings) {

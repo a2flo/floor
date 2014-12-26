@@ -39,14 +39,14 @@
 // TODO
 #define CL_CALL_RET(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); return; }
 #define CL_CALL_CONT(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); continue; }
-/*#define CL_CALL_ERR_PARAM_RET(call, err_var_name, error_msg) { \
+#define CL_CALL_ERR_PARAM_RET(call, err_var_name, error_msg, ...) { \
 	cl_int err_var_name = CL_SUCCESS; \
 	call; \
 	if(err_var_name != CL_SUCCESS) { \
-		log_error(error_msg); \
-		return; \
+		log_error(error_msg ": %u", err_var_name); \
+		return __VA_ARGS__; \
 	} \
-}*/
+}
 #define CL_CALL_ERR_PARAM_CONT(call, err_var_name, error_msg) { \
 	cl_int err_var_name = CL_SUCCESS; \
 	call; \
@@ -510,7 +510,7 @@ void opencl_compute::init(const bool use_platform_devices,
 					log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
 				}
 			}
-			log_msg("extensions: \"%s\"", cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev));
+			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
 			device.vendor = compute_device::VENDOR::UNKNOWN;
 			string vendor_str = core::str_to_lower(device.vendor_name);
@@ -641,6 +641,9 @@ void opencl_compute::init(const bool use_platform_devices,
 			log_debug("fastest GPU device: %s %s (score: %u)",
 					  fastest_gpu_device->vendor_name, fastest_gpu_device->name, fastest_gpu_score);
 		}
+		
+		// if there has been no error (no continue) thus far, everything is okay with this platform and devices -> use it
+		break;
 	}
 	
 	// if absolutely no devices on any platform are supported, disable opencl support
@@ -773,7 +776,34 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_file(const string& file_name
 weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_code,
 														   const string additional_options) {
 	// TODO: !
-	llvm_compute::compile_kernel(source_code, additional_options, llvm_compute::TARGET::SPIR);
+	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
+	const auto spir_bc = llvm_compute::compile_kernel(source_code, additional_options, llvm_compute::TARGET::SPIR);
+	
+	// opencl api handling ...
+	vector<size_t> length_ptrs(devices.size());
+	vector<const unsigned char*> binary_ptrs(devices.size());
+	vector<cl_int> binary_status(devices.size());
+	for(size_t i = 0; i < devices.size(); ++i) {
+		length_ptrs[i] = spir_bc.size();
+		binary_ptrs[i] = (const unsigned char*)spir_bc.data();
+		binary_status[i] = CL_SUCCESS;
+	}
+	
+	cl_int build_err = CL_SUCCESS;
+	const cl_program prog = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
+													  &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &build_err);
+	if(build_err != CL_SUCCESS) {
+		log_error("failed to build opencl program: %u", build_err);
+		log_error("devices binary status: %s", [&binary_status] {
+			string ret;
+			for(const auto& status : binary_status) {
+				ret += to_string(status) + " ";
+			}
+			return ret;
+		}());
+		return {};
+	}
+						  
 	return {};
 }
 
