@@ -73,7 +73,10 @@ void logger_thread::run() {
 	log_output_store.swap(log_store);
 	log_store_lock.unlock();
 	
-	if(log_output_store.empty()) return;
+	if(log_output_store.empty()) {
+		++run_num;
+		return;
+	}
 	
 	// in append mode, close the file and reopen it in append mode
 	if(log_append_mode) {

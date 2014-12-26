@@ -70,9 +70,10 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 			" -isystem /usr/local/include" \
 			" -m64 -fno-exceptions -Ofast " +
 			additional_options +
-			//" -emit-llvm -S -o - -"
-			" -emit-llvm -c -o spir_3_5.bc -"
-		}; // TODO: 2>&1 // > code_spir64.ll";
+			" -emit-llvm -S -o - -"
+			" | sed -E \"s/readonly//g\" > spir_3_5.ll" // NOTE: temporary fix to get this to compile with the intel compiler
+			//" -emit-llvm -c -o spir_3_5.bc -"
+		}; // TODO: 2>&1
 		
 		log_msg("spir cmd: %s", spir_cmd);
 		string spir_bc_output = "";
@@ -80,6 +81,7 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 		log_msg("spir bc/ll: %s", spir_bc_output);
 		
 		const string spir_3_2_encoder_cmd {
+			"llvm-as spir_3_5.ll && " // NOTE: temporary workaround, see above
 			"spir-encoder spir_3_5.bc spir_3_2.bc 2>&1"
 		};
 		string spir_encoder_output = "";
