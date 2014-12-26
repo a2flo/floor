@@ -820,7 +820,7 @@ weak_ptr<compute_kernel> opencl_compute::add_kernel_source(const string& source_
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(prog,
 										 0, nullptr, // build for all devices specified when the program was created
 										 additional_options.c_str(), nullptr, nullptr),
-						  build_err, "", {});
+						  build_err, "failed to build opencl program", {});
 						  
 	return {};
 }
