@@ -18,6 +18,7 @@
 
 #include <floor/core/sig_handler.hpp>
 #include <floor/core/logger.hpp>
+#include <floor/core/core.hpp>
 #include <string>
 #include <cstring>
 #include <cstdio>
