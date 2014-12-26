@@ -196,7 +196,7 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj) { \
 	cl_info_func(obj, info_type, 0, nullptr, &buf_size); \
 	vector<char> info(buf_size); \
 	cl_info_func(obj, info_type, buf_size, info.data(), nullptr); \
-	return string(info.data(), buf_size - 1 /* trim \0 */); \
+	return (buf_size > 0 ? string(info.data(), buf_size - 1 /* trim \0 */) : ""); \
 } \
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
