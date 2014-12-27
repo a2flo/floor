@@ -171,7 +171,8 @@ size_t __attribute__((const)) get_global_id(uint dimindx);
 #define global __attribute__((address_space(1)))
 #define constant __constant
 #define local __local
-#define kernel __kernel
+// abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
+#define kernel __kernel __attribute__((section("spir_kernel")))
 #define opencl_constant constant
 
 #endif

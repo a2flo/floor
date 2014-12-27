@@ -53,20 +53,16 @@ void cuda_compute::deactivate_context() {
 	// TODO: !
 }
 
-weak_ptr<compute_kernel> cuda_compute::add_kernel_file(const string& file_name floor_unused,
-													   const string additional_options floor_unused) {
-	// TODO: !
-	return {};
-}
-
-weak_ptr<compute_kernel> cuda_compute::add_kernel_source(const string& source_code floor_unused,
+weak_ptr<compute_program> cuda_compute::add_program_file(const string& file_name floor_unused,
 														 const string additional_options floor_unused) {
 	// TODO: !
 	return {};
 }
 
-void cuda_compute::delete_kernel(weak_ptr<compute_kernel> kernel floor_unused) {
+weak_ptr<compute_program> cuda_compute::add_program_source(const string& source_code floor_unused,
+														   const string additional_options floor_unused) {
 	// TODO: !
+	return {};
 }
 
 void cuda_compute::execute_kernel(weak_ptr<compute_kernel> kernel floor_unused) {

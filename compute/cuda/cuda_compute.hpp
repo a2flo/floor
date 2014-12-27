@@ -60,18 +60,15 @@ public:
 	void deactivate_context() override;
 	
 	//////////////////////////////////////////
-	// kernel functionality
+	// program/kernel functionality
 	
-	//! adds and compiles a kernel from a file
-	weak_ptr<compute_kernel> add_kernel_file(const string& file_name,
-											 const string additional_options = "") override;
-	
-	//! adds and compiles a kernel from the provided source code
-	weak_ptr<compute_kernel> add_kernel_source(const string& source_code,
+	//! adds and compiles a program and its kernels from a file
+	weak_ptr<compute_program> add_program_file(const string& file_name,
 											   const string additional_options = "") override;
 	
-	//! deletes a kernel object
-	void delete_kernel(weak_ptr<compute_kernel> kernel) override;
+	//! adds and compiles a program and its kernels from the provided source code
+	weak_ptr<compute_program> add_program_source(const string& source_code,
+												 const string additional_options = "") override;
 	
 	//! excutes the specified kernel with the specified arguments
 	//! TODO: proper interface for this: 1) variadic template, 2) functor with preset args

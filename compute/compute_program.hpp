@@ -16,33 +16,31 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_DEVICE_HPP__
-#define __FLOOR_OPENCL_DEVICE_HPP__
+#ifndef __FLOOR_COMPUTE_PROGRAM_HPP__
+#define __FLOOR_COMPUTE_PROGRAM_HPP__
 
-#include <floor/compute/opencl/opencl_common.hpp>
-
-#if !defined(FLOOR_NO_OPENCL)
-
-#include <floor/compute/compute_device.hpp>
+#include <string>
+#include <vector>
+#include <floor/math/vector_lib.hpp>
+#include <floor/compute/compute_kernel.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class opencl_device final : public compute_device {
+// TODO: !
+class compute_program {
 public:
-	~opencl_device() override {}
+	virtual ~compute_program() = 0;
 	
-	//! opencl c version of the device
-	OPENCL_VERSION c_version;
+protected:
+	vector<shared_ptr<compute_kernel>> kernels;
 	
 };
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
-#endif
-
 #endif
 
 #endif

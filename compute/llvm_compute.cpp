@@ -28,8 +28,12 @@
 #define FLOOR_COMPUTE_LLC "compute_llc"
 #endif
 
-#if !defined(FLOOR_CUDA_LIBCXX_PATH)
-#define FLOOR_CUDA_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
+#if !defined(FLOOR_COMPUTE_LIBCXX_PATH)
+#define FLOOR_COMPUTE_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
+#endif
+
+#if !defined(FLOOR_COMPUTE_CLANG_PATH)
+#define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
 #endif
 
 cudacl* llvm_compute::cucl { nullptr };
@@ -41,7 +45,7 @@ void llvm_compute::init() {
 	cucl = (cudacl*)ocl;
 }
 
-string llvm_compute::compile_kernel(const string& code, const string additional_options, const TARGET target) {
+string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target) {
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
 	//  -enable-unsafe-fp-math
@@ -66,21 +70,26 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 			" -DPLATFORM_X64" \
 			" -DFLOOR_CL_CONSTANT=constant" \
 			" -include floor/compute/compute_support.hpp" \
-			" -isystem " FLOOR_CUDA_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
 			" -m64 -fno-exceptions -Ofast " +
 			additional_options +
-			" -emit-llvm -c -o spir_3_5.bc -"
-		}; // TODO: 2>&1
+			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
+		};
 		
-		log_msg("spir cmd: %s", spir_cmd);
+		//log_msg("spir cmd: %s", spir_cmd);
 		string spir_bc_output = "";
 		core::system(spir_cmd, spir_bc_output);
 		log_msg("spir bc/ll: %s", spir_bc_output);
 		
 		const string spir_3_2_encoder_cmd {
-			// NOTE: temporary fix to get this to compile with the intel compiler
-			"llvm-dis spir_3_5.bc && sed -i -E \"s/readonly//g\" spir_3_5.ll && llvm-as spir_3_5.ll && "
+			// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
+			// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
+			"llvm-dis spir_3_5.bc &&"
+			" sed -i -E \"s/readonly//g\" spir_3_5.ll &&"
+			" sed -i -E \"s/^define (.*)section \\\"spir_kernel\\\" (.*)/define spir_kernel \\1\\2/\" spir_3_5.ll &&"
+			" llvm-as spir_3_5.ll && "
 			// actual spir-encoder call:
 			"spir-encoder spir_3_5.bc spir_3_2.bc 2>&1"
 		};
@@ -105,7 +114,8 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 			" -DPLATFORM_X64" \
 			" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 			" -include floor/compute/compute_support.hpp" \
-			" -isystem " FLOOR_CUDA_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
 			" -m64 -fno-exceptions " +
 			additional_options +
@@ -124,7 +134,8 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 			" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
 			" -Dkernel=\"__attribute__((global))\"" \
 			" -include floor/compute/compute_support.hpp" \
-			" -isystem " FLOOR_CUDA_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
+			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
 			" -m64 -fno-exceptions -Ofast " +
 			additional_options +
@@ -150,8 +161,8 @@ string llvm_compute::compile_kernel(const string& code, const string additional_
 	return "";
 }
 
-string llvm_compute::compile_kernel_file(const string& filename, const string additional_options, const TARGET target) {
-	return compile_kernel(file_io::file_to_string(filename), additional_options, target);
+string llvm_compute::compile_program_file(const string& filename, const string additional_options, const TARGET target) {
+	return compile_program(file_io::file_to_string(filename), additional_options, target);
 }
 
 void llvm_compute::load_module_from_file(const string& file_name, const vector<pair<string, string>>& function_mappings) {

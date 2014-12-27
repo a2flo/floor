@@ -19,44 +19,14 @@
 #ifndef __FLOOR_OPENCL_COMPUTE_HPP__
 #define __FLOOR_OPENCL_COMPUTE_HPP__
 
-#include <floor/core/essentials.hpp>
+#include <floor/compute/opencl/opencl_common.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_base.hpp>
-
-#if defined(__APPLE__)
-#if defined(FLOOR_IOS)
-// don't let cl_gl_ext.h get included (it won't work anyways)
-#define __OPENCL_CL_GL_EXT_H
-#define __GCL_H
-#endif
-#include <OpenCL/OpenCL.h>
-#include <OpenCL/cl.h>
-#include <OpenCL/cl_platform.h>
-#include <OpenCL/cl_ext.h>
-#include <OpenCL/cl_gl.h>
-#if !defined(FLOOR_IOS)
-#include <OpenGL/CGLContext.h>
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLDevice.h>
-#endif
-#else
-#include <CL/cl.h>
-#include <CL/cl_platform.h>
-#include <CL/cl_ext.h>
-#include <CL/cl_gl.h>
-#endif
-
 #include <floor/compute/opencl/opencl_device.hpp>
-
-//! opencl version of the platform/driver/device
-enum class OPENCL_VERSION : uint32_t {
-	OPENCL_1_0,
-	OPENCL_1_1,
-	OPENCL_1_2,
-	OPENCL_2_0,
-};
+#include <floor/compute/opencl/opencl_kernel.hpp>
+#include <floor/compute/opencl/opencl_program.hpp>
 
 //! TODO
 class opencl_compute final : compute_base {
@@ -94,18 +64,15 @@ public:
 	void deactivate_context() override;
 	
 	//////////////////////////////////////////
-	// kernel functionality
+	// program/kernel functionality
 	
-	//! adds and compiles a kernel from a file
-	weak_ptr<compute_kernel> add_kernel_file(const string& file_name,
-											 const string additional_options = "") override;
-	
-	//! adds and compiles a kernel from the provided source code
-	weak_ptr<compute_kernel> add_kernel_source(const string& source_code,
+	//! adds and compiles a program and its kernels from a file
+	weak_ptr<compute_program> add_program_file(const string& file_name,
 											   const string additional_options = "") override;
 	
-	//! deletes a kernel object
-	void delete_kernel(weak_ptr<compute_kernel> kernel) override;
+	//! adds and compiles a program and its kernels from the provided source code
+	weak_ptr<compute_program> add_program_source(const string& source_code,
+												 const string additional_options = "") override;
 	
 	//! excutes the specified kernel with the specified arguments
 	//! TODO: proper interface for this: 1) variadic template, 2) functor with preset args
@@ -118,6 +85,8 @@ protected:
 	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::OPENCL_1_0 };
 	
 	vector<cl_image_format> image_formats;
+	
+	vector<shared_ptr<opencl_program>> programs;
 	
 };
 

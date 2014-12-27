@@ -36,12 +36,12 @@ public:
 	};
 	
 	//
-	static string compile_kernel(const string& code,
-								 const string additional_options = "",
-								 const TARGET target = TARGET::SPIR);
-	static string compile_kernel_file(const string& filename,
-									  const string additional_options = "",
-									  const TARGET target = TARGET::SPIR);
+	static string compile_program(const string& code,
+								  const string additional_options = "",
+								  const TARGET target = TARGET::SPIR);
+	static string compile_program_file(const string& filename,
+									   const string additional_options = "",
+									   const TARGET target = TARGET::SPIR);
 	
 	//
 	static void load_module_from_file(const string& file_name,

@@ -160,6 +160,16 @@
 		5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
 		5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
 		5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */; };
+		5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */; };
+		5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */; };
+		5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6CE1A4EA2C0005239DA /* opencl_kernel.hpp */; };
+		5CEEA6D31A4EA425005239DA /* opencl_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6D21A4EA425005239DA /* opencl_common.hpp */; };
+		5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D41A4EE171005239DA /* compute_program.cpp */; };
+		5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D41A4EE171005239DA /* compute_program.cpp */; };
+		5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6D51A4EE171005239DA /* compute_program.hpp */; };
+		5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D91A4EE1A5005239DA /* opencl_program.cpp */; };
+		5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6D91A4EE1A5005239DA /* opencl_program.cpp */; };
+		5CEEA6DD1A4EE1A5005239DA /* opencl_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -304,6 +314,13 @@
 		5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_queue.hpp; sourceTree = "<group>"; };
 		5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sig_handler.cpp; sourceTree = "<group>"; };
 		5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = sig_handler.hpp; sourceTree = "<group>"; };
+		5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_kernel.cpp; sourceTree = "<group>"; };
+		5CEEA6CE1A4EA2C0005239DA /* opencl_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_kernel.hpp; sourceTree = "<group>"; };
+		5CEEA6D21A4EA425005239DA /* opencl_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_common.hpp; sourceTree = "<group>"; };
+		5CEEA6D41A4EE171005239DA /* compute_program.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_program.cpp; sourceTree = "<group>"; };
+		5CEEA6D51A4EE171005239DA /* compute_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_program.hpp; sourceTree = "<group>"; };
+		5CEEA6D91A4EE1A5005239DA /* opencl_program.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_program.cpp; sourceTree = "<group>"; };
+		5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_program.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -588,6 +605,8 @@
 				5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */,
 				5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */,
 				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
+				5CEEA6D41A4EE171005239DA /* compute_program.cpp */,
+				5CEEA6D51A4EE171005239DA /* compute_program.hpp */,
 				5C78010319D5CC4700853135 /* compute_support.hpp */,
 				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
 				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
@@ -653,10 +672,15 @@
 		5CD2175519E985D80049D6AE /* opencl */ = {
 			isa = PBXGroup;
 			children = (
+				5CEEA6D21A4EA425005239DA /* opencl_common.hpp */,
 				5CD2175619E985D80049D6AE /* opencl_compute.cpp */,
 				5CD2175719E985D80049D6AE /* opencl_compute.hpp */,
 				5CD2176319EAA8800049D6AE /* opencl_device.cpp */,
 				5CD2176419EAA8800049D6AE /* opencl_device.hpp */,
+				5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */,
+				5CEEA6CE1A4EA2C0005239DA /* opencl_kernel.hpp */,
+				5CEEA6D91A4EE1A5005239DA /* opencl_program.cpp */,
+				5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */,
 			);
 			path = opencl;
 			sourceTree = "<group>";
@@ -676,6 +700,7 @@
 				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
 				5C4A85B918F955B30039BFD4 /* ast_base.hpp in Headers */,
 				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
+				5CEEA6DD1A4EE1A5005239DA /* opencl_program.hpp in Headers */,
 				5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */,
 				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
@@ -685,14 +710,17 @@
 				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
+				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C4A85B118F953590039BFD4 /* lexer.hpp in Headers */,
 				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
+				5CEEA6D31A4EA425005239DA /* opencl_common.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C1091A017D1153E007F536E /* cl.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
+				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */,
 				5C1091B617D1153E007F536E /* unicode.hpp in Headers */,
@@ -850,9 +878,11 @@
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
 				5CD2174219E9213B0049D6AE /* compute_base.cpp in Sources */,
+				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
+				5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
@@ -861,6 +891,7 @@
 				5C1091AC17D1153E007F536E /* file_io.cpp in Sources */,
 				5C1091D517D117B8007F536E /* city.cpp in Sources */,
 				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
+				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
 				5C4A85B718F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
@@ -878,6 +909,7 @@
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C4A85B818F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */,
+				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85AD18F953590039BFD4 /* lang_context.cpp in Sources */,
 				5CD2174319E9213B0049D6AE /* compute_base.cpp in Sources */,
@@ -900,6 +932,7 @@
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
 				5CEB9F6B1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
+				5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
@@ -910,6 +943,7 @@
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
 				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
+				5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,

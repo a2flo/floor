@@ -26,6 +26,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_kernel.hpp>
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/compute_program.hpp>
 
 // necessary here, because there are no out-of-line virtual method definitions
 #if defined(__clang__)
@@ -100,18 +101,15 @@ public:
 	virtual void deactivate_context() = 0;
 	
 	//////////////////////////////////////////
-	// kernel functionality
+	// program/kernel functionality
 	
-	//! adds and compiles a kernel from a file
-	virtual weak_ptr<compute_kernel> add_kernel_file(const string& file_name,
-													 const string additional_options = "") = 0;
-	
-	//! adds and compiles a kernel from the provided source code
-	virtual weak_ptr<compute_kernel> add_kernel_source(const string& source_code,
+	//! adds and compiles a program and its kernels from a file
+	virtual weak_ptr<compute_program> add_program_file(const string& file_name,
 													   const string additional_options = "") = 0;
 	
-	//! deletes a kernel object
-	virtual void delete_kernel(weak_ptr<compute_kernel> kernel) = 0;
+	//! adds and compiles a program and its kernels from the provided source code
+	virtual weak_ptr<compute_program> add_program_source(const string& source_code,
+														 const string additional_options = "") = 0;
 	
 	//! excutes the specified kernel with the specified arguments
 	//! TODO: proper interface for this: 1) variadic template, 2) functor with preset args
