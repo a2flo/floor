@@ -180,7 +180,14 @@ F(cl_program, cl_program_info, CL_PROGRAM_KERNEL_NAMES, string) \
 /* cl_program_build_info */ \
 F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_STATUS, cl_build_status) \
 F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_OPTIONS, string) \
-F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_LOG, string)
+F(cl_program, cl_program_build_info, CL_PROGRAM_BUILD_LOG, string) \
+/* cl_kernel_info */ \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_FUNCTION_NAME, string) \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_NUM_ARGS, cl_uint) \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_REFERENCE_COUNT, cl_uint) \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_CONTEXT, cl_context) \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_PROGRAM, cl_program) \
+F(cl_kernel, cl_kernel_info, CL_KERNEL_ATTRIBUTES, string)
 
 template <cl_uint info_type> struct cl_info_type;
 template <typename cl_info_object, cl_uint info_type> struct cl_is_valid_info_type : public false_type {};

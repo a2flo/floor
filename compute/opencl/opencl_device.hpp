@@ -35,7 +35,10 @@ public:
 	~opencl_device() override {}
 	
 	//! opencl c version of the device
-	OPENCL_VERSION c_version;
+	OPENCL_VERSION c_version { OPENCL_VERSION::OPENCL_1_0 };
+	
+	//! the opencl device id
+	cl_device_id device_id { nullptr };
 	
 };
 

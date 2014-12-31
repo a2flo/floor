@@ -23,6 +23,8 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 
+#include <floor/compute/compute_kernel.hpp>
+
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wweak-vtables"
@@ -32,6 +34,23 @@
 class compute_queue {
 public:
 	virtual ~compute_queue() = 0;
+	
+	//! implementation specific queue object ptr (cl_command_queue or CUStream, both "struct _ *")
+	virtual const void* get_queue_ptr() const = 0;
+	
+	//! enqueues (and executes) the specified kernel into this queue
+	template <typename... Args, class work_size_type,
+			  enable_if_t<(is_same<work_size_type, size1>::value ||
+						   is_same<work_size_type, size2>::value ||
+						   is_same<work_size_type, size3>::value), int> = 0>
+	void execute(shared_ptr<compute_kernel> kernel,
+				 work_size_type&& global_work_size,
+				 work_size_type&& local_work_size,
+				 Args&&... args) {
+		kernel->execute(get_queue_ptr(), global_work_size, local_work_size, forward<Args>(args)...);
+	}
+	
+protected:
 	
 };
 

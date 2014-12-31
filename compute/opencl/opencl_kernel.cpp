@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
-opencl_kernel::opencl_kernel(const cl_kernel& kernel_) : kernel(kernel_) {
+opencl_kernel::opencl_kernel(const cl_kernel& kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
 }
 
 opencl_kernel::~opencl_kernel() {}

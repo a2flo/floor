@@ -28,10 +28,6 @@ opencl_program::opencl_program(const cl_program& program_) : program(program_) {
 	const auto kernel_count = cl_get_info<CL_PROGRAM_NUM_KERNELS>(program);
 	if(kernel_count == 0) {
 		log_error("no kernels in program!");
-		log_debug("check: %s", cl_get_info<CL_PROGRAM_KERNEL_NAMES>(program));
-		cl_uint kernel_count_new = 0;
-		clCreateKernelsInProgram(program, 0, nullptr, &kernel_count_new);
-		log_debug("second kernel count: %d", kernel_count_new);
 	}
 	else {
 		log_debug("got %u kernels in program: %s", kernel_count, cl_get_info<CL_PROGRAM_KERNEL_NAMES>(program));
@@ -43,12 +39,12 @@ opencl_program::opencl_program(const cl_program& program_) : program(program_) {
 		}
 		else {
 			for(const auto& kernel : program_kernels) {
-				kernels.push_back(make_shared<opencl_kernel>(kernel));
+				const auto name = cl_get_info<CL_KERNEL_FUNCTION_NAME>(kernel);
+				kernels.push_back(make_shared<opencl_kernel>(kernel, name));
+				kernel_names.push_back(name);
 			}
 		}
 	}
 }
-
-opencl_program::~opencl_program() {}
 
 #endif

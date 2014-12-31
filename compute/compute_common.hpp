@@ -16,25 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_PROGRAM_HPP__
-#define __FLOOR_OPENCL_PROGRAM_HPP__
+#ifndef __FLOOR_COMPUTE_COMMON_HPP__
+#define __FLOOR_COMPUTE_COMMON_HPP__
 
-#include <floor/compute/opencl/opencl_common.hpp>
+#include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_OPENCL)
-
-#include <floor/compute/compute_program.hpp>
-
-// TODO: !
-class opencl_program final : public compute_program {
-public:
-	opencl_program(const cl_program& program);
-	
-protected:
-	const cl_program program;
-	
+//! used to differentiate between the different compute implementations
+enum class COMPUTE_TYPE : uint32_t {
+	OPENCL,
+	CUDA,
 };
-
-#endif
 
 #endif

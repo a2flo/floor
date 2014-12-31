@@ -24,12 +24,14 @@
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_base.hpp>
+#include <floor/compute/opencl/opencl_buffer.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
 #include <floor/compute/opencl/opencl_program.hpp>
+#include <floor/compute/opencl/opencl_queue.hpp>
 
 //! TODO
-class opencl_compute final : compute_base {
+class opencl_compute final : public compute_base {
 public:
 	//////////////////////////////////////////
 	// init / context creation
@@ -44,6 +46,29 @@ public:
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	bool is_supported() const override { return supported; }
+	
+	//! returns the underlying compute implementation type
+	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
+	
+	//////////////////////////////////////////
+	// device functions
+	
+	//! creates and returns a compute_queue (aka command queue or stream) for the specified device
+	shared_ptr<compute_queue> create_queue(shared_ptr<compute_device> dev) override;
+	
+	//////////////////////////////////////////
+	// buffer creation
+	
+	//! constructs an uninitialized buffer of the specified size
+	shared_ptr<compute_buffer> create_buffer(const size_t& size,
+											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
+	shared_ptr<compute_buffer> create_buffer(const size_t& size,
+											 const void* data,
+											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
 	
 	//////////////////////////////////////////
 	// basic control functions
@@ -73,10 +98,6 @@ public:
 	//! adds and compiles a program and its kernels from the provided source code
 	weak_ptr<compute_program> add_program_source(const string& source_code,
 												 const string additional_options = "") override;
-	
-	//! excutes the specified kernel with the specified arguments
-	//! TODO: proper interface for this: 1) variadic template, 2) functor with preset args
-	void execute_kernel(weak_ptr<compute_kernel> kernel) override;
 	
 protected:
 	cl_context ctx { nullptr };

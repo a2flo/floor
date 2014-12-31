@@ -19,3 +19,8 @@
 #include <floor/compute/compute_buffer.hpp>
 
 compute_buffer::~compute_buffer() {}
+
+enum_class_bitwise_and_global_impl(COMPUTE_BUFFER_FLAG)
+enum_class_bitwise_or_global_impl(COMPUTE_BUFFER_FLAG)
+enum_class_bitwise_and_global_impl(COMPUTE_BUFFER_MAP_FLAG)
+enum_class_bitwise_or_global_impl(COMPUTE_BUFFER_MAP_FLAG)

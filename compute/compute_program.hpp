@@ -24,23 +24,19 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel.hpp>
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
-
-// TODO: !
 class compute_program {
 public:
-	virtual ~compute_program() = 0;
+	//! returns the kernel with the exact function name of "func_name", nullptr if not found
+	shared_ptr<compute_kernel> get_kernel(const string& func_name) const;
+	
+	//! returns the first kernel whose function name contains "fuzzy_func_name", nullptr if none was found
+	//! NOTE: this might be necessary / an easier way of doing things due to c++ name mangling
+	shared_ptr<compute_kernel> get_kernel_fuzzy(const string& fuzzy_func_name) const;
 	
 protected:
 	vector<shared_ptr<compute_kernel>> kernels;
+	vector<string> kernel_names;
 	
 };
-
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
 
 #endif

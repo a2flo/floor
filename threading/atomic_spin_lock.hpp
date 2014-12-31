@@ -25,17 +25,17 @@
 
 class CAPABILITY("mutex") atomic_spin_lock {
 public:
-	inline_always void lock() ACQUIRE() {
+	floor_inline_always void lock() ACQUIRE() {
 		// as long as this succeeds (returns true), the lock is already acquired
 		while(mtx.test_and_set(memory_order_acquire)) {
 			// wait
 		}
 	}
-	inline_always bool try_lock() TRY_ACQUIRE(true) {
+	floor_inline_always bool try_lock() TRY_ACQUIRE(true) {
 		// test_and_set returns true if already locked
 		return !mtx.test_and_set(memory_order_acquire);
 	}
-	inline_always void unlock() RELEASE() {
+	floor_inline_always void unlock() RELEASE() {
 		// sets flag to 0/false
 		mtx.clear(memory_order_release);
 	}

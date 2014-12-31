@@ -37,6 +37,21 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 	// TODO: !
 }
 
+shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev floor_unused) {
+	// TODO: !
+	return {};
+}
+
+shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size floor_unused, const COMPUTE_BUFFER_FLAG flags floor_unused) {
+	// TODO: !
+	return {};
+}
+
+shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size floor_unused, const void* data floor_unused, const COMPUTE_BUFFER_FLAG flags floor_unused) {
+	// TODO: !
+	return {};
+}
+
 void cuda_compute::finish() {
 	// TODO: !
 }
@@ -63,10 +78,6 @@ weak_ptr<compute_program> cuda_compute::add_program_source(const string& source_
 														   const string additional_options floor_unused) {
 	// TODO: !
 	return {};
-}
-
-void cuda_compute::execute_kernel(weak_ptr<compute_kernel> kernel floor_unused) {
-	// TODO: !
 }
 
 #endif

@@ -42,6 +42,7 @@ public:
 		__MAX_SUB_TYPE_MASK = __MAX_SUB_TYPE - 1u, //!< don't use
 		
 		NONE = 0u, //!< select no device
+		// TODO: any device, fastest device (any)
 		FASTEST_GPU = GPU | FASTEST, //!< select fastest GPU
 		FASTEST_CPU = CPU | FASTEST, //!< select fastest CPU
 		

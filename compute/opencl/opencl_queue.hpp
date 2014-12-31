@@ -16,22 +16,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_PROGRAM_HPP__
-#define __FLOOR_OPENCL_PROGRAM_HPP__
+#ifndef __FLOOR_OPENCL_QUEUE_HPP__
+#define __FLOOR_OPENCL_QUEUE_HPP__
 
 #include <floor/compute/opencl/opencl_common.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
 
-#include <floor/compute/compute_program.hpp>
+#include <floor/compute/compute_queue.hpp>
+#include <floor/compute/opencl/opencl_kernel.hpp>
 
 // TODO: !
-class opencl_program final : public compute_program {
+class opencl_queue final : public compute_queue {
 public:
-	opencl_program(const cl_program& program);
+	opencl_queue(const cl_command_queue& queue);
+	
+	const void* get_queue_ptr() const override;
 	
 protected:
-	const cl_program program;
+	const cl_command_queue queue;
 	
 };
 

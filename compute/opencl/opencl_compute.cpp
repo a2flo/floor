@@ -268,11 +268,12 @@ void opencl_compute::init(const bool use_platform_devices,
 				}
 			}
 			
-			devices.emplace_back(make_unique<opencl_device>());
-			auto& device = *(opencl_device*)devices.back().get();
+			devices.emplace_back(make_shared<opencl_device>());
+			auto device_sptr = devices.back();
+			auto& device = *(opencl_device*)device_sptr.get();
 			dev_type_str = "";
 			
-			//device.cl_device = cl_dev;
+			device.device_id = cl_dev;
 			device.internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 			device.units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
 			device.clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
@@ -377,13 +378,13 @@ void opencl_compute::init(const bool use_platform_devices,
 				dev_type_str += "CPU ";
 				
 				if(fastest_cpu_device == nullptr) {
-					fastest_cpu_device = &device;
+					fastest_cpu_device = device_sptr;
 					fastest_cpu_score = device.units * device.clock;
 				}
 				else {
 					cpu_score = device.units * device.clock;
 					if(cpu_score > fastest_cpu_score) {
-						fastest_cpu_device = &device;
+						fastest_cpu_device = device_sptr;
 						fastest_cpu_score = cpu_score;
 					}
 				}
@@ -409,13 +410,13 @@ void opencl_compute::init(const bool use_platform_devices,
 				};
 				
 				if(fastest_gpu_device == nullptr) {
-					fastest_gpu_device = &device;
+					fastest_gpu_device = device_sptr;
 					fastest_gpu_score = compute_gpu_score(device);
 				}
 				else {
 					gpu_score = compute_gpu_score(device);
 					if(gpu_score > fastest_gpu_score) {
-						fastest_gpu_device = &device;
+						fastest_gpu_device = device_sptr;
 						fastest_gpu_score = gpu_score;
 					}
 				}
@@ -449,7 +450,7 @@ void opencl_compute::init(const bool use_platform_devices,
 			// there is no spir support on apple platforms, so don't even try this
 			// TODO: figure out how to hook into apples llvm opencl compiler (which is based on clang/llvm 3.2 as well)
 #if !defined(__APPLE__)
-			if(find(begin(device.extensions), end(device.extensions), "cl_khr_spir") == end(device.extensions)) {
+			if(!core::contains(device.extensions, "cl_khr_spir")) {
 				log_error("device does not support \"cl_khr_spir\", removing it!");
 				devices.pop_back();
 				continue;
@@ -579,6 +580,37 @@ void opencl_compute::init(const bool use_platform_devices,
 #endif
 }
 
+shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device> dev) {
+	if(dev == nullptr) return {};
+	
+	// create the queue (w/ or w/o profiling support depending on the define)
+	cl_int create_err = CL_SUCCESS;
+	// TODO: add support for clCreateCommandQueueWithPropertiesAPPLE?
+	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id,
+#if !defined(FLOOR_CL_PROFILING)
+													 0
+#else
+													 CL_QUEUE_PROFILING_ENABLE
+#endif
+													 , &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create command queue: %u", create_err);
+		return {};
+	}
+	
+	auto ret = make_shared<opencl_queue>(cl_queue);
+	queues.push_back(ret);
+	return ret;
+}
+
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
+	return make_shared<opencl_buffer>(ctx, size, flags);
+}
+
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const void* data, const COMPUTE_BUFFER_FLAG flags) {
+	return make_shared<opencl_buffer>(ctx, size, data, flags);
+}
+
 void opencl_compute::finish() {
 	// TODO: !
 }
@@ -660,10 +692,6 @@ weak_ptr<compute_program> opencl_compute::add_program_source(const string& sourc
 	auto ret_program = make_shared<opencl_program>(program);
 	programs.push_back(ret_program);
 	return ret_program;
-}
-
-void opencl_compute::execute_kernel(weak_ptr<compute_kernel> kernel floor_unused) {
-	// TODO: !
 }
 
 #endif

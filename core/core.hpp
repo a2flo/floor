@@ -118,7 +118,7 @@ public:
 	static void system(const string& cmd);
 	static void system(const string& cmd, string& output);
 	
-	// misc functions
+	// container functions
 	template <class container_type>
 	static inline void erase_if(container_type& container,
 								function<bool(const typename container_type::iterator&)> erase_if_function) {
@@ -130,6 +130,19 @@ public:
 		}
 	}
 	
+	//! returns the iterator returned by find when searching for "needle" (either an object or a *predicate function)
+	template <class container_type, typename needle_type>
+	static inline auto find(const container_type& container, needle_type&& needle) {
+		return std::find(cbegin(container), cend(container), needle);
+	}
+	
+	//! returns true if container contains "needle" (either an object or a *predicate function)
+	template <class container_type, typename needle_type>
+	static inline bool contains(const container_type& container, needle_type&& needle) {
+		return (std::find(cbegin(container), cend(container), needle) != cend(container));
+	}
+	
+	// misc functions
 	static uint32_t unix_timestamp();
 	template <typename clock_type>
 	static inline uint32_t unix_timestamp(const chrono::time_point<clock_type>& time_point) {
