@@ -24,6 +24,16 @@
 opencl_queue::opencl_queue(const cl_command_queue queue_) : queue(queue_) {
 }
 
+void opencl_queue::finish() const {
+	// TODO: error handling
+	clFinish(queue);
+}
+
+void opencl_queue::flush() const {
+	// TODO: error handling
+	clFlush(queue);
+}
+
 const void* opencl_queue::get_queue_ptr() const {
 	return queue;
 }

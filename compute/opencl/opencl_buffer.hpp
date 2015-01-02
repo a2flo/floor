@@ -97,7 +97,7 @@ public:
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//!
-	cl_mem get_cl_buffer() const { return buffer; }
+	const cl_mem& get_cl_buffer() const { return buffer; }
 	
 protected:
 	cl_mem buffer { nullptr };

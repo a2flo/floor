@@ -23,7 +23,7 @@
 
 #include <floor/compute/opencl/opencl_kernel.hpp>
 
-opencl_program::opencl_program(const cl_program& program_) : program(program_) {
+opencl_program::opencl_program(const cl_program program_) : program(program_) {
 	// create kernels (all in the program)
 	const auto kernel_count = cl_get_info<CL_PROGRAM_NUM_KERNELS>(program);
 	if(kernel_count == 0) {

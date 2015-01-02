@@ -294,7 +294,8 @@ void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	if(buffer == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	clEnqueueUnmapMemObject((cl_command_queue)cqueue->get_queue_ptr(), buffer, mapped_ptr, 0, nullptr, nullptr);
+	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)cqueue->get_queue_ptr(), buffer, mapped_ptr, 0, nullptr, nullptr),
+				"failed to unmap buffer")
 }
 
 #endif

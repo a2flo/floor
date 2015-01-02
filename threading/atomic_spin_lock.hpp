@@ -22,6 +22,7 @@
 #include <atomic>
 #include <floor/threading/thread_safety.hpp>
 #include <floor/core/essentials.hpp>
+using namespace std;
 
 class CAPABILITY("mutex") atomic_spin_lock {
 public:

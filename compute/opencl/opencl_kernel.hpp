@@ -23,17 +23,19 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
+#include <floor/core/logger.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
+#include <floor/compute/opencl/opencl_buffer.hpp>
+
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_OPENCL_KERNEL_IMPL 1
 #include <floor/compute/compute_kernel.hpp>
 #undef FLOOR_OPENCL_KERNEL_IMPL
 
-#include <floor/threading/atomic_spin_lock.hpp>
-
 // TODO: !
 class opencl_kernel final : public compute_kernel {
 public:
-	opencl_kernel(const cl_kernel& kernel, const string& func_name);
+	opencl_kernel(const cl_kernel kernel, const string& func_name);
 	~opencl_kernel() override;
 	
 	template <typename... Args> void execute(const cl_command_queue queue,
@@ -49,9 +51,13 @@ public:
 		set_kernel_arguments<0>(forward<Args>(args)...);
 		
 		// run
-		clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr, global_work_size.data(), local_work_size.data(),
-							   // TODO: use of event stuff?
-							   0, nullptr, nullptr);
+		const auto exec_error = clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr,
+													   global_work_size.data(), local_work_size.data(),
+													   // TODO: use of event stuff?
+													   0, nullptr, nullptr);
+		if(exec_error != CL_SUCCESS) {
+			log_error("failed to execute kernel: %u!", exec_error);
+		}
 	}
 	
 protected:
@@ -62,8 +68,8 @@ protected:
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
 	
-	//! handle empty kernel call
-	template <cl_uint num, enable_if_t<num == 0, int> = 0>
+	//! handle kernel call terminator
+	template <cl_uint num>
 	floor_inline_always void set_kernel_arguments() {}
 	
 	//! set kernel argument and recurse
@@ -74,11 +80,17 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	//! TODO: specialize for types (raw/pod types, buffers, images, ...)
+	//! TODO: specialize for types (raw/pod types, images, ...)
 	//! TODO: check for invalid args (e.g. raw pointers)
 	template <typename T>
 	floor_inline_always void set_kernel_argument(const cl_uint num, T&& arg) {
-		clSetKernelArg(kernel, num, sizeof(T), &arg);
+		CL_CALL_RET(clSetKernelArg(kernel, num, sizeof(T), &arg),
+					"failed to set generic kernel argument");
+	}
+	
+	floor_inline_always void set_kernel_argument(const cl_uint num, shared_ptr<compute_buffer> arg) {
+		CL_CALL_RET(clSetKernelArg(kernel, num, sizeof(cl_mem), &((opencl_buffer*)arg.get())->get_cl_buffer()),
+					"failed to set buffer kernel argument");
 	}
 	
 };

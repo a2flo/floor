@@ -28,7 +28,7 @@
 // TODO: !
 class opencl_program final : public compute_program {
 public:
-	opencl_program(const cl_program& program);
+	opencl_program(const cl_program program);
 	
 protected:
 	const cl_program program;

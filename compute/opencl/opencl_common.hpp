@@ -54,14 +54,20 @@ enum class OPENCL_VERSION : uint32_t {
 	OPENCL_2_0,
 };
 
-// define this if you want the cl_get_info functions/voodoo
-#if defined(FLOOR_OPENCL_INFO_FUNCS)
-#include <floor/core/cpp_headers.hpp>
-#include <floor/core/logger.hpp>
-#include <floor/constexpr/const_string.hpp>
-
-#define CL_CALL_RET(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); return; }
-#define CL_CALL_CONT(call, error_msg) if(call != CL_SUCCESS) { log_error(error_msg); continue; }
+#define CL_CALL_RET(call, error_msg, ...) { \
+	const cl_int call_err_var = call; \
+	if(call_err_var != CL_SUCCESS) { \
+		log_error(error_msg ": %u", call_err_var); \
+		return __VA_ARGS__; \
+	} \
+}
+#define CL_CALL_CONT(call, error_msg) { \
+	const cl_int call_err_var = call; \
+	if(call_err_var != CL_SUCCESS) { \
+		log_error(error_msg ": %u", call_err_var); \
+		continue; \
+	} \
+}
 #define CL_CALL_ERR_PARAM_RET(call, err_var_name, error_msg, ...) { \
 	cl_int err_var_name = CL_SUCCESS; \
 	call; \
@@ -78,6 +84,12 @@ enum class OPENCL_VERSION : uint32_t {
 		continue; \
 	} \
 }
+
+// define this if you want the cl_get_info functions/voodoo
+#if defined(FLOOR_OPENCL_INFO_FUNCS)
+#include <floor/core/cpp_headers.hpp>
+#include <floor/core/logger.hpp>
+#include <floor/constexpr/const_string.hpp>
 
 #define FLOOR_CL_INFO_RET_TYPES(F) \
 /* cl_platform_info */ \

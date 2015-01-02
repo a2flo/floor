@@ -31,6 +31,9 @@ class opencl_queue final : public compute_queue {
 public:
 	opencl_queue(const cl_command_queue queue);
 	
+	void finish() const override;
+	void flush() const override;
+	
 	const void* get_queue_ptr() const override;
 	
 protected:

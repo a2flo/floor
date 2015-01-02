@@ -35,6 +35,12 @@ class compute_queue {
 public:
 	virtual ~compute_queue() = 0;
 	
+	//! blocks until all currently scheduled work in this queue has been executed
+	virtual void finish() const = 0;
+	
+	//! flushes all scheduled work to the associated device
+	virtual void flush() const = 0;
+	
 	//! implementation specific queue object ptr (cl_command_queue or CUStream, both "struct _ *")
 	virtual const void* get_queue_ptr() const = 0;
 	
