@@ -29,6 +29,8 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
+class compute_queue;
+
 //! buffer flags
 enum class COMPUTE_BUFFER_FLAG : uint32_t {
 	//! invalid/uninitialized flag
@@ -47,6 +49,9 @@ enum class COMPUTE_BUFFER_FLAG : uint32_t {
 	HOST_WRITE			= (1u << 3u),
 	//! read and write buffer (host point of view)
 	HOST_READ_WRITE		= (HOST_READ | HOST_WRITE),
+	//! if neither HOST_READ or HOST_WRITE is set, the host will not have access to the buffer
+	//! -> can use this mask to AND with flags
+	HOST_NO_ACCESS_MASK = ~(HOST_READ_WRITE),
 	
 	//! the buffer will use/store the specified host pointer,
 	//! but won't initialize the compute buffer with that data
@@ -94,10 +99,10 @@ public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	compute_buffer(const void* ctx_ptr_,
 				   const size_t& size_,
-				   const void* data floor_unused,
+				   void* data,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	ctx_ptr(ctx_ptr_), size(size_), flags(flags_) {}
+	ctx_ptr(ctx_ptr_), size(size_), host_ptr(data), flags(flags_) {}
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const void* ctx_ptr_,
@@ -112,7 +117,7 @@ public:
 				   const vector<data_type>& data,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	compute_buffer(ctx_ptr_, sizeof(data_type) * data.size(), &data[0], flags_) {}
+	compute_buffer(ctx_ptr_, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
@@ -120,71 +125,89 @@ public:
 				   const array<data_type, n>& data,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	compute_buffer(ctx_ptr_, sizeof(data_type) * n, &data[0], flags_) {}
+	compute_buffer(ctx_ptr_, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
 	virtual ~compute_buffer() = 0;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
-	virtual void read(const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) = 0;
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the specified "dst" pointer
-	virtual void read(void* dst, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the previously specified host pointer to this buffer
-	virtual void write(const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) = 0;
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the specified "src" pointer to this buffer
-	virtual void write(const void* src, const size_t size = 0, const size_t offset = 0) = 0;
+	virtual void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//!
-	virtual void copy(shared_ptr<compute_buffer> src,
-					  const size_t src_size = 0, const size_t src_offset = 0,
-					  const size_t dst_size = 0, const size_t dst_offset = 0) = 0;
+	virtual void copy(shared_ptr<compute_queue> cqueue,
+					  shared_ptr<compute_buffer> src,
+					  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) = 0;
 	
 	//!
-	virtual void fill(const void* pattern, const size_t& pattern_size,
+	virtual void fill(shared_ptr<compute_queue> cqueue,
+					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! zeros/clears the complete buffer
-	virtual void zero() = 0;
+	virtual void zero(shared_ptr<compute_queue> cqueue) = 0;
 	//! zeros/clears the complete buffer
-	void clear() { zero(); }
+	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
 	
 	//!
-	virtual bool resize(const size_t& size, const bool copy_old_data = false) = 0;
+	virtual bool resize(shared_ptr<compute_queue> cqueue,
+						const size_t& size, const bool copy_old_data = false) = 0;
 	
 	//!
-	virtual void* __attribute__((aligned(128))) map(const COMPUTE_BUFFER_MAP_FLAG flags =
+	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+													const COMPUTE_BUFFER_MAP_FLAG flags =
 													(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 													 COMPUTE_BUFFER_MAP_FLAG::BLOCK),
 													const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//!
 	template <typename data_type>
-	vector<data_type>* map(const COMPUTE_BUFFER_MAP_FLAG flags_ =
+	vector<data_type>* map(shared_ptr<compute_queue> cqueue,
+						   const COMPUTE_BUFFER_MAP_FLAG flags_ =
 						   (COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 							COMPUTE_BUFFER_MAP_FLAG::BLOCK),
 						   const size_t size_ = 0, const size_t offset = 0) {
-		return (vector<data_type>*)map(flags_, size_, offset);
+		return (vector<data_type>*)map(cqueue, flags_, size_, offset);
 	}
 	
 	//!
 	template <typename data_type, size_t n>
-	array<data_type, n>* map(const COMPUTE_BUFFER_MAP_FLAG flags_ =
+	array<data_type, n>* map(shared_ptr<compute_queue> cqueue,
+							 const COMPUTE_BUFFER_MAP_FLAG flags_ =
 							 (COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 							  COMPUTE_BUFFER_MAP_FLAG::BLOCK),
 							 const size_t size_ = 0, const size_t offset = 0) {
-		return (array<data_type, n>*)map(flags_, size_, offset);
+		return (array<data_type, n>*)map(cqueue, flags_, size_, offset);
 	}
 	
 	//!
-	virtual void unmap(void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	virtual void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
+	
+	//!
+	const size_t& get_size() const { return size; }
+	
+	//!
+	void* get_host_ptr() const { return host_ptr; }
+	
+	//!
+	const COMPUTE_BUFFER_FLAG& get_flags() const { return flags; }
+	
+	//!
+	const void* get_ctx() const { return ctx_ptr; }
 	
 protected:
 	const void* ctx_ptr { nullptr };
 	size_t size { 0u };
+	void* host_ptr { nullptr };
 	const COMPUTE_BUFFER_FLAG flags { COMPUTE_BUFFER_FLAG::NONE };
 	
 };

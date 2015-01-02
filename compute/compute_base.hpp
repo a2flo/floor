@@ -111,7 +111,7 @@ public:
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	virtual shared_ptr<compute_buffer> create_buffer(const size_t& size,
-													 const void* data,
+													 void* data,
 													 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																						COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) = 0;
 	
@@ -120,7 +120,7 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const vector<data_type>& data,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) {
-		return create_buffer(sizeof(data_type) * data.size(), &data[0], flags);
+		return create_buffer(sizeof(data_type) * data.size(), (void*)&data[0], flags);
 	}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
@@ -128,7 +128,7 @@ public:
 	shared_ptr<compute_buffer> create_buffer(const array<data_type, n>& data,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) {
-		return create_buffer(sizeof(data_type) * n, &data[0], flags);
+		return create_buffer(sizeof(data_type) * n, (void*)&data[0], flags);
 	}
 	
 	//////////////////////////////////////////

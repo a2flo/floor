@@ -21,7 +21,7 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
-opencl_queue::opencl_queue(const cl_command_queue& queue_) : queue(queue_) {
+opencl_queue::opencl_queue(const cl_command_queue queue_) : queue(queue_) {
 }
 
 const void* opencl_queue::get_queue_ptr() const {

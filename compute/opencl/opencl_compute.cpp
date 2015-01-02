@@ -607,7 +607,7 @@ shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, con
 	return make_shared<opencl_buffer>(ctx, size, flags);
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const void* data, const COMPUTE_BUFFER_FLAG flags) {
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, void* data, const COMPUTE_BUFFER_FLAG flags) {
 	return make_shared<opencl_buffer>(ctx, size, data, flags);
 }
 

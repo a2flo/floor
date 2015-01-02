@@ -20,62 +20,280 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
+#include <floor/compute/opencl/opencl_queue.hpp>
+
+// TODO: remove the || 1 again
+#if defined(FLOOR_DEBUG) || 1
+#define FLOOR_DEBUG_COMPUTE_BUFFER 1
+#endif
+
+// TODO: proper error (return) value handling everywhere
+
 opencl_buffer::opencl_buffer(const cl_context ctx_ptr_,
 							 const size_t& size_,
-							 const void* data,
+							 void* data,
 							 const COMPUTE_BUFFER_FLAG flags_) :
 compute_buffer(ctx_ptr_, size_, data, flags_) {
-	// TODO: create the buffer
+	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
+		case COMPUTE_BUFFER_FLAG::READ:
+			cl_flags |= CL_MEM_READ_ONLY;
+			break;
+		case COMPUTE_BUFFER_FLAG::WRITE:
+			cl_flags |= CL_MEM_WRITE_ONLY;
+			break;
+		case COMPUTE_BUFFER_FLAG::READ_WRITE:
+			cl_flags |= CL_MEM_READ_WRITE;
+			break;
+		default:
+			log_error("buffer must be read-only, write-only or read-write!");
+			return;
+	}
+	
+	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
+		case COMPUTE_BUFFER_FLAG::HOST_READ:
+			cl_flags |= CL_MEM_HOST_READ_ONLY;
+			break;
+		case COMPUTE_BUFFER_FLAG::HOST_WRITE:
+			cl_flags |= CL_MEM_HOST_WRITE_ONLY;
+			break;
+		case COMPUTE_BUFFER_FLAG::HOST_READ_WRITE:
+			// both - this is the default
+			break;
+		case COMPUTE_BUFFER_FLAG::NONE:
+			cl_flags |= CL_MEM_HOST_NO_ACCESS;
+			break;
+		// all possible cases handled
+		default: floor_unreachable();
+	}
+	
+	// TODO: handle the remaining flags + host ptr
+	
+	cl_int create_err = CL_SUCCESS;
+	buffer = clCreateBuffer(ctx_ptr_, cl_flags, size, host_ptr, &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create buffer: %u", create_err);
+		buffer = nullptr;
+	}
 }
 
 opencl_buffer::~opencl_buffer() {
-	// TODO: kill the buffer
+	// kill the buffer
+	if(buffer == nullptr) return;
+	clReleaseMemObject(buffer);
 }
 
-void opencl_buffer::read(const size_t size, const size_t offset) {
-	// TODO: !
+void opencl_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+	read(cqueue, host_ptr, size_, offset);
 }
 
-void opencl_buffer::read(void* dst, const size_t size, const size_t offset)  {
-	// TODO: !
+void opencl_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
+	if(buffer == nullptr) return;
+	
+	const size_t read_size = (size_ == 0 ? size : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(read_size == 0) {
+		log_warn("trying to read 0 bytes!");
+	}
+	if(offset >= size) {
+		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
+		return;
+	}
+	if(offset + read_size > size) {
+		log_error("invalid offset/read size (offset + read size > buffer size): offset: %X, read size: %X, size: %X",
+				  offset, read_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	clEnqueueReadBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, false, offset, read_size, dst,
+						0, nullptr, nullptr);
 }
 
-void opencl_buffer::write(const size_t size, const size_t offset)  {
-	// TODO: !
+void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
+	write(cqueue, host_ptr, size_, offset);
 }
 
-void opencl_buffer::write(const void* src, const size_t size, const size_t offset)  {
-	// TODO: !
+void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
+	if(buffer == nullptr) return;
+	
+	const size_t write_size = (size_ == 0 ? size : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(write_size == 0) {
+		log_warn("trying to write 0 bytes!");
+	}
+	if(offset >= size) {
+		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
+		return;
+	}
+	if(offset + write_size > size) {
+		log_error("invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
+				  offset, write_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	clEnqueueWriteBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, false, offset, write_size, src,
+						 0, nullptr, nullptr);
 }
 
-void opencl_buffer::copy(shared_ptr<compute_buffer> src,
-						 const size_t src_size, const size_t src_offset,
-						 const size_t dst_size, const size_t dst_offset)  {
-	// TODO: !
+void opencl_buffer::copy(shared_ptr<compute_queue> cqueue,
+						 shared_ptr<compute_buffer> src,
+						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
+	if(buffer == nullptr) return;
+	
+	// use min(src size, dst size) as the default size if no size is specified
+	const size_t src_size = src->get_size();
+	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(copy_size == 0) {
+		log_warn("trying to copy 0 bytes!");
+	}
+	if(src_offset >= src_size) {
+		log_error("invalid src offset (>= size): offset: %X, size: %X", src_offset, src_size);
+		return;
+	}
+	if(dst_offset >= size) {
+		log_error("invalid dst offset (>= size): offset: %X, size: %X", dst_offset, size);
+		return;
+	}
+	if(src_offset + copy_size > src_size) {
+		log_error("invalid src offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+				  src_offset, copy_size, src_size);
+		return;
+	}
+	if(dst_offset + copy_size > size) {
+		log_error("invalid dst offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+				  dst_offset, copy_size, size);
+		return;
+	}
+#endif
+	
+	clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(),
+						((shared_ptr<opencl_buffer>&)src)->get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
+						0, nullptr, nullptr);
 }
 
-void opencl_buffer::fill(const void* pattern, const size_t& pattern_size,
-						 const size_t size, const size_t offset)  {
-	// TODO: !
+void opencl_buffer::fill(shared_ptr<compute_queue> cqueue,
+						 const void* pattern, const size_t& pattern_size,
+						 const size_t size_, const size_t offset) {
+	if(buffer == nullptr) return;
+	
+	const size_t fill_size = (size_ == 0 ? size : size_);
+	
+	// TODO: debug checks!
+	
+	// NOTE: opencl spec says that this ignores kernel/host read/write flags
+	clEnqueueFillBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, pattern, pattern_size, offset, fill_size,
+						0, nullptr, nullptr);
 }
 
-void opencl_buffer::zero()  {
-	// TODO: !
+void opencl_buffer::zero(shared_ptr<compute_queue> cqueue) {
+	if(buffer == nullptr) return;
+	
+	// TODO: figure out the fastest way to do this here (write 8-bit, 16-bit, 32-bit, ...?)
+	const uint32_t null = 0;
+	clEnqueueFillBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, &null, sizeof(null), 0, size,
+						0, nullptr, nullptr);
 }
 
-bool opencl_buffer::resize(const size_t& size, const bool copy_old_data)  {
-	// TODO: !
-	return false;
+bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size, const bool copy_old_data) {
+	if(buffer == nullptr) return false;
+	
+	// create the new buffer
+	cl_int create_err = CL_SUCCESS;
+	const auto new_buffer = clCreateBuffer((cl_context)ctx_ptr, cl_flags, new_size, host_ptr, &create_err);
+	if(create_err != CL_SUCCESS) {
+		log_error("failed to create resized buffer: %u", create_err);
+		return false;
+	}
+	
+	// copy old data if specified
+	if(copy_old_data) {
+		// can only copy as many bytes as there are bytes
+		const size_t copy_size = std::min(size, new_size);
+		
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+		if(copy_size == 0) {
+			log_error("trying to copy 0 bytes while resizing buffer!");
+			clReleaseMemObject(new_buffer);
+			return false;
+		}
+#endif
+		
+		clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, new_buffer, 0, 0, copy_size,
+							0, nullptr, nullptr);
+	}
+	
+	// kill the old buffer and assign the new one
+	if(buffer != nullptr) {
+		clReleaseMemObject(buffer);
+	}
+	buffer = new_buffer;
+	
+	return true;
 }
 
-void* __attribute__((aligned(128))) opencl_buffer::map(const COMPUTE_BUFFER_MAP_FLAG flags,
-													   const size_t size, const size_t offset)  {
-	// TODO: !
-	return nullptr;
+void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue> cqueue,
+													   const COMPUTE_BUFFER_MAP_FLAG flags_,
+													   const size_t size_, const size_t offset) {
+	if(buffer == nullptr) return nullptr;
+	
+	const size_t map_size = (size_ == 0 ? size : size_);
+	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	
+	cl_map_flags map_flags = 0;
+	if((flags_ & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+		map_flags |= CL_MAP_WRITE_INVALIDATE_REGION;
+		
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+		if((flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+			log_error("WRITE_INVALIDATE map flag is mutually exclusive with the READ and WRITE flags!");
+			return nullptr;
+		}
+#endif
+	}
+	else {
+		switch(flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_BUFFER_MAP_FLAG::READ:
+				map_flags |= CL_MAP_READ;
+				break;
+			case COMPUTE_BUFFER_MAP_FLAG::WRITE:
+				map_flags |= CL_MAP_WRITE;
+				break;
+			case COMPUTE_BUFFER_MAP_FLAG::READ_WRITE:
+				map_flags |= CL_MAP_READ | CL_MAP_WRITE;
+				break;
+			case COMPUTE_BUFFER_MAP_FLAG::NONE:
+			default:
+				log_error("neither read nor write flag set for buffer mapping!");
+				return nullptr;
+		}
+	}
+	
+	// TODO: debug checks! check size/offset + flag combinations (host flags)
+	
+	//
+	cl_int map_err = CL_SUCCESS;
+	auto ret_ptr = clEnqueueMapBuffer((cl_command_queue)cqueue->get_queue_ptr(),
+									  buffer, blocking_map, map_flags, offset, map_size,
+									  0, nullptr, nullptr, &map_err);
+	if(map_err != CL_SUCCESS) {
+		log_error("failed to map buffer: %u!", map_err);
+		return nullptr;
+	}
+	return ret_ptr;
 }
 
-void opencl_buffer::unmap(void* __attribute__((aligned(128))) mapped_ptr)  {
-	// TODO: !
+void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(buffer == nullptr) return;
+	if(mapped_ptr == nullptr) return;
+	
+	clEnqueueUnmapMemObject((cl_command_queue)cqueue->get_queue_ptr(), buffer, mapped_ptr, 0, nullptr, nullptr);
 }
 
 #endif

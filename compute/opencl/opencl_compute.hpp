@@ -66,7 +66,7 @@ public:
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	shared_ptr<compute_buffer> create_buffer(const size_t& size,
-											 const void* data,
+											 void* data,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
 	

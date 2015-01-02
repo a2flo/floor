@@ -29,7 +29,7 @@
 // TODO: !
 class opencl_queue final : public compute_queue {
 public:
-	opencl_queue(const cl_command_queue& queue);
+	opencl_queue(const cl_command_queue queue);
 	
 	const void* get_queue_ptr() const override;
 	

@@ -29,7 +29,7 @@ class opencl_buffer final : public compute_buffer {
 public:
 	opencl_buffer(const cl_context ctx_ptr_,
 				  const size_t& size_,
-				  const void* data,
+				  void* data,
 				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
@@ -44,56 +44,64 @@ public:
 				  const vector<data_type>& data,
 				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	opencl_buffer(ctx_ptr_, sizeof(data_type) * data.size(), &data[0], flags_) {}
+	opencl_buffer(ctx_ptr_, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
 	
 	template <typename data_type, size_t n>
 	opencl_buffer(const cl_context ctx_ptr_,
 				  const array<data_type, n>& data,
 				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	opencl_buffer(ctx_ptr_, sizeof(data_type) * n, &data[0], flags_) {}
+	opencl_buffer(ctx_ptr_, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
 	~opencl_buffer() override;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
-	void read(const size_t size = 0, const size_t offset = 0) override;
+	void read(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the specified "dst" pointer
-	void read(void* dst, const size_t size = 0, const size_t offset = 0) override;
+	void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
 	
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the previously specified host pointer to this buffer
-	void write(const size_t size = 0, const size_t offset = 0) override;
+	void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the specified "src" pointer to this buffer
-	void write(const void* src, const size_t size = 0, const size_t offset = 0) override;
+	void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
 	
 	//!
-	void copy(shared_ptr<compute_buffer> src,
-			  const size_t src_size = 0, const size_t src_offset = 0,
-			  const size_t dst_size = 0, const size_t dst_offset = 0) override;
+	void copy(shared_ptr<compute_queue> cqueue,
+			  shared_ptr<compute_buffer> src,
+			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
 	
 	//!
-	void fill(const void* pattern, const size_t& pattern_size,
+	void fill(shared_ptr<compute_queue> cqueue,
+			  const void* pattern, const size_t& pattern_size,
 			  const size_t size = 0, const size_t offset = 0) override;
 	
 	//! zeros/clears the complete buffer
-	void zero() override;
+	void zero(shared_ptr<compute_queue> cqueue) override;
 	
 	//!
-	bool resize(const size_t& size, const bool copy_old_data = false) override;
+	bool resize(shared_ptr<compute_queue> cqueue,
+				const size_t& size, const bool copy_old_data = false) override;
 	
 	//!
-	void* __attribute__((aligned(128))) map(const COMPUTE_BUFFER_MAP_FLAG flags =
+	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+											const COMPUTE_BUFFER_MAP_FLAG flags =
 											(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 											 COMPUTE_BUFFER_MAP_FLAG::BLOCK),
 											const size_t size = 0, const size_t offset = 0) override;
 	
 	//!
-	void unmap(void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	
+	//!
+	cl_mem get_cl_buffer() const { return buffer; }
 	
 protected:
+	cl_mem buffer { nullptr };
+	cl_mem_flags cl_flags { 0 };
 	
 };
 

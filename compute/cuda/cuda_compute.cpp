@@ -47,7 +47,7 @@ shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size floor_
 	return {};
 }
 
-shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size floor_unused, const void* data floor_unused, const COMPUTE_BUFFER_FLAG flags floor_unused) {
+shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size floor_unused, void* data floor_unused, const COMPUTE_BUFFER_FLAG flags floor_unused) {
 	// TODO: !
 	return {};
 }
