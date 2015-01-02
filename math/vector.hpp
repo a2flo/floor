@@ -223,7 +223,18 @@ public:
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT (scalar_type), FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	// construction from lower types
+#if FLOOR_VECTOR_WIDTH == 2
+	//! construction from <vector1, scalar>
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
+										 const scalar_type val = (scalar_type)0) noexcept :
+	x(vec.x), y(val) {}
+#endif
 #if FLOOR_VECTOR_WIDTH == 3
+	//! construction from <vector1, scalar, scalar>
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
+										 const scalar_type val_y = (scalar_type)0,
+										 const scalar_type val_z = (scalar_type)0) noexcept :
+	x(vec.x), y(val_y), z(val_z) {}
 	//! construction from <vector2, scalar>
 	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector2<scalar_type>& vec,
 										 const scalar_type val = (scalar_type)0) noexcept :
@@ -234,6 +245,12 @@ public:
 	x(val), y(vec.x), z(vec.y) {}
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
+	//! construction from <vector1, scalar, scalar, scalar>
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
+										 const scalar_type val_y = (scalar_type)0,
+										 const scalar_type val_z = (scalar_type)0,
+										 const scalar_type val_w = (scalar_type)0) noexcept :
+	x(vec.x), y(val_y), z(val_z), w(val_w) {}
 	//! construction from <vector2, scalar, scalar>
 	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector2<scalar_type>& vec,
 										 const scalar_type val_z = (scalar_type)0,
@@ -1919,7 +1936,16 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log, log, loged)
 	
 	//////////////////////////////////////////
-	// TODO: type conversion
+	// type conversion
+	
+#if FLOOR_VECTOR_WIDTH == 1
+	//! vector1<scalar_type> is directly convertible to its scalar_type
+	explicit operator scalar_type() const {
+		return x;
+	}
+#endif
+	
+	// TODO: more conversions?
 	
 };
 

@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
+#include <floor/core/logger.hpp>
 #include <floor/compute/opencl/opencl_queue.hpp>
 
 // TODO: remove the || 1 again
