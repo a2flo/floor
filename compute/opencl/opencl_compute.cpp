@@ -37,9 +37,12 @@
 #include <floor/compute/llvm_compute.hpp>
 
 void opencl_compute::init(const bool use_platform_devices,
-						  const size_t platform_index,
+						  const uint32_t platform_index_,
 						  const bool gl_sharing,
 						  const unordered_set<string> device_restriction) {
+	// if no platform was specified, use the one in the config (or default one, which is 0)
+	const auto platform_index = (platform_index_ == ~0u ? string2uint(floor::get_opencl_platform()) : platform_index_);
+	
 	// get platforms
 	cl_uint platform_count = 0;
 	CL_CALL_RET(clGetPlatformIDs(0, nullptr, &platform_count), "failed to get platform count")
@@ -376,50 +379,11 @@ void opencl_compute::init(const bool use_platform_devices,
 				device.type = (compute_device::TYPE)cpu_counter;
 				cpu_counter++;
 				dev_type_str += "CPU ";
-				
-				if(fastest_cpu_device == nullptr) {
-					fastest_cpu_device = device_sptr;
-					fastest_cpu_score = device.units * device.clock;
-				}
-				else {
-					cpu_score = device.units * device.clock;
-					if(cpu_score > fastest_cpu_score) {
-						fastest_cpu_device = device_sptr;
-						fastest_cpu_score = cpu_score;
-					}
-				}
 			}
 			if(device.internal_type & CL_DEVICE_TYPE_GPU) {
 				device.type = (compute_device::TYPE)gpu_counter;
 				gpu_counter++;
 				dev_type_str += "GPU ";
-				const auto compute_gpu_score = [](const compute_device& dev) -> unsigned int {
-					unsigned int multiplier = 1;
-					switch(dev.vendor) {
-						case compute_device::VENDOR::NVIDIA:
-							// fermi or kepler+ card if wg size is >= 1024
-							multiplier = (dev.max_workgroup_size >= 1024 ? 32 : 8);
-							break;
-						case compute_device::VENDOR::AMD:
-							multiplier = 16;
-							break;
-						// none for INTEL
-						default: break;
-					}
-					return multiplier * (dev.units * dev.clock);
-				};
-				
-				if(fastest_gpu_device == nullptr) {
-					fastest_gpu_device = device_sptr;
-					fastest_gpu_score = compute_gpu_score(device);
-				}
-				else {
-					gpu_score = compute_gpu_score(device);
-					if(gpu_score > fastest_gpu_score) {
-						fastest_gpu_device = device_sptr;
-						fastest_gpu_score = gpu_score;
-					}
-				}
 			}
 			if(device.internal_type & CL_DEVICE_TYPE_ACCELERATOR) {
 				dev_type_str += "Accelerator ";
@@ -456,6 +420,50 @@ void opencl_compute::init(const bool use_platform_devices,
 				continue;
 			}
 #endif
+			
+			// compute score and try to figure out which device is the fastest
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+				if(fastest_cpu_device == nullptr) {
+					fastest_cpu_device = device_sptr;
+					fastest_cpu_score = device.units * device.clock;
+				}
+				else {
+					cpu_score = device.units * device.clock;
+					if(cpu_score > fastest_cpu_score) {
+						fastest_cpu_device = device_sptr;
+						fastest_cpu_score = cpu_score;
+					}
+				}
+			}
+			else if(device.internal_type & CL_DEVICE_TYPE_GPU) {
+				const auto compute_gpu_score = [](const compute_device& dev) -> unsigned int {
+					unsigned int multiplier = 1;
+					switch(dev.vendor) {
+						case compute_device::VENDOR::NVIDIA:
+							// fermi or kepler+ card if wg size is >= 1024
+							multiplier = (dev.max_workgroup_size >= 1024 ? 32 : 8);
+							break;
+						case compute_device::VENDOR::AMD:
+							multiplier = 16;
+							break;
+							// none for INTEL
+						default: break;
+					}
+					return multiplier * (dev.units * dev.clock);
+				};
+				
+				if(fastest_gpu_device == nullptr) {
+					fastest_gpu_device = device_sptr;
+					fastest_gpu_score = compute_gpu_score(device);
+				}
+				else {
+					gpu_score = compute_gpu_score(device);
+					if(gpu_score > fastest_gpu_score) {
+						fastest_gpu_device = device_sptr;
+						fastest_gpu_score = gpu_score;
+					}
+				}
+			}
 		}
 		
 		// no supported devices found
@@ -463,6 +471,12 @@ void opencl_compute::init(const bool use_platform_devices,
 			log_error("no supported device found on this platform!");
 			continue;
 		}
+		
+		// determine the fastest overall device
+		if(fastest_cpu_device != nullptr || fastest_gpu_device != nullptr) {
+			fastest_device = (fastest_gpu_score >= fastest_cpu_score ? fastest_gpu_device : fastest_cpu_device);
+		}
+		// else: no device at all, should have aborted earlier already
 		
 		//
 		if(fastest_cpu_device != nullptr) {

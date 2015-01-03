@@ -37,14 +37,15 @@ public:
 		// sub-types
 		GPU = (1u << 31u), //!< bit is set if device is a GPU (only use for testing)
 		CPU = (1u << 30u), //!< bit is set if device is a CPU (only use for testing)
-		FASTEST = (1u << 29u), //!< bit is set if device the fastest of its group (only use for testing)
-		__MAX_SUB_TYPE = FASTEST, //!< don't use
+		FASTEST_FLAG = (1u << 29u), //!< bit is set if device the fastest of its group (only use for testing)
+		__MAX_SUB_TYPE = FASTEST_FLAG, //!< don't use
 		__MAX_SUB_TYPE_MASK = __MAX_SUB_TYPE - 1u, //!< don't use
 		
 		NONE = 0u, //!< select no device
-		// TODO: any device, fastest device (any)
-		FASTEST_GPU = GPU | FASTEST, //!< select fastest GPU
-		FASTEST_CPU = CPU | FASTEST, //!< select fastest CPU
+		ANY = 1u, //!< select any device (usually the first)
+		FASTEST = ANY | FASTEST_FLAG, //!< select fastest overall device
+		FASTEST_GPU = GPU | FASTEST_FLAG, //!< select fastest GPU
+		FASTEST_CPU = CPU | FASTEST_FLAG, //!< select fastest CPU
 		
 		ALL_GPU = GPU | __MAX_SUB_TYPE_MASK, //!< select all GPUs
 		ALL_CPU = CPU | __MAX_SUB_TYPE_MASK, //!< select all CPUs

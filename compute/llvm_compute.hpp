@@ -28,8 +28,6 @@
 
 class llvm_compute {
 public:
-	static void init();
-	
 	enum class TARGET {
 		SPIR,
 		PTX,
@@ -56,8 +54,6 @@ protected:
 	llvm_compute& operator=(const llvm_compute&) = delete;
 	
 	//
-	static cudacl* cucl;
-	
 	static vector<CUmodule> modules;
 	static unordered_map<string, CUfunction> functions;
 	

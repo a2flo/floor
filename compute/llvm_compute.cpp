@@ -36,14 +36,8 @@
 #define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
 #endif
 
-cudacl* llvm_compute::cucl { nullptr };
 vector<CUmodule> llvm_compute::modules;
 unordered_map<string, CUfunction> llvm_compute::functions;
-
-void llvm_compute::init() {
-	// TODO: test if ocl is actually cudacl
-	cucl = (cudacl*)ocl;
-}
 
 string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target) {
 	// note: llc flags:
@@ -145,7 +139,8 @@ string llvm_compute::compile_program(const string& code, const string additional
 		//const string ptx_bc_cmd = ptx_cmd + " -o - - | llvm-as -o=code_ptx.bc";
 		//const string ptx_bc_cmd = ptx_cmd + " -o - - > code_ptx.ll";
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.bc - 2>&1";
-		ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + cucl->get_cc_target_str();
+		//ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + cucl->get_cc_target_str(); // TODO: !
+		ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_20";
 		
 		string ptx_code { "" };
 		core::system(ptx_cmd, ptx_code);
@@ -186,7 +181,8 @@ void llvm_compute::load_module(const char* module_data, const vector<pair<string
 	const struct alignas(void*) {
 		unsigned int ui;
 	} jit_option_values[] {
-		{ cucl->get_cc_target() },
+		//{ cucl->get_cc_target() }, // TODO: !
+		{ CU_TARGET_COMPUTE_20 },
 		{ .ui = (floor::get_cuda_profiling() || floor::get_cuda_debug()) ? 1u : 0u },
 		{ .ui = floor::get_cuda_debug() ? 1u : 0u },
 		{ 32u }

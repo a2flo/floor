@@ -46,7 +46,7 @@ public:
 	
 	//! initializes the compute context/object
 	virtual void init(const bool use_platform_devices = false,
-					  const size_t platform_index = 0,
+					  const uint32_t platform_index = ~0u,
 					  const bool gl_sharing = true,
 					  const unordered_set<string> device_restriction = {}) = 0;
 	
@@ -169,6 +169,8 @@ protected:
 	
 	//! all compute devices of the current compute context
 	vector<shared_ptr<compute_device>> devices;
+	//! pointer to the fastest (any) compute_device if it exists
+	shared_ptr<compute_device> fastest_device;
 	//! pointer to the fastest cpu compute_device if it exists
 	shared_ptr<compute_device> fastest_cpu_device;
 	//! pointer to the fastest gpu compute_device if it exists

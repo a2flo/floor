@@ -31,7 +31,7 @@
 #endif
 
 void cuda_compute::init(const bool use_platform_devices floor_unused,
-						const size_t platform_index floor_unused,
+						const uint32_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
 						const unordered_set<string> device_restriction floor_unused) {
 	// TODO: !

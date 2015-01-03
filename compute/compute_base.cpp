@@ -22,6 +22,11 @@ compute_base::~compute_base() {}
 
 shared_ptr<compute_device> compute_base::get_device(const compute_device::TYPE type) const {
 	switch(type) {
+		case compute_device::TYPE::ANY:
+			// just return the first valid device if one exists
+			return (!devices.empty() ? devices[0] : nullptr);
+		case compute_device::TYPE::FASTEST:
+			return fastest_device; // note, no check here, b/c the result would be the same
 		case compute_device::TYPE::FASTEST_GPU:
 		case compute_device::TYPE::GPU: // shouldn't use this like that
 			if(fastest_gpu_device) return fastest_gpu_device;
@@ -30,7 +35,7 @@ shared_ptr<compute_device> compute_base::get_device(const compute_device::TYPE t
 		case compute_device::TYPE::CPU: // shouldn't use this like that
 			if(fastest_cpu_device) return fastest_cpu_device;
 			break;
-		case compute_device::TYPE::FASTEST:
+		case compute_device::TYPE::FASTEST_FLAG:
 		case compute_device::TYPE::NONE:
 		case compute_device::TYPE::ALL_CPU:
 		case compute_device::TYPE::ALL_GPU:

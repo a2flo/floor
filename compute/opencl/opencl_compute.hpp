@@ -40,7 +40,7 @@ public:
 	
 	//! initializes the compute context/object
 	void init(const bool use_platform_devices = false,
-			  const size_t platform_index = 0,
+			  const uint32_t platform_index = ~0u,
 			  const bool gl_sharing = true,
 			  const unordered_set<string> device_restriction = {}) override;
 	
