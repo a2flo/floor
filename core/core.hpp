@@ -44,7 +44,7 @@ public:
 	
 	//! random number in [0, max)
 	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
-	static int_type rand(const int_type& max) {
+	static int_type rand(int_type max = numeric_limits<int_type>::max()) {
 		uniform_int_distribution<int_type> dist((int_type)0, max - (int_type)1);
 		return dist(gen);
 	}
@@ -58,7 +58,7 @@ public:
 	
 	//! random number in [0, max)
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
-	static fp_type rand(const fp_type& max) {
+	static fp_type rand(fp_type max = numeric_limits<fp_type>::max()) {
 		uniform_real_distribution<fp_type> dist((fp_type)0, max);
 		return dist(gen);
 	}
