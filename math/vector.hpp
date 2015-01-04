@@ -291,6 +291,10 @@ public:
 	//! opencl/spir construction/load from local to any address space
 	constexpr FLOOR_DEVICE FLOOR_VECNAME(local const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
+	
+	//! opencl/spir construction/load from constant to any address space
+	constexpr FLOOR_DEVICE FLOOR_VECNAME(constant const vector_type& vec) noexcept :
+	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 #endif
 	
 	//! generic explicit load function that will construct and return a vector in private address space (opencl),

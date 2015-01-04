@@ -64,6 +64,8 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -DPLATFORM_X64" \
 			" -DFLOOR_CL_CONSTANT=constant" \
 			" -include floor/compute/compute_support.hpp" \
+			" -include floor/constexpr/const_math.hpp" \
+			" -include floor/constexpr/const_math.cpp" \
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
@@ -81,8 +83,18 @@ string llvm_compute::compile_program(const string& code, const string additional
 			// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
 			// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
 			"llvm-dis spir_3_5.bc &&"
-			" sed -i -E \"s/readonly//g\" spir_3_5.ll &&"
-			" sed -i -E \"s/^define (.*)section \\\"spir_kernel\\\" (.*)/define spir_kernel \\1\\2/\" spir_3_5.ll &&"
+#if defined(__APPLE__)
+			" sed -i \"\""
+#else
+			" sed -i"
+#endif
+			" -E \"s/readonly//g\" spir_3_5.ll &&"
+#if defined(__APPLE__)
+			" sed -i \"\""
+#else
+			" sed -i"
+#endif
+			" -E \"s/^define (.*)section \\\"spir_kernel\\\" (.*)/define spir_kernel \\1\\2/\" spir_3_5.ll &&"
 			" llvm-as spir_3_5.ll && "
 			// actual spir-encoder call:
 			"spir-encoder spir_3_5.bc spir_3_2.bc 2>&1"

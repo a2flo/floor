@@ -43,43 +43,53 @@ using namespace std;
 #endif
 
 namespace const_math {
+	//! largest supported floating point type
+#if !defined(FLOOR_LLVM_COMPUTE)
+	typedef long double max_fp_type;
+#else
+	typedef double max_fp_type; // can only use double with spir/opencl/cuda
+#endif
+	
 	// misc math constants
 	//! pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI = fp_type(3.14159265358979323846264338327950288419716939937510L);
 	//! pi/2
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_DIV_2 = fp_type(1.57079632679489661923132169163975144209858469968755L);
 	//! pi/4
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_DIV_4 = fp_type(0.785398163397448309615660845819875721049292349843775L);
 	//! pi/180
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_DIV_180 = fp_type(0.0174532925199432957692369076848861271344287188854172L);
 	//! pi/360
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_DIV_360 = fp_type(0.00872664625997164788461845384244306356721435944270861L);
 	//! 2*pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_MUL_2 = fp_type(6.2831853071795864769252867665590057683943387987502L);
 	//! 4*pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type PI_MUL_4 = fp_type(12.5663706143591729538505735331180115367886775975004L);
 	//! 1/pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type _1_DIV_PI = fp_type(0.318309886183790671537767526745028724068919291480913487283406L);
 	//! 1/(2*pi)
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type _1_DIV_2PI = fp_type(0.159154943091895335768883763372514362034459645740456743641703L);
 	//! 2/pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type _2_DIV_PI = fp_type(0.636619772367581343075535053490057448137838582961826974566812L);
 	//! 180/pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type _180_DIV_PI = fp_type(57.29577951308232087679815481410517033240547246656442771101308L);
 	//! 360/pi
-	template <typename fp_type = long double, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr FLOOR_CL_CONSTANT fp_type _360_DIV_PI = fp_type(114.5915590261646417535963096282103406648109449331288554220261L);
+	//! epsilon (for general use)
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr FLOOR_CL_CONSTANT fp_type EPSILON = fp_type(0.00001L);
 	
 	//! converts the input radian value to degrees
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
@@ -89,7 +99,7 @@ namespace const_math {
 	//! converts the input radian value to degrees (for non floating point types)
 	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
 	constexpr any_type rad_to_deg(const any_type& val) {
-		return any_type(_180_DIV_PI<> * (long double)val);
+		return any_type(_180_DIV_PI<> * (max_fp_type)val);
 	}
 	
 	//! converts the input degrees value to radian
@@ -100,13 +110,13 @@ namespace const_math {
 	//! converts the input degrees value to radian (for non floating point types)
 	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
 	constexpr any_type deg_to_rad(const any_type& val) {
-		return any_type(PI_DIV_180<> * (long double)val);
+		return any_type(PI_DIV_180<> * (max_fp_type)val);
 	}
 	
-	//! tests if two values are equal +/- a fixed epsilon (0.00001)
+	//! tests if two values are equal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
 	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
 	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs) {
-		return (lhs > (rhs - arithmetic_type(0.00001L)) && lhs < (rhs + arithmetic_type(0.00001L)));
+		return (lhs > (rhs - arithmetic_type(EPSILON<>)) && lhs < (rhs + arithmetic_type(EPSILON<>)));
 	}
 	
 	//! tests if two values are equal +/- a specified epsilon
@@ -273,13 +283,13 @@ namespace const_math {
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type exp(fp_type val) {
 		// ref: https://en.wikipedia.org/wiki/Characterizations_of_the_exponential_function#Characterizations
-		const long double ldbl_val = (long double)val;
-		long double x_pow = 1.0L;
-		long double x = 1.0L;
-		long double dfac = 1.0L;
+		const max_fp_type ldbl_val = (max_fp_type)val;
+		max_fp_type x_pow = 1.0L;
+		max_fp_type x = 1.0L;
+		max_fp_type dfac = 1.0L;
 		for(int i = 1; i < 48; ++i) {
 			x_pow *= ldbl_val;
-			dfac *= (long double)i;
+			dfac *= (max_fp_type)i;
 			x += x_pow / dfac;
 		}
 		return (fp_type)x;
@@ -291,20 +301,20 @@ namespace const_math {
 	constexpr fp_type log(fp_type val) {
 		// ref: https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
 		// compute a first estimate
-		const long double ldbl_val = (long double)val;
-		long double estimate = 0.0L;
-		const long double x_inv = (ldbl_val - 1.0L) / ldbl_val;
-		long double x_pow = x_inv;
+		const max_fp_type ldbl_val = (max_fp_type)val;
+		max_fp_type estimate = 0.0L;
+		const max_fp_type x_inv = (ldbl_val - 1.0L) / ldbl_val;
+		max_fp_type x_pow = x_inv;
 		estimate = x_inv;
 		for(int i = 2; i < 16; ++i) {
 			x_pow *= x_inv;
-			estimate += (1.0L / (long double)i) * x_pow;
+			estimate += (1.0L / (max_fp_type)i) * x_pow;
 		}
 		
 		// compute a more accurate ln(x) with newton
-		long double x = estimate;
+		max_fp_type x = estimate;
 		for(int i = 0; i < 32; ++i) {
-			const long double exp_x = const_math::exp(x);
+			const max_fp_type exp_x = const_math::exp(x);
 			x = x + 2.0L * ((ldbl_val - exp_x) / (ldbl_val + exp_x));
 		}
 		return (fp_type)x;
@@ -390,7 +400,7 @@ namespace const_math {
 		
 		// compute first estimate
 		const auto decomp = decompose_fp(val);
-		long double ldbl_val = decomp.first; // cast to more precise type, b/c we need the precision
+		max_fp_type ldbl_val = decomp.first; // cast to more precise type, b/c we need the precision
 		const bool is_neg_exp = (decomp.second < 0);
 		int32_t abs_exp = (is_neg_exp ? -decomp.second : decomp.second);
 		if(abs_exp % 2 == 1) {
@@ -418,7 +428,7 @@ namespace const_math {
 		
 		// compute sqrt of 2^exp (-> divide exponent by 2 => right shift by 1)
 		// and multiply with/divide by sqrt(2^exp) resp.
-		const long double sqrt_two_exp = const_math::pow(2.0L, (abs_exp >> 1));
+		const max_fp_type sqrt_two_exp = const_math::pow(2.0L, (abs_exp >> 1));
 		if(!is_neg_exp) {
 			x *= sqrt_two_exp;
 			rcp_x *= 1.0L / sqrt_two_exp;
@@ -452,17 +462,17 @@ namespace const_math {
 		// here: 10 iterations seem enough for now (this will go up to 20!, which is max factorial that fits into 64-bit)
 		
 		// always cast to long double precision for better accuracy + wrap to appropriate range [-pi, pi]
-		const long double lrad_angle = const_math::fmod((long double)rad_angle, PI_MUL_2<>);
-		const long double ldbl_val = lrad_angle + (lrad_angle > PI<> ? -PI_MUL_2<> : (lrad_angle < -PI<> ? PI_MUL_2<> : 0.0L));
+		const max_fp_type lrad_angle = const_math::fmod((max_fp_type)rad_angle, PI_MUL_2<>);
+		const max_fp_type ldbl_val = lrad_angle + (lrad_angle > PI<> ? -PI_MUL_2<> : (lrad_angle < -PI<> ? PI_MUL_2<> : 0.0L));
 		
-		long double cos_x = 1.0L;
+		max_fp_type cos_x = 1.0L;
 		uint64_t factorial_2k = 1ull; // (2*k)! in the iteration
-		long double pow_x_2k = 1.0L; // x^(2*k) in the iteration
-		const long double x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
+		max_fp_type pow_x_2k = 1.0L; // x^(2*k) in the iteration
+		const max_fp_type x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
 		for(int k = 1; k <= 10; ++k) {
 			pow_x_2k *= x_2; // x^(2*k)
 			factorial_2k *= (uint64_t)(k * 2 - 1) * (uint64_t)(k * 2); // (2*k)!
-			cos_x += ((k % 2 == 1 ? -1.0L : 1.0L) * pow_x_2k) / (long double)(factorial_2k);
+			cos_x += ((k % 2 == 1 ? -1.0L : 1.0L) * pow_x_2k) / (max_fp_type)(factorial_2k);
 		}
 		return (fp_type)cos_x;
 	}
@@ -470,13 +480,13 @@ namespace const_math {
 	//! computes sin(x), the sine of the radian angle x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type sin(fp_type rad_angle) {
-		return (fp_type)const_math::cos(PI_DIV_2<> - (long double)rad_angle);
+		return (fp_type)const_math::cos(PI_DIV_2<> - (max_fp_type)rad_angle);
 	}
 	
 	//! computes tan(x), the tangent of the radian angle x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type tan(fp_type rad_angle) {
-		return (fp_type)(const_math::sin((long double)rad_angle) / const_math::cos((long double)rad_angle));
+		return (fp_type)(const_math::sin((max_fp_type)rad_angle) / const_math::cos((max_fp_type)rad_angle));
 	}
 	
 	//! computes asin(x), the inverse sine / arcsine of x
@@ -503,7 +513,7 @@ namespace const_math {
 		}
 		
 		// always cast to long double precision for better accuracy
-		const long double ldbl_val = (long double)val;
+		const max_fp_type ldbl_val = (max_fp_type)val;
 		
 		// handle |val| > 0.5
 		if(const_math::abs(ldbl_val) > 0.5L) {
@@ -511,11 +521,11 @@ namespace const_math {
 		}
 		
 		// infinite series iteration
-		long double asin_x = ldbl_val; // the approximated asin(x)
-		long double binom_2k_k = 1.0L; // (2*k over k) in the iteration
-		long double pow_x_1_2k = ldbl_val; // x^(1 + 2*k) in the iteration
-		const long double x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
-		long double pow_4_k = 1.0L; // 4^k in the iteration
+		max_fp_type asin_x = ldbl_val; // the approximated asin(x)
+		max_fp_type binom_2k_k = 1.0L; // (2*k over k) in the iteration
+		max_fp_type pow_x_1_2k = ldbl_val; // x^(1 + 2*k) in the iteration
+		const max_fp_type x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
+		max_fp_type pow_4_k = 1.0L; // 4^k in the iteration
 		for(int k = 1; k <= 9; ++k) {
 			const auto dbl_k = double(k);
 			binom_2k_k *= 4.0L - 2.0L / dbl_k; // (2*k over k)
@@ -530,13 +540,13 @@ namespace const_math {
 	//! computes acos(x), the inverse cosine / arccosine of x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type acos(fp_type val) {
-		return (fp_type)(PI_DIV_2<> - const_math::asin((long double)val));
+		return (fp_type)(PI_DIV_2<> - const_math::asin((max_fp_type)val));
 	}
 	
 	//! computes atan(x), the inverse tangent / arctangent of x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type atan(fp_type val) {
-		const long double ldbl_val = (long double)val;
+		const max_fp_type ldbl_val = (max_fp_type)val;
 		return (fp_type)const_math::asin(ldbl_val / const_math::sqrt(ldbl_val * ldbl_val + 1.0L));
 	}
 	
@@ -544,8 +554,8 @@ namespace const_math {
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type atan2(fp_type y, fp_type x) {
 		// ref: https://en.wikipedia.org/wiki/Atan2
-		const long double ldbl_x = (long double)x;
-		const long double ldbl_y = (long double)y;
+		const max_fp_type ldbl_x = (max_fp_type)x;
+		const max_fp_type ldbl_y = (max_fp_type)y;
 		if(x > (fp_type)0) {
 			return (fp_type)const_math::atan(ldbl_y / ldbl_x);
 		}
@@ -691,9 +701,9 @@ namespace const_math {
 	//! note: all arguments are cast to long double, then used to do the computation and then cast back to the return type
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type fma(fp_type mul_a, fp_type mul_b, fp_type add_c) {
-		long double ldbl_a = (long double)mul_a;
-		long double ldbl_b = (long double)mul_b;
-		long double ldbl_c = (long double)add_c;
+		max_fp_type ldbl_a = (max_fp_type)mul_a;
+		max_fp_type ldbl_b = (max_fp_type)mul_b;
+		max_fp_type ldbl_c = (max_fp_type)add_c;
 		return fp_type((ldbl_a * ldbl_b) + ldbl_c);
 	}
 	
@@ -793,6 +803,7 @@ namespace const_math_select {
 		return const_math:: func_name (a, b, c); \
 	}
 	
+#if !defined(FLOOR_LLVM_COMPUTE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodf(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, (1.0f / std::sqrtf(val)), float, "f")
@@ -852,6 +863,48 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmal(a, b, c), long double, "l")
 	FLOOR_CONST_MATH_SELECT(exp, std::expl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, std::logl(val), long double, "l")
+#else
+	// builtin functions defined by opencl/spir
+	FLOOR_CONST_MATH_SELECT_2(fmod, fmod(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT(sqrt, sqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, rsqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(abs, fabs(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(floor, floor(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(ceil, ceil(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(round, round(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(trunc, trunc(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(rint, rint(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(sin, sin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(cos, cos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(tan, tan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(asin, asin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(acos, acos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(atan, atan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT_2(atan2, atan2(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_3(fma, fma(a, b, c), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp, exp(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(log, log(val), float, "f")
+	
+	FLOOR_CONST_MATH_SELECT_2(fmod, fmod(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT(sqrt, sqrt(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, rsqrt(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(abs, fabs(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(floor, floor(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(ceil, ceil(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(round, round(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(trunc, trunc(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(rint, rint(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(sin, sin(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(cos, cos(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(tan, tan(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(asin, asin(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(acos, acos(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(atan, atan(val), double, "d")
+	FLOOR_CONST_MATH_SELECT_2(atan2, atan2(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT_3(fma, fma(a, b, c), double, "d")
+	FLOOR_CONST_MATH_SELECT(exp, exp(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(log, log(val), double, "d")
+#endif
 	
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2

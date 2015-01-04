@@ -16,6 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-macros"
+#endif
+
+// this is included by the compute (spir/opencl/cuda) compiler -> need a header guard just in case
+#ifndef __FLOOR_CONST_MATH_CPP__
+#define __FLOOR_CONST_MATH_CPP__
+
 #include <floor/constexpr/const_math.hpp>
 
 namespace const_math_select {
@@ -34,6 +43,7 @@ namespace const_math_select {
 		return rt_func ; \
 	}
 	
+#if !defined(FLOOR_LLVM_COMPUTE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodf(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtf(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, (1.0f / std::sqrtf(val)), float, "f")
@@ -93,9 +103,57 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmal(a, b, c), long double, "l")
 	FLOOR_CONST_MATH_SELECT(exp, std::expl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, std::logl(val), long double, "l")
+#else
+	// builtin functions defined by opencl/spir
+	FLOOR_CONST_MATH_SELECT_2(fmod, fmod(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT(sqrt, sqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, rsqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(abs, fabs(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(floor, floor(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(ceil, ceil(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(round, round(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(trunc, trunc(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(rint, rint(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(sin, sin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(cos, cos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(tan, tan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(asin, asin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(acos, acos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(atan, atan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT_2(atan2, atan2(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_3(fma, fma(a, b, c), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp, exp(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(log, log(val), float, "f")
+	
+	FLOOR_CONST_MATH_SELECT_2(fmod, fmod(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT(sqrt, sqrt(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, rsqrt(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(abs, fabs(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(floor, floor(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(ceil, ceil(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(round, round(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(trunc, trunc(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(rint, rint(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(sin, sin(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(cos, cos(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(tan, tan(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(asin, asin(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(acos, acos(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(atan, atan(val), double, "d")
+	FLOOR_CONST_MATH_SELECT_2(atan2, atan2(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT_3(fma, fma(a, b, c), double, "d")
+	FLOOR_CONST_MATH_SELECT(exp, exp(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(log, log(val), double, "d")
+#endif
 	
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
 #undef FLOOR_CONST_MATH_SELECT_3
 	
 }
+
+#endif
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif

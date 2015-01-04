@@ -59,7 +59,7 @@ void opencl_compute::init(const bool use_platform_devices,
 	// go through all platforms, starting with the user-specified one
 	size_t first_platform_index = platform_index;
 	if(platform_index >= platforms.size()) {
-		log_warn("invalid platform index \"%s\" - starting at 0 instead!");
+		log_warn("invalid platform index \"%s\" - starting at 0 instead!", platform_index);
 		first_platform_index = 0;
 	}
 	
@@ -694,7 +694,7 @@ weak_ptr<compute_program> opencl_compute::add_program_source(const string& sourc
 		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(program, device));
 	}
 	
-#if 1
+#if 0
 	// for testing purposes: retrieve the compiled binaries again
 	const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(program);
 	for(size_t i = 0; i < binaries.size(); ++i) {

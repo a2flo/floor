@@ -133,7 +133,7 @@ typedef int64_t ssize_t;
 #define constant __attribute__((constant))
 
 #elif defined(__SPIR_CLANG__)
-// TODO: !
+// TODO: should really use this header somehow!
 //#include "opencl_spir.h"
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
@@ -159,7 +159,54 @@ typedef unsigned long int size_t;
 typedef long ssize_t;
 #endif
 
-size_t __attribute__((const)) get_global_id(uint dimindx);
+#define const_func __attribute__((const))
+size_t const_func get_global_id(uint dimindx);
+
+float const_func __attribute__((overloadable)) fmod(float, float);
+float const_func __attribute__((overloadable)) sqrt(float);
+float const_func __attribute__((overloadable)) rsqrt(float);
+float const_func __attribute__((overloadable)) fabs(float);
+float const_func __attribute__((overloadable)) floor(float);
+float const_func __attribute__((overloadable)) ceil(float);
+float const_func __attribute__((overloadable)) round(float);
+float const_func __attribute__((overloadable)) trunc(float);
+float const_func __attribute__((overloadable)) rint(float);
+float const_func __attribute__((overloadable)) sin(float);
+float const_func __attribute__((overloadable)) cos(float);
+float const_func __attribute__((overloadable)) tan(float);
+float const_func __attribute__((overloadable)) asin(float);
+float const_func __attribute__((overloadable)) acos(float);
+float const_func __attribute__((overloadable)) atan(float);
+float const_func __attribute__((overloadable)) atan2(float, float);
+float const_func __attribute__((overloadable)) fma(float, float, float);
+float const_func __attribute__((overloadable)) exp(float x, float y);
+float const_func __attribute__((overloadable)) log(float x, float y);
+float const_func __attribute__((overloadable)) pow(float x, float y);
+
+double const_func __attribute__((overloadable)) fmod(double, double);
+double const_func __attribute__((overloadable)) sqrt(double);
+double const_func __attribute__((overloadable)) rsqrt(double);
+double const_func __attribute__((overloadable)) fabs(double);
+double const_func __attribute__((overloadable)) floor(double);
+double const_func __attribute__((overloadable)) ceil(double);
+double const_func __attribute__((overloadable)) round(double);
+double const_func __attribute__((overloadable)) trunc(double);
+double const_func __attribute__((overloadable)) rint(double);
+double const_func __attribute__((overloadable)) sin(double);
+double const_func __attribute__((overloadable)) cos(double);
+double const_func __attribute__((overloadable)) tan(double);
+double const_func __attribute__((overloadable)) asin(double);
+double const_func __attribute__((overloadable)) acos(double);
+double const_func __attribute__((overloadable)) atan(double);
+double const_func __attribute__((overloadable)) atan2(double, double);
+double const_func __attribute__((overloadable)) fma(double, double, double);
+double const_func __attribute__((overloadable)) exp(double x, double y);
+double const_func __attribute__((overloadable)) log(double x, double y);
+double const_func __attribute__((overloadable)) pow(double x, double y);
+
+// can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
+// but apparently extern c printf is working fine with intels and amds implementation, so just use that ...
+extern "C" int printf(const char __constant* st, ...);
 
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected in cuda mode

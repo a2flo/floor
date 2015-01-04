@@ -281,7 +281,7 @@ F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (__LDBL_MAX__ - co
 
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -289,15 +289,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -310,7 +310,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint32_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -318,15 +318,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -339,7 +339,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int8_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -347,15 +347,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -368,7 +368,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint8_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -376,15 +376,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -397,7 +397,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int16_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -405,15 +405,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -426,7 +426,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint16_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -434,15 +434,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -455,7 +455,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int64_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -463,15 +463,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -484,7 +484,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint64_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -492,15 +492,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -513,7 +513,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(ssize_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -521,15 +521,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -542,7 +542,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(size_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -550,15 +550,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -571,7 +571,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__int128_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -579,15 +579,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -600,7 +600,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__uint128_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((long double)val)) \
+F1(sqrt, constexpr, (scalar_type)const_math_select::sqrt((double)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -608,15 +608,15 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_math_select::sin((long double)val)) \
-F1(cos, constexpr, (scalar_type)const_math_select::cos((long double)val)) \
-F1(tan, constexpr, (scalar_type)const_math_select::tan((long double)val)) \
-F1(asin, constexpr, (scalar_type)const_math_select::asin((long double)val)) \
-F1(acos, constexpr, (scalar_type)const_math_select::acos((long double)val)) \
-F1(atan, constexpr, (scalar_type)const_math_select::atan((long double)val)) \
-F2(atan2, constexpr, (scalar_type)const_math_select::atan2((long double)lhs, (long double)rhs)) \
-F1(exp, constexpr, (scalar_type)const_math_select::exp((long double)val)) \
-F1(log, constexpr, (scalar_type)const_math_select::log((long double)val)) \
+F1(sin, constexpr, (scalar_type)const_math_select::sin((double)val)) \
+F1(cos, constexpr, (scalar_type)const_math_select::cos((double)val)) \
+F1(tan, constexpr, (scalar_type)const_math_select::tan((double)val)) \
+F1(asin, constexpr, (scalar_type)const_math_select::asin((double)val)) \
+F1(acos, constexpr, (scalar_type)const_math_select::acos((double)val)) \
+F1(atan, constexpr, (scalar_type)const_math_select::atan((double)val)) \
+F2(atan2, constexpr, (scalar_type)const_math_select::atan2((double)lhs, (double)rhs)) \
+F1(exp, constexpr, (scalar_type)const_math_select::exp((double)val)) \
+F1(log, constexpr, (scalar_type)const_math_select::log((double)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -658,7 +658,9 @@ F1(unary_complement, constexpr, (~val)) \
 
 FLOOR_VH_IMPL_DEF_FLOAT(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 FLOOR_VH_IMPL_DEF_DOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
+#if !defined(FLOOR_LLVM_COMPUTE)
 FLOOR_VH_IMPL_DEF_LDOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
+#endif
 FLOOR_VH_IMPL_DEF_INT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 FLOOR_VH_IMPL_DEF_UINT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 FLOOR_VH_IMPL_DEF_INT8(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
