@@ -179,8 +179,8 @@ float const_func __attribute__((overloadable)) acos(float);
 float const_func __attribute__((overloadable)) atan(float);
 float const_func __attribute__((overloadable)) atan2(float, float);
 float const_func __attribute__((overloadable)) fma(float, float, float);
-float const_func __attribute__((overloadable)) exp(float x, float y);
-float const_func __attribute__((overloadable)) log(float x, float y);
+float const_func __attribute__((overloadable)) exp(float x);
+float const_func __attribute__((overloadable)) log(float x);
 float const_func __attribute__((overloadable)) pow(float x, float y);
 
 double const_func __attribute__((overloadable)) fmod(double, double);
@@ -200,8 +200,8 @@ double const_func __attribute__((overloadable)) acos(double);
 double const_func __attribute__((overloadable)) atan(double);
 double const_func __attribute__((overloadable)) atan2(double, double);
 double const_func __attribute__((overloadable)) fma(double, double, double);
-double const_func __attribute__((overloadable)) exp(double x, double y);
-double const_func __attribute__((overloadable)) log(double x, double y);
+double const_func __attribute__((overloadable)) exp(double x);
+double const_func __attribute__((overloadable)) log(double x);
 double const_func __attribute__((overloadable)) pow(double x, double y);
 
 // can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
