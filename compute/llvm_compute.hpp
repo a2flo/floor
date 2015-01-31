@@ -23,6 +23,9 @@
 
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 
+#include <string>
+using namespace std;
+
 class llvm_compute {
 public:
 	enum class TARGET {

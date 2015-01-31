@@ -95,7 +95,7 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast" +
+			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
 			warning_flags +
 			additional_options +
 			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
@@ -104,6 +104,7 @@ string llvm_compute::compile_program(const string& code, const string additional
 		//log_msg("spir cmd: %s", spir_cmd);
 		string spir_bc_output = "";
 		core::system(spir_cmd, spir_bc_output);
+		//log_msg("spir cmd: %s", spir_cmd);
 		log_msg("spir bc/ll: %s", spir_bc_output);
 		
 		const string spir_3_2_encoder_cmd {
@@ -150,7 +151,7 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast" +
+			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
 			warning_flags +
 			additional_options +
 			" -emit-llvm -S"
