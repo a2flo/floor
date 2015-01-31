@@ -1,6 +1,97 @@
+diff -rduBE llvm_rel35/include/llvm/CodeGen/AsmPrinter.h llvm/include/llvm/CodeGen/AsmPrinter.h
+--- llvm_rel35/include/llvm/CodeGen/AsmPrinter.h
++++ llvm/include/llvm/CodeGen/AsmPrinter.h
+@@ -232,7 +232,7 @@
+   /// requested, it will override the alignment request if required for
+   /// correctness.
+   ///
+-  void EmitAlignment(unsigned NumBits, const GlobalObject *GO = nullptr) const;
++  virtual void EmitAlignment(unsigned NumBits, const GlobalObject *GO = nullptr) const;
+ 
+   /// This method prints the label for the specified MachineBasicBlock, an
+   /// alignment (if present) and a comment describing it if appropriate.
+@@ -496,7 +496,7 @@
+   void EmitVisibility(MCSymbol *Sym, unsigned Visibility,
+                       bool IsDefinition = true) const;
+ 
+-  void EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const;
++  virtual void EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const;
+ 
+   void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
+                           const MachineBasicBlock *MBB, unsigned uid) const;
+diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXAsmPrinter.h llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h
+--- llvm_rel35/lib/Target/NVPTX/NVPTXAsmPrinter.h
++++ llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h
+@@ -202,6 +202,12 @@
+   void EmitFunctionBodyEnd() override;
+   void emitImplicitDef(const MachineInstr *MI) const override;
+ 
++  /// superfluous function header fix: nop these three functions
++  void EmitGlobalVariable(const GlobalVariable *GV) override {}
++  void EmitLinkage(const GlobalValue *GV, MCSymbol *GVSym) const override {}
++  void EmitAlignment(unsigned NumBits, const GlobalObject *GO = nullptr) const override {}
++  ///
++
+   void EmitInstruction(const MachineInstr *) override;
+   void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
+   bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
+diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td llvm/lib/Target/NVPTX/NVPTXInstrInfo.td
+--- llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td
++++ llvm/lib/Target/NVPTX/NVPTXInstrInfo.td
+@@ -1659,12 +1659,12 @@
+             (SET_f64ir fpimm:$a, Float64Regs:$b, Mode)>;
+ }
+ 
+-defm FSetGT : FSET_FORMAT<setogt, CmpGT, CmpGT_FTZ>;
+-defm FSetLT : FSET_FORMAT<setolt, CmpLT, CmpLT_FTZ>;
+-defm FSetGE : FSET_FORMAT<setoge, CmpGE, CmpGE_FTZ>;
+-defm FSetLE : FSET_FORMAT<setole, CmpLE, CmpLE_FTZ>;
+-defm FSetEQ : FSET_FORMAT<setoeq, CmpEQ, CmpEQ_FTZ>;
+-defm FSetNE : FSET_FORMAT<setone, CmpNE, CmpNE_FTZ>;
++defm FSetOGT : FSET_FORMAT<setogt, CmpGT, CmpGT_FTZ>;
++defm FSetOLT : FSET_FORMAT<setolt, CmpLT, CmpLT_FTZ>;
++defm FSetOGE : FSET_FORMAT<setoge, CmpGE, CmpGE_FTZ>;
++defm FSetOLE : FSET_FORMAT<setole, CmpLE, CmpLE_FTZ>;
++defm FSetOEQ : FSET_FORMAT<setoeq, CmpEQ, CmpEQ_FTZ>;
++defm FSetONE : FSET_FORMAT<setone, CmpNE, CmpNE_FTZ>;
+ 
+ defm FSetUGT : FSET_FORMAT<setugt, CmpGTU, CmpGTU_FTZ>;
+ defm FSetULT : FSET_FORMAT<setult, CmpLTU, CmpLTU_FTZ>;
+@@ -1673,6 +1673,13 @@
+ defm FSetUEQ : FSET_FORMAT<setueq, CmpEQU, CmpEQU_FTZ>;
+ defm FSetUNE : FSET_FORMAT<setune, CmpNEU, CmpNEU_FTZ>;
+ 
++defm FSetGT : FSET_FORMAT<setgt, CmpGT, CmpGT_FTZ>;
++defm FSetLT : FSET_FORMAT<setlt, CmpLT, CmpLT_FTZ>;
++defm FSetGE : FSET_FORMAT<setge, CmpGE, CmpGE_FTZ>;
++defm FSetLE : FSET_FORMAT<setle, CmpLE, CmpLE_FTZ>;
++defm FSetEQ : FSET_FORMAT<seteq, CmpEQ, CmpEQ_FTZ>;
++defm FSetNE : FSET_FORMAT<setne, CmpNE, CmpNE_FTZ>;
++
+ defm FSetNUM : FSET_FORMAT<seto, CmpNUM, CmpNUM_FTZ>;
+ defm FSetNAN : FSET_FORMAT<setuo, CmpNAN, CmpNAN_FTZ>;
+
 diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/Attr.td llvm/tools/clang/include/clang/Basic/Attr.td
 --- llvm_rel35/tools/clang/include/clang/Basic/Attr.td
 +++ llvm/tools/clang/include/clang/Basic/Attr.td
+@@ -514,7 +514,7 @@
+ }
+ 
+ def CUDAConstant : InheritableAttr {
+-  let Spellings = [GNU<"constant">];
++  let Spellings = [GNU<"constant">, GNU<"cuda_constant">];
+   let Subjects = SubjectList<[Var]>;
+   let LangOpts = [CUDA];
+   let Documentation = [Undocumented];
+@@ -528,7 +528,7 @@
+ }
+ 
+ def CUDAGlobal : InheritableAttr {
+-  let Spellings = [GNU<"global">];
++  let Spellings = [GNU<"global">, GNU<"cuda_kernel">];
+   let Subjects = SubjectList<[Function]>;
+   let LangOpts = [CUDA];
+   let Documentation = [Undocumented];
 @@ -574,7 +574,7 @@
  }
  
@@ -112,6 +203,37 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Frontend/LangStandards.def llvm
 +             Digraphs | GNUMode)
  
  #undef LANGSTANDARD
+diff -rduBE llvm_rel35/tools/clang/lib/CodeGen/CodeGenModule.cpp llvm/tools/clang/lib/CodeGen/CodeGenModule.cpp
+--- llvm_rel35/tools/clang/lib/CodeGen/CodeGenModule.cpp
++++ llvm/tools/clang/lib/CodeGen/CodeGenModule.cpp
+@@ -1219,21 +1219,17 @@
+     return EmitAliasDefinition(GD);
+ 
+   // If this is CUDA, be selective about which declarations we emit.
+-  if (LangOpts.CUDA) {
+-    if (CodeGenOpts.CUDAIsDevice) {
+-      if (!Global->hasAttr<CUDADeviceAttr>() &&
+-          !Global->hasAttr<CUDAGlobalAttr>() &&
+-          !Global->hasAttr<CUDAConstantAttr>() &&
+-          !Global->hasAttr<CUDASharedAttr>())
+-        return;
+-    } else {
++  /*if (LangOpts.CUDA) {
++    if (!CodeGenOpts.CUDAIsDevice) {
+       if (!Global->hasAttr<CUDAHostAttr>() && (
+             Global->hasAttr<CUDADeviceAttr>() ||
+             Global->hasAttr<CUDAConstantAttr>() ||
+-            Global->hasAttr<CUDASharedAttr>()))
++            Global->hasAttr<CUDASharedAttr>())) {
+         return;
++	  }
+     }
+-  }
++	// else: CUDAIsDevice: always emit, even if __device__ is missing!
++  }*/
+ 
+   // Ignore declarations, they will be emitted on their first use.
+   if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
 diff -rduBE llvm_rel35/tools/clang/lib/Frontend/CompilerInvocation.cpp llvm/tools/clang/lib/Frontend/CompilerInvocation.cpp
 --- llvm_rel35/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ llvm/tools/clang/lib/Frontend/CompilerInvocation.cpp
@@ -136,6 +258,35 @@ diff -rduBE llvm_rel35/tools/clang/lib/Lex/PPDirectives.cpp llvm/tools/clang/lib
          Diag(Tok, diag::err_pp_opencl_variadic_macros);
          return true;
        }
+diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaDeclCXX.cpp llvm/tools/clang/lib/Sema/SemaDeclCXX.cpp
+--- llvm_rel35/tools/clang/lib/Sema/SemaDeclCXX.cpp
++++ llvm/tools/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -13026,21 +13026,13 @@
+ 
+ /// IdentifyCUDATarget - Determine the CUDA compilation target for this function
+ Sema::CUDAFunctionTarget Sema::IdentifyCUDATarget(const FunctionDecl *D) {
+-  // Implicitly declared functions (e.g. copy constructors) are
+-  // __host__ __device__
+-  if (D->isImplicit())
+-    return CFT_HostDevice;
+-
+   if (D->hasAttr<CUDAGlobalAttr>())
+     return CFT_Global;
+ 
+-  if (D->hasAttr<CUDADeviceAttr>()) {
+-    if (D->hasAttr<CUDAHostAttr>())
+-      return CFT_HostDevice;
+-    return CFT_Device;
+-  }
+-
+-  return CFT_Host;
++  // if not a kernel, always default to device
++  // this is IMO a much saner approach and doesn't require to add the __device__
++  // attribute to _all_ functions
++  return CFT_Device;
+ }
+ 
+ bool Sema::CheckCUDATarget(CUDAFunctionTarget CallerTarget,
 diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaExpr.cpp llvm/tools/clang/lib/Sema/SemaExpr.cpp
 --- llvm_rel35/tools/clang/lib/Sema/SemaExpr.cpp
 +++ llvm/tools/clang/lib/Sema/SemaExpr.cpp

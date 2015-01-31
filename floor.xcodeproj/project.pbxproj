@@ -284,6 +284,9 @@
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
 		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
+		5C803E0E1A7CB159009B40DF /* libcxx_cuda_cl_cpp.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = libcxx_cuda_cl_cpp.patch; path = etc/libcxx_cuda_cl_cpp.patch; sourceTree = "<group>"; };
+		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
+		5C803E101A7CB159009B40DF /* clang_cuda_cl_cpp.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = clang_cuda_cl_cpp.patch; path = etc/clang_cuda_cl_cpp.patch; sourceTree = "<group>"; };
 		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
 		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
 		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
@@ -386,6 +389,7 @@
 			isa = PBXGroup;
 			children = (
 				5C81C42C17E59A1A00FE6791 /* build */,
+				5C803E0D1A7CB145009B40DF /* etc */,
 				5C1091D317D11547007F536E /* src */,
 				5C1091FE17D148EF007F536E /* libs */,
 				5C10915F17D114BC007F536E /* Products */,
@@ -623,6 +627,16 @@
 				5CD2175519E985D80049D6AE /* opencl */,
 			);
 			path = compute;
+			sourceTree = "<group>";
+		};
+		5C803E0D1A7CB145009B40DF /* etc */ = {
+			isa = PBXGroup;
+			children = (
+				5C803E0E1A7CB159009B40DF /* libcxx_cuda_cl_cpp.patch */,
+				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
+				5C803E101A7CB159009B40DF /* clang_cuda_cl_cpp.patch */,
+			);
+			name = etc;
 			sourceTree = "<group>";
 		};
 		5C81C42C17E59A1A00FE6791 /* build */ = {
