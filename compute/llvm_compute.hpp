@@ -21,10 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 
-// TODO: make this compile with either opencl or cuda disabled (currently requires cuda if opencl is enabled)
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
-
-#include <floor/cl/opencl.hpp>
 
 class llvm_compute {
 public:
@@ -41,21 +38,11 @@ public:
 									   const string additional_options = "",
 									   const TARGET target = TARGET::SPIR);
 	
-	//
-	static void load_module_from_file(const string& file_name,
-									  const vector<pair<string, string>>& function_mappings);
-	static void load_module(const char* module_data,
-							const vector<pair<string, string>>& function_mappings);
-	
 protected:
 	// static class
 	llvm_compute(const llvm_compute&) = delete;
 	~llvm_compute() = delete;
 	llvm_compute& operator=(const llvm_compute&) = delete;
-	
-	//
-	static vector<CUmodule> modules;
-	static unordered_map<string, CUfunction> functions;
 	
 };
 

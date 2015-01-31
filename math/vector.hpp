@@ -182,25 +182,25 @@ public:
 	{}
 	
 	//! copy-construct from same vector_type
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector_type& vec) noexcept :
+	constexpr FLOOR_VECNAME(const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	//! copy-construct from same vector_type (pointer)
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector_type* vec) noexcept :
+	constexpr FLOOR_VECNAME(const vector_type* vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec->, FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	//! copy-construct from same vector_type (rvalue)
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(vector_type&& vec) noexcept :
+	constexpr FLOOR_VECNAME(vector_type&& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	//! construct by specifying each component
 #if FLOOR_VECTOR_WIDTH >= 2
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& vec_x, const scalar_type& vec_y
+	constexpr FLOOR_VECNAME(const scalar_type& vec_x, const scalar_type& vec_y
 #if FLOOR_VECTOR_WIDTH >= 3
-										 , const scalar_type& vec_z
+							, const scalar_type& vec_z
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-										 , const scalar_type& vec_w
+							, const scalar_type& vec_w
 #endif
 	) noexcept :
 	x(vec_x), y(vec_y)
@@ -214,70 +214,70 @@ public:
 #endif
 	
 	//! construct by setting all components to the same scalar value
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val) noexcept :
+	constexpr FLOOR_VECNAME(const scalar_type& val) noexcept :
 	FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , (val)) {}
 	
 	//! construct with type conversion from identically-sized vector
 	template <typename from_scalar_type>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const FLOOR_VECNAME<from_scalar_type>& vec) noexcept :
+	constexpr FLOOR_VECNAME(const FLOOR_VECNAME<from_scalar_type>& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT (scalar_type), FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	// construction from lower types
 #if FLOOR_VECTOR_WIDTH == 2
 	//! construction from <vector1, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
+	constexpr FLOOR_VECNAME(const vector1<scalar_type>& vec,
 										 const scalar_type val = (scalar_type)0) noexcept :
 	x(vec.x), y(val) {}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
 	//! construction from <vector1, scalar, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
-										 const scalar_type val_y = (scalar_type)0,
-										 const scalar_type val_z = (scalar_type)0) noexcept :
+	constexpr FLOOR_VECNAME(const vector1<scalar_type>& vec,
+							const scalar_type val_y = (scalar_type)0,
+							const scalar_type val_z = (scalar_type)0) noexcept :
 	x(vec.x), y(val_y), z(val_z) {}
 	//! construction from <vector2, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector2<scalar_type>& vec,
-										 const scalar_type val = (scalar_type)0) noexcept :
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec,
+							const scalar_type val = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val) {}
 	//! construction from <scalar, vector2>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val,
-										 const vector2<scalar_type>& vec) noexcept :
+	constexpr FLOOR_VECNAME(const scalar_type& val,
+							const vector2<scalar_type>& vec) noexcept :
 	x(val), y(vec.x), z(vec.y) {}
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
 	//! construction from <vector1, scalar, scalar, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector1<scalar_type>& vec,
-										 const scalar_type val_y = (scalar_type)0,
-										 const scalar_type val_z = (scalar_type)0,
-										 const scalar_type val_w = (scalar_type)0) noexcept :
+	constexpr FLOOR_VECNAME(const vector1<scalar_type>& vec,
+							const scalar_type val_y = (scalar_type)0,
+							const scalar_type val_z = (scalar_type)0,
+							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(val_y), z(val_z), w(val_w) {}
 	//! construction from <vector2, scalar, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector2<scalar_type>& vec,
-										 const scalar_type val_z = (scalar_type)0,
-										 const scalar_type val_w = (scalar_type)0) noexcept :
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec,
+							const scalar_type val_z = (scalar_type)0,
+							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(val_z), w(val_w) {}
 	//! construction from <scalar, vector2, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val_x,
-										 const vector2<scalar_type>& vec,
-										 const scalar_type& val_w) noexcept :
+	constexpr FLOOR_VECNAME(const scalar_type& val_x,
+							const vector2<scalar_type>& vec,
+							const scalar_type& val_w) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(val_w) {}
 	//! construction from <scalar, scalar, vector2>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val_x,
-										 const scalar_type& val_y,
-										 const vector2<scalar_type>& vec) noexcept :
+	constexpr FLOOR_VECNAME(const scalar_type& val_x,
+							const scalar_type& val_y,
+							const vector2<scalar_type>& vec) noexcept :
 	x(val_x), y(val_y), z(vec.x), w(vec.y) {}
 	//! construction from <vector2, vector2>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector2<scalar_type>& vec_lo,
-										 const vector2<scalar_type>& vec_hi) noexcept :
+	constexpr FLOOR_VECNAME(const vector2<scalar_type>& vec_lo,
+							const vector2<scalar_type>& vec_hi) noexcept :
 	x(vec_lo.x), y(vec_lo.y), z(vec_hi.x), w(vec_hi.y) {}
 	
 	//! construction from <vector3, scalar>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const vector3<scalar_type>& vec,
-										 const scalar_type val_w = (scalar_type)0) noexcept :
+	constexpr FLOOR_VECNAME(const vector3<scalar_type>& vec,
+							const scalar_type val_w = (scalar_type)0) noexcept :
 	x(vec.x), y(vec.y), z(vec.z), w(val_w) {}
 	//! construction from <scalar, vector3>
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(const scalar_type& val_x,
-										 const vector3<scalar_type>& vec) noexcept :
+	constexpr FLOOR_VECNAME(const scalar_type& val_x,
+							const vector3<scalar_type>& vec) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 
@@ -285,15 +285,15 @@ public:
 	// NOTE: private is not needed, because it's the default and already defined above
 #if defined(__SPIR32__) || defined(__SPIR64__)
 	//! opencl/spir construction/load from global to any address space
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(global const vector_type& vec) noexcept :
+	constexpr FLOOR_VECNAME(global const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	//! opencl/spir construction/load from local to any address space
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(local const vector_type& vec) noexcept :
+	constexpr FLOOR_VECNAME(local const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
 	//! opencl/spir construction/load from constant to any address space
-	constexpr FLOOR_DEVICE FLOOR_VECNAME(constant const vector_type& vec) noexcept :
+	constexpr FLOOR_VECNAME(constant const vector_type& vec) noexcept :
 	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 #endif
 	

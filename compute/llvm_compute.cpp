@@ -20,6 +20,8 @@
 
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 
+#include <floor/floor/floor.hpp>
+
 #if !defined(FLOOR_COMPUTE_CLANG)
 #define FLOOR_COMPUTE_CLANG "compute_clang"
 #endif
@@ -36,17 +38,41 @@
 #define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
 #endif
 
-vector<CUmodule> llvm_compute::modules;
-unordered_map<string, CUfunction> llvm_compute::functions;
-
 string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target) {
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
+	//  -nvptx-fma-level=2 (0: disabled, 1: enabled, 2: aggressive)
 	//  -enable-unsafe-fp-math
 	//  -mcpu=sm_35
+	// note: additional clang flags:
+	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
+	//  -menable-unsafe-fp-math
 	
-	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | "};
+	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	//log_msg("printable: %s", printable_code);
+	
+	// for now, only enable these in debug mode (note that these cost a not insignificant amount of compilation time)
+#if defined(FLOOR_DEBUG)
+	const char* warning_flags {
+		// let's start with everything
+		" -Weverything"
+		// remove compat warnings
+		" -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c99-extensions -Wno-c11-extensions -Wno-gnu"
+		// in case we're using warning options that aren't supported by other clang versions
+		" -Wno-unknown-warning-option"
+		// really don't want to be too pedantic
+		" -Wno-old-style-cast -Wno-date-time -Wno-system-headers -Wno-header-hygiene -Wno-documentation"
+		// again: not too pedantic, also useful language features
+		" -Wno-nested-anon-types -Wno-global-constructors -Wno-exit-time-destructors"
+		// usually conflicting with the other switch/case warning, so disable it
+		" -Wno-switch-enum"
+		// TODO: also add -Wno-padded -Wno-packed? or make these optional? there are situations were these are useful
+		// end
+		" "
+	};
+#else
+	const char* warning_flags { "" };
+#endif
 	
 	if(target == TARGET::SPIR) {
 		string spir_cmd {
@@ -69,7 +95,8 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -Ofast " +
+			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast" +
+			warning_flags +
 			additional_options +
 			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
 		};
@@ -108,28 +135,8 @@ string llvm_compute::compile_program(const string& code, const string additional
 		return spir_bc;
 	}
 	else if(target == TARGET::PTX) {
-		const string preprocess_cuda_cmd {
-			printable_code +
-			FLOOR_COMPUTE_CLANG \
-			" -E -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
-			" -Xclang -fcuda-is-device" \
-			" -D__CUDA_CLANG__" \
-			" -D__CUDA_CLANG_PREPROCESS__" \
-			" -DFLOOR_LLVM_COMPUTE" \
-			" -DFLOOR_NO_MATH_STR" \
-			" -DPLATFORM_X64" \
-			" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
-			" -include floor/compute/compute_support.hpp" \
-			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
-			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
-			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions " +
-			additional_options +
-			" -o - -"
-		};
-		
 		string ptx_cmd {
-			preprocess_cuda_cmd + " | " \
+			printable_code +
 			FLOOR_COMPUTE_CLANG \
 			" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 			" -Xclang -fcuda-is-device" \
@@ -137,31 +144,40 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -DFLOOR_LLVM_COMPUTE" \
 			" -DFLOOR_NO_MATH_STR" \
 			" -DPLATFORM_X64" \
-			" -DFLOOR_DEVICE=\"__attribute__((device)) __attribute__((host))\"" \
-			" -Dkernel=\"__attribute__((global))\"" \
 			" -include floor/compute/compute_support.hpp" \
+			" -include floor/constexpr/const_math.hpp" \
+			" -include floor/constexpr/const_math.cpp" \
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -Ofast " +
+			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast" +
+			warning_flags +
 			additional_options +
 			" -emit-llvm -S"
 		};
 		
+		// TODO: clean this up + do this properly!
 		//const string ptx_bc_cmd = ptx_cmd + " -o - - | llvm-as -o=code_ptx.bc";
-		//const string ptx_bc_cmd = ptx_cmd + " -o - - > code_ptx.ll";
-		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.bc - 2>&1";
+		//const string ptx_bc_cmd = ptx_cmd + " -o - - > code_ptx.ll && cat code_ptx.ll";
+		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
+		//const string ptx_bc_cmd = ptx_cmd + " -o - - 2>&1";
 		//ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + cucl->get_cc_target_str(); // TODO: !
-		ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_20";
+		//ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_30" " 2>&1";
+		//ptx_cmd = "cat code_ptx.ll | " FLOOR_COMPUTE_LLC " -mcpu=sm_30" " 2>&1";
+		ptx_cmd += " -o - - 2>&1";
+		ptx_cmd += " | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_30" " 2>&1";
+		ptx_cmd += u8R"RAW( | sed -E "s/@\"\\\\01([a-zA-Z0-9_]+)\"/@\1/g")RAW";
+		ptx_cmd += u8R"RAW( | sed -E "s/\[\"(.*)\"\]/\[\1\]/g" | tr -d "\001")RAW";
+		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
+		
+		string bc_output = "";
+		core::system(ptx_bc_cmd, bc_output);
+		log_msg("bc/ll: %s", bc_output);
 		
 		string ptx_code { "" };
 		core::system(ptx_cmd, ptx_code);
 		//log_msg("ptx cmd: %s", ptx_cmd);
 		log_msg("ptx code:\n%s\n", ptx_code);
-		
-		string bc_output = "";
-		core::system(ptx_bc_cmd, bc_output);
-		log_msg("bc/ll: %s", bc_output);
 		
 		return ptx_code;
 	}
@@ -170,51 +186,6 @@ string llvm_compute::compile_program(const string& code, const string additional
 
 string llvm_compute::compile_program_file(const string& filename, const string additional_options, const TARGET target) {
 	return compile_program(file_io::file_to_string(filename), additional_options, target);
-}
-
-void llvm_compute::load_module_from_file(const string& file_name, const vector<pair<string, string>>& function_mappings) {
-	string module_data;
-	if(!file_io::file_to_string(file_name, module_data)) {
-		log_error("failed to load cuda module: %s", file_name);
-		return;
-	}
-	load_module(module_data.c_str(), function_mappings);
-}
-
-void llvm_compute::load_module(const char* module_data, const vector<pair<string, string>>& function_mappings) {
-	// jit the module / ptx code
-	const CUjit_option jit_options[] {
-		CU_JIT_TARGET,
-		CU_JIT_GENERATE_LINE_INFO,
-		CU_JIT_GENERATE_DEBUG_INFO,
-		CU_JIT_MAX_REGISTERS
-	};
-	constexpr auto option_count = sizeof(jit_options) / sizeof(CUjit_option);
-	const struct alignas(void*) {
-		unsigned int ui;
-	} jit_option_values[] {
-		//{ cucl->get_cc_target() }, // TODO: !
-		{ CU_TARGET_COMPUTE_20 },
-		{ .ui = (floor::get_cuda_profiling() || floor::get_cuda_debug()) ? 1u : 0u },
-		{ .ui = floor::get_cuda_debug() ? 1u : 0u },
-		{ 32u }
-	};
-	static_assert(option_count == (sizeof(jit_option_values) / sizeof(void*)), "mismatching option count");
-	
-	CUmodule module;
-	CU(cuModuleLoadDataEx(&module,
-						  module_data,
-						  option_count,
-						  (CUjit_option*)&jit_options[0],
-						  (void**)&jit_option_values[0]));
-	modules.emplace_back(module);
-	
-	// get the functions
-	for(const auto& func : function_mappings) {
-		CUfunction cuda_func;
-		CU(cuModuleGetFunction(&cuda_func, module, func.first.c_str()));
-		functions[func.second] = cuda_func;
-	}
 }
 
 #endif

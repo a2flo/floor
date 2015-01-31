@@ -16,24 +16,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_RAY_HPP__
-#define __FLOOR_RAY_HPP__
+#ifndef __FLOOR_CUDA_PROGRAM_HPP__
+#define __FLOOR_CUDA_PROGRAM_HPP__
 
-#include <floor/math/vector_lib.hpp>
+#include <floor/compute/cuda/cuda_common.hpp>
 
-class ray {
+#if !defined(FLOOR_NO_CUDA)
+
+#include <floor/compute/compute_program.hpp>
+
+// TODO: !
+class cuda_program final : public compute_program {
 public:
-	float3 origin;
-	float3 direction;
+	cuda_program(const CUmodule program);
 	
-	constexpr ray() noexcept : origin(), direction() {}
-	constexpr ray(const ray& r) noexcept : origin(r.origin), direction(r.direction) {}
-	constexpr ray(const float3& rorigin, const float3& rdirection) noexcept : origin(rorigin), direction(rdirection) {}
-	
-	constexpr float3 get_point(const float& distance) const {
-		return origin + distance * direction;
-	}
+protected:
+	const CUmodule program;
 	
 };
+
+#endif
 
 #endif

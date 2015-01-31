@@ -47,7 +47,6 @@ static void sighandler(int, siginfo_t*, void*) {
 	void* stack_ptrs[STACK_PTR_COUNT];
 	const int ptr_count = (int)backtrace(stack_ptrs, STACK_PTR_COUNT);
 	const auto thread_name = core::get_current_thread_name();
-	fprintf(stderr, "segfault/trap/abort in thread/process \"%s\":\n", thread_name.c_str());
 	log_error("segfault/trap/abort in thread/process \"%s\":", thread_name);
 	
 	// converts a stack and load address of a specified binary into a line number,

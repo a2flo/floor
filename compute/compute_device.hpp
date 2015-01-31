@@ -94,6 +94,8 @@ public:
 	uint32_t units { 0u };
 	//! clock frequency in MHz
 	uint32_t clock { 0u };
+	//! memory clock frequency in MHz
+	uint32_t mem_clock { 0u };
 	//! global memory size in bytes
 	uint64_t global_mem_size { 0u };
 	//! local (OpenCL) / shared (CUDA) memory size in bytes
@@ -102,19 +104,28 @@ public:
 	uint64_t constant_mem_size { 0u };
 	//! max chunk size that can be allocated in global memory
 	uint64_t max_mem_alloc { 0u };
-	//! max number of active work-items in a work-group
-	size_t max_workgroup_size { 0u };
+	//! max number of active work-items in a work-group (CUDA: threads per block)
+	size_t max_work_group_size { 0u };
 	//! max amount of work-items that can be active/used per dimension
-	size3 max_workgroup_sizes;
+	//! (OpenCL: devices sizeof(size_t) range, CUDA: grid dim * block dim)
+	ulong3 max_work_item_sizes;
+	//! max amount of work-items that can be active/used per work-group (CUDA: block dim)
+	size3 max_work_group_item_sizes;
+	//! max 1D image dimensions
+	size_t max_image_1d_dim { 0u };
 	//! max 2D image dimensions
 	size2 max_image_2d_dim;
 	//! max 3D image dimensions
 	size3 max_image_3d_dim;
+	//! bitness of the device (32 or 64)
+	uint32_t bitness { 32u };
 	
 	//! true if images are supported by the device
 	bool image_support { false };
 	//! true if the device supports double precision floating point computation
 	bool double_support { false };
+	//! true if the device supports host unified memory/unified addressing
+	bool unified_memory { false };
 	
 	//! device name in string form
 	string name { "unknown" };

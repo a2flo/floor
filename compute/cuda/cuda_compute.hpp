@@ -19,11 +19,16 @@
 #ifndef __FLOOR_CUDA_COMPUTE_HPP__
 #define __FLOOR_CUDA_COMPUTE_HPP__
 
-#include <floor/core/essentials.hpp>
+#include <floor/compute/cuda/cuda_common.hpp>
 
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_base.hpp>
+#include <floor/compute/cuda/cuda_buffer.hpp>
+#include <floor/compute/cuda/cuda_device.hpp>
+#include <floor/compute/cuda/cuda_kernel.hpp>
+#include <floor/compute/cuda/cuda_program.hpp>
+#include <floor/compute/cuda/cuda_queue.hpp>
 
 class cuda_compute final : public compute_base {
 public:
@@ -92,6 +97,9 @@ public:
 	//! adds and compiles a program and its kernels from the provided source code
 	weak_ptr<compute_program> add_program_source(const string& source_code,
 												 const string additional_options = "") override;
+	
+protected:
+	vector<shared_ptr<cuda_program>> programs;
 	
 };
 

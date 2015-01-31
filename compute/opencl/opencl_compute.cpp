@@ -35,6 +35,7 @@
 #endif
 
 #include <floor/compute/llvm_compute.hpp>
+#include <floor/floor/floor.hpp>
 
 void opencl_compute::init(const bool use_platform_devices,
 						  const uint32_t platform_index_,
@@ -290,24 +291,28 @@ void opencl_compute::init(const bool use_platform_devices,
 			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
 			device.max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
-			device.max_workgroup_size = cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
-			const auto max_workgroup_sizes = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
-			if(max_workgroup_sizes.size() != 3) {
-				log_warn("max workgroup sizes dim != 3: %u", max_workgroup_sizes.size());
+			device.max_work_group_size = cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
+			const auto max_work_group_item_sizes = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
+			if(max_work_group_item_sizes.size() != 3) {
+				log_warn("max workgroup sizes dim != 3: %u", max_work_group_item_sizes.size());
 			}
-			if(max_workgroup_sizes.size() >= 1) device.max_workgroup_sizes.x = max_workgroup_sizes[0];
-			if(max_workgroup_sizes.size() >= 2) device.max_workgroup_sizes.y = max_workgroup_sizes[1];
-			if(max_workgroup_sizes.size() >= 3) device.max_workgroup_sizes.z = max_workgroup_sizes[2];
+			if(max_work_group_item_sizes.size() >= 1) device.max_work_group_item_sizes.x = max_work_group_item_sizes[0];
+			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = max_work_group_item_sizes[1];
+			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = max_work_group_item_sizes[2];
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
+			device.max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
 			device.max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
 			device.max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
 			device.double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
+			device.bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
+			device.max_work_item_sizes = (1ull << uint64_t(device.bitness)) - 1ull; // range: sizeof(size_t) -> clEnqueueNDRangeKernel
+			device.unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
 			
-			log_msg("address space size: %u", cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev));
+			log_msg("address space size: %u", device.bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",
 					device.max_mem_alloc,
 					device.max_mem_alloc / 1024ULL / 1024ULL);
@@ -317,9 +322,10 @@ void opencl_compute::init(const bool use_platform_devices,
 					device.constant_mem_size / 1024ULL);
 			log_msg("mem base address alignment: %u", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
 			log_msg("min data type alignment size: %u", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
-			log_msg("host unified memory: %u", cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev));
-			log_msg("max_wg_size: %u", device.max_workgroup_size);
-			log_msg("max_wi_sizes: %v", device.max_workgroup_sizes);
+			log_msg("host unified memory: %u", device.unified_memory);
+			log_msg("max work-group size: %u", device.max_work_group_size);
+			log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
+			log_msg("max work-item sizes: %v", device.max_work_item_sizes);
 			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
 			log_msg("double support: %b", device.double_support);
 			log_msg("image support: %b", device.image_support);
@@ -399,7 +405,7 @@ void opencl_compute::init(const bool use_platform_devices,
 			}
 			device.c_version = extracted_cl_c_version.second;
 			
-			// TYPE (Units: %, Clock: %): Name, Vendor, Version, Driver Version
+			//
 			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
 					  dev_type_str,
 					  device.units,
@@ -441,7 +447,7 @@ void opencl_compute::init(const bool use_platform_devices,
 					switch(dev.vendor) {
 						case compute_device::VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024
-							multiplier = (dev.max_workgroup_size >= 1024 ? 32 : 8);
+							multiplier = (dev.max_work_group_size >= 1024 ? 32 : 8);
 							break;
 						case compute_device::VENDOR::AMD:
 							multiplier = 16;
@@ -492,9 +498,8 @@ void opencl_compute::init(const bool use_platform_devices,
 		break;
 	}
 	
-	// if absolutely no devices on any platform are supported, disable opencl support
+	// if absolutely no devices on any platform are supported, return (supported is still false)
 	if(devices.empty()) {
-		supported = false;
 		return;
 	}
 	// else: init successful, set supported to true

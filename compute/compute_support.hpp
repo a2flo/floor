@@ -19,7 +19,12 @@
 #ifndef __FLOOR_COMPUTE_SUPPORT_HPP__
 #define __FLOOR_COMPUTE_SUPPORT_HPP__
 
-#if defined(__CUDA_CLANG__) && defined(__CUDA_CLANG_PREPROCESS__)
+// TODO: clean this up (srsly ...) + possible move into separate cuda/opencl headers
+
+#if defined(__CUDA_CLANG__)
+
+//
+#define kernel extern "C" __attribute__((cuda_kernel))
 
 // kill opencl style "global" keywords
 #define global
@@ -27,8 +32,11 @@
 // also kill this (used to workaround global var address space issues in opencl)
 #define opencl_constant
 
+//
+#define device_constant __attribute__((constant))
+
 // TODO: properly do this
-#define get_global_id(dim) (bid_x * bdim_x + tid_x)
+#define get_global_id(dim) (size_t(bid_x * bdim_x + tid_x))
 
 // have some special magic:
 // NOTE: this should be compiled with at least -O1, otherwise dead code won't be eliminated
@@ -127,10 +135,17 @@ typedef uint64_t size_t;
 typedef int64_t ssize_t;
 #endif
 
-#elif defined(__CUDA_CLANG__) && !defined(__CUDA_CLANG_PREPROCESS__)
 //
 #define local __attribute__((shared))
-#define constant __attribute__((constant))
+#define constant __attribute__((cuda_constant))
+
+//#include <floor/compute/cuda/cuda_device_functions.hpp>
+// TODO: add proper cuda math support
+float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
+float sqrt(float a) { return __nvvm_sqrt_rn_ftz_f(a); }
+float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
+float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
+float tan(float a) { return sin(a) / cos(a); }
 
 #elif defined(__SPIR_CLANG__)
 // TODO: should really use this header somehow!
@@ -141,7 +156,7 @@ typedef int64_t ssize_t;
 typedef char int8_t;
 typedef short int int16_t;
 typedef int int32_t;
-typedef long long int int64_t;
+typedef long int int64_t;
 typedef unsigned char uint8_t;
 typedef unsigned short int uint16_t;
 typedef unsigned int uint32_t;
@@ -224,7 +239,7 @@ extern "C" int printf(const char __constant* st, ...);
 
 #endif
 
-#if defined(__CUDA_CLANG_PREPROCESS__) || defined(__SPIR_CLANG__)
+#if defined(__CUDA_CLANG__) || defined(__SPIR_CLANG__)
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
 

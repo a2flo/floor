@@ -47,7 +47,7 @@ protected:
 	
 };
 
-//#include <floor/compute/cuda/cuda_kernel.hpp>
+#include <floor/compute/cuda/cuda_kernel.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
 
 #if !defined(FLOOR_OPENCL_KERNEL_IMPL) && !defined(FLOOR_CUDA_KERNEL_IMPL)
@@ -60,7 +60,11 @@ template <typename... Args, class work_size_type> void compute_kernel::execute(c
 	switch(get_compute_type()) {
 		case COMPUTE_TYPE::CUDA:
 #if !defined(FLOOR_NO_CUDA)
-			//static_cast<cuda_kernel*>(this)->execute((CUStream)queue_ptr, forward<Args>(args)...);
+			static_cast<cuda_kernel*>(this)->execute((CUstream)queue_ptr,
+													 decay_t<work_size_type>::dim,
+													 size3 { global_work_size },
+													 size3 { local_work_size },
+													 forward<Args>(args)...);
 #endif // else: nop
 			break;
 		case COMPUTE_TYPE::OPENCL:

@@ -107,7 +107,7 @@ catch(cudacl_exception err) {													\
 #define __HANDLE_CL_EXCEPTION_EXT(func_str, additional_info) __HANDLE_CL_EXCEPTION_START_EXT(func_str, additional_info) __HANDLE_CL_EXCEPTION_END
 
 cudacl::cudacl(const char* kernel_path_, SDL_Window* wnd_, const bool clear_cache_) :
-opencl_base(), cc_target(CU_TARGET_COMPUTE_10) {
+opencl_base(), cc_target(CU_TARGET_COMPUTE_20) {
 	opencl_base::sdl_wnd = wnd_;
 	opencl_base::kernel_path_str = kernel_path_;
 
@@ -266,28 +266,8 @@ void cudacl::init(bool use_platform_devices floor_unused, const size_t platform_
 			// get all attributes
 			switch(cc.first) {
 				case 0:
-					log_error("invalid compute capability: %u.%u", cc.first, cc.second);
-					break;
 				case 1:
-					switch(cc.second) {
-						case 0: // g80
-							cc_target_str = "10";
-							cc_target = CU_TARGET_COMPUTE_10;
-							break;
-						case 1: // g8x, g9x
-							cc_target_str = "11";
-							cc_target = CU_TARGET_COMPUTE_11;
-							break;
-						case 2: // gt20x (low/mid end, <= gt 240)
-							cc_target_str = "12";
-							cc_target = CU_TARGET_COMPUTE_12;
-							break;
-						case 3: // gt20x (high end, >= gtx 260)
-						default: // ignore invalid ones ...
-							cc_target_str = "13";
-							cc_target = CU_TARGET_COMPUTE_13;
-							break;
-					}
+					log_error("invalid compute capability: %u.%u", cc.first, cc.second);
 					break;
 				case 2:
 					switch(cc.second) {

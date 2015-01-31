@@ -103,7 +103,50 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT_3(fma, __builtin_fmal(a, b, c), long double, "l")
 	FLOOR_CONST_MATH_SELECT(exp, std::expl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, std::logl(val), long double, "l")
-#else
+#elif defined(__CUDA_CLANG__)
+	// builtin functions defined by cuda/ptx
+	FLOOR_CONST_MATH_SELECT_2(fmod, (y - x * __nvvm_trunc_ftz_f(y / x)), float, "f")
+	FLOOR_CONST_MATH_SELECT(sqrt, __nvvm_sqrt_rz_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, __nvvm_rsqrt_approx_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(abs, __nvvm_fabs_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(floor, __nvvm_floor_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(ceil, __nvvm_ceil_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(round, __nvvm_round_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(trunc, __nvvm_trunc_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(rint, __nvvm_trunc_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(sin, __nvvm_sin_approx_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(cos, __nvvm_cos_approx_ftz_f(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(tan, (__nvvm_sin_approx_ftz_f(val) / __nvvm_cos_approx_ftz_f(val)), float, "f")
+	FLOOR_CONST_MATH_SELECT(asin, (val), float, "f") // TODO: not supported in h/w, write proper rt computation
+	FLOOR_CONST_MATH_SELECT(acos, (val), float, "f") // TODO: see above
+	FLOOR_CONST_MATH_SELECT(atan, (val), float, "f") // TODO: see above
+	FLOOR_CONST_MATH_SELECT_2(atan2, (y + x), float, "f") // TODO: see above
+	FLOOR_CONST_MATH_SELECT_3(fma, __nvvm_fma_rz_ftz_f(a, b, c), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp, __nvvm_ex2_approx_ftz_f(val * 1.442695041f), float, "f") // 2^(x / ln(2))
+	FLOOR_CONST_MATH_SELECT(log, (__nvvm_lg2_approx_ftz_f(val) * 1.442695041f), float, "f") // log_e = log_2(x) / log_2(e)
+	
+	FLOOR_CONST_MATH_SELECT_2(fmod, (y - x * __nvvm_trunc_d(y / x)), double, "d")
+	FLOOR_CONST_MATH_SELECT(sqrt, __nvvm_sqrt_rz_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, __nvvm_rsqrt_approx_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(abs, __nvvm_fabs_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(floor, __nvvm_floor_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(ceil, __nvvm_ceil_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(round, __nvvm_round_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(trunc, __nvvm_trunc_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(rint, __nvvm_trunc_d(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(sin, (double)__nvvm_sin_approx_ftz_f(float(val)), double, "d")
+	FLOOR_CONST_MATH_SELECT(cos, (double)__nvvm_cos_approx_ftz_f(float(val)), double, "d")
+	FLOOR_CONST_MATH_SELECT(tan, (double)(__nvvm_sin_approx_ftz_f(float(val)) / __nvvm_cos_approx_ftz_f(float(val))), double, "d")
+	FLOOR_CONST_MATH_SELECT(asin, (val), double, "d") // TODO: not supported in h/w, write proper rt computation
+	FLOOR_CONST_MATH_SELECT(acos, (val), double, "d") // TODO: see above
+	FLOOR_CONST_MATH_SELECT(atan, atan(val), double, "d") // TODO: see above
+	FLOOR_CONST_MATH_SELECT_2(atan2, (y + x), double, "d") // TODO: see above
+	FLOOR_CONST_MATH_SELECT_3(fma, __nvvm_fma_rz_d(a, b, c), double, "d")
+	// TODO: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
+	FLOOR_CONST_MATH_SELECT(exp, __nvvm_ex2_approx_ftz_f(float(val) * 1.442695041f), double, "d") // 2^(x / ln(2))
+	FLOOR_CONST_MATH_SELECT(log, (double(__nvvm_lg2_approx_ftz_f(val)) * 1.442695041), double, "d") // log_e = log_2(x) / log_2(e)
+#elif defined(__SPIR_CLANG__)
+	// builtin functions defined by opencl/spir
 	// builtin functions defined by opencl/spir
 	FLOOR_CONST_MATH_SELECT_2(fmod, ::fmod(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, ::sqrt(val), float, "f")

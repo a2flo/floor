@@ -16,24 +16,31 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_RAY_HPP__
-#define __FLOOR_RAY_HPP__
+#ifndef __FLOOR_CUDA_QUEUE_HPP__
+#define __FLOOR_CUDA_QUEUE_HPP__
 
-#include <floor/math/vector_lib.hpp>
+#include <floor/compute/cuda/cuda_common.hpp>
 
-class ray {
+#if !defined(FLOOR_NO_CUDA)
+
+#include <floor/compute/compute_queue.hpp>
+#include <floor/compute/cuda/cuda_kernel.hpp>
+
+// TODO: !
+class cuda_queue final : public compute_queue {
 public:
-	float3 origin;
-	float3 direction;
+	cuda_queue(const CUstream queue);
 	
-	constexpr ray() noexcept : origin(), direction() {}
-	constexpr ray(const ray& r) noexcept : origin(r.origin), direction(r.direction) {}
-	constexpr ray(const float3& rorigin, const float3& rdirection) noexcept : origin(rorigin), direction(rdirection) {}
+	void finish() const override;
+	void flush() const override;
 	
-	constexpr float3 get_point(const float& distance) const {
-		return origin + distance * direction;
-	}
+	const void* get_queue_ptr() const override;
+	
+protected:
+	const CUstream queue;
 	
 };
+
+#endif
 
 #endif

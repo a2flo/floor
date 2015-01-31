@@ -72,9 +72,6 @@
 #endif
 
 // compat with device code
-#if !defined(FLOOR_DEVICE)
-#define FLOOR_DEVICE
-#endif
 #if !defined(FLOOR_CL_CONSTANT)
 #define FLOOR_CL_CONSTANT
 #endif
