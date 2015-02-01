@@ -178,7 +178,7 @@ string llvm_compute::compile_program(const string& code, const string additional
 		string ptx_code { "" };
 		core::system(ptx_cmd, ptx_code);
 		//log_msg("ptx cmd: %s", ptx_cmd);
-		log_msg("ptx code:\n%s\n", ptx_code);
+		//log_msg("ptx code:\n%s\n", ptx_code);
 		
 		return ptx_code;
 	}

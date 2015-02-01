@@ -153,12 +153,12 @@ public:
 	// program/kernel functionality
 	
 	//! adds and compiles a program and its kernels from a file
-	virtual weak_ptr<compute_program> add_program_file(const string& file_name,
-													   const string additional_options = "") = 0;
+	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
+														 const string additional_options = "") = 0;
 	
 	//! adds and compiles a program and its kernels from the provided source code
-	virtual weak_ptr<compute_program> add_program_source(const string& source_code,
-														 const string additional_options = "") = 0;
+	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
+														   const string additional_options = "") = 0;
 	
 protected:
 	//! platform vendor enum (set after initialization)

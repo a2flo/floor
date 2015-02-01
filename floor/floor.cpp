@@ -18,10 +18,11 @@
 
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
-#include <floor/cl/opencl.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/audio/audio_controller.hpp>
 #include <floor/core/sig_handler.hpp>
+#include <floor/compute/opencl/opencl_compute.hpp>
+#include <floor/compute/cuda/cuda_compute.hpp>
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
@@ -31,15 +32,11 @@
 #endif
 #endif
 
-#if defined(FLOOR_NO_OPENCL)
-class opencl_base {};
-#endif
-
 // init statics
 event* floor::evt = nullptr;
 xml* floor::x = nullptr;
-opencl_base* ocl = nullptr;
 bool floor::console_only = false;
+shared_ptr<compute_base> floor::compute_ctx;
 
 struct floor::floor_config floor::config;
 xml::xml_doc floor::config_doc;
@@ -227,7 +224,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		const auto cl_dev_tokens(core::tokenize(config_doc.get<string>("config.opencl.restrict", ""), ','));
 		for(const auto& dev_token : cl_dev_tokens) {
 			if(dev_token == "") continue;
-			config.cl_device_restriction.insert(dev_token);
+			config.cl_device_restriction.emplace(dev_token);
 		}
 		
 		config.cuda_base_dir = config_doc.get<string>("config.cuda.base_dir", "/usr/local/cuda");
@@ -266,12 +263,8 @@ void floor::destroy() {
 	evt->remove_event_handler(event_handler_fnctr);
 	
 	if(x != nullptr) delete x;
-#if !defined(FLOOR_NO_OPENCL)
-	if(ocl != nullptr) {
-		delete ocl;
-		ocl = nullptr;
-	}
-#endif
+	
+	compute_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) delete evt;
@@ -436,27 +429,6 @@ void floor::init_internal(const bool use_gl32_core
 		log_debug("iOS blit shader compiled");
 #endif
 		
-#if !defined(FLOOR_NO_OPENCL)
-		// check if a cudacl or pure opencl context should be created
-		// use absolute path
-#if !defined(FLOOR_NO_CUDA)
-		if(config.opencl_platform == "cuda") {
-			log_debug("initializing cuda ...");
-			ocl = new cudacl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-		}
-		else {
-#else
-			if(config.opencl_platform == "cuda") {
-				log_error("CUDA support is not enabled!");
-			}
-#endif
-			log_debug("initializing opencl ...");
-			ocl = new opencl(core::strip_path(string(datapath + kernelpath)).c_str(), config.wnd, config.clear_cache);
-#if !defined(FLOOR_NO_CUDA)
-		}
-#endif
-#endif
-		
 		// make an early clear
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -522,12 +494,35 @@ void floor::init_internal(const bool use_gl32_core
 		if(config.dpi < 72) config.dpi = 72;
 		log_debug("dpi: %u", config.dpi);
 		
-#if !defined(FLOOR_NO_OPENCL)
-		// init opencl
-		ocl->init(false,
-				  config.opencl_platform == "cuda" ? 0 : string2size_t(config.opencl_platform),
-				  config.cl_device_restriction, config.gl_sharing);
+		// create and init compute context
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
+		// check if a cudacl or pure opencl context should be created
+		// use absolute path
+#if !defined(FLOOR_NO_CUDA)
+		if(config.opencl_platform == "cuda") {
+			log_debug("initializing cuda ...");
+			compute_ctx = make_shared<cuda_compute>();
+		}
+		else {
+#else
+			if(config.opencl_platform == "cuda") {
+				log_error("CUDA support is not enabled!");
+			}
 #endif
+#if !defined(FLOOR_NO_OPENCL)
+			log_debug("initializing opencl ...");
+			compute_ctx = make_shared<opencl_compute>();
+#else
+			log_error("OpenCL support is not enabled! - can't create a compute context!");
+#endif
+#if !defined(FLOOR_NO_CUDA)
+		}
+#endif
+#endif
+		if(compute_ctx != nullptr) {
+			compute_ctx->init(false, config.opencl_platform == "cuda" ? ~0u : string2uint(config.opencl_platform),
+							  config.gl_sharing, config.cl_device_restriction);
+		}
 		
 		release_context();
 	}
@@ -657,12 +652,14 @@ void floor::stop_draw(const bool window_swap) {
 	frame_time_counter = SDL_GetTicks();
 	
 	// check for kernel reload (this is safe to do here)
-#if !defined(FLOOR_NO_OPENCL)
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 	if(reload_kernels_flag) {
 		reload_kernels_flag = false;
-		ocl->flush();
-		ocl->finish();
-		ocl->reload_kernels();
+		if(compute_ctx != nullptr) {
+			compute_ctx->flush();
+			compute_ctx->finish();
+			//compute_ctx->reload_kernels(); // TODO: !
+		}
 	}
 #endif
 	
@@ -892,11 +889,6 @@ void floor::acquire_context() {
 			log_error("couldn't make gl context current: %s!", SDL_GetError());
 			return;
 		}
-#if !defined(FLOOR_NO_OPENCL)
-		if(ocl != nullptr && ocl->is_supported()) {
-			ocl->activate_context();
-		}
-#endif
 	}
 #if defined(FLOOR_IOS)
 	glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
@@ -907,12 +899,6 @@ void floor::release_context() {
 	// only call SDL_GL_MakeCurrent with nullptr, when this is the last lock
 	const unsigned int cur_active_locks = --config.ctx_active_locks;
 	if(cur_active_locks == 0) {
-#if !defined(FLOOR_NO_OPENCL)
-		if(ocl != nullptr && ocl->is_supported()) {
-			ocl->finish();
-			ocl->deactivate_context();
-		}
-#endif
 		if(SDL_GL_MakeCurrent(config.wnd, nullptr) != 0) {
 			log_error("couldn't release current gl context: %s!", SDL_GetError());
 			return;
@@ -1025,4 +1011,8 @@ const float& floor::get_sound_volume() {
 
 const string& floor::get_audio_device_name() {
 	return config.audio_device_name;
+}
+
+shared_ptr<compute_base> floor::get_compute_context() {
+	return compute_ctx;
 }

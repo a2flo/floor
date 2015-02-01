@@ -30,9 +30,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/matrix4.hpp>
 #include <floor/core/unicode.hpp>
-
-class opencl_base;
-extern opencl_base* ocl;
+#include <floor/compute/compute_base.hpp>
 
 class floor {
 public:
@@ -148,6 +146,9 @@ public:
 	static bool get_cuda_keep_binaries();
 	static bool get_cuda_use_cache();
 	
+	// compute (opencl/cuda/host)
+	static shared_ptr<compute_base> get_compute_context();
+	
 protected:
 	// static class
 	floor(const floor&) = delete;
@@ -157,6 +158,7 @@ protected:
 	static event* evt;
 	static xml* x;
 	static bool console_only;
+	static shared_ptr<compute_base> compute_ctx;
 	
 	static void init_internal(const bool use_gl32_core, const unsigned int window_flags);
 	
@@ -193,9 +195,9 @@ protected:
 		// opencl
 		string opencl_platform = "0";
 		bool clear_cache = false;
-		bool gl_sharing = true;
+		bool gl_sharing = false;
 		bool log_binaries = false;
-		set<string> cl_device_restriction;
+		unordered_set<string> cl_device_restriction;
 		
 		// cuda
 		string cuda_base_dir = "/usr/local/cuda";

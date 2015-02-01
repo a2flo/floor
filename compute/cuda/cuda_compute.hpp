@@ -91,12 +91,12 @@ public:
 	// program/kernel functionality
 	
 	//! adds and compiles a program and its kernels from a file
-	weak_ptr<compute_program> add_program_file(const string& file_name,
-											   const string additional_options = "") override;
+	shared_ptr<compute_program> add_program_file(const string& file_name,
+												 const string additional_options = "") override;
 	
 	//! adds and compiles a program and its kernels from the provided source code
-	weak_ptr<compute_program> add_program_source(const string& source_code,
-												 const string additional_options = "") override;
+	shared_ptr<compute_program> add_program_source(const string& source_code,
+												   const string additional_options = "") override;
 	
 protected:
 	vector<shared_ptr<cuda_program>> programs;

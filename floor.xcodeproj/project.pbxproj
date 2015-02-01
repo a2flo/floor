@@ -9,9 +9,6 @@
 /* Begin PBXBuildFile section */
 		5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0686B819C9285200CF63C8 /* essentials.hpp */; };
 		5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0686BA19C92E1400CF63C8 /* floor_conf.hpp */; };
-		5C1091A017D1153E007F536E /* cl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916617D1153E007F536E /* cl.hpp */; };
-		5C1091A117D1153E007F536E /* opencl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916717D1153E007F536E /* opencl.cpp */; };
-		5C1091A217D1153E007F536E /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916817D1153E007F536E /* opencl.hpp */; };
 		5C1091A617D1153E007F536E /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5C1091A717D1153E007F536E /* core.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916E17D1153E007F536E /* core.hpp */; };
 		5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10916F17D1153E007F536E /* cpp_headers.hpp */; };
@@ -30,7 +27,6 @@
 		5C1091B817D1153E007F536E /* util.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10917F17D1153E007F536E /* util.hpp */; };
 		5C1091BF17D1153E007F536E /* xml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918617D1153E007F536E /* xml.cpp */; };
 		5C1091C017D1153E007F536E /* xml.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10918717D1153E007F536E /* xml.hpp */; };
-		5C1091C117D1153E007F536E /* cudacl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918917D1153E007F536E /* cudacl.cpp */; };
 		5C1091C717D1153E007F536E /* city.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919017D1153E007F536E /* city.hpp */; };
 		5C1091C817D1153E007F536E /* error_code.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919317D1153E007F536E /* error_code.cpp */; };
 		5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919517D1153E007F536E /* local_free_on_destruction.hpp */; };
@@ -107,7 +103,6 @@
 		5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7800FF19D5BC4000853135 /* llvm_compute.hpp */; };
 		5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
 		5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */; };
-		5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916717D1153E007F536E /* opencl.cpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -194,9 +189,6 @@
 		5C0DF00A19B8C79200331AAC /* vector_lib.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_lib.hpp; sourceTree = "<group>"; };
 		5C0DF00B19B8C79200331AAC /* vector_ops.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops.hpp; sourceTree = "<group>"; };
 		5C10915E17D114BC007F536E /* libfloord.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libfloord.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		5C10916617D1153E007F536E /* cl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cl.hpp; sourceTree = "<group>"; };
-		5C10916717D1153E007F536E /* opencl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl.cpp; sourceTree = "<group>"; };
-		5C10916817D1153E007F536E /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl.hpp; sourceTree = "<group>"; };
 		5C10916D17D1153E007F536E /* core.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = core.cpp; sourceTree = "<group>"; };
 		5C10916E17D1153E007F536E /* core.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = core.hpp; sourceTree = "<group>"; };
 		5C10916F17D1153E007F536E /* cpp_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_headers.hpp; sourceTree = "<group>"; };
@@ -215,7 +207,6 @@
 		5C10917F17D1153E007F536E /* util.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = util.hpp; sourceTree = "<group>"; };
 		5C10918617D1153E007F536E /* xml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = xml.cpp; sourceTree = "<group>"; };
 		5C10918717D1153E007F536E /* xml.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = xml.hpp; sourceTree = "<group>"; };
-		5C10918917D1153E007F536E /* cudacl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cudacl.cpp; sourceTree = "<group>"; };
 		5C10919017D1153E007F536E /* city.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = city.hpp; sourceTree = "<group>"; };
 		5C10919317D1153E007F536E /* error_code.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = error_code.cpp; sourceTree = "<group>"; };
 		5C10919517D1153E007F536E /* local_free_on_destruction.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = local_free_on_destruction.hpp; sourceTree = "<group>"; };
@@ -405,16 +396,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		5C10916517D1153E007F536E /* cl */ = {
-			isa = PBXGroup;
-			children = (
-				5C10916617D1153E007F536E /* cl.hpp */,
-				5C10916717D1153E007F536E /* opencl.cpp */,
-				5C10916817D1153E007F536E /* opencl.hpp */,
-			);
-			path = cl;
-			sourceTree = "<group>";
-		};
 		5C10916917D1153E007F536E /* core */ = {
 			isa = PBXGroup;
 			children = (
@@ -443,14 +424,6 @@
 				5C10918717D1153E007F536E /* xml.hpp */,
 			);
 			path = core;
-			sourceTree = "<group>";
-		};
-		5C10918817D1153E007F536E /* cuda */ = {
-			isa = PBXGroup;
-			children = (
-				5C10918917D1153E007F536E /* cudacl.cpp */,
-			);
-			path = cuda;
 			sourceTree = "<group>";
 		};
 		5C10918E17D1153E007F536E /* hash */ = {
@@ -505,11 +478,9 @@
 			isa = PBXGroup;
 			children = (
 				5C7173AA18D7147F00DDF097 /* audio */,
-				5C10916517D1153E007F536E /* cl */,
 				5C7800FD19D5BC4000853135 /* compute */,
 				5C366DD919A64FF2006D1D09 /* constexpr */,
 				5C10916917D1153E007F536E /* core */,
-				5C10918817D1153E007F536E /* cuda */,
 				5C1091D617D14095007F536E /* floor */,
 				5C10918E17D1153E007F536E /* hash */,
 				5CAEC259186799E300BEC3A3 /* ios */,
@@ -735,7 +706,6 @@
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
 				5CEEA6D31A4EA425005239DA /* opencl_common.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
-				5C1091A017D1153E007F536E /* cl.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
@@ -774,7 +744,6 @@
 				5C1091EE17D1484C007F536E /* osx_helper.hpp in Headers */,
 				5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */,
 				5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */,
-				5C1091A217D1153E007F536E /* opencl.hpp in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -889,7 +858,6 @@
 				5C4A85BC18F95EE40039BFD4 /* parser.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
-				5C1091C117D1153E007F536E /* cudacl.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5CEEA6E01A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
@@ -907,7 +875,6 @@
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
-				5C1091A117D1153E007F536E /* opencl.cpp in Sources */,
 				5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */,
 				5C5383E81A641B1E007AEDD7 /* cuda_device.cpp in Sources */,
@@ -938,7 +905,6 @@
 			files = (
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C4A85B818F955B30039BFD4 /* ast_base.cpp in Sources */,
-				5CAEC242186799BE00BEC3A3 /* opencl.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85AD18F953590039BFD4 /* lang_context.cpp in Sources */,

@@ -276,8 +276,8 @@ void cuda_compute::deactivate_context() {
 	// TODO: !
 }
 
-weak_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
-														 const string additional_options) {
+shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
+														   const string additional_options) {
 	string code;
 	if(!file_io::file_to_string(file_name, code)) {
 		return {};
@@ -285,8 +285,8 @@ weak_ptr<compute_program> cuda_compute::add_program_file(const string& file_name
 	return add_program_source(code, additional_options);
 }
 
-weak_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
-														   const string additional_options) {
+shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
+															 const string additional_options) {
 	// TODO: build for all cuda devices (if needed due to different sm_*)
 	
 	// compile the source code to cuda ptx

@@ -650,8 +650,8 @@ void opencl_compute::deactivate_context() {
 	// TODO: !
 }
 
-weak_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
-														   const string additional_options) {
+shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
+															 const string additional_options) {
 	string code;
 	if(!file_io::file_to_string(file_name, code)) {
 		return {};
@@ -659,8 +659,8 @@ weak_ptr<compute_program> opencl_compute::add_program_file(const string& file_na
 	return add_program_source(code, additional_options);
 }
 
-weak_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
-															 const string additional_options) {
+shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
+															   const string additional_options) {
 	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
 	const auto spir_bc = llvm_compute::compile_program(source_code, additional_options, llvm_compute::TARGET::SPIR);
 	
