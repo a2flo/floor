@@ -20,7 +20,7 @@ case $FLOOR_PLATFORM_TEST_STRING in
 		exit;;
 esac
 
-declare -a paths=( audio compute compute/cuda compute/opencl constexpr core floor hash lang math net threading )
+declare -a paths=( audio compute compute/cuda compute/opencl constexpr core floor lang math net threading )
 case $( uname | tr [:upper:] [:lower:] ) in
 	"linux"|[a-z0-9]*"BSD")
 		FLOOR_INCLUDE_PATH="/usr/local/include"

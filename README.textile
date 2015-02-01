@@ -88,6 +88,5 @@ Right now, only CUDA, OpenCL and OpenAL can be disabled:
 * http://www.nvidia.com / CUDA (optional library)
 * http://pocl.sourceforge.net / pocl (optional library)
 * http://www.boost.org / boost
-* https://code.google.com/p/cityhash / CityHash
 * http://xquartz.macosforge.org/landing / XQuartz
 * http://brew.sh / Homebrew

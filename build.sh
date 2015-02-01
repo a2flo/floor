@@ -251,7 +251,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/opencl constexpr core floor hash lang math net net/boost_system threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/opencl constexpr core floor lang math net net/boost_system threading"
 if [ $BUILD_OS == "osx" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
 elif [ $BUILD_OS == "ios" ]; then
