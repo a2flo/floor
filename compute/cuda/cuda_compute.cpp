@@ -230,13 +230,18 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		log_debug("fastest GPU device: %s %s (score: %u)",
 				  fastest_gpu_device->vendor_name, fastest_gpu_device->name, fastest_gpu_score);
 		
+		fastest_device = fastest_gpu_device;
+		
 		// make context of fastest device current
 		CU_CALL_IGNORE(cuCtxSetCurrent(((cuda_device*)fastest_gpu_device.get())->ctx));
 	}
 }
 
 shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) return {};
+	if(dev == nullptr) {
+		log_error("nullptr is not a valid device!");
+		return {};
+	}
 	
 	CUstream stream;
 	CU_CALL_RET(cuStreamCreate(&stream, CU_STREAM_NON_BLOCKING),
@@ -248,16 +253,23 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	// TODO: this is per device?
-	//return make_shared<cuda_buffer>(ctx, size, flags);
-	return {};
+	return make_shared<cuda_buffer>(nullptr, size, flags);
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size, void* data,
 													   const COMPUTE_BUFFER_FLAG flags) {
-	// TODO: this is per device?
-	//return make_shared<cuda_buffer>(ctx, size, data, flags);
-	return {};
+	return make_shared<cuda_buffer>(nullptr, size, data, flags);
+}
+
+shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
+													   const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
+	return make_shared<cuda_buffer>(((cuda_device*)device.get())->ctx, size, flags);
+}
+
+shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
+													   const size_t& size, void* data,
+													   const COMPUTE_BUFFER_FLAG flags) {
+	return make_shared<cuda_buffer>(((cuda_device*)device.get())->ctx, size, data, flags);
 }
 
 void cuda_compute::finish() {
@@ -290,7 +302,8 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	// TODO: build for all cuda devices (if needed due to different sm_*)
 	
 	// compile the source code to cuda ptx
-	const auto ptx_code = llvm_compute::compile_program(source_code, additional_options, llvm_compute::TARGET::PTX);
+	vector<string> kernel_names;
+	const auto ptx_code = llvm_compute::compile_program(source_code, additional_options, llvm_compute::TARGET::PTX, &kernel_names);
 	
 	// jit the module / ptx code
 	const CUjit_option jit_options[] {
@@ -335,7 +348,7 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 #endif
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
-	auto ret_program = make_shared<cuda_program>(program);
+	auto ret_program = make_shared<cuda_program>(program, kernel_names);
 	programs.push_back(ret_program);
 	return ret_program;
 }

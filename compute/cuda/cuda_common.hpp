@@ -54,6 +54,7 @@
 #define CU_CALL_RET(call, error_msg, ...) CU_CALL_FWD(call, error_msg, __LINE__, return __VA_ARGS__ ;)
 #define CU_CALL_CONT(call, error_msg, ...) CU_CALL_FWD(call, error_msg, __LINE__, continue;)
 #define CU_CALL_IGNORE(call, ...) CU_CALL_FWD(call, "cuda error", __LINE__,)
+#define CU_CALL_NO_ACTION(call, error_msg, ...) CU_CALL_FWD(call, error_msg, __LINE__,)
 
 #endif
 

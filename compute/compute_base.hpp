@@ -131,6 +131,37 @@ public:
 		return create_buffer(sizeof(data_type) * n, (void*)&data[0], flags);
 	}
 	
+	//! constructs an uninitialized buffer of the specified size, explicitly on the specified device
+	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+													 const size_t& size,
+													 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																						COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) = 0;
+	
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags, explicitly on the specified device
+	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+													 const size_t& size,
+													 void* data,
+													 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																						COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) = 0;
+	
+	//! constructs a buffer of the specified data (under consideration of the specified flags), explicitly on the specified device
+	template <typename data_type>
+	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+											 const vector<data_type>& data,
+											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) {
+		return create_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags);
+	}
+	
+	//! constructs a buffer of the specified data (under consideration of the specified flags), explicitly on the specified device
+	template <typename data_type, size_t n>
+	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
+											 const array<data_type, n>& data,
+											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) {
+		return create_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags);
+	}
+	
 	//////////////////////////////////////////
 	// basic control functions
 	

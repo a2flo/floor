@@ -38,7 +38,8 @@
 #define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
 #endif
 
-string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target) {
+string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target,
+									 vector<string>* kernel_names) {
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
 	//  -nvptx-fma-level=2 (0: disabled, 1: enabled, 2: aggressive)
@@ -180,13 +181,29 @@ string llvm_compute::compile_program(const string& code, const string additional
 		//log_msg("ptx cmd: %s", ptx_cmd);
 		//log_msg("ptx code:\n%s\n", ptx_code);
 		
+		// retrieve kernel names
+		if(kernel_names != nullptr) {
+			const string kernel_names_cmd { u8R"RAW(cat cuda_ptx.ll | grep "metadata !\"kernel\"")RAW" };
+			string kernel_names_data = "";
+			core::system(kernel_names_cmd, kernel_names_data);
+			const auto kernel_lines = core::tokenize(kernel_names_data, '\n');
+			for(const auto& line : kernel_lines) {
+				const auto at_pos = line.find('@');
+				if(at_pos == string::npos) continue; // probably not a kernel metadata line
+				const auto comma_pos = line.find(',', at_pos);
+				if(comma_pos == string::npos) continue;
+				kernel_names->emplace_back(line.substr(at_pos + 1, comma_pos - at_pos - 1));
+			}
+		}
+		
 		return ptx_code;
 	}
 	return "";
 }
 
-string llvm_compute::compile_program_file(const string& filename, const string additional_options, const TARGET target) {
-	return compile_program(file_io::file_to_string(filename), additional_options, target);
+string llvm_compute::compile_program_file(const string& filename, const string additional_options, const TARGET target,
+										  vector<string>* kernel_names) {
+	return compile_program(file_io::file_to_string(filename), additional_options, target, kernel_names);
 }
 
 #endif

@@ -24,13 +24,12 @@ cuda_queue::cuda_queue(const CUstream queue_) : queue(queue_) {
 }
 
 void cuda_queue::finish() const {
-	// TODO: error handling
-	// TODO: !
+	CU_CALL_RET(cuStreamSynchronize(queue),
+				"failed to finish (synchronize) queue");
 }
 
 void cuda_queue::flush() const {
-	// TODO: error handling
-	// TODO: !
+	// nop on cuda
 }
 
 const void* cuda_queue::get_queue_ptr() const {

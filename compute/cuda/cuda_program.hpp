@@ -28,7 +28,7 @@
 // TODO: !
 class cuda_program final : public compute_program {
 public:
-	cuda_program(const CUmodule program);
+	cuda_program(const CUmodule program, vector<string>& kernel_names);
 	
 protected:
 	const CUmodule program;

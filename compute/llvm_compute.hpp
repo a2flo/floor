@@ -36,10 +36,14 @@ public:
 	//
 	static string compile_program(const string& code,
 								  const string additional_options = "",
-								  const TARGET target = TARGET::SPIR);
+								  const TARGET target = TARGET::SPIR,
+								  // NOTE: only used with PTX
+								  vector<string>* kernel_names = nullptr);
 	static string compile_program_file(const string& filename,
 									   const string additional_options = "",
-									   const TARGET target = TARGET::SPIR);
+									   const TARGET target = TARGET::SPIR,
+									   // NOTE: only used with PTX
+									   vector<string>* kernel_names = nullptr);
 	
 protected:
 	// static class

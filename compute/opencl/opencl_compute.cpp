@@ -634,6 +634,19 @@ shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, voi
 	return make_shared<opencl_buffer>(ctx, size, data, flags);
 }
 
+shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device floor_unused,
+														 const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
+	// TODO: do this on the specified device!
+	return make_shared<opencl_buffer>(ctx, size, flags);
+}
+
+shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device floor_unused,
+														 const size_t& size, void* data,
+														 const COMPUTE_BUFFER_FLAG flags) {
+	// TODO: do this on the specified device!
+	return make_shared<opencl_buffer>(ctx, size, data, flags);
+}
+
 void opencl_compute::finish() {
 	// TODO: !
 }

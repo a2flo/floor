@@ -23,15 +23,15 @@
 
 #include <floor/compute/cuda/cuda_kernel.hpp>
 
-cuda_program::cuda_program(const CUmodule program_) : program(program_) {
-	// TODO: create kernels (all in the program)
-	/*for(const auto& func : function_mappings) {
+cuda_program::cuda_program(const CUmodule program_, vector<string>& kernel_names_) : program(program_) {
+	// create kernels (all in the program)
+	for(const auto& func : kernel_names_) {
 		CUfunction kernel;
-		CU_CALL_CONT(cuModuleGetFunction(&kernel, program, func.first.c_str()),
-					 "failed to get function " + func.first);
-		kernels.push_back(make_shared<cuda_kernel>(kernel, name));
-		kernel_names.push_back(name);
-	}*/
+		CU_CALL_CONT(cuModuleGetFunction(&kernel, program, func.c_str()),
+					 "failed to get function " + func);
+		kernels.emplace_back(make_shared<cuda_kernel>(kernel, func));
+		kernel_names.emplace_back(func);
+	}
 }
 
 #endif

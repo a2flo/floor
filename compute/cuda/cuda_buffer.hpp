@@ -87,6 +87,7 @@ public:
 				const size_t& size, const bool copy_old_data = false) override;
 	
 	//!
+	//! NOTE: this will always be a blocking call!
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
 											const COMPUTE_BUFFER_MAP_FLAG flags =
 											(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
@@ -94,11 +95,19 @@ public:
 											const size_t size = 0, const size_t offset = 0) override;
 	
 	//!
+	//! NOTE: this will always be a blocking call!
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	
+	//!
+	const CUdeviceptr& get_cuda_buffer() const {
+		return buffer;
+	}
 	
 protected:
 	CUdeviceptr buffer { 0ull };
-	//cl_mem_flags cl_flags { 0 };
+	
+	// stores all mapped pointers and the mapped buffer { size, offset }
+	unordered_map<void*, size2> mappings;
 	
 };
 

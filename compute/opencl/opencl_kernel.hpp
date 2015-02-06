@@ -32,7 +32,6 @@
 #include <floor/compute/compute_kernel.hpp>
 #undef FLOOR_OPENCL_KERNEL_IMPL
 
-// TODO: !
 class opencl_kernel final : public compute_kernel {
 public:
 	opencl_kernel(const cl_kernel kernel, const string& func_name);
@@ -47,7 +46,6 @@ public:
 		GUARD(args_lock);
 		
 		// set and handle kernel arguments
-		// TODO: use clSetKernelArgsListAPPLE(kernel, sizeof...(Args), forward<Args>(args)...) if available
 		set_kernel_arguments<0>(forward<Args>(args)...);
 		
 		// run
