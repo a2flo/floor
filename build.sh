@@ -336,20 +336,12 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	
 	# linux:
 	#  * must also link against c++abi when using libc++
-	#  * need to explicitly add the cuda lib + include folder on linux
 	#  * need to add the /lib folder
 	if [ $BUILD_OS == "linux" ]; then
 		if [ ${BUILD_CONF_LIBSTDCXX} -eq 0 ]; then
 			UNCHECKED_LIBS="${UNCHECKED_LIBS} c++abi"
 		fi
 		LDFLAGS="${LDFLAGS} -L/lib"
-		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-			if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib"
-			else
-				LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
-			fi
-		fi
 	fi
 	
 	# windows/mingw opencl and cuda handling
@@ -459,9 +451,17 @@ if [ $BUILD_OS != "mingw" ]; then
     INCLUDES="${INCLUDES} -isystem /usr/include -isystem /usr/local/include"
 fi
 
-# on linux: must add cuda include folder _after_ /usr/include, because its obsolete CL folder conflicts with the system one
+# on linux: need to explicitly add the cuda lib + include folder and must do this _after_ /usr/{include,lib},
+# because its obsolete CL folder and lib conflict with the system ones
 if [ $BUILD_OS == "linux" ]; then
-	INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
+	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
+		if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib"
+		else
+			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
+		fi
+	fi
 fi
 
 # create the floor_conf.hpp file
