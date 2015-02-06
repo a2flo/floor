@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 
 #include <string>
+#include <vector>
 using namespace std;
 
 class llvm_compute {
