@@ -168,6 +168,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(exp, ::exp(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(log, ::log(val), float, "f")
 	
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, ::fmod(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT(sqrt, ::sqrt(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, ::rsqrt(val), double, "d")
@@ -187,6 +188,7 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT_3(fma, ::fma(a, b, c), double, "d")
 	FLOOR_CONST_MATH_SELECT(exp, ::exp(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log, ::log(val), double, "d")
+#endif
 #endif
 	
 #undef FLOOR_CONST_MATH_SELECT

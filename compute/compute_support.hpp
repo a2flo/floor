@@ -150,7 +150,9 @@ float tan(float a) { return sin(a) / cos(a); }
 #elif defined(__SPIR_CLANG__)
 // TODO: should really use this header somehow!
 //#include "opencl_spir.h"
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#endif
 
 // misc types
 typedef char int8_t;
@@ -198,6 +200,7 @@ float const_func __attribute__((overloadable)) exp(float x);
 float const_func __attribute__((overloadable)) log(float x);
 float const_func __attribute__((overloadable)) pow(float x, float y);
 
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 double const_func __attribute__((overloadable)) fmod(double, double);
 double const_func __attribute__((overloadable)) sqrt(double);
 double const_func __attribute__((overloadable)) rsqrt(double);
@@ -218,6 +221,7 @@ double const_func __attribute__((overloadable)) fma(double, double, double);
 double const_func __attribute__((overloadable)) exp(double x);
 double const_func __attribute__((overloadable)) log(double x);
 double const_func __attribute__((overloadable)) pow(double x, double y);
+#endif
 
 // can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
 // but apparently extern c printf is working fine with intels and amds implementation, so just use that ...

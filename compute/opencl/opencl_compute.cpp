@@ -675,7 +675,17 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
 	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
-	const auto spir_bc = llvm_compute::compile_program(source_code, additional_options, llvm_compute::TARGET::SPIR);
+	// TODO: do this properly - compile for devices w/o double support separately
+	bool has_double_support = true;
+	for(const auto& dev : devices) {
+		if(!dev->double_support) {
+			has_double_support = false;
+			break;
+		}
+	}
+	const auto spir_bc = llvm_compute::compile_program(source_code,
+													   (!has_double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "") + additional_options,
+													   llvm_compute::TARGET::SPIR);
 	
 	// opencl api handling
 	vector<size_t> length_ptrs(devices.size());
