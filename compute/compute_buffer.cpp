@@ -17,8 +17,7 @@
  */
 
 #include <floor/compute/compute_buffer.hpp>
-
-compute_buffer::~compute_buffer() {}
+#include <floor/core/logger.hpp>
 
 enum_class_bitwise_and_global_impl(COMPUTE_BUFFER_FLAG)
 enum_class_bitwise_or_global_impl(COMPUTE_BUFFER_FLAG)
@@ -38,3 +37,5 @@ ctx_ptr(ctx_ptr_), size(align_size(size_)), host_ptr(host_ptr_), flags(flags_) {
 				  min_multiple(), size, size_);
 	}
 }
+
+compute_buffer::~compute_buffer() {}
