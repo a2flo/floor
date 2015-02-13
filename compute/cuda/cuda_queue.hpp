@@ -26,7 +26,6 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/cuda/cuda_kernel.hpp>
 
-// TODO: !
 class cuda_queue final : public compute_queue {
 public:
 	cuda_queue(const CUstream queue);

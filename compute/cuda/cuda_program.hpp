@@ -25,7 +25,6 @@
 
 #include <floor/compute/compute_program.hpp>
 
-// TODO: !
 class cuda_program final : public compute_program {
 public:
 	cuda_program(const CUmodule program, vector<string>& kernel_names);

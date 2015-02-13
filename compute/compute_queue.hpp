@@ -30,7 +30,6 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-// TODO: !
 class compute_queue {
 public:
 	virtual ~compute_queue() = 0;

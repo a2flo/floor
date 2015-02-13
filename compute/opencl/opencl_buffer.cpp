@@ -32,9 +32,11 @@
 
 opencl_buffer::opencl_buffer(const cl_context ctx_ptr_,
 							 const size_t& size_,
-							 void* data,
+							 void* host_ptr_,
 							 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(ctx_ptr_, size_, data, flags_) {
+compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
+	if(size < min_multiple()) return;
+	
 	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
 		case COMPUTE_BUFFER_FLAG::READ:
 			cl_flags |= CL_MEM_READ_ONLY;
@@ -174,6 +176,7 @@ void opencl_buffer::copy(shared_ptr<compute_queue> cqueue,
 	}
 #endif
 	
+	// TODO: blocking flag?
 	clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(),
 						((shared_ptr<opencl_buffer>&)src)->get_cl_buffer(), buffer, src_offset, dst_offset, copy_size,
 						0, nullptr, nullptr);
@@ -197,37 +200,49 @@ void opencl_buffer::zero(shared_ptr<compute_queue> cqueue) {
 	if(buffer == nullptr) return;
 	
 	// TODO: figure out the fastest way to do this here (write 8-bit, 16-bit, 32-bit, ...?)
-	const uint32_t null = 0;
-	clEnqueueFillBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, &null, sizeof(null), 0, size,
-						0, nullptr, nullptr);
+	static constexpr const uint32_t zero_pattern { 0u };
+	clEnqueueFillBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, &zero_pattern, sizeof(zero_pattern),
+						0, size, 0, nullptr, nullptr);
 }
 
-bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size, const bool copy_old_data) {
+bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
+						   const bool copy_old_data, const bool copy_host_data,
+						   void* new_host_ptr) {
 	if(buffer == nullptr) return false;
-	
-	// create the new buffer
-	cl_int create_err = CL_SUCCESS;
-	const auto new_buffer = clCreateBuffer((cl_context)ctx_ptr, cl_flags, new_size, host_ptr, &create_err);
-	if(create_err != CL_SUCCESS) {
-		log_error("failed to create resized buffer: %u", create_err);
+	if(new_size_ == 0) {
+		log_error("can't allocate a buffer of size 0!");
 		return false;
 	}
+	if(copy_old_data && copy_host_data) {
+		log_error("can't copy data both from the old buffer and the host pointer!");
+		// still continue though, but assume just copy_old_data!
+	}
+	
+	const size_t new_size = align_size(new_size_);
+	if(new_size_ != new_size) {
+		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+				  min_multiple(), new_size, new_size_);
+	}
+	
+	const bool is_host_buffer = ((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE);
+	
+	// create the new buffer
+	cl_mem new_buffer = nullptr;
+	CL_CALL_ERR_PARAM_RET(new_buffer = clCreateBuffer((cl_context)ctx_ptr, cl_flags, new_size, new_host_ptr, &create_err),
+						  create_err, "failed to create resized buffer", false);
 	
 	// copy old data if specified
 	if(copy_old_data) {
 		// can only copy as many bytes as there are bytes
-		const size_t copy_size = std::min(size, new_size);
-		
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-		if(copy_size == 0) {
-			log_error("trying to copy 0 bytes while resizing buffer!");
-			clReleaseMemObject(new_buffer);
-			return false;
-		}
-#endif
+		const size_t copy_size = std::min(size, new_size); // >= 4, established above
 		
 		clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, new_buffer, 0, 0, copy_size,
 							0, nullptr, nullptr);
+	}
+	else if(!copy_old_data && copy_host_data && is_host_buffer && new_host_ptr != nullptr) {
+		// TODO: blocking flag
+		clEnqueueWriteBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, false, 0, new_size, new_host_ptr,
+							 0, nullptr, nullptr);
 	}
 	
 	// kill the old buffer and assign the new one
@@ -235,6 +250,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 		clReleaseMemObject(buffer);
 	}
 	buffer = new_buffer;
+	host_ptr = new_host_ptr;
 	
 	return true;
 }

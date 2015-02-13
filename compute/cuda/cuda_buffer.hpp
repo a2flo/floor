@@ -29,7 +29,7 @@ class cuda_buffer final : public compute_buffer {
 public:
 	cuda_buffer(const CUcontext ctx_ptr_,
 				const size_t& size_,
-				void* data,
+				void* host_ptr,
 				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
@@ -82,9 +82,14 @@ public:
 	//! zeros/clears the complete buffer
 	void zero(shared_ptr<compute_queue> cqueue) override;
 	
-	//!
+	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
+	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
+	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
 	bool resize(shared_ptr<compute_queue> cqueue,
-				const size_t& size, const bool copy_old_data = false) override;
+				const size_t& size,
+				const bool copy_old_data = false,
+				const bool copy_host_data = false,
+				void* new_host_ptr = nullptr) override;
 	
 	//!
 	//! NOTE: this will always be a blocking call!
@@ -106,8 +111,16 @@ public:
 protected:
 	CUdeviceptr buffer { 0ull };
 	
-	// stores all mapped pointers and the mapped buffer { size, offset }
-	unordered_map<void*, size2> mappings;
+	struct cuda_mapping {
+		const size_t size;
+		const size_t offset;
+		const COMPUTE_BUFFER_MAP_FLAG flags;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, cuda_mapping> mappings;
+	
+	// separate create buffer function, b/c it's called by the constructor and resize
+	bool create_internal(const bool copy_host_data);
 	
 };
 

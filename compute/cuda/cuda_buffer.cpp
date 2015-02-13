@@ -32,9 +32,11 @@
 
 cuda_buffer::cuda_buffer(const CUcontext ctx_ptr_,
 						 const size_t& size_,
-						 void* data,
+						 void* host_ptr_,
 						 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(ctx_ptr_, size_, data, flags_) {
+compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
+	if(size < min_multiple()) return;
+	
 	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
 		case COMPUTE_BUFFER_FLAG::READ:
 		case COMPUTE_BUFFER_FLAG::WRITE:
@@ -68,25 +70,34 @@ compute_buffer(ctx_ptr_, size_, data, flags_) {
 					"failed to make cuda context current");
 	}
 	
+	// actually create the buffer
+	if(!create_internal(true)) {
+		return; // can't do much else
+	}
+}
+
+bool cuda_buffer::create_internal(const bool copy_host_data) {
 	// -> use host memory
 	if((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE) {
-		CU_CALL_RET(cuMemHostRegister(data, size, CU_MEMHOSTALLOC_DEVICEMAP | CU_MEMHOSTREGISTER_PORTABLE),
-					"failed to register host pointer");
-		CU_CALL_RET(cuMemHostGetDevicePointer(&buffer, data, 0),
-					"failed to get device pointer for mapped host memory");
+		CU_CALL_RET(cuMemHostRegister(host_ptr, size, CU_MEMHOSTALLOC_DEVICEMAP | CU_MEMHOSTREGISTER_PORTABLE),
+					"failed to register host pointer", false);
+		CU_CALL_RET(cuMemHostGetDevicePointer(&buffer, host_ptr, 0),
+					"failed to get device pointer for mapped host memory", false);
 	}
 	// -> alloc and use device memory
 	else {
 		CU_CALL_RET(cuMemAlloc(&buffer, size),
-					"failed to allocate device memory");
+					"failed to allocate device memory", false);
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-		if(data != nullptr &&
+		if(copy_host_data &&
+		   host_ptr != nullptr &&
 		   (flags & COMPUTE_BUFFER_FLAG::NO_INITIAL_COPY) != COMPUTE_BUFFER_FLAG::NONE) {
-			CU_CALL_RET(cuMemcpyHtoD(buffer, data, size),
-						"failed to copy initial host data to device");
+			CU_CALL_RET(cuMemcpyHtoD(buffer, host_ptr, size),
+						"failed to copy initial host data to device", false);
 		}
 	}
+	return true;
 }
 
 cuda_buffer::~cuda_buffer() {
@@ -111,7 +122,27 @@ void cuda_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, con
 
 void cuda_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
-	// TODO: !
+	
+	const size_t read_size = (size_ == 0 ? size : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(read_size == 0) {
+		log_warn("trying to read 0 bytes!");
+	}
+	if(offset >= size) {
+		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
+		return;
+	}
+	if(offset + read_size > size) {
+		log_error("invalid offset/read size (offset + read size > buffer size): offset: %X, read size: %X, size: %X",
+				  offset, read_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	CU_CALL_RET(cuMemcpyDtoHAsync(dst, buffer + offset, read_size, (CUstream)cqueue->get_queue_ptr()),
+				"failed to read memory from device");
 }
 
 void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -120,31 +151,220 @@ void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, co
 
 void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
-	// TODO: !
+	
+	const size_t write_size = (size_ == 0 ? size : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(write_size == 0) {
+		log_warn("trying to write 0 bytes!");
+	}
+	if(offset >= size) {
+		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
+		return;
+	}
+	if(offset + write_size > size) {
+		log_error("invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
+				  offset, write_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	CU_CALL_RET(cuMemcpyHtoDAsync(buffer + offset, src, write_size, (CUstream)cqueue->get_queue_ptr()),
+				"failed to write memory to device");
 }
 
 void cuda_buffer::copy(shared_ptr<compute_queue> cqueue,
 					   shared_ptr<compute_buffer> src,
 					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == 0) return;
-	// TODO: !
+	
+	// use min(src size, dst size) as the default size if no size is specified
+	const size_t src_size = src->get_size();
+	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(copy_size == 0) {
+		log_warn("trying to copy 0 bytes!");
+	}
+	if(src_offset >= src_size) {
+		log_error("invalid src offset (>= size): offset: %X, size: %X", src_offset, src_size);
+		return;
+	}
+	if(dst_offset >= size) {
+		log_error("invalid dst offset (>= size): offset: %X, size: %X", dst_offset, size);
+		return;
+	}
+	if(src_offset + copy_size > src_size) {
+		log_error("invalid src offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+				  src_offset, copy_size, src_size);
+		return;
+	}
+	if(dst_offset + copy_size > size) {
+		log_error("invalid dst offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+				  dst_offset, copy_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	CU_CALL_RET(cuMemcpyDtoDAsync(buffer + dst_offset,
+								  ((shared_ptr<cuda_buffer>&)src)->get_cuda_buffer() + src_offset,
+								  copy_size, (CUstream)cqueue->get_queue_ptr()),
+				"failed to copy memory on device");
 }
 
 void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
 					   const void* pattern, const size_t& pattern_size,
 					   const size_t size_, const size_t offset) {
 	if(buffer == 0) return;
-	// TODO: !
+	
+	const size_t fill_size = (size_ == 0 ? size : size_);
+	
+#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	if(fill_size == 0) {
+		log_error("trying to fill 0 bytes!");
+		return;
+	}
+	if((offset % pattern_size) != 0) {
+		log_error("fill offset must be a multiple of pattern size: offset: %X, pattern size: %X", offset, pattern_size);
+		return;
+	}
+	if((fill_size % pattern_size) != 0) {
+		log_error("fill size must be a multiple of pattern size: fille size: %X, pattern size: %X", fill_size, pattern_size);
+		return;
+	}
+	if(offset >= size) {
+		log_error("invalid fill offset (>= size): offset: %X, size: %X", offset, size);
+		return;
+	}
+	if(offset + fill_size > size) {
+		log_error("invalid fill offset/fill size (offset + size > buffer size): offset: %X, fill size: %X, size: %X",
+				  offset, fill_size, size);
+		return;
+	}
+#endif
+	
+	// TODO: blocking flag
+	const size_t pattern_count = fill_size / pattern_size;
+	switch(pattern_size) {
+		case 1:
+			CU_CALL_RET(cuMemsetD8Async(buffer + offset, *(uint8_t*)pattern, pattern_count, (CUstream)cqueue->get_queue_ptr()),
+						"failed to fill device memory (8-bit memset)");
+			break;
+		case 2:
+			CU_CALL_RET(cuMemsetD16Async(buffer + offset, *(uint16_t*)pattern, pattern_count, (CUstream)cqueue->get_queue_ptr()),
+						"failed to fill device memory (16-bit memset)");
+			break;
+		case 4:
+			CU_CALL_RET(cuMemsetD32Async(buffer + offset, *(uint32_t*)pattern, pattern_count, (CUstream)cqueue->get_queue_ptr()),
+						"failed to fill device memory (32-bit memset)");
+			break;
+		default:
+			// not a pattern size that allows a fast memset
+			// -> create a host buffer with the pattern and upload it
+			unsigned char* pattern_buffer = new unsigned char[fill_size];
+			unsigned char* write_ptr = pattern_buffer;
+			for(size_t i = 0; i < pattern_count; i++) {
+				memcpy(write_ptr, pattern, pattern_size);
+				write_ptr += pattern_size;
+			}
+			CU_CALL_NO_ACTION(cuMemcpyHtoD(buffer + offset, pattern_buffer, fill_size),
+							  "failed to fill device memory (arbitrary memcpy)");
+			delete [] pattern_buffer;
+			break;
+	}
 }
 
 void cuda_buffer::zero(shared_ptr<compute_queue> cqueue) {
 	if(buffer == 0) return;
-	// TODO: !
+	static constexpr const uint32_t zero_pattern { 0u };
+	fill(cqueue, &zero_pattern, sizeof(zero_pattern), 0, 0);
 }
 
-bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size, const bool copy_old_data) {
+bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
+						 const bool copy_old_data, const bool copy_host_data,
+						 void* new_host_ptr) {
 	if(buffer == 0) return false;
-	// TODO: !
+	if(new_size_ == 0) {
+		log_error("can't allocate a buffer of size 0!");
+		return false;
+	}
+	if(copy_old_data && copy_host_data) {
+		log_error("can't copy data both from the old buffer and the host pointer!");
+		// still continue though, but assume just copy_old_data!
+	}
+	
+	const size_t new_size = align_size(new_size_);
+	if(new_size_ != new_size) {
+		log_error("buffer size must always be a multiple of %u! - using size of %u instead of %u now",
+				  min_multiple(), new_size, new_size_);
+	}
+	
+	// store old buffer, size and host pointer for possible restore + cleanup later on
+	const auto old_buffer = buffer;
+	const auto restore_old_buffer = [this, &old_buffer, old_size = size, old_host_ptr = host_ptr] {
+		buffer = old_buffer;
+		size = old_size;
+		host_ptr = old_host_ptr;
+	};
+	const bool is_host_buffer = ((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE);
+	
+	// unregister old host pointer if host memory is being used
+	if(is_host_buffer) {
+		CU_CALL_ERROR_EXEC(cuMemHostUnregister(host_ptr),
+						   "failed to unregister mapped host memory",
+						   restore_old_buffer();
+						   return false;);
+	}
+	
+	// create the new buffer
+	buffer = 0;
+	size = new_size;
+	host_ptr = new_host_ptr;
+	if(!create_internal(copy_host_data)) {
+		// much fail, restore old buffer
+		log_error("failed to create resized buffer");
+		
+		// restore old buffer and re-register when using host memory
+		restore_old_buffer();
+		if(is_host_buffer) {
+			// note that this can fail, leaving this buffer in a completely broken state
+			CU_CALL_RET(cuMemHostRegister(host_ptr, size, CU_MEMHOSTALLOC_DEVICEMAP | CU_MEMHOSTREGISTER_PORTABLE),
+						"failed to register host pointer", false);
+			CU_CALL_RET(cuMemHostGetDevicePointer(&buffer, host_ptr, 0),
+						"failed to get device pointer for mapped host memory", false);
+		}
+		return false;
+	}
+	
+	// copy old data if specified
+	if(copy_old_data) {
+		// can only copy as many bytes as there are bytes
+		const size_t copy_size = std::min(size, new_size); // >= 4, established above
+		
+		// must be blocking, because we're going to delete the old buffer in here
+		CU_CALL_NO_ACTION(cuMemcpyDtoD(buffer, old_buffer, copy_size),
+						  "failed to copy old data to new buffer while resizing buffer");
+		// hard to decide what to do here, use new buffer with invalid data, or continue using the old one?
+		// -> continue with new buffer as it has the correct/expected size
+	}
+	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
+		// can be done async, because the new host pointer continues to exist
+		CU_CALL_RET(cuMemcpyHtoDAsync(buffer, host_ptr, size, (CUstream)cqueue->get_queue_ptr()),
+					"failed to copy host data to new buffer while resizing buffer", false);
+	}
+	
+	// kill the old buffer
+	if(old_buffer != 0) {
+		// -> device memory
+		if(!is_host_buffer) {
+			CU_CALL_RET(cuMemFree(old_buffer),
+						"failed to free device memory", false); // can't do much if this fails
+		}
+		// else: -> host memory: nop, already unregistered earlier
+	}
+	
 	return true;
 }
 
@@ -196,7 +416,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	}
 	
 	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
-	mappings.emplace(host_buffer, size2 { map_size, offset });
+	mappings.emplace(host_buffer, cuda_mapping { map_size, offset, flags_ });
 	
 	return host_buffer;
 }
@@ -213,8 +433,12 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 		return;
 	}
 	
-	CU_CALL_NO_ACTION(cuMemcpyHtoD(buffer + iter->second.y, mapped_ptr, iter->second.x),
-					  "failed to copy host memory to device");
+	// check if we need to actually copy data back to the device (not the case if read-only mapping)
+	if((iter->second.flags & COMPUTE_BUFFER_MAP_FLAG::WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE ||
+	   (iter->second.flags & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+		CU_CALL_NO_ACTION(cuMemcpyHtoD(buffer + iter->second.offset, mapped_ptr, iter->second.size),
+						  "failed to copy host memory to device");
+	}
 	
 	// free host memory again and remove the mapping
 	delete [] (unsigned char*)mapped_ptr;

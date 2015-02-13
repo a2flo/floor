@@ -25,7 +25,6 @@
 
 #include <floor/compute/compute_program.hpp>
 
-// TODO: !
 class opencl_program final : public compute_program {
 public:
 	opencl_program(const cl_program program);

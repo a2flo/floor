@@ -29,7 +29,7 @@ class opencl_buffer final : public compute_buffer {
 public:
 	opencl_buffer(const cl_context ctx_ptr_,
 				  const size_t& size_,
-				  void* data,
+				  void* host_ptr,
 				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
@@ -82,9 +82,14 @@ public:
 	//! zeros/clears the complete buffer
 	void zero(shared_ptr<compute_queue> cqueue) override;
 	
-	//!
+	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
+	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
+	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
 	bool resize(shared_ptr<compute_queue> cqueue,
-				const size_t& size, const bool copy_old_data = false) override;
+				const size_t& size,
+				const bool copy_old_data = false,
+				const bool copy_host_data = false,
+				void* new_host_ptr = nullptr) override;
 	
 	//!
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,

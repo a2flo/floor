@@ -30,8 +30,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 2
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xd2
-#define FLOOR_DEV_STAGE_VERSION_STR "d2"
+#define FLOOR_DEV_STAGE_VERSION 0xd3
+#define FLOOR_DEV_STAGE_VERSION_STR "d3"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -88,9 +88,7 @@
 // compiler checks:
 // msvc check
 #if defined(_MSC_VER)
-#if (_MSC_VER <= 1800)
-#error "Sorry, but you need MSVC 13.0+ (VS 2014+) to compile floor"
-#endif
+#error "Sorry, MSVC is not supported"
 
 // clang check
 #elif defined(__clang__)
@@ -100,12 +98,7 @@
 
 // gcc check
 #elif defined(__GNUC__)
-#if (__GNUC__ < 5)
-#error "Sorry, but you need GCC 5.x+ to compile floor"
-#endif
-
-// just fall through ...
-#else
+#error "Sorry, GCC is not supported"
 #endif
 
 // library checks:

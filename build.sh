@@ -36,9 +36,9 @@ CXX_VERSION=$(${CXX} -v 2>&1)
 if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 6.1 is required
-		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/Apple LLVM version ([0-9.]+) .*/\1/")" \< "6.3" >/dev/null; then
-			error "at least Xcode/LLVM/clang 6.3 is required to compile this project!"
+		# apple xcode/llvm/clang versioning scheme -> at least 6.1.0 is required (ships with Xcode 6.3)
+		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/Apple LLVM version ([0-9.]+) .*/\1/")" \< "6.1.0" >/dev/null; then
+			error "at least Xcode 6.3 / clang/LLVM 6.1.0 is required to compile this project!"
 		fi
 	else
 		# standard clang versioning scheme -> at least 3.5.0 is required

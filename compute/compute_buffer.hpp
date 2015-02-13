@@ -99,10 +99,9 @@ public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	compute_buffer(const void* ctx_ptr_,
 				   const size_t& size_,
-				   void* data,
+				   void* host_ptr,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	ctx_ptr(ctx_ptr_), size(size_), host_ptr(data), flags(flags_) {}
+													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const void* ctx_ptr_,
@@ -128,6 +127,14 @@ public:
 	compute_buffer(ctx_ptr_, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
 	virtual ~compute_buffer() = 0;
+	
+	//! buffer size must always be a multiple of this
+	static constexpr size_t min_multiple() { return 4u; }
+	
+	//! aligns the specified size to the minimal multiple buffer size (always upwards!)
+	static constexpr size_t align_size(const size_t& size_) {
+		return ((size_ % min_multiple()) == 0u ? size_ : (((size_ / min_multiple()) + 1u) * min_multiple()));
+	}
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
@@ -158,9 +165,14 @@ public:
 	//! zeros/clears the complete buffer
 	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
 	
-	//!
+	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
+	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
+	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
 	virtual bool resize(shared_ptr<compute_queue> cqueue,
-						const size_t& size, const bool copy_old_data = false) = 0;
+						const size_t& size,
+						const bool copy_old_data = false,
+						const bool copy_host_data = false,
+						void* new_host_ptr = nullptr) = 0;
 	
 	//!
 	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
