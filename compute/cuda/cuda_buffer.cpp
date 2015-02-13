@@ -368,12 +368,13 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	return true;
 }
 
-void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> cqueue floor_unused,
+void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> cqueue,
 													 const COMPUTE_BUFFER_MAP_FLAG flags_,
 													 const size_t size_, const size_t offset) {
 	if(buffer == 0) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
+	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
 	
 	bool write_only = false;
 	if((flags_ & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
@@ -411,8 +412,17 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
 	if(!write_only) {
-		CU_CALL_NO_ACTION(cuMemcpyDtoH(host_buffer, buffer + offset, map_size),
-						  "failed to copy device memory to host");
+		if(blocking_map) {
+			// must finish up all current work before we can properly read from the current buffer
+			cqueue->finish();
+			
+			CU_CALL_NO_ACTION(cuMemcpyDtoH(host_buffer, buffer + offset, map_size),
+							  "failed to copy device memory to host");
+		}
+		else {
+			CU_CALL_NO_ACTION(cuMemcpyDtoHAsync(host_buffer, buffer + offset, map_size, (CUstream)cqueue->get_queue_ptr()),
+							  "failed to copy device memory to host");
+		}
 	}
 	
 	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
