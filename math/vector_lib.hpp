@@ -58,6 +58,7 @@ F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #elif defined(FLOOR_LLVM_COMPUTE)
 // remove size_t, ssize_t and long double when compiling for spir/opencl/cuda
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -70,6 +71,20 @@ F(uint32_t, uint, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
+#else
+// also disable double support
+#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(float, float, vec_width) \
+F(int8_t, char, vec_width) \
+F(uint8_t, uchar, vec_width) \
+F(int16_t, short, vec_width) \
+F(uint16_t, ushort, vec_width) \
+F(int32_t, int, vec_width) \
+F(uint32_t, uint, vec_width) \
+F(int64_t, long, vec_width) \
+F(uint64_t, ulong, vec_width) \
+F(bool, bool, vec_width)
+#endif
 #else
 // remove size_t and ssize_t when not compiling on osx/ios
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \

@@ -46,10 +46,19 @@ namespace const_math {
 	//! largest supported floating point type
 #if !defined(FLOOR_LLVM_COMPUTE)
 	typedef long double max_fp_type;
-#else
+#elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	typedef double max_fp_type; // can only use double with spir/opencl/cuda
+#else
+	typedef float max_fp_type; // or even only float when there is no double support
 #endif
-	
+}
+
+//! udl to convert any floating-point value into the largest supported one
+constexpr const_math::max_fp_type operator"" _fp(long double val) {
+	return (const_math::max_fp_type)val;
+}
+
+namespace const_math {
 	// misc math constants
 	//! pi
 	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
@@ -219,7 +228,7 @@ namespace const_math {
 		// add 0.5 for positive values, substract 0.5 for negative values,
 		// then cast to int for rounding and back to fp_type again
 		// e.g. (int)(2.3 + 0.5 == 2.7) == 2; (int)(2.5 + 0.5 == 3.0) == 3
-		return (fp_type)(int64_t)(val + (val >= (fp_type)0 ? (fp_type)0.5 : (fp_type)-0.5));
+		return (fp_type)(int64_t)(val + (val >= (fp_type)0 ? (fp_type)0.5_fp : (fp_type)-0.5_fp));
 	}
 	
 	//! computes ⌊val⌋, the largest integer value not greater than val
@@ -284,9 +293,9 @@ namespace const_math {
 	constexpr fp_type exp(fp_type val) {
 		// ref: https://en.wikipedia.org/wiki/Characterizations_of_the_exponential_function#Characterizations
 		const max_fp_type ldbl_val = (max_fp_type)val;
-		max_fp_type x_pow = 1.0L;
-		max_fp_type x = 1.0L;
-		max_fp_type dfac = 1.0L;
+		max_fp_type x_pow = 1.0_fp;
+		max_fp_type x = 1.0_fp;
+		max_fp_type dfac = 1.0_fp;
 		for(int i = 1; i < 48; ++i) {
 			x_pow *= ldbl_val;
 			dfac *= (max_fp_type)i;
@@ -302,20 +311,20 @@ namespace const_math {
 		// ref: https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
 		// compute a first estimate
 		const max_fp_type ldbl_val = (max_fp_type)val;
-		max_fp_type estimate = 0.0L;
-		const max_fp_type x_inv = (ldbl_val - 1.0L) / ldbl_val;
+		max_fp_type estimate = 0.0_fp;
+		const max_fp_type x_inv = (ldbl_val - 1.0_fp) / ldbl_val;
 		max_fp_type x_pow = x_inv;
 		estimate = x_inv;
 		for(int i = 2; i < 16; ++i) {
 			x_pow *= x_inv;
-			estimate += (1.0L / (max_fp_type)i) * x_pow;
+			estimate += (1.0_fp / (max_fp_type)i) * x_pow;
 		}
 		
 		// compute a more accurate ln(x) with newton
 		max_fp_type x = estimate;
 		for(int i = 0; i < 32; ++i) {
 			const max_fp_type exp_x = const_math::exp(x);
-			x = x + 2.0L * ((ldbl_val - exp_x) / (ldbl_val + exp_x));
+			x = x + 2.0_fp * ((ldbl_val - exp_x) / (ldbl_val + exp_x));
 		}
 		return (fp_type)x;
 	}
@@ -408,18 +417,18 @@ namespace const_math {
 			if(!is_neg_exp) --abs_exp;
 			else ++abs_exp;
 			// ... and multiply float by 2
-			ldbl_val *= 2.0L;
+			ldbl_val *= 2.0_fp;
 		}
 		
 		// thanks wolfram: LinearModelFit[Table[{1+(t/1000), sqrt(1+(t/1000))}, {t, 0, 3000}], x^Range[0, 2], x]
-		const auto estimate = 0.546702L + 0.502315L * ldbl_val - 0.0352763L * ldbl_val * ldbl_val;
+		const auto estimate = 0.546702_fp + 0.502315_fp * ldbl_val - 0.0352763_fp * ldbl_val * ldbl_val;
 		
 		// halley iteration for sqrt(1 / x)
 		constexpr const int halley_iters = select_halley_iters<fp_type>();
-		auto x = 1.0L / estimate;
+		auto x = 1.0_fp / estimate;
 		for(int i = 0; i < halley_iters; ++i) {
 			const auto y = ldbl_val * x * x;
-			x = (x * 0.125L) * (15.0L - y * (10.0L - 3.0L * y));
+			x = (x * 0.125_fp) * (15.0_fp - y * (10.0_fp - 3.0_fp * y));
 		}
 		auto rcp_x = x;
 		
@@ -428,13 +437,13 @@ namespace const_math {
 		
 		// compute sqrt of 2^exp (-> divide exponent by 2 => right shift by 1)
 		// and multiply with/divide by sqrt(2^exp) resp.
-		const max_fp_type sqrt_two_exp = const_math::pow(2.0L, (abs_exp >> 1));
+		const max_fp_type sqrt_two_exp = const_math::pow(2.0_fp, (abs_exp >> 1));
 		if(!is_neg_exp) {
 			x *= sqrt_two_exp;
-			rcp_x *= 1.0L / sqrt_two_exp;
+			rcp_x *= 1.0_fp / sqrt_two_exp;
 		}
 		else {
-			x *= 1.0L / sqrt_two_exp;
+			x *= 1.0_fp / sqrt_two_exp;
 			rcp_x *= sqrt_two_exp;
 		}
 		
@@ -463,16 +472,16 @@ namespace const_math {
 		
 		// always cast to long double precision for better accuracy + wrap to appropriate range [-pi, pi]
 		const max_fp_type lrad_angle = const_math::fmod((max_fp_type)rad_angle, PI_MUL_2<>);
-		const max_fp_type ldbl_val = lrad_angle + (lrad_angle > PI<> ? -PI_MUL_2<> : (lrad_angle < -PI<> ? PI_MUL_2<> : 0.0L));
+		const max_fp_type ldbl_val = lrad_angle + (lrad_angle > PI<> ? -PI_MUL_2<> : (lrad_angle < -PI<> ? PI_MUL_2<> : 0.0_fp));
 		
-		max_fp_type cos_x = 1.0L;
+		max_fp_type cos_x = 1.0_fp;
 		uint64_t factorial_2k = 1ull; // (2*k)! in the iteration
-		max_fp_type pow_x_2k = 1.0L; // x^(2*k) in the iteration
+		max_fp_type pow_x_2k = 1.0_fp; // x^(2*k) in the iteration
 		const max_fp_type x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
 		for(int k = 1; k <= 10; ++k) {
 			pow_x_2k *= x_2; // x^(2*k)
 			factorial_2k *= (uint64_t)(k * 2 - 1) * (uint64_t)(k * 2); // (2*k)!
-			cos_x += ((k % 2 == 1 ? -1.0L : 1.0L) * pow_x_2k) / (max_fp_type)(factorial_2k);
+			cos_x += ((k % 2 == 1 ? -1.0_fp : 1.0_fp) * pow_x_2k) / (max_fp_type)(factorial_2k);
 		}
 		return (fp_type)cos_x;
 	}
@@ -516,22 +525,22 @@ namespace const_math {
 		const max_fp_type ldbl_val = (max_fp_type)val;
 		
 		// handle |val| > 0.5
-		if(const_math::abs(ldbl_val) > 0.5L) {
-			return (fp_type)(PI_DIV_2<> - 2.0L * const_math::asin(const_math::sqrt((1.0L - ldbl_val) * 0.5L)));
+		if(const_math::abs(ldbl_val) > 0.5_fp) {
+			return (fp_type)(PI_DIV_2<> - 2.0_fp * const_math::asin(const_math::sqrt((1.0_fp - ldbl_val) * 0.5_fp)));
 		}
 		
 		// infinite series iteration
 		max_fp_type asin_x = ldbl_val; // the approximated asin(x)
-		max_fp_type binom_2k_k = 1.0L; // (2*k over k) in the iteration
+		max_fp_type binom_2k_k = 1.0_fp; // (2*k over k) in the iteration
 		max_fp_type pow_x_1_2k = ldbl_val; // x^(1 + 2*k) in the iteration
 		const max_fp_type x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
-		max_fp_type pow_4_k = 1.0L; // 4^k in the iteration
+		max_fp_type pow_4_k = 1.0_fp; // 4^k in the iteration
 		for(int k = 1; k <= 9; ++k) {
 			const auto dbl_k = double(k);
-			binom_2k_k *= 4.0L - 2.0L / dbl_k; // (2*k over k)
+			binom_2k_k *= 4.0_fp - 2.0_fp / dbl_k; // (2*k over k)
 			pow_x_1_2k *= x_2; // x^(1 + 2*k)
-			pow_4_k *= 4.0L; // 4^k
-			asin_x += (binom_2k_k * pow_x_1_2k) / (pow_4_k * (1.0L + 2.0L * dbl_k));
+			pow_4_k *= 4.0_fp; // 4^k
+			asin_x += (binom_2k_k * pow_x_1_2k) / (pow_4_k * (1.0_fp + 2.0_fp * dbl_k));
 		}
 		
 		return (fp_type)asin_x;
@@ -547,7 +556,7 @@ namespace const_math {
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type atan(fp_type val) {
 		const max_fp_type ldbl_val = (max_fp_type)val;
-		return (fp_type)const_math::asin(ldbl_val / const_math::sqrt(ldbl_val * ldbl_val + 1.0L));
+		return (fp_type)const_math::asin(ldbl_val / const_math::sqrt(ldbl_val * ldbl_val + 1.0_fp));
 	}
 	
 	//! computes atan2(y, x), the arctangent with two arguments
@@ -658,10 +667,10 @@ namespace const_math {
 		//                              | -1   3  -3   1 |   | a0 |
 		const auto t_2 = t * t;
 		return {
-			(((fp_type(3.0L) * (a - b) - a_prev + b_next) * t * t_2) +
-			 ((fp_type(2.0L) * a_prev - fp_type(5.0L) * a + fp_type(4.0L) * b - b_next) * t_2) +
+			(((fp_type(3.0_fp) * (a - b) - a_prev + b_next) * t * t_2) +
+			 ((fp_type(2.0_fp) * a_prev - fp_type(5.0_fp) * a + fp_type(4.0_fp) * b - b_next) * t_2) +
 			 ((b - a_prev) * t))
-			* fp_type(0.5L) + a
+			* fp_type(0.5_fp) + a
 		};
 	}
 	
