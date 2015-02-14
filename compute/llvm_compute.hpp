@@ -20,12 +20,7 @@
 #define __FLOOR_LLVM_COMPUTE_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
-
-#include <string>
-#include <vector>
-using namespace std;
+#include <floor/compute/compute_device.hpp>
 
 class llvm_compute {
 public:
@@ -35,12 +30,14 @@ public:
 	};
 	
 	//
-	static string compile_program(const string& code,
+	static string compile_program(shared_ptr<compute_device> device,
+								  const string& code,
 								  const string additional_options = "",
 								  const TARGET target = TARGET::SPIR,
 								  // NOTE: only used with PTX
 								  vector<string>* kernel_names = nullptr);
-	static string compile_program_file(const string& filename,
+	static string compile_program_file(shared_ptr<compute_device> device,
+									   const string& filename,
 									   const string additional_options = "",
 									   const TARGET target = TARGET::SPIR,
 									   // NOTE: only used with PTX
@@ -53,7 +50,5 @@ protected:
 	llvm_compute& operator=(const llvm_compute&) = delete;
 	
 };
-
-#endif
 
 #endif

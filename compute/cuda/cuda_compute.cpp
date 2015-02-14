@@ -303,7 +303,8 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	
 	// compile the source code to cuda ptx
 	vector<string> kernel_names;
-	const auto ptx_code = llvm_compute::compile_program(source_code, additional_options, llvm_compute::TARGET::PTX, &kernel_names);
+	const auto ptx_code = llvm_compute::compile_program(devices[0], // TODO: do for all devices
+														source_code, additional_options, llvm_compute::TARGET::PTX, &kernel_names);
 	
 	// jit the module / ptx code
 	const CUjit_option jit_options[] {

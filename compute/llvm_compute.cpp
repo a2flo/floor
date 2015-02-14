@@ -17,10 +17,10 @@
  */
 
 #include <floor/compute/llvm_compute.hpp>
-
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
-
 #include <floor/floor/floor.hpp>
+
+#include <floor/compute/opencl/opencl_device.hpp>
+#include <floor/compute/cuda/cuda_device.hpp>
 
 #if !defined(FLOOR_COMPUTE_CLANG)
 #define FLOOR_COMPUTE_CLANG "compute_clang"
@@ -38,7 +38,8 @@
 #define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
 #endif
 
-string llvm_compute::compile_program(const string& code, const string additional_options, const TARGET target,
+string llvm_compute::compile_program(shared_ptr<compute_device> device,
+									 const string& code, const string additional_options, const TARGET target,
 									 vector<string>* kernel_names) {
 	// note: llc flags:
 	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
@@ -97,6 +98,7 @@ string llvm_compute::compile_program(const string& code, const string additional
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
 			" -isystem /usr/local/include" \
 			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
+			(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "") +
 			warning_flags +
 			additional_options +
 			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
@@ -137,6 +139,12 @@ string llvm_compute::compile_program(const string& code, const string additional
 		return spir_bc;
 	}
 	else if(target == TARGET::PTX) {
+#if !defined(FLOOR_NO_CUDA)
+		const auto& sm = ((cuda_device*)device.get())->sm;
+		const string sm_version = to_string(sm.x * 10 + sm.y);
+#else
+		const string sm_version = "20"; // just default to fermi/sm_20
+#endif
 		string ptx_cmd {
 			printable_code +
 			FLOOR_COMPUTE_CLANG \
@@ -159,15 +167,9 @@ string llvm_compute::compile_program(const string& code, const string additional
 		};
 		
 		// TODO: clean this up + do this properly!
-		//const string ptx_bc_cmd = ptx_cmd + " -o - - | llvm-as -o=code_ptx.bc";
-		//const string ptx_bc_cmd = ptx_cmd + " -o - - > code_ptx.ll && cat code_ptx.ll";
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
-		//const string ptx_bc_cmd = ptx_cmd + " -o - - 2>&1";
-		//ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + cucl->get_cc_target_str(); // TODO: !
-		//ptx_cmd += " -o - - 2>&1 | " FLOOR_COMPUTE_LLC " -mcpu=sm_30" " 2>&1";
-		//ptx_cmd = "cat code_ptx.ll | " FLOOR_COMPUTE_LLC " -mcpu=sm_30" " 2>&1";
 		ptx_cmd += " -o - - 2>&1";
-		ptx_cmd += " | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_30" " 2>&1";
+		ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
 		ptx_cmd += u8R"RAW( | sed -E "s/@\"\\\\01([a-zA-Z0-9_]+)\"/@\1/g")RAW";
 		ptx_cmd += u8R"RAW( | sed -E "s/\[\"(.*)\"\]/\[\1\]/g" | tr -d "\001")RAW";
 		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
@@ -201,9 +203,8 @@ string llvm_compute::compile_program(const string& code, const string additional
 	return "";
 }
 
-string llvm_compute::compile_program_file(const string& filename, const string additional_options, const TARGET target,
+string llvm_compute::compile_program_file(shared_ptr<compute_device> device,
+										  const string& filename, const string additional_options, const TARGET target,
 										  vector<string>* kernel_names) {
-	return compile_program(file_io::file_to_string(filename), additional_options, target, kernel_names);
+	return compile_program(device, file_io::file_to_string(filename), additional_options, target, kernel_names);
 }
-
-#endif
