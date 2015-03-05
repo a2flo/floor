@@ -111,6 +111,10 @@ public:
 	shared_ptr<compute_program> add_program_source(const string& source_code,
 												   const string additional_options = "") override;
 	
+	//! adds a precompiled program and its kernels, using the provided file name and kernel infos
+	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
+															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
+	
 protected:
 	vector<shared_ptr<cuda_program>> programs;
 	

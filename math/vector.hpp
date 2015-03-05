@@ -161,7 +161,7 @@ public:
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
-	static FLOOR_CL_CONSTANT constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
+	static constexpr constant const size_t dim { FLOOR_VECTOR_WIDTH };
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -280,77 +280,76 @@ public:
 							const vector3<scalar_type>& vec) noexcept :
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
-
-	// opencl/spir construction/load from another address space
-	// NOTE: private is not needed, because it's the default and already defined above
-#if defined(__SPIR32__) || defined(__SPIR64__)
-	//! opencl/spir construction/load from global to any address space
-	constexpr FLOOR_VECNAME(global const vector_type& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
 	
-	//! opencl/spir construction/load from local to any address space
-	constexpr FLOOR_VECNAME(local const vector_type& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
-	
-	//! opencl/spir construction/load from constant to any address space
-	constexpr FLOOR_VECNAME(constant const vector_type& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
-#endif
-	
-	//! generic explicit load function that will construct and return a vector in private address space (opencl),
-	//! or simply a copy function in c++ and cuda (no need for explicit address space handling there)
-	constexpr vector_type load() const {
-		return { FLOOR_VEC_EXPAND(FLOOR_COMMA) };
+#if defined(__SPIR32__) || defined(__SPIR64__) || defined(__METAL_CLANG__)
+	// opencl/spir and metal/air construction/load from any address space to private address space
+	//! explicit load, from private/unspecified/default to private address space
+	static constexpr vector_type load(const vector_type* from_vec) {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
+	}
+	//! explicit load, from global to private address space
+	static constexpr vector_type load(global const vector_type* from_vec) {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
+	}
+	//! explicit load, from local to private address space
+	static constexpr vector_type load(local const vector_type* from_vec) {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
+	}
+	//! explicit load, from constant to private address space
+	static constexpr vector_type load(constant const vector_type* from_vec) {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
 	}
 	
-	//! generic explicit store function that will store/assign the vector components of the given vector
-	//! in/to this vector (opencl: private address space, cuda/c++: generic)
-	constexpr vector_type& store(const vector_type& vec) {
-		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
-		return *this;
+	// opencl/spir and metal/air store from private address space to any address space
+	//! explicit store, from any address space to private/unspecified/default
+	static constexpr void store(vector_type* to_vec, const vector_type& assign_vec) {
+		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
 	}
-	
-	// +the same for local and global address spaces in opencl
-#if defined(__SPIR32__) || defined(__SPIR64__)
-	//! explicit store function, from global to any address space
-	constexpr vector_type& store(global const vector_type& vec) {
-		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
-		return *this;
+	//! explicit store, from any address space to global
+	static constexpr void store(global vector_type* to_vec, const vector_type& assign_vec) {
+		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
 	}
-	
-	//! explicit store function, from local to any address space
-	constexpr vector_type& store(local const vector_type& vec) {
-		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
-		return *this;
+	//! explicit store, from any address space to local
+	static constexpr void store(local vector_type* to_vec, const vector_type& assign_vec) {
+		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
+	}
+#else
+	//! generic load function (for host and cuda compilation)
+	static constexpr vector_type load(const vector_type* from_vec) {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
+	}
+	//! generic store function (for host and cuda compilation)
+	static constexpr void store(vector_type* to_vec, const vector_type& assign_vec) {
+		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
 	}
 #endif
 	
 	// assignments (note: these also work if scalar_type is a reference)
-	constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
+	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept {
+	floor_inline_always constexpr vector_type& operator=(FLOOR_VECNAME<decayed_scalar_type>&& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
-	constexpr vector_type& operator=(const decayed_scalar_type& val) noexcept {
+	floor_inline_always constexpr vector_type& operator=(const decayed_scalar_type& val) noexcept {
 		FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_SEMICOLON, , = val, FLOOR_SEMICOLON);
 		return *this;
 	}
 	
 	// assignment from lower types
 #if FLOOR_VECTOR_WIDTH >= 3
-	constexpr vector_type& operator=(const vector2<decayed_scalar_type>& vec) noexcept {
+	floor_inline_always constexpr vector_type& operator=(const vector2<decayed_scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		return *this;
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-	constexpr vector_type& operator=(const vector3<decayed_scalar_type>& vec) noexcept {
+	floor_inline_always constexpr vector_type& operator=(const vector3<decayed_scalar_type>& vec) noexcept {
 		x = vec.x;
 		y = vec.y;
 		z = vec.z;

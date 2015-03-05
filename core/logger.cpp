@@ -27,7 +27,11 @@
 #include <SDL.h>
 #endif
 
-static string log_filename { "log.txt" }, msg_filename { "msg.txt" };
+#if defined(FLOOR_IOS)
+#include <floor/ios/ios_helper.hpp>
+#endif
+
+static string log_filename { "" }, msg_filename { "" };
 static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
 static atomic<unsigned int> log_err_counter { 0u };
 static logger::LOG_TYPE log_verbosity { logger::LOG_TYPE::UNDECORATED };
@@ -157,18 +161,44 @@ void logger::init(const size_t verbosity,
 	// always call destroy on program exit
 	atexit([] { logger::destroy(); });
 	
-	//
-	log_filename = log_filename_;
+	// if either is empty, use the default log/msg file name, with special treatment on iOS
+	if(log_filename_.empty() || msg_filename_.empty()) {
+#if defined(FLOOR_IOS)
+		// get the bundle identifier of this .app and get the preferences path from sdl (we can/must store the log there)
+		const auto bundle_id = ios_helper::get_bundle_identifier();
+		const auto bundle_dot = bundle_id.rfind('.');
+		if(bundle_dot != string::npos) {
+			char* pref_path = SDL_GetPrefPath(bundle_id.substr(0, bundle_dot).c_str(),
+													bundle_id.substr(bundle_dot + 1, bundle_id.size() - bundle_dot - 1).c_str());
+			if(pref_path != nullptr) {
+				log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
+				msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
+				SDL_free(pref_path);
+			}
+		}
+		// check if still empty and just try the default
+		if(log_filename.empty() && log_filename_.empty()) log_filename = "log.txt";
+		if(msg_filename.empty() && msg_filename_.empty()) msg_filename = "msg.txt";
+#else
+		log_filename = (log_filename_.empty() ? "log.txt" : log_filename_);
+		msg_filename = (msg_filename_.empty() ? "msg.txt" : msg_filename_);
+#endif
+	}
+	else {
+		// neither is empty, use the specified paths/names
+		log_filename = log_filename_;
+		msg_filename = msg_filename_;
+	}
+	
 	log_file = make_unique<ofstream>(log_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 	if(!log_file->is_open()) {
-		cerr << "LOG ERROR: couldn't open log file!" << endl;
+		cerr << "LOG ERROR: couldn't open log file (" << log_filename << ")!" << endl;
 	}
 	
 	if(separate_msg_file && verbosity >= (size_t)logger::LOG_TYPE::SIMPLE_MSG) {
-		msg_filename = msg_filename_;
 		msg_file = make_unique<ofstream>(msg_filename, (append_mode ? ofstream::app | ofstream::out : ofstream::out));
 		if(!msg_file->is_open()) {
-			cerr << "LOG ERROR: couldn't open msg log file!" << endl;
+			cerr << "LOG ERROR: couldn't open msg log file (" << msg_filename << ")!" << endl;
 		}
 	}
 	

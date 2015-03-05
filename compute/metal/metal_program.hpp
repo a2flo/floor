@@ -16,25 +16,31 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/compute/opencl/opencl_queue.hpp>
+#ifndef __FLOOR_METAL_PROGRAM_HPP__
+#define __FLOOR_METAL_PROGRAM_HPP__
 
-#if !defined(FLOOR_NO_OPENCL)
+#include <floor/compute/metal/metal_common.hpp>
 
-opencl_queue::opencl_queue(const cl_command_queue queue_) : queue(queue_) {
-}
+#if !defined(FLOOR_NO_METAL)
 
-void opencl_queue::finish() const {
-	// TODO: error handling
-	clFinish(queue);
-}
+#include <floor/compute/compute_program.hpp>
+#include <Metal/Metal.h>
 
-void opencl_queue::flush() const {
-	// TODO: error handling
-	clFlush(queue);
-}
+class metal_program final : public compute_program {
+public:
+	metal_program(const metal_device* device, id <MTLLibrary> program, const vector<llvm_compute::kernel_info>& kernels_info);
+	
+protected:
+	id <MTLLibrary> program;
+	
+	struct metal_kernel_data {
+		id <MTLFunction> kernel;
+		id <MTLComputePipelineState> state;
+	};
+	vector<metal_kernel_data> metal_kernels;
+	
+};
 
-const void* opencl_queue::get_queue_ptr() const {
-	return queue;
-}
+#endif
 
 #endif

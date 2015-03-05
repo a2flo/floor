@@ -25,6 +25,7 @@
 enum class COMPUTE_TYPE : uint32_t {
 	OPENCL,
 	CUDA,
+	METAL,
 };
 
 #endif

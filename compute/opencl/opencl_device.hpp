@@ -20,9 +20,6 @@
 #define __FLOOR_OPENCL_DEVICE_HPP__
 
 #include <floor/compute/opencl/opencl_common.hpp>
-
-#if !defined(FLOOR_NO_OPENCL)
-
 #include <floor/compute/compute_device.hpp>
 
 #if defined(__clang__)
@@ -34,18 +31,21 @@ class opencl_device final : public compute_device {
 public:
 	~opencl_device() override {}
 	
+#if !defined(FLOOR_NO_OPENCL)
+	//! associated opencl context
+	cl_context ctx { nullptr };
+	
 	//! opencl c version of the device
 	OPENCL_VERSION c_version { OPENCL_VERSION::OPENCL_1_0 };
 	
 	//! the opencl device id
 	cl_device_id device_id { nullptr };
+#endif
 	
 };
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
-#endif
-
 #endif
 
 #endif

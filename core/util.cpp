@@ -52,9 +52,13 @@ template <> unsigned long int converter<string, unsigned long int>::convert(cons
 	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (unsigned long int)strtoull(buffer.str().c_str(), nullptr, 10);
 }
+template <> long int converter<string, long int>::convert(const string& var) {
+	FLOOR_CONVERT_VAR_TO_BUFFER;
+	return (long int)strtoll(buffer.str().c_str(), nullptr, 10);
+}
 #endif
 
-#if defined(PLATFORM_X64) || defined(__APPLE__)
+#if defined(PLATFORM_X64)
 template <> size_t converter<string, size_t>::convert(const string& var) {
 	FLOOR_CONVERT_VAR_TO_BUFFER;
 	return (size_t)strtoull(buffer.str().c_str(), nullptr, 10);

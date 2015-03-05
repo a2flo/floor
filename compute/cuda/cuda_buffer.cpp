@@ -22,6 +22,7 @@
 
 #include <floor/core/logger.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
+#include <floor/compute/cuda/cuda_device.hpp>
 
 // TODO: remove the || 1 again
 #if defined(FLOOR_DEBUG) || 1
@@ -30,11 +31,11 @@
 
 // TODO: proper error (return) value handling everywhere
 
-cuda_buffer::cuda_buffer(const CUcontext ctx_ptr_,
+cuda_buffer::cuda_buffer(const cuda_device* device,
 						 const size_t& size_,
 						 void* host_ptr_,
 						 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
+compute_buffer(device, size_, host_ptr_, flags_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
@@ -65,8 +66,8 @@ compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
 	
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
-	if(ctx_ptr_ != nullptr) {
-		CU_CALL_RET(cuCtxSetCurrent(ctx_ptr_),
+	if(device->ctx != nullptr) {
+		CU_CALL_RET(cuCtxSetCurrent(device->ctx),
 					"failed to make cuda context current");
 	}
 	

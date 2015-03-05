@@ -71,9 +71,9 @@
 #define floor_hidden
 #endif
 
-// compat with device code
-#if !defined(FLOOR_CL_CONSTANT)
-#define FLOOR_CL_CONSTANT
+// compat with compute device code
+#if !defined(constant)
+#define constant
 #endif
 
 #endif // __FLOOR_ESSENTIALS_HPP__
@@ -108,4 +108,9 @@
 #endif
 #if defined(ERROR)
 #undef ERROR
+#endif
+
+// some os x security framework
+#if defined(INTEL)
+#undef INTEL
 #endif

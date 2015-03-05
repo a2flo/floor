@@ -26,14 +26,10 @@
 //
 #define kernel extern "C" __attribute__((cuda_kernel))
 
-// kill opencl style "global" keywords
+// map address space keywords
 #define global
-
-// also kill this (used to workaround global var address space issues in opencl)
-#define opencl_constant
-
-//
-#define device_constant __attribute__((constant))
+#define local __attribute__((cuda_local))
+#define constant __attribute__((cuda_constant))
 
 // TODO: properly do this
 #define get_global_id(dim) (size_t(bid_x * bdim_x + tid_x))
@@ -135,10 +131,6 @@ typedef uint64_t size_t;
 typedef int64_t ssize_t;
 #endif
 
-//
-#define local __attribute__((shared))
-#define constant __attribute__((cuda_constant))
-
 //#include <floor/compute/cuda/cuda_device_functions.hpp>
 // TODO: add proper cuda math support
 float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
@@ -173,7 +165,7 @@ typedef uint size_t;
 typedef int ssize_t;
 #elif defined (__SPIR64__)
 typedef unsigned long int size_t;
-typedef long ssize_t;
+typedef long int ssize_t;
 #endif
 
 #define const_func __attribute__((const))
@@ -228,24 +220,89 @@ double const_func __attribute__((overloadable)) pow(double x, double y);
 extern "C" int printf(const char __constant* st, ...);
 
 // NOTE: I purposefully didn't enable these as aliases in clang,
-// so that they can be properly redirected in cuda mode
+// so that they can be properly redirected on any other target (cuda/metal/host)
 // -> need to add simple macro aliases here
-//#define private __private
-//#define global __global
-// there are some weird issues with using "__global" in clang,
-// but simply using address_space attributes work around these issues
-#define global __attribute__((address_space(1)))
-#define constant __constant
-#define local __local
+#define global __attribute__((opencl_global))
+#define constant __attribute__((opencl_constant))
+#define local __attribute__((opencl_local))
 // abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
 #define kernel __kernel __attribute__((section("spir_kernel")))
-#define opencl_constant constant
+
+#elif defined(__METAL_CLANG__)
+
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#define global __attribute__((opencl_global))
+#define constant __attribute__((opencl_constant))
+#define local __attribute__((opencl_local))
+#define kernel extern "C" __kernel
+
+// misc types
+typedef char int8_t;
+typedef short int int16_t;
+typedef int int32_t;
+typedef long int int64_t;
+typedef unsigned char uint8_t;
+typedef unsigned short int uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long int uint64_t;
+
+typedef __SIZE_TYPE__ size_t;
+typedef __PTRDIFF_TYPE__ ssize_t;
+typedef __SIZE_TYPE__ uintptr_t;
+typedef __PTRDIFF_TYPE__ intptr_t;
+
+// straightforward wrapping, use the fast_* version when possible
+#define metal_func inline __attribute__((always_inline))
+metal_func float sqrt(float) asm("air.fast_sqrt.f32");
+metal_func float rsqrt(float) asm("air.fast_rsqrt.f32");
+metal_func float fabs(float) asm("air.fast_fabs.f32");
+metal_func float fmin(float, float) asm("air.fast_fmin.f32");
+metal_func float fmax(float, float) asm("air.fast_fmax.f32");
+metal_func float floor(float) asm("air.fast_floor.f32");
+metal_func float ceil(float) asm("air.fast_ceil.f32");
+metal_func float round(float) asm("air.fast_round.f32");
+metal_func float trunc(float) asm("air.fast_trunc.f32");
+metal_func float rint(float) asm("air.fast_rint.f32");
+metal_func float sin(float) asm("air.fast_sin.f32");
+metal_func float cos(float) asm("air.fast_cos.f32");
+metal_func float tan(float) asm("air.fast_tan.f32");
+metal_func float asin(float) asm("air.fast_asin.f32");
+metal_func float acos(float) asm("air.fast_acos.f32");
+metal_func float atan(float) asm("air.fast_atan.f32");
+metal_func float atan2(float, float) asm("air.fast_atan2.f32");
+metal_func float fma(float, float, float) asm("air.fma.f32");;
+metal_func float exp(float) asm("air.fast_exp.f32");
+metal_func float log(float) asm("air.fast_log.f32");
+metal_func float pow(float, float) asm("air.fast_pow.f32");
+metal_func float fmod(float, float) asm("air.fast_fmod.f32");
+
+metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
+metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
+metal_func int64_t mulhi(int64_t x, int64_t y) asm("air.mul_hi.i64");
+metal_func uint64_t mulhi(uint64_t x, uint64_t y) asm("air.mul_hi.u.i64");
+
+metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
+
+// would usually have to provide these as kernel arguments in metal, but this works as well
+// (thx for providing these apple, interesting cl_kernel_air64.h and cl_kernel.h you have there ;))
+// NOTE: these all do and have to return 32-bit values, otherwise bad things(tm) will happen
+uint32_t get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
+uint32_t get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
+uint32_t get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
+uint32_t get_work_dim() asm("air.get_work_dim.i32");
+uint32_t get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
+uint32_t get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
+uint32_t get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
+uint32_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
+uint32_t get_global_linear_id() asm("air.get_global_linear_id.i32");
+uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 
 #endif
 
-#if defined(__CUDA_CLANG__) || defined(__SPIR_CLANG__)
+#if defined(__CUDA_CLANG__) || defined(__SPIR_CLANG__) || defined(__METAL_CLANG__)
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
+#include <type_traits>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -273,6 +330,278 @@ constexpr data_type max(const data_type& lhs, const data_type& rhs) {
 }
 
 _LIBCPP_END_NAMESPACE_STD
+using namespace std;
+
+// always include const_math (and const_select) functionality
+#include <floor/constexpr/const_math.hpp>
+
+// buffer / local_buffer / const_buffer / param target-specific specialization/implementation
+namespace floor_compute {
+	template <typename T> struct indirect_type_wrapper {
+		T elem;
+		
+		indirect_type_wrapper(const T& obj) : elem(obj) {}
+		indirect_type_wrapper& operator=(const T& obj) {
+			elem = obj;
+			return *this;
+		}
+		const T& operator*() const { return elem; }
+		T& operator*() { return elem; }
+		const T* const operator->() const { return &elem; }
+		T* operator->() { return &elem; }
+		operator T() const { return elem; }
+	};
+	template <typename T> struct direct_type_wrapper : T {
+		using T::T;
+		direct_type_wrapper& operator=(const T& obj) {
+			*((T*)this) = obj;
+			return *this;
+		}
+		const T& operator*() const { return *this; }
+		T& operator*() { return *this; }
+		const T* const operator->() const { return this; }
+		T* operator->() { return this; }
+	};
+}
+
+#if defined(__SPIR_CLANG__)
+//! global memory buffer
+template <typename T> using buffer = global floor_compute::indirect_type_wrapper<T>*;
+//! local memory buffer
+template <typename T> using local_buffer = local floor_compute::indirect_type_wrapper<T>*;
+//! constant memory buffer
+template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
+//! generic parameter object/buffer
+template <typename T,
+		  typename param_wrapper = const conditional_t<
+			  is_fundamental<T>::value,
+			  floor_compute::indirect_type_wrapper<T>,
+			  floor_compute::direct_type_wrapper<T>>>
+using param = const param_wrapper;
+//! array<> for use with static constant memory
+template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
+
+#elif defined(__CUDA_CLANG__)
+//! global memory buffer
+template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
+//! local memory buffer
+template <typename T> using local_buffer = local floor_compute::indirect_type_wrapper<T>*;
+//! constant memory buffer
+template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
+//! generic parameter object/buffer
+template <typename T,
+		  typename param_wrapper = const conditional_t<
+			  is_fundamental<T>::value,
+			  floor_compute::indirect_type_wrapper<T>,
+			  floor_compute::direct_type_wrapper<T>>>
+using param = const param_wrapper;
+//! array<> for use with static constant memory
+template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
+
+#elif defined(__METAL_CLANG__)
+namespace floor_compute {
+	//! generic loader from global/local/constant memory to private memory
+	//! NOTE on efficiency: llvm is amazingly proficient at optimizing this to loads of any overlayed type(s),
+	//!                     e.g. a load of a "struct { float2 a, b; }" will result in a <4 x float> load.
+	template <typename T> struct address_space_loader {
+		static T load(global const T* from) {
+			uint8_t ints[sizeof(T)];
+			for(size_t i = 0; i < (sizeof(T)); ++i) {
+				ints[i] = *(((global const uint8_t*)from) + i);
+			}
+			return *(T*)&ints[0];
+		}
+		static T load(local const T* from) {
+			uint8_t ints[sizeof(T)];
+			for(size_t i = 0; i < (sizeof(T)); ++i) {
+				ints[i] = *(((local const uint8_t*)from) + i);
+			}
+			return *(T*)&ints[0];
+		}
+		static T load(constant const T* from) {
+			uint8_t ints[sizeof(T)];
+			for(size_t i = 0; i < (sizeof(T)); ++i) {
+				ints[i] = *(((constant const uint8_t*)from) + i);
+			}
+			return *(T*)&ints[0];
+		}
+		static T load(constant const T* from, const size_t& index) {
+			uint8_t ints[sizeof(T)];
+			for(size_t i = index * sizeof(T), count = i + sizeof(T); i < count; ++i) {
+				ints[i] = *(((constant const uint8_t*)from) + i);
+			}
+			return *(T*)&ints[0];
+		}
+	};
+	
+	//! adaptor to access memory in a global/local/constant address space, with support for explicit and implicit stores and loads.
+	//! NOTE: this is necessary for any class that uses the "this" pointer to access memory in a global/local/constant address space.
+	template <typename contained_type, typename as_ptr_type, bool can_read = true, bool can_write = true>
+	struct address_space_adaptor {
+		contained_type elem;
+		
+		constexpr address_space_adaptor(const contained_type& elem_) : elem(elem_) {}
+		
+		//! explicit load
+		template <bool can_read_ = can_read, std::enable_if_t<can_read_>* = nullptr>
+		contained_type load() {
+			return contained_type::load(((const as_ptr_type)this));
+		}
+		template <bool can_read_ = can_read, std::enable_if_t<!can_read_>* = nullptr>
+		contained_type load() {
+			static_assert(can_write, "load not supported in this address space!");
+			return contained_type {};
+		}
+		
+		//! implicit load (convert to contained_type in private/default address space)
+		template <bool can_read_ = can_read, std::enable_if_t<can_read_>* = nullptr>
+		operator contained_type() {
+			return load();
+		}
+		template <bool can_read_ = can_read, std::enable_if_t<!can_read_>* = nullptr>
+		operator contained_type() {
+			static_assert(can_write, "load not supported in this address space!");
+			return contained_type {};
+		}
+		
+		//! explicit store
+		template <bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		void store(const contained_type& vec) {
+			contained_type::store(((as_ptr_type)this), vec);
+		}
+		template <bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		void store(const contained_type&) {
+			static_assert(can_write, "store not supported in this address space!");
+		}
+		
+		//! implicit store (assign)
+		template <typename T, bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		address_space_adaptor& operator=(const T& obj) {
+			store(obj);
+			return *this;
+		}
+		template <typename T, bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		address_space_adaptor& operator=(const T&) {
+			static_assert(can_write, "store not supported in this address space!");
+			return *this;
+		}
+		
+		//! r/w proxy (yo dawg, i herd you like wrapping, so I put a wrapper in your wrapper ...)
+		template <typename U> class proxy {
+		protected:
+			U obj;
+			
+		public:
+			proxy(const U& obj_) noexcept : obj(obj_) {}
+			proxy& operator=(const proxy&) = delete;
+			
+			inline U& operator*() noexcept {
+				return obj;
+			}
+			inline U* operator->() noexcept {
+				return &obj;
+			}
+		};
+		
+		//! r/o proxy
+		template <typename U> class const_proxy {
+		protected:
+			const U obj;
+			
+		public:
+			const_proxy(const U& obj_) noexcept : obj(obj_) {}
+			const_proxy& operator=(const const_proxy&) = delete;
+			
+			inline const U& operator*() const noexcept {
+				return obj;
+			}
+			inline const U* const operator->() const noexcept {
+				return &obj;
+			}
+		};
+		
+		//! implicit load via "pointer access" (returns a read/write proxy object)
+		template <bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		proxy<contained_type> operator->() {
+			return { load() };
+		}
+		//! implicit load via "pointer access" (returns a const/read-only proxy object)
+		template <bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		const_proxy<contained_type> operator->() {
+			return { load() };
+		}
+		
+		//! explicit load via deref (provided for completeness sake, implicit loads should usually suffice,
+		//! with other explicit loads being the preferred way of clarifying "this is an explicit load")
+		contained_type operator*() {
+			return { load() };
+		}
+		
+	};
+	
+	//! template voodoo, false if T has no load function for constant memory
+	template <typename T, typename = void> struct has_load_function : false_type {};
+	//! template voodoo, true if T has a load function for constant memory
+	template <typename T> struct has_load_function<T, decltype(T::load((constant const T*)nullptr), void())> : true_type {};
+	
+	//! for internal use (wraps a struct or class and provides an automatic load function)
+	template <typename T> struct param_buffer_container : T, address_space_loader<param_buffer_container<T>> {};
+	
+	//! for internal use (wraps a fundamental / non-struct or -class type and provides an automatic load function)
+	template <typename T>
+	struct param_adaptor : address_space_loader<param_adaptor<T>> {
+		T elem;
+		constexpr operator T() const noexcept { return elem; }
+	};
+}
+
+//! global memory buffer
+template <typename T> using buffer = global floor_compute::address_space_adaptor<T, global T*, true, !is_const<T>()>*;
+//! local memory buffer
+template <typename T> using local_buffer = local floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>*;
+//! constant memory buffer
+template <typename T> using const_buffer = constant floor_compute::address_space_adaptor<const T, constant const T*, true, false>*;
+//! generic parameter object/buffer (stored in constant memory)
+template <typename T,
+		  typename param_wrapper = const conditional_t<
+			  is_fundamental<T>::value,
+			  floor_compute::param_adaptor<T>,
+			  conditional_t<
+				  floor_compute::has_load_function<T>::value,
+				  T,
+				  floor_compute::param_buffer_container<T>>>>
+using param = constant floor_compute::address_space_adaptor<const param_wrapper, constant const param_wrapper*, true, false>&;
+//! array<> for use with static constant memory
+template <class data_type, size_t array_size>
+class const_array {
+public:
+	const floor_compute::address_space_adaptor<data_type, constant const data_type*, true, false> elems[array_size > 0 ? array_size : 1];
+	
+	constexpr data_type operator[](const size_t& index) const {
+		return const_select::is_constexpr(index) ? cexpr_get(index) : rt_get<data_type>(index);
+	}
+	
+	constexpr size_t size() const { return array_size; }
+	constexpr constant const data_type* data() const { return (constant const data_type*)&elems[0]; }
+	
+protected:
+	constexpr data_type cexpr_get(const size_t& index) const {
+		return elems[index].elem;
+	}
+	
+	template <typename LT, enable_if_t<!floor_compute::has_load_function<LT>::value>* = nullptr>
+	constexpr data_type rt_get(const size_t& index) const {
+		return floor_compute::address_space_loader<data_type>::load((constant const data_type*)&elems[0] + index);
+	}
+	
+	template <typename LT, enable_if_t<floor_compute::has_load_function<LT>::value>* = nullptr>
+	constexpr data_type rt_get(const size_t& index) const {
+		return data_type::load((constant const data_type*)&elems[0] + index);
+	}
+
+};
+#endif
+
 #endif
 
 #endif

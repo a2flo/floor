@@ -191,6 +191,10 @@ public:
 	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
 														   const string additional_options = "") = 0;
 	
+	//! adds a precompiled program and its kernels, using the provided file name and kernel infos
+	virtual shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
+																	 const vector<llvm_compute::kernel_info>& kernel_infos) = 0;
+	
 protected:
 	//! platform vendor enum (set after initialization)
 	PLATFORM_VENDOR platform_vendor { PLATFORM_VENDOR::UNKNOWN };

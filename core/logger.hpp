@@ -54,8 +54,8 @@ public:
 					 const bool append_mode,
 					 const bool use_time,
 					 const bool use_color,
-					 const string log_filename,
-					 const string msg_filename);
+					 const string log_filename = "",
+					 const string msg_filename = "");
 	//! destroys the logger (also makes sure everything has been written to the console and log file)
 	static void destroy();
 	

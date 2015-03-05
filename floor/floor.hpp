@@ -178,8 +178,8 @@ protected:
 		bool append_mode = false;
 		bool log_use_time = true;
 		bool log_use_color = true;
-		string log_filename = "log.txt";
-		string msg_filename = "msg.txt";
+		string log_filename = "";
+		string msg_filename = "";
 		
 		// projection
 		float fov = 72.0f;

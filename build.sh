@@ -59,6 +59,7 @@ BUILD_JOB_COUNT=0
 BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
+BUILD_CONF_METAL=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
@@ -92,6 +93,7 @@ for arg in "$@"; do
 			echo "build configuration:"
 			echo "	no-opencl	disables opencl and cuda support"
 			echo "	no-cuda		disables cuda support"
+			echo "	no-metal	disables metal support (default for non-iOS targets)"
 			echo "	no-openal	disables openal support"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
 			echo "	pocl		use the pocl library instead of the systems OpenCL library"
@@ -136,6 +138,9 @@ for arg in "$@"; do
 			;;
 		"no-cuda")
 			BUILD_CONF_CUDA=0
+			;;
+		"no-metal")
+			BUILD_CONF_METAL=0
 			;;
 		"no-openal")
 			BUILD_CONF_OPENAL=0
@@ -221,7 +226,7 @@ if [ $BUILD_MODE == "debug" ]; then
 fi
 
 # use *.a for all platforms
-TARGET_STATIC_BIN_NAME=${TARGET_BIN_NAME}.a
+TARGET_STATIC_BIN_NAME=${TARGET_BIN_NAME}_static.a
 
 # file ending, depending on the platform we're building on
 # osx/ios -> .dylib
@@ -234,6 +239,11 @@ elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 else
 	# default to .so for all other platforms (linux/*bsd/unknown)
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}.so
+fi
+
+# disable metal support on non-iOS targets
+if [ $BUILD_OS != "ios" ]; then
+	BUILD_CONF_METAL=0
 fi
 
 ##########################################
@@ -251,7 +261,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/opencl constexpr core floor lang math net net/boost_system threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/metal compute/opencl constexpr core floor lang math net net/boost_system threading"
 if [ $BUILD_OS == "osx" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
 elif [ $BUILD_OS == "ios" ]; then
@@ -434,6 +444,9 @@ else
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework OpenALSoft"
 	fi
+	if [ ${BUILD_CONF_METAL} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -framework Metal"
+	fi
 	
 	# system frameworks
 	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL"
@@ -478,6 +491,7 @@ set_conf_val() {
 }
 set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
+set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
@@ -568,7 +582,7 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
 		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.9"
 	else
-		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=7.0"
+		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=8.0"
 	fi
 	
 	# set lib version
@@ -598,7 +612,8 @@ if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 fi
 
 # hard-mode c++ ;) TODO: clean this up + explanations
-WARNINGS="${WARNINGS} -Weverything -Wno-gnu -Wno-c++98-compat"
+WARNINGS="${WARNINGS} -Weverything -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
+WARNINGS="${WARNINGS} -Wno-gnu -Wno-c++98-compat"
 WARNINGS="${WARNINGS} -Wno-c++98-compat-pedantic -Wno-c99-extensions"
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation"
 WARNINGS="${WARNINGS} -Wno-system-headers -Wno-global-constructors -Wno-padded"

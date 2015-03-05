@@ -52,6 +52,7 @@ enum class OPENCL_VERSION : uint32_t {
 	OPENCL_1_1,
 	OPENCL_1_2,
 	OPENCL_2_0,
+	OPENCL_2_1,
 };
 
 constexpr const char* cl_error_to_string(const int& error_code) {

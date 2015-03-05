@@ -22,8 +22,15 @@
 // if defined, this disables cuda support
 ###FLOOR_CUDA###
 
-// if defined, this disable opencl support and possibly enabled cuda support
+// if defined, this disable opencl support
 ###FLOOR_OPENCL###
+
+// if defined, this disable metal support
+#if defined(FLOOR_IOS)
+###FLOOR_METAL###
+#else
+#define FLOOR_NO_METAL 1
+#endif
 
 // if defined, this disabled openal support
 ###FLOOR_OPENAL###

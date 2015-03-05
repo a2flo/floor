@@ -26,6 +26,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/cuda/cuda_buffer.hpp>
+#include <floor/compute/llvm_compute.hpp>
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_CUDA_KERNEL_IMPL 1
@@ -34,10 +35,10 @@
 
 class cuda_kernel final : public compute_kernel {
 public:
-	cuda_kernel(const CUfunction kernel, const string& func_name);
+	cuda_kernel(const CUfunction kernel, const llvm_compute::kernel_info& info);
 	~cuda_kernel() override;
 	
-	template <typename... Args> void execute(const CUstream queue,
+	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim floor_unused,
 											 const size3 global_work_size,
 											 const size3 local_work_size_,
@@ -56,14 +57,7 @@ public:
 		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 		grid_dim.max(1u);
 		
-		CU_CALL_NO_ACTION(cuLaunchKernel(kernel,
-										 grid_dim.x, grid_dim.y, grid_dim.z,
-										 block_dim.x, block_dim.y, block_dim.z,
-										 0, // TODO: make sharedMemBytes specifiable
-										 queue,
-										 &kernel_params[0],
-										 nullptr),
-						  "failed to execute kernel");
+		execute_internal(queue, grid_dim, block_dim, &kernel_params[0]);
 		
 		// free kernel params again
 		for(size_t i = 0, count = sizeof...(Args); i < count; ++i) {
@@ -76,6 +70,11 @@ protected:
 	const string func_name;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
+	
+	void execute_internal(compute_queue* queue,
+						  const uint3& grid_dim,
+						  const uint3& block_dim,
+						  void** kernel_params);
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>

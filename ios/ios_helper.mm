@@ -22,7 +22,7 @@
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
 
-#include <floor/ios_helper.hpp>
+#include <floor/ios/ios_helper.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <regex>
@@ -303,11 +303,15 @@ size_t ios_helper::get_dpi() {
 #else // PLATFORM_X64
 		// TODO: there seems to be a way to get the product-name via iokit (arm device -> product -> product-name)
 		// ipad air/5+ or ipad mini retina
-		string machine(8, 0);
-		size_t size = machine.size() - 1;
-		sysctlbyname("hw.machine", &machine[0], &size, nullptr, 0);
-		machine.back() = 0;
-		if(machine == "iPad4,4" || machine == "iPad4,5" || machine == "iPad4,6") {
+		constexpr const size_t max_machine_len { 10u };
+		size_t machine_len { max_machine_len };
+		char machine[max_machine_len + 1u];
+		memset(machine, 0, machine_len + 1u);
+		sysctlbyname("hw.machine", &machine[0], &machine_len, nullptr, 0);
+		machine[max_machine_len] = 0;
+		const string machine_str { machine };
+		if(machine_str == "iPad4,4" || machine_str == "iPad4,5" || machine_str == "iPad4,6" ||
+		   machine_str == "iPad4,7" || machine_str == "iPad4,8") {
 			// ipad mini retina (for now ...)
 			return 326;
 		}
@@ -323,6 +327,19 @@ string ios_helper::get_computer_name() {
 		
 string ios_helper::utf8_decomp_to_precomp(const string& str) {
 	return [[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String];
+}
+
+int64_t ios_helper::get_memory_size() {
+	int64_t mem_size { 0 };
+	static int sysctl_cmd[2] { CTL_HW, HW_MEMSIZE };
+	static size_t size = sizeof(mem_size);
+	sysctl(&sysctl_cmd[0], 2, &mem_size, &size, nullptr, 0);
+	return mem_size;
+	
+}
+		
+string ios_helper::get_bundle_identifier() {
+	return [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] UTF8String];
 }
 
 #if defined(__clang__)

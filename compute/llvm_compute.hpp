@@ -25,23 +25,39 @@
 class llvm_compute {
 public:
 	enum class TARGET {
+		//! OpenCL SPIR 1.2
 		SPIR,
+		//! Nvidia CUDA PTX
 		PTX,
+		//! Metal Apple-IR
+		AIR,
 	};
 	
 	//
-	static string compile_program(shared_ptr<compute_device> device,
-								  const string& code,
-								  const string additional_options = "",
-								  const TARGET target = TARGET::SPIR,
-								  // NOTE: only used with PTX
-								  vector<string>* kernel_names = nullptr);
-	static string compile_program_file(shared_ptr<compute_device> device,
-									   const string& filename,
-									   const string additional_options = "",
-									   const TARGET target = TARGET::SPIR,
-									   // NOTE: only used with PTX
-									   vector<string>* kernel_names = nullptr);
+	struct kernel_info {
+		string name;
+		vector<uint32_t> arg_sizes;
+		
+		enum class ARG_ADDRESS_SPACE : uint32_t {
+			UNKNOWN = 0,
+			GLOBAL = 1,
+			LOCAL = 2,
+			CONSTANT = 3,
+		};
+		//! NOTE: these will only be correct for OpenCL and Metal, CUDA uses a different approach,
+		//! although some arguments might be marked with an address space nonetheless.
+		vector<ARG_ADDRESS_SPACE> arg_address_spaces;
+	};
+	
+	//
+	static pair<string, vector<kernel_info>> compile_program(shared_ptr<compute_device> device,
+															 const string& code,
+															 const string additional_options = "",
+															 const TARGET target = TARGET::SPIR);
+	static pair<string, vector<kernel_info>> compile_program_file(shared_ptr<compute_device> device,
+																  const string& filename,
+																  const string additional_options = "",
+																  const TARGET target = TARGET::SPIR);
 	
 protected:
 	// static class

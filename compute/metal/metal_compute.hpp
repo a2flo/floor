@@ -16,27 +16,23 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_COMPUTE_HPP__
-#define __FLOOR_OPENCL_COMPUTE_HPP__
+#ifndef __FLOOR_METAL_COMPUTE_HPP__
+#define __FLOOR_METAL_COMPUTE_HPP__
 
-#include <floor/compute/opencl/opencl_common.hpp>
+#include <floor/compute/metal/metal_common.hpp>
 
-#if !defined(FLOOR_NO_OPENCL)
+#if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/compute_base.hpp>
-#include <floor/compute/opencl/opencl_buffer.hpp>
-#include <floor/compute/opencl/opencl_device.hpp>
-#include <floor/compute/opencl/opencl_kernel.hpp>
-#include <floor/compute/opencl/opencl_program.hpp>
-#include <floor/compute/opencl/opencl_queue.hpp>
+class metal_program;
 
 //! TODO
-class opencl_compute final : public compute_base {
+class metal_compute final : public compute_base {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	~opencl_compute() override {}
+	~metal_compute() override {}
 	
 	//! initializes the compute context/object
 	void init(const bool use_platform_devices = false,
@@ -48,7 +44,7 @@ public:
 	bool is_supported() const override { return supported; }
 	
 	//! returns the underlying compute implementation type
-	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
+	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
 	//////////////////////////////////////////
 	// device functions
@@ -117,14 +113,9 @@ public:
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
 	
 protected:
-	cl_context ctx { nullptr };
-	vector<cl_device_id> ctx_devices;
+	void* ctx { nullptr };
 	
-	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::OPENCL_1_0 };
-	
-	vector<cl_image_format> image_formats;
-	
-	vector<shared_ptr<opencl_program>> programs;
+	vector<shared_ptr<metal_program>> programs;
 	
 };
 

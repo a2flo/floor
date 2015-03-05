@@ -88,8 +88,9 @@ template <> unsigned long long int converter<string, unsigned long long int>::co
 #endif
 #if defined(FLOOR_IOS) && defined(PLATFORM_X32)
 template <> unsigned long int converter<string, unsigned long int>::convert(const string& var);
+template <> long int converter<string, long int>::convert(const string& var);
 #endif
-#if defined(PLATFORM_X64) || defined(__APPLE__)
+#if defined(PLATFORM_X64)
 template <> size_t converter<string, size_t>::convert(const string& var);
 template <> ssize_t converter<string, ssize_t>::convert(const string& var);
 #endif

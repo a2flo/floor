@@ -27,7 +27,22 @@
 
 #include <floor/constexpr/const_math.hpp>
 
-namespace const_math_select {
+namespace const_select {
+	// generic is_constexpr checks
+#define FLOOR_IS_CONSTEXPR(type_name) \
+	__attribute__((always_inline)) bool is_constexpr(type_name) { \
+		return false; \
+	}
+	
+	FLOOR_IS_CONSTEXPR(bool)
+	FLOOR_IS_CONSTEXPR(int)
+	FLOOR_IS_CONSTEXPR(size_t)
+	FLOOR_IS_CONSTEXPR(float)
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	FLOOR_IS_CONSTEXPR(double)
+#endif
+	
+	// const math select functions
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
 	__attribute__((always_inline)) type_name func_name (type_name val) { \
 		return rt_func ; \
@@ -189,8 +204,30 @@ namespace const_math_select {
 	FLOOR_CONST_MATH_SELECT(exp, ::exp(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log, ::log(val), double, "d")
 #endif
+#elif defined(__METAL_CLANG__)
+	// builtin functions defined by metal
+	FLOOR_CONST_MATH_SELECT_2(fmod, ::fmod(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT(sqrt, ::sqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(inv_sqrt, ::rsqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(abs, ::fabs(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(floor, ::floor(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(ceil, ::ceil(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(round, ::round(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(trunc, ::trunc(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(rint, ::rint(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(sin, ::sin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(cos, ::cos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(tan, ::tan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(asin, ::asin(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(acos, ::acos(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(atan, ::atan(val), float, "f")
+	FLOOR_CONST_MATH_SELECT_2(atan2, ::atan2(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_3(fma, ::fma(a, b, c), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp, ::exp(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(log, ::log(val), float, "f")
 #endif
-	
+
+#undef FLOOR_IS_CONSTEXPR
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
 #undef FLOOR_CONST_MATH_SELECT_3

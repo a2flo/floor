@@ -16,45 +16,47 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_BUFFER_HPP__
-#define __FLOOR_OPENCL_BUFFER_HPP__
+#ifndef __FLOOR_METAL_BUFFER_HPP__
+#define __FLOOR_METAL_BUFFER_HPP__
 
-#include <floor/compute/opencl/opencl_common.hpp>
+#include <floor/compute/metal/metal_common.hpp>
 
-#if !defined(FLOOR_NO_OPENCL)
+#if !defined(FLOOR_NO_METAL)
 
+#include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_buffer.hpp>
+#include <Metal/Metal.h>
 
-class opencl_device;
-class opencl_buffer final : public compute_buffer {
+class metal_device;
+class metal_buffer final : public compute_buffer {
 public:
-	opencl_buffer(const opencl_device* device,
-				  const size_t& size_,
-				  void* host_ptr,
-				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
+	metal_buffer(const metal_device* device,
+				 const size_t& size_,
+				 void* host_ptr,
+				 const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+													 COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
-	opencl_buffer(const opencl_device* device,
-				  const size_t& size_,
-				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	opencl_buffer(device, size_, nullptr, flags_) {}
+	metal_buffer(const metal_device* device,
+				 const size_t& size_,
+				 const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+													 COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
+	metal_buffer(device, size_, nullptr, flags_) {}
 	
 	template <typename data_type>
-	opencl_buffer(const opencl_device* device,
-				  const vector<data_type>& data,
-				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	opencl_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
+	metal_buffer(const metal_device* device,
+				 const vector<data_type>& data,
+				 const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+													 COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
+	metal_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
 	
 	template <typename data_type, size_t n>
-	opencl_buffer(const opencl_device* device,
-				  const array<data_type, n>& data,
-				  const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													  COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	opencl_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_) {}
+	metal_buffer(const metal_device* device,
+				 const array<data_type, n>& data,
+				 const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
+													 COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
+	metal_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
-	~opencl_buffer() override;
+	~metal_buffer() override;
 	
 	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! back to the previously specified host pointer
@@ -97,17 +99,22 @@ public:
 											const COMPUTE_BUFFER_MAP_FLAG flags =
 											(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 											 COMPUTE_BUFFER_MAP_FLAG::BLOCK),
-											const size_t size = 0, const size_t offset = 0) override;
+											const size_t size = 0,
+											const size_t offset = 0) override ACQUIRE(lock) REQUIRES(!lock);
 	
 	//!
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override RELEASE(lock);
 	
 	//!
-	const cl_mem& get_cl_buffer() const { return buffer; }
+	id <MTLBuffer> get_metal_buffer() const { return buffer; }
 	
 protected:
-	cl_mem buffer { nullptr };
-	cl_mem_flags cl_flags { 0 };
+	id <MTLBuffer> buffer { nullptr };
+	
+	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
+	
+	// separate create buffer function, b/c it's called by the constructor and resize
+	bool create_internal(const bool copy_host_data);
 	
 };
 

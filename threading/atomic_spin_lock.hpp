@@ -41,6 +41,9 @@ public:
 		mtx.clear(memory_order_release);
 	}
 	
+	// for negative capabilities
+	floor_inline_always const atomic_spin_lock& operator!() const { return *this; }
+	
 protected:
 	atomic_flag mtx { ATOMIC_FLAG_INIT };
 	

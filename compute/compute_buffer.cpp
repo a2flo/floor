@@ -24,11 +24,11 @@ enum_class_bitwise_or_global_impl(COMPUTE_BUFFER_FLAG)
 enum_class_bitwise_and_global_impl(COMPUTE_BUFFER_MAP_FLAG)
 enum_class_bitwise_or_global_impl(COMPUTE_BUFFER_MAP_FLAG)
 
-compute_buffer::compute_buffer(const void* ctx_ptr_,
+compute_buffer::compute_buffer(const void* device,
 							   const size_t& size_,
 							   void* host_ptr_,
 							   const COMPUTE_BUFFER_FLAG flags_) :
-ctx_ptr(ctx_ptr_), size(align_size(size_)), host_ptr(host_ptr_), flags(flags_) {
+dev(device), size(align_size(size_)), host_ptr(host_ptr_), flags(flags_) {
 	if(size == 0) {
 		log_error("can't allocate a buffer of size 0!");
 	}
@@ -39,3 +39,11 @@ ctx_ptr(ctx_ptr_), size(align_size(size_)), host_ptr(host_ptr_), flags(flags_) {
 }
 
 compute_buffer::~compute_buffer() {}
+
+void compute_buffer::_lock() {
+	lock.lock();
+}
+
+void compute_buffer::_unlock() {
+	lock.unlock();
+}

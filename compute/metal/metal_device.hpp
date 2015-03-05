@@ -16,25 +16,37 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/compute/opencl/opencl_queue.hpp>
+#ifndef __FLOOR_METAL_DEVICE_HPP__
+#define __FLOOR_METAL_DEVICE_HPP__
 
-#if !defined(FLOOR_NO_OPENCL)
+#include <floor/compute/compute_device.hpp>
 
-opencl_queue::opencl_queue(const cl_command_queue queue_) : queue(queue_) {
-}
+#if !defined(FLOOR_NO_METAL)
+#include <floor/compute/metal/metal_common.hpp>
+#include <Metal/Metal.h>
+#endif
 
-void opencl_queue::finish() const {
-	// TODO: error handling
-	clFinish(queue);
-}
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
 
-void opencl_queue::flush() const {
-	// TODO: error handling
-	clFlush(queue);
-}
+class metal_device final : public compute_device {
+public:
+	~metal_device() override {}
+	
+#if !defined(FLOOR_NO_METAL)
+	// actual metal device object
+	id <MTLDevice> device;
+	
+	// device family, currently 1 (A7) and 2 (A8/A8X)
+	underlying_type_t<MTLFeatureSet> family { 0u };
+#endif
+	
+};
 
-const void* opencl_queue::get_queue_ptr() const {
-	return queue;
-}
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif

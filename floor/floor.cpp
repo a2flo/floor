@@ -23,6 +23,7 @@
 #include <floor/core/sig_handler.hpp>
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
+#include <floor/compute/metal/metal_compute.hpp>
 
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS)
@@ -204,8 +205,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
 		config.log_use_time = config_doc.get<bool>("config.logging.use_time", true);
 		config.log_use_color = config_doc.get<bool>("config.logging.use_color", true);
-		config.log_filename = config_doc.get<string>("config.logging.log_filename", "log.txt");
-		config.msg_filename = config_doc.get<string>("config.logging.msg_filename", "msg.txt");
+		config.log_filename = config_doc.get<string>("config.logging.log_filename", "");
+		config.msg_filename = config_doc.get<string>("config.logging.msg_filename", "");
 		
 		config.fov = config_doc.get<float>("config.projection.fov", 72.0f);
 		config.near_far_plane.x = config_doc.get<float>("config.projection.near", 1.0f);
@@ -495,34 +496,42 @@ void floor::init_internal(const bool use_gl32_core
 		log_debug("dpi: %u", config.dpi);
 		
 		// create and init compute context
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
-		// check if a cudacl or pure opencl context should be created
-		// use absolute path
-#if !defined(FLOOR_NO_CUDA)
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL)
 		if(config.opencl_platform == "cuda") {
-			log_debug("initializing cuda ...");
+#if !defined(FLOOR_NO_CUDA)
+			log_debug("initializing CUDA ...");
 			compute_ctx = make_shared<cuda_compute>();
-		}
-		else {
 #else
-			if(config.opencl_platform == "cuda") {
-				log_error("CUDA support is not enabled!");
-			}
+			log_error("CUDA support is not enabled!");
 #endif
+		}
+		else if(config.opencl_platform == "metal") {
+#if !defined(FLOOR_NO_METAL)
+			log_debug("initializing Metal ...");
+			compute_ctx = make_shared<metal_compute>();
+#else
+			log_error("Metal support is not enabled!");
+#endif
+		}
+		
+		if(compute_ctx == nullptr) {
 #if !defined(FLOOR_NO_OPENCL)
-			log_debug("initializing opencl ...");
+			if(config.opencl_platform == "cuda" || config.opencl_platform == "metal") {
+				log_debug("initializing OpenCL (fallback) ...");
+			}
+			else log_debug("initializing OpenCL ...");
 			compute_ctx = make_shared<opencl_compute>();
 #else
-			log_error("OpenCL support is not enabled! - can't create a compute context!");
+			log_error("OpenCL support is not enabled!");
 #endif
-#if !defined(FLOOR_NO_CUDA)
 		}
-#endif
-#endif
+		
 		if(compute_ctx != nullptr) {
-			compute_ctx->init(false, config.opencl_platform == "cuda" ? ~0u : string2uint(config.opencl_platform),
+			compute_ctx->init(false, string2uint(config.opencl_platform),
 							  config.gl_sharing, config.cl_device_restriction);
 		}
+		else log_error("failed to create any compute context!");
+#endif
 		
 		release_context();
 	}

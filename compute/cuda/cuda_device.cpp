@@ -17,7 +17,3 @@
  */
 
 #include <floor/compute/cuda/cuda_device.hpp>
-
-#if !defined(FLOOR_NO_CUDA)
-
-#endif

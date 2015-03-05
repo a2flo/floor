@@ -63,6 +63,8 @@ public:
 	static size_t get_dpi();
 	static string get_computer_name();
 	static string utf8_decomp_to_precomp(const string& str);
+	static int64_t get_memory_size();
+	static string get_bundle_identifier();
 	
 protected:
 	static map<string, floor_shader_object*> shader_objects;

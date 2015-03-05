@@ -200,12 +200,22 @@ void opencl_compute::init(const bool use_platform_devices,
 			if(cl_version_str.length() >= (start_len + 3) && cl_version_str.substr(0, start_len) == str_start) {
 				const string version_str = cl_version_str.substr(start_len, cl_version_str.find(" ", start_len) - start_len);
 				const size_t dot_pos = version_str.find(".");
-				if(string2size_t(version_str.substr(0, dot_pos)) > 1) {
-					// major version is higher than 1 -> pretend we're running on CL 2.0
-					return { true, OPENCL_VERSION::OPENCL_2_0 };
+				const auto major_version = string2size_t(version_str.substr(0, dot_pos));
+				const auto minor_version = string2size_t(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1));
+				if(major_version > 2) {
+					// major version is higher than 2 -> pretend we're running on CL 2.1
+					return { true, OPENCL_VERSION::OPENCL_2_1 };
+				}
+				else if(major_version == 2) {
+					switch(minor_version) {
+						case 0: return { true, OPENCL_VERSION::OPENCL_2_0 };
+						case 1:
+						default: // default to CL 2.1
+							return { true, OPENCL_VERSION::OPENCL_2_1 };
+					}
 				}
 				else {
-					switch(string2size_t(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1))) {
+					switch(minor_version) {
 						case 0: return { true, OPENCL_VERSION::OPENCL_1_0 };
 						case 1: return { true, OPENCL_VERSION::OPENCL_1_1 };
 						case 2:
@@ -235,7 +245,8 @@ void opencl_compute::init(const bool use_platform_devices,
 				  platform_vendor_to_str(platform_vendor),
 				  (platform_cl_version == OPENCL_VERSION::OPENCL_1_0 ? "1.0" :
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
-					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" : "2.0"))));
+					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" :
+					 (platform_cl_version == OPENCL_VERSION::OPENCL_2_0 ? "2.0" : "2.1")))));
 		
 		// handle device init
 		ctx_devices.clear();
@@ -277,6 +288,7 @@ void opencl_compute::init(const bool use_platform_devices,
 			auto& device = *(opencl_device*)device_sptr.get();
 			dev_type_str = "";
 			
+			device.ctx = ctx;
 			device.device_id = cl_dev;
 			device.internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 			device.units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
@@ -627,24 +639,24 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<opencl_buffer>(ctx, size, flags);
+	// NOTE: device doesn't really matter in opencl (can't actually be specified), so simply use the "fastest"
+	// device which uses the same context as all other devices (only context matters for opencl)
+	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, flags);
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, void* data, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<opencl_buffer>(ctx, size, data, flags);
+	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, data, flags);
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device,
 														 const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	// TODO: do this on the specified device!
-	return make_shared<opencl_buffer>(ctx, size, flags);
+	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, flags);
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device,
 														 const size_t& size, void* data,
 														 const COMPUTE_BUFFER_FLAG flags) {
-	// TODO: do this on the specified device!
-	return make_shared<opencl_buffer>(ctx, size, data, flags);
+	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, data, flags);
 }
 
 void opencl_compute::finish() {
@@ -676,16 +688,16 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 															   const string additional_options) {
 	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
 	// TODO: compile for devices w/o double support separately
-	const auto spir_bc = llvm_compute::compile_program(devices[0],
-													   source_code, additional_options, llvm_compute::TARGET::SPIR);
+	const auto program_data = llvm_compute::compile_program(devices[0],
+															source_code, additional_options, llvm_compute::TARGET::SPIR);
 	
 	// opencl api handling
 	vector<size_t> length_ptrs(devices.size());
 	vector<const unsigned char*> binary_ptrs(devices.size());
 	vector<cl_int> binary_status(devices.size());
 	for(size_t i = 0; i < devices.size(); ++i) {
-		length_ptrs[i] = spir_bc.size();
-		binary_ptrs[i] = (const unsigned char*)spir_bc.data();
+		length_ptrs[i] = program_data.first.size();
+		binary_ptrs[i] = (const unsigned char*)program_data.first.data();
 		binary_status[i] = CL_SUCCESS;
 	}
 	
@@ -730,6 +742,13 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	auto ret_program = make_shared<opencl_program>(program);
 	programs.push_back(ret_program);
 	return ret_program;
+}
+
+shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const string& file_name floor_unused,
+																		 const vector<llvm_compute::kernel_info>& kernel_infos floor_unused) {
+	// TODO: !
+	log_error("not yet supported by opencl_compute!");
+	return {};
 }
 
 #endif

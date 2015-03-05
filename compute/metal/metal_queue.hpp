@@ -16,29 +16,37 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/compute/opencl/opencl_kernel.hpp>
+#ifndef __FLOOR_METAL_QUEUE_HPP__
+#define __FLOOR_METAL_QUEUE_HPP__
 
-#if !defined(FLOOR_NO_OPENCL)
+#include <floor/compute/metal/metal_common.hpp>
+
+#if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/metal/metal_kernel.hpp>
+#include <Metal/Metal.h>
 
-opencl_kernel::opencl_kernel(const cl_kernel kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
-}
+class metal_queue final : public compute_queue {
+public:
+	metal_queue(id <MTLCommandQueue> queue);
+	
+	void finish() const override REQUIRES(!cmd_buffers_lock);
+	void flush() const override REQUIRES(!cmd_buffers_lock);
+	
+	const void* get_queue_ptr() const override;
+	
+	id <MTLCommandQueue> get_queue();
+	id <MTLCommandBuffer> make_command_buffer() REQUIRES(!cmd_buffers_lock);
+	
+protected:
+	id <MTLCommandQueue> queue;
+	
+	mutable safe_recursive_mutex cmd_buffers_lock;
+	vector<id <MTLCommandBuffer>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	
+};
 
-opencl_kernel::~opencl_kernel() {}
-
-void opencl_kernel::execute_internal(compute_queue* queue,
-									 const uint32_t& work_dim,
-									 const size3& global_work_size,
-									 const size3& local_work_size) {
-	const auto exec_error = clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
-												   kernel, work_dim, nullptr,
-												   global_work_size.data(), local_work_size.data(),
-												   // TODO: use of event stuff?
-												   0, nullptr, nullptr);
-	if(exec_error != CL_SUCCESS) {
-		log_error("failed to execute kernel: %u!", exec_error);
-	}
-}
+#endif
 
 #endif

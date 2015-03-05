@@ -52,7 +52,7 @@ public:
 				 work_size_type&& global_work_size,
 				 work_size_type&& local_work_size,
 				 Args&&... args) {
-		kernel->execute(get_queue_ptr(), global_work_size, local_work_size, forward<Args>(args)...);
+		kernel->execute(this, global_work_size, local_work_size, forward<Args>(args)...);
 	}
 	
 protected:

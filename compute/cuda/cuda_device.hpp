@@ -20,9 +20,6 @@
 #define __FLOOR_CUDA_DEVICE_HPP__
 
 #include <floor/compute/cuda/cuda_common.hpp>
-
-#if !defined(FLOOR_NO_CUDA)
-
 #include <floor/compute/compute_device.hpp>
 
 #if defined(__clang__)
@@ -34,14 +31,8 @@ class cuda_device final : public compute_device {
 public:
 	~cuda_device() override {}
 	
-	// cuda requires a context for each device (no shared context)
-	CUcontext ctx { nullptr };
-	
 	//! compute capability (aka sm_xx)
 	uint2 sm { 2, 0 };
-	
-	//!
-	CUdevice device_id { 0u };
 	
 	//!
 	uint32_t max_registers_per_block { 0u };
@@ -61,12 +52,18 @@ public:
 	//!
 	uint32_t async_engine_count { 0u };
 	
+#if !defined(FLOOR_NO_CUDA)
+	// cuda requires a context for each device (no shared context)
+	CUcontext ctx { nullptr };
+	
+	//!
+	CUdevice device_id { 0u };
+#endif
+	
 };
 
 #if defined(__clang__)
 #pragma clang diagnostic pop
-#endif
-
 #endif
 
 #endif

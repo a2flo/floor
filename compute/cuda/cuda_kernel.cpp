@@ -20,9 +20,26 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-cuda_kernel::cuda_kernel(const CUfunction kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
+#include <floor/compute/compute_queue.hpp>
+
+cuda_kernel::cuda_kernel(const CUfunction kernel_, const llvm_compute::kernel_info& info) :
+kernel(kernel_), func_name(info.name) {
 }
 
 cuda_kernel::~cuda_kernel() {}
+
+void cuda_kernel::execute_internal(compute_queue* queue,
+								   const uint3& grid_dim,
+								   const uint3& block_dim,
+								   void** kernel_params) {
+	CU_CALL_NO_ACTION(cuLaunchKernel(kernel,
+									 grid_dim.x, grid_dim.y, grid_dim.z,
+									 block_dim.x, block_dim.y, block_dim.z,
+									 0, // TODO: make sharedMemBytes specifiable
+									 (CUstream)queue->get_queue_ptr(),
+									 kernel_params,
+									 nullptr),
+					  "failed to execute kernel");
+}
 
 #endif

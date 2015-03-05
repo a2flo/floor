@@ -224,6 +224,7 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 	}
 	// else: init successful, set supported to true
 	supported = true;
+	platform_vendor = compute_base::PLATFORM_VENDOR::NVIDIA;
 	
 	//
 	if(fastest_gpu_device != nullptr) {
@@ -253,23 +254,23 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<cuda_buffer>(nullptr, size, flags);
+	return make_shared<cuda_buffer>((cuda_device*)fastest_device.get(), size, flags);
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(const size_t& size, void* data,
 													   const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<cuda_buffer>(nullptr, size, data, flags);
+	return make_shared<cuda_buffer>((cuda_device*)fastest_device.get(), size, data, flags);
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
 													   const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<cuda_buffer>(((cuda_device*)device.get())->ctx, size, flags);
+	return make_shared<cuda_buffer>((cuda_device*)device.get(), size, flags);
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
 													   const size_t& size, void* data,
 													   const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<cuda_buffer>(((cuda_device*)device.get())->ctx, size, data, flags);
+	return make_shared<cuda_buffer>((cuda_device*)device.get(), size, data, flags);
 }
 
 void cuda_compute::finish() {
@@ -302,9 +303,8 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	// TODO: build for all cuda devices (if needed due to different sm_*)
 	
 	// compile the source code to cuda ptx
-	vector<string> kernel_names;
-	const auto ptx_code = llvm_compute::compile_program(devices[0], // TODO: do for all devices
-														source_code, additional_options, llvm_compute::TARGET::PTX, &kernel_names);
+	const auto program_data = llvm_compute::compile_program(devices[0], // TODO: do for all devices
+															source_code, additional_options, llvm_compute::TARGET::PTX);
 	
 	// jit the module / ptx code
 	const CUjit_option jit_options[] {
@@ -328,7 +328,7 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	
 	CUmodule program;
 	CU_CALL_RET(cuModuleLoadDataEx(&program,
-								   ptx_code.c_str(),
+								   program_data.first.c_str(),
 								   option_count,
 								   (CUjit_option*)&jit_options[0],
 								   (void**)&jit_option_values[0]),
@@ -349,9 +349,16 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 #endif
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
-	auto ret_program = make_shared<cuda_program>(program, kernel_names);
+	auto ret_program = make_shared<cuda_program>(program, program_data.second);
 	programs.push_back(ret_program);
 	return ret_program;
+}
+
+shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const string& file_name floor_unused,
+																	   const vector<llvm_compute::kernel_info>& kernel_infos floor_unused) {
+	// TODO: !
+	log_error("not yet supported by cuda_compute!");
+	return {};
 }
 
 #endif

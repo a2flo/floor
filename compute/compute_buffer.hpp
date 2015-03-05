@@ -23,6 +23,7 @@
 #include <array>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/util.hpp>
+#include <floor/threading/thread_safety.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -97,34 +98,34 @@ public:
 	// TODO: sub-buffer support
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
-	compute_buffer(const void* ctx_ptr_,
+	compute_buffer(const void* device,
 				   const size_t& size_,
 				   void* host_ptr,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
 	//! constructs an uninitialized buffer of the specified size
-	compute_buffer(const void* ctx_ptr_,
+	compute_buffer(const void* device,
 				   const size_t& size_,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	compute_buffer(ctx_ptr_, size_, nullptr, flags_) {}
+	compute_buffer(device, size_, nullptr, flags_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type>
-	compute_buffer(const void* ctx_ptr_,
+	compute_buffer(const void* device,
 				   const vector<data_type>& data,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	compute_buffer(ctx_ptr_, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
+	compute_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
-	compute_buffer(const void* ctx_ptr_,
+	compute_buffer(const void* device,
 				   const array<data_type, n>& data,
 				   const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													   COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	compute_buffer(ctx_ptr_, sizeof(data_type) * n, (void*)&data[0], flags_) {}
+	compute_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
 	virtual ~compute_buffer() = 0;
 	
@@ -214,13 +215,19 @@ public:
 	const COMPUTE_BUFFER_FLAG& get_flags() const { return flags; }
 	
 	//!
-	const void* get_ctx() const { return ctx_ptr; }
+	const void* get_device() const { return dev; }
+	
+	//! NOTE: for debugging/development purposes only
+	void _lock() ACQUIRE(lock) REQUIRES(!lock);
+	void _unlock() RELEASE(lock);
 	
 protected:
-	const void* ctx_ptr { nullptr };
+	const void* dev { nullptr };
 	size_t size { 0u };
 	void* host_ptr { nullptr };
 	const COMPUTE_BUFFER_FLAG flags { COMPUTE_BUFFER_FLAG::NONE };
+	
+	safe_mutex lock;
 	
 };
 

@@ -37,11 +37,11 @@ public:
 	opencl_kernel(const cl_kernel kernel, const string& func_name);
 	~opencl_kernel() override;
 	
-	template <typename... Args> void execute(const cl_command_queue queue,
+	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim,
 											 const size3 global_work_size,
 											 const size3 local_work_size,
-											 Args&&... args) {
+											 Args&&... args) REQUIRES(!args_lock) {
 		// need to make sure that only one thread is setting kernel arguments at a time
 		GUARD(args_lock);
 		
@@ -49,13 +49,7 @@ public:
 		set_kernel_arguments<0>(forward<Args>(args)...);
 		
 		// run
-		const auto exec_error = clEnqueueNDRangeKernel(queue, kernel, work_dim, nullptr,
-													   global_work_size.data(), local_work_size.data(),
-													   // TODO: use of event stuff?
-													   0, nullptr, nullptr);
-		if(exec_error != CL_SUCCESS) {
-			log_error("failed to execute kernel: %u!", exec_error);
-		}
+		execute_internal(queue, work_dim, global_work_size, local_work_size);
 	}
 	
 protected:
@@ -65,6 +59,11 @@ protected:
 	atomic_spin_lock args_lock;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
+	
+	void execute_internal(compute_queue* queue,
+						  const uint32_t& work_dim,
+						  const size3& global_work_size,
+						  const size3& local_work_size);
 	
 	//! handle kernel call terminator
 	template <cl_uint num>

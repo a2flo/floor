@@ -101,6 +101,12 @@
 		5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7800FF19D5BC4000853135 /* llvm_compute.hpp */; };
 		5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */; };
 		5C7F30C217F5EB930071C3D1 /* http_scheduler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */; };
+		5C8461481A914759004D4745 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
+		5C8461491A914759004D4745 /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
+		5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
+		5C84614B1A914759004D4745 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
+		5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
+		5C84614D1A914759004D4745 /* metal_device.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461471A914759004D4745 /* metal_device.mm */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -174,6 +180,12 @@
 		5CEEA6E01A4F2EB5005239DA /* opencl_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */; };
 		5CEEA6E11A4F2EB5005239DA /* opencl_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */; };
 		5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */; };
+		5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
+		5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
+		5CF040BB1A97CC1B00D93EE3 /* metal_device.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461471A914759004D4745 /* metal_device.mm */; };
+		5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
+		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
+		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -274,6 +286,19 @@
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C803E101A7CB159009B40DF /* clang_cuda_cl_cpp.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = clang_cuda_cl_cpp.patch; path = etc/clang_cuda_cl_cpp.patch; sourceTree = "<group>"; };
 		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
+		5C84613B1A914758004D4745 /* metal_queue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_queue.mm; path = metal/metal_queue.mm; sourceTree = "<group>"; };
+		5C84613C1A914758004D4745 /* metal_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_queue.hpp; path = metal/metal_queue.hpp; sourceTree = "<group>"; };
+		5C84613D1A914758004D4745 /* metal_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_program.hpp; path = metal/metal_program.hpp; sourceTree = "<group>"; };
+		5C84613E1A914758004D4745 /* metal_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_kernel.hpp; path = metal/metal_kernel.hpp; sourceTree = "<group>"; };
+		5C84613F1A914758004D4745 /* metal_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_device.hpp; path = metal/metal_device.hpp; sourceTree = "<group>"; };
+		5C8461401A914758004D4745 /* metal_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_compute.hpp; path = metal/metal_compute.hpp; sourceTree = "<group>"; };
+		5C8461411A914758004D4745 /* metal_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_common.hpp; path = metal/metal_common.hpp; sourceTree = "<group>"; };
+		5C8461421A914758004D4745 /* metal_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_buffer.hpp; path = metal/metal_buffer.hpp; sourceTree = "<group>"; };
+		5C8461431A914758004D4745 /* metal_compute.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_compute.mm; path = metal/metal_compute.mm; sourceTree = "<group>"; };
+		5C8461441A914758004D4745 /* metal_buffer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_buffer.mm; path = metal/metal_buffer.mm; sourceTree = "<group>"; };
+		5C8461451A914758004D4745 /* metal_program.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_program.mm; path = metal/metal_program.mm; sourceTree = "<group>"; };
+		5C8461461A914758004D4745 /* metal_kernel.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_kernel.mm; path = metal/metal_kernel.mm; sourceTree = "<group>"; };
+		5C8461471A914759004D4745 /* metal_device.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_device.mm; path = metal/metal_device.mm; sourceTree = "<group>"; };
 		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
 		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
 		5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = thread_safety.hpp; sourceTree = "<group>"; };
@@ -282,8 +307,9 @@
 		5CBD02E21A45F7E900B1F4A1 /* atomics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomics.hpp; sourceTree = "<group>"; };
 		5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_buffer.cpp; sourceTree = "<group>"; };
 		5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_buffer.hpp; sourceTree = "<group>"; };
-		5CC2F77518678AAC0031E08D /* libfloord.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CD2173F19E9213B0049D6AE /* compute_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_base.hpp; sourceTree = "<group>"; };
 		5CD2174019E9213B0049D6AE /* compute_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_base.cpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
@@ -386,7 +412,7 @@
 			isa = PBXGroup;
 			children = (
 				5C10915E17D114BC007F536E /* libfloord.dylib */,
-				5CC2F77518678AAC0031E08D /* libfloord.a */,
+				5CC2F77518678AAC0031E08D /* libfloord_static.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -502,6 +528,7 @@
 			isa = PBXGroup;
 			children = (
 				5C1091FC17D148DB007F536E /* libxml2.dylib */,
+				5CC97EE71A93808800611CF6 /* Metal.framework */,
 				5C1091FA17D148D0007F536E /* ApplicationServices.framework */,
 				5C1091F817D148CB007F536E /* AppKit.framework */,
 				5C1091F617D148C5007F536E /* Cocoa.framework */,
@@ -580,6 +607,7 @@
 				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
 				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
 				5CD2175219E985D80049D6AE /* cuda */,
+				5C84613A1A91474A004D4745 /* metal */,
 				5CD2175519E985D80049D6AE /* opencl */,
 			);
 			path = compute;
@@ -604,6 +632,26 @@
 				5CD2176819EBEC4B0049D6AE /* README.textile */,
 			);
 			name = build;
+			sourceTree = "<group>";
+		};
+		5C84613A1A91474A004D4745 /* metal */ = {
+			isa = PBXGroup;
+			children = (
+				5C8461411A914758004D4745 /* metal_common.hpp */,
+				5C8461431A914758004D4745 /* metal_compute.mm */,
+				5C8461401A914758004D4745 /* metal_compute.hpp */,
+				5C8461441A914758004D4745 /* metal_buffer.mm */,
+				5C8461421A914758004D4745 /* metal_buffer.hpp */,
+				5C8461471A914759004D4745 /* metal_device.mm */,
+				5C84613F1A914758004D4745 /* metal_device.hpp */,
+				5C8461461A914758004D4745 /* metal_kernel.mm */,
+				5C84613E1A914758004D4745 /* metal_kernel.hpp */,
+				5C8461451A914758004D4745 /* metal_program.mm */,
+				5C84613D1A914758004D4745 /* metal_program.hpp */,
+				5C84613B1A914758004D4745 /* metal_queue.mm */,
+				5C84613C1A914758004D4745 /* metal_queue.hpp */,
+			);
+			name = metal;
 			sourceTree = "<group>";
 		};
 		5CAEC259186799E300BEC3A3 /* ios */ = {
@@ -766,7 +814,7 @@
 			);
 			name = floor_ios;
 			productName = floor_ios;
-			productReference = 5CC2F77518678AAC0031E08D /* libfloord.a */;
+			productReference = 5CC2F77518678AAC0031E08D /* libfloord_static.a */;
 			productType = "com.apple.product-type.library.static";
 		};
 /* End PBXNativeTarget section */
@@ -830,6 +878,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */,
+				5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */,
+				5CF040BB1A97CC1B00D93EE3 /* metal_device.mm in Sources */,
+				5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */,
+				5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */,
+				5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */,
 				5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
@@ -889,6 +943,7 @@
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C4A85B818F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
+				5C8461491A914759004D4745 /* metal_compute.mm in Sources */,
 				5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */,
 				5C4A85AD18F953590039BFD4 /* lang_context.cpp in Sources */,
 				5CD2174319E9213B0049D6AE /* compute_base.cpp in Sources */,
@@ -907,6 +962,7 @@
 				5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */,
 				5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */,
 				5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */,
+				5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */,
 				5CAEC246186799BE00BEC3A3 /* gl_support.cpp in Sources */,
 				5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */,
 				5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */,
@@ -917,7 +973,9 @@
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
+				5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */,
 				5CEEA6E11A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
+				5C84614B1A914759004D4745 /* metal_program.mm in Sources */,
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5CAEC252186799BE00BEC3A3 /* http_scheduler.cpp in Sources */,
@@ -927,6 +985,8 @@
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
+				5C84614D1A914759004D4745 /* metal_device.mm in Sources */,
+				5C8461481A914759004D4745 /* metal_queue.mm in Sources */,
 				5CAEC258186799C300BEC3A3 /* error_code.cpp in Sources */,
 				5CE0BDCD19BA432C000B28B3 /* vector_lib.cpp in Sources */,
 				5CAEC25C18679A0F00BEC3A3 /* ios_helper.mm in Sources */,
@@ -1006,7 +1066,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
 				LLVM_LTO = NO;
@@ -1049,6 +1109,10 @@
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Weverything",
+					"-Wthread-safety",
+					"-Wthread-safety-negative",
+					"-Wthread-safety-beta",
+					"-Wthread-safety-verbose",
 					"-Wno-c++98-compat",
 					"-Wno-c++98-compat-pedantic",
 					"-Wno-c99-extensions",
@@ -1135,7 +1199,7 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
-				IPHONEOS_DEPLOYMENT_TARGET = 7.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
 				LLVM_LTO = NO;
@@ -1177,6 +1241,10 @@
 				VALID_ARCHS = x86_64;
 				WARNING_CFLAGS = (
 					"-Weverything",
+					"-Wthread-safety",
+					"-Wthread-safety-negative",
+					"-Wthread-safety-beta",
+					"-Wthread-safety-verbose",
 					"-Wno-c++98-compat",
 					"-Wno-c++98-compat-pedantic",
 					"-Wno-c99-extensions",
@@ -1207,6 +1275,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLATFORM_X64,
+					FLOOR_NO_METAL,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,
@@ -1237,6 +1306,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLATFORM_X64,
+					FLOOR_NO_METAL,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,
@@ -1260,7 +1330,7 @@
 		5CC2F79518678AAD0031E08D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
@@ -1268,7 +1338,8 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
-					FLOOR_NO_CUDA_CL,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
 					FLOOR_NO_OPENAL,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
@@ -1286,23 +1357,30 @@
 				"GCC_PREPROCESSOR_DEFINITIONS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
 					PLATFORM_X64,
-					FLOOR_NO_OPENCL,
+				);
+				HEADER_SEARCH_PATHS = (
+					../,
+					ios/deps/include,
 				);
 				INSTALL_PATH = /usr/lib/;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = ios/deps/lib;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					"$(SDKROOT)/usr/include",
+					"-isystem",
+					ios/deps/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = floord;
+				PRODUCT_NAME = floord_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
 			};
@@ -1311,7 +1389,7 @@
 		5CC2F79618678AAD0031E08D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_INCLUDING_64_BIT)";
+				ARCHS = "$(ARCHS_STANDARD)";
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_X86_VECTOR_INSTRUCTIONS = default;
 				DSTROOT = /tmp/floor_ios.dst;
@@ -1319,7 +1397,8 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					FLOOR_IOS,
-					FLOOR_NO_CUDA_CL,
+					FLOOR_NO_CUDA,
+					FLOOR_NO_OPENCL,
 					FLOOR_NO_OPENAL,
 				);
 				"GCC_PREPROCESSOR_DEFINITIONS[arch=arm64]" = (
@@ -1334,21 +1413,29 @@
 					"$(inherited)",
 					PLATFORM_X32,
 				);
+				HEADER_SEARCH_PATHS = (
+					../,
+					ios/deps/include,
+				);
 				INSTALL_PATH = /usr/lib/;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_DYLIB_INSTALL_NAME = "";
 				LD_RUNPATH_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = "";
-				ONLY_ACTIVE_ARCH = NO;
+				LIBRARY_SEARCH_PATHS = ios/deps/lib;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-isystem",
 					"$(SDKROOT)/usr/include",
+					"-isystem",
+					ios/deps/include,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
 				OTHER_LDFLAGS = "";
-				PRODUCT_NAME = floor;
+				PRODUCT_NAME = floor_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
 			};

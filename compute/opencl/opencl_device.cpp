@@ -17,7 +17,3 @@
  */
 
 #include <floor/compute/opencl/opencl_device.hpp>
-
-#if !defined(FLOOR_NO_OPENCL)
-
-#endif

@@ -127,6 +127,9 @@ public:
 		mtx.unlock();
 	}
 	
+	// for negative capabilities
+	const safe_mutex& operator!() const { return *this; }
+	
 };
 
 // wrapper around std::recursive_mutex, based on libc++
@@ -150,6 +153,9 @@ public:
 	void unlock() RELEASE() {
 		mtx.unlock();
 	}
+	
+	// for negative capabilities
+	const safe_recursive_mutex& operator!() const { return *this; }
 	
 };
 

@@ -25,33 +25,34 @@
 
 #include <floor/compute/compute_buffer.hpp>
 
+class cuda_device;
 class cuda_buffer final : public compute_buffer {
 public:
-	cuda_buffer(const CUcontext ctx_ptr_,
+	cuda_buffer(const cuda_device* device,
 				const size_t& size_,
 				void* host_ptr,
 				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
 	
-	cuda_buffer(const CUcontext ctx_ptr_,
+	cuda_buffer(const cuda_device* device,
 				const size_t& size_,
 				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(ctx_ptr_, size_, nullptr, flags_) {}
+	cuda_buffer(device, size_, nullptr, flags_) {}
 	
 	template <typename data_type>
-	cuda_buffer(const CUcontext ctx_ptr_,
+	cuda_buffer(const cuda_device* device,
 				const vector<data_type>& data,
 				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(ctx_ptr_, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
+	cuda_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
 	
 	template <typename data_type, size_t n>
-	cuda_buffer(const CUcontext ctx_ptr_,
+	cuda_buffer(const cuda_device* device,
 				const array<data_type, n>& data,
 				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(ctx_ptr_, sizeof(data_type) * n, (void*)&data[0], flags_) {}
+	cuda_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_) {}
 	
 	~cuda_buffer() override;
 	

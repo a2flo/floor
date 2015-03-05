@@ -22,6 +22,7 @@
 
 #include <floor/core/logger.hpp>
 #include <floor/compute/opencl/opencl_queue.hpp>
+#include <floor/compute/opencl/opencl_device.hpp>
 
 // TODO: remove the || 1 again
 #if defined(FLOOR_DEBUG) || 1
@@ -30,11 +31,11 @@
 
 // TODO: proper error (return) value handling everywhere
 
-opencl_buffer::opencl_buffer(const cl_context ctx_ptr_,
+opencl_buffer::opencl_buffer(const opencl_device* device,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
+compute_buffer(device, size_, host_ptr_, flags_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
@@ -72,7 +73,7 @@ compute_buffer(ctx_ptr_, size_, host_ptr_, flags_) {
 	// TODO: handle the remaining flags + host ptr
 	
 	cl_int create_err = CL_SUCCESS;
-	buffer = clCreateBuffer(ctx_ptr_, cl_flags, size, host_ptr, &create_err);
+	buffer = clCreateBuffer(device->ctx, cl_flags, size, host_ptr, &create_err);
 	if(create_err != CL_SUCCESS) {
 		log_error("failed to create buffer: %u", create_err);
 		buffer = nullptr;
@@ -228,7 +229,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 	
 	// create the new buffer
 	cl_mem new_buffer = nullptr;
-	CL_CALL_ERR_PARAM_RET(new_buffer = clCreateBuffer((cl_context)ctx_ptr, cl_flags, new_size, new_host_ptr, &create_err),
+	CL_CALL_ERR_PARAM_RET(new_buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, new_size, new_host_ptr, &create_err),
 						  create_err, "failed to create resized buffer", false);
 	
 	// copy old data if specified
