@@ -1,0 +1,64 @@
+diff -rduBE llvm351_rel/tools/LLVMBuild.txt llvm/tools/LLVMBuild.txt
+--- llvm351_rel/tools/LLVMBuild.txt
++++ llvm/tools/LLVMBuild.txt
+@@ -16,7 +16,7 @@
+ ;===------------------------------------------------------------------------===;
+ 
+ [common]
+-subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup
++subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder
+ 
+ [component_0]
+ type = Group
+diff -rduBE llvm351_rel/tools/Makefile llvm/tools/Makefile
+--- llvm351_rel/tools/Makefile
++++ llvm/tools/Makefile
+@@ -31,7 +31,7 @@
+                  lli llvm-extract llvm-mc bugpoint llvm-bcanalyzer llvm-diff \
+                  macho-dump llvm-objdump llvm-readobj llvm-rtdyld \
+                  llvm-dwarfdump llvm-cov llvm-size llvm-stress llvm-mcmarkup \
+-                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test
++                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder
+ 
+ # If Intel JIT Events support is configured, build an extra tool to test it.
+ ifeq ($(USE_INTEL_JITEVENTS), 1)
+diff -rduBE llvm351_rel/tools/spir-encoder/SpirBitcodeWriter.cpp llvm/tools/spir-encoder/SpirBitcodeWriter.cpp
+--- llvm351_rel/tools/spir-encoder/SpirBitcodeWriter.cpp
++++ llvm/tools/spir-encoder/SpirBitcodeWriter.cpp
+@@ -47,11 +47,11 @@
+   "v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-" \
+   "v512:512:512-v1024:1024:1024"
+ 
+-static cl::opt<bool>
++/*static cl::opt<bool>
+ EnablePreserveUseListOrdering("enable-bc-uselist-preserve",
+                               cl::desc("Turn on experimental support for "
+                                        "use-list order preservation."),
+-                              cl::init(false), cl::Hidden);
++                              cl::init(false), cl::Hidden);*/
+ 
+ /// These are manifest constants used by the bitcode writer. They do not need to
+ /// be kept in sync with the reader, but need to be consistent within this file.
+@@ -1847,8 +1847,8 @@
+   WriteValueSymbolTable(M->getValueSymbolTable(), VE, Stream);
+ 
+   // Emit use-lists.
+-  if (EnablePreserveUseListOrdering)
+-    WriteModuleUseLists(M, VE, Stream);
++  /*if (EnablePreserveUseListOrdering)
++    WriteModuleUseLists(M, VE, Stream);*/
+ 
+   // Emit function bodies.
+   for (Module::const_iterator F = M->begin(), E = M->end(); F != E; ++F)
+diff -rduBE llvm351_rel/tools/spir-encoder/SpirEncoder.cpp llvm/tools/spir-encoder/SpirEncoder.cpp
+--- llvm351_rel/tools/spir-encoder/SpirEncoder.cpp
++++ llvm/tools/spir-encoder/SpirEncoder.cpp
+@@ -8,7 +8,7 @@
+ //===---------------------------------------------------------------------===//
+ 
+ 
+-#include "encoder/SpirBitcodeWriter.h"
++#include "SpirBitcodeWriter.h"
+ 
+ #include <llvm/IR/Module.h>
+ #include <llvm/IR/LLVMContext.h>
