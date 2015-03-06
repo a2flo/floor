@@ -1,12 +1,100 @@
-diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
---- libcxx_rel35/include/limits
-+++ libcxx/include/limits
-@@ -143,55 +143,55 @@
+diff --git a/include/__functional_base b/include/__functional_base
+index 6766793..94846d1 100644
+--- a/include/__functional_base
++++ b/include/__functional_base
+@@ -13,9 +13,11 @@
+ 
+ #include <__config>
+ #include <type_traits>
++#if 0
+ #include <typeinfo>
+ #include <exception>
+ #include <new>
++#endif
+ 
+ #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+ #pragma GCC system_header
+@@ -48,7 +50,7 @@ private:
+     template <class _Up> static __two __test(...);
+     template <class _Up> static char __test(typename _Up::result_type* = 0);
+ public:
+-    static const bool value = sizeof(__test<_Tp>(0)) == 1;
++    static constant const bool value = sizeof(__test<_Tp>(0)) == 1;
+ };
+ 
+ #if _LIBCPP_STD_VER > 11
+@@ -143,7 +145,7 @@ private:
+         static unary_function<_Ap, _Rp>
+         __test(const volatile unary_function<_Ap, _Rp>*);
+ public:
+-    static const bool value = !is_same<decltype(__test((_Tp*)0)), __two>::value;
++    static constant const bool value = !is_same<decltype(__test((_Tp*)0)), __two>::value;
+     typedef decltype(__test((_Tp*)0)) type;
+ };
+ 
+@@ -157,7 +159,7 @@ private:
+         static binary_function<_A1, _A2, _Rp>
+         __test(const volatile binary_function<_A1, _A2, _Rp>*);
+ public:
+-    static const bool value = !is_same<decltype(__test((_Tp*)0)), __two>::value;
++    static constant const bool value = !is_same<decltype(__test((_Tp*)0)), __two>::value;
+     typedef decltype(__test((_Tp*)0)) type;
+ };
+ 
+@@ -514,7 +516,7 @@ private:
+     template <class _Up> static __two __test(...);
+     template <class _Up> static char __test(typename _Up::is_transparent* = 0);
+ public:
+-    static const bool value = sizeof(__test<_Tp1>(0)) == 1;
++    static constant const bool value = sizeof(__test<_Tp1>(0)) == 1;
+ };
+ #endif
+ 
+@@ -523,9 +525,9 @@ public:
+ struct _LIBCPP_TYPE_VIS_ONLY allocator_arg_t { };
+ 
+ #if defined(_LIBCPP_HAS_NO_CONSTEXPR) || defined(_LIBCPP_BUILDING_MEMORY)
+-extern const allocator_arg_t allocator_arg;
++extern constant const allocator_arg_t allocator_arg;
+ #else
+-constexpr allocator_arg_t allocator_arg = allocator_arg_t();
++constant constexpr allocator_arg_t allocator_arg = allocator_arg_t();
+ #endif
+ 
+ // uses_allocator
+@@ -538,7 +540,7 @@ private:
+     template <class _Up> static __two __test(...);
+     template <class _Up> static char __test(typename _Up::allocator_type* = 0);
+ public:
+-    static const bool value = sizeof(__test<_Tp>(0)) == 1;
++    static constant const bool value = sizeof(__test<_Tp>(0)) == 1;
+ };
+ 
+ template <class _Tp, class _Alloc, bool = __has_allocator_type<_Tp>::value>
+@@ -567,10 +569,10 @@ struct _LIBCPP_TYPE_VIS_ONLY uses_allocator
+ template <class _Tp, class _Alloc, class ..._Args>
+ struct __uses_alloc_ctor_imp
+ {
+-    static const bool __ua = uses_allocator<_Tp, _Alloc>::value;
+-    static const bool __ic =
++    static constant const bool __ua = uses_allocator<_Tp, _Alloc>::value;
++    static constant const bool __ic =
+         is_constructible<_Tp, allocator_arg_t, _Alloc, _Args...>::value;
+-    static const int value = __ua ? 2 - __ic : 0;
++    static constant const int value = __ua ? 2 - __ic : 0;
+ };
+ 
+ template <class _Tp, class _Alloc, class ..._Args>
+diff --git a/include/limits b/include/limits
+index 2216966..1242051 100644
+--- a/include/limits
++++ b/include/limits
+@@ -143,55 +143,55 @@ class __libcpp_numeric_limits
  protected:
      typedef _Tp type;
  
 -    static _LIBCPP_CONSTEXPR const  bool is_specialized = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const  bool is_specialized = false;
++    static constant _LIBCPP_CONSTEXPR const  bool is_specialized = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return type();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return type();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return type();}
@@ -18,13 +106,13 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = false;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = false;
 -    static _LIBCPP_CONSTEXPR const int  radix = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = 0;
++    static constant _LIBCPP_CONSTEXPR const int  digits = 0;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = false;
++    static constant _LIBCPP_CONSTEXPR const int  radix = 0;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return type();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return type();}
  
@@ -32,21 +120,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = false;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return type();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return type();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return type();}
@@ -55,39 +143,39 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = false;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = false;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
  };
  
  template <class _Tp, int digits, bool is_signed>
  struct __libcpp_compute_min
  {
 -    static _LIBCPP_CONSTEXPR const _Tp value = _Tp(_Tp(1) << digits);
-+    static opencl_constant _LIBCPP_CONSTEXPR const _Tp value = _Tp(_Tp(1) << digits);
++    static constant _LIBCPP_CONSTEXPR const _Tp value = _Tp(_Tp(1) << digits);
  };
  
  template <class _Tp, int digits>
  struct __libcpp_compute_min<_Tp, digits, false>
  {
 -    static _LIBCPP_CONSTEXPR const _Tp value = _Tp(0);
-+    static opencl_constant _LIBCPP_CONSTEXPR const _Tp value = _Tp(0);
++    static constant _LIBCPP_CONSTEXPR const _Tp value = _Tp(0);
  };
  
  template <class _Tp>
-@@ -200,50 +200,50 @@
+@@ -200,50 +200,50 @@ class __libcpp_numeric_limits<_Tp, true>
  protected:
      typedef _Tp type;
  
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
  
 -    static _LIBCPP_CONSTEXPR const bool is_signed = type(-1) < type(0);
 -    static _LIBCPP_CONSTEXPR const int  digits = static_cast<int>(sizeof(type) * __CHAR_BIT__ - is_signed);
@@ -95,12 +183,12 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
 -    static _LIBCPP_CONSTEXPR const type __min = __libcpp_compute_min<type, digits, is_signed>::value;
 -    static _LIBCPP_CONSTEXPR const type __max = is_signed ? type(type(~0) ^ __min) : type(~0);
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = type(-1) < type(0);
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = static_cast<int>(sizeof(type) * __CHAR_BIT__ - is_signed);
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = digits * 3 / 10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const type __min = __libcpp_compute_min<type, digits, is_signed>::value;
-+    static opencl_constant _LIBCPP_CONSTEXPR const type __max = is_signed ? type(type(~0) ^ __min) : type(~0);
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = type(-1) < type(0);
++    static constant _LIBCPP_CONSTEXPR const int  digits = static_cast<int>(sizeof(type) * __CHAR_BIT__ - is_signed);
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = digits * 3 / 10;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
++    static constant _LIBCPP_CONSTEXPR const type __min = __libcpp_compute_min<type, digits, is_signed>::value;
++    static constant _LIBCPP_CONSTEXPR const type __max = is_signed ? type(type(~0) ^ __min) : type(~0);
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __min;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __max;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return min();}
@@ -108,9 +196,9 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = true;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = true;
 -    static _LIBCPP_CONSTEXPR const int  radix = 2;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = 2;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = true;
++    static constant _LIBCPP_CONSTEXPR const int  radix = 2;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return type(0);}
  
@@ -118,21 +206,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = false;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return type(0);}
@@ -141,30 +229,30 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = false;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = true;
  
  #if __i386__ || __x86_64__
 -    static _LIBCPP_CONSTEXPR const bool traps = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = true;
++    static constant _LIBCPP_CONSTEXPR const bool traps = true;
  #else
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
  #endif
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
  };
  
  template <>
-@@ -252,46 +252,46 @@
+@@ -252,46 +252,46 @@ class __libcpp_numeric_limits<bool, true>
  protected:
      typedef bool type;
  
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
  
 -    static _LIBCPP_CONSTEXPR const bool is_signed = false;
 -    static _LIBCPP_CONSTEXPR const int  digits = 1;
@@ -172,12 +260,12 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
 -    static _LIBCPP_CONSTEXPR const type __min = false;
 -    static _LIBCPP_CONSTEXPR const type __max = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = 1;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const type __min = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const type __max = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = false;
++    static constant _LIBCPP_CONSTEXPR const int  digits = 1;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 0;
++    static constant _LIBCPP_CONSTEXPR const type __min = false;
++    static constant _LIBCPP_CONSTEXPR const type __max = true;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __min;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __max;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return min();}
@@ -185,9 +273,9 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = true;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = true;
 -    static _LIBCPP_CONSTEXPR const int  radix = 2;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = 2;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = true;
++    static constant _LIBCPP_CONSTEXPR const int  radix = 2;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return type(0);}
  
@@ -195,21 +283,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = 0;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = 0;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = 0;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = false;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = false;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_absent;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return type(0);}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return type(0);}
@@ -218,34 +306,34 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = false;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_toward_zero;
  };
  
  template <>
-@@ -300,44 +300,44 @@
+@@ -300,44 +300,44 @@ class __libcpp_numeric_limits<float, true>
  protected:
      typedef float type;
  
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
  
 -    static _LIBCPP_CONSTEXPR const bool is_signed = true;
 -    static _LIBCPP_CONSTEXPR const int  digits = __FLT_MANT_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  digits10 = __FLT_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __FLT_MANT_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __FLT_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = true;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __FLT_MANT_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __FLT_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __FLT_MIN__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __FLT_MAX__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return -max();}
@@ -253,9 +341,9 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = false;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = false;
 -    static _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = false;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __FLT_EPSILON__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return 0.5F;}
  
@@ -263,21 +351,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __FLT_MIN_10_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __FLT_MAX_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __FLT_MAX_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __FLT_MIN_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __FLT_MIN_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __FLT_MAX_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __FLT_MAX_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __FLT_MIN_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __FLT_MIN_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __FLT_MAX_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __FLT_MAX_10_EXP__;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = true;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_valf();}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __builtin_nanf("");}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __builtin_nansf("");}
@@ -288,34 +376,34 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
  };
  
  template <>
-@@ -346,44 +346,44 @@
+@@ -346,44 +346,44 @@ class __libcpp_numeric_limits<double, true>
  protected:
      typedef double type;
  
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
  
 -    static _LIBCPP_CONSTEXPR const bool is_signed = true;
 -    static _LIBCPP_CONSTEXPR const int  digits = __DBL_MANT_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  digits10 = __DBL_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __DBL_MANT_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __DBL_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = true;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __DBL_MANT_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __DBL_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __DBL_MIN__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __DBL_MAX__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return -max();}
@@ -323,9 +411,9 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = false;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = false;
 -    static _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = false;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __DBL_EPSILON__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return 0.5;}
  
@@ -333,21 +421,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __DBL_MIN_10_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __DBL_MAX_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __DBL_MAX_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __DBL_MIN_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __DBL_MIN_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __DBL_MAX_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __DBL_MAX_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __DBL_MIN_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __DBL_MIN_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __DBL_MAX_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __DBL_MAX_10_EXP__;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = true;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_val();}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __builtin_nan("");}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __builtin_nans("");}
@@ -358,34 +446,34 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
  };
  
  template <>
-@@ -392,48 +392,48 @@
+@@ -392,48 +392,48 @@ class __libcpp_numeric_limits<long double, true>
  protected:
      typedef long double type;
  
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = true;
  
 -    static _LIBCPP_CONSTEXPR const bool is_signed = true;
 -    static _LIBCPP_CONSTEXPR const int  digits = __LDBL_MANT_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  digits10 = __LDBL_DIG__;
 -    static _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __LDBL_MANT_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __LDBL_DIG__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = true;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __LDBL_MANT_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __LDBL_DIG__;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __LDBL_MIN__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __LDBL_MAX__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return -max();}
@@ -393,9 +481,9 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = false;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = false;
 -    static _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = false;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __LDBL_EPSILON__;}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return 0.5;}
  
@@ -403,21 +491,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __LDBL_MIN_10_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __LDBL_MAX_EXP__;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __LDBL_MAX_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __LDBL_MIN_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __LDBL_MIN_10_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __LDBL_MAX_EXP__;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __LDBL_MAX_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __LDBL_MIN_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __LDBL_MIN_10_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __LDBL_MAX_EXP__;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __LDBL_MAX_10_EXP__;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = true;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_vall();}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __builtin_nanl("");}
 -    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __builtin_nansl("");}
@@ -427,31 +515,31 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
  
  #if (defined(__ppc__) || defined(__ppc64__))
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = false;
  #else
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = true;
  #endif
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = false;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = false;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
++    static constant _LIBCPP_CONSTEXPR const bool traps = false;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
  };
  
  template <class _Tp>
-@@ -443,45 +443,46 @@
+@@ -443,45 +443,46 @@ class _LIBCPP_TYPE_VIS_ONLY numeric_limits
      typedef __libcpp_numeric_limits<typename remove_cv<_Tp>::type> __base;
      typedef typename __base::type type;
  public:
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __base::min();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __base::max();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return __base::lowest();}
@@ -463,13 +551,13 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
 -    static _LIBCPP_CONSTEXPR const int  radix = __base::radix;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __base::epsilon();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return __base::round_error();}
  
@@ -477,21 +565,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __base::infinity();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __base::quiet_NaN();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __base::signaling_NaN();}
@@ -500,23 +588,23 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = __base::traps;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
++    static constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
 +#if 0
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_specialized;
  template <class _Tp>
-@@ -528,6 +529,7 @@
+@@ -528,6 +529,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<_Tp>::round_style;
@@ -524,12 +612,12 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const _Tp>
-@@ -536,45 +538,46 @@
+@@ -536,45 +538,46 @@ class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const _Tp>
      typedef numeric_limits<_Tp> __base;
      typedef _Tp type;
  public:
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __base::min();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __base::max();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return __base::lowest();}
@@ -541,13 +629,13 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
 -    static _LIBCPP_CONSTEXPR const int  radix = __base::radix;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __base::epsilon();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return __base::round_error();}
  
@@ -555,21 +643,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __base::infinity();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __base::quiet_NaN();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __base::signaling_NaN();}
@@ -578,23 +666,23 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = __base::traps;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
++    static constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
 +#if 0
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::is_specialized;
  template <class _Tp>
-@@ -621,6 +624,7 @@
+@@ -621,6 +624,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const _Tp>::round_style;
@@ -602,12 +690,12 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<volatile _Tp>
-@@ -629,45 +633,46 @@
+@@ -629,45 +633,46 @@ class _LIBCPP_TYPE_VIS_ONLY numeric_limits<volatile _Tp>
      typedef numeric_limits<_Tp> __base;
      typedef _Tp type;
  public:
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __base::min();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __base::max();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return __base::lowest();}
@@ -619,13 +707,13 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
 -    static _LIBCPP_CONSTEXPR const int  radix = __base::radix;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __base::epsilon();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return __base::round_error();}
  
@@ -633,21 +721,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __base::infinity();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __base::quiet_NaN();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __base::signaling_NaN();}
@@ -656,23 +744,23 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = __base::traps;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
++    static constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
 +#if 0
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -714,6 +719,7 @@
+@@ -714,6 +719,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<volatile _Tp>::round_style;
@@ -680,12 +768,12 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const volatile _Tp>
-@@ -722,45 +728,46 @@
+@@ -722,45 +728,46 @@ class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const volatile _Tp>
      typedef numeric_limits<_Tp> __base;
      typedef _Tp type;
  public:
 -    static _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
++    static constant _LIBCPP_CONSTEXPR const bool is_specialized = __base::is_specialized;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __base::min();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __base::max();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return __base::lowest();}
@@ -697,13 +785,13 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
 -    static _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
 -    static _LIBCPP_CONSTEXPR const int  radix = __base::radix;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
++    static constant _LIBCPP_CONSTEXPR const int  digits = __base::digits;
++    static constant _LIBCPP_CONSTEXPR const int  digits10 = __base::digits10;
++    static constant _LIBCPP_CONSTEXPR const int  max_digits10 = __base::max_digits10;
++    static constant _LIBCPP_CONSTEXPR const bool is_signed = __base::is_signed;
++    static constant _LIBCPP_CONSTEXPR const bool is_integer = __base::is_integer;
++    static constant _LIBCPP_CONSTEXPR const bool is_exact = __base::is_exact;
++    static constant _LIBCPP_CONSTEXPR const int  radix = __base::radix;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __base::epsilon();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return __base::round_error();}
  
@@ -711,21 +799,21 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
 -    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
-+    static opencl_constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent = __base::min_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  min_exponent10 = __base::min_exponent10;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent = __base::max_exponent;
++    static constant _LIBCPP_CONSTEXPR const int  max_exponent10 = __base::max_exponent10;
  
 -    static _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
 -    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
 -    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
 -    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
 -    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
++    static constant _LIBCPP_CONSTEXPR const bool has_infinity = __base::has_infinity;
++    static constant _LIBCPP_CONSTEXPR const bool has_quiet_NaN = __base::has_quiet_NaN;
++    static constant _LIBCPP_CONSTEXPR const bool has_signaling_NaN = __base::has_signaling_NaN;
++    static constant _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = __base::has_denorm;
++    static constant _LIBCPP_CONSTEXPR const bool has_denorm_loss = __base::has_denorm_loss;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __base::infinity();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __base::quiet_NaN();}
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __base::signaling_NaN();}
@@ -734,23 +822,23 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
 -    static _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
 -    static _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
 -    static _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
++    static constant _LIBCPP_CONSTEXPR const bool is_iec559 = __base::is_iec559;
++    static constant _LIBCPP_CONSTEXPR const bool is_bounded = __base::is_bounded;
++    static constant _LIBCPP_CONSTEXPR const bool is_modulo = __base::is_modulo;
  
 -    static _LIBCPP_CONSTEXPR const bool traps = __base::traps;
 -    static _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
 -    static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
-+    static opencl_constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
-+    static opencl_constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
++    static constant _LIBCPP_CONSTEXPR const bool traps = __base::traps;
++    static constant _LIBCPP_CONSTEXPR const bool tinyness_before = __base::tinyness_before;
++    static constant _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
 +#if 0
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -807,6 +814,7 @@
+@@ -807,6 +814,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const volatile _Tp>::round_style;
@@ -758,58 +846,121 @@ diff -rduBE libcxx_rel35/include/limits libcxx/include/limits
  
  _LIBCPP_END_NAMESPACE_STD
  
-diff -rduBE libcxx_rel35/include/type_traits libcxx/include/type_traits
---- libcxx_rel35/include/type_traits
-+++ libcxx/include/type_traits
-@@ -233,7 +233,7 @@
+diff --git a/include/tuple b/include/tuple
+index e98ae72..245a5d1 100644
+--- a/include/tuple
++++ b/include/tuple
+@@ -366,13 +366,13 @@ template <bool ...> struct __all;
+ template <>
+ struct __all<>
+ {
+-    static const bool value = true;
++    static constant const bool value = true;
+ };
+ 
+ template <bool _B0, bool ... _Bp>
+ struct __all<_B0, _Bp...>
+ {
+-    static const bool value = _B0 && __all<_Bp...>::value;
++    static constant const bool value = _B0 && __all<_Bp...>::value;
+ };
+ 
+ // __tuple_impl
+@@ -741,7 +741,7 @@ struct __find_exactly_one_t_helper;
+ // -- find exactly one
+ template <typename _T1, size_t _Idx, typename... _Args>
+ struct __find_exactly_one_t_checker {
+-    static constexpr size_t value = _Idx;
++    static constant constexpr size_t value = _Idx;
+ //  Check the rest of the list to make sure there's only one
+     static_assert ( __find_exactly_one_t_helper<_T1, 0, _Args...>::value == -1, "type can only occur once in type list" );
+     };
+@@ -749,12 +749,12 @@ struct __find_exactly_one_t_checker {
+ 
+ template <typename _T1, size_t _Idx>
+ struct __find_exactly_one_t_helper <_T1, _Idx> {
+-    static constexpr size_t value = -1;
++    static constant constexpr size_t value = -1;
+     };
+ 
+ template <typename _T1, size_t _Idx, typename _Head, typename... _Args>
+ struct __find_exactly_one_t_helper <_T1, _Idx, _Head, _Args...> {
+-    static constexpr size_t value =
++    static constant constexpr size_t value =
+         std::conditional<
+             std::is_same<_T1, _Head>::value,
+             __find_exactly_one_t_checker<_T1, _Idx,   _Args...>,
+@@ -764,7 +764,7 @@ struct __find_exactly_one_t_helper <_T1, _Idx, _Head, _Args...> {
+ 
+ template <typename _T1, typename... _Args>
+ struct __find_exactly_one_t {
+-    static constexpr size_t value = __find_exactly_one_t_helper<_T1, 0, _Args...>::value;
++    static constant constexpr size_t value = __find_exactly_one_t_helper<_T1, 0, _Args...>::value;
+     static_assert ( value != -1, "type not found in type list" );
+     };
+ 
+@@ -809,7 +809,7 @@ struct __ignore_t
+         const __ignore_t& operator=(_Tp&&) const {return *this;}
+ };
+ 
+-namespace { const __ignore_t<unsigned char> ignore = __ignore_t<unsigned char>(); }
++namespace { constant const __ignore_t<unsigned char> ignore = __ignore_t<unsigned char>(); }
+ 
+ template <class _Tp> class _LIBCPP_TYPE_VIS_ONLY reference_wrapper;
+ 
+diff --git a/include/type_traits b/include/type_traits
+index 371a15e..a634536 100644
+--- a/include/type_traits
++++ b/include/type_traits
+@@ -233,7 +233,7 @@ struct __two {char __lx[2];};
  template <class _Tp, _Tp __v>
  struct _LIBCPP_TYPE_VIS_ONLY integral_constant
  {
 -    static _LIBCPP_CONSTEXPR const _Tp      value = __v;
-+    static opencl_constant _LIBCPP_CONSTEXPR const _Tp      value = __v;
++    static constant _LIBCPP_CONSTEXPR const _Tp      value = __v;
      typedef _Tp               value_type;
      typedef integral_constant type;
      _LIBCPP_INLINE_VISIBILITY
-@@ -244,8 +244,8 @@
+@@ -244,8 +244,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant
  #endif
  };
  
 -template <class _Tp, _Tp __v>
 -_LIBCPP_CONSTEXPR const _Tp integral_constant<_Tp, __v>::value;
 +//template <class _Tp, _Tp __v>
-+//_LIBCPP_CONSTEXPR opencl_constant const _Tp integral_constant<_Tp, __v>::value;
++//_LIBCPP_CONSTEXPR constant const _Tp integral_constant<_Tp, __v>::value;
  
  typedef integral_constant<bool, true>  true_type;
  typedef integral_constant<bool, false> false_type;
-@@ -1031,7 +1031,7 @@
+@@ -1031,7 +1031,7 @@ struct __nat
  template <class _Tp>
  struct __align_type
  {
 -    static const size_t value = alignment_of<_Tp>::value;
-+    static opencl_constant const size_t value = alignment_of<_Tp>::value;
++    static constant const size_t value = alignment_of<_Tp>::value;
      typedef _Tp type;
  };
  
-@@ -1083,10 +1083,10 @@
+@@ -1083,10 +1083,10 @@ template <size_t _Len, size_t _A1, size_t _A2>
  struct __select_align
  {
  private:
 -    static const size_t __min = _A2 < _A1 ? _A2 : _A1;
 -    static const size_t __max = _A1 < _A2 ? _A2 : _A1;
-+    static opencl_constant const size_t __min = _A2 < _A1 ? _A2 : _A1;
-+    static opencl_constant const size_t __max = _A1 < _A2 ? _A2 : _A1;
++    static constant const size_t __min = _A2 < _A1 ? _A2 : _A1;
++    static constant const size_t __max = _A1 < _A2 ? _A2 : _A1;
  public:
 -    static const size_t value = _Len < __max ? __min : __max;
-+    static opencl_constant const size_t value = _Len < __max ? __min : __max;
++    static constant const size_t value = _Len < __max ? __min : __max;
  };
  
  template <class _Hp, class _Tp, size_t _Len>
-@@ -1151,23 +1151,21 @@
+@@ -1151,23 +1151,21 @@ struct __static_max;
  template <size_t _I0>
  struct __static_max<_I0>
  {
 -    static const size_t value = _I0;
-+    static opencl_constant const size_t value = _I0;
++    static constant const size_t value = _I0;
  };
  
  template <size_t _I0, size_t _I1, size_t ..._In>
@@ -817,7 +968,7 @@ diff -rduBE libcxx_rel35/include/type_traits libcxx/include/type_traits
  {
 -    static const size_t value = _I0 >= _I1 ? __static_max<_I0, _In...>::value :
 -                                             __static_max<_I1, _In...>::value;
-+    static opencl_constant const size_t value = _I0 >= _I1 ? __static_max<_I0, _In...>::value :
++    static constant const size_t value = _I0 >= _I1 ? __static_max<_I0, _In...>::value :
 +                                                             __static_max<_I1, _In...>::value;
  };
  
@@ -828,110 +979,111 @@ diff -rduBE libcxx_rel35/include/type_traits libcxx/include/type_traits
 -                                                       __alignof__(_Types)...>::value;
 -    static const size_t __len = __static_max<_Len, sizeof(_Type0),
 -                                             sizeof(_Types)...>::value;
-+    static opencl_constant const size_t alignment_value = __static_max<__alignof__(_Type0), __alignof__(_Types)...>::value;
-+    static opencl_constant const size_t __len = __static_max<_Len, sizeof(_Type0), sizeof(_Types)...>::value;
++    static constant const size_t alignment_value = __static_max<__alignof__(_Type0), __alignof__(_Types)...>::value;
++    static constant const size_t __len = __static_max<_Len, sizeof(_Type0), sizeof(_Types)...>::value;
      typedef typename aligned_storage<__len, alignment_value>::type type;
  };
  
-@@ -1193,13 +1191,13 @@
+@@ -1193,13 +1191,13 @@ struct __numeric_type
     static long double __test(long double);
  
     typedef decltype(__test(declval<_Tp>())) type;
 -   static const bool value = !is_same<type, void>::value;
-+   static opencl_constant const bool value = !is_same<type, void>::value;
++   static constant const bool value = !is_same<type, void>::value;
  };
  
  template <>
  struct __numeric_type<void>
  {
 -   static const bool value = true;
-+   static opencl_constant const bool value = true;
++   static constant const bool value = true;
  };
  
  // __promote
-@@ -1210,7 +1208,7 @@
+@@ -1210,7 +1208,7 @@ template <class _A1, class _A2 = void, class _A3 = void,
                   __numeric_type<_A3>::value>
  class __promote
  {
 -    static const bool value = false;
-+    static opencl_constant const bool value = false;
++    static constant const bool value = false;
  };
  
  template <class _A1, class _A2, class _A3>
-@@ -1222,7 +1220,7 @@
+@@ -1222,7 +1220,7 @@ private:
      typedef typename __promote<_A3>::type __type3;
  public:
      typedef decltype(__type1() + __type2() + __type3()) type;
 -    static const bool value = true;
-+    static opencl_constant const bool value = true;
++    static constant const bool value = true;
  };
  
  template <class _A1, class _A2>
-@@ -1233,7 +1231,7 @@
+@@ -1233,7 +1231,7 @@ private:
      typedef typename __promote<_A2>::type __type2;
  public:
      typedef decltype(__type1() + __type2()) type;
 -    static const bool value = true;
-+    static opencl_constant const bool value = true;
++    static constant const bool value = true;
  };
  
  template <class _A1>
-@@ -1241,8 +1239,8 @@
+@@ -1241,8 +1239,8 @@ class __promote<_A1, void, void, true>
  {
  public:
      typedef typename __numeric_type<_A1>::type type;
 -    static const bool value = true;
 -    static const bool __does_not_throw = _NOEXCEPT_OR_FALSE(static_cast<type>(declval<_A1>()));
-+    static opencl_constant const bool value = true;
-+    static opencl_constant const bool __does_not_throw = _NOEXCEPT_OR_FALSE(static_cast<type>(declval<_A1>()));
++    static constant const bool value = true;
++    static constant const bool __does_not_throw = _NOEXCEPT_OR_FALSE(static_cast<type>(declval<_A1>()));
  };
  
  #ifdef _LIBCPP_STORE_AS_OPTIMIZATION
-@@ -1557,7 +1555,7 @@
+@@ -1557,7 +1555,7 @@ struct __is_destructor_wellformed {
  	template <typename _Tp1>
  	static __two __test (...);
  	
 -	static const bool value = sizeof(__test<_Tp>(12)) == sizeof(char);
-+	static opencl_constant const bool value = sizeof(__test<_Tp>(12)) == sizeof(char);
++	static constant const bool value = sizeof(__test<_Tp>(12)) == sizeof(char);
  };
  
  template <class _Tp, bool>
-@@ -3253,7 +3251,7 @@
+@@ -3253,7 +3251,7 @@ struct __invokable_imp
      typedef decltype(
              __invoke(_VSTD::declval<_Fp>(), _VSTD::declval<_Args>()...)
                      ) type;
 -    static const bool value = !is_same<type, __nat>::value;
-+    static opencl_constant const bool value = !is_same<type, __nat>::value;
++    static constant const bool value = !is_same<type, __nat>::value;
  };
  
  template <class _Fp, class ..._Args>
-@@ -3336,7 +3334,7 @@
+@@ -3336,7 +3334,7 @@ template <class _Tp>
  struct __swappable
  {
      typedef decltype(swap(_VSTD::declval<_Tp&>(), _VSTD::declval<_Tp&>())) type;
 -    static const bool value = !is_same<type, __nat>::value;
-+    static opencl_constant const bool value = !is_same<type, __nat>::value;
++    static constant const bool value = !is_same<type, __nat>::value;
  };
  
  }  // __detail
-@@ -3413,7 +3411,7 @@
+@@ -3413,7 +3411,7 @@ struct __has_operator_addressof_imp
          static auto __test(_Up* __u)
              -> typename __select_2nd<decltype(__u->operator&()), true_type>::type;
  
 -    static const bool value = decltype(__test<_Tp>(nullptr))::value;
-+    static opencl_constant const bool value = decltype(__test<_Tp>(nullptr))::value;
++    static constant const bool value = decltype(__test<_Tp>(nullptr))::value;
  };
  
  template <class _Tp>
-diff -rduBE libcxx_rel35/include/utility libcxx/include/utility
---- libcxx_rel35/include/utility
-+++ libcxx/include/utility
-@@ -241,7 +241,7 @@
+diff --git a/include/utility b/include/utility
+index 4eafda4..6e81d1c 100644
+--- a/include/utility
++++ b/include/utility
+@@ -241,7 +241,7 @@ struct _LIBCPP_TYPE_VIS_ONLY piecewise_construct_t { };
  #if defined(_LIBCPP_HAS_NO_CONSTEXPR) || defined(_LIBCPP_BUILDING_UTILITY)
  extern const piecewise_construct_t piecewise_construct;// = piecewise_construct_t();
  #else
 -constexpr piecewise_construct_t piecewise_construct = piecewise_construct_t();
-+constexpr opencl_constant piecewise_construct_t piecewise_construct = piecewise_construct_t();
++constexpr constant piecewise_construct_t piecewise_construct = piecewise_construct_t();
  #endif
  
  template <class _T1, class _T2>
