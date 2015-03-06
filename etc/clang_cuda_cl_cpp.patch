@@ -1,7 +1,8 @@
-diff -rduBE llvm_rel35/include/llvm/CodeGen/AsmPrinter.h llvm/include/llvm/CodeGen/AsmPrinter.h
---- llvm_rel35/include/llvm/CodeGen/AsmPrinter.h
-+++ llvm/include/llvm/CodeGen/AsmPrinter.h
-@@ -232,7 +232,7 @@
+diff --git a/include/llvm/CodeGen/AsmPrinter.h b/include/llvm/CodeGen/AsmPrinter.h
+index e1c9a14..1c9e06b 100644
+--- a/include/llvm/CodeGen/AsmPrinter.h
++++ b/include/llvm/CodeGen/AsmPrinter.h
+@@ -232,7 +232,7 @@ public:
    /// requested, it will override the alignment request if required for
    /// correctness.
    ///
@@ -10,7 +11,7 @@ diff -rduBE llvm_rel35/include/llvm/CodeGen/AsmPrinter.h llvm/include/llvm/CodeG
  
    /// This method prints the label for the specified MachineBasicBlock, an
    /// alignment (if present) and a comment describing it if appropriate.
-@@ -496,7 +496,7 @@
+@@ -496,7 +496,7 @@ private:
    void EmitVisibility(MCSymbol *Sym, unsigned Visibility,
                        bool IsDefinition = true) const;
  
@@ -19,10 +20,11 @@ diff -rduBE llvm_rel35/include/llvm/CodeGen/AsmPrinter.h llvm/include/llvm/CodeG
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
-diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXAsmPrinter.h llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h
---- llvm_rel35/lib/Target/NVPTX/NVPTXAsmPrinter.h
-+++ llvm/lib/Target/NVPTX/NVPTXAsmPrinter.h
-@@ -202,6 +202,12 @@
+diff --git a/lib/Target/NVPTX/NVPTXAsmPrinter.h b/lib/Target/NVPTX/NVPTXAsmPrinter.h
+index a9f9bdd..bf44862 100644
+--- a/lib/Target/NVPTX/NVPTXAsmPrinter.h
++++ b/lib/Target/NVPTX/NVPTXAsmPrinter.h
+@@ -202,6 +202,12 @@ private:
    void EmitFunctionBodyEnd() override;
    void emitImplicitDef(const MachineInstr *MI) const override;
  
@@ -35,10 +37,11 @@ diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXAsmPrinter.h llvm/lib/Target/NVPTX/
    void EmitInstruction(const MachineInstr *) override;
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
-diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td llvm/lib/Target/NVPTX/NVPTXInstrInfo.td
---- llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td
-+++ llvm/lib/Target/NVPTX/NVPTXInstrInfo.td
-@@ -1659,12 +1659,12 @@
+diff --git a/lib/Target/NVPTX/NVPTXInstrInfo.td b/lib/Target/NVPTX/NVPTXInstrInfo.td
+index 9900b8c..4879b84 100644
+--- a/lib/Target/NVPTX/NVPTXInstrInfo.td
++++ b/lib/Target/NVPTX/NVPTXInstrInfo.td
+@@ -1659,12 +1659,12 @@ multiclass FSET_FORMAT<PatFrag OpNode, PatLeaf Mode, PatLeaf ModeFTZ> {
              (SET_f64ir fpimm:$a, Float64Regs:$b, Mode)>;
  }
  
@@ -57,7 +60,7 @@ diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td llvm/lib/Target/NVPTX/
  
  defm FSetUGT : FSET_FORMAT<setugt, CmpGTU, CmpGTU_FTZ>;
  defm FSetULT : FSET_FORMAT<setult, CmpLTU, CmpLTU_FTZ>;
-@@ -1673,6 +1673,13 @@
+@@ -1673,6 +1673,13 @@ defm FSetULE : FSET_FORMAT<setule, CmpLEU, CmpLEU_FTZ>;
  defm FSetUEQ : FSET_FORMAT<setueq, CmpEQU, CmpEQU_FTZ>;
  defm FSetUNE : FSET_FORMAT<setune, CmpNEU, CmpNEU_FTZ>;
  
@@ -70,11 +73,12 @@ diff -rduBE llvm_rel35/lib/Target/NVPTX/NVPTXInstrInfo.td llvm/lib/Target/NVPTX/
 +
  defm FSetNUM : FSET_FORMAT<seto, CmpNUM, CmpNUM_FTZ>;
  defm FSetNAN : FSET_FORMAT<setuo, CmpNAN, CmpNAN_FTZ>;
-
-diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/Attr.td llvm/tools/clang/include/clang/Basic/Attr.td
---- llvm_rel35/tools/clang/include/clang/Basic/Attr.td
-+++ llvm/tools/clang/include/clang/Basic/Attr.td
-@@ -514,7 +514,7 @@
+ 
+diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
+index 704a375..1743ee2 100644
+--- a/tools/clang/include/clang/Basic/Attr.td
++++ b/tools/clang/include/clang/Basic/Attr.td
+@@ -514,7 +514,7 @@ def Constructor : InheritableAttr {
  }
  
  def CUDAConstant : InheritableAttr {
@@ -83,7 +87,7 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/Attr.td llvm/tools/clang/
    let Subjects = SubjectList<[Var]>;
    let LangOpts = [CUDA];
    let Documentation = [Undocumented];
-@@ -528,7 +528,7 @@
+@@ -528,7 +528,7 @@ def CUDADevice : InheritableAttr {
  }
  
  def CUDAGlobal : InheritableAttr {
@@ -92,46 +96,56 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/Attr.td llvm/tools/clang/
    let Subjects = SubjectList<[Function]>;
    let LangOpts = [CUDA];
    let Documentation = [Undocumented];
-@@ -574,7 +574,7 @@
+@@ -554,7 +554,7 @@ def CUDALaunchBounds : InheritableAttr {
+ }
+ 
+ def CUDAShared : InheritableAttr {
+-  let Spellings = [GNU<"shared">];
++  let Spellings = [GNU<"shared">, GNU<"cuda_local">];
+   let Subjects = SubjectList<[Var]>;
+   let LangOpts = [CUDA];
+   let Documentation = [Undocumented];
+@@ -574,7 +574,7 @@ def CXX11NoReturn : InheritableAttr {
  }
  
  def OpenCLKernel : InheritableAttr {
 -  let Spellings = [Keyword<"__kernel">, Keyword<"kernel">];
-+  let Spellings = [Keyword<"__kernel">];
++  let Spellings = [Keyword<"__kernel">, GNU<"opencl_kernel">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -596,22 +596,22 @@
+@@ -596,22 +596,22 @@ def OpenCLImageAccess : Attr {
  }
  
  def OpenCLPrivateAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__private">, Keyword<"private">];
-+  let Spellings = [Keyword<"__private">];
++  let Spellings = [Keyword<"__private">, GNU<"opencl_private">];
    let Documentation = [Undocumented];
  }
  
  def OpenCLGlobalAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__global">, Keyword<"global">];
-+  let Spellings = [Keyword<"__global">];
++  let Spellings = [Keyword<"__global">, GNU<"opencl_global">];
    let Documentation = [Undocumented];
  }
  
  def OpenCLLocalAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__local">, Keyword<"local">];
-+  let Spellings = [Keyword<"__local">];
++  let Spellings = [Keyword<"__local">, GNU<"opencl_local">];
    let Documentation = [Undocumented];
  }
  
  def OpenCLConstantAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
-+  let Spellings = [Keyword<"__constant">];
++  let Spellings = [Keyword<"__constant">, GNU<"opencl_constant">];
    let Documentation = [Undocumented];
  }
  
-diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/TokenKinds.def llvm/tools/clang/include/clang/Basic/TokenKinds.def
---- llvm_rel35/tools/clang/include/clang/Basic/TokenKinds.def
-+++ llvm/tools/clang/include/clang/Basic/TokenKinds.def
-@@ -461,27 +461,27 @@
+diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
+index 5d08833..52d3d3e 100644
+--- a/tools/clang/include/clang/Basic/TokenKinds.def
++++ b/tools/clang/include/clang/Basic/TokenKinds.def
+@@ -461,27 +461,19 @@ KEYWORD(__forceinline               , KEYMS)
  KEYWORD(__unaligned                 , KEYMS)
  
  // OpenCL address space qualifiers
@@ -147,25 +161,20 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/TokenKinds.def llvm/tools
 +KEYWORD(__local                     , KEYCXX|KEYOPENCL)
 +KEYWORD(__constant                  , KEYCXX|KEYOPENCL)
 +KEYWORD(__private                   , KEYCXX|KEYOPENCL)
-+//ALIAS("global", __global            , KEYOPENCL)
-+//ALIAS("local", __local              , KEYOPENCL)
-+//ALIAS("constant", __constant        , KEYOPENCL)
-+//ALIAS("private", __private          , KEYOPENCL)
  // OpenCL function qualifiers
 -KEYWORD(__kernel                    , KEYOPENCL)
 -ALIAS("kernel", __kernel            , KEYOPENCL)
 +KEYWORD(__kernel                    , KEYCXX|KEYOPENCL)
-+//ALIAS("kernel", __kernel            , KEYOPENCL)
  // OpenCL access qualifiers
 -KEYWORD(__read_only                 , KEYOPENCL)
 -KEYWORD(__write_only                , KEYOPENCL)
 -KEYWORD(__read_write                , KEYOPENCL)
+-ALIAS("read_only", __read_only      , KEYOPENCL)
+-ALIAS("write_only", __write_only    , KEYOPENCL)
+-ALIAS("read_write", __read_write    , KEYOPENCL)
 +KEYWORD(__read_only                 , KEYCXX|KEYOPENCL)
 +KEYWORD(__write_only                , KEYCXX|KEYOPENCL)
 +KEYWORD(__read_write                , KEYCXX|KEYOPENCL)
- ALIAS("read_only", __read_only      , KEYOPENCL)
- ALIAS("write_only", __write_only    , KEYOPENCL)
- ALIAS("read_write", __read_write    , KEYOPENCL)
  // OpenCL builtins
 -KEYWORD(__builtin_astype            , KEYOPENCL)
 -KEYWORD(vec_step                    , KEYOPENCL|KEYALTIVEC)
@@ -174,10 +183,40 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Basic/TokenKinds.def llvm/tools
  
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
-diff -rduBE llvm_rel35/tools/clang/include/clang/Frontend/LangStandards.def llvm/tools/clang/include/clang/Frontend/LangStandards.def
---- llvm_rel35/tools/clang/include/clang/Frontend/LangStandards.def
-+++ llvm/tools/clang/include/clang/Frontend/LangStandards.def
-@@ -134,17 +134,21 @@
+diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
+index d25560c..566bbd9 100644
+--- a/tools/clang/include/clang/Driver/CC1Options.td
++++ b/tools/clang/include/clang/Driver/CC1Options.td
+@@ -577,6 +577,12 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+ def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
+   HelpText<"Generate code for CUDA device">;
+ 
++//===----------------------------------------------------------------------===//
++// AIR/Metal Options
++//===----------------------------------------------------------------------===//
++def air_kernel_info : Flag<["-"], "air-kernel-info">,
++  HelpText<"AIR/Metal only. Generate general air/metal and kernel argument metadata.">;
++
+ } // let Flags = [CC1Option]
+ 
+ 
+diff --git a/tools/clang/include/clang/Frontend/CodeGenOptions.def b/tools/clang/include/clang/Frontend/CodeGenOptions.def
+index 1d92efe..2940d13 100644
+--- a/tools/clang/include/clang/Frontend/CodeGenOptions.def
++++ b/tools/clang/include/clang/Frontend/CodeGenOptions.def
+@@ -56,6 +56,7 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+ CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
+ CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
+ CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
++CODEGENOPT(EmitAIRMetadata , 1, 0) ///< Emit AIR/Metal kernel info and arg metadata.
+ /// \brief FP_CONTRACT mode (on/off/fast).
+ ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
+ CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
+diff --git a/tools/clang/include/clang/Frontend/LangStandards.def b/tools/clang/include/clang/Frontend/LangStandards.def
+index 90a27b5..aa9aea9 100644
+--- a/tools/clang/include/clang/Frontend/LangStandards.def
++++ b/tools/clang/include/clang/Frontend/LangStandards.def
+@@ -134,17 +134,21 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
  // OpenCL
  LANGSTANDARD(opencl, "cl",
               "OpenCL 1.0",
@@ -203,13 +242,296 @@ diff -rduBE llvm_rel35/tools/clang/include/clang/Frontend/LangStandards.def llvm
 +             Digraphs | GNUMode)
  
  #undef LANGSTANDARD
-diff -rduBE llvm_rel35/tools/clang/lib/CodeGen/CodeGenModule.cpp llvm/tools/clang/lib/CodeGen/CodeGenModule.cpp
---- llvm_rel35/tools/clang/lib/CodeGen/CodeGenModule.cpp
-+++ llvm/tools/clang/lib/CodeGen/CodeGenModule.cpp
-@@ -1219,21 +1219,17 @@
+diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
+index 075f905..9eff919 100644
+--- a/tools/clang/lib/Basic/Targets.cpp
++++ b/tools/clang/lib/Basic/Targets.cpp
+@@ -1361,6 +1361,7 @@ namespace {
+       // Define available target features
+       // These must be defined in sorted order!
+       NoAsmVariants = true;
++      UserLabelPrefix = "";
+     }
+     void getTargetDefines(const LangOptions &Opts,
+                           MacroBuilder &Builder) const override {
+@@ -5886,6 +5887,7 @@ namespace {
+       // Define available target features
+       // These must be defined in sorted order!
+       NoAsmVariants = true;
++      UserLabelPrefix = "";
+     }
+     void getTargetDefines(const LangOptions &Opts,
+                           MacroBuilder &Builder) const override {
+diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
+index 5ca3a78..0b7c302 100644
+--- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
++++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
+@@ -446,6 +446,176 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+   kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
+ }
+ 
++static void GenAIRMetadata(const FunctionDecl *FD, llvm::Function *Fn,
++						   CodeGenModule &CGM,llvm::LLVMContext &Context,
++						   SmallVector <llvm::Value*, 5> &kernelMDArgs,
++						   CGBuilderTy& Builder, ASTContext &ASTCtx) {
++	//
++	SmallVector<llvm::Value*, 1> empty_set; // no idea why this is needed or used for
++	SmallVector<llvm::Value*, 8> arg_infos;
++	
++	//
++	const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
++	
++	//
++	int i = 0;
++	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
++		SmallVector<llvm::Value*, 16> arg_info;
++		const auto type = arg_iter->getType();
++		const auto parm = FD->getParamDecl(i);
++		const auto clang_type = parm->getType();
++		
++		// TODO: support all non-pointer types
++		if(!type->isPointerTy()) continue;
++		const auto pointee_type = type->getPointerElementType();
++		const auto clang_unq_ty = clang_type->getPointeeType().getTypePtr()->getBaseElementTypeUnsafe();
++		
++		// #0: param index
++		arg_info.push_back(Builder.getInt32(i));
++		// #1: storage type (buffer, TODO: image/texture/sampler stuff)
++		arg_info.push_back(llvm::MDString::get(Context, "air.buffer"));
++		// #2/#3: location_index
++		arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
++		// for now: use the same as param idx, TODO: handle texture/image indices and possible other problems
++		arg_info.push_back(Builder.getInt32(i));
++		// #4: unknown? always 1
++		arg_info.push_back(Builder.getInt32(1));
++		// #5: access (read/read_write, TODO: write?)
++		if(type->isPointerTy()) {
++			const auto clang_pointee_type = clang_type->getPointeeType();
++			if(clang_pointee_type.isConstQualified() ||
++			   (clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
++				arg_info.push_back(llvm::MDString::get(Context, "air.read"));
++			}
++			else {
++				arg_info.push_back(llvm::MDString::get(Context, "air.read_write"));
++			}
++		}
++		else {
++			// TODO: image / what if not img either?
++		}
++		
++		// TODO: #6/#7: struct info
++		
++		// #8/#9: type size
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_size"));
++		arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type)));
++		// #10/#11: type alignment
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
++		arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeAllocSize(pointee_type)));
++		//getPrimitiveSizeInBits
++		// #12/#13: type name, note: air wants the pointed-to/pointee type here, w/o qualifiers
++		// TODO: handle everything else besides buffers/pointers!
++		auto unqualified_type = clang_unq_ty->getCanonicalTypeInternal();
++		auto type_name = unqualified_type.getAsString(Policy);
++		// Turn "unsigned type" to "utype"
++		const auto pos = type_name.find("unsigned");
++		if(pos != std::string::npos) type_name.erase(pos + 1, 8);
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++		arg_info.push_back(llvm::MDString::get(Context, type_name));
++		// #14/#15: arg name
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++		arg_info.push_back(llvm::MDString::get(Context, parm->getName()));
++		
++		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++	}
++	
++	// insert into kernel metadata
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, empty_set));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
++}
++
++void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
++											  llvm::Function *Fn,
++											  const FunctionArgList &Args) {
++	if (!FD->hasAttr<OpenCLKernelAttr>() && !FD->hasAttr<CUDAGlobalAttr>()) {
++		return;
++	}
++	
++	llvm::LLVMContext &Context = getLLVMContext();
++	
++	//
++	SmallVector<llvm::Value*, 16> arg_infos;
++	
++	// #0: info version
++	arg_infos.push_back(Builder.getInt32(1));
++	// #1: kernel name
++	arg_infos.push_back(llvm::MDString::get(Context, Fn->getName()));
++	
++	int i = 0;
++	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
++		const auto type = arg_iter->getType();
++		const auto parm = FD->getParamDecl(i);
++		const auto clang_type = parm->getType();
++		
++		enum FLOOR_ADDRESS_SPACE : uint64_t {
++			// 0 == invalid!
++			__FAS_SHIFT_OFFSET	= (32ull),
++			
++			// sets: 00000000 00000000 00000000 000000xx 00000000 00000000 00000000 00000000
++			FAS_NONE			= 0ull,
++			FAS_GLOBAL			= 1ull << __FAS_SHIFT_OFFSET,
++			FAS_LOCAL			= 2ull << __FAS_SHIFT_OFFSET,
++			FAS_CONSTANT		= 3ull << __FAS_SHIFT_OFFSET,
++		};
++		const auto to_fas = [](const unsigned& addr_space) {
++			if(addr_space == LangAS::opencl_global) {
++				return FAS_GLOBAL;
++			}
++			else if(addr_space == LangAS::opencl_local) {
++				return FAS_LOCAL;
++			}
++			else if(addr_space == LangAS::opencl_constant) {
++				return FAS_CONSTANT;
++			}
++			return FAS_NONE;
++		};
++		
++		// #2+: argument sizes + types
++		// TODO: support all non-pointer types
++		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			const auto clang_pointee_type = clang_type->getPointeeType();
++			const auto pointee_type = type->getPointerElementType();
++			
++			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(pointee_type);
++			if(getLangOpts().OpenCL) {
++				// else: should be an error
++				arg_info |= to_fas(clang_pointee_type.getAddressSpace());
++			}
++			else if(getLangOpts().CUDA) {
++				// always pretend this is global
++				arg_info |= FAS_GLOBAL;
++			}
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		}
++		// handle non-pointer parameters (TODO: that aren't images/textures/special-types)
++		else if(getLangOpts().CUDA) {
++			// store the parameter size + pretend it is constant
++			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(type);
++			arg_info |= FAS_CONSTANT;
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		}
++		else {
++			// for now: just use the direct type size + no address space
++			uint64_t arg_info = 0;
++			// handle some llvm weirdness? why can this be a pointer still?
++			if(type->isPointerTy()) {
++				arg_info = CGM.getDataLayout().getTypeStoreSize(type->getPointerElementType());
++			}
++			else {
++				arg_info = CGM.getDataLayout().getTypeStoreSize(type);
++			}
++			arg_info |= to_fas(clang_type.getAddressSpace());
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		}
++	}
++	
++	//
++	llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, arg_infos);
++	llvm::NamedMDNode *FloorKernelMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.kernels");
++	FloorKernelMetadata->addOperand(kernelMDNode);
++}
++
+ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+                                                llvm::Function *Fn)
+ {
+@@ -461,6 +631,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+     GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
+                          Builder, getContext());
+ 
++  if (CGM.getCodeGenOpts().EmitAIRMetadata)
++    GenAIRMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
++
+   if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
+     QualType hintQTy = A->getTypeHint();
+     const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
+@@ -499,8 +672,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+ 
+   llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
+   llvm::NamedMDNode *OpenCLKernelMetadata =
+-    CGM.getModule().getOrInsertNamedMetadata("opencl.kernels");
++	CGM.getModule().getOrInsertNamedMetadata(CGM.getCodeGenOpts().EmitAIRMetadata ?
++											 "air.kernel" : "opencl.kernels");
+   OpenCLKernelMetadata->addOperand(kernelMDNode);
++
++  // additional air info
++  if(CGM.getCodeGenOpts().EmitAIRMetadata) {
++	  SmallVector <llvm::Value*, 3> air_version;
++	  air_version.push_back(Builder.getInt32(1));
++	  air_version.push_back(Builder.getInt32(6));
++	  air_version.push_back(Builder.getInt32(0));
++	  
++	  SmallVector <llvm::Value*, 4> air_lang_version;
++	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
++	  air_lang_version.push_back(Builder.getInt32(1));
++	  air_lang_version.push_back(Builder.getInt32(0));
++	  air_lang_version.push_back(Builder.getInt32(0));
++	  
++	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
++	  AIRVersion->addOperand(llvm::MDNode::get(Context, air_version));
++	  
++	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
++	  AIRLangVersion->addOperand(llvm::MDNode::get(Context, air_lang_version));
++	  
++	  llvm::NamedMDNode *AIRCompOpts = CGM.getModule().getOrInsertNamedMetadata("air.compile_options");
++	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
++												llvm::MDString::get(Context, "air.compile.denorms_disable")));
++	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
++												llvm::MDString::get(Context, "air.compile.fast_math_enable")));
++	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
++												llvm::MDString::get(Context, "air.compile.framebuffer_fetch_enable")));
++	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
++												llvm::MDString::get(Context, "air.compile.native_double_disable")));
++  }
+ }
+ 
+ /// Determine whether the function F ends with a return stmt.
+@@ -558,6 +762,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+       EmitOpenCLKernelMetadata(FD, Fn);
+   }
++  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
++	// add floor specific metadata for kernel functions
++	if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
++	  EmitFloorKernelMetadata(FD, Fn, Args);
++  }
+ 
+   // If we are checking function types, emit a function type signature as
+   // prefix data.
+diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.h b/tools/clang/lib/CodeGen/CodeGenFunction.h
+index 59cc30d..ed8980f 100644
+--- a/tools/clang/lib/CodeGen/CodeGenFunction.h
++++ b/tools/clang/lib/CodeGen/CodeGenFunction.h
+@@ -989,7 +989,11 @@ private:
+   ///   "reqd_work_group_size", and three 32-bit integers X, Y and Z.
+   void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
+                                 llvm::Function *Fn);
+-
++	
++  void EmitFloorKernelMetadata(const FunctionDecl *FD,
++                               llvm::Function *Fn,
++                               const FunctionArgList &Args);
++	
+ public:
+   CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
+   ~CodeGenFunction();
+diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
+index 48823be..a48374a 100644
+--- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
++++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
+@@ -1218,23 +1218,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+   if (Global->hasAttr<AliasAttr>())
      return EmitAliasDefinition(GD);
  
-   // If this is CUDA, be selective about which declarations we emit.
+-  // If this is CUDA, be selective about which declarations we emit.
 -  if (LangOpts.CUDA) {
 -    if (CodeGenOpts.CUDAIsDevice) {
 -      if (!Global->hasAttr<CUDADeviceAttr>() &&
@@ -218,26 +540,30 @@ diff -rduBE llvm_rel35/tools/clang/lib/CodeGen/CodeGenModule.cpp llvm/tools/clan
 -          !Global->hasAttr<CUDASharedAttr>())
 -        return;
 -    } else {
-+  /*if (LangOpts.CUDA) {
-+    if (!CodeGenOpts.CUDAIsDevice) {
-       if (!Global->hasAttr<CUDAHostAttr>() && (
-             Global->hasAttr<CUDADeviceAttr>() ||
-             Global->hasAttr<CUDAConstantAttr>() ||
+-      if (!Global->hasAttr<CUDAHostAttr>() && (
+-            Global->hasAttr<CUDADeviceAttr>() ||
+-            Global->hasAttr<CUDAConstantAttr>() ||
 -            Global->hasAttr<CUDASharedAttr>()))
-+            Global->hasAttr<CUDASharedAttr>())) {
-         return;
-+	  }
-     }
+-        return;
+-    }
 -  }
-+	// else: CUDAIsDevice: always emit, even if __device__ is missing!
-+  }*/
- 
+-
    // Ignore declarations, they will be emitted on their first use.
    if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
-diff -rduBE llvm_rel35/tools/clang/lib/Frontend/CompilerInvocation.cpp llvm/tools/clang/lib/Frontend/CompilerInvocation.cpp
---- llvm_rel35/tools/clang/lib/Frontend/CompilerInvocation.cpp
-+++ llvm/tools/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -1276,7 +1276,7 @@
+     // Forward declarations are emitted lazily on first use.
+diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
+index ce61a46..d5a26ad 100644
+--- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
++++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
+@@ -474,6 +474,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+   Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
+   Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
+   Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
++  Opts.EmitAIRMetadata = Args.hasArg(OPT_air_kernel_info);
+   Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
+   Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
+   Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
+@@ -1276,7 +1277,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -246,10 +572,11 @@ diff -rduBE llvm_rel35/tools/clang/lib/Frontend/CompilerInvocation.cpp llvm/tool
            Diags.Report(diag::err_drv_argument_not_allowed_with)
              << A->getAsString(Args) << "OpenCL";
          break;
-diff -rduBE llvm_rel35/tools/clang/lib/Lex/PPDirectives.cpp llvm/tools/clang/lib/Lex/PPDirectives.cpp
---- llvm_rel35/tools/clang/lib/Lex/PPDirectives.cpp
-+++ llvm/tools/clang/lib/Lex/PPDirectives.cpp
-@@ -1807,7 +1807,7 @@
+diff --git a/tools/clang/lib/Lex/PPDirectives.cpp b/tools/clang/lib/Lex/PPDirectives.cpp
+index 1741c30..2236e48 100644
+--- a/tools/clang/lib/Lex/PPDirectives.cpp
++++ b/tools/clang/lib/Lex/PPDirectives.cpp
+@@ -1807,7 +1807,7 @@ bool Preprocessor::ReadMacroDefinitionArgList(MacroInfo *MI, Token &Tok) {
               diag::ext_variadic_macro);
  
        // OpenCL v1.2 s6.9.e: variadic macros are not supported.
@@ -258,10 +585,11 @@ diff -rduBE llvm_rel35/tools/clang/lib/Lex/PPDirectives.cpp llvm/tools/clang/lib
          Diag(Tok, diag::err_pp_opencl_variadic_macros);
          return true;
        }
-diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaDeclCXX.cpp llvm/tools/clang/lib/Sema/SemaDeclCXX.cpp
---- llvm_rel35/tools/clang/lib/Sema/SemaDeclCXX.cpp
-+++ llvm/tools/clang/lib/Sema/SemaDeclCXX.cpp
-@@ -13026,21 +13026,13 @@
+diff --git a/tools/clang/lib/Sema/SemaDeclCXX.cpp b/tools/clang/lib/Sema/SemaDeclCXX.cpp
+index c5cd83d..7084757 100644
+--- a/tools/clang/lib/Sema/SemaDeclCXX.cpp
++++ b/tools/clang/lib/Sema/SemaDeclCXX.cpp
+@@ -13026,21 +13026,13 @@ Sema::checkExceptionSpecification(ExceptionSpecificationType EST,
  
  /// IdentifyCUDATarget - Determine the CUDA compilation target for this function
  Sema::CUDAFunctionTarget Sema::IdentifyCUDATarget(const FunctionDecl *D) {
@@ -287,10 +615,11 @@ diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaDeclCXX.cpp llvm/tools/clang/lib
  }
  
  bool Sema::CheckCUDATarget(CUDAFunctionTarget CallerTarget,
-diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaExpr.cpp llvm/tools/clang/lib/Sema/SemaExpr.cpp
---- llvm_rel35/tools/clang/lib/Sema/SemaExpr.cpp
-+++ llvm/tools/clang/lib/Sema/SemaExpr.cpp
-@@ -444,7 +444,7 @@
+diff --git a/tools/clang/lib/Sema/SemaExpr.cpp b/tools/clang/lib/Sema/SemaExpr.cpp
+index 35dad82..bd249ab 100644
+--- a/tools/clang/lib/Sema/SemaExpr.cpp
++++ b/tools/clang/lib/Sema/SemaExpr.cpp
+@@ -444,7 +444,7 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E) {
    if (Ty->isFunctionType()) {
      // If we are here, we are not calling a function but taking
      // its address (which is not allowed in OpenCL v1.0 s6.8.a.3).
@@ -299,7 +628,7 @@ diff -rduBE llvm_rel35/tools/clang/lib/Sema/SemaExpr.cpp llvm/tools/clang/lib/Se
        Diag(E->getExprLoc(), diag::err_opencl_taking_function_address);
        return ExprError();
      }
-@@ -8953,7 +8953,7 @@
+@@ -8953,7 +8953,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    Expr *op = OrigOp.get()->IgnoreParens();
  
    // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
