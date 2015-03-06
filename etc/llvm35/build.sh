@@ -26,9 +26,9 @@ tar xfv llvm-${RELEASE}.src.tar.xz
 tar xfv cfe-${RELEASE}.src.tar.xz
 tar xfv libcxx-${RELEASE}.src.tar.xz
 
-mv llvm-3.5.1.src llvm
-mv cfe-3.5.1.src llvm/tools/clang
-mv libcxx-3.5.1.src libcxx
+mv llvm-${RELEASE}.src llvm
+mv cfe-${RELEASE}.src llvm/tools/clang
+mv libcxx-${RELEASE}.src libcxx
 
 # cp in and patch spir-encoder
 SPIR_PATH=SPIR-Tools/spir-encoder/llvm_3.5_spir_encoder/
