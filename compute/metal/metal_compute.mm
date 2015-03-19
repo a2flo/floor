@@ -90,7 +90,7 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 			device.mem_clock = 1333; // ram clock
 			break;
 		default:
-			log_warn("unknown device family (%u), defaulting to family 1", device.family);
+			log_warn("unknown device family (%u), defaulting to family 2 (A8)", device.family);
 		
 		floor_fallthrough;
 		case 2:
@@ -106,14 +106,14 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 			device.mem_clock = 1600; // ram clock
 			break;
 	}
-	device.max_work_group_item_sizes = size3 { 512, 512, 512 }; // note: not entirely sure if this is correct,
-	device.max_work_item_sizes = ulong3 { sizeof(uint64_t) };   //       could also be (2^57, 2^57, 512)
+	device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
+	device.max_work_item_sizes = { sizeof(uint64_t) };   //       could also be (2^57, 2^57, 512)
 	device.image_support = true;
 	device.double_support = false; // double config is 0
 	device.unified_memory = true;
-	device.max_image_1d_dim = 4096;
-	device.max_image_2d_dim = size2 { 4096, 4096 };
-	device.max_image_3d_dim = size3 { 4096, 4096, 2048 };
+	device.max_image_1d_dim = { 4096 };
+	device.max_image_2d_dim = { 4096, 4096 };
+	device.max_image_3d_dim = { 4096, 4096, 2048 };
 	device.bitness = 64;
 	
 	// done

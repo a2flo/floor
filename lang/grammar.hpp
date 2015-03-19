@@ -36,12 +36,6 @@
 #include <iostream>
 #endif
 
-// shut up gcc, since it apparently doesn't know about operator precedence
-// note that clang doesn't yammer about this and it has far superior detection for these things
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic ignored "-Wparentheses"
-#endif
-
 //! parser context object that handles all token iteration, backtracking and stores all matches.
 struct parser_context {
 	//! current parser token iterator
@@ -794,10 +788,5 @@ struct grammar_rule : public parser_node_base<grammar_rule> {
 	}
 	
 };
-
-// end
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic warning "-Wparentheses"
-#endif
 
 #endif

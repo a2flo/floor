@@ -20,7 +20,7 @@
 #define __FLOOR_MATRIX4_HPP__
 
 #include <utility>
-#if !defined(FLOOR_LLVM_COMPUTE)
+#if !defined(FLOOR_COMPUTE)
 #include <array>
 #endif
 #if !defined(FLOOR_NO_MATH_STR)

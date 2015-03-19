@@ -281,7 +281,7 @@ public:
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
-#if defined(__SPIR32__) || defined(__SPIR64__) || defined(__METAL_CLANG__)
+#if defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_METAL)
 	// opencl/spir and metal/air construction/load from any address space to private address space
 	//! explicit load, from private/unspecified/default to private address space
 	static constexpr vector_type load(const vector_type* from_vec) {

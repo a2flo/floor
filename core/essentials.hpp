@@ -40,8 +40,9 @@
 #define floor_unreachable
 #endif
 
-// for flagging unused parameters/variables
+// for flagging unused and used parameters/variables
 #define floor_unused __attribute__((unused))
+#define floor_used __attribute__((used))
 
 // for packing structs/classes (removes padding bytes)
 #if defined(__clang__) || defined(__GNUC__)

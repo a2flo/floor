@@ -218,11 +218,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -Xclang -cl-fast-relaxed-math" \
 			" -Xclang -cl-unsafe-math-optimizations" \
 			" -Xclang -cl-finite-math-only" \
-			" -D__SPIR_CLANG__" \
-			" -DFLOOR_LLVM_COMPUTE" \
+			" -DFLOOR_COMPUTE_SPIR" \
+			" -DFLOOR_COMPUTE" \
 			" -DFLOOR_NO_MATH_STR" \
 			" -DPLATFORM_X64" \
-			" -include floor/compute/compute_support.hpp" \
+			" -include floor/compute/device/common.hpp" \
 			" -include floor/constexpr/const_math.cpp" \
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
@@ -281,12 +281,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -Xclang -cl-fast-relaxed-math" \
 			" -Xclang -cl-unsafe-math-optimizations" \
 			" -Xclang -cl-finite-math-only" \
-			" -D__METAL_CLANG__" \
 			" -DFLOOR_COMPUTE_NO_DOUBLE" \
-			" -DFLOOR_LLVM_COMPUTE" \
+			" -DFLOOR_COMPUTE_METAL" \
+			" -DFLOOR_COMPUTE" \
 			" -DFLOOR_NO_MATH_STR" \
 			" -DPLATFORM_X64" \
-			" -include floor/compute/compute_support.hpp" \
+			" -include floor/compute/device/common.hpp" \
 			" -include floor/constexpr/const_math.cpp" \
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
@@ -328,11 +328,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			FLOOR_COMPUTE_CLANG \
 			" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 			" -Xclang -fcuda-is-device" \
-			" -D__CUDA_CLANG__" \
-			" -DFLOOR_LLVM_COMPUTE" \
+			" -DFLOOR_COMPUTE_CUDA" \
+			" -DFLOOR_COMPUTE" \
 			" -DFLOOR_NO_MATH_STR" \
 			" -DPLATFORM_X64" \
-			" -include floor/compute/compute_support.hpp" \
+			" -include floor/compute/device/common.hpp" \
 			" -include floor/constexpr/const_math.cpp" \
 			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
 			" -isystem " FLOOR_COMPUTE_CLANG_PATH \

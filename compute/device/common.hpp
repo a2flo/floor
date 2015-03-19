@@ -16,290 +16,22 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_SUPPORT_HPP__
-#define __FLOOR_COMPUTE_SUPPORT_HPP__
+#ifndef __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
+#define __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
 
-// TODO: clean this up (srsly ...) + possible move into separate cuda/opencl headers
+// basic floor macros + misc
+#include <floor/core/essentials.hpp>
 
-#if defined(__CUDA_CLANG__)
-
-//
-#define kernel extern "C" __attribute__((cuda_kernel))
-
-// map address space keywords
-#define global
-#define local __attribute__((cuda_local))
-#define constant __attribute__((cuda_constant))
-
-// TODO: properly do this
-#define get_global_id(dim) (size_t(bid_x * bdim_x + tid_x))
-
-// have some special magic:
-// NOTE: this should be compiled with at least -O1, otherwise dead code won't be eliminated
-// NOTE: there is sadly no other way of doing this (short of pre-preprocessing the source code)
-struct __special_reg { int x, y, z; };
-
-#define tid_x __builtin_ptx_read_tid_x()
-#define tid_y __builtin_ptx_read_tid_y()
-#define tid_z __builtin_ptx_read_tid_z()
-__attribute__((device, always_inline, flatten)) static inline __special_reg __get_thread_idx() {
-	return __special_reg { tid_x, tid_y, tid_z };
-}
-#define threadIdx __get_thread_idx()
-
-#define ctaid_x __builtin_ptx_read_ctaid_x()
-#define ctaid_y __builtin_ptx_read_ctaid_y()
-#define ctaid_z __builtin_ptx_read_ctaid_z()
-__attribute__((device, always_inline, flatten)) static inline __special_reg __get_block_idx() {
-	return __special_reg { ctaid_x, ctaid_y, ctaid_z };
-}
-#define blockIdx __get_block_idx()
-
-#define ntid_x __builtin_ptx_read_ntid_x()
-#define ntid_y __builtin_ptx_read_ntid_y()
-#define ntid_z __builtin_ptx_read_ntid_z()
-__attribute__((device, always_inline, flatten)) static inline __special_reg __get_block_dim() {
-	return __special_reg { ntid_x, ntid_y, ntid_z };
-}
-#define blockDim __get_block_dim()
-
-#define nctaid_x __builtin_ptx_read_nctaid_x()
-#define nctaid_y __builtin_ptx_read_nctaid_y()
-#define nctaid_z __builtin_ptx_read_nctaid_z()
-__attribute__((device, always_inline, flatten)) static inline __special_reg __get_grid_dim() {
-	return __special_reg { nctaid_x, nctaid_y, nctaid_z };
-}
-#define gridDim __get_grid_dim()
-
-#define laneId __builtin_ptx_read_laneid()
-#define warpId __builtin_ptx_read_warpid()
-#define warpSize __builtin_ptx_read_nwarpid()
-
-// misc (not directly defined by cuda?)
-#define smId __builtin_ptx_read_smid()
-#define smDim __builtin_ptx_read_nsmid()
-#define gridId __builtin_ptx_read_gridid()
-
-#define lanemask_eq __builtin_ptx_read_lanemask_eq()
-#define lanemask_le __builtin_ptx_read_lanemask_le()
-#define lanemask_lt __builtin_ptx_read_lanemask_lt()
-#define lanemask_ge __builtin_ptx_read_lanemask_ge()
-#define lanemask_gt __builtin_ptx_read_lanemask_gt()
-
-#define ptx_clock __builtin_ptx_read_clock()
-#define ptx_clock64 __builtin_ptx_read_clock64()
-
-// some aliases for easier use:
-// (tid_* already defined above)
-#define bid_x ctaid_x
-#define bid_y ctaid_y
-#define bid_z ctaid_z
-#define bdim_x ntid_x
-#define bdim_y ntid_y
-#define bdim_z ntid_z
-#define gdim_x nctaid_x
-#define gdim_y nctaid_y
-#define gdim_z nctaid_z
-#define lane_id laneId
-#define warp_id warpId
-#define warp_size warpSize
-#define sm_id smId
-#define sm_dim smDim
-#define grid_id gridId
-
-// provided by libcudart:
-/*extern "C" {
-	extern __device__ __device_builtin__ int printf(const char*, ...);
-};*/
-
-// misc types
-typedef __signed char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long int uint64_t;
-
-// TODO: arch size support
-#if defined(PLATFORM_X32)
-typedef uint32_t size_t;
-typedef int32_t ssize_t;
-#elif defined(PLATFORM_X64)
-typedef uint64_t size_t;
-typedef int64_t ssize_t;
+// compute implementation specific headers
+#if defined(FLOOR_COMPUTE_CUDA)
+#include <floor/compute/device/cuda.hpp>
+#elif defined(FLOOR_COMPUTE_SPIR)
+#include <floor/compute/device/spir.hpp>
+#elif defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal.hpp>
 #endif
 
-//#include <floor/compute/cuda/cuda_device_functions.hpp>
-// TODO: add proper cuda math support
-float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
-float sqrt(float a) { return __nvvm_sqrt_rn_ftz_f(a); }
-float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
-float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
-float tan(float a) { return sin(a) / cos(a); }
-
-#elif defined(__SPIR_CLANG__)
-// TODO: should really use this header somehow!
-//#include "opencl_spir.h"
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#endif
-
-// misc types
-typedef char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long int uint64_t;
-
-typedef unsigned short int ushort;
-typedef unsigned int uint;
-typedef unsigned long int ulong;
-
-#if defined(__SPIR32__)
-typedef uint size_t;
-typedef int ssize_t;
-#elif defined (__SPIR64__)
-typedef unsigned long int size_t;
-typedef long int ssize_t;
-#endif
-
-#define const_func __attribute__((const))
-size_t const_func get_global_id(uint dimindx);
-
-float const_func __attribute__((overloadable)) fmod(float, float);
-float const_func __attribute__((overloadable)) sqrt(float);
-float const_func __attribute__((overloadable)) rsqrt(float);
-float const_func __attribute__((overloadable)) fabs(float);
-float const_func __attribute__((overloadable)) floor(float);
-float const_func __attribute__((overloadable)) ceil(float);
-float const_func __attribute__((overloadable)) round(float);
-float const_func __attribute__((overloadable)) trunc(float);
-float const_func __attribute__((overloadable)) rint(float);
-float const_func __attribute__((overloadable)) sin(float);
-float const_func __attribute__((overloadable)) cos(float);
-float const_func __attribute__((overloadable)) tan(float);
-float const_func __attribute__((overloadable)) asin(float);
-float const_func __attribute__((overloadable)) acos(float);
-float const_func __attribute__((overloadable)) atan(float);
-float const_func __attribute__((overloadable)) atan2(float, float);
-float const_func __attribute__((overloadable)) fma(float, float, float);
-float const_func __attribute__((overloadable)) exp(float x);
-float const_func __attribute__((overloadable)) log(float x);
-float const_func __attribute__((overloadable)) pow(float x, float y);
-
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-double const_func __attribute__((overloadable)) fmod(double, double);
-double const_func __attribute__((overloadable)) sqrt(double);
-double const_func __attribute__((overloadable)) rsqrt(double);
-double const_func __attribute__((overloadable)) fabs(double);
-double const_func __attribute__((overloadable)) floor(double);
-double const_func __attribute__((overloadable)) ceil(double);
-double const_func __attribute__((overloadable)) round(double);
-double const_func __attribute__((overloadable)) trunc(double);
-double const_func __attribute__((overloadable)) rint(double);
-double const_func __attribute__((overloadable)) sin(double);
-double const_func __attribute__((overloadable)) cos(double);
-double const_func __attribute__((overloadable)) tan(double);
-double const_func __attribute__((overloadable)) asin(double);
-double const_func __attribute__((overloadable)) acos(double);
-double const_func __attribute__((overloadable)) atan(double);
-double const_func __attribute__((overloadable)) atan2(double, double);
-double const_func __attribute__((overloadable)) fma(double, double, double);
-double const_func __attribute__((overloadable)) exp(double x);
-double const_func __attribute__((overloadable)) log(double x);
-double const_func __attribute__((overloadable)) pow(double x, double y);
-#endif
-
-// can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
-// but apparently extern c printf is working fine with intels and amds implementation, so just use that ...
-extern "C" int printf(const char __constant* st, ...);
-
-// NOTE: I purposefully didn't enable these as aliases in clang,
-// so that they can be properly redirected on any other target (cuda/metal/host)
-// -> need to add simple macro aliases here
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-// abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
-#define kernel __kernel __attribute__((section("spir_kernel")))
-
-#elif defined(__METAL_CLANG__)
-
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-#define kernel extern "C" __kernel
-
-// misc types
-typedef char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long int uint64_t;
-
-typedef __SIZE_TYPE__ size_t;
-typedef __PTRDIFF_TYPE__ ssize_t;
-typedef __SIZE_TYPE__ uintptr_t;
-typedef __PTRDIFF_TYPE__ intptr_t;
-
-// straightforward wrapping, use the fast_* version when possible
-#define metal_func inline __attribute__((always_inline))
-metal_func float sqrt(float) asm("air.fast_sqrt.f32");
-metal_func float rsqrt(float) asm("air.fast_rsqrt.f32");
-metal_func float fabs(float) asm("air.fast_fabs.f32");
-metal_func float fmin(float, float) asm("air.fast_fmin.f32");
-metal_func float fmax(float, float) asm("air.fast_fmax.f32");
-metal_func float floor(float) asm("air.fast_floor.f32");
-metal_func float ceil(float) asm("air.fast_ceil.f32");
-metal_func float round(float) asm("air.fast_round.f32");
-metal_func float trunc(float) asm("air.fast_trunc.f32");
-metal_func float rint(float) asm("air.fast_rint.f32");
-metal_func float sin(float) asm("air.fast_sin.f32");
-metal_func float cos(float) asm("air.fast_cos.f32");
-metal_func float tan(float) asm("air.fast_tan.f32");
-metal_func float asin(float) asm("air.fast_asin.f32");
-metal_func float acos(float) asm("air.fast_acos.f32");
-metal_func float atan(float) asm("air.fast_atan.f32");
-metal_func float atan2(float, float) asm("air.fast_atan2.f32");
-metal_func float fma(float, float, float) asm("air.fma.f32");;
-metal_func float exp(float) asm("air.fast_exp.f32");
-metal_func float log(float) asm("air.fast_log.f32");
-metal_func float pow(float, float) asm("air.fast_pow.f32");
-metal_func float fmod(float, float) asm("air.fast_fmod.f32");
-
-metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
-metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
-metal_func int64_t mulhi(int64_t x, int64_t y) asm("air.mul_hi.i64");
-metal_func uint64_t mulhi(uint64_t x, uint64_t y) asm("air.mul_hi.u.i64");
-
-metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
-
-// would usually have to provide these as kernel arguments in metal, but this works as well
-// (thx for providing these apple, interesting cl_kernel_air64.h and cl_kernel.h you have there ;))
-// NOTE: these all do and have to return 32-bit values, otherwise bad things(tm) will happen
-uint32_t get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
-uint32_t get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
-uint32_t get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
-uint32_t get_work_dim() asm("air.get_work_dim.i32");
-uint32_t get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
-uint32_t get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
-uint32_t get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
-uint32_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
-uint32_t get_global_linear_id() asm("air.get_global_linear_id.i32");
-uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
-
-#endif
-
-#if defined(__CUDA_CLANG__) || defined(__SPIR_CLANG__) || defined(__METAL_CLANG__)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_METAL)
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
 #include <type_traits>
@@ -364,7 +96,7 @@ namespace floor_compute {
 	};
 }
 
-#if defined(__SPIR_CLANG__)
+#if defined(FLOOR_COMPUTE_SPIR)
 //! global memory buffer
 template <typename T> using buffer = global floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
@@ -381,7 +113,7 @@ using param = const param_wrapper;
 //! array<> for use with static constant memory
 template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
 
-#elif defined(__CUDA_CLANG__)
+#elif defined(FLOOR_COMPUTE_CUDA)
 //! global memory buffer
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
@@ -398,7 +130,7 @@ using param = const param_wrapper;
 //! array<> for use with static constant memory
 template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
 
-#elif defined(__METAL_CLANG__)
+#elif defined(FLOOR_COMPUTE_METAL)
 namespace floor_compute {
 	//! generic loader from global/local/constant memory to private memory
 	//! NOTE on efficiency: llvm is amazingly proficient at optimizing this to loads of any overlayed type(s),

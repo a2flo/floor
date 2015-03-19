@@ -22,6 +22,7 @@
 #include <unordered_set>
 
 #include <floor/core/logger.hpp>
+#include <floor/compute/llvm_compute.hpp>
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_device.hpp>
