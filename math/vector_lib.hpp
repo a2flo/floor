@@ -54,7 +54,7 @@ F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
 #elif defined(FLOOR_COMPUTE)
-// remove size_t, ssize_t and long double when compiling for spir/opencl/cuda
+// remove size_t, ssize_t and long double when compiling for compute platforms
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
