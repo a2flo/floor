@@ -28,7 +28,7 @@ program(program_) {
 	for(const auto& info : kernels_info) {
 		CUfunction kernel;
 		CU_CALL_CONT(cuModuleGetFunction(&kernel, program, info.name.c_str()),
-					 "failed to get function " + info.name);
+					 "failed to get function \"" + info.name + "\"");
 		kernels.emplace_back(make_shared<cuda_kernel>(kernel, info));
 		kernel_names.emplace_back(info.name);
 	}

@@ -22,6 +22,8 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
+// TODO: make these configurable (put into config!)
+
 #if !defined(FLOOR_COMPUTE_CLANG)
 #define FLOOR_COMPUTE_CLANG "compute_clang"
 #endif
@@ -76,6 +78,8 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 			const auto set_str = core::tokenize(line.substr(set_start + 1, set_end - set_start - 1), ',');
 			for(const auto& elem_ws : set_str) {
 				auto elem = core::trim(elem_ws); // trim whitespace, just in case
+				
+#if 1 // llvm 3.5
 				if(elem[0] == '!') {
 					// ref, just forward
 					per_elem_func(elem);
@@ -100,6 +104,27 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 						}
 					}
 				}
+#else // llvm 3.6/3.7+
+				const auto ws_pos = elem.find(' ');
+				if(ws_pos != string::npos) {
+					const auto elem_front = elem.substr(0, ws_pos);
+					const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
+					if(elem_front == "i32" || elem_front == "i64") {
+						// int, forward back
+						per_elem_func(elem_back);
+						continue;
+					}
+					// else: something else
+				}
+				else if(elem[0] == '!' && elem.find('\"') != string::npos) {
+					// string
+					const auto str_front = elem.find('\"'), str_back = elem.rfind('\"');
+					if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
+						per_elem_func(elem.substr(str_front + 1, str_back - str_front - 1));
+						continue;
+					}
+				}
+#endif
 				
 				// no idea what this is, just forward
 				per_elem_func(elem);
@@ -346,9 +371,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		// TODO: clean this up + do this properly!
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
 		ptx_cmd += " -o - - 2>&1";
-		ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
-		ptx_cmd += u8R"RAW( | sed -E "s/@\"\\\\01([a-zA-Z0-9_]+)\"/@\1/g")RAW";
-		ptx_cmd += u8R"RAW( | sed -E "s/\[\"(.*)\"\]/\[\1\]/g" | tr -d "\001")RAW";
+		ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + sm_version + " 2>&1");
+		//ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
+		//ptx_cmd += u8R"RAW( | sed -E "s/@\"\\\\01([a-zA-Z0-9_]+)\"/@\1/g")RAW";
+		//ptx_cmd += u8R"RAW( | sed -E "s/\[\"(.*)\"\]/\[\1\]/g" | tr -d "\001")RAW";
 		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
 		
 		string bc_output = "";

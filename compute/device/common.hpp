@@ -22,15 +22,6 @@
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
 
-// compute implementation specific headers
-#if defined(FLOOR_COMPUTE_CUDA)
-#include <floor/compute/device/cuda.hpp>
-#elif defined(FLOOR_COMPUTE_SPIR)
-#include <floor/compute/device/spir.hpp>
-#elif defined(FLOOR_COMPUTE_METAL)
-#include <floor/compute/device/metal.hpp>
-#endif
-
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_METAL)
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
@@ -63,6 +54,15 @@ constexpr data_type max(const data_type& lhs, const data_type& rhs) {
 
 _LIBCPP_END_NAMESPACE_STD
 using namespace std;
+
+// compute implementation specific headers
+#if defined(FLOOR_COMPUTE_CUDA)
+#include <floor/compute/device/cuda.hpp>
+#elif defined(FLOOR_COMPUTE_SPIR)
+#include <floor/compute/device/spir.hpp>
+#elif defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal.hpp>
+#endif
 
 // always include const_math (and const_select) functionality
 #include <floor/constexpr/const_math.hpp>

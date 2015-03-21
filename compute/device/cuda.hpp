@@ -47,11 +47,6 @@
 #define cuda_clock __builtin_ptx_read_clock()
 #define cuda_clock64 __builtin_ptx_read_clock64()
 
-// provided by libcudart:
-/*extern "C" {
-	extern __device__ __device_builtin__ int printf(const char*, ...);
-};*/
-
 // misc types
 typedef __signed char int8_t;
 typedef short int int16_t;
@@ -123,6 +118,95 @@ namespace std {
 	double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
 	double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
 	double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
+}
+
+// provided by cuda runtime
+extern "C" {
+	// NOTE: there is no va_list support in llvm/nvptx, not even via __builtin_*, so emulate it manually via void* -> printf
+	extern int vprintf(const char* format, void* vlist);
+};
+
+// floating point types are always cast to double
+template <typename T, enable_if_t<is_floating_point<decay_t<T>>::value>* = nullptr>
+constexpr size_t printf_arg_size() { return 8; }
+// integral types < 4 bytes are always cast to a 4 byte integral type
+template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) <= 4>* = nullptr>
+constexpr size_t printf_arg_size() { return 4; }
+// remaining 8 byte integral types
+template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) == 8>* = nullptr>
+constexpr size_t printf_arg_size() { return 8; }
+// pointers are always 8 bytes (64-bit support only), this includes any kind of char* or char[]
+template <typename T, enable_if_t<is_pointer<decay_t<T>>::value>* = nullptr>
+constexpr size_t printf_arg_size() { return 8; }
+
+// computes the total size of a printf argument pack (sum of sizeof of each type) + necessary alignment bytes/sizes
+template <typename... Args>
+constexpr size_t printf_args_total_size() {
+	constexpr const array<size_t, sizeof...(Args)> sizes {{
+		printf_arg_size<Args>()...
+	}};
+	size_t sum = 0;
+	for(size_t i = 0, count = sizeof...(Args); i < count; ++i) {
+		sum += sizes[i];
+		
+		// align if this type is 8 bytes large and the previous one was 4 bytes
+		if(i > 0 && sizes[i] == 8 && sizes[i - 1] == 4) sum += 4;
+	}
+	return sum;
+}
+
+// dummy function needed to expand #Args... function calls
+template <typename... Args> floor_inline_always constexpr static void printf_args_apply(Args&&...) {}
+
+// casts and copies the printf argument to the correct "va_list"/buffer position + handles necessary alignment
+template <typename T, enable_if_t<is_floating_point<decay_t<T>>::value>* = nullptr>
+floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
+	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
+	*(double*)*args_buf = (double)arg;
+	*args_buf += 8;
+	return 0;
+}
+template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) <= 4>* = nullptr>
+floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
+	typedef conditional_t<is_signed<decay_t<T>>::value, int32_t, uint32_t> int_storage_type;
+	*(int_storage_type*)*args_buf = (int_storage_type)arg;
+	*args_buf += 4;
+	return 0;
+}
+template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) == 8>* = nullptr>
+floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
+	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
+	*(decay_t<T>*)*args_buf = arg;
+	*args_buf += 8;
+	return 0;
+}
+template <typename T, enable_if_t<is_pointer<T>::value>* = nullptr>
+floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
+	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
+	*(decay_t<T>*)*args_buf = arg;
+	*args_buf += 8;
+	return 0;
+}
+floor_inline_always static int printf_arg_copy(const char* arg, uint8_t** args_buf) {
+	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
+	*(const char**)*args_buf = arg;
+	*args_buf += 8;
+	return 0;
+}
+
+// forwarder and handler of printf_arg_copy (we need to get and specialize for the actual storage type)
+template <typename T> floor_inline_always static int printf_handle_arg(T&& arg, uint8_t** args_buf) {
+	printf_arg_copy(forward<T>(arg), args_buf);
+	return 0;
+}
+
+// printf, this builds a local buffer, copies all arguments into it and calls vprintf, which is provided by the hardware
+template <typename... Args>
+static int printf(const char* format, Args&&... args) {
+	alignas(8) uint8_t args_buf[printf_args_total_size<Args...>()];
+	uint8_t* args_buf_ptr = &args_buf[0];
+	printf_args_apply(printf_handle_arg(args, &args_buf_ptr)...);
+	return vprintf(format, &args_buf);
 }
 
 // make this a little easier to use

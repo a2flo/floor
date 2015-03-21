@@ -54,7 +54,7 @@ metal_program::metal_program(const metal_device* device,
 		}
 		id <MTLFunction> kernel = [program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
 		if(!kernel) {
-			log_error("failed to get function %s", info.name);
+			log_error("failed to get function \"%s\"", info.name);
 			continue;
 		}
 		log_debug("created kernel func: %X", (__bridge void*)kernel);
