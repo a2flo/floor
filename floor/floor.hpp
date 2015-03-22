@@ -155,6 +155,8 @@ public:
 	static const string& get_cuda_llc();
 	static const string& get_cuda_libcxx_path();
 	static const string& get_cuda_clang_path();
+	static const string& get_cuda_force_driver_sm();
+	static const string& get_cuda_force_compile_sm();
 	
 	// metal
 	static const string& get_metal_compiler();
@@ -237,6 +239,8 @@ protected:
 		string cuda_llc = "compute_llc";
 		string cuda_libcxx = "/usr/local/include/floor/libcxx/include";
 		string cuda_clang = "/usr/local/include/floor/libcxx/clang";
+		string cuda_force_driver_sm = "";
+		string cuda_force_compile_sm = "";
 		
 		// metal
 		string metal_compiler = "compute_clang";

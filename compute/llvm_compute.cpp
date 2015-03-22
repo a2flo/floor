@@ -233,7 +233,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -DFLOOR_COMPUTE_SPIR" +
 			(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "") +
 			" -isystem " + floor::get_opencl_libcxx_path() +
-			" -isystem " + floor::get_opencl_clang_path() +
+			" -isystem " + floor::get_opencl_clang_path() + " " +
 			warning_flags +
 			additional_options +
 			generic_flags +
@@ -290,7 +290,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -DFLOOR_COMPUTE_NO_DOUBLE" \
 			" -DFLOOR_COMPUTE_METAL" +
 			" -isystem " + floor::get_metal_libcxx_path() +
-			" -isystem " + floor::get_metal_clang_path() +
+			" -isystem " + floor::get_metal_clang_path() + " " +
 			warning_flags +
 			additional_options +
 			generic_flags +
@@ -313,11 +313,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		return { air_code, kernels };
 	}
 	else if(target == TARGET::PTX) {
+		const auto& force_sm = floor::get_cuda_force_compile_sm();
 #if !defined(FLOOR_NO_CUDA)
 		const auto& sm = ((cuda_device*)device.get())->sm;
-		const string sm_version = to_string(sm.x * 10 + sm.y);
+		const string sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
 #else
-		const string sm_version = "20"; // just default to fermi/sm_20
+		const string sm_version = (force_sm.empty() ? "20" /* just default to fermi/sm_20 */ : force_sm);
 #endif
 		string ptx_cmd {
 			printable_code +
@@ -326,7 +327,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -Xclang -fcuda-is-device" \
 			" -DFLOOR_COMPUTE_CUDA" +
 			" -isystem " + floor::get_cuda_libcxx_path() +
-			" -isystem " + floor::get_cuda_clang_path() +
+			" -isystem " + floor::get_cuda_clang_path() + " " +
 			warning_flags +
 			additional_options +
 			generic_flags +

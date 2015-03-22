@@ -243,6 +243,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
 		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/local/include/floor/libcxx/include");
 		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/local/include/floor/libcxx/clang");
+		config.cuda_force_driver_sm = config_doc.get<string>("config.cuda.force_driver_sm", "");
+		config.cuda_force_compile_sm = config_doc.get<string>("config.cuda.force_compile_sm", "");
 		
 		config.metal_compiler = config_doc.get<string>("config.metal.compiler", "compute_clang");
 		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
@@ -1057,6 +1059,12 @@ const string& floor::get_cuda_libcxx_path() {
 }
 const string& floor::get_cuda_clang_path() {
 	return config.cuda_clang;
+}
+const string& floor::get_cuda_force_driver_sm() {
+	return config.cuda_force_driver_sm;
+}
+const string& floor::get_cuda_force_compile_sm() {
+	return config.cuda_force_compile_sm;
 }
 
 const string& floor::get_metal_compiler() {

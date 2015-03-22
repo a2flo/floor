@@ -315,11 +315,14 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	};
 	constexpr const auto option_count = sizeof(jit_options) / sizeof(CUjit_option);
 	
+	const auto& force_sm = floor::get_cuda_force_driver_sm();
+	const auto& sm = ((cuda_device*)devices[0].get())->sm;
+	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : (uint32_t)stoul(force_sm));
+	
 	const struct alignas(void*) {
-		unsigned int ui;
+		uint32_t ui;
 	} jit_option_values[] {
-		//{ cucl->get_cc_target() }, // TODO: !
-		{ CU_TARGET_COMPUTE_30 },
+		{ sm_version },
 		{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
 		{ .ui = floor::get_compute_debug() ? 1u : 0u },
 		{ 32u } // TODO: configurable!
