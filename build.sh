@@ -571,7 +571,6 @@ fi
 # TODO: sse/avx selection/config? default to sse4.1 for now (core2)
 # TODO: also add -mtune option
 REL_FLAGS="-Ofast -funroll-loops -msse4.1"
-REL_FLAGS="${REL_FLAGS} -mllvm -force-vector-width=4 -mllvm -force-vector-unroll=4"
 
 # additional optimizations (used in addition to REL_CXX_FLAGS)
 REL_OPT_FLAGS="-flto"
