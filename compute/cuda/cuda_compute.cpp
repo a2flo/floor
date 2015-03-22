@@ -320,8 +320,8 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	} jit_option_values[] {
 		//{ cucl->get_cc_target() }, // TODO: !
 		{ CU_TARGET_COMPUTE_30 },
-		{ .ui = (floor::get_cuda_profiling() || floor::get_cuda_debug()) ? 1u : 0u },
-		{ .ui = floor::get_cuda_debug() ? 1u : 0u },
+		{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
+		{ .ui = floor::get_compute_debug() ? 1u : 0u },
 		{ 32u } // TODO: configurable!
 	};
 	static_assert(option_count == (sizeof(jit_option_values) / sizeof(void*)), "mismatching option count");

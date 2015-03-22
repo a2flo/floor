@@ -22,24 +22,6 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
-// TODO: make these configurable (put into config!)
-
-#if !defined(FLOOR_COMPUTE_CLANG)
-#define FLOOR_COMPUTE_CLANG "compute_clang"
-#endif
-
-#if !defined(FLOOR_COMPUTE_LLC)
-#define FLOOR_COMPUTE_LLC "compute_llc"
-#endif
-
-#if !defined(FLOOR_COMPUTE_LIBCXX_PATH)
-#define FLOOR_COMPUTE_LIBCXX_PATH "/usr/local/include/floor/libcxx/include"
-#endif
-
-#if !defined(FLOOR_COMPUTE_CLANG_PATH)
-#define FLOOR_COMPUTE_CLANG_PATH "/usr/local/include/floor/libcxx/clang"
-#endif
-
 static bool process_air_llvm(const string& filename, string& code) {
 	code = "";
 	
@@ -195,17 +177,11 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
 																			  const string& code, const string additional_options,
 																			  const TARGET target) {
-	// note: llc flags:
-	//  -nvptx-sched4reg (NVPTX Specific: schedule for register pressure)
-	//  -nvptx-fma-level=2 (0: disabled, 1: enabled, 2: aggressive)
-	//  -enable-unsafe-fp-math
-	//  -mcpu=sm_35
-	// note: additional clang flags:
+	// TODO/NOTE: additional clang flags:
 	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
 	//  -menable-unsafe-fp-math
 	
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
-	//log_msg("printable: %s", printable_code);
 	
 	// for now, only enable these in debug mode (note that these cost a not insignificant amount of compilation time)
 #if defined(FLOOR_DEBUG)
@@ -230,32 +206,37 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 	const char* warning_flags { "" };
 #endif
 	
-	// TODO: combine compile commands as good as possible
+	// generic compilation flags used by all implementations
+	// TODO: use debug/profiling config options
+	const char* generic_flags {
+		" -DFLOOR_COMPUTE"
+		" -DFLOOR_NO_MATH_STR"
+		" -DPLATFORM_X64"
+		" -include floor/compute/device/common.hpp"
+		" -include floor/constexpr/const_math.cpp"
+		" -isystem /usr/local/include"
+		" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast "
+	};
+	
 	// NOTE on SPIR/AIR compilation: these have to be compiled to .bc and not .ll directly because of an
 	// address space handling bug (when compiling to .ll the address space is dropped for stores)
 	if(target == TARGET::SPIR) {
 		string spir_cmd {
 			printable_code +
-			FLOOR_COMPUTE_CLANG \
+			floor::get_opencl_compiler() +
 			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
 			" -Xclang -cl-kernel-arg-info" \
 			" -Xclang -cl-mad-enable" \
 			" -Xclang -cl-fast-relaxed-math" \
 			" -Xclang -cl-unsafe-math-optimizations" \
 			" -Xclang -cl-finite-math-only" \
-			" -DFLOOR_COMPUTE_SPIR" \
-			" -DFLOOR_COMPUTE" \
-			" -DFLOOR_NO_MATH_STR" \
-			" -DPLATFORM_X64" \
-			" -include floor/compute/device/common.hpp" \
-			" -include floor/constexpr/const_math.cpp" \
-			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
-			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
-			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
+			" -DFLOOR_COMPUTE_SPIR" +
 			(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "") +
+			" -isystem " + floor::get_opencl_libcxx_path() +
+			" -isystem " + floor::get_opencl_clang_path() +
 			warning_flags +
 			additional_options +
+			generic_flags +
 			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
 		};
 		
@@ -299,7 +280,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 	else if(target == TARGET::AIR) {
 		const string air_cmd {
 			printable_code +
-			FLOOR_COMPUTE_CLANG \
+			floor::get_metal_compiler() +
 			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
 			" -Xclang -air-kernel-info" \
 			" -Xclang -cl-mad-enable" \
@@ -307,28 +288,18 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" -Xclang -cl-unsafe-math-optimizations" \
 			" -Xclang -cl-finite-math-only" \
 			" -DFLOOR_COMPUTE_NO_DOUBLE" \
-			" -DFLOOR_COMPUTE_METAL" \
-			" -DFLOOR_COMPUTE" \
-			" -DFLOOR_NO_MATH_STR" \
-			" -DPLATFORM_X64" \
-			" -include floor/compute/device/common.hpp" \
-			" -include floor/constexpr/const_math.cpp" \
-			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
-			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
-			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
+			" -DFLOOR_COMPUTE_METAL" +
+			" -isystem " + floor::get_metal_libcxx_path() +
+			" -isystem " + floor::get_metal_clang_path() +
 			warning_flags +
 			additional_options +
+			generic_flags +
 			" -emit-llvm -S -o air_3_5.ll - 2>&1"
-			//" -emit-llvm -c -o air_3_5.bc - 2>&1"
 		};
 		
 		string air_ll_output = "";
 		core::system(air_cmd, air_ll_output);
 		log_msg("air ll: %s", air_ll_output);
-		
-		//
-		//core::system("llvm-dis -o=air_3_5.ll air_3_5.bc");
 		
 		//
 		string air_code = "";
@@ -350,32 +321,22 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 #endif
 		string ptx_cmd {
 			printable_code +
-			FLOOR_COMPUTE_CLANG \
+			floor::get_cuda_compiler() +
 			" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 			" -Xclang -fcuda-is-device" \
-			" -DFLOOR_COMPUTE_CUDA" \
-			" -DFLOOR_COMPUTE" \
-			" -DFLOOR_NO_MATH_STR" \
-			" -DPLATFORM_X64" \
-			" -include floor/compute/device/common.hpp" \
-			" -include floor/constexpr/const_math.cpp" \
-			" -isystem " FLOOR_COMPUTE_LIBCXX_PATH \
-			" -isystem " FLOOR_COMPUTE_CLANG_PATH \
-			" -isystem /usr/local/include" \
-			" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
+			" -DFLOOR_COMPUTE_CUDA" +
+			" -isystem " + floor::get_cuda_libcxx_path() +
+			" -isystem " + floor::get_cuda_clang_path() +
 			warning_flags +
 			additional_options +
+			generic_flags +
 			" -emit-llvm -S"
 		};
 		
 		// TODO: clean this up + do this properly!
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
 		ptx_cmd += " -o - - 2>&1";
-		ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -mcpu=sm_" + sm_version + " 2>&1");
-		//ptx_cmd += (" | " FLOOR_COMPUTE_LLC " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
-		//ptx_cmd += u8R"RAW( | sed -E "s/@\"\\\\01([a-zA-Z0-9_]+)\"/@\1/g")RAW";
-		//ptx_cmd += u8R"RAW( | sed -E "s/\[\"(.*)\"\]/\[\1\]/g" | tr -d "\001")RAW";
-		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
+		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
 		
 		string bc_output = "";
 		core::system(ptx_bc_cmd, bc_output);

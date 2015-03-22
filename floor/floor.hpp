@@ -133,20 +133,42 @@ public:
 	static unsigned int get_mdouble_click_time();
 	static unsigned int get_rdouble_click_time();
 	
+	// compute
+	static const string& get_compute_platform();
+	static bool get_compute_gl_sharing();
+	static bool get_compute_debug();
+	static bool get_compute_profiling();
+	static bool get_compute_log_binaries();
+	static bool get_compute_keep_temp();
+	static bool get_compute_keep_binaries();
+	static bool get_compute_use_cache();
+	
 	// opencl
 	static const string& get_opencl_platform();
-	static bool get_gl_sharing();
-	static bool get_log_binaries();
+	static const string& get_opencl_compiler();
+	static const string& get_opencl_llc();
+	static const string& get_opencl_libcxx_path();
+	static const string& get_opencl_clang_path();
 	
 	// cuda
-	static const string& get_cuda_base_dir();
-	static bool get_cuda_debug();
-	static bool get_cuda_profiling();
-	static bool get_cuda_keep_temp();
-	static bool get_cuda_keep_binaries();
-	static bool get_cuda_use_cache();
+	static const string& get_cuda_compiler();
+	static const string& get_cuda_llc();
+	static const string& get_cuda_libcxx_path();
+	static const string& get_cuda_clang_path();
 	
-	// compute (opencl/cuda/host)
+	// metal
+	static const string& get_metal_compiler();
+	static const string& get_metal_llc();
+	static const string& get_metal_libcxx_path();
+	static const string& get_metal_clang_path();
+	
+	// host
+	static const string& get_host_compiler();
+	static const string& get_host_llc();
+	static const string& get_host_libcxx_path();
+	static const string& get_host_clang_path();
+	
+	// compute (opencl/cuda/metal/host)
 	static shared_ptr<compute_base> get_compute_context();
 	
 protected:
@@ -192,20 +214,41 @@ protected:
 		size_t mdouble_click_time = 200;
 		size_t rdouble_click_time = 200;
 		
+		// compute
+		string platform = "opencl";
+		bool gl_sharing = false;
+		bool debug = false;
+		bool profiling = false;
+		bool log_binaries = false;
+		bool keep_temp = false;
+		bool keep_binaries = true;
+		bool use_cache = true;
+		
 		// opencl
 		string opencl_platform = "0";
-		bool clear_cache = false;
-		bool gl_sharing = false;
-		bool log_binaries = false;
-		unordered_set<string> cl_device_restriction;
+		unordered_set<string> opencl_restrictions;
+		string opencl_compiler = "compute_clang";
+		string opencl_llc = "compute_llc";
+		string opencl_libcxx = "/usr/local/include/floor/libcxx/include";
+		string opencl_clang = "/usr/local/include/floor/libcxx/clang";
 		
 		// cuda
-		string cuda_base_dir = "/usr/local/cuda";
-		bool cuda_debug = false;
-		bool cuda_profiling = false;
-		bool cuda_keep_temp = false;
-		bool cuda_keep_binaries = true;
-		bool cuda_use_cache = true;
+		string cuda_compiler = "compute_clang";
+		string cuda_llc = "compute_llc";
+		string cuda_libcxx = "/usr/local/include/floor/libcxx/include";
+		string cuda_clang = "/usr/local/include/floor/libcxx/clang";
+		
+		// metal
+		string metal_compiler = "compute_clang";
+		string metal_llc = "compute_llc";
+		string metal_libcxx = "/usr/local/include/floor/libcxx/include";
+		string metal_clang = "/usr/local/include/floor/libcxx/clang";
+		
+		// host
+		string host_compiler = "compute_clang";
+		string host_llc = "compute_llc";
+		string host_libcxx = "/usr/local/include/floor/libcxx/include";
+		string host_clang = "/usr/local/include/floor/libcxx/clang";
 
 		// sdl
 		SDL_Window* wnd = nullptr;

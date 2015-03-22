@@ -218,22 +218,41 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.mdouble_click_time = config_doc.get<size_t>("config.input.mdouble_click_time", 200);
 		config.rdouble_click_time = config_doc.get<size_t>("config.input.rdouble_click_time", 200);
 		
-		config.opencl_platform = config_doc.get<string>("config.opencl.platform", "0");
-		config.clear_cache = config_doc.get<bool>("config.opencl.clear_cache", false);
-		config.gl_sharing = config_doc.get<bool>("config.opencl.gl_sharing", true);
-		config.log_binaries = config_doc.get<bool>("config.opencl.log_binaries", false);
-		const auto cl_dev_tokens(core::tokenize(config_doc.get<string>("config.opencl.restrict", ""), ','));
-		for(const auto& dev_token : cl_dev_tokens) {
-			if(dev_token == "") continue;
-			config.cl_device_restriction.emplace(dev_token);
-		}
+		config.platform = config_doc.get<string>("config.compute.platform", "opencl");
+		config.gl_sharing = config_doc.get<bool>("config.compute.gl_sharing", false);
+		config.debug = config_doc.get<bool>("config.compute.debug", false);
+		config.profiling = config_doc.get<bool>("config.compute.profiling", false);
+		config.log_binaries = config_doc.get<bool>("config.compute.log_binaries", false);
+		config.keep_temp = config_doc.get<bool>("config.compute.keep_temp", false);
+		config.keep_binaries = config_doc.get<bool>("config.compute.keep_binaries", true);
+		config.use_cache = config_doc.get<bool>("config.compute.use_cache", true);
 		
-		config.cuda_base_dir = config_doc.get<string>("config.cuda.base_dir", "/usr/local/cuda");
-		config.cuda_debug = config_doc.get<bool>("config.cuda.debug", false);
-		config.cuda_profiling = config_doc.get<bool>("config.cuda.profiling", false);
-		config.cuda_keep_temp = config_doc.get<bool>("config.cuda.keep_temp", false);
-		config.cuda_keep_binaries = config_doc.get<bool>("config.cuda.keep_binaries", true);
-		config.cuda_use_cache = config_doc.get<bool>("config.cuda.use_cache", true);
+		config.opencl_platform = config_doc.get<string>("config.opencl.platform", "0");
+		const auto cl_dev_tokens = core::tokenize(config_doc.get<string>("config.opencl.restrict", ""), ',');
+		for(const auto& dev_token : cl_dev_tokens) {
+			const auto dev_token_nows = core::trim(dev_token);
+			if(dev_token_nows == "") continue;
+			config.opencl_restrictions.emplace(dev_token_nows);
+		}
+		config.opencl_compiler = config_doc.get<string>("config.opencl.compiler", "compute_clang");
+		config.opencl_llc = config_doc.get<string>("config.opencl.llc", "compute_llc");
+		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/local/include/floor/libcxx/include");
+		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/local/include/floor/libcxx/clang");
+		
+		config.cuda_compiler = config_doc.get<string>("config.cuda.compiler", "compute_clang");
+		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
+		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/local/include/floor/libcxx/include");
+		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/local/include/floor/libcxx/clang");
+		
+		config.metal_compiler = config_doc.get<string>("config.metal.compiler", "compute_clang");
+		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
+		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/local/include/floor/libcxx/include");
+		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/local/include/floor/libcxx/clang");
+		
+		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
+		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
+		config.host_libcxx = config_doc.get<string>("config.host.libcxx", "/usr/local/include/floor/libcxx/include");
+		config.host_clang = config_doc.get<string>("config.host.clang", "/usr/local/include/floor/libcxx/clang");
 	}
 	
 	// init logger and print out floor info
@@ -497,7 +516,7 @@ void floor::init_internal(const bool use_gl32_core
 		
 		// create and init compute context
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL)
-		if(config.opencl_platform == "cuda") {
+		if(config.platform == "cuda") {
 #if !defined(FLOOR_NO_CUDA)
 			log_debug("initializing CUDA ...");
 			compute_ctx = make_shared<cuda_compute>();
@@ -505,7 +524,7 @@ void floor::init_internal(const bool use_gl32_core
 			log_error("CUDA support is not enabled!");
 #endif
 		}
-		else if(config.opencl_platform == "metal") {
+		else if(config.platform == "metal") {
 #if !defined(FLOOR_NO_METAL)
 			log_debug("initializing Metal ...");
 			compute_ctx = make_shared<metal_compute>();
@@ -516,7 +535,7 @@ void floor::init_internal(const bool use_gl32_core
 		
 		if(compute_ctx == nullptr) {
 #if !defined(FLOOR_NO_OPENCL)
-			if(config.opencl_platform == "cuda" || config.opencl_platform == "metal") {
+			if(config.platform == "cuda" || config.platform == "metal") {
 				log_debug("initializing OpenCL (fallback) ...");
 			}
 			else log_debug("initializing OpenCL ...");
@@ -528,7 +547,7 @@ void floor::init_internal(const bool use_gl32_core
 		
 		if(compute_ctx != nullptr) {
 			compute_ctx->init(false, string2uint(config.opencl_platform),
-							  config.gl_sharing, config.cl_device_restriction);
+							  config.gl_sharing, config.opencl_restrictions);
 		}
 		else log_error("failed to create any compute context!");
 #endif
@@ -946,42 +965,6 @@ float floor::get_scale_factor() {
 #endif
 }
 
-const string& floor::get_opencl_platform() {
-	return config.opencl_platform;
-}
-
-bool floor::get_gl_sharing() {
-	return config.gl_sharing;
-}
-
-bool floor::get_log_binaries() {
-	return config.log_binaries;
-}
-
-const string& floor::get_cuda_base_dir() {
-	return config.cuda_base_dir;
-}
-
-bool floor::get_cuda_debug() {
-	return config.cuda_debug;
-}
-
-bool floor::get_cuda_profiling() {
-	return config.cuda_profiling;
-}
-
-bool floor::get_cuda_keep_temp() {
-	return config.cuda_keep_temp;
-}
-
-bool floor::get_cuda_keep_binaries() {
-	return config.cuda_keep_binaries;
-}
-
-bool floor::get_cuda_use_cache() {
-	return config.cuda_use_cache;
-}
-
 string floor::get_absolute_path() {
 	return abs_bin_path;
 }
@@ -1020,6 +1003,86 @@ const float& floor::get_sound_volume() {
 
 const string& floor::get_audio_device_name() {
 	return config.audio_device_name;
+}
+
+const string& floor::get_compute_platform() {
+	return config.platform;
+}
+bool floor::get_compute_gl_sharing() {
+	return config.gl_sharing;
+}
+bool floor::get_compute_debug() {
+	return config.debug;
+}
+bool floor::get_compute_profiling() {
+	return config.profiling;
+}
+bool floor::get_compute_log_binaries() {
+	return config.log_binaries;
+}
+bool floor::get_compute_keep_temp() {
+	return config.keep_temp;
+}
+bool floor::get_compute_keep_binaries() {
+	return config.keep_binaries;
+}
+bool floor::get_compute_use_cache() {
+	return config.use_cache;
+}
+
+const string& floor::get_opencl_platform() {
+	return config.opencl_platform;
+}
+const string& floor::get_opencl_compiler() {
+	return config.opencl_compiler;
+}
+const string& floor::get_opencl_llc() {
+	return config.opencl_llc;
+}
+const string& floor::get_opencl_libcxx_path() {
+	return config.opencl_libcxx;
+}
+const string& floor::get_opencl_clang_path() {
+	return config.opencl_clang;
+}
+
+const string& floor::get_cuda_compiler() {
+	return config.cuda_compiler;
+}
+const string& floor::get_cuda_llc() {
+	return config.cuda_llc;
+}
+const string& floor::get_cuda_libcxx_path() {
+	return config.cuda_libcxx;
+}
+const string& floor::get_cuda_clang_path() {
+	return config.cuda_clang;
+}
+
+const string& floor::get_metal_compiler() {
+	return config.metal_compiler;
+}
+const string& floor::get_metal_llc() {
+	return config.metal_llc;
+}
+const string& floor::get_metal_libcxx_path() {
+	return config.metal_libcxx;
+}
+const string& floor::get_metal_clang_path() {
+	return config.metal_clang;
+}
+
+const string& floor::get_host_compiler() {
+	return config.host_compiler;
+}
+const string& floor::get_host_llc() {
+	return config.host_llc;
+}
+const string& floor::get_host_libcxx_path() {
+	return config.host_libcxx;
+}
+const string& floor::get_host_clang_path() {
+	return config.host_clang;
 }
 
 shared_ptr<compute_base> floor::get_compute_context() {
