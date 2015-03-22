@@ -50,6 +50,14 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		log_error("there is no device that supports CUDA!");
 		return;
 	}
+	
+	// sm force debug info
+	if(!floor::get_cuda_force_driver_sm().empty()) {
+		log_debug("forced driver sm: sm_%s", floor::get_cuda_force_driver_sm());
+	}
+	if(!floor::get_cuda_force_compile_sm().empty()) {
+		log_debug("forced compile sm: sm_%s", floor::get_cuda_force_compile_sm());
+	}
 
 	// go through all available devices and check if we can use them
 	devices.clear();
