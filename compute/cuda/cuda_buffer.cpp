@@ -24,11 +24,6 @@
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
-// TODO: remove the || 1 again
-#if defined(FLOOR_DEBUG) || 1
-#define FLOOR_DEBUG_COMPUTE_BUFFER 1
-#endif
-
 // TODO: proper error (return) value handling everywhere
 
 cuda_buffer::cuda_buffer(const cuda_device* device,
@@ -125,21 +120,7 @@ void cuda_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t
 	if(buffer == 0) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
-	
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-	if(read_size == 0) {
-		log_warn("trying to read 0 bytes!");
-	}
-	if(offset >= size) {
-		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
-		return;
-	}
-	if(offset + read_size > size) {
-		log_error("invalid offset/read size (offset + read size > buffer size): offset: %X, read size: %X, size: %X",
-				  offset, read_size, size);
-		return;
-	}
-#endif
+	if(!read_check(size, read_size, offset)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cuMemcpyDtoHAsync(dst, buffer + offset, read_size, (CUstream)cqueue->get_queue_ptr()),
@@ -154,21 +135,7 @@ void cuda_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const
 	if(buffer == 0) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-	if(write_size == 0) {
-		log_warn("trying to write 0 bytes!");
-	}
-	if(offset >= size) {
-		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
-		return;
-	}
-	if(offset + write_size > size) {
-		log_error("invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
-				  offset, write_size, size);
-		return;
-	}
-#endif
+	if(!write_check(size, write_size, offset)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cuMemcpyHtoDAsync(buffer + offset, src, write_size, (CUstream)cqueue->get_queue_ptr()),
@@ -183,30 +150,7 @@ void cuda_buffer::copy(shared_ptr<compute_queue> cqueue,
 	// use min(src size, dst size) as the default size if no size is specified
 	const size_t src_size = src->get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
-	
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-	if(copy_size == 0) {
-		log_warn("trying to copy 0 bytes!");
-	}
-	if(src_offset >= src_size) {
-		log_error("invalid src offset (>= size): offset: %X, size: %X", src_offset, src_size);
-		return;
-	}
-	if(dst_offset >= size) {
-		log_error("invalid dst offset (>= size): offset: %X, size: %X", dst_offset, size);
-		return;
-	}
-	if(src_offset + copy_size > src_size) {
-		log_error("invalid src offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
-				  src_offset, copy_size, src_size);
-		return;
-	}
-	if(dst_offset + copy_size > size) {
-		log_error("invalid dst offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
-				  dst_offset, copy_size, size);
-		return;
-	}
-#endif
+	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	// TODO: blocking flag
 	CU_CALL_RET(cuMemcpyDtoDAsync(buffer + dst_offset,
@@ -221,30 +165,7 @@ void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
 	if(buffer == 0) return;
 	
 	const size_t fill_size = (size_ == 0 ? size : size_);
-	
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-	if(fill_size == 0) {
-		log_error("trying to fill 0 bytes!");
-		return;
-	}
-	if((offset % pattern_size) != 0) {
-		log_error("fill offset must be a multiple of pattern size: offset: %X, pattern size: %X", offset, pattern_size);
-		return;
-	}
-	if((fill_size % pattern_size) != 0) {
-		log_error("fill size must be a multiple of pattern size: fille size: %X, pattern size: %X", fill_size, pattern_size);
-		return;
-	}
-	if(offset >= size) {
-		log_error("invalid fill offset (>= size): offset: %X, size: %X", offset, size);
-		return;
-	}
-	if(offset + fill_size > size) {
-		log_error("invalid fill offset/fill size (offset + size > buffer size): offset: %X, fill size: %X, size: %X",
-				  offset, fill_size, size);
-		return;
-	}
-#endif
+	if(!fill_check(size, fill_size, pattern_size, offset)) return;
 	
 	// TODO: blocking flag
 	const size_t pattern_count = fill_size / pattern_size;
@@ -376,17 +297,11 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
 	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	bool write_only = false;
 	if((flags_ & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
 		write_only = true;
-		
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-		if((flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
-			log_error("WRITE_INVALIDATE map flag is mutually exclusive with the READ and WRITE flags!");
-			return nullptr;
-		}
-#endif
 	}
 	else {
 		switch(flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) {
@@ -405,8 +320,6 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 				return nullptr;
 		}
 	}
-	
-	// TODO: debug checks! check size/offset + flag combinations (host flags)
 	
 	// alloc host memory (NOTE: not going to use pinned memory here, b/c it has restrictions)
 	alignas(128) unsigned char* host_buffer = new unsigned char[map_size] alignas(128);

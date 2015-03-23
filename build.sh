@@ -479,14 +479,14 @@ else
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework OpenALSoft"
 	fi
-	if [ ${BUILD_CONF_METAL} -gt 0 ]; then
-		LDFLAGS="${LDFLAGS} -framework Metal"
-	fi
 	
 	# system frameworks
 	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL"
 	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework OpenCL"
+	fi
+	if [ ${BUILD_CONF_METAL} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -framework Metal"
 	fi
 fi
 

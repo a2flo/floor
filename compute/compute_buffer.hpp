@@ -240,6 +240,172 @@ protected:
 	
 	safe_mutex lock;
 	
+	// buffer size/offset checking (used for debugging/development purposes)
+	// NOTE: this can also be enabled by simply defining FLOOR_DEBUG_COMPUTE_BUFFER elsewhere
+#if defined(FLOOR_DEBUG) || defined(FLOOR_DEBUG_COMPUTE_BUFFER)
+	floor_inline_always static bool read_check(const size_t& buffer_size,
+											   const size_t& read_size,
+											   const size_t& offset) {
+		if(read_size == 0) {
+			log_warn("read: trying to read 0 bytes!");
+		}
+		if(offset >= buffer_size) {
+			log_error("read: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			return false;
+		}
+		if(offset + read_size > buffer_size) {
+			log_error("read: invalid offset/read size (offset + read size > buffer size): offset: %X, read size: %X, size: %X",
+					  offset, read_size, buffer_size);
+			return false;
+		}
+		return true;
+	}
+	
+	floor_inline_always static bool write_check(const size_t& buffer_size,
+												const size_t& write_size,
+												const size_t& offset) {
+		if(write_size == 0) {
+			log_warn("write: trying to write 0 bytes!");
+		}
+		if(offset >= buffer_size) {
+			log_error("write: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			return false;
+		}
+		if(offset + write_size > buffer_size) {
+			log_error("write: invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
+					  offset, write_size, buffer_size);
+			return false;
+		}
+		return true;
+	}
+	
+	floor_inline_always static bool copy_check(const size_t& buffer_size,
+											   const size_t& src_size,
+											   const size_t& copy_size,
+											   const size_t& dst_offset,
+											   const size_t& src_offset) {
+		if(copy_size == 0) {
+			log_warn("copy: trying to copy 0 bytes!");
+		}
+		if(src_offset >= src_size) {
+			log_error("copy: invalid src offset (>= size): offset: %X, size: %X", src_offset, src_size);
+			return false;
+		}
+		if(dst_offset >= buffer_size) {
+			log_error("copy: invalid dst offset (>= size): offset: %X, size: %X", dst_offset, buffer_size);
+			return false;
+		}
+		if(src_offset + copy_size > src_size) {
+			log_error("copy: invalid src offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+					  src_offset, copy_size, src_size);
+			return false;
+		}
+		if(dst_offset + copy_size > buffer_size) {
+			log_error("copy: invalid dst offset/copy size (offset + copy size > buffer size): offset: %X, copy size: %X, size: %X",
+					  dst_offset, copy_size, buffer_size);
+			return false;
+		}
+		return true;
+	}
+	
+	floor_inline_always static bool fill_check(const size_t& buffer_size,
+											   const size_t& fill_size,
+											   const size_t& pattern_size,
+											   const size_t& offset) {
+		if(fill_size == 0) {
+			log_error("fill: trying to fill 0 bytes!");
+			return false;
+		}
+		if((offset % pattern_size) != 0) {
+			log_error("fill: fill offset must be a multiple of pattern size: offset: %X, pattern size: %X", offset, pattern_size);
+			return false;
+		}
+		if((fill_size % pattern_size) != 0) {
+			log_error("fill: fill size must be a multiple of pattern size: fille size: %X, pattern size: %X", fill_size, pattern_size);
+			return false;
+		}
+		if(offset >= buffer_size) {
+			log_error("fill: invalid fill offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			return false;
+		}
+		if(offset + fill_size > buffer_size) {
+			log_error("fill: invalid fill offset/fill size (offset + size > buffer size): offset: %X, fill size: %X, size: %X",
+					  offset, fill_size, buffer_size);
+			return false;
+		}
+		return true;
+	}
+	
+	floor_inline_always static bool map_check(const size_t& buffer_size,
+											  const size_t& map_size,
+											  const COMPUTE_BUFFER_FLAG& buffer_flags,
+											  const COMPUTE_BUFFER_MAP_FLAG& map_flags,
+											  const size_t& offset) {
+		if((map_flags & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE &&
+		   (map_flags & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+			log_error("map: WRITE_INVALIDATE map flag is mutually exclusive with the READ and WRITE flags!");
+			return false;
+		}
+		if((map_flags & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) == COMPUTE_BUFFER_MAP_FLAG::NONE) {
+			log_error("map: neither read nor write flags set for buffer mapping!");
+			return false;
+		}
+		if(map_size == 0) {
+			log_error("map: trying to map 0 bytes!");
+			return false;
+		}
+		if(offset >= buffer_size) {
+			log_error("map: invalid offset (>= size): offset: %X, size: %X", offset, buffer_size);
+			return false;
+		}
+		if(offset + map_size > buffer_size) {
+			log_error("map: invalid offset/map size (offset + map size > buffer size): offset: %X, map size: %X, size: %X",
+					  offset, map_size, buffer_size);
+			return false;
+		}
+		// should buffer be accessible at all?
+		if((buffer_flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) == COMPUTE_BUFFER_FLAG::NONE) {
+			log_error("map: buffer has been created with no host access flags, buffer can not be mapped to host memory!");
+			return false;
+		}
+		// read/write mismatch check (only if either read or write set)
+		if((buffer_flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) != COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
+			if((buffer_flags & COMPUTE_BUFFER_FLAG::HOST_READ) != COMPUTE_BUFFER_FLAG::NONE &&
+			   ((map_flags & COMPUTE_BUFFER_MAP_FLAG::WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE ||
+				(map_flags & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE)) {
+				   log_error("map: buffer has been created with the HOST_READ flag, but map flags specify buffer must be writable!");
+				   return false;
+			   }
+			if((buffer_flags & COMPUTE_BUFFER_FLAG::HOST_WRITE) != COMPUTE_BUFFER_FLAG::NONE &&
+			   (map_flags & COMPUTE_BUFFER_MAP_FLAG::READ) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+				log_error("map: buffer has been created with the HOST_WRITE flag, but map flags specify buffer must be readable!");
+				return false;
+			}
+		}
+		return true;
+	}
+#else
+	floor_inline_always static constexpr bool read_check(const size_t&, const size_t&, const size_t&) {
+		return true;
+	}
+	floor_inline_always static constexpr bool write_check(const size_t&, const size_t&, const size_t&) {
+		return true;
+	}
+	floor_inline_always static constexpr bool copy_check(const size_t&, const size_t&, const size_t&,
+														 const size_t&, const size_t&) {
+		return true;
+	}
+	floor_inline_always static constexpr bool fill_check(const size_t&, const size_t&, const size_t&,
+														 const size_t&) {
+		return true;
+	}
+	floor_inline_always static bool map_check(const size_t&, const size_t&,
+											  const COMPUTE_BUFFER_FLAG&, const COMPUTE_BUFFER_MAP_FLAG&,
+											  const size_t&) {
+		return true;
+	}
+#endif
+	
 };
 
 #if defined(__clang__)

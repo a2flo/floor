@@ -24,11 +24,6 @@
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 
-// TODO: remove the || 1 again
-#if defined(FLOOR_DEBUG) || 1
-#define FLOOR_DEBUG_COMPUTE_BUFFER 1
-#endif
-
 // TODO: proper error (return) value handling everywhere
 
 metal_buffer::metal_buffer(const metal_device* device,
@@ -106,6 +101,9 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, co
 void metal_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
+	const size_t read_size = (size_ == 0 ? size : size_);
+	if(!read_check(size, read_size, offset)) return;
+	
 	// TODO: !
 	GUARD(lock);
 	memcpy(dst, (uint8_t*)[buffer contents] + offset, size_);
@@ -119,21 +117,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, cons
 	if(buffer == nullptr) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
-	
-#if defined(FLOOR_DEBUG_COMPUTE_BUFFER)
-	if(write_size == 0) {
-		log_warn("trying to write 0 bytes!");
-	}
-	if(offset >= size) {
-		log_error("invalid offset (>= size): offset: %X, size: %X", offset, size);
-		return;
-	}
-	if(offset + write_size > size) {
-		log_error("invalid offset/write size (offset + write size > buffer size): offset: %X, write size: %X, size: %X",
-				  offset, write_size, size);
-		return;
-	}
-#endif
+	if(!write_check(size, write_size, offset)) return;
 	
 	GUARD(lock);
 	memcpy((uint8_t*)[buffer contents] + offset, src, write_size);
@@ -143,6 +127,10 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
 						shared_ptr<compute_buffer> src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
+	
+	const size_t src_size = src->get_size();
+	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
+	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
 	// TODO: !
 	GUARD(lock);
@@ -156,9 +144,11 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue,
 						const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
+	const size_t fill_size = (size_ == 0 ? size : size_);
+	if(!fill_check(size, fill_size, pattern_size, offset)) return;
+	
 	// TODO: !
 	GUARD(lock);
-	const size_t fill_size = (size_ == 0 ? size : size_);
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
@@ -199,9 +189,13 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_si
 }
 
 void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue floor_unused,
-													  const COMPUTE_BUFFER_MAP_FLAG flags_ floor_unused,
-													  const size_t size_ floor_unused, const size_t offset) {
-	//if(buffer == nullptr) return nullptr;
+													  const COMPUTE_BUFFER_MAP_FLAG flags_,
+													  const size_t size_, const size_t offset) {
+	if(buffer == nullptr) return nullptr;
+	
+	const size_t map_size = (size_ == 0 ? size : size_);
+	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	_lock();
 	return (void*)(((uint8_t*)[buffer contents]) + offset);
