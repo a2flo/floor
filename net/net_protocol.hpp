@@ -19,6 +19,10 @@
 #ifndef __FLOOR_NET_PROTOCOL_HPP__
 #define __FLOOR_NET_PROTOCOL_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/bind.hpp>
@@ -42,5 +46,7 @@ public:
 	bool send(const char* data, const size_t len);
 	
 };
+
+#endif
 
 #endif

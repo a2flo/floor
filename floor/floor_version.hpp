@@ -113,7 +113,7 @@
 #error "You need to install SDL 2.0.2+ to compile floor"
 #endif
 
-#if (OPENSSL_VERSION_NUMBER < 0x1000105fL)
+#if !defined(FLOOR_NO_NET) && (OPENSSL_VERSION_NUMBER < 0x1000105fL)
 #error "You need to install OpenSSL 1.0.1e+ to compile floor"
 #endif
 

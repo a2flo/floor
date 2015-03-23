@@ -19,6 +19,10 @@
 #ifndef __HTTP_SCHEDULER_HPP__
 #define __HTTP_SCHEDULER_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <floor/net/net_protocol.hpp>
 #include <floor/core/cpp_headers.hpp>
 #include <floor/threading/thread_base.hpp>
@@ -59,5 +63,7 @@ protected:
 	http_scheduler& operator=(const http_scheduler& hs) = delete;
 
 };
+
+#endif
 
 #endif

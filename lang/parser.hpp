@@ -19,6 +19,10 @@
 #ifndef __FLOOR_PARSER_HPP__
 #define __FLOOR_PARSER_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_LANG)
+
 #include <string>
 #include <floor/core/util.hpp>
 #include <floor/lang/source_types.hpp>
@@ -108,5 +112,7 @@ public:
 	unique_ptr<node_base> parse(parser_context& ctx) const;
 	
 };
+
+#endif
 
 #endif

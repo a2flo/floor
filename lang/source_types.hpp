@@ -19,6 +19,10 @@
 #ifndef __FLOOR_SOURCE_TYPES_HPP__
 #define __FLOOR_SOURCE_TYPES_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_LANG)
+
 #include <string>
 #include <utility>
 #include <vector>
@@ -205,5 +209,7 @@ typedef token_container::const_iterator token_iterator;
 
 //! inclusive token range in the source code: [first, second]
 typedef pair<token_iterator, token_iterator> token_range;
+
+#endif
 
 #endif

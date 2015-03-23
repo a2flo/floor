@@ -9,6 +9,10 @@
 
 //----------------------------------------------------------------------------//
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <boost/config/warning_disable.hpp>
 
 // define BOOST_SYSTEM_SOURCE so that <boost/system/config.hpp> knows
@@ -441,3 +445,5 @@ namespace
 
   } // namespace system
 } // namespace boost
+
+#endif

@@ -17,6 +17,8 @@
  */
 
 #include <floor/lang/source_types.hpp>
+
+#if !defined(FLOOR_NO_LANG)
 #include <floor/core/platform.hpp>
 
 bool source_range::operator==(const char* str) const {
@@ -65,3 +67,5 @@ string source_range::to_string() const {
 size_t source_range::size() const {
 	return (size_t)distance(begin, end);
 }
+
+#endif

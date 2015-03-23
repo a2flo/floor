@@ -60,6 +60,8 @@ BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
 BUILD_CONF_METAL=1
+BUILD_CONF_NET=1
+BUILD_CONF_LANG=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
@@ -95,6 +97,8 @@ for arg in "$@"; do
 			echo "	no-cuda		disables cuda support"
 			echo "	no-metal	disables metal support (default for non-iOS targets)"
 			echo "	no-openal	disables openal support"
+			echo "	no-net		disables network support"
+			echo "	no-lang		disables lexer/parser/ast support"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
 			echo "	pocl		use the pocl library instead of the systems OpenCL library"
 			#echo "	libstdc++	use the libstdc++ library instead of libc++ (unsupported)"
@@ -144,6 +148,12 @@ for arg in "$@"; do
 			;;
 		"no-openal")
 			BUILD_CONF_OPENAL=0
+			;;
+		"no-net")
+			BUILD_CONF_NET=0
+			;;
+		"no-lang")
+			BUILD_CONF_LANG=0
 			;;
 		"cl-profiling")
 			BUILD_CONF_NO_CL_PROFILING=0
@@ -309,8 +319,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
-	PACKAGES="sdl2 SDL2_image libcrypto libssl libxml-2.0"
+	PACKAGES="sdl2 SDL2_image libxml-2.0"
 	PACKAGES_OPT=""
+	if [ ${BUILD_CONF_NET} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} libcrypto libssl"
+	fi
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} openal"
 	fi
@@ -414,15 +427,20 @@ else
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
 	INCLUDES="${INCLUDES} -isystem /opt/X11/include"
 	INCLUDES="${INCLUDES} -isystem /usr/include/libxml2"
-	INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
+	if [ ${BUILD_CONF_NET} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
+	fi
 	INCLUDES="${INCLUDES} -iframework /Library/Frameworks"
 	
 	# build a shared/dynamic library
 	LDFLAGS="${LDFLAGS} -dynamiclib"
 	
 	# additional lib paths
-	LDFLAGS="${LDFLAGS} -L/opt/X11/lib -L/usr/local/opt/openssl/lib"
-	
+	LDFLAGS="${LDFLAGS} -L/opt/X11/lib"
+	if [ ${BUILD_CONF_NET} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openssl/lib"
+	fi
+
 	# rpath voodoo
 	LDFLAGS="${LDFLAGS} -install_name @rpath/${TARGET_BIN_NAME}"
 	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/lib"
@@ -436,8 +454,10 @@ else
 	
 	# frameworks and libs
 	LDFLAGS="${LDFLAGS} -framework SDL2 -framework SDL2_image"
-	LDFLAGS="${LDFLAGS} -lcrypto -lssl"
 	LDFLAGS="${LDFLAGS} -lxml2"
+	if [ ${BUILD_CONF_NET} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -lcrypto -lssl"
+	fi
 	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -weak_framework CUDA"
 	fi
@@ -491,8 +511,16 @@ set_conf_val() {
 }
 set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
-set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
+# NOTE: metal is disabled on non-ios platforms anyways and this would overwrite the ios flag that is already ifdef'ed
+if [ $BUILD_OS != "ios" ]; then
+	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" 1
+else
+	# -> only actually set the config option if we're building on ios
+	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
+fi
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
+set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
+set_conf_val "###FLOOR_LANG###" "FLOOR_NO_LANG" ${BUILD_CONF_LANG}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
 

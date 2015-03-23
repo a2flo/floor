@@ -17,6 +17,8 @@
  */
 
 #include <floor/lang/lang_context.hpp>
+
+#if !defined(FLOOR_NO_LANG)
 #include <floor/lang/lexer.hpp>
 #include <floor/lang/parser.hpp>
 #include <fstream>
@@ -169,3 +171,5 @@ const translation_unit* lang_context::get_translation_unit(const string& file_na
 	}
 	return iter->second.get();
 }
+
+#endif

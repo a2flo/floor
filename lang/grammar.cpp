@@ -18,6 +18,8 @@
 
 #include <floor/lang/grammar.hpp>
 
+#if !defined(FLOOR_NO_LANG)
+
 void move_matches(parser_context::match_list& dst_matches,
 				  parser_context::match_list& src_matches) {
 	for(auto& match : src_matches.list) {
@@ -26,3 +28,5 @@ void move_matches(parser_context::match_list& dst_matches,
 }
 
 parser_node_wrapper_base::~parser_node_wrapper_base() noexcept {}
+
+#endif

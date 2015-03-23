@@ -19,6 +19,10 @@
 #ifndef __FLOOR_AST_BASE_HPP__
 #define __FLOOR_AST_BASE_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_LANG)
+
 #include <array>
 #include <vector>
 #include <memory>
@@ -520,5 +524,7 @@ public:
 	void print(ast_printer& printer) const override;
 	void dump(const size_t level) const override;
 };
+
+#endif
 
 #endif

@@ -12,6 +12,10 @@
 #ifndef BOOST_SYSTEM_LOCAL_FREE_ON_EXIT_HPP
 #define BOOST_SYSTEM_LOCAL_FREE_ON_EXIT_HPP
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 namespace boost {
 namespace system {
 namespace detail {
@@ -36,5 +40,7 @@ private:
 } // namespace detail
 } // namespace system
 } // namespace boost
+
+#endif
 
 #endif  // BOOST_SYSTEM_LOCAL_FREE_ON_EXIT_HPP

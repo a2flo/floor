@@ -19,6 +19,10 @@
 #ifndef __FLOOR_IRC_NET_HPP__
 #define __FLOOR_IRC_NET_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <floor/core/platform.hpp>
 #include <floor/net/net.hpp>
 #include <floor/net/net_protocol.hpp>
@@ -154,5 +158,7 @@ protected:
 
 // floor_irc_net
 typedef irc_net<TCP_protocol, TCP_ssl_protocol> floor_irc_net;
+
+#endif
 
 #endif

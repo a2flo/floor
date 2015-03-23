@@ -17,6 +17,8 @@
  */
 
 #include <floor/lang/lexer.hpp>
+
+#if !defined(FLOOR_NO_LANG)
 #include <iostream>
 #include <unordered_set>
 #include <cstdio>
@@ -761,3 +763,5 @@ void lexer::assign_token_sub_types(translation_unit& tu) {
 		}
 	}
 }
+
+#endif

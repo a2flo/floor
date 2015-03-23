@@ -19,6 +19,10 @@
 #ifndef __FLOOR_HTTP_NET_HPP__
 #define __FLOOR_HTTP_NET_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <floor/net/net_protocol.hpp>
 #include <floor/core/platform.hpp>
 #include <floor/core/core.hpp>
@@ -403,5 +407,7 @@ constexpr const char* http_net::status_code_to_string(const HTTP_STATUS& code) {
 			floor_http_net::codes[((unsigned int)code - 100u) / 100u][(unsigned int)code - 100u * ((unsigned int)code / 100u)] :
 			"invalid code");
 }
+
+#endif
 
 #endif

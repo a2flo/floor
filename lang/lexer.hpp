@@ -19,6 +19,10 @@
 #ifndef __FLOOR_LEXER_HPP__
 #define __FLOOR_LEXER_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_LANG)
+
 #include <string>
 #include <floor/core/util.hpp>
 #include <floor/lang/source_types.hpp>
@@ -69,5 +73,7 @@ protected:
 	lexer& operator=(const lexer&) = delete;
 	
 };
+
+#endif
 
 #endif

@@ -18,6 +18,8 @@
 
 #include <floor/net/http_scheduler.hpp>
 
+#if !defined(FLOOR_NO_NET)
+
 bool http_scheduler::initialized = false;
 http_scheduler* http_scheduler::hs = nullptr;
 
@@ -174,3 +176,5 @@ bool http_scheduler::receive(http_net* hn, http_net::HTTP_STATUS status, const s
 
 	return true;
 }
+
+#endif

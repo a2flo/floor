@@ -35,6 +35,12 @@
 // if defined, this disabled openal support
 ###FLOOR_OPENAL###
 
+// if defined, this disabled network support
+###FLOOR_NET###
+
+// if defined, this disabled language (lexer/parser/ast) support
+###FLOOR_LANG###
+
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 #define FLOOR_EXPORT 1

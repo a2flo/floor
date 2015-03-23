@@ -18,6 +18,8 @@
 
 #include <floor/lang/parser.hpp>
 
+#if !defined(FLOOR_NO_LANG)
+
 void parser::parse(lang_context& ctx, translation_unit& tu) {
 	static const parser_ast c_parser;
 	
@@ -206,3 +208,5 @@ unique_ptr<node_base> parser_ast::parse(parser_context& ctx) const {
 	return (tu_match.matches.size() == 0 ? // match size might be 0 if this is an empty file or in error cases
 			nullptr : move(tu_match.matches[0].ast_node));
 }
+
+#endif

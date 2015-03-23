@@ -19,6 +19,10 @@
 #ifndef __FLOOR_NET_TCP_HPP__
 #define __FLOOR_NET_TCP_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <floor/net/net_protocol.hpp>
 #include <floor/core/platform.hpp>
 
@@ -281,5 +285,7 @@ protected:
 
 typedef std_protocol<tcp::socket, false> TCP_protocol;
 typedef std_protocol<tcp::socket, true> TCP_ssl_protocol;
+
+#endif
 
 #endif

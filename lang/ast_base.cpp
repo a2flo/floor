@@ -17,6 +17,8 @@
  */
 
 #include <floor/lang/ast_base.hpp>
+
+#if !defined(FLOOR_NO_LANG)
 #include <algorithm>
 
 // misc functions
@@ -447,3 +449,5 @@ void string_literal_node::dump(const size_t level) const {
 	node_base::dump(level);
 	cout << "string literal (" << value << ")" << endl;
 }
+
+#endif

@@ -19,6 +19,10 @@
 #ifndef __FLOOR_NET_HPP__
 #define __FLOOR_NET_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_NET)
+
 #include <floor/net/net_protocol.hpp>
 #include <floor/core/platform.hpp>
 #include <floor/net/net_tcp.hpp>
@@ -371,5 +375,7 @@ public:
 		return old_pos;
 	}
 };
+
+#endif
 
 #endif

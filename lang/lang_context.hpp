@@ -19,6 +19,10 @@
 #ifndef __FLOOR_COMPILER_CONTEXT_HPP__
 #define __FLOOR_COMPILER_CONTEXT_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_LANG)
+
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -109,5 +113,7 @@ protected:
 	unordered_map<string, unique_ptr<translation_unit>> translation_units;
 	
 };
+
+#endif
 
 #endif
