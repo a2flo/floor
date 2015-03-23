@@ -45,7 +45,7 @@ public:
 	floor_inline_always const atomic_spin_lock& operator!() const { return *this; }
 	
 protected:
-	atomic_flag mtx { ATOMIC_FLAG_INIT };
+	atomic_flag mtx = ATOMIC_FLAG_INIT;
 	
 };
 
