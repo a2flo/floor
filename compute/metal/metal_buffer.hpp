@@ -58,43 +58,28 @@ public:
 	
 	~metal_buffer() override;
 	
-	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
-	//! back to the previously specified host pointer
 	void read(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
-	//! reads "size" bytes (or the complete buffer if 0) from "offset" onwards
-	//! back to the specified "dst" pointer
 	void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) override;
 	
-	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
-	//! from the previously specified host pointer to this buffer
 	void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) override;
-	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
-	//! from the specified "src" pointer to this buffer
 	void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) override;
 	
-	//!
 	void copy(shared_ptr<compute_queue> cqueue,
 			  shared_ptr<compute_buffer> src,
 			  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) override;
 	
-	//!
 	void fill(shared_ptr<compute_queue> cqueue,
 			  const void* pattern, const size_t& pattern_size,
 			  const size_t size = 0, const size_t offset = 0) override;
 	
-	//! zeros/clears the complete buffer
 	void zero(shared_ptr<compute_queue> cqueue) override;
 	
-	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
-	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
-	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr
 	bool resize(shared_ptr<compute_queue> cqueue,
 				const size_t& size,
 				const bool copy_old_data = false,
 				const bool copy_host_data = false,
 				void* new_host_ptr = nullptr) override;
 	
-	//!
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
 											const COMPUTE_BUFFER_MAP_FLAG flags =
 											(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
@@ -102,10 +87,9 @@ public:
 											const size_t size = 0,
 											const size_t offset = 0) override ACQUIRE(lock) REQUIRES(!lock);
 	
-	//!
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override RELEASE(lock);
 	
-	//!
+	//! returns the metal specific buffer object
 	id <MTLBuffer> get_metal_buffer() const { return buffer; }
 	
 protected:

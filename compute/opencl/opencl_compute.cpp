@@ -188,9 +188,6 @@ void opencl_compute::init(const bool use_platform_devices,
 		else if(platform_vendor_str.find("intel") != string::npos) {
 			platform_vendor = PLATFORM_VENDOR::INTEL;
 		}
-		else if(platform_vendor_str.find("freeocl") != string::npos) {
-			platform_vendor = PLATFORM_VENDOR::FREEOCL;
-		}
 #endif
 		
 		//
@@ -352,10 +349,7 @@ void opencl_compute::init(const bool use_platform_devices,
 						printf_buffer_size,
 						printf_buffer_size / 1024ULL / 1024ULL);
 				log_msg("max sub-devices: %u", cl_get_info<CL_DEVICE_PARTITION_MAX_SUB_DEVICES>(cl_dev));
-				if(platform_vendor != PLATFORM_VENDOR::FREEOCL) {
-					// this is broken on freeocl
-					log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
-				}
+				log_msg("built-in kernels: %s", cl_get_info<CL_DEVICE_BUILT_IN_KERNELS>(cl_dev));
 			}
 			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
@@ -376,10 +370,7 @@ void opencl_compute::init(const bool use_platform_devices,
 				device.vendor = compute_device::VENDOR::AMD;
 			}
 			
-			// freeocl and pocl use an empty device name, but "FreeOCL"/"pocl" is contained in the device version
-			if(device.version_str.find("FreeOCL") != string::npos) {
-				device.vendor = compute_device::VENDOR::FREEOCL;
-			}
+			// pocl uses an empty device name, but "pocl" is contained in the device version
 			if(device.version_str.find("pocl") != string::npos) {
 				device.vendor = compute_device::VENDOR::POCL;
 				

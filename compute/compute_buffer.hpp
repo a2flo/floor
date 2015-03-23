@@ -95,7 +95,6 @@ public:
 	// TODO: flag handling
 	// TODO: buffer migration: copy / move
 	// TODO: opengl handling / OPENGL_BUFFER
-	// TODO: sub-buffer support
 	
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	compute_buffer(const void* device,
@@ -151,12 +150,14 @@ public:
 	//! from the specified "src" pointer to this buffer
 	virtual void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
 	
-	//!
+	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
+	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer
 	virtual void copy(shared_ptr<compute_queue> cqueue,
 					  shared_ptr<compute_buffer> src,
 					  const size_t size = 0, const size_t src_offset = 0, const size_t dst_offset = 0) = 0;
 	
-	//!
+	//! fills this buffer with the provided "pattern" of size "pattern_size" (in bytes)
+	//! NOTE: filling the buffer with patterns that are 1 byte, 2 bytes or 4 bytes in size might be faster than other sizes
 	virtual void fill(shared_ptr<compute_queue> cqueue,
 					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
@@ -175,14 +176,19 @@ public:
 						const bool copy_host_data = false,
 						void* new_host_ptr = nullptr) = 0;
 	
-	//!
+	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset"
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
 													const COMPUTE_BUFFER_MAP_FLAG flags =
 													(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
 													 COMPUTE_BUFFER_MAP_FLAG::BLOCK),
 													const size_t size = 0, const size_t offset = 0) = 0;
 	
-	//!
+	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset",
+	//! returning the mapped pointer as a vector<> of "data_type"
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	template <typename data_type>
 	vector<data_type>* map(shared_ptr<compute_queue> cqueue,
 						   const COMPUTE_BUFFER_MAP_FLAG flags_ =
@@ -192,7 +198,10 @@ public:
 		return (vector<data_type>*)map(cqueue, flags_, size_, offset);
 	}
 	
-	//!
+	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset",
+	//! returning the mapped pointer as an array<> of "data_type" with "n" elements
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	template <typename data_type, size_t n>
 	array<data_type, n>* map(shared_ptr<compute_queue> cqueue,
 							 const COMPUTE_BUFFER_MAP_FLAG flags_ =
@@ -202,19 +211,21 @@ public:
 		return (array<data_type, n>*)map(cqueue, flags_, size_, offset);
 	}
 	
-	//!
+	//! unmaps a previously mapped memory pointer
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
 	virtual void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
-	//!
+	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }
 	
-	//!
+	//! returns the associated host memory pointer
 	void* get_host_ptr() const { return host_ptr; }
 	
-	//!
+	//! returns the flags that were used to create this buffer
 	const COMPUTE_BUFFER_FLAG& get_flags() const { return flags; }
 	
-	//!
+	//! returns the associated device
 	const void* get_device() const { return dev; }
 	
 	//! NOTE: for debugging/development purposes only

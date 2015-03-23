@@ -66,7 +66,6 @@ public:
 		INTEL,
 		AMD,
 		APPLE,
-		FREEOCL,
 		POCL,
 		CUDA,
 		UNKNOWN
@@ -79,7 +78,6 @@ public:
 			case PLATFORM_VENDOR::INTEL: return "INTEL";
 			case PLATFORM_VENDOR::AMD: return "AMD";
 			case PLATFORM_VENDOR::APPLE: return "APPLE";
-			case PLATFORM_VENDOR::FREEOCL: return "FREEOCL";
 			case PLATFORM_VENDOR::POCL: return "POCL";
 			case PLATFORM_VENDOR::CUDA: return "CUDA";
 			case PLATFORM_VENDOR::UNKNOWN: break;

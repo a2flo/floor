@@ -34,45 +34,37 @@ public:
 	
 	~metal_compute() override {}
 	
-	//! initializes the compute context/object
 	void init(const bool use_platform_devices = false,
 			  const uint32_t platform_index = ~0u,
 			  const bool gl_sharing = false,
 			  const unordered_set<string> device_restriction = {}) override;
 	
-	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	bool is_supported() const override { return supported; }
 	
-	//! returns the underlying compute implementation type
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
 	//////////////////////////////////////////
 	// device functions
 	
-	//! creates and returns a compute_queue (aka command queue or stream) for the specified device
 	shared_ptr<compute_queue> create_queue(shared_ptr<compute_device> dev) override;
 	
 	//////////////////////////////////////////
 	// buffer creation
 	
-	//! constructs an uninitialized buffer of the specified size
 	shared_ptr<compute_buffer> create_buffer(const size_t& size,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
 	
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	shared_ptr<compute_buffer> create_buffer(const size_t& size,
 											 void* data,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
 	
-	//! constructs an uninitialized buffer of the specified size, explicitly on the specified device
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const size_t& size,
 											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
 																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
 	
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags, explicitly on the specified device
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const size_t& size,
 											 void* data,
@@ -82,33 +74,20 @@ public:
 	//////////////////////////////////////////
 	// basic control functions
 	
-	//! block until all currently scheduled kernels have been executed
 	void finish() override;
-	
-	//! flush all prior
 	void flush() override;
-	
-	//! TODO: figure out how to do this in cuda
-	//void barrier() override;
-	
-	//! makes the compute context active in the current thread
 	void activate_context() override;
-	
-	//! makes the compute context inactive in the current thread
 	void deactivate_context() override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
-	//! adds and compiles a program and its kernels from a file
 	shared_ptr<compute_program> add_program_file(const string& file_name,
 												 const string additional_options = "") override;
 	
-	//! adds and compiles a program and its kernels from the provided source code
 	shared_ptr<compute_program> add_program_source(const string& source_code,
 												   const string additional_options = "") override;
 	
-	//! adds a precompiled program and its kernels, using the provided file name and kernel infos
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
 	

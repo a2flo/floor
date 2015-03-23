@@ -83,7 +83,6 @@ public:
 		INTEL,
 		AMD,
 		APPLE,
-		FREEOCL,
 		POCL,
 		UNKNOWN
 	};
