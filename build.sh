@@ -62,6 +62,7 @@ BUILD_CONF_OPENAL=1
 BUILD_CONF_METAL=1
 BUILD_CONF_NET=1
 BUILD_CONF_LANG=1
+BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
@@ -93,12 +94,13 @@ for arg in "$@"; do
 			echo "	clean		cleans all build binaries and intermediate build files"
 			echo ""
 			echo "build configuration:"
-			echo "	no-opencl	disables opencl and cuda support"
+			echo "	no-opencl	disables opencl support"
 			echo "	no-cuda		disables cuda support"
 			echo "	no-metal	disables metal support (default for non-iOS targets)"
 			echo "	no-openal	disables openal support"
 			echo "	no-net		disables network support"
 			echo "	no-lang		disables lexer/parser/ast support"
+			echo "	no-exceptions	disables building with c++ exceptions (must build with no-net no-lang!)"
 			echo "	cl-profiling	enables profiling of opencl kernel executions"
 			echo "	pocl		use the pocl library instead of the systems OpenCL library"
 			#echo "	libstdc++	use the libstdc++ library instead of libc++ (unsupported)"
@@ -155,6 +157,9 @@ for arg in "$@"; do
 		"no-lang")
 			BUILD_CONF_LANG=0
 			;;
+		"no-exceptions")
+			BUILD_CONF_EXCEPTIONS=0
+			;;
 		"cl-profiling")
 			BUILD_CONF_NO_CL_PROFILING=0
 			;;
@@ -175,6 +180,16 @@ for arg in "$@"; do
 			;;
 	esac
 done
+
+# sanity check
+if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
+	if [ ${BUILD_CONF_NET} -gt 0 ]; then
+		error "when building without exceptions, network support must be disabled as well! (./build.sh no-exceptions no-net no-lang)"
+	fi
+	if [ ${BUILD_CONF_LANG} -gt 0 ]; then
+		error "when building without exceptions, language support must be disabled as well! (./build.sh no-exceptions no-net no-lang)"
+	fi
+fi
 
 ##########################################
 # target and build environment setup
@@ -521,6 +536,7 @@ fi
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 set_conf_val "###FLOOR_LANG###" "FLOOR_NO_LANG" ${BUILD_CONF_LANG}
+set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
 
@@ -546,6 +562,11 @@ else
 	CXXFLAGS="${CXXFLAGS} -stdlib=libc++"
 fi
 CFLAGS="${CFLAGS} -std=gnu11"
+
+# disable exception support
+if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
+	CXXFLAGS="${CXXFLAGS} -fno-exceptions"
+fi
 
 # arch handling (use -arch on osx/ios and -m32/-m64 everywhere else, except for mingw)
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then

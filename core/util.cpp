@@ -71,9 +71,11 @@ template <> ssize_t converter<string, ssize_t>::convert(const string& var) {
 #endif
 #endif
 
+#if !defined(FLOOR_NO_EXCEPTIONS)
 const char* floor_exception::what() const noexcept {
 	return error_str.c_str();
 }
+#endif
 
 // from event_objects.h:
 EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1) {

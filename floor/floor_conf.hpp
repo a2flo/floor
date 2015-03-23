@@ -41,6 +41,12 @@
 // if defined, this disabled language (lexer/parser/ast) support
 //#define FLOOR_NO_LANG 1
 
+// if defined, this disables c++ exception support (implies no-net no-lang!)
+//#define FLOOR_NO_EXCEPTIONS 1
+#if defined(FLOOR_NO_EXCEPTIONS) && (!defined(FLOOR_NO_NET) || !defined(FLOOR_NO_LANG))
+#error "disabled exception support also requires building without net and language support! (build with ./build.sh no-exceptions no-net no-lang)"
+#endif
+
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 #define FLOOR_EXPORT 1

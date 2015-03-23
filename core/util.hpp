@@ -113,6 +113,7 @@ template <> ssize_t converter<string, ssize_t>::convert(const string& var);
 #define ull2string(value) converter<unsigned long long int, string>::convert(value)
 
 // misc
+#if !defined(FLOOR_NO_EXCEPTIONS)
 class floor_exception : public exception {
 protected:
 	string error_str;
@@ -120,6 +121,7 @@ public:
 	floor_exception(const string& error_str_) : error_str(error_str_) {}
 	virtual const char* what() const noexcept;
 };
+#endif
 
 #define enum_class_bitwise_or(enum_class) \
 friend constexpr enum_class operator|(const enum_class& e0, const enum_class& e1) { \

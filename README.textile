@@ -72,8 +72,9 @@ There are multiple build configuration options (defines) that can disable certai
 * to disable OpenCL: define "FLOOR_NO_OPENCL" -> "./build.sh no-opencl"
 * to disable OpenAL: define "FLOOR_NO_OPENAL" -> "./build.sh no-openal"
 * to disable Metal (only affects iOS builds): define "FLOOR_NO_METAL" -> "./build.sh no-metal"
-* to disable network support (ssl/crypto/boost asio): define "FLOOR_NO_NET" -> "./build.sh no-net"
+* to disable network support (ssl/crypto/boost-asio): define "FLOOR_NO_NET" -> "./build.sh no-net"
 * to disable language support (lexer/parser/ast): define "FLOOR_NO_LANG" -> "./build.sh no-lang"
+* to disable C++ exceptions (implies no-net no-lang): define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
 *Credits:*
 * http://www.libsdl.org / SDL2 and SDL2_image
