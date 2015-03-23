@@ -385,16 +385,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# windows/mingw opencl and cuda handling
 	if [ $BUILD_OS == "mingw" ]; then
 		if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
-			if [ ! -z "${INTELOCLSDKROOT}" ]; then
-				# use intel opencl sdk
-				INTELOCLSDKROOT_FIXED=$(echo ${INTELOCLSDKROOT} | sed -E "s/\\\\/\//g")
-				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x86"
-				else
-					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x64"
-				fi
-				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
-			elif [ ! -z "${AMDAPPSDKROOT}" ]; then
+			if [ ! -z "${AMDAPPSDKROOT}" ]; then
 				# use amd opencl sdk
 				AMDAPPSDKROOT_FIXED=$(echo ${AMDAPPSDKROOT} | sed -E "s/\\\\/\//g")
 				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
@@ -403,6 +394,15 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 					OPENCL_LIB_PATH="${AMDAPPSDKROOT_FIXED}lib/x86_64"
 				fi
 				INCLUDES="${INCLUDES} -isystem \"${AMDAPPSDKROOT_FIXED}include\""
+			elif [ ! -z "${INTELOCLSDKROOT}" ]; then
+				# use intel opencl sdk
+				INTELOCLSDKROOT_FIXED=$(echo ${INTELOCLSDKROOT} | sed -E "s/\\\\/\//g")
+				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x86"
+				else
+					OPENCL_LIB_PATH="${INTELOCLSDKROOT_FIXED}lib/x64"
+				fi
+				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
 			elif [ ! -z "${CUDA_PATH}" ]; then
 				# use nvidia opencl/cuda sdk
 				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then

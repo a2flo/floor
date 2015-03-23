@@ -611,7 +611,20 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	
 	// create the queue (w/ or w/o profiling support depending on the define)
 	cl_int create_err = CL_SUCCESS;
-	// TODO: add support for clCreateCommandQueueWithPropertiesAPPLE?
+#if defined(CL_VERSION_2_0) || defined(__APPLE__)
+#if defined(__APPLE__) && !defined(CL_VERSION_2_0)
+#define clCreateCommandQueueWithProperties clCreateCommandQueueWithPropertiesAPPLE
+#define cl_queue_properties cl_queue_properties_APPLE
+#endif
+	const cl_queue_properties properties[] {
+#if !defined(FLOOR_CL_PROFILING)
+		CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
+#endif
+		0
+	};
+	cl_command_queue cl_queue = clCreateCommandQueueWithProperties(ctx, ((opencl_device*)dev.get())->device_id,
+																   properties, &create_err);
+#else
 	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id,
 #if !defined(FLOOR_CL_PROFILING)
 													 0
@@ -619,6 +632,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 													 CL_QUEUE_PROFILING_ENABLE
 #endif
 													 , &create_err);
+#endif
 	if(create_err != CL_SUCCESS) {
 		log_error("failed to create command queue: %u", create_err);
 		return {};

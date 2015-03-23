@@ -477,7 +477,11 @@ uint32_t core::get_hw_thread_count() {
 	return hw_thread_count;
 }
 
-void core::set_current_thread_name(const string& thread_name) {
+void core::set_current_thread_name(const string&
+#if defined(_PTHREAD_H) // suppress unused warning
+								   thread_name
+#endif
+								   ) {
 #if defined(_PTHREAD_H)
 	// pthreads restricts name sizes to 15 characters (+one \0)
 	const string name = (thread_name.size() > 15 ? thread_name.substr(0, 15) : thread_name);
