@@ -103,7 +103,6 @@
 
 // library checks:
 #include <floor/core/platform.hpp>
-#include <openssl/opensslv.h>
 
 #if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 1101)
 #error "You need to install libc++ 1101+ to compile floor"
@@ -113,8 +112,11 @@
 #error "You need to install SDL 2.0.2+ to compile floor"
 #endif
 
-#if !defined(FLOOR_NO_NET) && (OPENSSL_VERSION_NUMBER < 0x1000105fL)
+#if !defined(FLOOR_NO_NET)
+#include <openssl/opensslv.h>
+#if (OPENSSL_VERSION_NUMBER < 0x1000105fL)
 #error "You need to install OpenSSL 1.0.1e+ to compile floor"
+#endif
 #endif
 
 #endif
