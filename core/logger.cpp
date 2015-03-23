@@ -256,13 +256,15 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 		if(log_use_time) {
 			buffer << "[";
 			char time_str[64];
-			timeval tv;
-			gettimeofday(&tv, nullptr);
-			struct tm* local_time = localtime(&tv.tv_sec);
+			const auto system_now = chrono::system_clock::now();
+			const auto cur_time = chrono::system_clock::to_time_t(system_now);
+			struct tm* local_time = localtime(&cur_time);
 			strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
 			buffer << time_str;
 			buffer << ".";
-			buffer << setw(6) << tv.tv_usec << setw(0);
+			buffer << setw(is_same<chrono::system_clock::period, nano>::value ? 9 :
+						   (is_same<chrono::system_clock::period, micro>::value ? 6 : 3));
+			buffer << setw(6) << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
 			buffer << "] ";
 		}
 		else buffer << " ";

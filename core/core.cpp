@@ -466,8 +466,8 @@ uint32_t core::get_hw_thread_count() {
 #elif defined(__linux__)
 	hw_thread_count = (uint32_t)sysconf(_SC_NPROCESSORS_CONF);
 #elif defined(__WINDOWS__)
-	constexpr const size_t buffer_size { 16u };
-	size_t size = buffer_size - 1;
+	constexpr const uint32_t buffer_size { 16u };
+	uint32_t size = buffer_size - 1;
 	char output[buffer_size];
 	GetEnvironmentVariable("NUMBER_OF_PROCESSORS", output, size);
 	output[buffer_size - 1] = 0;
