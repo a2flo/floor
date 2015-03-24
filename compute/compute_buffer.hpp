@@ -23,6 +23,7 @@
 #include <array>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/util.hpp>
+#include <floor/core/logger.hpp>
 #include <floor/threading/thread_safety.hpp>
 
 #if defined(__clang__)
