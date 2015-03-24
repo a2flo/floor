@@ -21,27 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_METAL)
 
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-#define kernel extern "C" __kernel
-
-// misc types
-typedef char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long int uint64_t;
-
-typedef __SIZE_TYPE__ size_t;
-typedef __PTRDIFF_TYPE__ ssize_t;
-typedef __SIZE_TYPE__ uintptr_t;
-typedef __PTRDIFF_TYPE__ intptr_t;
-
 #define metal_func inline __attribute__((always_inline))
 namespace std {
 	// straightforward wrapping, use the fast_* version when possible

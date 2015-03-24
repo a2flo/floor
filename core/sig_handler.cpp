@@ -151,7 +151,7 @@ void register_segfault_handler() {
 
 void register_segfault_handler() {
 	if(LoadLibraryA("exchndl.dll") == nullptr) {
-		log_error("couldn't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
+		log_warn("couldn't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
 	}
 }
 

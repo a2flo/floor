@@ -23,6 +23,16 @@
 #include <floor/core/essentials.hpp>
 
 #if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_METAL)
+
+// compute implementation specific headers (pre-std headers)
+#if defined(FLOOR_COMPUTE_CUDA)
+#include <floor/compute/device/cuda_pre.hpp>
+#elif defined(FLOOR_COMPUTE_SPIR)
+#include <floor/compute/device/spir_pre.hpp>
+#elif defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal_pre.hpp>
+#endif
+
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
 #include <type_traits>

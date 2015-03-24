@@ -16,39 +16,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_METAL_HPP__
-#define __FLOOR_COMPUTE_DEVICE_METAL_HPP__
+#ifndef __FLOOR_COMPUTE_DEVICE_SPIR_HPP__
+#define __FLOOR_COMPUTE_DEVICE_SPIR_HPP__
 
 #if defined(FLOOR_COMPUTE_SPIR)
-
-//
-// TODO: should really use this header somehow!
-//#include "opencl_spir.h"
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#endif
-
-// misc types
-typedef char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long int uint64_t;
-
-typedef unsigned short int ushort;
-typedef unsigned int uint;
-typedef unsigned long int ulong;
-
-#if defined(__SPIR32__)
-typedef uint size_t;
-typedef int ssize_t;
-#elif defined (__SPIR64__)
-typedef unsigned long int size_t;
-typedef long int ssize_t;
-#endif
 
 #define const_func __attribute__((const))
 size_t const_func get_global_id(uint dimindx);
@@ -124,15 +95,6 @@ namespace std {
 // can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
 // but apparently extern c printf is working fine with intels and amds implementation, so just use that ...
 extern "C" int printf(const char __constant* st, ...);
-
-// NOTE: I purposefully didn't enable these as aliases in clang,
-// so that they can be properly redirected on any other target (cuda/metal/host)
-// -> need to add simple macro aliases here
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-// abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
-#define kernel __kernel __attribute__((section("spir_kernel")))
 
 #endif
 

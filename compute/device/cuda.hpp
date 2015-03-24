@@ -21,14 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
-//
-#define kernel extern "C" __attribute__((cuda_kernel))
-
-// map address space keywords
-#define global
-#define local __attribute__((cuda_local))
-#define constant __attribute__((cuda_constant))
-
 #define cuda_lane_id __builtin_ptx_read_laneid()
 #define cuda_warp_id __builtin_ptx_read_warpid()
 #define cuda_warp_size __builtin_ptx_read_nwarpid()
@@ -46,25 +38,6 @@
 
 #define cuda_clock __builtin_ptx_read_clock()
 #define cuda_clock64 __builtin_ptx_read_clock64()
-
-// misc types
-typedef __signed char int8_t;
-typedef short int int16_t;
-typedef int int32_t;
-typedef long long int int64_t;
-typedef unsigned char uint8_t;
-typedef unsigned short int uint16_t;
-typedef unsigned int uint32_t;
-typedef unsigned long long int uint64_t;
-
-// TODO: arch size support
-#if defined(PLATFORM_X32)
-typedef uint32_t size_t;
-typedef int32_t ssize_t;
-#elif defined(PLATFORM_X64)
-typedef uint64_t size_t;
-typedef int64_t ssize_t;
-#endif
 
 namespace std {
 	// float math functions
