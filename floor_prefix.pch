@@ -1,6 +1,8 @@
 
 #if defined(__cplusplus) && !defined(__OBJC__)
 #include "core/cpp_headers.hpp"
+#include <random>
+#include <thread>
 #include "core/util.hpp"
 #include "core/platform.hpp"
 #include "constexpr/const_math.hpp"

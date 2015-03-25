@@ -17,38 +17,8 @@
  */
 
 #include <floor/math/vector_lib.hpp>
-#include <floor/core/core.hpp>
 
-template <typename scalar_type>
-vector1<scalar_type> random(const scalar_type max) {
-	return { core::rand(max) };
-}
-template <typename scalar_type>
-vector2<scalar_type> random(const scalar_type max) {
-	return { core::rand(max), core::rand(max) };
-}
-template <typename scalar_type>
-vector3<scalar_type> random(const scalar_type max) {
-	return { core::rand(max), core::rand(max), core::rand(max) };
-}
-template <typename scalar_type>
-vector4<scalar_type> random(const scalar_type max) {
-	return { core::rand(max), core::rand(max), core::rand(max), core::rand(max) };
-}
-
-template <typename scalar_type>
-vector1<scalar_type> random(const scalar_type min, const scalar_type max) {
-	return { core::rand(min, max) };
-}
-template <typename scalar_type>
-vector2<scalar_type> random(const scalar_type min, const scalar_type max) {
-	return { core::rand(min, max), core::rand(min, max) };
-}
-template <typename scalar_type>
-vector3<scalar_type> random(const scalar_type min, const scalar_type max) {
-	return { core::rand(min, max), core::rand(min, max), core::rand(min, max) };
-}
-template <typename scalar_type>
-vector4<scalar_type> random(const scalar_type min, const scalar_type max) {
-	return { core::rand(min, max), core::rand(min, max), core::rand(min, max), core::rand(min, max) };
-}
+#if !defined(FLOOR_COMPUTE)
+random_device floor_vector_rand::vec_rd;
+mt19937 floor_vector_rand::vec_gen(floor_vector_rand::vec_rd());
+#endif

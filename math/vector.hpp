@@ -31,6 +31,21 @@
 #include <floor/math/matrix4.hpp>
 #include <type_traits>
 
+#if !defined(FLOOR_COMPUTE)
+#include <random>
+
+#if !defined(FLOOR_VECTOR_RAND)
+#define FLOOR_VECTOR_RAND
+//! for internal use only
+struct floor_vector_rand {
+	//! for internal use only
+	static random_device vec_rd;
+	//! for internal use only
+	static mt19937 vec_gen;
+};
+#endif
+#endif
+
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },
 //! and is instantiated for all float types (float, double, long double), all unsigned types from
 //! 8-bit to 64-bit and all signed types from 8-bit to 64-bit.
@@ -1903,10 +1918,32 @@ public:
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parityll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
 	}
 	
+#if !defined(FLOOR_COMPUTE)
 	//! returns a randomized vector using a uniform distribution with each component in [0, max)
-	static vector_type random(const scalar_type max = (scalar_type)1);
+	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	static vector_type random(const scalar_type max = (scalar_type)1) {
+		uniform_int_distribution<int_type> dist((int_type)0, max - (int_type)1);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+	}
 	//! returns a randomized vector using a uniform distribution with each component in [min, max)
-	static vector_type random(const scalar_type min, const scalar_type max);
+	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	static vector_type random(const scalar_type min, const scalar_type max) {
+		uniform_int_distribution<int_type> dist(min, max - (int_type)1);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+	}
+	//! returns a randomized vector using a uniform distribution with each component in [0, max)
+	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	static vector_type random(const scalar_type max = (scalar_type)1) {
+		uniform_real_distribution<fp_type> dist((fp_type)0, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+	}
+	//! returns a randomized vector using a uniform distribution with each component in [min, max)
+	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	static vector_type random(const scalar_type min, const scalar_type max) {
+		uniform_real_distribution<fp_type> dist(min, max);
+		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
+	}
+#endif
 	
 	//! returns an integer value representing the number of components of this vector (-> equivalent to vec_step in opencl)
 	constexpr int vector_step() const {

@@ -338,6 +338,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
 		ptx_cmd += " -o - - 2>&1";
 		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " 2>&1");
+#if 1 // TODO: keep this for now, remove it when no longer needed (and this always works properly)
+		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
+#endif
 		
 		string bc_output = "";
 		core::system(ptx_bc_cmd, bc_output);
