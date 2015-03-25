@@ -50,13 +50,6 @@ public:
 		min.min(box.min);
 		max.max(box.max);
 	}
-
-	static constexpr bbox empty() {
-		bbox ret;
-		ret.min = float3(__FLT_MAX__);
-		ret.max = float3(-__FLT_MAX__);
-		return ret;
-	}
 	
 	constexpr float3 diagonal() const {
 		return max - min;
@@ -168,15 +161,6 @@ public:
 		tr.direction.normalize();
 		
 		return bbox::is_intersection(tr);
-	}
-	
-	static constexpr extbbox empty() {
-		extbbox ret;
-		ret.min = float3(__FLT_MAX__);
-		ret.max = float3(-__FLT_MAX__);
-		ret.mview.identity();
-		ret.pos = float3(0.0f);
-		return ret;
 	}
 	
 #if !defined(FLOOR_NO_MATH_STR)
