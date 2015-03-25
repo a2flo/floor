@@ -41,32 +41,32 @@ public:
 	constexpr bbox(const bbox& box) noexcept : min(box.min), max(box.max) {}
 	constexpr bbox(const float3& bmin, const float3& bmax) noexcept : min(bmin), max(bmax) {}
 	
-	void extend(const float3& v) {
+	constexpr void extend(const float3& v) {
 		min.min(v);
 		max.max(v);
 	}
 	
-	void extend(const bbox& box) {
+	constexpr void extend(const bbox& box) {
 		min.min(box.min);
 		max.max(box.max);
 	}
 
-	static bbox empty() {
+	static constexpr bbox empty() {
 		bbox ret;
 		ret.min = float3(__FLT_MAX__);
 		ret.max = float3(-__FLT_MAX__);
 		return ret;
 	}
 	
-	float3 diagonal() const {
+	constexpr float3 diagonal() const {
 		return max - min;
 	}
 	
-	float3 center() const {
+	constexpr float3 center() const {
 		return (min + max) * 0.5f;
 	}
 	
-	bbox& operator=(const bbox& box) {
+	constexpr bbox& operator=(const bbox& box) {
 		min = box.min;
 		max = box.max;
 		return *this;
@@ -84,9 +84,9 @@ public:
 	}
 #endif
 	
-	pair<float, float> intersect(const ray& r) const {
+	constexpr float2 intersect(const ray& r) const {
 		float3 v1 = min, v2 = max;
-		const float3 bbox_eps(0.0000001f);
+		const float3 bbox_eps { 0.0000001f };
 		
 		float3 div = r.direction;
 		div.set_if(div.abs() < bbox_eps, bbox_eps);
@@ -99,12 +99,12 @@ public:
 		
 		return { tmin.max_element(), tmax.min_element() };
 	}
-	bool is_intersection(const ray& r) const {
-		pair<float, float> ret = intersect(r);
-		return (ret.first <= ret.second);
+	constexpr bool is_intersection(const ray& r) const {
+		const auto ret = intersect(r);
+		return (ret.x <= ret.y);
 	}
 	
-	bool contains(const float3& p) const {
+	constexpr bool contains(const float3& p) const {
 		if(((p.x >= min.x && p.x <= max.x) || (p.x <= min.x && p.x >= max.x)) &&
 		   ((p.y >= min.y && p.y <= max.y) || (p.y <= min.y && p.y >= max.y)) &&
 		   ((p.z >= min.z && p.z <= max.z) || (p.z <= min.z && p.z >= max.z))) {
@@ -123,9 +123,10 @@ public:
 	
 	constexpr extbbox() noexcept : pos(), mview() {}
 	constexpr extbbox(const extbbox& ebox) noexcept  : pos(ebox.pos), mview(ebox.mview) {}
-	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept  : bbox(bmin, bmax), pos(bpos), mview(bmview) {}
+	constexpr extbbox(const float3& bmin, const float3& bmax, const float3& bpos, const matrix4f& bmview) noexcept :
+		bbox(bmin, bmax), pos(bpos), mview(bmview) {}
 	
-	extbbox& operator=(const extbbox& box) {
+	constexpr extbbox& operator=(const extbbox& box) {
 		min = box.min;
 		max = box.max;
 		pos = box.pos;
@@ -133,14 +134,14 @@ public:
 		return *this;
 	}
 	
-	bool contains(const float3& p) const {
+	constexpr bool contains(const float3& p) const {
 		float3 tp(p);
 		tp -= pos;
 		tp *= mview;
 		return bbox::contains(tp);
 	}
 	
-	void intersect(pair<float, float>& ret, const ray& r) const {
+	constexpr void intersect(float2& ret, const ray& r) const {
 		ray tr(r);
 		tr.origin -= pos;
 		tr.origin *= mview;
@@ -151,14 +152,14 @@ public:
 		ret = bbox::intersect(tr);
 	}
 	
-	bool is_intersection(const extbbox& box floor_unused) const {
+	constexpr bool is_intersection(const extbbox& box floor_unused) const {
 		// TODO: implement this at some point:
 		// http://en.wikipedia.org/wiki/Separating_axis_theorem
 		// http://www.gamasutra.com/view/feature/3383/simple_intersection_tests_for_games.php?page=5
 		return false;
 	}
 	
-	bool is_intersection(const ray& r) const {
+	constexpr bool is_intersection(const ray& r) const {
 		ray tr(r);
 		tr.origin -= pos;
 		tr.origin *= mview;
@@ -169,7 +170,7 @@ public:
 		return bbox::is_intersection(tr);
 	}
 	
-	static extbbox empty() {
+	static constexpr extbbox empty() {
 		extbbox ret;
 		ret.min = float3(__FLT_MAX__);
 		ret.max = float3(-__FLT_MAX__);

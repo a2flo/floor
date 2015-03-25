@@ -1154,6 +1154,7 @@
 					"-Wno-nested-anon-types",
 					"-Wno-old-style-cast",
 					"-Wno-date-time",
+					"-Wno-reserved-id-macro",
 				);
 			};
 			name = Debug;
@@ -1285,6 +1286,7 @@
 					"-Wno-nested-anon-types",
 					"-Wno-old-style-cast",
 					"-Wno-date-time",
+					"-Wno-reserved-id-macro",
 				);
 			};
 			name = Release;

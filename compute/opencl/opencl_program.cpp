@@ -16,11 +16,11 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define FLOOR_OPENCL_INFO_FUNCS 1
-#include <floor/compute/opencl/opencl_program.hpp>
+#include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_OPENCL)
-
+#define FLOOR_OPENCL_INFO_FUNCS 1
+#include <floor/compute/opencl/opencl_program.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
 
 opencl_program::opencl_program(const cl_program program_) : program(program_) {

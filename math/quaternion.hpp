@@ -38,10 +38,10 @@ typedef quaternion<double> quaterniond;
 template <typename T> class __attribute__((packed, aligned(4))) quaternion {
 public:
 	T x, y, z, r;
-	constexpr quaternion() noexcept : x(0.0f), y(0.0f), z(0.0f), r(1.0f) {}
+	constexpr quaternion() noexcept : x(T(0)), y(T(0)), z(T(0)), r(T(1)) {}
 	constexpr quaternion(const T& x_, const T& y_, const T& z_, const T& r_) noexcept : x(x_), y(y_), z(z_), r(r_) {}
 	constexpr quaternion(const quaternion& q) noexcept : x(q.x), y(q.y), z(q.z), r(q.r) {}
-	quaternion(const T& a, const vector3<T>& v) noexcept { set_rotation(a, v); }
+	constexpr quaternion(const T& a, const vector3<T>& v) noexcept { set_rotation(a, v); }
 	
 #if !defined(FLOOR_NO_MATH_STR)
 	friend ostream& operator<<(ostream& output, const quaternion& q) {
@@ -55,70 +55,75 @@ public:
 	}
 #endif
 	
-	quaternion operator+(const quaternion& q) const;
-	quaternion operator-(const quaternion& q) const;
-	quaternion operator*(const quaternion& q) const;
-	quaternion operator*(const T& f) const;
-	quaternion operator/(const quaternion& q) const;
-	quaternion operator/(const T& f) const;
-	quaternion& operator=(const quaternion& q);
-	quaternion& operator+=(const quaternion& q);
-	quaternion& operator-=(const quaternion& q);
-	quaternion& operator*=(const quaternion& q);
-	quaternion& operator*=(const T& f);
-	quaternion& operator/=(const quaternion& q);
-	quaternion& operator/=(const T& f);
+	constexpr quaternion operator+(const quaternion& q) const;
+	constexpr quaternion operator-(const quaternion& q) const;
+	constexpr quaternion operator*(const quaternion& q) const;
+	constexpr quaternion operator*(const T& f) const;
+	constexpr quaternion operator/(const quaternion& q) const;
+	constexpr quaternion operator/(const T& f) const;
+	constexpr quaternion& operator=(const quaternion& q);
+	constexpr quaternion& operator+=(const quaternion& q);
+	constexpr quaternion& operator-=(const quaternion& q);
+	constexpr quaternion& operator*=(const quaternion& q);
+	constexpr quaternion& operator*=(const T& f);
+	constexpr quaternion& operator/=(const quaternion& q);
+	constexpr quaternion& operator/=(const T& f);
 	
 	//
-	T magnitude() const;
-	quaternion inverted() const;
-	quaternion conjugated() const;
-	quaternion normalized() const;
+	constexpr T magnitude() const;
 	
-	void invert();
-	void conjugate();
-	void normalize();
-	void compute_r();
+	constexpr quaternion& invert();
+	constexpr quaternion inverted() const;
 	
-	vector3<T> rotate(const vector3<T>& v) const;
-	void set_rotation(const T& a, const vector3<T>& v);
-	void set_rotation(const T& a, const T& i, const T& j, const T& k);
+	constexpr quaternion& conjugate();
+	constexpr quaternion conjugated() const;
+	
+	constexpr quaternion& normalize();
+	constexpr quaternion normalized() const;
+	
+	constexpr quaternion& compute_r();
+	
+	constexpr vector3<T> rotate(const vector3<T>& v) const;
+	constexpr quaternion& set_rotation(const T& a, const vector3<T>& v);
+	constexpr quaternion& set_rotation(const T& a, const T& i, const T& j, const T& k);
 	
 	//
-	vector3<T> to_euler() const;
-	matrix4<T> to_matrix4() const;
-	void from_euler(const vector3<T>& v);
+	constexpr vector3<T> to_euler() const;
+	constexpr matrix4<T> to_matrix4() const;
+	constexpr quaternion& from_euler(const vector3<T>& v);
 };
 
 
-template<typename T> quaternion<T> quaternion<T>::operator+(const quaternion& q) const {
-	return quaternion<T>(x + q.x, y + q.y, z + q.z, r + q.r);
+template<typename T> constexpr quaternion<T> quaternion<T>::operator+(const quaternion& q) const {
+	return { x + q.x, y + q.y, z + q.z, r + q.r };
 }
 
-template<typename T> quaternion<T> quaternion<T>::operator-(const quaternion& q) const {
-	return quaternion<T>(x - q.x, y - q.y, z - q.z, r - q.r);
+template<typename T> constexpr quaternion<T> quaternion<T>::operator-(const quaternion& q) const {
+	return { x - q.x, y - q.y, z - q.z, r - q.r };
 }
 
-template<typename T> quaternion<T> quaternion<T>::operator*(const quaternion& q) const {
-	return quaternion<T>(r * q.x + x * q.r + y * q.z - z * q.y,
-						 r * q.y - x * q.z + y * q.r + z * q.x,
-						 r * q.z + x * q.y - y * q.x + z * q.r,
-						 r * q.r - x * q.x - y * q.y - z * q.z);
+template<typename T> constexpr quaternion<T> quaternion<T>::operator*(const quaternion& q) const {
+	return {
+		r * q.x + x * q.r + y * q.z - z * q.y,
+		r * q.y - x * q.z + y * q.r + z * q.x,
+		r * q.z + x * q.y - y * q.x + z * q.r,
+		r * q.r - x * q.x - y * q.y - z * q.z
+	};
 }
 
-template<typename T> quaternion<T> quaternion<T>::operator*(const T& f) const {
-	return quaternion<T>(x * f, y * f, z * f, r * f);
+template<typename T> constexpr quaternion<T> quaternion<T>::operator*(const T& f) const {
+	return { x * f, y * f, z * f, r * f };
 }
 
-template<typename T> quaternion<T> quaternion<T>::operator/(const quaternion& q) const {
+template<typename T> constexpr quaternion<T> quaternion<T>::operator/(const quaternion& q) const {
 	return *this * q.inverted();
 }
 
-template<typename T> quaternion<T> quaternion<T>::operator/(const T& f) const {
-	return quaternion<T>(x / f, y / f, z / f, r / f);
+template<typename T> constexpr quaternion<T> quaternion<T>::operator/(const T& f) const {
+	return { x / f, y / f, z / f, r / f };
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator=(const quaternion& q) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator=(const quaternion& q) {
 	x = q.x;
 	y = q.y;
 	z = q.z;
@@ -126,7 +131,7 @@ template<typename T> quaternion<T>& quaternion<T>::operator=(const quaternion& q
 	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator+=(const quaternion& q) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator+=(const quaternion& q) {
 	x += q.x;
 	y += q.y;
 	z += q.z;
@@ -134,7 +139,7 @@ template<typename T> quaternion<T>& quaternion<T>::operator+=(const quaternion& 
 	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator-=(const quaternion& q) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator-=(const quaternion& q) {
 	x -= q.x;
 	y -= q.y;
 	z -= q.z;
@@ -142,108 +147,115 @@ template<typename T> quaternion<T>& quaternion<T>::operator-=(const quaternion& 
 	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator*=(const quaternion& q) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator*=(const quaternion& q) {
 	*this = *this * q;
 	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator*=(const T& f) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator*=(const T& f) {
 	*this = *this * f;
 	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator/=(const quaternion& q) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator/=(const quaternion& q) {
 	*this = *this * q.inverted();
   	return *this;
 }
 
-template<typename T> quaternion<T>& quaternion<T>::operator/=(const T& f) {
+template<typename T> constexpr quaternion<T>& quaternion<T>::operator/=(const T& f) {
 	*this = *this / f;
 	return *this;
 }
 
-template<typename T> T quaternion<T>::magnitude() const {
-	return (T)sqrt(r * r + x * x + y * y + z * z);
+template<typename T> constexpr T quaternion<T>::magnitude() const {
+	return const_select::sqrt(r * r + x * x + y * y + z * z);
 }
 
-template<typename T> quaternion<T> quaternion<T>::inverted() const {
+template<typename T> constexpr quaternion<T> quaternion<T>::inverted() const {
 	return conjugated() / (r * r + x * x + y * y + z * z);
 }
 
-template<typename T> quaternion<T> quaternion<T>::conjugated() const {
-	return quaternion(-x, -y, -z, r);
+template<typename T> constexpr quaternion<T> quaternion<T>::conjugated() const {
+	return { -x, -y, -z, r };
 }
 
-template<typename T> quaternion<T> quaternion<T>::normalized() const {
+template<typename T> constexpr quaternion<T> quaternion<T>::normalized() const {
 	return *this / magnitude();
 }
 
-template<typename T> void quaternion<T>::invert() {
+template<typename T> constexpr quaternion<T>& quaternion<T>::invert() {
 	*this = conjugated() / (r * r + x * x + y * y + z * z);
+	return *this;
 }
 
-template<typename T> void quaternion<T>::conjugate() {
+template<typename T> constexpr quaternion<T>& quaternion<T>::conjugate() {
 	x = -x;
 	y = -y;
 	z = -z;
+	return *this;
 }
 
-template<typename T> void quaternion<T>::normalize() {
+template<typename T> constexpr quaternion<T>& quaternion<T>::normalize() {
 	*this /= magnitude();
+	return *this;
 }
 
-template<typename T> void quaternion<T>::compute_r() {
+template<typename T> constexpr quaternion<T>& quaternion<T>::compute_r() {
 	const T val = ((T)1) - (x * x) - (y * y) - (z * z);
-	r = (val < ((T)0) ? ((T)0) : (T)-sqrt(val));
+	r = (val < ((T)0) ? ((T)0) : -const_select::sqrt(val));
+	return *this;
 }
 
-
-template<typename T> vector3<T> quaternion<T>::rotate(const vector3<T>& v) const {
-	const quaternion<T> qvec(v.x, v.y, v.z, (T)0);
-	const quaternion<T> qinv(this->conjugated());
-	const quaternion qvec2(*this * qvec * qinv);
-	return vector3<T>(qvec2.x, qvec2.y, qvec2.z);
+template<typename T> constexpr vector3<T> quaternion<T>::rotate(const vector3<T>& v) const {
+	const auto qvec2 = *this * quaternion<T> { v.x, v.y, v.z, (T)0 } * conjugated();
+	return { qvec2.x, qvec2.y, qvec2.z };
 }
 
-template<typename T> void quaternion<T>::set_rotation(const T& a, const vector3<T>& v) {
-	const T angle = a * const_math::PI_DIV_360<T>;
-	const T sin_a = (T)sin(angle);
-	const T cos_a = (T)cos(angle);
-	const vector3<T> nv(v.normalized());
+template<typename T> constexpr quaternion<T>& quaternion<T>::set_rotation(const T& a, const vector3<T>& v) {
+	const auto angle = a * const_math::PI_DIV_360<T>;
+	const auto sin_a = const_select::sin(angle);
+	const auto cos_a = const_select::cos(angle);
+	const auto nv_sin = v.normalized() * sin_a;
+	x = nv_sin.x;
+	y = nv_sin.y;
+	z = nv_sin.z;
 	r = cos_a;
-	x = nv.x * sin_a;
-	y = nv.y * sin_a;
-	z = nv.z * sin_a;
+	return *this;
 }
 
-template<typename T> void quaternion<T>::set_rotation(const T& a, const T& i, const T& j, const T& k) {
-	set_rotation(a, vector3<T>(i, j, k));
+template<typename T> constexpr quaternion<T>& quaternion<T>::set_rotation(const T& a, const T& i, const T& j, const T& k) {
+	return set_rotation(a, vector3<T> { i, j, k });
 }
 
-template<typename T> vector3<T> quaternion<T>::to_euler() const {
+template<typename T> constexpr vector3<T> quaternion<T>::to_euler() const {
 	// http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Conversion
-	return vector3<T>(atan2(((T)2) * (r * x + y * z), ((T)1) - ((T)2) * (x * x + y * y)),
-					  asin(((T)2) * (r * y - z * x)),
-					  atan2(((T)2) * (r * z + x * y), ((T)1) - ((T)2) * (y * y + z * z)));
+	return {
+		const_select::atan2(((T)2) * (r * x + y * z), ((T)1) - ((T)2) * (x * x + y * y)),
+		const_select::asin(((T)2) * (r * y - z * x)),
+		const_select::atan2(((T)2) * (r * z + x * y), ((T)1) - ((T)2) * (y * y + z * z))
+	};
 }
 
-template<typename T> matrix4<T> quaternion<T>::to_matrix4() const {
+template<typename T> constexpr matrix4<T> quaternion<T>::to_matrix4() const {
 	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
-	const T xx = x * x;
-	const T yy = y * y;
-	const T zz = z * z;
+	const auto xx = x * x;
+	const auto yy = y * y;
+	const auto zz = z * z;
 	
-	return matrix4<T>(((T)1) - ((T)2) * yy - ((T)2) * zz, ((T)2) * (x * y - z * r), ((T)2) * (x * z + y * r), ((T)0),
-					  ((T)2) * (x * y + z * r), ((T)1) - ((T)2) * xx - ((T)2) * zz, ((T)2) * (y * z - x * r), ((T)0),
-					  ((T)2) * (x * z - y * r), ((T)2) * (y * z + x * r), ((T)1) - ((T)2) * xx - ((T)2) * yy, ((T)0),
-					  ((T)0), ((T)0), ((T)0), ((T)1));
+	return {
+		((T)1) - ((T)2) * yy - ((T)2) * zz, ((T)2) * (x * y - z * r), ((T)2) * (x * z + y * r), ((T)0),
+		((T)2) * (x * y + z * r), ((T)1) - ((T)2) * xx - ((T)2) * zz, ((T)2) * (y * z - x * r), ((T)0),
+		((T)2) * (x * z - y * r), ((T)2) * (y * z + x * r), ((T)1) - ((T)2) * xx - ((T)2) * yy, ((T)0),
+		((T)0), ((T)0), ((T)0), ((T)1)
+	};
 }
 
-template<typename T> void quaternion<T>::from_euler(const vector3<T>& v) {
-	x = sin((v.x - v.z) / ((T)2)) / sin(v.y / ((T)2));
-	y = -sin((v.x + v.z) / ((T)2)) / cos(v.y / ((T)2));
-	z = cos((v.x + v.z) / ((T)2)) / cos(v.y / ((T)2));
-	r = -cos((v.x - v.z) / ((T)2)) / sin(v.y / ((T)2));
+template<typename T> constexpr quaternion<T>& quaternion<T>::from_euler(const vector3<T>& v) {
+	x = const_select::sin((v.x - v.z) / ((T)2)) / const_select::sin(v.y / ((T)2));
+	y = -const_select::sin((v.x + v.z) / ((T)2)) / const_select::cos(v.y / ((T)2));
+	z = const_select::cos((v.x + v.z) / ((T)2)) / const_select::cos(v.y / ((T)2));
+	r = -const_select::cos((v.x - v.z) / ((T)2)) / const_select::sin(v.y / ((T)2));
+	return *this;
 }
 
 #if defined(FLOOR_EXPORT)
