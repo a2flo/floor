@@ -21,51 +21,58 @@
 
 #if defined(FLOOR_COMPUTE_SPIR)
 
-#define const_func __attribute__((const))
-size_t const_func get_global_id(uint dimindx);
+#define spir_const_func __attribute__((overloadable, const))
+size_t spir_const_func get_global_id(uint dimindx);
+size_t spir_const_func get_global_size(uint dimindx);
+size_t spir_const_func get_local_id(uint dimindx);
+size_t spir_const_func get_local_size(uint dimindx);
+size_t spir_const_func get_group_id(uint dimindx);
+size_t spir_const_func get_num_groups(uint dimindx);
+uint spir_const_func get_work_dim();
+size_t spir_const_func get_global_offset(uint dimindx);
 
-float const_func __attribute__((overloadable)) fmod(float, float);
-float const_func __attribute__((overloadable)) sqrt(float);
-float const_func __attribute__((overloadable)) rsqrt(float);
-float const_func __attribute__((overloadable)) fabs(float);
-float const_func __attribute__((overloadable)) floor(float);
-float const_func __attribute__((overloadable)) ceil(float);
-float const_func __attribute__((overloadable)) round(float);
-float const_func __attribute__((overloadable)) trunc(float);
-float const_func __attribute__((overloadable)) rint(float);
-float const_func __attribute__((overloadable)) sin(float);
-float const_func __attribute__((overloadable)) cos(float);
-float const_func __attribute__((overloadable)) tan(float);
-float const_func __attribute__((overloadable)) asin(float);
-float const_func __attribute__((overloadable)) acos(float);
-float const_func __attribute__((overloadable)) atan(float);
-float const_func __attribute__((overloadable)) atan2(float, float);
-float const_func __attribute__((overloadable)) fma(float, float, float);
-float const_func __attribute__((overloadable)) exp(float x);
-float const_func __attribute__((overloadable)) log(float x);
-float const_func __attribute__((overloadable)) pow(float x, float y);
+float spir_const_func fmod(float, float);
+float spir_const_func sqrt(float);
+float spir_const_func rsqrt(float);
+float spir_const_func fabs(float);
+float spir_const_func floor(float);
+float spir_const_func ceil(float);
+float spir_const_func round(float);
+float spir_const_func trunc(float);
+float spir_const_func rint(float);
+float spir_const_func sin(float);
+float spir_const_func cos(float);
+float spir_const_func tan(float);
+float spir_const_func asin(float);
+float spir_const_func acos(float);
+float spir_const_func atan(float);
+float spir_const_func atan2(float, float);
+float spir_const_func fma(float, float, float);
+float spir_const_func exp(float x);
+float spir_const_func log(float x);
+float spir_const_func pow(float x, float y);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-double const_func __attribute__((overloadable)) fmod(double, double);
-double const_func __attribute__((overloadable)) sqrt(double);
-double const_func __attribute__((overloadable)) rsqrt(double);
-double const_func __attribute__((overloadable)) fabs(double);
-double const_func __attribute__((overloadable)) floor(double);
-double const_func __attribute__((overloadable)) ceil(double);
-double const_func __attribute__((overloadable)) round(double);
-double const_func __attribute__((overloadable)) trunc(double);
-double const_func __attribute__((overloadable)) rint(double);
-double const_func __attribute__((overloadable)) sin(double);
-double const_func __attribute__((overloadable)) cos(double);
-double const_func __attribute__((overloadable)) tan(double);
-double const_func __attribute__((overloadable)) asin(double);
-double const_func __attribute__((overloadable)) acos(double);
-double const_func __attribute__((overloadable)) atan(double);
-double const_func __attribute__((overloadable)) atan2(double, double);
-double const_func __attribute__((overloadable)) fma(double, double, double);
-double const_func __attribute__((overloadable)) exp(double x);
-double const_func __attribute__((overloadable)) log(double x);
-double const_func __attribute__((overloadable)) pow(double x, double y);
+double spir_const_func fmod(double, double);
+double spir_const_func sqrt(double);
+double spir_const_func rsqrt(double);
+double spir_const_func fabs(double);
+double spir_const_func floor(double);
+double spir_const_func ceil(double);
+double spir_const_func round(double);
+double spir_const_func trunc(double);
+double spir_const_func rint(double);
+double spir_const_func sin(double);
+double spir_const_func cos(double);
+double spir_const_func tan(double);
+double spir_const_func asin(double);
+double spir_const_func acos(double);
+double spir_const_func atan(double);
+double spir_const_func atan2(double, double);
+double spir_const_func fma(double, double, double);
+double spir_const_func exp(double x);
+double spir_const_func log(double x);
+double spir_const_func pow(double x, double y);
 #endif
 
 // add them to std::
@@ -95,6 +102,37 @@ namespace std {
 // can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
 // but apparently extern c printf is working fine with intels and amds implementation, so just use that ...
 extern "C" int printf(const char __constant* st, ...);
+
+// barrier and mem_fence functionality
+void __attribute__((overloadable)) barrier(uint32_t flags);
+void __attribute__((overloadable)) mem_fence(uint32_t flags);
+void __attribute__((overloadable)) read_mem_fence(uint32_t flags);
+void __attribute__((overloadable)) write_mem_fence(uint32_t flags);
+
+[[noduplicate]] static floor_inline_always void global_barrier() {
+	barrier(2u);
+}
+[[noduplicate]] static floor_inline_always void global_mem_fence() {
+	mem_fence(2u);
+}
+[[noduplicate]] static floor_inline_always void global_read_mem_fence() {
+	read_mem_fence(2u);
+}
+[[noduplicate]] static floor_inline_always void global_write_mem_fence() {
+	write_mem_fence(2u);
+}
+[[noduplicate]] static floor_inline_always void local_barrier() {
+	barrier(1u);
+}
+[[noduplicate]] static floor_inline_always void local_mem_fence() {
+	mem_fence(1u);
+}
+[[noduplicate]] static floor_inline_always void local_read_mem_fence() {
+	read_mem_fence(1u);
+}
+[[noduplicate]] static floor_inline_always void local_write_mem_fence() {
+	write_mem_fence(1u);
+}
 
 #endif
 

@@ -330,6 +330,32 @@ static constexpr uint64_t get_global_offset(uint32_t dim floor_unused) {
 	return 0;
 }
 
+// barrier and mem_fence functionality
+[[noduplicate]] static floor_inline_always void global_barrier() {
+	__syncthreads();
+}
+[[noduplicate]] static floor_inline_always void global_mem_fence() {
+	__nvvm_membar_cta();
+}
+[[noduplicate]] static floor_inline_always void global_read_mem_fence() {
+	__nvvm_membar_cta();
+}
+[[noduplicate]] static floor_inline_always void global_write_mem_fence() {
+	__nvvm_membar_cta();
+}
+[[noduplicate]] static floor_inline_always void local_barrier() {
+	__syncthreads();
+}
+[[noduplicate]] static floor_inline_always void local_mem_fence() {
+	__nvvm_membar_cta();
+}
+[[noduplicate]] static floor_inline_always void local_read_mem_fence() {
+	__nvvm_membar_cta();
+}
+[[noduplicate]] static floor_inline_always void local_write_mem_fence() {
+	__nvvm_membar_cta();
+}
+
 // done
 #undef FLOOR_CUDA_DIM0
 #undef FLOOR_CUDA_DIM1

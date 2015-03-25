@@ -69,6 +69,39 @@ uint32_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
 uint32_t get_global_linear_id() asm("air.get_global_linear_id.i32");
 uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 
+// barrier and mem_fence functionality
+// NOTE: it would appear that either cl_kernel.h or metal_compute has a bug (global and local are mismatched)
+//       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local
+// NOTE: scope: 2 = work-group, 3 = device
+[[noduplicate]] void air_wg_barrier(uint32_t air_mem_flags, int32_t scope) __asm("air.wg.barrier");
+[[noduplicate]] void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __asm("air.mem_barrier");
+
+[[noduplicate]] static floor_inline_always void global_barrier() {
+	air_wg_barrier(1u, 2);
+}
+[[noduplicate]] static floor_inline_always void global_mem_fence() {
+	air_mem_barrier(1u, 2);
+}
+[[noduplicate]] static floor_inline_always void global_read_mem_fence() {
+	air_mem_barrier(1u, 2);
+}
+[[noduplicate]] static floor_inline_always void global_write_mem_fence() {
+	air_mem_barrier(1u, 2);
+}
+[[noduplicate]] static floor_inline_always void local_barrier() {
+	air_wg_barrier(2u, 2);
+}
+[[noduplicate]] static floor_inline_always void local_mem_fence() {
+	air_mem_barrier(2u, 2);
+}
+[[noduplicate]] static floor_inline_always void local_read_mem_fence() {
+	air_mem_barrier(2u, 2);
+}
+[[noduplicate]] static floor_inline_always void local_write_mem_fence() {
+	air_mem_barrier(2u, 2);
+}
+
+
 #endif
 
 #endif
