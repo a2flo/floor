@@ -82,6 +82,7 @@ namespace floor_compute {
 	template <typename T> struct indirect_type_wrapper {
 		T elem;
 		
+		indirect_type_wrapper() {}
 		indirect_type_wrapper(const T& obj) : elem(obj) {}
 		indirect_type_wrapper& operator=(const T& obj) {
 			elem = obj;
@@ -110,7 +111,7 @@ namespace floor_compute {
 //! global memory buffer
 template <typename T> using buffer = global floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
-template <typename T> using local_buffer = local floor_compute::indirect_type_wrapper<T>*;
+template <typename T, size_t count> using local_buffer = local array<floor_compute::indirect_type_wrapper<T>, count>;
 //! constant memory buffer
 template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
 //! generic parameter object/buffer
@@ -121,13 +122,13 @@ template <typename T,
 			  floor_compute::direct_type_wrapper<T>>>
 using param = const param_wrapper;
 //! array<> for use with static constant memory
-template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
+template <class data_type, size_t array_size> using const_array = array<data_type, array_size>;
 
 #elif defined(FLOOR_COMPUTE_CUDA)
 //! global memory buffer
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
-template <typename T> using local_buffer = local floor_compute::indirect_type_wrapper<T>*;
+template <typename T, size_t count> using local_buffer = local array<floor_compute::indirect_type_wrapper<T>, count>;
 //! constant memory buffer
 template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
 //! generic parameter object/buffer
@@ -138,7 +139,7 @@ template <typename T,
 			  floor_compute::direct_type_wrapper<T>>>
 using param = const param_wrapper;
 //! array<> for use with static constant memory
-template <class data_type, size_t array_size> using const_array = std::array<data_type, array_size>;
+template <class data_type, size_t array_size> using const_array = array<data_type, array_size>;
 
 #elif defined(FLOOR_COMPUTE_METAL)
 namespace floor_compute {
@@ -182,47 +183,48 @@ namespace floor_compute {
 	struct address_space_adaptor {
 		contained_type elem;
 		
+		constexpr address_space_adaptor() {}
 		constexpr address_space_adaptor(const contained_type& elem_) : elem(elem_) {}
 		
 		//! explicit load
-		template <bool can_read_ = can_read, std::enable_if_t<can_read_>* = nullptr>
+		template <bool can_read_ = can_read, enable_if_t<can_read_>* = nullptr>
 		contained_type load() {
 			return contained_type::load(((const as_ptr_type)this));
 		}
-		template <bool can_read_ = can_read, std::enable_if_t<!can_read_>* = nullptr>
+		template <bool can_read_ = can_read, enable_if_t<!can_read_>* = nullptr>
 		contained_type load() {
 			static_assert(can_write, "load not supported in this address space!");
 			return contained_type {};
 		}
 		
 		//! implicit load (convert to contained_type in private/default address space)
-		template <bool can_read_ = can_read, std::enable_if_t<can_read_>* = nullptr>
+		template <bool can_read_ = can_read, enable_if_t<can_read_>* = nullptr>
 		operator contained_type() {
 			return load();
 		}
-		template <bool can_read_ = can_read, std::enable_if_t<!can_read_>* = nullptr>
+		template <bool can_read_ = can_read, enable_if_t<!can_read_>* = nullptr>
 		operator contained_type() {
 			static_assert(can_write, "load not supported in this address space!");
 			return contained_type {};
 		}
 		
 		//! explicit store
-		template <bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		template <bool can_write_ = can_write, enable_if_t<can_write_>* = nullptr>
 		void store(const contained_type& vec) {
 			contained_type::store(((as_ptr_type)this), vec);
 		}
-		template <bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		template <bool can_write_ = can_write, enable_if_t<!can_write_>* = nullptr>
 		void store(const contained_type&) {
 			static_assert(can_write, "store not supported in this address space!");
 		}
 		
 		//! implicit store (assign)
-		template <typename T, bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		template <typename T, bool can_write_ = can_write, enable_if_t<can_write_>* = nullptr>
 		address_space_adaptor& operator=(const T& obj) {
 			store(obj);
 			return *this;
 		}
-		template <typename T, bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		template <typename T, bool can_write_ = can_write, enable_if_t<!can_write_>* = nullptr>
 		address_space_adaptor& operator=(const T&) {
 			static_assert(can_write, "store not supported in this address space!");
 			return *this;
@@ -263,12 +265,12 @@ namespace floor_compute {
 		};
 		
 		//! implicit load via "pointer access" (returns a read/write proxy object)
-		template <bool can_write_ = can_write, std::enable_if_t<can_write_>* = nullptr>
+		template <bool can_write_ = can_write, enable_if_t<can_write_>* = nullptr>
 		proxy<contained_type> operator->() {
 			return { load() };
 		}
 		//! implicit load via "pointer access" (returns a const/read-only proxy object)
-		template <bool can_write_ = can_write, std::enable_if_t<!can_write_>* = nullptr>
+		template <bool can_write_ = can_write, enable_if_t<!can_write_>* = nullptr>
 		const_proxy<contained_type> operator->() {
 			return { load() };
 		}
@@ -300,7 +302,7 @@ namespace floor_compute {
 //! global memory buffer
 template <typename T> using buffer = global floor_compute::address_space_adaptor<T, global T*, true, !is_const<T>()>*;
 //! local memory buffer
-template <typename T> using local_buffer = local floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>*;
+template <typename T, size_t count> using local_buffer = local array<floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>, count>;
 //! constant memory buffer
 template <typename T> using const_buffer = constant floor_compute::address_space_adaptor<const T, constant const T*, true, false>*;
 //! generic parameter object/buffer (stored in constant memory)
