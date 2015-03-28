@@ -125,6 +125,42 @@ void init_gl_funcs();
 //
 #define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
 #define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#define GL_RENDERBUFFER_COVERAGE_SAMPLES_NV 0x8CAB
+#define GL_RENDERBUFFER_COLOR_SAMPLES_NV  0x8E10
+#define GL_MAX_MULTISAMPLE_COVERAGE_MODES_NV 0x8E11
+#define GL_MULTISAMPLE_COVERAGE_MODES_NV  0x8E12
+typedef void (APIENTRYP PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC) (GLenum target, GLsizei coverageSamples, GLsizei colorSamples, GLenum internalformat, GLsizei width, GLsizei height);
+OGL_API extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC _glRenderbufferStorageMultisampleCoverageNV_ptr; // NV_framebuffer_multisample_coverage
+
+#if !defined(__LINUX__) // gl 1.2 + 1.3 are already defined in linux
+// OpenGL 1.2
+OGL_API extern PFNGLBLENDCOLORPROC _glBlendColor_ptr;
+OGL_API extern PFNGLBLENDEQUATIONPROC _glBlendEquation_ptr;
+OGL_API extern PFNGLDRAWRANGEELEMENTSPROC _glDrawRangeElements_ptr;
+OGL_API extern PFNGLTEXIMAGE3DPROC _glTexImage3D_ptr;
+OGL_API extern PFNGLTEXSUBIMAGE3DPROC _glTexSubImage3D_ptr;
+OGL_API extern PFNGLCOPYTEXSUBIMAGE3DPROC _glCopyTexSubImage3D_ptr;
+
+// OpenGL 1.3
+OGL_API extern PFNGLACTIVETEXTUREPROC _glActiveTexture_ptr;
+OGL_API extern PFNGLSAMPLECOVERAGEPROC _glSampleCoverage_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXIMAGE3DPROC _glCompressedTexImage3D_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXIMAGE2DPROC _glCompressedTexImage2D_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXIMAGE1DPROC _glCompressedTexImage1D_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC _glCompressedTexSubImage3D_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC _glCompressedTexSubImage2D_ptr;
+OGL_API extern PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC _glCompressedTexSubImage1D_ptr;
+OGL_API extern PFNGLGETCOMPRESSEDTEXIMAGEPROC _glGetCompressedTexImage_ptr;
+#endif
+
+// OpenGL 1.4
+OGL_API extern PFNGLBLENDFUNCSEPARATEPROC _glBlendFuncSeparate_ptr;
+OGL_API extern PFNGLMULTIDRAWARRAYSPROC _glMultiDrawArrays_ptr;
+OGL_API extern PFNGLMULTIDRAWELEMENTSPROC _glMultiDrawElements_ptr;
+OGL_API extern PFNGLPOINTPARAMETERFPROC _glPointParameterf_ptr;
+OGL_API extern PFNGLPOINTPARAMETERFVPROC _glPointParameterfv_ptr;
+OGL_API extern PFNGLPOINTPARAMETERIPROC _glPointParameteri_ptr;
+OGL_API extern PFNGLPOINTPARAMETERIVPROC _glPointParameteriv_ptr;
 
 // OpenGL 1.5
 OGL_API extern PFNGLGENQUERIESPROC _glGenQueries_ptr;
@@ -242,7 +278,73 @@ OGL_API extern PFNGLVERTEXATTRIB4UIVPROC _glVertexAttrib4uiv_ptr;
 OGL_API extern PFNGLVERTEXATTRIB4USVPROC _glVertexAttrib4usv_ptr;
 OGL_API extern PFNGLVERTEXATTRIBPOINTERPROC _glVertexAttribPointer_ptr;
 
-//
+// OpenGL 2.1
+OGL_API extern PFNGLUNIFORMMATRIX2X3FVPROC _glUniformMatrix2x3fv_ptr;
+OGL_API extern PFNGLUNIFORMMATRIX3X2FVPROC _glUniformMatrix3x2fv_ptr;
+OGL_API extern PFNGLUNIFORMMATRIX2X4FVPROC _glUniformMatrix2x4fv_ptr;
+OGL_API extern PFNGLUNIFORMMATRIX4X2FVPROC _glUniformMatrix4x2fv_ptr;
+OGL_API extern PFNGLUNIFORMMATRIX3X4FVPROC _glUniformMatrix3x4fv_ptr;
+OGL_API extern PFNGLUNIFORMMATRIX4X3FVPROC _glUniformMatrix4x3fv_ptr;
+
+// OpenGL 3.0
+OGL_API extern PFNGLCOLORMASKIPROC _glColorMaski_ptr;
+OGL_API extern PFNGLGETBOOLEANI_VPROC _glGetBooleani_v_ptr;
+OGL_API extern PFNGLGETINTEGERI_VPROC _glGetIntegeri_v_ptr;
+OGL_API extern PFNGLENABLEIPROC _glEnablei_ptr;
+OGL_API extern PFNGLDISABLEIPROC _glDisablei_ptr;
+OGL_API extern PFNGLISENABLEDIPROC _glIsEnabledi_ptr;
+OGL_API extern PFNGLBEGINTRANSFORMFEEDBACKPROC _glBeginTransformFeedback_ptr;
+OGL_API extern PFNGLENDTRANSFORMFEEDBACKPROC _glEndTransformFeedback_ptr;
+OGL_API extern PFNGLBINDBUFFERRANGEPROC _glBindBufferRange_ptr;
+OGL_API extern PFNGLBINDBUFFERBASEPROC _glBindBufferBase_ptr;
+OGL_API extern PFNGLTRANSFORMFEEDBACKVARYINGSPROC _glTransformFeedbackVaryings_ptr;
+OGL_API extern PFNGLGETTRANSFORMFEEDBACKVARYINGPROC _glGetTransformFeedbackVarying_ptr;
+OGL_API extern PFNGLCLAMPCOLORPROC _glClampColor_ptr;
+OGL_API extern PFNGLBEGINCONDITIONALRENDERPROC _glBeginConditionalRender_ptr;
+OGL_API extern PFNGLENDCONDITIONALRENDERPROC _glEndConditionalRender_ptr;
+OGL_API extern PFNGLVERTEXATTRIBIPOINTERPROC _glVertexAttribIPointer_ptr;
+OGL_API extern PFNGLGETVERTEXATTRIBIIVPROC _glGetVertexAttribIiv_ptr;
+OGL_API extern PFNGLGETVERTEXATTRIBIUIVPROC _glGetVertexAttribIuiv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI1IPROC _glVertexAttribI1i_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI2IPROC _glVertexAttribI2i_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI3IPROC _glVertexAttribI3i_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4IPROC _glVertexAttribI4i_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI1UIPROC _glVertexAttribI1ui_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI2UIPROC _glVertexAttribI2ui_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI3UIPROC _glVertexAttribI3ui_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4UIPROC _glVertexAttribI4ui_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI1IVPROC _glVertexAttribI1iv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI2IVPROC _glVertexAttribI2iv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI3IVPROC _glVertexAttribI3iv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4IVPROC _glVertexAttribI4iv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI1UIVPROC _glVertexAttribI1uiv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI2UIVPROC _glVertexAttribI2uiv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI3UIVPROC _glVertexAttribI3uiv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4UIVPROC _glVertexAttribI4uiv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4BVPROC _glVertexAttribI4bv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4SVPROC _glVertexAttribI4sv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4UBVPROC _glVertexAttribI4ubv_ptr;
+OGL_API extern PFNGLVERTEXATTRIBI4USVPROC _glVertexAttribI4usv_ptr;
+OGL_API extern PFNGLGETUNIFORMUIVPROC _glGetUniformuiv_ptr;
+OGL_API extern PFNGLBINDFRAGDATALOCATIONPROC _glBindFragDataLocation_ptr;
+OGL_API extern PFNGLGETFRAGDATALOCATIONPROC _glGetFragDataLocation_ptr;
+OGL_API extern PFNGLUNIFORM1UIPROC _glUniform1ui_ptr;
+OGL_API extern PFNGLUNIFORM2UIPROC _glUniform2ui_ptr;
+OGL_API extern PFNGLUNIFORM3UIPROC _glUniform3ui_ptr;
+OGL_API extern PFNGLUNIFORM4UIPROC _glUniform4ui_ptr;
+OGL_API extern PFNGLUNIFORM1UIVPROC _glUniform1uiv_ptr;
+OGL_API extern PFNGLUNIFORM2UIVPROC _glUniform2uiv_ptr;
+OGL_API extern PFNGLUNIFORM3UIVPROC _glUniform3uiv_ptr;
+OGL_API extern PFNGLUNIFORM4UIVPROC _glUniform4uiv_ptr;
+OGL_API extern PFNGLTEXPARAMETERIIVPROC _glTexParameterIiv_ptr;
+OGL_API extern PFNGLTEXPARAMETERIUIVPROC _glTexParameterIuiv_ptr;
+OGL_API extern PFNGLGETTEXPARAMETERIIVPROC _glGetTexParameterIiv_ptr;
+OGL_API extern PFNGLGETTEXPARAMETERIUIVPROC _glGetTexParameterIuiv_ptr;
+OGL_API extern PFNGLCLEARBUFFERIVPROC _glClearBufferiv_ptr;
+OGL_API extern PFNGLCLEARBUFFERUIVPROC _glClearBufferuiv_ptr;
+OGL_API extern PFNGLCLEARBUFFERFVPROC _glClearBufferfv_ptr;
+OGL_API extern PFNGLCLEARBUFFERFIPROC _glClearBufferfi_ptr;
+OGL_API extern PFNGLGETSTRINGIPROC _glGetStringi_ptr;
 OGL_API extern PFNGLISRENDERBUFFERPROC _glIsRenderbuffer_ptr; // ARB_framebuffer_object
 OGL_API extern PFNGLBINDRENDERBUFFERPROC _glBindRenderbuffer_ptr; // ARB_framebuffer_object
 OGL_API extern PFNGLDELETERENDERBUFFERSPROC _glDeleteRenderbuffers_ptr; // ARB_framebuffer_object
@@ -261,7 +363,274 @@ OGL_API extern PFNGLFRAMEBUFFERRENDERBUFFERPROC _glFramebufferRenderbuffer_ptr; 
 OGL_API extern PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC _glGetFramebufferAttachmentParameteriv_ptr; // ARB_framebuffer_object
 OGL_API extern PFNGLGENERATEMIPMAPPROC _glGenerateMipmap_ptr; // ARB_framebuffer_object
 OGL_API extern PFNGLBLITFRAMEBUFFERPROC _glBlitFramebuffer_ptr; // ARB_framebuffer_object
+OGL_API extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC _glRenderbufferStorageMultisample_ptr; // ARB_framebuffer_object
+OGL_API extern PFNGLFRAMEBUFFERTEXTURELAYERPROC _glFramebufferTextureLayer_ptr; // ARB_framebuffer_object
+OGL_API extern PFNGLMAPBUFFERRANGEPROC _glMapBufferRange_ptr; // ARB_map_buffer_range
+OGL_API extern PFNGLFLUSHMAPPEDBUFFERRANGEPROC _glFlushMappedBufferRange_ptr; // ARB_map_buffer_range
+OGL_API extern PFNGLBINDVERTEXARRAYPROC _glBindVertexArray_ptr; // ARB_vertex_array_object
+OGL_API extern PFNGLDELETEVERTEXARRAYSPROC _glDeleteVertexArrays_ptr; // ARB_vertex_array_object
+OGL_API extern PFNGLGENVERTEXARRAYSPROC _glGenVertexArrays_ptr; // ARB_vertex_array_object
+OGL_API extern PFNGLISVERTEXARRAYPROC _glIsVertexArray_ptr; // ARB_vertex_array_object
 
+// OpenGL 3.1
+OGL_API extern PFNGLDRAWARRAYSINSTANCEDPROC _glDrawArraysInstanced_ptr;
+OGL_API extern PFNGLDRAWELEMENTSINSTANCEDPROC _glDrawElementsInstanced_ptr;
+OGL_API extern PFNGLTEXBUFFERPROC _glTexBuffer_ptr;
+OGL_API extern PFNGLPRIMITIVERESTARTINDEXPROC _glPrimitiveRestartIndex_ptr;
+OGL_API extern PFNGLCOPYBUFFERSUBDATAPROC _glCopyBufferSubData_ptr; // ARB_copy_buffer
+OGL_API extern PFNGLGETUNIFORMINDICESPROC _glGetUniformIndices_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLGETACTIVEUNIFORMSIVPROC _glGetActiveUniformsiv_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLGETACTIVEUNIFORMNAMEPROC _glGetActiveUniformName_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLGETUNIFORMBLOCKINDEXPROC _glGetUniformBlockIndex_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLGETACTIVEUNIFORMBLOCKIVPROC _glGetActiveUniformBlockiv_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLGETACTIVEUNIFORMBLOCKNAMEPROC _glGetActiveUniformBlockName_ptr; // ARB_uniform_buffer_object
+OGL_API extern PFNGLUNIFORMBLOCKBINDINGPROC _glUniformBlockBinding_ptr; // ARB_uniform_buffer_object
+
+// OpenGL 3.2
+OGL_API extern PFNGLGETINTEGER64I_VPROC _glGetInteger64i_v_ptr;
+OGL_API extern PFNGLGETBUFFERPARAMETERI64VPROC _glGetBufferParameteri64v_ptr;
+OGL_API extern PFNGLFRAMEBUFFERTEXTUREPROC _glFramebufferTexture_ptr;
+OGL_API extern PFNGLDRAWELEMENTSBASEVERTEXPROC _glDrawElementsBaseVertex_ptr; // ARB_draw_elements_base_vertex
+OGL_API extern PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC _glDrawRangeElementsBaseVertex_ptr; // ARB_draw_elements_base_vertex
+OGL_API extern PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC _glDrawElementsInstancedBaseVertex_ptr; // ARB_draw_elements_base_vertex
+OGL_API extern PFNGLMULTIDRAWELEMENTSBASEVERTEXPROC _glMultiDrawElementsBaseVertex_ptr; // ARB_draw_elements_base_vertex
+OGL_API extern PFNGLPROVOKINGVERTEXPROC _glProvokingVertex_ptr; // ARB_provoking_vertex
+OGL_API extern PFNGLFENCESYNCPROC _glFenceSync_ptr; // ARB_sync
+OGL_API extern PFNGLISSYNCPROC _glIsSync_ptr; // ARB_sync
+OGL_API extern PFNGLDELETESYNCPROC _glDeleteSync_ptr; // ARB_sync
+OGL_API extern PFNGLCLIENTWAITSYNCPROC _glClientWaitSync_ptr; // ARB_sync
+OGL_API extern PFNGLWAITSYNCPROC _glWaitSync_ptr; // ARB_sync
+OGL_API extern PFNGLGETINTEGER64VPROC _glGetInteger64v_ptr; // ARB_sync
+OGL_API extern PFNGLGETSYNCIVPROC _glGetSynciv_ptr; // ARB_sync
+OGL_API extern PFNGLTEXIMAGE2DMULTISAMPLEPROC _glTexImage2DMultisample_ptr; // ARB_texture_multisample
+OGL_API extern PFNGLTEXIMAGE3DMULTISAMPLEPROC _glTexImage3DMultisample_ptr; // ARB_texture_multisample
+OGL_API extern PFNGLGETMULTISAMPLEFVPROC _glGetMultisamplefv_ptr; // ARB_texture_multisample
+OGL_API extern PFNGLSAMPLEMASKIPROC _glSampleMaski_ptr; // ARB_texture_multisample
+
+// OpenGL 3.3
+OGL_API extern PFNGLVERTEXATTRIBDIVISORPROC _glVertexAttribDivisor_ptr;
+OGL_API extern PFNGLBINDFRAGDATALOCATIONINDEXEDPROC _glBindFragDataLocationIndexed_ptr; // ARB_blend_func_extended
+OGL_API extern PFNGLGETFRAGDATAINDEXPROC _glGetFragDataIndex_ptr; // ARB_blend_func_extended
+OGL_API extern PFNGLGENSAMPLERSPROC _glGenSamplers_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLDELETESAMPLERSPROC _glDeleteSamplers_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLISSAMPLERPROC _glIsSampler_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLBINDSAMPLERPROC _glBindSampler_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERIPROC _glSamplerParameteri_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERIVPROC _glSamplerParameteriv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERFPROC _glSamplerParameterf_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERFVPROC _glSamplerParameterfv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERIIVPROC _glSamplerParameterIiv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLSAMPLERPARAMETERIUIVPROC _glSamplerParameterIuiv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLGETSAMPLERPARAMETERIVPROC _glGetSamplerParameteriv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLGETSAMPLERPARAMETERIIVPROC _glGetSamplerParameterIiv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLGETSAMPLERPARAMETERFVPROC _glGetSamplerParameterfv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLGETSAMPLERPARAMETERIUIVPROC _glGetSamplerParameterIuiv_ptr; // ARB_sampler_objects
+OGL_API extern PFNGLQUERYCOUNTERPROC _glQueryCounter_ptr; // ARB_timer_query
+OGL_API extern PFNGLGETQUERYOBJECTI64VPROC _glGetQueryObjecti64v_ptr; // ARB_timer_query
+OGL_API extern PFNGLGETQUERYOBJECTUI64VPROC _glGetQueryObjectui64v_ptr; // ARB_timer_query
+OGL_API extern PFNGLVERTEXP2UIPROC _glVertexP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXP2UIVPROC _glVertexP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXP3UIPROC _glVertexP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXP3UIVPROC _glVertexP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXP4UIPROC _glVertexP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXP4UIVPROC _glVertexP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP1UIPROC _glTexCoordP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP1UIVPROC _glTexCoordP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP2UIPROC _glTexCoordP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP2UIVPROC _glTexCoordP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP3UIPROC _glTexCoordP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP3UIVPROC _glTexCoordP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP4UIPROC _glTexCoordP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLTEXCOORDP4UIVPROC _glTexCoordP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP1UIPROC _glMultiTexCoordP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP1UIVPROC _glMultiTexCoordP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP2UIPROC _glMultiTexCoordP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP2UIVPROC _glMultiTexCoordP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP3UIPROC _glMultiTexCoordP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP3UIVPROC _glMultiTexCoordP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP4UIPROC _glMultiTexCoordP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLMULTITEXCOORDP4UIVPROC _glMultiTexCoordP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLNORMALP3UIPROC _glNormalP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLNORMALP3UIVPROC _glNormalP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLCOLORP3UIPROC _glColorP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLCOLORP3UIVPROC _glColorP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLCOLORP4UIPROC _glColorP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLCOLORP4UIVPROC _glColorP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLSECONDARYCOLORP3UIPROC _glSecondaryColorP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLSECONDARYCOLORP3UIVPROC _glSecondaryColorP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP1UIPROC _glVertexAttribP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP1UIVPROC _glVertexAttribP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP2UIPROC _glVertexAttribP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP2UIVPROC _glVertexAttribP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP3UIPROC _glVertexAttribP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP3UIVPROC _glVertexAttribP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP4UIPROC _glVertexAttribP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
+OGL_API extern PFNGLVERTEXATTRIBP4UIVPROC _glVertexAttribP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
+
+// OpenGL 4.0
+OGL_API extern PFNGLMINSAMPLESHADINGPROC _glMinSampleShading_ptr;
+OGL_API extern PFNGLBLENDEQUATIONIPROC _glBlendEquationi_ptr;
+OGL_API extern PFNGLBLENDEQUATIONSEPARATEIPROC _glBlendEquationSeparatei_ptr;
+OGL_API extern PFNGLBLENDFUNCIPROC _glBlendFunci_ptr;
+OGL_API extern PFNGLBLENDFUNCSEPARATEIPROC _glBlendFuncSeparatei_ptr;
+OGL_API extern PFNGLDRAWARRAYSINDIRECTPROC _glDrawArraysIndirect_ptr; // ARB_draw_indirect
+OGL_API extern PFNGLDRAWELEMENTSINDIRECTPROC _glDrawElementsIndirect_ptr; // ARB_draw_indirect
+OGL_API extern PFNGLUNIFORM1DPROC _glUniform1d_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM2DPROC _glUniform2d_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM3DPROC _glUniform3d_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM4DPROC _glUniform4d_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM1DVPROC _glUniform1dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM2DVPROC _glUniform2dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM3DVPROC _glUniform3dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORM4DVPROC _glUniform4dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX2DVPROC _glUniformMatrix2dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX3DVPROC _glUniformMatrix3dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX4DVPROC _glUniformMatrix4dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX2X3DVPROC _glUniformMatrix2x3dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX2X4DVPROC _glUniformMatrix2x4dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX3X2DVPROC _glUniformMatrix3x2dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX3X4DVPROC _glUniformMatrix3x4dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX4X2DVPROC _glUniformMatrix4x2dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLUNIFORMMATRIX4X3DVPROC _glUniformMatrix4x3dv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLGETUNIFORMDVPROC _glGetUniformdv_ptr; // ARB_gpu_shader_fp64
+OGL_API extern PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC _glGetSubroutineUniformLocation_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETSUBROUTINEINDEXPROC _glGetSubroutineIndex_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC _glGetActiveSubroutineUniformiv_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC _glGetActiveSubroutineUniformName_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETACTIVESUBROUTINENAMEPROC _glGetActiveSubroutineName_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLUNIFORMSUBROUTINESUIVPROC _glUniformSubroutinesuiv_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETUNIFORMSUBROUTINEUIVPROC _glGetUniformSubroutineuiv_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLGETPROGRAMSTAGEIVPROC _glGetProgramStageiv_ptr; // ARB_shader_subroutine
+OGL_API extern PFNGLPATCHPARAMETERIPROC _glPatchParameteri_ptr; // ARB_tessellation_shader
+OGL_API extern PFNGLPATCHPARAMETERFVPROC _glPatchParameterfv_ptr; // ARB_tessellation_shader
+OGL_API extern PFNGLBINDTRANSFORMFEEDBACKPROC _glBindTransformFeedback_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLDELETETRANSFORMFEEDBACKSPROC _glDeleteTransformFeedbacks_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLGENTRANSFORMFEEDBACKSPROC _glGenTransformFeedbacks_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLISTRANSFORMFEEDBACKPROC _glIsTransformFeedback_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLPAUSETRANSFORMFEEDBACKPROC _glPauseTransformFeedback_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLRESUMETRANSFORMFEEDBACKPROC _glResumeTransformFeedback_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLDRAWTRANSFORMFEEDBACKPROC _glDrawTransformFeedback_ptr; // ARB_transform_feedback2
+OGL_API extern PFNGLDRAWTRANSFORMFEEDBACKSTREAMPROC _glDrawTransformFeedbackStream_ptr; // ARB_transform_feedback3
+OGL_API extern PFNGLBEGINQUERYINDEXEDPROC _glBeginQueryIndexed_ptr; // ARB_transform_feedback3
+OGL_API extern PFNGLENDQUERYINDEXEDPROC _glEndQueryIndexed_ptr; // ARB_transform_feedback3
+OGL_API extern PFNGLGETQUERYINDEXEDIVPROC _glGetQueryIndexediv_ptr; // ARB_transform_feedback3
+
+// OpenGL 4.1
+OGL_API extern PFNGLRELEASESHADERCOMPILERPROC _glReleaseShaderCompiler_ptr; // ARB_ES2_compatibility
+OGL_API extern PFNGLSHADERBINARYPROC _glShaderBinary_ptr; // ARB_ES2_compatibility
+OGL_API extern PFNGLGETSHADERPRECISIONFORMATPROC _glGetShaderPrecisionFormat_ptr; // ARB_ES2_compatibility
+OGL_API extern PFNGLDEPTHRANGEFPROC _glDepthRangef_ptr; // ARB_ES2_compatibility
+OGL_API extern PFNGLCLEARDEPTHFPROC _glClearDepthf_ptr; // ARB_ES2_compatibility
+OGL_API extern PFNGLGETPROGRAMBINARYPROC _glGetProgramBinary_ptr; // ARB_get_program_binary
+OGL_API extern PFNGLPROGRAMBINARYPROC _glProgramBinary_ptr; // ARB_get_program_binary
+OGL_API extern PFNGLPROGRAMPARAMETERIPROC _glProgramParameteri_ptr; // ARB_get_program_binary
+OGL_API extern PFNGLUSEPROGRAMSTAGESPROC _glUseProgramStages_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLACTIVESHADERPROGRAMPROC _glActiveShaderProgram_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLCREATESHADERPROGRAMVPROC _glCreateShaderProgramv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLBINDPROGRAMPIPELINEPROC _glBindProgramPipeline_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLDELETEPROGRAMPIPELINESPROC _glDeleteProgramPipelines_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLGENPROGRAMPIPELINESPROC _glGenProgramPipelines_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLISPROGRAMPIPELINEPROC _glIsProgramPipeline_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLGETPROGRAMPIPELINEIVPROC _glGetProgramPipelineiv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1IPROC _glProgramUniform1i_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1IVPROC _glProgramUniform1iv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1FPROC _glProgramUniform1f_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1FVPROC _glProgramUniform1fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1DPROC _glProgramUniform1d_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1DVPROC _glProgramUniform1dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1UIPROC _glProgramUniform1ui_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM1UIVPROC _glProgramUniform1uiv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2IPROC _glProgramUniform2i_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2IVPROC _glProgramUniform2iv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2FPROC _glProgramUniform2f_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2FVPROC _glProgramUniform2fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2DPROC _glProgramUniform2d_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2DVPROC _glProgramUniform2dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2UIPROC _glProgramUniform2ui_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM2UIVPROC _glProgramUniform2uiv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3IPROC _glProgramUniform3i_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3IVPROC _glProgramUniform3iv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3FPROC _glProgramUniform3f_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3FVPROC _glProgramUniform3fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3DPROC _glProgramUniform3d_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3DVPROC _glProgramUniform3dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3UIPROC _glProgramUniform3ui_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM3UIVPROC _glProgramUniform3uiv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4IPROC _glProgramUniform4i_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4IVPROC _glProgramUniform4iv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4FPROC _glProgramUniform4f_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4FVPROC _glProgramUniform4fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4DPROC _glProgramUniform4d_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4DVPROC _glProgramUniform4dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4UIPROC _glProgramUniform4ui_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORM4UIVPROC _glProgramUniform4uiv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2FVPROC _glProgramUniformMatrix2fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3FVPROC _glProgramUniformMatrix3fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4FVPROC _glProgramUniformMatrix4fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2DVPROC _glProgramUniformMatrix2dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3DVPROC _glProgramUniformMatrix3dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4DVPROC _glProgramUniformMatrix4dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2X3FVPROC _glProgramUniformMatrix2x3fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3X2FVPROC _glProgramUniformMatrix3x2fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2X4FVPROC _glProgramUniformMatrix2x4fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC _glProgramUniformMatrix4x2fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC _glProgramUniformMatrix3x4fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC _glProgramUniformMatrix4x3fv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2X3DVPROC _glProgramUniformMatrix2x3dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3X2DVPROC _glProgramUniformMatrix3x2dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX2X4DVPROC _glProgramUniformMatrix2x4dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4X2DVPROC _glProgramUniformMatrix4x2dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX3X4DVPROC _glProgramUniformMatrix3x4dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLPROGRAMUNIFORMMATRIX4X3DVPROC _glProgramUniformMatrix4x3dv_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLVALIDATEPROGRAMPIPELINEPROC _glValidateProgramPipeline_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLGETPROGRAMPIPELINEINFOLOGPROC _glGetProgramPipelineInfoLog_ptr; // ARB_separate_shader_objects
+OGL_API extern PFNGLVERTEXATTRIBL1DPROC _glVertexAttribL1d_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL2DPROC _glVertexAttribL2d_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL3DPROC _glVertexAttribL3d_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL4DPROC _glVertexAttribL4d_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL1DVPROC _glVertexAttribL1dv_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL2DVPROC _glVertexAttribL2dv_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL3DVPROC _glVertexAttribL3dv_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBL4DVPROC _glVertexAttribL4dv_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVERTEXATTRIBLPOINTERPROC _glVertexAttribLPointer_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLGETVERTEXATTRIBLDVPROC _glGetVertexAttribLdv_ptr; // ARB_vertex_attrib_64bit
+OGL_API extern PFNGLVIEWPORTARRAYVPROC _glViewportArrayv_ptr; // ARB_viewport_array
+OGL_API extern PFNGLVIEWPORTINDEXEDFPROC _glViewportIndexedf_ptr; // ARB_viewport_array
+OGL_API extern PFNGLVIEWPORTINDEXEDFVPROC _glViewportIndexedfv_ptr; // ARB_viewport_array
+OGL_API extern PFNGLSCISSORARRAYVPROC _glScissorArrayv_ptr; // ARB_viewport_array
+OGL_API extern PFNGLSCISSORINDEXEDPROC _glScissorIndexed_ptr; // ARB_viewport_array
+OGL_API extern PFNGLSCISSORINDEXEDVPROC _glScissorIndexedv_ptr; // ARB_viewport_array
+OGL_API extern PFNGLDEPTHRANGEARRAYVPROC _glDepthRangeArrayv_ptr; // ARB_viewport_array
+OGL_API extern PFNGLDEPTHRANGEINDEXEDPROC _glDepthRangeIndexed_ptr; // ARB_viewport_array
+OGL_API extern PFNGLGETFLOATI_VPROC _glGetFloati_v_ptr; // ARB_viewport_array
+OGL_API extern PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr; // ARB_viewport_array
+
+// syntactic sugar
+#define glRenderbufferStorageMultisampleCoverageNV ((PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC)_glRenderbufferStorageMultisampleCoverageNV_ptr)
+#if !defined(__LINUX__)
+#define glBlendColor ((PFNGLBLENDCOLORPROC)_glBlendColor_ptr)
+#define glBlendEquation ((PFNGLBLENDEQUATIONPROC)_glBlendEquation_ptr)
+#define glDrawRangeElements ((PFNGLDRAWRANGEELEMENTSPROC)_glDrawRangeElements_ptr)
+#define glTexImage3D ((PFNGLTEXIMAGE3DPROC)_glTexImage3D_ptr)
+#define glTexSubImage3D ((PFNGLTEXSUBIMAGE3DPROC)_glTexSubImage3D_ptr)
+#define glCopyTexSubImage3D ((PFNGLCOPYTEXSUBIMAGE3DPROC)_glCopyTexSubImage3D_ptr)
+#define glActiveTexture ((PFNGLACTIVETEXTUREPROC)_glActiveTexture_ptr)
+#define glSampleCoverage ((PFNGLSAMPLECOVERAGEPROC)_glSampleCoverage_ptr)
+#define glCompressedTexImage3D ((PFNGLCOMPRESSEDTEXIMAGE3DPROC)_glCompressedTexImage3D_ptr)
+#define glCompressedTexImage2D ((PFNGLCOMPRESSEDTEXIMAGE2DPROC)_glCompressedTexImage2D_ptr)
+#define glCompressedTexImage1D ((PFNGLCOMPRESSEDTEXIMAGE1DPROC)_glCompressedTexImage1D_ptr)
+#define glCompressedTexSubImage3D ((PFNGLCOMPRESSEDTEXSUBIMAGE3DPROC)_glCompressedTexSubImage3D_ptr)
+#define glCompressedTexSubImage2D ((PFNGLCOMPRESSEDTEXSUBIMAGE2DPROC)_glCompressedTexSubImage2D_ptr)
+#define glCompressedTexSubImage1D ((PFNGLCOMPRESSEDTEXSUBIMAGE1DPROC)_glCompressedTexSubImage1D_ptr)
+#define glGetCompressedTexImage ((PFNGLGETCOMPRESSEDTEXIMAGEPROC)_glGetCompressedTexImage_ptr)
+#endif
+#define glBlendFuncSeparate ((PFNGLBLENDFUNCSEPARATEPROC)_glBlendFuncSeparate_ptr)
+#define glMultiDrawArrays ((PFNGLMULTIDRAWARRAYSPROC)_glMultiDrawArrays_ptr)
+#define glMultiDrawElements ((PFNGLMULTIDRAWELEMENTSPROC)_glMultiDrawElements_ptr)
+#define glPointParameterf ((PFNGLPOINTPARAMETERFPROC)_glPointParameterf_ptr)
+#define glPointParameterfv ((PFNGLPOINTPARAMETERFVPROC)_glPointParameterfv_ptr)
+#define glPointParameteri ((PFNGLPOINTPARAMETERIPROC)_glPointParameteri_ptr)
+#define glPointParameteriv ((PFNGLPOINTPARAMETERIVPROC)_glPointParameteriv_ptr)
 #define glGenQueries ((PFNGLGENQUERIESPROC)_glGenQueries_ptr)
 #define glDeleteQueries ((PFNGLDELETEQUERIESPROC)_glDeleteQueries_ptr)
 #define glIsQuery ((PFNGLISQUERYPROC)_glIsQuery_ptr)
@@ -281,7 +650,6 @@ OGL_API extern PFNGLBLITFRAMEBUFFERPROC _glBlitFramebuffer_ptr; // ARB_framebuff
 #define glUnmapBuffer ((PFNGLUNMAPBUFFERPROC)_glUnmapBuffer_ptr)
 #define glGetBufferParameteriv ((PFNGLGETBUFFERPARAMETERIVPROC)_glGetBufferParameteriv_ptr)
 #define glGetBufferPointerv ((PFNGLGETBUFFERPOINTERVPROC)_glGetBufferPointerv_ptr)
-
 #define glBlendEquationSeparate ((PFNGLBLENDEQUATIONSEPARATEPROC)_glBlendEquationSeparate_ptr)
 #define glDrawBuffers ((PFNGLDRAWBUFFERSPROC)_glDrawBuffers_ptr)
 #define glStencilOpSeparate ((PFNGLSTENCILOPSEPARATEPROC)_glStencilOpSeparate_ptr)
@@ -375,7 +743,70 @@ OGL_API extern PFNGLBLITFRAMEBUFFERPROC _glBlitFramebuffer_ptr; // ARB_framebuff
 #define glVertexAttrib4uiv ((PFNGLVERTEXATTRIB4UIVPROC)_glVertexAttrib4uiv_ptr)
 #define glVertexAttrib4usv ((PFNGLVERTEXATTRIB4USVPROC)_glVertexAttrib4usv_ptr)
 #define glVertexAttribPointer ((PFNGLVERTEXATTRIBPOINTERPROC)_glVertexAttribPointer_ptr)
-
+#define glUniformMatrix2x3fv ((PFNGLUNIFORMMATRIX2X3FVPROC)_glUniformMatrix2x3fv_ptr)
+#define glUniformMatrix3x2fv ((PFNGLUNIFORMMATRIX3X2FVPROC)_glUniformMatrix3x2fv_ptr)
+#define glUniformMatrix2x4fv ((PFNGLUNIFORMMATRIX2X4FVPROC)_glUniformMatrix2x4fv_ptr)
+#define glUniformMatrix4x2fv ((PFNGLUNIFORMMATRIX4X2FVPROC)_glUniformMatrix4x2fv_ptr)
+#define glUniformMatrix3x4fv ((PFNGLUNIFORMMATRIX3X4FVPROC)_glUniformMatrix3x4fv_ptr)
+#define glUniformMatrix4x3fv ((PFNGLUNIFORMMATRIX4X3FVPROC)_glUniformMatrix4x3fv_ptr)
+#define glColorMaski ((PFNGLCOLORMASKIPROC)_glColorMaski_ptr)
+#define glGetBooleani_v ((PFNGLGETBOOLEANI_VPROC)_glGetBooleani_v_ptr)
+#define glGetIntegeri_v ((PFNGLGETINTEGERI_VPROC)_glGetIntegeri_v_ptr)
+#define glEnablei ((PFNGLENABLEIPROC)_glEnablei_ptr)
+#define glDisablei ((PFNGLDISABLEIPROC)_glDisablei_ptr)
+#define glIsEnabledi ((PFNGLISENABLEDIPROC)_glIsEnabledi_ptr)
+#define glBeginTransformFeedback ((PFNGLBEGINTRANSFORMFEEDBACKPROC)_glBeginTransformFeedback_ptr)
+#define glEndTransformFeedback ((PFNGLENDTRANSFORMFEEDBACKPROC)_glEndTransformFeedback_ptr)
+#define glBindBufferRange ((PFNGLBINDBUFFERRANGEPROC)_glBindBufferRange_ptr)
+#define glBindBufferBase ((PFNGLBINDBUFFERBASEPROC)_glBindBufferBase_ptr)
+#define glTransformFeedbackVaryings ((PFNGLTRANSFORMFEEDBACKVARYINGSPROC)_glTransformFeedbackVaryings_ptr)
+#define glGetTransformFeedbackVarying ((PFNGLGETTRANSFORMFEEDBACKVARYINGPROC)_glGetTransformFeedbackVarying_ptr)
+#define glClampColor ((PFNGLCLAMPCOLORPROC)_glClampColor_ptr)
+#define glBeginConditionalRender ((PFNGLBEGINCONDITIONALRENDERPROC)_glBeginConditionalRender_ptr)
+#define glEndConditionalRender ((PFNGLENDCONDITIONALRENDERPROC)_glEndConditionalRender_ptr)
+#define glVertexAttribIPointer ((PFNGLVERTEXATTRIBIPOINTERPROC)_glVertexAttribIPointer_ptr)
+#define glGetVertexAttribIiv ((PFNGLGETVERTEXATTRIBIIVPROC)_glGetVertexAttribIiv_ptr)
+#define glGetVertexAttribIuiv ((PFNGLGETVERTEXATTRIBIUIVPROC)_glGetVertexAttribIuiv_ptr)
+#define glVertexAttribI1i ((PFNGLVERTEXATTRIBI1IPROC)_glVertexAttribI1i_ptr)
+#define glVertexAttribI2i ((PFNGLVERTEXATTRIBI2IPROC)_glVertexAttribI2i_ptr)
+#define glVertexAttribI3i ((PFNGLVERTEXATTRIBI3IPROC)_glVertexAttribI3i_ptr)
+#define glVertexAttribI4i ((PFNGLVERTEXATTRIBI4IPROC)_glVertexAttribI4i_ptr)
+#define glVertexAttribI1ui ((PFNGLVERTEXATTRIBI1UIPROC)_glVertexAttribI1ui_ptr)
+#define glVertexAttribI2ui ((PFNGLVERTEXATTRIBI2UIPROC)_glVertexAttribI2ui_ptr)
+#define glVertexAttribI3ui ((PFNGLVERTEXATTRIBI3UIPROC)_glVertexAttribI3ui_ptr)
+#define glVertexAttribI4ui ((PFNGLVERTEXATTRIBI4UIPROC)_glVertexAttribI4ui_ptr)
+#define glVertexAttribI1iv ((PFNGLVERTEXATTRIBI1IVPROC)_glVertexAttribI1iv_ptr)
+#define glVertexAttribI2iv ((PFNGLVERTEXATTRIBI2IVPROC)_glVertexAttribI2iv_ptr)
+#define glVertexAttribI3iv ((PFNGLVERTEXATTRIBI3IVPROC)_glVertexAttribI3iv_ptr)
+#define glVertexAttribI4iv ((PFNGLVERTEXATTRIBI4IVPROC)_glVertexAttribI4iv_ptr)
+#define glVertexAttribI1uiv ((PFNGLVERTEXATTRIBI1UIVPROC)_glVertexAttribI1uiv_ptr)
+#define glVertexAttribI2uiv ((PFNGLVERTEXATTRIBI2UIVPROC)_glVertexAttribI2uiv_ptr)
+#define glVertexAttribI3uiv ((PFNGLVERTEXATTRIBI3UIVPROC)_glVertexAttribI3uiv_ptr)
+#define glVertexAttribI4uiv ((PFNGLVERTEXATTRIBI4UIVPROC)_glVertexAttribI4uiv_ptr)
+#define glVertexAttribI4bv ((PFNGLVERTEXATTRIBI4BVPROC)_glVertexAttribI4bv_ptr)
+#define glVertexAttribI4sv ((PFNGLVERTEXATTRIBI4SVPROC)_glVertexAttribI4sv_ptr)
+#define glVertexAttribI4ubv ((PFNGLVERTEXATTRIBI4UBVPROC)_glVertexAttribI4ubv_ptr)
+#define glVertexAttribI4usv ((PFNGLVERTEXATTRIBI4USVPROC)_glVertexAttribI4usv_ptr)
+#define glGetUniformuiv ((PFNGLGETUNIFORMUIVPROC)_glGetUniformuiv_ptr)
+#define glBindFragDataLocation ((PFNGLBINDFRAGDATALOCATIONPROC)_glBindFragDataLocation_ptr)
+#define glGetFragDataLocation ((PFNGLGETFRAGDATALOCATIONPROC)_glGetFragDataLocation_ptr)
+#define glUniform1ui ((PFNGLUNIFORM1UIPROC)_glUniform1ui_ptr)
+#define glUniform2ui ((PFNGLUNIFORM2UIPROC)_glUniform2ui_ptr)
+#define glUniform3ui ((PFNGLUNIFORM3UIPROC)_glUniform3ui_ptr)
+#define glUniform4ui ((PFNGLUNIFORM4UIPROC)_glUniform4ui_ptr)
+#define glUniform1uiv ((PFNGLUNIFORM1UIVPROC)_glUniform1uiv_ptr)
+#define glUniform2uiv ((PFNGLUNIFORM2UIVPROC)_glUniform2uiv_ptr)
+#define glUniform3uiv ((PFNGLUNIFORM3UIVPROC)_glUniform3uiv_ptr)
+#define glUniform4uiv ((PFNGLUNIFORM4UIVPROC)_glUniform4uiv_ptr)
+#define glTexParameterIiv ((PFNGLTEXPARAMETERIIVPROC)_glTexParameterIiv_ptr)
+#define glTexParameterIuiv ((PFNGLTEXPARAMETERIUIVPROC)_glTexParameterIuiv_ptr)
+#define glGetTexParameterIiv ((PFNGLGETTEXPARAMETERIIVPROC)_glGetTexParameterIiv_ptr)
+#define glGetTexParameterIuiv ((PFNGLGETTEXPARAMETERIUIVPROC)_glGetTexParameterIuiv_ptr)
+#define glClearBufferiv ((PFNGLCLEARBUFFERIVPROC)_glClearBufferiv_ptr)
+#define glClearBufferuiv ((PFNGLCLEARBUFFERUIVPROC)_glClearBufferuiv_ptr)
+#define glClearBufferfv ((PFNGLCLEARBUFFERFVPROC)_glClearBufferfv_ptr)
+#define glClearBufferfi ((PFNGLCLEARBUFFERFIPROC)_glClearBufferfi_ptr)
+#define glGetStringi ((PFNGLGETSTRINGIPROC)_glGetStringi_ptr)
 #define glIsRenderbuffer ((PFNGLISRENDERBUFFERPROC)_glIsRenderbuffer_ptr)
 #define glBindRenderbuffer ((PFNGLBINDRENDERBUFFERPROC)_glBindRenderbuffer_ptr)
 #define glDeleteRenderbuffers ((PFNGLDELETERENDERBUFFERSPROC)_glDeleteRenderbuffers_ptr)
@@ -394,6 +825,237 @@ OGL_API extern PFNGLBLITFRAMEBUFFERPROC _glBlitFramebuffer_ptr; // ARB_framebuff
 #define glGetFramebufferAttachmentParameteriv ((PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC)_glGetFramebufferAttachmentParameteriv_ptr)
 #define glGenerateMipmap ((PFNGLGENERATEMIPMAPPROC)_glGenerateMipmap_ptr)
 #define glBlitFramebuffer ((PFNGLBLITFRAMEBUFFERPROC)_glBlitFramebuffer_ptr)
+#define glRenderbufferStorageMultisample ((PFNGLRENDERBUFFERSTORAGEMULTISAMPLEPROC)_glRenderbufferStorageMultisample_ptr)
+#define glFramebufferTextureLayer ((PFNGLFRAMEBUFFERTEXTURELAYERPROC)_glFramebufferTextureLayer_ptr)
+#define glMapBufferRange ((PFNGLMAPBUFFERRANGEPROC)_glMapBufferRange_ptr)
+#define glFlushMappedBufferRange ((PFNGLFLUSHMAPPEDBUFFERRANGEPROC)_glFlushMappedBufferRange_ptr)
+#define glBindVertexArray ((PFNGLBINDVERTEXARRAYPROC)_glBindVertexArray_ptr)
+#define glDeleteVertexArrays ((PFNGLDELETEVERTEXARRAYSPROC)_glDeleteVertexArrays_ptr)
+#define glGenVertexArrays ((PFNGLGENVERTEXARRAYSPROC)_glGenVertexArrays_ptr)
+#define glIsVertexArray ((PFNGLISVERTEXARRAYPROC)_glIsVertexArray_ptr)
+#define glDrawArraysInstanced ((PFNGLDRAWARRAYSINSTANCEDPROC)_glDrawArraysInstanced_ptr)
+#define glDrawElementsInstanced ((PFNGLDRAWELEMENTSINSTANCEDPROC)_glDrawElementsInstanced_ptr)
+#define glTexBuffer ((PFNGLTEXBUFFERPROC)_glTexBuffer_ptr)
+#define glPrimitiveRestartIndex ((PFNGLPRIMITIVERESTARTINDEXPROC)_glPrimitiveRestartIndex_ptr)
+#define glCopyBufferSubData ((PFNGLCOPYBUFFERSUBDATAPROC)_glCopyBufferSubData_ptr)
+#define glGetUniformIndices ((PFNGLGETUNIFORMINDICESPROC)_glGetUniformIndices_ptr)
+#define glGetActiveUniformsiv ((PFNGLGETACTIVEUNIFORMSIVPROC)_glGetActiveUniformsiv_ptr)
+#define glGetActiveUniformName ((PFNGLGETACTIVEUNIFORMNAMEPROC)_glGetActiveUniformName_ptr)
+#define glGetUniformBlockIndex ((PFNGLGETUNIFORMBLOCKINDEXPROC)_glGetUniformBlockIndex_ptr)
+#define glGetActiveUniformBlockiv ((PFNGLGETACTIVEUNIFORMBLOCKIVPROC)_glGetActiveUniformBlockiv_ptr)
+#define glGetActiveUniformBlockName ((PFNGLGETACTIVEUNIFORMBLOCKNAMEPROC)_glGetActiveUniformBlockName_ptr)
+#define glUniformBlockBinding ((PFNGLUNIFORMBLOCKBINDINGPROC)_glUniformBlockBinding_ptr)
+#define glGetInteger64i_v ((PFNGLGETINTEGER64I_VPROC)_glGetInteger64i_v_ptr)
+#define glGetBufferParameteri64v ((PFNGLGETBUFFERPARAMETERI64VPROC)_glGetBufferParameteri64v_ptr)
+#define glFramebufferTexture ((PFNGLFRAMEBUFFERTEXTUREPROC)_glFramebufferTexture_ptr)
+#define glDrawElementsBaseVertex ((PFNGLDRAWELEMENTSBASEVERTEXPROC)_glDrawElementsBaseVertex_ptr)
+#define glDrawRangeElementsBaseVertex ((PFNGLDRAWRANGEELEMENTSBASEVERTEXPROC)_glDrawRangeElementsBaseVertex_ptr)
+#define glDrawElementsInstancedBaseVertex ((PFNGLDRAWELEMENTSINSTANCEDBASEVERTEXPROC)_glDrawElementsInstancedBaseVertex_ptr)
+#define glMultiDrawElementsBaseVertex ((PFNGLMULTIDRAWELEMENTSBASEVERTEXPROC)_glMultiDrawElementsBaseVertex_ptr)
+#define glProvokingVertex ((PFNGLPROVOKINGVERTEXPROC)_glProvokingVertex_ptr)
+#define glFenceSync ((PFNGLFENCESYNCPROC)_glFenceSync_ptr)
+#define glIsSync ((PFNGLISSYNCPROC)_glIsSync_ptr)
+#define glDeleteSync ((PFNGLDELETESYNCPROC)_glDeleteSync_ptr)
+#define glClientWaitSync ((PFNGLCLIENTWAITSYNCPROC)_glClientWaitSync_ptr)
+#define glWaitSync ((PFNGLWAITSYNCPROC)_glWaitSync_ptr)
+#define glGetInteger64v ((PFNGLGETINTEGER64VPROC)_glGetInteger64v_ptr)
+#define glGetSynciv ((PFNGLGETSYNCIVPROC)_glGetSynciv_ptr)
+#define glTexImage2DMultisample ((PFNGLTEXIMAGE2DMULTISAMPLEPROC)_glTexImage2DMultisample_ptr)
+#define glTexImage3DMultisample ((PFNGLTEXIMAGE3DMULTISAMPLEPROC)_glTexImage3DMultisample_ptr)
+#define glGetMultisamplefv ((PFNGLGETMULTISAMPLEFVPROC)_glGetMultisamplefv_ptr)
+#define glSampleMaski ((PFNGLSAMPLEMASKIPROC)_glSampleMaski_ptr)
+#define glVertexAttribDivisor ((PFNGLVERTEXATTRIBDIVISORPROC)_glVertexAttribDivisor_ptr)
+#define glBindFragDataLocationIndexed ((PFNGLBINDFRAGDATALOCATIONINDEXEDPROC)_glBindFragDataLocationIndexed_ptr)
+#define glGetFragDataIndex ((PFNGLGETFRAGDATAINDEXPROC)_glGetFragDataIndex_ptr)
+#define glGenSamplers ((PFNGLGENSAMPLERSPROC)_glGenSamplers_ptr)
+#define glDeleteSamplers ((PFNGLDELETESAMPLERSPROC)_glDeleteSamplers_ptr)
+#define glIsSampler ((PFNGLISSAMPLERPROC)_glIsSampler_ptr)
+#define glBindSampler ((PFNGLBINDSAMPLERPROC)_glBindSampler_ptr)
+#define glSamplerParameteri ((PFNGLSAMPLERPARAMETERIPROC)_glSamplerParameteri_ptr)
+#define glSamplerParameteriv ((PFNGLSAMPLERPARAMETERIVPROC)_glSamplerParameteriv_ptr)
+#define glSamplerParameterf ((PFNGLSAMPLERPARAMETERFPROC)_glSamplerParameterf_ptr)
+#define glSamplerParameterfv ((PFNGLSAMPLERPARAMETERFVPROC)_glSamplerParameterfv_ptr)
+#define glSamplerParameterIiv ((PFNGLSAMPLERPARAMETERIIVPROC)_glSamplerParameterIiv_ptr)
+#define glSamplerParameterIuiv ((PFNGLSAMPLERPARAMETERIUIVPROC)_glSamplerParameterIuiv_ptr)
+#define glGetSamplerParameteriv ((PFNGLGETSAMPLERPARAMETERIVPROC)_glGetSamplerParameteriv_ptr)
+#define glGetSamplerParameterIiv ((PFNGLGETSAMPLERPARAMETERIIVPROC)_glGetSamplerParameterIiv_ptr)
+#define glGetSamplerParameterfv ((PFNGLGETSAMPLERPARAMETERFVPROC)_glGetSamplerParameterfv_ptr)
+#define glGetSamplerParameterIuiv ((PFNGLGETSAMPLERPARAMETERIUIVPROC)_glGetSamplerParameterIuiv_ptr)
+#define glQueryCounter ((PFNGLQUERYCOUNTERPROC)_glQueryCounter_ptr)
+#define glGetQueryObjecti64v ((PFNGLGETQUERYOBJECTI64VPROC)_glGetQueryObjecti64v_ptr)
+#define glGetQueryObjectui64v ((PFNGLGETQUERYOBJECTUI64VPROC)_glGetQueryObjectui64v_ptr)
+#define glVertexP2ui ((PFNGLVERTEXP2UIPROC)_glVertexP2ui_ptr)
+#define glVertexP2uiv ((PFNGLVERTEXP2UIVPROC)_glVertexP2uiv_ptr)
+#define glVertexP3ui ((PFNGLVERTEXP3UIPROC)_glVertexP3ui_ptr)
+#define glVertexP3uiv ((PFNGLVERTEXP3UIVPROC)_glVertexP3uiv_ptr)
+#define glVertexP4ui ((PFNGLVERTEXP4UIPROC)_glVertexP4ui_ptr)
+#define glVertexP4uiv ((PFNGLVERTEXP4UIVPROC)_glVertexP4uiv_ptr)
+#define glTexCoordP1ui ((PFNGLTEXCOORDP1UIPROC)_glTexCoordP1ui_ptr)
+#define glTexCoordP1uiv ((PFNGLTEXCOORDP1UIVPROC)_glTexCoordP1uiv_ptr)
+#define glTexCoordP2ui ((PFNGLTEXCOORDP2UIPROC)_glTexCoordP2ui_ptr)
+#define glTexCoordP2uiv ((PFNGLTEXCOORDP2UIVPROC)_glTexCoordP2uiv_ptr)
+#define glTexCoordP3ui ((PFNGLTEXCOORDP3UIPROC)_glTexCoordP3ui_ptr)
+#define glTexCoordP3uiv ((PFNGLTEXCOORDP3UIVPROC)_glTexCoordP3uiv_ptr)
+#define glTexCoordP4ui ((PFNGLTEXCOORDP4UIPROC)_glTexCoordP4ui_ptr)
+#define glTexCoordP4uiv ((PFNGLTEXCOORDP4UIVPROC)_glTexCoordP4uiv_ptr)
+#define glMultiTexCoordP1ui ((PFNGLMULTITEXCOORDP1UIPROC)_glMultiTexCoordP1ui_ptr)
+#define glMultiTexCoordP1uiv ((PFNGLMULTITEXCOORDP1UIVPROC)_glMultiTexCoordP1uiv_ptr)
+#define glMultiTexCoordP2ui ((PFNGLMULTITEXCOORDP2UIPROC)_glMultiTexCoordP2ui_ptr)
+#define glMultiTexCoordP2uiv ((PFNGLMULTITEXCOORDP2UIVPROC)_glMultiTexCoordP2uiv_ptr)
+#define glMultiTexCoordP3ui ((PFNGLMULTITEXCOORDP3UIPROC)_glMultiTexCoordP3ui_ptr)
+#define glMultiTexCoordP3uiv ((PFNGLMULTITEXCOORDP3UIVPROC)_glMultiTexCoordP3uiv_ptr)
+#define glMultiTexCoordP4ui ((PFNGLMULTITEXCOORDP4UIPROC)_glMultiTexCoordP4ui_ptr)
+#define glMultiTexCoordP4uiv ((PFNGLMULTITEXCOORDP4UIVPROC)_glMultiTexCoordP4uiv_ptr)
+#define glNormalP3ui ((PFNGLNORMALP3UIPROC)_glNormalP3ui_ptr)
+#define glNormalP3uiv ((PFNGLNORMALP3UIVPROC)_glNormalP3uiv_ptr)
+#define glColorP3ui ((PFNGLCOLORP3UIPROC)_glColorP3ui_ptr)
+#define glColorP3uiv ((PFNGLCOLORP3UIVPROC)_glColorP3uiv_ptr)
+#define glColorP4ui ((PFNGLCOLORP4UIPROC)_glColorP4ui_ptr)
+#define glColorP4uiv ((PFNGLCOLORP4UIVPROC)_glColorP4uiv_ptr)
+#define glSecondaryColorP3ui ((PFNGLSECONDARYCOLORP3UIPROC)_glSecondaryColorP3ui_ptr)
+#define glSecondaryColorP3uiv ((PFNGLSECONDARYCOLORP3UIVPROC)_glSecondaryColorP3uiv_ptr)
+#define glVertexAttribP1ui ((PFNGLVERTEXATTRIBP1UIPROC)_glVertexAttribP1ui_ptr)
+#define glVertexAttribP1uiv ((PFNGLVERTEXATTRIBP1UIVPROC)_glVertexAttribP1uiv_ptr)
+#define glVertexAttribP2ui ((PFNGLVERTEXATTRIBP2UIPROC)_glVertexAttribP2ui_ptr)
+#define glVertexAttribP2uiv ((PFNGLVERTEXATTRIBP2UIVPROC)_glVertexAttribP2uiv_ptr)
+#define glVertexAttribP3ui ((PFNGLVERTEXATTRIBP3UIPROC)_glVertexAttribP3ui_ptr)
+#define glVertexAttribP3uiv ((PFNGLVERTEXATTRIBP3UIVPROC)_glVertexAttribP3uiv_ptr)
+#define glVertexAttribP4ui ((PFNGLVERTEXATTRIBP4UIPROC)_glVertexAttribP4ui_ptr)
+#define glVertexAttribP4uiv ((PFNGLVERTEXATTRIBP4UIVPROC)_glVertexAttribP4uiv_ptr)
+#define glMinSampleShading ((PFNGLMINSAMPLESHADINGPROC)_glMinSampleShading_ptr)
+#define glBlendEquationi ((PFNGLBLENDEQUATIONIPROC)_glBlendEquationi_ptr)
+#define glBlendEquationSeparatei ((PFNGLBLENDEQUATIONSEPARATEIPROC)_glBlendEquationSeparatei_ptr)
+#define glBlendFunci ((PFNGLBLENDFUNCIPROC)_glBlendFunci_ptr)
+#define glBlendFuncSeparatei ((PFNGLBLENDFUNCSEPARATEIPROC)_glBlendFuncSeparatei_ptr)
+#define glDrawArraysIndirect ((PFNGLDRAWARRAYSINDIRECTPROC)_glDrawArraysIndirect_ptr)
+#define glDrawElementsIndirect ((PFNGLDRAWELEMENTSINDIRECTPROC)_glDrawElementsIndirect_ptr)
+#define glUniform1d ((PFNGLUNIFORM1DPROC)_glUniform1d_ptr)
+#define glUniform2d ((PFNGLUNIFORM2DPROC)_glUniform2d_ptr)
+#define glUniform3d ((PFNGLUNIFORM3DPROC)_glUniform3d_ptr)
+#define glUniform4d ((PFNGLUNIFORM4DPROC)_glUniform4d_ptr)
+#define glUniform1dv ((PFNGLUNIFORM1DVPROC)_glUniform1dv_ptr)
+#define glUniform2dv ((PFNGLUNIFORM2DVPROC)_glUniform2dv_ptr)
+#define glUniform3dv ((PFNGLUNIFORM3DVPROC)_glUniform3dv_ptr)
+#define glUniform4dv ((PFNGLUNIFORM4DVPROC)_glUniform4dv_ptr)
+#define glUniformMatrix2dv ((PFNGLUNIFORMMATRIX2DVPROC)_glUniformMatrix2dv_ptr)
+#define glUniformMatrix3dv ((PFNGLUNIFORMMATRIX3DVPROC)_glUniformMatrix3dv_ptr)
+#define glUniformMatrix4dv ((PFNGLUNIFORMMATRIX4DVPROC)_glUniformMatrix4dv_ptr)
+#define glUniformMatrix2x3dv ((PFNGLUNIFORMMATRIX2X3DVPROC)_glUniformMatrix2x3dv_ptr)
+#define glUniformMatrix2x4dv ((PFNGLUNIFORMMATRIX2X4DVPROC)_glUniformMatrix2x4dv_ptr)
+#define glUniformMatrix3x2dv ((PFNGLUNIFORMMATRIX3X2DVPROC)_glUniformMatrix3x2dv_ptr)
+#define glUniformMatrix3x4dv ((PFNGLUNIFORMMATRIX3X4DVPROC)_glUniformMatrix3x4dv_ptr)
+#define glUniformMatrix4x2dv ((PFNGLUNIFORMMATRIX4X2DVPROC)_glUniformMatrix4x2dv_ptr)
+#define glUniformMatrix4x3dv ((PFNGLUNIFORMMATRIX4X3DVPROC)_glUniformMatrix4x3dv_ptr)
+#define glGetUniformdv ((PFNGLGETUNIFORMDVPROC)_glGetUniformdv_ptr)
+#define glGetSubroutineUniformLocation ((PFNGLGETSUBROUTINEUNIFORMLOCATIONPROC)_glGetSubroutineUniformLocation_ptr)
+#define glGetSubroutineIndex ((PFNGLGETSUBROUTINEINDEXPROC)_glGetSubroutineIndex_ptr)
+#define glGetActiveSubroutineUniformiv ((PFNGLGETACTIVESUBROUTINEUNIFORMIVPROC)_glGetActiveSubroutineUniformiv_ptr)
+#define glGetActiveSubroutineUniformName ((PFNGLGETACTIVESUBROUTINEUNIFORMNAMEPROC)_glGetActiveSubroutineUniformName_ptr)
+#define glGetActiveSubroutineName ((PFNGLGETACTIVESUBROUTINENAMEPROC)_glGetActiveSubroutineName_ptr)
+#define glUniformSubroutinesuiv ((PFNGLUNIFORMSUBROUTINESUIVPROC)_glUniformSubroutinesuiv_ptr)
+#define glGetUniformSubroutineuiv ((PFNGLGETUNIFORMSUBROUTINEUIVPROC)_glGetUniformSubroutineuiv_ptr)
+#define glGetProgramStageiv ((PFNGLGETPROGRAMSTAGEIVPROC)_glGetProgramStageiv_ptr)
+#define glPatchParameteri ((PFNGLPATCHPARAMETERIPROC)_glPatchParameteri_ptr)
+#define glPatchParameterfv ((PFNGLPATCHPARAMETERFVPROC)_glPatchParameterfv_ptr)
+#define glBindTransformFeedback ((PFNGLBINDTRANSFORMFEEDBACKPROC)_glBindTransformFeedback_ptr)
+#define glDeleteTransformFeedbacks ((PFNGLDELETETRANSFORMFEEDBACKSPROC)_glDeleteTransformFeedbacks_ptr)
+#define glGenTransformFeedbacks ((PFNGLGENTRANSFORMFEEDBACKSPROC)_glGenTransformFeedbacks_ptr)
+#define glIsTransformFeedback ((PFNGLISTRANSFORMFEEDBACKPROC)_glIsTransformFeedback_ptr)
+#define glPauseTransformFeedback ((PFNGLPAUSETRANSFORMFEEDBACKPROC)_glPauseTransformFeedback_ptr)
+#define glResumeTransformFeedback ((PFNGLRESUMETRANSFORMFEEDBACKPROC)_glResumeTransformFeedback_ptr)
+#define glDrawTransformFeedback ((PFNGLDRAWTRANSFORMFEEDBACKPROC)_glDrawTransformFeedback_ptr)
+#define glDrawTransformFeedbackStream ((PFNGLDRAWTRANSFORMFEEDBACKSTREAMPROC)_glDrawTransformFeedbackStream_ptr)
+#define glBeginQueryIndexed ((PFNGLBEGINQUERYINDEXEDPROC)_glBeginQueryIndexed_ptr)
+#define glEndQueryIndexed ((PFNGLENDQUERYINDEXEDPROC)_glEndQueryIndexed_ptr)
+#define glGetQueryIndexediv ((PFNGLGETQUERYINDEXEDIVPROC)_glGetQueryIndexediv_ptr)
+#define glReleaseShaderCompiler ((PFNGLRELEASESHADERCOMPILERPROC)_glReleaseShaderCompiler_ptr)
+#define glShaderBinary ((PFNGLSHADERBINARYPROC)_glShaderBinary_ptr)
+#define glGetShaderPrecisionFormat ((PFNGLGETSHADERPRECISIONFORMATPROC)_glGetShaderPrecisionFormat_ptr)
+#define glDepthRangef ((PFNGLDEPTHRANGEFPROC)_glDepthRangef_ptr)
+#define glClearDepthf ((PFNGLCLEARDEPTHFPROC)_glClearDepthf_ptr)
+#define glGetProgramBinary ((PFNGLGETPROGRAMBINARYPROC)_glGetProgramBinary_ptr)
+#define glProgramBinary ((PFNGLPROGRAMBINARYPROC)_glProgramBinary_ptr)
+#define glProgramParameteri ((PFNGLPROGRAMPARAMETERIPROC)_glProgramParameteri_ptr)
+#define glUseProgramStages ((PFNGLUSEPROGRAMSTAGESPROC)_glUseProgramStages_ptr)
+#define glActiveShaderProgram ((PFNGLACTIVESHADERPROGRAMPROC)_glActiveShaderProgram_ptr)
+#define glCreateShaderProgramv ((PFNGLCREATESHADERPROGRAMVPROC)_glCreateShaderProgramv_ptr)
+#define glBindProgramPipeline ((PFNGLBINDPROGRAMPIPELINEPROC)_glBindProgramPipeline_ptr)
+#define glDeleteProgramPipelines ((PFNGLDELETEPROGRAMPIPELINESPROC)_glDeleteProgramPipelines_ptr)
+#define glGenProgramPipelines ((PFNGLGENPROGRAMPIPELINESPROC)_glGenProgramPipelines_ptr)
+#define glIsProgramPipeline ((PFNGLISPROGRAMPIPELINEPROC)_glIsProgramPipeline_ptr)
+#define glGetProgramPipelineiv ((PFNGLGETPROGRAMPIPELINEIVPROC)_glGetProgramPipelineiv_ptr)
+#define glProgramUniform1i ((PFNGLPROGRAMUNIFORM1IPROC)_glProgramUniform1i_ptr)
+#define glProgramUniform1iv ((PFNGLPROGRAMUNIFORM1IVPROC)_glProgramUniform1iv_ptr)
+#define glProgramUniform1f ((PFNGLPROGRAMUNIFORM1FPROC)_glProgramUniform1f_ptr)
+#define glProgramUniform1fv ((PFNGLPROGRAMUNIFORM1FVPROC)_glProgramUniform1fv_ptr)
+#define glProgramUniform1d ((PFNGLPROGRAMUNIFORM1DPROC)_glProgramUniform1d_ptr)
+#define glProgramUniform1dv ((PFNGLPROGRAMUNIFORM1DVPROC)_glProgramUniform1dv_ptr)
+#define glProgramUniform1ui ((PFNGLPROGRAMUNIFORM1UIPROC)_glProgramUniform1ui_ptr)
+#define glProgramUniform1uiv ((PFNGLPROGRAMUNIFORM1UIVPROC)_glProgramUniform1uiv_ptr)
+#define glProgramUniform2i ((PFNGLPROGRAMUNIFORM2IPROC)_glProgramUniform2i_ptr)
+#define glProgramUniform2iv ((PFNGLPROGRAMUNIFORM2IVPROC)_glProgramUniform2iv_ptr)
+#define glProgramUniform2f ((PFNGLPROGRAMUNIFORM2FPROC)_glProgramUniform2f_ptr)
+#define glProgramUniform2fv ((PFNGLPROGRAMUNIFORM2FVPROC)_glProgramUniform2fv_ptr)
+#define glProgramUniform2d ((PFNGLPROGRAMUNIFORM2DPROC)_glProgramUniform2d_ptr)
+#define glProgramUniform2dv ((PFNGLPROGRAMUNIFORM2DVPROC)_glProgramUniform2dv_ptr)
+#define glProgramUniform2ui ((PFNGLPROGRAMUNIFORM2UIPROC)_glProgramUniform2ui_ptr)
+#define glProgramUniform2uiv ((PFNGLPROGRAMUNIFORM2UIVPROC)_glProgramUniform2uiv_ptr)
+#define glProgramUniform3i ((PFNGLPROGRAMUNIFORM3IPROC)_glProgramUniform3i_ptr)
+#define glProgramUniform3iv ((PFNGLPROGRAMUNIFORM3IVPROC)_glProgramUniform3iv_ptr)
+#define glProgramUniform3f ((PFNGLPROGRAMUNIFORM3FPROC)_glProgramUniform3f_ptr)
+#define glProgramUniform3fv ((PFNGLPROGRAMUNIFORM3FVPROC)_glProgramUniform3fv_ptr)
+#define glProgramUniform3d ((PFNGLPROGRAMUNIFORM3DPROC)_glProgramUniform3d_ptr)
+#define glProgramUniform3dv ((PFNGLPROGRAMUNIFORM3DVPROC)_glProgramUniform3dv_ptr)
+#define glProgramUniform3ui ((PFNGLPROGRAMUNIFORM3UIPROC)_glProgramUniform3ui_ptr)
+#define glProgramUniform3uiv ((PFNGLPROGRAMUNIFORM3UIVPROC)_glProgramUniform3uiv_ptr)
+#define glProgramUniform4i ((PFNGLPROGRAMUNIFORM4IPROC)_glProgramUniform4i_ptr)
+#define glProgramUniform4iv ((PFNGLPROGRAMUNIFORM4IVPROC)_glProgramUniform4iv_ptr)
+#define glProgramUniform4f ((PFNGLPROGRAMUNIFORM4FPROC)_glProgramUniform4f_ptr)
+#define glProgramUniform4fv ((PFNGLPROGRAMUNIFORM4FVPROC)_glProgramUniform4fv_ptr)
+#define glProgramUniform4d ((PFNGLPROGRAMUNIFORM4DPROC)_glProgramUniform4d_ptr)
+#define glProgramUniform4dv ((PFNGLPROGRAMUNIFORM4DVPROC)_glProgramUniform4dv_ptr)
+#define glProgramUniform4ui ((PFNGLPROGRAMUNIFORM4UIPROC)_glProgramUniform4ui_ptr)
+#define glProgramUniform4uiv ((PFNGLPROGRAMUNIFORM4UIVPROC)_glProgramUniform4uiv_ptr)
+#define glProgramUniformMatrix2fv ((PFNGLPROGRAMUNIFORMMATRIX2FVPROC)_glProgramUniformMatrix2fv_ptr)
+#define glProgramUniformMatrix3fv ((PFNGLPROGRAMUNIFORMMATRIX3FVPROC)_glProgramUniformMatrix3fv_ptr)
+#define glProgramUniformMatrix4fv ((PFNGLPROGRAMUNIFORMMATRIX4FVPROC)_glProgramUniformMatrix4fv_ptr)
+#define glProgramUniformMatrix2dv ((PFNGLPROGRAMUNIFORMMATRIX2DVPROC)_glProgramUniformMatrix2dv_ptr)
+#define glProgramUniformMatrix3dv ((PFNGLPROGRAMUNIFORMMATRIX3DVPROC)_glProgramUniformMatrix3dv_ptr)
+#define glProgramUniformMatrix4dv ((PFNGLPROGRAMUNIFORMMATRIX4DVPROC)_glProgramUniformMatrix4dv_ptr)
+#define glProgramUniformMatrix2x3fv ((PFNGLPROGRAMUNIFORMMATRIX2X3FVPROC)_glProgramUniformMatrix2x3fv_ptr)
+#define glProgramUniformMatrix3x2fv ((PFNGLPROGRAMUNIFORMMATRIX3X2FVPROC)_glProgramUniformMatrix3x2fv_ptr)
+#define glProgramUniformMatrix2x4fv ((PFNGLPROGRAMUNIFORMMATRIX2X4FVPROC)_glProgramUniformMatrix2x4fv_ptr)
+#define glProgramUniformMatrix4x2fv ((PFNGLPROGRAMUNIFORMMATRIX4X2FVPROC)_glProgramUniformMatrix4x2fv_ptr)
+#define glProgramUniformMatrix3x4fv ((PFNGLPROGRAMUNIFORMMATRIX3X4FVPROC)_glProgramUniformMatrix3x4fv_ptr)
+#define glProgramUniformMatrix4x3fv ((PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC)_glProgramUniformMatrix4x3fv_ptr)
+#define glProgramUniformMatrix2x3dv ((PFNGLPROGRAMUNIFORMMATRIX2X3DVPROC)_glProgramUniformMatrix2x3dv_ptr)
+#define glProgramUniformMatrix3x2dv ((PFNGLPROGRAMUNIFORMMATRIX3X2DVPROC)_glProgramUniformMatrix3x2dv_ptr)
+#define glProgramUniformMatrix2x4dv ((PFNGLPROGRAMUNIFORMMATRIX2X4DVPROC)_glProgramUniformMatrix2x4dv_ptr)
+#define glProgramUniformMatrix4x2dv ((PFNGLPROGRAMUNIFORMMATRIX4X2DVPROC)_glProgramUniformMatrix4x2dv_ptr)
+#define glProgramUniformMatrix3x4dv ((PFNGLPROGRAMUNIFORMMATRIX3X4DVPROC)_glProgramUniformMatrix3x4dv_ptr)
+#define glProgramUniformMatrix4x3dv ((PFNGLPROGRAMUNIFORMMATRIX4X3DVPROC)_glProgramUniformMatrix4x3dv_ptr)
+#define glValidateProgramPipeline ((PFNGLVALIDATEPROGRAMPIPELINEPROC)_glValidateProgramPipeline_ptr)
+#define glGetProgramPipelineInfoLog ((PFNGLGETPROGRAMPIPELINEINFOLOGPROC)_glGetProgramPipelineInfoLog_ptr)
+#define glVertexAttribL1d ((PFNGLVERTEXATTRIBL1DPROC)_glVertexAttribL1d_ptr)
+#define glVertexAttribL2d ((PFNGLVERTEXATTRIBL2DPROC)_glVertexAttribL2d_ptr)
+#define glVertexAttribL3d ((PFNGLVERTEXATTRIBL3DPROC)_glVertexAttribL3d_ptr)
+#define glVertexAttribL4d ((PFNGLVERTEXATTRIBL4DPROC)_glVertexAttribL4d_ptr)
+#define glVertexAttribL1dv ((PFNGLVERTEXATTRIBL1DVPROC)_glVertexAttribL1dv_ptr)
+#define glVertexAttribL2dv ((PFNGLVERTEXATTRIBL2DVPROC)_glVertexAttribL2dv_ptr)
+#define glVertexAttribL3dv ((PFNGLVERTEXATTRIBL3DVPROC)_glVertexAttribL3dv_ptr)
+#define glVertexAttribL4dv ((PFNGLVERTEXATTRIBL4DVPROC)_glVertexAttribL4dv_ptr)
+#define glVertexAttribLPointer ((PFNGLVERTEXATTRIBLPOINTERPROC)_glVertexAttribLPointer_ptr)
+#define glGetVertexAttribLdv ((PFNGLGETVERTEXATTRIBLDVPROC)_glGetVertexAttribLdv_ptr)
+#define glViewportArrayv ((PFNGLVIEWPORTARRAYVPROC)_glViewportArrayv_ptr)
+#define glViewportIndexedf ((PFNGLVIEWPORTINDEXEDFPROC)_glViewportIndexedf_ptr)
+#define glViewportIndexedfv ((PFNGLVIEWPORTINDEXEDFVPROC)_glViewportIndexedfv_ptr)
+#define glScissorArrayv ((PFNGLSCISSORARRAYVPROC)_glScissorArrayv_ptr)
+#define glScissorIndexed ((PFNGLSCISSORINDEXEDPROC)_glScissorIndexed_ptr)
+#define glScissorIndexedv ((PFNGLSCISSORINDEXEDVPROC)_glScissorIndexedv_ptr)
+#define glDepthRangeArrayv ((PFNGLDEPTHRANGEARRAYVPROC)_glDepthRangeArrayv_ptr)
+#define glDepthRangeIndexed ((PFNGLDEPTHRANGEINDEXEDPROC)_glDepthRangeIndexed_ptr)
+#define glGetFloati_v ((PFNGLGETFLOATI_VPROC)_glGetFloati_v_ptr)
+#define glGetDoublei_v ((PFNGLGETDOUBLEI_VPROC)_glGetDoublei_v_ptr)
 
 #endif
 
