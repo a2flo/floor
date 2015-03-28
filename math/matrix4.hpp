@@ -46,20 +46,39 @@ template <typename T> class vector4;
 
 template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
 public:
-	array<T, 16> data;
+	template <typename elem_type> struct cexpr_array {
+		elem_type data[16];
+		
+		constexpr elem_type& operator[](const size_t& index) __attribute__((enable_if(index < 16, "index is const"))) {
+			return data[index];
+		}
+		constexpr elem_type& operator[](const size_t& index) __attribute__((enable_if(index >= 16, "index is invalid"), unavailable("index is invalid")));
+		constexpr elem_type& operator[](const size_t& index) {
+			return data[index];
+		}
+		
+		constexpr const elem_type& operator[](const size_t& index) const __attribute__((enable_if(index < 16, "index is const"))) {
+			return data[index];
+		}
+		constexpr const elem_type& operator[](const size_t& index) const __attribute__((enable_if(index >= 16, "index is invalid"), unavailable("index is invalid")));
+		constexpr const elem_type& operator[](const size_t& index) const {
+			return data[index];
+		}
+	};
+	cexpr_array<T> data;
 	
 	constexpr matrix4() noexcept :
-	data({{
+	data {{
 		(T)1, (T)0, (T)0, (T)0,
 		(T)0, (T)1, (T)0, (T)0,
 		(T)0, (T)0, (T)1, (T)0,
-		(T)0, (T)0, (T)0, (T)1}}) {}
+		(T)0, (T)0, (T)0, (T)1 }} {}
 	constexpr matrix4(const T& val) noexcept :
-	data({{
+	data {{
 		val, val, val, val,
 		val, val, val, val,
 		val, val, val, val,
-		val, val, val, val}}) {}
+		val, val, val, val }} {}
 	constexpr matrix4(matrix4&& m4) noexcept : data(m4.data) {}
 	constexpr matrix4(const matrix4<T>& m4) noexcept : data(m4.data) {}
 	constexpr matrix4(const matrix4<T>* m4) noexcept : data(m4->data) {}
@@ -67,22 +86,22 @@ public:
 					  const T& m4, const T& m5, const T& m6, const T& m7,
 					  const T& m8, const T& m9, const T& m10, const T& m11,
 					  const T& m12, const T& m13, const T& m14, const T& m15) noexcept :
-	data({{m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15}}) {}
+	data {{ m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15 }} {}
 	constexpr matrix4(const vector4<T>& col_0,
 					  const vector4<T>& col_1,
 					  const vector4<T>& col_2,
 					  const vector4<T>& col_3) noexcept :
-	data({{
+	data {{
 		((T*)&col_0)[0], ((T*)&col_0)[1], ((T*)&col_0)[2], ((T*)&col_0)[3],
 		((T*)&col_1)[0], ((T*)&col_1)[1], ((T*)&col_1)[2], ((T*)&col_1)[3],
 		((T*)&col_2)[0], ((T*)&col_2)[1], ((T*)&col_2)[2], ((T*)&col_2)[3],
-		((T*)&col_3)[0], ((T*)&col_3)[1], ((T*)&col_3)[2], ((T*)&col_3)[3] }}) {}
+		((T*)&col_3)[0], ((T*)&col_3)[1], ((T*)&col_3)[2], ((T*)&col_3)[3] }} {}
 	template <typename U> constexpr matrix4(const matrix4<U>& mat4) noexcept :
-	data({{
+	data {{
 		(T)mat4.data[0], (T)mat4.data[1], (T)mat4.data[2], (T)mat4.data[3],
 		(T)mat4.data[4], (T)mat4.data[5], (T)mat4.data[6], (T)mat4.data[7],
 		(T)mat4.data[8], (T)mat4.data[9], (T)mat4.data[10], (T)mat4.data[11],
-		(T)mat4.data[12], (T)mat4.data[13], (T)mat4.data[14], (T)mat4.data[15] }}) {}
+		(T)mat4.data[12], (T)mat4.data[13], (T)mat4.data[14], (T)mat4.data[15] }} {}
 	
 	constexpr matrix4& operator=(const matrix4& mat) noexcept {
 		for(size_t i = 0; i < 16; ++i) {
