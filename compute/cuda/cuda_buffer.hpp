@@ -86,6 +86,9 @@ public:
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
+	bool acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
+	bool release_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
+	
 	//! returns the cuda specific buffer pointer (device pointer)
 	const CUdeviceptr& get_cuda_buffer() const {
 		return buffer;
@@ -93,6 +96,7 @@ public:
 	
 protected:
 	CUdeviceptr buffer { 0ull };
+	CUgraphicsResource rsrc { nullptr };
 	
 	struct cuda_mapping {
 		const size_t size;
@@ -103,7 +107,7 @@ protected:
 	unordered_map<void*, cuda_mapping> mappings;
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data);
+	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
 	
 };
 

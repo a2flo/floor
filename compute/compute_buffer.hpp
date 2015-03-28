@@ -25,6 +25,7 @@
 #include <floor/core/util.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_safety.hpp>
+#include <floor/core/gl_support.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -53,7 +54,7 @@ enum class COMPUTE_BUFFER_FLAG : uint32_t {
 	HOST_READ_WRITE		= (HOST_READ | HOST_WRITE),
 	//! if neither HOST_READ or HOST_WRITE is set, the host will not have access to the buffer
 	//! -> can use this mask to AND with flags
-	HOST_NO_ACCESS_MASK = ~(HOST_READ_WRITE),
+	__HOST_NO_ACCESS_MASK = ~(HOST_READ_WRITE),
 	
 	//! the buffer will use/store the specified host pointer,
 	//! but won't initialize the compute buffer with that data
@@ -74,6 +75,35 @@ enum class COMPUTE_BUFFER_FLAG : uint32_t {
 	//! buffer memory is allocated in host memory, i.e. the specified host pointer
 	//! will be used for all buffer operations
 	USE_HOST_MEMORY		= (1u << 7u),
+	
+	//! creates the buffer with opengl sharing enabled,
+	//! the opengl object can be retrieved via get_opengl_buffer()
+	//! NOTE: OPENGL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
+	//! NOTE: if no OPENGL_READ or OPENGL_WRITE is specified, OPENGL_READ_WRITE is assumed
+	//! NOTE: use any of the OPENGL_*_BUFFER types to specify the opengl buffer type (default = OPENGL_ARRAY_BUFFER)
+	OPENGL_SHARING		= (1u << 8u),
+	//! the compute implementation has only read access to the opengl buffer
+	OPENGL_READ			= (1u << 9u),
+	//! the compute implementation has only write (discard) access to the opengl buffer
+	OPENGL_WRITE		= (1u << 10u),
+	//! the compute implementation has read and write access to the opengl buffer (default)
+	OPENGL_READ_WRITE	= (OPENGL_READ | OPENGL_WRITE),
+	
+	//! reserve the upper 4 bits for opengl buffer types
+	__OPENGL_BUFFER_TYPE_MASK = 0xF0000000u,
+	__OPENGL_BUFFER_TYPE_SHIFT = 28u,
+	//! opengl buffer is a GL_ARRAY_BUFFER (default)
+	OPENGL_ARRAY_BUFFER					= 1u << (__OPENGL_BUFFER_TYPE_SHIFT),
+	//! opengl buffer is a GL_ELEMENT_ARRAY_BUFFER
+	OPENGL_ELEMENT_ARRAY_BUFFER			= 2u << (__OPENGL_BUFFER_TYPE_SHIFT),
+	//! opengl buffer is a GL_TEXTURE_BUFFER
+	OPENGL_TEXTURE_BUFFER				= 3u << (__OPENGL_BUFFER_TYPE_SHIFT),
+	//! opengl buffer is a GL_UNIFORM_BUFFER
+	OPENGL_UNIFORM_BUFFER				= 4u << (__OPENGL_BUFFER_TYPE_SHIFT),
+	//! opengl buffer is a GL_TRANSFORM_FEEDBACK_BUFFER
+	OPENGL_TRANSFORM_FEEDBACK_BUFFER	= 5u << (__OPENGL_BUFFER_TYPE_SHIFT),
+	//! helper enum
+	__OPENGL_MAX_BUFFER_TYPE			= OPENGL_TRANSFORM_FEEDBACK_BUFFER,
 	
 };
 enum_class_bitwise_and_global(COMPUTE_BUFFER_FLAG)
@@ -229,6 +259,34 @@ public:
 	//! returns the associated device
 	const void* get_device() const { return dev; }
 	
+	//! returns the associated opengl buffer object (if the buffer was created with OPENGL_SHARING)
+	const uint32_t& get_opengl_buffer() const {
+		return gl_buffer;
+	}
+	
+	//! acquires the associated opengl buffer for use with opengl (-> release from compute use)
+	virtual bool acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) = 0;
+	//! releases the associated opengl buffer from use with opengl (-> acquire for compute use)
+	virtual bool release_opengl_buffer(shared_ptr<compute_queue> cqueue) = 0;
+	
+	//! returns the GL_*_BUFFER type of this buffer
+	uint32_t get_opengl_buffer_type() const {
+		switch(flags & COMPUTE_BUFFER_FLAG::__OPENGL_BUFFER_TYPE_MASK) {
+			case COMPUTE_BUFFER_FLAG::OPENGL_ARRAY_BUFFER:
+				return GL_ARRAY_BUFFER;
+			case COMPUTE_BUFFER_FLAG::OPENGL_ELEMENT_ARRAY_BUFFER:
+				return GL_ELEMENT_ARRAY_BUFFER;
+			case COMPUTE_BUFFER_FLAG::OPENGL_TEXTURE_BUFFER:
+				return GL_TEXTURE_BUFFER;
+			case COMPUTE_BUFFER_FLAG::OPENGL_UNIFORM_BUFFER:
+				return GL_UNIFORM_BUFFER;
+			case COMPUTE_BUFFER_FLAG::OPENGL_TRANSFORM_FEEDBACK_BUFFER:
+				return GL_TRANSFORM_FEEDBACK_BUFFER;
+			default: break;
+		}
+		return 0;
+	}
+	
 	//! NOTE: for debugging/development purposes only
 	void _lock() ACQUIRE(lock) REQUIRES(!lock);
 	void _unlock() RELEASE(lock);
@@ -238,6 +296,7 @@ protected:
 	size_t size { 0u };
 	void* host_ptr { nullptr };
 	const COMPUTE_BUFFER_FLAG flags { COMPUTE_BUFFER_FLAG::NONE };
+	uint32_t gl_buffer { 0u };
 	
 	safe_mutex lock;
 	

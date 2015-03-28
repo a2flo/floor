@@ -43,9 +43,8 @@ compute_buffer(device, size_, host_ptr_, flags_) {
 		case COMPUTE_BUFFER_FLAG::READ_WRITE:
 			cl_flags |= CL_MEM_READ_WRITE;
 			break;
-		default:
-			log_error("buffer must be read-only, write-only or read-write!");
-			return;
+		// all possible cases handled
+		default: floor_unreachable();
 	}
 	
 	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
@@ -248,6 +247,19 @@ void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	
 	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)cqueue->get_queue_ptr(), buffer, mapped_ptr, 0, nullptr, nullptr),
 				"failed to unmap buffer")
+}
+
+bool opencl_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
+	if(gl_buffer == 0) return false;
+	if(buffer == 0) return false;
+	// TODO: implement this
+	return true;
+}
+
+bool opencl_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
+	if(gl_buffer == 0) return false;
+	// TODO: implement this
+	return true;
 }
 
 #endif

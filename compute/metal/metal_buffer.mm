@@ -39,9 +39,8 @@ compute_buffer(device, size_, host_ptr_, flags_) {
 		case COMPUTE_BUFFER_FLAG::READ_WRITE:
 			// no special handling for metal
 			break;
-		default:
-			log_error("buffer must be read-only, write-only or read-write!");
-			return;
+		// all possible cases handled
+		default: floor_unreachable();
 	}
 	
 	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
@@ -205,6 +204,19 @@ void metal_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	//if(buffer == nullptr) return;
 	//if(mapped_ptr == nullptr) return;
 	_unlock();
+}
+
+bool metal_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
+	if(gl_buffer == 0) return false;
+	if(buffer == 0) return false;
+	// TODO: implement this
+	return true;
+}
+
+bool metal_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
+	if(gl_buffer == 0) return false;
+	// TODO: implement this
+	return true;
 }
 
 #endif

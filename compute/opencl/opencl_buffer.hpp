@@ -86,6 +86,9 @@ public:
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
+	bool acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
+	bool release_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
+	
 	//! returns the opencl specific buffer object/pointer
 	const cl_mem& get_cl_buffer() const { return buffer; }
 	
