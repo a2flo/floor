@@ -503,7 +503,6 @@ OGL_API PFNGLGETFLOATI_VPROC _glGetFloati_v_ptr = nullptr; // ARB_viewport_array
 OGL_API PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr = nullptr; // ARB_viewport_array
 
 void init_gl_funcs() {
-	
 #if !defined(__LINUX__)
 	// OpenGL 1.2
 	_glBlendColor_ptr = (PFNGLBLENDCOLORPROC)glGetProcAddress((ProcType)"glBlendColor");

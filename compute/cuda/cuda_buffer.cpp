@@ -100,6 +100,11 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 			const auto gl_buffer_type = get_opengl_buffer_type();
 			glGenBuffers(1, &gl_buffer);
 			glBindBuffer(gl_buffer_type, gl_buffer);
+			if(gl_buffer == 0 || !glIsBuffer(gl_buffer)) {
+				log_error("created opengl buffer %u is invalid!", gl_buffer);
+				return false;
+			}
+			
 			if(copy_host_data &&
 			   host_ptr != nullptr &&
 			   (flags & COMPUTE_BUFFER_FLAG::NO_INITIAL_COPY) != COMPUTE_BUFFER_FLAG::NONE) {
@@ -125,6 +130,10 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 			}
 			CU_CALL_RET(cuGraphicsGLRegisterBuffer(&rsrc, gl_buffer, cuda_gl_flags),
 						"failed to register opengl buffer with cuda", false);
+			if(rsrc == nullptr) {
+				log_error("created cuda gl graphics resource is invalid!");
+				return false;
+			}
 			release_opengl_buffer(cqueue);
 		}
 	}
@@ -444,12 +453,16 @@ bool cuda_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
 				"failed to release opengl buffer - cuda resource mapping failed!", false);
 	
 	size_t ret_size { 0u };
-	CU_CALL_RET(cuGraphicsResourceGetMappedPointer_v2(&buffer, &ret_size, rsrc),
+	CU_CALL_RET(cuGraphicsResourceGetMappedPointer(&buffer, &ret_size, rsrc),
 				"failed to retrieve mapped cuda buffer pointer from opengl buffer!", false);
 	
 	if(ret_size != size) {
 		log_warn("size mismatch between shared opengl buffer and mapped cuda buffer: expected %u, got %u!",
 				 size, ret_size);
+	}
+	if(buffer == 0) {
+		log_error("mapped cuda buffer pointer (from a graphics resource) is invalid!");
+		return false;
 	}
 	
 	return true;
