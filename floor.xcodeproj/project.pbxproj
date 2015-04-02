@@ -71,6 +71,7 @@
 		5C4A85BC18F95EE40039BFD4 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85BA18F95EE40039BFD4 /* parser.cpp */; };
 		5C4A85BD18F95EE40039BFD4 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85BA18F95EE40039BFD4 /* parser.cpp */; };
 		5C4A85BE18F95EE40039BFD4 /* parser.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85BB18F95EE40039BFD4 /* parser.hpp */; };
+		5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C515D661ACDB75D002FB38F /* option_handler.hpp */; };
 		5C5383DB1A61FEF5007AEDD7 /* cuda_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5383DA1A61FEF5007AEDD7 /* cuda_common.hpp */; };
 		5C5383E61A641B1E007AEDD7 /* cuda_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C5383DC1A641B1E007AEDD7 /* cuda_buffer.cpp */; };
 		5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C5383DD1A641B1E007AEDD7 /* cuda_buffer.hpp */; };
@@ -263,6 +264,7 @@
 		5C4A85B618F955B30039BFD4 /* ast_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ast_base.hpp; sourceTree = "<group>"; };
 		5C4A85BA18F95EE40039BFD4 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = parser.cpp; sourceTree = "<group>"; };
 		5C4A85BB18F95EE40039BFD4 /* parser.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = parser.hpp; sourceTree = "<group>"; };
+		5C515D661ACDB75D002FB38F /* option_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = option_handler.hpp; sourceTree = "<group>"; };
 		5C5383DA1A61FEF5007AEDD7 /* cuda_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_common.hpp; sourceTree = "<group>"; };
 		5C5383DC1A641B1E007AEDD7 /* cuda_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_buffer.cpp; sourceTree = "<group>"; };
 		5C5383DD1A641B1E007AEDD7 /* cuda_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_buffer.hpp; sourceTree = "<group>"; };
@@ -442,6 +444,7 @@
 				5C10920517D1F81B007F536E /* gl_support.hpp */,
 				5C10917617D1153E007F536E /* logger.cpp */,
 				5C10917717D1153E007F536E /* logger.hpp */,
+				5C515D661ACDB75D002FB38F /* option_handler.hpp */,
 				5C10917A17D1153E007F536E /* platform.hpp */,
 				5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */,
 				5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */,
@@ -768,6 +771,7 @@
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C1091C917D1153E007F536E /* local_free_on_destruction.hpp in Headers */,
+				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
 				5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */,
 				5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */,
 				5C1091B617D1153E007F536E /* unicode.hpp in Headers */,

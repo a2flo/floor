@@ -91,7 +91,7 @@ void metal_kernel::set_const_parameter(compute_queue* queue, metal_encoder* enco
 	// debug checks (size / buffer)
 #if defined(FLOOR_DEBUG) || 1
 	if(num >= param_buffers.size()) {
-		log_error("num out-of-range: %u", num);
+		log_error("%s: num out-of-range: %u", func_name, num);
 		return;
 	}
 #endif
@@ -99,11 +99,11 @@ void metal_kernel::set_const_parameter(compute_queue* queue, metal_encoder* enco
 	auto& param_buffer = param_buffers[num];
 #if defined(FLOOR_DEBUG) || 1
 	if(param_buffers[num].buffer == nullptr) {
-		log_error("parameter buffer not allocated or argument #%u is not a parameter!", num);
+		log_error("%s: parameter buffer not allocated or argument #%u is not a parameter!", func_name, num);
 		return;
 	}
 	if(param_buffers[num].cur_value.size() != size) {
-		log_error("parameter size mismatch: expected %u, got %u!", param_buffers[num].cur_value.size(), size);
+		log_error("%s: parameter #%u size mismatch: expected %u, got %u!", func_name, num, param_buffers[num].cur_value.size(), size);
 		return;
 	}
 #endif

@@ -74,31 +74,38 @@ uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 //       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local
 // NOTE: scope: 2 = work-group, 3 = device
 [[noduplicate]] void air_wg_barrier(uint32_t air_mem_flags, int32_t scope) __asm("air.wg.barrier");
-[[noduplicate]] void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __asm("air.mem_barrier");
+// TODO/NOTE: apparently using this leads to a deadlock during final device compilation -> use wg barrier for now
+//[[noduplicate]] void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __asm("air.mem_barrier");
 
 [[noduplicate]] static floor_inline_always void global_barrier() {
 	air_wg_barrier(1u, 2);
 }
 [[noduplicate]] static floor_inline_always void global_mem_fence() {
-	air_mem_barrier(1u, 2);
+	air_wg_barrier(1u, 2);
+	//air_mem_barrier(1u, 2);
 }
 [[noduplicate]] static floor_inline_always void global_read_mem_fence() {
-	air_mem_barrier(1u, 2);
+	air_wg_barrier(1u, 2);
+	//air_mem_barrier(1u, 2);
 }
 [[noduplicate]] static floor_inline_always void global_write_mem_fence() {
-	air_mem_barrier(1u, 2);
+	air_wg_barrier(1u, 2);
+	//air_mem_barrier(1u, 2);
 }
 [[noduplicate]] static floor_inline_always void local_barrier() {
 	air_wg_barrier(2u, 2);
 }
 [[noduplicate]] static floor_inline_always void local_mem_fence() {
-	air_mem_barrier(2u, 2);
+	air_wg_barrier(2u, 2);
+	//air_mem_barrier(2u, 2);
 }
 [[noduplicate]] static floor_inline_always void local_read_mem_fence() {
-	air_mem_barrier(2u, 2);
+	air_wg_barrier(2u, 2);
+	//air_mem_barrier(2u, 2);
 }
 [[noduplicate]] static floor_inline_always void local_write_mem_fence() {
-	air_mem_barrier(2u, 2);
+	air_wg_barrier(2u, 2);
+	//air_mem_barrier(2u, 2);
 }
 
 

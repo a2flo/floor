@@ -31,6 +31,14 @@ program(program_) {
 					 "failed to get function \"" + info.name + "\"");
 		kernels.emplace_back(make_shared<cuda_kernel>(kernel, info));
 		kernel_names.emplace_back(info.name);
+		
+#if 0
+		// use this to compute max occupancy
+		int min_grid_size = 0, block_size = 0;
+		CU_CALL_NO_ACTION(cuOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0, 0),
+						  "failed to compute max potential occupancy");
+		log_debug("%s max occupancy: grid size >= %u with block size %u", info.name, min_grid_size, block_size);
+#endif
 	}
 }
 

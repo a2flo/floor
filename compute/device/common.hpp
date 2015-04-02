@@ -41,15 +41,20 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // <array> replacement
 template <class data_type, size_t array_size>
-struct _LIBCPP_TYPE_VIS_ONLY array {
-	data_type elems[array_size > 0 ? array_size : 1];
-
-	constexpr size_t size() const {
-		return array_size;
-	}
-
+struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(4))) array {
+	static_assert(array_size > 0, "array size may not be 0!");
+	alignas(4) data_type elems[array_size];
+	
+	constexpr size_t size() const { return array_size; }
+	
 	constexpr data_type& operator[](const size_t& index) { return elems[index]; }
 	constexpr const data_type& operator[](const size_t& index) const { return elems[index]; }
+	
+	constexpr data_type& operator*() { return &elems[0]; }
+	constexpr const data_type& operator*() const { return &elems[0]; }
+	
+	constexpr data_type* data() { return elems; }
+	constexpr const data_type* data() const { return elems; }
 };
 
 // std::min / std::max replacements
@@ -128,9 +133,13 @@ template <class data_type, size_t array_size> using const_array = array<data_typ
 //! global memory buffer
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
-template <typename T, size_t count> using local_buffer = local array<floor_compute::indirect_type_wrapper<T>, count>;
+// NOTE: need to workaround the issue that "local" is not part of the type in cuda
+#define local_buffer local local_buffer_cuda
+template <typename T, size_t count> using local_buffer_cuda = T[count];
 //! constant memory buffer
-template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
+// NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
+#define const_buffer constant const_buffer_cuda
+template <typename T> using const_buffer_cuda = const T* const;
 //! generic parameter object/buffer
 template <typename T,
 		  typename param_wrapper = const conditional_t<
@@ -138,8 +147,9 @@ template <typename T,
 			  floor_compute::indirect_type_wrapper<T>,
 			  floor_compute::direct_type_wrapper<T>>>
 using param = const param_wrapper;
-//! array<> for use with static constant memory
-template <class data_type, size_t array_size> using const_array = array<data_type, array_size>;
+//! array for use with static constant memory
+#define const_array constant const_array_cuda
+template <class data_type, size_t array_size> using const_array_cuda = data_type[array_size];
 
 #elif defined(FLOOR_COMPUTE_METAL)
 namespace floor_compute {
@@ -302,7 +312,7 @@ namespace floor_compute {
 //! global memory buffer
 template <typename T> using buffer = global floor_compute::address_space_adaptor<T, global T*, true, !is_const<T>()>*;
 //! local memory buffer
-template <typename T, size_t count> using local_buffer = local array<floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>, count>;
+template <typename T, size_t count> using local_buffer = local floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>[count];
 //! constant memory buffer
 template <typename T> using const_buffer = constant floor_compute::address_space_adaptor<const T, constant const T*, true, false>*;
 //! generic parameter object/buffer (stored in constant memory)

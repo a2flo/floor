@@ -62,6 +62,7 @@ bool floor::cursor_visible = true;
 event::handler floor::event_handler_fnctr { &floor::event_handler };
 
 atomic<bool> floor::reload_kernels_flag { false };
+bool floor::use_gl_context { true };
 
 // dll main for windows dll export
 #if defined(__WINDOWS__)
@@ -436,8 +437,10 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #endif
 #endif
-		
-		acquire_context();
+	}
+	acquire_context();
+	
+	if(!console_only) {
 		log_debug("window and opengl context created and acquired!");
 		
 		// initialize opengl functions (get function pointers) on non-apple platforms
@@ -515,48 +518,47 @@ void floor::init_internal(const bool use_gl32_core
 		// set dpi lower bound to 72
 		if(config.dpi < 72) config.dpi = 72;
 		log_debug("dpi: %u", config.dpi);
-		
-		// create and init compute context
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL)
-		if(config.platform == "cuda") {
-#if !defined(FLOOR_NO_CUDA)
-			log_debug("initializing CUDA ...");
-			compute_ctx = make_shared<cuda_compute>();
-#else
-			log_error("CUDA support is not enabled!");
-#endif
-		}
-		else if(config.platform == "metal") {
-#if !defined(FLOOR_NO_METAL)
-			log_debug("initializing Metal ...");
-			compute_ctx = make_shared<metal_compute>();
-#else
-			log_error("Metal support is not enabled!");
-#endif
-		}
-		
-		if(compute_ctx == nullptr) {
-#if !defined(FLOOR_NO_OPENCL)
-			if(config.platform == "cuda" || config.platform == "metal") {
-				log_debug("initializing OpenCL (fallback) ...");
-			}
-			else log_debug("initializing OpenCL ...");
-			compute_ctx = make_shared<opencl_compute>();
-#else
-			log_error("OpenCL support is not enabled!");
-#endif
-		}
-		
-		if(compute_ctx != nullptr) {
-			compute_ctx->init(false, string2uint(config.opencl_platform),
-							  config.gl_sharing, config.opencl_restrictions);
-		}
-		else log_error("failed to create any compute context!");
-#endif
-		
-		release_context();
 	}
 	
+	// always create and init compute context (even in console-only mode)
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL)
+	if(config.platform == "cuda") {
+#if !defined(FLOOR_NO_CUDA)
+		log_debug("initializing CUDA ...");
+		compute_ctx = make_shared<cuda_compute>();
+#else
+		log_error("CUDA support is not enabled!");
+#endif
+	}
+	else if(config.platform == "metal") {
+#if !defined(FLOOR_NO_METAL)
+		log_debug("initializing Metal ...");
+		compute_ctx = make_shared<metal_compute>();
+#else
+		log_error("Metal support is not enabled!");
+#endif
+	}
+	
+	if(compute_ctx == nullptr) {
+#if !defined(FLOOR_NO_OPENCL)
+		if(config.platform == "cuda" || config.platform == "metal") {
+			log_debug("initializing OpenCL (fallback) ...");
+		}
+		else log_debug("initializing OpenCL ...");
+		compute_ctx = make_shared<opencl_compute>();
+#else
+		log_error("OpenCL support is not enabled!");
+#endif
+	}
+	
+	if(compute_ctx != nullptr) {
+		compute_ctx->init(false, string2uint(config.opencl_platform),
+						  config.gl_sharing & console_only, config.opencl_restrictions);
+	}
+	else log_error("failed to create any compute context!");
+#endif
+	
+	// also always init openal/audio
 #if !defined(FLOOR_NO_OPENAL)
 	if(!config.audio_disabled) {
 		// check if openal functions have been correctly initialized and initialize openal
@@ -564,6 +566,8 @@ void floor::init_internal(const bool use_gl32_core
 		audio_controller::init();
 	}
 #endif
+	
+	release_context();
 }
 
 /*! sets the windows width
@@ -914,27 +918,38 @@ void floor::acquire_context() {
 	config.ctx_lock.lock();
 	// note: not a race, since there can only be one active gl thread
 	const unsigned int cur_active_locks = config.ctx_active_locks++;
-	if(cur_active_locks == 0) {
-		if(SDL_GL_MakeCurrent(config.wnd, config.ctx) != 0) {
-			log_error("couldn't make gl context current: %s!", SDL_GetError());
-			return;
+	if(use_gl_context) {
+		if(cur_active_locks == 0 && config.ctx != nullptr) {
+			if(SDL_GL_MakeCurrent(config.wnd, config.ctx) != 0) {
+				log_error("couldn't make gl context current: %s!", SDL_GetError());
+				return;
+			}
 		}
-	}
 #if defined(FLOOR_IOS)
-	glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
+		glBindFramebuffer(GL_FRAMEBUFFER, FLOOR_DEFAULT_FRAMEBUFFER);
 #endif
+	}
 }
 
 void floor::release_context() {
 	// only call SDL_GL_MakeCurrent with nullptr, when this is the last lock
 	const unsigned int cur_active_locks = --config.ctx_active_locks;
-	if(cur_active_locks == 0) {
-		if(SDL_GL_MakeCurrent(config.wnd, nullptr) != 0) {
-			log_error("couldn't release current gl context: %s!", SDL_GetError());
-			return;
+	if(use_gl_context) {
+		if(cur_active_locks == 0 && config.ctx != nullptr) {
+			if(SDL_GL_MakeCurrent(config.wnd, nullptr) != 0) {
+				log_error("couldn't release current gl context: %s!", SDL_GetError());
+				return;
+			}
 		}
 	}
 	config.ctx_lock.unlock();
+}
+void floor::set_use_gl_context(const bool& state) {
+	use_gl_context = state;
+}
+
+const bool& floor::get_use_gl_context() {
+	return use_gl_context;
 }
 
 bool floor::event_handler(EVENT_TYPE type, shared_ptr<event_object> obj) {

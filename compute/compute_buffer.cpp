@@ -45,6 +45,13 @@ static constexpr COMPUTE_BUFFER_FLAG handle_buffer_flags(COMPUTE_BUFFER_FLAG fla
 		if((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE) {
 			flags &= (COMPUTE_BUFFER_FLAG)~uint32_t(COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY);
 		}
+		
+#if defined(FLOOR_IOS)
+		// there are no opengl texture buffers in opengl es 3.0
+		if((flags & COMPUTE_BUFFER_FLAG::OPENGL_TEXTURE_BUFFER) != COMPUTE_BUFFER_FLAG::NONE) {
+			flags &= (COMPUTE_BUFFER_FLAG)~uint32_t(COMPUTE_BUFFER_FLAG::OPENGL_TEXTURE_BUFFER);
+		}
+#endif
 	}
 	else {
 		// clear out opengl flags, just in case
@@ -85,6 +92,12 @@ dev(device), size(align_size(size_)), host_ptr(host_ptr_), flags(handle_buffer_f
 	if((flags & COMPUTE_BUFFER_FLAG::__OPENGL_BUFFER_TYPE_MASK) > COMPUTE_BUFFER_FLAG::__OPENGL_MAX_BUFFER_TYPE) {
 		log_error("invalid opengl buffer type!");
 	}
+	
+#if defined(FLOOR_IOS)
+	if((flags & COMPUTE_BUFFER_FLAG::OPENGL_TEXTURE_BUFFER) != COMPUTE_BUFFER_FLAG::NONE) {
+		log_error("opengl texture buffers are not supported by opengl es 3.0 on iOS!");
+	}
+#endif
 }
 
 compute_buffer::~compute_buffer() {}

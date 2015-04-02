@@ -84,6 +84,10 @@ public:
 	static void acquire_context();
 	static void release_context();
 	
+	// set to false to not acquire/release the gl context in acquire/release_context()
+	static void set_use_gl_context(const bool& state);
+	static const bool& get_use_gl_context();
+	
 	// fps functions
 	static unsigned int get_fps();
 	static float get_frame_time();
@@ -291,6 +295,7 @@ protected:
 	
 	// misc
 	static atomic<bool> reload_kernels_flag;
+	static bool use_gl_context;
 
 };
 

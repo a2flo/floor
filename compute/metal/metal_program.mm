@@ -64,7 +64,8 @@ metal_program::metal_program(const metal_device* device,
 		NSError* err = nullptr;
 		id <MTLComputePipelineState> kernel_state = [[program device] newComputePipelineStateWithFunction:kernel error:&err];
 		if(!kernel_state) {
-			log_error("failed to create kernel state %s", info.name);
+			log_error("failed to create kernel state %s: %s", info.name,
+					  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 			continue;
 		}
 		log_debug("created kernel state: %X", (__bridge void*)kernel_state);
