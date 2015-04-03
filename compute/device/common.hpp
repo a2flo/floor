@@ -36,6 +36,7 @@
 // libc++ stl functionality without (most of) the baggage
 #include <utility>
 #include <type_traits>
+#include <initializer_list>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -44,6 +45,20 @@ template <class data_type, size_t array_size>
 struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(4))) array {
 	static_assert(array_size > 0, "array size may not be 0!");
 	alignas(4) data_type elems[array_size];
+	
+	constexpr array() noexcept = default;
+	
+	template <typename... Args>
+	constexpr array(Args&&... args) noexcept : elems { forward<Args>(args)... } {}
+	
+#if 0 // disabled for now, not sure how to solve the uniform initialization vs. initializer_list issue yet
+	constexpr array(initializer_list<data_type> ilist) noexcept {
+		auto ilist_iter = ilist.begin();
+		for(size_t i = 0; i < array_size; ++i) {
+			elems[i] = *ilist_iter++;
+		}
+	}
+#endif
 	
 	constexpr size_t size() const { return array_size; }
 	
@@ -338,9 +353,15 @@ template <typename T,
 using param = constant floor_compute::address_space_adaptor<const param_wrapper, constant const param_wrapper*, true, false>&;
 //! array<> for use with static constant memory
 template <class data_type, size_t array_size>
-class const_array {
+class __attribute__((packed, aligned(4))) const_array {
 public:
-	const floor_compute::address_space_adaptor<data_type, constant const data_type*, true, false> elems[array_size > 0 ? array_size : 1];
+	static_assert(array_size > 0, "array size may not be 0!");
+	alignas(4) const floor_compute::address_space_adaptor<data_type, constant const data_type*, true, false> elems[array_size];
+	
+	constexpr const_array() noexcept = default;
+	
+	template <typename... Args>
+	constexpr const_array(const Args&... args) noexcept : elems { args... } {}
 	
 	constexpr data_type operator[](const size_t& index) const {
 		return const_select::is_constexpr(index) ? cexpr_get(index) : rt_get<data_type>(index);
