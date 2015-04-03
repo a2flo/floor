@@ -151,6 +151,8 @@ public:
 	static const string& get_opencl_platform();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
+	static const string& get_opencl_as();
+	static const string& get_opencl_dis();
 	static const string& get_opencl_libcxx_path();
 	static const string& get_opencl_clang_path();
 	
@@ -159,18 +161,24 @@ public:
 	static const string& get_cuda_llc();
 	static const string& get_cuda_libcxx_path();
 	static const string& get_cuda_clang_path();
+	static const string& get_cuda_as();
+	static const string& get_cuda_dis();
 	static const string& get_cuda_force_driver_sm();
 	static const string& get_cuda_force_compile_sm();
 	
 	// metal
 	static const string& get_metal_compiler();
 	static const string& get_metal_llc();
+	static const string& get_metal_as();
+	static const string& get_metal_dis();
 	static const string& get_metal_libcxx_path();
 	static const string& get_metal_clang_path();
 	
 	// host
 	static const string& get_host_compiler();
 	static const string& get_host_llc();
+	static const string& get_host_as();
+	static const string& get_host_dis();
 	static const string& get_host_libcxx_path();
 	static const string& get_host_clang_path();
 	
@@ -235,12 +243,16 @@ protected:
 		unordered_set<string> opencl_restrictions;
 		string opencl_compiler = "compute_clang";
 		string opencl_llc = "compute_llc";
+		string opencl_as = "compute_as";
+		string opencl_dis = "compute_dis";
 		string opencl_libcxx = "/usr/local/include/floor/libcxx/include";
 		string opencl_clang = "/usr/local/include/floor/libcxx/clang";
 		
 		// cuda
 		string cuda_compiler = "compute_clang";
 		string cuda_llc = "compute_llc";
+		string cuda_as = "compute_as";
+		string cuda_dis = "compute_dis";
 		string cuda_libcxx = "/usr/local/include/floor/libcxx/include";
 		string cuda_clang = "/usr/local/include/floor/libcxx/clang";
 		string cuda_force_driver_sm = "";
@@ -249,12 +261,16 @@ protected:
 		// metal
 		string metal_compiler = "compute_clang";
 		string metal_llc = "compute_llc";
+		string metal_as = "compute_as";
+		string metal_dis = "compute_dis";
 		string metal_libcxx = "/usr/local/include/floor/libcxx/include";
 		string metal_clang = "/usr/local/include/floor/libcxx/clang";
 		
 		// host
 		string host_compiler = "compute_clang";
 		string host_llc = "compute_llc";
+		string host_as = "compute_as";
+		string host_dis = "compute_dis";
 		string host_libcxx = "/usr/local/include/floor/libcxx/include";
 		string host_clang = "/usr/local/include/floor/libcxx/clang";
 

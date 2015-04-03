@@ -237,7 +237,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			warning_flags +
 			additional_options +
 			generic_flags +
-			" -emit-llvm -c -o spir_3_5.bc - 2>&1"
+			" -emit-llvm -S -o spir_3_5.ll - 2>&1"
 		};
 		
 		//log_msg("spir cmd: %s", spir_cmd);
@@ -249,7 +249,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		const string spir_3_2_encoder_cmd {
 			// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
 			// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
-			"llvm-dis spir_3_5.bc &&"
 #if defined(__APPLE__)
 			" sed -i \"\""
 #else
@@ -262,7 +261,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" sed -i"
 #endif
 			" -E \"s/^define (.*)section \\\"spir_kernel\\\" (.*)/define spir_kernel \\1\\2/\" spir_3_5.ll &&"
-			" llvm-as spir_3_5.ll && "
+			" " + floor::get_opencl_as() + " spir_3_5.ll && "
 			// actual spir-encoder call:
 			"spir-encoder spir_3_5.bc spir_3_2.bc 2>&1"
 		};

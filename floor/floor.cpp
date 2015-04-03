@@ -237,11 +237,15 @@ void floor::init(const char* callpath_, const char* datapath_,
 		}
 		config.opencl_compiler = config_doc.get<string>("config.opencl.compiler", "compute_clang");
 		config.opencl_llc = config_doc.get<string>("config.opencl.llc", "compute_llc");
+		config.opencl_as = config_doc.get<string>("config.opencl.as", "compute_as");
+		config.opencl_dis = config_doc.get<string>("config.opencl.dis", "compute_dis");
 		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/local/include/floor/libcxx/include");
 		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/local/include/floor/libcxx/clang");
 		
 		config.cuda_compiler = config_doc.get<string>("config.cuda.compiler", "compute_clang");
 		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
+		config.cuda_as = config_doc.get<string>("config.cuda.as", "compute_as");
+		config.cuda_dis = config_doc.get<string>("config.cuda.dis", "compute_dis");
 		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/local/include/floor/libcxx/include");
 		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/local/include/floor/libcxx/clang");
 		config.cuda_force_driver_sm = config_doc.get<string>("config.cuda.force_driver_sm", "");
@@ -249,11 +253,15 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		config.metal_compiler = config_doc.get<string>("config.metal.compiler", "compute_clang");
 		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
+		config.metal_as = config_doc.get<string>("config.metal.as", "compute_as");
+		config.metal_dis = config_doc.get<string>("config.metal.dis", "compute_dis");
 		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/local/include/floor/libcxx/include");
 		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/local/include/floor/libcxx/clang");
 		
 		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
 		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
+		config.host_as = config_doc.get<string>("config.host.as", "compute_as");
+		config.host_dis = config_doc.get<string>("config.host.dis", "compute_dis");
 		config.host_libcxx = config_doc.get<string>("config.host.libcxx", "/usr/local/include/floor/libcxx/include");
 		config.host_clang = config_doc.get<string>("config.host.clang", "/usr/local/include/floor/libcxx/clang");
 	}
@@ -1056,6 +1064,12 @@ const string& floor::get_opencl_compiler() {
 const string& floor::get_opencl_llc() {
 	return config.opencl_llc;
 }
+const string& floor::get_opencl_as() {
+	return config.opencl_as;
+}
+const string& floor::get_opencl_dis() {
+	return config.opencl_dis;
+}
 const string& floor::get_opencl_libcxx_path() {
 	return config.opencl_libcxx;
 }
@@ -1068,6 +1082,12 @@ const string& floor::get_cuda_compiler() {
 }
 const string& floor::get_cuda_llc() {
 	return config.cuda_llc;
+}
+const string& floor::get_cuda_as() {
+	return config.cuda_as;
+}
+const string& floor::get_cuda_dis() {
+	return config.cuda_dis;
 }
 const string& floor::get_cuda_libcxx_path() {
 	return config.cuda_libcxx;
@@ -1088,6 +1108,12 @@ const string& floor::get_metal_compiler() {
 const string& floor::get_metal_llc() {
 	return config.metal_llc;
 }
+const string& floor::get_metal_as() {
+	return config.metal_as;
+}
+const string& floor::get_metal_dis() {
+	return config.metal_dis;
+}
 const string& floor::get_metal_libcxx_path() {
 	return config.metal_libcxx;
 }
@@ -1100,6 +1126,12 @@ const string& floor::get_host_compiler() {
 }
 const string& floor::get_host_llc() {
 	return config.host_llc;
+}
+const string& floor::get_host_as() {
+	return config.host_as;
+}
+const string& floor::get_host_dis() {
+	return config.host_dis;
 }
 const string& floor::get_host_libcxx_path() {
 	return config.host_libcxx;
