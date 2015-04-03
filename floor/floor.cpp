@@ -533,12 +533,6 @@ void floor::init_internal(const bool use_gl32_core
 	if(config.platform == "cuda") {
 #if !defined(FLOOR_NO_CUDA)
 		log_debug("initializing CUDA ...");
-		if(!config.cuda_force_driver_sm.empty()) {
-			log_debug("forced driver sm version to: %s", config.cuda_force_driver_sm);
-		}
-		if(!config.cuda_force_compile_sm.empty()) {
-			log_debug("forced compiler sm version to: %s", config.cuda_force_compile_sm);
-		}
 		compute_ctx = make_shared<cuda_compute>();
 #else
 		log_error("CUDA support is not enabled!");
