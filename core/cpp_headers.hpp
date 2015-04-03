@@ -83,7 +83,7 @@ template <typename... vec_params> struct is_vector<vector<vec_params...>> : publ
 #endif
 
 // non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
-#if ((__cplusplus <= 201402L) || (__clang_major__ == 3 && __clang_minor__ <= 5)) && \
+#if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && \
 	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
 template <class C> constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
 	return c.size();
