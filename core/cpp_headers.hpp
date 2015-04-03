@@ -82,4 +82,15 @@ template <typename any_type> struct is_vector : public false_type {};
 template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
 #endif
 
+// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
+#if ((__cplusplus <= 201402L) || (__clang_major__ == 3 && __clang_minor__ <= 5)) && \
+	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
+template <class C> constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
+	return c.size();
+}
+template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
+	return N;
+}
+#endif
+
 #endif
