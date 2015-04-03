@@ -138,24 +138,7 @@ namespace floor_compute {
 	};
 }
 
-#if defined(FLOOR_COMPUTE_SPIR)
-//! global memory buffer
-template <typename T> using buffer = global floor_compute::indirect_type_wrapper<T>*;
-//! local memory buffer
-template <typename T, size_t count> using local_buffer = local array<floor_compute::indirect_type_wrapper<T>, count>;
-//! constant memory buffer
-template <typename T> using const_buffer = constant const floor_compute::indirect_type_wrapper<T>* const;
-//! generic parameter object/buffer
-template <typename T,
-		  typename param_wrapper = const conditional_t<
-			  is_fundamental<T>::value,
-			  floor_compute::indirect_type_wrapper<T>,
-			  floor_compute::direct_type_wrapper<T>>>
-using param = const param_wrapper;
-//! array<> for use with static constant memory
-template <class data_type, size_t array_size> using const_array = array<data_type, array_size>;
-
-#elif defined(FLOOR_COMPUTE_CUDA)
+#if defined(FLOOR_COMPUTE_CUDA)
 //! global memory buffer
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
@@ -177,7 +160,7 @@ using param = const param_wrapper;
 #define const_array constant const_array_cuda
 template <class data_type, size_t array_size> using const_array_cuda = data_type[array_size];
 
-#elif defined(FLOOR_COMPUTE_METAL)
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_SPIR)
 namespace floor_compute {
 	//! generic loader from global/local/constant memory to private memory
 	//! NOTE on efficiency: llvm is amazingly proficient at optimizing this to loads of any overlayed type(s),
@@ -319,38 +302,65 @@ namespace floor_compute {
 		
 	};
 	
-	//! template voodoo, false if T has no load function for constant memory
+	//! template voodoo, false if T has no load function for global/local/constant memory
 	template <typename T, typename = void> struct has_load_function : false_type {};
-	//! template voodoo, true if T has a load function for constant memory
-	template <typename T> struct has_load_function<T, decltype(T::load((constant const T*)nullptr), void())> : true_type {};
+	//! template voodoo, true if T has a load function for global/local/constant memory
+	template <typename T> struct has_load_function<T, decltype(T::load((global const T*)nullptr),
+															   T::load((local const T*)nullptr),
+															   T::load((constant const T*)nullptr),
+															   void())> : true_type {};
 	
 	//! for internal use (wraps a struct or class and provides an automatic load function)
-	template <typename T> struct param_buffer_container : T, address_space_loader<param_buffer_container<T>> {};
+	template <typename T> struct buffer_container : T, address_space_loader<buffer_container<T>> {};
 	
 	//! for internal use (wraps a fundamental / non-struct or -class type and provides an automatic load function)
 	template <typename T>
-	struct param_adaptor : address_space_loader<param_adaptor<T>> {
+	struct generic_type_adaptor : address_space_loader<generic_type_adaptor<T>> {
 		T elem;
 		constexpr operator T() const noexcept { return elem; }
 	};
 }
 
+//! depending on if a type has address space load functions either aliases the type directly
+//! or wraps the type in a class that provides load functionality for all address spaces
+//! NOTE: store functions are currently implied if a type has load functions!
+template <typename T> using type_load_wrapper = conditional_t<floor_compute::has_load_function<T>::value,
+															  T,
+															  floor_compute::buffer_container<T>>;
+
 //! global memory buffer
-template <typename T> using buffer = global floor_compute::address_space_adaptor<T, global T*, true, !is_const<T>()>*;
+template <typename T, typename wrapper = type_load_wrapper<T>>
+using buffer = global floor_compute::address_space_adaptor<wrapper, global wrapper*, true, !is_const<T>()>*;
+
 //! local memory buffer
-template <typename T, size_t count> using local_buffer = local floor_compute::address_space_adaptor<T, local T*, true, !is_const<T>()>[count];
+template <typename T, size_t count, typename wrapper = type_load_wrapper<T>>
+using local_buffer = local floor_compute::address_space_adaptor<wrapper, local wrapper*, true, !is_const<T>()>[count];
+
 //! constant memory buffer
-template <typename T> using const_buffer = constant floor_compute::address_space_adaptor<const T, constant const T*, true, false>*;
+template <typename T, typename wrapper = type_load_wrapper<T>>
+using const_buffer = constant floor_compute::address_space_adaptor<const wrapper, constant const wrapper*, true, false>*;
+
+#if defined(FLOOR_COMPUTE_SPIR)
+//! generic parameter object/buffer (provided via launch parameter)
+template <typename T,
+		  typename param_wrapper = const conditional_t<
+			  is_fundamental<T>::value,
+			  floor_compute::indirect_type_wrapper<T>,
+			  floor_compute::direct_type_wrapper<T>>>
+using param = const param_wrapper;
+#elif defined(FLOOR_COMPUTE_METAL)
 //! generic parameter object/buffer (stored in constant memory)
 template <typename T,
 		  typename param_wrapper = const conditional_t<
 			  is_fundamental<T>::value,
-			  floor_compute::param_adaptor<T>,
+			  floor_compute::generic_type_adaptor<T>,
 			  conditional_t<
 				  floor_compute::has_load_function<T>::value,
 				  T,
-				  floor_compute::param_buffer_container<T>>>>
+				  floor_compute::buffer_container<T>>>>
 using param = constant floor_compute::address_space_adaptor<const param_wrapper, constant const param_wrapper*, true, false>&;
+#endif
+
 //! array<> for use with static constant memory
 template <class data_type, size_t array_size>
 class __attribute__((packed, aligned(4))) const_array {
@@ -386,6 +396,7 @@ protected:
 	}
 
 };
+
 #endif
 
 #endif
