@@ -41,10 +41,10 @@ typedef unsigned long long int uint64_t;
 
 // TODO: arch size support
 #if defined(PLATFORM_X32)
-typedef uint32_t size_t;
+typedef __SIZE_TYPE__ size_t;
 typedef int32_t ssize_t;
 #elif defined(PLATFORM_X64)
-typedef uint64_t size_t;
+typedef __SIZE_TYPE__ size_t;
 typedef int64_t ssize_t;
 #endif
 

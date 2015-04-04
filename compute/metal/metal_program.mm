@@ -32,7 +32,7 @@ metal_program::metal_program(const metal_device* device,
 	metal_kernels.resize(kernel_count);
 	for(size_t i = 0; i < kernel_count; ++i) {
 		const auto& info = kernels_info[i];
-		{
+		{ // TODO: remove this debug output later on
 			string sizes_str = "";
 			for(size_t j = 0, count = info.arg_sizes.size(); j < count; ++j) {
 				switch(info.arg_address_spaces[j]) {

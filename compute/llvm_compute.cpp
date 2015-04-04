@@ -171,6 +171,30 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 		});
 	}
 	
+#if 0
+	// print info about all kernels and their arguments
+	for(const auto& kernel : kernels) {
+		string sizes_str = "";
+		for(size_t i = 0, count = kernel.arg_sizes.size(); i < count; ++i) {
+			switch(kernel.arg_address_spaces[i]) {
+				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::GLOBAL:
+					sizes_str += "global ";
+					break;
+				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::LOCAL:
+					sizes_str += "local ";
+					break;
+				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT:
+					sizes_str += "constant ";
+					break;
+				default: break;
+			}
+			sizes_str += to_string(kernel.arg_sizes[i]) + (i + 1 < count ? "," : "") + " ";
+		}
+		sizes_str = core::trim(sizes_str);
+		log_msg("kernel: %s (%s)", kernel.name, sizes_str);
+	}
+#endif
+	
 	return true;
 }
 
