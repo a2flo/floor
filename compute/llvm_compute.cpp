@@ -218,8 +218,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast "
 	};
 	
-	// NOTE on SPIR/AIR compilation: these have to be compiled to .bc and not .ll directly because of an
-	// address space handling bug (when compiling to .ll the address space is dropped for stores)
 	if(target == TARGET::SPIR) {
 		string spir_cmd {
 			printable_code +
@@ -336,7 +334,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		// TODO: clean this up + do this properly!
 		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
 		ptx_cmd += " -o - - 2>&1";
-		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " -mattr=ptx40 2>&1");
+		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " -mattr=ptx42 2>&1");
 #if 1 // TODO: keep this for now, remove it when no longer needed (and this always works properly)
 		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
 #endif
