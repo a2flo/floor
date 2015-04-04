@@ -20,6 +20,54 @@ index e1c9a14..1c9e06b 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
+index 93fabf6..2dfb759 100644
+--- a/lib/Target/NVPTX/NVPTX.td
++++ b/lib/Target/NVPTX/NVPTX.td
+@@ -32,10 +32,18 @@ def SM21 : SubtargetFeature<"sm_21", "SmVersion", "21",
+                             "Target SM 2.1">;
+ def SM30 : SubtargetFeature<"sm_30", "SmVersion", "30",
+                             "Target SM 3.0">;
++def SM32 : SubtargetFeature<"sm_32", "SmVersion", "32",
++                            "Target SM 3.2">;
+ def SM35 : SubtargetFeature<"sm_35", "SmVersion", "35",
+                             "Target SM 3.5">;
++def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
++                            "Target SM 3.7">;
+ def SM50 : SubtargetFeature<"sm_50", "SmVersion", "50",
+                             "Target SM 5.0">;
++def SM52 : SubtargetFeature<"sm_52", "SmVersion", "52",
++                            "Target SM 5.2">;
++def SM53 : SubtargetFeature<"sm_53", "SmVersion", "53",
++                            "Target SM 5.3">;
+ 
+ // PTX Versions
+ def PTX30 : SubtargetFeature<"ptx30", "PTXVersion", "30",
+@@ -46,6 +54,10 @@ def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
+                              "Use PTX version 3.2">;
+ def PTX40 : SubtargetFeature<"ptx40", "PTXVersion", "40",
+                              "Use PTX version 4.0">;
++def PTX41 : SubtargetFeature<"ptx41", "PTXVersion", "41",
++                             "Use PTX version 4.1">;
++def PTX42 : SubtargetFeature<"ptx42", "PTXVersion", "42",
++                             "Use PTX version 4.2">;
+ 
+ //===----------------------------------------------------------------------===//
+ // NVPTX supported processors.
+@@ -57,8 +69,12 @@ class Proc<string Name, list<SubtargetFeature> Features>
+ def : Proc<"sm_20", [SM20]>;
+ def : Proc<"sm_21", [SM21]>;
+ def : Proc<"sm_30", [SM30]>;
++def : Proc<"sm_32", [SM32, PTX40]>;
+ def : Proc<"sm_35", [SM35]>;
+-def : Proc<"sm_50", [SM50]>;
++def : Proc<"sm_37", [SM37, PTX41]>;
++def : Proc<"sm_50", [SM50, PTX40]>;
++def : Proc<"sm_52", [SM52, PTX41]>;
++def : Proc<"sm_53", [SM53, PTX42]>;
+ 
+ 
+ def NVPTXInstrInfo : InstrInfo {
 diff --git a/lib/Target/NVPTX/NVPTXAsmPrinter.h b/lib/Target/NVPTX/NVPTXAsmPrinter.h
 index a9f9bdd..bf44862 100644
 --- a/lib/Target/NVPTX/NVPTXAsmPrinter.h
@@ -74,6 +122,22 @@ index 9900b8c..4879b84 100644
  defm FSetNUM : FSET_FORMAT<seto, CmpNUM, CmpNUM_FTZ>;
  defm FSetNAN : FSET_FORMAT<setuo, CmpNAN, CmpNAN_FTZ>;
  
+diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
+index d5cded2..2e0ca79 100644
+--- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
++++ b/lib/Target/NVPTX/NVPTXSubtarget.cpp
+@@ -45,9 +45,9 @@ NVPTXSubtarget &NVPTXSubtarget::initializeSubtargetDependencies(StringRef CPU,
+ 
+   ParseSubtargetFeatures(TargetName, FS);
+ 
+-  // Set default to PTX 3.2 (CUDA 5.5)
++  // Set default to PTX 4.0
+   if (PTXVersion == 0) {
+-    PTXVersion = 32;
++    PTXVersion = 40;
+   }
+ 
+   return *this;
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
 index 704a375..1743ee2 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
@@ -243,7 +307,7 @@ index 90a27b5..aa9aea9 100644
  
  #undef LANGSTANDARD
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..9eff919 100644
+index 075f905..c9be0ff 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -254,7 +318,20 @@ index 075f905..9eff919 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -5886,6 +5887,7 @@ namespace {
+@@ -1411,7 +1412,12 @@ namespace {
+         .Case("sm_20", true)
+         .Case("sm_21", true)
+         .Case("sm_30", true)
++        .Case("sm_32", true)
+         .Case("sm_35", true)
++        .Case("sm_37", true)
++        .Case("sm_50", true)
++        .Case("sm_52", true)
++        .Case("sm_53", true)
+         .Default(false);
+ 
+       return Valid;
+@@ -5886,6 +5892,7 @@ namespace {
        // Define available target features
        // These must be defined in sorted order!
        NoAsmVariants = true;
