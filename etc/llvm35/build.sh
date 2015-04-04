@@ -113,7 +113,7 @@ if [ $CXX == "clang++" ]; then
 	CLANG_OPTIONS="-fvectorize -flto"
 else
 	if [ $BUILD_OS == "linux" ]; then
-		CONFIG_OPTIONS="--prefix=/usr --sysconfdir=/etc --enable-shared --enable-libffi --enable-targets=all --disable-expensive-checks --disable-debug-runtime --with-binutils-include=/usr/include --with-python=/usr/bin/python2"
+		CONFIG_OPTIONS="--prefix=/usr --sysconfdir=/etc --enable-targets=all --disable-expensive-checks --disable-debug-runtime --with-binutils-include=/usr/include --with-python=/usr/bin/python2"
 	fi
 fi
 
