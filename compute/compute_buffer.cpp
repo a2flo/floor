@@ -109,3 +109,34 @@ void compute_buffer::_lock() {
 void compute_buffer::_unlock() {
 	lock.unlock();
 }
+
+void compute_buffer::delete_gl_buffer() {
+	if(gl_buffer == 0) return;
+	glDeleteBuffers(1, &gl_buffer);
+	gl_buffer = 0;
+}
+
+bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
+	// clean up previous gl buffer that might still exist
+	delete_gl_buffer();
+	
+	// create and init the opengl buffer
+	const auto gl_buffer_type = get_opengl_buffer_type();
+	glGenBuffers(1, &gl_buffer);
+	glBindBuffer(gl_buffer_type, gl_buffer);
+	if(gl_buffer == 0 || !glIsBuffer(gl_buffer)) {
+		log_error("created opengl buffer %u is invalid!", gl_buffer);
+		return false;
+	}
+	
+	if(copy_host_data &&
+	   host_ptr != nullptr &&
+	   (flags & COMPUTE_BUFFER_FLAG::NO_INITIAL_COPY) != COMPUTE_BUFFER_FLAG::NONE) {
+		glBufferData(gl_buffer_type, (GLsizeiptr)size, host_ptr, GL_DYNAMIC_DRAW);
+	}
+	else {
+		glBufferData(gl_buffer_type, (GLsizeiptr)size, nullptr, GL_DYNAMIC_DRAW);
+	}
+	
+	return true;
+}

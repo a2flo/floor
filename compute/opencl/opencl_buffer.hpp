@@ -96,6 +96,9 @@ protected:
 	cl_mem buffer { nullptr };
 	cl_mem_flags cl_flags { 0 };
 	
+	// separate create buffer function, b/c it's called by the constructor and resize
+	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	
 };
 
 #endif

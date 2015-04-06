@@ -299,8 +299,13 @@ protected:
 	void* host_ptr { nullptr };
 	const COMPUTE_BUFFER_FLAG flags { COMPUTE_BUFFER_FLAG::NONE };
 	uint32_t gl_buffer { 0u };
+	bool gl_buffer_state { true }; // false: compute use, true: opengl use
 	
 	safe_mutex lock;
+	
+	// internal function to create/delete an opengl buffer if compute/opengl sharing is used
+	bool create_gl_buffer(const bool copy_host_data);
+	void delete_gl_buffer();
 	
 	// buffer size/offset checking (used for debugging/development purposes)
 	// NOTE: this can also be enabled by simply defining FLOOR_DEBUG_COMPUTE_BUFFER elsewhere

@@ -66,18 +66,56 @@ compute_buffer(device, size_, host_ptr_, flags_) {
 	
 	// TODO: handle the remaining flags + host ptr
 	
-	cl_int create_err = CL_SUCCESS;
-	buffer = clCreateBuffer(device->ctx, cl_flags, size, host_ptr, &create_err);
-	if(create_err != CL_SUCCESS) {
-		log_error("failed to create buffer: %u", create_err);
-		buffer = nullptr;
+	// actually create the buffer
+	if(!create_internal(true, nullptr)) {
+		return; // can't do much else
 	}
+}
+
+bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+	// TODO: handle the remaining flags + host ptr
+	cl_int create_err = CL_SUCCESS;
+	
+	// -> normal opencl buffer
+	if((flags & COMPUTE_BUFFER_FLAG::OPENGL_SHARING) == COMPUTE_BUFFER_FLAG::NONE) {
+		buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, size, host_ptr, &create_err);
+		if(create_err != CL_SUCCESS) {
+			log_error("failed to create buffer: %u", create_err);
+			buffer = nullptr;
+			return false;
+		}
+	}
+	// -> shared opencl/opengl buffer
+	else {
+		if(!create_gl_buffer(copy_host_data)) return false;
+		
+		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
+		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
+		buffer = clCreateFromGLBuffer(((opencl_device*)dev)->ctx, cl_flags, gl_buffer, &create_err);
+		if(create_err != CL_SUCCESS) {
+			log_error("failed to create shared opengl/opencl buffer: %u", create_err);
+			buffer = nullptr;
+			return false;
+		}
+		// release -> acquire for use with opencl
+		release_opengl_buffer(cqueue);
+	}
+	
+	return true;
 }
 
 opencl_buffer::~opencl_buffer() {
 	// kill the buffer
-	if(buffer == nullptr) return;
-	clReleaseMemObject(buffer);
+	if(buffer != nullptr) {
+		clReleaseMemObject(buffer);
+	}
+	if(gl_buffer != 0) {
+		if(gl_buffer_state) {
+			log_warn("buffer still acquired for opengl use - release before destructing a compute buffer!");
+		}
+		if(!gl_buffer_state) acquire_opengl_buffer(nullptr); // -> release to opengl
+		delete_gl_buffer();
+	}
 }
 
 void opencl_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -167,33 +205,47 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 				  min_multiple(), new_size, new_size_);
 	}
 	
+	// store old buffer, size and host pointer for possible restore + cleanup later on
+	const auto old_buffer = buffer;
+	const auto restore_old_buffer = [this, &old_buffer, old_size = size, old_host_ptr = host_ptr] {
+		buffer = old_buffer;
+		size = old_size;
+		host_ptr = old_host_ptr;
+	};
 	const bool is_host_buffer = ((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE);
 	
+	
 	// create the new buffer
-	cl_mem new_buffer = nullptr;
-	CL_CALL_ERR_PARAM_RET(new_buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, new_size, new_host_ptr, &create_err),
-						  create_err, "failed to create resized buffer", false);
+	buffer = nullptr;
+	size = new_size;
+	host_ptr = new_host_ptr;
+	if(!create_internal(copy_host_data, cqueue)) {
+		// much fail, restore old buffer
+		log_error("failed to create resized buffer");
+		
+		// restore old buffer
+		restore_old_buffer();
+		return false;
+	}
 	
 	// copy old data if specified
 	if(copy_old_data) {
 		// can only copy as many bytes as there are bytes
 		const size_t copy_size = std::min(size, new_size); // >= 4, established above
 		
-		clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, new_buffer, 0, 0, copy_size,
+		clEnqueueCopyBuffer((cl_command_queue)cqueue->get_queue_ptr(), old_buffer, buffer, 0, 0, copy_size,
 							0, nullptr, nullptr);
 	}
-	else if(!copy_old_data && copy_host_data && is_host_buffer && new_host_ptr != nullptr) {
+	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
 		// TODO: blocking flag
-		clEnqueueWriteBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, false, 0, new_size, new_host_ptr,
+		clEnqueueWriteBuffer((cl_command_queue)cqueue->get_queue_ptr(), buffer, false, 0, size, host_ptr,
 							 0, nullptr, nullptr);
 	}
 	
-	// kill the old buffer and assign the new one
-	if(buffer != nullptr) {
-		clReleaseMemObject(buffer);
+	// kill the old buffer
+	if(old_buffer != nullptr) {
+		clReleaseMemObject(old_buffer);
 	}
-	buffer = new_buffer;
-	host_ptr = new_host_ptr;
 	
 	return true;
 }
@@ -252,13 +304,27 @@ void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 bool opencl_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
 	if(gl_buffer == 0) return false;
 	if(buffer == 0) return false;
-	// TODO: implement this
+	if(gl_buffer_state) {
+		log_warn("opengl buffer has already been acquired for opengl use!");
+		return true;
+	}
+	
+	CL_CALL_RET(clEnqueueReleaseGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &buffer, 0, nullptr, nullptr),
+				"failed to acquire opengl buffer - opencl gl object release failed", false);
+	gl_buffer_state = true;
 	return true;
 }
 
 bool opencl_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
 	if(gl_buffer == 0) return false;
-	// TODO: implement this
+	if(!gl_buffer_state) {
+		log_warn("opengl buffer has already been released to opencl!");
+		return true;
+	}
+	
+	CL_CALL_RET(clEnqueueAcquireGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &buffer, 0, nullptr, nullptr),
+				"failed to release opengl buffer - opencl gl object acquire failed", false);
+	gl_buffer_state = false;
 	return true;
 }
 
