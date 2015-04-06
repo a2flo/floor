@@ -111,13 +111,12 @@ CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
 	CONFIG_OPTIONS="--enable-libcpp"
 	CLANG_OPTIONS="-fvectorize -flto"
-else
-	if [ $BUILD_OS == "linux" ]; then
-		CONFIG_OPTIONS="--prefix=/usr --sysconfdir=/etc --enable-targets=all --disable-expensive-checks --disable-debug-runtime --with-binutils-include=/usr/include --with-python=/usr/bin/python2"
-	fi
+fi
+if [ $BUILD_OS == "linux" ]; then
+	CONFIG_OPTIONS="${CONFIG_OPTIONS} --prefix=/usr --sysconfdir=/etc --with-binutils-include=/usr/include --with-python=/usr/bin/python2"
 fi
 
-CC=${CC} CXX=${CXX} ../llvm/configure ${CONFIG_OPTIONS} --enable-optimized --disable-assertions --enable-cxx11 --with-optimize-option="-Ofast -msse4.1 ${CLANG_OPTIONS} -funroll-loops -mtune=native" --with-extra-options="${EXTRA_OPTIONS}"
+CC=${CC} CXX=${CXX} ../llvm/configure ${CONFIG_OPTIONS} --enable-optimized --disable-assertions --enable-cxx11 --enable-targets="host,nvptx" --disable-docs --disable-jit --disable-bindings --with-optimize-option="-Ofast -msse4.1 ${CLANG_OPTIONS} -funroll-loops -mtune=native" --with-extra-options="${EXTRA_OPTIONS}"
 make -j ${BUILD_CPU_COUNT}
 
 echo ""
