@@ -29,27 +29,28 @@
 cuda_buffer::cuda_buffer(const cuda_device* device,
 						 const size_t& size_,
 						 void* host_ptr_,
-						 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(device, size_, host_ptr_, flags_) {
+						 const COMPUTE_MEMORY_FLAG flags_,
+						 const uint32_t opengl_type_) :
+compute_buffer(device, size_, host_ptr_, flags_, opengl_type_) {
 	if(size < min_multiple()) return;
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::READ:
-		case COMPUTE_BUFFER_FLAG::WRITE:
-		case COMPUTE_BUFFER_FLAG::READ_WRITE:
+	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::READ:
+		case COMPUTE_MEMORY_FLAG::WRITE:
+		case COMPUTE_MEMORY_FLAG::READ_WRITE:
 			// no special handling for cuda
 			break;
 		// all possible cases handled
 		default: floor_unreachable();
 	}
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::HOST_READ:
-		case COMPUTE_BUFFER_FLAG::HOST_WRITE:
-		case COMPUTE_BUFFER_FLAG::NONE:
+	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::HOST_READ:
+		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
+		case COMPUTE_MEMORY_FLAG::NONE:
 			// no special handling for cuda
 			break;
-		case COMPUTE_BUFFER_FLAG::HOST_READ_WRITE:
+		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// both - this is the default
 			break;
 		// all possible cases handled
@@ -73,7 +74,7 @@ compute_buffer(device, size_, host_ptr_, flags_) {
 
 bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	// -> use host memory
-	if((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE) {
+	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
 		CU_CALL_RET(cuMemHostRegister(host_ptr, size, CU_MEMHOSTALLOC_DEVICEMAP | CU_MEMHOSTREGISTER_PORTABLE),
 					"failed to register host pointer", false);
 		CU_CALL_RET(cuMemHostGetDevicePointer(&buffer, host_ptr, 0),
@@ -82,14 +83,14 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 	// -> alloc and use device memory
 	else {
 		// -> plain old cuda buffer
-		if((flags & COMPUTE_BUFFER_FLAG::OPENGL_SHARING) == COMPUTE_BUFFER_FLAG::NONE) {
+		if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
 			CU_CALL_RET(cuMemAlloc(&buffer, size),
 						"failed to allocate device memory", false);
 			
 			// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 			if(copy_host_data &&
 			   host_ptr != nullptr &&
-			   (flags & COMPUTE_BUFFER_FLAG::NO_INITIAL_COPY) != COMPUTE_BUFFER_FLAG::NONE) {
+			   (flags & COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY) != COMPUTE_MEMORY_FLAG::NONE) {
 				CU_CALL_RET(cuMemcpyHtoD(buffer, host_ptr, size),
 							"failed to copy initial host data to device", false);
 			}
@@ -100,26 +101,26 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 			
 			// register the cuda object
 			uint32_t cuda_gl_flags = 0;
-			switch(flags & COMPUTE_BUFFER_FLAG::OPENGL_READ_WRITE) {
-				case COMPUTE_BUFFER_FLAG::OPENGL_READ:
+			switch(flags & COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE) {
+				case COMPUTE_MEMORY_FLAG::OPENGL_READ:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
 					break;
-				case COMPUTE_BUFFER_FLAG::OPENGL_WRITE:
+				case COMPUTE_MEMORY_FLAG::OPENGL_WRITE:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD;
 					break;
 				default:
-				case COMPUTE_BUFFER_FLAG::OPENGL_READ_WRITE:
+				case COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_NONE;
 					break;
 			}
-			CU_CALL_RET(cuGraphicsGLRegisterBuffer(&rsrc, gl_buffer, cuda_gl_flags),
+			CU_CALL_RET(cuGraphicsGLRegisterBuffer(&rsrc, gl_object, cuda_gl_flags),
 						"failed to register opengl buffer with cuda", false);
 			if(rsrc == nullptr) {
 				log_error("created cuda gl graphics resource is invalid!");
 				return false;
 			}
 			// release -> acquire for use with cuda
-			release_opengl_buffer(cqueue);
+			release_opengl_object(cqueue);
 		}
 	}
 	return true;
@@ -130,28 +131,28 @@ cuda_buffer::~cuda_buffer() {
 	if(buffer == 0) return;
 	
 	// -> host memory
-	if((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE) {
+	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
 		CU_CALL_RET(cuMemHostUnregister(host_ptr),
 					"failed to unregister mapped host memory");
 	}
 	// -> device memory
 	else {
 		// -> plain old cuda buffer
-		if((flags & COMPUTE_BUFFER_FLAG::OPENGL_SHARING) == COMPUTE_BUFFER_FLAG::NONE) {
+		if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
 			CU_CALL_RET(cuMemFree(buffer),
 						"failed to free device memory");
 		}
 		// -> opengl buffer
 		else {
-			if(gl_buffer == 0) {
+			if(gl_object == 0) {
 				log_error("invalid opengl buffer!");
 			}
 			else {
-				if(buffer == 0 || gl_buffer_state) {
+				if(buffer == 0 || gl_object_state) {
 					log_warn("buffer still acquired for opengl use - release before destructing a compute buffer!");
 				}
 				// kill opengl buffer
-				if(!gl_buffer_state) acquire_opengl_buffer(nullptr); // -> release to opengl
+				if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
 				delete_gl_buffer();
 			}
 		}
@@ -276,7 +277,7 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};
-	const bool is_host_buffer = ((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE);
+	const bool is_host_buffer = ((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE);
 	
 	// unregister old host pointer if host memory is being used
 	if(is_host_buffer) {
@@ -337,30 +338,30 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 }
 
 void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> cqueue,
-													 const COMPUTE_BUFFER_MAP_FLAG flags_,
+													 const COMPUTE_MEMORY_MAP_FLAG flags_,
 													 const size_t size_, const size_t offset) {
 	if(buffer == 0) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	bool write_only = false;
-	if((flags_ & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
 		write_only = true;
 	}
 	else {
-		switch(flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) {
-			case COMPUTE_BUFFER_MAP_FLAG::READ:
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
 				write_only = false;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::WRITE:
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
 				write_only = true;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::READ_WRITE:
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
 				write_only = false;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::NONE:
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
 			default:
 				log_error("neither read nor write flag set for buffer mapping!");
 				return nullptr;
@@ -404,8 +405,8 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if((iter->second.flags & COMPUTE_BUFFER_MAP_FLAG::WRITE) != COMPUTE_BUFFER_MAP_FLAG::NONE ||
-	   (iter->second.flags & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+	if((iter->second.flags & COMPUTE_MEMORY_MAP_FLAG::WRITE) != COMPUTE_MEMORY_MAP_FLAG::NONE ||
+	   (iter->second.flags & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
 		CU_CALL_NO_ACTION(cuMemcpyHtoD(buffer + iter->second.offset, mapped_ptr, iter->second.size),
 						  "failed to copy host memory to device");
 	}
@@ -415,11 +416,11 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	mappings.erase(mapped_ptr);
 }
 
-bool cuda_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
+bool cuda_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	if(buffer == 0) return false;
 	if(rsrc == nullptr) return false;
-	if(gl_buffer_state) {
+	if(gl_object_state) {
 		log_warn("opengl buffer has already been acquired for opengl use!");
 		return true;
 	}
@@ -428,15 +429,15 @@ bool cuda_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
 	CU_CALL_RET(cuGraphicsUnmapResources(1, &rsrc,
 										 (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to acquire opengl buffer - cuda resource unmapping failed!", false);
-	gl_buffer_state = true;
+	gl_object_state = true;
 	
 	return true;
 }
 
-bool cuda_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
+bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
-	if(!gl_buffer_state) {
+	if(!gl_object_state) {
 		log_warn("opengl buffer has already been released to cuda!");
 		return true;
 	}
@@ -444,7 +445,7 @@ bool cuda_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
 	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
 									   (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to release opengl buffer - cuda resource mapping failed!", false);
-	gl_buffer_state = false;
+	gl_object_state = false;
 	
 	size_t ret_size { 0u };
 	CU_CALL_RET(cuGraphicsResourceGetMappedPointer(&buffer, &ret_size, rsrc),

@@ -40,7 +40,7 @@ kernel(kernel_), kernel_state(kernel_state_), func_name(info.name) {
 	for(size_t i = 0; i < arg_count; ++i) {
 		if(info.arg_address_spaces[i] == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT) {
 			param_buffers[i].buffer = make_unique<metal_buffer>(device, info.arg_sizes[i], nullptr,
-																COMPUTE_BUFFER_FLAG::READ | COMPUTE_BUFFER_FLAG::HOST_WRITE);
+																COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
 			param_buffers[i].cur_value.resize(info.arg_sizes[i], 0xCCu); // not ideal to do it this way, but should just work
 		}
 		else param_buffers[i] = { nullptr, {} };

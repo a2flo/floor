@@ -29,27 +29,28 @@
 metal_buffer::metal_buffer(const metal_device* device,
 						   const size_t& size_,
 						   void* host_ptr_,
-						   const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(device, size_, host_ptr_, flags_) {
+						   const COMPUTE_MEMORY_FLAG flags_,
+						   const uint32_t opengl_type_) :
+compute_buffer(device, size_, host_ptr_, flags_, opengl_type_) {
 	if(size < min_multiple()) return;
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::READ:
-		case COMPUTE_BUFFER_FLAG::WRITE:
-		case COMPUTE_BUFFER_FLAG::READ_WRITE:
+	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::READ:
+		case COMPUTE_MEMORY_FLAG::WRITE:
+		case COMPUTE_MEMORY_FLAG::READ_WRITE:
 			// no special handling for metal
 			break;
 		// all possible cases handled
 		default: floor_unreachable();
 	}
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::HOST_READ:
-		case COMPUTE_BUFFER_FLAG::HOST_READ_WRITE:
+	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::HOST_READ:
+		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// keep the default MTLCPUCacheModeDefaultCache
 			break;
-		case COMPUTE_BUFFER_FLAG::NONE:
-		case COMPUTE_BUFFER_FLAG::HOST_WRITE:
+		case COMPUTE_MEMORY_FLAG::NONE:
+		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
 			// host will only write or not read/write at all -> can use write combined
 			options = MTLCPUCacheModeWriteCombined;
 			break;
@@ -67,7 +68,7 @@ compute_buffer(device, size_, host_ptr_, flags_) {
 
 bool metal_buffer::create_internal(const bool copy_host_data) {
 	// -> use host memory
-	if((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE) {
+	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
 		buffer = [((metal_device*)dev)->device newBufferWithBytesNoCopy:host_ptr length:size options:options
 															deallocator:^(void*, NSUInteger) { /* nop */ }];
 	}
@@ -76,7 +77,7 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
-		   (flags & COMPUTE_BUFFER_FLAG::NO_INITIAL_COPY) != COMPUTE_BUFFER_FLAG::NONE) {
+		   (flags & COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY) != COMPUTE_MEMORY_FLAG::NONE) {
 			buffer = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size options:options];
 		}
 		// else: just create a buffer of the specified size
@@ -188,12 +189,12 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_si
 }
 
 void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue floor_unused,
-													  const COMPUTE_BUFFER_MAP_FLAG flags_,
+													  const COMPUTE_MEMORY_MAP_FLAG flags_,
 													  const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	_lock();
@@ -206,15 +207,15 @@ void metal_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	_unlock();
 }
 
-bool metal_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
+bool metal_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	if(buffer == 0) return false;
 	// TODO: implement this
 	return true;
 }
 
-bool metal_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
+bool metal_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	// TODO: implement this
 	return true;
 }

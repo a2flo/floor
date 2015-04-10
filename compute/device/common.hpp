@@ -42,10 +42,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // <array> replacement
 template <class data_type, size_t array_size>
-struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(4))) array {
+struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(sizeof(data_type) > 4 ? sizeof(data_type) : 4))) array {
 	static_assert(array_size > 0, "array size may not be 0!");
-	alignas(4) data_type elems[array_size];
+	alignas(sizeof(data_type) > 4 ? sizeof(data_type) : 4) data_type elems[array_size];
 	
+#if 0
 	constexpr array() noexcept = default;
 	
 	template <typename... Args>
@@ -57,6 +58,13 @@ struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(4))) array {
 		for(size_t i = 0; i < array_size; ++i) {
 			elems[i] = *ilist_iter++;
 		}
+	}
+#endif
+	constexpr array& operator=(const array<data_type, array_size>& arr) noexcept {
+		for(size_t i = 0; i < array_size; ++i) {
+			elems[i] = arr.elems[i];
+		}
+		return *this;
 	}
 #endif
 	

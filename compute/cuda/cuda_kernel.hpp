@@ -26,6 +26,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/cuda/cuda_buffer.hpp>
+#include <floor/compute/cuda/cuda_image.hpp>
 #include <floor/compute/llvm_compute.hpp>
 
 // the amount of macro voodoo is too damn high ...
@@ -98,6 +99,31 @@ protected:
 	floor_inline_always void set_kernel_argument(void** param, shared_ptr<compute_buffer> arg) {
 		*param = malloc(sizeof(CUdeviceptr));
 		memcpy(*param, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(CUdeviceptr));
+	}
+	
+	floor_inline_always void set_kernel_argument(void** param, shared_ptr<compute_image> arg) {
+		cuda_image* cu_img = (cuda_image*)arg.get();
+		const auto& surf = cu_img->get_cuda_surface();
+		const auto& tex = cu_img->get_cuda_texture();
+		
+		// if either is 0, only set the one that isn't 0, else, set both
+		if(surf != 0 && tex == 0) {
+			*param = malloc(sizeof(uint64_t));
+			memcpy(*param, &surf, sizeof(uint64_t));
+		}
+		else if(surf == 0 && tex != 0) {
+			*param = malloc(sizeof(uint64_t));
+			memcpy(*param, &tex, sizeof(uint64_t));
+		}
+		else if(surf != 0 && tex != 0) {
+			*param = malloc(sizeof(uint64_t) + sizeof(uint64_t));
+			memcpy(*param, &surf, sizeof(uint64_t));
+			memcpy((void*)(((uint8_t*)*param) + sizeof(uint64_t)), &tex, sizeof(uint64_t));
+		}
+		else {
+			*param = nullptr;
+			log_error("image doesn't have a surface or texture object!");
+		}
 	}
 	
 };

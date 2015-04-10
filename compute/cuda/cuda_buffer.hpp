@@ -31,28 +31,32 @@ public:
 	cuda_buffer(const cuda_device* device,
 				const size_t& size_,
 				void* host_ptr,
-				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE));
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				const uint32_t opengl_type_ = 0);
 	
 	cuda_buffer(const cuda_device* device,
 				const size_t& size_,
-				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(device, size_, nullptr, flags_) {}
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				const uint32_t opengl_type_ = 0) :
+	cuda_buffer(device, size_, nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
 	cuda_buffer(const cuda_device* device,
 				const vector<data_type>& data,
-				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_) {}
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				const uint32_t opengl_type_ = 0) :
+	cuda_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
 	cuda_buffer(const cuda_device* device,
 				const array<data_type, n>& data,
-				const COMPUTE_BUFFER_FLAG flags_ = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-													COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) :
-	cuda_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_) {}
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				const uint32_t opengl_type_ = 0) :
+	cuda_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
 	
 	~cuda_buffer() override;
 	
@@ -79,15 +83,15 @@ public:
 				void* new_host_ptr = nullptr) override;
 	
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
-											const COMPUTE_BUFFER_MAP_FLAG flags =
-											(COMPUTE_BUFFER_MAP_FLAG::READ_WRITE |
-											 COMPUTE_BUFFER_MAP_FLAG::BLOCK),
+											const COMPUTE_MEMORY_MAP_FLAG flags =
+											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+											 COMPUTE_MEMORY_MAP_FLAG::BLOCK),
 											const size_t size = 0, const size_t offset = 0) override;
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
-	bool acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
-	bool release_opengl_buffer(shared_ptr<compute_queue> cqueue) override;
+	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	
 	//! returns the cuda specific buffer pointer (device pointer)
 	const CUdeviceptr& get_cuda_buffer() const {
@@ -101,7 +105,7 @@ protected:
 	struct cuda_mapping {
 		const size_t size;
 		const size_t offset;
-		const COMPUTE_BUFFER_MAP_FLAG flags;
+		const COMPUTE_MEMORY_MAP_FLAG flags;
 	};
 	// stores all mapped pointers and the mapped buffer
 	unordered_map<void*, cuda_mapping> mappings;

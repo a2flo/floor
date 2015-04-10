@@ -41,7 +41,7 @@ namespace std {
 	metal_func float acos(float) asm("air.fast_acos.f32");
 	metal_func float atan(float) asm("air.fast_atan.f32");
 	metal_func float atan2(float, float) asm("air.fast_atan2.f32");
-	metal_func float fma(float, float, float) asm("air.fma.f32");;
+	metal_func float fma(float, float, float) asm("air.fma.f32");
 	metal_func float exp(float) asm("air.fast_exp.f32");
 	metal_func float log(float) asm("air.fast_log.f32");
 	metal_func float pow(float, float) asm("air.fast_pow.f32");

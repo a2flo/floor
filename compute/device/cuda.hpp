@@ -115,9 +115,9 @@ constexpr size_t printf_arg_size() { return 8; }
 // computes the total size of a printf argument pack (sum of sizeof of each type) + necessary alignment bytes/sizes
 template <typename... Args>
 constexpr size_t printf_args_total_size() {
-	constexpr const array<size_t, sizeof...(Args)> sizes {{
+	constexpr const size_t sizes[sizeof...(Args)] {
 		printf_arg_size<Args>()...
-	}};
+	};
 	size_t sum = 0;
 	for(size_t i = 0, count = sizeof...(Args); i < count; ++i) {
 		sum += sizes[i];

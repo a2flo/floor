@@ -29,35 +29,36 @@
 opencl_buffer::opencl_buffer(const opencl_device* device,
 							 const size_t& size_,
 							 void* host_ptr_,
-							 const COMPUTE_BUFFER_FLAG flags_) :
-compute_buffer(device, size_, host_ptr_, flags_) {
+							 const COMPUTE_MEMORY_FLAG flags_,
+							 const uint32_t opengl_type_) :
+compute_buffer(device, size_, host_ptr_, flags_, opengl_type_) {
 	if(size < min_multiple()) return;
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::READ:
+	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::READ:
 			cl_flags |= CL_MEM_READ_ONLY;
 			break;
-		case COMPUTE_BUFFER_FLAG::WRITE:
+		case COMPUTE_MEMORY_FLAG::WRITE:
 			cl_flags |= CL_MEM_WRITE_ONLY;
 			break;
-		case COMPUTE_BUFFER_FLAG::READ_WRITE:
+		case COMPUTE_MEMORY_FLAG::READ_WRITE:
 			cl_flags |= CL_MEM_READ_WRITE;
 			break;
 		// all possible cases handled
 		default: floor_unreachable();
 	}
 	
-	switch(flags & COMPUTE_BUFFER_FLAG::HOST_READ_WRITE) {
-		case COMPUTE_BUFFER_FLAG::HOST_READ:
+	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::HOST_READ:
 			cl_flags |= CL_MEM_HOST_READ_ONLY;
 			break;
-		case COMPUTE_BUFFER_FLAG::HOST_WRITE:
+		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
 			cl_flags |= CL_MEM_HOST_WRITE_ONLY;
 			break;
-		case COMPUTE_BUFFER_FLAG::HOST_READ_WRITE:
+		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// both - this is the default
 			break;
-		case COMPUTE_BUFFER_FLAG::NONE:
+		case COMPUTE_MEMORY_FLAG::NONE:
 			cl_flags |= CL_MEM_HOST_NO_ACCESS;
 			break;
 		// all possible cases handled
@@ -77,7 +78,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	cl_int create_err = CL_SUCCESS;
 	
 	// -> normal opencl buffer
-	if((flags & COMPUTE_BUFFER_FLAG::OPENGL_SHARING) == COMPUTE_BUFFER_FLAG::NONE) {
+	if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
 		buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, size, host_ptr, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create buffer: %u", create_err);
@@ -91,14 +92,14 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		
 		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		buffer = clCreateFromGLBuffer(((opencl_device*)dev)->ctx, cl_flags, gl_buffer, &create_err);
+		buffer = clCreateFromGLBuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create shared opengl/opencl buffer: %u", create_err);
 			buffer = nullptr;
 			return false;
 		}
 		// release -> acquire for use with opencl
-		release_opengl_buffer(cqueue);
+		release_opengl_object(cqueue);
 	}
 	
 	return true;
@@ -109,11 +110,11 @@ opencl_buffer::~opencl_buffer() {
 	if(buffer != nullptr) {
 		clReleaseMemObject(buffer);
 	}
-	if(gl_buffer != 0) {
-		if(gl_buffer_state) {
+	if(gl_object != 0) {
+		if(gl_object_state) {
 			log_warn("buffer still acquired for opengl use - release before destructing a compute buffer!");
 		}
-		if(!gl_buffer_state) acquire_opengl_buffer(nullptr); // -> release to opengl
+		if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
 		delete_gl_buffer();
 	}
 }
@@ -212,7 +213,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};
-	const bool is_host_buffer = ((flags & COMPUTE_BUFFER_FLAG::USE_HOST_MEMORY) != COMPUTE_BUFFER_FLAG::NONE);
+	const bool is_host_buffer = ((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE);
 	
 	
 	// create the new buffer
@@ -251,30 +252,30 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 }
 
 void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue> cqueue,
-													   const COMPUTE_BUFFER_MAP_FLAG flags_,
+													   const COMPUTE_MEMORY_MAP_FLAG flags_,
 													   const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_BUFFER_MAP_FLAG::BLOCK) != COMPUTE_BUFFER_MAP_FLAG::NONE);
+	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	cl_map_flags map_flags = 0;
-	if((flags_ & COMPUTE_BUFFER_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_BUFFER_MAP_FLAG::NONE) {
+	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
 		map_flags |= CL_MAP_WRITE_INVALIDATE_REGION;
 	}
 	else {
-		switch(flags_ & COMPUTE_BUFFER_MAP_FLAG::READ_WRITE) {
-			case COMPUTE_BUFFER_MAP_FLAG::READ:
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
 				map_flags |= CL_MAP_READ;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::WRITE:
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
 				map_flags |= CL_MAP_WRITE;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::READ_WRITE:
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
 				map_flags |= CL_MAP_READ | CL_MAP_WRITE;
 				break;
-			case COMPUTE_BUFFER_MAP_FLAG::NONE:
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
 			default:
 				log_error("neither read nor write flag set for buffer mapping!");
 				return nullptr;
@@ -301,30 +302,30 @@ void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 				"failed to unmap buffer")
 }
 
-bool opencl_buffer::acquire_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
+bool opencl_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	if(buffer == 0) return false;
-	if(gl_buffer_state) {
+	if(gl_object_state) {
 		log_warn("opengl buffer has already been acquired for opengl use!");
 		return true;
 	}
 	
 	CL_CALL_RET(clEnqueueReleaseGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &buffer, 0, nullptr, nullptr),
 				"failed to acquire opengl buffer - opencl gl object release failed", false);
-	gl_buffer_state = true;
+	gl_object_state = true;
 	return true;
 }
 
-bool opencl_buffer::release_opengl_buffer(shared_ptr<compute_queue> cqueue) {
-	if(gl_buffer == 0) return false;
-	if(!gl_buffer_state) {
+bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
+	if(!gl_object_state) {
 		log_warn("opengl buffer has already been released to opencl!");
 		return true;
 	}
 	
 	CL_CALL_RET(clEnqueueAcquireGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &buffer, 0, nullptr, nullptr),
 				"failed to release opengl buffer - opencl gl object acquire failed", false);
-	gl_buffer_state = false;
+	gl_object_state = false;
 	return true;
 }
 

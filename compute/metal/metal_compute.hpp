@@ -52,24 +52,50 @@ public:
 	// buffer creation
 	
 	shared_ptr<compute_buffer> create_buffer(const size_t& size,
-											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) override;
 	
 	shared_ptr<compute_buffer> create_buffer(const size_t& size,
 											 void* data,
-											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) override;
 	
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const size_t& size,
-											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) override;
 	
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const size_t& size,
 											 void* data,
-											 const COMPUTE_BUFFER_FLAG flags = (COMPUTE_BUFFER_FLAG::READ_WRITE |
-																				COMPUTE_BUFFER_FLAG::HOST_READ_WRITE)) override;
+											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+											 const uint32_t opengl_type = 0) override;
+	
+	//////////////////////////////////////////
+	// image creation
+	
+	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+										   const uint32_t channel_count,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) override;
+	
+	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+										   const uint32_t channel_count,
+										   void* data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) override;
 	
 	//////////////////////////////////////////
 	// basic control functions

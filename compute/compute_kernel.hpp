@@ -24,6 +24,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
+#include <floor/compute/compute_image.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push

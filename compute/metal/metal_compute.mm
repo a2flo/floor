@@ -35,6 +35,7 @@
 
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
+#include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/metal/metal_program.hpp>
@@ -144,23 +145,50 @@ shared_ptr<compute_queue> metal_compute::create_queue(shared_ptr<compute_device>
 	return ret;
 }
 
-shared_ptr<compute_buffer> metal_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<metal_buffer>((metal_device*)fastest_device.get(), size, flags);
+shared_ptr<compute_buffer> metal_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
+														const uint32_t opengl_type) {
+	return make_shared<metal_buffer>((metal_device*)fastest_device.get(), size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> metal_compute::create_buffer(const size_t& size, void* data, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<metal_buffer>((metal_device*)fastest_device.get(), size, data, flags);
+shared_ptr<compute_buffer> metal_compute::create_buffer(const size_t& size, void* data, const COMPUTE_MEMORY_FLAG flags,
+														const uint32_t opengl_type) {
+	return make_shared<metal_buffer>((metal_device*)fastest_device.get(), size, data, flags, opengl_type);
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(shared_ptr<compute_device> device,
-														const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<metal_buffer>((metal_device*)device.get(), size, flags);
+														const size_t& size, const COMPUTE_MEMORY_FLAG flags,
+														const uint32_t opengl_type) {
+	return make_shared<metal_buffer>((metal_device*)device.get(), size, flags, opengl_type);
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(shared_ptr<compute_device> device,
 														const size_t& size, void* data,
-														const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<metal_buffer>((metal_device*)device.get(), size, data, flags);
+														const COMPUTE_MEMORY_FLAG flags,
+														const uint32_t opengl_type) {
+	return make_shared<metal_buffer>((metal_device*)device.get(), size, data, flags, opengl_type);
+}
+
+shared_ptr<compute_image> metal_compute::create_image(shared_ptr<compute_device> device,
+													  const uint4 image_dim,
+													  const COMPUTE_IMAGE_TYPE image_type,
+													  const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+													  const uint32_t channel_count,
+													  const COMPUTE_MEMORY_FLAG flags,
+													  const uint32_t opengl_type) {
+	return make_shared<metal_image>((metal_device*)device.get(), image_dim, image_type, storage_type, channel_count,
+									nullptr, flags, opengl_type);
+}
+
+shared_ptr<compute_image> metal_compute::create_image(shared_ptr<compute_device> device,
+													  const uint4 image_dim,
+													  const COMPUTE_IMAGE_TYPE image_type,
+													  const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+													  const uint32_t channel_count,
+													  void* data,
+													  const COMPUTE_MEMORY_FLAG flags,
+													  const uint32_t opengl_type) {
+	return make_shared<metal_image>((metal_device*)device.get(), image_dim, image_type, storage_type, channel_count,
+									data, flags, opengl_type);
 }
 
 void metal_compute::finish() {

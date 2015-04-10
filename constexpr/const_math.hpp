@@ -284,6 +284,16 @@ namespace const_math {
 		return fac;
 	};
 	
+	//! computes n!, the factorial of n (usable with a runtime parameter)
+	//! NOTE: be aware that this uses 64-bit precision only, thus 20! is the largest correct result
+	constexpr uint64_t factorial(uint64_t n) {
+		uint64_t fac = 1; // return 1 for n = 0 and n = 1
+		for(uint64_t i = 2; i <= n; ++i) {
+			fac *= i;
+		}
+		return fac;
+	};
+	
 	//! computes e^val, the exponential function value of val
 	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
@@ -327,9 +337,9 @@ namespace const_math {
 	}
 	
 	//! computes base^exponent, base to the power of exponent
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr fp_type pow(const fp_type base, const int32_t exponent) {
-		fp_type ret = (fp_type)1;
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr arithmetic_type pow(const arithmetic_type base, const int32_t exponent) {
+		arithmetic_type ret = (arithmetic_type)1;
 		for(int32_t i = 0; i < exponent; ++i) {
 			ret *= base;
 		}

@@ -371,7 +371,7 @@ void opencl_compute::init(const bool use_platform_devices,
 				device.vendor = compute_device::VENDOR::AMD;
 			}
 			
-			// pocl uses an empty device name, but "pocl" is contained in the device version
+			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
 			if(device.version_str.find("pocl") != string::npos) {
 				device.vendor = compute_device::VENDOR::POCL;
 				
@@ -427,8 +427,10 @@ void opencl_compute::init(const bool use_platform_devices,
 
 			// there is no spir support on apple platforms, so don't even try this
 			// TODO: figure out how to hook into apples llvm opencl compiler (which is based on clang/llvm 3.2 as well)
+			// also, pocl doesn't support, but can apparently handle llvm bitcode files
 #if !defined(__APPLE__)
-			if(!core::contains(device.extensions, "cl_khr_spir")) {
+			if(!core::contains(device.extensions, "cl_khr_spir") &&
+			   device.vendor != compute_device::VENDOR::POCL) {
 				log_error("device does not support \"cl_khr_spir\", removing it!");
 				devices.pop_back();
 				continue;
@@ -644,25 +646,52 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	return ret;
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
+														 const uint32_t opengl_type) {
 	// NOTE: device doesn't really matter in opencl (can't actually be specified), so simply use the "fastest"
 	// device which uses the same context as all other devices (only context matters for opencl)
-	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, flags);
+	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, void* data, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, data, flags);
+shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, void* data, const COMPUTE_MEMORY_FLAG flags,
+														 const uint32_t opengl_type) {
+	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, data, flags, opengl_type);
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device,
-														 const size_t& size, const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, flags);
+														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
+														 const uint32_t opengl_type) {
+	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, flags, opengl_type);
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device,
 														 const size_t& size, void* data,
-														 const COMPUTE_BUFFER_FLAG flags) {
-	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, data, flags);
+														 const COMPUTE_MEMORY_FLAG flags,
+														 const uint32_t opengl_type) {
+	return make_shared<opencl_buffer>((opencl_device*)device.get(), size, data, flags, opengl_type);
+}
+
+shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
+													   const uint4 image_dim,
+													   const COMPUTE_IMAGE_TYPE image_type,
+													   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+													   const uint32_t channel_count,
+													   const COMPUTE_MEMORY_FLAG flags,
+													   const uint32_t opengl_type) {
+	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, storage_type, channel_count,
+									 nullptr, flags, opengl_type);
+}
+
+shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
+													   const uint4 image_dim,
+													   const COMPUTE_IMAGE_TYPE image_type,
+													   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
+													   const uint32_t channel_count,
+													   void* data,
+													   const COMPUTE_MEMORY_FLAG flags,
+													   const uint32_t opengl_type) {
+	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, storage_type, channel_count,
+									 data, flags, opengl_type);
 }
 
 void opencl_compute::finish() {

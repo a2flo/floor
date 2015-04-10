@@ -1919,16 +1919,16 @@ public:
 	}
 	
 #if !defined(FLOOR_COMPUTE)
-	//! returns a randomized vector using a uniform distribution with each component in [0, max)
+	//! returns a randomized vector using a uniform distribution with each component in [0, max]
 	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
-	static vector_type random(const scalar_type max = (scalar_type)1) {
-		uniform_int_distribution<int_type> dist((int_type)0, max - (int_type)1);
+	static vector_type random(const scalar_type max = numeric_limits<int_type>::max()) {
+		uniform_int_distribution<int_type> dist((int_type)0, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
 	}
-	//! returns a randomized vector using a uniform distribution with each component in [min, max)
+	//! returns a randomized vector using a uniform distribution with each component in [min, max]
 	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
 	static vector_type random(const scalar_type min, const scalar_type max) {
-		uniform_int_distribution<int_type> dist(min, max - (int_type)1);
+		uniform_int_distribution<int_type> dist(min, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [0, max)
