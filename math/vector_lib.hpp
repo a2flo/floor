@@ -151,6 +151,13 @@ typedef int4 ssize4;
 #include <floor/math/vector.hpp>
 #undef FLOOR_VECTOR_WIDTH
 
+// convenience alias, with variable scalar type and vector width
+template <typename scalar_type, size_t N>
+using vector_n = conditional_t<N == 1u, vector1<scalar_type>, conditional_t<
+							   N == 2u, vector2<scalar_type>, conditional_t<
+							   N == 3u, vector3<scalar_type>, conditional_t<
+							   N == 4u, vector4<scalar_type>, void>>>>;
+
 // extern template instantiation
 #if defined(FLOOR_EXPORT)
 #define FLOOR_VECTOR_EXTERN_TMPL(pod_type, prefix, vec_width) \
