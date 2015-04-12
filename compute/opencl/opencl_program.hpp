@@ -27,7 +27,9 @@
 
 class opencl_program final : public compute_program {
 public:
-	opencl_program(const cl_program program);
+	opencl_program(const cl_program program,
+				   const vector<llvm_compute::kernel_info>& kernels_info,
+				   const bool use_cl_queries = true);
 	
 protected:
 	const cl_program program;
