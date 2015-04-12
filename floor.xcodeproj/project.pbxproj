@@ -52,6 +52,8 @@
 		5C10920817D1FA12007F536E /* floor_version.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920717D1FA12007F536E /* floor_version.hpp */; };
 		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
+		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
+		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -261,6 +263,8 @@
 		5C225FC71AAA190700FE42F3 /* llvm35 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = llvm35; path = etc/llvm35; sourceTree = "<group>"; };
 		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
+		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
+		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A618F953590039BFD4 /* lang_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = lang_context.cpp; sourceTree = "<group>"; };
@@ -453,6 +457,7 @@
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
 				5C10916F17D1153E007F536E /* cpp_headers.hpp */,
+				5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */,
 				5C0686B819C9285200CF63C8 /* essentials.hpp */,
 				5C10917017D1153E007F536E /* event.cpp */,
 				5C10917117D1153E007F536E /* event.hpp */,
@@ -612,6 +617,7 @@
 				5C6008AD1AB6D6D200BC7012 /* metal.hpp */,
 				5C13A3EC1AC1BE590002FF87 /* spir_pre.hpp */,
 				5C6008AE1AB6D6D200BC7012 /* spir.hpp */,
+				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 			);
 			name = device;
 			sourceTree = "<group>";
@@ -813,6 +819,7 @@
 				5CD2174119E9213B0049D6AE /* compute_base.hpp in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
+				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
 				5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
@@ -831,6 +838,7 @@
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
 				5C1091B317D1153E007F536E /* platform.hpp in Headers */,
+				5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */,
 				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
 				5C5383EB1A641B1E007AEDD7 /* cuda_kernel.hpp in Headers */,
 				5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */,

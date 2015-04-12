@@ -27,14 +27,12 @@
 // TODO: proper error (return) value handling everywhere
 
 opencl_image::opencl_image(const opencl_device* device,
-					   const uint4 image_dim_,
-					   const COMPUTE_IMAGE_TYPE image_type_,
-					   const COMPUTE_IMAGE_STORAGE_TYPE storage_type_,
-					   const uint32_t channel_count_,
-							 void* host_ptr_,
-							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_) :
-compute_image(device, image_dim_, image_type_, storage_type_, channel_count_, host_ptr_, flags_, opengl_type_) {
+						   const uint4 image_dim_,
+						   const COMPUTE_IMAGE_TYPE image_type_,
+						   void* host_ptr_,
+						   const COMPUTE_MEMORY_FLAG flags_,
+						   const uint32_t opengl_type_) :
+compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			cl_flags |= CL_MEM_READ_ONLY;

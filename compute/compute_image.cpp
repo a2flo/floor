@@ -19,95 +19,6 @@
 #include <floor/compute/compute_image.hpp>
 #include <floor/core/logger.hpp>
 
-static constexpr size_t image_data_size_from_types(const uint32_t& channel_count,
-												   const uint4& image_dim,
-												   const COMPUTE_IMAGE_TYPE& image_type,
-												   const COMPUTE_IMAGE_STORAGE_TYPE& storage_type) {
-	const auto dim_count = compute_image::dim_count(image_type);
-	size_t size = size_t(channel_count) * size_t(image_dim.x);
-	if(dim_count >= 2) size *= size_t(image_dim.y);
-	if(dim_count >= 3) size *= size_t(image_dim.z);
-	if(dim_count == 4) size *= size_t(image_dim.w);
-	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-		// array count after: width (* height (* depth))
-		size *= size_t(image_dim[dim_count]);
-	}
-	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		// 6 cube sides
-		size *= 6u;
-	}
-	
-	// TODO: make sure special formats correspond to channel count
-	switch(storage_type) {
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_8:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_8:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_8:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_8:
-			// * 1
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_16:
-			size *= 2;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_24:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_24:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_24:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_24:
-			size *= 3;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_32:
-			size *= 4;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_64:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_64:
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_64:
-			size *= 8;
-			break;
-		// special cases
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_565:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_565:
-			size *= 2; // 16-bit format with 3 channels
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_5:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_5:
-			size *= 2; // 3 channels / 15-bit, or 4 channels / 16-bit
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_10:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_10:
-			size *= 4; // 3 channels / 30-bit, or 4 channels / 32-bit
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::NONE:
-		case COMPUTE_IMAGE_STORAGE_TYPE::__COMPUTE_IMAGE_STORAGE_TYPE_MAX:
-			floor_unreachable();
-	}
-	
-	return size;
-}
-
-compute_image::compute_image(const void* device,
-							 const uint4 image_dim_,
-							 const COMPUTE_IMAGE_TYPE image_type_,
-							 const COMPUTE_IMAGE_STORAGE_TYPE storage_type_,
-							 const uint32_t channel_count_,
-							 void* host_ptr_,
-							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_) :
-compute_memory(device, host_ptr_, flags_, opengl_type_),
-image_dim(image_dim_), image_type(image_type_), storage_type(storage_type_), channel_count(channel_count_),
-image_data_size(image_data_size_from_types(channel_count, image_dim, image_type, storage_type)) {
-	// TODO: make sure format is supported, fail early if not
-	// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
-}
-
 compute_image::~compute_image() {}
 
 void compute_image::delete_gl_image() {
@@ -128,13 +39,18 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 		return false;
 	}
 	
+	const auto storage_dim_count = image_storage_dim_count(image_type);
+	const auto channel_count = image_channel_count(image_type);
+	const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
+	const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+	
 	glTexParameteri(opengl_type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(opengl_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(opengl_type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	if(storage_dim_count(image_type) >= 2) {
+	if(storage_dim_count >= 2) {
 		glTexParameteri(opengl_type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	}
-	if(storage_dim_count(image_type) >= 3) {
+	if(storage_dim_count >= 3) {
 		glTexParameteri(opengl_type, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 	}
 	glTexParameteri(opengl_type, GL_TEXTURE_COMPARE_MODE, GL_NONE);
@@ -152,14 +68,51 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	GLenum format = 0;
 	GLenum type = 0;
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
-		// TODO: handle other formats
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
-			internal_format = GL_DEPTH_STENCIL;
 			format = GL_DEPTH_STENCIL;
+			switch(image_format) {
+				case COMPUTE_IMAGE_TYPE::FORMAT_24:
+					internal_format = GL_DEPTH24_STENCIL8;
+					type = GL_UNSIGNED_INT_24_8;
+					break;
+				case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
+					if(data_type != COMPUTE_IMAGE_TYPE::FLOAT) {
+						log_error("data type of FORMAT_32_8 must be FLOAT!");
+						return false;
+					}
+					internal_format = GL_DEPTH32F_STENCIL8;
+					type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+					break;
+				default:
+					log_error("format not supported for depth image: %X", image_format);
+					return false;
+			}
 		}
 		else {
-			internal_format = GL_DEPTH_COMPONENT;
 			format = GL_DEPTH_COMPONENT;
+			switch(image_format) {
+				case COMPUTE_IMAGE_TYPE::FORMAT_16:
+					internal_format = GL_DEPTH_COMPONENT16;
+					type = GL_UNSIGNED_SHORT;
+					break;
+				case COMPUTE_IMAGE_TYPE::FORMAT_24:
+					internal_format = GL_DEPTH_COMPONENT24;
+					type = GL_UNSIGNED_INT;
+					break;
+				case COMPUTE_IMAGE_TYPE::FORMAT_32:
+					if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
+						internal_format = GL_DEPTH_COMPONENT32F;
+						type = GL_FLOAT;
+					}
+					else {
+						internal_format = GL_DEPTH_COMPONENT32;
+						type = GL_UNSIGNED_INT;
+					}
+					break;
+				default:
+					log_error("format not supported for depth image: %X", image_format);
+					return false;
+			}
 		}
 	}
 	else {
@@ -168,74 +121,146 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 		else if(channel_count == 3) internal_format = GL_RGB;
 		else internal_format = GL_RGBA;
 		format = (GLenum)internal_format;
-	}
-	
-	switch(storage_type) {
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_8:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_8:
-			type = GL_BYTE;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_8:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_8:
-			type = GL_UNSIGNED_BYTE;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_16:
-			type = GL_SHORT;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_16:
-			type = GL_UNSIGNED_SHORT;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_24:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_24:
-			type = GL_UNSIGNED_INT; // TODO: is this correct?
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_24:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_24:
-			type = GL_UNSIGNED_INT; // TODO: is this correct?
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_32:
-			type = GL_INT;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_32:
-		case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_32:
-			type = GL_UNSIGNED_INT;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_16:
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_32:
-			type = GL_FLOAT;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_64:
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_64:
-		case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_64:
-			// TODO: unsupported
-			break;
-		// special cases
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_565:
-			// TODO: unsupported
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_565:
-			type = GL_UNSIGNED_SHORT_5_6_5;
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_5:
-			// TODO: unsupported
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_5:
-			type = GL_UNSIGNED_SHORT_5_5_5_1;
-			// TODO: channel count == 4, make sure
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::INT_10:
-			// TODO: unsupported
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::UINT_10:
-			type = GL_UNSIGNED_INT_10_10_10_2;
-			// TODO: channel count == 4, make sure
-			break;
-		case COMPUTE_IMAGE_STORAGE_TYPE::NONE:
-		case COMPUTE_IMAGE_STORAGE_TYPE::__COMPUTE_IMAGE_STORAGE_TYPE_MAX:
-			floor_unreachable();
+		
+		// TODO: use sized types/formats -> better do this via a lookup table { data_type, channel count, format } -> { gl types ... }
+		
+		switch(data_type) {
+			case COMPUTE_IMAGE_TYPE::UINT:
+				switch(image_format) {
+					case COMPUTE_IMAGE_TYPE::FORMAT_2:
+						type = GL_UNSIGNED_BYTE;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_4:
+						type = GL_UNSIGNED_SHORT_4_4_4_4;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_8:
+						type = GL_UNSIGNED_BYTE;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_16:
+						type = GL_UNSIGNED_SHORT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_32:
+						type = GL_UNSIGNED_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2:
+						type = GL_UNSIGNED_BYTE_3_3_2;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
+						type = GL_UNSIGNED_SHORT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+						type = GL_UNSIGNED_SHORT_5_5_5_1;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
+						type = GL_UNSIGNED_SHORT_5_6_5;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_10:
+						type = GL_UNSIGNED_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+						type = GL_UNSIGNED_INT_10_10_10_2;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
+						type = GL_UNSIGNED_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12:
+						type = GL_UNSIGNED_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_24:
+						type = GL_UNSIGNED_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
+						type = GL_UNSIGNED_INT_24_8;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_64:
+					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
+					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
+						log_error("format not supported for unsigned data type: %X", image_format);
+						return false;
+					default:
+						log_error("unknown format: %X", image_format);
+						return false;
+				}
+				break;
+			case COMPUTE_IMAGE_TYPE::INT:
+				switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
+					case COMPUTE_IMAGE_TYPE::FORMAT_2:
+						type = GL_BYTE;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_8:
+						type = GL_BYTE;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_16:
+						type = GL_SHORT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_32:
+						type = GL_INT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_4:
+					case COMPUTE_IMAGE_TYPE::FORMAT_64:
+					case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12:
+					case COMPUTE_IMAGE_TYPE::FORMAT_24:
+					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
+					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
+						log_error("format not supported for signed data type: %X", image_format);
+						return false;
+					default:
+						log_error("unknown format: %X", image_format);
+						return false;
+				}
+				break;
+			case COMPUTE_IMAGE_TYPE::FLOAT:
+				switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
+					case COMPUTE_IMAGE_TYPE::FORMAT_16:
+						type = GL_HALF_FLOAT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_32:
+						type = GL_FLOAT;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_64:
+						type = GL_DOUBLE;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+						type = GL_UNSIGNED_INT_5_9_9_9_REV;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
+						type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+						break;
+					case COMPUTE_IMAGE_TYPE::FORMAT_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_4:
+					case COMPUTE_IMAGE_TYPE::FORMAT_8:
+					case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
+					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12:
+					case COMPUTE_IMAGE_TYPE::FORMAT_24:
+					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
+					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
+						log_error("format not supported for float data type: %X", image_format);
+						return false;
+					default:
+						log_error("unknown format: %X", image_format);
+						return false;
+				}
+				break;
+			default:
+				log_error("unknown data type: %X", data_type);
+				return false;
+		}
 	}
 	
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
@@ -266,7 +291,6 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 		
 		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, level, internal_format, gl_dim.x, gl_dim.y, 0,
 					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
 	}
 	else {
 		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
@@ -294,8 +318,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 				}
 				break;
 			default:
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_4D: // not sure if anything actually uses this?
-				log_error("storage format is not supported!");
+				log_error("storage dimension not set!");
 				break;
 		}
 	}

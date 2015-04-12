@@ -31,8 +31,6 @@ public:
 	cuda_image(const cuda_device* device,
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
-			   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
-			   const uint32_t channel_count,
 			   void* host_ptr = nullptr,
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),

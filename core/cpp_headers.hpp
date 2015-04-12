@@ -93,4 +93,7 @@ template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
 }
 #endif
 
+// misc "enum class" additions/helpers
+#include <floor/core/enum_helpers.hpp>
+
 #endif

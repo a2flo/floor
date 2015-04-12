@@ -29,12 +29,10 @@
 cuda_image::cuda_image(const cuda_device* device,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
-					   const COMPUTE_IMAGE_STORAGE_TYPE storage_type_,
-					   const uint32_t channel_count_,
 					   void* host_ptr_,
 					   const COMPUTE_MEMORY_FLAG flags_,
 					   const uint32_t opengl_type_) :
-compute_image(device, image_dim_, image_type_, storage_type_, channel_count_, host_ptr_, flags_, opengl_type_) {
+compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) {
 	// TODO: handle the remaining flags + host ptr
 	
 	// need to allocate the buffer on the correct device, if a context was specified,
@@ -61,69 +59,57 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	const bool need_tex { has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !no_sampler };
 	const bool need_surf { has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags) || no_sampler };
 	
+	//
+	const auto dim_count = image_dim_count(image_type);
+	auto channel_count = image_channel_count(image_type);
+	if(channel_count == 3) {
+		log_error("3-channel images are unsupported with cuda - using 4 channels instead now!");
+		channel_count = 4;
+	}
+	
+	size_t depth = 0;
+	if(dim_count >= 3) {
+		depth = image_dim.z;
+	}
+	else {
+		// check array first ...
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+			if(dim_count == 1) depth = image_dim.y;
+			else if(dim_count >= 2) depth = image_dim.z;
+		}
+		// ... and check cube map second
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+			// if FLAG_ARRAY is also present, .z/depth has been specified by the user -> multiply by 6,
+			// else, just specify 6 directly
+			depth = (depth != 0 ? depth * 6 : 6);
+		}
+	}
+	// TODO: cube map: make sure width == height
+	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		CUarray_format format;
-		switch(storage_type) {
-			case COMPUTE_IMAGE_STORAGE_TYPE::INT_8:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_8:
-				format = CU_AD_FORMAT_SIGNED_INT8;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::INT_16:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_16:
-				format = CU_AD_FORMAT_SIGNED_INT16;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::INT_32:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_INT_32:
-				format = CU_AD_FORMAT_SIGNED_INT32;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::UINT_8:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_8:
-				format = CU_AD_FORMAT_UNSIGNED_INT8;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::UINT_16:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_16:
-				format = CU_AD_FORMAT_UNSIGNED_INT16;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::UINT_32:
-			case COMPUTE_IMAGE_STORAGE_TYPE::NORM_UINT_32:
-				format = CU_AD_FORMAT_UNSIGNED_INT32;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_16:
-				format = CU_AD_FORMAT_HALF;
-				break;
-			case COMPUTE_IMAGE_STORAGE_TYPE::FLOAT_32:
-				format = CU_AD_FORMAT_FLOAT;
-				break;
-			default:
-				log_error("unsupported storage format: %u", storage_type);
-				return false;
-		}
-		const uint32_t dim { compute_image::dim_count(image_type) };
 		
-		size_t depth = 0;
-		if(dim >= 3) {
-			depth = image_dim.z;
+		static const unordered_map<COMPUTE_IMAGE_TYPE, CUarray_format> format_lut {
+			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_8, CU_AD_FORMAT_SIGNED_INT8 },
+			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_SIGNED_INT16 },
+			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_SIGNED_INT32 },
+			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, CU_AD_FORMAT_UNSIGNED_INT8 },
+			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_UNSIGNED_INT16 },
+			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_UNSIGNED_INT32 },
+			{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_HALF },
+			{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_FLOAT },
+		};
+		const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK | COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
+		if(cuda_format == end(format_lut)) {
+			log_error("unsupported image format: %X", image_type);
+			return false;
 		}
-		else {
-			// check array first ...
-			if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-				if(dim == 1) depth = image_dim.y;
-				else if(dim >= 2) depth = image_dim.z;
-			}
-			// ... and check cube map second
-			if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-				// if FLAG_ARRAY is also present, .z/depth has been specified by the user -> multiply by 6,
-				// else, just specify 6 directly
-				depth = (depth != 0 ? depth * 6 : 6);
-			}
-		}
-		// TODO: cube map: make sure width == height
-		// TODO: handle channel count == 3
+		format = cuda_format->second;
 		
 		const CUDA_ARRAY3D_DESCRIPTOR desc {
 			.Width = image_dim.x,
-			.Height = (dim >= 2 ? image_dim.y : 0),
+			.Height = (dim_count >= 2 ? image_dim.y : 0),
 			.Depth = depth,
 			.Format = format,
 			.NumChannels = channel_count,
@@ -135,14 +121,28 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				(need_surf ? CUDA_ARRAY3D_SURFACE_LDST : 0u)
 			)
 		};
+		log_debug("surf/tex %u/%u; dim %u; %u %u %u; channels %u; flags %u; format: %X",
+				  need_surf, need_tex, dim_count, desc.Width, desc.Height, desc.Depth, desc.NumChannels, desc.Flags, desc.Format);
 		CU_CALL_RET(cuArray3DCreate(&image, &desc),
 					"failed to create cuda array/image", false);
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
-		if(copy_host_data &&
-		   host_ptr != nullptr &&
-		   (flags & COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY) != COMPUTE_MEMORY_FLAG::NONE) {
-			CU_CALL_RET(cuMemcpyHtoA(image, 0, host_ptr, image_data_size),
+		if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			log_debug("copying %u bytes from %X to array %X",
+					  image_data_size, host_ptr, image);
+			CUDA_MEMCPY3D mcpy3d;
+			memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
+			mcpy3d.srcMemoryType = CU_MEMORYTYPE_HOST;
+			mcpy3d.srcHost = host_ptr;
+			mcpy3d.srcPitch = image_data_size / (std::max(desc.Height, size_t(1)) * std::max(desc.Depth, size_t(1)));
+			mcpy3d.srcHeight = desc.Height;
+			mcpy3d.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+			mcpy3d.dstArray = image;
+			mcpy3d.dstXInBytes = 0;
+			mcpy3d.WidthInBytes = mcpy3d.srcPitch;
+			mcpy3d.Height = mcpy3d.srcHeight;
+			mcpy3d.Depth = std::max(depth, size_t(1));
+			CU_CALL_RET(cuMemcpy3D(&mcpy3d),
 						"failed to copy initial host data to device", false);
 		}
 	}
@@ -188,6 +188,23 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	rsrc_desc.flags = 0; // must be 0
 	
 	if(need_tex) {
+		tex_desc.addressMode[0] = CU_TR_ADDRESS_MODE_CLAMP;
+		tex_desc.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP;
+		tex_desc.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP;
+		tex_desc.filterMode = CU_TR_FILTER_MODE_POINT;
+		tex_desc.flags = 0;
+		tex_desc.maxAnisotropy = 1;
+		tex_desc.mipmapFilterMode = CU_TR_FILTER_MODE_POINT;
+		tex_desc.mipmapLevelBias = 0.0f;
+		tex_desc.minMipmapLevelClamp = 0;
+		tex_desc.maxMipmapLevelClamp = 0;
+		
+		rsrc_view_desc.format = CU_RES_VIEW_FORMAT_UINT_4X8;
+		rsrc_view_desc.width = image_dim.x;
+		rsrc_view_desc.height = (dim_count >= 2 ? image_dim.y : 0);
+		rsrc_view_desc.depth = depth;
+		// rest is already 0
+		
 		CU_CALL_RET(cuTexObjectCreate(&texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
 					"failed to create texture object", false);
 	}
@@ -213,7 +230,7 @@ cuda_image::~cuda_image() {
 	}
 	
 	// -> cuda array
-	if(has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		CU_CALL_RET(cuArrayDestroy(image),
 					"failed to free device memory");
 	}

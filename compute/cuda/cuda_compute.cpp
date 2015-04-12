@@ -288,24 +288,18 @@ shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device
 shared_ptr<compute_image> cuda_compute::create_image(shared_ptr<compute_device> device,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
-													 const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
-													 const uint32_t channel_count,
 													 const COMPUTE_MEMORY_FLAG flags,
 													 const uint32_t opengl_type) {
-	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, storage_type, channel_count,
-								   nullptr, flags, opengl_type);
+	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
 }
 
 shared_ptr<compute_image> cuda_compute::create_image(shared_ptr<compute_device> device,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,
-													 const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
-													 const uint32_t channel_count,
 													 void* data,
 													 const COMPUTE_MEMORY_FLAG flags,
 													 const uint32_t opengl_type) {
-	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, storage_type, channel_count,
-								   data, flags, opengl_type);
+	return make_shared<cuda_image>((cuda_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
 void cuda_compute::finish() {
@@ -379,6 +373,7 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 		CU_JIT_GENERATE_LINE_INFO,
 		CU_JIT_GENERATE_DEBUG_INFO,
 		CU_JIT_MAX_REGISTERS,
+		CU_JIT_OPTIMIZATION_LEVEL,
 		CU_JIT_LOG_VERBOSE,
 		CU_JIT_ERROR_LOG_BUFFER,
 		CU_JIT_INFO_LOG_BUFFER,
@@ -405,6 +400,7 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 		{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
 		{ .ui = floor::get_compute_debug() ? 1u : 0u },
 		{ .ui = 32u }, // TODO: configurable!
+		{ .ui = 4u },
 		{ .ui = 1u },
 		{ .ptr = error_log },
 		{ .ptr = info_log },
@@ -439,6 +435,10 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	CU_CALL_ERROR_EXEC(cuModuleLoadData(&program, cubin_ptr),
 					   "failed to load cuda module", {
 						   print_error_log();
+						   if(info_log[0] != 0) {
+							   info_log[log_size - 1] = 0;
+							   log_debug("ptx build info: %s", info_log);
+						   }
 						   cuLinkDestroy(link_state);
 						   return {};
 					   });

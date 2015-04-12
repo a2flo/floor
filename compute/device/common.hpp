@@ -46,28 +46,6 @@ struct _LIBCPP_TYPE_VIS_ONLY __attribute__((packed, aligned(sizeof(data_type) > 
 	static_assert(array_size > 0, "array size may not be 0!");
 	alignas(sizeof(data_type) > 4 ? sizeof(data_type) : 4) data_type elems[array_size];
 	
-#if 0
-	constexpr array() noexcept = default;
-	
-	template <typename... Args>
-	constexpr array(Args&&... args) noexcept : elems { forward<Args>(args)... } {}
-	
-#if 0 // disabled for now, not sure how to solve the uniform initialization vs. initializer_list issue yet
-	constexpr array(initializer_list<data_type> ilist) noexcept {
-		auto ilist_iter = ilist.begin();
-		for(size_t i = 0; i < array_size; ++i) {
-			elems[i] = *ilist_iter++;
-		}
-	}
-#endif
-	constexpr array& operator=(const array<data_type, array_size>& arr) noexcept {
-		for(size_t i = 0; i < array_size; ++i) {
-			elems[i] = arr.elems[i];
-		}
-		return *this;
-	}
-#endif
-	
 	constexpr size_t size() const { return array_size; }
 	
 	constexpr data_type& operator[](const size_t& index) { return elems[index]; }
@@ -115,6 +93,13 @@ using namespace std;
 
 // always include const_math (and const_select) functionality
 #include <floor/constexpr/const_math.hpp>
+
+// always include vector lib/types
+#include <floor/math/vector_lib.hpp>
+
+// image support headers
+#include <floor/core/enum_helpers.hpp>
+#include <floor/compute/device/image_types.hpp>
 
 // buffer / local_buffer / const_buffer / param target-specific specialization/implementation
 namespace floor_compute {

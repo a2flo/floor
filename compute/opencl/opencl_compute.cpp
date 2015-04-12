@@ -674,24 +674,18 @@ shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_devi
 shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
-													   const uint32_t channel_count,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) {
-	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, storage_type, channel_count,
-									 nullptr, flags, opengl_type);
+	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, nullptr, flags, opengl_type);
 }
 
 shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device> device,
 													   const uint4 image_dim,
 													   const COMPUTE_IMAGE_TYPE image_type,
-													   const COMPUTE_IMAGE_STORAGE_TYPE storage_type,
-													   const uint32_t channel_count,
 													   void* data,
 													   const COMPUTE_MEMORY_FLAG flags,
 													   const uint32_t opengl_type) {
-	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, storage_type, channel_count,
-									 data, flags, opengl_type);
+	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
 void opencl_compute::finish() {

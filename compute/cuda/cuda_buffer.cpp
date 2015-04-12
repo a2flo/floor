@@ -272,7 +272,9 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	
 	// store old buffer, size and host pointer for possible restore + cleanup later on
 	const auto old_buffer = buffer;
-	const auto restore_old_buffer = [this, &old_buffer, old_size = size, old_host_ptr = host_ptr] {
+	const auto old_size = size;
+	const auto old_host_ptr = host_ptr;
+	const auto restore_old_buffer = [this, &old_buffer, &old_size, &old_host_ptr] {
 		buffer = old_buffer;
 		size = old_size;
 		host_ptr = old_host_ptr;
