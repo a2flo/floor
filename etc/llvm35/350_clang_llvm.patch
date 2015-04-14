@@ -138,6 +138,94 @@ index d5cded2..2e0ca79 100644
    }
  
    return *this;
+diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
+index 8134f6b..f0b0f86 100644
+--- a/tools/clang/include/clang/AST/ASTContext.h
++++ b/tools/clang/include/clang/AST/ASTContext.h
+@@ -789,7 +789,7 @@ public:
+   CanQualType ObjCBuiltinIdTy, ObjCBuiltinClassTy, ObjCBuiltinSelTy;
+   CanQualType ObjCBuiltinBoolTy;
+   CanQualType OCLImage1dTy, OCLImage1dArrayTy, OCLImage1dBufferTy;
+-  CanQualType OCLImage2dTy, OCLImage2dArrayTy;
++  CanQualType OCLImage2dTy, OCLImage2dArrayTy, OCLImage2dDepthTy, OCLImage2dArrayDepthTy, OCLImage2dMSAATy, OCLImage2dArrayMSAATy, OCLImage2dMSAADepthTy, OCLImage2dArrayMSAADepthTy;
+   CanQualType OCLImage3dTy;
+   CanQualType OCLSamplerTy, OCLEventTy;
+ 
+diff --git a/tools/clang/include/clang/AST/BuiltinTypes.def b/tools/clang/include/clang/AST/BuiltinTypes.def
+index 488cace..f68cb37 100644
+--- a/tools/clang/include/clang/AST/BuiltinTypes.def
++++ b/tools/clang/include/clang/AST/BuiltinTypes.def
+@@ -160,6 +160,12 @@ BUILTIN_TYPE(OCLImage1dArray, OCLImage1dArrayTy)
+ BUILTIN_TYPE(OCLImage1dBuffer, OCLImage1dBufferTy)
+ BUILTIN_TYPE(OCLImage2d, OCLImage2dTy)
+ BUILTIN_TYPE(OCLImage2dArray, OCLImage2dArrayTy)
++BUILTIN_TYPE(OCLImage2dDepth, OCLImage2dDepthTy)
++BUILTIN_TYPE(OCLImage2dArrayDepth, OCLImage2dArrayDepthTy)
++BUILTIN_TYPE(OCLImage2dMSAA, OCLImage2dMSAATy)
++BUILTIN_TYPE(OCLImage2dArrayMSAA, OCLImage2dArrayMSAATy)
++BUILTIN_TYPE(OCLImage2dMSAADepth, OCLImage2dMSAADepthTy)
++BUILTIN_TYPE(OCLImage2dArrayMSAADepth, OCLImage2dArrayMSAADepthTy)
+ BUILTIN_TYPE(OCLImage3d, OCLImage3dTy)
+ 
+ // OpenCL sampler_t.
+diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
+index 09862e4..ddc236c 100644
+--- a/tools/clang/include/clang/AST/Type.h
++++ b/tools/clang/include/clang/AST/Type.h
+@@ -1575,6 +1575,12 @@ public:
+   bool isImage1dBufferT() const;                // OpenCL image1d_buffer_t
+   bool isImage2dT() const;                      // OpenCL image2d_t
+   bool isImage2dArrayT() const;                 // OpenCL image2d_array_t
++  bool isImage2dDepthT() const;                 // OpenCL image2d_depth_t
++  bool isImage2dArrayDepthT() const;            // OpenCL image2d_array_depth_t
++  bool isImage2dMSAAT() const;                  // OpenCL image2d_msaa_t
++  bool isImage2dArrayMSAAT() const;             // OpenCL image2d_array_msaa_t
++  bool isImage2dMSAADepthT() const;             // OpenCL image2d_msaa_depth_t
++  bool isImage2dArrayMSAADepthT() const;        // OpenCL image2d_array_msaa_depth_t
+   bool isImage3dT() const;                      // OpenCL image3d_t
+ 
+   bool isImageType() const;                     // Any OpenCL image type
+@@ -5008,6 +5014,30 @@ inline bool Type::isImage2dArrayT() const {
+   return isSpecificBuiltinType(BuiltinType::OCLImage2dArray);
+ }
+ 
++inline bool Type::isImage2dDepthT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dDepth);
++}
++
++inline bool Type::isImage2dArrayDepthT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayDepth);
++}
++
++inline bool Type::isImage2dMSAAT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dMSAA);
++}
++
++inline bool Type::isImage2dArrayMSAAT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAA);
++}
++
++inline bool Type::isImage2dMSAADepthT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dMSAADepth);
++}
++
++inline bool Type::isImage2dArrayMSAADepthT() const {
++  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAADepth);
++}
++
+ inline bool Type::isImage3dT() const {
+   return isSpecificBuiltinType(BuiltinType::OCLImage3d);
+ }
+@@ -5023,6 +5053,9 @@ inline bool Type::isEventT() const {
+ inline bool Type::isImageType() const {
+   return isImage3dT() ||
+          isImage2dT() || isImage2dArrayT() ||
++         isImage2dDepthT() || isImage2dArrayDepthT() ||
++         isImage2dMSAAT() || isImage2dArrayMSAAT() ||
++         isImage2dMSAADepthT() || isImage2dArrayMSAADepthT() ||
+          isImage1dT() || isImage1dArrayT() || isImage1dBufferT();
+ }
+ 
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
 index 704a375..1743ee2 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
@@ -306,6 +394,151 @@ index 90a27b5..aa9aea9 100644
 +             Digraphs | GNUMode)
  
  #undef LANGSTANDARD
+diff --git a/tools/clang/include/clang/Serialization/ASTBitCodes.h b/tools/clang/include/clang/Serialization/ASTBitCodes.h
+index 7ae1977..bc2f64c 100644
+--- a/tools/clang/include/clang/Serialization/ASTBitCodes.h
++++ b/tools/clang/include/clang/Serialization/ASTBitCodes.h
+@@ -744,6 +744,12 @@ namespace clang {
+       PREDEF_TYPE_IMAGE2D_ID    = 41,
+       /// \brief OpenCL 2d image array type.
+       PREDEF_TYPE_IMAGE2D_ARR_ID = 42,
++      PREDEF_TYPE_IMAGE2D_DEPTH_ID = 46,
++      PREDEF_TYPE_IMAGE2D_ARR_DEPTH_ID = 47,
++      PREDEF_TYPE_IMAGE2D_MSAA_ID = 48,
++      PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID = 49,
++      PREDEF_TYPE_IMAGE2D_MSAA_DEPTH_ID = 50,
++      PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID = 51,
+       /// \brief OpenCL 3d image type.
+       PREDEF_TYPE_IMAGE3D_ID    = 43,
+       /// \brief OpenCL event type.
+diff --git a/tools/clang/lib/AST/ASTContext.cpp b/tools/clang/lib/AST/ASTContext.cpp
+index bccdae9..65a7d6c 100644
+--- a/tools/clang/lib/AST/ASTContext.cpp
++++ b/tools/clang/lib/AST/ASTContext.cpp
+@@ -1030,6 +1030,12 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
+     InitBuiltinType(OCLImage1dBufferTy, BuiltinType::OCLImage1dBuffer);
+     InitBuiltinType(OCLImage2dTy, BuiltinType::OCLImage2d);
+     InitBuiltinType(OCLImage2dArrayTy, BuiltinType::OCLImage2dArray);
++    InitBuiltinType(OCLImage2dDepthTy, BuiltinType::OCLImage2dDepth);
++    InitBuiltinType(OCLImage2dArrayDepthTy, BuiltinType::OCLImage2dArrayDepth);
++    InitBuiltinType(OCLImage2dMSAATy, BuiltinType::OCLImage2dMSAA);
++    InitBuiltinType(OCLImage2dArrayMSAATy, BuiltinType::OCLImage2dArrayMSAA);
++    InitBuiltinType(OCLImage2dMSAADepthTy, BuiltinType::OCLImage2dMSAADepth);
++    InitBuiltinType(OCLImage2dArrayMSAADepthTy, BuiltinType::OCLImage2dArrayMSAADepth);
+     InitBuiltinType(OCLImage3dTy, BuiltinType::OCLImage3d);
+ 
+     InitBuiltinType(OCLSamplerTy, BuiltinType::OCLSampler);
+@@ -1596,6 +1602,12 @@ ASTContext::getTypeInfoImpl(const Type *T) const {
+     case BuiltinType::OCLImage1dBuffer:
+     case BuiltinType::OCLImage2d:
+     case BuiltinType::OCLImage2dArray:
++    case BuiltinType::OCLImage2dDepth:
++    case BuiltinType::OCLImage2dArrayDepth:
++    case BuiltinType::OCLImage2dMSAA:
++    case BuiltinType::OCLImage2dArrayMSAA:
++    case BuiltinType::OCLImage2dMSAADepth:
++    case BuiltinType::OCLImage2dArrayMSAADepth:
+     case BuiltinType::OCLImage3d:
+       // Currently these types are pointers to opaque types.
+       Width = Target->getPointerWidth(0);
+@@ -5154,6 +5166,12 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
+     case BuiltinType::OCLImage1dBuffer:
+     case BuiltinType::OCLImage2d:
+     case BuiltinType::OCLImage2dArray:
++    case BuiltinType::OCLImage2dDepth:
++    case BuiltinType::OCLImage2dArrayDepth:
++    case BuiltinType::OCLImage2dMSAA:
++    case BuiltinType::OCLImage2dArrayMSAA:
++    case BuiltinType::OCLImage2dMSAADepth:
++    case BuiltinType::OCLImage2dArrayMSAADepth:
+     case BuiltinType::OCLImage3d:
+     case BuiltinType::OCLEvent:
+     case BuiltinType::OCLSampler:
+diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
+index 977d6fc..41a239a 100644
+--- a/tools/clang/lib/AST/ItaniumMangle.cpp
++++ b/tools/clang/lib/AST/ItaniumMangle.cpp
+@@ -1989,6 +1989,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+   case BuiltinType::OCLImage1dBuffer: Out << "17ocl_image1dbuffer"; break;
+   case BuiltinType::OCLImage2d: Out << "11ocl_image2d"; break;
+   case BuiltinType::OCLImage2dArray: Out << "16ocl_image2darray"; break;
++  case BuiltinType::OCLImage2dDepth: Out << "16ocl_image2ddepth"; break;
++  case BuiltinType::OCLImage2dArrayDepth: Out << "21ocl_image2darraydepth"; break;
++  case BuiltinType::OCLImage2dMSAA: Out << "15ocl_image2dmsaa"; break;
++  case BuiltinType::OCLImage2dArrayMSAA: Out << "20ocl_image2darraymsaa"; break;
++  case BuiltinType::OCLImage2dMSAADepth: Out << "20ocl_image2dmsaadepth"; break;
++  case BuiltinType::OCLImage2dArrayMSAADepth: Out << "25ocl_image2darraymsaadepth"; break;
+   case BuiltinType::OCLImage3d: Out << "11ocl_image3d"; break;
+   case BuiltinType::OCLSampler: Out << "11ocl_sampler"; break;
+   case BuiltinType::OCLEvent: Out << "9ocl_event"; break;
+diff --git a/tools/clang/lib/AST/MicrosoftMangle.cpp b/tools/clang/lib/AST/MicrosoftMangle.cpp
+index e6a6d09..9855017 100644
+--- a/tools/clang/lib/AST/MicrosoftMangle.cpp
++++ b/tools/clang/lib/AST/MicrosoftMangle.cpp
+@@ -1492,6 +1492,12 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T,
+   case BuiltinType::OCLImage1dBuffer: Out << "PAUocl_image1dbuffer@@"; break;
+   case BuiltinType::OCLImage2d: Out << "PAUocl_image2d@@"; break;
+   case BuiltinType::OCLImage2dArray: Out << "PAUocl_image2darray@@"; break;
++  case BuiltinType::OCLImage2dDepth: Out << "PAUocl_image2ddepth@@"; break;
++  case BuiltinType::OCLImage2dArrayDepth: Out << "PAUocl_image2darraydepth@@"; break;
++  case BuiltinType::OCLImage2dMSAA: Out << "PAUocl_image2dmsaa@@"; break;
++  case BuiltinType::OCLImage2dArrayMSAA: Out << "PAUocl_image2darraymsaa@@"; break;
++  case BuiltinType::OCLImage2dMSAADepth: Out << "PAUocl_image2dmsaadepth@@"; break;
++  case BuiltinType::OCLImage2dArrayMSAADepth: Out << "PAUocl_image2darraymsaadepth@@"; break;
+   case BuiltinType::OCLImage3d: Out << "PAUocl_image3d@@"; break;
+   case BuiltinType::OCLSampler: Out << "PAUocl_sampler@@"; break;
+   case BuiltinType::OCLEvent: Out << "PAUocl_event@@"; break;
+diff --git a/tools/clang/lib/AST/NSAPI.cpp b/tools/clang/lib/AST/NSAPI.cpp
+index 986b3b5..5503cce 100644
+--- a/tools/clang/lib/AST/NSAPI.cpp
++++ b/tools/clang/lib/AST/NSAPI.cpp
+@@ -349,6 +349,12 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
+   case BuiltinType::OCLImage1dBuffer:
+   case BuiltinType::OCLImage2d:
+   case BuiltinType::OCLImage2dArray:
++  case BuiltinType::OCLImage2dDepth:
++  case BuiltinType::OCLImage2dArrayDepth:
++  case BuiltinType::OCLImage2dMSAA:
++  case BuiltinType::OCLImage2dArrayMSAA:
++  case BuiltinType::OCLImage2dMSAADepth:
++  case BuiltinType::OCLImage2dArrayMSAADepth:
+   case BuiltinType::OCLImage3d:
+   case BuiltinType::OCLSampler:
+   case BuiltinType::OCLEvent:
+diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
+index 1677874..e3e1be8 100644
+--- a/tools/clang/lib/AST/Type.cpp
++++ b/tools/clang/lib/AST/Type.cpp
+@@ -1546,6 +1546,12 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
+   case OCLImage1dBuffer:  return "image1d_buffer_t";
+   case OCLImage2d:        return "image2d_t";
+   case OCLImage2dArray:   return "image2d_array_t";
++  case OCLImage2dDepth:   return "image2d_depth_t";
++  case OCLImage2dArrayDepth: return "image2d_array_depth_t";
++  case OCLImage2dMSAA:    return "image2d_msaa_t";
++  case OCLImage2dArrayMSAA: return "image2d_array_msaa_t";
++  case OCLImage2dMSAADepth: return "image2d_msaa_depth_t";
++  case OCLImage2dArrayMSAADepth: return "image2d_array_msaa_depth_t";
+   case OCLImage3d:        return "image3d_t";
+   case OCLSampler:        return "sampler_t";
+   case OCLEvent:          return "event_t";
+diff --git a/tools/clang/lib/AST/TypeLoc.cpp b/tools/clang/lib/AST/TypeLoc.cpp
+index 208d695..89548e8 100644
+--- a/tools/clang/lib/AST/TypeLoc.cpp
++++ b/tools/clang/lib/AST/TypeLoc.cpp
+@@ -296,6 +296,12 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
+   case BuiltinType::OCLImage1dBuffer:
+   case BuiltinType::OCLImage2d:
+   case BuiltinType::OCLImage2dArray:
++  case BuiltinType::OCLImage2dDepth:
++  case BuiltinType::OCLImage2dArrayDepth:
++  case BuiltinType::OCLImage2dMSAA:
++  case BuiltinType::OCLImage2dArrayMSAA:
++  case BuiltinType::OCLImage2dMSAADepth:
++  case BuiltinType::OCLImage2dArrayMSAADepth:
+   case BuiltinType::OCLImage3d:
+   case BuiltinType::OCLSampler:
+   case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
 index 075f905..c9be0ff 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
@@ -339,6 +572,77 @@ index 075f905..c9be0ff 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
+diff --git a/tools/clang/lib/CodeGen/CGDebugInfo.cpp b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
+index 048c8f8..c859a82 100644
+--- a/tools/clang/lib/CodeGen/CGDebugInfo.cpp
++++ b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
+@@ -452,6 +452,24 @@ llvm::DIType CGDebugInfo::CreateType(const BuiltinType *BT) {
+   case BuiltinType::OCLImage2dArray:
+     return getOrCreateStructPtrType("opencl_image2d_array_t",
+                                     OCLImage2dArrayDITy);
++  case BuiltinType::OCLImage2dDepth:
++    return getOrCreateStructPtrType("opencl_image2d_depth_t",
++                                    OCLImage2dDepthDITy);
++  case BuiltinType::OCLImage2dArrayDepth:
++    return getOrCreateStructPtrType("opencl_image2d_array_depth_t",
++                                    OCLImage2dArrayDepthDITy);
++  case BuiltinType::OCLImage2dMSAA:
++    return getOrCreateStructPtrType("opencl_image2d_msaa_t",
++                                    OCLImage2dMSAADITy);
++  case BuiltinType::OCLImage2dArrayMSAA:
++    return getOrCreateStructPtrType("opencl_image2d_array_msaa_t",
++                                    OCLImage2dArrayMSAADITy);
++  case BuiltinType::OCLImage2dMSAADepth:
++    return getOrCreateStructPtrType("opencl_image2d_msaa_depth_t",
++                                    OCLImage2dMSAADepthDITy);
++  case BuiltinType::OCLImage2dArrayMSAADepth:
++    return getOrCreateStructPtrType("opencl_image2d_array_msaa_depth_t",
++                                    OCLImage2dArrayMSAADepthDITy);
+   case BuiltinType::OCLImage3d:
+     return getOrCreateStructPtrType("opencl_image3d_t",
+                                     OCLImage3dDITy);
+diff --git a/tools/clang/lib/CodeGen/CGDebugInfo.h b/tools/clang/lib/CodeGen/CGDebugInfo.h
+index fc3f434..7e63426 100644
+--- a/tools/clang/lib/CodeGen/CGDebugInfo.h
++++ b/tools/clang/lib/CodeGen/CGDebugInfo.h
+@@ -59,7 +59,7 @@ class CGDebugInfo {
+   llvm::DICompositeType ObjTy;
+   llvm::DIType SelTy;
+   llvm::DIType OCLImage1dDITy, OCLImage1dArrayDITy, OCLImage1dBufferDITy;
+-  llvm::DIType OCLImage2dDITy, OCLImage2dArrayDITy;
++  llvm::DIType OCLImage2dDITy, OCLImage2dArrayDITy, OCLImage2dDepthDITy, OCLImage2dArrayDepthDITy, OCLImage2dMSAADITy, OCLImage2dArrayMSAADITy, OCLImage2dMSAADepthDITy, OCLImage2dArrayMSAADepthDITy;
+   llvm::DIType OCLImage3dDITy;
+   llvm::DIType OCLEventDITy;
+   llvm::DIType BlockLiteralGeneric;
+diff --git a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
+index 079ef72..1c68e94 100644
+--- a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
++++ b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
+@@ -55,6 +55,24 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
+   case BuiltinType::OCLImage2dArray:
+     return llvm::PointerType::get(llvm::StructType::create(
+                            Ctx, "opencl.image2d_array_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dDepth:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_depth_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dArrayDepth:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_array_depth_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dMSAA:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_msaa_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dArrayMSAA:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_array_msaa_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dMSAADepth:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_msaa_depth_t"), ImgAddrSpc);
++  case BuiltinType::OCLImage2dArrayMSAADepth:
++    return llvm::PointerType::get(llvm::StructType::create(
++                           Ctx, "opencl.image2d_array_msaa_depth_t"), ImgAddrSpc);
+   case BuiltinType::OCLImage3d:
+     return llvm::PointerType::get(llvm::StructType::create(
+                            Ctx, "opencl.image3d_t"), ImgAddrSpc);
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 index 5ca3a78..0b7c302 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
@@ -628,6 +932,40 @@ index 48823be..a48374a 100644
    // Ignore declarations, they will be emitted on their first use.
    if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
      // Forward declarations are emitted lazily on first use.
+diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.cpp b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
+index d4e2262..0c3f96f 100644
+--- a/tools/clang/lib/CodeGen/CodeGenTypes.cpp
++++ b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
+@@ -380,6 +380,12 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+     case BuiltinType::OCLImage1dBuffer:
+     case BuiltinType::OCLImage2d:
+     case BuiltinType::OCLImage2dArray:
++    case BuiltinType::OCLImage2dDepth:
++    case BuiltinType::OCLImage2dArrayDepth:
++    case BuiltinType::OCLImage2dMSAA:
++    case BuiltinType::OCLImage2dArrayMSAA:
++    case BuiltinType::OCLImage2dMSAADepth:
++    case BuiltinType::OCLImage2dArrayMSAADepth:
+     case BuiltinType::OCLImage3d:
+     case BuiltinType::OCLSampler:
+     case BuiltinType::OCLEvent:
+diff --git a/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp b/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp
+index d7e61f0..1bb799e 100644
+--- a/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp
++++ b/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp
+@@ -2173,6 +2173,12 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
+     case BuiltinType::OCLImage1dBuffer:
+     case BuiltinType::OCLImage2d:
+     case BuiltinType::OCLImage2dArray:
++    case BuiltinType::OCLImage2dDepth:
++    case BuiltinType::OCLImage2dArrayDepth:
++    case BuiltinType::OCLImage2dMSAA:
++    case BuiltinType::OCLImage2dArrayMSAA:
++    case BuiltinType::OCLImage2dMSAADepth:
++    case BuiltinType::OCLImage2dArrayMSAADepth:
+     case BuiltinType::OCLImage3d:
+     case BuiltinType::OCLSampler:
+     case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 index ce61a46..d5a26ad 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
@@ -649,6 +987,23 @@ index ce61a46..d5a26ad 100644
            Diags.Report(diag::err_drv_argument_not_allowed_with)
              << A->getAsString(Args) << "OpenCL";
          break;
+diff --git a/tools/clang/lib/Index/USRGeneration.cpp b/tools/clang/lib/Index/USRGeneration.cpp
+index e08b85e..6d987b8 100644
+--- a/tools/clang/lib/Index/USRGeneration.cpp
++++ b/tools/clang/lib/Index/USRGeneration.cpp
+@@ -592,6 +592,12 @@ void USRGenerator::VisitType(QualType T) {
+         case BuiltinType::OCLImage1dBuffer:
+         case BuiltinType::OCLImage2d:
+         case BuiltinType::OCLImage2dArray:
++        case BuiltinType::OCLImage2dDepth:
++        case BuiltinType::OCLImage2dArrayDepth:
++        case BuiltinType::OCLImage2dMSAA:
++        case BuiltinType::OCLImage2dArrayMSAA:
++        case BuiltinType::OCLImage2dMSAADepth:
++        case BuiltinType::OCLImage2dArrayMSAADepth:
+         case BuiltinType::OCLImage3d:
+         case BuiltinType::OCLEvent:
+         case BuiltinType::OCLSampler:
 diff --git a/tools/clang/lib/Lex/PPDirectives.cpp b/tools/clang/lib/Lex/PPDirectives.cpp
 index 1741c30..2236e48 100644
 --- a/tools/clang/lib/Lex/PPDirectives.cpp
@@ -662,6 +1017,23 @@ index 1741c30..2236e48 100644
          Diag(Tok, diag::err_pp_opencl_variadic_macros);
          return true;
        }
+diff --git a/tools/clang/lib/Sema/Sema.cpp b/tools/clang/lib/Sema/Sema.cpp
+index 2c65332..30bb730 100644
+--- a/tools/clang/lib/Sema/Sema.cpp
++++ b/tools/clang/lib/Sema/Sema.cpp
+@@ -206,6 +206,12 @@ void Sema::Initialize() {
+     addImplicitTypedef("image1d_buffer_t", Context.OCLImage1dBufferTy);
+     addImplicitTypedef("image2d_t", Context.OCLImage2dTy);
+     addImplicitTypedef("image2d_array_t", Context.OCLImage2dArrayTy);
++    addImplicitTypedef("image2d_depth_t", Context.OCLImage2dDepthTy);
++    addImplicitTypedef("image2d_array_depth_t", Context.OCLImage2dArrayDepthTy);
++    addImplicitTypedef("image2d_msaa_t", Context.OCLImage2dMSAATy);
++    addImplicitTypedef("image2d_array_msaa_t", Context.OCLImage2dArrayMSAATy);
++    addImplicitTypedef("image2d_msaa_depth_t", Context.OCLImage2dMSAADepthTy);
++    addImplicitTypedef("image2d_array_msaa_depth_t", Context.OCLImage2dArrayMSAADepthTy);
+     addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
+     addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
+     addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDeclCXX.cpp b/tools/clang/lib/Sema/SemaDeclCXX.cpp
 index c5cd83d..7084757 100644
 --- a/tools/clang/lib/Sema/SemaDeclCXX.cpp
@@ -737,3 +1109,54 @@ index 06ca9ae..da49abc 100644
      // Handle initialization in C
      AddCAssignmentStep(DestType);
      MaybeProduceObjCObject(S, *this, Entity);
+diff --git a/tools/clang/lib/Serialization/ASTCommon.cpp b/tools/clang/lib/Serialization/ASTCommon.cpp
+index ad046ff..c3f5f66 100644
+--- a/tools/clang/lib/Serialization/ASTCommon.cpp
++++ b/tools/clang/lib/Serialization/ASTCommon.cpp
+@@ -66,6 +66,12 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
+   case BuiltinType::OCLImage1dBuffer: ID = PREDEF_TYPE_IMAGE1D_BUFF_ID; break;
+   case BuiltinType::OCLImage2d:       ID = PREDEF_TYPE_IMAGE2D_ID;      break;
+   case BuiltinType::OCLImage2dArray:  ID = PREDEF_TYPE_IMAGE2D_ARR_ID;  break;
++  case BuiltinType::OCLImage2dDepth:  ID = PREDEF_TYPE_IMAGE2D_DEPTH_ID;  break;
++  case BuiltinType::OCLImage2dArrayDepth:  ID = PREDEF_TYPE_IMAGE2D_ARR_DEPTH_ID;  break;
++  case BuiltinType::OCLImage2dMSAA:  ID = PREDEF_TYPE_IMAGE2D_MSAA_ID;  break;
++  case BuiltinType::OCLImage2dArrayMSAA:  ID = PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID;  break;
++  case BuiltinType::OCLImage2dMSAADepth:  ID = PREDEF_TYPE_IMAGE2D_MSAA_DEPTH_ID;  break;
++  case BuiltinType::OCLImage2dArrayMSAADepth:  ID = PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID;  break;
+   case BuiltinType::OCLImage3d:       ID = PREDEF_TYPE_IMAGE3D_ID;      break;
+   case BuiltinType::OCLSampler:       ID = PREDEF_TYPE_SAMPLER_ID;      break;
+   case BuiltinType::OCLEvent:         ID = PREDEF_TYPE_EVENT_ID;        break;
+diff --git a/tools/clang/lib/Serialization/ASTReader.cpp b/tools/clang/lib/Serialization/ASTReader.cpp
+index ae41654..9ce8807 100644
+--- a/tools/clang/lib/Serialization/ASTReader.cpp
++++ b/tools/clang/lib/Serialization/ASTReader.cpp
+@@ -5836,6 +5836,12 @@ QualType ASTReader::GetType(TypeID ID) {
+     case PREDEF_TYPE_IMAGE1D_BUFF_ID: T = Context.OCLImage1dBufferTy; break;
+     case PREDEF_TYPE_IMAGE2D_ID:    T = Context.OCLImage2dTy;       break;
+     case PREDEF_TYPE_IMAGE2D_ARR_ID: T = Context.OCLImage2dArrayTy; break;
++    case PREDEF_TYPE_IMAGE2D_DEPTH_ID:    T = Context.OCLImage2dDepthTy; break;
++    case PREDEF_TYPE_IMAGE2D_ARR_DEPTH_ID: T = Context.OCLImage2dArrayDepthTy; break;
++    case PREDEF_TYPE_IMAGE2D_MSAA_ID:    T = Context.OCLImage2dMSAATy; break;
++    case PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID: T = Context.OCLImage2dArrayMSAATy; break;
++    case PREDEF_TYPE_IMAGE2D_MSAA_DEPTH_ID:    T = Context.OCLImage2dMSAADepthTy; break;
++    case PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID: T = Context.OCLImage2dArrayMSAADepthTy; break;
+     case PREDEF_TYPE_IMAGE3D_ID:    T = Context.OCLImage3dTy;       break;
+     case PREDEF_TYPE_SAMPLER_ID:    T = Context.OCLSamplerTy;       break;
+     case PREDEF_TYPE_EVENT_ID:      T = Context.OCLEventTy;         break;
+diff --git a/tools/clang/tools/libclang/CIndex.cpp b/tools/clang/tools/libclang/CIndex.cpp
+index fc8703a..4968a35 100644
+--- a/tools/clang/tools/libclang/CIndex.cpp
++++ b/tools/clang/tools/libclang/CIndex.cpp
+@@ -1418,6 +1418,12 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
+   case BuiltinType::OCLImage1dBuffer:
+   case BuiltinType::OCLImage2d:
+   case BuiltinType::OCLImage2dArray:
++  case BuiltinType::OCLImage2dDepth:
++  case BuiltinType::OCLImage2dArrayDepth:
++  case BuiltinType::OCLImage2dMSAA:
++  case BuiltinType::OCLImage2dArrayMSAA:
++  case BuiltinType::OCLImage2dMSAADepth:
++  case BuiltinType::OCLImage2dArrayMSAADepth:
+   case BuiltinType::OCLImage3d:
+   case BuiltinType::OCLSampler:
+   case BuiltinType::OCLEvent:
