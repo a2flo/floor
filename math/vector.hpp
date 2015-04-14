@@ -177,6 +177,8 @@ public:
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
 	static constexpr constant const size_t dim { FLOOR_VECTOR_WIDTH };
+	//! corresponding clang vector type
+	typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators
@@ -1984,6 +1986,12 @@ public:
 		return x;
 	}
 #endif
+	
+	//! converts this vector to the corresponding clang vector type,
+	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
+	constexpr operator clang_vector_type() const {
+		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
+	}
 	
 	// TODO: more conversions?
 	

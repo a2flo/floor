@@ -35,6 +35,7 @@ typedef unsigned short int uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned long int uint64_t;
 
+typedef unsigned char uchar;
 typedef unsigned short int ushort;
 typedef unsigned int uint;
 typedef unsigned long int ulong;
@@ -46,6 +47,41 @@ typedef int ssize_t;
 typedef unsigned long int size_t;
 typedef long int ssize_t;
 #endif
+
+// opencl/spir vector types
+typedef char spir_char2 __attribute__((ext_vector_type(2)));
+typedef char spir_char3 __attribute__((ext_vector_type(3)));
+typedef char spir_char4 __attribute__((ext_vector_type(4)));
+typedef uchar spir_uchar2 __attribute__((ext_vector_type(2)));
+typedef uchar spir_uchar3 __attribute__((ext_vector_type(3)));
+typedef uchar spir_uchar4 __attribute__((ext_vector_type(4)));
+typedef short spir_short2 __attribute__((ext_vector_type(2)));
+typedef short spir_short3 __attribute__((ext_vector_type(3)));
+typedef short spir_short4 __attribute__((ext_vector_type(4)));
+typedef ushort spir_ushort2 __attribute__((ext_vector_type(2)));
+typedef ushort spir_ushort3 __attribute__((ext_vector_type(3)));
+typedef ushort spir_ushort4 __attribute__((ext_vector_type(4)));
+typedef int spir_int2 __attribute__((ext_vector_type(2)));
+typedef int spir_int3 __attribute__((ext_vector_type(3)));
+typedef int spir_int4 __attribute__((ext_vector_type(4)));
+typedef uint spir_uint2 __attribute__((ext_vector_type(2)));
+typedef uint spir_uint3 __attribute__((ext_vector_type(3)));
+typedef uint spir_uint4 __attribute__((ext_vector_type(4)));
+typedef long spir_long2 __attribute__((ext_vector_type(2)));
+typedef long spir_long3 __attribute__((ext_vector_type(3)));
+typedef long spir_long4 __attribute__((ext_vector_type(4)));
+typedef ulong spir_ulong2 __attribute__((ext_vector_type(2)));
+typedef ulong spir_ulong3 __attribute__((ext_vector_type(3)));
+typedef ulong spir_ulong4 __attribute__((ext_vector_type(4)));
+typedef float spir_float2 __attribute__((ext_vector_type(2)));
+typedef float spir_float3 __attribute__((ext_vector_type(3)));
+typedef float spir_float4 __attribute__((ext_vector_type(4)));
+typedef half spir_half2 __attribute__((ext_vector_type(2)));
+typedef half spir_half3 __attribute__((ext_vector_type(3)));
+typedef half spir_half4 __attribute__((ext_vector_type(4)));
+typedef double spir_double2 __attribute__((ext_vector_type(2)));
+typedef double spir_double3 __attribute__((ext_vector_type(3)));
+typedef double spir_double4 __attribute__((ext_vector_type(4)));
 
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)
