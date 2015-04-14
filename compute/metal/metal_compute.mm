@@ -108,7 +108,7 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 			break;
 	}
 	device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
-	device.max_work_item_sizes = { sizeof(uint64_t) };   //       could also be (2^57, 2^57, 512)
+	device.max_work_item_sizes = { sizeof(uint64_t) };    //       could also be (2^57, 2^57, 512)
 	device.image_support = true;
 	device.double_support = false; // double config is 0
 	device.unified_memory = true;

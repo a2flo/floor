@@ -65,6 +65,9 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	if(channel_count == 3) {
 		log_error("3-channel images are unsupported with cuda - using 4 channels instead now!");
 		channel_count = 4;
+		// TODO: make this work transparently by using an empty alpha channel (pun not intended ;)),
+		// this will certainly segfault when using a host pointer that only points to 3-channel data
+		// -> on the device: can also make sure it only returns a <type>3 vector
 	}
 	
 	size_t depth = 0;
@@ -248,6 +251,130 @@ cuda_image::~cuda_image() {
 			delete_gl_image();
 		}
 	}
+}
+
+void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
+	if(image == nullptr) return nullptr;
+	
+	// TODO: parameter origin + region
+	const size_t dim_count = image_dim_count(image_type);
+	size_t depth = 0;
+	if(dim_count >= 3) {
+		depth = image_dim.z;
+	}
+	else {
+		// check array first ...
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+			if(dim_count == 1) depth = image_dim.y;
+			else if(dim_count >= 2) depth = image_dim.z;
+		}
+		// ... and check cube map second
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+			depth = (depth != 0 ? depth * 6 : 6);
+		}
+	}
+	const size_t height = (dim_count >= 2 ? image_dim.y : 1);
+
+	const size3 origin { 0, 0, 0 };
+	const size3 region { size3(image_dim.x, height, depth).maxed(1) }; // complete image(s) + "The values in region cannot be 0."
+	const auto map_size = region.x * region.y * region.z * image_bytes_per_pixel(image_type);
+	
+	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	// TODO: image map check
+	
+	bool write_only = false;
+	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+		write_only = true;
+	}
+	else {
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
+				write_only = true;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
+			default:
+				log_error("neither read nor write flag set for image mapping!");
+				return nullptr;
+		}
+	}
+	
+	// alloc host memory (NOTE: not going to use pinned memory here, b/c it has restrictions)
+	alignas(128) unsigned char* host_buffer = new unsigned char[map_size] alignas(128);
+	
+	// check if we need to copy the image from the device (in case READ was specified)
+	if(!write_only) {
+		CUDA_MEMCPY3D mcpy3d;
+		memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
+		mcpy3d.dstMemoryType = CU_MEMORYTYPE_HOST;
+		mcpy3d.dstHost = host_buffer;
+		mcpy3d.dstPitch = image_data_size / (region.y * region.z);
+		mcpy3d.dstHeight = region.y;
+		mcpy3d.srcMemoryType = CU_MEMORYTYPE_ARRAY;
+		mcpy3d.srcArray = image;
+		mcpy3d.srcXInBytes = 0;
+		mcpy3d.WidthInBytes = mcpy3d.dstPitch;
+		mcpy3d.Height = mcpy3d.dstHeight;
+		mcpy3d.Depth = region.z;
+	
+		if(blocking_map) {
+			// must finish up all current work before we can properly read from the current buffer
+			cqueue->finish();
+			
+			CU_CALL_NO_ACTION(cuMemcpy3D(&mcpy3d),
+							  "failed to copy device memory to host");
+		}
+		else {
+			CU_CALL_NO_ACTION(cuMemcpy3DAsync(&mcpy3d, (CUstream)cqueue->get_queue_ptr()),
+							  "failed to copy device memory to host");
+		}
+	}
+	
+	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
+	mappings.emplace(host_buffer, cuda_mapping { origin, region, flags_ });
+	
+	return host_buffer;
+}
+
+void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+					   void* __attribute__((aligned(128))) mapped_ptr) {
+	if(image == nullptr) return;
+	if(mapped_ptr == nullptr) return;
+	
+	// check if this is actually a mapped pointer (+get the mapped size)
+	const auto iter = mappings.find(mapped_ptr);
+	if(iter == mappings.end()) {
+		log_error("invalid mapped pointer: %X", mapped_ptr);
+		return;
+	}
+	
+	// check if we need to actually copy data back to the device (not the case if read-only mapping)
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		CUDA_MEMCPY3D mcpy3d;
+		memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
+		mcpy3d.srcMemoryType = CU_MEMORYTYPE_HOST;
+		mcpy3d.srcHost = mapped_ptr;
+		mcpy3d.srcPitch = image_data_size / (iter->second.region.y * iter->second.region.z);
+		mcpy3d.srcHeight = iter->second.region.y;
+		mcpy3d.dstMemoryType = CU_MEMORYTYPE_ARRAY;
+		mcpy3d.dstArray = image;
+		mcpy3d.dstXInBytes = 0;
+		mcpy3d.WidthInBytes = mcpy3d.srcPitch;
+		mcpy3d.Height = mcpy3d.srcHeight;
+		mcpy3d.Depth = iter->second.region.z;
+		CU_CALL_NO_ACTION(cuMemcpy3D(&mcpy3d),
+						  "failed to copy host memory to device");
+	}
+	
+	// free host memory again and remove the mapping
+	delete [] (unsigned char*)mapped_ptr;
+	mappings.erase(mapped_ptr);
 }
 
 // TODO: merge with cuda_buffer

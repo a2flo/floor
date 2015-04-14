@@ -41,6 +41,13 @@ public:
 	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	
+	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags =
+											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	
+	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	
 	//! returns the cuda specific image pointer (cuda array)
 	const CUarray& get_cuda_image() const { return image; }
 	
@@ -55,6 +62,14 @@ protected:
 	CUsurfObject surface { 0ull };
 	CUtexObject texture { 0ull };
 	CUgraphicsResource rsrc { nullptr };
+	
+	struct cuda_mapping {
+		const size3 origin;
+		const size3 region;
+		const COMPUTE_MEMORY_MAP_FLAG flags;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, cuda_mapping> mappings;
 	
 	// separate create image function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

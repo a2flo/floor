@@ -41,6 +41,13 @@ public:
 	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	
+	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+											const COMPUTE_MEMORY_MAP_FLAG flags =
+											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
+	
+	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
+	
 	//! returns the opencl specific image object/pointer
 	const cl_mem& get_cl_image() const {
 		return image;

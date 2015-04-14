@@ -78,7 +78,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	cl_int create_err = CL_SUCCESS;
 	
 	// -> normal opencl buffer
-	if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
+	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, size, host_ptr, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create buffer: %u", create_err);

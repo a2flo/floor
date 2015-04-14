@@ -75,7 +75,7 @@ namespace std { \
 #define enum_class_has_flag(enum_class) \
 template <enum_class flag, typename int_type = underlying_type_t<enum_class>> \
 floor_inline_always constexpr bool has_flag(const enum_class& enum_object) { \
-	return ((int_type(flag) & int_type(enum_object)) != int_type(0)); \
+	return ((int_type(flag) & int_type(enum_object)) == int_type(flag)); \
 }
 
 // combination of the above

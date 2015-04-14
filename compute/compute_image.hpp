@@ -51,7 +51,45 @@ public:
 	
 	virtual ~compute_image() = 0;
 	
-	// TODO: read, write, copy, fill, zero/clear, resize?, map/unmap, opengl interop
+	// TODO: read, write, copy, fill, zero/clear
+	// TODO: map with dim size and dim coords/offset
+	
+	//! maps device memory into host accessible memory,
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
+	virtual void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
+													const COMPUTE_MEMORY_MAP_FLAG flags =
+													(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+													 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) = 0;
+	
+	//! maps device memory into host accessible memory,
+	//! returning the mapped pointer as a vector<> of "data_type"
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
+	template <typename data_type>
+	vector<data_type>* map(shared_ptr<compute_queue> cqueue,
+						   const COMPUTE_MEMORY_MAP_FLAG flags_ =
+						   (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+							COMPUTE_MEMORY_MAP_FLAG::BLOCK)) {
+		return (vector<data_type>*)map(cqueue, flags_);
+	}
+	
+	//! maps device memory into host accessible memory,
+	//! returning the mapped pointer as an array<> of "data_type" with "n" elements
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
+	template <typename data_type, size_t n>
+	array<data_type, n>* map(shared_ptr<compute_queue> cqueue,
+							 const COMPUTE_MEMORY_MAP_FLAG flags_ =
+							 (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
+							  COMPUTE_MEMORY_MAP_FLAG::BLOCK)) {
+		return (array<data_type, n>*)map(cqueue, flags_);
+	}
+	
+	//! unmaps a previously mapped memory pointer
+	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
+	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
+	virtual void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) = 0;
 	
 protected:
 	const uint4 image_dim;

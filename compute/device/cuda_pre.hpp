@@ -30,7 +30,7 @@
 #define constant __attribute__((cuda_constant))
 
 // misc types
-typedef __signed char int8_t;
+typedef char int8_t;
 typedef short int int16_t;
 typedef int int32_t;
 typedef long long int int64_t;

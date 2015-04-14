@@ -26,7 +26,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 	//////////////////////////////////////////
 	// -> image flags and types
-	//! upper 14-bit (18-31): type flags (currently used: 11/14)
+	//! upper 14-bit (18-31): type flags (currently used: 12/14)
 	__FLAG_MASK				= (0xFFFC0000u),
 	__FLAG_SHIFT			= (18u),
 	//! base type: image is an array (aka has layers)
@@ -53,6 +53,8 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
 	// TODO: actually needed/wanted?
 	//FLAG_NORMALIZED_DATA	= (1u << (__FLAG_SHIFT + 10u)),
+	//! optional type: image data is stored in reverse order (i.e. BGRA instead of RGBA)
+	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 11u)),
 	
 	//! bits 16-17: dimensionality
 	__DIM_MASK				= (0x00030000u),
@@ -159,7 +161,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! 2D depth image
 	IMAGE_DEPTH				= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_1,
 	//! combined 2D depth + stencil image
-	IMAGE_DEPTH_STENCIL		= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | FLAG_STENCIL | CHANNELS_2,
+	IMAGE_DEPTH_STENCIL		= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_2 | FLAG_STENCIL,
 	//! array of 2D depth images
 	IMAGE_DEPTH_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_DEPTH | CHANNELS_1 | FLAG_ARRAY,
 	//! depth cube map image
@@ -168,6 +170,31 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	IMAGE_DEPTH_MSAA		= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_1 | FLAG_MSAA,
 	//! array of multi-sampled 2D depth images
 	IMAGE_DEPTH_MSAA_ARRAY	= DIM_2D | DIM_STORAGE_3D | FLAG_DEPTH | CHANNELS_1 | FLAG_MSAA | FLAG_ARRAY,
+	
+	//////////////////////////////////////////
+	// -> convenience aliases
+	R8UI					= CHANNELS_1 | FORMAT_8 | UINT,
+	RG8UI					= CHANNELS_2 | FORMAT_8 | UINT,
+	RGB8UI					= CHANNELS_3 | FORMAT_8 | UINT,
+	RGBA8UI					= CHANNELS_4 | FORMAT_8 | UINT,
+	R8I						= CHANNELS_1 | FORMAT_8 | INT,
+	RG8I					= CHANNELS_2 | FORMAT_8 | INT,
+	RGB8I					= CHANNELS_3 | FORMAT_8 | INT,
+	RGBA8I					= CHANNELS_4 | FORMAT_8 | INT,
+	R16F					= CHANNELS_1 | FORMAT_16 | FLOAT,
+	RG16F					= CHANNELS_2 | FORMAT_16 | FLOAT,
+	RGB16F					= CHANNELS_3 | FORMAT_16 | FLOAT,
+	RGBA16F					= CHANNELS_4 | FORMAT_16 | FLOAT,
+	R32F					= CHANNELS_1 | FORMAT_32 | FLOAT,
+	RG32F					= CHANNELS_2 | FORMAT_32 | FLOAT,
+	RGB32F					= CHANNELS_3 | FORMAT_32 | FLOAT,
+	RGBA32F					= CHANNELS_4 | FORMAT_32 | FLOAT,
+	D16						= IMAGE_DEPTH | FORMAT_16 | UINT,
+	D24						= IMAGE_DEPTH | FORMAT_24 | UINT,
+	D32						= IMAGE_DEPTH | FORMAT_32 | UINT,
+	D32F					= IMAGE_DEPTH | FORMAT_32 | FLOAT,
+	DS24_8					= IMAGE_DEPTH_STENCIL | FORMAT_24_8 | UINT,
+	DS32F_8					= IMAGE_DEPTH_STENCIL | FORMAT_32_8 | FLOAT,
 	
 };
 floor_global_enum_ext(COMPUTE_IMAGE_TYPE)

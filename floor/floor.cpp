@@ -427,8 +427,12 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #if !defined(FLOOR_IOS)
 		// has to be set after context creation
+#if defined(__APPLE__) // on os x, vsync is (may be?) the default -> also allow setting this to 0
+		if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
+#else
 		if(config.vsync && SDL_GL_SetSwapInterval(1) == -1) {
-			log_error("error setting the gl swap interval to 1 (vsync): %s", SDL_GetError());
+#endif
+			log_error("error setting the gl swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
 			SDL_ClearError();
 		}
 		
