@@ -714,3 +714,26 @@ index 35dad82..bd249ab 100644
      Diag(op->getExprLoc(), diag::err_opencl_taking_function_address);
      return QualType();
    }
+diff --git a/tools/clang/lib/Sema/SemaInit.cpp b/tools/clang/lib/Sema/SemaInit.cpp
+index 06ca9ae..da49abc 100644
+--- a/tools/clang/lib/Sema/SemaInit.cpp
++++ b/tools/clang/lib/Sema/SemaInit.cpp
+@@ -4721,13 +4721,18 @@ void InitializationSequence::InitializeFrom(Sema &S,
+         tryObjCWritebackConversion(S, *this, Entity, Initializer)) {
+       return;
+     }
++  }
+ 
++  // need to try these two when using C++ with OpenCL
++  if (!S.getLangOpts().CPlusPlus || S.getLangOpts().OpenCL) {
+     if (TryOCLSamplerInitialization(S, *this, DestType, Initializer))
+       return;
+ 
+     if (TryOCLZeroEventInitialization(S, *this, DestType, Initializer))
+       return;
++  }
+ 
++  if (!S.getLangOpts().CPlusPlus) {
+     // Handle initialization in C
+     AddCAssignmentStep(DestType);
+     MaybeProduceObjCObject(S, *this, Entity);
