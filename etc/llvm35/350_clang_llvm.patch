@@ -644,10 +644,19 @@ index 079ef72..1c68e94 100644
      return llvm::PointerType::get(llvm::StructType::create(
                             Ctx, "opencl.image3d_t"), ImgAddrSpc);
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..0b7c302 100644
+index 5ca3a78..1747393 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -446,6 +446,176 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -429,6 +429,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+       const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
+       if (A && A->isWriteOnly())
+         accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
++      else if (A && A->isReadWrite())
++        accessQuals.push_back(llvm::MDString::get(Context, "read_write"));
+       else
+         accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
+       // FIXME: what about read_write?
+@@ -446,6 +448,241 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -696,8 +705,11 @@ index 5ca3a78..0b7c302 100644
 +				arg_info.push_back(llvm::MDString::get(Context, "air.read_write"));
 +			}
 +		}
++		else if(clang_type->isImageType()) {
++			// TODO: image support
++		}
 +		else {
-+			// TODO: image / what if not img either?
++			// TODO: what else is there?
 +		}
 +		
 +		// TODO: #6/#7: struct info
@@ -753,27 +765,54 @@ index 5ca3a78..0b7c302 100644
 +		const auto parm = FD->getParamDecl(i);
 +		const auto clang_type = parm->getType();
 +		
-+		enum FLOOR_ADDRESS_SPACE : uint64_t {
++		enum class FLOOR_ARG_INFO : uint64_t {
 +			// 0 == invalid!
-+			__FAS_SHIFT_OFFSET	= (32ull),
++			NONE						= (0ull),
 +			
-+			// sets: 00000000 00000000 00000000 000000xx 00000000 00000000 00000000 00000000
-+			FAS_NONE			= 0ull,
-+			FAS_GLOBAL			= 1ull << __FAS_SHIFT_OFFSET,
-+			FAS_LOCAL			= 2ull << __FAS_SHIFT_OFFSET,
-+			FAS_CONSTANT		= 3ull << __FAS_SHIFT_OFFSET,
++			// sets: 00000000 000000-- -------- 00000xxx 00000000 00000000 00000000 00000000
++			__AS_SHIFT					= (32ull),
++			__AS_MASK					= (0x0000000700000000ull),
++			AS_NONE						= NONE,
++			AS_GLOBAL					= (1ull << __AS_SHIFT),
++			AS_LOCAL					= (2ull << __AS_SHIFT),
++			AS_CONSTANT					= (3ull << __AS_SHIFT),
++			AS_IMAGE					= (4ull << __AS_SHIFT),
++			
++			// sets: 00000000 000000-- xxxxxxxx 00000--- 00000000 00000000 00000000 00000000
++			__IMG_TYPE_SHIFT			= (40ull),
++			__IMG_TYPE_MASK				= (0x0000FF0000000000ull),
++			IMG_1D						= (1ull << __IMG_TYPE_SHIFT),
++			IMG_1D_ARRAY				= (2ull << __IMG_TYPE_SHIFT),
++			IMG_1D_BUFFER				= (3ull << __IMG_TYPE_SHIFT),
++			IMG_2D						= (4ull << __IMG_TYPE_SHIFT),
++			IMG_2D_ARRAY				= (5ull << __IMG_TYPE_SHIFT),
++			IMG_2D_DEPTH				= (6ull << __IMG_TYPE_SHIFT),
++			IMG_2D_ARRAY_DEPTH			= (7ull << __IMG_TYPE_SHIFT),
++			IMG_2D_MSAA					= (8ull << __IMG_TYPE_SHIFT),
++			IMG_2D_ARRAY_MSAA			= (9ull << __IMG_TYPE_SHIFT),
++			IMG_2D_MSAA_DEPTH			= (10ull << __IMG_TYPE_SHIFT),
++			IMG_2D_ARRAY_MSAA_DEPTH		= (11ull << __IMG_TYPE_SHIFT),
++			IMG_3D						= (12ull << __IMG_TYPE_SHIFT),
++			
++			// sets: 00000000 000000xx -------- 00000--- 00000000 00000000 00000000 00000000
++			__IMG_ACCESS_SHIFT			= (48ull),
++			__IMG_ACCESS_MASK			= (0x0003000000000000ull),
++			IMG_ACCESS_READ				= (1ull << __IMG_ACCESS_SHIFT),
++			IMG_ACCESS_WRITE			= (2ull << __IMG_ACCESS_SHIFT),
++			IMG_ACCESS_READ_WRITE		= (IMG_ACCESS_READ | IMG_ACCESS_WRITE),
 +		};
++		
 +		const auto to_fas = [](const unsigned& addr_space) {
 +			if(addr_space == LangAS::opencl_global) {
-+				return FAS_GLOBAL;
++				return FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
 +			else if(addr_space == LangAS::opencl_local) {
-+				return FAS_LOCAL;
++				return FLOOR_ARG_INFO::AS_LOCAL;
 +			}
 +			else if(addr_space == LangAS::opencl_constant) {
-+				return FAS_CONSTANT;
++				return FLOOR_ARG_INFO::AS_CONSTANT;
 +			}
-+			return FAS_NONE;
++			return FLOOR_ARG_INFO::AS_NONE;
 +		};
 +		
 +		// #2+: argument sizes + types
@@ -785,19 +824,54 @@ index 5ca3a78..0b7c302 100644
 +			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(pointee_type);
 +			if(getLangOpts().OpenCL) {
 +				// else: should be an error
-+				arg_info |= to_fas(clang_pointee_type.getAddressSpace());
++				arg_info |= (uint64_t)to_fas(clang_pointee_type.getAddressSpace());
 +			}
 +			else if(getLangOpts().CUDA) {
 +				// always pretend this is global
-+				arg_info |= FAS_GLOBAL;
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		}
++		// handle image types
++		else if(clang_type->isImageType()) {
++			uint64_t arg_info = (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
++			
++			if(clang_type->isImage1dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D;
++			else if(clang_type->isImage1dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_ARRAY;
++			else if(clang_type->isImage1dBufferT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_BUFFER;
++			else if(clang_type->isImage2dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D;
++			else if(clang_type->isImage2dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY;
++			else if(clang_type->isImage2dDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_DEPTH;
++			else if(clang_type->isImage2dArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
++			else if(clang_type->isImage2dMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA;
++			else if(clang_type->isImage2dArrayMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
++			else if(clang_type->isImage2dMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
++			else if(clang_type->isImage2dArrayMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
++			else if(clang_type->isImage3dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_3D;
++			
++			const OpenCLImageAccessAttr* A = parm->getAttr<OpenCLImageAccessAttr>();
++			if(A != nullptr) {
++				if(A->isWriteOnly()) {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
++				}
++				else if(A->isReadWrite()) {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
++				}
++				else {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
++				}
++			}
++			else {
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
++			}
++			
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
 +		// handle non-pointer parameters (TODO: that aren't images/textures/special-types)
 +		else if(getLangOpts().CUDA) {
 +			// store the parameter size + pretend it is constant
 +			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(type);
-+			arg_info |= FAS_CONSTANT;
++			arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
 +		else {
@@ -810,7 +884,7 @@ index 5ca3a78..0b7c302 100644
 +			else {
 +				arg_info = CGM.getDataLayout().getTypeStoreSize(type);
 +			}
-+			arg_info |= to_fas(clang_type.getAddressSpace());
++			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
 +	}
@@ -824,7 +898,7 @@ index 5ca3a78..0b7c302 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -461,6 +631,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -461,6 +698,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
@@ -834,7 +908,7 @@ index 5ca3a78..0b7c302 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +672,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +739,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -875,7 +949,7 @@ index 5ca3a78..0b7c302 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +762,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +829,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
