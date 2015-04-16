@@ -227,7 +227,7 @@ index 09862e4..ddc236c 100644
  }
  
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..1743ee2 100644
+index 704a375..8388902 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -514,7 +514,7 @@ def Constructor : InheritableAttr {
@@ -266,7 +266,31 @@ index 704a375..1743ee2 100644
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -596,22 +596,22 @@ def OpenCLImageAccess : Attr {
+@@ -582,36 +582,39 @@ def OpenCLKernel : InheritableAttr {
+ // This attribute is both a type attribute, and a declaration attribute (for
+ // parameter variables).
+ def OpenCLImageAccess : Attr {
+-  let Spellings = [Keyword<"__read_only">, Keyword<"read_only">,
+-                   Keyword<"__write_only">, Keyword<"write_only">,
+-                   Keyword<"__read_write">, Keyword<"read_write">];
+-  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
++  let Spellings = [Keyword<"__read_only">, GNU<"opencl_read_only">, CXX11<"","opencl_read_only">,
++                   Keyword<"__write_only">, GNU<"opencl_write_only">, CXX11<"","opencl_write_only">,
++                   Keyword<"__read_write">, GNU<"opencl_read_write">, CXX11<"","opencl_read_write">];
++  //let Subjects = SubjectList<[ParmVar], ErrorDiag>;
+   let Accessors = [Accessor<"isReadOnly", [Keyword<"__read_only">,
+-                                           Keyword<"read_only">]>,
++										   GNU<"opencl_read_only">,
++										   CXX11<"","opencl_read_only">]>,
+                    Accessor<"isReadWrite", [Keyword<"__read_write">,
+-                                            Keyword<"read_write">]>,
++											GNU<"opencl_read_write">,
++											CXX11<"","opencl_read_write">]>,
+                    Accessor<"isWriteOnly", [Keyword<"__write_only">,
+-                                            Keyword<"write_only">]>];
++											GNU<"opencl_write_only">,
++											CXX11<"","opencl_write_only">]>];
+   let Documentation = [Undocumented];
  }
  
  def OpenCLPrivateAddressSpace : TypeAttr {
@@ -644,10 +668,10 @@ index 079ef72..1c68e94 100644
      return llvm::PointerType::get(llvm::StructType::create(
                             Ctx, "opencl.image3d_t"), ImgAddrSpc);
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..1747393 100644
+index 5ca3a78..437bd4a 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -429,6 +429,8 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
        const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
        if (A && A->isWriteOnly())
          accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
@@ -655,8 +679,11 @@ index 5ca3a78..1747393 100644
 +        accessQuals.push_back(llvm::MDString::get(Context, "read_write"));
        else
          accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
-       // FIXME: what about read_write?
-@@ -446,6 +448,241 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+-      // FIXME: what about read_write?
+     } else
+       accessQuals.push_back(llvm::MDString::get(Context, "none"));
+ 
+@@ -446,6 +447,241 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -898,7 +925,7 @@ index 5ca3a78..1747393 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -461,6 +698,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -461,6 +697,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
@@ -908,7 +935,7 @@ index 5ca3a78..1747393 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +739,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +738,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -949,7 +976,7 @@ index 5ca3a78..1747393 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +829,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +828,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
