@@ -90,9 +90,21 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	UINT					= (2u << __DATA_TYPE_SHIFT),
 	FLOAT					= (3u << __DATA_TYPE_SHIFT),
 	
-	//! bits 0-9: formats
+	//! bits 8-9: access qualifier
+	__ACCESS_MASK			= (0x00000300u),
+	__ACCESS_SHIFT			= (8u),
+	//! image is read-only (exluding host operations)
+	READ					= (1u << __ACCESS_SHIFT),
+	//! image is write-only (exluding host operations)
+	//! NOTE: automatically sets FLAG_NO_SAMPLER (since the image won't be read/sampled)
+	WRITE					= (2u << __ACCESS_SHIFT) | FLAG_NO_SAMPLER,
+	//! image is read-write
+	//! NOTE: also applies if neither is set
+	READ_WRITE				= (3u << __ACCESS_SHIFT),
+	
+	//! bits 0-7: formats
 	//! NOTE: unless specified otherwise, a format is usable with any channel count
-	__FORMAT_MASK			= (0x000003FFu),
+	__FORMAT_MASK			= (0x000000FFu),
 	//! 2 bits per channel
 	FORMAT_2				= (1u),
 	//! 3 channel format: 3-bit/3-bit/2-bit
@@ -159,17 +171,17 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	IMAGE_CUBE_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_CUBE | FLAG_ARRAY,
 	
 	//! 2D depth image
-	IMAGE_DEPTH				= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_1,
+	IMAGE_DEPTH				= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D,
 	//! combined 2D depth + stencil image
-	IMAGE_DEPTH_STENCIL		= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_2 | FLAG_STENCIL,
+	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | CHANNELS_2 | IMAGE_2D | FLAG_STENCIL,
 	//! array of 2D depth images
-	IMAGE_DEPTH_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_DEPTH | CHANNELS_1 | FLAG_ARRAY,
+	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_ARRAY,
 	//! depth cube map image
-	IMAGE_DEPTH_CUBE		= DIM_2D | DIM_STORAGE_3D | FLAG_DEPTH | CHANNELS_1 | FLAG_CUBE,
+	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE,
 	//! multi-sampled 2D depth image
-	IMAGE_DEPTH_MSAA		= DIM_2D | DIM_STORAGE_2D | FLAG_DEPTH | CHANNELS_1 | FLAG_MSAA,
+	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA,
 	//! array of multi-sampled 2D depth images
-	IMAGE_DEPTH_MSAA_ARRAY	= DIM_2D | DIM_STORAGE_3D | FLAG_DEPTH | CHANNELS_1 | FLAG_MSAA | FLAG_ARRAY,
+	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA_ARRAY,
 	
 	//////////////////////////////////////////
 	// -> convenience aliases

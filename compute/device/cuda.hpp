@@ -331,28 +331,28 @@ static constexpr uint64_t get_global_offset(uint32_t dim floor_unused) {
 }
 
 // barrier and mem_fence functionality
-[[noduplicate]] static floor_inline_always void global_barrier() {
+static floor_inline_always void global_barrier() {
 	__syncthreads();
 }
-[[noduplicate]] static floor_inline_always void global_mem_fence() {
+static floor_inline_always void global_mem_fence() {
 	__nvvm_membar_cta();
 }
-[[noduplicate]] static floor_inline_always void global_read_mem_fence() {
+static floor_inline_always void global_read_mem_fence() {
 	__nvvm_membar_cta();
 }
-[[noduplicate]] static floor_inline_always void global_write_mem_fence() {
+static floor_inline_always void global_write_mem_fence() {
 	__nvvm_membar_cta();
 }
-[[noduplicate]] static floor_inline_always void local_barrier() {
+static floor_inline_always void local_barrier() {
 	__syncthreads();
 }
-[[noduplicate]] static floor_inline_always void local_mem_fence() {
+static floor_inline_always void local_mem_fence() {
 	__nvvm_membar_cta();
 }
-[[noduplicate]] static floor_inline_always void local_read_mem_fence() {
+static floor_inline_always void local_read_mem_fence() {
 	__nvvm_membar_cta();
 }
-[[noduplicate]] static floor_inline_always void local_write_mem_fence() {
+static floor_inline_always void local_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 

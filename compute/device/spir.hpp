@@ -104,33 +104,33 @@ namespace std {
 extern "C" int printf(const char __constant* st, ...);
 
 // barrier and mem_fence functionality
-void __attribute__((overloadable)) barrier(uint32_t flags);
-void __attribute__((overloadable)) mem_fence(uint32_t flags);
-void __attribute__((overloadable)) read_mem_fence(uint32_t flags);
-void __attribute__((overloadable)) write_mem_fence(uint32_t flags);
+void barrier(uint32_t flags) __attribute__((noduplicate));
+void mem_fence(uint32_t flags) __attribute__((noduplicate));
+void read_mem_fence(uint32_t flags) __attribute__((noduplicate));
+void write_mem_fence(uint32_t flags) __attribute__((noduplicate));
 
-[[noduplicate]] static floor_inline_always void global_barrier() {
+static floor_inline_always void global_barrier() {
 	barrier(2u);
 }
-[[noduplicate]] static floor_inline_always void global_mem_fence() {
+static floor_inline_always void global_mem_fence() {
 	mem_fence(2u);
 }
-[[noduplicate]] static floor_inline_always void global_read_mem_fence() {
+static floor_inline_always void global_read_mem_fence() {
 	read_mem_fence(2u);
 }
-[[noduplicate]] static floor_inline_always void global_write_mem_fence() {
+static floor_inline_always void global_write_mem_fence() {
 	write_mem_fence(2u);
 }
-[[noduplicate]] static floor_inline_always void local_barrier() {
+static floor_inline_always void local_barrier() {
 	barrier(1u);
 }
-[[noduplicate]] static floor_inline_always void local_mem_fence() {
+static floor_inline_always void local_mem_fence() {
 	mem_fence(1u);
 }
-[[noduplicate]] static floor_inline_always void local_read_mem_fence() {
+static floor_inline_always void local_read_mem_fence() {
 	read_mem_fence(1u);
 }
-[[noduplicate]] static floor_inline_always void local_write_mem_fence() {
+static floor_inline_always void local_write_mem_fence() {
 	write_mem_fence(1u);
 }
 

@@ -89,6 +89,9 @@ typedef double spir_double4 __attribute__((ext_vector_type(4)));
 #define global __attribute__((opencl_global))
 #define constant __attribute__((opencl_constant))
 #define local __attribute__((opencl_local))
+#define read_only __attribute__((opencl_read_only))
+#define write_only __attribute__((opencl_write_only))
+#define read_write __attribute__((opencl_read_write))
 // abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
 #define kernel __kernel __attribute__((section("spir_kernel")))
 

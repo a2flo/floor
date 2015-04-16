@@ -303,7 +303,12 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 								 gl_dim.x, gl_dim.y, 0, format, type, pixel_ptr);
 				}
 				else {
-					glTexImage2DMultisample(opengl_type, sample_count, internal_format,
+					glTexImage2DMultisample(opengl_type, sample_count,
+#if defined(__APPLE__)
+											internal_format,
+#else // why is this a different type than what's in glTexImage2D?
+											(GLenum)internal_format,
+#endif
 											gl_dim.x, gl_dim.y, fixed_sample_locations);
 				}
 				break;
@@ -313,7 +318,12 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 								 gl_dim.x, gl_dim.y, gl_dim.z, 0, format, type, pixel_ptr);
 				}
 				else {
-					glTexImage3DMultisample(opengl_type, sample_count, internal_format,
+					glTexImage3DMultisample(opengl_type, sample_count,
+#if defined(__APPLE__)
+											internal_format,
+#else
+											(GLenum)internal_format,
+#endif
 											gl_dim.x, gl_dim.y, gl_dim.z, fixed_sample_locations);
 				}
 				break;

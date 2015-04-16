@@ -162,10 +162,22 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 				kernel.name = elem;
 			}
 			else {
-				// arg #elem_idx size + address space
+				// kernel arg info: #elem_idx size, address space, image type, image access
 				const auto data = stoull(elem);
-				kernel.arg_sizes.emplace_back(data & 0xFFFFFFFF);
-				kernel.arg_address_spaces.emplace_back((llvm_compute::kernel_info::ARG_ADDRESS_SPACE)((data >> 32ull) & 0x3));
+				kernel.args.emplace_back(llvm_compute::kernel_info::kernel_arg_info {
+					.size			= (uint32_t)
+						((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>
+						 uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_SHIFT)),
+					.address_space	= (llvm_compute::kernel_info::ARG_ADDRESS_SPACE)
+						((data & uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
+						 uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
+					.image_type		= (llvm_compute::kernel_info::ARG_IMAGE_TYPE)
+						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
+						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
+					.image_access	= (llvm_compute::kernel_info::ARG_IMAGE_ACCESS)
+						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
+						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
+				});
 			}
 			++elem_idx;
 		});
@@ -277,6 +289,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			" sed -i"
 #endif
 			" -E \"s/readonly//g\" spir_3_5.ll &&"
+#if defined(__APPLE__)
+			" sed -i \"\""
+#else
+			" sed -i"
+#endif
+			" -E \"s/nocapture readnone//g\" spir_3_5.ll &&"
 #if defined(__APPLE__)
 			" sed -i \"\""
 #else

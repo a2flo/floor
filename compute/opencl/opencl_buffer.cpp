@@ -66,6 +66,9 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_) {
 	}
 	
 	// TODO: handle the remaining flags + host ptr
+	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		cl_flags |= CL_MEM_COPY_HOST_PTR;
+	}
 	
 	// actually create the buffer
 	if(!create_internal(true, nullptr)) {

@@ -355,6 +355,9 @@
 		5CD2176319EAA8800049D6AE /* opencl_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_device.cpp; sourceTree = "<group>"; };
 		5CD2176419EAA8800049D6AE /* opencl_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_device.hpp; sourceTree = "<group>"; };
 		5CD2176819EBEC4B0049D6AE /* README.textile */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.textile; sourceTree = "<group>"; };
+		5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_image.hpp; path = device/metal_image.hpp; sourceTree = "<group>"; };
+		5CD5AEB01AE0107A00E1891C /* spir_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = spir_image.hpp; path = device/spir_image.hpp; sourceTree = "<group>"; };
+		5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_image.hpp; path = device/cuda_image.hpp; sourceTree = "<group>"; };
 		5CD6448D1A51BF5B00716FE8 /* compute_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_common.hpp; sourceTree = "<group>"; };
 		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
 		5CE0BDC819BA3469000B28B3 /* const_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = const_math.cpp; sourceTree = "<group>"; };
@@ -613,10 +616,13 @@
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
+				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
 				5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */,
 				5C6008AD1AB6D6D200BC7012 /* metal.hpp */,
+				5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */,
 				5C13A3EC1AC1BE590002FF87 /* spir_pre.hpp */,
 				5C6008AE1AB6D6D200BC7012 /* spir.hpp */,
+				5CD5AEB01AE0107A00E1891C /* spir_image.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 			);
 			name = device;

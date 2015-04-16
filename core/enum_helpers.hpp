@@ -59,6 +59,16 @@ floor_inline_always constexpr enum_class& operator&=(enum_class& e0, const enum_
 	return e0; \
 }
 
+#define enum_class_bitwise_complement(enum_class) \
+floor_inline_always friend constexpr enum_class operator~(const enum_class& e0) { \
+	return (enum_class)(~((typename underlying_type<enum_class>::type)e0)); \
+}
+
+#define enum_class_bitwise_complement_global(enum_class) \
+floor_inline_always constexpr enum_class operator~(const enum_class& e0) { \
+	return (enum_class)(~((typename underlying_type<enum_class>::type)e0)); \
+}
+
 #if !defined(FLOOR_COMPUTE)
 #define enum_class_hash(enum_class) \
 namespace std { \
@@ -82,12 +92,14 @@ floor_inline_always constexpr bool has_flag(const enum_class& enum_object) { \
 #define floor_enum_ext(enum_class) \
 enum_class_bitwise_or(enum_class) \
 enum_class_bitwise_and(enum_class) \
+enum_class_bitwise_complement(enum_class) \
 enum_class_hash(enum_class) \
 enum_class_has_flag(enum_class)
 
 #define floor_global_enum_ext(enum_class) \
 enum_class_bitwise_or_global(enum_class) \
 enum_class_bitwise_and_global(enum_class) \
+enum_class_bitwise_complement_global(enum_class) \
 enum_class_hash(enum_class) \
 enum_class_has_flag(enum_class)
 

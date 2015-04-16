@@ -36,17 +36,62 @@ public:
 	//
 	struct kernel_info {
 		string name;
-		vector<uint32_t> arg_sizes;
 		
 		enum class ARG_ADDRESS_SPACE : uint32_t {
-			UNKNOWN = 0,
-			GLOBAL = 1,
-			LOCAL = 2,
-			CONSTANT = 3,
+			UNKNOWN							= (0u),
+			GLOBAL							= (1u),
+			LOCAL							= (2u),
+			CONSTANT						= (3u),
+			IMAGE							= (4u),
 		};
-		//! NOTE: these will only be correct for OpenCL and Metal, CUDA uses a different approach,
-		//! although some arguments might be marked with an address space nonetheless.
-		vector<ARG_ADDRESS_SPACE> arg_address_spaces;
+		
+		enum class ARG_IMAGE_TYPE : uint32_t {
+			NONE							= (0u),
+			IMAGE_1D						= (1u),
+			IMAGE_1D_ARRAY					= (2u),
+			IMAGE_1D_BUFFER					= (3u),
+			IMAGE_2D						= (4u),
+			IMAGE_2D_ARRAY					= (5u),
+			IMAGE_2D_DEPTH					= (6u),
+			IMAGE_2D_ARRAY_DEPTH			= (7u),
+			IMAGE_2D_MSAA					= (8u),
+			IMAGE_2D_ARRAY_MSAA				= (9u),
+			IMAGE_2D_MSAA_DEPTH				= (10u),
+			IMAGE_2D_ARRAY_MSAA_DEPTH		= (11u),
+			IMAGE_3D						= (12u),
+		};
+		
+		enum class ARG_IMAGE_ACCESS : uint32_t {
+			NONE							= (0u),
+			READ							= (1u),
+			WRITE							= (2u),
+			READ_WRITE						= (READ | WRITE),
+		};
+		
+		struct kernel_arg_info {
+			uint32_t size;
+			
+			//! NOTE: this will only be correct for OpenCL and Metal, CUDA uses a different approach,
+			//! although some arguments might be marked with an address space nonetheless.
+			ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
+			
+			ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
+			
+			ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
+		};
+		vector<kernel_arg_info> args;
+	};
+	
+	// for internal use
+	enum class FLOOR_METADATA : uint64_t {
+		ARG_SIZE_MASK			= (0x00000000FFFFFFFFull),
+		ARG_SIZE_SHIFT			= (0ull),
+		ADDRESS_SPACE_MASK		= (0x0000000700000000ull),
+		ADDRESS_SPACE_SHIFT		= (32ull),
+		IMAGE_TYPE_MASK			= (0x0000FF0000000000ull),
+		IMAGE_TYPE_SHIFT		= (40ull),
+		IMAGE_ACCESS_MASK		= (0x0003000000000000ull),
+		IMAGE_ACCESS_SHIFT		= (48ull),
 	};
 	
 	//

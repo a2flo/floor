@@ -188,6 +188,20 @@ namespace floor_compute {
 			return *(T*)&ints[0];
 		}
 	};
+#if 0 // not needed for now, and not really functional
+	template <typename T> struct address_space_store {
+		static void store(global T* to, const T& data) {
+			for(size_t i = 0; i < (sizeof(T)); ++i) {
+				*(((global uint8_t*)to) + i) = *(((uint8_t*)&data) + i);
+			}
+		}
+		static void store(local T* to, const T& data) {
+			for(size_t i = 0; i < (sizeof(T)); ++i) {
+				*(((global uint8_t*)to) + i) = *(((uint8_t*)&data) + i);
+			}
+		}
+	};
+#endif
 	
 	//! adaptor to access memory in a global/local/constant address space, with support for explicit and implicit stores and loads.
 	//! NOTE: this is necessary for any class that uses the "this" pointer to access memory in a global/local/constant address space.
@@ -390,6 +404,15 @@ protected:
 
 };
 
+#endif
+
+// implementation specific image headers
+#if defined(FLOOR_COMPUTE_CUDA)
+#include <floor/compute/device/cuda_image.hpp>
+#elif defined(FLOOR_COMPUTE_SPIR)
+#include <floor/compute/device/spir_image.hpp>
+#elif defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal_image.hpp>
 #endif
 
 #endif

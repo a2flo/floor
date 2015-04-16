@@ -26,6 +26,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/opencl/opencl_buffer.hpp>
+#include <floor/compute/opencl/opencl_image.hpp>
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_OPENCL_KERNEL_IMPL 1
@@ -88,6 +89,11 @@ protected:
 	floor_inline_always void set_kernel_argument(const cl_uint num, shared_ptr<compute_buffer> arg) {
 		CL_CALL_RET(clSetKernelArg(kernel, num, sizeof(cl_mem), &((opencl_buffer*)arg.get())->get_cl_buffer()),
 					"failed to set buffer kernel argument");
+	}
+	
+	floor_inline_always void set_kernel_argument(const cl_uint num, shared_ptr<compute_image> arg) {
+		CL_CALL_RET(clSetKernelArg(kernel, num, sizeof(cl_mem), &((opencl_image*)arg.get())->get_cl_image()),
+					"failed to set image kernel argument");
 	}
 	
 };

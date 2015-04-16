@@ -65,6 +65,9 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) 
 	}
 	
 	// TODO: handle the remaining flags + host ptr
+	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		cl_flags |= CL_MEM_COPY_HOST_PTR;
+	}
 	
 	// actually create the image
 	if(!create_internal(true, nullptr)) {
@@ -151,7 +154,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		image = clCreateImage(((opencl_device*)dev)->ctx, cl_flags, &cl_img_format, &cl_img_desc,
 							  (copy_host_data ? host_ptr : nullptr), &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image: %u", create_err);
+			log_error("failed to create image: %s", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
 		}
@@ -165,7 +168,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		image = clCreateFromGLTexture(((opencl_device*)dev)->ctx, cl_flags, opengl_type,
 									  0 /* TODO: mip level */, gl_object, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image from opengl texture: %u", create_err);
+			log_error("failed to create image from opengl texture: %s", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
 		}
@@ -200,11 +203,11 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 	const size3 origin { 0, 0, 0 };
 	const size3 region { image_dim.xyz.maxed(1) }; // complete image(s) + "The values in region cannot be 0."
 	
-	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	// TODO: image map check
 	
 	cl_map_flags map_flags = 0;
-	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
 		map_flags |= CL_MAP_WRITE_INVALIDATE_REGION;
 	}
 	else {
@@ -226,15 +229,15 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 	}
 	
 	//
-	size_t image_row_pitch, image_slice_pitch; // must not be nullptr (TODO: return these)
+	size_t image_row_pitch = 0, image_slice_pitch = 0; // must not be nullptr (TODO: return these)
 	cl_int map_err = CL_SUCCESS;
 	auto ret_ptr = clEnqueueMapImage((cl_command_queue)cqueue->get_queue_ptr(),
 									 image, blocking_map, map_flags,
-									 (const size_t*)&origin, (const size_t*)&region,
+									 origin.data(), region.data(),
 									 &image_row_pitch, &image_slice_pitch,
 									 0, nullptr, nullptr, &map_err);
 	if(map_err != CL_SUCCESS) {
-		log_error("failed to map image: %u!", map_err);
+		log_error("failed to map image: %s!", cl_error_to_string(map_err));
 		return nullptr;
 	}
 	return ret_ptr;
