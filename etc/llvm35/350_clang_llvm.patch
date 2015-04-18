@@ -227,7 +227,7 @@ index 09862e4..ddc236c 100644
  }
  
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..8388902 100644
+index 704a375..d091c11 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -514,7 +514,7 @@ def Constructor : InheritableAttr {
@@ -274,22 +274,22 @@ index 704a375..8388902 100644
 -                   Keyword<"__write_only">, Keyword<"write_only">,
 -                   Keyword<"__read_write">, Keyword<"read_write">];
 -  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
-+  let Spellings = [Keyword<"__read_only">, GNU<"opencl_read_only">, CXX11<"","opencl_read_only">,
-+                   Keyword<"__write_only">, GNU<"opencl_write_only">, CXX11<"","opencl_write_only">,
-+                   Keyword<"__read_write">, GNU<"opencl_read_write">, CXX11<"","opencl_read_write">];
++  let Spellings = [Keyword<"__read_only">, GNU<"image_read_only">, CXX11<"","image_read_only">,
++                   Keyword<"__write_only">, GNU<"image_write_only">, CXX11<"","image_write_only">,
++                   Keyword<"__read_write">, GNU<"image_read_write">, CXX11<"","image_read_write">];
 +  //let Subjects = SubjectList<[ParmVar], ErrorDiag>;
    let Accessors = [Accessor<"isReadOnly", [Keyword<"__read_only">,
 -                                           Keyword<"read_only">]>,
-+										   GNU<"opencl_read_only">,
-+										   CXX11<"","opencl_read_only">]>,
++										   GNU<"image_read_only">,
++										   CXX11<"","image_read_only">]>,
                     Accessor<"isReadWrite", [Keyword<"__read_write">,
 -                                            Keyword<"read_write">]>,
-+											GNU<"opencl_read_write">,
-+											CXX11<"","opencl_read_write">]>,
++											GNU<"image_read_write">,
++											CXX11<"","image_read_write">]>,
                     Accessor<"isWriteOnly", [Keyword<"__write_only">,
 -                                            Keyword<"write_only">]>];
-+											GNU<"opencl_write_only">,
-+											CXX11<"","opencl_write_only">]>];
++											GNU<"image_write_only">,
++											CXX11<"","image_write_only">]>];
    let Documentation = [Undocumented];
  }
  
@@ -668,7 +668,7 @@ index 079ef72..1c68e94 100644
      return llvm::PointerType::get(llvm::StructType::create(
                             Ctx, "opencl.image3d_t"), ImgAddrSpc);
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..437bd4a 100644
+index 5ca3a78..68273c0 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -683,7 +683,7 @@ index 5ca3a78..437bd4a 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +447,241 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +447,255 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -841,6 +841,22 @@ index 5ca3a78..437bd4a 100644
 +			}
 +			return FLOOR_ARG_INFO::AS_NONE;
 +		};
++		const auto set_image_access = [](const OpenCLImageAccessAttr* access_attr, uint64_t& arg_info) {
++			if(access_attr != nullptr) {
++				if(access_attr->isWriteOnly()) {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
++				}
++				else if(access_attr->isReadWrite()) {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
++				}
++				else {
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
++				}
++			}
++			else {
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
++			}
++		};
 +		
 +		// #2+: argument sizes + types
 +		// TODO: support all non-pointer types
@@ -876,29 +892,27 @@ index 5ca3a78..437bd4a 100644
 +			else if(clang_type->isImage2dArrayMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
 +			else if(clang_type->isImage3dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_3D;
 +			
-+			const OpenCLImageAccessAttr* A = parm->getAttr<OpenCLImageAccessAttr>();
-+			if(A != nullptr) {
-+				if(A->isWriteOnly()) {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
-+				}
-+				else if(A->isReadWrite()) {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
-+				}
-+				else {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
-+				}
-+			}
-+			else {
-+				arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
-+			}
++			set_image_access(parm->getAttr<OpenCLImageAccessAttr>(), arg_info);
 +			
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
-+		// handle non-pointer parameters (TODO: that aren't images/textures/special-types)
++		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
-+			// store the parameter size + pretend it is constant
++			// store the parameter size
 +			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(type);
-+			arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
++			
++			// check if parameter has image access qualifiers,
++			// if so, it must be an image
++			const OpenCLImageAccessAttr* access_attr = parm->getAttr<OpenCLImageAccessAttr>();
++			if(access_attr != nullptr) {
++				set_image_access(access_attr, arg_info);
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
++			}
++			// if not, pretend it is constant
++			else {
++				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
++			}
++			
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
 +		else {
@@ -925,7 +939,7 @@ index 5ca3a78..437bd4a 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -461,6 +697,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -461,6 +711,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
@@ -935,7 +949,7 @@ index 5ca3a78..437bd4a 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +738,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +752,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -976,7 +990,7 @@ index 5ca3a78..437bd4a 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +828,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +842,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
