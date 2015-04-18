@@ -34,8 +34,8 @@ metal_program::metal_program(const metal_device* device,
 		const auto& info = kernels_info[i];
 		{ // TODO: remove this debug output later on
 			string sizes_str = "";
-			for(size_t j = 0, count = info.arg_sizes.size(); j < count; ++j) {
-				switch(info.arg_address_spaces[j]) {
+			for(size_t j = 0, count = info.args.size(); j < count; ++j) {
+				switch(info.args[j].address_space) {
 					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::GLOBAL:
 						sizes_str += "global ";
 						break;
@@ -45,9 +45,12 @@ metal_program::metal_program(const metal_device* device,
 					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT:
 						sizes_str += "constant ";
 						break;
+					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE:
+						sizes_str += "image ";
+						break;
 					default: break;
 				}
-				sizes_str += to_string(info.arg_sizes[j]) + (j + 1 < count ? "," : "") + " ";
+				sizes_str += to_string(info.args[j].size) + (j + 1 < count ? "," : "") + " ";
 			}
 			sizes_str = core::trim(sizes_str);
 			log_debug("adding kernel \"%s\": %s", info.name, sizes_str);

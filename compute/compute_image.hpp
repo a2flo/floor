@@ -95,10 +95,12 @@ protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
 	const size_t image_data_size;
-
+	
+#if !defined(FLOOR_IOS)
 	// internal function to create/delete an opengl image if compute/opengl sharing is used
 	bool create_gl_image(const bool copy_host_data);
 	void delete_gl_image();
+#endif
 	
 };
 

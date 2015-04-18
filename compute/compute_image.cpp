@@ -21,6 +21,7 @@
 
 compute_image::~compute_image() {}
 
+#if !defined(FLOOR_IOS)
 void compute_image::delete_gl_image() {
 	if(gl_object == 0) return;
 	glDeleteTextures(1, &gl_object);
@@ -53,6 +54,8 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	if(storage_dim_count >= 3) {
 		glTexParameteri(opengl_type, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 	}
+	
+	// TODO: only do this for depth textures?
 	glTexParameteri(opengl_type, GL_TEXTURE_COMPARE_MODE, GL_NONE);
 	
 	// init texture data
@@ -335,3 +338,4 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	
 	return true;
 }
+#endif
