@@ -97,7 +97,10 @@ using namespace std;
 // always include vector lib/types
 #include <floor/math/vector_lib.hpp>
 
-// image support headers
+// image support headers + common attributes
+#define read_only __attribute__((image_read_only))
+#define write_only __attribute__((image_write_only))
+#define read_write __attribute__((image_read_write))
 #include <floor/core/enum_helpers.hpp>
 #include <floor/compute/device/image_types.hpp>
 

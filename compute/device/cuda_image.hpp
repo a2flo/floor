@@ -175,9 +175,17 @@ struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(im
 	const uint64_t tex;
 };
 
-template <COMPUTE_IMAGE_TYPE image_type> using ro_image = image<image_type & (~COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER) | COMPUTE_IMAGE_TYPE::READ>;
-template <COMPUTE_IMAGE_TYPE image_type> using wo_image = image<image_type & (~COMPUTE_IMAGE_TYPE::READ) | COMPUTE_IMAGE_TYPE::WRITE>;
-template <COMPUTE_IMAGE_TYPE image_type> using rw_image = image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ_WRITE>;
+#define ro_image read_only cuda_ro_image
+template <COMPUTE_IMAGE_TYPE image_type> using cuda_ro_image =
+image<image_type & (~COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER) | COMPUTE_IMAGE_TYPE::READ>;
+
+#define wo_image write_only cuda_wo_image
+template <COMPUTE_IMAGE_TYPE image_type> using cuda_wo_image =
+image<image_type & (~COMPUTE_IMAGE_TYPE::READ) | COMPUTE_IMAGE_TYPE::WRITE>;
+
+#define rw_image read_write cuda_rw_image
+template <COMPUTE_IMAGE_TYPE image_type> using cuda_rw_image =
+image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ_WRITE>;
 
 #if 0
 //

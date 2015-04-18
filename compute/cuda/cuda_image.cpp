@@ -152,6 +152,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	// -> opengl image
 	else {
 		if(!create_gl_image(copy_host_data)) return false;
+		log_debug("surf/tex %u/%u", need_surf, need_tex);
 		
 		// register the cuda object
 		uint32_t cuda_gl_flags = 0;

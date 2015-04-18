@@ -44,9 +44,11 @@ public:
 											 const size3 global_work_size,
 											 const size3 local_work_size_,
 											 Args&&... args) {
-		// set and handle kernel arguments
+		// set and handle kernel arguments (all alloc'ed on stack)
 		array<void*, sizeof...(Args)> kernel_params;
-		set_kernel_arguments(&kernel_params[0], forward<Args>(args)...);
+		vector<uint8_t> kernel_params_data(kernel_args_size);
+		uint8_t* data_ptr = &kernel_params_data[0];
+		set_kernel_arguments(0, &kernel_params[0], data_ptr, forward<Args>(args)...);
 		
 		// run
 		const uint3 block_dim { local_work_size_.maxed(1u) }; // prevent % or / by 0, also: cuda needs at least 1
@@ -59,16 +61,13 @@ public:
 		grid_dim.max(1u);
 		
 		execute_internal(queue, grid_dim, block_dim, &kernel_params[0]);
-		
-		// free kernel params again
-		for(size_t i = 0, count = sizeof...(Args); i < count; ++i) {
-			free(kernel_params[i]);
-		}
 	}
 	
 protected:
 	const CUfunction kernel;
 	const string func_name;
+	const size_t kernel_args_size;
+	const llvm_compute::kernel_info info;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
 	
@@ -79,50 +78,66 @@ protected:
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(void** params, T&& arg, Args&&... args) {
-		set_kernel_argument(params, forward<T>(arg));
-		set_kernel_arguments(++params, forward<Args>(args)...);
+	floor_inline_always void set_kernel_arguments(const uint8_t num, void** params, uint8_t*& data, T&& arg, Args&&... args) {
+		set_kernel_argument(num, params, data, forward<T>(arg));
+		set_kernel_arguments(num + 1, ++params, data, forward<Args>(args)...);
 	}
 	
 	//! handle kernel call terminator
-	floor_inline_always void set_kernel_arguments(void**) {}
+	floor_inline_always void set_kernel_arguments(const uint8_t, void**, uint8_t*&) {}
 	
 	//! actual kernel argument setter
-	//! TODO: specialize for types (raw/pod types, images, ...)
 	//! TODO: check for invalid args (e.g. raw pointers)
 	template <typename T>
-	floor_inline_always void set_kernel_argument(void** param, T&& arg) {
-		*param = malloc(sizeof(T)); // TODO: new?
-		memcpy(*param, &arg, sizeof(T));
+	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, T&& arg) {
+		*param = data;
+		memcpy(data, &arg, sizeof(T));
+		data += sizeof(T);
 	}
 	
-	floor_inline_always void set_kernel_argument(void** param, shared_ptr<compute_buffer> arg) {
-		*param = malloc(sizeof(CUdeviceptr));
-		memcpy(*param, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(CUdeviceptr));
+	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, shared_ptr<compute_buffer> arg) {
+		*param = data;
+		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(CUdeviceptr));
+		data += sizeof(CUdeviceptr);
 	}
 	
-	floor_inline_always void set_kernel_argument(void** param, shared_ptr<compute_image> arg) {
+	floor_inline_always void set_kernel_argument(const uint8_t num, void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
 		cuda_image* cu_img = (cuda_image*)arg.get();
-		const auto& surf = cu_img->get_cuda_surface();
-		const auto& tex = cu_img->get_cuda_texture();
 		
-		// if either is 0, only set the one that isn't 0, else, set both
-		if(surf != 0 && tex == 0) {
-			*param = malloc(sizeof(uint64_t));
-			memcpy(*param, &surf, sizeof(uint64_t));
+#if defined(FLOOR_DEBUG)
+		// sanity checks
+		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::NONE) {
+			log_error("no image access qualifier specified!");
+			return;
 		}
-		else if(surf == 0 && tex != 0) {
-			*param = malloc(sizeof(uint64_t));
-			memcpy(*param, &tex, sizeof(uint64_t));
+		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
+		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			if(cu_img->get_cuda_texture() == 0) {
+				log_error("image is set to be readable, but texture object doesn't exist!");
+				return;
+			}
 		}
-		else if(surf != 0 && tex != 0) {
-			*param = malloc(sizeof(uint64_t) + sizeof(uint64_t));
-			memcpy(*param, &surf, sizeof(uint64_t));
-			memcpy((void*)(((uint8_t*)*param) + sizeof(uint64_t)), &tex, sizeof(uint64_t));
+		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
+		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			if(cu_img->get_cuda_surface() == 0) {
+				log_error("image is set to be writable, but surface object doesn't exist!");
+				return;
+			}
 		}
-		else {
-			*param = nullptr;
-			log_error("image doesn't have a surface or texture object!");
+#endif
+		
+		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
+		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			*param = data;
+			memcpy(data, &cu_img->get_cuda_texture(), sizeof(uint64_t));
+			data += sizeof(uint64_t);
+		}
+		
+		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
+		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			*param = data;
+			memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
+			data += sizeof(uint64_t);
 		}
 	}
 	

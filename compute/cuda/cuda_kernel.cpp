@@ -22,8 +22,19 @@
 
 #include <floor/compute/compute_queue.hpp>
 
-cuda_kernel::cuda_kernel(const CUfunction kernel_, const llvm_compute::kernel_info& info) :
-kernel(kernel_), func_name(info.name) {
+// note that cuda doesn't have any special argument types and everything is just sized "memory"
+// -> only need to add up sizes
+static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
+	size_t ret = 0;
+	const auto arg_count = info.args.size();
+	for(size_t i = 0; i < arg_count; ++i) {
+		ret += info.args[i].size;
+	}
+	return ret;
+}
+
+cuda_kernel::cuda_kernel(const CUfunction kernel_, const llvm_compute::kernel_info& info_) :
+kernel(kernel_), func_name(info_.name), kernel_args_size(compute_kernel_args_size(info_)), info(info_) {
 }
 
 cuda_kernel::~cuda_kernel() {}
