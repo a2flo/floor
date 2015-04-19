@@ -668,7 +668,7 @@ index 079ef72..1c68e94 100644
      return llvm::PointerType::get(llvm::StructType::create(
                             Ctx, "opencl.image3d_t"), ImgAddrSpc);
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..68273c0 100644
+index 5ca3a78..8ea426b 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -683,7 +683,7 @@ index 5ca3a78..68273c0 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +447,255 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +447,259 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -788,6 +788,10 @@ index 5ca3a78..68273c0 100644
 +	
 +	int i = 0;
 +	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
++		if(uint32_t(i) >= FD->param_size()) {
++			// should probably error out?
++			break;
++		}
 +		const auto type = arg_iter->getType();
 +		const auto parm = FD->getParamDecl(i);
 +		const auto clang_type = parm->getType();
@@ -939,7 +943,7 @@ index 5ca3a78..68273c0 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -461,6 +711,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -461,6 +715,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
@@ -949,7 +953,7 @@ index 5ca3a78..68273c0 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +752,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +756,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -990,7 +994,7 @@ index 5ca3a78..68273c0 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +842,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +846,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
