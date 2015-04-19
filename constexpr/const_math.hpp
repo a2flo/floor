@@ -311,20 +311,53 @@ namespace const_math {
 	};
 	
 	//! computes (n choose k), the binomial coefficient
-	//! NOTE: safe n == significand precision of max_fp_type
-	//!       -> float: 24, double: 53, long double: 64+
-	constexpr uint64_t binomial(uint64_t n, uint64_t k) {
+	//! NOTE: only safe to call up to n = 67, after this results may no longer fit into 64-bit
+	__attribute__((pure, const)) constexpr uint64_t binomial(uint64_t n, uint64_t k)
+	__attribute__((enable_if(!__builtin_constant_p(n) || (__builtin_constant_p(n) && n <= 67), "64-bit range"))) {
 		if(k > n) return 0u;
 		if(k == 0u || k == n) return 1u;
 		
-		k = const_math::min(k, n - k);
-		max_fp_type ret = 1;
-		for(uint64_t i = 1u; i <= k; ++i) {
-			// sadly have to use fp math because of this
-			ret *= max_fp_type((n + 1u) - i) / max_fp_type(i);
+		// if n is small enough, doubles are safe to use
+		if(n <= 53) {
+			k = const_math::min(k, n - k);
+			double ret = 1.0;
+			for(uint64_t i = 1u; i <= k; ++i) {
+				// sadly have to use fp math because of this
+				ret *= double((n + 1u) - i) / double(i);
+			}
+			return (uint64_t)const_math::round(ret);
 		}
-		return (uint64_t)const_math::round(ret);
+		// else: compute it recursively
+		else {
+			// here: n > 53, k > 0
+			return binomial(n - 1u, k - 1u) + binomial(n - 1u, k);
+		}
 	}
+	
+#if !defined(FLOOR_COMPUTE) // no 128-bit types
+	//! computes (n choose k), the binomial coefficient
+	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
+	__attribute__((pure, const)) constexpr __uint128_t binomial_128(__uint128_t n, __uint128_t k) {
+		if(k > n) return 0u;
+		if(k == 0u || k == n) return 1u;
+		
+		// if n is small enough, long doubles are safe to use
+		if(n <= 63) {
+			k = const_math::min(k, n - k);
+			long double ret = 1.0L;
+			for(uint64_t i = 1u; i <= k; ++i) {
+				// sadly have to use fp math because of this
+				ret *= ((long double)((n + 1u) - i)) / ((long double)(i));
+			}
+			return (__uint128_t)const_math::round(ret);
+		}
+		// else: compute it recursively
+		else {
+			// here: n > 63, k > 0
+			return binomial_128(n - 1u, k - 1u) + binomial_128(n - 1u, k);
+		}
+	}
+#endif
 	
 	//! computes e^val, the exponential function value of val
 	//! NOTE: not precise, especially for huge values
