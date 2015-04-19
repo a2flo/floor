@@ -126,16 +126,17 @@ protected:
 		}
 #endif
 		
+		// set this to the start
+		*param = data;
+		
 		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
 		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			*param = data;
 			memcpy(data, &cu_img->get_cuda_texture(), sizeof(uint64_t));
 			data += sizeof(uint64_t);
 		}
 		
 		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
 		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			*param = data;
 			memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
 			data += sizeof(uint64_t);
 		}

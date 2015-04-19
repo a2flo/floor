@@ -139,8 +139,11 @@ namespace floor_compute {
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 //! local memory buffer
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
-#define local_buffer local local_buffer_cuda
-template <typename T, size_t count> using local_buffer_cuda = T[count];
+#define local_buffer local cuda_local_buffer
+template <typename T, size_t count_x> using cuda_local_buffer_1d = T[count_x];
+template <typename T, size_t count_y, size_t count_x> using cuda_local_buffer_2d = T[count_y][count_x];
+template <typename T, size_t count_1, size_t count_2 = 0> using cuda_local_buffer =
+	conditional_t<count_2 == 0, cuda_local_buffer_1d<T, count_1>, cuda_local_buffer_2d<T, count_1, count_2>>;
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
 #define const_buffer constant const_buffer_cuda

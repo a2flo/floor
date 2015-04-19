@@ -135,7 +135,7 @@ struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE
 
 // cuda specific
 template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_surf() { return (itype & COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER) == COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER; }
+static constexpr bool is_surf() { return (itype & COMPUTE_IMAGE_TYPE::WRITE) == COMPUTE_IMAGE_TYPE::WRITE; }
 
 template <COMPUTE_IMAGE_TYPE itype>
 static constexpr bool is_tex() { return !is_surf<itype>(); }
@@ -152,14 +152,14 @@ static constexpr bool is_float() { return (itype & COMPUTE_IMAGE_TYPE::__DATA_TY
 
 template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct image {};
 template <COMPUTE_IMAGE_TYPE image_type>
-struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)>> {
+struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type)>> {
 	static constexpr COMPUTE_IMAGE_TYPE type { image_type };
 	typedef typename cuda_tex_texel_data_type<image_type>::type tex_data_type;
 	
 	const uint64_t tex;
 };
 template <COMPUTE_IMAGE_TYPE image_type>
-struct image<image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)>> {
+struct image<image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)>> {
 	static constexpr COMPUTE_IMAGE_TYPE type { image_type };
 	typedef typename cuda_surf_texel_data_type<image_type>::type surf_data_type;
 	
@@ -171,8 +171,14 @@ struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(im
 	typedef typename cuda_tex_texel_data_type<image_type>::type tex_data_type;
 	typedef typename cuda_surf_texel_data_type<image_type>::type surf_data_type;
 	
-	const uint64_t surf;
-	const uint64_t tex;
+	// NOTE: this needs to packed like this, so that we don't get weird optimization behavior when one isn't used
+	union {
+		struct {
+			const uint64_t tex;
+			const uint64_t surf;
+		};
+		const uint2 surf_tex_id;
+	};
 };
 
 #define ro_image read_only cuda_ro_image
@@ -226,18 +232,17 @@ floor_inline_always auto read(const image<image_type>& img, const int2& coord) {
 }
 #endif
 
-template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type = typename cuda_surf_texel_data_type<image_type>::type,
-		  enable_if_t<is_surf<image_type>()>* = nullptr>
+template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type = uchar4,
+enable_if_t<is_same<surf_data_type, uchar4>::value>* = nullptr>
 floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& data) {
 	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
 		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
 		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
 }
 
-template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(is_surf<image_type>() &&
-					   !is_same<float4, typename cuda_surf_texel_data_type<image_type>::type>::value)>* = nullptr>
-floor_inline_always void write(const image<image_type>& img, const int2& coord, const float4& unscaled_data) {
+template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type,
+enable_if_t<is_same<surf_data_type, float4>::value>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& unscaled_data) {
 	uchar4 data = unscaled_data * 255.0f;
 	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
 		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
@@ -256,13 +261,23 @@ floor_inline_always auto read(int2 coord) const {
 }
 #endif
 
-template <COMPUTE_IMAGE_TYPE image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, int2 coord) {
-	float4 ret;
+template <typename ret_type = float4, COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<is_same<ret_type, float4>::value && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
+floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
+	ret_type ret;
 	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
 		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
 	return ret;
+}
+template <typename ret_type, COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<is_same<ret_type, uchar4>::value && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
+floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
+	float4 ret;
+	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
+		"l"(img.tex), "r"(coord.x), "r"(coord.y));
+	return uchar4 { ret * 255.0f };
 }
 
 #endif
