@@ -218,6 +218,22 @@ namespace const_math {
 		return (val < (arithmetic_type)0 ? -val : val);
 	}
 	
+	//! computes min(x, y), returning x if x <= y, else y
+	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
+																	is_same<arithmetic_type, __int128_t>::value ||
+																	is_same<arithmetic_type, __uint128_t>::value)>::type>
+	constexpr arithmetic_type min(arithmetic_type x, arithmetic_type y) {
+		return (x <= y ? x : y);
+	}
+	
+	//! computes max(x, y), returning x if x >= y, else y
+	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
+																	is_same<arithmetic_type, __int128_t>::value ||
+																	is_same<arithmetic_type, __uint128_t>::value)>::type>
+	constexpr arithmetic_type max(arithmetic_type x, arithmetic_type y) {
+		return (x >= y ? x : y);
+	}
+	
 	//! computes round(val), the nearest integer value to val
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
@@ -293,6 +309,22 @@ namespace const_math {
 		}
 		return fac;
 	};
+	
+	//! computes (n choose k), the binomial coefficient
+	//! NOTE: safe n == significand precision of max_fp_type
+	//!       -> float: 24, double: 53, long double: 64+
+	constexpr uint64_t binomial(uint64_t n, uint64_t k) {
+		if(k > n) return 0u;
+		if(k == 0u || k == n) return 1u;
+		
+		k = const_math::min(k, n - k);
+		max_fp_type ret = 1;
+		for(uint64_t i = 1u; i <= k; ++i) {
+			// sadly have to use fp math because of this
+			ret *= max_fp_type((n + 1u) - i) / max_fp_type(i);
+		}
+		return (uint64_t)const_math::round(ret);
+	}
 	
 	//! computes e^val, the exponential function value of val
 	//! NOTE: not precise, especially for huge values
