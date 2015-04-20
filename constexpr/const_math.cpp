@@ -27,6 +27,7 @@
 
 #include <floor/constexpr/const_math.hpp>
 
+#if !defined(_MSC_VER) // name mangling issues
 namespace const_select {
 	// generic is_constexpr checks
 #define FLOOR_IS_CONSTEXPR(type_name) \
@@ -128,5 +129,6 @@ namespace const_select {
 #undef FLOOR_CONST_MATH_SELECT_3
 	
 }
+#endif
 
 #endif

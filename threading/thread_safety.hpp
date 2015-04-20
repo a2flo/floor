@@ -23,7 +23,7 @@
 
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
-#if defined(__clang__) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5)) && (!defined(SWIG))
+#if defined(__clang__) && !defined(_MSC_VER) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5)) && (!defined(SWIG))
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) __attribute__((x))
 #else
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) // no-op
@@ -104,7 +104,7 @@
 // wrappers / replacements
 #include <mutex>
 
-#if defined(__clang__) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5))
+#if defined(__clang__) && !defined(_MSC_VER) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5))
 // wrapper around std::mutex, based on libc++
 class CAPABILITY("mutex") safe_mutex {
 protected:

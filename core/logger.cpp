@@ -16,12 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#if !defined(_MSC_VER)
 #include <sys/time.h>
+#endif
 #include <floor/core/logger.hpp>
 #include <floor/threading/thread_base.hpp>
 #include <floor/core/cpp_headers.hpp>
 
-#if defined(__APPLE__) || defined(WIN_UNIXENV)
+#if defined(__APPLE__) || defined(__WINDOWS__)
 #include <SDL2/SDL.h>
 #else
 #include <SDL.h>
@@ -258,8 +260,14 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 			char time_str[64];
 			const auto system_now = chrono::system_clock::now();
 			const auto cur_time = chrono::system_clock::to_time_t(system_now);
+#if !defined(_MSC_VER)
 			struct tm* local_time = localtime(&cur_time);
 			strftime(time_str, sizeof(time_str), "%H:%M:%S", local_time);
+#else
+			struct tm local_time;
+			localtime_s(&local_time, &cur_time);
+			strftime(time_str, sizeof(time_str), "%H:%M:%S", &local_time);
+#endif
 			buffer << time_str;
 			buffer << ".";
 			buffer << setw(is_same<chrono::system_clock::period, nano>::value ? 9 :

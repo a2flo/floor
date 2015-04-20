@@ -345,6 +345,10 @@ void core::system(const string& cmd, string& output) {
 	char buffer[buffer_size+1];
 	memset(&buffer, 0, buffer_size+1);
 	
+#if defined(_MSC_VER)
+#define popen _popen
+#define pclose _pclose
+#endif
 	FILE* sys_pipe = popen(cmd.c_str(), "r");
 	while(fgets(buffer, buffer_size, sys_pipe) != nullptr) {
 		output += buffer;

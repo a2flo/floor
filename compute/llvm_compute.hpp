@@ -21,6 +21,7 @@
 
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_device.hpp>
+#include <memory>
 
 class llvm_compute {
 public:

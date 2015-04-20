@@ -27,6 +27,16 @@
 // Windows
 #if (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__WINDOWS__) || defined(MINGW)) && !defined(CYGWIN)
 
+#if defined(_MSC_VER)
+#include <windows.h>
+#include <winnt.h>
+#include <direct.h>
+#include <io.h>
+
+#undef getcwd
+#define getcwd _getcwd
+#endif
+
 // defines
 #if !defined(__WINDOWS__)
 #define __WINDOWS__ 1

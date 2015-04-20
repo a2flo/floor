@@ -392,6 +392,7 @@ public:
 		return ((scalar_type*)this)[index];
 	}
 	
+#if !defined(_MSC_VER) // duplicate name mangling issues
 	//! constexpr subscript access, with index == 0
 	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
 		return x;
@@ -436,6 +437,7 @@ public:
 	constexpr scalar_type& operator[](const size_t& index) __attribute__((enable_if(index == 3, "index is const"))) {
 		return w;
 	}
+#endif
 #endif
 	
 	//! constexpr subscript access, with index out of bounds
@@ -1987,6 +1989,7 @@ public:
 	}
 #endif
 	
+#if !defined(_MSC_VER) // msvc/llvm can't mangle clang vector types yet
 	//! converts this vector to the corresponding clang vector type,
 	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
 	constexpr operator clang_vector_type() const {
@@ -1997,6 +2000,7 @@ public:
 	static constexpr vector_type from_clang_vector(const clang_vector_type& vec) {
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };
 	}
+#endif
 	
 	// TODO: more conversions?
 	

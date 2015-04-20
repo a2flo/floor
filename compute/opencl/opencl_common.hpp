@@ -46,6 +46,8 @@
 #include <CL/cl_gl.h>
 #endif
 
+#include <cstdint>
+
 //! opencl version of the platform/driver/device
 enum class OPENCL_VERSION : uint32_t {
 	OPENCL_1_0,

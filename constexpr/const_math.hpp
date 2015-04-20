@@ -26,7 +26,9 @@
 #if !defined(FLOOR_COMPUTE)
 #include <cmath>
 #include <cstdint>
+#if !defined(_MSC_VER)
 #include <unistd.h>
+#endif
 #endif
 #include <floor/core/essentials.hpp>
 #include <floor/constexpr/soft_i128.hpp>
@@ -334,7 +336,7 @@ namespace const_math {
 		}
 	}
 	
-#if !defined(FLOOR_COMPUTE) // no 128-bit types
+#if !defined(FLOOR_COMPUTE) && !defined(PLATFORM_X32) // no 128-bit types
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
 	__attribute__((pure, const)) constexpr __uint128_t binomial_128(__uint128_t n, __uint128_t k) {

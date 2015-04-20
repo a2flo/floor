@@ -19,17 +19,83 @@
 #if !defined(__APPLE__)
 
 #include <floor/core/gl_support.hpp>
-#include <floor/core/logger.hpp>
 
+#define glGetProcAddress(x) SDL_GL_GetProcAddress(x)
 #if defined(__WINDOWS__) || defined(WIN_UNIXENV)
-#define glGetProcAddress(x) wglGetProcAddress(x)
 #define ProcType LPCSTR
 #else
-#define glGetProcAddress(x) glXGetProcAddressARB(x)
 #define ProcType GLubyte*
 #endif
 
 #if !defined(__LINUX__)
+#if defined(_MSC_VER)
+// OpenGL 1.0
+OGL_API PFNGLCULLFACEPROC _glCullFace_ptr = nullptr;
+OGL_API PFNGLFRONTFACEPROC _glFrontFace_ptr = nullptr;
+OGL_API PFNGLHINTPROC _glHint_ptr = nullptr;
+OGL_API PFNGLLINEWIDTHPROC _glLineWidth_ptr = nullptr;
+OGL_API PFNGLPOINTSIZEPROC _glPointSize_ptr = nullptr;
+OGL_API PFNGLPOLYGONMODEPROC _glPolygonMode_ptr = nullptr;
+OGL_API PFNGLSCISSORPROC _glScissor_ptr = nullptr;
+OGL_API PFNGLTEXPARAMETERFPROC _glTexParameterf_ptr = nullptr;
+OGL_API PFNGLTEXPARAMETERFVPROC _glTexParameterfv_ptr = nullptr;
+OGL_API PFNGLTEXPARAMETERIPROC _glTexParameteri_ptr = nullptr;
+OGL_API PFNGLTEXPARAMETERIVPROC _glTexParameteriv_ptr = nullptr;
+OGL_API PFNGLTEXIMAGE1DPROC _glTexImage1D_ptr = nullptr;
+OGL_API PFNGLTEXIMAGE2DPROC _glTexImage2D_ptr = nullptr;
+OGL_API PFNGLDRAWBUFFERPROC _glDrawBuffer_ptr = nullptr;
+OGL_API PFNGLCLEARPROC _glClear_ptr = nullptr;
+OGL_API PFNGLCLEARCOLORPROC _glClearColor_ptr = nullptr;
+OGL_API PFNGLCLEARSTENCILPROC _glClearStencil_ptr = nullptr;
+OGL_API PFNGLCLEARDEPTHPROC _glClearDepth_ptr = nullptr;
+OGL_API PFNGLSTENCILMASKPROC _glStencilMask_ptr = nullptr;
+OGL_API PFNGLCOLORMASKPROC _glColorMask_ptr = nullptr;
+OGL_API PFNGLDEPTHMASKPROC _glDepthMask_ptr = nullptr;
+OGL_API PFNGLDISABLEPROC _glDisable_ptr = nullptr;
+OGL_API PFNGLENABLEPROC _glEnable_ptr = nullptr;
+OGL_API PFNGLFINISHPROC _glFinish_ptr = nullptr;
+OGL_API PFNGLFLUSHPROC _glFlush_ptr = nullptr;
+OGL_API PFNGLBLENDFUNCPROC _glBlendFunc_ptr = nullptr;
+OGL_API PFNGLLOGICOPPROC _glLogicOp_ptr = nullptr;
+OGL_API PFNGLSTENCILFUNCPROC _glStencilFunc_ptr = nullptr;
+OGL_API PFNGLSTENCILOPPROC _glStencilOp_ptr = nullptr;
+OGL_API PFNGLDEPTHFUNCPROC _glDepthFunc_ptr = nullptr;
+OGL_API PFNGLPIXELSTOREFPROC _glPixelStoref_ptr = nullptr;
+OGL_API PFNGLPIXELSTOREIPROC _glPixelStorei_ptr = nullptr;
+OGL_API PFNGLREADBUFFERPROC _glReadBuffer_ptr = nullptr;
+OGL_API PFNGLREADPIXELSPROC _glReadPixels_ptr = nullptr;
+OGL_API PFNGLGETBOOLEANVPROC _glGetBooleanv_ptr = nullptr;
+OGL_API PFNGLGETDOUBLEVPROC _glGetDoublev_ptr = nullptr;
+OGL_API PFNGLGETERRORPROC _glGetError_ptr = nullptr;
+OGL_API PFNGLGETFLOATVPROC _glGetFloatv_ptr = nullptr;
+OGL_API PFNGLGETINTEGERVPROC _glGetIntegerv_ptr = nullptr;
+OGL_API PFNGLGETSTRINGPROC _glGetString_ptr = nullptr;
+OGL_API PFNGLGETTEXIMAGEPROC _glGetTexImage_ptr = nullptr;
+OGL_API PFNGLGETTEXPARAMETERFVPROC _glGetTexParameterfv_ptr = nullptr;
+OGL_API PFNGLGETTEXPARAMETERIVPROC _glGetTexParameteriv_ptr = nullptr;
+OGL_API PFNGLGETTEXLEVELPARAMETERFVPROC _glGetTexLevelParameterfv_ptr = nullptr;
+OGL_API PFNGLGETTEXLEVELPARAMETERIVPROC _glGetTexLevelParameteriv_ptr = nullptr;
+OGL_API PFNGLISENABLEDPROC _glIsEnabled_ptr = nullptr;
+OGL_API PFNGLDEPTHRANGEPROC _glDepthRange_ptr = nullptr;
+OGL_API PFNGLVIEWPORTPROC _glViewport_ptr = nullptr;
+
+// OpenGL 1.1
+OGL_API PFNGLDRAWARRAYSPROC _glDrawArrays_ptr = nullptr;
+OGL_API PFNGLDRAWELEMENTSPROC _glDrawElements_ptr = nullptr;
+OGL_API PFNGLGETPOINTERVPROC _glGetPointerv_ptr = nullptr;
+OGL_API PFNGLPOLYGONOFFSETPROC _glPolygonOffset_ptr = nullptr;
+OGL_API PFNGLCOPYTEXIMAGE1DPROC _glCopyTexImage1D_ptr = nullptr;
+OGL_API PFNGLCOPYTEXIMAGE2DPROC _glCopyTexImage2D_ptr = nullptr;
+OGL_API PFNGLCOPYTEXSUBIMAGE1DPROC _glCopyTexSubImage1D_ptr = nullptr;
+OGL_API PFNGLCOPYTEXSUBIMAGE2DPROC _glCopyTexSubImage2D_ptr = nullptr;
+OGL_API PFNGLTEXSUBIMAGE1DPROC _glTexSubImage1D_ptr = nullptr;
+OGL_API PFNGLTEXSUBIMAGE2DPROC _glTexSubImage2D_ptr = nullptr;
+OGL_API PFNGLBINDTEXTUREPROC _glBindTexture_ptr = nullptr;
+OGL_API PFNGLDELETETEXTURESPROC _glDeleteTextures_ptr = nullptr;
+OGL_API PFNGLGENTEXTURESPROC _glGenTextures_ptr = nullptr;
+OGL_API PFNGLISTEXTUREPROC _glIsTexture_ptr = nullptr;
+#endif
+
 // OpenGL 1.2
 OGL_API PFNGLBLENDCOLORPROC _glBlendColor_ptr = nullptr;
 OGL_API PFNGLBLENDEQUATIONPROC _glBlendEquation_ptr = nullptr;
@@ -325,36 +391,6 @@ OGL_API PFNGLGETSAMPLERPARAMETERIUIVPROC _glGetSamplerParameterIuiv_ptr = nullpt
 OGL_API PFNGLQUERYCOUNTERPROC _glQueryCounter_ptr = nullptr; // ARB_timer_query
 OGL_API PFNGLGETQUERYOBJECTI64VPROC _glGetQueryObjecti64v_ptr = nullptr; // ARB_timer_query
 OGL_API PFNGLGETQUERYOBJECTUI64VPROC _glGetQueryObjectui64v_ptr = nullptr; // ARB_timer_query
-OGL_API PFNGLVERTEXP2UIPROC _glVertexP2ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLVERTEXP2UIVPROC _glVertexP2uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLVERTEXP3UIPROC _glVertexP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLVERTEXP3UIVPROC _glVertexP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLVERTEXP4UIPROC _glVertexP4ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLVERTEXP4UIVPROC _glVertexP4uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP1UIPROC _glTexCoordP1ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP1UIVPROC _glTexCoordP1uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP2UIPROC _glTexCoordP2ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP2UIVPROC _glTexCoordP2uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP3UIPROC _glTexCoordP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP3UIVPROC _glTexCoordP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP4UIPROC _glTexCoordP4ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLTEXCOORDP4UIVPROC _glTexCoordP4uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP1UIPROC _glMultiTexCoordP1ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP1UIVPROC _glMultiTexCoordP1uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP2UIPROC _glMultiTexCoordP2ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP2UIVPROC _glMultiTexCoordP2uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP3UIPROC _glMultiTexCoordP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP3UIVPROC _glMultiTexCoordP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP4UIPROC _glMultiTexCoordP4ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLMULTITEXCOORDP4UIVPROC _glMultiTexCoordP4uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLNORMALP3UIPROC _glNormalP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLNORMALP3UIVPROC _glNormalP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLCOLORP3UIPROC _glColorP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLCOLORP3UIVPROC _glColorP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLCOLORP4UIPROC _glColorP4ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLCOLORP4UIVPROC _glColorP4uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLSECONDARYCOLORP3UIPROC _glSecondaryColorP3ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API PFNGLSECONDARYCOLORP3UIVPROC _glSecondaryColorP3uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API PFNGLVERTEXATTRIBP1UIPROC _glVertexAttribP1ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API PFNGLVERTEXATTRIBP1UIVPROC _glVertexAttribP1uiv_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API PFNGLVERTEXATTRIBP2UIPROC _glVertexAttribP2ui_ptr = nullptr; // ARB_vertex_type_2_10_10_10_rev
@@ -504,6 +540,74 @@ OGL_API PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr = nullptr; // ARB_viewport_arr
 
 void init_gl_funcs() {
 #if !defined(__LINUX__)
+#if defined(_MSC_VER)
+	//OpenGL1.0
+	_glCullFace_ptr = (PFNGLCULLFACEPROC)glGetProcAddress((ProcType)"glCullFace");
+	_glFrontFace_ptr = (PFNGLFRONTFACEPROC)glGetProcAddress((ProcType)"glFrontFace");
+	_glHint_ptr = (PFNGLHINTPROC)glGetProcAddress((ProcType)"glHint");
+	_glLineWidth_ptr = (PFNGLLINEWIDTHPROC)glGetProcAddress((ProcType)"glLineWidth");
+	_glPointSize_ptr = (PFNGLPOINTSIZEPROC)glGetProcAddress((ProcType)"glPointSize");
+	_glPolygonMode_ptr = (PFNGLPOLYGONMODEPROC)glGetProcAddress((ProcType)"glPolygonMode");
+	_glScissor_ptr = (PFNGLSCISSORPROC)glGetProcAddress((ProcType)"glScissor");
+	_glTexParameterf_ptr = (PFNGLTEXPARAMETERFPROC)glGetProcAddress((ProcType)"glTexParameterf");
+	_glTexParameterfv_ptr = (PFNGLTEXPARAMETERFVPROC)glGetProcAddress((ProcType)"glTexParameterfv");
+	_glTexParameteri_ptr = (PFNGLTEXPARAMETERIPROC)glGetProcAddress((ProcType)"glTexParameteri");
+	_glTexParameteriv_ptr = (PFNGLTEXPARAMETERIVPROC)glGetProcAddress((ProcType)"glTexParameteriv");
+	_glTexImage1D_ptr = (PFNGLTEXIMAGE1DPROC)glGetProcAddress((ProcType)"glTexImage1D");
+	_glTexImage2D_ptr = (PFNGLTEXIMAGE2DPROC)glGetProcAddress((ProcType)"glTexImage2D");
+	_glDrawBuffer_ptr = (PFNGLDRAWBUFFERPROC)glGetProcAddress((ProcType)"glDrawBuffer");
+	_glClear_ptr = (PFNGLCLEARPROC)glGetProcAddress((ProcType)"glClear");
+	_glClearColor_ptr = (PFNGLCLEARCOLORPROC)glGetProcAddress((ProcType)"glClearColor");
+	_glClearStencil_ptr = (PFNGLCLEARSTENCILPROC)glGetProcAddress((ProcType)"glClearStencil");
+	_glClearDepth_ptr = (PFNGLCLEARDEPTHPROC)glGetProcAddress((ProcType)"glClearDepth");
+	_glStencilMask_ptr = (PFNGLSTENCILMASKPROC)glGetProcAddress((ProcType)"glStencilMask");
+	_glColorMask_ptr = (PFNGLCOLORMASKPROC)glGetProcAddress((ProcType)"glColorMask");
+	_glDepthMask_ptr = (PFNGLDEPTHMASKPROC)glGetProcAddress((ProcType)"glDepthMask");
+	_glDisable_ptr = (PFNGLDISABLEPROC)glGetProcAddress((ProcType)"glDisable");
+	_glEnable_ptr = (PFNGLENABLEPROC)glGetProcAddress((ProcType)"glEnable");
+	_glFinish_ptr = (PFNGLFINISHPROC)glGetProcAddress((ProcType)"glFinish");
+	_glFlush_ptr = (PFNGLFLUSHPROC)glGetProcAddress((ProcType)"glFlush");
+	_glBlendFunc_ptr = (PFNGLBLENDFUNCPROC)glGetProcAddress((ProcType)"glBlendFunc");
+	_glLogicOp_ptr = (PFNGLLOGICOPPROC)glGetProcAddress((ProcType)"glLogicOp");
+	_glStencilFunc_ptr = (PFNGLSTENCILFUNCPROC)glGetProcAddress((ProcType)"glStencilFunc");
+	_glStencilOp_ptr = (PFNGLSTENCILOPPROC)glGetProcAddress((ProcType)"glStencilOp");
+	_glDepthFunc_ptr = (PFNGLDEPTHFUNCPROC)glGetProcAddress((ProcType)"glDepthFunc");
+	_glPixelStoref_ptr = (PFNGLPIXELSTOREFPROC)glGetProcAddress((ProcType)"glPixelStoref");
+	_glPixelStorei_ptr = (PFNGLPIXELSTOREIPROC)glGetProcAddress((ProcType)"glPixelStorei");
+	_glReadBuffer_ptr = (PFNGLREADBUFFERPROC)glGetProcAddress((ProcType)"glReadBuffer");
+	_glReadPixels_ptr = (PFNGLREADPIXELSPROC)glGetProcAddress((ProcType)"glReadPixels");
+	_glGetBooleanv_ptr = (PFNGLGETBOOLEANVPROC)glGetProcAddress((ProcType)"glGetBooleanv");
+	_glGetDoublev_ptr = (PFNGLGETDOUBLEVPROC)glGetProcAddress((ProcType)"glGetDoublev");
+	_glGetError_ptr = (PFNGLGETERRORPROC)glGetProcAddress((ProcType)"glGetError");
+	_glGetFloatv_ptr = (PFNGLGETFLOATVPROC)glGetProcAddress((ProcType)"glGetFloatv");
+	_glGetIntegerv_ptr = (PFNGLGETINTEGERVPROC)glGetProcAddress((ProcType)"glGetIntegerv");
+	_glGetString_ptr = (PFNGLGETSTRINGPROC)glGetProcAddress((ProcType)"glGetString");
+	_glGetTexImage_ptr = (PFNGLGETTEXIMAGEPROC)glGetProcAddress((ProcType)"glGetTexImage");
+	_glGetTexParameterfv_ptr = (PFNGLGETTEXPARAMETERFVPROC)glGetProcAddress((ProcType)"glGetTexParameterfv");
+	_glGetTexParameteriv_ptr = (PFNGLGETTEXPARAMETERIVPROC)glGetProcAddress((ProcType)"glGetTexParameteriv");
+	_glGetTexLevelParameterfv_ptr = (PFNGLGETTEXLEVELPARAMETERFVPROC)glGetProcAddress((ProcType)"glGetTexLevelParameterfv");
+	_glGetTexLevelParameteriv_ptr = (PFNGLGETTEXLEVELPARAMETERIVPROC)glGetProcAddress((ProcType)"glGetTexLevelParameteriv");
+	_glIsEnabled_ptr = (PFNGLISENABLEDPROC)glGetProcAddress((ProcType)"glIsEnabled");
+	_glDepthRange_ptr = (PFNGLDEPTHRANGEPROC)glGetProcAddress((ProcType)"glDepthRange");
+	_glViewport_ptr = (PFNGLVIEWPORTPROC)glGetProcAddress((ProcType)"glViewport");
+	
+	//OpenGL1.1
+	_glDrawArrays_ptr = (PFNGLDRAWARRAYSPROC)glGetProcAddress((ProcType)"glDrawArrays");
+	_glDrawElements_ptr = (PFNGLDRAWELEMENTSPROC)glGetProcAddress((ProcType)"glDrawElements");
+	_glGetPointerv_ptr = (PFNGLGETPOINTERVPROC)glGetProcAddress((ProcType)"glGetPointerv");
+	_glPolygonOffset_ptr = (PFNGLPOLYGONOFFSETPROC)glGetProcAddress((ProcType)"glPolygonOffset");
+	_glCopyTexImage1D_ptr = (PFNGLCOPYTEXIMAGE1DPROC)glGetProcAddress((ProcType)"glCopyTexImage1D");
+	_glCopyTexImage2D_ptr = (PFNGLCOPYTEXIMAGE2DPROC)glGetProcAddress((ProcType)"glCopyTexImage2D");
+	_glCopyTexSubImage1D_ptr = (PFNGLCOPYTEXSUBIMAGE1DPROC)glGetProcAddress((ProcType)"glCopyTexSubImage1D");
+	_glCopyTexSubImage2D_ptr = (PFNGLCOPYTEXSUBIMAGE2DPROC)glGetProcAddress((ProcType)"glCopyTexSubImage2D");
+	_glTexSubImage1D_ptr = (PFNGLTEXSUBIMAGE1DPROC)glGetProcAddress((ProcType)"glTexSubImage1D");
+	_glTexSubImage2D_ptr = (PFNGLTEXSUBIMAGE2DPROC)glGetProcAddress((ProcType)"glTexSubImage2D");
+	_glBindTexture_ptr = (PFNGLBINDTEXTUREPROC)glGetProcAddress((ProcType)"glBindTexture");
+	_glDeleteTextures_ptr = (PFNGLDELETETEXTURESPROC)glGetProcAddress((ProcType)"glDeleteTextures");
+	_glGenTextures_ptr = (PFNGLGENTEXTURESPROC)glGetProcAddress((ProcType)"glGenTextures");
+	_glIsTexture_ptr = (PFNGLISTEXTUREPROC)glGetProcAddress((ProcType)"glIsTexture");
+#endif
+
 	// OpenGL 1.2
 	_glBlendColor_ptr = (PFNGLBLENDCOLORPROC)glGetProcAddress((ProcType)"glBlendColor");
 	_glBlendEquation_ptr = (PFNGLBLENDEQUATIONPROC)glGetProcAddress((ProcType)"glBlendEquation");
@@ -799,36 +903,6 @@ void init_gl_funcs() {
 	_glQueryCounter_ptr = (PFNGLQUERYCOUNTERPROC)glGetProcAddress((ProcType)"glQueryCounter"); // ARB_timer_query
 	_glGetQueryObjecti64v_ptr = (PFNGLGETQUERYOBJECTI64VPROC)glGetProcAddress((ProcType)"glGetQueryObjecti64v"); // ARB_timer_query
 	_glGetQueryObjectui64v_ptr = (PFNGLGETQUERYOBJECTUI64VPROC)glGetProcAddress((ProcType)"glGetQueryObjectui64v"); // ARB_timer_query
-	_glVertexP2ui_ptr = (PFNGLVERTEXP2UIPROC)glGetProcAddress((ProcType)"glVertexP2ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glVertexP2uiv_ptr = (PFNGLVERTEXP2UIVPROC)glGetProcAddress((ProcType)"glVertexP2uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glVertexP3ui_ptr = (PFNGLVERTEXP3UIPROC)glGetProcAddress((ProcType)"glVertexP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glVertexP3uiv_ptr = (PFNGLVERTEXP3UIVPROC)glGetProcAddress((ProcType)"glVertexP3uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glVertexP4ui_ptr = (PFNGLVERTEXP4UIPROC)glGetProcAddress((ProcType)"glVertexP4ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glVertexP4uiv_ptr = (PFNGLVERTEXP4UIVPROC)glGetProcAddress((ProcType)"glVertexP4uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP1ui_ptr = (PFNGLTEXCOORDP1UIPROC)glGetProcAddress((ProcType)"glTexCoordP1ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP1uiv_ptr = (PFNGLTEXCOORDP1UIVPROC)glGetProcAddress((ProcType)"glTexCoordP1uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP2ui_ptr = (PFNGLTEXCOORDP2UIPROC)glGetProcAddress((ProcType)"glTexCoordP2ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP2uiv_ptr = (PFNGLTEXCOORDP2UIVPROC)glGetProcAddress((ProcType)"glTexCoordP2uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP3ui_ptr = (PFNGLTEXCOORDP3UIPROC)glGetProcAddress((ProcType)"glTexCoordP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP3uiv_ptr = (PFNGLTEXCOORDP3UIVPROC)glGetProcAddress((ProcType)"glTexCoordP3uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP4ui_ptr = (PFNGLTEXCOORDP4UIPROC)glGetProcAddress((ProcType)"glTexCoordP4ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glTexCoordP4uiv_ptr = (PFNGLTEXCOORDP4UIVPROC)glGetProcAddress((ProcType)"glTexCoordP4uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP1ui_ptr = (PFNGLMULTITEXCOORDP1UIPROC)glGetProcAddress((ProcType)"glMultiTexCoordP1ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP1uiv_ptr = (PFNGLMULTITEXCOORDP1UIVPROC)glGetProcAddress((ProcType)"glMultiTexCoordP1uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP2ui_ptr = (PFNGLMULTITEXCOORDP2UIPROC)glGetProcAddress((ProcType)"glMultiTexCoordP2ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP2uiv_ptr = (PFNGLMULTITEXCOORDP2UIVPROC)glGetProcAddress((ProcType)"glMultiTexCoordP2uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP3ui_ptr = (PFNGLMULTITEXCOORDP3UIPROC)glGetProcAddress((ProcType)"glMultiTexCoordP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP3uiv_ptr = (PFNGLMULTITEXCOORDP3UIVPROC)glGetProcAddress((ProcType)"glMultiTexCoordP3uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP4ui_ptr = (PFNGLMULTITEXCOORDP4UIPROC)glGetProcAddress((ProcType)"glMultiTexCoordP4ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glMultiTexCoordP4uiv_ptr = (PFNGLMULTITEXCOORDP4UIVPROC)glGetProcAddress((ProcType)"glMultiTexCoordP4uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glNormalP3ui_ptr = (PFNGLNORMALP3UIPROC)glGetProcAddress((ProcType)"glNormalP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glNormalP3uiv_ptr = (PFNGLNORMALP3UIVPROC)glGetProcAddress((ProcType)"glNormalP3uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glColorP3ui_ptr = (PFNGLCOLORP3UIPROC)glGetProcAddress((ProcType)"glColorP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glColorP3uiv_ptr = (PFNGLCOLORP3UIVPROC)glGetProcAddress((ProcType)"glColorP3uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glColorP4ui_ptr = (PFNGLCOLORP4UIPROC)glGetProcAddress((ProcType)"glColorP4ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glColorP4uiv_ptr = (PFNGLCOLORP4UIVPROC)glGetProcAddress((ProcType)"glColorP4uiv"); // ARB_vertex_type_2_10_10_10_rev
-	_glSecondaryColorP3ui_ptr = (PFNGLSECONDARYCOLORP3UIPROC)glGetProcAddress((ProcType)"glSecondaryColorP3ui"); // ARB_vertex_type_2_10_10_10_rev
-	_glSecondaryColorP3uiv_ptr = (PFNGLSECONDARYCOLORP3UIVPROC)glGetProcAddress((ProcType)"glSecondaryColorP3uiv"); // ARB_vertex_type_2_10_10_10_rev
 	_glVertexAttribP1ui_ptr = (PFNGLVERTEXATTRIBP1UIPROC)glGetProcAddress((ProcType)"glVertexAttribP1ui"); // ARB_vertex_type_2_10_10_10_rev
 	_glVertexAttribP1uiv_ptr = (PFNGLVERTEXATTRIBP1UIVPROC)glGetProcAddress((ProcType)"glVertexAttribP1uiv"); // ARB_vertex_type_2_10_10_10_rev
 	_glVertexAttribP2ui_ptr = (PFNGLVERTEXATTRIBP2UIPROC)glGetProcAddress((ProcType)"glVertexAttribP2ui"); // ARB_vertex_type_2_10_10_10_rev

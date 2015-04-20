@@ -107,14 +107,14 @@ extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum t
 
 // we only need to get opengl functions pointers on windows, linux, *bsd, ...
 #else
-#include <floor/core/cpp_headers.hpp>
+#include <floor/core/platform.hpp>
 
 #if defined(MINGW)
 #define GL3_PROTOTYPES
 #endif
-#include <GL/gl.h>
+#include <GL/glcorearb.h>
 #include <GL/glext.h>
-#if !defined(WIN_UNIXENV)
+#if !defined(__WINDOWS__)
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #endif
@@ -132,7 +132,76 @@ void init_gl_funcs();
 typedef void (APIENTRYP PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC) (GLenum target, GLsizei coverageSamples, GLsizei colorSamples, GLenum internalformat, GLsizei width, GLsizei height);
 OGL_API extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC _glRenderbufferStorageMultisampleCoverageNV_ptr; // NV_framebuffer_multisample_coverage
 
-#if !defined(__LINUX__) // gl 1.2 + 1.3 are already defined in linux
+#if !defined(__LINUX__) // gl 1.0 - 1.3 are already defined in linux
+#if defined(_MSC_VER) // msvc no longer supports any opengl
+// OpenGL 1.0
+OGL_API extern PFNGLCULLFACEPROC _glCullFace_ptr;
+OGL_API extern PFNGLFRONTFACEPROC _glFrontFace_ptr;
+OGL_API extern PFNGLHINTPROC _glHint_ptr;
+OGL_API extern PFNGLLINEWIDTHPROC _glLineWidth_ptr;
+OGL_API extern PFNGLPOINTSIZEPROC _glPointSize_ptr;
+OGL_API extern PFNGLPOLYGONMODEPROC _glPolygonMode_ptr;
+OGL_API extern PFNGLSCISSORPROC _glScissor_ptr;
+OGL_API extern PFNGLTEXPARAMETERFPROC _glTexParameterf_ptr;
+OGL_API extern PFNGLTEXPARAMETERFVPROC _glTexParameterfv_ptr;
+OGL_API extern PFNGLTEXPARAMETERIPROC _glTexParameteri_ptr;
+OGL_API extern PFNGLTEXPARAMETERIVPROC _glTexParameteriv_ptr;
+OGL_API extern PFNGLTEXIMAGE1DPROC _glTexImage1D_ptr;
+OGL_API extern PFNGLTEXIMAGE2DPROC _glTexImage2D_ptr;
+OGL_API extern PFNGLDRAWBUFFERPROC _glDrawBuffer_ptr;
+OGL_API extern PFNGLCLEARPROC _glClear_ptr;
+OGL_API extern PFNGLCLEARCOLORPROC _glClearColor_ptr;
+OGL_API extern PFNGLCLEARSTENCILPROC _glClearStencil_ptr;
+OGL_API extern PFNGLCLEARDEPTHPROC _glClearDepth_ptr;
+OGL_API extern PFNGLSTENCILMASKPROC _glStencilMask_ptr;
+OGL_API extern PFNGLCOLORMASKPROC _glColorMask_ptr;
+OGL_API extern PFNGLDEPTHMASKPROC _glDepthMask_ptr;
+OGL_API extern PFNGLDISABLEPROC _glDisable_ptr;
+OGL_API extern PFNGLENABLEPROC _glEnable_ptr;
+OGL_API extern PFNGLFINISHPROC _glFinish_ptr;
+OGL_API extern PFNGLFLUSHPROC _glFlush_ptr;
+OGL_API extern PFNGLBLENDFUNCPROC _glBlendFunc_ptr;
+OGL_API extern PFNGLLOGICOPPROC _glLogicOp_ptr;
+OGL_API extern PFNGLSTENCILFUNCPROC _glStencilFunc_ptr;
+OGL_API extern PFNGLSTENCILOPPROC _glStencilOp_ptr;
+OGL_API extern PFNGLDEPTHFUNCPROC _glDepthFunc_ptr;
+OGL_API extern PFNGLPIXELSTOREFPROC _glPixelStoref_ptr;
+OGL_API extern PFNGLPIXELSTOREIPROC _glPixelStorei_ptr;
+OGL_API extern PFNGLREADBUFFERPROC _glReadBuffer_ptr;
+OGL_API extern PFNGLREADPIXELSPROC _glReadPixels_ptr;
+OGL_API extern PFNGLGETBOOLEANVPROC _glGetBooleanv_ptr;
+OGL_API extern PFNGLGETDOUBLEVPROC _glGetDoublev_ptr;
+OGL_API extern PFNGLGETERRORPROC _glGetError_ptr;
+OGL_API extern PFNGLGETFLOATVPROC _glGetFloatv_ptr;
+OGL_API extern PFNGLGETINTEGERVPROC _glGetIntegerv_ptr;
+OGL_API extern PFNGLGETSTRINGPROC _glGetString_ptr;
+OGL_API extern PFNGLGETTEXIMAGEPROC _glGetTexImage_ptr;
+OGL_API extern PFNGLGETTEXPARAMETERFVPROC _glGetTexParameterfv_ptr;
+OGL_API extern PFNGLGETTEXPARAMETERIVPROC _glGetTexParameteriv_ptr;
+OGL_API extern PFNGLGETTEXLEVELPARAMETERFVPROC _glGetTexLevelParameterfv_ptr;
+OGL_API extern PFNGLGETTEXLEVELPARAMETERIVPROC _glGetTexLevelParameteriv_ptr;
+OGL_API extern PFNGLISENABLEDPROC _glIsEnabled_ptr;
+OGL_API extern PFNGLDEPTHRANGEPROC _glDepthRange_ptr;
+OGL_API extern PFNGLVIEWPORTPROC _glViewport_ptr;
+
+// OpenGL 1.1
+OGL_API extern PFNGLDRAWARRAYSPROC _glDrawArrays_ptr;
+OGL_API extern PFNGLDRAWELEMENTSPROC _glDrawElements_ptr;
+OGL_API extern PFNGLGETPOINTERVPROC _glGetPointerv_ptr;
+OGL_API extern PFNGLPOLYGONOFFSETPROC _glPolygonOffset_ptr;
+OGL_API extern PFNGLCOPYTEXIMAGE1DPROC _glCopyTexImage1D_ptr;
+OGL_API extern PFNGLCOPYTEXIMAGE2DPROC _glCopyTexImage2D_ptr;
+OGL_API extern PFNGLCOPYTEXSUBIMAGE1DPROC _glCopyTexSubImage1D_ptr;
+OGL_API extern PFNGLCOPYTEXSUBIMAGE2DPROC _glCopyTexSubImage2D_ptr;
+OGL_API extern PFNGLTEXSUBIMAGE1DPROC _glTexSubImage1D_ptr;
+OGL_API extern PFNGLTEXSUBIMAGE2DPROC _glTexSubImage2D_ptr;
+OGL_API extern PFNGLBINDTEXTUREPROC _glBindTexture_ptr;
+OGL_API extern PFNGLDELETETEXTURESPROC _glDeleteTextures_ptr;
+OGL_API extern PFNGLGENTEXTURESPROC _glGenTextures_ptr;
+OGL_API extern PFNGLISTEXTUREPROC _glIsTexture_ptr;
+
+#endif
+
 // OpenGL 1.2
 OGL_API extern PFNGLBLENDCOLORPROC _glBlendColor_ptr;
 OGL_API extern PFNGLBLENDEQUATIONPROC _glBlendEquation_ptr;
@@ -428,36 +497,6 @@ OGL_API extern PFNGLGETSAMPLERPARAMETERIUIVPROC _glGetSamplerParameterIuiv_ptr; 
 OGL_API extern PFNGLQUERYCOUNTERPROC _glQueryCounter_ptr; // ARB_timer_query
 OGL_API extern PFNGLGETQUERYOBJECTI64VPROC _glGetQueryObjecti64v_ptr; // ARB_timer_query
 OGL_API extern PFNGLGETQUERYOBJECTUI64VPROC _glGetQueryObjectui64v_ptr; // ARB_timer_query
-OGL_API extern PFNGLVERTEXP2UIPROC _glVertexP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLVERTEXP2UIVPROC _glVertexP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLVERTEXP3UIPROC _glVertexP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLVERTEXP3UIVPROC _glVertexP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLVERTEXP4UIPROC _glVertexP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLVERTEXP4UIVPROC _glVertexP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP1UIPROC _glTexCoordP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP1UIVPROC _glTexCoordP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP2UIPROC _glTexCoordP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP2UIVPROC _glTexCoordP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP3UIPROC _glTexCoordP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP3UIVPROC _glTexCoordP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP4UIPROC _glTexCoordP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLTEXCOORDP4UIVPROC _glTexCoordP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP1UIPROC _glMultiTexCoordP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP1UIVPROC _glMultiTexCoordP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP2UIPROC _glMultiTexCoordP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP2UIVPROC _glMultiTexCoordP2uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP3UIPROC _glMultiTexCoordP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP3UIVPROC _glMultiTexCoordP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP4UIPROC _glMultiTexCoordP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLMULTITEXCOORDP4UIVPROC _glMultiTexCoordP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLNORMALP3UIPROC _glNormalP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLNORMALP3UIVPROC _glNormalP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLCOLORP3UIPROC _glColorP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLCOLORP3UIVPROC _glColorP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLCOLORP4UIPROC _glColorP4ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLCOLORP4UIVPROC _glColorP4uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLSECONDARYCOLORP3UIPROC _glSecondaryColorP3ui_ptr; // ARB_vertex_type_2_10_10_10_rev
-OGL_API extern PFNGLSECONDARYCOLORP3UIVPROC _glSecondaryColorP3uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API extern PFNGLVERTEXATTRIBP1UIPROC _glVertexAttribP1ui_ptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API extern PFNGLVERTEXATTRIBP1UIVPROC _glVertexAttribP1uiv_ptr; // ARB_vertex_type_2_10_10_10_rev
 OGL_API extern PFNGLVERTEXATTRIBP2UIPROC _glVertexAttribP2ui_ptr; // ARB_vertex_type_2_10_10_10_rev
@@ -608,6 +647,70 @@ OGL_API extern PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr; // ARB_viewport_array
 // syntactic sugar
 #define glRenderbufferStorageMultisampleCoverageNV ((PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC)_glRenderbufferStorageMultisampleCoverageNV_ptr)
 #if !defined(__LINUX__)
+#if defined(_MSC_VER)
+#define glCullFace ((PFNGLCULLFACEPROC)_glCullFace_ptr)
+#define glFrontFace ((PFNGLFRONTFACEPROC)_glFrontFace_ptr)
+#define glHint ((PFNGLHINTPROC)_glHint_ptr)
+#define glLineWidth ((PFNGLLINEWIDTHPROC)_glLineWidth_ptr)
+#define glPointSize ((PFNGLPOINTSIZEPROC)_glPointSize_ptr)
+#define glPolygonMode ((PFNGLPOLYGONMODEPROC)_glPolygonMode_ptr)
+#define glScissor ((PFNGLSCISSORPROC)_glScissor_ptr)
+#define glTexParameterf ((PFNGLTEXPARAMETERFPROC)_glTexParameterf_ptr)
+#define glTexParameterfv ((PFNGLTEXPARAMETERFVPROC)_glTexParameterfv_ptr)
+#define glTexParameteri ((PFNGLTEXPARAMETERIPROC)_glTexParameteri_ptr)
+#define glTexParameteriv ((PFNGLTEXPARAMETERIVPROC)_glTexParameteriv_ptr)
+#define glTexImage1D ((PFNGLTEXIMAGE1DPROC)_glTexImage1D_ptr)
+#define glTexImage2D ((PFNGLTEXIMAGE2DPROC)_glTexImage2D_ptr)
+#define glDrawBuffer ((PFNGLDRAWBUFFERPROC)_glDrawBuffer_ptr)
+#define glClear ((PFNGLCLEARPROC)_glClear_ptr)
+#define glClearColor ((PFNGLCLEARCOLORPROC)_glClearColor_ptr)
+#define glClearStencil ((PFNGLCLEARSTENCILPROC)_glClearStencil_ptr)
+#define glClearDepth ((PFNGLCLEARDEPTHPROC)_glClearDepth_ptr)
+#define glStencilMask ((PFNGLSTENCILMASKPROC)_glStencilMask_ptr)
+#define glColorMask ((PFNGLCOLORMASKPROC)_glColorMask_ptr)
+#define glDepthMask ((PFNGLDEPTHMASKPROC)_glDepthMask_ptr)
+#define glDisable ((PFNGLDISABLEPROC)_glDisable_ptr)
+#define glEnable ((PFNGLENABLEPROC)_glEnable_ptr)
+#define glFinish ((PFNGLFINISHPROC)_glFinish_ptr)
+#define glFlush ((PFNGLFLUSHPROC)_glFlush_ptr)
+#define glBlendFunc ((PFNGLBLENDFUNCPROC)_glBlendFunc_ptr)
+#define glLogicOp ((PFNGLLOGICOPPROC)_glLogicOp_ptr)
+#define glStencilFunc ((PFNGLSTENCILFUNCPROC)_glStencilFunc_ptr)
+#define glStencilOp ((PFNGLSTENCILOPPROC)_glStencilOp_ptr)
+#define glDepthFunc ((PFNGLDEPTHFUNCPROC)_glDepthFunc_ptr)
+#define glPixelStoref ((PFNGLPIXELSTOREFPROC)_glPixelStoref_ptr)
+#define glPixelStorei ((PFNGLPIXELSTOREIPROC)_glPixelStorei_ptr)
+#define glReadBuffer ((PFNGLREADBUFFERPROC)_glReadBuffer_ptr)
+#define glReadPixels ((PFNGLREADPIXELSPROC)_glReadPixels_ptr)
+#define glGetBooleanv ((PFNGLGETBOOLEANVPROC)_glGetBooleanv_ptr)
+#define glGetDoublev ((PFNGLGETDOUBLEVPROC)_glGetDoublev_ptr)
+#define glGetError ((PFNGLGETERRORPROC)_glGetError_ptr)
+#define glGetFloatv ((PFNGLGETFLOATVPROC)_glGetFloatv_ptr)
+#define glGetIntegerv ((PFNGLGETINTEGERVPROC)_glGetIntegerv_ptr)
+#define glGetString ((PFNGLGETSTRINGPROC)_glGetString_ptr)
+#define glGetTexImage ((PFNGLGETTEXIMAGEPROC)_glGetTexImage_ptr)
+#define glGetTexParameterfv ((PFNGLGETTEXPARAMETERFVPROC)_glGetTexParameterfv_ptr)
+#define glGetTexParameteriv ((PFNGLGETTEXPARAMETERIVPROC)_glGetTexParameteriv_ptr)
+#define glGetTexLevelParameterfv ((PFNGLGETTEXLEVELPARAMETERFVPROC)_glGetTexLevelParameterfv_ptr)
+#define glGetTexLevelParameteriv ((PFNGLGETTEXLEVELPARAMETERIVPROC)_glGetTexLevelParameteriv_ptr)
+#define glIsEnabled ((PFNGLISENABLEDPROC)_glIsEnabled_ptr)
+#define glDepthRange ((PFNGLDEPTHRANGEPROC)_glDepthRange_ptr)
+#define glViewport ((PFNGLVIEWPORTPROC)_glViewport_ptr)
+#define glDrawArrays ((PFNGLDRAWARRAYSPROC)_glDrawArrays_ptr)
+#define glDrawElements ((PFNGLDRAWELEMENTSPROC)_glDrawElements_ptr)
+#define glGetPointerv ((PFNGLGETPOINTERVPROC)_glGetPointerv_ptr)
+#define glPolygonOffset ((PFNGLPOLYGONOFFSETPROC)_glPolygonOffset_ptr)
+#define glCopyTexImage1D ((PFNGLCOPYTEXIMAGE1DPROC)_glCopyTexImage1D_ptr)
+#define glCopyTexImage2D ((PFNGLCOPYTEXIMAGE2DPROC)_glCopyTexImage2D_ptr)
+#define glCopyTexSubImage1D ((PFNGLCOPYTEXSUBIMAGE1DPROC)_glCopyTexSubImage1D_ptr)
+#define glCopyTexSubImage2D ((PFNGLCOPYTEXSUBIMAGE2DPROC)_glCopyTexSubImage2D_ptr)
+#define glTexSubImage1D ((PFNGLTEXSUBIMAGE1DPROC)_glTexSubImage1D_ptr)
+#define glTexSubImage2D ((PFNGLTEXSUBIMAGE2DPROC)_glTexSubImage2D_ptr)
+#define glBindTexture ((PFNGLBINDTEXTUREPROC)_glBindTexture_ptr)
+#define glDeleteTextures ((PFNGLDELETETEXTURESPROC)_glDeleteTextures_ptr)
+#define glGenTextures ((PFNGLGENTEXTURESPROC)_glGenTextures_ptr)
+#define glIsTexture ((PFNGLISTEXTUREPROC)_glIsTexture_ptr)
+#endif
 #define glBlendColor ((PFNGLBLENDCOLORPROC)_glBlendColor_ptr)
 #define glBlendEquation ((PFNGLBLENDEQUATIONPROC)_glBlendEquation_ptr)
 #define glDrawRangeElements ((PFNGLDRAWRANGEELEMENTSPROC)_glDrawRangeElements_ptr)
