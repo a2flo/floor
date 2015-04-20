@@ -54,7 +54,7 @@ public:
 				log_error("unknown argument '%s'", arg);
 				return;
 			}
-			(*opt_iter)(option_ctx, arg_ptr);
+			opt_iter->second(option_ctx, arg_ptr);
 #else
 			// if there is no function registered for an option, this will throw an "out_of_range" exception
 			try {
