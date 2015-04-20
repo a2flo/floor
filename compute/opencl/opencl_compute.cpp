@@ -43,7 +43,7 @@ void opencl_compute::init(const bool use_platform_devices,
 						  const bool gl_sharing,
 						  const unordered_set<string> device_restriction) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
-	const auto platform_index = (platform_index_ == ~0u ? string2uint(floor::get_opencl_platform()) : platform_index_);
+	const auto platform_index = (platform_index_ == ~0u ? stou(floor::get_opencl_platform()) : platform_index_);
 	
 	// get platforms
 	cl_uint platform_count = 0;
@@ -198,8 +198,8 @@ void opencl_compute::init(const bool use_platform_devices,
 			if(cl_version_str.length() >= (start_len + 3) && cl_version_str.substr(0, start_len) == str_start) {
 				const string version_str = cl_version_str.substr(start_len, cl_version_str.find(" ", start_len) - start_len);
 				const size_t dot_pos = version_str.find(".");
-				const auto major_version = string2size_t(version_str.substr(0, dot_pos));
-				const auto minor_version = string2size_t(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1));
+				const auto major_version = stosize(version_str.substr(0, dot_pos));
+				const auto minor_version = stosize(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1));
 				if(major_version > 2) {
 					// major version is higher than 2 -> pretend we're running on CL 2.1
 					return { true, OPENCL_VERSION::OPENCL_2_1 };
@@ -571,7 +571,7 @@ void opencl_compute::init(const bool use_platform_devices,
 #endif
 			default: break;
 		}
-		return uint2string(channel_order);
+		return to_string(channel_order);
 	};
 	const auto channel_type_to_string = [](const cl_channel_type& channel_type) -> string {
 		switch(channel_type) {
@@ -598,7 +598,7 @@ void opencl_compute::init(const bool use_platform_devices,
 #endif
 			default: break;
 		}
-		return uint2string(channel_type);
+		return to_string(channel_type);
 	};
 	
 	for(const auto& format : image_formats) {

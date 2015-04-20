@@ -564,7 +564,7 @@ void floor::init_internal(const bool use_gl32_core
 	}
 	
 	if(compute_ctx != nullptr) {
-		compute_ctx->init(false, string2uint(config.opencl_platform),
+		compute_ctx->init(false, stou(config.opencl_platform),
 						  config.gl_sharing & console_only, config.opencl_restrictions);
 	}
 	else log_error("failed to create any compute context!");

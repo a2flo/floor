@@ -91,12 +91,41 @@ public:
 						 ) const;
 	
 	bool save_file(const xml_doc& doc, const string& filename, const string doc_type) const;
+	
+	//
+	template <typename T, typename = void> struct generic_convert {};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, int32_t>::value>> {
+		static T convert(const string& str) { return (T)stoi(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, int64_t>::value>> {
+		static T convert(const string& str) { return (T)stoll(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<(is_same<T, uint32_t>::value ||
+																 (is_same<T, size_t>::value && sizeof(size_t) == 4))>> {
+		static T convert(const string& str) { return (T)stou(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<(is_same<T, uint64_t>::value ||
+																 (is_same<T, size_t>::value && sizeof(size_t) == 8))>> {
+		static T convert(const string& str) { return (T)stoull(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, float>::value>> {
+		static T convert(const string& str) { return (T)stof(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, double>::value>> {
+		static T convert(const string& str) { return (T)stod(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, long double>::value>> {
+		static T convert(const string& str) { return (T)stold(str); }
+	};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, string>::value>> {
+		static T convert(const string& str) { return str; }
+	};
 
 	// for manual reading
 	template <typename T> T get_attribute(const xmlAttribute* attr, const char* attr_name) {
 		for(const xmlAttr* cur_attr = (const xmlAttr*)attr; cur_attr; cur_attr = (const xmlAttr*)cur_attr->next) {
 			if(strcmp(attr_name, (const char*)cur_attr->name) == 0) {
-				return converter<string, T>::convert(string((const char*)cur_attr->children->content));
+				return generic_convert<T>::convert(string((const char*)cur_attr->children->content));
 			}
 		}
 		log_error("element has no attribute named %s!", attr_name);

@@ -189,11 +189,11 @@ weak_ptr<audio_source> audio_controller::internal_add_source(const string& store
 	}
 	
 	if(source_identifier.empty() || sources.count(identifier) > 0) {
-		identifier += "." + ull2string(SDL_GetPerformanceCounter());
+		identifier += "." + to_string(SDL_GetPerformanceCounter());
 	}
 	
 	if(sources.count(identifier) > 0) {
-		identifier += "." + uint2string(core::rand(numeric_limits<unsigned int>::max()));
+		identifier += "." + to_string(core::rand(numeric_limits<unsigned int>::max()));
 	}
 	
 	const auto iter = sources.emplace(identifier, make_shared<audio_source>(identifier, type, data_ptr));

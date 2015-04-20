@@ -93,6 +93,33 @@ template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
 }
 #endif
 
+// for whatever reason there is no "string to 32-bit uint" conversion function in the standard
+#if !defined(FLOOR_NO_STOU)
+floor_inline_always static unsigned int stou(const string& str, size_t* pos = nullptr, int base = 10) {
+	const auto ret = stoull(str, pos, base);
+	if(ret > 0xFFFFFFFFull) {
+		return UINT_MAX;
+	}
+	return (unsigned int)ret;
+}
+#endif
+// same for size_t
+#if !defined(FLOOR_NO_STOSIZE)
+#if defined(PLATFORM_X32)
+floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
+	const auto ret = stoull(str, pos, base);
+	if(ret > 0xFFFFFFFFull) {
+		return (size_t)UINT_MAX;
+	}
+	return (unsigned int)ret;
+}
+#elif defined(PLATFORM_X64)
+floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
+	return (size_t)stoull(str, pos, base);
+}
+#endif
+#endif
+
 // misc "enum class" additions/helpers
 #include <floor/core/enum_helpers.hpp>
 

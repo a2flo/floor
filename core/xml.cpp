@@ -433,61 +433,61 @@ template<> bool xml::xml_doc::set<string>(const string& path, const string& valu
 }
 
 template<> bool xml::xml_doc::set<float>(const string& path, const float& value) {
-	return set_attr(path, float2string(value));
+	return set_attr(path, to_string(value));
 }
 
 template<> bool xml::xml_doc::set<size_t>(const string& path, const size_t& value) {
-	return set_attr(path, size_t2string(value));
+	return set_attr(path, to_string(value));
 }
 
 template<> bool xml::xml_doc::set<ssize_t>(const string& path, const ssize_t& value) {
-	return set_attr(path, ssize_t2string(value));
+	return set_attr(path, to_string(value));
 }
 
 template<> bool xml::xml_doc::set<bool>(const string& path, const bool& value) {
-	return set_attr(path, bool2string(value));
+	return set_attr(path, to_string(value));
 }
 
 template<> bool xml::xml_doc::set<float2>(const string& path, const float2& value) {
-	return set_attr(path, float2string(value.x)+","+float2string(value.y));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y));
 }
 
 template<> bool xml::xml_doc::set<float3>(const string& path, const float3& value) {
-	return set_attr(path, float2string(value.x)+","+float2string(value.y)+","+float2string(value.z));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y)+","+to_string(value.z));
 }
 
 template<> bool xml::xml_doc::set<float4>(const string& path, const float4& value) {
 	return set_attr(path,
-					float2string(value.x)+","+float2string(value.y)+
-					","+float2string(value.z)+","+float2string(value.w));
+					to_string(value.x)+","+to_string(value.y)+
+					","+to_string(value.z)+","+to_string(value.w));
 }
 
 template<> bool xml::xml_doc::set<size2>(const string& path, const size2& value) {
-	return set_attr(path, size_t2string(value.x)+","+size_t2string(value.y));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y));
 }
 
 template<> bool xml::xml_doc::set<size3>(const string& path, const size3& value) {
-	return set_attr(path, size_t2string(value.x)+","+size_t2string(value.y)+","+size_t2string(value.z));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y)+","+to_string(value.z));
 }
 
 template<> bool xml::xml_doc::set<size4>(const string& path, const size4& value) {
 	return set_attr(path,
-					size_t2string(value.x)+","+size_t2string(value.y)+
-					","+size_t2string(value.z)+","+size_t2string(value.w));
+					to_string(value.x)+","+to_string(value.y)+
+					","+to_string(value.z)+","+to_string(value.w));
 }
 
 template<> bool xml::xml_doc::set<ssize2>(const string& path, const ssize2& value) {
-	return set_attr(path, ssize_t2string(value.x)+","+ssize_t2string(value.y));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y));
 }
 
 template<> bool xml::xml_doc::set<ssize3>(const string& path, const ssize3& value) {
-	return set_attr(path, ssize_t2string(value.x)+","+ssize_t2string(value.y)+","+ssize_t2string(value.z));
+	return set_attr(path, to_string(value.x)+","+to_string(value.y)+","+to_string(value.z));
 }
 
 template<> bool xml::xml_doc::set<ssize4>(const string& path, const ssize4& value) {
 	return set_attr(path,
-					ssize_t2string(value.x)+","+ssize_t2string(value.y)+
-					","+ssize_t2string(value.z)+","+ssize_t2string(value.w));
+					to_string(value.x)+","+to_string(value.y)+
+					","+to_string(value.z)+","+to_string(value.w));
 }
 
 xml::xml_node::xml_node(const xmlNode* node) :

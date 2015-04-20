@@ -51,7 +51,7 @@ static void log_pretty_print(const char* log, const char* code) {
 		
 		// find code line and print it (+/- 1 line)
 		if(regex_match(line, regex_result, rx_log_line)) {
-			const size_t src_line_num = string2size_t(regex_result[1]) - 1;
+			const size_t src_line_num = stosize(regex_result[1]) - 1;
 			if(src_line_num < code_lines.size()) {
 				if(src_line_num != 0) {
 					log_undecorated("\033[37m%s\033[m", code_lines[src_line_num-1]);
@@ -253,12 +253,12 @@ size_t ios_helper::get_system_version() {
 	const size_t major_dot = osrelease.find(".");
 	const size_t minor_dot = (major_dot != string::npos ? osrelease.find(".", major_dot + 1) : string::npos);
 	if(major_dot != string::npos && minor_dot != string::npos) {
-		const size_t major_version = string2size_t(osrelease.substr(0, major_dot));
-		const size_t ios_minor_version = string2size_t(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
+		const size_t major_version = stosize(osrelease.substr(0, major_dot));
+		const size_t ios_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
 		// osrelease = kernel version, not ios version -> substract 7 (NOTE: this won't run on anything < iOS 7.0,
 		// so any differentiation below doesn't matter (5.0: darwin 11, 6.0: darwin 13, 7.0: darwin 14)
 		const size_t ios_major_version = major_version - 7;
-		const string ios_major_version_str = size_t2string(ios_major_version);
+		const string ios_major_version_str = to_string(ios_major_version);
 		
 		// mimic the compiled version string (xxyyy, xx = major, y = minor)
 		size_t condensed_version = ios_major_version * 10000;

@@ -148,7 +148,7 @@ public:
 		socket_set = true;
 		
 		boost::system::error_code ec;
-		auto endpoint_iterator = resolver.resolve({ address, uint2string(port) });
+		auto endpoint_iterator = resolver.resolve({ address, to_string(port) });
 		boost::asio::connect(data.socket_layer, endpoint_iterator, ec);
 		
 		if(ec) {
@@ -184,7 +184,7 @@ public:
 		socket_set = true;
 		
 		boost::system::error_code ec;
-		auto endpoint = *resolver.resolve({ address, uint2string(port) });
+		auto endpoint = *resolver.resolve({ address, to_string(port) });
 		acceptor.open(endpoint.protocol(), ec);
 		if(ec) {
 			log_error("couldn't open server socket: %s", ec.message());

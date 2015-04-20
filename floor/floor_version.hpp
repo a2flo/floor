@@ -52,7 +52,11 @@
 #endif
 
 #if defined(_MSC_VER)
-#define FLOOR_COMPILER "VC++ "+size_t2string(_MSC_VER)
+#if defined(__clang__)
+#define FLOOR_COMPILER string("Clang ")+__clang_version__+string(" / VS ")+to_string(_MSC_VER)
+#else
+#define FLOOR_COMPILER "VC++ "+to_string(_MSC_VER)
+#endif
 #elif (defined(__GNUC__) && !defined(__llvm__) && !defined(__clang__))
 #define FLOOR_COMPILER string("GCC ")+__VERSION__
 #elif (defined(__GNUC__) && defined(__llvm__) && !defined(__clang__))
@@ -65,9 +69,9 @@
 
 #define FLOOR_LIBCXX_PREFIX " and "
 #if defined(_LIBCPP_VERSION)
-#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libc++ "+size_t2string(_LIBCPP_VERSION)
+#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libc++ "+to_string(_LIBCPP_VERSION)
 #elif defined(__GLIBCXX__)
-#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libstdc++ "+size_t2string(__GLIBCXX__)
+#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libstdc++ "+to_string(__GLIBCXX__)
 #else
 #define FLOOR_LIBCXX ""
 #endif
