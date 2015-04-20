@@ -13,7 +13,7 @@ if [ ! -f libcxx-${RELEASE}.src.tar.xz ]; then
 	curl -o libcxx-${RELEASE}.src.tar.xz http://llvm.org/releases/${RELEASE}/libcxx-${RELEASE}.src.tar.xz
 fi
 if [ ! -d SPIR-Tools ]; then
-	git clone https://github.com/KhronosGroup/SPIR-Tools.git
+	git clone git://github.com/KhronosGroup/SPIR-Tools.git
 fi
 
 # clean up prior source and build folders
