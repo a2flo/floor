@@ -32,7 +32,7 @@
 #include <floor/compute/opencl/opencl_queue.hpp>
 
 //! TODO
-class FLOOR_API opencl_compute final : public compute_base {
+class opencl_compute final : public compute_base {
 public:
 	//////////////////////////////////////////
 	// init / context creation

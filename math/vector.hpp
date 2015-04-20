@@ -37,7 +37,7 @@
 #if !defined(FLOOR_VECTOR_RAND)
 #define FLOOR_VECTOR_RAND
 //! for internal use only
-struct FLOOR_API floor_vector_rand {
+struct floor_vector_rand {
 	//! for internal use only
 	static random_device vec_rd;
 	//! for internal use only
@@ -56,7 +56,7 @@ struct FLOOR_API floor_vector_rand {
 //! assume that this class is the fastest at runtime and it should generally be used
 //! over the other one, except for the cases where the other one is absolutely necessary.
 //! -- "one vector class to rule them all, ... and in the darkness bind them."
-template <typename scalar_type> class FLOOR_API FLOOR_VECNAME {
+template <typename scalar_type> class FLOOR_VECNAME {
 public:
 	// the underlying type of the vector
 	// NOTE: only .xyzw are usable with constexpr

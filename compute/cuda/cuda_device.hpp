@@ -27,7 +27,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class FLOOR_API cuda_device final : public compute_device {
+class cuda_device final : public compute_device {
 public:
 	~cuda_device() override {}
 	

@@ -138,7 +138,7 @@ template <typename T> struct inf_helper {
 #endif
 
 //! base class
-template <typename T> class FLOOR_API vector_helper {
+template <typename T> class vector_helper {
 public:
 	typedef typename integral_eqv<T>::type integral_type;
 	

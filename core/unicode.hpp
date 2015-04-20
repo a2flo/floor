@@ -22,7 +22,7 @@
 #include <floor/floor/floor.hpp>
 
 //! unicode routines
-class FLOOR_API unicode {
+class unicode {
 public:
 	static vector<unsigned int> utf8_to_unicode(const string& str);
 	static string unicode_to_utf8(const vector<unsigned int>& codes);

@@ -19,6 +19,19 @@
 #ifndef __FLOOR_CPP_HEADERS_HPP__
 #define __FLOOR_CPP_HEADERS_HPP__
 
+// on windows exports/imports: apparently these have to be treated separately,
+// use dllexport or dllimport for all opengl functions, depending on compiling
+// floor itself or other projects using/including floor
+#if defined(FLOOR_EXPORTS)
+#pragma warning(disable: 4251)
+#define OGL_API __declspec(dllexport)
+#elif defined(FLOOR_IMPORTS)
+#pragma warning(disable: 4251)
+#define OGL_API __declspec(dllimport)
+#else
+#define OGL_API
+#endif // FLOOR_EXPORTS
+
 #if defined(__WINDOWS__) || defined(MINGW)
 #include <windows.h>
 #endif

@@ -57,7 +57,7 @@ enum class OPENCL_VERSION : uint32_t {
 	OPENCL_2_1,
 };
 
-FLOOR_API constexpr const char* cl_error_to_string(const int& error_code) {
+constexpr const char* cl_error_to_string(const int& error_code) {
 	// NOTE: don't use actual enums here so this doesn't have to rely on opencl version or vendor specific headers
 	switch(error_code) {
 		case 0: return "CL_SUCCESS";
@@ -384,7 +384,7 @@ FLOOR_CL_INFO_TYPES(FLOOR_CL_INFO_FUNC)
 
 // CL_PROGRAM_BINARIES is rather complicated/different than the other clGet*Info calls, need to add special handling
 template <cl_uint info_type, enable_if_t<info_type == CL_PROGRAM_BINARIES, int> = 0>
-FLOOR_API vector<string> cl_get_info(const cl_program& program) {
+vector<string> cl_get_info(const cl_program& program) {
 	// need to get the binary size for each device first
 	const auto sizes = cl_get_info<CL_PROGRAM_BINARY_SIZES>(program);
 	const auto binary_count = sizes.size();

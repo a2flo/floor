@@ -26,7 +26,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
 
-class FLOOR_API opencl_queue final : public compute_queue {
+class opencl_queue final : public compute_queue {
 public:
 	opencl_queue(const cl_command_queue queue);
 	

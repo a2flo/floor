@@ -38,7 +38,7 @@ struct translation_unit;
 class ast_printer;
 
 //! common base class of all AST nodes
-class FLOOR_API node_base {
+class node_base {
 public:
 	enum class NODE_TYPE : uint32_t {
 		INVALID = 0u,
@@ -92,7 +92,7 @@ public:
 };
 
 //! ir_gen_error exception
-class FLOOR_API ir_gen_error : public exception {
+class ir_gen_error : public exception {
 protected:
 	const node_base* node;
 	string error_msg;
@@ -105,7 +105,7 @@ public:
 //! helper function to cast an unique_ptr<node_base> object to a derived node type:
 //! as_node<derived>(unique_ptr<node_base>& node)
 template <class as_node_type, class = typename enable_if<is_base_of<node_base, as_node_type>::value>::type>
-FLOOR_API inline as_node_type* as_node(unique_ptr<node_base>& node) {
+inline as_node_type* as_node(unique_ptr<node_base>& node) {
 #if defined(FLOOR_DEBUG)
 	if(node == nullptr) {
 		throw floor_exception("as_node: node must not be nullptr");
@@ -116,7 +116,7 @@ FLOOR_API inline as_node_type* as_node(unique_ptr<node_base>& node) {
 
 //! helper function to cast an unique_ptr<node_base> object to a derived node type (const version)
 template <class as_node_type, class = typename enable_if<is_base_of<node_base, as_node_type>::value>::type>
-FLOOR_API inline const as_node_type* as_node(const unique_ptr<node_base>& node) {
+inline const as_node_type* as_node(const unique_ptr<node_base>& node) {
 #if defined(FLOOR_DEBUG)
 	if(node == nullptr) {
 		throw floor_exception("as_node: node must not be nullptr");
@@ -126,7 +126,7 @@ FLOOR_API inline const as_node_type* as_node(const unique_ptr<node_base>& node) 
 }
 
 //!
-class FLOOR_API identifier_node : public node_base {
+class identifier_node : public node_base {
 public:
 	//! name of the identifier
 	const string name;
@@ -142,7 +142,7 @@ public:
 };
 
 //! arbitrary list node
-class FLOOR_API list_node : public node_base {
+class list_node : public node_base {
 public:
 	enum class LIST_TYPE : uint16_t {
 		EXPRESSIONS,
@@ -173,7 +173,7 @@ public:
 };
 
 //!
-class FLOOR_API unary_node : public node_base {
+class unary_node : public node_base {
 public:
 	enum class UNARY_TYPE : uint16_t {
 		NOT,				//!< !
@@ -204,7 +204,7 @@ public:
 };
 
 //!
-class FLOOR_API postfix_node : public node_base {
+class postfix_node : public node_base {
 public:
 	enum class POSTFIX_TYPE : uint16_t {
 		START_NODE,		//!< primary-expression and start node of a postfix chain
@@ -243,7 +243,7 @@ protected:
 };
 
 //!
-class FLOOR_API binary_node : public node_base {
+class binary_node : public node_base {
 public:
 	enum class BINARY_TYPE : uint16_t {
 		MULTIPLY,			//!< *
@@ -286,7 +286,7 @@ public:
 };
 
 //!
-class FLOOR_API declaration_node : public node_base {
+class declaration_node : public node_base {
 public:
 	//!
 	enum class DECLARATION_TYPE : uint16_t {
@@ -353,7 +353,7 @@ public:
 	void dump(const size_t level) const override;
 };
 
-class FLOOR_API structure_node : public declaration_node {
+class structure_node : public declaration_node {
 public:
 	structure_node(const TYPE_SPECIFIER spec, token_range&& range_) noexcept :
 	declaration_node(DECLARATION_TYPE::STRUCTURE_DEFINITION, move(range_)) {
@@ -367,7 +367,7 @@ public:
 };
 
 //!
-class FLOOR_API statement_node : public node_base {
+class statement_node : public node_base {
 public:
 	enum class STATEMENT_TYPE : uint16_t {
 		__STATEMENT_TYPE		= (1u << 15u),
@@ -396,7 +396,7 @@ public:
 	void dump(const size_t level) const override;
 };
 
-class FLOOR_API control_statement_node : public statement_node {
+class control_statement_node : public statement_node {
 public:
 	enum class CONTROL_STATEMENT_TYPE : uint8_t {
 		WHILE,					//!< while ( expression) statement
@@ -429,7 +429,7 @@ public:
 	void dump(const size_t level) const override;
 };
 
-class FLOOR_API jump_statement_node : public statement_node {
+class jump_statement_node : public statement_node {
 public:
 	enum class JUMP_STATEMENT_TYPE : uint8_t {
 		GOTO,
@@ -454,7 +454,7 @@ public:
 	void dump(const size_t level) const override;
 };
 
-class FLOOR_API labeled_statement_node : public statement_node {
+class labeled_statement_node : public statement_node {
 public:
 	//! the identifier node (the label)
 	unique_ptr<node_base> identifier;
@@ -468,7 +468,7 @@ public:
 };
 
 //!
-class FLOOR_API function_node : public node_base {
+class function_node : public node_base {
 public:
 	//! specifiers and declarator
 	unique_ptr<declaration_node> declaration;
@@ -485,7 +485,7 @@ public:
 };
 
 //!
-class FLOOR_API integer_constant_node : public node_base {
+class integer_constant_node : public node_base {
 public:
 	//! int32 value of the constant (other types/widths are not supported as per requirements)
 	const int32_t value;
@@ -498,7 +498,7 @@ public:
 	void dump(const size_t level) const override;
 };
 
-class FLOOR_API character_constant_node : public node_base {
+class character_constant_node : public node_base {
 public:
 	//! string representation of the constant (TODO: this is still the token version -> transform)
 	const string value;
@@ -512,7 +512,7 @@ public:
 };
 
 //!
-class FLOOR_API string_literal_node : public node_base {
+class string_literal_node : public node_base {
 public:
 	//! string representation of the constant (TODO: this is still the token version -> transform)
 	const string value;

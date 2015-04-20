@@ -32,7 +32,7 @@
 #include <floor/core/unicode.hpp>
 #include <floor/compute/compute_base.hpp>
 
-class FLOOR_API floor {
+class floor {
 public:
 	static void init(const char* callpath, const char* datapath,
 					 const bool console_only = false, const string config_name = "config.xml",

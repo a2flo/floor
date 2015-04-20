@@ -23,7 +23,7 @@
 #include <floor/compute/compute_device.hpp>
 #include <memory>
 
-class FLOOR_API llvm_compute {
+class llvm_compute {
 public:
 	enum class TARGET {
 		//! OpenCL SPIR 1.2

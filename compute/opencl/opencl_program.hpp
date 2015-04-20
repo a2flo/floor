@@ -25,7 +25,7 @@
 
 #include <floor/compute/compute_program.hpp>
 
-class FLOOR_API opencl_program final : public compute_program {
+class opencl_program final : public compute_program {
 public:
 	opencl_program(const cl_program program,
 				   const vector<llvm_compute::kernel_info>& kernels_info,

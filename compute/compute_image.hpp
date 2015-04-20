@@ -27,7 +27,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class FLOOR_API compute_image : public compute_memory {
+class compute_image : public compute_memory {
 public:
 	//! TODO: create image descriptor for advanced use?
 	//! TODO: ...

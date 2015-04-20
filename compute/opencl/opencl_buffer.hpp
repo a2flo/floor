@@ -26,7 +26,7 @@
 #include <floor/compute/compute_buffer.hpp>
 
 class opencl_device;
-class FLOOR_API opencl_buffer final : public compute_buffer {
+class opencl_buffer final : public compute_buffer {
 public:
 	opencl_buffer(const opencl_device* device,
 				  const size_t& size_,

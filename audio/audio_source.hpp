@@ -25,7 +25,7 @@
 
 #include <floor/audio/audio_store.hpp>
 
-class FLOOR_API audio_source {
+class audio_source {
 public:
 	enum class SOURCE_TYPE {
 		AUDIO_3D,

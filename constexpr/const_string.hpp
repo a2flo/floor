@@ -27,7 +27,7 @@
 // to the c++ standard (-> if this gets approved and implemented, replace this code)
 // http://isocpp.org/files/papers/n4121.pdf
 
-template <size_t count> struct FLOOR_API const_string {
+template <size_t count> struct const_string {
 public:
 	//! since we can't assign c arrays directly, do this via a helper class
 	template <size_t n> struct storage_array {

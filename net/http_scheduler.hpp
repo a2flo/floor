@@ -30,7 +30,7 @@
 #include <floor/net/net_tcp.hpp>
 #include <floor/net/http_net.hpp>
 
-class FLOOR_API http_scheduler : public thread_base {
+class http_scheduler : public thread_base {
 public:
 	static void init();
 	static void destroy();

@@ -31,7 +31,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class FLOOR_API compute_kernel {
+class compute_kernel {
 public:
 	virtual ~compute_kernel() = 0;
 	

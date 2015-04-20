@@ -22,7 +22,7 @@
 #include <CoreGraphics/CoreGraphics.h>
 #include <floor/core/platform.hpp>
 
-class FLOOR_API osx_helper {
+class osx_helper {
 public:
 	static size_t get_dpi(SDL_Window* wnd);
 	static float get_scale_factor(SDL_Window* wnd);

@@ -30,7 +30,7 @@ using namespace std;
 
 //! NOTE: this is non-functional for now and should only be used as a placeholder when no native 128-bit types exist
 template <bool has_sign, typename i64_type = conditional_t<has_sign, int64_t, uint64_t>, typename ui64_type = uint64_t>
-struct FLOOR_API alignas(16) i128 {
+struct alignas(16) i128 {
 	i64_type hi; //!< keeps the sign if i128 is signed
 	ui64_type lo;
 	

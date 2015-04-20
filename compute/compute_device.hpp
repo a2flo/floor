@@ -28,7 +28,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class FLOOR_API compute_device {
+class compute_device {
 public:
 	virtual ~compute_device() = 0;
 	

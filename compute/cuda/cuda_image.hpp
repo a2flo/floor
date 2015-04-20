@@ -26,7 +26,7 @@
 #include <floor/compute/compute_image.hpp>
 
 class cuda_device;
-class FLOOR_API cuda_image final : public compute_image {
+class cuda_image final : public compute_image {
 public:
 	cuda_image(const cuda_device* device,
 			   const uint4 image_dim,

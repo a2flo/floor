@@ -23,7 +23,7 @@
 
 // misc
 #if !defined(FLOOR_NO_EXCEPTIONS)
-class FLOOR_API floor_exception : public exception {
+class floor_exception : public exception {
 protected:
 	string error_str;
 public:

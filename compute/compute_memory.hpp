@@ -103,7 +103,7 @@ floor_global_enum_ext(COMPUTE_MEMORY_MAP_FLAG)
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class FLOOR_API compute_memory {
+class compute_memory {
 public:
 	// TODO: flag handling
 	// TODO: memory migration: copy / move

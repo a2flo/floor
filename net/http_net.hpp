@@ -32,7 +32,7 @@
 
 #define http_endl "\r\n"
 
-class FLOOR_API http_net : public thread_base {
+class http_net : public thread_base {
 public:
 	static constexpr size_t default_timeout { 10 };
 

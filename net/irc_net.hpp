@@ -28,7 +28,7 @@
 #include <floor/net/net_protocol.hpp>
 #include <floor/net/net_tcp.hpp>
 
-template <class protocol_policy, class ssl_protocol_policy> class FLOOR_API irc_net {
+template <class protocol_policy, class ssl_protocol_policy> class irc_net {
 public:
 	irc_net(const bool& use_ssl_) : plain_protocol(), ssl_protocol(), use_ssl(use_ssl_) {
 		plain_protocol.set_max_packets_per_second(5);

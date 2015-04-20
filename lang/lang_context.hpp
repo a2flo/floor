@@ -34,7 +34,7 @@
 using namespace std;
 
 //! translation unit ("source file"), managed by a lang_context
-struct FLOOR_API translation_unit {
+struct translation_unit {
 	//! the file name (or <stdin>) corresponding to this TU
 	const string file_name;
 	//! the full source code of the TU
@@ -53,7 +53,7 @@ struct FLOOR_API translation_unit {
 
 //! the compiler context contains all translation units, original file names and the compile mode that
 //! have been set via command line or other means
-class FLOOR_API lang_context {
+class lang_context {
 public:
 	//! the processing/tool mode the compiler is in
 	enum class COMPILER_MODE {

@@ -41,7 +41,7 @@
 #endif
 
 //! parser context object that handles all token iteration, backtracking and stores all matches.
-struct FLOOR_API parser_context {
+struct parser_context {
 	//! current parser token iterator
 	token_iterator iter;
 	//! deepest (greatest) encountered token iterator (used for rudimentary error handling)
@@ -233,7 +233,7 @@ struct FLOOR_API parser_context {
 //! (a) it was successful
 //! (b) the match needs to be pushed onto the match list
 //! (c) the matches themselves
-struct FLOOR_API match_return_type {
+struct match_return_type {
 	const bool successful;
 	const bool push_node;
 	parser_context::match_list matches;
@@ -250,7 +250,7 @@ struct FLOOR_API match_return_type {
 };
 
 //! base class of every parser tree node
-template <typename T> struct FLOOR_API parser_node_base {
+template <typename T> struct parser_node_base {
 	//! the enclosed type of the parser node object
 	typedef T enclosed_type;
 	//! storing a const copy is the default, but this can be overwritten in any deriving class.
@@ -269,7 +269,7 @@ template <typename T> struct FLOOR_API parser_node_base {
 
 //! (empty) base class for all literal matchers.
 //! NOTE: the storage_type of every specialized literal_matcher can (should!) be a const ref to the specific class.
-template <typename T, SOURCE_TOKEN_TYPE token_mask> struct FLOOR_API literal_matcher : public parser_node_base<T> {};
+template <typename T, SOURCE_TOKEN_TYPE token_mask> struct literal_matcher : public parser_node_base<T> {};
 
 //! epsilon: matches anything without touching the iterator and without adding anything to the match list
 struct epsilon_matcher : parser_node_base<epsilon_matcher> {
@@ -287,7 +287,7 @@ struct epsilon_matcher : parser_node_base<epsilon_matcher> {
 };
 
 //!
-template <> struct FLOOR_API literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWORD> :
+template <> struct literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWORD> :
 public parser_node_base<literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWORD>> {
 	typedef const literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWORD>& storage_type;
 	const FLOOR_KEYWORD keyword;
@@ -309,7 +309,7 @@ public parser_node_base<literal_matcher<FLOOR_KEYWORD, SOURCE_TOKEN_TYPE::KEYWOR
 };
 
 //!
-template <> struct FLOOR_API literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUNCTUATOR> :
+template <> struct literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUNCTUATOR> :
 public parser_node_base<literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUNCTUATOR>> {
 	typedef const literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUNCTUATOR>& storage_type;
 	const FLOOR_PUNCTUATOR punctuator;
@@ -331,7 +331,7 @@ public parser_node_base<literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUN
 };
 
 //!
-template <SOURCE_TOKEN_TYPE token_mask> struct FLOOR_API literal_matcher<char, token_mask> :
+template <SOURCE_TOKEN_TYPE token_mask> struct literal_matcher<char, token_mask> :
 public parser_node_base<literal_matcher<char, token_mask>> {
 	typedef const literal_matcher<char, token_mask>& storage_type;
 	const char c;
@@ -353,7 +353,7 @@ public parser_node_base<literal_matcher<char, token_mask>> {
 };
 
 //!
-template <SOURCE_TOKEN_TYPE token_mask> struct FLOOR_API literal_matcher<const char*, token_mask> :
+template <SOURCE_TOKEN_TYPE token_mask> struct literal_matcher<const char*, token_mask> :
 public parser_node_base<literal_matcher<const char*, token_mask>> {
 	typedef const literal_matcher<const char*, token_mask>& storage_type;
 	const char* str;
@@ -376,7 +376,7 @@ public parser_node_base<literal_matcher<const char*, token_mask>> {
 };
 
 //! identifier matcher (only matches token type, string/char is unimportant)
-template <> struct FLOOR_API literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFIER> :
+template <> struct literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFIER> :
 public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFIER>> {
 	typedef const literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFIER>& storage_type;
 	match_return_type match(parser_context& ctx) const {
@@ -392,7 +392,7 @@ public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::IDENTIFI
 	}
 };
 //! constant matcher (only matches token type, string/char is unimportant)
-template <> struct FLOOR_API literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT> :
+template <> struct literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT> :
 public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT>> {
 	typedef const literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT>& storage_type;
 	match_return_type match(parser_context& ctx) const {
@@ -408,7 +408,7 @@ public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::CONSTANT
 	}
 };
 //! string literal matcher (only matches token type, string/char is unimportant)
-template <> struct FLOOR_API literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_LITERAL> :
+template <> struct literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_LITERAL> :
 public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_LITERAL>> {
 	typedef const literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_LITERAL>& storage_type;
 	match_return_type match(parser_context& ctx) const {
@@ -424,7 +424,7 @@ public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::STRING_L
 	}
 };
 //! constant matcher (only matches token type, string/char is unimportant)
-template <> struct FLOOR_API literal_matcher<const char*, SOURCE_TOKEN_TYPE::INTEGER_CONSTANT> :
+template <> struct literal_matcher<const char*, SOURCE_TOKEN_TYPE::INTEGER_CONSTANT> :
 public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::INTEGER_CONSTANT>> {
 	typedef const literal_matcher<const char*, SOURCE_TOKEN_TYPE::INTEGER_CONSTANT>& storage_type;
 	match_return_type match(parser_context& ctx) const {
@@ -440,7 +440,7 @@ public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::INTEGER_
 	}
 };
 //! constant matcher (only matches token type, string/char is unimportant)
-template <> struct FLOOR_API literal_matcher<const char*, SOURCE_TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT> :
+template <> struct literal_matcher<const char*, SOURCE_TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT> :
 public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT>> {
 	typedef const literal_matcher<const char*, SOURCE_TOKEN_TYPE::UNSIGNED_INTEGER_CONSTANT>& storage_type;
 	match_return_type match(parser_context& ctx) const {
@@ -458,7 +458,7 @@ public parser_node_base<literal_matcher<const char*, SOURCE_TOKEN_TYPE::UNSIGNED
 
 //! binary container for parser tree objects
 template <typename lhs_rule, typename rhs_rule, typename parser_type>
-struct FLOOR_API parser_binary : public parser_type {
+struct parser_binary : public parser_type {
 	typename lhs_rule::storage_type lhs;
 	typename rhs_rule::storage_type rhs;
 	constexpr parser_binary(const lhs_rule& lhs_, const rhs_rule& rhs_) noexcept : lhs(lhs_), rhs(rhs_) {}
@@ -466,22 +466,22 @@ struct FLOOR_API parser_binary : public parser_type {
 
 //! unary container for parser tree objects
 template <typename node_rule, typename parser_type>
-struct FLOOR_API parser_unary : public parser_type {
+struct parser_unary : public parser_type {
 	typename node_rule::storage_type node;
 	constexpr parser_unary(const node_rule& node_) noexcept : node(node_) {}
 };
 
 //! use this to define a binary grammar operator
 #define grammar_rule_binary(name, op) \
-template <typename lhs_rule, typename rhs_rule> struct FLOOR_API grammar_rule_ ## name; /* forward declaration */ \
+template <typename lhs_rule, typename rhs_rule> struct grammar_rule_ ## name; /* forward declaration */ \
 template <typename lhs_rule, typename rhs_rule> \
-FLOOR_API inline grammar_rule_ ## name<lhs_rule, rhs_rule> \
+inline grammar_rule_ ## name<lhs_rule, rhs_rule> \
 /* provide the scope function/operator to combine parser objects */ \
 operator op(const parser_node_base<lhs_rule>& lhs, const parser_node_base<rhs_rule>& rhs) { \
 	return grammar_rule_ ## name<lhs_rule, rhs_rule> { lhs.get_enclosed(), rhs.get_enclosed() }; \
 } \
 template <typename lhs_rule, typename rhs_rule> \
-struct FLOOR_API grammar_rule_ ## name : public parser_binary<lhs_rule, rhs_rule, parser_node_base<grammar_rule_ ## name<lhs_rule, rhs_rule>>> { \
+struct grammar_rule_ ## name : public parser_binary<lhs_rule, rhs_rule, parser_node_base<grammar_rule_ ## name<lhs_rule, rhs_rule>>> { \
 	typedef parser_binary<lhs_rule, rhs_rule, parser_node_base<grammar_rule_ ## name<lhs_rule, rhs_rule>>> base_type; \
 	using grammar_rule_ ## name::base_type::base_type; /* inheriting template constructors is fun */ \
 	using base_type::lhs; /* we would have to use this->lhs everywhere otherwise */ \
@@ -492,13 +492,13 @@ struct FLOOR_API grammar_rule_ ## name : public parser_binary<lhs_rule, rhs_rule
 #define grammar_rule_unary(name, op) \
 template <typename node_rule> struct grammar_rule_ ## name; /* forward declaration */ \
 template <typename node_rule> \
-FLOOR_API inline grammar_rule_ ## name<node_rule> \
+inline grammar_rule_ ## name<node_rule> \
 /* provide the scope function/operator to combine parser objects */ \
 operator op(const parser_node_base<node_rule>& node) { \
 	return grammar_rule_ ## name<node_rule> { node.get_enclosed() }; \
 } \
 template <typename node_rule> \
-struct FLOOR_API grammar_rule_ ## name : public parser_unary<node_rule, parser_node_base<grammar_rule_ ## name<node_rule>>> { \
+struct grammar_rule_ ## name : public parser_unary<node_rule, parser_node_base<grammar_rule_ ## name<node_rule>>> { \
 	typedef parser_unary<node_rule, parser_node_base<grammar_rule_ ## name<node_rule>>> base_type; \
 	using grammar_rule_ ## name::base_type::base_type; /* inheriting template constructors is fun */ \
 	using base_type::node; /* we would have to use this->node everywhere otherwise */ \
@@ -637,7 +637,7 @@ grammar_rule_unary(match_except, !) {
 
 //! for the need to store and call an arbitrary parser tree/node object.
 //! use a ptr to parser_wrapper_base for storage and use a parser_node_wrapper<type> for assignments.
-struct FLOOR_API parser_node_wrapper_base {
+struct parser_node_wrapper_base {
 	constexpr parser_node_wrapper_base() noexcept {}
 	virtual ~parser_node_wrapper_base() noexcept;
 	virtual match_return_type match(parser_context& ctx) const = 0;
@@ -645,7 +645,7 @@ struct FLOOR_API parser_node_wrapper_base {
 
 //! see parser_node_wrapper_base.
 //! this class exists, so that arbitrary parser node objects can be accessed through the same wrapper type.
-template <typename parser_type> struct FLOOR_API parser_node_wrapper : parser_node_wrapper_base {
+template <typename parser_type> struct parser_node_wrapper : parser_node_wrapper_base {
 	typename parser_type::storage_type p;
 	constexpr parser_node_wrapper(const parser_type& p_) noexcept : p(p_) {}
 	//! simple pass-through
@@ -655,7 +655,7 @@ template <typename parser_type> struct FLOOR_API parser_node_wrapper : parser_no
 };
 
 //!
-struct FLOOR_API grammar_rule : public parser_node_base<grammar_rule> {
+struct grammar_rule : public parser_node_base<grammar_rule> {
 	//! we never want (container + match exec logic) or can (infinite construction recursion is fun) make/store a grammar_rule copy,
 	//! so use a simple ref instead. also note that grammar_rule objects are always named, actual objects, so this won't lead
 	//! to any "ref to temporary object" problems.
