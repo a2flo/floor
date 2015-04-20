@@ -30,7 +30,7 @@
 #include <floor/lang/grammar.hpp>
 using namespace std;
 
-class parser {
+class FLOOR_API parser {
 public:
 	//! parse the specified translation unit and construct the AST
 	static void parse(lang_context& ctx, translation_unit& tu);
@@ -47,7 +47,7 @@ protected:
 };
 
 //! c grammar definition: for internal use only
-class parser_grammar {
+class FLOOR_API parser_grammar {
 protected:
 	// all grammar rule objects
 #if !defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_SET_NAMES)
@@ -93,7 +93,7 @@ protected:
 };
 
 //! semantic_error exception
-class semantic_error : public exception {
+class FLOOR_API semantic_error : public exception {
 protected:
 	token_iterator iter;
 	string error_msg;
@@ -103,7 +103,7 @@ public:
 	const token_iterator& get_iter() const noexcept;
 };
 
-class parser_ast : public parser_grammar {
+class FLOOR_API parser_ast : public parser_grammar {
 public:
 	//!
 	parser_ast();

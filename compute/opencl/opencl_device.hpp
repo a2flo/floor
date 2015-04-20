@@ -27,7 +27,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class opencl_device final : public compute_device {
+class FLOOR_API opencl_device final : public compute_device {
 public:
 	~opencl_device() override {}
 	

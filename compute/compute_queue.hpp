@@ -30,7 +30,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class compute_queue {
+class FLOOR_API compute_queue {
 public:
 	virtual ~compute_queue() = 0;
 	

@@ -24,7 +24,7 @@
 #include <floor/core/essentials.hpp>
 using namespace std;
 
-class CAPABILITY("mutex") atomic_spin_lock {
+class FLOOR_API CAPABILITY("mutex") atomic_spin_lock {
 public:
 	floor_inline_always void lock() ACQUIRE() {
 		// as long as this succeeds (returns true), the lock is already acquired

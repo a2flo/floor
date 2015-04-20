@@ -24,7 +24,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel.hpp>
 
-class compute_program {
+class FLOOR_API compute_program {
 public:
 	//! returns the kernel with the exact function name of "func_name", nullptr if not found
 	shared_ptr<compute_kernel> get_kernel(const string& func_name) const;

@@ -25,7 +25,7 @@
 #include <floor/threading/thread_safety.hpp>
 using namespace std;
 
-class task {
+class FLOOR_API task {
 public:
 	//! task constructor, don't use this directly (use task::spawn instead)
 	task(std::function<void()> op, const string task_name);

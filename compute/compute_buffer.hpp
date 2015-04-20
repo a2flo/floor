@@ -26,7 +26,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
-class compute_buffer : public compute_memory {
+class FLOOR_API compute_buffer : public compute_memory {
 public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
 	compute_buffer(const void* device,

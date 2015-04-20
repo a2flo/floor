@@ -22,7 +22,7 @@
 #include <floor/core/platform.hpp>
 
 //! file input/output
-class file_io {
+class FLOOR_API file_io {
 public:
 	enum class OPEN_TYPE {
 		READ,

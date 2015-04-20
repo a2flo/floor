@@ -106,7 +106,7 @@
 
 #if defined(__clang__) && !defined(_MSC_VER) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5))
 // wrapper around std::mutex, based on libc++
-class CAPABILITY("mutex") safe_mutex {
+class FLOOR_API CAPABILITY("mutex") safe_mutex {
 protected:
 	std::mutex mtx;
 	
@@ -133,7 +133,7 @@ public:
 };
 
 // wrapper around std::recursive_mutex, based on libc++
-class CAPABILITY("mutex") safe_recursive_mutex {
+class FLOOR_API CAPABILITY("mutex") safe_recursive_mutex {
 protected:
 	std::recursive_mutex mtx;
 	
@@ -161,7 +161,7 @@ public:
 
 // replacement for std::lock_guard, based on libc++
 template <class Mutex>
-class SCOPED_CAPABILITY safe_guard {
+class FLOOR_API SCOPED_CAPABILITY safe_guard {
 public:
 	typedef Mutex mutex_type;
 	

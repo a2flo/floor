@@ -36,7 +36,7 @@ typedef string source_type;
 typedef string::const_iterator source_iterator;
 
 //! source code range: [begin, end)
-struct source_range {
+struct FLOOR_API source_range {
 	//! inclusive begin
 	source_iterator begin;
 	//! exclusive end

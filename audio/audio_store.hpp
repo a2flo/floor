@@ -33,7 +33,7 @@ enum class AUDIO_EFFECT : unsigned int {
 	ECHO
 };
 
-class audio_store {
+class FLOOR_API audio_store {
 public:
 	static void init();
 	static void destroy();

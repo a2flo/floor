@@ -21,7 +21,7 @@
 
 #include <floor/core/platform.hpp>
 
-class floor_timer {
+class FLOOR_API floor_timer {
 public:
 	floor_timer() { add("start", false); }
 	~floor_timer() {}
@@ -70,7 +70,7 @@ template <class clock_type = typename conditional<chrono::high_resolution_clock:
 												  chrono::high_resolution_clock,
 												  chrono::steady_clock>::type>
 //! simple timer class based on std chrono functionality and capable of using arbitrary duration types (defaults to ms)
-class floor_timer2_t {
+class FLOOR_API floor_timer2_t {
 public:
 	//! "starts" the timer: returns the current time_point of a monotonic clock
 	static chrono::time_point<clock_type> start() {

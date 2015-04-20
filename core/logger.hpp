@@ -37,7 +37,7 @@ using namespace std;
 #define log_msg(...) logger::log(logger::LOG_TYPE::SIMPLE_MSG, "", "", __VA_ARGS__)
 #define log_undecorated(...) logger::log(logger::LOG_TYPE::UNDECORATED, "", "", __VA_ARGS__)
 
-class logger {
+class FLOOR_API logger {
 public:
 	//! the kind of log message (this determines the output stream and potentially output formatting)
 	enum class LOG_TYPE : uint32_t {

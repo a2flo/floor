@@ -25,7 +25,7 @@
 #include <floor/core/logger.hpp>
 using namespace std;
 
-template <class option_context> class option_handler {
+template <class option_context> class FLOOR_API option_handler {
 public:
 	//! parses the command line options and sets everything up inside the ctx
 	static void parse_options(char* argv[], option_context& option_ctx) {
@@ -54,7 +54,7 @@ public:
 				log_error("unknown argument '%s'", arg);
 				return;
 			}
-			(*opt_iter)(option_ctx, arg_ptr);
+			opt_iter->second(option_ctx, arg_ptr);
 #else
 			// if there is no function registered for an option, this will throw an "out_of_range" exception
 			try {

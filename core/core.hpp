@@ -25,7 +25,7 @@
 #include <floor/core/file_io.hpp>
 #include <random>
 
-class core {
+class FLOOR_API core {
 public:
 	//
 	static void init();
@@ -169,7 +169,7 @@ protected:
 };
 
 // TODO: move this somewhere appropriate
-struct rect {
+struct FLOOR_API rect {
 	union {
 		struct {
 			unsigned int x1;

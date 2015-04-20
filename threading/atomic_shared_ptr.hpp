@@ -30,7 +30,7 @@
 // ref thread-safety of shared_ptr: http://www.boost.org/doc/libs/1_53_0/libs/smart_ptr/shared_ptr.htm#ThreadSafety
 // ref atomic_shared_ptr: http://isocpp.org/files/papers/N4162.pdf
 //                        http://isocpp.org/files/papers/N4260.pdf
-template <class T> class atomic_shared_ptr {
+template <class T> class FLOOR_API atomic_shared_ptr {
 protected:
 	shared_ptr<T> ptr GUARDED_BY(mtx);
 	mutable atomic_spin_lock mtx;

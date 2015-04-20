@@ -26,7 +26,7 @@
 #include <floor/compute/compute_program.hpp>
 #include <floor/compute/llvm_compute.hpp>
 
-class cuda_program final : public compute_program {
+class FLOOR_API cuda_program final : public compute_program {
 public:
 	cuda_program(const CUmodule program, const vector<llvm_compute::kernel_info>& kernels_info);
 	

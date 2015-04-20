@@ -31,7 +31,7 @@ using namespace std;
 //! usage: inherit from this class, add a virtual destructor, override the run() method and call start(). call finish()
 //! to finish/end the thread execution. look up the documentation for each of these calls.
 //! NOTE: for simpler "execute once in a separate thread" things, it might be easier to use a task (-> task.hpp).
-class thread_base {
+class FLOOR_API thread_base {
 public:
 	//! constructs a thread_base object, locks the thread lock and creates a std::thread object that will
 	//! execute the actual "thread code" (the user supplied run method).

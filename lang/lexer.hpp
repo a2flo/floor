@@ -29,7 +29,7 @@
 #include <floor/lang/lang_context.hpp>
 using namespace std;
 
-class lexer final {
+class FLOOR_API lexer final {
 public:
 	//! phase 1: replaces \r occurrences and creates a newline iterator set
 	static void map_characters(lang_context& ctx, translation_unit& tu);

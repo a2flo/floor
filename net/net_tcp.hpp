@@ -28,10 +28,10 @@
 
 // non-ssl and ssl specific implementation
 namespace floor_net {
-	template <bool use_ssl> struct protocol_details {};
+	template <bool use_ssl> struct FLOOR_API protocol_details {};
 	
 	// non-ssl
-	template <> struct protocol_details<false> {
+	template <> struct FLOOR_API protocol_details<false> {
 		tcp::socket socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
 		protocol_details<false>(boost::asio::io_service& io_service) :
@@ -57,7 +57,7 @@ namespace floor_net {
 #endif
 	
 	// ssl
-	template <> struct protocol_details<true> {
+	template <> struct FLOOR_API protocol_details<true> {
 		boost::asio::ssl::context context;
 		boost::asio::ssl::stream<tcp::socket> socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
@@ -129,7 +129,7 @@ namespace floor_net {
 };
 
 // combined/common ssl and non-ssl protocol implementation
-template<bool use_ssl> struct std_protocol<tcp::socket, use_ssl> {
+template<bool use_ssl> struct FLOOR_API std_protocol<tcp::socket, use_ssl> {
 public:
 	std_protocol<tcp::socket, use_ssl>() :
 	io_service(), resolver(io_service), acceptor(io_service), data(io_service) {}

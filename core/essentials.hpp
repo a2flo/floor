@@ -33,6 +33,22 @@
 #include <floor/floor/floor_conf.hpp>
 #endif
 
+// on windows exports/imports: use dllexport or dllimport for all floor and opengl functions,
+// depending on compiling floor itself or other projects using/including floor
+#if defined(FLOOR_EXPORTS)
+#pragma warning(disable: 4251)
+#define FLOOR_API __declspec(dllexport)
+#define OGL_API __declspec(dllexport)
+#elif defined(FLOOR_IMPORTS)
+#pragma warning(disable: 4251)
+#define FLOOR_API __declspec(dllimport)
+#define OGL_API __declspec(dllimport)
+#else
+// no need for these on sane operating systems ...
+#define FLOOR_API
+#define OGL_API
+#endif
+
 // for flagging unreachable code
 #if defined(__clang__) || defined(__GNUC__)
 #define floor_unreachable __builtin_unreachable

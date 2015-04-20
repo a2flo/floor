@@ -32,7 +32,7 @@
 #pragma clang diagnostic ignored "-Wnon-virtual-dtor"
 #endif
 
-class __attribute__((packed, aligned(4))) bbox {
+class FLOOR_API __attribute__((packed, aligned(4))) bbox {
 public:
 	float3 min { __FLT_MAX__ };
 	float3 max { -__FLT_MAX__ };
@@ -109,7 +109,7 @@ public:
 };
 
 //! extended bound box (including position and model view matrix)
-class __attribute__((packed)) extbbox : public bbox {
+class FLOOR_API __attribute__((packed)) extbbox : public bbox {
 public:
 	float3 pos;
 	matrix4f mview;

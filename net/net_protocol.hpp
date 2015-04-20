@@ -31,7 +31,7 @@ using boost::asio::ip::tcp;
 #include <floor/core/platform.hpp>
 
 template <class socket_type, bool use_ssl>
-struct std_protocol {
+struct FLOOR_API std_protocol {
 	// these declarations aren't actually needed, but for the sake of understanding the "interface"
 	// or getting an overview of it, i put these here
 	

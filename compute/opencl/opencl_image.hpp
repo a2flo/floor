@@ -26,7 +26,7 @@
 #include <floor/compute/compute_image.hpp>
 
 class opencl_device;
-class opencl_image final : public compute_image {
+class FLOOR_API opencl_image final : public compute_image {
 public:
 	opencl_image(const opencl_device* device,
 				 const uint4 image_dim,

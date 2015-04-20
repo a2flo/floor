@@ -24,7 +24,7 @@
 
 //! performs an atomic "object-val = max(object-val, desired-val)" operation
 template <class T>
-floor_inline_always void atomic_max(atomic<T>& dst, const T& desired) {
+FLOOR_API floor_inline_always void atomic_max(atomic<T>& dst, const T& desired) {
 	T expected = dst.load();
 	while(!dst.compare_exchange_weak(expected, desired)) {
 		// if this has already been updated in the meantime, we don't need to modify it any more

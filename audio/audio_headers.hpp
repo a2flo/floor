@@ -47,7 +47,7 @@ extern LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti;
 extern LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
 extern LPALDELETEFILTERS alDeleteFilters;
 
-namespace floor_audio {
+namespace FLOOR_API floor_audio {
 	bool check_openal_efx_funcs();
 };
 

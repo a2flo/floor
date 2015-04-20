@@ -31,7 +31,7 @@
 #include <floor/compute/cuda/cuda_program.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 
-class cuda_compute final : public compute_base {
+class FLOOR_API cuda_compute final : public compute_base {
 public:
 	//////////////////////////////////////////
 	// init / context creation

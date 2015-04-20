@@ -26,7 +26,7 @@
 #include <floor/audio/audio_headers.hpp>
 #include <floor/audio/audio_source.hpp>
 
-class audio_controller {
+class FLOOR_API audio_controller {
 public:
 	//
 	static void init();

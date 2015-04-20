@@ -38,7 +38,7 @@
 #endif
 
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
-class compute_base {
+class FLOOR_API compute_base {
 public:
 	//////////////////////////////////////////
 	// init / context creation

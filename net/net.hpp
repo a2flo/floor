@@ -35,7 +35,7 @@ struct net_receive_split_on_newline;
 
 //
 template <class protocol_policy = TCP_protocol, class reception_policy = net_receive_raw>
-class net : public thread_base {
+class FLOOR_API net : public thread_base {
 public:
 	net();
 	virtual ~net();

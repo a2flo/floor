@@ -44,7 +44,7 @@ template <typename T> class vector4;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(16))) matrix4 {
 public:
 	template <typename elem_type> struct cexpr_array {
 		elem_type data[16];

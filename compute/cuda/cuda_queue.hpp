@@ -26,7 +26,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/cuda/cuda_kernel.hpp>
 
-class cuda_queue final : public compute_queue {
+class FLOOR_API cuda_queue final : public compute_queue {
 public:
 	cuda_queue(const CUstream queue);
 	

@@ -35,7 +35,7 @@ typedef quaternion<double> quaterniond;
 #pragma clang diagnostic ignored "-Wpacked"
 #endif
 
-template <typename T> class __attribute__((packed, aligned(4))) quaternion {
+template <typename T> class FLOOR_API __attribute__((packed, aligned(4))) quaternion {
 public:
 	T x, y, z, r;
 	constexpr quaternion() noexcept : x(T(0)), y(T(0)), z(T(0)), r(T(1)) {}

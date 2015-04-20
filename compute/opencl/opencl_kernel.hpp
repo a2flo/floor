@@ -33,7 +33,7 @@
 #include <floor/compute/compute_kernel.hpp>
 #undef FLOOR_OPENCL_KERNEL_IMPL
 
-class opencl_kernel final : public compute_kernel {
+class FLOOR_API opencl_kernel final : public compute_kernel {
 public:
 	opencl_kernel(const cl_kernel kernel, const string& func_name);
 	~opencl_kernel() override;

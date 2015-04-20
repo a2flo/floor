@@ -24,7 +24,7 @@
 #include <floor/core/event_objects.hpp>
 
 //! (sdl) event handler
-class event : public thread_base {
+class FLOOR_API event : public thread_base {
 public:
 	event();
 	virtual ~event();

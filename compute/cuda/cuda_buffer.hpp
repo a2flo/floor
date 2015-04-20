@@ -26,7 +26,7 @@
 #include <floor/compute/compute_buffer.hpp>
 
 class cuda_device;
-class cuda_buffer final : public compute_buffer {
+class FLOOR_API cuda_buffer final : public compute_buffer {
 public:
 	cuda_buffer(const cuda_device* device,
 				const size_t& size_,

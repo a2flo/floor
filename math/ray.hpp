@@ -21,7 +21,7 @@
 
 #include <floor/math/vector_lib.hpp>
 
-class ray {
+class FLOOR_API ray {
 public:
 	float3 origin;
 	float3 direction;

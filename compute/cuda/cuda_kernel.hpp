@@ -34,7 +34,7 @@
 #include <floor/compute/compute_kernel.hpp>
 #undef FLOOR_CUDA_KERNEL_IMPL
 
-class cuda_kernel final : public compute_kernel {
+class FLOOR_API cuda_kernel final : public compute_kernel {
 public:
 	cuda_kernel(const CUfunction kernel, const llvm_compute::kernel_info& info);
 	~cuda_kernel() override;

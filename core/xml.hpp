@@ -26,7 +26,7 @@
 #include <libxml/xmlwriter.h>
 
 //! xml functions
-class xml {
+class FLOOR_API xml {
 public:
 	xml();
 	~xml();
