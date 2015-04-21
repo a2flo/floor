@@ -668,6 +668,7 @@ WARNINGS="${WARNINGS} -Wno-system-headers -Wno-global-constructors -Wno-padded"
 WARNINGS="${WARNINGS} -Wno-packed -Wno-switch-enum -Wno-exit-time-destructors"
 WARNINGS="${WARNINGS} -Wno-unknown-warning-option -Wno-nested-anon-types"
 WARNINGS="${WARNINGS} -Wno-old-style-cast -Wno-date-time -Wno-reserved-id-macro"
+WARNINGS="${WARNINGS} -Wno-documentation-unknown-command"
 if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	# ignore warnings about required alignment increases on 32-bit platforms (won't and can't fix)
 	WARNINGS="${WARNINGS} -Wno-cast-align"
