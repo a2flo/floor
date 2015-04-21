@@ -95,15 +95,22 @@ public:
 		IMAGE_ACCESS_SHIFT		= (48ull),
 	};
 	
-	//
+	//!
 	static pair<string, vector<kernel_info>> compile_program(shared_ptr<compute_device> device,
 															 const string& code,
 															 const string additional_options = "",
 															 const TARGET target = TARGET::SPIR);
+	//!
 	static pair<string, vector<kernel_info>> compile_program_file(shared_ptr<compute_device> device,
 																  const string& filename,
 																  const string additional_options = "",
 																  const TARGET target = TARGET::SPIR);
+	//!
+	static pair<string, vector<kernel_info>> compile_input(const string& input,
+														   const string& cmd_prefix,
+														   shared_ptr<compute_device> device,
+														   const string additional_options = "",
+														   const TARGET target = TARGET::SPIR);
 	
 protected:
 	// static class

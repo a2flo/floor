@@ -18,6 +18,7 @@
 
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
+#include <regex>
 
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
@@ -44,13 +45,7 @@ static bool process_air_llvm(const string& filename, string& code) {
 	return true;
 }
 
-static bool get_floor_metadata(const string& filename, vector<llvm_compute::kernel_info>& kernels) {
-	string lines_str;
-	if(!file_io::file_to_string(filename, lines_str)) {
-		log_error("failed to process air llvm file: %s", filename);
-		return false;
-	}
-	
+static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
 	const auto parse_metadata_line = [](const string& line, const auto& per_elem_func) {
 		const auto set_start = line.find('{');
@@ -210,14 +205,38 @@ static bool get_floor_metadata(const string& filename, vector<llvm_compute::kern
 	return true;
 }
 
+static bool get_floor_metadata_from_file(const string& filename, vector<llvm_compute::kernel_info>& kernels) {
+	string lines_str;
+	if(!file_io::file_to_string(filename, lines_str)) {
+		log_error("failed to process llvm file: %s", filename);
+		return false;
+	}
+	return get_floor_metadata(lines_str, kernels);
+}
+
 pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
-																			  const string& code, const string additional_options,
+																			  const string& code,
+																			  const string additional_options,
 																			  const TARGET target) {
+	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
+	return compile_input("-", printable_code, device, additional_options, target);
+}
+
+pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
+																				   const string& filename,
+																				   const string additional_options,
+																				   const TARGET target) {
+	return compile_input(filename, "", device, additional_options, target);
+}
+
+pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(const string& input,
+																			const string& cmd_prefix,
+																			shared_ptr<compute_device> device,
+																			const string additional_options,
+																			const TARGET target) {
 	// TODO/NOTE: additional clang flags:
 	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
 	//  -menable-unsafe-fp-math
-	
-	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	
 	// for now, only enable these in debug mode (note that these cost a not insignificant amount of compilation time)
 #if defined(FLOOR_DEBUG)
@@ -255,8 +274,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 	};
 	
 	if(target == TARGET::SPIR) {
-		string spir_cmd {
-			printable_code +
+		const string spir_cmd {
+			cmd_prefix +
 			floor::get_opencl_compiler() +
 			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
 			" -Xclang -cl-kernel-arg-info" \
@@ -271,54 +290,61 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			warning_flags +
 			additional_options +
 			generic_flags +
-			" -emit-llvm -S -o spir_3_5.ll - 2>&1"
+			" -emit-llvm -S -o - " + input
+#if !defined(_MSC_VER)
+			+ " 2>&1"
+#endif
 		};
 		
 		//log_msg("spir cmd: %s", spir_cmd);
-		string spir_bc_output = "";
-		core::system(spir_cmd, spir_bc_output);
+		string spir_output = "";
+		core::system(spir_cmd, spir_output);
 		//log_msg("spir cmd: %s", spir_cmd);
-		log_msg("spir bc/ll: %s", spir_bc_output);
+		//log_msg("spir bc/ll: %s", spir_output);
+		if(spir_output == "") {
+			log_error("compilation failed");
+			return {};
+		}
 		
+		// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
+		// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
+		core::find_and_replace(spir_output, "readonly", "");
+		core::find_and_replace(spir_output, "nocapture readnone", "");
+		
+		static const regex rx_spir_kernel("define (.*)section \\\"spir_kernel\\\" (.*)", regex::optimize);
+		spir_output = regex_replace(spir_output, rx_spir_kernel, "define spir_kernel $1$2");
+		
+		// output modified ir back to a file and create a bc file so spir-encoder can consume it
+		if(!file_io::string_to_file("spir_3_5.ll", spir_output)) {
+			log_error("failed to output LLVM IR for SPIR consumption");
+			return {};
+		}
+		core::system(floor::get_opencl_as() + " -o spir_3_5.bc spir_3_5.ll");
+		
+		// run spir-encoder for 3.5 -> 3.2 conversion
 		const string spir_3_2_encoder_cmd {
-			// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
-			// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
-#if defined(__APPLE__)
-			" sed -i \"\""
-#else
-			" sed -i"
+			"spir-encoder spir_3_5.bc spir_3_2.bc"s
+#if !defined(_MSC_VER)
+			+ " 2>&1"
 #endif
-			" -E \"s/readonly//g\" spir_3_5.ll &&"
-#if defined(__APPLE__)
-			" sed -i \"\""
-#else
-			" sed -i"
-#endif
-			" -E \"s/nocapture readnone//g\" spir_3_5.ll &&"
-#if defined(__APPLE__)
-			" sed -i \"\""
-#else
-			" sed -i"
-#endif
-			" -E \"s/^define (.*)section \\\"spir_kernel\\\" (.*)/define spir_kernel \\1\\2/\" spir_3_5.ll &&"
-			" " + floor::get_opencl_as() + " spir_3_5.ll && "
-			// actual spir-encoder call:
-			"spir-encoder spir_3_5.bc spir_3_2.bc 2>&1"
 		};
 		string spir_encoder_output = "";
 		core::system(spir_3_2_encoder_cmd, spir_encoder_output);
 		log_msg("spir encoder: %s", spir_encoder_output);
 		
 		string spir_bc;
-		if(!file_io::file_to_string("spir_3_2.bc", spir_bc)) return { "", {} };
+		if(!file_io::file_to_string("spir_3_2.bc", spir_bc)) {
+			log_error("failed to read back SPIR 1.2 .bc file");
+			return {};
+		}
 		
 		vector<kernel_info> kernels;
-		get_floor_metadata("spir_3_5.ll", kernels);
+		get_floor_metadata(spir_output, kernels);
 		return { spir_bc, kernels };
 	}
 	else if(target == TARGET::AIR) {
 		const string air_cmd {
-			printable_code +
+			cmd_prefix +
 			floor::get_metal_compiler() +
 			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
 			" -Xclang -air-kernel-info" \
@@ -333,7 +359,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 			warning_flags +
 			additional_options +
 			generic_flags +
-			" -emit-llvm -S -o air_3_5.ll - 2>&1"
+			" -emit-llvm -S -o air_3_5.ll " + input + " 2>&1"
 		};
 		
 		string air_ll_output = "";
@@ -343,12 +369,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		//
 		string air_code = "";
 		if(!process_air_llvm("air_3_5.ll", air_code)) {
-			return { "", {} };
+			return {};
 		}
 		file_io::string_to_file("air_processed.ll", air_code); // for debugging purposes only
 		
 		vector<kernel_info> kernels;
-		get_floor_metadata("air_processed.ll", kernels);
+		get_floor_metadata(air_code, kernels);
 		return { air_code, kernels };
 	}
 	else if(target == TARGET::PTX) {
@@ -360,7 +386,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		const string sm_version = (force_sm.empty() ? "20" /* just default to fermi/sm_20 */ : force_sm);
 #endif
 		string ptx_cmd {
-			printable_code +
+			cmd_prefix +
 			floor::get_cuda_compiler() +
 			" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
 			" -Xclang -fcuda-is-device" \
@@ -374,8 +400,13 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		};
 		
 		// TODO: clean this up + do this properly!
-		const string ptx_bc_cmd = ptx_cmd + " -o cuda_ptx.ll - 2>&1";
-		ptx_cmd += " -o - - 2>&1";
+		const string ptx_bc_cmd {
+			ptx_cmd + " -o cuda_ptx.ll " + input
+#if !defined(_MSC_VER)
+			+ " 2>&1"
+#endif
+		};
+		ptx_cmd += " -o - " + input + " 2>&1";
 		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " -mattr=ptx42 2>&1");
 #if 1 // TODO: keep this for now, remove it when no longer needed (and this always works properly)
 		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
@@ -391,15 +422,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 		//log_msg("ptx code:\n%s\n", ptx_code);
 		
 		vector<kernel_info> kernels;
-		get_floor_metadata("cuda_ptx.ll", kernels);
+		get_floor_metadata_from_file("cuda_ptx.ll", kernels);
 		return { ptx_code, kernels };
 	}
-	return { "", {} };
-}
-
-pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
-																				   const string& filename,
-																				   const string additional_options,
-																				   const TARGET target) {
-	return compile_program(device, file_io::file_to_string(filename), additional_options, target);
+	return {};
 }
