@@ -147,12 +147,18 @@ void register_segfault_handler() {
 #endif
 #endif
 
-#else // mingw/windows version:
+#elif !defined(_MSC_VER) // mingw version:
 
 void register_segfault_handler() {
 	if(LoadLibraryA("exchndl.dll") == nullptr) {
 		log_warn("couldn't load Dr. Mingw dll (exchndl.dll): %u", GetLastError());
 	}
+}
+
+#else // msvc/windows version:
+
+void register_segfault_handler() {
+	// nop
 }
 
 #endif

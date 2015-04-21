@@ -780,6 +780,18 @@ namespace const_math {
 		return 0;
 	}
 	
+	//! computes the width of an integer value (e.g. 7 = 1, 42 = 2, 987654 = 6)
+	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	constexpr uint32_t int_width(const int_type& num) {
+		uint32_t width = 1;
+		auto val = const_math::abs(num);
+		while(val > (int_type)10) {
+			++width;
+			val /= (int_type)10;
+		}
+		return width;
+	}
+	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"
 	//! note: all arguments are cast to long double, then used to do the computation and then cast back to the return type
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>

@@ -270,9 +270,8 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 #endif
 			buffer << time_str;
 			buffer << ".";
-			buffer << setw(is_same<chrono::system_clock::period, nano>::value ? 9 :
-						   (is_same<chrono::system_clock::period, micro>::value ? 6 : 3));
-			buffer << setw(6) << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
+			buffer << setw(const_math::int_width(chrono::system_clock::period::den));
+			buffer << system_now.time_since_epoch().count() % chrono::system_clock::period::den << setw(0);
 			buffer << "] ";
 		}
 		else buffer << " ";
