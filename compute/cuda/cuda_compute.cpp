@@ -320,11 +320,8 @@ void cuda_compute::deactivate_context() {
 
 shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
-	string code;
-	if(!file_io::file_to_string(file_name, code)) {
-		return {};
-	}
-	return add_program_source(code, additional_options);
+	return add_program(llvm_compute::compile_program_file(devices[0], file_name, additional_options, llvm_compute::TARGET::PTX),
+					   additional_options);
 }
 
 shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
@@ -332,8 +329,13 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	// TODO: build for all cuda devices (if needed due to different sm_*)
 	
 	// compile the source code to cuda ptx
-	const auto program_data = llvm_compute::compile_program(devices[0], // TODO: do for all devices
-															source_code, additional_options, llvm_compute::TARGET::PTX);
+	return add_program(llvm_compute::compile_program(devices[0], // TODO: do for all devices
+													 source_code, additional_options, llvm_compute::TARGET::PTX),
+					   additional_options);
+}
+
+shared_ptr<compute_program> cuda_compute::add_program(const pair<string, vector<llvm_compute::kernel_info>>& program_data,
+													  const string additional_options floor_unused) {
 	
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;

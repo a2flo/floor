@@ -128,6 +128,9 @@ protected:
 	
 	vector<shared_ptr<opencl_program>> programs;
 	
+	shared_ptr<compute_program> add_program(const pair<string, vector<llvm_compute::kernel_info>>& program_data,
+											const string additional_options);
+	
 };
 
 #endif
