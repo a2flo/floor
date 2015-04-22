@@ -279,7 +279,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		" -DFLOOR_NO_MATH_STR"
 		" -include floor/compute/device/common.hpp"
 		" -include floor/constexpr/const_math.cpp"
-#if !defined(_MSC_VER)
+#if !defined(_MSC_VER) // TODO: better use a config entry for these as well
 		" -isystem /usr/local/include"
 #else
 		" -isystem %FLOOR_INCLUDE%"

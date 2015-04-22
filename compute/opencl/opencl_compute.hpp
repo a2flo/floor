@@ -118,6 +118,13 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
 	
+	//////////////////////////////////////////
+	// opencl specific functions
+	
+	const cl_context& get_opencl_context() const {
+		return ctx;
+	}
+	
 protected:
 	cl_context ctx { nullptr };
 	vector<cl_device_id> ctx_devices;
@@ -128,7 +135,7 @@ protected:
 	
 	vector<shared_ptr<opencl_program>> programs;
 	
-	shared_ptr<compute_program> add_program(const pair<string, vector<llvm_compute::kernel_info>>& program_data,
+	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
 											const string additional_options);
 	
 };

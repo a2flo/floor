@@ -120,7 +120,7 @@ public:
 protected:
 	vector<shared_ptr<cuda_program>> programs;
 	
-	shared_ptr<compute_program> add_program(const pair<string, vector<llvm_compute::kernel_info>>& program_data,
+	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
 											const string additional_options);
 	
 };

@@ -718,7 +718,7 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 					   additional_options);
 }
 
-shared_ptr<compute_program> opencl_compute::add_program(const pair<string, vector<llvm_compute::kernel_info>>& program_data,
+shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
 														const string additional_options) {
 	if(program_data.first.empty()) {
 		log_error("compilation failed");
