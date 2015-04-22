@@ -24,7 +24,9 @@
 #if defined(PLATFORM_X32) && !defined(FLOOR_NO_SOFT_I128)
 
 #include <type_traits>
+#if !defined(FLOOR_COMPUTE)
 #include <cstdint>
+#endif
 //#include <ostream>
 using namespace std;
 

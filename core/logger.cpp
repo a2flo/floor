@@ -115,7 +115,7 @@ void logger_thread::run() {
 		if(entry.second[0] == 0x1B) {
 			// strip the color information when writing to the log file
 			entry.second.erase(0, 5);
-			entry.second.erase(7, 3);
+			entry.second.erase(5, 3);
 		}
 		
 		// if "separate msg file logging" is enabled and the log type is "msg", log to the msg file
@@ -241,16 +241,16 @@ bool logger::prepare_log(stringstream& buffer, const LOG_TYPE& type, const char*
 	if(type != logger::LOG_TYPE::UNDECORATED) {
 		switch(type) {
 			case LOG_TYPE::ERROR_MSG:
-				buffer << (log_use_color ? "\033[31m" : "") << "[ERROR]";
+				buffer << (log_use_color ? "\033[31m" : "") << "[ERR]";
 				break;
 			case LOG_TYPE::WARNING_MSG:
-				buffer << (log_use_color ? "\033[33m" : "") << "[WARNG]";
+				buffer << (log_use_color ? "\033[33m" : "") << "[WRN]";
 				break;
 			case LOG_TYPE::DEBUG_MSG:
-				buffer << (log_use_color ? "\033[32m" : "") << "[DEBUG]";
+				buffer << (log_use_color ? "\033[32m" : "") << "[DBG]";
 				break;
 			case LOG_TYPE::SIMPLE_MSG:
-				buffer << (log_use_color ? "\033[34m" : "") << "[ MSG ]";
+				buffer << (log_use_color ? "\033[34m" : "") << "[MSG]";
 				break;
 			case LOG_TYPE::UNDECORATED: break;
 		}

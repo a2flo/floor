@@ -23,28 +23,6 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
-static bool process_air_llvm(const string& filename, string& code) {
-	code = "";
-	
-	string lines_str;
-	if(!file_io::file_to_string(filename, lines_str)) {
-		log_error("failed to process air llvm file: %s", filename);
-		return false;
-	}
-	
-	// replace header (module id, data layout, target triple)
-	auto lines = core::tokenize(lines_str, '\n');
-	lines[0] = "; ModuleID = '" + filename + "'";
-	lines[1] = "target datalayout = \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"";
-	lines[2] = "target triple = \"air64-apple-ios8.0.0\"";
-
-	// concat again for final code output
-	for(auto& line : lines) {
-		code += line + '\n';
-	}
-	return true;
-}
-
 static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
 	const auto parse_metadata_line = [](const string& line, const auto& per_elem_func) {
@@ -205,15 +183,6 @@ static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::ker
 	return true;
 }
 
-static bool get_floor_metadata_from_file(const string& filename, vector<llvm_compute::kernel_info>& kernels) {
-	string lines_str;
-	if(!file_io::file_to_string(filename, lines_str)) {
-		log_error("failed to process llvm file: %s", filename);
-		return false;
-	}
-	return get_floor_metadata(lines_str, kernels);
-}
-
 pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
 																			  const string& code,
 																			  const string additional_options,
@@ -239,7 +208,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	//  -menable-unsafe-fp-math
 	
 	// for now, only enable these in debug mode (note that these cost a not insignificant amount of compilation time)
-#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG) && 0
 	const char* warning_flags {
 		// let's start with everything
 		" -Weverything"
@@ -261,61 +230,104 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	const char* warning_flags { "" };
 #endif
 	
-	// generic compilation flags used by all implementations
+	// create the initial clang compilation command
+	string clang_cmd = cmd_prefix + " ";
+	switch(target) {
+		case TARGET::SPIR:
+			clang_cmd += {
+				floor::get_opencl_compiler() +
+				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
+				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -Xclang -cl-kernel-arg-info" \
+				" -Xclang -cl-mad-enable" \
+				" -Xclang -cl-fast-relaxed-math" \
+				" -Xclang -cl-unsafe-math-optimizations" \
+				" -Xclang -cl-finite-math-only" \
+				" -DFLOOR_COMPUTE_SPIR" +
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "")
+			};
+			break;
+		case TARGET::AIR:
+			clang_cmd += {
+				floor::get_metal_compiler() +
+				// NOTE: always compiling to 64-bit here, because 32-bit never existed
+				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
+				" -Xclang -air-kernel-info" \
+				" -Xclang -cl-mad-enable" \
+				" -Xclang -cl-fast-relaxed-math" \
+				" -Xclang -cl-unsafe-math-optimizations" \
+				" -Xclang -cl-finite-math-only" \
+				" -DFLOOR_COMPUTE_NO_DOUBLE" \
+				" -DFLOOR_COMPUTE_METAL"
+			};
+			break;
+		case TARGET::PTX:
+			clang_cmd += {
+				floor::get_cuda_compiler() +
+				" -x cuda -std=cuda" \
+				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
+				" -Xclang -fcuda-is-device" \
+				" -DFLOOR_COMPUTE_CUDA"
+			};
+			break;
+	}
+	
+	// add generic flags/options that are always used
 	// TODO: use debug/profiling config options
-	const char* generic_flags {
+	clang_cmd += {
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR"
-		" -DPLATFORM_X64"
 		" -include floor/compute/device/common.hpp"
 		" -include floor/constexpr/const_math.cpp"
+#if !defined(_MSC_VER)
 		" -isystem /usr/local/include"
-		" -m64 -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast "
+#else
+		" -isystem %FLOOR% -isystem C:\"
+#endif
+		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast"
+		" -isystem " + floor::get_opencl_libcxx_path() +
+		" -isystem " + floor::get_opencl_clang_path() + " " +
+		warning_flags +
+		additional_options +
+		// compile to the right device bitness
+		(device->bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
+		" -emit-llvm -S -o - " + input
 	};
 	
-	if(target == TARGET::SPIR) {
-		const string spir_cmd {
-			cmd_prefix +
-			floor::get_opencl_compiler() +
-			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
-			" -Xclang -cl-kernel-arg-info" \
-			" -Xclang -cl-mad-enable" \
-			" -Xclang -cl-fast-relaxed-math" \
-			" -Xclang -cl-unsafe-math-optimizations" \
-			" -Xclang -cl-finite-math-only" \
-			" -DFLOOR_COMPUTE_SPIR" +
-			(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "") +
-			" -isystem " + floor::get_opencl_libcxx_path() +
-			" -isystem " + floor::get_opencl_clang_path() + " " +
-			warning_flags +
-			additional_options +
-			generic_flags +
-			" -emit-llvm -S -o - " + input
+	// on sane systems, redirect errors to stdout so that we can grab them
 #if !defined(_MSC_VER)
-			+ " 2>&1"
+	clang_cmd += " 2>&1";
 #endif
-		};
-		
-		//log_msg("spir cmd: %s", spir_cmd);
-		string spir_output = "";
-		core::system(spir_cmd, spir_output);
-		//log_msg("spir cmd: %s", spir_cmd);
-		//log_msg("spir bc/ll: %s", spir_output);
-		if(spir_output == "") {
-			log_error("compilation failed");
-			return {};
+	
+	// compile and store the llvm ir in a string (stdout output)
+	string ir_output = "";
+	core::system(clang_cmd, ir_output);
+	// if the output is empty or doesn't start with the llvm "ModuleID", something is probably wrong
+	if(ir_output == "" || ir_output.size() < 10 || ir_output.substr(0, 10) != "; ModuleID") {
+		log_error("compilation failed! failed cmd was:\n%s", clang_cmd);
+		if(ir_output != "") {
+			log_error("compilation errors:\n%s", ir_output);
 		}
-		
-		// NOTE: temporary fix to get this to compile with the intel compiler (readonly fail) and
+		return {};
+	}
+	
+	// grab floor metadata from compiled ir and create per-kernel info
+	vector<kernel_info> kernels;
+	get_floor_metadata(ir_output, kernels);
+	
+	// final target specific processing/compilation
+	string compiled_code = "";
+	if(target == TARGET::SPIR) {
+		// NOTE: temporary fixes to get this to compile with the intel compiler (readonly fail) and
 		// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
-		core::find_and_replace(spir_output, "readonly", "");
-		core::find_and_replace(spir_output, "nocapture readnone", "");
+		core::find_and_replace(ir_output, "readonly", "");
+		core::find_and_replace(ir_output, "nocapture readnone", "");
 		
 		static const regex rx_spir_kernel("define (.*)section \\\"spir_kernel\\\" (.*)", regex::optimize);
-		spir_output = regex_replace(spir_output, rx_spir_kernel, "define spir_kernel $1$2");
+		ir_output = regex_replace(ir_output, rx_spir_kernel, "define spir_kernel $1$2");
 		
 		// output modified ir back to a file and create a bc file so spir-encoder can consume it
-		if(!file_io::string_to_file("spir_3_5.ll", spir_output)) {
+		if(!file_io::string_to_file("spir_3_5.ll", ir_output)) {
 			log_error("failed to output LLVM IR for SPIR consumption");
 			return {};
 		}
@@ -332,50 +344,28 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		core::system(spir_3_2_encoder_cmd, spir_encoder_output);
 		log_msg("spir encoder: %s", spir_encoder_output);
 		
-		string spir_bc;
-		if(!file_io::file_to_string("spir_3_2.bc", spir_bc)) {
+		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
+		if(!file_io::file_to_string("spir_3_2.bc", compiled_code)) {
 			log_error("failed to read back SPIR 1.2 .bc file");
 			return {};
 		}
-		
-		vector<kernel_info> kernels;
-		get_floor_metadata(spir_output, kernels);
-		return { spir_bc, kernels };
 	}
 	else if(target == TARGET::AIR) {
-		const string air_cmd {
-			cmd_prefix +
-			floor::get_metal_compiler() +
-			" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
-			" -Xclang -air-kernel-info" \
-			" -Xclang -cl-mad-enable" \
-			" -Xclang -cl-fast-relaxed-math" \
-			" -Xclang -cl-unsafe-math-optimizations" \
-			" -Xclang -cl-finite-math-only" \
-			" -DFLOOR_COMPUTE_NO_DOUBLE" \
-			" -DFLOOR_COMPUTE_METAL" +
-			" -isystem " + floor::get_metal_libcxx_path() +
-			" -isystem " + floor::get_metal_clang_path() + " " +
-			warning_flags +
-			additional_options +
-			generic_flags +
-			" -emit-llvm -S -o air_3_5.ll " + input + " 2>&1"
-		};
+		// this exchanges the module header/target to the one apple expects
+		//const regex rx_module_id("; ModuleID = '(.*)'");
+		static const regex rx_datalayout("target datalayout = \"(.*)\"");
+		static const regex rx_triple("target triple = \"(.*)\"");
+		//ir_code = regex_replace(ir_code, rx_module_id, "; ModuleID = '" + expected_filename + "'");
+		ir_output = regex_replace(ir_output, rx_datalayout,
+								  "target datalayout \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
+		ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.1.0\"");
 		
-		string air_ll_output = "";
-		core::system(air_cmd, air_ll_output);
-		log_msg("air ll: %s", air_ll_output);
+#if 1
+		file_io::string_to_file("air_processed.ll", ir_output); // for debugging purposes only
+#endif
 		
-		//
-		string air_code = "";
-		if(!process_air_llvm("air_3_5.ll", air_code)) {
-			return {};
-		}
-		file_io::string_to_file("air_processed.ll", air_code); // for debugging purposes only
-		
-		vector<kernel_info> kernels;
-		get_floor_metadata(air_code, kernels);
-		return { air_code, kernels };
+		// llvm ir is the final output format
+		compiled_code.swap(ir_output);
 	}
 	else if(target == TARGET::PTX) {
 		const auto& force_sm = floor::get_cuda_force_compile_sm();
@@ -385,45 +375,35 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 #else
 		const string sm_version = (force_sm.empty() ? "20" /* just default to fermi/sm_20 */ : force_sm);
 #endif
-		string ptx_cmd {
-			cmd_prefix +
-			floor::get_cuda_compiler() +
-			" -x cuda -std=cuda -target nvptx64-nvidia-cuda" \
-			" -Xclang -fcuda-is-device" \
-			" -DFLOOR_COMPUTE_CUDA" +
-			" -isystem " + floor::get_cuda_libcxx_path() +
-			" -isystem " + floor::get_cuda_clang_path() + " " +
-			warning_flags +
-			additional_options +
-			generic_flags +
-			" -emit-llvm -S"
-		};
 		
-		// TODO: clean this up + do this properly!
-		const string ptx_bc_cmd {
-			ptx_cmd + " -o cuda_ptx.ll " + input
+		// llc expects an input file (or stdin, but we can't write there reliably)
+		if(!file_io::string_to_file("cuda_ptx.ll", ir_output)) {
+			log_error("failed to output LLVM IR for llc consumption");
+			return {};
+		}
+		
+		// compile llvm ir to ptx
+		const string llc_cmd {
+			floor::get_cuda_llc() +
+			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
+			" -mcpu=sm_" + sm_version + " -mattr=ptx42" +
+			" -o - cuda_ptx.ll"
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
 		};
-		ptx_cmd += " -o - " + input + " 2>&1";
-		ptx_cmd += (" | " + floor::get_cuda_llc() + " -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math -mcpu=sm_" + sm_version + " -mattr=ptx42 2>&1");
-#if 1 // TODO: keep this for now, remove it when no longer needed (and this always works properly)
-		ptx_cmd += " > cuda.ptx && cat cuda.ptx";
+		core::system(llc_cmd, compiled_code);
+		
+#if 1
+		file_io::string_to_file("cuda.ptx", compiled_code); // for debugging purposes only
 #endif
 		
-		string bc_output = "";
-		core::system(ptx_bc_cmd, bc_output);
-		log_msg("bc/ll: %s", bc_output);
-		
-		string ptx_code { "" };
-		core::system(ptx_cmd, ptx_code);
-		//log_msg("ptx cmd: %s", ptx_cmd);
-		//log_msg("ptx code:\n%s\n", ptx_code);
-		
-		vector<kernel_info> kernels;
-		get_floor_metadata_from_file("cuda_ptx.ll", kernels);
-		return { ptx_code, kernels };
+		// check if we have sane output
+		if(compiled_code == "" || compiled_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
+			log_error("llc/ptx compilation failed!\n%s", compiled_code);
+			return {};
+		}
 	}
-	return {};
+	
+	return { compiled_code, kernels };
 }
