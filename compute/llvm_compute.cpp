@@ -282,7 +282,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 #if !defined(_MSC_VER)
 		" -isystem /usr/local/include"
 #else
-		" -isystem %FLOOR% -isystem C:\"
+		" -isystem %FLOOR_INCLUDE%"
 #endif
 		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast"
 		" -isystem " + floor::get_opencl_libcxx_path() +
