@@ -19,6 +19,14 @@
 #ifndef __FLOOR_CONF_HPP__
 #define __FLOOR_CONF_HPP__
 
+// when building on windows, always disable these for now
+#if defined(_MSC_VER)
+#define FLOOR_NO_OPENAL 1
+#define FLOOR_NO_NET 1
+#define FLOOR_NO_LANG 1
+#define FLOOR_NO_EXCEPTIONS 1
+#endif
+
 // if defined, this disables cuda support
 ###FLOOR_CUDA###
 

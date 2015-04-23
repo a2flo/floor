@@ -14,7 +14,6 @@
 *.so
 *.dylib
 *.dll
-*.sln
 *.suo
 Makefile
 *.make
@@ -33,3 +32,5 @@ config.xml.local
 *.dat
 *.raw
 floor_conf.hpp
+*.sdf
+*.opensdf

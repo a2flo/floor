@@ -1,0 +1,236 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{99D60AA7-75A7-470D-B53F-E0A57355D142}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>floor</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>LLVM-vs2014</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>LLVM-vs2014</PlatformToolset>
+    <WholeProgramOptimization>false</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <IncludePath>C:\deps\include;C:\;Z:\;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\lib\Win32;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
+    <TargetName>$(ProjectName)d</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <IncludePath>C:\deps\include;C:\;Z:\;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\lib\Win32;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <OpenMPSupport>false</OpenMPSupport>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>
+      </PrecompiledHeaderOutputFile>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <DebugInformationFormat>OldStyle</DebugInformationFormat>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>SDL2.lib;SDL2_image.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <Version>0.2</Version>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+    </Link>
+    <Lib>
+      <SubSystem>Console</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ErrorReporting>NoErrorReport</ErrorReporting>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <OpenMPSupport>false</OpenMPSupport>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>
+      </PrecompiledHeaderOutputFile>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>SDL2.lib;SDL2_image.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <Version>0.2</Version>
+      <GenerateMapFile>true</GenerateMapFile>
+      <MapExports>true</MapExports>
+    </Link>
+    <Lib>
+      <SubSystem>Console</SubSystem>
+      <TargetMachine>MachineX86</TargetMachine>
+      <ErrorReporting>NoErrorReport</ErrorReporting>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="compute\compute_base.cpp" />
+    <ClCompile Include="compute\compute_buffer.cpp" />
+    <ClCompile Include="compute\compute_device.cpp" />
+    <ClCompile Include="compute\compute_image.cpp" />
+    <ClCompile Include="compute\compute_kernel.cpp" />
+    <ClCompile Include="compute\compute_memory.cpp" />
+    <ClCompile Include="compute\compute_program.cpp" />
+    <ClCompile Include="compute\compute_queue.cpp" />
+    <ClCompile Include="compute\cuda\cuda_buffer.cpp" />
+    <ClCompile Include="compute\cuda\cuda_compute.cpp" />
+    <ClCompile Include="compute\cuda\cuda_device.cpp" />
+    <ClCompile Include="compute\cuda\cuda_image.cpp" />
+    <ClCompile Include="compute\cuda\cuda_kernel.cpp" />
+    <ClCompile Include="compute\cuda\cuda_program.cpp" />
+    <ClCompile Include="compute\cuda\cuda_queue.cpp" />
+    <ClCompile Include="compute\llvm_compute.cpp" />
+    <ClCompile Include="compute\opencl\opencl_buffer.cpp" />
+    <ClCompile Include="compute\opencl\opencl_compute.cpp" />
+    <ClCompile Include="compute\opencl\opencl_device.cpp" />
+    <ClCompile Include="compute\opencl\opencl_image.cpp" />
+    <ClCompile Include="compute\opencl\opencl_kernel.cpp" />
+    <ClCompile Include="compute\opencl\opencl_program.cpp" />
+    <ClCompile Include="compute\opencl\opencl_queue.cpp" />
+    <ClCompile Include="constexpr\const_math.cpp" />
+    <ClCompile Include="core\core.cpp" />
+    <ClCompile Include="core\event.cpp" />
+    <ClCompile Include="core\file_io.cpp" />
+    <ClCompile Include="core\gl_support.cpp" />
+    <ClCompile Include="core\logger.cpp" />
+    <ClCompile Include="core\sig_handler.cpp" />
+    <ClCompile Include="core\unicode.cpp" />
+    <ClCompile Include="core\util.cpp" />
+    <ClCompile Include="core\xml.cpp" />
+    <ClCompile Include="floor\floor.cpp" />
+    <ClCompile Include="math\matrix4.cpp" />
+    <ClCompile Include="math\quaternion.cpp" />
+    <ClCompile Include="math\vector.cpp" />
+    <ClCompile Include="math\vector_lib.cpp" />
+    <ClCompile Include="threading\task.cpp" />
+    <ClCompile Include="threading\thread_base.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="compute\compute_base.hpp" />
+    <ClInclude Include="compute\compute_buffer.hpp" />
+    <ClInclude Include="compute\compute_common.hpp" />
+    <ClInclude Include="compute\compute_device.hpp" />
+    <ClInclude Include="compute\compute_image.hpp" />
+    <ClInclude Include="compute\compute_kernel.hpp" />
+    <ClInclude Include="compute\compute_memory.hpp" />
+    <ClInclude Include="compute\compute_program.hpp" />
+    <ClInclude Include="compute\compute_queue.hpp" />
+    <ClInclude Include="compute\cuda\cuda_buffer.hpp" />
+    <ClInclude Include="compute\cuda\cuda_common.hpp" />
+    <ClInclude Include="compute\cuda\cuda_compute.hpp" />
+    <ClInclude Include="compute\cuda\cuda_device.hpp" />
+    <ClInclude Include="compute\cuda\cuda_image.hpp" />
+    <ClInclude Include="compute\cuda\cuda_kernel.hpp" />
+    <ClInclude Include="compute\cuda\cuda_program.hpp" />
+    <ClInclude Include="compute\cuda\cuda_queue.hpp" />
+    <ClInclude Include="compute\llvm_compute.hpp" />
+    <ClInclude Include="compute\opencl\opencl_buffer.hpp" />
+    <ClInclude Include="compute\opencl\opencl_common.hpp" />
+    <ClInclude Include="compute\opencl\opencl_compute.hpp" />
+    <ClInclude Include="compute\opencl\opencl_device.hpp" />
+    <ClInclude Include="compute\opencl\opencl_image.hpp" />
+    <ClInclude Include="compute\opencl\opencl_kernel.hpp" />
+    <ClInclude Include="compute\opencl\opencl_program.hpp" />
+    <ClInclude Include="compute\opencl\opencl_queue.hpp" />
+    <ClInclude Include="constexpr\const_math.hpp" />
+    <ClInclude Include="constexpr\const_string.hpp" />
+    <ClInclude Include="constexpr\soft_i128.hpp" />
+    <ClInclude Include="core\core.hpp" />
+    <ClInclude Include="core\cpp_headers.hpp" />
+    <ClInclude Include="core\enum_helpers.hpp" />
+    <ClInclude Include="core\essentials.hpp" />
+    <ClInclude Include="core\event.hpp" />
+    <ClInclude Include="core\event_objects.hpp" />
+    <ClInclude Include="core\file_io.hpp" />
+    <ClInclude Include="core\gl_support.hpp" />
+    <ClInclude Include="core\logger.hpp" />
+    <ClInclude Include="core\option_handler.hpp" />
+    <ClInclude Include="core\platform.hpp" />
+    <ClInclude Include="core\sig_handler.hpp" />
+    <ClInclude Include="core\timer.hpp" />
+    <ClInclude Include="core\unicode.hpp" />
+    <ClInclude Include="core\util.hpp" />
+    <ClInclude Include="core\xml.hpp" />
+    <ClInclude Include="floor\build_version.hpp" />
+    <ClInclude Include="floor\floor.hpp" />
+    <ClInclude Include="floor\floor_conf.hpp" />
+    <ClInclude Include="floor\floor_version.hpp" />
+    <ClInclude Include="math\bbox.hpp" />
+    <ClInclude Include="math\matrix4.hpp" />
+    <ClInclude Include="math\quaternion.hpp" />
+    <ClInclude Include="math\ray.hpp" />
+    <ClInclude Include="math\vector.hpp" />
+    <ClInclude Include="math\vector_helper.hpp" />
+    <ClInclude Include="math\vector_lib.hpp" />
+    <ClInclude Include="math\vector_ops.hpp" />
+    <ClInclude Include="math\vector_ops_cleanup.hpp" />
+    <ClInclude Include="threading\atomics.hpp" />
+    <ClInclude Include="threading\atomic_shared_ptr.hpp" />
+    <ClInclude Include="threading\atomic_spin_lock.hpp" />
+    <ClInclude Include="threading\task.hpp" />
+    <ClInclude Include="threading\thread_base.hpp" />
+    <ClInclude Include="threading\thread_safety.hpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
