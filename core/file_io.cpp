@@ -95,7 +95,7 @@ void file_io::close() {
 }
 
 bool file_io::file_to_buffer(const string& filename, stringstream& buffer) {
-	file_io file(filename, file_io::OPEN_TYPE::READ);
+	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
 	if(!file.is_open()) {
 		return false;
 	}
@@ -110,7 +110,7 @@ bool file_io::file_to_buffer(const string& filename, stringstream& buffer) {
 }
 
 bool file_io::file_to_string(const string& filename, string& str) {
-	file_io file(filename, file_io::OPEN_TYPE::READ);
+	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
 	if(!file.is_open()) {
 		return false;
 	}
@@ -430,16 +430,20 @@ bool file_io::read_file(stringstream& buffer) {
 #endif
 	
 	const unsigned long long int size = (unsigned long long int)size_ll;
-	char* data = new char[size_t(size + 1u)];
+	auto data = make_unique<char[]>(size + 1u);
 	if(data == nullptr) return false;
 	
-	memset(data, 0, size_t(size + 1u));
-	filestream.read(data, streamsize(size_ll));
+	memset(data.get(), 0, size_t(size + 1u));
+	filestream.read(data.get(), streamsize(size_ll));
+	const auto read_size = filestream.gcount();
+	if(read_size != (decltype(read_size))size_ll) {
+		log_error("expected %u bytes, but only read %u bytes", size_ll, read_size);
+		return false;
+	}
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
 	filestream.clear();
-	buffer.write(data, streamsize(size_ll));
-	delete [] data;
+	buffer.write(data.get(), streamsize(size_ll));
 	return true;
 }
 
@@ -448,6 +452,11 @@ bool file_io::read_file(string& str) {
 	str.resize(size);
 	if(str.size() != size) return false;
 	filestream.read(&str.front(), (streamsize)size);
+	const auto read_size = filestream.gcount();
+	if(read_size != size) {
+		log_error("expected %u bytes, but only read %u bytes", size, read_size);
+		return false;
+	}
 	filestream.seekg(0, ios::beg);
 	filestream.seekp(0, ios::beg);
 	filestream.clear();
@@ -455,7 +464,7 @@ bool file_io::read_file(string& str) {
 }
 
 bool file_io::string_to_file(const string& filename, const string& str) {
-	file_io file(filename, file_io::OPEN_TYPE::WRITE);
+	file_io file(filename, file_io::OPEN_TYPE::WRITE_BINARY);
 	if(!file.is_open()) {
 		return false;
 	}
