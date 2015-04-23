@@ -453,7 +453,7 @@ bool file_io::read_file(string& str) {
 	if(str.size() != size) return false;
 	filestream.read(&str.front(), (streamsize)size);
 	const auto read_size = filestream.gcount();
-	if(read_size != size) {
+	if(read_size != (decltype(read_size))size) {
 		log_error("expected %u bytes, but only read %u bytes", size, read_size);
 		return false;
 	}
