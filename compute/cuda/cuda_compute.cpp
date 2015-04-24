@@ -106,6 +106,11 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		device.driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
 		device.image_support = true;
 		device.double_support = true; // true for all gpus since fermi
+#if defined(PLATFORM_X32)
+		device.bitness = 32;
+#elif defined(PLATFORM_X64)
+		device.bitness = 64;
+#endif
 		
 		// get all the attributes!
 		size_t global_mem_size = 0;

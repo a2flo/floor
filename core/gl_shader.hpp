@@ -16,29 +16,33 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_IOS_HELPER_HPP__
-#define __FLOOR_IOS_HELPER_HPP__
+#ifndef __FLOOR_GL_SHADER_HPP__
+#define __FLOOR_GL_SHADER_HPP__
 
-#include <floor/core/gl_support.hpp>
-#include <floor/core/cpp_headers.hpp>
-#include <floor/core/gl_shader.hpp>
+#include <floor/floor/floor.hpp>
 
-class ios_helper {
-public:
-	static void* get_eagl_sharegroup();
-	static void compile_shaders();
-	static floor_shader_object* get_shader(const string& name);
-	static size_t get_system_version();
-	static size_t get_compiled_system_version();
-	static size_t get_dpi();
-	static string get_computer_name();
-	static string utf8_decomp_to_precomp(const string& str);
-	static int64_t get_memory_size();
-	static string get_bundle_identifier();
+struct floor_shader_object {
+	struct internal_shader_object {
+		unsigned int program { 0 };
+		unsigned int vertex_shader { 0 };
+		unsigned int fragment_shader { 0 };
+		
+		struct shader_variable {
+			size_t location;
+			size_t size;
+			size_t type;
+		};
+		unordered_map<string, shader_variable> uniforms;
+		unordered_map<string, shader_variable> attributes;
+		unordered_map<string, size_t> samplers;
+	};
+	const string name;
+	internal_shader_object program;
 	
-protected:
-	static unordered_map<string, shared_ptr<floor_shader_object>> shader_objects;
-	
+	floor_shader_object(const string& shd_name) : name(shd_name) {}
+	~floor_shader_object() = default;
 };
+
+bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text);
 
 #endif

@@ -142,6 +142,9 @@
 		5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
 		5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */; };
 		5CC2F77818678AAD0031E08D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CC2F77718678AAD0031E08D /* Foundation.framework */; };
+		5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
+		5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
+		5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */; };
 		5CD2174119E9213B0049D6AE /* compute_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2173F19E9213B0049D6AE /* compute_base.hpp */; };
 		5CD2174219E9213B0049D6AE /* compute_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2174019E9213B0049D6AE /* compute_base.cpp */; };
 		5CD2174319E9213B0049D6AE /* compute_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2174019E9213B0049D6AE /* compute_base.cpp */; };
@@ -343,6 +346,8 @@
 		5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_buffer.hpp; sourceTree = "<group>"; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		5CC2F77718678AAD0031E08D /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
+		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CD2173F19E9213B0049D6AE /* compute_base.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_base.hpp; sourceTree = "<group>"; };
 		5CD2174019E9213B0049D6AE /* compute_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_base.cpp; sourceTree = "<group>"; };
@@ -467,6 +472,8 @@
 				5C10917217D1153E007F536E /* event_objects.hpp */,
 				5C10917317D1153E007F536E /* file_io.cpp */,
 				5C10917417D1153E007F536E /* file_io.hpp */,
+				5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */,
+				5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */,
 				5C10920117D1F80E007F536E /* gl_support.cpp */,
 				5C10920517D1F81B007F536E /* gl_support.hpp */,
 				5C10917617D1153E007F536E /* logger.cpp */,
@@ -785,6 +792,7 @@
 				5C4A85BE18F95EE40039BFD4 /* parser.hpp in Headers */,
 				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
 				5C4A85B918F955B30039BFD4 /* ast_base.hpp in Headers */,
+				5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */,
 				5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */,
 				5CEEA6DD1A4EE1A5005239DA /* opencl_program.hpp in Headers */,
 				5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */,
@@ -972,6 +980,7 @@
 				5C4A85BC18F95EE40039BFD4 /* parser.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
+				5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */,
 				5C1091B517D1153E007F536E /* unicode.cpp in Sources */,
 				5C8FD0D51AD3983000215230 /* compute_memory.cpp in Sources */,
@@ -1020,6 +1029,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
+				5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5C4A85B818F955B30039BFD4 /* ast_base.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5C8FD0D11AD3944F00215230 /* metal_image.mm in Sources */,

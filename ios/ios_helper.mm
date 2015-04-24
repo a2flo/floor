@@ -33,7 +33,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
-map<string, floor_shader_object*> ios_helper::shader_objects;
+unordered_map<string, shared_ptr<floor_shader_object>> ios_helper::shader_objects;
 
 void* ios_helper::get_eagl_sharegroup() {
 	return (__bridge void*)[[EAGLContext currentContext] sharegroup];
@@ -66,175 +66,25 @@ static void log_pretty_print(const char* log, const char* code) {
 	}
 }
 
-#if 0
-static bool is_gl_sampler_type(const GLenum& type) {
-	switch(type) {
-		case GL_SAMPLER_2D: return true;
-		case GL_SAMPLER_CUBE: return true;
-		default: break;
-	}
-	return false;
-}
-#endif
-
-#define OCLRASTER_SHADER_LOG_SIZE 65535
-static void compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text) {
-	// success flag (if it's 1 (true), we successfully created a shader object)
-	GLint success = 0;
-	GLchar info_log[OCLRASTER_SHADER_LOG_SIZE+1];
-	info_log[OCLRASTER_SHADER_LOG_SIZE] = 0;
-	
-	// add a new program object to this shader
-	floor_shader_object::internal_shader_object& shd_obj = shd.program;
-	
-	// create the vertex shader object
-	shd_obj.vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(shd_obj.vertex_shader, 1, (GLchar const**)&vs_text, nullptr);
-	glCompileShader(shd_obj.vertex_shader);
-	glGetShaderiv(shd_obj.vertex_shader, GL_COMPILE_STATUS, &success);
-	if(!success) {
-		glGetShaderInfoLog(shd_obj.vertex_shader, OCLRASTER_SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in vertex shader \"%s\" compilation!", shd.name);
-		log_pretty_print(info_log, vs_text);
-		return;
-	}
-	
-	// create the fragment shader object
-	shd_obj.fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(shd_obj.fragment_shader, 1, (GLchar const**)&fs_text, nullptr);
-	glCompileShader(shd_obj.fragment_shader);
-	glGetShaderiv(shd_obj.fragment_shader, GL_COMPILE_STATUS, &success);
-	if(!success) {
-		glGetShaderInfoLog(shd_obj.fragment_shader, OCLRASTER_SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in fragment shader \"%s\" compilation!", shd.name);
-		log_pretty_print(info_log, fs_text);
-		return;
-	}
-	
-	// create the program object
-	shd_obj.program = glCreateProgram();
-	// attach the vertex and fragment shader progam to it
-	glAttachShader(shd_obj.program, shd_obj.vertex_shader);
-	glAttachShader(shd_obj.program, shd_obj.fragment_shader);
-	
-	// now link the program object
-	glLinkProgram(shd_obj.program);
-	glGetProgramiv(shd_obj.program, GL_LINK_STATUS, &success);
-	if(!success) {
-		glGetProgramInfoLog(shd_obj.program, OCLRASTER_SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in program \"%s\" linkage!\nInfo log: %s", shd.name, info_log);
-		return;
-	}
-	glUseProgram(shd_obj.program);
-	
-	// grab number and names of all attributes and uniforms and get their locations (needs to be done before validation, b/c we have to set sampler locations)
-	GLint attr_count = 0, uni_count = 0, max_attr_len = 0, max_uni_len = 0;
-#if 0
-	GLint var_location = 0;
-	GLint var_size = 0;
-	GLenum var_type = 0;
-#endif
-	
-	glGetProgramiv(shd_obj.program, GL_ACTIVE_ATTRIBUTE_MAX_LENGTH, &max_attr_len);
-	glGetProgramiv(shd_obj.program, GL_ACTIVE_UNIFORM_MAX_LENGTH, &max_uni_len);
-	glGetProgramiv(shd_obj.program, GL_ACTIVE_ATTRIBUTES, &attr_count);
-	glGetProgramiv(shd_obj.program, GL_ACTIVE_UNIFORMS, &uni_count);
-	max_attr_len+=2;
-	max_uni_len+=2;
-	
-	// TODO: fix this (I've currently no idea why this is failing to emplace/insert elements into maps)
-#if 0
-	// note: this may report weird attribute/uniform names (and locations), if uniforms/attributes are optimized away by the compiler
-	GLchar* attr_name = new GLchar[(size_t)max_attr_len];
-	for(GLint attr = 0; attr < attr_count; attr++) {
-		memset(attr_name, 0, (size_t)max_attr_len);
-		GLsizei written_size = 0;
-		glGetActiveAttrib(shd_obj.program, (GLuint)attr, max_attr_len-1, &written_size, &var_size, &var_type, attr_name);
-		var_location = glGetAttribLocation(shd_obj.program, attr_name);
-		if(var_location < 0) {
-			continue;
-		}
-		string attribute_name(attr_name, (size_t)written_size);
-		cout << "attribute_name: " << attribute_name << endl;
-		if(attribute_name.find("[") != string::npos) attribute_name = attribute_name.substr(0, attribute_name.find("["));
-		shd_obj.attributes.emplace(attribute_name,
-								   floor_shader_object::internal_shader_object::shader_variable {
-									   (size_t)var_location,
-									   (size_t)var_size,
-									   var_type });
-	}
-	delete [] attr_name;
-	
-	GLchar* uni_name = new GLchar[(size_t)max_uni_len];
-	for(GLint uniform = 0; uniform < uni_count; uniform++) {
-		memset(uni_name, 0, (size_t)max_uni_len);
-		GLsizei written_size = 0;
-		glGetActiveUniform(shd_obj.program, (GLuint)uniform, max_uni_len-1, &written_size, &var_size, &var_type, uni_name);
-		var_location = glGetUniformLocation(shd_obj.program, uni_name);
-		if(var_location < 0) {
-			continue;
-		}
-		string uniform_name(uni_name, (size_t)written_size);
-		cout << "uniform_name: " << uniform_name << endl;
-		if(uniform_name.find("[") != string::npos) uniform_name = uniform_name.substr(0, uniform_name.find("["));
-		shd_obj.uniforms.emplace(uniform_name,
-								 floor_shader_object::internal_shader_object::shader_variable {
-									 (size_t)var_location,
-									 (size_t)var_size,
-									 var_type });
-		
-		// if the uniform is a sampler, add it to the sampler mapping (with increasing id/num)
-		// also: use shader_gl3 here, because we can't use shader_base directly w/o instantiating it
-		if(is_gl_sampler_type(var_type)) {
-			shd_obj.samplers.emplace(uniform_name, shd_obj.samplers.size());
-			
-			// while we are at it, also set the sampler location to a dummy value (this has to be done to satisfy program validation)
-			glUniform1i(var_location, (GLint)shd_obj.samplers.size()-1);
-		}
-	}
-	delete [] uni_name;
-#endif
-	
-	// validate the program object
-	glValidateProgram(shd_obj.program);
-	glGetProgramiv(shd_obj.program, GL_VALIDATE_STATUS, &success);
-	if(!success) {
-		glGetProgramInfoLog(shd_obj.program, OCLRASTER_SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in program \"%s\" validation!\nInfo log: %s", shd.name, info_log);
-		return;
-	}
-	else {
-		glGetProgramInfoLog(shd_obj.program, OCLRASTER_SHADER_LOG_SIZE, nullptr, info_log);
-		
-		// check if shader will run in software (if so, print out a debug message)
-		if(strstr((const char*)info_log, (const char*)"software") != nullptr) {
-			log_debug("program \"%s\" validation: %s", shd.name, info_log);
-		}
-	}
-	
-	//
-	glUseProgram(0);
-}
-
 void ios_helper::compile_shaders() {
-	static constexpr char blit_vs_text[] { u8R"OCLRASTER_RAWSTR(
+	static constexpr char blit_vs_text[] { u8R"RAWSTR(
 		attribute vec2 in_vertex;
 		varying lowp vec2 tex_coord;
 		void main() {
 			gl_Position = vec4(in_vertex.x, in_vertex.y, 0.0, 1.0);
 			tex_coord = in_vertex * 0.5 + 0.5;
 		}
-	)OCLRASTER_RAWSTR"};
-	static constexpr char blit_fs_text[] { u8R"OCLRASTER_RAWSTR(
+	)RAWSTR"};
+	static constexpr char blit_fs_text[] { u8R"RAWSTR(
 		uniform sampler2D tex;
 		varying lowp vec2 tex_coord;
 		void main() {
 			gl_FragColor = texture2D(tex, tex_coord);
 		}
-	)OCLRASTER_RAWSTR"};
+	)RAWSTR"};
 		
-	floor_shader_object* shd = new floor_shader_object("BLIT");
-	compile_shader(*shd, blit_vs_text, blit_fs_text);
+	auto shd = make_shared<floor_shader_object>("BLIT");
+	floor_compile_shader(*shd.get(), blit_vs_text, blit_fs_text);
 	shader_objects.emplace("BLIT", shd);
 }
 
