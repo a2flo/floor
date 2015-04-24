@@ -231,7 +231,10 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
 	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, program_data.second);
-	programs.push_back(ret_program);
+	{
+		GUARD(programs_lock);
+		programs.push_back(ret_program);
+	}
 	return ret_program;
 }
 
@@ -253,7 +256,10 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 	}
 	
 	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, kernel_infos);
-	programs.push_back(ret_program);
+	{
+		GUARD(programs_lock);
+		programs.push_back(ret_program);
+	}
 	return ret_program;
 }
 

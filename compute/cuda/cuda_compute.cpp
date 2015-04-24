@@ -466,7 +466,10 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
 	auto ret_program = make_shared<cuda_program>(program, program_data.second);
-	programs.push_back(ret_program);
+	{
+		GUARD(programs_lock);
+		programs.push_back(ret_program);
+	}
 	return ret_program;
 }
 

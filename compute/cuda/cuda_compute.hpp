@@ -109,19 +109,20 @@ public:
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
-												 const string additional_options = "") override;
+												 const string additional_options = "") override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_program_source(const string& source_code,
-												   const string additional_options = "") override;
+												   const string additional_options = "") override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
+															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
 protected:
-	vector<shared_ptr<cuda_program>> programs;
+	atomic_spin_lock programs_lock;
+	vector<shared_ptr<cuda_program>> programs GUARDED_BY(programs_lock);
 	
 	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-											const string additional_options);
+											const string additional_options) REQUIRES(!programs_lock);
 	
 };
 

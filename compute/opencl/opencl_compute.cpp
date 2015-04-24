@@ -775,7 +775,10 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 	auto ret_program = make_shared<opencl_program>(program, program_data.second,
 												   // as of 0.11 pocl doesn't support cl_program_info queries, so don't use them
 												   platform_vendor != PLATFORM_VENDOR::POCL);
-	programs.push_back(ret_program);
+	{
+		GUARD(programs_lock);
+		programs.push_back(ret_program);
+	}
 	return ret_program;
 }
 
