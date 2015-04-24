@@ -421,6 +421,12 @@ protected:
 #include <floor/compute/device/metal_image.hpp>
 #endif
 
+// yeah, it's kinda ugly to include a .cpp file, but this is never (and should never be) included by user code,
+// this is all correctly handled in llvm_compute which includes this header as a prefix header.
+// the .cpp is needed, because it provides the implementation and redirects of the functions defined in const_math.hpp
+// (would otherwise need to compile and link this separately which is obviously overkill and unnecessary)
+#include <floor/constexpr/const_math.cpp>
+
 #endif
 
 #endif
