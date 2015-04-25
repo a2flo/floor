@@ -357,9 +357,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 								  "target datalayout \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
 		ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.1.0\"");
 		
-#if 1
-		file_io::string_to_file("air_processed.ll", ir_output); // for debugging purposes only
-#endif
+		// output final processed ir if this was specified in the config
+		if(floor::get_compute_keep_temp()) {
+			file_io::string_to_file("air_processed.ll", ir_output);
+		}
 		
 		// llvm ir is the final output format
 		compiled_code.swap(ir_output);

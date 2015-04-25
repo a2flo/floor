@@ -360,6 +360,7 @@ void floor::init_internal(const bool use_gl32_core
 		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
 		
 #if !defined(FLOOR_IOS)
 #if defined(__APPLE__)
