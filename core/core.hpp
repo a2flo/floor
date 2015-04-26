@@ -142,6 +142,28 @@ public:
 		return (std::find(cbegin(container), cend(container), needle) != cend(container));
 	}
 	
+	//! returns a vector of the keys of the specified (associative) container
+	template <class container_type>
+	static inline auto keys(const container_type& container) {
+		vector<typename container_type::key_type> ret;
+		ret.reserve(container.size());
+		for(const auto& entry : container) {
+			ret.emplace_back(entry.first);
+		}
+		return ret;
+	}
+	
+	//! returns a vector of the values of the specified (associative) container
+	template <class container_type>
+	static inline auto values(const container_type& container) {
+		vector<typename container_type::value_type> ret;
+		ret.reserve(container.size());
+		for(const auto& entry : container) {
+			ret.emplace_back(entry.second);
+		}
+		return ret;
+	}
+	
 	// misc functions
 	static uint32_t unix_timestamp();
 	template <typename clock_type>
