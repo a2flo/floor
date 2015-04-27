@@ -360,7 +360,7 @@ void floor::init_internal(const bool use_gl32_core
 		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
 #if !defined(FLOOR_IOS)
 #if defined(__APPLE__)
@@ -428,11 +428,7 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #if !defined(FLOOR_IOS)
 		// has to be set after context creation
-#if defined(__APPLE__) // on os x, vsync is (may be?) the default -> also allow setting this to 0
 		if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-#else
-		if(config.vsync && SDL_GL_SetSwapInterval(1) == -1) {
-#endif
 			log_error("error setting the gl swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
 			SDL_ClearError();
 		}
