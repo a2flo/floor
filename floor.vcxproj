@@ -150,6 +150,7 @@
     <ClCompile Include="core\core.cpp" />
     <ClCompile Include="core\event.cpp" />
     <ClCompile Include="core\file_io.cpp" />
+    <ClCompile Include="core\gl_shader.cpp" />
     <ClCompile Include="core\gl_support.cpp" />
     <ClCompile Include="core\logger.cpp" />
     <ClCompile Include="core\sig_handler.cpp" />
@@ -201,6 +202,7 @@
     <ClInclude Include="core\event.hpp" />
     <ClInclude Include="core\event_objects.hpp" />
     <ClInclude Include="core\file_io.hpp" />
+    <ClInclude Include="core\gl_shader.hpp" />
     <ClInclude Include="core\gl_support.hpp" />
     <ClInclude Include="core\logger.hpp" />
     <ClInclude Include="core\option_handler.hpp" />

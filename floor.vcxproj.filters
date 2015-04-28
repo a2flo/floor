@@ -147,6 +147,9 @@
     <ClCompile Include="threading\thread_base.cpp">
       <Filter>threading</Filter>
     </ClCompile>
+    <ClCompile Include="core\gl_shader.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compute\compute_base.hpp">
@@ -340,6 +343,9 @@
     </ClInclude>
     <ClInclude Include="threading\thread_safety.hpp">
       <Filter>threading</Filter>
+    </ClInclude>
+    <ClInclude Include="core\gl_shader.hpp">
+      <Filter>core</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
