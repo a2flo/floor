@@ -1,15 +1,20 @@
 
 #if defined(__cplusplus) && !defined(__OBJC__)
+#include "core/essentials.hpp"
 #include "core/cpp_headers.hpp"
 #include <random>
 #include <thread>
 #include "core/util.hpp"
 #include "core/platform.hpp"
+#include "core/core.hpp"
+#include "core/logger.hpp"
 #include "constexpr/const_math.hpp"
 #include "constexpr/const_string.hpp"
 #include "math/vector_lib.hpp"
-#include "core/core.hpp"
-#include "core/logger.hpp"
+#include "math/matrix4.hpp"
+#include "threading/thread_safety.hpp"
+#include "threading/thread_base.hpp"
+#include "threading/task.hpp"
 #elif !defined(__OBJC__)
 #include <stdlib.h>
 #include <stdio.h>

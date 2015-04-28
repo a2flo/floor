@@ -32,9 +32,9 @@ using namespace std;
 class lexer final {
 public:
 	//! phase 1: replaces \r occurrences and creates a newline iterator set
-	static void map_characters(lang_context& ctx, translation_unit& tu);
+	static void map_characters(translation_unit& tu);
 	//! phase 3+: the actual lexing (and all the other necessary stuff)
-	static void lex(lang_context& ctx, translation_unit& tu);
+	static void lex(translation_unit& tu);
 	
 	//! for debugging and assignment purposes
 	static void print_tokens(const translation_unit& tu);

@@ -159,7 +159,7 @@ static const unordered_map<string, FLOOR_PUNCTUATOR> punctuator_tokens {
 	{ "%:%:", FLOOR_PUNCTUATOR::HASH_HASH },
 };
 
-void lexer::map_characters(lang_context& ctx floor_unused, translation_unit& tu) {
+void lexer::map_characters(translation_unit& tu) {
 	// -> we will only need to remove \r characters here (replace \r\n by \n and replace single \r chars by \n)
 	// also, while we're at it, also build a "lines set" (iterator to each line)
 	// TODO: \r actually doesn't have to be replaced (just skip like \n + don't count as newline if \r\n?)
@@ -203,7 +203,7 @@ void lexer::map_characters(lang_context& ctx floor_unused, translation_unit& tu)
 	// a valid line iterator for each source_iterator (all tokens)
 }
 
-void lexer::lex(lang_context& ctx floor_unused, translation_unit& tu) {
+void lexer::lex(translation_unit& tu) {
 	// tokens reserve strategy: "4 chars : 1 token" seems like a good ratio for now
 	tu.tokens.reserve(tu.source.size() / 4);
 	

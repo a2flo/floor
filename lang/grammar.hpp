@@ -27,7 +27,6 @@
 #include <floor/lang/source_types.hpp>
 #include <floor/lang/lang_context.hpp>
 #include <floor/lang/lexer.hpp>
-#include <floor/lang/ast_base.hpp>
 
 // uncomment this define if you want the parse tree to be printed
 //#define FLOOR_DEBUG_PARSER 1
@@ -39,6 +38,12 @@
 #if defined(FLOOR_DEBUG_PARSER)
 #include <iostream>
 #endif
+
+//! ast node base class (inherit from this when using an ast)
+struct ast_node_base {
+	//! the token range in the source code (if applicable)
+	token_range range;
+};
 
 //! parser context object that handles all token iteration, backtracking and stores all matches.
 struct parser_context {
@@ -92,11 +97,11 @@ struct parser_context {
 	struct match {
 		MATCH_TYPE type { MATCH_TYPE::AST_NODE };
 		token_iterator token;
-		unique_ptr<node_base> ast_node;
+		unique_ptr<ast_node_base> ast_node;
 		
 		match() noexcept {}
 		match(const token_iterator& token_) noexcept : type(MATCH_TYPE::TOKEN), token(token_) {}
-		match(unique_ptr<node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(move(ast_node_)) {
+		match(unique_ptr<ast_node_base> ast_node_) noexcept : type(MATCH_TYPE::AST_NODE), ast_node(move(ast_node_)) {
 #if defined(FLOOR_DEBUG)
 			if(ast_node == nullptr) {
 				assert(ast_node != nullptr);
@@ -127,7 +132,7 @@ struct parser_context {
 		match_list(match&& m) noexcept {
 			list.emplace_back(move(m));
 		}
-		match_list(unique_ptr<node_base> ast_node) noexcept {
+		match_list(unique_ptr<ast_node_base> ast_node) noexcept {
 			list.emplace_back(move(ast_node));
 		}
 		size_t size() const { return list.size(); }
