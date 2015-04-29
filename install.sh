@@ -20,11 +20,11 @@ case $FLOOR_PLATFORM_TEST_STRING in
 		exit;;
 esac
 
-declare -a paths=( audio compute compute/cuda compute/opencl constexpr core floor lang math net threading )
+declare -a paths=( audio compute compute/device compute/cuda compute/metal compute/opencl constexpr core floor lang math net threading )
 case $( uname | tr [:upper:] [:lower:] ) in
 	"linux"|[a-z0-9]*"BSD")
-		FLOOR_INCLUDE_PATH="/usr/local/include"
-		FLOOR_LIB_PATH="/usr/local/lib"
+		FLOOR_INCLUDE_PATH="/usr/include"
+		FLOOR_LIB_PATH="/usr/lib"
 	
 		# remove old files and folders
 		rm -Rf ${FLOOR_INCLUDE_PATH}/floor

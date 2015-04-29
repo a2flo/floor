@@ -239,15 +239,15 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_llc = config_doc.get<string>("config.opencl.llc", "compute_llc");
 		config.opencl_as = config_doc.get<string>("config.opencl.as", "compute_as");
 		config.opencl_dis = config_doc.get<string>("config.opencl.dis", "compute_dis");
-		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/local/include/floor/libcxx/include");
-		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/local/include/floor/libcxx/clang");
+		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/include/floor/libcxx/include");
+		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/include/floor/libcxx/clang");
 		
 		config.cuda_compiler = config_doc.get<string>("config.cuda.compiler", "compute_clang");
 		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
 		config.cuda_as = config_doc.get<string>("config.cuda.as", "compute_as");
 		config.cuda_dis = config_doc.get<string>("config.cuda.dis", "compute_dis");
-		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/local/include/floor/libcxx/include");
-		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/local/include/floor/libcxx/clang");
+		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/include/floor/libcxx/include");
+		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/include/floor/libcxx/clang");
 		config.cuda_force_driver_sm = config_doc.get<string>("config.cuda.force_driver_sm", "");
 		config.cuda_force_compile_sm = config_doc.get<string>("config.cuda.force_compile_sm", "");
 		
@@ -255,15 +255,15 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
 		config.metal_as = config_doc.get<string>("config.metal.as", "compute_as");
 		config.metal_dis = config_doc.get<string>("config.metal.dis", "compute_dis");
-		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/local/include/floor/libcxx/include");
-		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/local/include/floor/libcxx/clang");
+		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/include/floor/libcxx/include");
+		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/include/floor/libcxx/clang");
 		
 		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
 		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
 		config.host_as = config_doc.get<string>("config.host.as", "compute_as");
 		config.host_dis = config_doc.get<string>("config.host.dis", "compute_dis");
-		config.host_libcxx = config_doc.get<string>("config.host.libcxx", "/usr/local/include/floor/libcxx/include");
-		config.host_clang = config_doc.get<string>("config.host.clang", "/usr/local/include/floor/libcxx/clang");
+		config.host_libcxx = config_doc.get<string>("config.host.libcxx", "/usr/include/floor/libcxx/include");
+		config.host_clang = config_doc.get<string>("config.host.clang", "/usr/include/floor/libcxx/clang");
 	}
 	
 	// init logger and print out floor info

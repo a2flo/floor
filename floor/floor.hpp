@@ -245,16 +245,16 @@ protected:
 		string opencl_llc = "compute_llc";
 		string opencl_as = "compute_as";
 		string opencl_dis = "compute_dis";
-		string opencl_libcxx = "/usr/local/include/floor/libcxx/include";
-		string opencl_clang = "/usr/local/include/floor/libcxx/clang";
+		string opencl_libcxx = "/usr/include/floor/libcxx/include";
+		string opencl_clang = "/usr/include/floor/libcxx/clang";
 		
 		// cuda
 		string cuda_compiler = "compute_clang";
 		string cuda_llc = "compute_llc";
 		string cuda_as = "compute_as";
 		string cuda_dis = "compute_dis";
-		string cuda_libcxx = "/usr/local/include/floor/libcxx/include";
-		string cuda_clang = "/usr/local/include/floor/libcxx/clang";
+		string cuda_libcxx = "/usr/include/floor/libcxx/include";
+		string cuda_clang = "/usr/include/floor/libcxx/clang";
 		string cuda_force_driver_sm = "";
 		string cuda_force_compile_sm = "";
 		
@@ -263,16 +263,16 @@ protected:
 		string metal_llc = "compute_llc";
 		string metal_as = "compute_as";
 		string metal_dis = "compute_dis";
-		string metal_libcxx = "/usr/local/include/floor/libcxx/include";
-		string metal_clang = "/usr/local/include/floor/libcxx/clang";
+		string metal_libcxx = "/usr/include/floor/libcxx/include";
+		string metal_clang = "/usr/include/floor/libcxx/clang";
 		
 		// host
 		string host_compiler = "compute_clang";
 		string host_llc = "compute_llc";
 		string host_as = "compute_as";
 		string host_dis = "compute_dis";
-		string host_libcxx = "/usr/local/include/floor/libcxx/include";
-		string host_clang = "/usr/local/include/floor/libcxx/clang";
+		string host_libcxx = "/usr/include/floor/libcxx/include";
+		string host_clang = "/usr/include/floor/libcxx/clang";
 
 		// sdl
 		SDL_Window* wnd = nullptr;
