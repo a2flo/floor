@@ -334,7 +334,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
-	PACKAGES="sdl2 SDL2_image libxml-2.0"
+	PACKAGES="sdl2 libxml-2.0"
 	PACKAGES_OPT=""
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} libcrypto libssl"
@@ -362,7 +362,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
 	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} cuda cudart"
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} cuda"
 	fi
 
 	# add os specific libs
@@ -468,7 +468,7 @@ else
 	LDFLAGS="${LDFLAGS} -fobjc-link-runtime"
 	
 	# frameworks and libs
-	LDFLAGS="${LDFLAGS} -framework SDL2 -framework SDL2_image"
+	LDFLAGS="${LDFLAGS} -framework SDL2"
 	LDFLAGS="${LDFLAGS} -lxml2"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lcrypto -lssl"

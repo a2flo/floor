@@ -1,95 +1,79 @@
 
 *Flo's Open libRary*
 
-This is a C++ core library that is used in several of my projects:
-* "oclraster":https://github.com/a2flo/oclraster
-* "a2elight":https://github.com/a2flo/a2elight
-* "unibot":https://github.com/a2flo/unibot
-
 *Requirements:*
-* Windows: NT 6.0+ x86 (Vista/7/8/2008/2008R2/2012/2012R2)
-* OS X: 10.9+
-* iOS: 7.0+ (armv7/armv7s/arm64)
-* Linux: any x64 distribution that supports the AMD, Intel or Nvidia OpenCL SDK/drivers
-* FreeBSD: 10.0+ (amd64; i386 support is uncertain)
-* OpenBSD: as soon as libc++ is supported
-* if OpenCL support is enabled: requires OpenCL 1.2+
-* if CUDA support is enabled: requires CUDA 6.5+ and sm_20+
+* OS:
+** Windows: NT 6.0+ (lib is x86/32-bit only here)
+** OS X: 10.9+ (lib is x64/64-bit only here)
+** iOS: 7.0+ (32-bit armv7/armv7s or 64-bit arm64/aarch64)
+** Linux: any current x64 distribution
+** FreeBSD: 10.0+ (lib is x64/64-bit only here)
+** other Unix: if x64 and other requirements are met
+* compiler/toolchain:
+** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org / "libc++":http://libcxx.llvm.org 3.5+
+** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 6.3+
+** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/downloads/visual-studio-2015-ctp-vs
+** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
+* libraries and optional requirements:
+** "SDL2":http://www.libsdl.org 2.0.2+ ("2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D on Windows)
+** "libxml2":https://www.xmlsoft.org (probably with iconv)
+** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
+** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
+** (opt) CUDA: requires "CUDA 6.5+ SDK":https://developer.nvidia.com/cuda-downloads and sm_20+/Fermi+ GPU
+** (opt) Metal: requires iOS 8.0+ and A7+ CPU/GPU
+** (opt) networking: requires "boost":https://www.boost.org 1.54+ headers and "OpenSSL":https://www.openssl.org 1.0.1+
+** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
 
 *Build Instructions:*
-* ./build.sh (use "./build.sh help" to get a list of all options)
+* run ./build.sh (use "./build.sh help" to get a list of all options)
+* configuration of optional parts:
+** to disable OpenCL: define "FLOOR_NO_OPENCL" or "./build.sh no-opencl"
+** to disable CUDA: define "FLOOR_NO_CUDA" or "./build.sh no-cuda"
+** to disable Metal (only affects iOS builds): define "FLOOR_NO_METAL" or "./build.sh no-metal"
+** to disable network support (ssl/crypto/boost-asio): define "FLOOR_NO_NET" or "./build.sh no-net"
+** to disable OpenAL: define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
+** to disable language support (lexer/parser): define "FLOOR_NO_LANG" or "./build.sh no-lang"
+** to disable C++ exceptions (implies no-net no-lang): define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
-on Linux and FreeBSD:
-* install all necessary libraries and programs, including clang 3.5+ and libc++ (currently 1101) (-> Credits)
-** on "Arch Linux":https://www.archlinux.org (sub-dependencies are installed automatically): pacman -S clang libc++ sdl2 sdl2_image libxml2 freetype2 boost opencl-headers cuda
-** any of: opencl-nvidia (in addition to Nvidia drivers), intel-opencl-sdk (from AUR, CPU only or in addition to Intel GPU drivers) or "catalyst":https://wiki.archlinux.org/index.php/AMD_Catalyst + "misc":https://wiki.archlinux.org/index.php/AMD_Catalyst#OpenCL_and_OpenGL_development
-* run ./build.sh or "./build.sh pocl" on FreeBSD
-* make
-* there is an install script located in the top folder which should be executed from that folder (will install to /usr/local/)
-* alternatively:
-** sudo ln -sf /path/to/floor/bin/libfloor{,d}.{a,so} /usr/local/lib/
-** sudo ln -sf /path/to/floor /usr/local/include/floor
+*Build Instructions (Xcode / OS X / iOS):*
+* open floor.xcodeproj and build
+* some notes:
+** all optional parts of floor are enabled here and you'll have to install all dependencies or disable them manually
+** "homebrew":http://brew.sh is the recommended way to install additional dependencies: ==ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"==
+** command line tools might be necessary, install them with: ==xcode-select --install==
+** on iOS, either copy dependencies into your iPhoneOS and iPhoneSimulator SDK, or floor/ios/deps/{include,lib}
+** iOS linker flags for a depending project: -lSDL2 -lfloor -lcrypto -lssl
+
+*Build Instructions (Visual Studio / Windows):*
+* open floor.sln and build (lib and include paths might need to be modified)
+* some notes:
+** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
+** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D and "libxml2+iconv":http://www.zlatkovic.com/libxml.en.html are required dependencies
+** either the AMD or Intel OpenCL SDK must be installed
+** the CUDA SDK must be installed
+** it is necessary to add the parent directory of where floor is located to the include paths
+** networking (boost/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
+
+*Installation (Unix):*
+* sudo ln -sf /path/to/floor/bin/libfloor{,d}.{a,so,dylib} /usr/lib/
+* sudo ln -sf /path/to/floor /usr/include/floor
+* alternatively: copy these files/folders there
+
+*Installation (Windows):*
+* copy floor.lib/floord.lib to your libraries folder or directly link it
+* add the parent directory of where floor is located to the include paths (e.g. C:/some_path/ if floor is located in C:/some_path/floor)
+** when using compute, also set an environment variable named FLOOR_INCLUDE with this path
+
+*Misc Hints:*
 * when using X11 forwarding, set these env variables:
 ** export LIBGL_ALWAYS_INDIRECT=yes
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
+* depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
+* the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taking care of by having the CUDA SDK path last)
+* on Windows: a nvcuda.dll must always be present on the system when CUDA support is enabled
 
-on Windows/MinGW/MSYS2:
-* install "MSYS2":http://sourceforge.net/projects/msys2
-* build/install all necessary libraries and clang 3.5+ for mingw32, including libc++ (-> Credits)
-* add a Windows system environment variable called "MINGW_ROOT" and set it to your MinGW root folder (e.g. "/c/msys/mingw32/")
-* add the "mingw/bin" path to the Windows system environment variable called "PATH"
-* run "./build.sh"
-* make
-* libraries and headers will be automatically installed to your previously set MinGW folder
-* note: to make things easier, I might provide a full MinGW package containing all required libraries at a later point
-
-on OS X:
-* install Xcode 6.3+, Xquartz, SDL2, SDL2_image, CUDA (optionally) and boost (copying headers to /usr/local/include or /usr/include suffices)
-* if you haven't installed the Xcode command line tools yet, run: ==xcode-select --install==
-* install "homebrew":http://brew.sh: ==ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"==
-* install openssl 1.0.1e+ (OS X only provides 0.9.8 - this is w/o TLS 1.1/1.2 support!): brew install openssl
-* add this to your ~/.profile file: export DYLD_LIBRARY_PATH=/usr/local/opt/openssl/lib:${DYLD_LIBRARY_PATH}
-* compile floor.xcodeproj (floor target) or run ./build.sh
-* install/symlink floor .dylib and include folder:
-** if /usr/local or any sub-folders do not exist, create them (sudo mkdir -p /usr/local/{include,lib})
-** sudo ln -sf /path/to/floor/bin/libfloor{,d}.dylib /usr/local/lib/
-** sudo ln -sf /path/to/floor /usr/local/include/floor
-
-on iOS:
-* install Xcode 6.3+
-* compile static libs for SDL2 (2.0.2+), SDL2_image and OpenSSL (1.0.1e+), then symlink or copy them into your iPhoneOS and iPhoneSimulator /usr/{lib,include} folders
-* symlink or copy boost header folder to your iPhoneOS and iPhoneSimulator /usr/include/ folder
-* symlink the OpenCL.framework/Headers folder of your OS X SDK to the iPhoneOS SDKs PrivateFrameworks/OpenCL.framework/ folder
-* compile floor.xcodeproj (floor_ios target)
-* install/symlink floor .a and lib folder:
-** sudo ln -sf /path/to/floor/bin/libfloor{,d}.a {iPhoneOS/iPhoneSimulator folders}/usr/lib/
-** sudo ln -sf /path/to/floor {iPhoneOS/iPhoneSimulator folders}/usr/include/floor
-* linker flags for a depending project: -lSDL2 -lSDL2_image -lfloor -lcrypto -lssl
-
-*Optional:*
-There are multiple build configuration options (defines) that can disable certain parts of floor that aren't wanted or needed:
-* to disable CUDA: define "FLOOR_NO_CUDA" -> "./build.sh no-cuda"
-* to disable OpenCL: define "FLOOR_NO_OPENCL" -> "./build.sh no-opencl"
-* to disable OpenAL: define "FLOOR_NO_OPENAL" -> "./build.sh no-openal"
-* to disable Metal (only affects iOS builds): define "FLOOR_NO_METAL" -> "./build.sh no-metal"
-* to disable network support (ssl/crypto/boost-asio): define "FLOOR_NO_NET" -> "./build.sh no-net"
-* to disable language support (lexer/parser/ast): define "FLOOR_NO_LANG" -> "./build.sh no-lang"
-* to disable C++ exceptions (implies no-net no-lang): define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
-
-*Credits:*
-* http://www.libsdl.org / SDL2 and SDL2_image
-* http://www.libpng.org / libpng
-* http://www.xmlsoft.org / libxml2
-* http://mingw-w64.sourceforge.net / MinGW-w64 environment
-* http://sourceforge.net/projects/msys2 / MSYS2
-* http://www.freetype.org / FreeType2
-* http://www.dejavu-fonts.org / Bitstream DejaVu Fonts
-* http://clang.llvm.org / clang
-* http://libcxx.llvm.org / libc++
-* http://llvm.org / LLVM
-* Khronos (http://www.khronos.org) / Nvidia / AMD / Apple / Intel (OpenGL/OpenCL)
-* http://www.nvidia.com / CUDA (optional library)
-* http://pocl.sourceforge.net / pocl (optional library)
-* http://www.boost.org / boost
-* http://xquartz.macosforge.org/landing / XQuartz
-* http://brew.sh / Homebrew
+*Projects and Examples using floor*:
+* "floor_examples":https://github.com/a2flo/floor_examples
+* "oclraster":https://github.com/a2flo/oclraster
+* "a2elight":https://github.com/a2flo/a2elight
+* "unibot":https://github.com/a2flo/unibot

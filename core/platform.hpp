@@ -94,7 +94,6 @@
 #include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
 #include <SDL2/SDL_syswm.h>
-#include <SDL2_image/SDL_image.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <unistd.h>
