@@ -98,15 +98,7 @@
 #include <pwd.h>
 #include <unistd.h>
 
-#elif defined(__WINDOWS__) && !defined(WIN_UNIXENV)
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_thread.h>
-#include <SDL2/SDL_cpuinfo.h>
-#include <SDL2/SDL_platform.h>
-#include <SDL2/SDL_syswm.h>
-#include <SDL2/SDL_image.h>
-
-#elif defined(MINGW)
+#elif defined(__WINDOWS__)
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_thread.h>
 #include <SDL2/SDL_cpuinfo.h>

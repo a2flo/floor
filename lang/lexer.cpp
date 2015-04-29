@@ -22,6 +22,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <cstdio>
+#include <floor/core/logger.hpp>
 
 //! lexer_error exception (contains the source_iterator to the erroneous character and a hopefully meaningful error message)
 class lexer_error : public exception {
