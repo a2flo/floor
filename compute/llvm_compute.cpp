@@ -232,6 +232,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix + " ";
+	string libcxx_path = " -isystem ", clang_path = " -isystem ";
 	switch(target) {
 		case TARGET::SPIR:
 			clang_cmd += {
@@ -246,6 +247,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "")
 			};
+			libcxx_path += floor::get_opencl_libcxx_path();
+			clang_path += floor::get_opencl_clang_path();
 			break;
 		case TARGET::AIR:
 			clang_cmd += {
@@ -260,6 +263,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL"
 			};
+			libcxx_path += floor::get_metal_libcxx_path();
+			clang_path += floor::get_metal_clang_path();
 			break;
 		case TARGET::PTX:
 			clang_cmd += {
@@ -269,6 +274,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
+			libcxx_path += floor::get_cuda_libcxx_path();
+			clang_path += floor::get_cuda_clang_path();
 			break;
 	}
 	
@@ -276,16 +283,15 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	// TODO: use debug/profiling config options
 	clang_cmd += {
 		" -DFLOOR_COMPUTE"
-		" -DFLOOR_NO_MATH_STR"
-		" -include floor/compute/device/common.hpp"
+		" -DFLOOR_NO_MATH_STR" +
+		libcxx_path + clang_path +
 #if !defined(_MSC_VER) // TODO: better use a config entry for these as well
 		" -isystem /usr/include"
 #else
 		" -isystem %FLOOR_INCLUDE%"
 #endif
-		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast"
-		" -isystem " + floor::get_opencl_libcxx_path() +
-		" -isystem " + floor::get_opencl_clang_path() + " " +
+		" -include floor/compute/device/common.hpp"
+		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
 		warning_flags +
 		additional_options +
 		// compile to the right device bitness
