@@ -711,6 +711,14 @@ for dir in ${SRC_SUB_DIRS}; do
 	mkdir -p ${BUILD_DIR}/${dir}
 done
 
+# total hack, but it makes building faster: reverse the source file order, so that math and net files
+# are compiled first (these take longest to compile, so pipeline them properly)
+REV_SRC_FILES=""
+for source_file in ${SRC_FILES}; do
+	REV_SRC_FILES="${source_file} ${REV_SRC_FILES}"
+done
+SRC_FILES=${REV_SRC_FILES}
+
 # make a list of all object files
 for source_file in ${SRC_FILES}; do
 	OBJ_FILES="${OBJ_FILES} ${BUILD_DIR}/${source_file}.o"
@@ -761,6 +769,11 @@ if [ ${BUILD_VERBOSE} -gt 0 ]; then
 	info ""
 fi
 
+# build the precompiled header
+info "building precompiled header ..."
+verbose ${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch
+${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch
+
 # build the target
 build_file() {
 	# this function builds one source file
@@ -770,7 +783,7 @@ build_file() {
 	info "building ${source_file} [${file_num}/${file_count}]"
 	case ${source_file} in
 		*".cpp")
-			build_cmd="${CXX} ${CXXFLAGS}"
+			build_cmd="${CXX} -include-pch floor.pch ${CXXFLAGS}"
 			;;
 		*".c")
 			build_cmd="${CC} ${CFLAGS}"
@@ -810,7 +823,7 @@ for source_file in ${SRC_FILES}; do
 			if [ $cur_job_count -lt $BUILD_CPU_COUNT ]; then
 				break
 			fi
-			sleep 0.25
+			sleep 0.1
 		done
 		(build_file $source_file $file_counter $file_count) &
 	else

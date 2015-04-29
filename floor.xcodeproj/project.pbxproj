@@ -941,6 +941,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */,
+				5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */,
+				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */,
 				5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */,
 				5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */,
@@ -971,7 +974,6 @@
 				5C1091EF17D1484C007F536E /* osx_helper.mm in Sources */,
 				5C5383EA1A641B1E007AEDD7 /* cuda_kernel.cpp in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
-				5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */,
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
 				5CD2174219E9213B0049D6AE /* compute_base.cpp in Sources */,
@@ -993,9 +995,7 @@
 				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
-				5C7F30BF17F5EB6F0071C3D1 /* http_scheduler.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
-				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
 				5CE0BDC919BA3469000B28B3 /* const_math.cpp in Sources */,
 			);
