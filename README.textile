@@ -72,6 +72,15 @@
 * the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taking care of by having the CUDA SDK path last)
 * on Windows: a nvcuda.dll must always be present on the system when CUDA support is enabled
 
+*Compute Toolchain:*
+* compile the toolchain (this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows):
+** cd floor/etc/llvm35/ && ./build.sh
+** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
+* install the toolchain:
+** add "floor/etc/llvm35/compute_clang_*_*/" to your PATH environment variable, or set fixed/absolute binary paths in config.xml
+** "floor/etc/llvm35/compute_clang_*_*/libcxx/include" and "floor/etc/llvm35/compute_clang_*_*/clang" must be set in your config.xml (provided by a project using floor)
+** as mentioned in "Installation (Windows)", FLOOR_INCLUDE must be set correctly
+
 *Projects and Examples using floor*:
 * "floor_examples":https://github.com/a2flo/floor_examples
 * "oclraster":https://github.com/a2flo/oclraster
