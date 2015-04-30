@@ -32,6 +32,15 @@
 #define OGL_API
 #endif // FLOOR_EXPORTS
 
+// fix broken msvc non-member size(...) function by defining it to sth else,
+// should be done before everything else, otherwise it would replace .size() as well
+// note that a proper implementation is provided further down below
+#if defined(_MSC_VER)
+#define size MSVC_BROKEN_NON_MEMBER_SIZE
+#include <xutility>
+#undef size
+#endif
+
 #if defined(__WINDOWS__) || defined(MINGW)
 #include <windows.h>
 #endif

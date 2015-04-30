@@ -12,7 +12,7 @@
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org / "libc++":http://libcxx.llvm.org 3.5+
 ** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 6.3+
-** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/downloads/visual-studio-2015-ctp-vs
+** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/vs-2015-product-editions
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.2+ ("2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D on Windows)
