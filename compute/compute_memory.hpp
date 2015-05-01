@@ -113,14 +113,16 @@ public:
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0);
+				   const uint32_t opengl_type_ = 0,
+				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an incomplete memory object
 	compute_memory(const void* device,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type_ = 0) :
-	compute_memory(device, nullptr, flags_, opengl_type_) {}
+				   const uint32_t opengl_type_ = 0,
+				   const uint32_t external_gl_object_ = 0) :
+	compute_memory(device, nullptr, flags_, opengl_type_, external_gl_object_) {}
 	
 	virtual ~compute_memory() = 0;
 	
@@ -160,6 +162,7 @@ protected:
 	void* host_ptr { nullptr };
 	const COMPUTE_MEMORY_FLAG flags { COMPUTE_MEMORY_FLAG::NONE };
 	
+	const bool has_external_gl_object { false };
 	const uint32_t opengl_type { 0u };
 	uint32_t gl_object { 0u };
 	bool gl_object_state { true }; // false: compute use, true: opengl use

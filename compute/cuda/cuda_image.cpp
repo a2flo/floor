@@ -31,8 +31,11 @@ cuda_image::cuda_image(const cuda_device* device,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   void* host_ptr_,
 					   const COMPUTE_MEMORY_FLAG flags_,
-					   const uint32_t opengl_type_) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) {
+					   const uint32_t opengl_type_,
+					   const uint32_t external_gl_object_,
+					   const opengl_image_info* gl_image_info) :
+compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info) {
 	// TODO: handle the remaining flags + host ptr
 	
 	// need to allocate the buffer on the correct device, if a context was specified,
@@ -68,6 +71,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		// TODO: make this work transparently by using an empty alpha channel (pun not intended ;)),
 		// this will certainly segfault when using a host pointer that only points to 3-channel data
 		// -> on the device: can also make sure it only returns a <type>3 vector
+		return false;
 	}
 	
 	size_t depth = 0;
@@ -89,27 +93,31 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	}
 	// TODO: cube map: make sure width == height
 	
+	//
+	CUarray_format format;
+	CUresourceViewFormat rsrc_view_format;
+	
+	static const unordered_map<COMPUTE_IMAGE_TYPE, pair<CUarray_format, CUresourceViewFormat>> format_lut {
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_AD_FORMAT_SIGNED_INT8, CU_RES_VIEW_FORMAT_SINT_1X8 } },
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_SIGNED_INT16, CU_RES_VIEW_FORMAT_SINT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_SIGNED_INT32, CU_RES_VIEW_FORMAT_SINT_1X32 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_AD_FORMAT_UNSIGNED_INT8, CU_RES_VIEW_FORMAT_UINT_1X8 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_UNSIGNED_INT16, CU_RES_VIEW_FORMAT_UINT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_UNSIGNED_INT32, CU_RES_VIEW_FORMAT_UINT_1X32 } },
+		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_HALF, CU_RES_VIEW_FORMAT_FLOAT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_FLOAT, CU_RES_VIEW_FORMAT_FLOAT_1X32 } },
+	};
+	const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK | COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
+	if(cuda_format == end(format_lut)) {
+		log_error("unsupported image format: %X", image_type);
+		return false;
+	}
+	format = cuda_format->second.first;
+	rsrc_view_format = (CUresourceViewFormat)(cuda_format->second.second + (channel_count == 1 ? 0 :
+																			(channel_count == 2 ? 1 : 2 /* 4 channels */)));
+	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		CUarray_format format;
-		
-		static const unordered_map<COMPUTE_IMAGE_TYPE, CUarray_format> format_lut {
-			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_8, CU_AD_FORMAT_SIGNED_INT8 },
-			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_SIGNED_INT16 },
-			{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_SIGNED_INT32 },
-			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, CU_AD_FORMAT_UNSIGNED_INT8 },
-			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_UNSIGNED_INT16 },
-			{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_UNSIGNED_INT32 },
-			{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, CU_AD_FORMAT_HALF },
-			{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, CU_AD_FORMAT_FLOAT },
-		};
-		const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK | COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
-		if(cuda_format == end(format_lut)) {
-			log_error("unsupported image format: %X", image_type);
-			return false;
-		}
-		format = cuda_format->second;
-		
 		const CUDA_ARRAY3D_DESCRIPTOR desc {
 			.Width = image_dim.x,
 			.Height = (dim_count >= 2 ? image_dim.y : 0),
@@ -154,6 +162,58 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		if(!create_gl_image(copy_host_data)) return false;
 		log_debug("surf/tex %u/%u", need_surf, need_tex);
 		
+		// cuda doesn't support depth textures
+		// -> need to create a compatible texture and copy it on the gpu
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			// remove old
+			if(depth_compat_tex != 0) {
+				glDeleteTextures(1, &depth_compat_tex);
+			}
+			
+			// check if the format can be used
+			switch(gl_internal_format) {
+				case GL_DEPTH_COMPONENT16:
+					depth_compat_format = GL_R16UI;
+					break;
+				case GL_DEPTH_COMPONENT32:
+					depth_compat_format = GL_R32UI;
+					break;
+				case GL_DEPTH_COMPONENT32F:
+					depth_compat_format = GL_R32F;
+					break;
+				case GL_DEPTH32F_STENCIL8:
+					depth_compat_format = GL_R32F;
+					
+					// correct view format, since stencil isn't supported
+					rsrc_view_format = CU_RES_VIEW_FORMAT_FLOAT_1X32;
+					break;
+				default:
+					log_error("can share opengl depth format %X with cuda", gl_internal_format);
+					return false;
+			}
+			
+			//
+			glGenFramebuffers(1, &depth_compat_fbo);
+			
+			//
+			glGenTextures(1, &depth_compat_tex);
+			glBindTexture(opengl_type, depth_compat_tex);
+			glTexParameteri(opengl_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+			glTexParameteri(opengl_type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+			glTexParameteri(opengl_type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(opengl_type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			if(dim_count == 2) {
+				glTexImage2D(opengl_type, 0, (GLint)depth_compat_format, (int)image_dim.x, (int)image_dim.y,
+							 0, GL_RED, gl_type, nullptr);
+			}
+			else {
+				glTexParameteri(opengl_type, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+				glTexImage3D(opengl_type, 0, (GLint)depth_compat_format, (int)image_dim.x, (int)image_dim.y, (int)image_dim.z,
+							 0, GL_RED, gl_type, nullptr);
+			}
+			glBindTexture(opengl_type, 0);
+		}
+		
 		// register the cuda object
 		uint32_t cuda_gl_flags = 0;
 		switch(flags & COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE) {
@@ -168,7 +228,9 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_NONE;
 				break;
 		}
-		CU_CALL_RET(cuGraphicsGLRegisterImage(&rsrc, gl_object, opengl_type, cuda_gl_flags),
+		CU_CALL_RET(cuGraphicsGLRegisterImage(&rsrc,
+											  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
+											  opengl_type, cuda_gl_flags),
 					"failed to register opengl image with cuda", false);
 		if(rsrc == nullptr) {
 			log_error("created cuda gl graphics resource is invalid!");
@@ -193,8 +255,8 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	
 	if(need_tex) {
 		tex_desc.addressMode[0] = CU_TR_ADDRESS_MODE_CLAMP;
-		tex_desc.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP;
-		tex_desc.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP;
+		if(dim_count >= 2) tex_desc.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP;
+		if(dim_count >= 3) tex_desc.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP;
 		tex_desc.filterMode = CU_TR_FILTER_MODE_POINT;
 		tex_desc.flags = 0;
 		tex_desc.maxAnisotropy = 1;
@@ -203,7 +265,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		tex_desc.minMipmapLevelClamp = 0;
 		tex_desc.maxMipmapLevelClamp = 0;
 		
-		rsrc_view_desc.format = CU_RES_VIEW_FORMAT_UINT_4X8;
+		rsrc_view_desc.format = rsrc_view_format;
 		rsrc_view_desc.width = image_dim.x;
 		rsrc_view_desc.height = (dim_count >= 2 ? image_dim.y : 0);
 		rsrc_view_desc.depth = depth;
@@ -251,6 +313,14 @@ cuda_image::~cuda_image() {
 			if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
 			delete_gl_image();
 		}
+	}
+	
+	// clean up depth compat objects
+	if(depth_compat_fbo != 0) {
+		glDeleteFramebuffers(1, &depth_compat_fbo);
+	}
+	if(depth_compat_tex != 0) {
+		glDeleteTextures(1, &depth_compat_tex);
 	}
 }
 
@@ -378,7 +448,6 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	mappings.erase(mapped_ptr);
 }
 
-// TODO: merge with cuda_buffer
 bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(image == nullptr) return false;
@@ -386,6 +455,10 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object_state) {
 		log_warn("opengl image has already been acquired for opengl use!");
 		return true;
+	}
+	
+	// TODO: copy back / only do if WRITE
+	if(depth_compat_tex != 0) {
 	}
 	
 	image = 0; // reset buffer pointer, this is no longer valid
@@ -397,13 +470,35 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-// TODO: merge with cuda_buffer
 bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
 	if(!gl_object_state) {
 		log_warn("opengl image has already been released to cuda!");
 		return true;
+	}
+	
+	// if a depth compat texture is used, the original opengl texture must by copied into it
+	if(depth_compat_tex != 0) { // TODO: only do this if READ
+		GLint cur_fbo = 0;
+		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &cur_fbo);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, depth_compat_fbo);
+		
+		glBindTexture(opengl_type, depth_compat_tex);
+		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_object, 0);
+		if(image_dim_count(image_type) == 2) {
+			glCopyTexImage2D(opengl_type, 0, depth_compat_format,
+							 0, 0, (int)image_dim.x, (int)image_dim.y, 0);
+			//glCopyTexSubImage2D(opengl_type, 0, 0, 0, 0, 0, (int)image_dim.x, (int)image_dim.y);
+		}
+		else {
+			// TODO: a) this won't work because a depth->red conversion needs to happen, b) only handles 1 depth slice/layer
+			//glCopyTexSubImage3D(opengl_type, 0, 0, 0, 0, 0, 0, (int)image_dim.x, (int)image_dim.y);
+		}
+		glBindTexture(opengl_type, 0);
+		
+		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)cur_fbo);
 	}
 	
 	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,

@@ -190,6 +190,25 @@ public:
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) = 0;
 	
+	//! wraps an already existing opengl image, with the specified flags and backed by the specified host pointer
+	//! NOTE: OPENGL_SHARING flag is always implied
+	virtual shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+												 const uint32_t opengl_image,
+												 const uint32_t opengl_target,
+												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) = 0;
+	
+	//! wraps an already existing opengl image, with the specified flags and backed by the specified host pointer
+	//! NOTE: OPENGL_SHARING flag is always implied
+	virtual shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
+												 const uint32_t opengl_image,
+												 const uint32_t opengl_target,
+												 void* data,
+												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+																					COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) = 0;
+	
 	// TODO: add remaining image create functions, with init via vector/buffer and w/o device ptr
 	// TODO: add is_image_format_supported(...) function
 	

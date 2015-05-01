@@ -687,6 +687,29 @@ shared_ptr<compute_image> opencl_compute::create_image(shared_ptr<compute_device
 	return make_shared<opencl_image>((opencl_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
+shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> device,
+													 const uint32_t opengl_image,
+													 const uint32_t opengl_target,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
+	if(!info.valid) return {};
+	return make_shared<opencl_image>((opencl_device*)device.get(), info.image_dim, info.image_type, nullptr,
+									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									 opengl_target, opengl_image, &info);
+}
+
+shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> device,
+													 const uint32_t opengl_image,
+													 const uint32_t opengl_target,
+													 void* data,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
+	if(!info.valid) return {};
+	return make_shared<opencl_image>((opencl_device*)device.get(), info.image_dim, info.image_type, data,
+									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									 opengl_target, opengl_image, &info);
+}
+
 void opencl_compute::finish() {
 	// TODO: !
 }

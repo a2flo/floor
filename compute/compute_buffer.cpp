@@ -43,12 +43,15 @@ compute_memory(device, host_ptr_, flags_, opengl_type_), size(align_size(size_))
 compute_buffer::~compute_buffer() {}
 
 void compute_buffer::delete_gl_buffer() {
+	if(has_external_gl_object) return;
 	if(gl_object == 0) return;
 	glDeleteBuffers(1, &gl_object);
 	gl_object = 0;
 }
 
 bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
+	if(has_external_gl_object) return true;
+	
 	// clean up previous gl buffer that might still exist
 	delete_gl_buffer();
 	

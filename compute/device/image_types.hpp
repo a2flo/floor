@@ -26,7 +26,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 	//////////////////////////////////////////
 	// -> image flags and types
-	//! upper 14-bit (18-31): type flags (currently used: 12/14)
+	//! upper 14-bit (18-31): type flags (currently used: 13/14)
 	__FLAG_MASK				= (0xFFFC0000u),
 	__FLAG_SHIFT			= (18u),
 	//! base type: image is an array (aka has layers)
@@ -41,20 +41,23 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
 	//! base type: image is a stencil image
 	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
+	//! base type: image is a renderbuffer
+	//! NOTE: only applicable when using opengl sharing
+	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
-	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 6u)),
+	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
 	//! optional type: image uses anisotropic filtering
-	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 7u)),
+	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 8u)),
 	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
 	//! NOTE: on some platforms this might provide better performance and/or less overhead
-	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 8u)),
+	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
 	//! optional type: image uses gather sampling (aka tld4/fetch4)
-	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 9u)),
+	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
 	// TODO: actually needed/wanted?
-	//FLAG_NORMALIZED_DATA	= (1u << (__FLAG_SHIFT + 10u)),
+	//FLAG_NORMALIZED_DATA	= (1u << (__FLAG_SHIFT + 11u)),
 	//! optional type: image data is stored in reverse order (i.e. BGRA instead of RGBA)
-	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 11u)),
+	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
 	
 	//! bits 16-17: dimensionality
 	__DIM_MASK				= (0x00030000u),
@@ -193,6 +196,14 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	RG8I					= CHANNELS_2 | FORMAT_8 | INT,
 	RGB8I					= CHANNELS_3 | FORMAT_8 | INT,
 	RGBA8I					= CHANNELS_4 | FORMAT_8 | INT,
+	R16UI					= CHANNELS_1 | FORMAT_16 | UINT,
+	RG16UI					= CHANNELS_2 | FORMAT_16 | UINT,
+	RGB16UI					= CHANNELS_3 | FORMAT_16 | UINT,
+	RGBA16UI				= CHANNELS_4 | FORMAT_16 | UINT,
+	R16I					= CHANNELS_1 | FORMAT_16 | INT,
+	RG16I					= CHANNELS_2 | FORMAT_16 | INT,
+	RGB16I					= CHANNELS_3 | FORMAT_16 | INT,
+	RGBA16I					= CHANNELS_4 | FORMAT_16 | INT,
 	R16F					= CHANNELS_1 | FORMAT_16 | FLOAT,
 	RG16F					= CHANNELS_2 | FORMAT_16 | FLOAT,
 	RGB16F					= CHANNELS_3 | FORMAT_16 | FLOAT,

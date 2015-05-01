@@ -59,8 +59,11 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 compute_memory::compute_memory(const void* device,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
-							   const uint32_t opengl_type_) :
-dev(device), host_ptr(host_ptr_), flags(handle_memory_flags(flags_, opengl_type_)), opengl_type(opengl_type_) {
+							   const uint32_t opengl_type_,
+							   const uint32_t external_gl_object_) :
+dev(device), host_ptr(host_ptr_), flags(handle_memory_flags(flags_, opengl_type_)),
+has_external_gl_object(external_gl_object_ != 0), opengl_type(opengl_type_),
+gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		log_error("memory must be read-only, write-only or read-write!");
 	}

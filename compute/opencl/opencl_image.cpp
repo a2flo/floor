@@ -31,8 +31,11 @@ opencl_image::opencl_image(const opencl_device* device,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,
 						   const COMPUTE_MEMORY_FLAG flags_,
-						   const uint32_t opengl_type_) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) {
+						   const uint32_t opengl_type_,
+						   const uint32_t external_gl_object_,
+						   const opengl_image_info* gl_image_info) :
+compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info) {
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
 			cl_flags |= CL_MEM_READ_ONLY;
@@ -165,18 +168,20 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		
 		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		image = clCreateFromGLTexture(((opencl_device*)dev)->ctx, cl_flags, opengl_type,
-									  0 /* TODO: mip level */, gl_object, &create_err);
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER>(image_type)) {
+			image = clCreateFromGLTexture(((opencl_device*)dev)->ctx, cl_flags, opengl_type,
+										  0 /* TODO: mip level */, gl_object, &create_err);
+		}
+		else {
+			image = clCreateFromGLRenderbuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
+		}
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create image from opengl texture: %s", cl_error_to_string(create_err));
+			log_error("failed to create image from opengl object: %s", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
 		}
 		// release -> acquire for use with opencl
 		release_opengl_object(cqueue);
-		
-		// TODO: renderbuffer
-		//clCreateFromGLRenderbuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
 	}
 	
 	return true;

@@ -31,8 +31,11 @@ metal_image::metal_image(const metal_device* device,
 						 const COMPUTE_IMAGE_TYPE image_type_,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
-						 const uint32_t opengl_type_) :
-compute_image(device, image_dim_, image_type_, host_ptr_, flags_, opengl_type_) {
+						 const uint32_t opengl_type_,
+						 const uint32_t external_gl_object_,
+						 const opengl_image_info* gl_image_info) :
+compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
+			  opengl_type_, external_gl_object_, gl_image_info) {
 	// TODO: implement this
 	
 	// actually create the image

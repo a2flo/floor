@@ -34,7 +34,9 @@ public:
 			   void* host_ptr = nullptr,
 			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-			   const uint32_t opengl_type = 0);
+			   const uint32_t opengl_type = 0,
+			   const uint32_t external_gl_object_ = 0,
+			   const opengl_image_info* gl_image_info = nullptr);
 	
 	~cuda_image() override;
 	
@@ -73,6 +75,11 @@ protected:
 	
 	// separate create image function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	
+	//
+	uint32_t depth_compat_tex { 0u };
+	uint32_t depth_compat_fbo { 0u };
+	uint32_t depth_compat_format { 0u };
 	
 };
 
