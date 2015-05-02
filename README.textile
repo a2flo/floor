@@ -27,13 +27,20 @@
 *Build Instructions:*
 * run ./build.sh (use "./build.sh help" to get a list of all options)
 * configuration of optional parts:
-** to disable OpenCL: define "FLOOR_NO_OPENCL" or "./build.sh no-opencl"
-** to disable CUDA: define "FLOOR_NO_CUDA" or "./build.sh no-cuda"
-** to disable Metal (only affects iOS builds): define "FLOOR_NO_METAL" or "./build.sh no-metal"
-** to disable network support (ssl/crypto/boost-asio): define "FLOOR_NO_NET" or "./build.sh no-net"
-** to disable OpenAL: define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
-** to disable language support (lexer/parser): define "FLOOR_NO_LANG" or "./build.sh no-lang"
-** to disable C++ exceptions (implies no-net no-lang): define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
+** to disable OpenCL:
+   define "FLOOR_NO_OPENCL" or "./build.sh no-opencl"
+** to disable CUDA:
+   define "FLOOR_NO_CUDA" or "./build.sh no-cuda"
+** to disable Metal (only affects iOS builds):
+   define "FLOOR_NO_METAL" or "./build.sh no-metal"
+** to disable network support (ssl/crypto/boost-asio):
+   define "FLOOR_NO_NET" or "./build.sh no-net"
+** to disable OpenAL:
+   define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
+** to disable language support (lexer/parser):
+   define "FLOOR_NO_LANG" or "./build.sh no-lang"
+** to disable C++ exceptions (implies no-net no-lang):
+   define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
 *Build Instructions (Xcode / OS X / iOS):*
 * open floor.xcodeproj and build

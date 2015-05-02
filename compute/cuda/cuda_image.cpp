@@ -103,6 +103,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_SIGNED_INT32, CU_RES_VIEW_FORMAT_SINT_1X32 } },
 		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_AD_FORMAT_UNSIGNED_INT8, CU_RES_VIEW_FORMAT_UINT_1X8 } },
 		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_UNSIGNED_INT16, CU_RES_VIEW_FORMAT_UINT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_24, { CU_AD_FORMAT_UNSIGNED_INT32, CU_RES_VIEW_FORMAT_UINT_1X32 } },
 		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_UNSIGNED_INT32, CU_RES_VIEW_FORMAT_UINT_1X32 } },
 		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_HALF, CU_RES_VIEW_FORMAT_FLOAT_1X16 } },
 		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_FLOAT, CU_RES_VIEW_FORMAT_FLOAT_1X32 } },
@@ -175,6 +176,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				case GL_DEPTH_COMPONENT16:
 					depth_compat_format = GL_R16UI;
 					break;
+				case GL_DEPTH_COMPONENT24:
 				case GL_DEPTH_COMPONENT32:
 					depth_compat_format = GL_R32UI;
 					break;
@@ -188,7 +190,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 					rsrc_view_format = CU_RES_VIEW_FORMAT_FLOAT_1X32;
 					break;
 				default:
-					log_error("can share opengl depth format %X with cuda", gl_internal_format);
+					log_error("can't share opengl depth format %X with cuda", gl_internal_format);
 					return false;
 			}
 			
@@ -457,8 +459,9 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 		return true;
 	}
 	
-	// TODO: copy back / only do if WRITE
-	if(depth_compat_tex != 0) {
+	// if a depth compat texture is used, the cuda image must be copied to the opengl depth texture
+	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
+		// TODO: shader copy?
 	}
 	
 	image = 0; // reset buffer pointer, this is no longer valid
@@ -479,26 +482,8 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	}
 	
 	// if a depth compat texture is used, the original opengl texture must by copied into it
-	if(depth_compat_tex != 0) { // TODO: only do this if READ
-		GLint cur_fbo = 0;
-		glGetIntegerv(GL_FRAMEBUFFER_BINDING, &cur_fbo);
-		
-		glBindFramebuffer(GL_FRAMEBUFFER, depth_compat_fbo);
-		
-		glBindTexture(opengl_type, depth_compat_tex);
-		glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_object, 0);
-		if(image_dim_count(image_type) == 2) {
-			glCopyTexImage2D(opengl_type, 0, depth_compat_format,
-							 0, 0, (int)image_dim.x, (int)image_dim.y, 0);
-			//glCopyTexSubImage2D(opengl_type, 0, 0, 0, 0, 0, (int)image_dim.x, (int)image_dim.y);
-		}
-		else {
-			// TODO: a) this won't work because a depth->red conversion needs to happen, b) only handles 1 depth slice/layer
-			//glCopyTexSubImage3D(opengl_type, 0, 0, 0, 0, 0, 0, (int)image_dim.x, (int)image_dim.y);
-		}
-		glBindTexture(opengl_type, 0);
-		
-		glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)cur_fbo);
+	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
+		// TODO: shader copy
 	}
 	
 	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
