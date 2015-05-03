@@ -26,7 +26,10 @@
 #include <OpenGL/gl3ext.h>
 
 extern "C" {
-extern void glDrawPixels (GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *pixels);
+	extern void glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type, const GLvoid *pixels);
+	extern void glCopyImageSubData(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ,
+								   GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ,
+								   GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
 }
 #else
 
@@ -644,6 +647,9 @@ OGL_API extern PFNGLDEPTHRANGEINDEXEDPROC _glDepthRangeIndexed_ptr; // ARB_viewp
 OGL_API extern PFNGLGETFLOATI_VPROC _glGetFloati_v_ptr; // ARB_viewport_array
 OGL_API extern PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr; // ARB_viewport_array
 
+// OpenGL 4.3
+OGL_API extern PFNGLCOPYIMAGESUBDATAPROC _glCopyImageSubData_ptr; // ARB_copy_image
+
 // syntactic sugar
 #define glRenderbufferStorageMultisampleCoverageNV ((PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC)_glRenderbufferStorageMultisampleCoverageNV_ptr)
 #if !defined(__LINUX__)
@@ -1159,6 +1165,7 @@ OGL_API extern PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr; // ARB_viewport_array
 #define glDepthRangeIndexed ((PFNGLDEPTHRANGEINDEXEDPROC)_glDepthRangeIndexed_ptr)
 #define glGetFloati_v ((PFNGLGETFLOATI_VPROC)_glGetFloati_v_ptr)
 #define glGetDoublei_v ((PFNGLGETDOUBLEI_VPROC)_glGetDoublei_v_ptr)
+#define glCopyImageSubData ((PFNGLCOPYIMAGESUBDATAPROC)_glCopyImageSubData_ptr)
 
 #endif
 

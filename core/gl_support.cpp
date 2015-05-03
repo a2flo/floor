@@ -533,6 +533,9 @@ OGL_API PFNGLDEPTHRANGEINDEXEDPROC _glDepthRangeIndexed_ptr = nullptr; // ARB_vi
 OGL_API PFNGLGETFLOATI_VPROC _glGetFloati_v_ptr = nullptr; // ARB_viewport_array
 OGL_API PFNGLGETDOUBLEI_VPROC _glGetDoublei_v_ptr = nullptr; // ARB_viewport_array
 
+// OpenGL 4.3
+OGL_API PFNGLCOPYIMAGESUBDATAPROC _glCopyImageSubData_ptr = nullptr; // ARB_copy_image
+
 void init_gl_funcs() {
 #if !defined(__LINUX__)
 #if defined(_MSC_VER)
@@ -1045,6 +1048,9 @@ void init_gl_funcs() {
 	_glGetFloati_v_ptr = (PFNGLGETFLOATI_VPROC)glGetProcAddress("glGetFloati_v"); // ARB_viewport_array
 	_glGetDoublei_v_ptr = (PFNGLGETDOUBLEI_VPROC)glGetProcAddress("glGetDoublei_v"); // ARB_viewport_array
 	
+	// OpenGL 4.3
+	_glCopyImageSubData_ptr = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubData"); // ARB_copy_image
+	
 	
 	// fallback (EXT_framebuffer_object, EXT_framebuffer_blit)
 	if(_glIsRenderbuffer_ptr == nullptr) _glIsRenderbuffer_ptr = (PFNGLISRENDERBUFFERPROC)glGetProcAddress("glIsRenderbufferEXT"); // EXT_framebuffer_object
@@ -1065,6 +1071,10 @@ void init_gl_funcs() {
 	if(_glGetFramebufferAttachmentParameteriv_ptr == nullptr) _glGetFramebufferAttachmentParameteriv_ptr = (PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIVPROC)glGetProcAddress("glGetFramebufferAttachmentParameterivEXT"); // EXT_framebuffer_object
 	if(_glGenerateMipmap_ptr == nullptr) _glGenerateMipmap_ptr = (PFNGLGENERATEMIPMAPPROC)glGetProcAddress("glGenerateMipmapEXT"); // EXT_framebuffer_object
 	if(_glBlitFramebuffer_ptr == nullptr) _glBlitFramebuffer_ptr = (PFNGLBLITFRAMEBUFFERPROC)glGetProcAddress("glBlitFramebufferEXT"); // EXT_framebuffer_blit
+	
+	// fallback (ARB_copy_image, NV_copy_image)
+	if(_glCopyImageSubData_ptr == nullptr) = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataARB"); // ARB_copy_image
+	if(_glCopyImageSubData_ptr == nullptr) = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataNV"); // NV_copy_image
 	
 	// check gl function pointers (print error if nullptr)
 	if(_glIsRenderbuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glIsRenderbuffer\"!");
