@@ -1073,8 +1073,8 @@ void init_gl_funcs() {
 	if(_glBlitFramebuffer_ptr == nullptr) _glBlitFramebuffer_ptr = (PFNGLBLITFRAMEBUFFERPROC)glGetProcAddress("glBlitFramebufferEXT"); // EXT_framebuffer_blit
 	
 	// fallback (ARB_copy_image, NV_copy_image)
-	if(_glCopyImageSubData_ptr == nullptr) = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataARB"); // ARB_copy_image
-	if(_glCopyImageSubData_ptr == nullptr) = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataNV"); // NV_copy_image
+	if(_glCopyImageSubData_ptr == nullptr) _glCopyImageSubData_ptr = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataARB"); // ARB_copy_image
+	if(_glCopyImageSubData_ptr == nullptr) _glCopyImageSubData_ptr = (PFNGLCOPYIMAGESUBDATAPROC)glGetProcAddress("glCopyImageSubDataNV"); // NV_copy_image
 	
 	// check gl function pointers (print error if nullptr)
 	if(_glIsRenderbuffer_ptr == nullptr) log_error("couldn't get function pointer to \"glIsRenderbuffer\"!");
