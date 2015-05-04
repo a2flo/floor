@@ -447,25 +447,6 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #endif
 #endif
-		
-		// get supported opengl extensions
-		int ext_count = 0;
-		glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
-		for(int i = 0; i < ext_count; ++i) {
-			gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
-		}
-		
-		// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
-		const char* gl_version = (const char*)glGetString(GL_VERSION);
-		if(gl_version != nullptr) {
-			if(gl_version[0] > '4' || (gl_version[0] == '4' && gl_version[2] >= '3')) {
-				gl_extensions.emplace("GL_ARB_copy_image");
-			}
-		}
-		
-		for(const auto& ext : gl_extensions) {
-			log_msg("ext: %s", ext);
-		}
 	}
 	acquire_context();
 	
@@ -476,6 +457,23 @@ void floor::init_internal(const bool use_gl32_core
 #if !defined(__APPLE__)
 		init_gl_funcs();
 #endif
+		
+		// get supported opengl extensions
+		if(glGetStringi != nullptr) {
+			int ext_count = 0;
+			glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
+			for(int i = 0; i < ext_count; ++i) {
+				gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
+			}
+		}
+		
+		// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
+		const char* gl_version = (const char*)glGetString(GL_VERSION);
+		if(gl_version != nullptr) {
+			if(gl_version[0] > '4' || (gl_version[0] == '4' && gl_version[2] >= '3')) {
+				gl_extensions.emplace("GL_ARB_copy_image");
+			}
+		}
 		
 		// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
 #if defined(FLOOR_IOS)
