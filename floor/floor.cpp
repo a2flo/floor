@@ -459,7 +459,10 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 		
 		// get supported opengl extensions
-		if(glGetStringi != nullptr) {
+#if !defined(__APPLE__)
+		if(glGetStringi != nullptr)
+#endif
+		{
 			int ext_count = 0;
 			glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
 			for(int i = 0; i < ext_count; ++i) {
