@@ -459,7 +459,7 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
 			glCopyImageSubData(depth_compat_tex, opengl_type, 0, 0, 0, 0,
 							   gl_object, opengl_type, 0, 0, 0, 0,
-							   (int)image_dim.x, (int)image_dim.y, std::min((int)image_dim.z, 1));
+							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
 		}
 		else {
 			// TODO: shader copy?
@@ -488,7 +488,7 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
 			glCopyImageSubData(gl_object, opengl_type, 0, 0, 0, 0,
 							   depth_compat_tex, opengl_type, 0, 0, 0, 0,
-							   (int)image_dim.x, (int)image_dim.y, std::min((int)image_dim.z, 1));
+							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
 		}
 		else {
 			// TODO: shader copy
