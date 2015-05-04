@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
+#include <floor/floor/floor.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
@@ -195,9 +196,6 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			}
 			
 			//
-			glGenFramebuffers(1, &depth_compat_fbo);
-			
-			//
 			glGenTextures(1, &depth_compat_tex);
 			glBindTexture(opengl_type, depth_compat_tex);
 			glTexParameteri(opengl_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -317,10 +315,7 @@ cuda_image::~cuda_image() {
 		}
 	}
 	
-	// clean up depth compat objects
-	if(depth_compat_fbo != 0) {
-		glDeleteFramebuffers(1, &depth_compat_fbo);
-	}
+	// clean up depth compat object
 	if(depth_compat_tex != 0) {
 		glDeleteTextures(1, &depth_compat_tex);
 	}
@@ -461,7 +456,14 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	// if a depth compat texture is used, the cuda image must be copied to the opengl depth texture
 	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
-		// TODO: shader copy?
+		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
+			glCopyImageSubData(depth_compat_tex, opengl_type, 0, 0, 0, 0,
+							   gl_object, opengl_type, 0, 0, 0, 0,
+							   (int)image_dim.x, (int)image_dim.y, (int)image_dim.z);
+		}
+		else {
+			// TODO: shader copy?
+		}
 	}
 	
 	image = 0; // reset buffer pointer, this is no longer valid
@@ -483,7 +485,14 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	
 	// if a depth compat texture is used, the original opengl texture must by copied into it
 	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
-		// TODO: shader copy
+		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
+			glCopyImageSubData(gl_object, opengl_type, 0, 0, 0, 0,
+							   depth_compat_tex, opengl_type, 0, 0, 0, 0,
+							   (int)image_dim.x, (int)image_dim.y, (int)image_dim.z);
+		}
+		else {
+			// TODO: shader copy
+		}
 	}
 	
 	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,

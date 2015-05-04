@@ -58,6 +58,7 @@ public:
 	static void resize_window();
 	static void swap();
 	static const string get_version();
+	static bool has_opengl_extension(const char* ext_name);
 	
 	// class return functions
 	static event* get_event();
@@ -195,6 +196,7 @@ protected:
 	static xml* x;
 	static bool console_only;
 	static shared_ptr<compute_base> compute_ctx;
+	static unordered_set<string> gl_extensions;
 	
 	static void init_internal(const bool use_gl32_core, const unsigned int window_flags);
 	

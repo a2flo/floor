@@ -78,7 +78,6 @@ protected:
 	
 	//
 	uint32_t depth_compat_tex { 0u };
-	uint32_t depth_compat_fbo { 0u };
 	uint32_t depth_compat_format { 0u };
 	
 };

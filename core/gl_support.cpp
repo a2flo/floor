@@ -16,10 +16,16 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if !defined(__APPLE__)
-
 #include <floor/core/gl_support.hpp>
 
+#if defined(__APPLE__)
+#include <floor/core/logger.hpp>
+void glCopyImageSubData(GLuint, GLenum, GLint, GLint, GLint, GLint,
+						GLuint, GLenum, GLint, GLint, GLint, GLint,
+						GLsizei, GLsizei, GLsizei) {
+	log_error("glCopyImageSubData is not supported!");
+}
+#else
 #define glGetProcAddress(x) SDL_GL_GetProcAddress(x)
 
 #if !defined(__LINUX__)
