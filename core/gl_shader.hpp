@@ -19,7 +19,7 @@
 #ifndef __FLOOR_GL_SHADER_HPP__
 #define __FLOOR_GL_SHADER_HPP__
 
-#include <floor/floor/floor.hpp>
+#include <floor/core/cpp_headers.hpp>
 
 struct floor_shader_object {
 	struct internal_shader_object {
@@ -28,13 +28,13 @@ struct floor_shader_object {
 		unsigned int fragment_shader { 0 };
 		
 		struct shader_variable {
-			size_t location;
-			size_t size;
-			size_t type;
+			int location;
+			int size;
+			unsigned int type;
 		};
 		unordered_map<string, shader_variable> uniforms;
 		unordered_map<string, shader_variable> attributes;
-		unordered_map<string, size_t> samplers;
+		unordered_map<string, int> samplers;
 	};
 	const string name;
 	internal_shader_object program;

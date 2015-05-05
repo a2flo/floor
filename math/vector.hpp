@@ -659,7 +659,7 @@ public:
 	FLOOR_VEC_UNARY_OP_FUNC(!, unary_not)
 	
 #if FLOOR_VECTOR_WIDTH == 1
-	//! 4x4 matrix * vector1 multiplication
+	//! M * v, 4x4 matrix * vector1 multiplication
 	//! -> implicit vector4 with .y = 0, .z = 0 and .w = 1 and dropping the bottom three rows of the matrix
 	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
@@ -668,7 +668,7 @@ public:
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 2
-	//! 4x4 matrix * vector2 multiplication
+	//! M * v, 4x4 matrix * vector2 multiplication
 	//! -> implicit vector4 with .z = 0 and .w = 1 and dropping the bottom two rows of the matrix
 	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
@@ -678,7 +678,7 @@ public:
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
-	//! 4x4 matrix * vector3 multiplication
+	//! M * v, 4x4 matrix * vector3 multiplication
 	//! -> implicit vector4 with .w = 1 and dropping the bottom row of the matrix
 	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
@@ -689,7 +689,7 @@ public:
 	}
 #endif
 #if FLOOR_VECTOR_WIDTH == 4
-	//! 4x4 matrix * vector4 multiplication
+	//! M * v, 4x4 matrix * vector4 multiplication
 	constexpr vector_type operator*(const matrix4<decayed_scalar_type>& mat) const {
 		return {
 			mat.data[0] * x + mat.data[4] * y + mat.data[8] * z + mat.data[12] * w,
@@ -699,6 +699,7 @@ public:
 		};
 	}
 #endif
+	//! v = M * v, with M = 4x4 matrix
 	constexpr vector_type& operator*=(const matrix4<decayed_scalar_type>& mat) {
 		*this = *this * mat;
 		return *this;

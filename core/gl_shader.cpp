@@ -17,6 +17,7 @@
  */
 
 #include <floor/core/gl_shader.hpp>
+#include <floor/core/gl_support.hpp>
 
 #define FLOOR_GL_SHADER_SAMPLER_TYPES(F) \
 F(GL_SAMPLER_1D) \
@@ -136,7 +137,7 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	for(GLint attr = 0; attr < attr_count; attr++) {
 		memset(attr_name.get(), 0, (size_t)max_attr_len);
 		GLsizei written_size = 0;
-		glGetActiveAttrib(shd_obj.program, (GLuint)attr, max_attr_len-1, &written_size, &var_size, &var_type, attr_name.get());
+		glGetActiveAttrib(shd_obj.program, (GLuint)attr, max_attr_len - 1, &written_size, &var_size, &var_type, attr_name.get());
 		var_location = glGetAttribLocation(shd_obj.program, attr_name.get());
 		if(var_location < 0) {
 			continue;
@@ -145,8 +146,8 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 		if(attribute_name.find("[") != string::npos) attribute_name = attribute_name.substr(0, attribute_name.find("["));
 		shd_obj.attributes.emplace(attribute_name,
 								   floor_shader_object::internal_shader_object::shader_variable {
-									   (size_t)var_location,
-									   (size_t)var_size,
+									   var_location,
+									   var_size,
 									   var_type });
 	}
 	
@@ -154,7 +155,7 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	for(GLint uniform = 0; uniform < uni_count; uniform++) {
 		memset(uni_name.get(), 0, (size_t)max_uni_len);
 		GLsizei written_size = 0;
-		glGetActiveUniform(shd_obj.program, (GLuint)uniform, max_uni_len-1, &written_size, &var_size, &var_type, uni_name.get());
+		glGetActiveUniform(shd_obj.program, (GLuint)uniform, max_uni_len - 1, &written_size, &var_size, &var_type, uni_name.get());
 		var_location = glGetUniformLocation(shd_obj.program, uni_name.get());
 		if(var_location < 0) {
 			continue;
@@ -163,8 +164,8 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 		if(uniform_name.find("[") != string::npos) uniform_name = uniform_name.substr(0, uniform_name.find("["));
 		shd_obj.uniforms.emplace(uniform_name,
 								 floor_shader_object::internal_shader_object::shader_variable {
-									 (size_t)var_location,
-									 (size_t)var_size,
+									 var_location,
+									 var_size,
 									 var_type });
 		
 		// if the uniform is a sampler, add it to the sampler mapping (with increasing id/num)
