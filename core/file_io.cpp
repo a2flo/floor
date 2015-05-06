@@ -298,6 +298,10 @@ void file_io::write_block(const char* data, size_t size, bool check_size) {
 	}
 }
 
+void file_io::write_block(const void* data, size_t size, bool check_size) {
+	write_block((const char*)data, size, check_size);
+}
+
 void file_io::write_char(const uint8_t& ch) {
 	filestream.put((char&)ch);
 }
@@ -407,6 +411,14 @@ void file_io::get_terminated_block(string& str, const uint8_t terminator) {
 	for(uint8_t c = get_char(); c != terminator; c = get_char()) {
 		str += (char&)c;
 	}
+}
+
+string file_io::get_terminated_block(const uint8_t terminator) {
+	string str = "";
+	for(uint8_t c = get_char(); c != terminator; c = get_char()) {
+		str += (char&)c;
+	}
+	return str;
 }
 
 void file_io::write_terminated_block(const string& str, const uint8_t terminator) {

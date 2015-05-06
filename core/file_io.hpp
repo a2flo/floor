@@ -75,6 +75,7 @@ public:
 	void get_line(char* finput, streamsize length);
 	void get_block(char* data, streamsize size);
 	void get_terminated_block(string& str, const uint8_t terminator);
+	string get_terminated_block(const uint8_t terminator);
 	uint8_t get_char();
 	uint16_t get_usint();
 	uint32_t get_uint();
@@ -89,6 +90,10 @@ public:
 	// file output:
 	void write_file(const string& str);
 	void write_block(const char* data, size_t size, bool check_size = false);
+	void write_block(const void* data, size_t size, bool check_size = false);
+	template <typename T> void write(const T& data) {
+		write_block((const void*)&data, sizeof(T));
+	}
 	void write_terminated_block(const string& str, const uint8_t terminator);
 	void write_char(const uint8_t& ch);
 	void write_usint(const uint16_t& usi);
