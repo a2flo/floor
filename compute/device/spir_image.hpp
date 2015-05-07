@@ -22,22 +22,142 @@
 #if defined(FLOOR_COMPUTE_SPIR)
 
 // opencl filtering modes
-#define CLK_ADDRESS_NONE                0
-#define CLK_ADDRESS_CLAMP_TO_EDGE       2
-#define CLK_ADDRESS_CLAMP               4
-#define CLK_ADDRESS_REPEAT              6
-#define CLK_ADDRESS_MIRRORED_REPEAT     8
-#define CLK_NORMALIZED_COORDS_FALSE     0
-#define CLK_NORMALIZED_COORDS_TRUE      1
-#define CLK_FILTER_NEAREST              0x10
-#define CLK_FILTER_LINEAR               0x20
+#define FLOOR_SPIR_ADDRESS_NONE                0
+#define FLOOR_SPIR_ADDRESS_CLAMP_TO_EDGE       2
+#define FLOOR_SPIR_ADDRESS_CLAMP               4
+#define FLOOR_SPIR_ADDRESS_REPEAT              6
+#define FLOOR_SPIR_ADDRESS_MIRRORED_REPEAT     8
+#define FLOOR_SPIR_NORMALIZED_COORDS_FALSE     0
+#define FLOOR_SPIR_NORMALIZED_COORDS_TRUE      1
+#define FLOOR_SPIR_FILTER_NEAREST              0x10
+#define FLOOR_SPIR_FILTER_LINEAR               0x20
 
-spir_float4 spir_const_func read_imagef(image2d_t image, const sampler_t sampler, spir_int2 coord);
+// opencl/spir image read functions
+spir_float4 spir_const_func read_imagef(image1d_t image, sampler_t sampler, int coord);
+spir_float4 spir_const_func read_imagef(image1d_t image, sampler_t sampler, float coord);
+spir_int4 spir_const_func read_imagei(image1d_t image, sampler_t sampler, int coord);
+spir_int4 spir_const_func read_imagei(image1d_t image, sampler_t sampler, float coord);
+spir_uint4 spir_const_func read_imageui(image1d_t image, sampler_t sampler, int coord);
+spir_uint4 spir_const_func read_imageui(image1d_t image, sampler_t sampler, float coord);
+spir_float4 spir_const_func read_imagef(image1d_t image, int coord);
+spir_int4 spir_const_func read_imagei(image1d_t image, int coord);
+spir_uint4 spir_const_func read_imageui(image1d_t image, int coord);
+
+spir_float4 spir_const_func read_imagef(image1d_buffer_t image, int coord);
+spir_int4 spir_const_func read_imagei(image1d_buffer_t image, int coord);
+spir_uint4 spir_const_func read_imageui(image1d_buffer_t image, int coord);
+
+spir_float4 spir_const_func read_imagef(image1d_array_t image, sampler_t sampler, spir_int2 coord);
+spir_float4 spir_const_func read_imagef(image1d_array_t image, sampler_t sampler, spir_float2 coord);
+spir_int4 spir_const_func read_imagei(image1d_array_t image, sampler_t sampler, spir_int2 coord);
+spir_int4 spir_const_func read_imagei(image1d_array_t image, sampler_t sampler, spir_float2 coord);
+spir_uint4 spir_const_func read_imageui(image1d_array_t image, sampler_t sampler, spir_int2 coord);
+spir_uint4 spir_const_func read_imageui(image1d_array_t image, sampler_t sampler, spir_float2 coord);
+spir_float4 spir_const_func read_imagef(image1d_array_t image, spir_int2 coord);
+spir_int4 spir_const_func read_imagei(image1d_array_t image, spir_int2 coord);
+spir_uint4 spir_const_func read_imageui(image1d_array_t image, spir_int2 coord);
+
+spir_float4 spir_const_func read_imagef(image2d_t image, sampler_t sampler, spir_int2 coord);
+spir_float4 spir_const_func read_imagef(image2d_t image, sampler_t sampler, spir_float2 coord);
+spir_half4 spir_const_func read_imageh(image2d_t image, sampler_t sampler, spir_int2 coord);
+spir_half4 spir_const_func read_imageh(image2d_t image, sampler_t sampler, spir_float2 coord);
+spir_int4 spir_const_func read_imagei(image2d_t image, sampler_t sampler, spir_int2 coord);
+spir_int4 spir_const_func read_imagei(image2d_t image, sampler_t sampler, spir_float2 coord);
+spir_uint4 spir_const_func read_imageui(image2d_t image, sampler_t sampler, spir_int2 coord);
+spir_uint4 spir_const_func read_imageui(image2d_t image, sampler_t sampler, spir_float2 coord);
+spir_float4 spir_const_func read_imagef (image2d_t image, spir_int2 coord);
+spir_int4 spir_const_func read_imagei(image2d_t image, spir_int2 coord);
+spir_uint4 spir_const_func read_imageui(image2d_t image, spir_int2 coord);
+
+spir_float4 spir_const_func read_imagef(image2d_array_t image, spir_int4 coord);
+spir_int4 spir_const_func read_imagei(image2d_array_t image, spir_int4 coord);
+spir_uint4 spir_const_func read_imageui(image2d_array_t image, spir_int4 coord);
+spir_float4 spir_const_func read_imagef(image2d_array_t image_array, sampler_t sampler, spir_int4 coord);
+spir_float4 spir_const_func read_imagef(image2d_array_t image_array, sampler_t sampler, spir_float4 coord);
+spir_int4 spir_const_func read_imagei(image2d_array_t image_array, sampler_t sampler, spir_int4 coord);
+spir_int4 spir_const_func read_imagei(image2d_array_t image_array, sampler_t sampler, spir_float4 coord);
+spir_uint4 spir_const_func read_imageui(image2d_array_t image_array, sampler_t sampler, spir_int4 coord);
+spir_uint4 spir_const_func read_imageui(image2d_array_t image_array, sampler_t sampler, spir_float4 coord);
+
+spir_float4 spir_const_func read_imagef(image2d_msaa_t image, spir_int2 coord, int sample);
+spir_int4 spir_const_func read_imagei(image2d_msaa_t image, spir_int2 coord, int sample);
+spir_uint4 spir_const_func read_imageui(image2d_msaa_t image, spir_int2 coord, int sample);
+
+spir_float4 spir_const_func read_imagef(image2d_array_msaa_t image, spir_int4 coord, int sample);
+spir_int4 spir_const_func read_imagei(image2d_array_msaa_t image, spir_int4 coord, int sample);
+spir_uint4 spir_const_func read_imageui(image2d_array_msaa_t image, spir_int4 coord, int sample);
+
+float spir_const_func read_imagef(image2d_msaa_depth_t image, spir_int2 coord, int sample);
+float spir_const_func read_imagef(image2d_array_msaa_depth_t image, spir_int4 coord, int sample);
+
+float spir_const_func read_imagef(image2d_depth_t image, sampler_t sampler, spir_int2 coord);
+float spir_const_func read_imagef(image2d_depth_t image, sampler_t sampler, spir_float2 coord);
+float spir_const_func read_imagef(image2d_depth_t image, spir_int2 coord);
+
+float spir_const_func read_imagef(image2d_array_depth_t image, sampler_t sampler, spir_int4 coord);
+float spir_const_func read_imagef(image2d_array_depth_t image, sampler_t sampler, spir_float4 coord);
+float spir_const_func read_imagef(image2d_array_depth_t image, spir_int4 coord);
+
+spir_float4 spir_const_func read_imagef(image3d_t image, sampler_t sampler, spir_int4 coord);
+spir_float4 spir_const_func read_imagef(image3d_t image, sampler_t sampler, spir_float4 coord);
+spir_int4 spir_const_func read_imagei(image3d_t image, sampler_t sampler, spir_int4 coord);
+spir_int4 spir_const_func read_imagei(image3d_t image, sampler_t sampler, spir_float4 coord);
+spir_uint4 spir_const_func read_imageui(image3d_t image, sampler_t sampler, spir_int4 coord);
+spir_uint4 spir_const_func read_imageui(image3d_t image, sampler_t sampler, spir_float4 coord);
+spir_float4 spir_const_func read_imagef(image3d_t image, spir_int4 coord);
+spir_int4 spir_const_func read_imagei(image3d_t image, spir_int4 coord);
+spir_uint4 spir_const_func read_imageui(image3d_t image, spir_int4 coord);
+
+spir_float4 spir_const_func read_imagef(image2d_array_t image, sampler_t sampler, spir_int4 coord);
+spir_float4 spir_const_func read_imagef(image2d_array_t image, sampler_t sampler, spir_float4 coord);
+spir_int4 spir_const_func read_imagei(image2d_array_t image, sampler_t sampler, spir_int4 coord);
+spir_int4 spir_const_func read_imagei(image2d_array_t image, sampler_t sampler, spir_float4 coord);
+spir_uint4 spir_const_func read_imageui(image2d_array_t image, sampler_t sampler, spir_int4 coord);
+spir_uint4 spir_const_func read_imageui(image2d_array_t image, sampler_t sampler, spir_float4 coord);
+
+// opencl/spir image write functions
+void write_imagef(image1d_t image, int coord, spir_float4 color);
+void write_imagei(image1d_t image, int coord, spir_int4 color);
+void write_imageui(image1d_t image, int coord, spir_uint4 color);
+
+void write_imagef(image1d_buffer_t image, int coord, spir_float4 color);
+void write_imagei(image1d_buffer_t image, int coord, spir_int4 color);
+void write_imageui(image1d_buffer_t image, int coord, spir_uint4 color);
+
+void write_imagef(image1d_array_t image, spir_int2 coord, spir_float4 color);
+void write_imagei(image1d_array_t image, spir_int2 coord, spir_int4 color);
+void write_imageui(image1d_array_t image, spir_int2 coord, spir_uint4 color);
+
 void write_imagef(image2d_t image, spir_int2 coord, spir_float4 color);
+void write_imagei(image2d_t image, spir_int2 coord, spir_int4 color);
+void write_imageui(image2d_t image, spir_int2 coord, spir_uint4 color);
+void write_imageh(image2d_t image, spir_int2 coord, spir_half4 color);
 
+void write_imagef(image2d_array_t image, spir_int4 coord, spir_float4 color);
+void write_imagei(image2d_array_t image, spir_int4 coord, spir_int4 color);
+void write_imageui(image2d_array_t image, spir_int4 coord, spir_uint4 color);
+void write_imagef(image2d_array_t image_array, spir_int4 coord, spir_float4 color);
+void write_imagei(image2d_array_t image_array, spir_int4 coord, spir_int4 color);
+void write_imageui(image2d_array_t image_array, spir_int4 coord, spir_uint4 color);
+
+void write_imagef(image2d_depth_t image, spir_int2 coord, float depth);
+
+void write_imagef(image2d_array_depth_t image, spir_int4 coord, float depth);
+
+void write_imagef(image3d_t image, spir_int4 coord, spir_float4 color);
+void write_imagei(image3d_t image, spir_int4 coord, spir_int4 color);
+void write_imageui(image3d_t image, spir_int4 coord, spir_uint4 color);
+void write_imageh(image3d_t image, spir_int4 coord, spir_half4 color);
+
+// floor image read/write wrappers
 floor_inline_always float4 read(const image2d_t& img, const int2& coord) __attribute__((noduplicate));
 floor_inline_always float4 read(const image2d_t& img, const int2& coord) __attribute__((noduplicate)) {
-	const sampler_t smplr = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_NEAREST;
+	const sampler_t smplr = FLOOR_SPIR_NORMALIZED_COORDS_FALSE | FLOOR_SPIR_ADDRESS_CLAMP_TO_EDGE | FLOOR_SPIR_FILTER_NEAREST;
+	return float4::from_clang_vector(read_imagef(img, smplr, coord));
+}
+floor_inline_always float4 read(const image2d_t& img, const float2& coord) __attribute__((noduplicate));
+floor_inline_always float4 read(const image2d_t& img, const float2& coord) __attribute__((noduplicate)) {
+	const sampler_t smplr = FLOOR_SPIR_NORMALIZED_COORDS_TRUE | FLOOR_SPIR_ADDRESS_CLAMP_TO_EDGE | FLOOR_SPIR_FILTER_NEAREST;
 	return float4::from_clang_vector(read_imagef(img, smplr, coord));
 }
 

@@ -892,6 +892,8 @@ namespace const_select {
 	// has to be handled/added manually.
 	
 	// generic is_constexpr checks
+	// NOTE: in comparison to the math select functions (further down below), these
+	// only work under certain conditions (no "constexpr recursiveness")
 #define FLOOR_IS_CONSTEXPR(type_name) \
 	extern __attribute__((always_inline)) bool is_constexpr(type_name val) asm("floor__is_constexpr_" #type_name); \
 	extern __attribute__((always_inline)) constexpr bool is_constexpr(type_name val) \
