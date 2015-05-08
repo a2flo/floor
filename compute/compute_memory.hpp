@@ -81,9 +81,6 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! the compute implementation has read and write access to the opengl object (default)
 	OPENGL_READ_WRITE	= (OPENGL_READ | OPENGL_WRITE),
 	
-	// TODO: need a flag to specifiy if opengl memory is managed by the compute class or the user
-	//__OPENGL_MEM_MANAGED_TODO		= (1u << 11u),
-	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

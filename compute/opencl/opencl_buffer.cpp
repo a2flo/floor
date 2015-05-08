@@ -30,8 +30,9 @@ opencl_buffer::opencl_buffer(const opencl_device* device,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_) :
-compute_buffer(device, size_, host_ptr_, flags_, opengl_type_) {
+							 const uint32_t opengl_type_,
+							 const uint32_t external_gl_object_) :
+compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {

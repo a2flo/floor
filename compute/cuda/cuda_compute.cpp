@@ -290,6 +290,30 @@ shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device
 	return make_shared<cuda_buffer>((cuda_device*)device.get(), size, data, flags, opengl_type);
 }
 
+
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(shared_ptr<compute_device> device,
+													 const uint32_t opengl_buffer,
+													 const uint32_t opengl_type,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
+	if(!info.valid) return {};
+	return make_shared<cuda_buffer>((cuda_device*)device.get(), info.size, nullptr,
+									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									opengl_type, opengl_buffer);
+}
+
+shared_ptr<compute_buffer> cuda_compute::wrap_buffer(shared_ptr<compute_device> device,
+													 const uint32_t opengl_buffer,
+													 const uint32_t opengl_type,
+													 void* data,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
+	if(!info.valid) return {};
+	return make_shared<cuda_buffer>((cuda_device*)device.get(), info.size, data,
+									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									opengl_type, opengl_buffer);
+}
+
 shared_ptr<compute_image> cuda_compute::create_image(shared_ptr<compute_device> device,
 													 const uint4 image_dim,
 													 const COMPUTE_IMAGE_TYPE image_type,

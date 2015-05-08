@@ -170,6 +170,25 @@ public:
 		return create_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
 	}
 	
+	//! wraps an already existing opengl buffer, with the specified flags
+	//! NOTE: OPENGL_SHARING flag is always implied
+	virtual shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+												   const uint32_t opengl_buffer,
+												   const uint32_t opengl_type,
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) = 0;
+	
+	//! wraps an already existing opengl buffer, with the specified flags and backed by the specified host pointer
+	//! NOTE: OPENGL_SHARING flag is always implied
+	virtual shared_ptr<compute_buffer> wrap_buffer(shared_ptr<compute_device> device,
+												   const uint32_t opengl_buffer,
+												   const uint32_t opengl_type,
+												   void* data,
+												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
+																					  COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) = 0;
+	
 	//////////////////////////////////////////
 	// image creation
 	
@@ -190,7 +209,7 @@ public:
 																					  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) = 0;
 	
-	//! wraps an already existing opengl image, with the specified flags and backed by the specified host pointer
+	//! wraps an already existing opengl image, with the specified flags
 	//! NOTE: OPENGL_SHARING flag is always implied
 	virtual shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
 												 const uint32_t opengl_image,

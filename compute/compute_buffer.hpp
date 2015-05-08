@@ -34,7 +34,8 @@ public:
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				   const uint32_t opengl_type = 0);
+				   const uint32_t opengl_type = 0,
+				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an uninitialized buffer of the specified size
 	compute_buffer(const void* device,
@@ -146,6 +147,16 @@ public:
 	
 	//! returns the size of this buffer (in bytes)
 	const size_t& get_size() const { return size; }
+	
+	//! return struct of get_opengl_buffer_info
+	struct opengl_buffer_info {
+		uint32_t size { 0u };
+		bool valid { false };
+	};
+	//! helper function to retrieve information from a pre-existing opengl buffer
+	static opengl_buffer_info get_opengl_buffer_info(const uint32_t& opengl_buffer,
+													 const uint32_t& opengl_type,
+													 const COMPUTE_MEMORY_FLAG& flags);
 	
 protected:
 	size_t size { 0u };

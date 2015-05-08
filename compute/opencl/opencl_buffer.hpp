@@ -33,7 +33,8 @@ public:
 				  void* host_ptr,
 				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-				  const uint32_t opengl_type_ = 0);
+				  const uint32_t opengl_type_ = 0,
+				  const uint32_t external_gl_object_ = 0);
 	
 	opencl_buffer(const opencl_device* device,
 				  const size_t& size_,
