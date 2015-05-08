@@ -90,24 +90,24 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 	
 	// assuming there is at least opengl 4.1 core support here (header-wise)
 #if !defined(GL_ATOMIC_COUNTER_BUFFER)
-#define GL_ATOMIC_COUNTER_BUFFER          0x92C0
-#define GL_ATOMIC_COUNTER_BUFFER_BINDING  0x92C1
+#define GL_ATOMIC_COUNTER_BUFFER 0x92C0
+#define GL_ATOMIC_COUNTER_BUFFER_BINDING 0x92C1
 #endif
 #if !defined(GL_DISPATCH_INDIRECT_BUFFER)
-#define GL_DISPATCH_INDIRECT_BUFFER       0x90EE
+#define GL_DISPATCH_INDIRECT_BUFFER 0x90EE
 #define GL_DISPATCH_INDIRECT_BUFFER_BINDING 0x90EF
 #endif
 #if !defined(GL_QUERY_BUFFER)
-#define GL_QUERY_BUFFER                   0x9192
-#define GL_QUERY_BUFFER_BINDING           0x9193
+#define GL_QUERY_BUFFER 0x9192
+#define GL_QUERY_BUFFER_BINDING 0x9193
 #endif
 #if !defined(GL_SHADER_STORAGE_BUFFER)
-#define GL_SHADER_STORAGE_BUFFER          0x90D2
-#define GL_SHADER_STORAGE_BUFFER_BINDING  0x90D3
+#define GL_SHADER_STORAGE_BUFFER 0x90D2
+#define GL_SHADER_STORAGE_BUFFER_BINDING 0x90D3
 #endif
 #if !defined(GL_PARAMETER_BUFFER_ARB)
-#define GL_PARAMETER_BUFFER_ARB           0x80EE
-#define GL_PARAMETER_BUFFER_BINDING_ARB   0x80EF
+#define GL_PARAMETER_BUFFER_ARB 0x80EE
+#define GL_PARAMETER_BUFFER_BINDING_ARB 0x80EF
 #endif
 #if !defined(GL_NV_parameter_buffer_object)
 #define GL_VERTEX_PROGRAM_PARAMETER_BUFFER_NV 0x8DA2
@@ -115,11 +115,11 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 #define GL_FRAGMENT_PROGRAM_PARAMETER_BUFFER_NV 0x8DA4
 #endif
 #if !defined(GL_VIDEO_BUFFER_NV)
-#define GL_VIDEO_BUFFER_NV                0x9020
-#define GL_VIDEO_BUFFER_BINDING_NV        0x9021
+#define GL_VIDEO_BUFFER_NV 0x9020
+#define GL_VIDEO_BUFFER_BINDING_NV 0x9021
 #endif
 	
-	// figure out the currently bound buffer object, so we rebind/restore it at the end
+	// figure out the currently bound buffer object, so we can rebind/restore it at the end
 	GLint cur_bound_object = -1;
 	switch(opengl_type) {
 		// core opengl

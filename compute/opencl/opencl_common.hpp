@@ -47,6 +47,7 @@
 #endif
 
 #include <cstdint>
+#include <iterator>
 
 //! opencl version of the platform/driver/device
 enum class OPENCL_VERSION : uint32_t {
@@ -385,14 +386,27 @@ FLOOR_CL_INFO_TYPES(FLOOR_CL_INFO_FUNC)
 // CL_PROGRAM_BINARIES is rather complicated/different than the other clGet*Info calls, need to add special handling
 template <cl_uint info_type, enable_if_t<info_type == CL_PROGRAM_BINARIES, int> = 0>
 vector<string> cl_get_info(const cl_program& program) {
+	// NOTE: can't rely on how many sizes CL_PROGRAM_BINARY_SIZES returns
+	// -> have to query CL_PROGRAM_BINARIES first, to get the actual amount of expected binaries (even if these don't exist)
+	size_t expected_size = 0;
+	clGetProgramInfo(program, CL_PROGRAM_BINARIES, 0, nullptr, &expected_size);
+	if(expected_size % sizeof(uint8_t*) != 0u) {
+		log_error("clGetProgramInfo(CL_PROGRAM_BINARIES) returned an invalid size of %u, this is not a multiple of the platform pointer size!",
+				  expected_size);
+		return {};
+	}
+	const auto binary_count = expected_size / sizeof(uint8_t*);
+	
 	// need to get the binary size for each device first
 	const auto sizes = cl_get_info<CL_PROGRAM_BINARY_SIZES>(program);
-	const auto binary_count = sizes.size();
+	const auto sizes_count = sizes.size();
 	
 	// then allocate enough memory for each binary (+init pointers to our strings, opencl api will write uint8_t data)
 	vector<string> ret(binary_count);
 	for(size_t i = 0; i < binary_count; ++i) {
-		ret[i].resize(sizes[i]);
+		if(i < sizes_count) ret[i].resize(sizes[i], 0);
+		// not sure about this, could do with 0 size as well?
+		else ret[i].resize(sizes[sizes_count - 1], 0);
 	}
 	vector<uint8_t*> binary_ptrs(binary_count);
 	for(size_t i = 0; i < binary_count; ++i) {
@@ -401,6 +415,11 @@ vector<string> cl_get_info(const cl_program& program) {
 	
 	// finally: retrieve the binaries
 	clGetProgramInfo(program, CL_PROGRAM_BINARIES, binary_count * sizeof(unsigned char*), &binary_ptrs[0], nullptr);
+	
+	// strip the invalid binaries
+	if(binary_count != sizes_count) {
+		ret.erase(next(begin(ret), (ssize_t)sizes_count), end(ret));
+	}
 	
 	// note: clGetProgramInfo should have directly written into the strings in the return vector
 	return ret;
