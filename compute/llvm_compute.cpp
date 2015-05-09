@@ -245,8 +245,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
-				" -DFLOOR_COMPUTE_SPIR" +
-				(target == TARGET::APPLECL ? " -DFLOOR_COMPUTE_APPLECL" : "") +
+				" -DFLOOR_COMPUTE_OPENCL" +
+				(target == TARGET::APPLECL ? " -DFLOOR_COMPUTE_APPLECL" : " -DFLOOR_COMPUTE_SPIR") +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "")
 			};
 			libcxx_path += floor::get_opencl_libcxx_path();

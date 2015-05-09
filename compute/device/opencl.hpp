@@ -16,25 +16,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_SPIR_HPP__
-#define __FLOOR_COMPUTE_DEVICE_SPIR_HPP__
+#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
+#define __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
 
-#if defined(FLOOR_COMPUTE_SPIR)
+#if defined(FLOOR_COMPUTE_OPENCL)
 
-#define spir_const_func __attribute__((const))
+#define opencl_const_func __attribute__((const))
 
 #if defined(FLOOR_COMPUTE_APPLECL)
 extern "C" {
 #endif
 
-size_t spir_const_func get_global_id(uint dimindx);
-size_t spir_const_func get_global_size(uint dimindx);
-size_t spir_const_func get_local_id(uint dimindx);
-size_t spir_const_func get_local_size(uint dimindx);
-size_t spir_const_func get_group_id(uint dimindx);
-size_t spir_const_func get_num_groups(uint dimindx);
-uint spir_const_func get_work_dim();
-size_t spir_const_func get_global_offset(uint dimindx);
+size_t opencl_const_func get_global_id(uint dimindx);
+size_t opencl_const_func get_global_size(uint dimindx);
+size_t opencl_const_func get_local_id(uint dimindx);
+size_t opencl_const_func get_local_size(uint dimindx);
+size_t opencl_const_func get_group_id(uint dimindx);
+size_t opencl_const_func get_num_groups(uint dimindx);
+uint opencl_const_func get_work_dim();
+size_t opencl_const_func get_global_offset(uint dimindx);
 
 #if defined(FLOOR_COMPUTE_APPLECL)
 } // extern "C"
@@ -42,48 +42,48 @@ size_t spir_const_func get_global_offset(uint dimindx);
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
-float spir_const_func fmod(float, float);
-float spir_const_func sqrt(float);
-float spir_const_func rsqrt(float);
-float spir_const_func fabs(float);
-float spir_const_func floor(float);
-float spir_const_func ceil(float);
-float spir_const_func round(float);
-float spir_const_func trunc(float);
-float spir_const_func rint(float);
-float spir_const_func sin(float);
-float spir_const_func cos(float);
-float spir_const_func tan(float);
-float spir_const_func asin(float);
-float spir_const_func acos(float);
-float spir_const_func atan(float);
-float spir_const_func atan2(float, float);
-float spir_const_func fma(float, float, float);
-float spir_const_func exp(float x);
-float spir_const_func log(float x);
-float spir_const_func pow(float x, float y);
+float opencl_const_func fmod(float, float);
+float opencl_const_func sqrt(float);
+float opencl_const_func rsqrt(float);
+float opencl_const_func fabs(float);
+float opencl_const_func floor(float);
+float opencl_const_func ceil(float);
+float opencl_const_func round(float);
+float opencl_const_func trunc(float);
+float opencl_const_func rint(float);
+float opencl_const_func sin(float);
+float opencl_const_func cos(float);
+float opencl_const_func tan(float);
+float opencl_const_func asin(float);
+float opencl_const_func acos(float);
+float opencl_const_func atan(float);
+float opencl_const_func atan2(float, float);
+float opencl_const_func fma(float, float, float);
+float opencl_const_func exp(float x);
+float opencl_const_func log(float x);
+float opencl_const_func pow(float x, float y);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-double spir_const_func fmod(double, double);
-double spir_const_func sqrt(double);
-double spir_const_func rsqrt(double);
-double spir_const_func fabs(double);
-double spir_const_func floor(double);
-double spir_const_func ceil(double);
-double spir_const_func round(double);
-double spir_const_func trunc(double);
-double spir_const_func rint(double);
-double spir_const_func sin(double);
-double spir_const_func cos(double);
-double spir_const_func tan(double);
-double spir_const_func asin(double);
-double spir_const_func acos(double);
-double spir_const_func atan(double);
-double spir_const_func atan2(double, double);
-double spir_const_func fma(double, double, double);
-double spir_const_func exp(double x);
-double spir_const_func log(double x);
-double spir_const_func pow(double x, double y);
+double opencl_const_func fmod(double, double);
+double opencl_const_func sqrt(double);
+double opencl_const_func rsqrt(double);
+double opencl_const_func fabs(double);
+double opencl_const_func floor(double);
+double opencl_const_func ceil(double);
+double opencl_const_func round(double);
+double opencl_const_func trunc(double);
+double opencl_const_func rint(double);
+double opencl_const_func sin(double);
+double opencl_const_func cos(double);
+double opencl_const_func tan(double);
+double opencl_const_func asin(double);
+double opencl_const_func acos(double);
+double opencl_const_func atan(double);
+double opencl_const_func atan2(double, double);
+double opencl_const_func fma(double, double, double);
+double opencl_const_func exp(double x);
+double opencl_const_func log(double x);
+double opencl_const_func pow(double x, double y);
 #endif
 
 // add them to std::

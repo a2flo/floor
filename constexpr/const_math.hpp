@@ -46,7 +46,7 @@ namespace const_math {
 #if !defined(FLOOR_COMPUTE)
 	typedef long double max_fp_type;
 #elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	typedef double max_fp_type; // can only use double with spir/opencl/cuda
+	typedef double max_fp_type; // can only use double with opencl/cuda/metal
 #else
 	typedef float max_fp_type; // or even only float when there is no double support
 #endif
@@ -820,7 +820,7 @@ namespace const_math {
 	floor_inline_always static fp_type native_rsqrt(fp_type a) {
 		return fp_type(1.0L) / std::sqrt(a);
 	}
-#elif defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	floor_inline_always static fp_type native_fma(fp_type a, fp_type b, fp_type c) {

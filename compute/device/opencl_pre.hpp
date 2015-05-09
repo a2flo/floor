@@ -16,10 +16,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_SPIR_PRE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_SPIR_PRE_HPP__
+#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
+#define __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
 
-#if defined(FLOOR_COMPUTE_SPIR)
+#if defined(FLOOR_COMPUTE_OPENCL)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -48,40 +48,40 @@ typedef unsigned long int size_t;
 typedef long int ssize_t;
 #endif
 
-// opencl/spir vector types
-typedef char spir_char2 __attribute__((ext_vector_type(2)));
-typedef char spir_char3 __attribute__((ext_vector_type(3)));
-typedef char spir_char4 __attribute__((ext_vector_type(4)));
-typedef uchar spir_uchar2 __attribute__((ext_vector_type(2)));
-typedef uchar spir_uchar3 __attribute__((ext_vector_type(3)));
-typedef uchar spir_uchar4 __attribute__((ext_vector_type(4)));
-typedef short spir_short2 __attribute__((ext_vector_type(2)));
-typedef short spir_short3 __attribute__((ext_vector_type(3)));
-typedef short spir_short4 __attribute__((ext_vector_type(4)));
-typedef ushort spir_ushort2 __attribute__((ext_vector_type(2)));
-typedef ushort spir_ushort3 __attribute__((ext_vector_type(3)));
-typedef ushort spir_ushort4 __attribute__((ext_vector_type(4)));
-typedef int spir_int2 __attribute__((ext_vector_type(2)));
-typedef int spir_int3 __attribute__((ext_vector_type(3)));
-typedef int spir_int4 __attribute__((ext_vector_type(4)));
-typedef uint spir_uint2 __attribute__((ext_vector_type(2)));
-typedef uint spir_uint3 __attribute__((ext_vector_type(3)));
-typedef uint spir_uint4 __attribute__((ext_vector_type(4)));
-typedef long spir_long2 __attribute__((ext_vector_type(2)));
-typedef long spir_long3 __attribute__((ext_vector_type(3)));
-typedef long spir_long4 __attribute__((ext_vector_type(4)));
-typedef ulong spir_ulong2 __attribute__((ext_vector_type(2)));
-typedef ulong spir_ulong3 __attribute__((ext_vector_type(3)));
-typedef ulong spir_ulong4 __attribute__((ext_vector_type(4)));
-typedef float spir_float2 __attribute__((ext_vector_type(2)));
-typedef float spir_float3 __attribute__((ext_vector_type(3)));
-typedef float spir_float4 __attribute__((ext_vector_type(4)));
-typedef half spir_half2 __attribute__((ext_vector_type(2)));
-typedef half spir_half3 __attribute__((ext_vector_type(3)));
-typedef half spir_half4 __attribute__((ext_vector_type(4)));
-typedef double spir_double2 __attribute__((ext_vector_type(2)));
-typedef double spir_double3 __attribute__((ext_vector_type(3)));
-typedef double spir_double4 __attribute__((ext_vector_type(4)));
+// opencl vector types
+typedef char opencl_char2 __attribute__((ext_vector_type(2)));
+typedef char opencl_char3 __attribute__((ext_vector_type(3)));
+typedef char opencl_char4 __attribute__((ext_vector_type(4)));
+typedef uchar opencl_uchar2 __attribute__((ext_vector_type(2)));
+typedef uchar opencl_uchar3 __attribute__((ext_vector_type(3)));
+typedef uchar opencl_uchar4 __attribute__((ext_vector_type(4)));
+typedef short opencl_short2 __attribute__((ext_vector_type(2)));
+typedef short opencl_short3 __attribute__((ext_vector_type(3)));
+typedef short opencl_short4 __attribute__((ext_vector_type(4)));
+typedef ushort opencl_ushort2 __attribute__((ext_vector_type(2)));
+typedef ushort opencl_ushort3 __attribute__((ext_vector_type(3)));
+typedef ushort opencl_ushort4 __attribute__((ext_vector_type(4)));
+typedef int opencl_int2 __attribute__((ext_vector_type(2)));
+typedef int opencl_int3 __attribute__((ext_vector_type(3)));
+typedef int opencl_int4 __attribute__((ext_vector_type(4)));
+typedef uint opencl_uint2 __attribute__((ext_vector_type(2)));
+typedef uint opencl_uint3 __attribute__((ext_vector_type(3)));
+typedef uint opencl_uint4 __attribute__((ext_vector_type(4)));
+typedef long opencl_long2 __attribute__((ext_vector_type(2)));
+typedef long opencl_long3 __attribute__((ext_vector_type(3)));
+typedef long opencl_long4 __attribute__((ext_vector_type(4)));
+typedef ulong opencl_ulong2 __attribute__((ext_vector_type(2)));
+typedef ulong opencl_ulong3 __attribute__((ext_vector_type(3)));
+typedef ulong opencl_ulong4 __attribute__((ext_vector_type(4)));
+typedef float opencl_float2 __attribute__((ext_vector_type(2)));
+typedef float opencl_float3 __attribute__((ext_vector_type(3)));
+typedef float opencl_float4 __attribute__((ext_vector_type(4)));
+typedef half opencl_half2 __attribute__((ext_vector_type(2)));
+typedef half opencl_half3 __attribute__((ext_vector_type(3)));
+typedef half opencl_half4 __attribute__((ext_vector_type(4)));
+typedef double opencl_double2 __attribute__((ext_vector_type(2)));
+typedef double opencl_double3 __attribute__((ext_vector_type(3)));
+typedef double opencl_double4 __attribute__((ext_vector_type(4)));
 
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)
@@ -90,10 +90,10 @@ typedef double spir_double4 __attribute__((ext_vector_type(4)));
 #define constant __attribute__((opencl_constant))
 #define local __attribute__((opencl_local))
 
-#if !defined(FLOOR_COMPUTE_APPLECL)
+#if defined(FLOOR_COMPUTE_SPIR)
 // abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
 #define kernel extern "C" __kernel __attribute__((section("spir_kernel")))
-#else
+#elif defined(FLOOR_COMPUTE_APPLECL)
 // applecl doesn't expect a specific calling convention
 #define kernel extern "C" __kernel
 #endif

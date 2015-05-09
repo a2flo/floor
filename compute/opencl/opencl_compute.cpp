@@ -425,7 +425,6 @@ void opencl_compute::init(const bool use_platform_devices,
 					  cl_c_version_str);
 
 			// there is no spir support on apple platforms, so don't even try this
-			// TODO: figure out how to hook into apples llvm opencl compiler (which is based on clang/llvm 3.2 as well)
 			// also, pocl doesn't support, but can apparently handle llvm bitcode files
 #if !defined(__APPLE__)
 			if(!core::contains(device.extensions, "cl_khr_spir") &&
@@ -763,7 +762,7 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 
 shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
-	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
+	// compile the source code to spir 1.2 or applecl (this produces/returns an llvm bitcode binary file)
 	// TODO: compile for devices w/o double support separately
 	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options,
 #if !defined(__APPLE__)

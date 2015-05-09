@@ -22,13 +22,13 @@
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_SPIR) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 
 // compute implementation specific headers (pre-std headers)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_pre.hpp>
-#elif defined(FLOOR_COMPUTE_SPIR)
-#include <floor/compute/device/spir_pre.hpp>
+#elif defined(FLOOR_COMPUTE_OPENCL)
+#include <floor/compute/device/opencl_pre.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_pre.hpp>
 #endif
@@ -85,8 +85,8 @@ using namespace std;
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda.hpp>
-#elif defined(FLOOR_COMPUTE_SPIR)
-#include <floor/compute/device/spir.hpp>
+#elif defined(FLOOR_COMPUTE_OPENCL)
+#include <floor/compute/device/opencl.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal.hpp>
 #endif
@@ -159,7 +159,7 @@ using param = const param_wrapper;
 #define const_array constant const_array_cuda
 template <class data_type, size_t array_size> using const_array_cuda = data_type[array_size];
 
-#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_SPIR)
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_OPENCL)
 namespace floor_compute {
 	//! generic loader from global/local/constant memory to private memory
 	//! NOTE on efficiency: llvm is amazingly proficient at optimizing this to loads of any overlayed type(s),
@@ -353,7 +353,7 @@ using local_buffer = local floor_compute::address_space_adaptor<wrapper, local w
 template <typename T, typename wrapper = type_load_wrapper<T>>
 using const_buffer = constant floor_compute::address_space_adaptor<const wrapper, constant const wrapper*, true, false>*;
 
-#if defined(FLOOR_COMPUTE_SPIR)
+#if defined(FLOOR_COMPUTE_OPENCL)
 //! generic parameter object/buffer (provided via launch parameter)
 template <typename T,
 		  typename param_wrapper = const conditional_t<
@@ -415,8 +415,8 @@ protected:
 // implementation specific image headers
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_image.hpp>
-#elif defined(FLOOR_COMPUTE_SPIR)
-#include <floor/compute/device/spir_image.hpp>
+#elif defined(FLOOR_COMPUTE_OPENCL)
+#include <floor/compute/device/opencl_image.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_image.hpp>
 #endif

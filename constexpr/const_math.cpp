@@ -21,7 +21,7 @@
 #pragma clang diagnostic ignored "-Wunused-macros"
 #endif
 
-// this is included by the compute (spir/opencl/cuda) compiler -> need a header guard just in case
+// this is included by the compute (opencl/cuda/metal) compiler -> need a header guard just in case
 #ifndef __FLOOR_CONST_MATH_CPP__
 #define __FLOOR_CONST_MATH_CPP__
 
