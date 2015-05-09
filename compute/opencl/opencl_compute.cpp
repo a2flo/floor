@@ -182,7 +182,8 @@ void opencl_compute::init(const bool use_platform_devices,
 		if(platform_vendor_str.find("nvidia") != string::npos) {
 			platform_vendor = PLATFORM_VENDOR::NVIDIA;
 		}
-		else if(platform_vendor_str.find("amd") != string::npos) {
+		else if(platform_vendor_str.find("amd") != string::npos ||
+				platform_vendor_str.find("advanced micro devices") != string::npos) {
 			platform_vendor = PLATFORM_VENDOR::AMD;
 		}
 		else if(platform_vendor_str.find("intel") != string::npos) {
