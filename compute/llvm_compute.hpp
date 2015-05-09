@@ -32,6 +32,8 @@ public:
 		PTX,
 		//! Metal Apple-IR
 		AIR,
+		//! Apple OpenCL (3.2)
+		APPLECL,
 	};
 	
 	//

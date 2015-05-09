@@ -751,7 +751,13 @@ void opencl_compute::deactivate_context() {
 
 shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
 															 const string additional_options) {
-	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options, llvm_compute::TARGET::SPIR),
+	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options,
+#if !defined(__APPLE__)
+														  llvm_compute::TARGET::SPIR
+#else
+														  llvm_compute::TARGET::APPLECL
+#endif
+														  ),
 					   additional_options);
 }
 
@@ -759,7 +765,13 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 															   const string additional_options) {
 	// compile the source code to spir 1.2 (this produces/returns an llvm bitcode binary file)
 	// TODO: compile for devices w/o double support separately
-	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options, llvm_compute::TARGET::SPIR),
+	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options,
+#if !defined(__APPLE__)
+													 llvm_compute::TARGET::SPIR
+#else
+													 llvm_compute::TARGET::APPLECL
+#endif
+													 ),
 					   additional_options);
 }
 

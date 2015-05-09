@@ -89,8 +89,14 @@ typedef double spir_double4 __attribute__((ext_vector_type(4)));
 #define global __attribute__((opencl_global))
 #define constant __attribute__((opencl_constant))
 #define local __attribute__((opencl_local))
+
+#if !defined(FLOOR_COMPUTE_APPLECL)
 // abuse the section attribute for now, because clang/llvm won't emit kernel functions with "spir_kernel" calling convention
 #define kernel extern "C" __kernel __attribute__((section("spir_kernel")))
+#else
+// applecl doesn't expect a specific calling convention
+#define kernel extern "C" __kernel
+#endif
 
 #endif
 

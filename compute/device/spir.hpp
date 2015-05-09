@@ -21,7 +21,12 @@
 
 #if defined(FLOOR_COMPUTE_SPIR)
 
-#define spir_const_func __attribute__((overloadable, const))
+#define spir_const_func __attribute__((const))
+
+#if defined(FLOOR_COMPUTE_APPLECL)
+extern "C" {
+#endif
+
 size_t spir_const_func get_global_id(uint dimindx);
 size_t spir_const_func get_global_size(uint dimindx);
 size_t spir_const_func get_local_id(uint dimindx);
@@ -31,6 +36,12 @@ size_t spir_const_func get_num_groups(uint dimindx);
 uint spir_const_func get_work_dim();
 size_t spir_const_func get_global_offset(uint dimindx);
 
+#if defined(FLOOR_COMPUTE_APPLECL)
+} // extern "C"
+#endif
+
+// NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
+// it is provided automatically (same mangling)
 float spir_const_func fmod(float, float);
 float spir_const_func sqrt(float);
 float spir_const_func rsqrt(float);
