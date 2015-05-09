@@ -18,6 +18,9 @@ fi
 if [ ! -d applecl-encoder ]; then
 	git clone git://github.com/a2flo/applecl-encoder
 fi
+if [ ! -f gcc_5_1.patch ]; then
+	curl -o gcc_5_1.patch "http://llvm.org/viewvc/llvm-project/llvm/trunk/include/llvm/ADT/IntrusiveRefCntPtr.h?r1=212382&r2=218295&view=patch"
+fi
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null
@@ -54,6 +57,7 @@ cd ..
 # patch
 cd llvm
 patch -p1 < ../351_clang_llvm.patch
+patch -p2 < ../gcc_5_1.patch
 cd ../libcxx
 patch -p1 < ../351_libcxx.patch
 cd ..
