@@ -6,7 +6,7 @@ diff -rduBE llvm351_rel/tools/LLVMBuild.txt llvm/tools/LLVMBuild.txt
  
  [common]
 -subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup
-+subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder
++subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder applecl-encoder
  
  [component_0]
  type = Group
@@ -18,7 +18,7 @@ diff -rduBE llvm351_rel/tools/Makefile llvm/tools/Makefile
                   macho-dump llvm-objdump llvm-readobj llvm-rtdyld \
                   llvm-dwarfdump llvm-cov llvm-size llvm-stress llvm-mcmarkup \
 -                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test
-+                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder
++                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder applecl-encoder
  
  # If Intel JIT Events support is configured, build an extra tool to test it.
  ifeq ($(USE_INTEL_JITEVENTS), 1)

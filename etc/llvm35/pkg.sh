@@ -8,6 +8,7 @@ cp ../build/Release/bin/llc compute_llc
 cp ../build/Release/bin/llvm-dis compute_dis
 cp ../build/Release/bin/llvm-as compute_as
 cp ../build/Release/bin/spir-encoder .
+cp ../build/Release/bin/applecl-encoder .
 
 mkdir libcxx
 cp -R ../libcxx/clang libcxx/

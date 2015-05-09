@@ -15,6 +15,9 @@ fi
 if [ ! -d SPIR-Tools ]; then
 	git clone git://github.com/KhronosGroup/SPIR-Tools.git
 fi
+if [ ! -d applecl-encoder ]; then
+	git clone git://github.com/a2flo/applecl-encoder
+fi
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null
@@ -30,7 +33,7 @@ mv llvm-${RELEASE}.src llvm
 mv cfe-${RELEASE}.src llvm/tools/clang
 mv libcxx-${RELEASE}.src libcxx
 
-# cp in and patch spir-encoder
+# cp in spir-encoder and applecl-encoder
 SPIR_PATH=SPIR-Tools/spir-encoder/llvm_3.5_spir_encoder/
 mkdir llvm/tools/spir-encoder
 cp ${SPIR_PATH}/driver/*.cpp llvm/tools/spir-encoder/
@@ -40,8 +43,12 @@ cp ${SPIR_PATH}/README llvm/tools/spir-encoder/
 cp llvm/lib/Bitcode/Writer/ValueEnumerator.h llvm/tools/spir-encoder/
 printf "[component_0]\ntype = Tool\nname = spir-encoder\nparent = Tools\nrequired_libraries = IRReader\n" > llvm/tools/spir-encoder/LLVMBuild.txt
 printf "LEVEL := ../..\nTOOLNAME := spir-encoder\nLINK_COMPONENTS := irreader bitreader bitwriter\nTOOL_NO_EXPORTS := 1\ninclude \$(LEVEL)/Makefile.common\n" > llvm/tools/spir-encoder/Makefile
+
+cp -R applecl-encoder llvm/tools/
+
+# patch makefile and spir-encoder
 cd llvm
-patch -p1 < ../spir_encoder.patch
+patch -p1 < ../llvm_tools_spir_applecl_encoder.patch
 cd ..
 
 # patch
