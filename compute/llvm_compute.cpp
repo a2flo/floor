@@ -240,14 +240,15 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				floor::get_opencl_compiler() +
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
-				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" +
-				(target == TARGET::APPLECL ? " -DFLOOR_COMPUTE_APPLECL" : " -DFLOOR_COMPUTE_SPIR") +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : "")
+				(target == TARGET::APPLECL ?
+				 " -DFLOOR_COMPUTE_APPLECL -Xclang -applecl-kernel-info" :
+				 " -DFLOOR_COMPUTE_SPIR -Xclang -cl-kernel-arg-info") +
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
 			};
 			libcxx_path += floor::get_opencl_libcxx_path();
 			clang_path += floor::get_opencl_clang_path();

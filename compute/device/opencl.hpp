@@ -24,21 +24,19 @@
 #define opencl_const_func __attribute__((const))
 
 #if defined(FLOOR_COMPUTE_APPLECL)
-extern "C" {
+#define opencl_c_func extern "C"
+#else
+#define opencl_c_func
 #endif
 
-size_t opencl_const_func get_global_id(uint dimindx);
-size_t opencl_const_func get_global_size(uint dimindx);
-size_t opencl_const_func get_local_id(uint dimindx);
-size_t opencl_const_func get_local_size(uint dimindx);
-size_t opencl_const_func get_group_id(uint dimindx);
-size_t opencl_const_func get_num_groups(uint dimindx);
-uint opencl_const_func get_work_dim();
-size_t opencl_const_func get_global_offset(uint dimindx);
-
-#if defined(FLOOR_COMPUTE_APPLECL)
-} // extern "C"
-#endif
+opencl_c_func size_t opencl_const_func get_global_id(uint dimindx);
+opencl_c_func size_t opencl_const_func get_global_size(uint dimindx);
+opencl_c_func size_t opencl_const_func get_local_id(uint dimindx);
+opencl_c_func size_t opencl_const_func get_local_size(uint dimindx);
+opencl_c_func size_t opencl_const_func get_group_id(uint dimindx);
+opencl_c_func size_t opencl_const_func get_num_groups(uint dimindx);
+opencl_c_func uint opencl_const_func get_work_dim();
+opencl_c_func size_t opencl_const_func get_global_offset(uint dimindx);
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
@@ -115,10 +113,10 @@ namespace std {
 extern "C" int printf(const char __constant* st, ...);
 
 // barrier and mem_fence functionality
-void barrier(uint32_t flags) __attribute__((noduplicate));
-void mem_fence(uint32_t flags) __attribute__((noduplicate));
-void read_mem_fence(uint32_t flags) __attribute__((noduplicate));
-void write_mem_fence(uint32_t flags) __attribute__((noduplicate));
+opencl_c_func void barrier(uint32_t flags) __attribute__((noduplicate));
+opencl_c_func void mem_fence(uint32_t flags) __attribute__((noduplicate));
+opencl_c_func void read_mem_fence(uint32_t flags) __attribute__((noduplicate));
+opencl_c_func void write_mem_fence(uint32_t flags) __attribute__((noduplicate));
 
 static floor_inline_always void global_barrier() {
 	barrier(2u);
