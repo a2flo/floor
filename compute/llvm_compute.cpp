@@ -413,6 +413,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 	}
 	else if(target == TARGET::APPLECL) {
+		// apparently this needs the same fixes as the intel/amd spir compilers
+		core::find_and_replace(ir_output, "readonly", "");
+		core::find_and_replace(ir_output, "nocapture readnone", "");
+		
 		// output (modified) ir back to a file and create a bc file so applecl-encoder can consume it
 		if(!file_io::string_to_file("applecl_3_5.ll", ir_output)) {
 			log_error("failed to output LLVM IR for AppleCL consumption");

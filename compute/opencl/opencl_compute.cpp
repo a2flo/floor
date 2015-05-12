@@ -317,7 +317,12 @@ void opencl_compute::init(const bool use_platform_devices,
 			device.max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
+#if !defined(__APPLE__)
 			device.double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
+#else
+			// not properly supported on os x (defined in the headers, but no backend implementation)
+			device.double_support = false;
+#endif
 			device.bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
 			device.max_work_item_sizes = (device.bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
 										  0xFFFF'FFFFull :
