@@ -360,10 +360,10 @@ index 5d08833..52d3d3e 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..566bbd9 100644
+index d25560c..8bfa7e7 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
-@@ -577,6 +577,12 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -577,6 +577,18 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
@@ -373,18 +373,25 @@ index d25560c..566bbd9 100644
 +def air_kernel_info : Flag<["-"], "air-kernel-info">,
 +  HelpText<"AIR/Metal only. Generate general air/metal and kernel argument metadata.">;
 +
++//===----------------------------------------------------------------------===//
++// AIR/Metal Options
++//===----------------------------------------------------------------------===//
++def applecl_kernel_info : Flag<["-"], "applecl-kernel-info">,
++  HelpText<"AppleCL/OpenCL only. Generate general AppleCL and kernel argument metadata.">;
++
  } // let Flags = [CC1Option]
  
  
 diff --git a/tools/clang/include/clang/Frontend/CodeGenOptions.def b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-index 1d92efe..2940d13 100644
+index 1d92efe..d66c494 100644
 --- a/tools/clang/include/clang/Frontend/CodeGenOptions.def
 +++ b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-@@ -56,6 +56,7 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -56,6 +56,8 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 +CODEGENOPT(EmitAIRMetadata , 1, 0) ///< Emit AIR/Metal kernel info and arg metadata.
++CODEGENOPT(EmitAppleCLMetadata , 1, 0) ///< Emit AppleCL kernel info and arg metadata.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
  CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
@@ -639,36 +646,114 @@ index fc3f434..7e63426 100644
    llvm::DIType OCLEventDITy;
    llvm::DIType BlockLiteralGeneric;
 diff --git a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-index 079ef72..1c68e94 100644
+index 079ef72..5b0b575 100644
 --- a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 +++ b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-@@ -55,6 +55,24 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
-   case BuiltinType::OCLImage2dArray:
-     return llvm::PointerType::get(llvm::StructType::create(
-                            Ctx, "opencl.image2d_array_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dDepth:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_depth_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dArrayDepth:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_array_depth_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dMSAA:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_msaa_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dArrayMSAA:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_array_msaa_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dMSAADepth:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_msaa_depth_t"), ImgAddrSpc);
-+  case BuiltinType::OCLImage2dArrayMSAADepth:
-+    return llvm::PointerType::get(llvm::StructType::create(
-+                           Ctx, "opencl.image2d_array_msaa_depth_t"), ImgAddrSpc);
-   case BuiltinType::OCLImage3d:
-     return llvm::PointerType::get(llvm::StructType::create(
-                            Ctx, "opencl.image3d_t"), ImgAddrSpc);
+@@ -36,32 +36,75 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
+   llvm::LLVMContext& Ctx = CGM.getLLVMContext();
+   uint32_t ImgAddrSpc =
+     CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
+-  switch (cast<BuiltinType>(T)->getKind()) {
+-  default: 
+-    llvm_unreachable("Unexpected opencl builtin type!");
+-    return nullptr;
+-  case BuiltinType::OCLImage1d:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image1d_t"), ImgAddrSpc);
+-  case BuiltinType::OCLImage1dArray:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image1d_array_t"), ImgAddrSpc);
+-  case BuiltinType::OCLImage1dBuffer:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image1d_buffer_t"), ImgAddrSpc);
+-  case BuiltinType::OCLImage2d:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image2d_t"), ImgAddrSpc);
+-  case BuiltinType::OCLImage2dArray:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image2d_array_t"), ImgAddrSpc);
+-  case BuiltinType::OCLImage3d:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.image3d_t"), ImgAddrSpc);
+-  case BuiltinType::OCLSampler:
+-    return llvm::IntegerType::get(Ctx, 32);
+-  case BuiltinType::OCLEvent:
+-    return llvm::PointerType::get(llvm::StructType::create(
+-                           Ctx, "opencl.event_t"), 0);
++
++  if(!CGM.getCodeGenOpts().EmitAppleCLMetadata) {
++    switch (cast<BuiltinType>(T)->getKind()) {
++      default:
++        llvm_unreachable("Unexpected opencl builtin type!");
++        return nullptr;
++      case BuiltinType::OCLImage1d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image1d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dArray:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image1d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dBuffer:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image1d_buffer_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArray:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dDepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayDepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_array_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dMSAA:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_msaa_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAA:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_array_msaa_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dMSAADepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_msaa_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAADepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image2d_array_msaa_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage3d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.image3d_t"), ImgAddrSpc);
++      case BuiltinType::OCLSampler:
++        return llvm::IntegerType::get(Ctx, 32);
++      case BuiltinType::OCLEvent:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "opencl.event_t"), 0);
++    }
++  }
++  else {
++    switch (cast<BuiltinType>(T)->getKind()) {
++      default:
++        llvm_unreachable("Unexpected opencl builtin type!");
++        return nullptr;
++      case BuiltinType::OCLImage1d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dArray:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dBuffer:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_buffer_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArray:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dDepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayDepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dMSAA:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_msaa_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAA:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_msaa_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dMSAADepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_msaa_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAADepth:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_msaa_depth_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage3d:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image3d_t"), ImgAddrSpc);
++      case BuiltinType::OCLSampler:
++        return llvm::IntegerType::get(Ctx, 32);
++      case BuiltinType::OCLEvent:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._event_t"), 0);
++    }
+   }
+ }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..8ea426b 100644
+index 5ca3a78..db7ebd5 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -683,7 +768,7 @@ index 5ca3a78..8ea426b 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +447,259 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +447,331 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -769,6 +854,76 @@ index 5ca3a78..8ea426b 100644
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
 +}
 +
++static void GenAppleCLMetadata(const FunctionDecl *FD, llvm::Function *Fn,
++							   CodeGenModule &CGM,llvm::LLVMContext &Context,
++							   SmallVector <llvm::Value*, 5> &kernelMDArgs,
++							   CGBuilderTy& Builder, ASTContext &ASTCtx) {
++	//
++	SmallVector<llvm::Value*, 8> arg_infos;
++	
++	// always starts with apple.cl.arg_metadata
++	arg_infos.push_back(llvm::MDString::get(Context, "apple.cl.arg_metadata"));
++	
++	//
++	int i = 0;
++	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
++		SmallVector<llvm::Value*, 3> arg_info;
++		const auto parm = FD->getParamDecl(i);
++		const auto clang_type = parm->getType();
++		
++		// #0: storage type (stream or image)
++		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			arg_info.push_back(llvm::MDString::get(Context, "stream"));
++			
++			// #1: access qualifier
++			const auto clang_pointee_type = clang_type->getPointeeType();
++			if(clang_pointee_type.isConstQualified() ||
++			   (clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
++				arg_info.push_back(llvm::MDString::get(Context, "read"));
++			}
++			else {
++				arg_info.push_back(llvm::MDString::get(Context, "write"));
++			}
++			
++			// #2: address space
++			switch(clang_pointee_type.getAddressSpace()) {
++				case LangAS::opencl_global:
++					arg_info.push_back(llvm::MDString::get(Context, "global"));
++					break;
++				case LangAS::opencl_local:
++					arg_info.push_back(llvm::MDString::get(Context, "local"));
++					break;
++				case LangAS::opencl_constant:
++					arg_info.push_back(llvm::MDString::get(Context, "constant"));
++					break;
++			}
++		}
++		else if(clang_type->isImageType()) {
++			arg_info.push_back(llvm::MDString::get(Context, "image"));
++			
++			// #1: access qualifier
++			const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
++			if(A && A->isWriteOnly()) {
++				arg_info.push_back(llvm::MDString::get(Context, "write"));
++			}
++			else if(A && A->isReadWrite()) {
++				arg_info.push_back(llvm::MDString::get(Context, "read/write"));
++			}
++			else {
++				arg_info.push_back(llvm::MDString::get(Context, "read"));
++			}
++		}
++		else {
++			// simple kernel parameter (not a buffer) -> don't write anything
++		}
++		
++		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++	}
++	
++	// insert into kernel metadata
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
++}
++
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args) {
@@ -789,7 +944,9 @@ index 5ca3a78..8ea426b 100644
 +	int i = 0;
 +	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
 +		if(uint32_t(i) >= FD->param_size()) {
-+			// should probably error out?
++			// signal that this is _very_ bad
++			CGM.Error(FD->getSourceRange().getBegin(),
++					  StringRef("function argument count mismatch!"));
 +			break;
 +		}
 +		const auto type = arg_iter->getType();
@@ -943,17 +1100,25 @@ index 5ca3a78..8ea426b 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -461,6 +715,9 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +783,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+   SmallVector <llvm::Value*, 5> kernelMDArgs;
+   kernelMDArgs.push_back(Fn);
+ 
+-  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
++  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata && !CGM.getCodeGenOpts().EmitAppleCLMetadata)
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
 +  if (CGM.getCodeGenOpts().EmitAIRMetadata)
 +    GenAIRMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
 +
++  if (CGM.getCodeGenOpts().EmitAppleCLMetadata)
++    GenAppleCLMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
++
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +756,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +831,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -994,7 +1159,7 @@ index 5ca3a78..8ea426b 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +846,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +921,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
@@ -1006,28 +1171,164 @@ index 5ca3a78..8ea426b 100644
  
    // If we are checking function types, emit a function type signature as
    // prefix data.
+@@ -755,6 +1123,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+   CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
+ }
+ 
++void CodeGenFunction::EmitAppleCLKernelAnnotation(GlobalDecl& GD, llvm::Function* Fn) {
++	if(!getLangOpts().OpenCL) return;
++	
++	if(const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl())) {
++		// Add global applecl kernel annotations.
++		if(CGM.getCodeGenOpts().EmitAppleCLMetadata && FD->hasAttr<OpenCLKernelAttr>()) {
++			// go through all local decls and find the local memory decls
++			std::vector<llvm::Constant*> lmem_refs;
++			for(const auto& I : LocalDeclMap) {
++				const Decl* local_decl = I.first;
++				llvm::Value *Addr = I.second;
++				if(dyn_cast<llvm::GlobalValue>(Addr)) {
++					const VarDecl* lmem_VD = cast<VarDecl>(local_decl);
++					if(lmem_VD->getStorageClass() == SC_OpenCLWorkGroupLocal) {
++						lmem_refs.push_back(CGM.getStaticLocalDeclAddress(lmem_VD));
++					}
++				}
++			}
++			
++			// go through kernel arguments and set info
++			// "global float* a, global const float* b, constant float* c, constant const float* d, local float* e,
++			//  float f, const float g, read_only image2d_t h, write_only image2d_t i, read_write image2d_t j"
++			// -> "218890056a"
++			// TODO: sampler is "4" (NOTE: all other "numbers/chars" are unused)
++			int i = 0;
++			std::string arg_info = "";
++			for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
++				const auto parm = FD->getParamDecl(i);
++				const auto clang_type = parm->getType();
++				
++				// storage type (stream or image)
++				if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++					// access qualifier
++					const auto clang_pointee_type = clang_type->getPointeeType();
++					bool read_only = false;
++					if(clang_pointee_type.isConstQualified() ||
++					   (clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
++						read_only = true;
++					}
++					
++					// address space
++					switch(clang_pointee_type.getAddressSpace()) {
++						case LangAS::opencl_global:
++							arg_info += (read_only ? "1" : "2");
++							break;
++						case LangAS::opencl_local:
++							arg_info += "9";
++							break;
++						case LangAS::opencl_constant:
++							arg_info += "8";
++							break;
++					}
++				}
++				else if(clang_type->isImageType()) {
++					// access qualifier
++					const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
++					if(A && A->isWriteOnly()) {
++						arg_info += "6";
++					}
++					else if(A && A->isReadWrite()) {
++						arg_info += "a";
++					}
++					else {
++						arg_info += "5";
++					}
++				}
++				else {
++					// simple kernel parameter (not a buffer)
++					arg_info += "0";
++				}
++			}
++			
++			CGM.AddAppleCLKernelAnnotation(Fn, arg_info, lmem_refs);
++		}
++	}
++}
++
+ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+                                    const CGFunctionInfo &FnInfo) {
+   const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
+@@ -858,6 +1303,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+   // Emit the standard function epilogue.
+   FinishFunction(BodyRange.getEnd());
+ 
++  // emit applecl metadata and global annotations
++  // note that this must be done at the end, because we need access to local memory declarations
++  EmitAppleCLKernelAnnotation(GD, Fn);
++
+   // If we haven't marked the function nothrow through other means, do
+   // a quick pass now to see if we can.
+   if (!CurFn->doesNotThrow())
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.h b/tools/clang/lib/CodeGen/CodeGenFunction.h
-index 59cc30d..ed8980f 100644
+index 59cc30d..11cf78e 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.h
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.h
-@@ -989,7 +989,11 @@ private:
+@@ -989,7 +989,13 @@ private:
    ///   "reqd_work_group_size", and three 32-bit integers X, Y and Z.
    void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
                                  llvm::Function *Fn);
--
 +	
 +  void EmitFloorKernelMetadata(const FunctionDecl *FD,
 +                               llvm::Function *Fn,
 +                               const FunctionArgList &Args);
+ 
++  void EmitAppleCLKernelAnnotation(GlobalDecl& GD, llvm::Function* Fn);
 +	
  public:
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..a48374a 100644
+index 48823be..a537874 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-@@ -1218,23 +1218,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -1147,6 +1147,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
+     Annotations.push_back(EmitAnnotateAttr(GV, I, D->getLocation()));
+ }
+ 
++void CodeGenModule::AddAppleCLKernelAnnotation(llvm::Function* Fn, const std::string& sgv_str,
++											   std::vector<llvm::Constant*> lmem_refs) {
++	// sgv contains the argument type information
++	llvm::Constant* sgv_data = llvm::ConstantDataArray::getString(getLLVMContext(), sgv_str);
++	llvm::Constant* sgv = new llvm::GlobalVariable(getModule(), sgv_data->getType(), true,
++												   llvm::GlobalValue::InternalLinkage, sgv_data, "sgv");
++	
++	// fgv is always empty (would usually contain the file name)
++	llvm::Constant* fgv_data = llvm::ConstantDataArray::getString(getLLVMContext(), "", false);
++	llvm::Constant* fgv = new llvm::GlobalVariable(getModule(), fgv_data->getType(), true,
++												   llvm::GlobalValue::InternalLinkage, fgv_data, "fgv");
++	
++	// lvgv contains the pointers to local memory decls
++	std::vector<llvm::Constant*> lvgv_data;
++	for(const auto& lmem : lmem_refs) {
++		lvgv_data.push_back(llvm::ConstantExpr::getBitCast(lmem, Int8PtrTy));
++	}
++	llvm::Constant* lvgv_container = llvm::ConstantArray::get(llvm::ArrayType::get(Int8PtrTy, lmem_refs.size()), lvgv_data);
++	llvm::Constant* lvgv = new llvm::GlobalVariable(getModule(), lvgv_container->getType(), true,
++													llvm::GlobalValue::InternalLinkage, lvgv_container, "lvgv");
++	
++	// Create the ConstantStruct for the global annotation.
++	llvm::Constant *Fields[5] = {
++		llvm::ConstantExpr::getBitCast(Fn, Int8PtrTy),
++		llvm::ConstantExpr::getBitCast(sgv, Int8PtrTy),
++		llvm::ConstantExpr::getBitCast(fgv, Int8PtrTy),
++		llvm::ConstantExpr::getBitCast(lvgv, Int8PtrTy),
++		// always 0?
++		llvm::ConstantInt::get(Int32Ty, 0)
++	};
++	Annotations.push_back(llvm::ConstantStruct::getAnon(Fields));
++}
++
+ bool CodeGenModule::MayDeferGeneration(const ValueDecl *Global) {
+   // Never defer when EmitAllDecls is specified.
+   if (LangOpts.EmitAllDecls)
+@@ -1218,23 +1251,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<AliasAttr>())
      return EmitAliasDefinition(GD);
  
@@ -1051,6 +1352,20 @@ index 48823be..a48374a 100644
    // Ignore declarations, they will be emitted on their first use.
    if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
      // Forward declarations are emitted lazily on first use.
+diff --git a/tools/clang/lib/CodeGen/CodeGenModule.h b/tools/clang/lib/CodeGen/CodeGenModule.h
+index 9533a8d..d53d4e3 100644
+--- a/tools/clang/lib/CodeGen/CodeGenModule.h
++++ b/tools/clang/lib/CodeGen/CodeGenModule.h
+@@ -1009,6 +1009,9 @@ public:
+   /// annotations are emitted during finalization of the LLVM code.
+   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
+ 
++  void AddAppleCLKernelAnnotation(llvm::Function* Fn, const std::string& arg_info,
++                                  std::vector<llvm::Constant*> lmem_refs);
++
+   const SanitizerBlacklist &getSanitizerBlacklist() const {
+     return SanitizerBL;
+   }
 diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.cpp b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
 index d4e2262..0c3f96f 100644
 --- a/tools/clang/lib/CodeGen/CodeGenTypes.cpp
@@ -1086,18 +1401,19 @@ index d7e61f0..1bb799e 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..d5a26ad 100644
+index ce61a46..c8de6db 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -474,6 +474,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -474,6 +474,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
 +  Opts.EmitAIRMetadata = Args.hasArg(OPT_air_kernel_info);
++  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -1276,7 +1277,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1276,7 +1278,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
