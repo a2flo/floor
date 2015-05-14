@@ -94,6 +94,9 @@ public:
 	
 	//
 	template <typename T, typename = void> struct generic_convert {};
+	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, bool>::value>> {
+		static T convert(const string& str) { return (T)stob(str); }
+	};
 	template <typename T> struct generic_convert<T, enable_if_t<is_same<T, int32_t>::value>> {
 		static T convert(const string& str) { return (T)stoi(str); }
 	};

@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 #include <floor/math/vector_lib.hpp>
+#include <floor/core/enum_helpers.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -71,6 +72,8 @@ public:
 		CPU7,
 		CPU255 = CPU0 + 255u, //!< 256th CPU
 	};
+	floor_enum_ext(TYPE)
+	
 	//! types of this device
 	TYPE type { TYPE::NONE };
 	

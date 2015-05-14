@@ -426,7 +426,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		
 		// run applecl-encoder for 3.5 -> 3.2 conversion
 		const string applecl_3_2_encoder_cmd {
-			"applecl-encoder applecl_3_5.bc applecl_3_2.bc"
+			"applecl-encoder"s +
+			(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
+			" applecl_3_5.bc applecl_3_2.bc"
 #if !defined(_MSC_VER)
 			" 2>&1"
 #endif

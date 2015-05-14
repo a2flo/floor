@@ -48,16 +48,16 @@ float opencl_const_func __cl_ceil(float);
 float opencl_const_func __cl_round(float);
 float opencl_const_func __cl_trunc(float);
 float opencl_const_func __cl_rint(float);
-float opencl_const_func native_sin(float);
-float opencl_const_func native_cos(float);
-float opencl_const_func native_tan(float);
+float opencl_const_func __cl_sin(float);
+float opencl_const_func __cl_cos(float);
+float opencl_const_func __cl_tan(float);
 float opencl_const_func __cl_asin(float);
 float opencl_const_func __cl_acos(float);
 float opencl_const_func __cl_atan(float);
 float opencl_const_func __cl_atan2(float, float);
 float opencl_const_func __cl_fma(float, float, float);
-float opencl_const_func native_exp(float);
-float opencl_const_func native_log(float);
+float opencl_const_func __cl_exp(float);
+float opencl_const_func __cl_log(float);
 float opencl_const_func __cl_pow(float, float);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
@@ -99,16 +99,16 @@ float opencl_const_func ceil(float x) CL_FWD(__cl_ceil, x)
 float opencl_const_func round(float x) CL_FWD(__cl_round, x)
 float opencl_const_func trunc(float x) CL_FWD(__cl_trunc, x)
 float opencl_const_func rint(float x) CL_FWD(__cl_rint, x)
-float opencl_const_func sin(float x) CL_FWD(native_sin, x)
-float opencl_const_func cos(float x) CL_FWD(native_cos, x)
-float opencl_const_func tan(float x) CL_FWD(native_tan, x)
+float opencl_const_func sin(float x) CL_FWD(__cl_sin, x)
+float opencl_const_func cos(float x) CL_FWD(__cl_cos, x)
+float opencl_const_func tan(float x) CL_FWD(__cl_tan, x)
 float opencl_const_func asin(float x) CL_FWD(__cl_asin, x)
 float opencl_const_func acos(float x) CL_FWD(__cl_acos, x)
 float opencl_const_func atan(float x) CL_FWD(__cl_atan, x)
 float opencl_const_func atan2(float x, float y) CL_FWD(__cl_atan2, x, y)
 float opencl_const_func fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
-float opencl_const_func exp(float x) CL_FWD(native_exp, x)
-float opencl_const_func log(float x) CL_FWD(native_log, x)
+float opencl_const_func exp(float x) CL_FWD(__cl_exp, x)
+float opencl_const_func log(float x) CL_FWD(__cl_log, x)
 float opencl_const_func pow(float x, float y) CL_FWD(__cl_pow, x, y)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)

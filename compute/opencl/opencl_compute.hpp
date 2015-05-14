@@ -42,7 +42,7 @@ public:
 	void init(const bool use_platform_devices = false,
 			  const uint32_t platform_index = ~0u,
 			  const bool gl_sharing = false,
-			  const unordered_set<string> device_restriction = {}) override;
+			  const unordered_set<string> device_whitelist = {}) override;
 	
 	bool is_supported() const override { return supported; }
 	

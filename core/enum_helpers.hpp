@@ -84,7 +84,7 @@ namespace std { \
 
 #define enum_class_has_flag(enum_class) \
 template <enum_class flag, typename int_type = underlying_type_t<enum_class>> \
-floor_inline_always constexpr bool has_flag(const enum_class& enum_object) { \
+floor_inline_always static constexpr bool has_flag(const enum_class& enum_object) { \
 	return ((int_type(flag) & int_type(enum_object)) == int_type(flag)); \
 }
 
@@ -93,7 +93,6 @@ floor_inline_always constexpr bool has_flag(const enum_class& enum_object) { \
 enum_class_bitwise_or(enum_class) \
 enum_class_bitwise_and(enum_class) \
 enum_class_bitwise_complement(enum_class) \
-enum_class_hash(enum_class) \
 enum_class_has_flag(enum_class)
 
 #define floor_global_enum_ext(enum_class) \

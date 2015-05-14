@@ -128,6 +128,12 @@ floor_inline_always static size_t stosize(const string& str, size_t* pos = nullp
 }
 #endif
 #endif
+// and for bool
+#if !defined(FLOOR_NO_STOB)
+floor_inline_always static bool stob(const string& str) {
+	return (str == "1" || str == "true" || str == "TRUE" || str == "YES");
+}
+#endif
 
 // misc "enum class" additions/helpers
 #include <floor/core/enum_helpers.hpp>

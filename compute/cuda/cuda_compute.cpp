@@ -27,7 +27,7 @@
 void cuda_compute::init(const bool use_platform_devices floor_unused,
 						const uint32_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
-						const unordered_set<string> device_restriction floor_unused) {
+						const unordered_set<string> device_whitelist floor_unused) {
 	// init cuda itself
 	CU_CALL_RET(cuInit(0), "failed to initialize CUDA")
 	

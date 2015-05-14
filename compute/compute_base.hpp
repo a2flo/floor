@@ -50,7 +50,7 @@ public:
 	virtual void init(const bool use_platform_devices = false,
 					  const uint32_t platform_index = ~0u,
 					  const bool gl_sharing = false,
-					  const unordered_set<string> device_restriction = {}) = 0;
+					  const unordered_set<string> device_whitelist = {}) = 0;
 	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;

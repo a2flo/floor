@@ -41,7 +41,7 @@
 void opencl_compute::init(const bool use_platform_devices,
 						  const uint32_t platform_index_,
 						  const bool gl_sharing,
-						  const unordered_set<string> device_restriction) {
+						  const unordered_set<string> device_whitelist) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? stou(floor::get_opencl_platform()) : platform_index_);
 	
@@ -84,51 +84,65 @@ void opencl_compute::init(const bool use_platform_devices,
 			log_debug("found %u opencl device%s", all_cl_devices.size(), (all_cl_devices.size() == 1 ? "" : "s"));
 		}
 		
-		//
+		// device whitelist
 		vector<cl_device_id> ctx_cl_devices;
-#if defined(__APPLE__)
-		platform_vendor = PLATFORM_VENDOR::APPLE;
-		
-		// if gl sharing is enabled, but a device restriction is specified that doesn't contain "GPU",
-		// an opengl sharegroup (gl sharing) may not be used, since this would add gpu devices to the context
-		bool apple_gl_sharing = gl_sharing;
-		if(!device_restriction.empty() && device_restriction.count("GPU") == 0) {
-			log_error("opencl device restriction set to disallow GPUs, but gl sharing is enabled - disabling gl sharing!");
-			apple_gl_sharing = false;
-		}
-		
-		cl_context_properties cl_properties[] {
-			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
-			apple_gl_sharing ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
-#if !defined(FLOOR_IOS)
-			apple_gl_sharing ? (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()) : 0,
-#else
-			apple_gl_sharing ? (cl_context_properties)ios_helper::get_eagl_sharegroup() : 0,
-#endif
-			0
-		};
-		
-		// from cl_gl_ext.h:
-		// "If the <num_devices> and <devices> argument values to clCreateContext are 0 and NULL respectively,
-		// all CL compliant devices in the CGL share group will be used to create the context.
-		// Additional CL devices can also be specified using the <num_devices> and <devices> arguments.
-		// These, however, cannot be GPU devices. On Mac OS X, you can add the CPU to the list of CL devices
-		// (in addition to the CL compliant devices in the CGL share group) used to create the CL context.
-		// Note that if a CPU device is specified, the CGL share group must also include the GL float renderer;
-		// Otherwise CL_INVALID_DEVICE will be returned."
-		// -> create a vector of all cpu devices and create the context
-		if(apple_gl_sharing) {
-			if(device_restriction.empty() || device_restriction.count("CPU") > 0) {
-				for(const auto& device : all_cl_devices) {
-					if(cl_get_info<CL_DEVICE_TYPE>(device) == CL_DEVICE_TYPE_CPU) {
-						ctx_cl_devices.emplace_back(device);
+		if(!device_whitelist.empty()) {
+			for(const auto& cl_dev : all_cl_devices) {
+				// check type
+				const auto dev_type = cl_get_info<CL_DEVICE_TYPE>(cl_dev);
+				switch(dev_type) {
+					case CL_DEVICE_TYPE_CPU:
+						if(device_whitelist.count("CPU") > 0) {
+							ctx_cl_devices.emplace_back(cl_dev);
+							continue;
+						}
+						break;
+					case CL_DEVICE_TYPE_GPU:
+						if(device_whitelist.count("GPU") > 0) {
+							ctx_cl_devices.emplace_back(cl_dev);
+							continue;
+						}
+						break;
+					case CL_DEVICE_TYPE_ACCELERATOR:
+						if(device_whitelist.count("ACCELERATOR") > 0) {
+							ctx_cl_devices.emplace_back(cl_dev);
+							continue;
+						}
+						break;
+					default: break;
+				}
+				
+				// check name
+				const auto dev_name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
+				for(const auto& entry : device_whitelist) {
+					if(dev_name.find(entry) != string::npos) {
+						ctx_cl_devices.emplace_back(cl_dev);
+						break;
 					}
 				}
 			}
 		}
-		else {
-			ctx_cl_devices = all_cl_devices;
+		else ctx_cl_devices = all_cl_devices;
+		
+		if(ctx_cl_devices.empty()) {
+			if(!all_cl_devices.empty()) log_warn("no devices left after applying whitelist!");
+			continue;
 		}
+		
+		//
+#if defined(__APPLE__)
+		platform_vendor = PLATFORM_VENDOR::APPLE;
+		
+		cl_context_properties cl_properties[] {
+			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
+			gl_sharing ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
+#if !defined(FLOOR_IOS)
+			gl_sharing ? (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()) : 0,
+#else
+			gl_sharing ? (cl_context_properties)ios_helper::get_eagl_sharegroup() : 0,
+#endif
+			0
+		};
 		
 		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
 													 clLogMessagesToStdoutAPPLE, nullptr, &ctx_error),
@@ -265,22 +279,6 @@ void opencl_compute::init(const bool use_platform_devices,
 		for(size_t j = 0; j < ctx_devices.size(); ++j) {
 			auto& cl_dev = ctx_devices[j];
 			
-			// device restriction
-			if(!device_restriction.empty()) {
-				switch(cl_get_info<CL_DEVICE_TYPE>(cl_dev)) {
-					case CL_DEVICE_TYPE_CPU:
-						if(device_restriction.count("CPU") == 0) continue;
-						break;
-					case CL_DEVICE_TYPE_GPU:
-						if(device_restriction.count("GPU") == 0) continue;
-						break;
-					case CL_DEVICE_TYPE_ACCELERATOR:
-						if(device_restriction.count("ACCELERATOR") == 0) continue;
-						break;
-					default: break;
-				}
-			}
-			
 			devices.emplace_back(make_shared<opencl_device>());
 			auto device_sptr = devices.back();
 			auto& device = *(opencl_device*)device_sptr.get();
@@ -309,6 +307,17 @@ void opencl_compute::init(const bool use_platform_devices,
 			if(max_work_group_item_sizes.size() >= 1) device.max_work_group_item_sizes.x = max_work_group_item_sizes[0];
 			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = max_work_group_item_sizes[1];
 			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = max_work_group_item_sizes[2];
+			
+#if defined(__APPLE__)
+			// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by SIMD width
+			if(device.internal_type == CL_DEVICE_TYPE_CPU) {
+				const uint32_t simd_width = (SDL_HasAVX() ? 8 : 4);
+				if(device.max_work_group_size > simd_width) device.max_work_group_size /= simd_width;
+				if(device.max_work_group_item_sizes.x > simd_width) device.max_work_group_item_sizes.x /= simd_width;
+				if(device.max_work_group_item_sizes.y > simd_width) device.max_work_group_item_sizes.y /= simd_width;
+				if(device.max_work_group_item_sizes.z > simd_width) device.max_work_group_item_sizes.z /= simd_width;
+			}
+#endif
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
 			device.max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
