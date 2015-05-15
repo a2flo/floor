@@ -20,6 +20,38 @@ index e1c9a14..1c9e06b 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
+index ac6e0e5..9e922f8 100644
+--- a/lib/AsmParser/LLParser.cpp
++++ b/lib/AsmParser/LLParser.cpp
+@@ -2644,10 +2644,10 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
+         ParseType(DestTy) ||
+         ParseToken(lltok::rparen, "expected ')' at end of constantexpr cast"))
+       return true;
+-    if (!CastInst::castIsValid((Instruction::CastOps)Opc, SrcVal, DestTy))
++    /*if (!CastInst::castIsValid((Instruction::CastOps)Opc, SrcVal, DestTy))
+       return Error(ID.Loc, "invalid cast opcode for cast from '" +
+                    getTypeString(SrcVal->getType()) + "' to '" +
+-                   getTypeString(DestTy) + "'");
++                   getTypeString(DestTy) + "'");*/
+     ID.ConstantVal = ConstantExpr::getCast((Instruction::CastOps)Opc,
+                                                  SrcVal, DestTy);
+     ID.Kind = ValID::t_Constant;
+@@ -3971,12 +3971,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
+       ParseType(DestTy))
+     return true;
+ 
+-  if (!CastInst::castIsValid((Instruction::CastOps)Opc, Op, DestTy)) {
++  /*if (!CastInst::castIsValid((Instruction::CastOps)Opc, Op, DestTy)) {
+     CastInst::castIsValid((Instruction::CastOps)Opc, Op, DestTy);
+     return Error(Loc, "invalid cast opcode for cast from '" +
+                  getTypeString(Op->getType()) + "' to '" +
+                  getTypeString(DestTy) + "'");
+-  }
++  }*/
+   Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
+   return false;
+ }
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
 index 93fabf6..2dfb759 100644
 --- a/lib/Target/NVPTX/NVPTX.td
@@ -486,22 +518,53 @@ index bccdae9..65a7d6c 100644
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
-index 977d6fc..41a239a 100644
+index 977d6fc..307186b 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
 +++ b/tools/clang/lib/AST/ItaniumMangle.cpp
-@@ -1989,6 +1989,12 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
-   case BuiltinType::OCLImage1dBuffer: Out << "17ocl_image1dbuffer"; break;
-   case BuiltinType::OCLImage2d: Out << "11ocl_image2d"; break;
-   case BuiltinType::OCLImage2dArray: Out << "16ocl_image2darray"; break;
-+  case BuiltinType::OCLImage2dDepth: Out << "16ocl_image2ddepth"; break;
-+  case BuiltinType::OCLImage2dArrayDepth: Out << "21ocl_image2darraydepth"; break;
-+  case BuiltinType::OCLImage2dMSAA: Out << "15ocl_image2dmsaa"; break;
-+  case BuiltinType::OCLImage2dArrayMSAA: Out << "20ocl_image2darraymsaa"; break;
-+  case BuiltinType::OCLImage2dMSAADepth: Out << "20ocl_image2dmsaadepth"; break;
-+  case BuiltinType::OCLImage2dArrayMSAADepth: Out << "25ocl_image2darraymsaadepth"; break;
-   case BuiltinType::OCLImage3d: Out << "11ocl_image3d"; break;
-   case BuiltinType::OCLSampler: Out << "11ocl_sampler"; break;
-   case BuiltinType::OCLEvent: Out << "9ocl_event"; break;
+@@ -1920,6 +1920,14 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
+ }
+ 
+ void CXXNameMangler::mangleType(const BuiltinType *T) {
++  // helper function to discern between spir and applecl name mangling depending on the triple vendor
++  static const auto mangle_opencl_name = [](const ASTContext& ast_ctx, const char* spir_name, const char* applecl_name) {
++    if(ast_ctx.getTargetInfo().getTriple().getVendorName().str() == "applecl") {
++      return applecl_name;
++    }
++    return spir_name;
++  };
++
+   //  <type>         ::= <builtin-type>
+   //  <builtin-type> ::= v  # void
+   //                 ::= w  # wchar_t
+@@ -1984,14 +1992,20 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+   case BuiltinType::ObjCId: Out << "11objc_object"; break;
+   case BuiltinType::ObjCClass: Out << "10objc_class"; break;
+   case BuiltinType::ObjCSel: Out << "13objc_selector"; break;
+-  case BuiltinType::OCLImage1d: Out << "11ocl_image1d"; break;
+-  case BuiltinType::OCLImage1dArray: Out << "16ocl_image1darray"; break;
+-  case BuiltinType::OCLImage1dBuffer: Out << "17ocl_image1dbuffer"; break;
+-  case BuiltinType::OCLImage2d: Out << "11ocl_image2d"; break;
+-  case BuiltinType::OCLImage2dArray: Out << "16ocl_image2darray"; break;
+-  case BuiltinType::OCLImage3d: Out << "11ocl_image3d"; break;
+-  case BuiltinType::OCLSampler: Out << "11ocl_sampler"; break;
+-  case BuiltinType::OCLEvent: Out << "9ocl_event"; break;
++  case BuiltinType::OCLImage1d: Out << mangle_opencl_name(getASTContext(), "11ocl_image1d", "PU3AS110_image1d_t"); break;
++  case BuiltinType::OCLImage1dArray: Out << mangle_opencl_name(getASTContext(), "16ocl_image1darray", "PU3AS116_image1d_array_t"); break;
++  case BuiltinType::OCLImage1dBuffer: Out << mangle_opencl_name(getASTContext(), "17ocl_image1dbuffer", "PU3AS117_image1d_buffer_t"); break;
++  case BuiltinType::OCLImage2d: Out << mangle_opencl_name(getASTContext(), "11ocl_image2d", "PU3AS110_image2d_t"); break;
++  case BuiltinType::OCLImage2dArray: Out << mangle_opencl_name(getASTContext(), "16ocl_image2darray", "PU3AS116_image2d_array_t"); break;
++  case BuiltinType::OCLImage2dDepth: Out << mangle_opencl_name(getASTContext(), "16ocl_image2ddepth", "PU3AS116_image2d_depth_t"); break;
++  case BuiltinType::OCLImage2dArrayDepth: Out << mangle_opencl_name(getASTContext(), "21ocl_image2darraydepth", "PU3AS122_image2d_array_depth_t"); break;
++  case BuiltinType::OCLImage2dMSAA: Out << mangle_opencl_name(getASTContext(), "15ocl_image2dmsaa", "PU3AS115_image2d_msaa_t"); break;
++  case BuiltinType::OCLImage2dArrayMSAA: Out << mangle_opencl_name(getASTContext(), "20ocl_image2darraymsaa", "PU3AS121_image2d_array_msaa_t"); break;
++  case BuiltinType::OCLImage2dMSAADepth: Out << mangle_opencl_name(getASTContext(), "20ocl_image2dmsaadepth", "PU3AS121_image2d_msaa_depth_t"); break;
++  case BuiltinType::OCLImage2dArrayMSAADepth: Out << mangle_opencl_name(getASTContext(), "25ocl_image2darraymsaadepth", "PU3AS127_image2d_array_msaa_depth_t"); break;
++  case BuiltinType::OCLImage3d: Out << mangle_opencl_name(getASTContext(), "11ocl_image3d", "PU3AS110_image3d_t"); break;
++  case BuiltinType::OCLSampler: Out << mangle_opencl_name(getASTContext(), "11ocl_sampler", "uSampler"); break;
++  case BuiltinType::OCLEvent: Out << mangle_opencl_name(getASTContext(), "9ocl_event", "i"); break;
+   }
+ }
+ 
 diff --git a/tools/clang/lib/AST/MicrosoftMangle.cpp b/tools/clang/lib/AST/MicrosoftMangle.cpp
 index e6a6d09..9855017 100644
 --- a/tools/clang/lib/AST/MicrosoftMangle.cpp
