@@ -27,6 +27,10 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
+#if !defined(FLOOR_NO_OPENCL)
+class opencl_compute;
+#endif
+
 class opencl_device final : public compute_device {
 public:
 	~opencl_device() override {}
@@ -34,6 +38,9 @@ public:
 #if !defined(FLOOR_NO_OPENCL)
 	//! associated opencl context
 	cl_context ctx { nullptr };
+	
+	//! associated opencl_compute context
+	opencl_compute* compute_ctx { nullptr };
 	
 	//! opencl c version of the device
 	OPENCL_VERSION c_version { OPENCL_VERSION::OPENCL_1_0 };

@@ -72,6 +72,7 @@ bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
 	else {
 		glBufferData(opengl_type, (GLsizeiptr)size, nullptr, GL_DYNAMIC_DRAW);
 	}
+	glBindBuffer(opengl_type, 0);
 	
 	return true;
 }

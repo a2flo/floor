@@ -23,6 +23,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/compute/opencl/opencl_queue.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
+#include <floor/compute/opencl/opencl_compute.hpp>
 
 // TODO: proper error (return) value handling everywhere
 
@@ -188,16 +189,17 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 }
 
 opencl_image::~opencl_image() {
-	// kill the image
-	if(image != nullptr) {
-		clReleaseMemObject(image);
-	}
+	// first, release and kill the opengl image
 	if(gl_object != 0) {
 		if(gl_object_state) {
 			log_warn("image still acquired for opengl use - release before destructing a compute image!");
 		}
 		if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
 		delete_gl_image();
+	}
+	// then, also kill the opencl image
+	if(image != nullptr) {
+		clReleaseMemObject(image);
 	}
 }
 
@@ -236,7 +238,7 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 	//
 	size_t image_row_pitch = 0, image_slice_pitch = 0; // must not be nullptr (TODO: return these)
 	cl_int map_err = CL_SUCCESS;
-	auto ret_ptr = clEnqueueMapImage((cl_command_queue)cqueue->get_queue_ptr(),
+	auto ret_ptr = clEnqueueMapImage(queue_or_default_queue(cqueue),
 									 image, blocking_map, map_flags,
 									 origin.data(), region.data(),
 									 &image_row_pitch, &image_slice_pitch,
@@ -252,7 +254,7 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	CL_CALL_RET(clEnqueueUnmapMemObject((cl_command_queue)cqueue->get_queue_ptr(), image, mapped_ptr, 0, nullptr, nullptr),
+	CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), image, mapped_ptr, 0, nullptr, nullptr),
 				"failed to unmap buffer");
 }
 
@@ -264,7 +266,7 @@ bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueReleaseGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &image, 0, nullptr, nullptr),
+	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
 				"failed to acquire opengl image - opencl gl object release failed", false);
 	gl_object_state = true;
 	return true;
@@ -277,10 +279,15 @@ bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueAcquireGLObjects((cl_command_queue)cqueue->get_queue_ptr(), 1, &image, 0, nullptr, nullptr),
+	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
 				"failed to release opengl image - opencl gl object acquire failed", false);
 	gl_object_state = false;
 	return true;
+}
+
+cl_command_queue opencl_image::queue_or_default_queue(shared_ptr<compute_queue> cqueue) const {
+	if(cqueue != nullptr) return (cl_command_queue)cqueue->get_queue_ptr();
+	return (cl_command_queue)((opencl_device*)dev)->compute_ctx->get_device_default_queue((const opencl_device*)dev)->get_queue_ptr();
 }
 
 #endif

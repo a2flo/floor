@@ -235,19 +235,17 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	string libcxx_path = " -isystem ", clang_path = " -isystem ";
 	switch(target) {
 		case TARGET::SPIR:
-		case TARGET::APPLECL:
 			clang_cmd += {
 				floor::get_opencl_compiler() +
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
-				" -DFLOOR_COMPUTE_OPENCL" +
-				(target == TARGET::APPLECL ?
-				 " -DFLOOR_COMPUTE_APPLECL -Xclang -applecl-kernel-info" :
-				 " -DFLOOR_COMPUTE_SPIR -Xclang -cl-kernel-arg-info") +
+				" -DFLOOR_COMPUTE_OPENCL" \
+				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
 			};
 			libcxx_path += floor::get_opencl_libcxx_path();
@@ -257,7 +255,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			clang_cmd += {
 				floor::get_metal_compiler() +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
-				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-unknown-unknown" \
+				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-metal-unknown" \
 				" -Xclang -air-kernel-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
@@ -279,6 +277,23 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			};
 			libcxx_path += floor::get_cuda_libcxx_path();
 			clang_path += floor::get_cuda_clang_path();
+			break;
+		case TARGET::APPLECL:
+			clang_cmd += {
+				floor::get_opencl_compiler() +
+				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
+				" -target " + (device->bitness == 32 ? "spir-applecl-unknown" : "spir64-applecl-unknown") +
+				" -Xclang -applecl-kernel-info" \
+				" -Xclang -cl-mad-enable" \
+				" -Xclang -cl-fast-relaxed-math" \
+				" -Xclang -cl-unsafe-math-optimizations" \
+				" -Xclang -cl-finite-math-only" \
+				" -DFLOOR_COMPUTE_OPENCL" \
+				" -DFLOOR_COMPUTE_APPLECL" +
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+			};
+			libcxx_path += floor::get_opencl_libcxx_path();
+			clang_path += floor::get_opencl_clang_path();
 			break;
 	}
 	

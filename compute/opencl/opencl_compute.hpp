@@ -155,9 +155,15 @@ public:
 		return ctx;
 	}
 	
+	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
+	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
+	
 protected:
 	cl_context ctx { nullptr };
 	vector<cl_device_id> ctx_devices;
+	
+	vector<pair<shared_ptr<compute_device>, shared_ptr<opencl_queue>>> default_queues;
+	unordered_map<shared_ptr<compute_device>, bool> default_queues_user_accessed;
 	
 	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::OPENCL_1_0 };
 	

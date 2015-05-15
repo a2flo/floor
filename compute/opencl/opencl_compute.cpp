@@ -133,6 +133,11 @@ void opencl_compute::init(const bool use_platform_devices,
 #if defined(__APPLE__)
 		platform_vendor = PLATFORM_VENDOR::APPLE;
 		
+		// drop all devices when using gl sharing (not adding cpu devices here, because this would cause other issues)
+		if(gl_sharing) {
+			ctx_cl_devices.clear();
+		}
+		
 		cl_context_properties cl_properties[] {
 			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
 			gl_sharing ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
@@ -144,7 +149,8 @@ void opencl_compute::init(const bool use_platform_devices,
 			0
 		};
 		
-		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
+		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(),
+													 (!ctx_cl_devices.empty() ? ctx_cl_devices.data() : nullptr),
 													 clLogMessagesToStdoutAPPLE, nullptr, &ctx_error),
 							   ctx_error, "failed to create opencl context")
 		
@@ -285,6 +291,7 @@ void opencl_compute::init(const bool use_platform_devices,
 			dev_type_str = "";
 			
 			device.ctx = ctx;
+			device.compute_ctx = this;
 			device.device_id = cl_dev;
 			device.internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 			device.units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
@@ -547,6 +554,12 @@ void opencl_compute::init(const bool use_platform_devices,
 		}
 	}
 	
+	// already create command queues for all devices, these will serve as the default queues and the ones returned
+	// when first calling create_queue for a device (a second call will then create an actual new one)
+	for(const auto& dev : devices) {
+		create_queue(dev);
+	}
+	
 	// un-#if-0 for debug output
 #if 0
 	const auto channel_order_to_string = [](const cl_channel_order& channel_order) -> string {
@@ -625,6 +638,34 @@ void opencl_compute::init(const bool use_platform_devices,
 shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device> dev) {
 	if(dev == nullptr) return {};
 	
+	// has a default queue already been created for this device?
+	bool has_default_queue = false;
+	shared_ptr<opencl_queue> dev_default_queue;
+	for(const auto& default_queue : default_queues) {
+		if(default_queue.first == dev) {
+			has_default_queue = true;
+			dev_default_queue = default_queue.second;
+			break;
+		}
+	}
+	
+	// has the user already created a queue for this device (i.e. accessed the default queue)?
+	bool user_accessed = false;
+	if(has_default_queue) {
+		const auto iter = default_queues_user_accessed.find(dev);
+		if(iter != end(default_queues_user_accessed)) {
+			user_accessed = iter->second;
+		}
+		
+		// default queue exists and the user is creating a queue for this device for the first time
+		// -> return the default queue
+		if(!user_accessed) {
+			// signal that the user has accessed the default queue, any subsequent create_queue calls will actually create a new queue
+			default_queues_user_accessed.emplace(dev, true);
+			return dev_default_queue;
+		}
+	}
+	
 	// create the queue (w/ or w/o profiling support depending on the define)
 	cl_int create_err = CL_SUCCESS;
 #if defined(CL_VERSION_2_0) || defined(__APPLE__)
@@ -656,7 +697,28 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	
 	auto ret = make_shared<opencl_queue>(cl_queue);
 	queues.push_back(ret);
+	
+	// set the default queue if it hasn't been set yet
+	if(!has_default_queue) {
+		default_queues.emplace_back(dev, ret);
+	}
+	
 	return ret;
+}
+
+shared_ptr<compute_queue> opencl_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
+	return get_device_default_queue(dev.get());
+}
+
+shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute_device* dev) const {
+	for(const auto& default_queue : default_queues) {
+		if(default_queue.first.get() == dev) {
+			return default_queue.second;
+		}
+	}
+	// only happens if the context is invalid (the default queues haven't been created)
+	log_error("no default queue for this device exists yet!");
+	return {};
 }
 
 shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,

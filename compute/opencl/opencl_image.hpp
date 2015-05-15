@@ -59,8 +59,11 @@ protected:
 	cl_mem image { nullptr };
 	cl_mem_flags cl_flags { 0 };
 	
-	// separate create buffer function, b/c it's called by the constructor and resize
+	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	
+	//! if cqueue isn't nullptr, returns its cl_command_queue, otherwise returns the devices default queue
+	cl_command_queue queue_or_default_queue(shared_ptr<compute_queue> cqueue) const;
 	
 };
 

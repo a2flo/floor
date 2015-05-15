@@ -338,6 +338,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 				break;
 		}
 	}
+	glBindTexture(opengl_type, 0);
 	
 	// if everything has been successful, store the used gl types for later use
 	gl_internal_format = internal_format;
