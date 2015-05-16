@@ -356,6 +356,9 @@ static floor_inline_always void local_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 
+// atomics
+#include <floor/compute/device/cuda_atomic.hpp>
+
 // done
 #undef FLOOR_CUDA_DIM0
 #undef FLOOR_CUDA_DIM1

@@ -211,6 +211,7 @@
 		5C0DF00919B8C79200331AAC /* vector_helper.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_helper.hpp; sourceTree = "<group>"; };
 		5C0DF00A19B8C79200331AAC /* vector_lib.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_lib.hpp; sourceTree = "<group>"; };
 		5C0DF00B19B8C79200331AAC /* vector_ops.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops.hpp; sourceTree = "<group>"; };
+		5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_atomic.hpp; path = device/cuda_atomic.hpp; sourceTree = "<group>"; };
 		5C10915E17D114BC007F536E /* libfloord.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libfloord.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C10916D17D1153E007F536E /* core.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = core.cpp; sourceTree = "<group>"; };
 		5C10916E17D1153E007F536E /* core.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = core.hpp; sourceTree = "<group>"; };
@@ -607,6 +608,7 @@
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
+				5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */,
 				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
 				5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */,
 				5C6008AD1AB6D6D200BC7012 /* metal.hpp */,
