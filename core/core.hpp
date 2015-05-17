@@ -42,17 +42,17 @@ public:
 	// random functions
 	static void set_random_seed(const unsigned int& seed);
 	
-	//! random number in [0, max)
+	//! random number in [0, max]
 	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
 	static int_type rand(int_type max = numeric_limits<int_type>::max()) {
-		uniform_int_distribution<int_type> dist((int_type)0, max - (int_type)1);
+		uniform_int_distribution<int_type> dist((int_type)0, max);
 		return dist(gen);
 	}
 	
-	//! random number in [min, max)
+	//! random number in [min, max]
 	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
 	static int_type rand(const int_type& min, const int_type& max) {
-		uniform_int_distribution<int_type> dist(min, max - (int_type)1);
+		uniform_int_distribution<int_type> dist(min, max);
 		return dist(gen);
 	}
 	

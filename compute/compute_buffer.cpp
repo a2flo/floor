@@ -66,7 +66,7 @@ bool compute_buffer::create_gl_buffer(const bool copy_host_data) {
 	
 	if(copy_host_data &&
 	   host_ptr != nullptr &&
-	   (flags & COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY) != COMPUTE_MEMORY_FLAG::NONE) {
+	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		glBufferData(opengl_type, (GLsizeiptr)size, host_ptr, GL_DYNAMIC_DRAW);
 	}
 	else {

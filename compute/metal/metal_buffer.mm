@@ -78,7 +78,7 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
-		   (flags & COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY) != COMPUTE_MEMORY_FLAG::NONE) {
+		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			buffer = [((metal_device*)dev)->device newBufferWithBytes:host_ptr length:size options:options];
 		}
 		// else: just create a buffer of the specified size
