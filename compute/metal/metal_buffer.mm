@@ -69,7 +69,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 
 bool metal_buffer::create_internal(const bool copy_host_data) {
 	// -> use host memory
-	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		buffer = [((metal_device*)dev)->device newBufferWithBytesNoCopy:host_ptr length:size options:options
 															deallocator:^(void*, NSUInteger) { /* nop */ }];
 	}
@@ -195,7 +195,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 	if(buffer == nullptr) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	_lock();

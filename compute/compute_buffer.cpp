@@ -34,7 +34,7 @@ compute_memory(device, host_ptr_, flags_, opengl_type_, external_gl_object_), si
 				  min_multiple(), size, size_);
 	}
 #if defined(PLATFORM_X64)
-	else if(size > 0xFFFFFFFFu && (flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) != COMPUTE_MEMORY_FLAG::NONE) {
+	else if(size > 0xFFFFFFFFu && has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		log_error("using a buffer larger than 4GiB is not supported when using OpenGL sharing!");
 		size = 0xFFFFFFFFu;
 	}

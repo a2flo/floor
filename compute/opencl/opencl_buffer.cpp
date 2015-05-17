@@ -221,7 +221,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};
-	const bool is_host_buffer = ((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE);
+	const bool is_host_buffer = has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags);
 	
 	
 	// create the new buffer
@@ -265,11 +265,11 @@ void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue>
 	if(buffer == nullptr) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	cl_map_flags map_flags = 0;
-	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
 		map_flags |= CL_MAP_WRITE_INVALIDATE_REGION;
 	}
 	else {

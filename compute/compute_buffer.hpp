@@ -266,7 +266,7 @@ protected:
 											  const COMPUTE_MEMORY_FLAG& buffer_flags,
 											  const COMPUTE_MEMORY_MAP_FLAG& map_flags,
 											  const size_t& offset) {
-		if((map_flags & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE &&
+		if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(map_flags) &&
 		   (map_flags & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
 			log_error("map: WRITE_INVALIDATE map flag is mutually exclusive with the READ and WRITE flags!");
 			return false;
@@ -295,14 +295,13 @@ protected:
 		}
 		// read/write mismatch check (only if either read or write set)
 		if((buffer_flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) != COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
-			if((buffer_flags & COMPUTE_MEMORY_FLAG::HOST_READ) != COMPUTE_MEMORY_FLAG::NONE &&
-			   ((map_flags & COMPUTE_MEMORY_MAP_FLAG::WRITE) != COMPUTE_MEMORY_MAP_FLAG::NONE ||
-				(map_flags & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE)) {
+			if(has_flag<COMPUTE_MEMORY_FLAG::HOST_READ>(buffer_flags) &&
+			   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(map_flags) || has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(map_flags)) {
 				   log_error("map: buffer has been created with the HOST_READ flag, but map flags specify buffer must be writable!");
 				   return false;
 			   }
-			if((buffer_flags & COMPUTE_MEMORY_FLAG::HOST_WRITE) != COMPUTE_MEMORY_FLAG::NONE &&
-			   (map_flags & COMPUTE_MEMORY_MAP_FLAG::READ) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+			if(has_flag<COMPUTE_MEMORY_FLAG::HOST_WRITE>(buffer_flags) &&
+			   has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(map_flags)) {
 				log_error("map: buffer has been created with the HOST_WRITE flag, but map flags specify buffer must be readable!");
 				return false;
 			}

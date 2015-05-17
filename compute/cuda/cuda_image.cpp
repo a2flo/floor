@@ -347,11 +347,11 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	const size3 region { size3(image_dim.x, height, depth).maxed(1) }; // complete image(s) + "The values in region cannot be 0."
 	const auto map_size = region.x * region.y * region.z * image_bytes_per_pixel(image_type);
 	
-	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	// TODO: image map check
 	
 	bool write_only = false;
-	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
 		write_only = true;
 	}
 	else {

@@ -75,7 +75,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 
 bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	// -> use host memory
-	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cuMemHostRegister(host_ptr, size, CU_MEMHOSTALLOC_DEVICEMAP | CU_MEMHOSTREGISTER_PORTABLE),
 					"failed to register host pointer", false);
 		CU_CALL_RET(cuMemHostGetDevicePointer(&buffer, host_ptr, 0),
@@ -84,7 +84,7 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 	// -> alloc and use device memory
 	else {
 		// -> plain old cuda buffer
-		if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
+		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 			CU_CALL_RET(cuMemAlloc(&buffer, size),
 						"failed to allocate device memory", false);
 			
@@ -132,14 +132,14 @@ cuda_buffer::~cuda_buffer() {
 	if(buffer == 0) return;
 	
 	// -> host memory
-	if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		CU_CALL_RET(cuMemHostUnregister(host_ptr),
 					"failed to unregister mapped host memory");
 	}
 	// -> device memory
 	else {
 		// -> plain old cuda buffer
-		if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) == COMPUTE_MEMORY_FLAG::NONE) {
+		if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 			CU_CALL_RET(cuMemFree(buffer),
 						"failed to free device memory");
 		}
@@ -280,7 +280,7 @@ bool cuda_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 		size = old_size;
 		host_ptr = old_host_ptr;
 	};
-	const bool is_host_buffer = ((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE);
+	const bool is_host_buffer = has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags);
 	
 	// unregister old host pointer if host memory is being used
 	if(is_host_buffer) {
@@ -346,11 +346,11 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 	if(buffer == 0) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = ((flags_ & COMPUTE_MEMORY_MAP_FLAG::BLOCK) != COMPUTE_MEMORY_MAP_FLAG::NONE);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
 	bool write_only = false;
-	if((flags_ & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
 		write_only = true;
 	}
 	else {
@@ -408,8 +408,8 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	}
 	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
-	if((iter->second.flags & COMPUTE_MEMORY_MAP_FLAG::WRITE) != COMPUTE_MEMORY_MAP_FLAG::NONE ||
-	   (iter->second.flags & COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE) != COMPUTE_MEMORY_MAP_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		CU_CALL_NO_ACTION(cuMemcpyHtoD(buffer + iter->second.offset, mapped_ptr, iter->second.size),
 						  "failed to copy host memory to device");
 	}

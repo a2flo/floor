@@ -21,7 +21,7 @@
 
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
 	// opengl sharing handling
-	if((flags & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) != COMPUTE_MEMORY_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		// need to make sure that opengl read/write flags are set (it isn't a good idea to
 		// set OPENGL_READ_WRITE as the default parameter, because opengl sharing might
 		// not be enabled/set)
@@ -37,7 +37,7 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 		// TODO: check for known opengl types? how to deal with unknown ones?
 		
 		// clear out USE_HOST_MEMORY flag if it is set
-		if((flags & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE) {
+		if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 			flags &= (COMPUTE_MEMORY_FLAG)~uint32_t(COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY);
 		}
 	}
@@ -67,8 +67,8 @@ gl_object(has_external_gl_object ? external_gl_object_ : 0) {
 	if((flags_ & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		log_error("memory must be read-only, write-only or read-write!");
 	}
-	if((flags_ & COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY) != COMPUTE_MEMORY_FLAG::NONE &
-	   (flags_ & COMPUTE_MEMORY_FLAG::OPENGL_SHARING) != COMPUTE_MEMORY_FLAG::NONE) {
+	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags_) &&
+	   has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags_)) {
 		log_error("USE_HOST_MEMORY and OPENGL_SHARING are mutually exclusive!");
 	}
 }
