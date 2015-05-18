@@ -47,6 +47,10 @@ namespace std {
 	metal_func float pow(float, float) asm("air.fast_pow.f32");
 	metal_func float fmod(float, float) asm("air.fast_fmod.f32");
 	
+	metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
+	metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
+	metal_func int64_t abs(int64_t) asm("air.abs.s.i64");
+	
 	metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
 	metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
 	metal_func int64_t mulhi(int64_t x, int64_t y) asm("air.mul_hi.i64");

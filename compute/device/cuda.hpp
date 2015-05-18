@@ -91,6 +91,24 @@ namespace std {
 	double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
 	double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
 	double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
+	
+	// int math functions
+	floor_inline_always int16_t abs(int16_t a) {
+		int16_t ret;
+		asm("abs.s16 %0, %1;" : "=r"(ret) : "r"(a));
+		return ret;
+	}
+	floor_inline_always int32_t abs(int32_t a) {
+		int32_t ret;
+		asm("abs.s32 %0, %1;" : "=r"(ret) : "r"(a));
+		return ret;
+	}
+	floor_inline_always int64_t abs(int64_t a) {
+		int64_t ret;
+		asm("abs.s64 %0, %1;" : "=l"(ret) : "l"(a));
+		return ret;
+	}
+	
 }
 
 // provided by cuda runtime

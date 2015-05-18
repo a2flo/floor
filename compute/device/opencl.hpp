@@ -59,6 +59,9 @@ float opencl_const_func __cl_fma(float, float, float);
 float opencl_const_func __cl_exp(float);
 float opencl_const_func __cl_log(float);
 float opencl_const_func __cl_pow(float, float);
+int16_t opencl_const_func __cl_abs(int16_t);
+int32_t opencl_const_func __cl_abs(int32_t);
+int64_t opencl_const_func __cl_abs(int64_t);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 double opencl_const_func __cl_fmod(double, double);
@@ -110,6 +113,9 @@ float opencl_const_func fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
 float opencl_const_func exp(float x) CL_FWD(__cl_exp, x)
 float opencl_const_func log(float x) CL_FWD(__cl_log, x)
 float opencl_const_func pow(float x, float y) CL_FWD(__cl_pow, x, y)
+int16_t opencl_const_func abs(int16_t x) CL_FWD(__cl_abs, x)
+int32_t opencl_const_func abs(int32_t x) CL_FWD(__cl_abs, x)
+int64_t opencl_const_func abs(int64_t x) CL_FWD(__cl_abs, x)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 double opencl_const_func fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
@@ -192,6 +198,9 @@ static floor_inline_always void local_read_mem_fence() {
 static floor_inline_always void local_write_mem_fence() {
 	write_mem_fence(1u);
 }
+
+// atomics
+#include <floor/compute/device/opencl_atomic.hpp>
 
 #endif
 
