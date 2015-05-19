@@ -296,7 +296,7 @@ protected:
 		// read/write mismatch check (only if either read or write set)
 		if((buffer_flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) != COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
 			if(has_flag<COMPUTE_MEMORY_FLAG::HOST_READ>(buffer_flags) &&
-			   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(map_flags) || has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(map_flags)) {
+			   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(map_flags) || has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(map_flags))) {
 				   log_error("map: buffer has been created with the HOST_READ flag, but map flags specify buffer must be writable!");
 				   return false;
 			   }
