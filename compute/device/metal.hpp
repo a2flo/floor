@@ -77,41 +77,45 @@ uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 // NOTE: it would appear that either cl_kernel.h or metal_compute has a bug (global and local are mismatched)
 //       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local
 // NOTE: scope: 2 = work-group, 3 = device
+#define FLOOR_METAL_SCOPE_GLOBAL 3
+#define FLOOR_METAL_SCOPE_LOCAL 2
 void air_wg_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.wg.barrier");
 // TODO/NOTE: apparently using this leads to a deadlock during final device compilation -> use wg barrier for now
 void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.mem_barrier");
 
 static floor_inline_always void global_barrier() {
-	air_wg_barrier(1u, 2);
+	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
 }
 static floor_inline_always void global_mem_fence() {
-	air_wg_barrier(1u, 2);
+	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
 	//air_mem_barrier(1u, 2);
 }
 static floor_inline_always void global_read_mem_fence() {
-	air_wg_barrier(1u, 2);
+	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
 	//air_mem_barrier(1u, 2);
 }
 static floor_inline_always void global_write_mem_fence() {
-	air_wg_barrier(1u, 2);
+	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
 	//air_mem_barrier(1u, 2);
 }
 static floor_inline_always void local_barrier() {
-	air_wg_barrier(2u, 2);
+	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
 }
 static floor_inline_always void local_mem_fence() {
-	air_wg_barrier(2u, 2);
+	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
 	//air_mem_barrier(2u, 2);
 }
 static floor_inline_always void local_read_mem_fence() {
-	air_wg_barrier(2u, 2);
+	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
 	//air_mem_barrier(2u, 2);
 }
 static floor_inline_always void local_write_mem_fence() {
-	air_wg_barrier(2u, 2);
+	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
 	//air_mem_barrier(2u, 2);
 }
 
+// atomics
+#include <floor/compute/device/metal_atomic.hpp>
 
 #endif
 

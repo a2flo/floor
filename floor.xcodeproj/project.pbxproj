@@ -355,6 +355,7 @@
 		5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_image.hpp; path = device/metal_image.hpp; sourceTree = "<group>"; };
 		5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_image.hpp; path = device/cuda_image.hpp; sourceTree = "<group>"; };
 		5CD6448D1A51BF5B00716FE8 /* compute_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_common.hpp; sourceTree = "<group>"; };
+		5CDB02671B0B1774005FCEDE /* metal_atomic.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_atomic.hpp; path = device/metal_atomic.hpp; sourceTree = "<group>"; };
 		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
 		5CE0BDC819BA3469000B28B3 /* const_math.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = const_math.cpp; sourceTree = "<group>"; };
 		5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_lib.cpp; sourceTree = "<group>"; };
@@ -613,6 +614,7 @@
 				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
 				5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */,
 				5C6008AD1AB6D6D200BC7012 /* metal.hpp */,
+				5CDB02671B0B1774005FCEDE /* metal_atomic.hpp */,
 				5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */,
 				5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */,
 				5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */,
