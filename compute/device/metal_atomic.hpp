@@ -21,8 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_METAL)
 
-// TODO: same as opencl, add float atomic functions either via int* casting or CAS
-
 // underlying atomic functions
 // NOTE: only supported memory order is _AIR_MEM_ORDER_RELAXED (0)
 #define FLOOR_METAL_MEM_ORDER_RELAXED 0
@@ -240,6 +238,58 @@ floor_inline_always int32_t atomic_xor(local int32_t* p, int32_t val) {
 floor_inline_always uint32_t atomic_xor(local uint32_t* p, uint32_t val) {
 	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
 }
+
+// fallback for non-natively supported float atomics
+#define FLOOR_METAL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
+	const auto expected = *ptr; \
+	const auto wanted = expected op val; \
+	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
+		return expected; \
+	} \
+}
+
+floor_inline_always float atomic_add(global float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(+, global, p, val) }
+floor_inline_always float atomic_add(local float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(+, local, p, val) }
+floor_inline_always float atomic_sub(global float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(-, global, p, val) }
+floor_inline_always float atomic_sub(local float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(-, local, p, val) }
+floor_inline_always float atomic_inc(global float* p) { return atomic_add(p, 1.0f); }
+floor_inline_always float atomic_inc(local float* p) { return atomic_add(p, 1.0f); }
+floor_inline_always float atomic_dec(global float* p) { return atomic_sub(p, 1.0f); }
+floor_inline_always float atomic_dec(local float* p) { return atomic_sub(p, 1.0f); }
+floor_inline_always float atomic_cmpxchg(global float* p, float cmp, float val) {
+	const auto ret = atomic_cmpxchg((global uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
+	return *(float*)ret;
+}
+floor_inline_always float atomic_cmpxchg(local float* p, float cmp, float val) {
+	const auto ret = atomic_cmpxchg((local uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
+	return *(float*)ret;
+}
+floor_inline_always float atomic_min(global float* p, float val) {
+	if(val < 0.0f) {
+		atomic_max((global uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_min((global int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_min(local float* p, float val) {
+	if(val < 0.0f) {
+		atomic_max((local uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_min((local int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_max(global float* p, float val) {
+	if(val < 0.0f) {
+		atomic_min((global uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_max((global int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_max(local float* p, float val) {
+	if(val < 0.0f) {
+		atomic_min((local uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_max((local int32_t*)p, *(int32_t*)&val);
+}
+
+#undef FLOOR_METAL_ATOMIC_FLOAT_OP
 
 #endif
 

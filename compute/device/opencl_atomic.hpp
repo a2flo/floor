@@ -21,9 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
-// NOTE/TODO: opencl/spir 1.x doesn't support float atomics, but opencl 2.0+ does and _might_ be supported via spir 1.2
-// alternatively: fallback to CAS with uint32_t reinterpretation
-
 // add
 int32_t atomic_add(volatile global int32_t* p, int32_t val);
 uint32_t atomic_add(volatile global uint32_t* p, uint32_t val);
@@ -91,6 +88,58 @@ int32_t atomic_xor(volatile global int32_t* p, int32_t val);
 uint32_t atomic_xor(volatile global uint32_t* p, uint32_t val);
 int32_t atomic_xor(volatile local int32_t* p, int32_t val);
 uint32_t atomic_xor(volatile local uint32_t* p, uint32_t val);
+
+// fallback for non-natively supported float atomics
+#define FLOOR_OPENCL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
+	const auto expected = *ptr; \
+	const auto wanted = expected op val; \
+	if(atomic_cmpxchg((volatile as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
+		return expected; \
+	} \
+}
+
+floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(+, global, p, val) }
+floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(+, local, p, val) }
+floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(-, global, p, val) }
+floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(-, local, p, val) }
+floor_inline_always float atomic_inc(volatile global float* p) { return atomic_add(p, 1.0f); }
+floor_inline_always float atomic_inc(volatile local float* p) { return atomic_add(p, 1.0f); }
+floor_inline_always float atomic_dec(volatile global float* p) { return atomic_sub(p, 1.0f); }
+floor_inline_always float atomic_dec(volatile local float* p) { return atomic_sub(p, 1.0f); }
+floor_inline_always float atomic_cmpxchg(volatile global float* p, float cmp, float val) {
+	const auto ret = atomic_cmpxchg((volatile global uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
+	return *(float*)ret;
+}
+floor_inline_always float atomic_cmpxchg(volatile local float* p, float cmp, float val) {
+	const auto ret = atomic_cmpxchg((volatile local uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
+	return *(float*)ret;
+}
+floor_inline_always float atomic_min(volatile global float* p, float val) {
+	if(val < 0.0f) {
+		atomic_max((volatile global uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_min((volatile global int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_min(volatile local float* p, float val) {
+	if(val < 0.0f) {
+		atomic_max((volatile local uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_min((volatile local int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_max(volatile global float* p, float val) {
+	if(val < 0.0f) {
+		atomic_min((volatile global uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_max((volatile global int32_t*)p, *(int32_t*)&val);
+}
+floor_inline_always float atomic_max(volatile local float* p, float val) {
+	if(val < 0.0f) {
+		atomic_min((volatile local uint32_t*)p, *(uint32_t*)&val);
+	}
+	return atomic_max((volatile local int32_t*)p, *(int32_t*)&val);
+}
+
+#undef FLOOR_OPENCL_ATOMIC_FLOAT_OP
 
 #endif
 
