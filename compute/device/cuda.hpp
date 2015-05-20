@@ -95,7 +95,7 @@ namespace std {
 	// int math functions
 	floor_inline_always int16_t abs(int16_t a) {
 		int16_t ret;
-		asm("abs.s16 %0, %1;" : "=r"(ret) : "r"(a));
+		asm("abs.s16 %0, %1;" : "=h"(ret) : "h"(a));
 		return ret;
 	}
 	floor_inline_always int32_t abs(int32_t a) {
