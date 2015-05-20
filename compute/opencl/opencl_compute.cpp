@@ -41,7 +41,7 @@
 void opencl_compute::init(const bool use_platform_devices,
 						  const uint32_t platform_index_,
 						  const bool gl_sharing,
-						  const unordered_set<string> device_whitelist) {
+						  const unordered_set<string> whitelist) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? stou(floor::get_opencl_platform()) : platform_index_);
 	
@@ -86,25 +86,25 @@ void opencl_compute::init(const bool use_platform_devices,
 		
 		// device whitelist
 		vector<cl_device_id> ctx_cl_devices;
-		if(!device_whitelist.empty()) {
+		if(!whitelist.empty()) {
 			for(const auto& cl_dev : all_cl_devices) {
 				// check type
 				const auto dev_type = cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 				switch(dev_type) {
 					case CL_DEVICE_TYPE_CPU:
-						if(device_whitelist.count("CPU") > 0) {
+						if(whitelist.count("cpu") > 0) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}
 						break;
 					case CL_DEVICE_TYPE_GPU:
-						if(device_whitelist.count("GPU") > 0) {
+						if(whitelist.count("gpu") > 0) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}
 						break;
 					case CL_DEVICE_TYPE_ACCELERATOR:
-						if(device_whitelist.count("ACCELERATOR") > 0) {
+						if(whitelist.count("accelerator") > 0) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}
@@ -113,8 +113,8 @@ void opencl_compute::init(const bool use_platform_devices,
 				}
 				
 				// check name
-				const auto dev_name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
-				for(const auto& entry : device_whitelist) {
+				const auto dev_name = core::str_to_lower(cl_get_info<CL_DEVICE_NAME>(cl_dev));
+				for(const auto& entry : whitelist) {
 					if(dev_name.find(entry) != string::npos) {
 						ctx_cl_devices.emplace_back(cl_dev);
 						break;

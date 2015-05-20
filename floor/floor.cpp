@@ -229,13 +229,16 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.keep_binaries = config_doc.get<bool>("config.compute.keep_binaries", true);
 		config.use_cache = config_doc.get<bool>("config.compute.use_cache", true);
 		
+		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
+			const auto whitelist_tokens = core::tokenize(config_doc.get<string>(config_entry_name, ""), ';');
+			for(const auto& token : whitelist_tokens) {
+				if(token == "") continue;
+				whitelist.emplace(core::str_to_lower(token));
+			}
+		};
+		
 		config.opencl_platform = config_doc.get<string>("config.opencl.platform", "0");
-		const auto cl_dev_tokens = core::tokenize(config_doc.get<string>("config.opencl.restrict", ""), ',');
-		for(const auto& dev_token : cl_dev_tokens) {
-			const auto dev_token_nows = core::trim(dev_token);
-			if(dev_token_nows == "") continue;
-			config.opencl_restrictions.emplace(dev_token_nows);
-		}
+		extract_whitelist(config.opencl_whitelist, "config.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("config.opencl.compiler", "compute_clang");
 		config.opencl_llc = config_doc.get<string>("config.opencl.llc", "compute_llc");
 		config.opencl_as = config_doc.get<string>("config.opencl.as", "compute_as");
@@ -243,6 +246,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/include/floor/libcxx/include");
 		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/include/floor/libcxx/clang");
 		
+		extract_whitelist(config.cuda_whitelist, "config.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("config.cuda.compiler", "compute_clang");
 		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
 		config.cuda_as = config_doc.get<string>("config.cuda.as", "compute_as");
@@ -252,6 +256,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.cuda_force_driver_sm = config_doc.get<string>("config.cuda.force_driver_sm", "");
 		config.cuda_force_compile_sm = config_doc.get<string>("config.cuda.force_compile_sm", "");
 		
+		extract_whitelist(config.metal_whitelist, "config.metal.whitelist");
 		config.metal_compiler = config_doc.get<string>("config.metal.compiler", "compute_clang");
 		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
 		config.metal_as = config_doc.get<string>("config.metal.as", "compute_as");
@@ -259,6 +264,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/include/floor/libcxx/include");
 		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/include/floor/libcxx/clang");
 		
+		extract_whitelist(config.host_whitelist, "config.host.whitelist");
 		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
 		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
 		config.host_as = config_doc.get<string>("config.host.as", "compute_as");
@@ -583,7 +589,11 @@ void floor::init_internal(const bool use_gl32_core
 	
 	if(compute_ctx != nullptr) {
 		compute_ctx->init(false, stou(config.opencl_platform),
-						  config.gl_sharing & !console_only, config.opencl_restrictions);
+						  config.gl_sharing & !console_only,
+						  compute_ctx->get_compute_type() == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
+						  compute_ctx->get_compute_type() == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
+						  compute_ctx->get_compute_type() == COMPUTE_TYPE::METAL ? config.metal_whitelist :
+						  unordered_set<string> {});
 	}
 	else log_error("failed to create any compute context!");
 #endif

@@ -27,7 +27,7 @@
 void cuda_compute::init(const bool use_platform_devices floor_unused,
 						const uint32_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
-						const unordered_set<string> device_whitelist floor_unused) {
+						const unordered_set<string> whitelist) {
 	// init cuda itself
 	CU_CALL_RET(cuInit(0), "failed to initialize CUDA")
 	
@@ -73,6 +73,19 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		char dev_name[256];
 		memset(dev_name, 0, 256);
 		CU_CALL_IGNORE(cuDeviceGetName(dev_name, 255, cuda_dev));
+		
+		// check whitelist
+		if(!whitelist.empty()) {
+			const auto lc_dev_name = core::str_to_lower(dev_name);
+			bool found = false;
+			for(const auto& entry : whitelist) {
+				if(lc_dev_name.find(entry) != string::npos) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) continue;
+		}
 		
 		// need at least sm_20 capability (fermi)
 		int2 cc;

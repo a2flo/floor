@@ -46,11 +46,25 @@
 void metal_compute::init(const bool use_platform_devices floor_unused,
 						 const uint32_t platform_index_ floor_unused,
 						 const bool gl_sharing floor_unused,
-						 const unordered_set<string> device_whitelist floor_unused) {
+						 const unordered_set<string> whitelist) {
 	// create the default device, exit if it fails
 	auto mtl_device = MTLCreateSystemDefaultDevice();
 	if(mtl_device == nil) return;
 	
+	// check whitelist
+	if(!whitelist.empty()) {
+		const auto lc_dev_name = core::str_to_lower([[mtl_device name] UTF8String]);
+		bool found = false;
+		for(const auto& entry : whitelist) {
+			if(lc_dev_name.find(entry) != string::npos) {
+				found = true;
+				break;
+			}
+		}
+		if(!found) return;
+	}
+	
+	//
 	devices.emplace_back(make_shared<metal_device>());
 	auto device_sptr = devices.back();
 	auto& device = *(metal_device*)device_sptr.get();

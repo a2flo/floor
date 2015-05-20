@@ -242,7 +242,7 @@ protected:
 		
 		// opencl
 		string opencl_platform = "0";
-		unordered_set<string> opencl_restrictions;
+		unordered_set<string> opencl_whitelist;
 		string opencl_compiler = "compute_clang";
 		string opencl_llc = "compute_llc";
 		string opencl_as = "compute_as";
@@ -251,6 +251,7 @@ protected:
 		string opencl_clang = "/usr/include/floor/libcxx/clang";
 		
 		// cuda
+		unordered_set<string> cuda_whitelist;
 		string cuda_compiler = "compute_clang";
 		string cuda_llc = "compute_llc";
 		string cuda_as = "compute_as";
@@ -261,6 +262,7 @@ protected:
 		string cuda_force_compile_sm = "";
 		
 		// metal
+		unordered_set<string> metal_whitelist;
 		string metal_compiler = "compute_clang";
 		string metal_llc = "compute_llc";
 		string metal_as = "compute_as";
@@ -269,6 +271,7 @@ protected:
 		string metal_clang = "/usr/include/floor/libcxx/clang";
 		
 		// host
+		unordered_set<string> host_whitelist;
 		string host_compiler = "compute_clang";
 		string host_llc = "compute_llc";
 		string host_as = "compute_as";
