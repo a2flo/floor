@@ -38,6 +38,13 @@ opencl_c_func size_t opencl_const_func get_num_groups(uint dimindx);
 opencl_c_func uint opencl_const_func get_work_dim();
 opencl_c_func size_t opencl_const_func get_global_offset(uint dimindx);
 
+#define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
+#define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
+#define local_id size3 { get_local_id(0), get_local_id(1), get_local_id(2) }
+#define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
+#define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
+#define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+
 #if defined(FLOOR_COMPUTE_APPLECL)
 float opencl_const_func __cl_fmod(float, float);
 float opencl_const_func native_sqrt(float);

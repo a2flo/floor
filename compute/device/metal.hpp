@@ -73,6 +73,13 @@ uint32_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
 uint32_t get_global_linear_id() asm("air.get_global_linear_id.i32");
 uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 
+#define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
+#define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
+#define local_id size3 { get_local_id(0), get_local_id(1), get_local_id(2) }
+#define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
+#define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
+#define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+
 // barrier and mem_fence functionality
 // NOTE: it would appear that either cl_kernel.h or metal_compute has a bug (global and local are mismatched)
 //       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local

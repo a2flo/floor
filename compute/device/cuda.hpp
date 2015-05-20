@@ -207,6 +207,37 @@ static int printf(const char* format, Args&&... args) {
 #define FLOOR_CUDA_INVALID __attribute__((always_inline, flatten, pure, enable_if(dim > 2, "invalid dim"), unavailable("invalid dim")))
 #define FLOOR_CUDA_DIM_RT __attribute__((always_inline, flatten, pure))
 
+#define global_id size3 { \
+	__builtin_ptx_read_ctaid_x() * __builtin_ptx_read_ntid_x() + __builtin_ptx_read_tid_x(), \
+	__builtin_ptx_read_ctaid_y() * __builtin_ptx_read_ntid_y() + __builtin_ptx_read_tid_y(), \
+	__builtin_ptx_read_ctaid_z() * __builtin_ptx_read_ntid_z() + __builtin_ptx_read_tid_z() \
+}
+#define global_size size3 { \
+	__builtin_ptx_read_nctaid_x() * __builtin_ptx_read_ntid_x(), \
+	__builtin_ptx_read_nctaid_y() * __builtin_ptx_read_ntid_y(), \
+	__builtin_ptx_read_nctaid_z() * __builtin_ptx_read_ntid_z() \
+}
+#define local_id size3 { \
+	__builtin_ptx_read_tid_x(), \
+	__builtin_ptx_read_tid_y(), \
+	__builtin_ptx_read_tid_z() \
+}
+#define local_size size3 { \
+	__builtin_ptx_read_ntid_x(), \
+	__builtin_ptx_read_ntid_y(), \
+	__builtin_ptx_read_ntid_z() \
+}
+#define group_id size3 { \
+	__builtin_ptx_read_ctaid_x(), \
+	__builtin_ptx_read_ctaid_y(), \
+	__builtin_ptx_read_ctaid_z() \
+}
+#define group_size size3 { \
+	__builtin_ptx_read_nctaid_x(), \
+	__builtin_ptx_read_nctaid_y(), \
+	__builtin_ptx_read_nctaid_z() \
+}
+
 static uint64_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_ctaid_x() * __builtin_ptx_read_ntid_x() + __builtin_ptx_read_tid_x();
 }
