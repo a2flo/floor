@@ -37,7 +37,7 @@
 static string log_filename { "" }, msg_filename { "" };
 static unique_ptr<ofstream> log_file { nullptr }, msg_file { nullptr };
 static atomic<unsigned int> log_err_counter { 0u };
-static logger::LOG_TYPE log_verbosity { logger::LOG_TYPE::UNDECORATED };
+static atomic<logger::LOG_TYPE> log_verbosity { logger::LOG_TYPE::UNDECORATED };
 static bool log_append_mode { false };
 static safe_mutex log_store_lock;
 static vector<pair<logger::LOG_TYPE, string>> log_store GUARDED_BY(log_store_lock), log_output_store;
@@ -310,4 +310,12 @@ void logger::log_internal(stringstream& buffer, const LOG_TYPE& type, const char
 	}
 	log_store.emplace_back(type, buffer.str());
 	log_store_lock.unlock();
+}
+
+void logger::set_verbosity(const LOG_TYPE& verbosity) {
+	log_verbosity = verbosity;
+}
+
+logger::LOG_TYPE logger::get_verbosity() {
+	return log_verbosity;
 }

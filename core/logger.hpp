@@ -70,6 +70,11 @@ public:
 		log_internal(buffer, type, str, std::forward<Args>(args)...);
 	}
 	
+	//! sets the logger verbosity to the specific LOG_TYPE verbosity level
+	static void set_verbosity(const LOG_TYPE& verbosity);
+	//! returns the current logger verbosity level
+	static LOG_TYPE get_verbosity();
+	
 protected:
 	// static class
 	logger(const logger&) = delete;
