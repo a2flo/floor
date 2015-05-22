@@ -152,8 +152,7 @@ void write_imageh(image3d_t image, opencl_int4 coord, opencl_half4 color);
 // floor image read/write wrappers
 floor_inline_always float4 read(const image2d_t& img, const int2& coord) __attribute__((noduplicate));
 floor_inline_always float4 read(const image2d_t& img, const int2& coord) __attribute__((noduplicate)) {
-	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	return float4::from_clang_vector(read_imagef(img, smplr, coord));
+	return float4::from_clang_vector(read_imagef(img, coord));
 }
 floor_inline_always float4 read(const image2d_t& img, const float2& coord) __attribute__((noduplicate));
 floor_inline_always float4 read(const image2d_t& img, const float2& coord) __attribute__((noduplicate)) {
