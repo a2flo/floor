@@ -44,13 +44,14 @@ public:
 	virtual const void* get_queue_ptr() const = 0;
 	
 	//! enqueues (and executes) the specified kernel into this queue
-	template <typename... Args, class work_size_type,
-			  enable_if_t<(is_same<work_size_type, size1>::value ||
-						   is_same<work_size_type, size2>::value ||
-						   is_same<work_size_type, size3>::value), int> = 0>
+	template <typename... Args, class work_size_type_global, class work_size_type_local,
+			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
+							is_same<decay_t<work_size_type_global>, size2>::value ||
+							is_same<decay_t<work_size_type_global>, size3>::value) &&
+						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
 	void execute(shared_ptr<compute_kernel> kernel,
-				 work_size_type&& global_work_size,
-				 work_size_type&& local_work_size,
+				 work_size_type_global&& global_work_size,
+				 work_size_type_local&& local_work_size,
 				 Args&&... args) {
 		kernel->execute(this, global_work_size, local_work_size, forward<Args>(args)...);
 	}

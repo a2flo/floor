@@ -881,6 +881,51 @@ public:
 		return vector_type(*this).wrap(max);
 	}
 	
+	//! rounds the components of this vector to next multiple of "multiple"
+	//! (e.g. { 17, 32, 33 }.round_next_multiple(32) == { 32, 32, 64 })
+	constexpr vector_type rounded_next_multiple(const scalar_type& multiple) const {
+		const auto mod = *this % multiple;
+		return {
+			mod.x == (scalar_type)0 ? x : x - mod.x + multiple,
+#if FLOOR_VECTOR_WIDTH >= 2
+			mod.y == (scalar_type)0 ? y : y - mod.y + multiple,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			mod.z == (scalar_type)0 ? z : z - mod.z + multiple,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			mod.w == (scalar_type)0 ? w : w - mod.w + multiple,
+#endif
+		};
+	}
+	//! rounds the components of this vector to next multiple of "multiple"
+	constexpr vector_type& round_next_multiple(const scalar_type& multiple) {
+		*this = rounded_next_multiple(multiple);
+		return *this;
+	}
+	
+	//! rounds each component of this vector to next multiple of each component in "multiple_vec"
+	constexpr vector_type rounded_next_multiple(const vector_type& multiple_vec) const {
+		const auto mod = *this % multiple_vec;
+		return {
+			mod.x == (scalar_type)0 ? x : x - mod.x + multiple_vec.x,
+#if FLOOR_VECTOR_WIDTH >= 2
+			mod.y == (scalar_type)0 ? y : y - mod.y + multiple_vec.y,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			mod.z == (scalar_type)0 ? z : z - mod.z + multiple_vec.z,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			mod.w == (scalar_type)0 ? w : w - mod.w + multiple_vec.w,
+#endif
+		};
+	}
+	//! rounds each component of this vector to next multiple of each component in "multiple_vec"
+	constexpr vector_type& round_next_multiple(const vector_type& multiple_vec) {
+		*this = rounded_next_multiple(multiple_vec);
+		return *this;
+	}
+	
 	//////////////////////////////////////////
 	// geometric
 #pragma mark geometric

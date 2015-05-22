@@ -36,10 +36,11 @@ public:
 	virtual ~compute_kernel() = 0;
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!
-	template <typename... Args, class work_size_type> void execute(compute_queue* queue_ptr,
-																   work_size_type&& global_work_size,
-																   work_size_type&& local_work_size,
-																   Args&&... args);
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	void execute(compute_queue* queue_ptr,
+				 work_size_type_global&& global_work_size,
+				 work_size_type_local&& local_work_size,
+				 Args&&... args);
 	
 protected:
 	//! same as the one in compute_base, but this way we don't need access to that object
@@ -53,16 +54,17 @@ protected:
 
 #if !defined(FLOOR_OPENCL_KERNEL_IMPL) && !defined(FLOOR_CUDA_KERNEL_IMPL) && !defined(FLOOR_METAL_KERNEL_IMPL)
 // forwarder to the actual kernel classes (disabled when included by them)
-template <typename... Args, class work_size_type> void compute_kernel::execute(compute_queue* queue_ptr,
-																			   work_size_type&& global_work_size,
-																			   work_size_type&& local_work_size,
-																			   Args&&... args) {
+template <typename... Args, class work_size_type_global, class work_size_type_local>
+void compute_kernel::execute(compute_queue* queue_ptr,
+							 work_size_type_global&& global_work_size,
+							 work_size_type_local&& local_work_size,
+							 Args&&... args) {
 	// get around the nightmare of the non-existence of virtual (variadic) template member functions ...
 	switch(get_compute_type()) {
 		case COMPUTE_TYPE::CUDA:
 #if !defined(FLOOR_NO_CUDA)
 			static_cast<cuda_kernel*>(this)->execute(queue_ptr,
-													 decay_t<work_size_type>::dim,
+													 decay_t<work_size_type_global>::dim,
 													 size3 { global_work_size },
 													 size3 { local_work_size },
 													 forward<Args>(args)...);
@@ -71,7 +73,7 @@ template <typename... Args, class work_size_type> void compute_kernel::execute(c
 		case COMPUTE_TYPE::METAL:
 #if !defined(FLOOR_NO_METAL)
 			static_cast<metal_kernel*>(this)->execute(queue_ptr,
-													  decay_t<work_size_type>::dim,
+													  decay_t<work_size_type_global>::dim,
 													  size3 { global_work_size },
 													  size3 { local_work_size },
 													  forward<Args>(args)...);
@@ -80,7 +82,7 @@ template <typename... Args, class work_size_type> void compute_kernel::execute(c
 		case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
 			static_cast<opencl_kernel*>(this)->execute(queue_ptr,
-													   decay_t<work_size_type>::dim,
+													   decay_t<work_size_type_global>::dim,
 													   size3 { global_work_size },
 													   size3 { local_work_size },
 													   forward<Args>(args)...);
