@@ -1087,6 +1087,9 @@ bool floor::get_compute_use_cache() {
 	return config.use_cache;
 }
 
+const unordered_set<string>& floor::get_opencl_whitelist() {
+	return config.opencl_whitelist;
+}
 const string& floor::get_opencl_platform() {
 	return config.opencl_platform;
 }
@@ -1109,6 +1112,9 @@ const string& floor::get_opencl_clang_path() {
 	return config.opencl_clang;
 }
 
+const unordered_set<string>& floor::get_cuda_whitelist() {
+	return config.cuda_whitelist;
+}
 const string& floor::get_cuda_compiler() {
 	return config.cuda_compiler;
 }
@@ -1134,6 +1140,9 @@ const string& floor::get_cuda_force_compile_sm() {
 	return config.cuda_force_compile_sm;
 }
 
+const unordered_set<string>& floor::get_metal_whitelist() {
+	return config.metal_whitelist;
+}
 const string& floor::get_metal_compiler() {
 	return config.metal_compiler;
 }
@@ -1153,6 +1162,9 @@ const string& floor::get_metal_clang_path() {
 	return config.metal_clang;
 }
 
+const unordered_set<string>& floor::get_host_whitelist() {
+	return config.host_whitelist;
+}
 const string& floor::get_host_compiler() {
 	return config.host_compiler;
 }

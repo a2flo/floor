@@ -171,9 +171,15 @@ namespace std {
 	using ::pow;
 }
 
-// can't match/produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" is missing in c++ mode,
-// but apparently extern c printf is working fine with intels and amds implementation, so just use that ...
-extern "C" int printf(const char __constant* st, ...);
+#if defined(FLOOR_COMPUTE_SPIR)
+// can't normally produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" keyword is missing in c++ mode
+// -> slay it with an asm label
+int printf(const char __constant* st, ...) asm("_Z6printfPrU3AS2cz");
+#elif defined(FLOOR_COMPUTE_APPLECL)
+// apple uses __printf_cl internally, with c naming!
+extern "C" int __printf_cl(const char __constant* __restrict st, ...);
+#define printf __printf_cl
+#endif
 
 // barrier and mem_fence functionality
 opencl_c_func void barrier(uint32_t flags) __attribute__((noduplicate));

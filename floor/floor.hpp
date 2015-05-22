@@ -149,6 +149,7 @@ public:
 	static bool get_compute_use_cache();
 	
 	// opencl
+	static const unordered_set<string>& get_opencl_whitelist();
 	static const string& get_opencl_platform();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
@@ -158,6 +159,7 @@ public:
 	static const string& get_opencl_clang_path();
 	
 	// cuda
+	static const unordered_set<string>& get_cuda_whitelist();
 	static const string& get_cuda_compiler();
 	static const string& get_cuda_llc();
 	static const string& get_cuda_libcxx_path();
@@ -168,6 +170,7 @@ public:
 	static const string& get_cuda_force_compile_sm();
 	
 	// metal
+	static const unordered_set<string>& get_metal_whitelist();
 	static const string& get_metal_compiler();
 	static const string& get_metal_llc();
 	static const string& get_metal_as();
@@ -176,6 +179,7 @@ public:
 	static const string& get_metal_clang_path();
 	
 	// host
+	static const unordered_set<string>& get_host_whitelist();
 	static const string& get_host_compiler();
 	static const string& get_host_llc();
 	static const string& get_host_as();
