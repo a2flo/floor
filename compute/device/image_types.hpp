@@ -322,4 +322,46 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim, const
 	return size;
 }
 
+//! image data size -> data type mapping
+template <COMPUTE_IMAGE_TYPE image_type, size_t size, typename = void> struct image_sized_data_type {};
+template <COMPUTE_IMAGE_TYPE image_type, size_t size>
+struct image_sized_data_type<image_type, size,
+							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+										  size > 0u && size <= 64u)>> {
+	typedef conditional_t<(size > 0u && size <= 8u), uint8_t, conditional_t<
+						  (size > 8u && size <= 16u), uint16_t, conditional_t<
+						  (size > 16u && size <= 32u), uint32_t, conditional_t<
+						  (size > 32u && size <= 64u), uint64_t, void>>>> type;
+};
+template <COMPUTE_IMAGE_TYPE image_type, size_t size>
+struct image_sized_data_type<image_type, size,
+							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+										  size > 0u && size <= 64u)>> {
+	typedef conditional_t<(size > 0u && size <= 8u), int8_t, conditional_t<
+						  (size > 8u && size <= 16u), int16_t, conditional_t<
+						  (size > 16u && size <= 32u), int32_t, conditional_t<
+						  (size > 32u && size <= 64u), int64_t, void>>>> type;
+};
+template <COMPUTE_IMAGE_TYPE image_type, size_t size>
+struct image_sized_data_type<image_type, size,
+							 enable_if_t<((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
+										  size > 0u && size <= 64u)>> {
+	typedef conditional_t<(size > 0u && size <= 16u), float /* no half type, load/stores via float */, conditional_t<
+						  (size > 16u && size <= 32u), float, conditional_t<
+						  (size > 32u && size <= 64u), double, void>>> type;
+};
+
+//! data type of a single image channel (always 32-bit), used for image reads and writes
+template <COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) != COMPUTE_IMAGE_TYPE::NONE>* = nullptr>
+struct image_tex_channel_data_type {
+	typedef typename image_sized_data_type<image_type, 32u>::type type;
+};
+
+//! image texel data type used for image reads and writes: vector { 1, 2, 3, 4 } < { float, uint32_t, int32_t } >
+template <COMPUTE_IMAGE_TYPE image_type>
+struct image_texel_data_type {
+	typedef vector_n<typename image_tex_channel_data_type<image_type>::type, image_channel_count(image_type)> type;
+};
+
 #endif
