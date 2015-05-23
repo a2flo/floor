@@ -72,11 +72,6 @@
 #define floor_hidden
 #endif
 
-// compat with compute device code
-#if !defined(constant)
-#define constant
-#endif
-
 #endif // __FLOOR_ESSENTIALS_HPP__
 
 // -> keep these outside the header guard

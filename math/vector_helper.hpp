@@ -105,35 +105,35 @@ struct integral_eqv<int128_type, typename enable_if<(is_same<int128_type, __int1
 // nan and inf aren't constexpr yet in msvc's stl
 #if defined(_MSC_VER)
 template <typename T, typename = void> struct nan_helper {
-	static constexpr constant const T scalar_nan { (T)0 };
+	static constexpr const T scalar_nan { (T)0 };
 };
 template <typename T> struct nan_helper<T, enable_if_t<is_same<T, float>::value>> {
-	static constexpr constant const T scalar_nan { __builtin_nanf("") };
+	static constexpr const T scalar_nan { __builtin_nanf("") };
 };
 template <typename T> struct nan_helper<T, enable_if_t<is_same<T, double>::value>> {
-	static constexpr constant const T scalar_nan { __builtin_nan("") };
+	static constexpr const T scalar_nan { __builtin_nan("") };
 };
 template <typename T> struct nan_helper<T, enable_if_t<is_same<T, long double>::value>> {
-	static constexpr constant const T scalar_nan { __builtin_nanl("") };
+	static constexpr const T scalar_nan { __builtin_nanl("") };
 };
 template <typename T, typename = void> struct inf_helper {
-	static constexpr constant const T scalar_inf { (T)0 };
+	static constexpr const T scalar_inf { (T)0 };
 };
 template <typename T> struct inf_helper<T, enable_if_t<is_same<T, float>::value>> {
-	static constexpr constant const T scalar_inf { __builtin_huge_valf() };
+	static constexpr const T scalar_inf { __builtin_huge_valf() };
 };
 template <typename T> struct inf_helper<T, enable_if_t<is_same<T, double>::value>> {
-	static constexpr constant const T scalar_inf { __builtin_huge_val() };
+	static constexpr const T scalar_inf { __builtin_huge_val() };
 };
 template <typename T> struct inf_helper<T, enable_if_t<is_same<T, long double>::value>> {
-	static constexpr constant const T scalar_inf { __builtin_huge_vall() };
+	static constexpr const T scalar_inf { __builtin_huge_vall() };
 };
 #else
 template <typename T> struct nan_helper {
-	static constexpr constant const T scalar_nan { numeric_limits<T>::quiet_NaN() };
+	static constexpr const T scalar_nan { numeric_limits<T>::quiet_NaN() };
 };
 template <typename T> struct inf_helper {
-	static constexpr constant const T scalar_inf { numeric_limits<T>::infinity() };
+	static constexpr const T scalar_inf { numeric_limits<T>::infinity() };
 };
 #endif
 
@@ -211,10 +211,10 @@ public: \
 	typedef typename signed_eqv<vh_type>::type signed_type; \
 	typedef typename sized_unsigned_eqv<vh_type>::type sized_unsigned_type; \
 	typedef typename integral_eqv<vh_type>::type integral_type; \
-	static constexpr constant const scalar_type scalar_zero { (scalar_type)0 }; \
-	static constexpr constant const scalar_type scalar_one { (scalar_type)1 }; \
-	static constexpr constant const scalar_type scalar_nan { nan_helper<scalar_type>::scalar_nan }; \
-	static constexpr constant const scalar_type scalar_inf { inf_helper<scalar_type>::scalar_inf }; \
+	static constexpr const scalar_type scalar_zero { (scalar_type)0 }; \
+	static constexpr const scalar_type scalar_one { (scalar_type)1 }; \
+	static constexpr const scalar_type scalar_nan { nan_helper<scalar_type>::scalar_nan }; \
+	static constexpr const scalar_type scalar_inf { inf_helper<scalar_type>::scalar_inf }; \
 	func_impl \
 \
 protected: \

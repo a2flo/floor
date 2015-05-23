@@ -176,7 +176,7 @@ public:
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
-	static constexpr constant const size_t dim { FLOOR_VECTOR_WIDTH };
+	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
 	//! corresponding clang vector type
 	typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
 	

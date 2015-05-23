@@ -239,7 +239,7 @@ void write_imagei(image3d_t image, opencl_int4 coord, opencl_int4 color);
 void write_imageui(image3d_t image, opencl_int4 coord, opencl_uint4 color);
 void write_imageh(image3d_t image, opencl_int4 coord, opencl_half4 color);
 
-// floor image read/write wrappers
+// COMPUTE_IMAGE_TYPE -> single component data type
 template <COMPUTE_IMAGE_TYPE itype, typename = void> struct ocl_image_data_type {};
 template <COMPUTE_IMAGE_TYPE itype>
 struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT>> {
@@ -256,14 +256,26 @@ struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DAT
 	typedef float type;
 };
 
+// convert any coordinate vector type to int* or float*
+template <typename coord_type, typename ret_coord_type = vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim>>
+auto convert_ocl_coord(const coord_type& coord) {
+	return ret_coord_type { coord };
+}
+// convert any fundamental (single value) coordinate type to int or float
+template <typename coord_type, typename ret_coord_type = conditional_t<is_integral<coord_type>::value, int, float>, enable_if_t<is_fundamental<coord_type>::value>>
+auto convert_ocl_coord(const coord_type& coord) {
+	return ret_coord_type { coord };
+}
+
+// floor image read/write wrappers
 template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
 enable_if_t<component_count == 1, int> = 0>
 auto read_image(const img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, coord);
+	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, coord);
+	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
 #endif
 	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
 	return vec4.x;
@@ -274,9 +286,9 @@ enable_if_t<component_count == 2, int> = 0>
 auto read_image(const img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, coord);
+	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, coord);
+	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
 #endif
 	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
 	return vector_n<typename ocl_image_data_type<data_type>::type, 2> { vec4.xy };
@@ -287,9 +299,9 @@ enable_if_t<component_count == 3, int> = 0>
 auto read_image(const img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, coord);
+	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, coord);
+	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
 #endif
 	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
 	return vector_n<typename ocl_image_data_type<data_type>::type, 3> { vec4.xyz };
@@ -300,9 +312,9 @@ enable_if_t<component_count == 4, int> = 0>
 auto read_image(const img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, coord);
+	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, coord);
+	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
 #endif
 	return vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
 }
