@@ -224,15 +224,52 @@ floor_inline_always auto read(int2 coord) const {
 }
 #endif
 
-template <typename ret_type = float4, COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<is_same<ret_type, float4>::value && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
-floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
-	ret_type ret;
+template <COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<(image_channel_count(image_type) == 1 &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+	float4 color;
 	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
+		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return ret;
+	return color.x;
 }
+
+template <COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<(image_channel_count(image_type) == 2 &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+	float4 color;
+	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
+		"l"(img.tex), "r"(coord.x), "r"(coord.y));
+	return color.xy;
+}
+
+template <COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<(image_channel_count(image_type) == 3 &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+	float4 color;
+	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
+		"l"(img.tex), "r"(coord.x), "r"(coord.y));
+	return color.xyz;
+}
+
+template <COMPUTE_IMAGE_TYPE image_type,
+		  enable_if_t<(image_channel_count(image_type) == 4 &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+	float4 color;
+	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
+		"l"(img.tex), "r"(coord.x), "r"(coord.y));
+	return color;
+}
+
+// TODO: support non-float types
+#if 0
 template <typename ret_type, COMPUTE_IMAGE_TYPE image_type,
 		  enable_if_t<is_same<ret_type, uchar4>::value && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
 floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
@@ -242,6 +279,7 @@ floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
 	return uchar4 { ret * 255.0f };
 }
+#endif
 
 #endif
 

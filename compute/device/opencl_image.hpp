@@ -32,6 +32,96 @@
 #define FLOOR_OPENCL_FILTER_NEAREST              0x10
 #define FLOOR_OPENCL_FILTER_LINEAR               0x20
 
+// COMPUTE_IMAGE_TYPE -> opencl image*d_*t type mapping
+#define OCL_IMAGE_MASK (COMPUTE_IMAGE_TYPE::__DIM_MASK | COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK | COMPUTE_IMAGE_TYPE::FLAG_DEPTH | COMPUTE_IMAGE_TYPE::FLAG_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_BUFFER | COMPUTE_IMAGE_TYPE::FLAG_CUBE | COMPUTE_IMAGE_TYPE::FLAG_MSAA)
+
+template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct ocl_image_type {};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D>> {
+	typedef image1d_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY>> {
+	typedef image1d_array_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER>> {
+	typedef image1d_buffer_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D>> {
+	typedef image2d_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY>> {
+	typedef image2d_array_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA>> {
+	typedef image2d_msaa_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY>> {
+	typedef image2d_array_msaa_t type;
+};
+
+// NOTE: also applies to combined stencil format
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D |
+																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+	typedef image2d_depth_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY |
+																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+	typedef image2d_array_depth_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA |
+																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+	typedef image2d_msaa_depth_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY |
+																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
+	typedef image2d_array_msaa_depth_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_3D>> {
+	typedef image3d_t type;
+};
+
+// TODO: not sure if and how these are actually supported (considering they are both 2D arrays, use that type - not sure about filtering)
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE>> {
+	typedef image2d_array_t type;
+};
+
+template <COMPUTE_IMAGE_TYPE image_type>
+struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY>> {
+	typedef image2d_array_t type;
+};
+
+#undef OCL_IMAGE_MASK
+
+// image access qualifiers are function parameter types/attributes that aren't inherited from a typedef or using decl
+// -> macros to the rescue
+#define ro_image read_only ocl_image
+#define wo_image write_only ocl_image
+#define rw_image read_write ocl_image
+template <COMPUTE_IMAGE_TYPE image_type> using ocl_image = typename ocl_image_type<image_type>::type;
+
 // opencl image read functions
 opencl_float4 opencl_const_func read_imagef(image1d_t image, sampler_t sampler, int coord);
 opencl_float4 opencl_const_func read_imagef(image1d_t image, sampler_t sampler, float coord);
@@ -150,113 +240,91 @@ void write_imageui(image3d_t image, opencl_int4 coord, opencl_uint4 color);
 void write_imageh(image3d_t image, opencl_int4 coord, opencl_half4 color);
 
 // floor image read/write wrappers
-//template <typename ret_type = typename image_texel_data_type<>::type>
-floor_inline_always auto read(const image2d_t& img, const int2& coord) {
+template <COMPUTE_IMAGE_TYPE itype, typename = void> struct ocl_image_data_type {};
+template <COMPUTE_IMAGE_TYPE itype>
+struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT>> {
+	//typedef uint32_t type;
+	typedef float type; // always float for now (TODO: normalized image stuff)
+};
+template <COMPUTE_IMAGE_TYPE itype>
+struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT>> {
+	//typedef int32_t type;
+	typedef float type;
+};
+template <COMPUTE_IMAGE_TYPE itype>
+struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT>> {
+	typedef float type;
+};
+
+template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
+enable_if_t<component_count == 1, int> = 0>
+auto read_image(const img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	return float4::from_clang_vector(read_imagef(img, smplr, coord));
+	const auto clang_vec = read_imagef(img, smplr, coord);
 #else
-	return float4::from_clang_vector(read_imagef(img, coord));
+	const auto clang_vec = read_imagef(img, coord);
 #endif
+	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
+	return vec4.x;
 }
-floor_inline_always auto read(const image2d_t& img, const float2& coord) {
-	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_TRUE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	return float4::from_clang_vector(read_imagef(img, smplr, coord));
+
+template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
+enable_if_t<component_count == 2, int> = 0>
+auto read_image(const img_type& img, const coord_type& coord) {
+#if defined(FLOOR_COMPUTE_SPIR)
+	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+	const auto clang_vec = read_imagef(img, smplr, coord);
+#else
+	const auto clang_vec = read_imagef(img, coord);
+#endif
+	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
+	return vector_n<typename ocl_image_data_type<data_type>::type, 2> { vec4.xy };
 }
+
+template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
+enable_if_t<component_count == 3, int> = 0>
+auto read_image(const img_type& img, const coord_type& coord) {
+#if defined(FLOOR_COMPUTE_SPIR)
+	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+	const auto clang_vec = read_imagef(img, smplr, coord);
+#else
+	const auto clang_vec = read_imagef(img, coord);
+#endif
+	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
+	return vector_n<typename ocl_image_data_type<data_type>::type, 3> { vec4.xyz };
+}
+
+template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
+enable_if_t<component_count == 4, int> = 0>
+auto read_image(const img_type& img, const coord_type& coord) {
+#if defined(FLOOR_COMPUTE_SPIR)
+	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+	const auto clang_vec = read_imagef(img, smplr, coord);
+#else
+	const auto clang_vec = read_imagef(img, coord);
+#endif
+	return vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
+}
+
+#define FLOOR_IMAGE_DATA_TYPE(img) \
+__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK, COMPUTE_IMAGE_TYPE::INT), \
+					  COMPUTE_IMAGE_TYPE::INT, \
+					  __builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK, COMPUTE_IMAGE_TYPE::UINT), \
+											COMPUTE_IMAGE_TYPE::UINT, COMPUTE_IMAGE_TYPE::FLOAT))
+
+#define read(img, ...) \
+__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_1), \
+					  read_image<1, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
+					  __builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_2), \
+											read_image<2, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
+											__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_3), \
+																  read_image<3, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
+																  read_image<4, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__))))
 
 floor_inline_always void write(const image2d_t& img, const int2& coord, const float4& data) {
 	write_imagef(img, coord, data);
 }
-
-// COMPUTE_IMAGE_TYPE -> opencl image*d_*t type mapping
-#define OCL_IMAGE_MASK (COMPUTE_IMAGE_TYPE::__DIM_MASK | COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK | COMPUTE_IMAGE_TYPE::FLAG_DEPTH | COMPUTE_IMAGE_TYPE::FLAG_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_BUFFER | COMPUTE_IMAGE_TYPE::FLAG_CUBE | COMPUTE_IMAGE_TYPE::FLAG_MSAA)
-
-template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct ocl_image_type {};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D>> {
-	typedef image1d_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY>> {
-	typedef image1d_array_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER>> {
-	typedef image1d_buffer_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D>> {
-	typedef image2d_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY>> {
-	typedef image2d_array_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA>> {
-	typedef image2d_msaa_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY>> {
-	typedef image2d_array_msaa_t type;
-};
-
-// NOTE: also applies to combined stencil format
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D |
-																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-	typedef image2d_depth_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY |
-																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-	typedef image2d_array_depth_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA |
-																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-	typedef image2d_msaa_depth_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY |
-																				COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-	typedef image2d_array_msaa_depth_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_3D>> {
-	typedef image3d_t type;
-};
-
-// TODO: not sure if and how these are actually supported (considering they are both 2D arrays, use that type - not sure about filtering)
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE>> {
-	typedef image2d_array_t type;
-};
-
-template <COMPUTE_IMAGE_TYPE image_type>
-struct ocl_image_type<image_type, enable_if_t<(image_type & OCL_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY>> {
-	typedef image2d_array_t type;
-};
-
-#undef OCL_IMAGE_MASK
-
-// image access qualifiers are function parameter types/attributes that aren't inherited from a typedef or using decl
-// -> macros to the rescue
-#define ro_image read_only ocl_image
-#define wo_image write_only ocl_image
-#define rw_image read_write ocl_image
-template <COMPUTE_IMAGE_TYPE image_type> using ocl_image = typename ocl_image_type<image_type>::type;
 
 #endif
 

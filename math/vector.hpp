@@ -243,7 +243,7 @@ public:
 #if FLOOR_VECTOR_WIDTH == 2
 	//! construction from <vector1, scalar>
 	constexpr FLOOR_VECNAME(const vector1<scalar_type>& vec,
-										 const scalar_type val = (scalar_type)0) noexcept :
+							const scalar_type val = (scalar_type)0) noexcept :
 	x(vec.x), y(val) {}
 #endif
 #if FLOOR_VECTOR_WIDTH == 3
