@@ -349,6 +349,20 @@ index 704a375..d091c11 100644
    let Documentation = [Undocumented];
  }
  
+diff --git a/tools/clang/include/clang/Basic/Builtins.def b/tools/clang/include/clang/Basic/Builtins.def
+index e705382..63fdc9d 100644
+--- a/tools/clang/include/clang/Basic/Builtins.def
++++ b/tools/clang/include/clang/Basic/Builtins.def
+@@ -1210,6 +1210,9 @@ BUILTIN(__builtin_addressof, "v*v&", "nct")
+ BUILTIN(__builtin_operator_new, "v*z", "c")
+ BUILTIN(__builtin_operator_delete, "vv*", "n")
+ 
++// floor builtins.
++BUILTIN(__builtin_image_type, "i.", "nctu")
++
+ #undef BUILTIN
+ #undef LIBBUILTIN
+ #undef LANGBUILTIN
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
 index 5d08833..52d3d3e 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
@@ -517,6 +531,64 @@ index bccdae9..65a7d6c 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
+diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
+index 7d7ca99..deaa074 100644
+--- a/tools/clang/lib/AST/ExprConstant.cpp
++++ b/tools/clang/lib/AST/ExprConstant.cpp
+@@ -5849,6 +5849,44 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
+   return false;
+ }
+ 
++/// EvaluateBuiltinImageType - Evaluate __builtin_image_type(expr, mask, cmp).
++static int EvaluateBuiltinImageType(ASTContext &Ctx, const CallExpr *E) {
++	if(E->getNumArgs() != 3) return 0;
++	const auto img_arg = E->getArg(0);
++	const auto mask_arg = E->getArg(1);
++	const auto cmp_arg = E->getArg(2);
++	
++	// mask and cmp must both be integer constant exprs (enum values, evaluable at compile-time)
++	if(!mask_arg->isIntegerConstantExpr(Ctx)) {
++		return 0;
++	}
++	if(!cmp_arg->isIntegerConstantExpr(Ctx)) {
++		return 0;
++	}
++	
++	llvm::APSInt mask_int, cmp_int;
++	if(!mask_arg->EvaluateAsInt(mask_int, Ctx)) {
++		return 0;
++	}
++	if(!cmp_arg->EvaluateAsInt(cmp_int, Ctx)) {
++		return 0;
++	}
++	
++	// image arg must be a template
++	if(const auto img_tmpl_type = img_arg->getType()->getAs<TemplateSpecializationType>()) {
++		if(img_tmpl_type->getNumArgs() < 1) return 0;
++		if(auto img_tmpl_arg_expr = img_tmpl_type->getArg(0).getAsExpr()) {
++			llvm::APSInt img_type_int;
++			if(img_tmpl_arg_expr->EvaluateAsInt(img_type_int, Ctx)) {
++				// note: all ints are unsigned 32-bit
++				return ((uint32_t(img_type_int.getZExtValue()) & uint32_t(mask_int.getZExtValue())) ==
++						uint32_t(cmp_int.getZExtValue()));
++			}
++		}
++	}
++	return 0;
++}
++
+ /// EvaluateBuiltinClassifyType - Evaluate __builtin_classify_type the same way
+ /// as GCC.
+ static int EvaluateBuiltinClassifyType(const CallExpr *E) {
+@@ -6263,6 +6301,8 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
+     return BuiltinOp == Builtin::BI__atomic_always_lock_free ?
+         Success(0, E) : Error(E);
+   }
++  case Builtin::BI__builtin_image_type:
++    return Success(EvaluateBuiltinImageType(Info.Ctx, E), E);
+   }
+ }
+ 
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
 index 977d6fc..307186b 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
@@ -1532,6 +1604,21 @@ index 2c65332..30bb730 100644
      addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
+diff --git a/tools/clang/lib/Sema/SemaChecking.cpp b/tools/clang/lib/Sema/SemaChecking.cpp
+index 66be962..4d73bb3 100644
+--- a/tools/clang/lib/Sema/SemaChecking.cpp
++++ b/tools/clang/lib/Sema/SemaChecking.cpp
+@@ -327,6 +327,10 @@ Sema::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+     // so ensure that they are declared.
+     DeclareGlobalNewDelete();
+     break;
++  case Builtin::BI__builtin_image_type:
++    if (checkArgCount(*this, TheCall, 3)) return true;
++    TheCall->setType(Context.IntTy);
++    break;
+   }
+ 
+   // Since the target specific builtins for each arch overlap, only check those
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
 index 8716227..93df749 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
