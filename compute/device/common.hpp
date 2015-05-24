@@ -119,7 +119,6 @@ namespace floor_compute {
 		T& operator*() { return elem; }
 		const T* const operator->() const { return &elem; }
 		T* operator->() { return &elem; }
-		operator T() const { return elem; }
 	};
 	template <typename T> struct direct_type_wrapper : T {
 		using T::T;
