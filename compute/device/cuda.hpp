@@ -63,7 +63,9 @@ namespace std {
 	float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
 	float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
 	float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * 1.442695041f); } // 2^(x / ln(2))
+	float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
 	float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * 1.442695041f; } // log_e = log_2(x) / log_2(e)
+	float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
 	
 	// double math functions
 	double sqrt(double a) { return __nvvm_sqrt_rz_d(a); }
@@ -90,7 +92,9 @@ namespace std {
 	// TODO: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
 	double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
 	double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
+	double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
 	double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
+	double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
 	
 	// int math functions
 	floor_inline_always int16_t abs(int16_t a) {

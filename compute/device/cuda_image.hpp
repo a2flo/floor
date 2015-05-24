@@ -224,48 +224,53 @@ floor_inline_always auto read(int2 coord) const {
 }
 #endif
 
-template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(image_channel_count(image_type) == 1 &&
-					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, int2 coord) {
-	float4 color;
-	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
-		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return color.x;
+// TODO: do this properly
+template <COMPUTE_IMAGE_TYPE image_type>
+static constexpr bool is_int32_format() {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
+}
+
+template <COMPUTE_IMAGE_TYPE image_type>
+static constexpr bool is_uint32_format() {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
 }
 
 template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(image_channel_count(image_type) == 2 &&
+		  enable_if_t<(!is_uint32_format<image_type>() &&
+					   !is_int32_format<image_type>() &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	float4 color;
 	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
 		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return color.xy;
+	return image_vec_ret_type<image_type, float>::fit(color);
 }
 
 template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(image_channel_count(image_type) == 3 &&
+		  enable_if_t<(!is_uint32_format<image_type>() &&
+					   is_int32_format<image_type>() &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
-	float4 color;
-	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
+	int4 color;
+	asm("tex.2d.v4.s32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=r"(color.x), "=r"(color.y), "=r"(color.z), "=r"(color.w) :
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return color.xyz;
+	return image_vec_ret_type<image_type, int32_t>::fit(color);
 }
 
 template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(image_channel_count(image_type) == 4 &&
-					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+enable_if_t<(is_uint32_format<image_type>() &&
+			 !is_int32_format<image_type>() &&
+			 has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
-	float4 color;
-	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
+	uint4 color;
+	asm("tex.2d.v4.u32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
+		"=r"(color.x), "=r"(color.y), "=r"(color.z), "=r"(color.w) :
 		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return color;
+	return image_vec_ret_type<image_type, uint32_t>::fit(color);
 }
 
 // TODO: support non-float types

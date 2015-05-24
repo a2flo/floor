@@ -77,7 +77,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), float, "f")
 	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), float, "f")
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
@@ -98,7 +100,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), double, "d")
 	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
 #endif
 	
 #if !defined(FLOOR_COMPUTE)
@@ -120,7 +124,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2l(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), long double, "l")
 	FLOOR_CONST_MATH_SELECT(exp, std::expl(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, std::logl(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
 #endif
 
 #undef FLOOR_IS_CONSTEXPR

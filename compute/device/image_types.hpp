@@ -204,6 +204,14 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	RG16I					= CHANNELS_2 | FORMAT_16 | INT,
 	RGB16I					= CHANNELS_3 | FORMAT_16 | INT,
 	RGBA16I					= CHANNELS_4 | FORMAT_16 | INT,
+	R32UI					= CHANNELS_1 | FORMAT_32 | UINT,
+	RG32UI					= CHANNELS_2 | FORMAT_32 | UINT,
+	RGB32UI					= CHANNELS_3 | FORMAT_32 | UINT,
+	RGBA32UI				= CHANNELS_4 | FORMAT_32 | UINT,
+	R32I					= CHANNELS_1 | FORMAT_32 | INT,
+	RG32I					= CHANNELS_2 | FORMAT_32 | INT,
+	RGB32I					= CHANNELS_3 | FORMAT_32 | INT,
+	RGBA32I					= CHANNELS_4 | FORMAT_32 | INT,
 	R16F					= CHANNELS_1 | FORMAT_16 | FLOAT,
 	RG16F					= CHANNELS_2 | FORMAT_16 | FLOAT,
 	RGB16F					= CHANNELS_3 | FORMAT_16 | FLOAT,
@@ -362,6 +370,25 @@ struct image_tex_channel_data_type {
 template <COMPUTE_IMAGE_TYPE image_type>
 struct image_texel_data_type {
 	typedef vector_n<typename image_tex_channel_data_type<image_type>::type, image_channel_count(image_type)> type;
+};
+
+//! fits a 4-component vector to the corresponding image data vector type
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type, typename = void> struct image_vec_ret_type {};
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
+struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 1>> {
+	static constexpr floor_inline_always data_type fit(const vector_n<data_type, 4>& color) { return color.x; }
+};
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
+struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 2>> {
+	static constexpr floor_inline_always vector_n<data_type, 2> fit(const vector_n<data_type, 4>& color) { return color.xy; }
+};
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
+struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 3>> {
+	static constexpr floor_inline_always vector_n<data_type, 3> fit(const vector_n<data_type, 4>& color) { return color.xyz; }
+};
+template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
+struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 4>> {
+	static constexpr floor_inline_always vector_n<data_type, 4> fit(const vector_n<data_type, 4>& color) { return color; }
 };
 
 #endif

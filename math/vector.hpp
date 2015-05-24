@@ -2022,8 +2022,12 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::atan, atan, ataned)
 	//! applies the exp function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::exp, exp, exped)
+	//! applies the exp2 function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::exp2, exp2, exp2ed)
 	//! applies the log function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log, log, loged)
+	//! applies the log2 function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log2, log2, log2ed)
 	
 	//////////////////////////////////////////
 	// type conversion

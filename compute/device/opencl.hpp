@@ -64,7 +64,9 @@ float opencl_const_func __cl_atan(float);
 float opencl_const_func __cl_atan2(float, float);
 float opencl_const_func __cl_fma(float, float, float);
 float opencl_const_func __cl_exp(float);
+float opencl_const_func __cl_exp2(float);
 float opencl_const_func __cl_log(float);
+float opencl_const_func __cl_log2(float);
 float opencl_const_func __cl_pow(float, float);
 int16_t opencl_const_func __cl_abs(int16_t);
 int32_t opencl_const_func __cl_abs(int32_t);
@@ -89,7 +91,9 @@ double opencl_const_func __cl_atan(double);
 double opencl_const_func __cl_atan2(double, double);
 double opencl_const_func __cl_fma(double, double, double);
 double opencl_const_func __cl_exp(double);
+double opencl_const_func __cl_exp2(double);
 double opencl_const_func __cl_log(double);
+double opencl_const_func __cl_log2(double);
 double opencl_const_func __cl_pow(double, double);
 #endif
 
@@ -118,7 +122,9 @@ float opencl_const_func atan(float x) CL_FWD(__cl_atan, x)
 float opencl_const_func atan2(float x, float y) CL_FWD(__cl_atan2, x, y)
 float opencl_const_func fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
 float opencl_const_func exp(float x) CL_FWD(__cl_exp, x)
+float opencl_const_func exp2(float x) CL_FWD(__cl_exp2, x)
 float opencl_const_func log(float x) CL_FWD(__cl_log, x)
+float opencl_const_func log2(float x) CL_FWD(__cl_log2, x)
 float opencl_const_func pow(float x, float y) CL_FWD(__cl_pow, x, y)
 int16_t opencl_const_func abs(int16_t x) CL_FWD(__cl_abs, x)
 int32_t opencl_const_func abs(int32_t x) CL_FWD(__cl_abs, x)
@@ -143,7 +149,9 @@ double opencl_const_func atan(double x) CL_FWD(__cl_atan, x)
 double opencl_const_func atan2(double x, double y) CL_FWD(__cl_atan2, x, y)
 double opencl_const_func fma(double a, double b, double c) CL_FWD(__cl_fma, a, b, c)
 double opencl_const_func exp(double x) CL_FWD(__cl_exp, x)
+double opencl_const_func exp2(double x) CL_FWD(__cl_exp2, x)
 double opencl_const_func log(double x) CL_FWD(__cl_log, x)
+double opencl_const_func log2(double x) CL_FWD(__cl_log2, x)
 double opencl_const_func pow(double x, double y) CL_FWD(__cl_pow, x, y)
 #endif
 
@@ -167,7 +175,9 @@ namespace std {
 	using ::atan2;
 	using ::fma;
 	using ::exp;
+	using ::exp2;
 	using ::log;
+	using ::log2;
 	using ::pow;
 }
 

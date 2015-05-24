@@ -239,23 +239,6 @@ void write_imagei(image3d_t image, opencl_int4 coord, opencl_int4 color);
 void write_imageui(image3d_t image, opencl_int4 coord, opencl_uint4 color);
 void write_imageh(image3d_t image, opencl_int4 coord, opencl_half4 color);
 
-// COMPUTE_IMAGE_TYPE -> single component data type
-template <COMPUTE_IMAGE_TYPE itype, typename = void> struct ocl_image_data_type {};
-template <COMPUTE_IMAGE_TYPE itype>
-struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT>> {
-	//typedef uint32_t type;
-	typedef float type; // always float for now (TODO: normalized image stuff)
-};
-template <COMPUTE_IMAGE_TYPE itype>
-struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT>> {
-	//typedef int32_t type;
-	typedef float type;
-};
-template <COMPUTE_IMAGE_TYPE itype>
-struct ocl_image_data_type<itype, enable_if_t<(itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT>> {
-	typedef float type;
-};
-
 // convert any coordinate vector type to int* or float*
 template <typename coord_type, typename ret_coord_type = vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim>>
 auto convert_ocl_coord(const coord_type& coord) {
@@ -267,72 +250,62 @@ auto convert_ocl_coord(const coord_type& coord) {
 	return ret_coord_type { coord };
 }
 
+// TODO: do this properly
+template <COMPUTE_IMAGE_TYPE image_type>
+static constexpr bool is_int32_format() {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
+}
+
+template <COMPUTE_IMAGE_TYPE image_type>
+static constexpr bool is_uint32_format() {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
+}
+
 // floor image read/write wrappers
-template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
-enable_if_t<component_count == 1, int> = 0>
-auto read_image(const img_type& img, const coord_type& coord) {
+template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
+		  enable_if_t<!is_uint32_format<image_type>() && !is_int32_format<image_type>(), int> = 0>
+auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
 	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
 #else
 	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
 #endif
-	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
-	return vec4.x;
+	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
 }
 
-template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
-enable_if_t<component_count == 2, int> = 0>
-auto read_image(const img_type& img, const coord_type& coord) {
+template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
+		  enable_if_t<!is_uint32_format<image_type>() && is_int32_format<image_type>(), int> = 0>
+auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
+	const auto clang_vec = read_imagei(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
+	const auto clang_vec = read_imagei(img, convert_ocl_coord(coord));
 #endif
-	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
-	return vector_n<typename ocl_image_data_type<data_type>::type, 2> { vec4.xy };
+	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(clang_vec));
 }
 
-template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
-enable_if_t<component_count == 3, int> = 0>
-auto read_image(const img_type& img, const coord_type& coord) {
+template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
+		  enable_if_t<is_uint32_format<image_type>() && !is_int32_format<image_type>(), int> = 0>
+auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
+	const auto clang_vec = read_imageui(img, smplr, convert_ocl_coord(coord));
 #else
-	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
+	const auto clang_vec = read_imageui(img, convert_ocl_coord(coord));
 #endif
-	const auto vec4 = vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
-	return vector_n<typename ocl_image_data_type<data_type>::type, 3> { vec4.xyz };
+	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(clang_vec));
 }
 
-template <size_t component_count, COMPUTE_IMAGE_TYPE data_type, typename img_type, typename coord_type,
-enable_if_t<component_count == 4, int> = 0>
-auto read_image(const img_type& img, const coord_type& coord) {
-#if defined(FLOOR_COMPUTE_SPIR)
-	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-	const auto clang_vec = read_imagef(img, smplr, convert_ocl_coord(coord));
-#else
-	const auto clang_vec = read_imagef(img, convert_ocl_coord(coord));
-#endif
-	return vector_n<typename ocl_image_data_type<data_type>::type, 4>::from_clang_vector(clang_vec);
-}
+#define FLOOR_IMAGE_TYPE_EXTRACT(img) ((COMPUTE_IMAGE_TYPE)(\
+__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | \
+__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) | \
+__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__FORMAT_MASK)))
 
-#define FLOOR_IMAGE_DATA_TYPE(img) \
-__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK, COMPUTE_IMAGE_TYPE::INT), \
-					  COMPUTE_IMAGE_TYPE::INT, \
-					  __builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK, COMPUTE_IMAGE_TYPE::UINT), \
-											COMPUTE_IMAGE_TYPE::UINT, COMPUTE_IMAGE_TYPE::FLOAT))
-
-#define read(img, ...) \
-__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_1), \
-					  read_image<1, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
-					  __builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_2), \
-											read_image<2, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
-											__builtin_choose_expr(__builtin_image_type(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK, COMPUTE_IMAGE_TYPE::CHANNELS_3), \
-																  read_image<3, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__), \
-																  read_image<4, FLOOR_IMAGE_DATA_TYPE(img)>(img, ##__VA_ARGS__))))
+#define read(img, ...) read_image<FLOOR_IMAGE_TYPE_EXTRACT(img)>(img, __VA_ARGS__)
 
 floor_inline_always void write(const image2d_t& img, const int2& coord, const float4& data) {
 	write_imagef(img, coord, data);

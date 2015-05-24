@@ -160,7 +160,9 @@ public:
 	static constexpr T atan(const T& val);
 	static constexpr T atan2(const T& lhs, const T& rhs);
 	static constexpr T exp(const T& val);
+	static constexpr T exp2(const T& val);
 	static constexpr T log(const T& val);
+	static constexpr T log2(const T& val);
 	static constexpr T fma(const T& a, const T& b, const T& c);
 	static constexpr T bit_and(const T& lhs, const integral_type& rhs);
 	static constexpr T bit_or(const T& lhs, const integral_type& rhs);
@@ -245,7 +247,9 @@ F1(acos, constexpr, const_select::acos(val)) \
 F1(atan, constexpr, const_select::atan(val)) \
 F2(atan2, constexpr, const_select::atan2(lhs, rhs)) \
 F1(exp, constexpr, const_select::exp(val)) \
+F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
+F1(log2, constexpr, const_select::log2(val)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
@@ -274,7 +278,9 @@ F1(acos, constexpr, const_select::acos(val)) \
 F1(atan, constexpr, const_select::atan(val)) \
 F2(atan2, constexpr, const_select::atan2(lhs, rhs)) \
 F1(exp, constexpr, const_select::exp(val)) \
+F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
+F1(log2, constexpr, const_select::log2(val)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs | rhs) \
@@ -303,7 +309,9 @@ F1(acos, constexpr, const_select::acos(val)) \
 F1(atan, constexpr, const_select::atan(val)) \
 F2(atan2, constexpr, const_select::atan2(lhs, rhs)) \
 F1(exp, constexpr, const_select::exp(val)) \
+F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
+F1(log2, constexpr, const_select::log2(val)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs & rhs) \
 F2_INT(bit_or, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs | rhs) \
@@ -316,7 +324,7 @@ F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (__LDBL_MAX__ - co
 
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -324,15 +332,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -345,7 +355,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint32_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -353,15 +363,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -374,7 +386,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int8_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -382,15 +394,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -403,7 +417,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint8_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -411,15 +425,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -432,7 +448,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int16_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -440,15 +456,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -461,7 +479,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint16_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -469,15 +487,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -490,7 +510,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int64_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -498,15 +518,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -519,7 +541,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint64_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -527,15 +549,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -548,7 +572,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(ssize_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -556,15 +580,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -577,7 +603,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(size_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -585,15 +611,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -606,7 +634,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_INT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__int128_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
@@ -614,15 +642,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -635,7 +665,7 @@ F1(unary_complement, constexpr, (~val)) \
 
 #define FLOOR_VH_IMPL_DEF_UINT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__uint128_t, \
 F2(modulo, constexpr, lhs % rhs) \
-F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_fp_type)val)) \
+F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
 F1(inv_sqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
@@ -643,15 +673,17 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
-F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_fp_type)val)) \
-F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_fp_type)val)) \
-F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_fp_type)val)) \
-F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_fp_type)val)) \
-F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_fp_type)val)) \
-F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_fp_type)val)) \
-F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_fp_type)lhs, (const_math::max_fp_type)rhs)) \
-F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_fp_type)val)) \
-F1(log, constexpr, (scalar_type)const_select::log((const_math::max_fp_type)val)) \
+F1(sin, constexpr, (scalar_type)const_select::sin((const_math::max_rt_fp_type)val)) \
+F1(cos, constexpr, (scalar_type)const_select::cos((const_math::max_rt_fp_type)val)) \
+F1(tan, constexpr, (scalar_type)const_select::tan((const_math::max_rt_fp_type)val)) \
+F1(asin, constexpr, (scalar_type)const_select::asin((const_math::max_rt_fp_type)val)) \
+F1(acos, constexpr, (scalar_type)const_select::acos((const_math::max_rt_fp_type)val)) \
+F1(atan, constexpr, (scalar_type)const_select::atan((const_math::max_rt_fp_type)val)) \
+F2(atan2, constexpr, (scalar_type)const_select::atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)val)) \
+F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
+F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
+F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -680,7 +712,9 @@ F1(acos, constexpr, val) \
 F1(atan, constexpr, val) \
 F2(atan2, constexpr, lhs & rhs) \
 F1(exp, constexpr, val) \
+F1(exp2, constexpr, val) \
 F1(log, constexpr, val) \
+F1(log2, constexpr, val) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \

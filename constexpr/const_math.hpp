@@ -42,19 +42,31 @@ using namespace std;
 #endif
 
 namespace const_math {
-	//! largest supported floating point type
+	//! largest supported floating point type at compile-time
 #if !defined(FLOOR_COMPUTE)
 	typedef long double max_fp_type;
-#elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	typedef double max_fp_type; // can only use double with opencl/cuda/metal
 #else
-	typedef float max_fp_type; // or even only float when there is no double support
+	typedef double max_fp_type; // can only use double with opencl/cuda/metal
+#endif
+	
+	//! largest supported floating point type at run-time
+#if !defined(FLOOR_COMPUTE)
+	typedef long double max_rt_fp_type;
+#elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	typedef double max_rt_fp_type; // can only use double with opencl/cuda/metal
+#else
+	typedef float max_rt_fp_type; // or even only float when there is no double support
 #endif
 }
 
-//! udl to convert any floating-point value into the largest supported one
+//! udl to convert any floating-point value into the largest supported one at compile-time
 constexpr const_math::max_fp_type operator"" _fp(long double val) {
 	return (const_math::max_fp_type)val;
+}
+
+//! udl to convert any floating-point value into the largest supported one at run-time
+constexpr const_math::max_rt_fp_type operator"" _rtfp(long double val) {
+	return (const_math::max_rt_fp_type)val;
 }
 
 namespace const_math {
@@ -378,6 +390,12 @@ namespace const_math {
 		return (fp_type)x;
 	}
 	
+	//! computes exp2(val) == 2^val == exp(val * ln(2))
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type exp2(fp_type val) {
+		return fp_type(exp(max_fp_type(val)) * 0.69314718055994530941723212145817656807550013436025525412068_fp /* "ln(2)" */);
+	}
+	
 	//! computes ln(val), the natural logarithm of val
 	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
@@ -401,6 +419,13 @@ namespace const_math {
 			x = x + 2.0_fp * ((ldbl_val - exp_x) / (ldbl_val + exp_x));
 		}
 		return (fp_type)x;
+	}
+	
+	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
+	//! NOTE: not precise, especially for huge values
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type log2(fp_type val) {
+		return fp_type(log((max_fp_type)val) * 1.44269504088896340735992468100189213742664595415298593413545_fp /* "1 / ln(2)" */);
 	}
 	
 	//! computes base^exponent, base to the power of exponent
@@ -968,7 +993,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), float, "f")
 	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), float, "f")
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
@@ -989,7 +1016,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), double, "d")
 	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
 #endif
 	
 #if !defined(FLOOR_COMPUTE)
@@ -1011,7 +1040,9 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2l(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), long double, "l")
 	FLOOR_CONST_MATH_SELECT(exp, std::expl(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, std::logl(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
 #endif
 
 #undef FLOOR_IS_CONSTEXPR
