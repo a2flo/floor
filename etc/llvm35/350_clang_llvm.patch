@@ -350,15 +350,16 @@ index 704a375..d091c11 100644
  }
  
 diff --git a/tools/clang/include/clang/Basic/Builtins.def b/tools/clang/include/clang/Basic/Builtins.def
-index e705382..63fdc9d 100644
+index e705382..8d81d77 100644
 --- a/tools/clang/include/clang/Basic/Builtins.def
 +++ b/tools/clang/include/clang/Basic/Builtins.def
-@@ -1210,6 +1210,9 @@ BUILTIN(__builtin_addressof, "v*v&", "nct")
+@@ -1210,6 +1210,10 @@ BUILTIN(__builtin_addressof, "v*v&", "nct")
  BUILTIN(__builtin_operator_new, "v*z", "c")
  BUILTIN(__builtin_operator_delete, "vv*", "n")
  
 +// floor builtins.
-+BUILTIN(__builtin_image_type, "i.", "nctu")
++BUILTIN(__builtin_image_type_compare, "i.", "nctu")
++BUILTIN(__builtin_image_type_extract, "i.", "nctu")
 +
  #undef BUILTIN
  #undef LIBBUILTIN
@@ -532,15 +533,15 @@ index bccdae9..65a7d6c 100644
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
 diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
-index 7d7ca99..deaa074 100644
+index 7d7ca99..9cf73cb 100644
 --- a/tools/clang/lib/AST/ExprConstant.cpp
 +++ b/tools/clang/lib/AST/ExprConstant.cpp
-@@ -5849,6 +5849,44 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
+@@ -5849,6 +5849,74 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
    return false;
  }
  
-+/// EvaluateBuiltinImageType - Evaluate __builtin_image_type(expr, mask, cmp).
-+static int EvaluateBuiltinImageType(ASTContext &Ctx, const CallExpr *E) {
++/// EvaluateBuiltinImageTypeCompare - Evaluate __builtin_image_type_compare(expr, mask, cmp).
++static int EvaluateBuiltinImageTypeCompare(ASTContext &Ctx, const CallExpr *E) {
 +	if(E->getNumArgs() != 3) return 0;
 +	const auto img_arg = E->getArg(0);
 +	const auto mask_arg = E->getArg(1);
@@ -577,15 +578,47 @@ index 7d7ca99..deaa074 100644
 +	return 0;
 +}
 +
++/// EvaluateBuiltinImageTypeExtract - Evaluate __builtin_image_type_extract(expr, mask).
++static uint32_t EvaluateBuiltinImageTypeExtract(ASTContext &Ctx, const CallExpr *E) {
++	if(E->getNumArgs() != 2) return 0;
++	const auto img_arg = E->getArg(0);
++	const auto mask_arg = E->getArg(1);
++	
++	// mask must be an integer constant expr (enum value, evaluable at compile-time)
++	if(!mask_arg->isIntegerConstantExpr(Ctx)) {
++		return 0;
++	}
++	
++	llvm::APSInt mask_int;
++	if(!mask_arg->EvaluateAsInt(mask_int, Ctx)) {
++		return 0;
++	}
++	
++	// image arg must be a template
++	if(const auto img_tmpl_type = img_arg->getType()->getAs<TemplateSpecializationType>()) {
++		if(img_tmpl_type->getNumArgs() < 1) return 0;
++		if(auto img_tmpl_arg_expr = img_tmpl_type->getArg(0).getAsExpr()) {
++			llvm::APSInt img_type_int;
++			if(img_tmpl_arg_expr->EvaluateAsInt(img_type_int, Ctx)) {
++				// note: all ints are unsigned 32-bit
++				return uint32_t(img_type_int.getZExtValue()) & uint32_t(mask_int.getZExtValue());
++			}
++		}
++	}
++	return 0;
++}
++
  /// EvaluateBuiltinClassifyType - Evaluate __builtin_classify_type the same way
  /// as GCC.
  static int EvaluateBuiltinClassifyType(const CallExpr *E) {
-@@ -6263,6 +6301,8 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -6263,6 +6331,10 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
      return BuiltinOp == Builtin::BI__atomic_always_lock_free ?
          Success(0, E) : Error(E);
    }
-+  case Builtin::BI__builtin_image_type:
-+    return Success(EvaluateBuiltinImageType(Info.Ctx, E), E);
++  case Builtin::BI__builtin_image_type_compare:
++    return Success(EvaluateBuiltinImageTypeCompare(Info.Ctx, E), E);
++  case Builtin::BI__builtin_image_type_extract:
++    return Success(EvaluateBuiltinImageTypeExtract(Info.Ctx, E), E);
    }
  }
  
@@ -1605,15 +1638,19 @@ index 2c65332..30bb730 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaChecking.cpp b/tools/clang/lib/Sema/SemaChecking.cpp
-index 66be962..4d73bb3 100644
+index 66be962..59f659c 100644
 --- a/tools/clang/lib/Sema/SemaChecking.cpp
 +++ b/tools/clang/lib/Sema/SemaChecking.cpp
-@@ -327,6 +327,10 @@ Sema::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
+@@ -327,6 +327,14 @@ Sema::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
      // so ensure that they are declared.
      DeclareGlobalNewDelete();
      break;
-+  case Builtin::BI__builtin_image_type:
++  case Builtin::BI__builtin_image_type_compare:
 +    if (checkArgCount(*this, TheCall, 3)) return true;
++    TheCall->setType(Context.IntTy);
++    break;
++  case Builtin::BI__builtin_image_type_extract:
++    if (checkArgCount(*this, TheCall, 2)) return true;
 +    TheCall->setType(Context.IntTy);
 +    break;
    }
