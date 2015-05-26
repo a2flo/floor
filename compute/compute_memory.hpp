@@ -145,9 +145,9 @@ public:
 		return gl_object;
 	}
 	
-	//! acquires the associated opengl object for use with opengl (-> release from compute use)
+	//! acquires the associated opengl object for use with compute (-> release from opengl use)
 	virtual bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) = 0;
-	//! releases the associated opengl object from use with opengl (-> acquire for compute use)
+	//! releases the associated opengl object from use with compute (-> acquire for opengl use)
 	virtual bool release_opengl_object(shared_ptr<compute_queue> cqueue) = 0;
 	
 	//! NOTE: for debugging/development purposes only

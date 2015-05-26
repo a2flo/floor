@@ -67,11 +67,14 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	const auto dim_count = image_dim_count(image_type);
 	auto channel_count = image_channel_count(image_type);
 	if(channel_count == 3) {
-		log_error("3-channel images are unsupported with cuda - using 4 channels instead now!");
-		channel_count = 4;
+		log_error("3-channel images are unsupported with cuda!");
 		// TODO: make this work transparently by using an empty alpha channel (pun not intended ;)),
 		// this will certainly segfault when using a host pointer that only points to 3-channel data
 		// -> on the device: can also make sure it only returns a <type>3 vector
+		// NOTE: explicitly fail when trying to use an external opengl image (this would require a copy
+		// every time it's used by cuda, which is almost certainly not wanted). also signal this is creating
+		// an RGBA image when this is creating the opengl image (warning?).
+		//channel_count = 4;
 		return false;
 	}
 	
@@ -236,8 +239,8 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			log_error("created cuda gl graphics resource is invalid!");
 			return false;
 		}
-		// release -> acquire for use with cuda
-		release_opengl_object(cqueue);
+		// acquire for use with cuda
+		acquire_opengl_object(cqueue);
 	}
 	
 	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
@@ -307,10 +310,10 @@ cuda_image::~cuda_image() {
 		}
 		else {
 			if(image == nullptr || gl_object_state) {
-				log_warn("image still acquired for opengl use - release before destructing a compute image!");
+				log_warn("image still registered for opengl use - acquire before destructing a compute image!");
 			}
 			// kill opengl image
-			if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
+			if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 			delete_gl_image();
 		}
 	}
@@ -447,10 +450,47 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 
 bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
+	if(rsrc == nullptr) return false;
+	if(!gl_object_state) {
+		log_warn("opengl image has already been acquired for use with cuda!");
+		return true;
+	}
+	
+	// if a depth compat texture is used, the original opengl texture must by copied into it
+	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
+		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
+			glCopyImageSubData(gl_object, opengl_type, 0, 0, 0, 0,
+							   depth_compat_tex, opengl_type, 0, 0, 0, 0,
+							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
+		}
+		else {
+			// TODO: shader copy
+		}
+	}
+	
+	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
+									   (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
+				"failed to acquire opengl image - cuda resource mapping failed!", false);
+	gl_object_state = false;
+	
+	// TODO: handle opengl array/layers and mip-mapping
+	CU_CALL_RET(cuGraphicsSubResourceGetMappedArray(&image, rsrc, 0, 0),
+				"failed to retrieve mapped cuda image from opengl buffer!", false);
+	
+	if(image == nullptr) {
+		log_error("mapped cuda image (from a graphics resource) is invalid!");
+		return false;
+	}
+	
+	return true;
+}
+
+bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
 	if(image == nullptr) return false;
 	if(rsrc == nullptr) return false;
 	if(gl_object_state) {
-		log_warn("opengl image has already been acquired for opengl use!");
+		log_warn("opengl image has already been released for opengl use!");
 		return true;
 	}
 	
@@ -469,45 +509,8 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	image = 0; // reset buffer pointer, this is no longer valid
 	CU_CALL_RET(cuGraphicsUnmapResources(1, &rsrc,
 										 (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to acquire opengl image - cuda resource unmapping failed!", false);
+				"failed to release opengl image - cuda resource unmapping failed!", false);
 	gl_object_state = true;
-	
-	return true;
-}
-
-bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
-	if(gl_object == 0) return false;
-	if(rsrc == nullptr) return false;
-	if(!gl_object_state) {
-		log_warn("opengl image has already been released to cuda!");
-		return true;
-	}
-	
-	// if a depth compat texture is used, the original opengl texture must by copied into it
-	if(depth_compat_tex != 0 && has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
-		if(floor::has_opengl_extension("GL_ARB_copy_image")) {
-			glCopyImageSubData(gl_object, opengl_type, 0, 0, 0, 0,
-							   depth_compat_tex, opengl_type, 0, 0, 0, 0,
-							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
-		}
-		else {
-			// TODO: shader copy
-		}
-	}
-	
-	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
-									   (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to release opengl image - cuda resource mapping failed!", false);
-	gl_object_state = false;
-	
-	// TODO: handle opengl array/layers and mip-mapping
-	CU_CALL_RET(cuGraphicsSubResourceGetMappedArray(&image, rsrc, 0, 0),
-				"failed to retrieve mapped cuda image from opengl buffer!", false);
-	
-	if(image == nullptr) {
-		log_error("mapped cuda image (from a graphics resource) is invalid!");
-		return false;
-	}
 	
 	return true;
 }

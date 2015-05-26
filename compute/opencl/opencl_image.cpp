@@ -185,8 +185,8 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			image = nullptr;
 			return false;
 		}
-		// release -> acquire for use with opencl
-		release_opengl_object(cqueue);
+		// acquire for use with opencl
+		acquire_opengl_object(cqueue);
 	}
 	
 	return true;
@@ -196,9 +196,9 @@ opencl_image::~opencl_image() {
 	// first, release and kill the opengl image
 	if(gl_object != 0) {
 		if(gl_object_state) {
-			log_warn("image still acquired for opengl use - release before destructing a compute image!");
+			log_warn("image still registered for opengl use - acquire before destructing a compute image!");
 		}
-		if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
+		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 		delete_gl_image();
 	}
 	// then, also kill the opencl image
@@ -264,28 +264,28 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 
 bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(image == 0) return false;
-	if(gl_object_state) {
-		log_warn("opengl image has already been acquired for opengl use!");
+	if(!gl_object_state) {
+		log_warn("opengl image has already been acquired for use with opencl!");
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
-				"failed to acquire opengl image - opencl gl object release failed", false);
-	gl_object_state = true;
+	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
+				"failed to acquire opengl image - opencl gl object acquire failed", false);
+	gl_object_state = false;
 	return true;
 }
 
 bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-		log_warn("opengl image has already been released to opencl!");
+	if(image == 0) return false;
+	if(gl_object_state) {
+		log_warn("opengl image has already been released for opengl use!");
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
-				"failed to release opengl image - opencl gl object acquire failed", false);
-	gl_object_state = false;
+	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &image, 0, nullptr, nullptr),
+				"failed to release opengl image - opencl gl object release failed", false);
+	gl_object_state = true;
 	return true;
 }
 

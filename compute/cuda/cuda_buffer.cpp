@@ -120,8 +120,8 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 				log_error("created cuda gl graphics resource is invalid!");
 				return false;
 			}
-			// release -> acquire for use with cuda
-			release_opengl_object(cqueue);
+			// acquire for use with cuda
+			acquire_opengl_object(cqueue);
 		}
 	}
 	return true;
@@ -150,10 +150,10 @@ cuda_buffer::~cuda_buffer() {
 			}
 			else {
 				if(buffer == 0 || gl_object_state) {
-					log_warn("buffer still acquired for opengl use - release before destructing a compute buffer!");
+					log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
 				}
 				// kill opengl buffer
-				if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
+				if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 				delete_gl_buffer();
 			}
 		}
@@ -421,33 +421,15 @@ void cuda_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 
 bool cuda_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(buffer == 0) return false;
-	if(rsrc == nullptr) return false;
-	if(gl_object_state) {
-		log_warn("opengl buffer has already been acquired for opengl use!");
-		return true;
-	}
-	
-	buffer = 0; // reset buffer pointer, this is no longer valid
-	CU_CALL_RET(cuGraphicsUnmapResources(1, &rsrc,
-										 (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to acquire opengl buffer - cuda resource unmapping failed!", false);
-	gl_object_state = true;
-	
-	return true;
-}
-
-bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
-	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
 	if(!gl_object_state) {
-		log_warn("opengl buffer has already been released to cuda!");
+		log_warn("opengl buffer has already been acquired for use with cuda!");
 		return true;
 	}
 	
 	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
 									   (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
-				"failed to release opengl buffer - cuda resource mapping failed!", false);
+				"failed to acquire opengl buffer - cuda resource mapping failed!", false);
 	gl_object_state = false;
 	
 	size_t ret_size { 0u };
@@ -462,6 +444,24 @@ bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 		log_error("mapped cuda buffer pointer (from a graphics resource) is invalid!");
 		return false;
 	}
+	
+	return true;
+}
+
+bool cuda_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+	if(gl_object == 0) return false;
+	if(buffer == 0) return false;
+	if(rsrc == nullptr) return false;
+	if(gl_object_state) {
+		log_warn("opengl buffer has already been released for opengl use!");
+		return true;
+	}
+	
+	buffer = 0; // reset buffer pointer, this is no longer valid
+	CU_CALL_RET(cuGraphicsUnmapResources(1, &rsrc,
+										 (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
+				"failed to release opengl buffer - cuda resource unmapping failed!", false);
+	gl_object_state = true;
 	
 	return true;
 }

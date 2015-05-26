@@ -103,8 +103,8 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 			buffer = nullptr;
 			return false;
 		}
-		// release -> acquire for use with opencl
-		release_opengl_object(cqueue);
+		// acquire for use with opencl
+		acquire_opengl_object(cqueue);
 	}
 	
 	return true;
@@ -114,9 +114,9 @@ opencl_buffer::~opencl_buffer() {
 	// first, release and kill the opengl buffer
 	if(gl_object != 0) {
 		if(gl_object_state) {
-			log_warn("buffer still acquired for opengl use - release before destructing a compute buffer!");
+			log_warn("buffer still registered for opengl use - acquire before destructing a compute buffer!");
 		}
-		if(!gl_object_state) acquire_opengl_object(nullptr); // -> release to opengl
+		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
 		delete_gl_buffer();
 	}
 	// then, also kill the opencl buffer
@@ -312,28 +312,28 @@ void opencl_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 
 bool opencl_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(buffer == 0) return false;
-	if(gl_object_state) {
-		log_warn("opengl buffer has already been acquired for opengl use!");
+	if(!gl_object_state) {
+		log_warn("opengl buffer has already been acquired for use with opencl!");
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, nullptr),
-				"failed to acquire opengl buffer - opencl gl object release failed", false);
-	gl_object_state = true;
+	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, nullptr),
+				"failed to acquire opengl buffer - opencl gl object acquire failed", false);
+	gl_object_state = false;
 	return true;
 }
 
 bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(!gl_object_state) {
-		log_warn("opengl buffer has already been released to opencl!");
+	if(buffer == 0) return false;
+	if(gl_object_state) {
+		log_warn("opengl buffer has already been released for opengl use!");
 		return true;
 	}
 	
-	CL_CALL_RET(clEnqueueAcquireGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, nullptr),
-				"failed to release opengl buffer - opencl gl object acquire failed", false);
-	gl_object_state = false;
+	CL_CALL_RET(clEnqueueReleaseGLObjects(queue_or_default_queue(cqueue), 1, &buffer, 0, nullptr, nullptr),
+				"failed to release opengl buffer - opencl gl object release failed", false);
+	gl_object_state = true;
 	return true;
 }
 
