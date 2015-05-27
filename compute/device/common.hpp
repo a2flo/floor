@@ -155,8 +155,8 @@ template <typename T,
 			  floor_compute::direct_type_wrapper<T>>>
 using param = const param_wrapper;
 //! array for use with static constant memory
-#define const_array constant const_array_cuda
-template <class data_type, size_t array_size> using const_array_cuda = data_type[array_size];
+#define constant_array constant constant_array_cuda
+template <class data_type, size_t array_size> using constant_array_cuda = data_type[array_size];
 
 #elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_OPENCL)
 namespace floor_compute {
@@ -340,13 +340,23 @@ template <typename T> using type_load_wrapper = conditional_t<floor_compute::has
 															  T,
 															  floor_compute::buffer_container<T>>;
 
+#define FLOOR_OLD_AS_HANDLING 1
 //! global memory buffer
+#if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T, typename wrapper = type_load_wrapper<T>>
 using buffer = global floor_compute::address_space_adaptor<wrapper, global wrapper*, true, !is_const<T>()>*;
+#else
+template <typename T>
+using buffer = global T*;
+#endif
 
 //! local memory buffer
+#if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T, size_t count, typename wrapper = type_load_wrapper<T>>
 using local_buffer = local floor_compute::address_space_adaptor<wrapper, local wrapper*, true, !is_const<T>()>[count];
+#else
+template <typename T, size_t count> using local_buffer = local T[count];
+#endif
 
 //! constant memory buffer
 template <typename T, typename wrapper = type_load_wrapper<T>>
@@ -375,15 +385,15 @@ using param = constant floor_compute::address_space_adaptor<const param_wrapper,
 
 //! array<> for use with static constant memory
 template <class data_type, size_t array_size>
-class __attribute__((packed, aligned(4))) const_array {
+class __attribute__((packed, aligned(4))) constant_array {
 public:
 	static_assert(array_size > 0, "array size may not be 0!");
 	alignas(4) const floor_compute::address_space_adaptor<data_type, constant const data_type*, true, false> elems[array_size];
 	
-	constexpr const_array() noexcept = default;
+	constexpr constant_array() noexcept = default;
 	
 	template <typename... Args>
-	constexpr const_array(const Args&... args) noexcept : elems { args... } {}
+	constexpr constant_array(const Args&... args) noexcept : elems { args... } {}
 	
 	constexpr data_type operator[](const size_t& index) const {
 		return const_select::is_constexpr(index) ? cexpr_get(index) : rt_get<data_type>(index);
@@ -425,6 +435,9 @@ protected:
 // the .cpp is needed, because it provides the implementation and redirects of the functions defined in const_math.hpp
 // (would otherwise need to compile and link this separately which is obviously overkill and unnecessary)
 #include <floor/constexpr/const_math.cpp>
+
+// device logging functions
+#include <floor/compute/device/logger.hpp>
 
 #endif
 

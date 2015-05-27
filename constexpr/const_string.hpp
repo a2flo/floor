@@ -20,7 +20,9 @@
 #define __FLOOR_CONST_STRING_HPP__
 
 #include <type_traits>
+#if !defined(FLOOR_COMPUTE)
 #include <cstdlib>
+#endif
 #include <floor/core/essentials.hpp>
 
 // NOTE: there now is a std proposal that would add something very similar to this
@@ -41,6 +43,11 @@ public:
 	constexpr const_string(const char (&str)[count]) noexcept :
 	content(make_array(str)) {}
 	
+	//! construct from storage container
+	template <size_t size>
+	constexpr const_string(const storage_array<size>& storage) noexcept :
+	content(storage) {}
+	
 	//! data access via a simple c string pointer
 	constexpr const char* data() const { return &content.data[0]; }
 	//! redundant size() function for usability (note that this of course also includes \0 chars)
@@ -59,11 +66,13 @@ public:
 		return make_concat_array<n + count - 1>(n - 1, count, str, cstr.data()).data;
 	}
 	
+#if !defined(FLOOR_COMPUTE)
 	//! prints/writes the content of the const_string to an ostream (note that this is obviously a non-constexpr function)
 	template <size_t n> friend ostream& operator<<(ostream& output, const const_string<n>& cstr) {
 		output.write(&cstr.content.data[0], n);
 		return output;
 	}
+#endif
 	
 	//
 	template <size_t n> constexpr bool operator==(const const_string<n>& cstr) const {
@@ -103,6 +112,7 @@ public:
 		}
 		return true;
 	}
+#if !defined(FLOOR_COMPUTE)
 	bool operator==(const string& str) const {
 		if(str.size() != count) return false;
 		for(size_t i = 0; i < count; ++i) {
@@ -112,6 +122,7 @@ public:
 		}
 		return true;
 	}
+#endif
 	template <size_t n> constexpr bool operator!=(const const_string<n>& cstr) const {
 		return !(*this == cstr);
 	}
@@ -121,9 +132,11 @@ public:
 	constexpr bool operator!=(const char* str) const {
 		return !(*this == str);
 	}
+#if !defined(FLOOR_COMPUTE)
 	bool operator!=(const string& str) const {
 		return !(*this == str);
 	}
+#endif
 	
 	//
 	template <size_t len_0, size_t len_1> friend constexpr bool operator==(const char (&str)[len_0], const const_string<len_1>& cstr) {
@@ -132,18 +145,22 @@ public:
 	template <size_t len_0> friend constexpr bool operator==(const char* str, const const_string<len_0>& cstr) {
 		return (cstr == str);
 	}
+#if !defined(FLOOR_COMPUTE)
 	template <size_t len_0> friend bool operator==(const string& str, const const_string<len_0>& cstr) {
 		return (cstr == str);
 	}
+#endif
 	template <size_t len_0, size_t len_1> friend constexpr bool operator!=(const char (&str)[len_0], const const_string<len_1>& cstr) {
 		return (cstr != str);
 	}
 	template <size_t len_0> friend constexpr bool operator!=(const char* str, const const_string<len_0>& cstr) {
 		return (cstr != str);
 	}
+#if !defined(FLOOR_COMPUTE)
 	template <size_t len_0> friend bool operator!=(const string& str, const const_string<len_0>& cstr) {
 		return (cstr != str);
 	}
+#endif
 	
 	//
 	constexpr const char& operator[](const size_t& index) const {
@@ -242,6 +259,15 @@ protected:
 		return (x << r) | (x >> (32 - r));
 	}
 };
+
+//! creates a storage_array from a c string
+template <size_t size> static constexpr auto make_sized_array(const char* str) {
+	decay_t<decltype(const_string<size>::content)> ret {};
+	for(size_t i = 0; i < size; ++i) {
+		ret.data[i] = str[i];
+	}
+	return ret;
+}
 
 //! const_string udl for number literals only
 template <char... chars> constexpr auto operator"" _cs() {

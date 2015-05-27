@@ -118,6 +118,7 @@
 		5C8FEF5F1AFE3BF4001D47BF /* opencl_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */; };
 		5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */; };
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
+		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -328,8 +329,10 @@
 		5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_image.hpp; path = device/opencl_image.hpp; sourceTree = "<group>"; };
 		5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_pre.hpp; path = device/opencl_pre.hpp; sourceTree = "<group>"; };
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
+		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
 		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
+		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
 		5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = thread_safety.hpp; sourceTree = "<group>"; };
 		5CBD02E01A45F65400B1F4A1 /* atomic_shared_ptr.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomic_shared_ptr.hpp; sourceTree = "<group>"; };
 		5CBD02E11A45F65400B1F4A1 /* atomic_spin_lock.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomic_spin_lock.hpp; sourceTree = "<group>"; };
@@ -582,6 +585,7 @@
 		5C366DD919A64FF2006D1D09 /* constexpr */ = {
 			isa = PBXGroup;
 			children = (
+				5CA3FF041B16475C006E3D81 /* const_array.hpp */,
 				5CE0BDC819BA3469000B28B3 /* const_math.cpp */,
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
@@ -608,6 +612,8 @@
 			isa = PBXGroup;
 			children = (
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
+				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
+				5CAF42921B15C04D00316FBB /* logger.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
 				5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */,
@@ -620,7 +626,6 @@
 				5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */,
 				5C0E18C81B0946B900E63235 /* opencl_atomic.hpp */,
 				5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */,
-				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 			);
 			name = device;
 			sourceTree = "<group>";
@@ -804,6 +809,7 @@
 				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
 				5CEEA6D31A4EA425005239DA /* opencl_common.hpp in Headers */,
+				5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C8FD0D31AD3947200215230 /* compute_memory.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
