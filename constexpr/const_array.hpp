@@ -35,12 +35,39 @@ struct const_array {
 	
 	constexpr size_t size() const { return array_size; }
 	constexpr size_t max_size() const { return array_size; }
-	constexpr bool empty() const { return false; }
+	constexpr bool empty() const { return false; }
 	
-	constexpr data_type& operator[](const size_t& index) { return elems[index]; }
-	constexpr const data_type& operator[](const size_t& index) const { return elems[index]; }
-	constexpr data_type& at(const size_t& index) { return elems[index]; }
-	constexpr const data_type& at(const size_t& index) const { return elems[index]; }
+	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(index < array_size, "index is const"))) {
+		return elems[index];
+	}
+	constexpr data_type& operator[](const size_t& index) __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr data_type& operator[](const size_t& index) /* run-time index */ {
+		return elems[index];
+	}
+	
+	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(index < array_size, "index is const"))) {
+		return elems[index];
+	}
+	constexpr const data_type& operator[](const size_t& index) const __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr const data_type& operator[](const size_t& index) const /* run-time index */ {
+		return elems[index];
+	}
+	
+	constexpr data_type& at(const size_t& index) __attribute__((enable_if(index < array_size, "index is const"))) {
+		return elems[index];
+	}
+	constexpr data_type& at(const size_t& index) __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr data_type& at(const size_t& index) /* run-time index */ {
+		return elems[index];
+	}
+	
+	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(index < array_size, "index is const"))) {
+		return elems[index];
+	}
+	constexpr const data_type& at(const size_t& index) const __attribute__((enable_if(index >= array_size, "index is invalid"), unavailable("index is invalid")));
+	constexpr const data_type& at(const size_t& index) const /* run-time index */ {
+		return elems[index];
+	}
 	
 	constexpr data_type& operator*() { return &elems[0]; }
 	constexpr const data_type& operator*() const { return &elems[0]; }

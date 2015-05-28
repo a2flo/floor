@@ -29,6 +29,7 @@
 #include <string>
 #endif
 #include <floor/constexpr/const_math.hpp>
+#include <floor/constexpr/const_array.hpp>
 #include <floor/math/vector_helper.hpp>
 
 template <typename T> class matrix4;
@@ -47,26 +48,7 @@ template <typename T> class vector4;
 //! column-major 4x4 matrix
 template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
 public:
-	template <typename elem_type> struct cexpr_array {
-		elem_type data[16];
-		
-		constexpr elem_type& operator[](const size_t& index) __attribute__((enable_if(index < 16, "index is const"))) {
-			return data[index];
-		}
-		constexpr elem_type& operator[](const size_t& index) __attribute__((enable_if(index >= 16, "index is invalid"), unavailable("index is invalid")));
-		constexpr elem_type& operator[](const size_t& index) {
-			return data[index];
-		}
-		
-		constexpr const elem_type& operator[](const size_t& index) const __attribute__((enable_if(index < 16, "index is const"))) {
-			return data[index];
-		}
-		constexpr const elem_type& operator[](const size_t& index) const __attribute__((enable_if(index >= 16, "index is invalid"), unavailable("index is invalid")));
-		constexpr const elem_type& operator[](const size_t& index) const {
-			return data[index];
-		}
-	};
-	cexpr_array<T> data;
+	const_array<T, 16> data;
 	
 	constexpr matrix4() noexcept :
 	data {{
