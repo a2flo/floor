@@ -21,6 +21,7 @@
 
 #include <floor/constexpr/const_string.hpp>
 #include <floor/constexpr/const_array.hpp>
+#include <floor/core/cpp_ext.hpp>
 #include <tuple>
 
 // silence clang warnings about non-literal format strings - while it might be right that
@@ -31,11 +32,6 @@
 #pragma clang diagnostic ignored "-Wformat-nonliteral"
 #endif
 
-// host code doesn't know "constant"
-#ifndef constant
-#define constant
-#endif
-
 // "make_const_string" for strings in constant address space
 template <size_t n> constexpr auto make_constant_string(const constant char (&str)[n]) {
 	return const_string<n> { make_sized_array<n>((const char*)str) };
@@ -43,7 +39,7 @@ template <size_t n> constexpr auto make_constant_string(const constant char (&st
 
 // helper function to determine if a type is a floor vector*
 template <typename any_type, typename = void> struct is_floor_vector : public false_type {};
-template <typename vec_type> struct is_floor_vector<vec_type, enable_if_t<vec_type::dim >= 1 && vec_type::dim <= 4>> : public true_type {};
+template <typename vec_type> struct is_floor_vector<vec_type, enable_if_t<decay_t<vec_type>::dim >= 1 && decay_t<vec_type>::dim <= 4>> : public true_type {};
 
 // (don't look at the man behind the curtain ...)
 #define print(str, ...) ({ \
@@ -335,11 +331,25 @@ public:
 		
 		return make_const_string(pstr);
 	}
-		
+	
+	template <typename T, enable_if_t<!is_floor_vector<T>::value, int> = 0>
+	static constexpr auto tupled_arg(T&& arg) {
+		return tuple<const T&>(std::cref(arg));
+	}
+	template <typename T, enable_if_t<is_floor_vector<T>::value, int> = 0>
+	static constexpr auto tupled_arg(T&& vec) {
+		return vec.as_tuple_ref();
+	}
+	
 	// final call: forward to printf
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
-		printf(format, std::forward<Args>(args)...);
+#if !defined(FLOOR_COMPUTE_CUDA)
+		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
+#else
+		// TODO: need a different approach for cuda, because printf type can't be infered,
+		// because it's a variadic template and not a variadic c function
+#endif
 	}
 	
 };

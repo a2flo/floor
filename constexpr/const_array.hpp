@@ -20,11 +20,7 @@
 #define __FLOOR_CONST_ARRAY_HPP__
 
 #include <floor/core/essentials.hpp>
-
-// <iterator> isn't supported with compute yet
-#if !defined(FLOOR_COMPUTE)
 #include <iterator>
-#endif
 
 //! array<> for use with constexpr, this is necessary because array doesn't provide a constexpr modifiable "operator[]"
 //! NOTE: array size of 0 is not allowed!
@@ -90,7 +86,6 @@ struct const_array {
 	constexpr const data_type* cbegin() const { return begin(); }
 	constexpr const data_type* cend() const { return end(); }
 	
-#if !defined(FLOOR_COMPUTE)
 	constexpr auto rbegin() { return reverse_iterator<data_type*>(end()); }
 	constexpr auto rbegin() const { return reverse_iterator<const data_type*>(end()); }
 	
@@ -99,7 +94,6 @@ struct const_array {
 	
 	constexpr auto crbegin() const { return rbegin(); }
 	constexpr auto crend() const { return rend(); }
-#endif
 	
 };
 

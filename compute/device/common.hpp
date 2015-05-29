@@ -33,10 +33,39 @@
 #include <floor/compute/device/metal_pre.hpp>
 #endif
 
+// more integer types
+typedef int8_t int_least8_t;
+typedef int16_t int_least16_t;
+typedef int32_t int_least32_t;
+typedef int64_t int_least64_t;
+typedef uint8_t uint_least8_t;
+typedef uint16_t uint_least16_t;
+typedef uint32_t uint_least32_t;
+typedef uint64_t uint_least64_t;
+
+typedef int8_t int_fast8_t;
+typedef int16_t int_fast16_t;
+typedef int32_t int_fast32_t;
+typedef int64_t int_fast64_t;
+typedef uint8_t uint_fast8_t;
+typedef uint16_t uint_fast16_t;
+typedef uint32_t uint_fast32_t;
+typedef uint64_t uint_fast64_t;
+
+typedef __INTPTR_TYPE__ intptr_t;
+typedef __UINTPTR_TYPE__ uintptr_t;
+typedef int64_t intmax_t;
+typedef uint64_t uintmax_t;
+
 // libc++ stl functionality without (most of) the baggage
+#define _LIBCPP_NO_RTTI 1
+#define _LIBCPP_BUILD_STATIC 1
+#define _LIBCPP_NO_EXCEPTIONS 1
+#define assert(...)
 #include <utility>
 #include <type_traits>
 #include <initializer_list>
+#include <functional>
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
@@ -68,19 +97,11 @@ constexpr data_type max(const data_type& lhs, const data_type& rhs) {
 	return (lhs > rhs ? lhs : rhs);
 }
 
-// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
-#if ((__cplusplus <= 201402L) || (__clang_major__ == 3 && __clang_minor__ <= 5)) && \
-	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
-template <class C> constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
-	return c.size();
-}
-template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
-	return N;
-}
-#endif
-
 _LIBCPP_END_NAMESPACE_STD
 using namespace std;
+
+// c++ stl "extensions"
+#include <floor/core/cpp_ext.hpp>
 
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)

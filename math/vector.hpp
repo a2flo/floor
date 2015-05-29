@@ -441,11 +441,11 @@ public:
 #endif
 	
 	//! constexpr subscript access, with index out of bounds
-	[[deprecated("index out of bounds")]] constexpr const scalar_type& operator[](const size_t& index) const
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds")));
+	constexpr const scalar_type& operator[](const size_t& index) const
+	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	//! constexpr subscript access, with index out of bounds
-	[[deprecated("index out of bounds")]] constexpr scalar_type& operator[](const size_t& index)
-	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds")));
+	constexpr scalar_type& operator[](const size_t& index)
+	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! c array style access (not enabled if scalar_type is a reference)
 	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
@@ -2051,6 +2051,21 @@ public:
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };
 	}
 #endif
+	
+	//! returns this vector as a tuple
+	constexpr auto as_tuple() const {
+		return make_tuple(FLOOR_VEC_EXPAND(FLOOR_COMMA));
+	}
+	
+	//! returns this vector as a tuple, with each tuple element referencing its corresponding vector component
+	constexpr auto as_tuple_ref() {
+		return make_tuple(FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::ref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT));
+	}
+	
+	//! returns this vector as a tuple, with each tuple element referencing its corresponding vector component
+	constexpr auto as_tuple_ref() const {
+		return make_tuple(FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::cref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT));
+	}
 	
 	// TODO: more conversions?
 	

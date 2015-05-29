@@ -119,6 +119,7 @@
 		5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */; };
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
+		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -330,6 +331,7 @@
 		5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_pre.hpp; path = device/opencl_pre.hpp; sourceTree = "<group>"; };
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
+		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAEC25A18679A0F00BEC3A3 /* ios_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = ios_helper.hpp; path = ios/ios_helper.hpp; sourceTree = "<group>"; };
 		5CAEC25B18679A0F00BEC3A3 /* ios_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = ios_helper.mm; path = ios/ios_helper.mm; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
@@ -459,6 +461,7 @@
 			children = (
 				5C10916D17D1153E007F536E /* core.cpp */,
 				5C10916E17D1153E007F536E /* core.hpp */,
+				5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */,
 				5C10916F17D1153E007F536E /* cpp_headers.hpp */,
 				5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */,
 				5C0686B819C9285200CF63C8 /* essentials.hpp */,
@@ -828,6 +831,7 @@
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
+				5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */,
 				5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,

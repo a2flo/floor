@@ -34,7 +34,7 @@
 
 // fix broken msvc non-member size(...) function by defining it to sth else,
 // should be done before everything else, otherwise it would replace .size() as well
-// note that a proper implementation is provided further down below
+// note that a proper implementation is provided in cpp_ext.hpp
 #if defined(_MSC_VER)
 #define size MSVC_BROKEN_NON_MEMBER_SIZE
 #include <xutility>
@@ -85,55 +85,8 @@ using namespace std;
 // essentials (should be included after system/c++ headers)
 #include <floor/core/essentials.hpp>
 
-// minor type_trait extension
-#if !defined(FLOOR_HAS_IS_VECTOR)
-template <typename any_type> struct is_vector : public false_type {};
-template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
-#endif
-
-// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
-#if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && \
-	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
-template <class C> constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
-	return c.size();
-}
-template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
-	return N;
-}
-#endif
-
-// for whatever reason there is no "string to 32-bit uint" conversion function in the standard
-#if !defined(FLOOR_NO_STOU)
-floor_inline_always static unsigned int stou(const string& str, size_t* pos = nullptr, int base = 10) {
-	const auto ret = stoull(str, pos, base);
-	if(ret > 0xFFFFFFFFull) {
-		return UINT_MAX;
-	}
-	return (unsigned int)ret;
-}
-#endif
-// same for size_t
-#if !defined(FLOOR_NO_STOSIZE)
-#if defined(PLATFORM_X32)
-floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
-	const auto ret = stoull(str, pos, base);
-	if(ret > 0xFFFFFFFFull) {
-		return (size_t)UINT_MAX;
-	}
-	return (unsigned int)ret;
-}
-#elif defined(PLATFORM_X64)
-floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
-	return (size_t)stoull(str, pos, base);
-}
-#endif
-#endif
-// and for bool
-#if !defined(FLOOR_NO_STOB)
-floor_inline_always static bool stob(const string& str) {
-	return (str == "1" || str == "true" || str == "TRUE" || str == "YES");
-}
-#endif
+// c++ stl "extensions"
+#include <floor/core/cpp_ext.hpp>
 
 // misc "enum class" additions/helpers
 #include <floor/core/enum_helpers.hpp>
