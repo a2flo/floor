@@ -13,6 +13,76 @@ diff -rduBE a/include/__functional_base b/include/__functional_base
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
+diff -rduBE a/include/atomic b/include/atomic
+--- a/include/atomic
++++ b/include/atomic
+@@ -526,7 +526,9 @@
+ 
+ #include <__config>
+ #include <cstddef>
++#if 0
+ #include <cstdint>
++#endif
+ #include <type_traits>
+ 
+ #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+diff -rduBE a/include/functional b/include/functional
+--- a/include/functional
++++ b/include/functional
+@@ -472,8 +472,10 @@
+ 
+ #include <__config>
+ #include <type_traits>
++#if 0
+ #include <typeinfo>
+ #include <exception>
++#endif
+ #include <memory>
+ #include <tuple>
+ 
+@@ -1828,16 +1830,16 @@
+ 
+ template <int _Np> struct __ph {};
+ 
+-_LIBCPP_FUNC_VIS extern __ph<1>   _1;
+-_LIBCPP_FUNC_VIS extern __ph<2>   _2;
+-_LIBCPP_FUNC_VIS extern __ph<3>   _3;
+-_LIBCPP_FUNC_VIS extern __ph<4>   _4;
+-_LIBCPP_FUNC_VIS extern __ph<5>   _5;
+-_LIBCPP_FUNC_VIS extern __ph<6>   _6;
+-_LIBCPP_FUNC_VIS extern __ph<7>   _7;
+-_LIBCPP_FUNC_VIS extern __ph<8>   _8;
+-_LIBCPP_FUNC_VIS extern __ph<9>   _9;
+-_LIBCPP_FUNC_VIS extern __ph<10> _10;
++_LIBCPP_FUNC_VIS extern constant __ph<1>   _1;
++_LIBCPP_FUNC_VIS extern constant __ph<2>   _2;
++_LIBCPP_FUNC_VIS extern constant __ph<3>   _3;
++_LIBCPP_FUNC_VIS extern constant __ph<4>   _4;
++_LIBCPP_FUNC_VIS extern constant __ph<5>   _5;
++_LIBCPP_FUNC_VIS extern constant __ph<6>   _6;
++_LIBCPP_FUNC_VIS extern constant __ph<7>   _7;
++_LIBCPP_FUNC_VIS extern constant __ph<8>   _8;
++_LIBCPP_FUNC_VIS extern constant __ph<9>   _9;
++_LIBCPP_FUNC_VIS extern constant __ph<10> _10;
+ 
+ }  // placeholders
+ 
+diff -rduBE a/include/iosfwd b/include/iosfwd
+--- a/include/iosfwd
++++ b/include/iosfwd
+@@ -87,7 +87,12 @@
+ */
+ 
+ #include <__config>
++#if 0
+ #include <wchar.h>  // for mbstate_t
++#else
++// NOTE: not supported!
++typedef size_t mbstate_t;
++#endif
+ 
+ #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+ #pragma GCC system_header
 diff -rduBE a/include/limits b/include/limits
 --- a/include/limits
 +++ b/include/limits
@@ -112,6 +182,79 @@ diff -rduBE a/include/limits b/include/limits
 +#endif
  
  _LIBCPP_END_NAMESPACE_STD
+ 
+diff -rduBE a/include/memory b/include/memory
+--- a/include/memory
++++ b/include/memory
+@@ -595,9 +595,13 @@
+ 
+ #include <__config>
+ #include <type_traits>
++#if 0
+ #include <typeinfo>
++#endif
+ #include <cstddef>
++#if 0
+ #include <cstdint>
++#endif
+ #include <new>
+ #include <utility>
+ #include <limits>
+@@ -605,10 +609,12 @@
+ #include <__functional_base>
+ #include <iosfwd>
+ #include <tuple>
++#if 0
+ #include <cstring>
+ #if defined(_LIBCPP_NO_EXCEPTIONS)
+     #include <cassert>
+ #endif
++#endif
+ 
+ #if __has_feature(cxx_atomic)
+ #  include <atomic>
+@@ -1520,7 +1526,7 @@
+         __construct_forward(allocator_type& __a, _Tp* __begin1, _Tp* __end1, _Tp*& __begin2)
+         {
+             ptrdiff_t _Np = __end1 - __begin1;
+-            _VSTD::memcpy(__begin2, __begin1, _Np * sizeof(_Tp));
++            __builtin_memcpy(__begin2, __begin1, _Np * sizeof(_Tp));
+             __begin2 += _Np;
+         }
+ 
+@@ -1551,7 +1557,7 @@
+         {
+             ptrdiff_t _Np = __end1 - __begin1;
+             __end2 -= _Np;
+-            _VSTD::memcpy(__end2, __begin1, _Np * sizeof(_Tp));
++            __builtin_memcpy(__end2, __begin1, _Np * sizeof(_Tp));
+         }
+ 
+ private:
+@@ -1818,6 +1824,7 @@
+         {raw_storage_iterator __t(*this); ++__x_; return __t;}
+ };
+ 
++#if 0
+ template <class _Tp>
+ pair<_Tp*, ptrdiff_t>
+ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
+@@ -1844,6 +1851,7 @@
+ template <class _Tp>
+ inline _LIBCPP_INLINE_VISIBILITY
+ void return_temporary_buffer(_Tp* __p) _NOEXCEPT {::operator delete(__p);}
++#endif
+ 
+ template <class _Tp>
+ struct auto_ptr_ref
+@@ -3070,7 +3078,7 @@
+ __loadword(const void* __p)
+ {
+     _Size __r;
+-    std::memcpy(&__r, __p, sizeof(__r));
++    __builtin_memcpy(&__r, __p, sizeof(__r));
+     return __r;
+ }
  
 diff -rduBE a/include/type_traits b/include/type_traits
 --- a/include/type_traits
