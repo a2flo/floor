@@ -342,15 +342,29 @@ public:
 	}
 	
 	// final call: forward to printf
+#if !defined(FLOOR_COMPUTE_CUDA)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
-#if !defined(FLOOR_COMPUTE_CUDA)
 		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
-#else
-		// TODO: need a different approach for cuda, because printf type can't be infered,
-		// because it's a variadic template and not a variadic c function
-#endif
 	}
+#else
+	// need a slightly different approach for cuda, because printf type can't be infered,
+	// because it's a variadic template and not a variadic c function
+	template<typename Tuple, size_t... I>
+	static constexpr auto _log_final(Tuple&& args, index_sequence<I...>) {
+		return printf(get<I>(forward<Tuple>(args))...);
+	}
+	
+	template<typename Tuple, typename Indices = make_index_sequence<tuple_size<Tuple>::value>>
+	static constexpr auto _log_fwd(Tuple&& args) {
+		return _log_final(forward<Tuple>(args), Indices());
+	}
+	
+	template <typename... Args>
+	static void log(const constant char* format, Args&&... args) {
+		_log_fwd(tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
+	}
+#endif
 	
 };
 
