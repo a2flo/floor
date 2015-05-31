@@ -87,7 +87,6 @@ protected:
 	floor_inline_always void set_kernel_arguments(const uint8_t, void**, uint8_t*&) {}
 	
 	//! actual kernel argument setter
-	//! TODO: check for invalid args (e.g. raw pointers)
 	template <typename T>
 	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, T&& arg) {
 		*param = data;

@@ -78,8 +78,6 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	//! TODO: specialize for types (raw/pod types, images, ...)
-	//! TODO: check for invalid args (e.g. raw pointers)
 	template <typename T>
 	floor_inline_always void set_kernel_argument(const cl_uint num, T&& arg) {
 		CL_CALL_RET(clSetKernelArg(kernel, num, sizeof(T), &arg),

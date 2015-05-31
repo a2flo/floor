@@ -110,8 +110,6 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	//! TODO: specialize for types (raw/pod types, images, ...)
-	//! TODO: check for invalid args (e.g. raw pointers)
 	template <typename T>
 	void set_kernel_argument(const uint32_t num, compute_queue* queue, metal_encoder* encoder, T&& arg) {
 		set_const_parameter(queue, encoder, num, &arg, sizeof(T));

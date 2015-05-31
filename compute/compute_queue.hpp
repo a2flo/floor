@@ -31,6 +31,46 @@
 #endif
 
 class compute_queue {
+protected:
+	//! argument type validity specializations, with pretty error messages
+	template <typename T, typename = void> struct is_valid_arg { static constexpr bool valid() { return true; } };
+	template <typename T> struct is_valid_arg<T, enable_if_t<is_same<T, size_t>::value>> {
+		static constexpr bool valid()
+		__attribute__((unavailable("size_t is not allowed due to possible host/device size mismatch"))) { return false; }
+	};
+	template <typename T> struct is_valid_arg<T, enable_if_t<(is_floor_vector<T>::value &&
+															  is_same<typename T::decayed_scalar_type, size_t>::value)>> {
+		static constexpr bool valid()
+		__attribute__((unavailable("size_t vector types are not allowed due to possible host/device size mismatch"))) { return false; }
+	};
+	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer<T>::value>> {
+		static constexpr bool valid()
+		__attribute__((unavailable("raw pointers are not allowed"))) { return false; }
+	};
+	template <typename T> struct is_valid_arg<T, enable_if_t<is_null_pointer<T>::value>> {
+		static constexpr bool valid()
+		__attribute__((unavailable("nullptr is not allowed"))) { return false; }
+	};
+	
+	//! no args, all good
+	static constexpr bool check_arg_types() {
+		return true;
+	}
+	
+	//! checks if an individual argument type is valid
+	template <typename T>
+	static constexpr bool check_arg_types() {
+		constexpr const bool is_valid { is_valid_arg<T>::valid() };
+		static_assert(is_valid, "invalid argument type");
+		return is_valid;
+	}
+	
+	//! checks if all argument types are valid
+	template <typename T, typename... Args, enable_if_t<sizeof...(Args) != 0, int> = 0>
+	static constexpr bool check_arg_types() {
+		return (check_arg_types<T>() && check_arg_types<Args...>());
+	}
+	
 public:
 	virtual ~compute_queue() = 0;
 	
@@ -43,6 +83,11 @@ public:
 	//! implementation specific queue object ptr (cl_command_queue or CUStream, both "struct _ *")
 	virtual const void* get_queue_ptr() const = 0;
 	
+	template <typename... Args>
+	static constexpr bool is_valid() {
+		return true;
+	}
+	
 	//! enqueues (and executes) the specified kernel into this queue
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
 			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
@@ -52,9 +97,17 @@ public:
 	void execute(shared_ptr<compute_kernel> kernel,
 				 work_size_type_global&& global_work_size,
 				 work_size_type_local&& local_work_size,
-				 Args&&... args) {
+				 Args&&... args) __attribute__((enable_if(check_arg_types<Args...>(), "valid args"))) {
 		kernel->execute(this, global_work_size, local_work_size, forward<Args>(args)...);
 	}
+	
+	template <typename... Args, class work_size_type_global, class work_size_type_local,
+			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
+							is_same<decay_t<work_size_type_global>, size2>::value ||
+							is_same<decay_t<work_size_type_global>, size3>::value) &&
+						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
+	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
+	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
 protected:
 	

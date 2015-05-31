@@ -37,10 +37,6 @@ template <size_t n> constexpr auto make_constant_string(const constant char (&st
 	return const_string<n> { make_sized_array<n>((const char*)str) };
 }
 
-// helper function to determine if a type is a floor vector*
-template <typename any_type, typename = void> struct is_floor_vector : public false_type {};
-template <typename vec_type> struct is_floor_vector<vec_type, enable_if_t<decay_t<vec_type>::dim >= 1 && decay_t<vec_type>::dim <= 4>> : public true_type {};
-
 // (don't look at the man behind the curtain ...)
 #define print(str, ...) ({ \
 	typedef decltype(device_logger::create_tupled_args(__VA_ARGS__)) tupled_args_type; \
