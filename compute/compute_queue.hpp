@@ -83,11 +83,6 @@ public:
 	//! implementation specific queue object ptr (cl_command_queue or CUStream, both "struct _ *")
 	virtual const void* get_queue_ptr() const = 0;
 	
-	template <typename... Args>
-	static constexpr bool is_valid() {
-		return true;
-	}
-	
 	//! enqueues (and executes) the specified kernel into this queue
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
 			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
