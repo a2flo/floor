@@ -1,4 +1,5 @@
-diff -rduBE a/include/__functional_base b/include/__functional_base
+diff --git a/include/__functional_base b/include/__functional_base
+index 6766793..6dfb843 100644
 --- a/include/__functional_base
 +++ b/include/__functional_base
 @@ -13,9 +13,11 @@
@@ -13,10 +14,11 @@ diff -rduBE a/include/__functional_base b/include/__functional_base
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
-diff -rduBE a/include/atomic b/include/atomic
+diff --git a/include/atomic b/include/atomic
+index f6ab1cb..351ecfb 100644
 --- a/include/atomic
 +++ b/include/atomic
-@@ -526,7 +526,9 @@
+@@ -526,7 +526,9 @@ void atomic_signal_fence(memory_order m) noexcept;
  
  #include <__config>
  #include <cstddef>
@@ -26,10 +28,11 @@ diff -rduBE a/include/atomic b/include/atomic
  #include <type_traits>
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
-diff -rduBE a/include/functional b/include/functional
+diff --git a/include/functional b/include/functional
+index 416a9a9..656b1da 100644
 --- a/include/functional
 +++ b/include/functional
-@@ -472,8 +472,10 @@
+@@ -472,8 +472,10 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
  
  #include <__config>
  #include <type_traits>
@@ -40,7 +43,7 @@ diff -rduBE a/include/functional b/include/functional
  #include <memory>
  #include <tuple>
  
-@@ -1828,16 +1830,16 @@
+@@ -1828,16 +1830,16 @@ namespace placeholders
  
  template <int _Np> struct __ph {};
  
@@ -67,10 +70,11 @@ diff -rduBE a/include/functional b/include/functional
  
  }  // placeholders
  
-diff -rduBE a/include/iosfwd b/include/iosfwd
+diff --git a/include/iosfwd b/include/iosfwd
+index d24c227..03eb1ed 100644
 --- a/include/iosfwd
 +++ b/include/iosfwd
-@@ -87,7 +87,12 @@
+@@ -87,7 +87,12 @@ typedef fpos<char_traits<wchar_t>::state_type> wstreampos;
  */
  
  #include <__config>
@@ -83,10 +87,11 @@ diff -rduBE a/include/iosfwd b/include/iosfwd
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
-diff -rduBE a/include/limits b/include/limits
+diff --git a/include/limits b/include/limits
+index 2216966..a568476 100644
 --- a/include/limits
 +++ b/include/limits
-@@ -327,8 +327,8 @@
+@@ -327,8 +327,8 @@ protected:
      static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
      static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_valf();}
@@ -97,7 +102,7 @@ diff -rduBE a/include/limits b/include/limits
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {return __FLT_DENORM_MIN__;}
  
      static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
-@@ -373,8 +373,8 @@
+@@ -373,8 +373,8 @@ protected:
      static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
      static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_val();}
@@ -108,7 +113,7 @@ diff -rduBE a/include/limits b/include/limits
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {return __DBL_DENORM_MIN__;}
  
      static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
-@@ -419,8 +419,8 @@
+@@ -419,8 +419,8 @@ protected:
      static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
      static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_vall();}
@@ -119,7 +124,7 @@ diff -rduBE a/include/limits b/include/limits
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {return __LDBL_DENORM_MIN__;}
  
  #if (defined(__ppc__) || defined(__ppc64__))
-@@ -482,6 +482,7 @@
+@@ -482,6 +482,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -127,7 +132,7 @@ diff -rduBE a/include/limits b/include/limits
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_specialized;
  template <class _Tp>
-@@ -528,6 +529,7 @@
+@@ -528,6 +529,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<_Tp>::round_style;
@@ -135,7 +140,7 @@ diff -rduBE a/include/limits b/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const _Tp>
-@@ -575,6 +577,7 @@
+@@ -575,6 +577,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -143,7 +148,7 @@ diff -rduBE a/include/limits b/include/limits
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::is_specialized;
  template <class _Tp>
-@@ -621,6 +624,7 @@
+@@ -621,6 +624,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const _Tp>::round_style;
@@ -151,7 +156,7 @@ diff -rduBE a/include/limits b/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<volatile _Tp>
-@@ -668,6 +672,7 @@
+@@ -668,6 +672,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -159,7 +164,7 @@ diff -rduBE a/include/limits b/include/limits
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -714,6 +719,7 @@
+@@ -714,6 +719,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<volatile _Tp>::round_style;
@@ -167,7 +172,7 @@ diff -rduBE a/include/limits b/include/limits
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const volatile _Tp>
-@@ -761,6 +767,7 @@
+@@ -761,6 +767,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -175,7 +180,7 @@ diff -rduBE a/include/limits b/include/limits
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -807,6 +814,7 @@
+@@ -807,6 +814,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const volatile _Tp>::round_style;
@@ -183,10 +188,11 @@ diff -rduBE a/include/limits b/include/limits
  
  _LIBCPP_END_NAMESPACE_STD
  
-diff -rduBE a/include/memory b/include/memory
+diff --git a/include/memory b/include/memory
+index dc9aeba..889e751 100644
 --- a/include/memory
 +++ b/include/memory
-@@ -595,9 +595,13 @@
+@@ -595,9 +595,13 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
  
  #include <__config>
  #include <type_traits>
@@ -200,7 +206,7 @@ diff -rduBE a/include/memory b/include/memory
  #include <new>
  #include <utility>
  #include <limits>
-@@ -605,10 +609,12 @@
+@@ -605,10 +609,12 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
  #include <__functional_base>
  #include <iosfwd>
  #include <tuple>
@@ -213,7 +219,7 @@ diff -rduBE a/include/memory b/include/memory
  
  #if __has_feature(cxx_atomic)
  #  include <atomic>
-@@ -1520,7 +1526,7 @@
+@@ -1520,7 +1526,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
          __construct_forward(allocator_type& __a, _Tp* __begin1, _Tp* __end1, _Tp*& __begin2)
          {
              ptrdiff_t _Np = __end1 - __begin1;
@@ -222,7 +228,7 @@ diff -rduBE a/include/memory b/include/memory
              __begin2 += _Np;
          }
  
-@@ -1551,7 +1557,7 @@
+@@ -1551,7 +1557,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
          {
              ptrdiff_t _Np = __end1 - __begin1;
              __end2 -= _Np;
@@ -231,7 +237,7 @@ diff -rduBE a/include/memory b/include/memory
          }
  
  private:
-@@ -1818,6 +1824,7 @@
+@@ -1818,6 +1824,7 @@ public:
          {raw_storage_iterator __t(*this); ++__x_; return __t;}
  };
  
@@ -239,7 +245,7 @@ diff -rduBE a/include/memory b/include/memory
  template <class _Tp>
  pair<_Tp*, ptrdiff_t>
  get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
-@@ -1844,6 +1851,7 @@
+@@ -1844,6 +1851,7 @@ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
  template <class _Tp>
  inline _LIBCPP_INLINE_VISIBILITY
  void return_temporary_buffer(_Tp* __p) _NOEXCEPT {::operator delete(__p);}
@@ -247,7 +253,7 @@ diff -rduBE a/include/memory b/include/memory
  
  template <class _Tp>
  struct auto_ptr_ref
-@@ -3070,7 +3078,7 @@
+@@ -3070,7 +3078,7 @@ _Size
  __loadword(const void* __p)
  {
      _Size __r;
@@ -256,10 +262,11 @@ diff -rduBE a/include/memory b/include/memory
      return __r;
  }
  
-diff -rduBE a/include/type_traits b/include/type_traits
+diff --git a/include/type_traits b/include/type_traits
+index 371a15e..2322727 100644
 --- a/include/type_traits
 +++ b/include/type_traits
-@@ -244,8 +244,8 @@
+@@ -244,8 +244,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant
  #endif
  };
  
