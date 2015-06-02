@@ -174,7 +174,7 @@ template <typename any_type, typename = void> struct is_floor_vector : public fa
 template <typename vec_type>
 struct is_floor_vector<vec_type, enable_if_t<(decay_t<vec_type>::dim >= 1 &&
 											  decay_t<vec_type>::dim <= 4 &&
-											  is_same<vec_type, typename vec_type::vector_type>::value)>> : public true_type {};
+											  is_same<decay_t<vec_type>, typename decay_t<vec_type>::vector_type>::value)>> : public true_type {};
 
 // reenable warnings
 #if defined(__clang__)

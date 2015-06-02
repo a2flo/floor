@@ -20,9 +20,6 @@
 #define __FLOOR_MATRIX4_HPP__
 
 #include <utility>
-#if !defined(FLOOR_COMPUTE)
-#include <array>
-#endif
 #if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>
@@ -48,6 +45,12 @@ template <typename T> class vector4;
 //! column-major 4x4 matrix
 template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
 public:
+	//! "this" matrix type
+	typedef matrix4<T> matrix_type;
+	//! decayed scalar type (removes refs/etc.)
+	typedef decay_t<T> decayed_scalar_type;
+	
+	//! matrix elements are stored in a const_array so that they can be used with constexpr
 	const_array<T, 16> data;
 	
 	constexpr matrix4() noexcept :
@@ -142,7 +145,36 @@ public:
 	// projection
 	constexpr matrix4& perspective(const T fov, const T aspect, const T z_near, const T z_far);
 	constexpr matrix4& ortho(const T left, const T right, const T bottom, const T top, const T z_near, const T z_far);
+	
+	//! returns this matrix as a tuple
+	constexpr auto as_tuple() const {
+		return make_tuple(data[0], data[1], data[2], data[3],
+						  data[4], data[5], data[6], data[7],
+						  data[8], data[9], data[10], data[11],
+						  data[12], data[13], data[14], data[15]);
+	}
+	
+	//! returns this matrix as a tuple, with each tuple element referencing its corresponding matrix element
+	constexpr auto as_tuple_ref() {
+		return make_tuple(std::ref(data[0]), std::ref(data[1]), std::ref(data[2]), std::ref(data[3]),
+						  std::ref(data[4]), std::ref(data[5]), std::ref(data[6]), std::ref(data[7]),
+						  std::ref(data[8]), std::ref(data[9]), std::ref(data[10]), std::ref(data[11]),
+						  std::ref(data[12]), std::ref(data[13]), std::ref(data[14]), std::ref(data[15]));
+	}
+	
+	//! returns this matrix as a tuple, with each tuple element referencing its corresponding matrix element
+	constexpr auto as_tuple_ref() const {
+		return make_tuple(std::cref(data[0]), std::cref(data[1]), std::cref(data[2]), std::cref(data[3]),
+						  std::cref(data[4]), std::cref(data[5]), std::cref(data[6]), std::cref(data[7]),
+						  std::cref(data[8]), std::cref(data[9]), std::cref(data[10]), std::cref(data[11]),
+						  std::cref(data[12]), std::cref(data[13]), std::cref(data[14]), std::cref(data[15]));
+	}
 };
+
+//! type trait function to determine if a type is a floor matrix4*
+template <typename any_type, typename = void> struct is_floor_matrix : public false_type {};
+template <typename mat_type>
+struct is_floor_matrix<mat_type, enable_if_t<is_same<decay_t<mat_type>, typename decay_t<mat_type>::matrix_type>::value>> : public true_type {};
 
 template<typename T> constexpr matrix4<T> matrix4<T>::operator*(const matrix4<T>& mat) const {
 	matrix4 mul_mat((T)0);

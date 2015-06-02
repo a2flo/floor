@@ -64,7 +64,8 @@ public:
 		FLOAT,
 		DOUBLE,
 		VEC,
-		__MAX_TYPE = VEC,
+		MAT4,
+		__MAX_TYPE = MAT4,
 		
 		// next 8-bit: type specifics
 		__SPEC_SHIFT = 8u,
@@ -75,7 +76,7 @@ public:
 		VEC4 = 4u << __SPEC_SHIFT,
 		
 		// upper 16-bit: additional type specifics
-		// for VEC*: contains the component type
+		// for VEC* and MAT4: contains the component type
 		__ADD_SPEC_SHIFT = 16u,
 		__ADD_SPEC_MASK = 0xFFFF0000u,
 	};
@@ -128,6 +129,15 @@ public:
 				case 4: ret |= ARG_TYPE::VEC4; break;
 				default: return ARG_TYPE::INVALID;
 			}
+			const auto scalar_arg_type = handle_arg_type<typename T::decayed_scalar_type>::type();
+			if(scalar_arg_type == ARG_TYPE::INVALID) return ARG_TYPE::INVALID;
+			ret |= (ARG_TYPE)(uint32_t(scalar_arg_type) << uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT));
+			return ret;
+		}
+	};
+	template <typename T> struct handle_arg_type<T, enable_if_t<is_floor_matrix<T>::value>> {
+		static constexpr ARG_TYPE type() {
+			ARG_TYPE ret = ARG_TYPE::MAT4;
 			const auto scalar_arg_type = handle_arg_type<typename T::decayed_scalar_type>::type();
 			if(scalar_arg_type == ARG_TYPE::INVALID) return ARG_TYPE::INVALID;
 			ret |= (ARG_TYPE)(uint32_t(scalar_arg_type) << uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT));
@@ -216,6 +226,32 @@ public:
 					// (count - 1) * 2 for ", "; +2 for parentheses "(comp, ...)"; -1 for initial '$'
 					ret += count * type_size + (count - 1) * 2u + 2u - 1u;
 				} break;
+				case ARG_TYPE::MAT4: {
+					// matrix element type
+					size_t type_size = 0;
+					switch((ARG_TYPE)(uint32_t(arg_types[i] & ARG_TYPE::__ADD_SPEC_MASK) >>
+									  uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT))) {
+						case ARG_TYPE::INT:
+						case ARG_TYPE::UINT:
+						case ARG_TYPE::FLOAT:
+						case ARG_TYPE::DOUBLE:
+						case ARG_TYPE::STRING:
+							type_size = 2; // %*
+							break;
+						case ARG_TYPE::INT64:
+						case ARG_TYPE::UINT64:
+							type_size = 4; // %ll*
+							break;
+						default:
+							type_size = 0;
+							break;
+					}
+					// 16 elements, 4 per line, elements separated by <tab>, line front and back single char, newline at line end,
+					// -1 for initial $, +1 for stripped \n at the end
+					ret += (16 * type_size +
+							(3 /* tabs per line */ * 4 /* elems per line */) +
+							(3 /* front char, back char, newline */ * 4));
+				};
 				case ARG_TYPE::INVALID:
 				default:
 					break;
@@ -241,7 +277,9 @@ public:
 					pstr[out_idx++] = ' ';
 				}
 				else {
-					if(arg_type != ARG_TYPE::VEC) pstr[out_idx++] = '%';
+					if(arg_type != ARG_TYPE::VEC && arg_type != ARG_TYPE::MAT4) {
+						pstr[out_idx++] = '%';
+					}
 					switch(arg_type) {
 						case ARG_TYPE::INT:
 							pstr[out_idx++] = 'd';
@@ -312,6 +350,57 @@ public:
 							}
 							pstr[out_idx++] = ')';
 						} break;
+						case ARG_TYPE::MAT4: {
+							const auto comp_type = (ARG_TYPE)(uint32_t(arg_types[arg_num] & ARG_TYPE::__ADD_SPEC_MASK) >>
+															  uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT));
+							for(size_t line = 0; line < 4; ++line) {
+								if(line == 0) pstr[out_idx++] = '/';
+								else if(line == 3) pstr[out_idx++] = '\\';
+								else pstr[out_idx++] = '|';
+								
+								for(size_t elem = 0; elem < 4; ++elem) {
+									if(elem > 0) pstr[out_idx++] = '\t';
+									
+									if(comp_type == ARG_TYPE::INVALID ||
+									   comp_type > ARG_TYPE::__MAX_TYPE) {
+										continue;
+									}
+									pstr[out_idx++] = '%';
+									switch(comp_type) {
+										case ARG_TYPE::INT:
+											pstr[out_idx++] = 'd';
+											break;
+										case ARG_TYPE::UINT:
+											pstr[out_idx++] = 'u';
+											break;
+										case ARG_TYPE::FLOAT:
+										case ARG_TYPE::DOUBLE:
+											pstr[out_idx++] = 'f';
+											break;
+										case ARG_TYPE::STRING:
+											pstr[out_idx++] = 's';
+											break;
+										case ARG_TYPE::INT64:
+											pstr[out_idx++] = 'l';
+											pstr[out_idx++] = 'l';
+											pstr[out_idx++] = 'd';
+											break;
+										case ARG_TYPE::UINT64:
+											pstr[out_idx++] = 'l';
+											pstr[out_idx++] = 'l';
+											pstr[out_idx++] = 'u';
+											break;
+										default: break;
+									}
+								}
+								
+								if(line == 0) pstr[out_idx++] = '\\';
+								else if(line == 3) pstr[out_idx++] = '/';
+								else pstr[out_idx++] = '|';
+								
+								if(line < 3) pstr[out_idx++] = '\n';
+							}
+						} break;
 						default: break;
 					}
 				}
@@ -328,13 +417,17 @@ public:
 		return make_const_string(pstr);
 	}
 	
-	template <typename T, enable_if_t<!is_floor_vector<T>::value, int> = 0>
+	template <typename T, enable_if_t<!is_floor_vector<T>::value && !is_floor_matrix<T>::value, int> = 0>
 	static constexpr auto tupled_arg(T&& arg) {
 		return tuple<const T&>(std::cref(arg));
 	}
 	template <typename T, enable_if_t<is_floor_vector<T>::value, int> = 0>
 	static constexpr auto tupled_arg(T&& vec) {
 		return vec.as_tuple_ref();
+	}
+	template <typename T, enable_if_t<is_floor_matrix<T>::value, int> = 0>
+	static constexpr auto tupled_arg(T&& mat) {
+		return mat.as_tuple_ref();
 	}
 	
 	// final call: forward to printf
