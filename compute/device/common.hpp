@@ -125,7 +125,7 @@ using namespace std;
 #include <floor/core/enum_helpers.hpp>
 #include <floor/compute/device/image_types.hpp>
 
-// buffer / local_buffer / const_buffer / param target-specific specialization/implementation
+// buffer / local_buffer / constant_buffer / param target-specific specialization/implementation
 namespace floor_compute {
 	template <typename T> struct indirect_type_wrapper {
 		T elem;
@@ -154,9 +154,16 @@ namespace floor_compute {
 	};
 }
 
+// enable this to get the old address space wrappers
+#define FLOOR_OLD_AS_HANDLING 1
+
 #if defined(FLOOR_COMPUTE_CUDA)
 //! global memory buffer
+#if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
+#else
+template <typename T> using buffer = T*;
+#endif
 //! local memory buffer
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
 #define local_buffer local cuda_local_buffer
@@ -166,8 +173,8 @@ template <typename T, size_t count_1, size_t count_2 = 0> using cuda_local_buffe
 	conditional_t<count_2 == 0, cuda_local_buffer_1d<T, count_1>, cuda_local_buffer_2d<T, count_1, count_2>>;
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
-#define const_buffer constant const_buffer_cuda
-template <typename T> using const_buffer_cuda = const T* const;
+#define constant_buffer constant constant_buffer_cuda
+template <typename T> using constant_buffer_cuda = const T* const;
 //! generic parameter object/buffer
 template <typename T,
 		  typename param_wrapper = const conditional_t<
@@ -361,14 +368,12 @@ template <typename T> using type_load_wrapper = conditional_t<floor_compute::has
 															  T,
 															  floor_compute::buffer_container<T>>;
 
-#define FLOOR_OLD_AS_HANDLING 1
 //! global memory buffer
 #if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T, typename wrapper = type_load_wrapper<T>>
 using buffer = global floor_compute::address_space_adaptor<wrapper, global wrapper*, true, !is_const<T>()>*;
 #else
-template <typename T>
-using buffer = global T*;
+template <typename T> using buffer = global T*;
 #endif
 
 //! local memory buffer
@@ -380,8 +385,12 @@ template <typename T, size_t count> using local_buffer = local T[count];
 #endif
 
 //! constant memory buffer
+#if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T, typename wrapper = type_load_wrapper<T>>
-using const_buffer = constant floor_compute::address_space_adaptor<const wrapper, constant const wrapper*, true, false>*;
+using constant_buffer = constant floor_compute::address_space_adaptor<const wrapper, constant const wrapper*, true, false>*;
+#else
+template <typename T> using constant_buffer = const constant T*;
+#endif
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 //! generic parameter object/buffer (provided via launch parameter)
