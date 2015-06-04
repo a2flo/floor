@@ -20,6 +20,48 @@ index e1c9a14..1c9e06b 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
+index 02f4259..47103f2 100644
+--- a/include/llvm/InitializePasses.h
++++ b/include/llvm/InitializePasses.h
+@@ -64,6 +64,7 @@ void initializeTarget(PassRegistry&);
+ 
+ void initializeAAEvalPass(PassRegistry&);
+ void initializeAddDiscriminatorsPass(PassRegistry&);
++void initializeAddressSpaceFixPass(PassRegistry&);
+ void initializeADCEPass(PassRegistry&);
+ void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
+ void initializeAliasAnalysisCounterPass(PassRegistry&);
+diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
+index e06560c..6e7d587 100644
+--- a/include/llvm/LinkAllPasses.h
++++ b/include/llvm/LinkAllPasses.h
+@@ -48,6 +48,7 @@ namespace {
+         return;
+ 
+       (void) llvm::createAAEvalPass();
++      (void) llvm::createAddressSpaceFixPass();
+       (void) llvm::createAggressiveDCEPass();
+       (void) llvm::createAliasAnalysisCounterPass();
+       (void) llvm::createAliasDebugger();
+diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
+index 413134e..8905464 100644
+--- a/include/llvm/Transforms/Scalar.h
++++ b/include/llvm/Transforms/Scalar.h
+@@ -30,6 +30,13 @@ class TargetMachine;
+ 
+ //===----------------------------------------------------------------------===//
+ //
++// AddressSpaceFix - This pass fixes (intentionally) broken uses of addrspace
++// pointers that should be non-addrspace pointers.
++//
++FunctionPass *createAddressSpaceFixPass();
++
++//===----------------------------------------------------------------------===//
++//
+ // ConstantPropagation - A worklist driven constant propagation pass
+ //
+ FunctionPass *createConstantPropagationPass();
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
 index ac6e0e5..9e922f8 100644
 --- a/lib/AsmParser/LLParser.cpp
@@ -52,6 +94,74 @@ index ac6e0e5..9e922f8 100644
    Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
    return false;
  }
+diff --git a/lib/IR/Constants.cpp b/lib/IR/Constants.cpp
+index b815936..da8596b 100644
+--- a/lib/IR/Constants.cpp
++++ b/lib/IR/Constants.cpp
+@@ -1494,7 +1494,8 @@ Constant *ConstantExpr::getCast(unsigned oc, Constant *C, Type *Ty) {
+   Instruction::CastOps opc = Instruction::CastOps(oc);
+   assert(Instruction::isCast(opc) && "opcode out of range");
+   assert(C && Ty && "Null arguments to getCast");
+-  assert(CastInst::castIsValid(opc, C, Ty) && "Invalid constantexpr cast!");
++  // TODO: fix this!
++  //assert(CastInst::castIsValid(opc, C, Ty) && "Invalid constantexpr cast!");
+ 
+   switch (opc) {
+   default:
+@@ -1719,8 +1720,9 @@ Constant *ConstantExpr::getIntToPtr(Constant *C, Type *DstTy) {
+ }
+ 
+ Constant *ConstantExpr::getBitCast(Constant *C, Type *DstTy) {
+-  assert(CastInst::castIsValid(Instruction::BitCast, C, DstTy) &&
+-         "Invalid constantexpr bitcast!");
++  // TODO: fix this! fails in AddAppleCLKernelAnnotation
++  //assert(CastInst::castIsValid(Instruction::BitCast, C, DstTy) &&
++  //     "Invalid constantexpr bitcast!");
+ 
+   // It is common to ask for a bitcast of a value to its own type, handle this
+   // speedily.
+diff --git a/lib/IR/Instructions.cpp b/lib/IR/Instructions.cpp
+index 9553252..5047ab2 100644
+--- a/lib/IR/Instructions.cpp
++++ b/lib/IR/Instructions.cpp
+@@ -275,11 +275,13 @@ void CallInst::init(Value *Func, ArrayRef<Value *> Args, const Twine &NameStr) {
+           (FTy->isVarArg() && Args.size() > FTy->getNumParams())) &&
+          "Calling a function with bad signature!");
+ 
++#if 0 // TODO: disabled for now, need to ignore address space mismatches
+   for (unsigned i = 0; i != Args.size(); ++i)
+     assert((i >= FTy->getNumParams() || 
+             FTy->getParamType(i) == Args[i]->getType()) &&
+            "Calling a function with a bad signature!");
+ #endif
++#endif
+ 
+   std::copy(Args.begin(), Args.end(), op_begin());
+   setName(NameStr);
+diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
+index 9cf911b..8d61d2b 100644
+--- a/lib/IR/Verifier.cpp
++++ b/lib/IR/Verifier.cpp
+@@ -1542,10 +1542,17 @@ void Verifier::VerifyCallSite(CallSite CS) {
+             "Incorrect number of arguments passed to called function!", I);
+ 
+   // Verify that all arguments to the call match the function type.
+-  for (unsigned i = 0, e = FTy->getNumParams(); i != e; ++i)
+-    Assert3(CS.getArgument(i)->getType() == FTy->getParamType(i),
++  // Note that address space mismatches will be fixed later.
++  for (unsigned i = 0, e = FTy->getNumParams(); i != e; ++i) {
++    Assert3(CS.getArgument(i)->getType() == FTy->getParamType(i) ||
++            (CS.getArgument(i)->getType()->isPointerTy() &&
++             FTy->getParamType(i)->isPointerTy() &&
++             PointerType::get(cast<PointerType>(CS.getArgument(i)->getType())->getElementType(),
++                              FTy->getParamType(i)->getPointerAddressSpace()) ==
++             FTy->getParamType(i)),
+             "Call parameter type does not match function signature!",
+             CS.getArgument(i), FTy->getParamType(i), I);
++  }
+ 
+   AttributeSet Attrs = CS.getAttributes();
+ 
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
 index 93fabf6..2dfb759 100644
 --- a/lib/Target/NVPTX/NVPTX.td
@@ -170,6 +280,220 @@ index d5cded2..2e0ca79 100644
    }
  
    return *this;
+diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
+new file mode 100644
+index 0000000..db4605a
+--- /dev/null
++++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
+@@ -0,0 +1,183 @@
++//===- AddressSpaceFix.cpp - Example code from "Writing an LLVM Pass" -----===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements an address space fixer for OpenCL/SPIR (and related).
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/Scalar.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++using namespace llvm;
++
++#define DEBUG_TYPE "AddressSpaceFix"
++
++#define DBG(x)
++//#define DBG(x) x
++
++namespace {
++	// AddressSpaceFix
++	struct AddressSpaceFix : public FunctionPass, InstVisitor<AddressSpaceFix> {
++		friend class InstVisitor<AddressSpaceFix>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		std::shared_ptr<llvm::IRBuilder<>> builder;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		bool was_modified { false };
++		
++		AddressSpaceFix() : FunctionPass(ID) {
++			initializeAddressSpaceFixPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if (F.empty()) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			
++			// find first non-alloca instruction in the entry block of the function
++			// -> this will be the insert position for new alloca instructions
++			for(auto& instr : *F.begin()) {
++				if(!isa<AllocaInst>(instr)) {
++					alloca_insert = &instr;
++					break;
++				}
++			}
++			
++			// visit everything in this function
++			was_modified = false; // reset every time
++			visit(F);
++			if(was_modified) {
++				DBG(errs() << "!! modified function: ";)
++				DBG(errs().write_escaped(F.getName()) << '\n';)
++			}
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<AddressSpaceFix>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<AddressSpaceFix>::visit(I);
++		}
++		
++		void visitCallInst(CallInst& CI) {
++			CallSite CS { &CI };
++			PointerType* FPTy = cast<PointerType>(CS.getCalledValue()->getType());
++			FunctionType* FTy = cast<FunctionType>(FPTy->getElementType());
++			
++			for (unsigned i = 0, e = FTy->getNumParams(); i != e; ++i) {
++				// check if there is a type mismatch
++				if(CS.getArgument(i)->getType() != FTy->getParamType(i)) {
++					// both types must be pointers
++					auto called_arg_type = CS.getArgument(i)->getType();
++					auto expected_arg_type = FTy->getParamType(i);
++					if(!called_arg_type->isPointerTy() ||
++					   !expected_arg_type->isPointerTy()) {
++						// emit original verifier assertion (TODO: fix it there!)
++						assert(false && "Call parameter type does not match function signature!");
++						continue;
++					}
++					
++					// check if the mismatch is _only_ due to the addrspace
++					DBG(errs() << "\t>> call, both types are ptrs: ";)
++					DBG(errs() << called_arg_type->getPointerAddressSpace() << ", ";)
++					DBG(errs() << expected_arg_type->getPointerAddressSpace() << "\n";)
++					auto as_ptr = cast<PointerType>(called_arg_type);
++					if(PointerType::get(as_ptr->getElementType(),
++										expected_arg_type->getPointerAddressSpace()) !=
++					   expected_arg_type) {
++						// emit original verifier assertion (TODO: fix it there!)
++						assert(false && "Call parameter type does not match function signature!");
++						continue;
++					}
++					// else: yup, only addrspace mismatch
++					DBG(errs() << "\tonly addrspace mismatch!\n";)
++					DBG(errs() << "\treplacing arg #" << i << "!\n";)
++					
++					// fix it:
++					//  * create a temporary object (of the element/pointee type of the address space pointer)
++					//  * load data from the address space pointer to the temp object
++					//  * replace the respective call operand/argument with a pointer to the temp object
++					//  * after the call, store data back to the address space pointer from the temp object
++					
++					// TODO: only do this if param address space is 0?
++					// TODO: if const, don't write back
++					// TODO: handle alignment?
++					
++					builder->SetInsertPoint(alloca_insert); // insert alloca at function entry
++					auto tmp = builder->CreateAlloca(as_ptr->getElementType(),
++													 // what about arrays?
++													 nullptr,
++													 // give it a nice name
++													 "asfixtmp");
++					
++					builder->SetInsertPoint(&CI); // insert load before call
++					auto src = CS.getArgument(i);
++					builder->CreateStore(builder->CreateLoad(src), tmp);
++					
++					CS.setArgument(i, tmp);
++					
++					builder->SetInsertPoint(CI.getNextNode()); // insert store after call
++					builder->CreateStore(builder->CreateLoad(tmp), src);
++					
++					// done, signal that the function was modified
++					was_modified = true;
++				}
++			}
++		}
++	};
++}
++
++char AddressSpaceFix::ID = 0;
++INITIALIZE_PASS(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
++
++FunctionPass *llvm::createAddressSpaceFixPass() {
++	return new AddressSpaceFix();
++}
+diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
+index 261ddda..7eed586 100644
+--- a/lib/Transforms/Scalar/CMakeLists.txt
++++ b/lib/Transforms/Scalar/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ add_llvm_library(LLVMScalarOpts
++  AddressSpaceFix.cpp
+   ADCE.cpp
+   ConstantHoisting.cpp
+   ConstantProp.cpp
+diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
+index de724d4..831b1bb 100644
+--- a/lib/Transforms/Scalar/Scalar.cpp
++++ b/lib/Transforms/Scalar/Scalar.cpp
+@@ -73,6 +73,10 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+   initializeScalarOpts(*unwrap(R));
+ }
+ 
++void LLVMAddAddressSpaceFixPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createAddressSpaceFixPass());
++}
++
+ void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(createAggressiveDCEPass());
+ }
 diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
 index 8134f6b..f0b0f86 100644
 --- a/tools/clang/include/clang/AST/ASTContext.h
@@ -259,10 +583,36 @@ index 09862e4..ddc236c 100644
  }
  
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..d091c11 100644
+index 704a375..e6bc378 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
-@@ -514,7 +514,7 @@ def Constructor : InheritableAttr {
+@@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
+   let Documentation = [Undocumented];
+ }
+ 
++def AlignValue : Attr {
++  let Spellings = [
++    // Unfortunately, this is semantically an assertion, not a
++    // directive (something else must ensure the alignment), so
++    // aligned_value is a probably a better name. We might want
++    // to add an aligned_value spelling in the future (and a
++    // corresponding C++ attribute), but this can be done later
++    // once we decide if we also want them to have
++    // slightly-different semantics than Intel's align_value.
++    GNU<"align_value">
++    // Intel's compiler on Windows also supports:
++    // , Declspec<"align_value">
++  ];
++  let Args = [ExprArgument<"Alignment">];
++  let Subjects = SubjectList<[Var, TypedefName], WarnDiag,
++                             "ExpectedVariableOrTypedef">;
++  let Documentation = [AlignValueDocs];
++}
++
+ def AlignMac68k : InheritableAttr {
+   // This attribute has no spellings as it is only ever created implicitly.
+   let Spellings = [];
+@@ -514,7 +533,7 @@ def Constructor : InheritableAttr {
  }
  
  def CUDAConstant : InheritableAttr {
@@ -271,7 +621,7 @@ index 704a375..d091c11 100644
    let Subjects = SubjectList<[Var]>;
    let LangOpts = [CUDA];
    let Documentation = [Undocumented];
-@@ -528,7 +528,7 @@ def CUDADevice : InheritableAttr {
+@@ -528,7 +547,7 @@ def CUDADevice : InheritableAttr {
  }
  
  def CUDAGlobal : InheritableAttr {
@@ -280,7 +630,7 @@ index 704a375..d091c11 100644
    let Subjects = SubjectList<[Function]>;
    let LangOpts = [CUDA];
    let Documentation = [Undocumented];
-@@ -554,7 +554,7 @@ def CUDALaunchBounds : InheritableAttr {
+@@ -554,7 +573,7 @@ def CUDALaunchBounds : InheritableAttr {
  }
  
  def CUDAShared : InheritableAttr {
@@ -289,7 +639,7 @@ index 704a375..d091c11 100644
    let Subjects = SubjectList<[Var]>;
    let LangOpts = [CUDA];
    let Documentation = [Undocumented];
-@@ -574,7 +574,7 @@ def CXX11NoReturn : InheritableAttr {
+@@ -574,7 +593,7 @@ def CXX11NoReturn : InheritableAttr {
  }
  
  def OpenCLKernel : InheritableAttr {
@@ -298,7 +648,7 @@ index 704a375..d091c11 100644
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -582,36 +582,39 @@ def OpenCLKernel : InheritableAttr {
+@@ -582,36 +601,39 @@ def OpenCLKernel : InheritableAttr {
  // This attribute is both a type attribute, and a declaration attribute (for
  // parameter variables).
  def OpenCLImageAccess : Attr {
@@ -349,6 +699,37 @@ index 704a375..d091c11 100644
    let Documentation = [Undocumented];
  }
  
+diff --git a/tools/clang/include/clang/Basic/AttrDocs.td b/tools/clang/include/clang/Basic/AttrDocs.td
+index e6d6a33..3e7bdc1 100644
+--- a/tools/clang/include/clang/Basic/AttrDocs.td
++++ b/tools/clang/include/clang/Basic/AttrDocs.td
+@@ -987,6 +987,26 @@ Clang implements two kinds of checks with this attribute.
+   }];
+ }
+ 
++def AlignValueDocs : Documentation {
++  let Category = DocCatType;
++  let Content = [{
++The align_value attribute can be added to the typedef of a pointer type or the
++declaration of a variable of pointer or reference type. It specifies that the
++pointer will point to, or the reference will bind to, only objects with at
++least the provided alignment. This alignment value must be some positive power
++of 2.
++
++   .. code-block:: c
++
++     typedef double * aligned_double_ptr __attribute__((align_value(64)));
++     void foo(double & x  __attribute__((align_value(128)),
++              aligned_double_ptr y) { ... }
++
++If the pointer value does not have the specified alignment at runtime, the
++behavior of the program is undefined.
++  }];
++}
++
+ def MSInheritanceDocs : Documentation {
+   let Category = DocCatType;
+   let Heading = "__single_inhertiance, __multiple_inheritance, __virtual_inheritance";
 diff --git a/tools/clang/include/clang/Basic/Builtins.def b/tools/clang/include/clang/Basic/Builtins.def
 index e705382..8d81d77 100644
 --- a/tools/clang/include/clang/Basic/Builtins.def
@@ -364,6 +745,52 @@ index e705382..8d81d77 100644
  #undef BUILTIN
  #undef LIBBUILTIN
  #undef LANGBUILTIN
+diff --git a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td b/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
+index 1665a45..3778e80 100644
+--- a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
++++ b/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
+@@ -1897,8 +1897,12 @@ def err_attribute_bad_neon_vector_size : Error<
+   "Neon vector size must be 64 or 128 bits">;
+ def err_attribute_unsupported : Error<
+   "%0 attribute is not supported for this target">;
++// The err_*_attribute_argument_not_int are seperate because they're used by
++// VerifyIntegerConstantExpression.
+ def err_aligned_attribute_argument_not_int : Error<
+   "'aligned' attribute requires integer constant">;
++def err_align_value_attribute_argument_not_int : Error<
++  "'align_value' attribute requires integer constant">;
+ def err_alignas_attribute_wrong_decl_type : Error<
+   "%0 attribute cannot be applied to a %select{function parameter|"
+   "variable with 'register' storage class|'catch' variable|bit-field}1">;
+@@ -1934,6 +1938,9 @@ def err_attribute_pointers_only : Error<warn_attribute_pointers_only.Text>;
+ def warn_attribute_return_pointers_only : Warning<
+   "%0 attribute only applies to return values that are pointers">,
+   InGroup<IgnoredAttributes>;
++def warn_attribute_pointer_or_reference_only : Warning<
++  "%0 attribute only applies to a pointer or reference (%1 is invalid)">,
++  InGroup<IgnoredAttributes>;
+ def err_attribute_no_member_pointers : Error<
+   "%0 attribute cannot be used with pointers to members">;
+ def err_attribute_invalid_implicit_this_argument : Error<
+@@ -2054,6 +2061,9 @@ def err_no_accessor_for_property : Error<
+ def error_cannot_find_suitable_accessor : Error<
+   "cannot find suitable %select{getter|setter}0 for property %1">;
+ 
++def err_alignment_not_power_of_two : Error<
++  "requested alignment is not a power of 2">;
++
+ def err_attribute_aligned_not_power_of_two : Error<
+   "requested alignment is not a power of 2">;
+ def err_attribute_aligned_too_great : Error<
+@@ -2166,7 +2176,7 @@ def warn_attribute_wrong_decl_type : Warning<
+   "functions, methods and blocks|functions, methods, and classes|"
+   "functions, methods, and parameters|classes|variables|methods|"
+   "variables, functions and labels|fields and global variables|structs|"
+-  "variables, functions and tag types|thread-local variables|"
++  "variables and typedefs|thread-local variables|"
+   "variables and fields|variables, data members and tag types|"
+   "types and namespaces|Objective-C interfaces|methods and properties|"
+   "struct or union|struct, union or class|types|"
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
 index 5d08833..52d3d3e 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
@@ -472,6 +899,35 @@ index 90a27b5..aa9aea9 100644
 +             Digraphs | GNUMode)
  
  #undef LANGSTANDARD
+diff --git a/tools/clang/include/clang/Sema/AttributeList.h b/tools/clang/include/clang/Sema/AttributeList.h
+index c21c19f..a37f138 100644
+--- a/tools/clang/include/clang/Sema/AttributeList.h
++++ b/tools/clang/include/clang/Sema/AttributeList.h
+@@ -826,7 +826,7 @@ enum AttributeDeclKind {
+   ExpectedVariableFunctionOrLabel,
+   ExpectedFieldOrGlobalVar,
+   ExpectedStruct,
+-  ExpectedVariableFunctionOrTag,
++  ExpectedVariableOrTypedef,
+   ExpectedTLSVar,
+   ExpectedVariableOrField,
+   ExpectedVariableFieldOrTag,
+diff --git a/tools/clang/include/clang/Sema/Sema.h b/tools/clang/include/clang/Sema/Sema.h
+index e254afd..1f05b24 100644
+--- a/tools/clang/include/clang/Sema/Sema.h
++++ b/tools/clang/include/clang/Sema/Sema.h
+@@ -7283,6 +7283,11 @@ public:
+   void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
+                       unsigned SpellingListIndex, bool IsPackExpansion);
+ 
++  /// AddAlignValueAttr - Adds an align_value attribute to a particular
++  /// declaration.
++  void AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
++                         unsigned SpellingListIndex);
++
+   // OpenMP directives and clauses.
+ private:
+   void *VarDataSharingAttributesStack;
 diff --git a/tools/clang/include/clang/Serialization/ASTBitCodes.h b/tools/clang/include/clang/Serialization/ASTBitCodes.h
 index 7ae1977..bc2f64c 100644
 --- a/tools/clang/include/clang/Serialization/ASTBitCodes.h
@@ -771,6 +1227,87 @@ index 075f905..c9be0ff 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
+diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
+index cec48f3..8ea5b0c 100644
+--- a/tools/clang/lib/CodeGen/BackendUtil.cpp
++++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
+@@ -145,6 +145,10 @@ private:
+ 
+ }
+ 
++static void addAddressSpaceFixPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
++  PM.add(createAddressSpaceFixPass());
++}
++
+ static void addObjCARCAPElimPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
+   if (Builder.OptLevel > 0)
+     PM.add(createObjCARCAPElimPass());
+@@ -240,6 +244,11 @@ void EmitAssemblyHelper::CreatePasses() {
+   PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
+   PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
+ 
++  if (LangOpts.OpenCL) {
++    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
++                           addAddressSpaceFixPass);
++  }
++
+   PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
+                          addAddDiscriminatorsPass);
+ 
+diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
+index 17c3354..77e0342 100644
+--- a/tools/clang/lib/CodeGen/CGCall.cpp
++++ b/tools/clang/lib/CodeGen/CGCall.cpp
+@@ -1526,6 +1526,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+               AI->addAttr(llvm::AttributeSet::get(getLLVMContext(),
+                                                   AI->getArgNo() + 1,
+                                                   llvm::Attribute::NonNull));
++		  }
++
++          const auto *AVAttr = PVD->getAttr<AlignValueAttr>();
++          if (!AVAttr)
++            if (const auto *TOTy = dyn_cast<TypedefType>(OTy))
++              AVAttr = TOTy->getDecl()->getAttr<AlignValueAttr>();
++          if (AVAttr) {
++            llvm::Value *AlignmentValue =
++              EmitScalarExpr(AVAttr->getAlignment());
++            llvm::ConstantInt *AlignmentCI =
++              cast<llvm::ConstantInt>(AlignmentValue);
++            unsigned Alignment =
++              std::min((unsigned) AlignmentCI->getZExtValue(),
++                       +llvm::Value::MaximumAlignment);
++
++            llvm::AttrBuilder Attrs;
++            Attrs.addAlignmentAttr(Alignment);
++            AI->addAttr(llvm::AttributeSet::get(getLLVMContext(),
++                                                AI->getArgNo() + 1, Attrs));
+           }
+         }
+ 
+@@ -2832,12 +2851,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+         
+         // If the argument doesn't match, perform a bitcast to coerce it.  This
+         // can happen due to trivial type mismatches.
++		bool ignore_args_check = false;
+         if (IRArgNo < IRFuncTy->getNumParams() &&
+-            V->getType() != IRFuncTy->getParamType(IRArgNo))
+-          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(IRArgNo));
++			V->getType() != IRFuncTy->getParamType(IRArgNo)) {
++			const auto src_as = V->getType()->getPointerAddressSpace();
++			auto param_type = IRFuncTy->getParamType(IRArgNo);
++			if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
++				param_type = llvm::PointerType::get(cast<llvm::PointerType>(param_type->getScalarType())->getElementType(), src_as);
++				ignore_args_check = true;
++			}
++			V = Builder.CreateBitCast(V, param_type);
++		}
+         Args.push_back(V);
+         
+-        checkArgMatches(V, IRArgNo, IRFuncTy);
++        if(!ignore_args_check) checkArgMatches(V, IRArgNo, IRFuncTy);
+         break;
+       }
+ 
 diff --git a/tools/clang/lib/CodeGen/CGDebugInfo.cpp b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
 index 048c8f8..c859a82 100644
 --- a/tools/clang/lib/CodeGen/CGDebugInfo.cpp
@@ -813,6 +1350,49 @@ index fc3f434..7e63426 100644
    llvm::DIType OCLImage3dDITy;
    llvm::DIType OCLEventDITy;
    llvm::DIType BlockLiteralGeneric;
+diff --git a/tools/clang/lib/CodeGen/CGExprAgg.cpp b/tools/clang/lib/CodeGen/CGExprAgg.cpp
+index 4cf94c0..53f4bb5 100644
+--- a/tools/clang/lib/CodeGen/CGExprAgg.cpp
++++ b/tools/clang/lib/CodeGen/CGExprAgg.cpp
+@@ -1405,12 +1405,13 @@ void CodeGenFunction::EmitAggregateCopy(llvm::Value *DestPtr,
+   if (getLangOpts().CPlusPlus) {
+     if (const RecordType *RT = Ty->getAs<RecordType>()) {
+       CXXRecordDecl *Record = cast<CXXRecordDecl>(RT->getDecl());
+-      assert((Record->hasTrivialCopyConstructor() || 
++	  // TODO: fix this!
++      /*assert((Record->hasTrivialCopyConstructor() ||
+               Record->hasTrivialCopyAssignment() ||
+               Record->hasTrivialMoveConstructor() ||
+               Record->hasTrivialMoveAssignment()) &&
+              "Trying to aggregate-copy a type without a trivial copy/move "
+-             "constructor or assignment operator");
++             "constructor or assignment operator");*/
+       // Ignore empty classes in C++.
+       if (Record->isEmpty())
+         return;
+diff --git a/tools/clang/lib/CodeGen/CGExprCXX.cpp b/tools/clang/lib/CodeGen/CGExprCXX.cpp
+index 7aacee4..5c002e0 100644
+--- a/tools/clang/lib/CodeGen/CGExprCXX.cpp
++++ b/tools/clang/lib/CodeGen/CGExprCXX.cpp
+@@ -24,6 +24,8 @@
+ using namespace clang;
+ using namespace CodeGen;
+ 
++// TODO: fix other This uses?
++
+ RValue CodeGenFunction::EmitCXXMemberCall(const CXXMethodDecl *MD,
+                                           SourceLocation CallLoc,
+                                           llvm::Value *Callee,
+@@ -46,7 +48,8 @@ RValue CodeGenFunction::EmitCXXMemberCall(const CXXMethodDecl *MD,
+   CallArgList Args;
+ 
+   // Push the this ptr.
+-  Args.add(RValue::get(This), MD->getThisType(getContext()));
++  auto this_type = getContext().getAddrSpaceQualType(MD->getThisType(getContext()), This->getType()->getPointerAddressSpace());
++  Args.add(RValue::get(This), this_type);
+ 
+   // If there is an implicit parameter (e.g. VTT), emit it.
+   if (ImplicitParam) {
 diff --git a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 index 079ef72..5b0b575 100644
 --- a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
@@ -1685,6 +2265,79 @@ index 8716227..93df749 100644
    }
    
    // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program
+diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
+index 61683cd..e472879 100644
+--- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
++++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
+@@ -2679,6 +2679,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+                           Attr.getAttributeSpellingListIndex()));
+ }
+ 
++static void handleAlignValueAttr(Sema &S, Decl *D,
++                                 const AttributeList &Attr) {
++  S.AddAlignValueAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
++                      Attr.getAttributeSpellingListIndex());
++}
++
++void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
++                             unsigned SpellingListIndex) {
++  AlignValueAttr TmpAttr(AttrRange, Context, E, SpellingListIndex);
++  SourceLocation AttrLoc = AttrRange.getBegin();
++
++  QualType T;
++  if (TypedefNameDecl *TD = dyn_cast<TypedefNameDecl>(D))
++    T = TD->getUnderlyingType();
++  else if (ValueDecl *VD = dyn_cast<ValueDecl>(D))
++    T = VD->getType();
++  else
++    llvm_unreachable("Unknown decl type for align_value");
++
++  if (!T->isDependentType() && !T->isAnyPointerType() &&
++      !T->isReferenceType() && !T->isMemberPointerType()) {
++    Diag(AttrLoc, diag::warn_attribute_pointer_or_reference_only)
++      << &TmpAttr /*TmpAttr.getName()*/ << T << D->getSourceRange();
++    return;
++  }
++
++  if (!E->isValueDependent()) {
++    llvm::APSInt Alignment(32);
++    ExprResult ICE
++      = VerifyIntegerConstantExpression(E, &Alignment,
++          diag::err_align_value_attribute_argument_not_int,
++            /*AllowFold*/ false);
++    if (ICE.isInvalid())
++      return;
++
++    if (!Alignment.isPowerOf2()) {
++      Diag(AttrLoc, diag::err_alignment_not_power_of_two)
++        << E->getSourceRange();
++      return;
++    }
++
++    D->addAttr(::new (Context)
++               AlignValueAttr(AttrRange, Context, ICE.get(),
++               SpellingListIndex));
++    return;
++  }
++
++  // Save dependent expressions in the AST to be instantiated.
++  D->addAttr(::new (Context) AlignValueAttr(TmpAttr));
++  return;
++}
++
+ static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+   // check the attribute arguments.
+   if (Attr.getNumArgs() > 1) {
+@@ -4102,6 +4154,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+   case AttributeList::AT_Aligned:
+     handleAlignedAttr(S, D, Attr);
+     break;
++  case AttributeList::AT_AlignValue:
++    handleAlignValueAttr(S, D, Attr);
++    break;
+   case AttributeList::AT_AlwaysInline:
+     handleAlwaysInlineAttr(S, D, Attr);
+     break;
 diff --git a/tools/clang/lib/Sema/SemaDeclCXX.cpp b/tools/clang/lib/Sema/SemaDeclCXX.cpp
 index c5cd83d..7084757 100644
 --- a/tools/clang/lib/Sema/SemaDeclCXX.cpp
@@ -1738,10 +2391,36 @@ index 35dad82..bd249ab 100644
      return QualType();
    }
 diff --git a/tools/clang/lib/Sema/SemaInit.cpp b/tools/clang/lib/Sema/SemaInit.cpp
-index 06ca9ae..da49abc 100644
+index 06ca9ae..a517db4 100644
 --- a/tools/clang/lib/Sema/SemaInit.cpp
 +++ b/tools/clang/lib/Sema/SemaInit.cpp
-@@ -4721,13 +4721,18 @@ void InitializationSequence::InitializeFrom(Sema &S,
+@@ -3970,6 +3970,7 @@ static void TryReferenceInitializationCore(Sema &S,
+   //         where "cv1 T1" is reference-compatible with "cv3 T3",
+   //
+   // DR1287 removes the "implicitly" here.
++  bool isOpenCLASRef = false;
+   if (T2->isRecordType()) {
+     if (RefRelationship == Sema::Ref_Incompatible) {
+       ConvOvlResult = TryRefInitWithConversionFunction(
+@@ -3990,8 +3991,15 @@ static void TryReferenceInitializationCore(Sema &S,
+       return;
+     }
+ 
+-    Sequence.SetFailed(InitializationSequence::FK_ReferenceInitDropsQualifiers);
+-    return;
++    if(S.getLangOpts().OpenCL &&
++       ((cv1T1.getAddressSpace() == 0 && cv2T2.getAddressSpace() != 0) ||
++        (cv1T1.getAddressSpace() != 0 && cv2T2.getAddressSpace() == 0))) {
++      isOpenCLASRef = true;
++    }
++    if(!isOpenCLASRef) {
++      Sequence.SetFailed(InitializationSequence::FK_ReferenceInitDropsQualifiers);
++      return;
++    }
+   }
+ 
+   //      - Otherwise, a temporary of type "cv1 T1" is created and initialized
+@@ -4721,13 +4729,18 @@ void InitializationSequence::InitializeFrom(Sema &S,
          tryObjCWritebackConversion(S, *this, Entity, Initializer)) {
        return;
      }
@@ -1760,6 +2439,79 @@ index 06ca9ae..da49abc 100644
      // Handle initialization in C
      AddCAssignmentStep(DestType);
      MaybeProduceObjCObject(S, *this, Entity);
+@@ -5926,7 +5939,10 @@ InitializationSequence::Perform(Sema &S,
+ 
+     case SK_BindReferenceToTemporary: {
+       // Make sure the "temporary" is actually an rvalue.
+-      assert(CurInit.get()->isRValue() && "not a temporary");
++      // TODO: fix this!
++      //if(CurInit.get()->getType()) {
++      //assert(CurInit.get()->isRValue() && "not a temporary");
++      //}
+ 
+       // Check exception specifications
+       if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))
+diff --git a/tools/clang/lib/Sema/SemaOverload.cpp b/tools/clang/lib/Sema/SemaOverload.cpp
+index 03001d8..8678e01 100644
+--- a/tools/clang/lib/Sema/SemaOverload.cpp
++++ b/tools/clang/lib/Sema/SemaOverload.cpp
+@@ -4387,8 +4387,20 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
+     T1Quals.removeObjCLifetime();
+     T2Quals.removeObjCGCAttr();
+     T2Quals.removeObjCLifetime();
+-    if (!T1Quals.compatiblyIncludes(T2Quals))
++    if(S.getLangOpts().OpenCL) {
++		bool dropped_as = false;
++		if(T1Quals.hasAddressSpace()) {
++			T1Quals.removeAddressSpace();
++			dropped_as = true;
++		}
++		if(T2Quals.hasAddressSpace()) {
++			T2Quals.removeAddressSpace();
++			dropped_as = true;
++		}
++	}
++	if (!T1Quals.compatiblyIncludes(T2Quals)) {
+       return ICS;
++	}
+   }
+ 
+   // If at least one of the types is a class type, the types are not
+diff --git a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+index accec95..d1095d9 100644
+--- a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
++++ b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
+@@ -129,6 +129,17 @@ static void instantiateDependentAlignedAttr(
+   }
+ }
+ 
++static void instantiateDependentAlignValueAttr(
++    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
++    const AlignValueAttr *Aligned, Decl *New) {
++  // The alignment expression is a constant expression.
++  EnterExpressionEvaluationContext Unevaluated(S, Sema::ConstantEvaluated);
++  ExprResult Result = S.SubstExpr(Aligned->getAlignment(), TemplateArgs);
++  if (!Result.isInvalid())
++    S.AddAlignValueAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
++                        Aligned->getSpellingListIndex());
++}
++
+ static void instantiateDependentEnableIfAttr(
+     Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
+     const EnableIfAttr *A, const Decl *Tmpl, Decl *New) {
+@@ -176,6 +187,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+       continue;
+     }
+ 
++    const AlignValueAttr *AlignValue = dyn_cast<AlignValueAttr>(TmplAttr);
++    if (AlignValue) {
++      instantiateDependentAlignValueAttr(*this, TemplateArgs, AlignValue, New);
++      continue;
++    }
++
+     const EnableIfAttr *EnableIf = dyn_cast<EnableIfAttr>(TmplAttr);
+     if (EnableIf && EnableIf->getCond()->isValueDependent()) {
+       instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
 diff --git a/tools/clang/lib/Serialization/ASTCommon.cpp b/tools/clang/lib/Serialization/ASTCommon.cpp
 index ad046ff..c3f5f66 100644
 --- a/tools/clang/lib/Serialization/ASTCommon.cpp
