@@ -314,7 +314,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		additional_options +
 		// compile to the right device bitness
 		(device->bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
-		//(target != TARGET::PTX ? " -Xclang -load -Xclang ~/clang/build/Release/lib/LLVMAddressSpaceFix.dylib" : "") +
 		" -emit-llvm -S -o - " + input
 	};
 	

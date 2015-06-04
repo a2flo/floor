@@ -155,14 +155,15 @@ namespace floor_compute {
 }
 
 // enable this to get the old address space wrappers
-#define FLOOR_OLD_AS_HANDLING 1
+//#define FLOOR_OLD_AS_HANDLING 1
 
 #if defined(FLOOR_COMPUTE_CUDA)
 //! global memory buffer
 #if defined(FLOOR_OLD_AS_HANDLING)
 template <typename T> using buffer = floor_compute::indirect_type_wrapper<T>*;
 #else
-template <typename T> using buffer = T*;
+#define buffer __attribute__((align_value(128))) cuda_buffer
+template <typename T> using cuda_buffer = T*;
 #endif
 //! local memory buffer
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
@@ -173,7 +174,7 @@ template <typename T, size_t count_1, size_t count_2 = 0> using cuda_local_buffe
 	conditional_t<count_2 == 0, cuda_local_buffer_1d<T, count_1>, cuda_local_buffer_2d<T, count_1, count_2>>;
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
-#define constant_buffer constant constant_buffer_cuda
+#define constant_buffer constant __attribute__((align_value(128))) constant_buffer_cuda
 template <typename T> using constant_buffer_cuda = const T* const;
 //! generic parameter object/buffer
 template <typename T,
@@ -373,7 +374,8 @@ template <typename T> using type_load_wrapper = conditional_t<floor_compute::has
 template <typename T, typename wrapper = type_load_wrapper<T>>
 using buffer = global floor_compute::address_space_adaptor<wrapper, global wrapper*, true, !is_const<T>()>*;
 #else
-template <typename T> using buffer = global T*;
+#define buffer __attribute__((align_value(128))) compute_buffer
+template <typename T> using compute_buffer = global T*;
 #endif
 
 //! local memory buffer
@@ -389,7 +391,8 @@ template <typename T, size_t count> using local_buffer = local T[count];
 template <typename T, typename wrapper = type_load_wrapper<T>>
 using constant_buffer = constant floor_compute::address_space_adaptor<const wrapper, constant const wrapper*, true, false>*;
 #else
-template <typename T> using constant_buffer = const constant T*;
+#define constant_buffer __attribute__((align_value(128))) compute_constant_buffer
+template <typename T> using compute_constant_buffer = const constant T*;
 #endif
 
 #if defined(FLOOR_COMPUTE_OPENCL)
