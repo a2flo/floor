@@ -25,10 +25,10 @@
 // non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
 #if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && \
 	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
-template <class C> constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
+template <class C> floor_inline_always constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
 	return c.size();
 }
-template <class T, size_t N> constexpr size_t size(const T (&)[N]) noexcept {
+template <class T, size_t N> floor_inline_always constexpr size_t size(const T (&)[N]) noexcept {
 	return N;
 }
 #endif
