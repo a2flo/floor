@@ -870,7 +870,7 @@ index 1d92efe..d66c494 100644
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
  CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
 diff --git a/tools/clang/include/clang/Frontend/LangStandards.def b/tools/clang/include/clang/Frontend/LangStandards.def
-index 90a27b5..aa9aea9 100644
+index 90a27b5..f014a08 100644
 --- a/tools/clang/include/clang/Frontend/LangStandards.def
 +++ b/tools/clang/include/clang/Frontend/LangStandards.def
 @@ -134,17 +134,21 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
@@ -878,24 +878,24 @@ index 90a27b5..aa9aea9 100644
  LANGSTANDARD(opencl, "cl",
               "OpenCL 1.0",
 -             LineComment | C99 | Digraphs | HexFloat)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y | CPlusPlus1z |
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
 +             Digraphs | GNUMode)
  LANGSTANDARD(opencl11, "CL1.1",
               "OpenCL 1.1",
 -             LineComment | C99 | Digraphs | HexFloat)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y | CPlusPlus1z |
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
 +             Digraphs | GNUMode)
  LANGSTANDARD(opencl12, "CL1.2",
               "OpenCL 1.2",
 -             LineComment | C99 | Digraphs | HexFloat)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y | CPlusPlus1z |
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
 +             Digraphs | GNUMode)
  
  // CUDA
  LANGSTANDARD(cuda, "cuda",
               "NVIDIA CUDA(tm)",
 -             LineComment | CPlusPlus | Digraphs)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y | CPlusPlus1z |
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
 +             Digraphs | GNUMode)
  
  #undef LANGSTANDARD
