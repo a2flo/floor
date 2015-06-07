@@ -20,9 +20,6 @@
 #define __FLOOR_FLOOR_HPP__
 
 #include <floor/core/platform.hpp>
-
-#define FLOOR_STRUCT_ALIGNMENT (16)
-
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/core/event.hpp>

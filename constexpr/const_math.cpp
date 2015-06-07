@@ -29,20 +29,6 @@
 
 #if !defined(_MSC_VER) // name mangling issues
 namespace const_select {
-	// generic is_constexpr checks
-#define FLOOR_IS_CONSTEXPR(type_name) \
-	__attribute__((always_inline)) bool is_constexpr(type_name) { \
-		return false; \
-	}
-	
-	FLOOR_IS_CONSTEXPR(bool)
-	FLOOR_IS_CONSTEXPR(int)
-	FLOOR_IS_CONSTEXPR(size_t)
-	FLOOR_IS_CONSTEXPR(float)
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	FLOOR_IS_CONSTEXPR(double)
-#endif
-	
 	// const math select functions
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
 	__attribute__((always_inline)) type_name func_name (type_name val) { \
@@ -129,7 +115,6 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
 #endif
 
-#undef FLOOR_IS_CONSTEXPR
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
 #undef FLOOR_CONST_MATH_SELECT_3

@@ -916,27 +916,6 @@ namespace const_select {
 	// least I haven't figured out a workaround yet), thus support for different types
 	// has to be handled/added manually.
 	
-	// generic is_constexpr checks
-	// NOTE: in comparison to the math select functions (further down below), these
-	// only work under certain conditions (no "constexpr recursiveness")
-#define FLOOR_IS_CONSTEXPR(type_name) \
-	extern __attribute__((always_inline)) bool is_constexpr(type_name val) asm("floor__is_constexpr_" #type_name); \
-	extern __attribute__((always_inline)) constexpr bool is_constexpr(type_name val) \
-	__attribute__((enable_if(!__builtin_constant_p(val), ""))) asm("floor__is_constexpr_" #type_name); \
-	\
-	__attribute__((always_inline)) constexpr bool is_constexpr(type_name val) \
-	__attribute__((enable_if(!__builtin_constant_p(val), ""))) { \
-		return true; \
-	}
-	
-	FLOOR_IS_CONSTEXPR(bool)
-	FLOOR_IS_CONSTEXPR(int)
-	FLOOR_IS_CONSTEXPR(size_t)
-	FLOOR_IS_CONSTEXPR(float)
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	FLOOR_IS_CONSTEXPR(double)
-#endif
-	
 	// decl here, constexpr impl here, non-constexpr impl in const_math.cpp
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
 	extern __attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
@@ -1045,7 +1024,6 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
 #endif
 
-#undef FLOOR_IS_CONSTEXPR
 #undef FLOOR_CONST_MATH_SELECT
 #undef FLOOR_CONST_MATH_SELECT_2
 #undef FLOOR_CONST_MATH_SELECT_3
