@@ -33,6 +33,16 @@ public:
 	//! NOTE: this might be necessary / an easier way of doing things due to c++ name mangling
 	shared_ptr<compute_kernel> get_kernel_fuzzy(const string& fuzzy_func_name) const;
 	
+	//! returns a container of all kernels in this program
+	const vector<shared_ptr<compute_kernel>>& get_kernels() const {
+		return kernels;
+	}
+	
+	//! returns a container of all kernel function names in this program
+	const vector<string>& get_kernel_names() const {
+		return kernel_names;
+	}
+	
 protected:
 	vector<shared_ptr<compute_kernel>> kernels;
 	vector<string> kernel_names;
