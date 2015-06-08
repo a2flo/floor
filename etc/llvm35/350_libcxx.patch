@@ -14,6 +14,153 @@ index 6766793..6dfb843 100644
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
+diff --git a/include/algorithm b/include/algorithm
+index 3b74a6b..f77b8c5 100644
+--- a/include/algorithm
++++ b/include/algorithm
+@@ -623,7 +623,9 @@ template <class BidirectionalIterator, class Compare>
+ #include <__config>
+ #include <initializer_list>
+ #include <type_traits>
++#if 0
+ #include <cstring>
++#endif
+ #include <utility>
+ #include <memory>
+ #include <iterator>
+@@ -1759,7 +1761,7 @@ typename enable_if
+ __copy(_Tp* __first, _Tp* __last, _Up* __result)
+ {
+     const size_t __n = static_cast<size_t>(__last - __first);
+-    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
++    __builtin_memmove(__result, __first, __n * sizeof(_Up));
+     return __result + __n;
+ }
+ 
+@@ -1795,7 +1797,7 @@ __copy_backward(_Tp* __first, _Tp* __last, _Up* __result)
+ {
+     const size_t __n = static_cast<size_t>(__last - __first);
+     __result -= __n;
+-    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
++    __builtin_memmove(__result, __first, __n * sizeof(_Up));
+     return __result;
+ }
+ 
+@@ -1888,7 +1890,7 @@ typename enable_if
+ __move(_Tp* __first, _Tp* __last, _Up* __result)
+ {
+     const size_t __n = static_cast<size_t>(__last - __first);
+-    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
++    __builtin_memmove(__result, __first, __n * sizeof(_Up));
+     return __result + __n;
+ }
+ 
+@@ -1924,7 +1926,7 @@ __move_backward(_Tp* __first, _Tp* __last, _Up* __result)
+ {
+     const size_t __n = static_cast<size_t>(__last - __first);
+     __result -= __n;
+-    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
++    __builtin_memmove(__result, __first, __n * sizeof(_Up));
+     return __result;
+ }
+ 
+@@ -2044,7 +2046,7 @@ typename enable_if
+ __fill_n(_Tp* __first, _Size __n,_Up __value_)
+ {
+     if (__n > 0)
+-        _VSTD::memset(__first, (unsigned char)__value_, (size_t)(__n));
++        __builtin_memset(__first, (unsigned char)__value_, (size_t)(__n));
+     return __first + __n;
+ }
+ 
+@@ -3045,13 +3047,14 @@ uniform_int_distribution<_IntType>::operator()(_URNG& __g, const param_type& __p
+     return static_cast<result_type>(__u + __p.a());
+ }
+ 
++#if 0 // this is not supported
+ class _LIBCPP_TYPE_VIS __rs_default;
+ 
+ _LIBCPP_FUNC_VIS __rs_default __rs_get();
+ 
+ class _LIBCPP_TYPE_VIS __rs_default
+ {
+-    static unsigned __c_;
++    static constant unsigned __c_ { 0u };
+ 
+     __rs_default();
+ public:
+@@ -3093,6 +3096,7 @@ random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last)
+         }
+     }
+ }
++#endif
+ 
+ template <class _RandomAccessIterator, class _RandomNumberGenerator>
+ void
+@@ -3348,6 +3352,7 @@ __second_half_done:
+     //         |
+ }
+ 
++#if 0
+ struct __return_temporary_buffer
+ {
+     template <class _Tp>
+@@ -3384,6 +3389,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
+     return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
+                              (__first, __last, __pred, __len, __p, forward_iterator_tag());
+ }
++#endif
+ 
+ template <class _Predicate, class _BidirectionalIterator, class _Distance, class _Pair>
+ _BidirectionalIterator
+@@ -3493,6 +3499,7 @@ __second_half_done:
+     //         |
+ }
+ 
++#if 0
+ template <class _Predicate, class _BidirectionalIterator>
+ _BidirectionalIterator
+ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last, _Predicate __pred,
+@@ -3532,6 +3539,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
+     return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
+                              (__first, __last, __pred, __len, __p, bidirectional_iterator_tag());
+ }
++#endif
+ 
+ template <class _ForwardIterator, class _Predicate>
+ inline _LIBCPP_INLINE_VISIBILITY
+@@ -4488,6 +4496,7 @@ struct __inplace_merge_switch
+     static const unsigned value = is_trivially_copy_assignable<_Tp>::value;
+ };
+ 
++#if 0
+ template <class _BidirectionalIterator, class _Compare>
+ inline _LIBCPP_INLINE_VISIBILITY
+ void
+@@ -4517,6 +4526,7 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
+                                             __buf.first, __buf.second);
+ #endif  // _LIBCPP_DEBUG
+ }
++#endif
+ 
+ template <class _BidirectionalIterator>
+ inline _LIBCPP_INLINE_VISIBILITY
+@@ -4702,6 +4712,7 @@ __stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Comp
+     __inplace_merge<_Compare>(__first, __m, __last, __comp, __l2, __len - __l2, __buff, __buff_size);
+ }
+ 
++#if 0
+ template <class _RandomAccessIterator, class _Compare>
+ inline _LIBCPP_INLINE_VISIBILITY
+ void
+@@ -4726,6 +4737,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
+     __stable_sort<_Comp_ref>(__first, __last, __comp, __len, __buf.first, __buf.second);
+ #endif  // _LIBCPP_DEBUG
+ }
++#endif
+ 
+ template <class _RandomAccessIterator>
+ inline _LIBCPP_INLINE_VISIBILITY
 diff --git a/include/atomic b/include/atomic
 index f6ab1cb..351ecfb 100644
 --- a/include/atomic
