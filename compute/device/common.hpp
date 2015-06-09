@@ -66,6 +66,7 @@ typedef uint64_t uintmax_t;
 #include <type_traits>
 #include <initializer_list>
 #include <functional>
+#include <algorithm>
 
 // will be using const_array instead of stl array
 using namespace std;
@@ -75,16 +76,6 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 
 // <array> replacement
 template <class data_type, size_t array_size> _LIBCPP_TYPE_VIS_ONLY struct array : const_array<data_type, array_size> {};
-
-// std::min / std::max replacements
-template <class data_type>
-constexpr data_type min(const data_type& lhs, const data_type& rhs) {
-	return (lhs < rhs ? lhs : rhs);
-}
-template <class data_type>
-constexpr data_type max(const data_type& lhs, const data_type& rhs) {
-	return (lhs > rhs ? lhs : rhs);
-}
 
 _LIBCPP_END_NAMESPACE_STD
 

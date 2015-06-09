@@ -1159,17 +1159,13 @@
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
-					"-mllvm",
-					"-force-vector-width=4",
-					"-mllvm",
-					"-force-vector-unroll=4",
 					"-fparse-all-comments",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/include",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
 					"-isystem",
-					/usr/include/libxml2,
+					"$(SDK_DIR)/usr/include/libxml2",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -1213,6 +1209,7 @@
 					"-Wno-old-style-cast",
 					"-Wno-date-time",
 					"-Wno-reserved-id-macro",
+					"-Wno-documentation-unknown-command",
 				);
 			};
 			name = Debug;
@@ -1289,17 +1286,13 @@
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				OTHER_CFLAGS = (
-					"-mllvm",
-					"-force-vector-width=4",
-					"-mllvm",
-					"-force-vector-unroll=4",
 					"-fparse-all-comments",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/include",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
 					"-isystem",
-					/usr/include/libxml2,
+					"$(SDK_DIR)/usr/include/libxml2",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -1343,6 +1336,7 @@
 					"-Wno-old-style-cast",
 					"-Wno-date-time",
 					"-Wno-reserved-id-macro",
+					"-Wno-documentation-unknown-command",
 				);
 			};
 			name = Release;
