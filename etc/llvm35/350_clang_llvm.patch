@@ -791,6 +791,28 @@ index 1665a45..3778e80 100644
    "variables and fields|variables, data members and tag types|"
    "types and namespaces|Objective-C interfaces|methods and properties|"
    "struct or union|struct, union or class|types|"
+diff --git a/tools/clang/include/clang/Basic/LangOptions.h b/tools/clang/include/clang/Basic/LangOptions.h
+index 9bffc7c..8fbc316 100644
+--- a/tools/clang/include/clang/Basic/LangOptions.h
++++ b/tools/clang/include/clang/Basic/LangOptions.h
+@@ -20,6 +20,7 @@
+ #include "clang/Basic/ObjCRuntime.h"
+ #include "clang/Basic/Visibility.h"
+ #include <string>
++#include <array>
+ 
+ namespace clang {
+ 
+@@ -74,6 +75,9 @@ public:
+ 
+   enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
+ 
++  std::array<uint32_t, 3> metal_version {{ 1, 6, 0 }};
++  std::array<uint32_t, 3> metal_language_version {{ 1, 0, 0 }};
++
+ public:
+   clang::ObjCRuntime ObjCRuntime;
+ 
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
 index 5d08833..52d3d3e 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
@@ -834,7 +856,7 @@ index 5d08833..52d3d3e 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..8bfa7e7 100644
+index d25560c..2e7317e 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
 @@ -577,6 +577,18 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
@@ -844,7 +866,7 @@ index d25560c..8bfa7e7 100644
 +//===----------------------------------------------------------------------===//
 +// AIR/Metal Options
 +//===----------------------------------------------------------------------===//
-+def air_kernel_info : Flag<["-"], "air-kernel-info">,
++def metal_air : Joined<["-"], "metal-air=">,
 +  HelpText<"AIR/Metal only. Generate general air/metal and kernel argument metadata.">;
 +
 +//===----------------------------------------------------------------------===//
@@ -1501,7 +1523,7 @@ index 079ef72..5b0b575 100644
    }
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..db7ebd5 100644
+index 5ca3a78..83b0ceb 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -1878,15 +1900,15 @@ index 5ca3a78..db7ebd5 100644
 +  // additional air info
 +  if(CGM.getCodeGenOpts().EmitAIRMetadata) {
 +	  SmallVector <llvm::Value*, 3> air_version;
-+	  air_version.push_back(Builder.getInt32(1));
-+	  air_version.push_back(Builder.getInt32(6));
-+	  air_version.push_back(Builder.getInt32(0));
++	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[0]));
++	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[1]));
++	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[2]));
 +	  
 +	  SmallVector <llvm::Value*, 4> air_lang_version;
 +	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
-+	  air_lang_version.push_back(Builder.getInt32(1));
-+	  air_lang_version.push_back(Builder.getInt32(0));
-+	  air_lang_version.push_back(Builder.getInt32(0));
++	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[0]));
++	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[1]));
++	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[2]));
 +	  
 +	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
 +	  AIRVersion->addOperand(llvm::MDNode::get(Context, air_version));
@@ -1900,7 +1922,7 @@ index 5ca3a78..db7ebd5 100644
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
 +												llvm::MDString::get(Context, "air.compile.fast_math_enable")));
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
-+												llvm::MDString::get(Context, "air.compile.framebuffer_fetch_enable")));
++												llvm::MDString::get(Context, "air.compile.framebuffer_fetch_disable")));
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
 +												llvm::MDString::get(Context, "air.compile.native_double_disable")));
 +  }
@@ -2149,14 +2171,14 @@ index d7e61f0..1bb799e 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..c8de6db 100644
+index ce61a46..6870297 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -474,6 +474,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
-+  Opts.EmitAIRMetadata = Args.hasArg(OPT_air_kernel_info);
++  Opts.EmitAIRMetadata = Args.hasArg(OPT_metal_air);
 +  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
@@ -2170,6 +2192,39 @@ index ce61a46..c8de6db 100644
            Diags.Report(diag::err_drv_argument_not_allowed_with)
              << A->getAsString(Args) << "OpenCL";
          break;
+@@ -1311,6 +1313,32 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+   
+   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
+ 
++  // extract the metal version and metal language version from the cli option
++  if (const Arg *A = Args.getLastArg(OPT_metal_air)) {
++    StringRef metal_versions = A->getValue();
++    // expecting "major,minor,rev,major,minor,rev" -> 5 commas
++    if(metal_versions.count(',') != 5) {
++      Diags.Report(diag::err_drv_invalid_value)
++      << A->getAsString(Args) << A->getValue();
++    }
++    else {
++      std::vector<std::string> versions;
++      size_t pos = 0, old_pos = 0;
++      while((pos = metal_versions.find(',', old_pos)) != std::string::npos) {
++        versions.emplace_back(metal_versions.substr(old_pos, pos - old_pos));
++        old_pos = pos + 1;
++      }
++      versions.emplace_back(metal_versions.substr(old_pos, pos - old_pos));
++      
++      Opts.metal_version[0] = std::stoul(versions[0]);
++      Opts.metal_version[1] = std::stoul(versions[1]);
++      Opts.metal_version[2] = std::stoul(versions[2]);
++      Opts.metal_language_version[0] = std::stoul(versions[3]);
++      Opts.metal_language_version[1] = std::stoul(versions[4]);
++      Opts.metal_language_version[2] = std::stoul(versions[5]);
++    }
++  }
++
+   // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
+   // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
+   // while a subset (the non-C++ GNU keywords) is provided by GCC's
 diff --git a/tools/clang/lib/Index/USRGeneration.cpp b/tools/clang/lib/Index/USRGeneration.cpp
 index e08b85e..6d987b8 100644
 --- a/tools/clang/lib/Index/USRGeneration.cpp
