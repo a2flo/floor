@@ -187,7 +187,7 @@ int64_t ios_helper::get_memory_size() {
 	return mem_size;
 	
 }
-		
+
 string ios_helper::get_bundle_identifier() {
 	return [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] UTF8String];
 }

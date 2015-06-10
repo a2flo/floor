@@ -149,6 +149,9 @@ protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
 	
+	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
+											const string additional_options) REQUIRES(!programs_lock);
+	
 };
 
 #endif

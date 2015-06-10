@@ -171,6 +171,8 @@
 		5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */; };
 		5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */; };
 		5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD719BB2A75000B28B3 /* ray.hpp */; };
+		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
+		5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0D01AD3944F00215230 /* metal_image.mm */; };
 		5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
 		5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
 		5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */; };
@@ -371,6 +373,7 @@
 		5CE0BDD519BB2A75000B28B3 /* quaternion.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = quaternion.cpp; sourceTree = "<group>"; };
 		5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5CE0BDD719BB2A75000B28B3 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
+		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_buffer.cpp; sourceTree = "<group>"; };
 		5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_buffer.hpp; sourceTree = "<group>"; };
 		5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_kernel.cpp; sourceTree = "<group>"; };
@@ -395,6 +398,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */,
 				5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */,
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
@@ -573,6 +577,7 @@
 			children = (
 				5C1091FC17D148DB007F536E /* libxml2.dylib */,
 				5CC97EE71A93808800611CF6 /* Metal.framework */,
+				5CE55CDE1B2754A6006C38E6 /* Metal.framework */,
 				5C1091FA17D148D0007F536E /* ApplicationServices.framework */,
 				5C1091F817D148CB007F536E /* AppKit.framework */,
 				5C1091F617D148C5007F536E /* Cocoa.framework */,
@@ -966,6 +971,7 @@
 				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */,
 				5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */,
+				5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */,
 				5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */,
 				5CF040BB1A97CC1B00D93EE3 /* metal_device.mm in Sources */,
 				5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */,
@@ -1351,7 +1357,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLATFORM_X64,
-					FLOOR_NO_METAL,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,
@@ -1382,7 +1387,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					PLATFORM_X64,
-					FLOOR_NO_METAL,
 				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,

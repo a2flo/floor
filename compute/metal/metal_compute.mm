@@ -43,103 +43,289 @@
 #include <floor/floor/floor.hpp>
 #include <Metal/Metal.h>
 
+// only need this on os x right now (won't work on ios 8.0 anyways, different spi)
+#if !defined(FLOOR_IOS)
+typedef struct {
+	unsigned int _field1;
+	unsigned int _field2;
+} CDStruct_c0454aff;
+
+typedef struct {
+	unsigned int _field1;
+	unsigned int _field2;
+	unsigned int _field3;
+	unsigned int _field4;
+	unsigned int _field5;
+	unsigned int _field6;
+	unsigned int _field7;
+	unsigned int _field8;
+	unsigned int _field9;
+	unsigned int _field10;
+	unsigned int _field11;
+	unsigned int _field12;
+	unsigned int _field13;
+	unsigned int _field14;
+	unsigned int _field15;
+	unsigned int _field16;
+	unsigned int _field17;
+	unsigned int _field18;
+	float _field19;
+	float _field20;
+	unsigned int _field21;
+	unsigned int _field22;
+	unsigned int _field23;
+	unsigned int _field24;
+	unsigned int _field25;
+	unsigned int _field26;
+	unsigned int _field27;
+	unsigned int _field28;
+	unsigned int _field29;
+	unsigned int _field30;
+	unsigned int _field31;
+	unsigned int _field32;
+	unsigned int _field33;
+	unsigned int _field34;
+} CDStruct_97d836cc;
+
+@protocol MTLDeviceSPI <MTLDevice>
++ (void)registerDevices;
+@property(readonly) unsigned int acceleratorPort;
+@property(readonly) unsigned long long iosurfaceTextureAlignmentBytes;
+@property(readonly) unsigned long long linearTextureAlignmentBytes;
+@property(readonly) unsigned long long maxTextureLayers;
+@property(readonly) unsigned long long maxTextureDimensionCube;
+@property(readonly) unsigned long long maxTextureDepth3D;
+@property(readonly) unsigned long long maxTextureHeight3D;
+@property(readonly) unsigned long long maxTextureWidth3D;
+@property(readonly) unsigned long long maxTextureHeight2D;
+@property(readonly) unsigned long long maxTextureWidth2D;
+@property(readonly) unsigned long long maxTextureWidth1D;
+@property(readonly) unsigned long long minBufferNoCopyAlignmentBytes;
+@property(readonly) unsigned long long minConstantBufferAlignmentBytes;
+@property(readonly) unsigned long long maxBufferLength;
+@property(readonly) unsigned long long maxVisibilityQueryOffset;
+@property(readonly) float maxPointSize;
+@property(readonly) float maxLineWidth;
+@property(readonly) unsigned long long maxComputeThreadgroupMemory;
+@property(readonly) unsigned long long maxTotalComputeThreadsPerThreadgroup;
+@property(readonly) unsigned long long maxComputeLocalMemorySizes;
+@property(readonly) unsigned long long maxComputeInlineDataSize;
+@property(readonly) unsigned long long maxComputeSamplers;
+@property(readonly) unsigned long long maxComputeTextures;
+@property(readonly) unsigned long long maxComputeBuffers;
+@property(readonly) unsigned long long maxFragmentInlineDataSize;
+@property(readonly) unsigned long long maxFragmentSamplers;
+@property(readonly) unsigned long long maxFragmentTextures;
+@property(readonly) unsigned long long maxFragmentBuffers;
+@property(readonly) unsigned long long maxInterpolants;
+@property(readonly) unsigned long long maxVertexInlineDataSize;
+@property(readonly) unsigned long long maxVertexSamplers;
+@property(readonly) unsigned long long maxVertexTextures;
+@property(readonly) unsigned long long maxVertexBuffers;
+@property(readonly) unsigned long long maxVertexAttributes;
+@property(readonly) unsigned long long maxColorAttachments;
+@property(readonly) const CDStruct_97d836cc* limits;
+@property(readonly) unsigned long long featureProfile;
+@property(nonatomic) BOOL metalAssertionsEnabled;
+@property(readonly) unsigned long long doubleFPConfig;
+@property(readonly) unsigned long long singleFPConfig;
+@property(readonly) unsigned long long halfFPConfig;
+@property(readonly, getter=isMagicMipmapSupported) BOOL magicMipmapSupported;
+- (CDStruct_c0454aff)pipelineCacheStats;
+- (CDStruct_c0454aff)libraryCacheStats;
+- (void)unloadShaderCaches;
+- (id <MTLTexture>)newTextureWithDescriptor:(MTLTextureDescriptor *)arg1 iosurface:(struct __IOSurface *)arg2 plane:(unsigned long long)arg3;
+
+@optional
+@property(readonly, getter=isSystemDefaultDevice) BOOL systemDefaultDevice;
+@property BOOL shaderDebugInfoCaching;
+- (void)compilerPropagatesThreadPriority:(_Bool)arg1;
+- (NSString *)productName;
+- (NSString *)familyName;
+- (NSString *)vendorName;
+- (void)newComputePipelineStateWithDescriptor:(MTLComputePipelineDescriptor *)arg1 completionHandler:(void (^)(id <MTLComputePipelineState>, NSError *))arg2;
+- (id <MTLComputePipelineState>)newComputePipelineStateWithDescriptor:(MTLComputePipelineDescriptor *)arg1 error:(id *)arg2;
+- (void)unmapShaderSampleBuffer;
+- (BOOL)mapShaderSampleBufferWithBuffer:(void*)arg1 capacity:(unsigned long long)arg2 size:(unsigned long long)arg3;
+@end
+#endif
+
 void metal_compute::init(const bool use_platform_devices floor_unused,
 						 const uint32_t platform_index_ floor_unused,
 						 const bool gl_sharing floor_unused,
 						 const unordered_set<string> whitelist) {
+#if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
 	auto mtl_device = MTLCreateSystemDefaultDevice();
 	if(mtl_device == nil) return;
+	vector<id <MTLDevice>> mtl_devices { mtl_device };
+#else
+	auto mtl_devices_arr = MTLCopyAllDevices();
+	vector<id<MTLDeviceSPI>> mtl_devices;
+	for(id<MTLDevice> dev : mtl_devices_arr) {
+		mtl_devices.emplace_back(dev);
+	}
+#endif
 	
-	// check whitelist
-	if(!whitelist.empty()) {
-		const auto lc_dev_name = core::str_to_lower([[mtl_device name] UTF8String]);
-		bool found = false;
-		for(const auto& entry : whitelist) {
-			if(lc_dev_name.find(entry) != string::npos) {
-				found = true;
+	// go through all found devices (for ios, this should be one)
+	uint32_t device_num = 0;
+	for(auto& dev : mtl_devices) {
+		// check whitelist
+		if(!whitelist.empty()) {
+			const auto lc_dev_name = core::str_to_lower([[dev name] UTF8String]);
+			bool found = false;
+			for(const auto& entry : whitelist) {
+				if(lc_dev_name.find(entry) != string::npos) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) continue;
+		}
+		
+		// add device
+		devices.emplace_back(make_shared<metal_device>());
+		auto device_sptr = devices.back();
+		auto& device = *(metal_device*)device_sptr.get();
+		device.device = dev;
+		device.name = [[dev name] UTF8String];
+		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
+		++device_num;
+		
+#if defined(FLOOR_IOS)
+		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
+		device.vendor_name = "Apple";
+		device.driver_version_str = "1.0.0"; // for now, should update with iOS >8 (iOS8 versions: metal 1.0.0, air 1.6.0, language 1.0.0)
+		device.vendor = compute_device::VENDOR::APPLE;
+		device.clock = 450; // actually unknown, and won't matter for now
+		device.global_mem_size = (uint64_t)ios_helper::get_memory_size();
+		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
+		device.max_mem_alloc = device.global_mem_size / 4; // usually the case
+		
+		// hard to make this forward compatible, there is no direct "get family" call
+		// -> just try the first 32 types, good enough for now
+		for(uint32_t i = 0; i < 32; ++i) {
+			if([dev supportsFeatureSet:(MTLFeatureSet)i]) {
+				device.family = i + 1;
 				break;
 			}
 		}
-		if(!found) return;
+		device.family_version = 1;
+		device.version_str = to_string(device.family);
+		
+		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
+		switch(device.family) {
+			case 0:
+				log_error("unsupported hardware - family is 0!");
+				return;
+			case 3:
+				device.family_version = 2;
+			case 1:
+				device.family = 1;
+				device.units = 4; // G6430
+				device.local_mem_size = 16384;
+				device.max_work_group_size = 512;
+				device.mem_clock = 1333; // ram clock
+				break;
+			default:
+				log_warn("unknown device family (%u), defaulting to family 2 (A8)", device.family);
+				
+				floor_fallthrough;
+			case 4:
+				device.family_version = 2;
+			case 2:
+				device.family = 2;
+				if(device.name.find("A8X") != string::npos) { // A8X
+					device.units = 8; // GXA6850
+					device.max_work_group_size = 1024;
+				}
+				else { // A8
+					device.units = 4; // GX6450
+					device.max_work_group_size = 512;
+				}
+				device.local_mem_size = 16384;
+				device.mem_clock = 1600; // ram clock
+				break;
+		}
+		device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
+		device.max_work_item_sizes = { sizeof(uint64_t) };    //       could also be (2^57, 2^57, 512)
+		device.image_support = true;
+		device.double_support = false; // double config is 0
+		device.unified_memory = true;
+		device.max_image_1d_dim = { 4096 };
+		device.max_image_2d_dim = { 4096, 4096 };
+		device.max_image_3d_dim = { 4096, 4096, 2048 };
+		device.bitness = 64;
+#else
+		// on os x, we can get to the device properties through MTLDeviceSPI
+		device.vendor_name = [[dev vendorName] UTF8String];
+		device.driver_version_str = "1.1.0"; // TODO: proper version info?
+		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
+		if(lc_vendor_name.find("nvidia") != string::npos) {
+			device.vendor = compute_device::VENDOR::NVIDIA;
+		}
+		else if(lc_vendor_name.find("intel") != string::npos) {
+			device.vendor = compute_device::VENDOR::INTEL;
+		}
+		else if(lc_vendor_name.find("amd") != string::npos) {
+			device.vendor = compute_device::VENDOR::AMD;
+		}
+		else device.vendor = compute_device::VENDOR::UNKNOWN;
+		device.max_mem_alloc = [dev maxBufferLength];
+		// TODO: this is not correct, but there is no way to query the global mem size - however, global mem size is usually 4 * max alloc
+		device.global_mem_size = device.max_mem_alloc * 4;
+		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
+		device.family = (uint32_t)[dev featureProfile];
+		device.family_version = device.family - 10000 + 1;
+		device.local_mem_size = [dev maxComputeThreadgroupMemory];
+		device.max_work_group_size = [dev maxTotalComputeThreadsPerThreadgroup];
+		device.units = 0; // sadly unknown and impossible to query
+		device.clock = 0;
+		device.mem_clock = 0;
+		device.max_work_group_item_sizes = { device.max_work_group_size, device.max_work_group_size, device.max_work_group_size };
+		device.max_work_item_sizes = { sizeof(uint64_t) };
+		device.image_support = true;
+		device.double_support = ([dev doubleFPConfig] > 0);
+		device.unified_memory = true; // TODO: not sure about this?
+		device.max_image_1d_dim = { [dev maxTextureWidth1D] };
+		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
+		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
+		device.bitness = 64; // seems to be true for all devices? (at least nvptx64 and igil64)
+#endif
+		
+		// done
+		supported = true;
+		platform_vendor = compute_base::PLATFORM_VENDOR::APPLE;
+		log_debug("GPU (Memory: %u MB): %s, family %u",
+				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
+				  device.name,
+				  device.family);
 	}
 	
-	//
-	devices.emplace_back(make_shared<metal_device>());
-	auto device_sptr = devices.back();
-	auto& device = *(metal_device*)device_sptr.get();
-	device.device = mtl_device;
-	fastest_gpu_device = device_sptr;
-	fastest_device = device_sptr;
-	
-	// most of the device properties can't be querried, but are statically known (-> doc)
-	device.name = [[mtl_device name] UTF8String];
-	device.vendor_name = "Apple";
-	device.driver_version_str = "1.0.0"; // for now, should update with iOS >8 (iOS8 versions: metal 1.0.0, air 1.6.0, language 1.0.0)
-	device.type = compute_device::TYPE::GPU0;
-	device.vendor = compute_device::VENDOR::APPLE;
-	device.clock = 450; // actually unknown, and won't matter for now
-	device.global_mem_size = (uint64_t)ios_helper::get_memory_size();
-	device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
-	device.max_mem_alloc = device.global_mem_size / 4; // usually the case
-	
-	// hard to make this forward compatible, there is no direct "get family" call
-	// -> just try the first 32 types, good enough for now
-	for(uint32_t i = 0; i < 32; ++i) {
-		if([mtl_device supportsFeatureSet:(MTLFeatureSet)i]) {
-			device.family = i + 1;
-			break;
+	// figure out the fastest device
+#if defined(FLOOR_IOS)
+	// only one device on ios
+	fastest_gpu_device = devices[0];
+	fastest_device = fastest_gpu_device;
+#else
+	// on os x, this is tricky, because we don't get the compute units count and clock speed
+	// -> assume devices are returned in order of their speed
+	// -> assume that nvidia and amd cards are faster than intel cards
+	fastest_gpu_device = devices[0]; // start off with the first device
+	if(fastest_gpu_device->vendor != compute_device::VENDOR::NVIDIA &&
+	   fastest_gpu_device->vendor != compute_device::VENDOR::AMD) { // if this is false, we already have a nvidia/amd device
+		for(size_t i = 1; i < devices.size(); ++i) {
+			if(devices[i]->vendor == compute_device::VENDOR::NVIDIA ||
+			   devices[i]->vendor == compute_device::VENDOR::AMD) {
+				// found a nvidia or amd device, consider it the fastest
+				fastest_gpu_device = devices[i];
+				break;
+			}
 		}
 	}
-	device.version_str = to_string(device.family);
-	
-	// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
-	switch(device.family) {
-		case 0:
-			log_error("unsupported hardware - family is 0!");
-			return;
-		case 1:
-			device.units = 4; // G6430
-			device.local_mem_size = 16384;
-			device.max_work_group_size = 512;
-			device.mem_clock = 1333; // ram clock
-			break;
-		default:
-			log_warn("unknown device family (%u), defaulting to family 2 (A8)", device.family);
-		
-		floor_fallthrough;
-		case 2:
-			if(device.name.find("A8X") != string::npos) { // A8X
-				device.units = 8; // GXA6850
-				device.max_work_group_size = 1024;
-			}
-			else { // A8
-				device.units = 4; // GX6450
-				device.max_work_group_size = 512;
-			}
-			device.local_mem_size = 16384;
-			device.mem_clock = 1600; // ram clock
-			break;
-	}
-	device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
-	device.max_work_item_sizes = { sizeof(uint64_t) };    //       could also be (2^57, 2^57, 512)
-	device.image_support = true;
-	device.double_support = false; // double config is 0
-	device.unified_memory = true;
-	device.max_image_1d_dim = { 4096 };
-	device.max_image_2d_dim = { 4096, 4096 };
-	device.max_image_3d_dim = { 4096, 4096, 2048 };
-	device.bitness = 64;
-	
-	// done
-	supported = true;
-	platform_vendor = compute_base::PLATFORM_VENDOR::APPLE;
-	log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s, family %u",
-			  device.units,
-			  device.clock,
-			  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
-			  device.name,
-			  device.family);
+	fastest_device = fastest_gpu_device;
+#endif
+	log_debug("fastest GPU device: %s", fastest_gpu_device->name);
 }
 
 shared_ptr<compute_queue> metal_compute::create_queue(shared_ptr<compute_device> dev) {
@@ -228,7 +414,7 @@ shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> d
 													const COMPUTE_MEMORY_FLAG flags) {
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	return make_shared<metal_image>((metal_device*)device.get(), info.image_dim, info.image_type, nullptr,
-									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									flags /*| COMPUTE_MEMORY_FLAG::OPENGL_SHARING*/, // TODO: sharing?
 									opengl_target, opengl_image, &info);
 }
 
@@ -240,7 +426,7 @@ shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> d
 	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
 	if(!info.valid) return {};
 	return make_shared<metal_image>((metal_device*)device.get(), info.image_dim, info.image_type, data,
-									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									flags /*| COMPUTE_MEMORY_FLAG::OPENGL_SHARING*/, // TODO: sharing?
 									opengl_target, opengl_image, &info);
 }
 
@@ -262,24 +448,46 @@ void metal_compute::deactivate_context() {
 
 shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
 															const string additional_options) {
-	string code;
-	if(!file_io::file_to_string(file_name, code)) {
-		return {};
-	}
-	return add_program_source(code, additional_options);
+	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options, llvm_compute::TARGET::AIR),
+					   additional_options);
 }
 
 shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
 															  const string additional_options) {
 	// compile the source code to apple IR / air (this produces/returns an llvm 3.5 bitcode binary file)
-	const auto program_data = llvm_compute::compile_program(fastest_device, source_code, additional_options, llvm_compute::TARGET::AIR);
+	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options, llvm_compute::TARGET::AIR),
+					   additional_options);
+}
+
+shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
+													   const string additional_options floor_unused) {
+	if(program_data.first.empty()) {
+		log_error("compilation failed");
+		return {};
+	}
 	
-	// TODO: as / ar / link / metallib
+#if !defined(FLOOR_IOS) // can only do this on os x
+#define FLOOR_METAL_TOOLS_PATH "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
+	static constexpr const char* metal_as { FLOOR_METAL_TOOLS_PATH "metal-as" };
+	static constexpr const char* metal_ar { FLOOR_METAL_TOOLS_PATH "metal-ar" };
+	static constexpr const char* metallib { FLOOR_METAL_TOOLS_PATH "metallib" };
+	if(!file_io::string_to_file("metal_tmp.ll", program_data.first)) {
+		log_error("failed to write tmp metal ll file");
+		return {};
+	}
+	core::system(metal_as + " -o=metal_tmp.air metal_tmp.ll"s);
+	core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
+	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
+	
+	string lib { "" };
+	if(!file_io::file_to_string("metal_tmp.metallib", lib)) {
+		log_error("failed to create or read metallib");
+		return {};
+	}
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	dispatch_data_t ddt = dispatch_data_create(program_data.first.c_str(), program_data.first.size(),
-											   dispatch_get_main_queue(), ^(void) {});
+	dispatch_data_t ddt = dispatch_data_create(lib.c_str(), lib.size(), dispatch_get_main_queue(), ^(void) {});
 	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithData:ddt error:&err];
 	if(!program) {
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
@@ -295,6 +503,10 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 		programs.push_back(ret_program);
 	}
 	return ret_program;
+#else
+	log_error("this is not supported on iOS!");
+	return {};
+#endif
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,

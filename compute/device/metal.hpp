@@ -64,16 +64,16 @@ namespace std {
 // would usually have to provide these as kernel arguments in metal, but this works as well
 // (thx for providing these apple, interesting cl_kernel_air64.h and cl_kernel.h you have there ;))
 // NOTE: these all do and have to return 32-bit values, otherwise bad things(tm) will happen
-uint32_t get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
-uint32_t get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
-uint32_t get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
+size_t get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
+size_t get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
+size_t get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
 uint32_t get_work_dim() asm("air.get_work_dim.i32");
-uint32_t get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
-uint32_t get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
-uint32_t get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
-uint32_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
-uint32_t get_global_linear_id() asm("air.get_global_linear_id.i32");
-uint32_t get_local_linear_id() asm("air.get_local_linear_id.i32");
+size_t get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
+size_t get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
+size_t get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
+size_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
+size_t get_global_linear_id() asm("air.get_global_linear_id.i32");
+size_t get_local_linear_id() asm("air.get_local_linear_id.i32");
 
 #define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
 #define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
@@ -122,6 +122,10 @@ static floor_inline_always void local_write_mem_fence() {
 	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
 	//air_mem_barrier(2u, 2);
 }
+
+// apple uses __printf_cl internally, with c naming! (NOTE: not confirmed to work yet)
+extern "C" int __printf_cl(const char __constant* __restrict st, ...);
+#define printf __printf_cl
 
 // atomics
 #include <floor/compute/device/metal_atomic.hpp>

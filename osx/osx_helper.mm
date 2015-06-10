@@ -90,3 +90,12 @@ string osx_helper::get_computer_name() {
 string osx_helper::utf8_decomp_to_precomp(const string& str) {
 	return [[[NSString stringWithUTF8String:str.c_str()] precomposedStringWithCanonicalMapping] UTF8String];
 }
+
+int64_t osx_helper::get_memory_size() {
+	int64_t mem_size { 0 };
+	static int sysctl_cmd[2] { CTL_HW, HW_MEMSIZE };
+	static size_t size = sizeof(mem_size);
+	sysctl(&sysctl_cmd[0], 2, &mem_size, &size, nullptr, 0);
+	return mem_size;
+	
+}

@@ -34,7 +34,7 @@
 ###FLOOR_OPENCL###
 
 // if defined, this disable metal support
-#if defined(FLOOR_IOS)
+#if defined(__APPLE__)
 ###FLOOR_METAL###
 #else
 #define FLOOR_NO_METAL 1

@@ -23,6 +23,11 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
+// need certain metal device info, but no obj-c stuff
+#define FLOOR_NO_METAL
+#include <floor/compute/metal/metal_device.hpp>
+#undef FLOOR_NO_METAL
+
 static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
 	const auto parse_metadata_line = [](const string& line, const auto& per_elem_func) {
@@ -251,12 +256,30 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			libcxx_path += floor::get_opencl_libcxx_path();
 			clang_path += floor::get_opencl_clang_path();
 			break;
-		case TARGET::AIR:
+		case TARGET::AIR: {
+			const auto mtl_dev = (metal_device*)device.get();
+			string metal_target;
+			if(mtl_dev->family < 10000) {
+				// -> iOS
+				if(mtl_dev->family_version == 1) {
+					// iOS 8.x, build ios-metal1.0
+					metal_target = "1,6,0,1,0,0";
+				}
+				else {
+					// iOS 9.x, build ios-metal1.1
+					metal_target = "1,8,0,1,1,0";
+				}
+			}
+			else {
+				// -> OS X, always build osx-metal1.1
+				metal_target = "1,8,0,1,1,0";
+			}
+			
 			clang_cmd += {
 				floor::get_metal_compiler() +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-metal-unknown" \
-				" -Xclang -air-kernel-info" \
+				" -Xclang -metal-air=" + metal_target +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
@@ -266,7 +289,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			};
 			libcxx_path += floor::get_metal_libcxx_path();
 			clang_path += floor::get_metal_clang_path();
-			break;
+		} break;
 		case TARGET::PTX:
 			clang_cmd += {
 				floor::get_cuda_compiler() +
@@ -333,6 +356,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 		return {};
 	}
+	//log_debug("cmd: %s", clang_cmd);
 	
 	// grab floor metadata from compiled ir and create per-kernel info
 	vector<kernel_info> kernels;
@@ -377,9 +401,32 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		// this exchanges the module header/target to the one apple expects
 		static const regex rx_datalayout("target datalayout = \"(.*)\"");
 		static const regex rx_triple("target triple = \"(.*)\"");
-		ir_output = regex_replace(ir_output, rx_datalayout,
-								  "target datalayout \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
-		ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.1.0\"");
+		
+		// iOS is 1 or 2 (+), os x is 10000+
+		const auto mtl_dev = (metal_device*)device.get();
+		if(mtl_dev->family < 10000) {
+			// -> iOS
+			if(mtl_dev->family_version == 1) {
+				// iOS 8.x
+				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.1.0\"");
+			}
+			else {
+				// iOS 9.x
+				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios9.0.0\"");
+			}
+			// datalayout stays the same
+			ir_output = regex_replace(ir_output, rx_datalayout,
+									  "target datalayout = \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
+		}
+		else {
+			// -> OS X
+			ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-macosx10.11.0\"");
+			ir_output = regex_replace(ir_output, rx_datalayout,
+									  "target datalayout = \"e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32\"");
+		}
+		
+		// kill "unnamed_addr" in local mem global vars
+		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");
 		
 		// output final processed ir if this was specified in the config
 		if(floor::get_compute_keep_temp()) {
