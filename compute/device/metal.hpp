@@ -41,7 +41,13 @@ namespace std {
 	metal_func float acos(float) asm("air.fast_acos.f32");
 	metal_func float atan(float) asm("air.fast_atan.f32");
 	metal_func float atan2(float, float) asm("air.fast_atan2.f32");
+	// metal for os x doesn't define an fma function or intrinsic (although mentioned in the docs!),
+	// however it still works for the intel backend (TODO: amd?), but it doesn't for the nvidia backend
+#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) // -> use intrinsic for ios metal and osx metal if intel
 	metal_func float fma(float, float, float) asm("air.fma.f32");
+#else // -> use nvidia intrinsic on osx
+	metal_func float fma(float, float, float) asm("llvm.nvvm.fma.rz.ftz.f");
+#endif
 	metal_func float exp(float) asm("air.fast_exp.f32");
 	metal_func float exp2(float) asm("air.fast_exp2.f32");
 	metal_func float log(float) asm("air.fast_log.f32");
@@ -63,17 +69,31 @@ namespace std {
 
 // would usually have to provide these as kernel arguments in metal, but this works as well
 // (thx for providing these apple, interesting cl_kernel_air64.h and cl_kernel.h you have there ;))
-// NOTE: these all do and have to return 32-bit values, otherwise bad things(tm) will happen
-size_t get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
-size_t get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
-size_t get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
+#if defined(FLOOR_COMPUTE_INFO_OS_IOS)
+// on iOS, these all do and have to return 32-bit values, otherwise bad things(tm) will happen
+#define FLOOR_GET_ID_RET_TYPE uint32_t
+#else
+// on OS X, these actually have to return size_t as they're supposed to
+#define FLOOR_GET_ID_RET_TYPE size_t
+#endif
+
+// these functions are defined for metal on ios and for intel on osx (TODO: amd?), but not for nvidia on osx!
+#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
+FLOOR_GET_ID_RET_TYPE get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
+FLOOR_GET_ID_RET_TYPE get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
+FLOOR_GET_ID_RET_TYPE get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
 uint32_t get_work_dim() asm("air.get_work_dim.i32");
-size_t get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
-size_t get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
-size_t get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
-size_t get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
-size_t get_global_linear_id() asm("air.get_global_linear_id.i32");
-size_t get_local_linear_id() asm("air.get_local_linear_id.i32");
+FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
+FLOOR_GET_ID_RET_TYPE get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
+FLOOR_GET_ID_RET_TYPE get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
+FLOOR_GET_ID_RET_TYPE get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
+FLOOR_GET_ID_RET_TYPE get_global_linear_id() asm("air.get_global_linear_id.i32");
+FLOOR_GET_ID_RET_TYPE get_local_linear_id() asm("air.get_local_linear_id.i32");
+#else // -> use cuda style get_*_id functions if nvidia on osx
+#include <floor/compute/device/cuda_id.hpp>
+#endif
+
+#undef FLOOR_GET_ID_RET_TYPE
 
 #define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
 #define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }

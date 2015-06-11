@@ -33,6 +33,9 @@
 #include <floor/compute/device/metal_pre.hpp>
 #endif
 
+// misc device information
+#include <floor/compute/device/device_info.hpp>
+
 // more integer types
 typedef int8_t int_least8_t;
 typedef int16_t int_least16_t;

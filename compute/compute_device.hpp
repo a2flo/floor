@@ -80,7 +80,7 @@ public:
 	//! type for internal use (OpenCL: stores cl_device_type, CUDA: N/A)
 	uint32_t internal_type { 0u };
 	
-	//! opencl and cuda device vendors
+	//! device vendors
 	enum class VENDOR : uint32_t {
 		NVIDIA,
 		INTEL,
@@ -91,6 +91,17 @@ public:
 	};
 	//! vendor of this device
 	VENDOR vendor { VENDOR::UNKNOWN };
+	//! returns the string representation of the enum VENDOR
+	static constexpr const char* vendor_to_string(const VENDOR& vendor) {
+		switch(vendor) {
+			case VENDOR::NVIDIA: return "NVIDIA";
+			case VENDOR::INTEL: return "INTEL";
+			case VENDOR::AMD: return "AMD";
+			case VENDOR::APPLE: return "APPLE";
+			case VENDOR::POCL: return "POCL";
+			default: return "UNKNOWN";
+		}
+	}
 	
 	//! number of compute units in the device
 	uint32_t units { 0u };

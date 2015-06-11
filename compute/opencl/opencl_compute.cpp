@@ -260,7 +260,7 @@ void opencl_compute::init(const bool use_platform_devices,
 		
 		//
 		log_msg("opencl platform \"%s\" version recognized as CL%s",
-				  platform_vendor_to_str(platform_vendor),
+				  platform_vendor_to_string(platform_vendor),
 				  (platform_cl_version == OPENCL_VERSION::OPENCL_1_0 ? "1.0" :
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
 					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" :

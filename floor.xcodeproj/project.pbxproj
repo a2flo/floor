@@ -173,6 +173,7 @@
 		5CE0BDE019BB2A75000B28B3 /* ray.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE0BDD719BB2A75000B28B3 /* ray.hpp */; };
 		5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CE55CDE1B2754A6006C38E6 /* Metal.framework */; };
 		5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0D01AD3944F00215230 /* metal_image.mm */; };
+		5CE843B11B28CE1E00D8B961 /* device_info.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CE843B01B28CE1E00D8B961 /* device_info.hpp */; };
 		5CEB9F671A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
 		5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */; };
 		5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */; };
@@ -374,6 +375,8 @@
 		5CE0BDD619BB2A75000B28B3 /* quaternion.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = quaternion.hpp; sourceTree = "<group>"; };
 		5CE0BDD719BB2A75000B28B3 /* ray.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ray.hpp; sourceTree = "<group>"; };
 		5CE55CDE1B2754A6006C38E6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_id.hpp; path = device/cuda_id.hpp; sourceTree = "<group>"; };
+		5CE843B01B28CE1E00D8B961 /* device_info.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = device_info.hpp; path = device/device_info.hpp; sourceTree = "<group>"; };
 		5CEB9F611A4BF91B00EC3543 /* compute_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_buffer.cpp; sourceTree = "<group>"; };
 		5CEB9F621A4BF91B00EC3543 /* compute_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_buffer.hpp; sourceTree = "<group>"; };
 		5CEB9F631A4BF91B00EC3543 /* compute_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_kernel.cpp; sourceTree = "<group>"; };
@@ -619,11 +622,13 @@
 		5C6008A91AB6D68900BC7012 /* device */ = {
 			isa = PBXGroup;
 			children = (
+				5CE843B01B28CE1E00D8B961 /* device_info.hpp */,
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 				5CAF42921B15C04D00316FBB /* logger.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
+				5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */,
 				5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */,
 				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
 				5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */,
@@ -849,6 +854,7 @@
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C5383E91A641B1E007AEDD7 /* cuda_device.hpp in Headers */,
+				5CE843B11B28CE1E00D8B961 /* device_info.hpp in Headers */,
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */,

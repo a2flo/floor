@@ -73,7 +73,7 @@ public:
 	};
 	
 	//! returns a string representation of the specified PLATFORM_VENDOR enum
-	static constexpr const char* platform_vendor_to_str(const PLATFORM_VENDOR& pvendor) {
+	static constexpr const char* platform_vendor_to_string(const PLATFORM_VENDOR& pvendor) {
 		switch(pvendor) {
 			case PLATFORM_VENDOR::NVIDIA: return "NVIDIA";
 			case PLATFORM_VENDOR::INTEL: return "INTEL";
@@ -81,9 +81,8 @@ public:
 			case PLATFORM_VENDOR::APPLE: return "APPLE";
 			case PLATFORM_VENDOR::POCL: return "POCL";
 			case PLATFORM_VENDOR::CUDA: return "CUDA";
-			case PLATFORM_VENDOR::UNKNOWN: break;
+			case PLATFORM_VENDOR::UNKNOWN: return "UNKNOWN";
 		}
-		return "UNKNOWN";
 	}
 	
 	//////////////////////////////////////////
