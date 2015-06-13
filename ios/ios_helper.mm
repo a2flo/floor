@@ -39,33 +39,6 @@ void* ios_helper::get_eagl_sharegroup() {
 	return (__bridge void*)[[EAGLContext currentContext] sharegroup];
 }
 
-static void log_pretty_print(const char* log, const char* code) {
-	static const regex rx_log_line("\\w+: 0:(\\d+):.*");
-	smatch regex_result;
-	
-	const vector<string> lines { core::tokenize(string(log), '\n') };
-	const vector<string> code_lines { core::tokenize(string(code), '\n') };
-	for(const string& line : lines) {
-		if(line.size() == 0) continue;
-		log_undecorated("## \033[31m%s\033[m", line);
-		
-		// find code line and print it (+/- 1 line)
-		if(regex_match(line, regex_result, rx_log_line)) {
-			const size_t src_line_num = stosize(regex_result[1]) - 1;
-			if(src_line_num < code_lines.size()) {
-				if(src_line_num != 0) {
-					log_undecorated("\033[37m%s\033[m", code_lines[src_line_num-1]);
-				}
-				log_undecorated("\033[31m%s\033[m", code_lines[src_line_num]);
-				if(src_line_num+1 < code_lines.size()) {
-					log_undecorated("\033[37m%s\033[m", code_lines[src_line_num+1]);
-				}
-			}
-			log_undecorated("");
-		}
-	}
-}
-
 void ios_helper::compile_shaders() {
 	static constexpr char blit_vs_text[] { u8R"RAWSTR(
 		attribute vec2 in_vertex;
@@ -88,7 +61,7 @@ void ios_helper::compile_shaders() {
 	shader_objects.emplace("BLIT", shd);
 }
 
-floor_shader_object* ios_helper::get_shader(const string& name) {
+shared_ptr<floor_shader_object> ios_helper::get_shader(const string& name) {
 	const auto iter = shader_objects.find(name);
 	if(iter == shader_objects.end()) return nullptr;
 	return iter->second;

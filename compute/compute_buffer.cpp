@@ -133,9 +133,11 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_DISPATCH_INDIRECT_BUFFER:
 			glGetIntegerv(GL_DISPATCH_INDIRECT_BUFFER_BINDING, &cur_bound_object);
 			break;
+#if !defined(FLOOR_IOS)
 		case GL_DRAW_INDIRECT_BUFFER:
 			glGetIntegerv(GL_DRAW_INDIRECT_BUFFER_BINDING, &cur_bound_object);
 			break;
+#endif
 		case GL_ELEMENT_ARRAY_BUFFER:
 			glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &cur_bound_object);
 			break;
@@ -145,9 +147,11 @@ compute_buffer::opengl_buffer_info compute_buffer::get_opengl_buffer_info(const 
 		case GL_SHADER_STORAGE_BUFFER:
 			glGetIntegerv(GL_SHADER_STORAGE_BUFFER_BINDING, &cur_bound_object);
 			break;
+#if !defined(FLOOR_IOS)
 		case GL_TEXTURE_BUFFER:
 			glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &cur_bound_object);
 			break;
+#endif
 		case GL_TRANSFORM_FEEDBACK_BUFFER:
 			glGetIntegerv(GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, &cur_bound_object);
 			break;

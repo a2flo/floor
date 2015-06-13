@@ -27,7 +27,7 @@ class ios_helper {
 public:
 	static void* get_eagl_sharegroup();
 	static void compile_shaders();
-	static floor_shader_object* get_shader(const string& name);
+	static shared_ptr<floor_shader_object> get_shader(const string& name);
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();
 	static size_t get_dpi();

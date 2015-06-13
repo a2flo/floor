@@ -326,7 +326,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	const auto vendor_str = compute_device::vendor_to_string(device->vendor);
 	const auto type_str = (compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "GPU" :
 						   compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? "CPU" : "UNKNOWN");
-	const auto os_str = (
+	const auto os_str = (target != TARGET::AIR ?
+						 // non metal/air targets (aka the usual/proper handling)
 #if defined(__APPLE__)
 #if defined(FLOOR_IOS)
 						 "IOS"
@@ -344,7 +345,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 #else
 						 "UNKNOWN"
 #endif
-						 );
+						 // metal/air specific handling, target os is dependent on device family
+						 : (((metal_device*)device.get())->family < 10000 ? "IOS" : "OSX"));
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR="s + vendor_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR_"s + vendor_str;

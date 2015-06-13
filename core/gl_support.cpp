@@ -20,11 +20,13 @@
 
 #if defined(__APPLE__)
 #include <floor/core/logger.hpp>
+#if !defined(FLOOR_IOS)
 void glCopyImageSubData(GLuint, GLenum, GLint, GLint, GLint, GLint,
 						GLuint, GLenum, GLint, GLint, GLint, GLint,
 						GLsizei, GLsizei, GLsizei) {
 	log_error("glCopyImageSubData is not supported!");
 }
+#endif
 #else
 #define glGetProcAddress(x) SDL_GL_GetProcAddress(x)
 

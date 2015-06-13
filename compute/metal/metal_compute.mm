@@ -156,8 +156,8 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 						 const unordered_set<string> whitelist) {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
-	auto mtl_device = MTLCreateSystemDefaultDevice();
-	if(mtl_device == nil) return;
+	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
+	if(!mtl_device) return;
 	vector<id <MTLDevice>> mtl_devices { mtl_device };
 #else
 	auto mtl_devices_arr = MTLCopyAllDevices();
@@ -220,6 +220,7 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 				return;
 			case 3:
 				device.family_version = 2;
+				floor_fallthrough;
 			case 1:
 				device.family = 1;
 				device.units = 4; // G6430
@@ -227,12 +228,13 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 				device.max_work_group_size = 512;
 				device.mem_clock = 1333; // ram clock
 				break;
+				
 			default:
 				log_warn("unknown device family (%u), defaulting to family 2 (A8)", device.family);
-				
 				floor_fallthrough;
 			case 4:
 				device.family_version = 2;
+				floor_fallthrough;
 			case 2:
 				device.family = 2;
 				if(device.name.find("A8X") != string::npos) { // A8X

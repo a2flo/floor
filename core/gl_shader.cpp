@@ -18,7 +18,11 @@
 
 #include <floor/core/gl_shader.hpp>
 #include <floor/core/gl_support.hpp>
+#include <regex>
 
+#if !defined(FLOOR_IOS) // unused on ios right now
+
+#if !defined(FLOOR_IOS)
 #define FLOOR_GL_SHADER_SAMPLER_TYPES(F) \
 F(GL_SAMPLER_1D) \
 F(GL_SAMPLER_2D) \
@@ -56,6 +60,24 @@ F(GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE) \
 F(GL_SAMPLER_2D_MULTISAMPLE_ARRAY) \
 F(GL_INT_SAMPLER_2D_MULTISAMPLE_ARRAY) \
 F(GL_UNSIGNED_INT_SAMPLER_2D_MULTISAMPLE_ARRAY)
+#else
+#define FLOOR_GL_SHADER_SAMPLER_TYPES(F) \
+F(GL_SAMPLER_2D) \
+F(GL_SAMPLER_3D) \
+F(GL_SAMPLER_CUBE) \
+F(GL_SAMPLER_2D_SHADOW) \
+F(GL_SAMPLER_2D_ARRAY) \
+F(GL_SAMPLER_2D_ARRAY_SHADOW) \
+F(GL_SAMPLER_CUBE_SHADOW) \
+F(GL_INT_SAMPLER_2D) \
+F(GL_INT_SAMPLER_3D) \
+F(GL_INT_SAMPLER_CUBE) \
+F(GL_INT_SAMPLER_2D_ARRAY) \
+F(GL_UNSIGNED_INT_SAMPLER_2D) \
+F(GL_UNSIGNED_INT_SAMPLER_3D) \
+F(GL_UNSIGNED_INT_SAMPLER_CUBE) \
+F(GL_UNSIGNED_INT_SAMPLER_2D_ARRAY)
+#endif
 
 #define __FLOOR_DECLARE_GL_TYPE_CHECK(type) case type: return true;
 static bool is_gl_sampler_type(const GLenum& type) {
@@ -65,6 +87,41 @@ static bool is_gl_sampler_type(const GLenum& type) {
 	}
 	return false;
 }
+
+#endif // !FLOOR_IOS
+
+#if defined(__APPLE__)
+static void log_pretty_print(const char* log, const char* code) {
+	static const regex rx_log_line("\\w+: 0:(\\d+):.*");
+	smatch regex_result;
+	
+	const vector<string> lines { core::tokenize(string(log), '\n') };
+	const vector<string> code_lines { core::tokenize(string(code), '\n') };
+	for(const string& line : lines) {
+		if(line.size() == 0) continue;
+		log_undecorated("## \033[31m%s\033[m", line);
+		
+		// find code line and print it (+/- 1 line)
+		if(regex_match(line, regex_result, rx_log_line)) {
+			const size_t src_line_num = stosize(regex_result[1]) - 1;
+			if(src_line_num < code_lines.size()) {
+				if(src_line_num != 0) {
+					log_undecorated("\033[37m%s\033[m", code_lines[src_line_num-1]);
+				}
+				log_undecorated("\033[31m%s\033[m", code_lines[src_line_num]);
+				if(src_line_num+1 < code_lines.size()) {
+					log_undecorated("\033[37m%s\033[m", code_lines[src_line_num+1]);
+				}
+			}
+			log_undecorated("");
+		}
+	}
+}
+#else
+static void log_pretty_print(const char* log, const char*) {
+	log_undecorated("%s", log);
+}
+#endif
 
 #define SHADER_LOG_SIZE 32767
 bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text) {
@@ -83,7 +140,8 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	glGetShaderiv(shd_obj.vertex_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {
 		glGetShaderInfoLog(shd_obj.vertex_shader, SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in vertex shader \"%s\" compilation:\n%s", shd.name, info_log);
+		log_error("error in vertex shader \"%s\" compilation:", shd.name);
+		log_pretty_print(info_log, vs_text);
 		return false;
 	}
 	
@@ -94,7 +152,8 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	glGetShaderiv(shd_obj.fragment_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {
 		glGetShaderInfoLog(shd_obj.fragment_shader, SHADER_LOG_SIZE, nullptr, info_log);
-		log_error("error in fragment shader \"%s\" compilation:\n%s", shd.name, info_log);
+		log_error("error in fragment shader \"%s\" compilation:", shd.name);
+		log_pretty_print(info_log, fs_text);
 		return false;
 	}
 	
