@@ -431,12 +431,12 @@ public:
 	}
 	
 	// final call: forward to printf
-#if !defined(FLOOR_COMPUTE_CUDA)
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
 		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
-#else
+#elif defined(FLOOR_COMPUTE_CUDA)
 	// need a slightly different approach for cuda, because printf type can't be infered,
 	// because it's a variadic template and not a variadic c function
 	template<typename Tuple, size_t... I>
@@ -453,6 +453,9 @@ public:
 	static void log(const constant char* format, Args&&... args) {
 		_log_fwd(tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
+#elif defined(FLOOR_COMPUTE_METAL)
+	template <typename... Args>
+	static void log(const constant char*, Args&&...) {}
 #endif
 	
 };

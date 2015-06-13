@@ -20,6 +20,7 @@
 #define __FLOOR_MATRIX4_HPP__
 
 #include <utility>
+#include <tuple>
 #if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>

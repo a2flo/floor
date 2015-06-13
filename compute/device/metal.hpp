@@ -143,9 +143,8 @@ static floor_inline_always void local_write_mem_fence() {
 	//air_mem_barrier(2u, 2);
 }
 
-// apple uses __printf_cl internally, with c naming! (NOTE: not confirmed to work yet)
-extern "C" int __printf_cl(const char __constant* __restrict st, ...);
-#define printf __printf_cl
+// not supported (neither __printf_cl nor __builtin_printf work)
+#define printf(...)
 
 // atomics
 #include <floor/compute/device/metal_atomic.hpp>

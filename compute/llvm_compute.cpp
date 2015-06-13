@@ -24,9 +24,10 @@
 #include <floor/compute/cuda/cuda_device.hpp>
 
 // need certain metal device info, but no obj-c stuff
+#if !defined(FLOOR_NO_METAL)
 #define FLOOR_NO_METAL
+#endif
 #include <floor/compute/metal/metal_device.hpp>
-#undef FLOOR_NO_METAL
 
 static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
@@ -457,8 +458,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 									  "target datalayout = \"e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32\"");
 		}
 		
-		// kill "unnamed_addr" in local mem global vars
+		// kill "unnamed_addr" in local and constant mem global vars
 		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");
+		core::find_and_replace(ir_output, "private unnamed_addr", "private");
 		
 		// output final processed ir if this was specified in the config
 		if(floor::get_compute_keep_temp()) {

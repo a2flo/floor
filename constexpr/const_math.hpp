@@ -23,6 +23,7 @@
 #include <type_traits>
 #include <utility>
 #include <limits>
+#include <algorithm>
 #if !defined(FLOOR_COMPUTE)
 #include <cmath>
 #include <cstdint>

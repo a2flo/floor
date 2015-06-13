@@ -30,6 +30,7 @@
 #include <floor/math/vector_ops.hpp>
 #include <floor/math/matrix4.hpp>
 #include <type_traits>
+#include <tuple>
 
 #if !defined(FLOOR_COMPUTE)
 #include <random>

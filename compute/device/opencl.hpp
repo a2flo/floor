@@ -47,8 +47,7 @@ opencl_c_func size_t opencl_const_func get_global_offset(uint dimindx);
 
 #if defined(FLOOR_COMPUTE_APPLECL)
 float opencl_const_func __cl_fmod(float, float);
-float opencl_const_func native_sqrt(float);
-float opencl_const_func native_rsqrt(float);
+float opencl_const_func __cl_sqrt(float);
 float opencl_const_func __cl_fabs(float);
 float opencl_const_func __cl_floor(float);
 float opencl_const_func __cl_ceil(float);
@@ -75,7 +74,6 @@ int64_t opencl_const_func __cl_abs(int64_t);
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 double opencl_const_func __cl_fmod(double, double);
 double opencl_const_func __cl_sqrt(double);
-double opencl_const_func __cl_rsqrt(double);
 double opencl_const_func __cl_fabs(double);
 double opencl_const_func __cl_floor(double);
 double opencl_const_func __cl_ceil(double);
@@ -105,8 +103,8 @@ double opencl_const_func __cl_pow(double, double);
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
 float opencl_const_func fmod(float x, float y) CL_FWD(__cl_fmod, x, y)
-float opencl_const_func sqrt(float x) CL_FWD(native_sqrt, x);
-float opencl_const_func rsqrt(float x) CL_FWD(native_rsqrt, x);
+float opencl_const_func sqrt(float x) CL_FWD(__cl_sqrt, x);
+float opencl_const_func rsqrt(float x);
 float opencl_const_func fabs(float x) CL_FWD(__cl_fabs, x)
 float opencl_const_func floor(float x) CL_FWD(__cl_floor, x)
 float opencl_const_func ceil(float x) CL_FWD(__cl_ceil, x)
@@ -133,7 +131,7 @@ int64_t opencl_const_func abs(int64_t x) CL_FWD(__cl_abs, x)
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 double opencl_const_func fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
 double opencl_const_func sqrt(double x) CL_FWD(__cl_sqrt, x);
-double opencl_const_func rsqrt(double x) CL_FWD(__cl_rsqrt, x);
+double opencl_const_func rsqrt(double x);
 double opencl_const_func fabs(double x) CL_FWD(__cl_fabs, x)
 double opencl_const_func floor(double x) CL_FWD(__cl_floor, x)
 double opencl_const_func ceil(double x) CL_FWD(__cl_ceil, x)
