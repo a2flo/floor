@@ -56,10 +56,10 @@ cd ..
 
 # patch
 cd llvm
-patch -p1 < ../351_clang_llvm.patch
+patch -p1 < ../350_clang_llvm.patch
 patch -p2 < ../gcc_5_1.patch
 cd ../libcxx
-patch -p1 < ../351_libcxx.patch
+patch -p1 < ../350_libcxx.patch
 cd ..
 
 # build
