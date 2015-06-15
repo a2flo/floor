@@ -419,7 +419,7 @@ public:
 	
 	template <typename T, enable_if_t<!is_floor_vector<T>::value && !is_floor_matrix<T>::value, int> = 0>
 	static constexpr auto tupled_arg(T&& arg) {
-		return tuple<const T&>(std::cref(arg));
+		return tuple<T>(arg);
 	}
 	template <typename T, enable_if_t<is_floor_vector<T>::value, int> = 0>
 	static constexpr auto tupled_arg(T&& vec) {
