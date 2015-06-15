@@ -150,6 +150,17 @@ typedef struct {
 @end
 #endif
 
+@protocol MTLFunctionSPI <MTLFunction>
+@property(readonly) long long lineNumber;
+@property(copy) NSString *filePath;
+@end
+
+@interface _MTLLibrary : NSObject <MTLLibrary> {
+	NSMutableDictionary *_functionDictionary;
+}
+@property(readonly, retain, nonatomic) NSMutableDictionary *functionDictionary;
+@end
+
 void metal_compute::init(const bool use_platform_devices floor_unused,
 						 const uint32_t platform_index_ floor_unused,
 						 const bool gl_sharing floor_unused,
@@ -527,6 +538,18 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
 	}
+	
+#if 0
+	//auto path = [NSString stringWithUTF8String:file_name.c_str()];
+	auto path = [NSString stringWithUTF8String:"/Users/flo/sync/floor_examples/nbody/src/nbody.cpp"];
+	_MTLLibrary* lib = ([program respondsToSelector:@selector(baseObject)] ?
+						[program performSelector:@selector(baseObject)] :
+						program);
+	for(id key in [lib functionDictionary]) {
+		id <MTLFunctionSPI> func = [[lib functionDictionary] objectForKey:key];
+		func.filePath = path;
+	}
+#endif
 	
 	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, kernel_infos);
 	{
