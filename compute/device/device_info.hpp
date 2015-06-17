@@ -74,6 +74,14 @@ namespace device_info {
 		return OS::FLOOR_COMPUTE_INFO_OS;
 	}
 	
+	//! returns the operating system version
+	//! NOTE: only returns a valid value on OS X and iOS
+	//! OS X: identical to MAC_OS_X_VERSION_10_* macro
+	//! iOS: identical to __IPHONE_*_* macro
+	constexpr size_t os_version() {
+		return FLOOR_COMPUTE_INFO_OS_VERSION;
+	}
+	
 }
 
 #endif

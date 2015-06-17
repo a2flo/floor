@@ -23,6 +23,10 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 
+#if defined(__APPLE__)
+#include <floor/darwin/darwin_helper.hpp>
+#endif
+
 // need certain metal device info, but no obj-c stuff
 #if !defined(FLOOR_NO_METAL)
 #define FLOOR_NO_METAL
@@ -354,6 +358,16 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_TYPE_"s + type_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS="s + os_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_"s + os_str;
+	
+#if defined(__APPLE__)
+	const auto os_version_str = to_string(darwin_helper::get_system_version());
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION="s + os_version_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION_"s + os_version_str;
+#else
+	// TODO: do this on windows and linux as well? if so, how/what?
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION=0";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
+#endif
 	
 	// add generic flags/options that are always used
 	// TODO: use debug/profiling config options
