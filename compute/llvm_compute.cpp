@@ -369,6 +369,16 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS_VERSION_0";
 #endif
 	
+	// assume all gpus have fma support
+	bool has_fma = compute_device::has_flag<compute_device::TYPE::GPU>(device->type);
+	if(compute_device::has_flag<compute_device::TYPE::CPU>(device->type)) {
+		// if device is a cpu, need to check cpuid on x86, or check if cpu is armv8
+		has_fma = core::cpu_has_fma();
+	}
+	const auto has_fma_str = to_string(has_fma);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_FMA="s + has_fma_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_FMA_"s + has_fma_str;
+	
 	// add generic flags/options that are always used
 	// TODO: use debug/profiling config options
 	clang_cmd += {

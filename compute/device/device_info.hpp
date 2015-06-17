@@ -82,6 +82,11 @@ namespace device_info {
 		return FLOOR_COMPUTE_INFO_OS_VERSION;
 	}
 	
+	//! returns true if the device has native fma instruction support
+	constexpr bool has_fma() {
+		return (FLOOR_COMPUTE_INFO_HAS_FMA != 0);
+	}
+	
 }
 
 #endif

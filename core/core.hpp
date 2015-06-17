@@ -179,6 +179,9 @@ public:
 	//! returns the name/label of the current thread (only works with pthreads)
 	static string get_current_thread_name();
 	
+	//! returns true if the cpu has fma instruction support
+	static bool cpu_has_fma();
+	
 protected:
 	// static class
 	core(const core&) = delete;

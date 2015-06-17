@@ -25,6 +25,10 @@
 #include <sys/sysctl.h>
 #endif
 
+#if !defined(FLOOR_IOS)
+#include <cpuid.h>
+#endif
+
 // TODO: add thread safety for gen and rd?
 random_device core::rd;
 mt19937 core::gen(core::rd());
@@ -505,5 +509,19 @@ string core::get_current_thread_name() {
 	return thread_name;
 #else
 	return "<unknown>";
+#endif
+}
+
+bool core::cpu_has_fma() {
+#if !defined(FLOOR_IOS)
+	int eax, ebx, ecx, edx;
+	__cpuid(1, eax, ebx, ecx, edx);
+	return (ecx & bit_FMA) > 0;
+#else
+#if defined(PLATFORM_X64)
+	return true; // armv8
+#else
+	return false; // armv7
+#endif
 #endif
 }
