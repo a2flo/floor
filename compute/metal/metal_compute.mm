@@ -26,11 +26,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #if defined(__APPLE__)
-#if defined(FLOOR_IOS)
-#include <floor/ios/ios_helper.hpp>
-#else
-#include <floor/osx/osx_helper.hpp>
-#endif
+#include <floor/darwin/darwin_helper.hpp>
 #endif
 
 #include <floor/compute/llvm_compute.hpp>
@@ -42,6 +38,9 @@
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/floor/floor.hpp>
 #include <Metal/Metal.h>
+
+// include again to clean up macro mess
+#include <floor/core/essentials.hpp>
 
 // only need this on os x right now (won't work on ios 8.0 anyways, different spi)
 #if !defined(FLOOR_IOS)
@@ -209,7 +208,7 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 		device.driver_version_str = "1.0.0"; // for now, should update with iOS >8 (iOS8 versions: metal 1.0.0, air 1.6.0, language 1.0.0)
 		device.vendor = compute_device::VENDOR::APPLE;
 		device.clock = 450; // actually unknown, and won't matter for now
-		device.global_mem_size = (uint64_t)ios_helper::get_memory_size();
+		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		device.max_mem_alloc = device.global_mem_size / 4; // usually the case
 		

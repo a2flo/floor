@@ -96,7 +96,7 @@ for arg in "$@"; do
 			echo "build configuration:"
 			echo "	no-opencl	disables opencl support"
 			echo "	no-cuda		disables cuda support"
-			echo "	no-metal	disables metal support (default for non-iOS targets)"
+			echo "	no-metal	disables metal support (default for non-iOS and non-OS X targets)"
 			echo "	no-openal	disables openal support"
 			echo "	no-net		disables network support"
 			echo "	no-lang		disables lexer/parser/ast support"
@@ -266,8 +266,8 @@ else
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}.so
 fi
 
-# disable metal support on non-iOS targets
-if [ $BUILD_OS != "ios" ]; then
+# disable metal support on non-iOS/-OS X targets
+if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	BUILD_CONF_METAL=0
 fi
 
@@ -287,10 +287,8 @@ SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
 SRC_SUB_DIRS="audio compute compute/cuda compute/metal compute/opencl constexpr core floor lang math net net/boost_system threading"
-if [ $BUILD_OS == "osx" ]; then
-	SRC_SUB_DIRS="${SRC_SUB_DIRS} osx"
-elif [ $BUILD_OS == "ios" ]; then
-	SRC_SUB_DIRS="${SRC_SUB_DIRS} ios"
+if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
 
 # build directory where all temporary files are stored (*.o, etc.)

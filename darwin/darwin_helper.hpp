@@ -16,22 +16,42 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OSX_HELPER_HPP__
-#define __FLOOR_OSX_HELPER_HPP__
+#ifndef __FLOOR_DARWIN_HELPER_HPP__
+#define __FLOOR_DARWIN_HELPER_HPP__
 
 #include <CoreGraphics/CoreGraphics.h>
 #include <floor/core/platform.hpp>
+#include <floor/core/gl_support.hpp>
+#include <floor/core/cpp_headers.hpp>
+#include <floor/core/gl_shader.hpp>
 
-class osx_helper {
+class darwin_helper {
 public:
+	// OS X and iOS
 	static size_t get_dpi(SDL_Window* wnd);
 	static float get_scale_factor(SDL_Window* wnd);
-	static float get_menu_bar_height();
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();
 	static string get_computer_name();
 	static string utf8_decomp_to_precomp(const string& str);
 	static int64_t get_memory_size();
+	static string get_bundle_identifier();
+	
+#if !defined(FLOOR_IOS)
+	// OS X specific
+	static float get_menu_bar_height();
+#else
+	// iOS specific
+	static void* get_eagl_sharegroup();
+	static void compile_shaders();
+	static shared_ptr<floor_shader_object> get_shader(const string& name);
+#endif
+	
+protected:
+#if defined(FLOOR_IOS)
+	// iOS specific
+	static unordered_map<string, shared_ptr<floor_shader_object>> shader_objects;
+#endif
 	
 };
 

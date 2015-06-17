@@ -26,11 +26,7 @@
 #include <floor/compute/metal/metal_compute.hpp>
 
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS)
-#include <floor/osx/osx_helper.hpp>
-#else
-#include <floor/ios/ios_helper.hpp>
-#endif
+#include <floor/darwin/darwin_helper.hpp>
 #endif
 
 // init statics
@@ -486,7 +482,7 @@ void floor::init_internal(const bool use_gl32_core
 		
 		// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
 #if defined(FLOOR_IOS)
-		ios_helper::compile_shaders();
+		darwin_helper::compile_shaders();
 		log_debug("iOS blit shader compiled");
 #endif
 		
@@ -525,11 +521,7 @@ void floor::init_internal(const bool use_gl32_core
 		// retrieve dpi info
 		if(config.dpi == 0) {
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS)
-			config.dpi = osx_helper::get_dpi(config.wnd);
-#else
-			config.dpi = ios_helper::get_dpi();
-#endif
+			config.dpi = darwin_helper::get_dpi(config.wnd);
 #elif defined(__WINDOWS__)
 			HDC hdc = wglGetCurrentDC();
 			const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
@@ -1015,8 +1007,8 @@ const float& floor::get_upscaling() {
 }
 
 float floor::get_scale_factor() {
-#if defined(__APPLE__) && !defined(FLOOR_IOS)
-	return osx_helper::get_scale_factor(config.wnd);
+#if defined(__APPLE__)
+	return darwin_helper::get_scale_factor(config.wnd);
 #else
 	return config.upscaling; // TODO: get this from somewhere ...
 #endif

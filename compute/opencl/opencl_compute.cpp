@@ -28,11 +28,7 @@
 #include <floor/core/file_io.hpp>
 
 #if defined(__APPLE__)
-#if defined(FLOOR_IOS)
-#include <floor/ios/ios_helper.hpp>
-#else
-#include <floor/osx/osx_helper.hpp>
-#endif
+#include <floor/darwin/darwin_helper.hpp>
 #endif
 
 #include <floor/compute/llvm_compute.hpp>
@@ -144,7 +140,7 @@ void opencl_compute::init(const bool use_platform_devices,
 #if !defined(FLOOR_IOS)
 			gl_sharing ? (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()) : 0,
 #else
-			gl_sharing ? (cl_context_properties)ios_helper::get_eagl_sharegroup() : 0,
+			gl_sharing ? (cl_context_properties)darwin_helper::get_eagl_sharegroup() : 0,
 #endif
 			0
 		};

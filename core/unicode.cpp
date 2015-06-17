@@ -19,11 +19,7 @@
 #include <floor/core/unicode.hpp>
 
 #if defined(__APPLE__)
-#if !defined(FLOOR_IOS)
-#include <floor/osx/osx_helper.hpp>
-#else
-#include <floor/ios/ios_helper.hpp>
-#endif
+#include <floor/darwin/darwin_helper.hpp>
 #endif
 
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
@@ -107,10 +103,6 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 
 #if defined(__APPLE__)
 string unicode::utf8_decomp_to_precomp(const string& str) {
-#if !defined(FLOOR_IOS)
-	return osx_helper::utf8_decomp_to_precomp(str);
-#else
-	return ios_helper::utf8_decomp_to_precomp(str);
-#endif
+	return darwin_helper::utf8_decomp_to_precomp(str);
 }
 #endif

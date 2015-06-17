@@ -31,7 +31,7 @@
 #endif
 
 #if defined(FLOOR_IOS)
-#include <floor/ios/ios_helper.hpp>
+#include <floor/darwin/darwin_helper.hpp>
 #endif
 
 static string log_filename { "" }, msg_filename { "" };
@@ -168,7 +168,7 @@ void logger::init(const size_t verbosity,
 	if(log_filename_.empty() || msg_filename_.empty()) {
 #if defined(FLOOR_IOS)
 		// get the bundle identifier of this .app and get the preferences path from sdl (we can/must store the log there)
-		const auto bundle_id = ios_helper::get_bundle_identifier();
+		const auto bundle_id = darwin_helper::get_bundle_identifier();
 		const auto bundle_dot = bundle_id.rfind('.');
 		if(bundle_dot != string::npos) {
 			char* pref_path = SDL_GetPrefPath(bundle_id.substr(0, bundle_dot).c_str(),
