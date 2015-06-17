@@ -479,7 +479,7 @@ else
 	fi
 	
 	# system frameworks
-	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL"
+	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL -framework QuartzCore"
 	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework OpenCL"
 	fi

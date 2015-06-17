@@ -25,6 +25,12 @@
 #include <floor/core/cpp_headers.hpp>
 #include <floor/core/gl_shader.hpp>
 
+#if defined(__OBJC__)
+@class metal_view;
+#import <QuartzCore/CAMetalLayer.h>
+#import <Metal/Metal.h>
+#endif
+
 class darwin_helper {
 public:
 	// OS X and iOS
@@ -36,7 +42,7 @@ public:
 	static string utf8_decomp_to_precomp(const string& str);
 	static int64_t get_memory_size();
 	static string get_bundle_identifier();
-	
+
 #if !defined(FLOOR_IOS)
 	// OS X specific
 	static float get_menu_bar_height();
@@ -51,6 +57,14 @@ protected:
 #if defined(FLOOR_IOS)
 	// iOS specific
 	static unordered_map<string, shared_ptr<floor_shader_object>> shader_objects;
+#endif
+	
+public:
+	// metal functions (only available in objective-c/c++ mode)
+#if defined(__OBJC__)
+	static metal_view* create_metal_view(SDL_Window* wnd, id <MTLDevice> device);
+	static CAMetalLayer* get_metal_layer(metal_view* view);
+	static id <CAMetalDrawable> get_metal_next_drawable(metal_view* view);
 #endif
 	
 };

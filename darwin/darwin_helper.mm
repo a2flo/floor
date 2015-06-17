@@ -29,11 +29,89 @@
 #include <floor/core/util.hpp>
 #include <floor/darwin/darwin_helper.hpp>
 
+#if !defined(FLOOR_IOS)
+#import <AppKit/AppKit.h>
+#define UI_VIEW_CLASS NSView
+#else
+#import <UIKit/UIKit.h>
+#define UI_VIEW_CLASS UIView
+#endif
+
 #if defined(FLOOR_IOS)
 #include <OpenGLES/EAGL.h>
 
 unordered_map<string, shared_ptr<floor_shader_object>> darwin_helper::shader_objects;
 #endif
+
+// metal renderer NSView/UIView implementation
+@interface metal_view : UI_VIEW_CLASS <NSCoding>
+@property (assign, nonatomic) CAMetalLayer* metal_layer;
+@end
+
+@implementation metal_view
+@synthesize metal_layer = _metal_layer;
+
+// override to signal this is a CAMetalLayer
++ (Class)layerClass {
+	return [CAMetalLayer class];
+}
+
+// override to signal this is a CAMetalLayer
+- (CALayer*)makeBackingLayer {
+	return [CAMetalLayer layer];
+}
+
+- (instancetype)initWithFrame:(CGRect)frame withDevice:(id <MTLDevice>)device {
+	self = [super initWithFrame:frame];
+	if(self) {
+#if !defined(FLOOR_IOS)
+		[self setWantsLayer:true];
+#endif
+		_metal_layer = (CAMetalLayer*)self.layer;
+		_metal_layer.device = device;
+		_metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+#if defined(FLOOR_IOS)
+		_metal_layer.opaque = true;
+		_metal_layer.backgroundColor = nil;
+#endif
+		_metal_layer.framebufferOnly = true; // note: must be false if used for compute processing
+	}
+	return self;
+}
+@end
+
+metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> device) {
+	// since sdl doesn't have metal support (yet), we need to create a metal view ourselves
+	SDL_SysWMinfo info;
+	SDL_VERSION(&info.version);
+	if(!SDL_GetWindowWMInfo(wnd, &info)) {
+		log_error("failed to retrieve window info: %s", SDL_GetError());
+		return nullptr;
+	}
+	
+	const auto scale_factor = get_scale_factor(wnd);
+	int2 wnd_size;
+	SDL_GetWindowSize(wnd, &wnd_size.x, &wnd_size.y);
+	CGRect frame { { 0.0f, 0.0f }, { float(wnd_size.x), float(wnd_size.y) } };
+	frame.size.width /= scale_factor;
+	frame.size.height /= scale_factor;
+	
+	metal_view* view = [[metal_view alloc] initWithFrame:frame withDevice:device];
+#if !defined(FLOOR_IOS)
+	[[info.info.cocoa.window contentView] addSubview:view];
+#else
+	[info.info.uikit.window addSubview:view];
+#endif
+	return view;
+}
+
+CAMetalLayer* darwin_helper::get_metal_layer(metal_view* view) {
+	return [view metal_layer];
+}
+
+id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(metal_view* view) {
+	return [[view metal_layer] nextDrawable];
+}
 
 size_t darwin_helper::get_dpi(SDL_Window* wnd
 #if defined(FLOOR_IOS)

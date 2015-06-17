@@ -134,6 +134,7 @@
 		5CBE41DA1B31B48600AE0E5F /* darwin_helper.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBE41D81B31B48600AE0E5F /* darwin_helper.hpp */; };
 		5CBE41DB1B31B48600AE0E5F /* darwin_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */; };
 		5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */; };
+		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
 		5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
 		5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */; };
@@ -340,6 +341,7 @@
 		5CBD02E21A45F7E900B1F4A1 /* atomics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = atomics.hpp; sourceTree = "<group>"; };
 		5CBE41D81B31B48600AE0E5F /* darwin_helper.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = darwin_helper.hpp; path = darwin/darwin_helper.hpp; sourceTree = "<group>"; };
 		5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = darwin_helper.mm; path = darwin/darwin_helper.mm; sourceTree = "<group>"; };
+		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_buffer.cpp; sourceTree = "<group>"; };
 		5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_buffer.hpp; sourceTree = "<group>"; };
 		5CC2F77518678AAC0031E08D /* libfloord_static.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfloord_static.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -399,6 +401,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */,
 				5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */,
 				5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */,
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
@@ -568,6 +571,7 @@
 			children = (
 				5C1091FC17D148DB007F536E /* libxml2.dylib */,
 				5CC97EE71A93808800611CF6 /* Metal.framework */,
+				5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */,
 				5CE55CDE1B2754A6006C38E6 /* Metal.framework */,
 				5C1091FA17D148D0007F536E /* ApplicationServices.framework */,
 				5C1091F817D148CB007F536E /* AppKit.framework */,
