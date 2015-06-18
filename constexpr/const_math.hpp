@@ -724,7 +724,11 @@ namespace const_math {
 	//! computes the linear interpolation between a and b
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
 		return ((b - a) * t + a);
+#else
+		return ::fma(t, b, ::fma(-t, a, a));
+#endif
 	}
 	
 	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
