@@ -299,49 +299,6 @@ public:
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-	// opencl and metal/air construction/load from any address space to private address space
-	//! explicit load, from private/unspecified/default to private address space
-	static constexpr vector_type load(const vector_type* from_vec) {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
-	}
-	//! explicit load, from global to private address space
-	static constexpr vector_type load(global const vector_type* from_vec) {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
-	}
-	//! explicit load, from local to private address space
-	static constexpr vector_type load(local const vector_type* from_vec) {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
-	}
-	//! explicit load, from constant to private address space
-	static constexpr vector_type load(constant const vector_type* from_vec) {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
-	}
-	
-	// opencl and metal/air store from private address space to any address space
-	//! explicit store, from any address space to private/unspecified/default
-	static constexpr void store(vector_type* to_vec, const vector_type& assign_vec) {
-		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
-	}
-	//! explicit store, from any address space to global
-	static constexpr void store(global vector_type* to_vec, const vector_type& assign_vec) {
-		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
-	}
-	//! explicit store, from any address space to local
-	static constexpr void store(local vector_type* to_vec, const vector_type& assign_vec) {
-		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
-	}
-#else
-	//! generic load function (for host and cuda compilation)
-	static constexpr vector_type load(const vector_type* from_vec) {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, (scalar_type)from_vec->, FLOOR_NOP) };
-	}
-	//! generic store function (for host and cuda compilation)
-	static constexpr void store(vector_type* to_vec, const vector_type& assign_vec) {
-		FLOOR_VEC_OP_EXPAND(to_vec->, =, assign_vec., FLOOR_SEMICOLON, FLOOR_VEC_RHS_VEC);
-	}
-#endif
-	
 	// assignments (note: these also work if scalar_type is a reference)
 	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
