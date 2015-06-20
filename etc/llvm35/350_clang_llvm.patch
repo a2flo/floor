@@ -282,10 +282,10 @@ index d5cded2..2e0ca79 100644
    return *this;
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..db4605a
+index 0000000..626833e
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,183 @@
+@@ -0,0 +1,185 @@
 +//===- AddressSpaceFix.cpp - Example code from "Writing an LLVM Pass" -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -381,6 +381,7 @@ index 0000000..db4605a
 +			
 +			// visit everything in this function
 +			was_modified = false; // reset every time
++			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
 +			visit(F);
 +			if(was_modified) {
 +				DBG(errs() << "!! modified function: ";)
@@ -409,20 +410,21 @@ index 0000000..db4605a
 +					if(!called_arg_type->isPointerTy() ||
 +					   !expected_arg_type->isPointerTy()) {
 +						// emit original verifier assertion (TODO: fix it there!)
-+						assert(false && "Call parameter type does not match function signature!");
++						assert(false && "#1: Call parameter type does not match function signature!");
 +						continue;
 +					}
 +					
 +					// check if the mismatch is _only_ due to the addrspace
-+					DBG(errs() << "\t>> call, both types are ptrs: ";)
++					DBG(errs() << "\t>> call (arg #" << i << "), both types are ptrs: ";)
 +					DBG(errs() << called_arg_type->getPointerAddressSpace() << ", ";)
 +					DBG(errs() << expected_arg_type->getPointerAddressSpace() << "\n";)
 +					auto as_ptr = cast<PointerType>(called_arg_type);
++					DBG(as_ptr->dump(); errs() << "\n"; errs().flush();)
 +					if(PointerType::get(as_ptr->getElementType(),
 +										expected_arg_type->getPointerAddressSpace()) !=
 +					   expected_arg_type) {
 +						// emit original verifier assertion (TODO: fix it there!)
-+						assert(false && "Call parameter type does not match function signature!");
++						assert(false && "#2: Call parameter type does not match function signature!");
 +						continue;
 +					}
 +					// else: yup, only addrspace mismatch
@@ -525,9 +527,22 @@ index 488cace..f68cb37 100644
  
  // OpenCL sampler_t.
 diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
-index 09862e4..ddc236c 100644
+index 09862e4..f9e14e6 100644
 --- a/tools/clang/include/clang/AST/Type.h
 +++ b/tools/clang/include/clang/AST/Type.h
+@@ -403,10 +403,10 @@ public:
+   /// \brief Determines if these qualifiers compatibly include another set.
+   /// Generally this answers the question of whether an object with the other
+   /// qualifiers can be safely used as an object with these qualifiers.
+-  bool compatiblyIncludes(Qualifiers other) const {
++  bool compatiblyIncludes(Qualifiers other, bool check_as = true) const {
+     return
+       // Address spaces must match exactly.
+-      getAddressSpace() == other.getAddressSpace() &&
++      ((check_as && getAddressSpace() == other.getAddressSpace()) || !check_as) &&
+       // ObjC GC qualifiers can match, be added, or be removed, but can't be
+       // changed.
+       (getObjCGCAttr() == other.getObjCGCAttr() ||
 @@ -1575,6 +1575,12 @@ public:
    bool isImage1dBufferT() const;                // OpenCL image1d_buffer_t
    bool isImage2dT() const;                      // OpenCL image2d_t
@@ -1011,10 +1026,88 @@ index bccdae9..65a7d6c 100644
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
 diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
-index 7d7ca99..9cf73cb 100644
+index 7d7ca99..7db4b2e 100644
 --- a/tools/clang/lib/AST/ExprConstant.cpp
 +++ b/tools/clang/lib/AST/ExprConstant.cpp
-@@ -5849,6 +5849,74 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
+@@ -835,7 +835,8 @@ CallStackFrame::~CallStackFrame() {
+ APValue &CallStackFrame::createTemporary(const void *Key,
+                                          bool IsLifetimeExtended) {
+   APValue &Result = Temporaries[Key];
+-  assert(Result.isUninit() && "temporary created multiple times");
++  // TODO: fix this!
++  //assert(Result.isUninit() && "temporary created multiple times");
+   Info.CleanupStack.push_back(Cleanup(&Result, IsLifetimeExtended));
+   return Result;
+ }
+@@ -3588,6 +3589,22 @@ static bool CheckConstexprFunction(EvalInfo &Info, SourceLocation CallLoc,
+   return false;
+ }
+ 
++/// Determine if a class has any fields that might need to be copied by a
++/// trivial copy or move operation.
++static bool hasFields(const CXXRecordDecl *RD) {
++  if (!RD || RD->isEmpty())
++    return false;
++  for (auto *FD : RD->fields()) {
++    if (FD->isUnnamedBitfield())
++      continue;
++    return true;
++  }
++  for (auto &Base : RD->bases())
++    if (hasFields(Base.getType()->getAsCXXRecordDecl()))
++      return true;
++  return false;
++}
++
+ namespace {
+ typedef SmallVector<APValue, 8> ArgVector;
+ }
+@@ -3626,8 +3643,13 @@ static bool HandleFunctionCall(SourceLocation CallLoc,
+   // For a trivial copy or move assignment, perform an APValue copy. This is
+   // essential for unions, where the operations performed by the assignment
+   // operator cannot be represented as statements.
++  //
++  // Skip this for non-union classes with no fields; in that case, the defaulted
++  // copy/move does not actually read the object.
+   const CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(Callee);
+-  if (MD && MD->isDefaulted() && MD->isTrivial()) {
++  if (MD && MD->isDefaulted() &&
++      (MD->getParent()->isUnion() ||
++       (MD->isTrivial() && hasFields(MD->getParent())))) {
+     assert(This &&
+            (MD->isCopyAssignmentOperator() || MD->isMoveAssignmentOperator()));
+     LValue RHS;
+@@ -3684,11 +3706,16 @@ static bool HandleConstructorCall(SourceLocation CallLoc, const LValue &This,
+   }
+ 
+   // For a trivial copy or move constructor, perform an APValue copy. This is
+-  // essential for unions, where the operations performed by the constructor
+-  // cannot be represented by ctor-initializers.
+-  if (Definition->isDefaulted() &&
+-      ((Definition->isCopyConstructor() && Definition->isTrivial()) ||
+-       (Definition->isMoveConstructor() && Definition->isTrivial()))) {
++  // essential for unions (or classes with anonymous union members), where the
++  // operations performed by the constructor cannot be represented by
++  // ctor-initializers.
++  //
++  // Skip this for empty non-union classes; we should not perform an
++  // lvalue-to-rvalue conversion on them because their copy constructor does not
++  // actually read them.
++  if (Definition->isDefaulted() && Definition->isCopyOrMoveConstructor() &&
++      (Definition->getParent()->isUnion() ||
++       (Definition->isTrivial() && hasFields(Definition->getParent())))) {
+     LValue RHS;
+     RHS.setFrom(Info.Ctx, ArgValues[0]);
+     return handleLValueToRValueConversion(Info, Args[0], Args[0]->getType(),
+@@ -4733,6 +4760,7 @@ bool PointerExprEvaluator::VisitCastExpr(const CastExpr* E) {
+   case CK_CPointerToObjCPointerCast:
+   case CK_BlockPointerToObjCPointerCast:
+   case CK_AnyPointerToBlockPointerCast:
++  case CK_AddressSpaceConversion:
+     if (!Visit(SubExpr))
+       return false;
+     // Bitcasts to cv void* are static_casts, not reinterpret_casts, so are
+@@ -5849,6 +5877,74 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
    return false;
  }
  
@@ -1089,7 +1182,7 @@ index 7d7ca99..9cf73cb 100644
  /// EvaluateBuiltinClassifyType - Evaluate __builtin_classify_type the same way
  /// as GCC.
  static int EvaluateBuiltinClassifyType(const CallExpr *E) {
-@@ -6263,6 +6331,10 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -6263,6 +6359,10 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
      return BuiltinOp == Builtin::BI__atomic_always_lock_free ?
          Success(0, E) : Error(E);
    }
@@ -1277,7 +1370,7 @@ index cec48f3..8ea5b0c 100644
                           addAddDiscriminatorsPass);
  
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..77e0342 100644
+index 17c3354..5615b31 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
 @@ -1526,6 +1526,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
@@ -1306,11 +1399,27 @@ index 17c3354..77e0342 100644
            }
          }
  
-@@ -2832,12 +2851,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2573,9 +2592,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
+ }
+ 
+ static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
+-                            llvm::FunctionType *FTy) {
+-  if (ArgNo < FTy->getNumParams())
+-    assert(Elt->getType() == FTy->getParamType(ArgNo));
++                            llvm::FunctionType *FTy, bool ignore_type = false) {
++  if (ArgNo < FTy->getNumParams()) {
++    if(!ignore_type) {
++      assert(Elt->getType() == FTy->getParamType(ArgNo));
++    }
++  }
+   else
+     assert(FTy->isVarArg());
+   ++ArgNo;
+@@ -2832,12 +2854,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
-+		bool ignore_args_check = false;
++		bool ignore_type_check = false;
          if (IRArgNo < IRFuncTy->getNumParams() &&
 -            V->getType() != IRFuncTy->getParamType(IRArgNo))
 -          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(IRArgNo));
@@ -1319,14 +1428,14 @@ index 17c3354..77e0342 100644
 +			auto param_type = IRFuncTy->getParamType(IRArgNo);
 +			if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
 +				param_type = llvm::PointerType::get(cast<llvm::PointerType>(param_type->getScalarType())->getElementType(), src_as);
-+				ignore_args_check = true;
++				ignore_type_check = true;
 +			}
 +			V = Builder.CreateBitCast(V, param_type);
 +		}
          Args.push_back(V);
          
 -        checkArgMatches(V, IRArgNo, IRFuncTy);
-+        if(!ignore_args_check) checkArgMatches(V, IRArgNo, IRFuncTy);
++        checkArgMatches(V, IRArgNo, IRFuncTy, ignore_type_check);
          break;
        }
  
@@ -2507,31 +2616,35 @@ index 06ca9ae..a517db4 100644
        // Check exception specifications
        if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))
 diff --git a/tools/clang/lib/Sema/SemaOverload.cpp b/tools/clang/lib/Sema/SemaOverload.cpp
-index 03001d8..8678e01 100644
+index 03001d8..2c4bc8c 100644
 --- a/tools/clang/lib/Sema/SemaOverload.cpp
 +++ b/tools/clang/lib/Sema/SemaOverload.cpp
-@@ -4387,8 +4387,20 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
+@@ -1451,6 +1451,7 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
+       // We were able to resolve the address of the overloaded function,
+       // so we can convert to the type of that function.
+       FromType = Fn->getType();
++      SCS.setFromType(FromType);
+ 
+       // we can sometimes resolve &foo<int> regardless of ToType, so check
+       // if the type matches (identity) or we are converting to bool
+@@ -4048,7 +4049,7 @@ Sema::CompareReferenceRelationship(SourceLocation Loc,
+     
+   if (T1Quals == T2Quals)
+     return Ref_Compatible;
+-  else if (T1Quals.compatiblyIncludes(T2Quals))
++  else if (T1Quals.compatiblyIncludes(T2Quals, !getASTContext().getLangOpts().OpenCL))
+     return Ref_Compatible_With_Added_Qualification;
+   else
+     return Ref_Related;
+@@ -4387,7 +4388,7 @@ TryReferenceInit(Sema &S, Expr *Init, QualType DeclType,
      T1Quals.removeObjCLifetime();
      T2Quals.removeObjCGCAttr();
      T2Quals.removeObjCLifetime();
 -    if (!T1Quals.compatiblyIncludes(T2Quals))
-+    if(S.getLangOpts().OpenCL) {
-+		bool dropped_as = false;
-+		if(T1Quals.hasAddressSpace()) {
-+			T1Quals.removeAddressSpace();
-+			dropped_as = true;
-+		}
-+		if(T2Quals.hasAddressSpace()) {
-+			T2Quals.removeAddressSpace();
-+			dropped_as = true;
-+		}
-+	}
-+	if (!T1Quals.compatiblyIncludes(T2Quals)) {
++    if (!T1Quals.compatiblyIncludes(T2Quals, !S.getLangOpts().OpenCL))
        return ICS;
-+	}
    }
  
-   // If at least one of the types is a class type, the types are not
 diff --git a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 index accec95..d1095d9 100644
 --- a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
