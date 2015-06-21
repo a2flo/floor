@@ -415,7 +415,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 		return {};
 	}
-	//log_debug("cmd: %s", clang_cmd);
+	if(floor::get_compute_log_commands()) {
+		log_debug("clang cmd: %s", clang_cmd);
+	}
 	
 	// grab floor metadata from compiled ir and create per-kernel info
 	vector<kernel_info> kernels;
@@ -521,6 +523,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			" 2>&1"
 #endif
 		};
+		if(floor::get_compute_log_commands()) {
+			log_debug("llc cmd: %s", llc_cmd);
+		}
 		core::system(llc_cmd, compiled_code);
 		
 		// only output the compiled ptx code if this was specified in the config

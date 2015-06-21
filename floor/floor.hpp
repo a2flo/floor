@@ -144,6 +144,7 @@ public:
 	static bool get_compute_keep_temp();
 	static bool get_compute_keep_binaries();
 	static bool get_compute_use_cache();
+	static bool get_compute_log_commands();
 	
 	// opencl
 	static const unordered_set<string>& get_opencl_whitelist();
@@ -240,6 +241,7 @@ protected:
 		bool keep_temp = false;
 		bool keep_binaries = true;
 		bool use_cache = true;
+		bool log_commands = false;
 		
 		// opencl
 		string opencl_platform = "0";

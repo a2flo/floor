@@ -224,6 +224,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.keep_temp = config_doc.get<bool>("config.compute.keep_temp", false);
 		config.keep_binaries = config_doc.get<bool>("config.compute.keep_binaries", true);
 		config.use_cache = config_doc.get<bool>("config.compute.use_cache", true);
+		config.log_commands = config_doc.get<bool>("config.compute.log_commands", false);
 		
 		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
 			const auto whitelist_tokens = core::tokenize(config_doc.get<string>(config_entry_name, ""), ';');
@@ -1077,6 +1078,9 @@ bool floor::get_compute_keep_binaries() {
 }
 bool floor::get_compute_use_cache() {
 	return config.use_cache;
+}
+bool floor::get_compute_log_commands() {
+	return config.log_commands;
 }
 
 const unordered_set<string>& floor::get_opencl_whitelist() {
