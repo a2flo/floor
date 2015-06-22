@@ -527,7 +527,7 @@ index 488cace..f68cb37 100644
  
  // OpenCL sampler_t.
 diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
-index 09862e4..f9e14e6 100644
+index 09862e4..bb1ced2 100644
 --- a/tools/clang/include/clang/AST/Type.h
 +++ b/tools/clang/include/clang/AST/Type.h
 @@ -403,10 +403,10 @@ public:
@@ -556,6 +556,24 @@ index 09862e4..f9e14e6 100644
    bool isImage3dT() const;                      // OpenCL image3d_t
  
    bool isImageType() const;                     // Any OpenCL image type
+@@ -4803,7 +4809,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
+ inline bool QualType::isMoreQualifiedThan(QualType other) const {
+   Qualifiers myQuals = getQualifiers();
+   Qualifiers otherQuals = other.getQualifiers();
+-  return (myQuals != otherQuals && myQuals.compatiblyIncludes(otherQuals));
++  return (myQuals != otherQuals && myQuals.compatiblyIncludes(otherQuals, false));
+ }
+ 
+ /// isAtLeastAsQualifiedAs - Determine whether this type is at last
+@@ -4811,7 +4817,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
+ /// int" is at least as qualified as "const int", "volatile int",
+ /// "int", and "const volatile int".
+ inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
+-  return getQualifiers().compatiblyIncludes(other.getQualifiers());
++  return getQualifiers().compatiblyIncludes(other.getQualifiers(), false);
+ }
+ 
+ /// getNonReferenceType - If Type is a reference type (e.g., const
 @@ -5008,6 +5014,30 @@ inline bool Type::isImage2dArrayT() const {
    return isSpecificBuiltinType(BuiltinType::OCLImage2dArray);
  }
@@ -2645,6 +2663,19 @@ index 03001d8..2c4bc8c 100644
        return ICS;
    }
  
+diff --git a/tools/clang/lib/Sema/SemaTemplateDeduction.cpp b/tools/clang/lib/Sema/SemaTemplateDeduction.cpp
+index 53a75d2..1e31cb8 100644
+--- a/tools/clang/lib/Sema/SemaTemplateDeduction.cpp
++++ b/tools/clang/lib/Sema/SemaTemplateDeduction.cpp
+@@ -2715,7 +2715,7 @@ CheckOriginalCallArgDeduction(Sema &S, Sema::OriginalCallArg OriginalArg,
+ 
+     if (AQuals == DeducedAQuals) {
+       // Qualifiers match; there's nothing to do.
+-    } else if (!DeducedAQuals.compatiblyIncludes(AQuals)) {
++    } else if (!DeducedAQuals.compatiblyIncludes(AQuals, !S.getLangOpts().OpenCL)) {
+       return true;
+     } else {        
+       // Qualifiers are compatible, so have the argument type adopt the
 diff --git a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 index accec95..d1095d9 100644
 --- a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
