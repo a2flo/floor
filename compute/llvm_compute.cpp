@@ -490,6 +490,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");
 		core::find_and_replace(ir_output, "private unnamed_addr", "private");
 		
+		// remove "dereferenceable(*)", this is not supported by air
+		static const regex rx_deref("dereferenceable\\(\\d+\\)");
+		ir_output = regex_replace(ir_output, rx_deref, "");
+		
 		// output final processed ir if this was specified in the config
 		if(floor::get_compute_keep_temp()) {
 			file_io::string_to_file("air_processed.ll", ir_output);
