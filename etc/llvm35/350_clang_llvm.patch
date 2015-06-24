@@ -44,6 +44,30 @@ index e06560c..6e7d587 100644
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
        (void) llvm::createAliasDebugger();
+diff --git a/include/llvm/Transforms/IPO.h b/include/llvm/Transforms/IPO.h
+index ce1a7d6..8042a55 100644
+--- a/include/llvm/Transforms/IPO.h
++++ b/include/llvm/Transforms/IPO.h
+@@ -177,6 +177,7 @@ ModulePass *createStripDeadPrototypesPass();
+ /// and marks them with the nocapture attribute.
+ ///
+ Pass *createFunctionAttrsPass();
++extern char &FunctionAttrsID;
+ 
+ //===----------------------------------------------------------------------===//
+ /// createMergeFunctionsPass - This pass discovers identical functions and
+diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
+index 50877d0..dae5137 100644
+--- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
++++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
+@@ -118,6 +118,7 @@ public:
+   bool LoopVectorize;
+   bool RerollLoops;
+   bool LoadCombine;
++  bool EnableAddressSpaceFix;
+ 
+ private:
+   /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
 index 413134e..8905464 100644
 --- a/include/llvm/Transforms/Scalar.h
@@ -280,12 +304,55 @@ index d5cded2..2e0ca79 100644
    }
  
    return *this;
+diff --git a/lib/Transforms/IPO/FunctionAttrs.cpp b/lib/Transforms/IPO/FunctionAttrs.cpp
+index 8174df9..21a73ba 100644
+--- a/lib/Transforms/IPO/FunctionAttrs.cpp
++++ b/lib/Transforms/IPO/FunctionAttrs.cpp
+@@ -135,6 +135,7 @@ namespace {
+ }
+ 
+ char FunctionAttrs::ID = 0;
++char &llvm::FunctionAttrsID = FunctionAttrs::ID;
+ INITIALIZE_PASS_BEGIN(FunctionAttrs, "functionattrs",
+                 "Deduce function attributes", false, false)
+ INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
+index 701fb46..08f5006 100644
+--- a/lib/Transforms/IPO/PassManagerBuilder.cpp
++++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
+@@ -70,6 +70,7 @@ PassManagerBuilder::PassManagerBuilder() {
+     LoopVectorize = RunLoopVectorization;
+     RerollLoops = RunLoopRerolling;
+     LoadCombine = RunLoadCombine;
++    EnableAddressSpaceFix = false;
+ }
+ 
+ PassManagerBuilder::~PassManagerBuilder() {
+@@ -153,6 +154,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+ 
+   addInitialAliasAnalysisPasses(MPM);
+ 
++  if (EnableAddressSpaceFix) {
++	// address space fixing should be run as early as possible, but it also
++    // requires readonly/nocapture/etc function and argument attributes,
++    // which in turn requires certain alias analysis to be run first
++    // -> this is the earliest point to do this
++    // NOTE: the original FunctionAttrs pass should still be run later on,
++    // because the code will have changed significantly due to optimizations
++    // and other pass changes
++    MPM.add(createFunctionAttrsPass());
++    MPM.add(createAddressSpaceFixPass());
++  }
++
+   if (!DisableUnitAtATime) {
+     addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
+ 
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..626833e
+index 0000000..d6ebde2
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,185 @@
+@@ -0,0 +1,221 @@
 +//===- AddressSpaceFix.cpp - Example code from "Writing an LLVM Pass" -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -305,6 +372,7 @@ index 0000000..626833e
 +#include "llvm/ADT/SmallPtrSet.h"
 +#include "llvm/ADT/SmallVector.h"
 +#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
 +#include "llvm/IR/CFG.h"
 +#include "llvm/IR/CallSite.h"
 +#include "llvm/IR/CallingConv.h"
@@ -330,10 +398,12 @@ index 0000000..626833e
 +#include "llvm/Support/ErrorHandling.h"
 +#include "llvm/Support/raw_ostream.h"
 +#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
 +#include <algorithm>
 +#include <cstdarg>
 +#include <memory>
++#include <cxxabi.h>
 +using namespace llvm;
 +
 +#define DEBUG_TYPE "AddressSpaceFix"
@@ -358,6 +428,10 @@ index 0000000..626833e
 +		
 +		AddressSpaceFix() : FunctionPass(ID) {
 +			initializeAddressSpaceFixPass(*PassRegistry::getPassRegistry());
++		}
++		
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.addRequiredID(FunctionAttrsID);
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -415,11 +489,7 @@ index 0000000..626833e
 +					}
 +					
 +					// check if the mismatch is _only_ due to the addrspace
-+					DBG(errs() << "\t>> call (arg #" << i << "), both types are ptrs: ";)
-+					DBG(errs() << called_arg_type->getPointerAddressSpace() << ", ";)
-+					DBG(errs() << expected_arg_type->getPointerAddressSpace() << "\n";)
 +					auto as_ptr = cast<PointerType>(called_arg_type);
-+					DBG(as_ptr->dump(); errs() << "\n"; errs().flush();)
 +					if(PointerType::get(as_ptr->getElementType(),
 +										expected_arg_type->getPointerAddressSpace()) !=
 +					   expected_arg_type) {
@@ -428,18 +498,32 @@ index 0000000..626833e
 +						continue;
 +					}
 +					// else: yup, only addrspace mismatch
++					DBG(errs() << "#####################################################\n";)
 +					DBG(errs() << "\tonly addrspace mismatch!\n";)
 +					DBG(errs() << "\treplacing arg #" << i << "!\n";)
++					DBG({
++						int err = 0;
++						const char* demangled_name = abi::__cxa_demangle(CS.getCalledFunction()->getName().data(), 0, 0, &err);
++						errs() << "\tfunc: " << (demangled_name != nullptr ? demangled_name : CS.getCalledFunction()->getName().data()) << "\n";
++						if(demangled_name != nullptr) {
++							free((void*)demangled_name);
++						}
++					})
 +					
 +					// fix it:
 +					//  * create a temporary object (of the element/pointee type of the address space pointer)
 +					//  * load data from the address space pointer to the temp object
 +					//  * replace the respective call operand/argument with a pointer to the temp object
-+					//  * after the call, store data back to the address space pointer from the temp object
++					//  * after the call, store data back to the address space pointer from the temp object,
++					//    unless the temp object can not or has not been written to
 +					
 +					// TODO: only do this if param address space is 0?
-+					// TODO: if const, don't write back
 +					// TODO: handle alignment?
++					
++					// query information that decides if a store is necessary later on
++					const bool is_constant_as = (as_ptr->getPointerAddressSpace() == 2);
++					const bool is_readonly = CS.onlyReadsMemory(i);
++					const bool is_load = isa<LoadInst>(CS.getArgument(i));
 +					
 +					builder->SetInsertPoint(alloca_insert); // insert alloca at function entry
 +					auto tmp = builder->CreateAlloca(as_ptr->getElementType(),
@@ -454,9 +538,26 @@ index 0000000..626833e
 +					
 +					CS.setArgument(i, tmp);
 +					
-+					builder->SetInsertPoint(CI.getNextNode()); // insert store after call
-+					builder->CreateStore(builder->CreateLoad(tmp), src);
-+					
++					// don't emit stores for const pointers or constant address space pointers
++					if(!is_constant_as && !is_readonly && !is_load) {
++						builder->SetInsertPoint(CI.getNextNode()); // insert store after call
++						builder->CreateStore(builder->CreateLoad(tmp), src);
++						DBG(errs() << "<< emitted write-back\n";)
++					}
++					else {
++						DBG(errs() << "<< discarded write-back";)
++						if(is_constant_as) {
++							DBG(errs() << ": constant address space";)
++						}
++						else if(is_readonly) {
++							DBG(errs() << ": readonly arg";)
++						}
++						else if(is_load) {
++							DBG(errs() << ": load instruction";)
++						}
++						DBG(errs() << ", " << is_constant_as << ", " << is_readonly << ", " << is_load << "\n";)
++					}
++
 +					// done, signal that the function was modified
 +					was_modified = true;
 +				}
@@ -466,7 +567,9 @@ index 0000000..626833e
 +}
 +
 +char AddressSpaceFix::ID = 0;
-+INITIALIZE_PASS(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
++INITIALIZE_PASS_BEGIN(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
++INITIALIZE_PASS_DEPENDENCY(FunctionAttrs)
++INITIALIZE_PASS_END(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
 +
 +FunctionPass *llvm::createAddressSpaceFixPass() {
 +	return new AddressSpaceFix();
@@ -1361,27 +1464,19 @@ index 075f905..c9be0ff 100644
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..8ea5b0c 100644
+index cec48f3..84b36ba 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -145,6 +145,10 @@ private:
- 
- }
- 
-+static void addAddressSpaceFixPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
-+  PM.add(createAddressSpaceFixPass());
-+}
-+
- static void addObjCARCAPElimPass(const PassManagerBuilder &Builder, PassManagerBase &PM) {
-   if (Builder.OptLevel > 0)
-     PM.add(createObjCARCAPElimPass());
-@@ -240,6 +244,11 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,14 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
-+  if (LangOpts.OpenCL) {
-+    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
-+                           addAddressSpaceFixPass);
++  PMBuilder.EnableAddressSpaceFix = LangOpts.OpenCL;
++  if(PMBuilder.EnableAddressSpaceFix && OptLevel == 0) {
++    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "compiling OpenCL or Metal with"
++											" -O0 is not possible!");
++    Diags.Report(DiagID);
++    return;
 +  }
 +
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
