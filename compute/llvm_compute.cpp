@@ -469,7 +469,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			// -> iOS
 			if(mtl_dev->family_version == 1) {
 				// iOS 8.x
-				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.1.0\"");
+				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.3.0\"");
 			}
 			else {
 				// iOS 9.x
