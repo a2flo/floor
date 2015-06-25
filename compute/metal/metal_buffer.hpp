@@ -90,9 +90,9 @@ public:
 											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
 											 COMPUTE_MEMORY_MAP_FLAG::BLOCK),
 											const size_t size = 0,
-											const size_t offset = 0) override ACQUIRE(lock) REQUIRES(!lock);
+											const size_t offset = 0) override;
 	
-	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override RELEASE(lock);
+	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
@@ -104,6 +104,15 @@ protected:
 	id <MTLBuffer> buffer { nullptr };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
+	
+	struct metal_mapping {
+		const size_t size;
+		const size_t offset;
+		const COMPUTE_MEMORY_MAP_FLAG flags;
+		const bool write_only;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, metal_mapping> mappings;
 	
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data);

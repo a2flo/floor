@@ -59,7 +59,7 @@ public:
 		auto encoder = create_encoder(queue);
 		
 		// set and handle kernel arguments
-		set_kernel_arguments<0>(queue, encoder.get(), forward<Args>(args)...);
+		set_kernel_arguments<0>(encoder.get(), forward<Args>(args)...);
 		
 		// run
 		const uint3 block_dim { local_work_size_.maxed(1u) }; // prevent % or / by 0, also: needs at least 1
@@ -79,12 +79,6 @@ protected:
 	const void* kernel_state;
 	const string func_name;
 	
-	struct param {
-		shared_ptr<metal_buffer> buffer;
-		vector<uint8_t> cur_value;
-	};
-	vector<param> param_buffers;
-	
 	atomic_spin_lock args_lock;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
@@ -99,26 +93,25 @@ protected:
 	
 	//! handle kernel call terminator
 	template <uint32_t num>
-	floor_inline_always void set_kernel_arguments(compute_queue*, metal_encoder*) {}
+	floor_inline_always void set_kernel_arguments(metal_encoder*) {}
 	
 	//! set kernel argument and recurse
 	template <uint32_t num, typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(compute_queue* queue, metal_encoder* encoder,
+	floor_inline_always void set_kernel_arguments(metal_encoder* encoder,
 												  T&& arg, Args&&... args) {
-		set_kernel_argument(num, queue, encoder, forward<T>(arg));
-		set_kernel_arguments<num + 1>(queue, encoder, forward<Args>(args)...);
+		set_kernel_argument(num, encoder, forward<T>(arg));
+		set_kernel_arguments<num + 1>(encoder, forward<Args>(args)...);
 	}
 	
 	//! actual kernel argument setter
 	template <typename T>
-	void set_kernel_argument(const uint32_t num, compute_queue* queue, metal_encoder* encoder, T&& arg) {
-		set_const_parameter(queue, encoder, num, &arg, sizeof(T));
+	void set_kernel_argument(const uint32_t num, metal_encoder* encoder, T&& arg) {
+		set_const_parameter(encoder, num, &arg, sizeof(T));
 	}
-	void set_const_parameter(compute_queue* queue, metal_encoder* encoder, const uint32_t& num,
+	void set_const_parameter(metal_encoder* encoder, const uint32_t& num,
 							 const void* ptr, const size_t& size);
 	
 	void set_kernel_argument(const uint32_t num,
-							 compute_queue* queue,
 							 metal_encoder* encoder,
 							 shared_ptr<compute_buffer> arg);
 	

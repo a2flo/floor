@@ -35,15 +35,7 @@ metal_buffer::metal_buffer(const metal_device* device,
 compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
-	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-		case COMPUTE_MEMORY_FLAG::READ:
-		case COMPUTE_MEMORY_FLAG::WRITE:
-		case COMPUTE_MEMORY_FLAG::READ_WRITE:
-			// no special handling for metal
-			break;
-		// all possible cases handled
-		default: floor_unreachable();
-	}
+	// no special COMPUTE_MEMORY_FLAG::READ_WRITE handling for metal, buffers are always read/write
 	
 	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::HOST_READ:
@@ -58,6 +50,23 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 		// all possible cases handled
 		default: floor_unreachable();
 	}
+	
+#if !defined(FLOOR_IOS)
+	// NOTE: storage mode was introduced with OS X 10.11 and iOS 9.0, but only do this on os x, because:
+	//  * iOS 8.3 is the minimum supported version and doesn't support storage modes
+	//  * even iOS 9.0 doesn't support managed storage
+	//  * it's better to use shared storage (the default) on ios anyways
+	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
+		// if buffer is not accessed by the host at all, use private storage
+		// note that this disables pretty much all functionality of this class!
+		options |= MTLResourceStorageModePrivate;
+	}
+	else {
+		// if the buffer is accessed by the host in some way, use managed storage
+		// note that this requires us to perform explicit sync operations
+		options |= MTLResourceStorageModeManaged;
+	}
+#endif
 	
 	// TODO: handle the remaining flags + host ptr
 	
@@ -189,35 +198,122 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_si
 	return false;
 }
 
-void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue floor_unused,
+void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_,
-													  const size_t size_, const size_t offset) {
+													  const size_t size_, const size_t offset) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nullptr) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
-	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 	
+	bool write_only = false;
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
+		write_only = true;
+	}
+	else {
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
+				write_only = true;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
+			default:
+				log_error("neither read nor write flag set for buffer mapping!");
+				return nullptr;
+		}
+	}
+	
+	// must lock this to make sure all prior work has completed
 	_lock();
-	return (void*)(((uint8_t*)[buffer contents]) + offset);
+	
+#if !defined(FLOOR_IOS)
+	// NOTE: MTLResourceStorageModePrivate handled by map_check (-> no host access is handled)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		alignas(128) unsigned char* host_buffer = nullptr;
+		
+		// check if we need to copy the buffer from the device (in case READ was specified)
+		if(!write_only) {
+			// need to sync buffer (resource) before being able to read it
+			id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+			[blit_encoder synchronizeResource:buffer];
+			[cmd_buffer waitUntilCompleted];
+			
+			// direct access to the metal buffer
+			host_buffer = ((uint8_t*)[buffer contents]) + offset;
+		}
+		else {
+			// if write-only, we don't need to actually access the buffer just yet (no need to sync),
+			// so just alloc host memory that can be accessed/used by the user
+			host_buffer = new unsigned char[map_size] alignas(128);
+		}
+		
+		// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
+		mappings.emplace(host_buffer, metal_mapping { map_size, offset, flags_, write_only });
+		
+		return host_buffer;
+	}
+	else {
+#endif
+		// can just return the cpu mapped pointer
+		return (void*)(((uint8_t*)[buffer contents]) + offset);
+#if !defined(FLOOR_IOS)
+	}
+#endif
 }
 
-void metal_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr floor_unused) {
-	//if(buffer == nullptr) return;
-	//if(mapped_ptr == nullptr) return;
+void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
+	if(buffer == nullptr) return;
+	if(mapped_ptr == nullptr) return;
+	
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		// check if this is actually a mapped pointer (+get the mapped size)
+		const auto iter = mappings.find(mapped_ptr);
+		if(iter == mappings.end()) {
+			log_error("invalid mapped pointer: %X", mapped_ptr);
+			return;
+		}
+		
+		// check if we need to actually copy data back to the device (not the case if read-only mapping)
+		if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+			// if mapping is write-only, mapped_ptr was manually alloc'ed and we need to copy the data
+			// to the actual metal buffer
+			if(iter->second.write_only) {
+				memcpy(((uint8_t*)[buffer contents]) + iter->second.offset, mapped_ptr, iter->second.size);
+				
+				// and cleanup
+				delete [] (unsigned char*)mapped_ptr;
+			}
+			// else: the user received pointer directly to the metal buffer and nothing needs to be copied
+			
+			// finally, notify the buffer that we changed its contents
+			[buffer didModifyRange:NSRange { iter->second.offset, iter->second.size }];
+		}
+		
+		// remove the mapping
+		mappings.erase(mapped_ptr);
+	}
+#endif
+	// else: don't need to do anything for shared host/device memory
+	
 	_unlock();
 }
 
-bool metal_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
-	if(gl_object == 0) return false;
-	if(buffer == 0) return false;
-	// TODO: implement this
+// NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
+bool metal_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	return true;
 }
 
-bool metal_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
-	if(gl_object == 0) return false;
-	// TODO: implement this
+// NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
+bool metal_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	return true;
 }
 

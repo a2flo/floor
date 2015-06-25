@@ -24,15 +24,25 @@ metal_queue::metal_queue(id <MTLCommandQueue> queue_) : queue(queue_) {
 }
 
 void metal_queue::finish() const {
-	GUARD(cmd_buffers_lock);
-	for(const auto& cmd_buffer : cmd_buffers) {
+	// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
+	vector<id <MTLCommandBuffer>> cur_cmd_buffers;
+	{
+		GUARD(cmd_buffers_lock);
+		cur_cmd_buffers = cmd_buffers;
+	}
+	for(const auto& cmd_buffer : cur_cmd_buffers) {
 		[cmd_buffer waitUntilCompleted];
 	}
 }
 
 void metal_queue::flush() const {
-	GUARD(cmd_buffers_lock);
-	for(const auto& cmd_buffer : cmd_buffers) {
+	// need to copy current set of command buffers, so we don't deadlock when removing completed command buffers
+	vector<id <MTLCommandBuffer>> cur_cmd_buffers;
+	{
+		GUARD(cmd_buffers_lock);
+		cur_cmd_buffers = cmd_buffers;
+	}
+	for(const auto& cmd_buffer : cur_cmd_buffers) {
 		[cmd_buffer waitUntilScheduled];
 	}
 }

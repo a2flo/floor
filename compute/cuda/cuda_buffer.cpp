@@ -389,7 +389,7 @@ void* __attribute__((aligned(128))) cuda_buffer::map(shared_ptr<compute_queue> c
 		}
 	}
 	
-	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
+	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
 	mappings.emplace(host_buffer, cuda_mapping { map_size, offset, flags_ });
 	
 	return host_buffer;

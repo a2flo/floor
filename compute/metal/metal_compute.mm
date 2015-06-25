@@ -154,9 +154,7 @@ typedef struct {
 @property(copy) NSString *filePath;
 @end
 
-@interface _MTLLibrary : NSObject <MTLLibrary> {
-	NSMutableDictionary *_functionDictionary;
-}
+@interface _MTLLibrary : NSObject <MTLLibrary>
 @property(readonly, retain, nonatomic) NSMutableDictionary *functionDictionary;
 @end
 

@@ -57,13 +57,15 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! compute memory each time it is used by a kernel
 	//! -> copy before kernel execution
 	//! NOTE: the user must make sure that this is thread-safe!
-	COPY_ON_USE			= (1u << 5u),
+	//! NOTE/TODO: not yet implemented!
+	__COPY_ON_USE		= (1u << 5u),
 	
 	//! every time a kernel using this memory has finished execution,
 	//! the memory data will be copied back to the specified host pointer
 	//! -> copy after kernel execution
 	//! NOTE: the user must make sure that this is thread-safe!
-	READ_BACK_RESULT	= (1u << 6u),
+	//! NOTE/TODO: not yet implemented!
+	__READ_BACK_RESULT	= (1u << 6u),
 	
 	//! memory is allocated in host memory, i.e. the specified host pointer
 	//! will be used for all memory operations

@@ -26,25 +26,14 @@
 struct metal_kernel::metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer;
 	id <MTLComputeCommandEncoder> encoder;
-	vector<metal_buffer*> buffers;
+	unordered_set<metal_buffer*> buffers;
 };
 
 metal_kernel::metal_kernel(const void* kernel_,
 						   const void* kernel_state_,
-						   const metal_device* device,
+						   const metal_device* device floor_unused,
 						   const llvm_compute::kernel_info& info) :
 kernel(kernel_), kernel_state(kernel_state_), func_name(info.name) {
-	// create buffers for all kernel param<> parameters
-	const auto arg_count = info.args.size();
-	param_buffers.resize(arg_count);
-	for(size_t i = 0; i < arg_count; ++i) {
-		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT) {
-			param_buffers[i].buffer = make_unique<metal_buffer>(device, info.args[i].size, nullptr,
-																COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
-			param_buffers[i].cur_value.resize(info.args[i].size, 0xCCu); // not ideal to do it this way, but should just work
-		}
-		else param_buffers[i] = { nullptr, {} };
-	}
 }
 
 metal_kernel::~metal_kernel() {}
@@ -59,8 +48,6 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 	for(auto& buffer : encoder->buffers) {
 		buffer->_lock();
 	}
-	
-	logger::flush();
 	
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
@@ -86,48 +73,18 @@ shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_que
 	return ret;
 }
 
-void metal_kernel::set_const_parameter(compute_queue* queue, metal_encoder* encoder, const uint32_t& num,
+void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& num,
 									   const void* ptr, const size_t& size) {
-	// debug checks (size / buffer)
-#if defined(FLOOR_DEBUG) || 1
-	if(num >= param_buffers.size()) {
-		log_error("%s: num out-of-range: %u", func_name, num);
-		return;
-	}
-#endif
-	
-	auto& param_buffer = param_buffers[num];
-#if defined(FLOOR_DEBUG) || 1
-	if(param_buffers[num].buffer == nullptr) {
-		log_error("%s: parameter buffer not allocated or argument #%u is not a parameter!", func_name, num);
-		return;
-	}
-	if(param_buffers[num].cur_value.size() != size) {
-		log_error("%s: parameter #%u size mismatch: expected %u, got %u!", func_name, num, param_buffers[num].cur_value.size(), size);
-		return;
-	}
-#endif
-	
-	// check if we actually need to update the parameter
-	if(memcmp(ptr, param_buffer.cur_value.data(), size) != 0) {
-		memcpy(param_buffer.cur_value.data(), ptr, size);
-		shared_ptr<compute_queue> queue_sptr(queue, [](compute_queue*) { /* non-owning */ });
-		param_buffer.buffer->write(queue_sptr, ptr, size);
-	}
-	[encoder->encoder setBuffer:param_buffer.buffer->get_metal_buffer()
-						 offset:0
-						atIndex:num];
-	encoder->buffers.emplace_back(param_buffer.buffer.get());
+	[encoder->encoder setBytes:ptr length:size atIndex:num];
 }
 
 void metal_kernel::set_kernel_argument(const uint32_t num,
-									   compute_queue* queue floor_unused,
 									   metal_encoder* encoder,
 									   shared_ptr<compute_buffer> arg) {
 	[encoder->encoder setBuffer:((metal_buffer*)arg.get())->get_metal_buffer()
 						 offset:0
 						atIndex:num];
-	encoder->buffers.emplace_back((metal_buffer*)arg.get());
+	encoder->buffers.emplace((metal_buffer*)arg.get());
 }
 
 #endif

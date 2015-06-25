@@ -53,6 +53,14 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 		flags |= COMPUTE_MEMORY_FLAG::READ_WRITE;
 	}
 	
+	// handle host read/write flags
+	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE &&
+	   has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
+		// can't be using host memory and declaring that the host doesn't access the memory
+		log_error("USE_HOST_MEMORY specified, but host read/write flags set to NONE!");
+		flags |= COMPUTE_MEMORY_FLAG::HOST_READ_WRITE;
+	}
+	
 	return flags;
 }
 
