@@ -239,6 +239,36 @@ floor_inline_always uint32_t atomic_xor(local uint32_t* p, uint32_t val) {
 	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
 }
 
+// store
+floor_inline_always void atomic_store(global int32_t* p, int32_t val) {
+	metal_atomic_store((global uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+}
+floor_inline_always void atomic_store(global uint32_t* p, uint32_t val) {
+	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+}
+floor_inline_always void atomic_store(local int32_t* p, int32_t val) {
+	metal_atomic_store((local uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+}
+floor_inline_always void atomic_store(local uint32_t* p, uint32_t val) {
+	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+}
+
+// load
+floor_inline_always int32_t atomic_load(global int32_t* p) {
+	const uint32_t ret = metal_atomic_load((global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return *(int32_t*)&ret;
+}
+floor_inline_always uint32_t atomic_load(global uint32_t* p) {
+	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+}
+floor_inline_always int32_t atomic_load(local int32_t* p) {
+	const uint32_t ret = metal_atomic_load((local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return *(int32_t*)&ret;
+}
+floor_inline_always uint32_t atomic_load(local uint32_t* p) {
+	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+}
+
 // fallback for non-natively supported float atomics
 #define FLOOR_METAL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \

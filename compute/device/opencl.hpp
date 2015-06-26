@@ -220,9 +220,6 @@ static floor_inline_always void local_write_mem_fence() {
 	write_mem_fence(1u);
 }
 
-// atomics
-#include <floor/compute/device/opencl_atomic.hpp>
-
 #endif
 
 #endif

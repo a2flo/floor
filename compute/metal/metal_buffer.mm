@@ -95,7 +95,6 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 			buffer = [((metal_device*)dev)->device newBufferWithLength:size options:options];
 		}
 	}
-	log_debug("created metal buffer: %X", buffer);
 	return true;
 }
 
@@ -242,6 +241,8 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 			id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 			[blit_encoder synchronizeResource:buffer];
+			[blit_encoder endEncoding];
+			[cmd_buffer commit];
 			[cmd_buffer waitUntilCompleted];
 			
 			// direct access to the metal buffer

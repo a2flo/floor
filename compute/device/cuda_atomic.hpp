@@ -253,6 +253,34 @@ floor_inline_always uint64_t atomic_xor(volatile uint64_t* addr, const uint64_t&
 	return ret;
 }
 
+// store (simple alias of xchg)
+floor_inline_always void atomic_store(volatile int32_t* addr, const int32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile uint32_t* addr, const uint32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile float* addr, const float& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile uint64_t* addr, const uint64_t& val) {
+	atomic_xchg(addr, val);
+}
+
+// load (no proper instruction for this, so just perform a "+ 0")
+floor_inline_always int32_t atomic_load(volatile int32_t* addr) {
+	return atomic_add(addr, 0);
+}
+floor_inline_always uint32_t atomic_load(volatile uint32_t* addr) {
+	return atomic_add(addr, 0u);
+}
+floor_inline_always float atomic_load(volatile float* addr) {
+	return atomic_add(addr, 0.0f);
+}
+floor_inline_always uint64_t atomic_load(volatile uint64_t* addr) {
+	return atomic_add(addr, 0ull);
+}
+
 #endif
 
 #endif

@@ -60,6 +60,18 @@ typedef __UINTPTR_TYPE__ uintptr_t;
 typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 
+// atomics (needed before c++ headers)
+#if defined(FLOOR_COMPUTE_CUDA)
+#include <floor/compute/device/cuda_atomic.hpp>
+#elif defined(FLOOR_COMPUTE_OPENCL)
+#include <floor/compute/device/opencl_atomic.hpp>
+#elif defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal_atomic.hpp>
+#endif
+
+// *_atomic.hpp headers included above, now add compat/forwarder/alias functions
+#include <floor/compute/device/atomic_compat.hpp>
+
 // libc++ stl functionality without (most of) the baggage
 #define _LIBCPP_NO_RTTI 1
 #define _LIBCPP_BUILD_STATIC 1

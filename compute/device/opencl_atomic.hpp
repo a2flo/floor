@@ -89,6 +89,48 @@ uint32_t atomic_xor(volatile global uint32_t* p, uint32_t val);
 int32_t atomic_xor(volatile local int32_t* p, int32_t val);
 uint32_t atomic_xor(volatile local uint32_t* p, uint32_t val);
 
+// store (simple alias of xchg)
+floor_inline_always void atomic_store(volatile global int32_t* addr, const int32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile global uint32_t* addr, const uint32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile global float* addr, const float& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile local int32_t* addr, const int32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile local uint32_t* addr, const uint32_t& val) {
+	atomic_xchg(addr, val);
+}
+floor_inline_always void atomic_store(volatile local float* addr, const float& val) {
+	atomic_xchg(addr, val);
+}
+
+// load (no proper instruction for this, so just perform a "+ 0")
+floor_inline_always int32_t atomic_load(volatile global int32_t* addr) {
+	return atomic_add(addr, 0);
+}
+floor_inline_always uint32_t atomic_load(volatile global uint32_t* addr) {
+	return atomic_add(addr, 0u);
+}
+floor_inline_always float atomic_load(volatile global float* addr) {
+	const uint32_t ret = atomic_add((volatile global uint32_t*)addr, 0u);
+	return *(float*)&ret;
+}
+floor_inline_always int32_t atomic_load(volatile local int32_t* addr) {
+	return atomic_add(addr, 0);
+}
+floor_inline_always uint32_t atomic_load(volatile local uint32_t* addr) {
+	return atomic_add(addr, 0u);
+}
+floor_inline_always float atomic_load(volatile local float* addr) {
+	const uint32_t ret = atomic_add((volatile local uint32_t*)addr, 0u);
+	return *(float*)&ret;
+}
+
 // fallback for non-natively supported float atomics
 #define FLOOR_OPENCL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \

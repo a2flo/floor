@@ -21,7 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_METAL)
 
-#define metal_func inline __attribute__((always_inline))
 namespace std {
 	// straightforward wrapping, use the fast_* version when possible
 	metal_func float sqrt(float) asm("air.fast_sqrt.f32");
@@ -103,11 +102,6 @@ FLOOR_GET_ID_RET_TYPE get_local_linear_id() asm("air.get_local_linear_id.i32");
 #define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 
 // barrier and mem_fence functionality
-// NOTE: it would appear that either cl_kernel.h or metal_compute has a bug (global and local are mismatched)
-//       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local
-// NOTE: scope: 2 = work-group, 3 = device
-#define FLOOR_METAL_SCOPE_GLOBAL 3
-#define FLOOR_METAL_SCOPE_LOCAL 2
 void air_wg_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.wg.barrier");
 // TODO/NOTE: apparently using this leads to a deadlock during final device compilation -> use wg barrier for now
 void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.mem_barrier");
@@ -145,9 +139,6 @@ static floor_inline_always void local_write_mem_fence() {
 
 // not supported (neither __printf_cl nor __builtin_printf work)
 #define printf(...)
-
-// atomics
-#include <floor/compute/device/metal_atomic.hpp>
 
 #endif
 
