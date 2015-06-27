@@ -617,32 +617,6 @@ index de724d4..831b1bb 100644
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
    unwrap(PM)->add(createAggressiveDCEPass());
  }
-diff --git a/tools/LLVMBuild.txt b/tools/LLVMBuild.txt
-index 8e0bf11..99c0f77 100644
---- a/tools/LLVMBuild.txt
-+++ b/tools/LLVMBuild.txt
-@@ -16,7 +16,7 @@
- ;===------------------------------------------------------------------------===;
- 
- [common]
--subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder
-+subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder applecl-encoder
- 
- [component_0]
- type = Group
-diff --git a/tools/Makefile b/tools/Makefile
-index d6f06f1..fc960b4 100644
---- a/tools/Makefile
-+++ b/tools/Makefile
-@@ -31,7 +31,7 @@ PARALLEL_DIRS := opt llvm-as llvm-dis llc llvm-ar llvm-nm llvm-link \
-                  lli llvm-extract llvm-mc bugpoint llvm-bcanalyzer llvm-diff \
-                  macho-dump llvm-objdump llvm-readobj llvm-rtdyld \
-                  llvm-dwarfdump llvm-cov llvm-size llvm-stress llvm-mcmarkup \
--                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder
-+                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder applecl-encoder
- 
- # If Intel JIT Events support is configured, build an extra tool to test it.
- ifeq ($(USE_INTEL_JITEVENTS), 1)
 diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
 index 8134f6b..f0b0f86 100644
 --- a/tools/clang/include/clang/AST/ASTContext.h
