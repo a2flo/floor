@@ -82,6 +82,7 @@ typedef uint64_t uintmax_t;
 #include <initializer_list>
 #include <functional>
 #include <algorithm>
+#include <atomic>
 
 // will be using const_array instead of stl array
 using namespace std;
