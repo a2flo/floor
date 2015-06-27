@@ -25,6 +25,18 @@
 #include <floor/core/cpp_headers.hpp>
 #include <floor/core/gl_shader.hpp>
 
+#if !defined(FLOOR_IOS)
+#define floor_unused_on_ios
+#else
+#define floor_unused_on_ios floor_unused
+#endif
+
+#if !defined(FLOOR_IOS)
+#define floor_unused_on_osx floor_unused
+#else
+#define floor_unused_on_osx
+#endif
+
 #if defined(__OBJC__)
 @class metal_view;
 #import <QuartzCore/CAMetalLayer.h>

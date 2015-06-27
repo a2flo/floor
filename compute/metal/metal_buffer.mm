@@ -23,8 +23,24 @@
 #include <floor/core/logger.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/darwin/darwin_helper.hpp>
 
 // TODO: proper error (return) value handling everywhere
+
+// helper function for MTLResourceStorageModeManaged buffers (sync before read on cpu)
+#if !defined(FLOOR_IOS)
+static void sync_metal_buffer_resource(shared_ptr<compute_queue> cqueue, id <MTLBuffer> buffer) {
+	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+	[blit_encoder synchronizeResource:buffer];
+	[blit_encoder endEncoding];
+	[cmd_buffer commit];
+	[cmd_buffer waitUntilCompleted];
+}
+#else
+// not available on iOS for now
+static void sync_metal_buffer_resource(shared_ptr<compute_queue>, id <MTLBuffer>) {};
+#endif
 
 metal_buffer::metal_buffer(const metal_device* device,
 						   const size_t& size_,
@@ -180,12 +196,24 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue,
 	}
 }
 
-void metal_buffer::zero(shared_ptr<compute_queue> cqueue) {
+void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused_on_ios) {
 	if(buffer == nullptr) return;
 	
-	// TODO: !
 	GUARD(lock);
+	
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_buffer_resource(cqueue, buffer);
+	}
+#endif
+	
 	memset([buffer contents], 0, size);
+	
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		[buffer didModifyRange:NSRange { 0, size }];
+	}
+#endif
 }
 
 bool metal_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
@@ -238,12 +266,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 		// check if we need to copy the buffer from the device (in case READ was specified)
 		if(!write_only) {
 			// need to sync buffer (resource) before being able to read it
-			id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
-			id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-			[blit_encoder synchronizeResource:buffer];
-			[blit_encoder endEncoding];
-			[cmd_buffer commit];
-			[cmd_buffer waitUntilCompleted];
+			sync_metal_buffer_resource(cqueue, buffer);
 			
 			// direct access to the metal buffer
 			host_buffer = ((uint8_t*)[buffer contents]) + offset;
