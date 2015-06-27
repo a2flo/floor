@@ -317,7 +317,7 @@ index 8174df9..21a73ba 100644
                  "Deduce function attributes", false, false)
  INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..08f5006 100644
+index 701fb46..1bd7950 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,7 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -333,7 +333,7 @@ index 701fb46..08f5006 100644
    addInitialAliasAnalysisPasses(MPM);
  
 +  if (EnableAddressSpaceFix) {
-+	// address space fixing should be run as early as possible, but it also
++    // address space fixing should be run as early as possible, but it also
 +    // requires readonly/nocapture/etc function and argument attributes,
 +    // which in turn requires certain alias analysis to be run first
 +    // -> this is the earliest point to do this
@@ -349,10 +349,10 @@ index 701fb46..08f5006 100644
  
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..d6ebde2
+index 0000000..1a072a3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,221 @@
+@@ -0,0 +1,239 @@
 +//===- AddressSpaceFix.cpp - Example code from "Writing an LLVM Pass" -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -408,8 +408,11 @@ index 0000000..d6ebde2
 +
 +#define DEBUG_TYPE "AddressSpaceFix"
 +
++#if 1
 +#define DBG(x)
-+//#define DBG(x) x
++#else
++#define DBG(x) x
++#endif
 +
 +namespace {
 +	// AddressSpaceFix
@@ -479,7 +482,8 @@ index 0000000..d6ebde2
 +				// check if there is a type mismatch
 +				if(CS.getArgument(i)->getType() != FTy->getParamType(i)) {
 +					// both types must be pointers
-+					auto called_arg_type = CS.getArgument(i)->getType();
++					auto arg = CS.getArgument(i);
++					auto called_arg_type = arg->getType();
 +					auto expected_arg_type = FTy->getParamType(i);
 +					if(!called_arg_type->isPointerTy() ||
 +					   !expected_arg_type->isPointerTy()) {
@@ -499,8 +503,14 @@ index 0000000..d6ebde2
 +					}
 +					// else: yup, only addrspace mismatch
 +					DBG(errs() << "#####################################################\n";)
++					DBG(errs() << "\t>> call to: "; CS.getCalledFunction()->llvm::Value::getType()->dump();)
++					DBG(errs() << "\n\t>> full: " << CS.getCalledFunction()->getName() << "\n";)
 +					DBG(errs() << "\tonly addrspace mismatch!\n";)
 +					DBG(errs() << "\treplacing arg #" << i << "!\n";)
++					DBG(errs() << called_arg_type->getPointerAddressSpace() << ", ";)
++					DBG(errs() << expected_arg_type->getPointerAddressSpace() << "\n";)
++					DBG(called_arg_type->dump(); errs() << ", ";)
++					DBG(expected_arg_type->dump(); errs() << "\n";)
 +					DBG({
 +						int err = 0;
 +						const char* demangled_name = abi::__cxa_demangle(CS.getCalledFunction()->getName().data(), 0, 0, &err);
@@ -510,6 +520,16 @@ index 0000000..d6ebde2
 +						}
 +					})
 +					
++					// abort if arg is a bitcast or addrspacecast and pretend everything is fine ("someone else" is already making it fit)
++					if(isa<BitCastInst>(arg) || isa<AddrSpaceCastInst>(arg)) continue;
++					
++					// abort if expected param address space is not 0, this is not supported (or would end in a good way ...)
++					// TODO: figure out if it would be a good idea to allow things like loading from e.g. local AS and calling a global AS function
++					if(expected_arg_type->getPointerAddressSpace() != 0) continue;
++					
++					// abort if current argument is in address space 0 (can't be moved to an address space)
++					if(called_arg_type->getPointerAddressSpace() == 0) continue;
++					
 +					// fix it:
 +					//  * create a temporary object (of the element/pointee type of the address space pointer)
 +					//  * load data from the address space pointer to the temp object
@@ -517,13 +537,12 @@ index 0000000..d6ebde2
 +					//  * after the call, store data back to the address space pointer from the temp object,
 +					//    unless the temp object can not or has not been written to
 +					
-+					// TODO: only do this if param address space is 0?
 +					// TODO: handle alignment?
 +					
 +					// query information that decides if a store is necessary later on
 +					const bool is_constant_as = (as_ptr->getPointerAddressSpace() == 2);
 +					const bool is_readonly = CS.onlyReadsMemory(i);
-+					const bool is_load = isa<LoadInst>(CS.getArgument(i));
++					const bool is_load = isa<LoadInst>(arg);
 +					
 +					builder->SetInsertPoint(alloca_insert); // insert alloca at function entry
 +					auto tmp = builder->CreateAlloca(as_ptr->getElementType(),
@@ -533,15 +552,14 @@ index 0000000..d6ebde2
 +													 "asfixtmp");
 +					
 +					builder->SetInsertPoint(&CI); // insert load before call
-+					auto src = CS.getArgument(i);
-+					builder->CreateStore(builder->CreateLoad(src), tmp);
++					builder->CreateStore(builder->CreateLoad(arg), tmp);
 +					
 +					CS.setArgument(i, tmp);
 +					
 +					// don't emit stores for const pointers or constant address space pointers
 +					if(!is_constant_as && !is_readonly && !is_load) {
 +						builder->SetInsertPoint(CI.getNextNode()); // insert store after call
-+						builder->CreateStore(builder->CreateLoad(tmp), src);
++						builder->CreateStore(builder->CreateLoad(tmp), arg);
 +						DBG(errs() << "<< emitted write-back\n";)
 +					}
 +					else {
@@ -599,6 +617,32 @@ index de724d4..831b1bb 100644
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
    unwrap(PM)->add(createAggressiveDCEPass());
  }
+diff --git a/tools/LLVMBuild.txt b/tools/LLVMBuild.txt
+index 8e0bf11..99c0f77 100644
+--- a/tools/LLVMBuild.txt
++++ b/tools/LLVMBuild.txt
+@@ -16,7 +16,7 @@
+ ;===------------------------------------------------------------------------===;
+ 
+ [common]
+-subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder
++subdirectories = bugpoint llc lli llvm-ar llvm-as llvm-bcanalyzer llvm-cov llvm-diff llvm-dis llvm-dwarfdump llvm-extract llvm-jitlistener llvm-link llvm-lto llvm-mc llvm-nm llvm-objdump llvm-profdata llvm-rtdyld llvm-size macho-dump opt llvm-mcmarkup spir-encoder applecl-encoder
+ 
+ [component_0]
+ type = Group
+diff --git a/tools/Makefile b/tools/Makefile
+index d6f06f1..fc960b4 100644
+--- a/tools/Makefile
++++ b/tools/Makefile
+@@ -31,7 +31,7 @@ PARALLEL_DIRS := opt llvm-as llvm-dis llc llvm-ar llvm-nm llvm-link \
+                  lli llvm-extract llvm-mc bugpoint llvm-bcanalyzer llvm-diff \
+                  macho-dump llvm-objdump llvm-readobj llvm-rtdyld \
+                  llvm-dwarfdump llvm-cov llvm-size llvm-stress llvm-mcmarkup \
+-                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder
++                 llvm-profdata llvm-symbolizer obj2yaml yaml2obj llvm-c-test spir-encoder applecl-encoder
+ 
+ # If Intel JIT Events support is configured, build an extra tool to test it.
+ ifeq ($(USE_INTEL_JITEVENTS), 1)
 diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
 index 8134f6b..f0b0f86 100644
 --- a/tools/clang/include/clang/AST/ASTContext.h
@@ -1552,6 +1596,30 @@ index 17c3354..5615b31 100644
          break;
        }
  
+diff --git a/tools/clang/lib/CodeGen/CGClass.cpp b/tools/clang/lib/CodeGen/CGClass.cpp
+index 9427de1..cd0626d 100644
+--- a/tools/clang/lib/CodeGen/CGClass.cpp
++++ b/tools/clang/lib/CodeGen/CGClass.cpp
+@@ -172,9 +172,16 @@ CodeGenFunction::GetAddressOfBaseClass(llvm::Value *Value,
+     VBase = nullptr; // we no longer have a virtual step
+   }
+ 
+-  // Get the base pointer type.
+-  llvm::Type *BasePtrTy = 
+-    ConvertType((PathEnd[-1])->getType())->getPointerTo();
++  // Get the base pointer type, and keep the Values address space if it has one
++  const auto val_type = Value->getType();
++  unsigned val_as = 0;
++  if(val_type != nullptr &&
++     val_type->isPointerTy() &&
++     val_type->getPointerAddressSpace() != 0) {
++      val_as = val_type->getPointerAddressSpace();
++  }
++  llvm::Type *BasePtrTy =
++    ConvertType((PathEnd[-1])->getType())->getPointerTo(val_as);
+ 
+   // If the static offset is zero and we don't have a virtual step,
+   // just do a bitcast; null checks are unnecessary.
 diff --git a/tools/clang/lib/CodeGen/CGDebugInfo.cpp b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
 index 048c8f8..c859a82 100644
 --- a/tools/clang/lib/CodeGen/CGDebugInfo.cpp
