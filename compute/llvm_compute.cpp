@@ -434,6 +434,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		static const regex rx_spir_kernel("define (.*)section \\\"spir_kernel\\\" (.*)", regex::optimize);
 		ir_output = regex_replace(ir_output, rx_spir_kernel, "define spir_kernel $1$2");
 		
+		// remove "dereferenceable(*)", this is not supported by spir
+		static const regex rx_deref("dereferenceable\\(\\d+\\)");
+		ir_output = regex_replace(ir_output, rx_deref, "");
+		
 		// output modified ir back to a file and create a bc file so spir-encoder can consume it
 		if(!file_io::string_to_file("spir_3_5.ll", ir_output)) {
 			log_error("failed to output LLVM IR for SPIR consumption");
@@ -547,6 +551,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		// apparently this needs the same fixes as the intel/amd spir compilers
 		core::find_and_replace(ir_output, "readonly", "");
 		core::find_and_replace(ir_output, "nocapture readnone", "");
+		
+		// remove "dereferenceable(*)", this is not supported by applecl
+		static const regex rx_deref("dereferenceable\\(\\d+\\)");
+		ir_output = regex_replace(ir_output, rx_deref, "");
 		
 		// output (modified) ir back to a file and create a bc file so applecl-encoder can consume it
 		if(!file_io::string_to_file("applecl_3_5.ll", ir_output)) {
