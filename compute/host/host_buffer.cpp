@@ -26,11 +26,11 @@
 #include <floor/compute/host/host_compute.hpp>
 
 host_buffer::host_buffer(const host_device* device,
-							 const size_t& size_,
-							 void* host_ptr_,
-							 const COMPUTE_MEMORY_FLAG flags_,
-							 const uint32_t opengl_type_,
-							 const uint32_t external_gl_object_) :
+						 const size_t& size_,
+						 void* host_ptr_,
+						 const COMPUTE_MEMORY_FLAG flags_,
+						 const uint32_t opengl_type_,
+						 const uint32_t external_gl_object_) :
 compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 
@@ -132,8 +132,8 @@ void host_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const
 }
 
 void host_buffer::copy(shared_ptr<compute_queue> cqueue,
-						 shared_ptr<compute_buffer> src,
-						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
+					   shared_ptr<compute_buffer> src,
+					   const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
 
 	// use min(src size, dst size) as the default size if no size is specified
@@ -145,8 +145,8 @@ void host_buffer::copy(shared_ptr<compute_queue> cqueue,
 }
 
 void host_buffer::fill(shared_ptr<compute_queue> cqueue,
-						 const void* pattern, const size_t& pattern_size,
-						 const size_t size_, const size_t offset) {
+					   const void* pattern, const size_t& pattern_size,
+					   const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 
 	const size_t fill_size = (size_ == 0 ? size : size_);
@@ -162,8 +162,8 @@ void host_buffer::zero(shared_ptr<compute_queue> cqueue) {
 }
 
 bool host_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
-						   const bool copy_old_data, const bool copy_host_data,
-						   void* new_host_ptr) {
+						 const bool copy_old_data, const bool copy_host_data,
+						 void* new_host_ptr) {
 	if(buffer == nullptr) return false;
 	if(new_size_ == 0) {
 		log_error("can't allocate a buffer of size 0!");
@@ -185,8 +185,8 @@ bool host_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 }
 
 void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> cqueue,
-													   const COMPUTE_MEMORY_MAP_FLAG flags_,
-													   const size_t size_, const size_t offset) {
+													 const COMPUTE_MEMORY_MAP_FLAG flags_,
+													 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
 
 	// TODO: implement this!
