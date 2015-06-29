@@ -342,6 +342,8 @@ void opencl_compute::init(const bool use_platform_devices,
 										   0xFFFF'FFFF'FFFF'FFFFull :
 										   (1ull << uint64_t(device.bitness)) - 1ull)); // just in case "address bits" is something weird
 			device.unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
+			device.basic_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_base_atomics");
+			device.extended_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_extended_atomics");
 			
 			log_msg("address space size: %u", device.bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",

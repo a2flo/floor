@@ -259,13 +259,11 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 		}
 		device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
 		device.max_work_item_sizes = { sizeof(uint64_t) };    //       could also be (2^57, 2^57, 512)
-		device.image_support = true;
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
 		device.max_image_1d_dim = { 4096 };
 		device.max_image_2d_dim = { 4096, 4096 };
 		device.max_image_3d_dim = { 4096, 4096, 2048 };
-		device.bitness = 64;
 #else
 		// on os x, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev vendorName] UTF8String];
@@ -294,14 +292,16 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 		device.mem_clock = 0;
 		device.max_work_group_item_sizes = { device.max_work_group_size, device.max_work_group_size, device.max_work_group_size };
 		device.max_work_item_sizes = { sizeof(uint64_t) };
-		device.image_support = true;
 		device.double_support = ([dev doubleFPConfig] > 0);
 		device.unified_memory = true; // TODO: not sure about this?
 		device.max_image_1d_dim = { [dev maxTextureWidth1D] };
 		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
 		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
-		device.bitness = 64; // seems to be true for all devices? (at least nvptx64 and igil64)
 #endif
+		device.image_support = true;
+		device.bitness = 64; // seems to be true for all devices? (at least nvptx64, igil64 and A7+)
+		device.basic_64_bit_atomics_support = false; // not supported at all
+		device.extended_64_bit_atomics_support = false; // not supported at all
 		
 		// done
 		supported = true;

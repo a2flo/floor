@@ -139,6 +139,10 @@ public:
 	bool double_support { false };
 	//! true if the device supports host unified memory/unified addressing
 	bool unified_memory { false };
+	//! true if the device has support for basic 64-bit atomic operations (add/sub/inc/dec/xchg/cmpxchg)
+	bool basic_64_bit_atomics_support { false };
+	//! true if the device has support for extended 64-bit atomic operations (min/max/and/or/xor)
+	bool extended_64_bit_atomics_support { false };
 	
 	//! device name in string form
 	string name { "unknown" };

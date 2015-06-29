@@ -186,6 +186,9 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&unified_memory, CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING, cuda_dev));
 		device.unified_memory = (unified_memory != 0);
 		
+		device.basic_64_bit_atomics_support = true; // always true since sm_20
+		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
+		
 		// compute score and try to figure out which device is the fastest
 		const auto compute_gpu_score = [](const cuda_device& dev) -> unsigned int {
 			unsigned int multiplier = 1;

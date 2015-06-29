@@ -148,18 +148,18 @@ floor_inline_always uint32_t atomic_min(volatile uint32_t* addr, const uint32_t&
 	asm volatile("atom.min.u32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atomic_min(volatile uint64_t* addr, const uint64_t& val) {
 	uint64_t ret;
 	asm volatile("atom.min.u64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
 floor_inline_always int64_t atomic_min(volatile int64_t* addr, const int64_t& val) {
 	int64_t ret;
 	asm volatile("atom.min.s64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
+#endif
 
 // max
 floor_inline_always int32_t atomic_max(volatile int32_t* addr, const int32_t& val) {
@@ -172,18 +172,18 @@ floor_inline_always uint32_t atomic_max(volatile uint32_t* addr, const uint32_t&
 	asm volatile("atom.max.u32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atomic_max(volatile uint64_t* addr, const uint64_t& val) {
 	uint64_t ret;
 	asm volatile("atom.max.u64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
 floor_inline_always int64_t atomic_max(volatile int64_t* addr, const int64_t& val) {
 	int64_t ret;
 	asm volatile("atom.max.s64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
+#endif
 
 // float min/max (not natively supported)
 floor_inline_always float atomic_min(volatile float* addr, const float& val) {
@@ -210,12 +210,13 @@ floor_inline_always uint32_t atomic_and(volatile uint32_t* addr, const uint32_t&
 	asm volatile("atom.and.b32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atomic_and(volatile uint64_t* addr, const uint64_t& val) {
 	uint64_t ret;
 	asm volatile("atom.and.b64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
+#endif
 
 // or
 floor_inline_always int32_t atomic_or(volatile int32_t* addr, const int32_t& val) {
@@ -228,12 +229,13 @@ floor_inline_always uint32_t atomic_or(volatile uint32_t* addr, const uint32_t& 
 	asm volatile("atom.or.b32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atomic_or(volatile uint64_t* addr, const uint64_t& val) {
 	uint64_t ret;
 	asm volatile("atom.or.b64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
+#endif
 
 // xor
 floor_inline_always int32_t atomic_xor(volatile int32_t* addr, const int32_t& val) {
@@ -246,12 +248,13 @@ floor_inline_always uint32_t atomic_xor(volatile uint32_t* addr, const uint32_t&
 	asm volatile("atom.xor.b32 %0, [%1], %2;" : "=r"(ret) : "l"(addr), "r"(val));
 	return ret;
 }
-// NOTE: requires sm_32 (TODO: check)
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
 floor_inline_always uint64_t atomic_xor(volatile uint64_t* addr, const uint64_t& val) {
 	uint64_t ret;
 	asm volatile("atom.xor.b64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
+#endif
 
 // store (simple alias of xchg)
 floor_inline_always void atomic_store(volatile int32_t* addr, const int32_t& val) {

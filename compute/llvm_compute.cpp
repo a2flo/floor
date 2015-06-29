@@ -379,6 +379,14 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_FMA="s + has_fma_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_FMA_"s + has_fma_str;
 	
+	// base and extended 64-bit atomics support
+	const auto has_base_64_bit_atomics_str = to_string(device->basic_64_bit_atomics_support);
+	const auto has_extended_64_bit_atomics_str = to_string(device->extended_64_bit_atomics_support);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS="s + has_base_64_bit_atomics_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_"s + has_base_64_bit_atomics_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS="s + has_extended_64_bit_atomics_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_"s + has_extended_64_bit_atomics_str;
+	
 	// add generic flags/options that are always used
 	// TODO: use debug/profiling config options
 	clang_cmd += {

@@ -87,6 +87,33 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_FMA != 0);
 	}
 	
+	//! returns true if the device has native 64-bit atomics support
+	//! NOTE: for OpenCL this is true if cl_khr_int64_base_atomics is supported
+	//! NOTE: for CUDA this is true for all devices
+	//! NOTE: for Metal this is false for all devices
+	constexpr bool has_64_bit_atomics() {
+		return (FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS != 0);
+	}
+	
+	//! returns true if the device has native support for extended 64-bit atomics (min, max, and, or, xor),
+	//! note that if this is false, these functions are still supported, but implemented through a CAS loop
+	//! if the device has support for basic 64-bit atomics of course.
+	//! NOTE: for OpenCL this is true if cl_khr_int64_extended_atomics is supported
+	//! NOTE: for CUDA this is true for all sm_32+ devices
+	//! NOTE: for Metal this is false for all devices
+	constexpr bool has_native_extended_64_bit_atomics() {
+		return (FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS != 0);
+	}
+	
+	//! returns true if the device supports atomic operations on pointer types
+	constexpr bool has_pointer_atomics() {
+#if defined(PLATFORM_X32)
+		return true; // always true
+#elif defined(PLATFORM_X64)
+		return has_64_bit_atomics(); // must support 64-bit atomics otherwise
+#endif
+	}
+	
 }
 
 #endif
