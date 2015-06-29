@@ -30,6 +30,9 @@
 // if defined, this disables cuda support
 //#define FLOOR_NO_CUDA 1
 
+// if defined, this disables host compute support
+//#define FLOOR_NO_HOST_COMPUTE 1
+
 // if defined, this disable opencl support
 //#define FLOOR_NO_OPENCL 1
 

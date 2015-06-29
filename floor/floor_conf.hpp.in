@@ -30,6 +30,9 @@
 // if defined, this disables cuda support
 ###FLOOR_CUDA###
 
+// if defined, this disables host compute support
+###FLOOR_HOST_COMPUTE###
+
 // if defined, this disable opencl support
 ###FLOOR_OPENCL###
 

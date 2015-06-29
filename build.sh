@@ -59,6 +59,7 @@ BUILD_JOB_COUNT=0
 BUILD_CONF_OPENCL=1
 BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
+BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
 BUILD_CONF_NET=1
 BUILD_CONF_LANG=1
@@ -88,29 +89,30 @@ for arg in "$@"; do
 			info "build script usage:"
 			echo ""
 			echo "build mode options:"
-			echo "	<default>	builds this project in release mode"
-			echo "	opt		builds this project in release mode + additional optimizations that take longer to compile (lto)"
-			echo "	debug		builds this project in debug mode"
-			echo "	clean		cleans all build binaries and intermediate build files"
+			echo "	<default>          builds this project in release mode"
+			echo "	opt                builds this project in release mode + additional optimizations that take longer to compile (lto)"
+			echo "	debug              builds this project in debug mode"
+			echo "	clean              cleans all build binaries and intermediate build files"
 			echo ""
 			echo "build configuration:"
-			echo "	no-opencl	disables opencl support"
-			echo "	no-cuda		disables cuda support"
-			echo "	no-metal	disables metal support (default for non-iOS and non-OS X targets)"
-			echo "	no-openal	disables openal support"
-			echo "	no-net		disables network support"
-			echo "	no-lang		disables lexer/parser/ast support"
-			echo "	no-exceptions	disables building with c++ exceptions (must build with no-net no-lang!)"
-			echo "	cl-profiling	enables profiling of opencl kernel executions"
-			echo "	pocl		use the pocl library instead of the systems OpenCL library"
-			#echo "	libstdc++	use the libstdc++ library instead of libc++ (unsupported)"
-			echo "	x32		build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
-			echo "	x64		build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
+			echo "	no-opencl          disables opencl support"
+			echo "	no-cuda            disables cuda support"
+			echo "	no-host-compute    disables host compute support"
+			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
+			echo "	no-openal          disables openal support"
+			echo "	no-net             disables network support"
+			echo "	no-lang            disables lexer/parser/ast support"
+			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net no-lang!)"
+			echo "	cl-profiling       enables profiling of opencl kernel executions"
+			echo "	pocl               use the pocl library instead of the systems OpenCL library"
+			#echo "	libstdc++          use the libstdc++ library instead of libc++ (unsupported)"
+			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
+			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
 			echo "misc flags:"
-			echo "	-v		verbose output (prints all executed compiler and linker commands, and some other information)"
-			echo "	-vv		very verbose output (same as -v + runs all compiler and linker commands with -v)"
-			echo "	-j#		explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
+			echo "	-v                 verbose output (prints all executed compiler and linker commands, and some other information)"
+			echo "	-vv                very verbose output (same as -v + runs all compiler and linker commands with -v)"
+			echo "	-j#                explicitly use # amount of build jobs (instead of automatically using #logical-cpus jobs)"
 			echo ""
 			echo ""
 			echo "example:"
@@ -144,6 +146,9 @@ for arg in "$@"; do
 			;;
 		"no-cuda")
 			BUILD_CONF_CUDA=0
+			;;
+		"no-host-compute")
+			BUILD_CONF_HOST_COMPUTE=0
 			;;
 		"no-metal")
 			BUILD_CONF_METAL=0
@@ -286,7 +291,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/metal compute/opencl constexpr core floor lang math net net/boost_system threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl constexpr core floor lang math net net/boost_system threading"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
@@ -524,6 +529,7 @@ set_conf_val() {
 }
 set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
+set_conf_val "###FLOOR_HOST_COMPUTE###" "FLOOR_NO_HOST_COMPUTE" ${BUILD_CONF_HOST_COMPUTE}
 # NOTE: metal is disabled on non-ios platforms anyways and this would overwrite the ios flag that is already ifdef'ed
 if [ $BUILD_OS != "ios" ]; then
 	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" 1
