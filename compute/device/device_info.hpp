@@ -32,6 +32,7 @@ namespace device_info {
 		AMD,
 		APPLE,
 		POCL,
+		HOST,
 		UNKNOWN
 	};
 	//! returns the device vendor

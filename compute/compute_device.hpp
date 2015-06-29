@@ -87,6 +87,7 @@ public:
 		AMD,
 		APPLE,
 		POCL,
+		HOST,
 		UNKNOWN
 	};
 	//! vendor of this device
@@ -99,6 +100,7 @@ public:
 			case VENDOR::AMD: return "AMD";
 			case VENDOR::APPLE: return "APPLE";
 			case VENDOR::POCL: return "POCL";
+			case VENDOR::HOST: return "HOST";
 			default: return "UNKNOWN";
 		}
 	}

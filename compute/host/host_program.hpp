@@ -16,17 +16,24 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_COMMON_HPP__
-#define __FLOOR_COMPUTE_COMMON_HPP__
+#ifndef __FLOOR_HOST_PROGRAM_HPP__
+#define __FLOOR_HOST_PROGRAM_HPP__
 
-#include <floor/core/essentials.hpp>
+#include <floor/compute/host/host_common.hpp>
 
-//! used to differentiate between the different compute implementations
-enum class COMPUTE_TYPE : uint32_t {
-	OPENCL,
-	CUDA,
-	METAL,
-	HOST,
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+
+#include <floor/compute/compute_program.hpp>
+
+class host_program final : public compute_program {
+public:
+	host_program(const void* program, const vector<llvm_compute::kernel_info>& kernels_info);
+	
+protected:
+	const void* program;
+	
 };
+
+#endif
 
 #endif

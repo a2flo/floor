@@ -24,6 +24,7 @@
 #include <floor/compute/opencl/opencl_compute.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
+#include <floor/compute/host/host_compute.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -550,7 +551,7 @@ void floor::init_internal(const bool use_gl32_core
 	}
 	
 	// always create and init compute context (even in console-only mode)
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL)
+#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL) || !defined(FLOOR_NO_HOST_COMPUTE)
 	if(config.platform == "cuda") {
 #if !defined(FLOOR_NO_CUDA)
 		log_debug("initializing CUDA ...");
@@ -567,10 +568,18 @@ void floor::init_internal(const bool use_gl32_core
 		log_error("Metal support is not enabled!");
 #endif
 	}
+	else if(config.platform == "host") {
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+		log_debug("initializing Host Compute ...");
+		compute_ctx = make_shared<host_compute>();
+#else
+		log_error("Host Compute support is not enabled!");
+#endif
+	}
 	
 	if(compute_ctx == nullptr) {
 #if !defined(FLOOR_NO_OPENCL)
-		if(config.platform == "cuda" || config.platform == "metal") {
+		if(config.platform == "cuda" || config.platform == "metal" || config.platform == "host") {
 			log_debug("initializing OpenCL (fallback) ...");
 		}
 		else log_debug("initializing OpenCL ...");
@@ -586,6 +595,7 @@ void floor::init_internal(const bool use_gl32_core
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::METAL ? config.metal_whitelist :
+						  compute_ctx->get_compute_type() == COMPUTE_TYPE::HOST ? config.host_whitelist :
 						  unordered_set<string> {});
 	}
 	else log_error("failed to create any compute context!");

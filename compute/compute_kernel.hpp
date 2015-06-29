@@ -49,10 +49,14 @@ protected:
 };
 
 #include <floor/compute/cuda/cuda_kernel.hpp>
+#include <floor/compute/host/host_kernel.hpp>
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
 
-#if !defined(FLOOR_OPENCL_KERNEL_IMPL) && !defined(FLOOR_CUDA_KERNEL_IMPL) && !defined(FLOOR_METAL_KERNEL_IMPL)
+#if (!defined(FLOOR_CUDA_KERNEL_IMPL) && \
+	 !defined(FLOOR_HOST_KERNEL_IMPL) && \
+	 !defined(FLOOR_OPENCL_KERNEL_IMPL) && \
+	 !defined(FLOOR_METAL_KERNEL_IMPL))
 // forwarder to the actual kernel classes (disabled when included by them)
 template <typename... Args, class work_size_type_global, class work_size_type_local>
 void compute_kernel::execute(compute_queue* queue_ptr,
@@ -64,6 +68,15 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::CUDA:
 #if !defined(FLOOR_NO_CUDA)
 			static_cast<cuda_kernel*>(this)->execute(queue_ptr,
+													 decay_t<work_size_type_global>::dim,
+													 size3 { global_work_size },
+													 size3 { local_work_size },
+													 forward<Args>(args)...);
+#endif // else: nop
+			break;
+		case COMPUTE_TYPE::HOST:
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+			static_cast<host_kernel*>(this)->execute(queue_ptr,
 													 decay_t<work_size_type_global>::dim,
 													 size3 { global_work_size },
 													 size3 { local_work_size },

@@ -69,6 +69,7 @@ public:
 		APPLE,
 		POCL,
 		CUDA,
+		HOST,
 		UNKNOWN
 	};
 	
@@ -81,6 +82,7 @@ public:
 			case PLATFORM_VENDOR::APPLE: return "APPLE";
 			case PLATFORM_VENDOR::POCL: return "POCL";
 			case PLATFORM_VENDOR::CUDA: return "CUDA";
+			case PLATFORM_VENDOR::HOST: return "HOST";
 			case PLATFORM_VENDOR::UNKNOWN: return "UNKNOWN";
 		}
 	}

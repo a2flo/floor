@@ -16,17 +16,27 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_COMMON_HPP__
-#define __FLOOR_COMPUTE_COMMON_HPP__
+#ifndef __FLOOR_HOST_DEVICE_HPP__
+#define __FLOOR_HOST_DEVICE_HPP__
 
-#include <floor/core/essentials.hpp>
+#include <floor/compute/compute_device.hpp>
 
-//! used to differentiate between the different compute implementations
-enum class COMPUTE_TYPE : uint32_t {
-	OPENCL,
-	CUDA,
-	METAL,
-	HOST,
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
+
+class host_device final : public compute_device {
+public:
+	~host_device() override {}
+	
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+#endif
+	
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif
