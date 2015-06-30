@@ -21,6 +21,7 @@
 
 // provide compatibility/alias functions for libc++s <atomic> header (replacing the non-functional __c11_* builtins)
 
+#if !defined(FLOOR_COMPUTE_HOST)
 typedef enum memory_order {
 	memory_order_relaxed,
 	
@@ -40,6 +41,7 @@ typedef enum memory_order {
 	memory_order_seq_cst = memory_order_relaxed
 #endif
 } memory_order;
+#endif
 
 constexpr bool floor_atomic_is_lock_free(const size_t& size) {
 	return (size == 4u); // TODO: 8 if supported
@@ -64,7 +66,7 @@ template <typename T> bool floor_atomic_compare_exchange_weak(volatile global T*
 	return (atomic_cmpxchg(addr, *expected, desired) == old);
 }
 
-#if !defined(FLOOR_COMPUTE_CUDA) // cuda doesn't require address space specialization
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_HOST) // cuda and host don't require address space specialization
 template <typename T> T floor_atomic_fetch_add(volatile local T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
 template <typename T> T floor_atomic_fetch_sub(volatile local T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
 template <typename T> T floor_atomic_fetch_and(volatile local T* addr, const T& val, memory_order) { return atomic_and(addr, val); }

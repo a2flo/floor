@@ -22,7 +22,7 @@
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST)
 
 // compute implementation specific headers (pre-std headers)
 #if defined(FLOOR_COMPUTE_CUDA)
@@ -31,11 +31,14 @@
 #include <floor/compute/device/opencl_pre.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_pre.hpp>
+#elif defined(FLOOR_COMPUTE_HOST)
+#include <floor/compute/device/host_pre.hpp>
 #endif
 
 // misc device information
 #include <floor/compute/device/device_info.hpp>
 
+#if !defined(FLOOR_COMPUTE_HOST)
 // more integer types
 typedef int8_t int_least8_t;
 typedef int16_t int_least16_t;
@@ -59,6 +62,7 @@ typedef __INTPTR_TYPE__ intptr_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
 typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
+#endif
 
 // atomics (needed before c++ headers)
 #if defined(FLOOR_COMPUTE_CUDA)
@@ -67,16 +71,20 @@ typedef uint64_t uintmax_t;
 #include <floor/compute/device/opencl_atomic.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_atomic.hpp>
+#elif defined(FLOOR_COMPUTE_HOST)
+#include <floor/compute/device/host_atomic.hpp>
 #endif
 
 // *_atomic.hpp headers included above, now add compat/forwarder/alias functions
 #include <floor/compute/device/atomic_compat.hpp>
 
 // libc++ stl functionality without (most of) the baggage
+#if defined(FLOOR_COMPUTE_HOST)
 #define _LIBCPP_NO_RTTI 1
 #define _LIBCPP_BUILD_STATIC 1
 #define _LIBCPP_NO_EXCEPTIONS 1
 #define assert(...)
+#endif
 #include <utility>
 #include <type_traits>
 #include <initializer_list>
@@ -88,12 +96,17 @@ typedef uint64_t uintmax_t;
 using namespace std;
 #include <floor/constexpr/const_array.hpp>
 
+#if !defined(FLOOR_COMPUTE_HOST)
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 // <array> replacement
 template <class data_type, size_t array_size> _LIBCPP_TYPE_VIS_ONLY struct array : const_array<data_type, array_size> {};
 
 _LIBCPP_END_NAMESPACE_STD
+#else
+// TODO: or #define array const_array? properly handle this (or just use stl array instead everywhere and const_array only manually?)
+#include <array>
+#endif
 
 // c++ stl "extensions"
 #include <floor/core/cpp_ext.hpp>
@@ -105,6 +118,8 @@ _LIBCPP_END_NAMESPACE_STD
 #include <floor/compute/device/opencl.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal.hpp>
+#elif defined(FLOOR_COMPUTE_HOST)
+#include <floor/compute/device/host.hpp>
 #endif
 
 // always include const_math (and const_select) functionality
@@ -114,9 +129,15 @@ _LIBCPP_END_NAMESPACE_STD
 #include <floor/math/vector_lib.hpp>
 
 // image support headers + common attributes
+#if !defined(FLOOR_COMPUTE_HOST)
 #define read_only __attribute__((image_read_only))
 #define write_only __attribute__((image_write_only))
 #define read_write __attribute__((image_read_write))
+#else
+#define read_only
+#define write_only
+#define read_write
+#endif
 #include <floor/core/enum_helpers.hpp>
 #include <floor/compute/device/image_types.hpp>
 
@@ -150,8 +171,8 @@ namespace floor_compute {
 }
 
 //! global memory buffer
-#define buffer __attribute__((align_value(128))) compute_buffer
-template <typename T> using compute_buffer = global T*;
+#define buffer __attribute__((align_value(128))) compute_global_buffer
+template <typename T> using compute_global_buffer = global T*;
 
 //! local memory buffer
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
@@ -170,7 +191,7 @@ template <typename T> using compute_constant_buffer = const T* const;
 #define constant_array constant compute_constant_array
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_HOST)
 //! generic parameter object/buffer
 template <typename T,
 		  typename param_wrapper = const conditional_t<
@@ -190,6 +211,8 @@ template <typename T> using param = const constant T* const;
 #include <floor/compute/device/opencl_image.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_image.hpp>
+#elif defined(FLOOR_COMPUTE_HOST)
+#include <floor/compute/device/host_image.hpp>
 #endif
 
 // yeah, it's kinda ugly to include a .cpp file, but this is never (and should never be) included by user code,
