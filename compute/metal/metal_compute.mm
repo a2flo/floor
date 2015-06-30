@@ -234,7 +234,7 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 				device.units = 4; // G6430
 				device.local_mem_size = 16384;
 				device.max_work_group_size = 512;
-				device.mem_clock = 1333; // ram clock
+				device.mem_clock = 1600; // ram clock
 				break;
 				
 			default:

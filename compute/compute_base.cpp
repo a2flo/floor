@@ -28,11 +28,9 @@ shared_ptr<compute_device> compute_base::get_device(const compute_device::TYPE t
 		case compute_device::TYPE::FASTEST:
 			return fastest_device; // note, no check here, b/c the result would be the same
 		case compute_device::TYPE::FASTEST_GPU:
-		case compute_device::TYPE::GPU: // shouldn't use this like that
 			if(fastest_gpu_device) return fastest_gpu_device;
 			break;
 		case compute_device::TYPE::FASTEST_CPU:
-		case compute_device::TYPE::CPU: // shouldn't use this like that
 			if(fastest_cpu_device) return fastest_cpu_device;
 			break;
 		case compute_device::TYPE::FASTEST_FLAG:
