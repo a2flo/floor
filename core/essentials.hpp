@@ -72,8 +72,14 @@
 #define floor_hidden
 #endif
 
+// set compute defines if host-based compute is enabled
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+#define FLOOR_COMPUTE 1
+#define FLOOR_COMPUTE_HOST 1
+#endif
+
 // compat with compute device code
-#if !defined(constant)
+#if !defined(constant) && !defined(FLOOR_COMPUTE)
 #define constant
 #endif
 

@@ -32,7 +32,7 @@
 #include <type_traits>
 #include <tuple>
 
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <random>
 
 #if !defined(FLOOR_VECTOR_RAND)
@@ -1926,7 +1926,7 @@ public:
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parityll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
 	}
 	
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! returns a randomized vector using a uniform distribution with each component in [0, max]
 	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
 	static vector_type random(const scalar_type max = numeric_limits<int_type>::max()) {

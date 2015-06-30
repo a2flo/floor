@@ -20,7 +20,7 @@
 #define __FLOOR_CONST_STRING_HPP__
 
 #include <type_traits>
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <cstdlib>
 #endif
 #include <floor/core/essentials.hpp>
@@ -66,7 +66,7 @@ public:
 		return make_concat_array<n + count - 1>(n - 1, count, str, cstr.data()).data;
 	}
 	
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! prints/writes the content of the const_string to an ostream (note that this is obviously a non-constexpr function)
 	template <size_t n> friend ostream& operator<<(ostream& output, const const_string<n>& cstr) {
 		output.write(&cstr.content.data[0], n);
@@ -112,7 +112,7 @@ public:
 		}
 		return true;
 	}
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	bool operator==(const string& str) const {
 		if(str.size() != count) return false;
 		for(size_t i = 0; i < count; ++i) {
@@ -132,7 +132,7 @@ public:
 	constexpr bool operator!=(const char* str) const {
 		return !(*this == str);
 	}
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	bool operator!=(const string& str) const {
 		return !(*this == str);
 	}
@@ -145,7 +145,7 @@ public:
 	template <size_t len_0> friend constexpr bool operator==(const char* str, const const_string<len_0>& cstr) {
 		return (cstr == str);
 	}
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	template <size_t len_0> friend bool operator==(const string& str, const const_string<len_0>& cstr) {
 		return (cstr == str);
 	}
@@ -156,7 +156,7 @@ public:
 	template <size_t len_0> friend constexpr bool operator!=(const char* str, const const_string<len_0>& cstr) {
 		return (cstr != str);
 	}
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	template <size_t len_0> friend bool operator!=(const string& str, const const_string<len_0>& cstr) {
 		return (cstr != str);
 	}

@@ -69,7 +69,7 @@ floor_inline_always constexpr enum_class operator~(const enum_class& e0) { \
 	return (enum_class)(~((typename underlying_type<enum_class>::type)e0)); \
 }
 
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #define enum_class_hash(enum_class) \
 namespace std { \
 	template <> struct hash<enum_class> : public hash<typename underlying_type<enum_class>::type> { \

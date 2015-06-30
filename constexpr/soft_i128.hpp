@@ -24,7 +24,7 @@
 #if defined(PLATFORM_X32) && !defined(FLOOR_NO_SOFT_I128)
 
 #include <type_traits>
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <cstdint>
 #endif
 //#include <ostream>

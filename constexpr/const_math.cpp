@@ -91,7 +91,7 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
 #endif
 	
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodl(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, const_math::native_rsqrt(val), long double, "l")

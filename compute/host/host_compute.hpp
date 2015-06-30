@@ -140,7 +140,7 @@ public:
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,
-												 const string additional_options = "");
+												 const string additional_options = "") override;
 	
 	shared_ptr<compute_program> add_program_source(const string& source_code,
 												   const string additional_options = "") override;

@@ -24,7 +24,7 @@
 #include <utility>
 #include <limits>
 #include <algorithm>
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <cmath>
 #include <cstdint>
 #if !defined(_MSC_VER)
@@ -44,14 +44,14 @@ using namespace std;
 
 namespace const_math {
 	//! largest supported floating point type at compile-time
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	typedef long double max_fp_type;
 #else
 	typedef double max_fp_type; // can only use double with opencl/cuda/metal
 #endif
 	
 	//! largest supported floating point type at run-time
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	typedef long double max_rt_fp_type;
 #elif !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	typedef double max_rt_fp_type; // can only use double with opencl/cuda/metal
@@ -349,7 +349,7 @@ namespace const_math {
 		}
 	}
 	
-#if !defined(FLOOR_COMPUTE) && !defined(PLATFORM_X32) // no 128-bit types
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32) // no 128-bit types
 	//! computes (n choose k), the binomial coefficient
 	//! NOTE: this allows for larger n than binomial(n, k), but recursiveness gets ugly for n > 80
 	__attribute__((pure, const)) constexpr __uint128_t binomial_128(__uint128_t n, __uint128_t k) {
@@ -724,7 +724,7 @@ namespace const_math {
 	//! computes the linear interpolation between a and b
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
 		return ((b - a) * t + a);
 #else
 		return ::fma(t, b, ::fma(-t, a, a));
@@ -832,7 +832,7 @@ namespace const_math {
 		return fp_type((ldbl_a * ldbl_b) + ldbl_c);
 	}
 	
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static float native_fma(float a, float b, float c) {
 		return __builtin_fmaf(a, b, c);
@@ -1005,7 +1005,7 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
 #endif
 	
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmodl(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrtl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(inv_sqrt, const_math::native_rsqrt(val), long double, "l")

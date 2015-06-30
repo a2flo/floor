@@ -34,7 +34,7 @@ template <class T, size_t N> floor_inline_always constexpr size_t size(const T (
 #endif
 
 // vector and string are not supported on compute
-#if !defined(FLOOR_COMPUTE)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 
 // minor type_trait extension
 #if !defined(FLOOR_HAS_IS_VECTOR)
@@ -75,7 +75,7 @@ floor_inline_always static bool stob(const string& str) {
 }
 #endif
 
-#endif // !FLOOR_COMPUTE
+#endif // !FLOOR_COMPUTE || FLOOR_COMPUTE_HOST
 
 // apply(function, tuple): calls a function with the unpacked tuple elements used as the function arguments
 #if !defined(FLOOR_NO_APPLY)
