@@ -117,7 +117,7 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 	cpu_clock = cpu_clock_32;
 #elif defined(__linux__)
 	// linux has no proper sysctl, query /proc/cpuinfo instead and do some parsing ...
-	const auto cpuinfo = core::tokenize(file_io::file_to_string("/proc/cpuinfo"), '\n');
+	const auto cpuinfo = core::tokenize(file_io::file_to_string_poll("/proc/cpuinfo"), '\n');
 	for(const auto& elem : cpuinfo) {
 		// this should handle getting the cpu name for arm cpus (at least on linux)
 		if(cpu_name == "" &&

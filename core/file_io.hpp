@@ -59,6 +59,11 @@ public:
 	static bool file_to_buffer(const string& filename, stringstream& buffer);
 	static bool file_to_string(const string& filename, string& str);
 	static string file_to_string(const string& filename);
+	
+	//! not recommended unless filesize can't be determined
+	static bool file_to_string_poll(const string& filename, string& str);
+	static string file_to_string_poll(const string& filename);
+	
 	static bool string_to_file(const string& filename, const string& str);
 	static bool buffer_to_file(const string& filename, const char* buffer, const size_t& size);
 

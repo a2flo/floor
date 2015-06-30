@@ -127,6 +127,36 @@ string file_io::file_to_string(const string& filename) {
 	return ret;
 }
 
+bool file_io::file_to_string_poll(const string& filename, string& str) {
+	file_io file(filename, file_io::OPEN_TYPE::READ_BINARY);
+	if(!file.is_open()) {
+		return false;
+	}
+	
+	str.clear();
+	filestream.clear();
+	for(;;) {
+		char ch;
+		filestream.get(ch);
+		
+		if(filestream.bad() ||
+		   filestream.fail() ||
+		   !filestream.good()) {
+			break;
+		}
+		str += ch;
+		if(filestream.eof()) break;
+	}
+	file.close();
+	return true;
+}
+
+string file_io::file_to_string_poll(const string& filename) {
+	string ret = "";
+	file_to_string_poll(filename, ret);
+	return ret;
+}
+
 /*! reads a line from the current input stream (senseless if we have a binary file)
  *  @param finput a pointer to a char where the line is written to
  */
