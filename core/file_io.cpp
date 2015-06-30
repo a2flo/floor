@@ -134,18 +134,19 @@ bool file_io::file_to_string_poll(const string& filename, string& str) {
 	}
 	
 	str.clear();
-	filestream.clear();
+	fstream& fs = *file.get_filestream();
+	fs.clear();
 	for(;;) {
 		char ch;
-		filestream.get(ch);
+		fs.get(ch);
 		
-		if(filestream.bad() ||
-		   filestream.fail() ||
-		   !filestream.good()) {
+		if(fs.bad() ||
+		   fs.fail() ||
+		   !fs.good()) {
 			break;
 		}
 		str += ch;
-		if(filestream.eof()) break;
+		if(fs.eof()) break;
 	}
 	file.close();
 	return true;
