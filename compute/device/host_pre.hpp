@@ -22,7 +22,10 @@
 #if defined(FLOOR_COMPUTE_HOST)
 
 //
-#define kernel extern "C"
+#define kernel extern "C" __attribute__((noinline, used, visibility("default")))
+
+// workaround use of "global" in __locale header by including it before killing global
+#include <__locale>
 
 // kill address space keywords
 #define global
@@ -48,6 +51,11 @@
 #define FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS 1
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1
+
+// other required c++ headers
+#include <vector>
+#include <limits>
+#include <string>
 
 #endif
 

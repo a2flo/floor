@@ -21,9 +21,23 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/compute/host/host_program.hpp>
 #include <floor/compute/host/host_kernel.hpp>
+#include <dlfcn.h>
 
-host_program::host_program(const void* program_, const vector<llvm_compute::kernel_info>& kernels_info) : program(program_) {
-	// TODO: implement this!
+host_program::host_program() {
+}
+
+shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
+	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.c_str());
+	if(func_ptr == nullptr) {
+		log_error("failed to retrieve function pointer to \"%s\": %s", func_name, dlerror());
+		return {};
+	}
+	
+	auto kernel = make_shared<host_kernel>(func_ptr, func_name);
+	kernels.emplace_back(kernel);
+	kernel_names.emplace_back(func_name);
+	
+	return kernel;
 }
 
 #endif

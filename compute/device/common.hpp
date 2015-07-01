@@ -64,6 +64,8 @@ typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 #endif
 
+using namespace std;
+
 // atomics (needed before c++ headers)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_atomic.hpp>
@@ -93,7 +95,6 @@ typedef uint64_t uintmax_t;
 #include <atomic>
 
 // will be using const_array instead of stl array
-using namespace std;
 #include <floor/constexpr/const_array.hpp>
 
 #if !defined(FLOOR_COMPUTE_HOST)
@@ -219,7 +220,9 @@ template <typename T> using param = const constant T* const;
 // this is all correctly handled in llvm_compute which includes this header as a prefix header.
 // the .cpp is needed, because it provides the implementation and redirects of the functions defined in const_math.hpp
 // (would otherwise need to compile and link this separately which is obviously overkill and unnecessary)
+#if !defined(FLOOR_COMPUTE_HOST) // host code can/will link this separately however
 #include <floor/constexpr/const_math.cpp>
+#endif
 
 // device logging functions
 #include <floor/compute/device/logger.hpp>

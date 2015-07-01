@@ -20,19 +20,19 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
-host_queue::host_queue(const void* queue_) : queue(queue_) {
+host_queue::host_queue(shared_ptr<compute_device> dev) : device(dev) {
 }
 
 void host_queue::finish() const {
-	// TODO: implement this!
+	// nop
 }
 
 void host_queue::flush() const {
-	// TODO: implement this!
+	// nop
 }
 
 const void* host_queue::get_queue_ptr() const {
-	return queue;
+	return this;
 }
 
 #endif

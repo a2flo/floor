@@ -205,12 +205,14 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 		log_debug("fastest CPU device: %s, %s (score: %u)",
 				  fastest_cpu_device->vendor_name, fastest_cpu_device->name, fastest_cpu_device->units * fastest_cpu_device->clock);
 	}
+	
+	// for now: only maintain a single queue
+	main_queue = make_shared<host_queue>(fastest_cpu_device);
 }
 
 shared_ptr<compute_queue> host_compute::create_queue(shared_ptr<compute_device> dev) {
 	if(dev == nullptr) return {};
-	// TODO: implement this
-	return {};
+	return main_queue;
 }
 
 shared_ptr<compute_buffer> host_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
@@ -236,19 +238,19 @@ shared_ptr<compute_buffer> host_compute::create_buffer(shared_ptr<compute_device
 	return make_shared<host_buffer>((host_device*)device.get(), size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 const COMPUTE_MEMORY_FLAG flags) {
+shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+													 const uint32_t opengl_buffer floor_unused,
+													 const uint32_t opengl_type floor_unused,
+													 const COMPUTE_MEMORY_FLAG flags floor_unused) {
 	// TODO: implement this
 	return {};
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device,
-													 const uint32_t opengl_buffer,
-													 const uint32_t opengl_type,
-													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags) {
+shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+													 const uint32_t opengl_buffer floor_unused,
+													 const uint32_t opengl_type floor_unused,
+													 void* data floor_unused,
+													 const COMPUTE_MEMORY_FLAG flags floor_unused) {
 	// TODO: implement this
 	return {};
 }
@@ -270,19 +272,19 @@ shared_ptr<compute_image> host_compute::create_image(shared_ptr<compute_device> 
 	return make_shared<host_image>((host_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   const COMPUTE_MEMORY_FLAG flags) {
+shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
+												   const uint32_t opengl_image floor_unused,
+												   const uint32_t opengl_target floor_unused,
+												   const COMPUTE_MEMORY_FLAG flags floor_unused) {
 	// TODO: implement this
 	return {};
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
-												   const uint32_t opengl_image,
-												   const uint32_t opengl_target,
-												   void* data,
-												   const COMPUTE_MEMORY_FLAG flags) {
+shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
+												   const uint32_t opengl_image floor_unused,
+												   const uint32_t opengl_target floor_unused,
+												   void* data floor_unused,
+												   const COMPUTE_MEMORY_FLAG flags floor_unused) {
 	// TODO: implement this
 	return {};
 }
@@ -303,22 +305,14 @@ void host_compute::deactivate_context() {
 	// TODO: !
 }
 
-shared_ptr<compute_program> host_compute::add_program_file(const string& file_name,
-														   const string additional_options) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
+														   const string additional_options floor_unused) {
+	return make_shared<host_program>();
 }
 
-shared_ptr<compute_program> host_compute::add_program_source(const string& source_code,
-															 const string additional_options) {
-	// TODO: implement this
-	return {};
-}
-
-shared_ptr<compute_program> host_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-													  const string additional_options) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
+															 const string additional_options floor_unused) {
+	return make_shared<host_program>();
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,

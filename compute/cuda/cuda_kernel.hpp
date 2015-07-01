@@ -42,7 +42,7 @@ public:
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim floor_unused,
 											 const size3 global_work_size,
-											 const size3 local_work_size_,
+											 const size3 local_work_size,
 											 Args&&... args) {
 		// set and handle kernel arguments (all alloc'ed on stack)
 		array<void*, sizeof...(Args)> kernel_params;
@@ -51,7 +51,7 @@ public:
 		set_kernel_arguments(0, &kernel_params[0], data_ptr, forward<Args>(args)...);
 		
 		// run
-		const uint3 block_dim { local_work_size_.maxed(1u) }; // prevent % or / by 0, also: cuda needs at least 1
+		const uint3 block_dim { local_work_size.maxed(1u) }; // prevent % or / by 0, also: cuda needs at least 1
 		const uint3 grid_dim_overflow {
 			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
 			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,

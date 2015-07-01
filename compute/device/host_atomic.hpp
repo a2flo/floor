@@ -21,6 +21,14 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
+// already include this here, since the host uses a vanilla stl/libc++
+#include <atomic>
+
+// TODO: other atomic functions
+floor_inline_always uint32_t atomic_cmpxchg(volatile uint32_t* p, uint32_t cmp, uint32_t val) {
+	return __c11_atomic_compare_exchange_weak((_Atomic(uint32_t)*)p, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+}
+
 #endif
 
 #endif

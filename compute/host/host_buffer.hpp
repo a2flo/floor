@@ -93,9 +93,14 @@ public:
 
 	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
+	
+	//! returns a direct pointer to the internal host buffer
+	uint8_t* __attribute__((aligned(128))) get_host_buffer_ptr() const {
+		return buffer;
+	}
 
 protected:
-	void* buffer { nullptr };
+	alignas(128) uint8_t* buffer { nullptr };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

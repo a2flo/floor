@@ -26,6 +26,11 @@
 #include <floor/compute/compute_program.hpp>
 #include <floor/compute/llvm_compute.hpp>
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
+
 class cuda_program final : public compute_program {
 public:
 	cuda_program(const CUmodule program, const vector<llvm_compute::kernel_info>& kernels_info);
@@ -34,6 +39,10 @@ protected:
 	const CUmodule program;
 	
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif
 

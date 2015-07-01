@@ -27,10 +27,11 @@
 
 class host_program final : public compute_program {
 public:
-	host_program(const void* program, const vector<llvm_compute::kernel_info>& kernels_info);
+	host_program();
+	
+	shared_ptr<compute_kernel> get_kernel(const string& func_name) const override;
 	
 protected:
-	const void* program;
 	
 };
 

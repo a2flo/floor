@@ -123,7 +123,7 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, co
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
+void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
@@ -138,7 +138,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, c
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
+void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
@@ -148,7 +148,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, cons
 	memcpy((uint8_t*)[buffer contents] + offset, src, write_size);
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
 						shared_ptr<compute_buffer> src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nullptr) return;
@@ -164,7 +164,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
 		   size_);
 }
 
-void metal_buffer::fill(shared_ptr<compute_queue> cqueue,
+void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
@@ -216,9 +216,9 @@ void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused_on_ios) {
 #endif
 }
 
-bool metal_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
-						  const bool copy_old_data, const bool copy_host_data,
-						  void* new_host_ptr) {
+bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
+						  const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
+						  void* new_host_ptr floor_unused) {
 	if(buffer == nullptr) return false;
 	
 	// TODO: !

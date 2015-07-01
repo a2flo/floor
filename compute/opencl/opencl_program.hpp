@@ -25,6 +25,11 @@
 
 #include <floor/compute/compute_program.hpp>
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
+
 class opencl_program final : public compute_program {
 public:
 	opencl_program(const cl_program program,
@@ -35,6 +40,10 @@ protected:
 	const cl_program program;
 	
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif
 

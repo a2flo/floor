@@ -21,28 +21,14 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
-// id handling (TODO: make const func?)
-size_t get_global_id(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-size_t get_global_size(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-size_t get_local_id(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-size_t get_local_size(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-size_t get_group_id(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-size_t get_num_groups(uint32_t dimindx) {
-	return 0; // TODO: !
-}
-uint32_t get_work_dim() {
-	return 0; // TODO: !
-}
+// id handling
+size_t get_global_id(uint32_t dimindx);
+size_t get_global_size(uint32_t dimindx);
+size_t get_local_id(uint32_t dimindx);
+size_t get_local_size(uint32_t dimindx);
+size_t get_group_id(uint32_t dimindx);
+size_t get_num_groups(uint32_t dimindx);
+uint32_t get_work_dim();
 
 #define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
 #define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
@@ -51,11 +37,15 @@ uint32_t get_work_dim() {
 #define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
 #define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 
+void floor_setup_host_exec(const uint32_t& dim,
+						   const size3& global_work_size,
+						   const size3& local_work_size);
+
 // math functions
 #include <cmath>
 namespace std {
-	float rsqrt(float x) { return 1.0f / sqrt(x); }
-	double rsqrt(double x) { return 1.0 / sqrt(x); }
+	static floor_inline_always float rsqrt(float x) { return 1.0f / sqrt(x); }
+	static floor_inline_always double rsqrt(double x) { return 1.0 / sqrt(x); }
 }
 
 // printf

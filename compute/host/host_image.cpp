@@ -104,21 +104,22 @@ host_image::~host_image() {
 	}
 }
 
-void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
+void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue floor_unused,
+													const COMPUTE_MEMORY_MAP_FLAG flags_ floor_unused) {
 	if(image == nullptr) return nullptr;
 	
 	// TODO: implement this!
 	return nullptr;
 }
 
-void host_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void host_image::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
 	// TODO: implement this!
 }
 
-bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
 		log_warn("opengl image has already been acquired for use with the host!");
@@ -130,7 +131,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
-bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(gl_object == 0) return false;
 	if(image == 0) return false;
 	if(gl_object_state) {

@@ -26,6 +26,11 @@
 #include <floor/compute/compute_program.hpp>
 #include <Metal/Metal.h>
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wweak-vtables"
+#endif
+
 class metal_program final : public compute_program {
 public:
 	metal_program(const metal_device* device, id <MTLLibrary> program, const vector<llvm_compute::kernel_info>& kernels_info);
@@ -40,6 +45,10 @@ protected:
 	vector<metal_kernel_data> metal_kernels;
 	
 };
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif
 

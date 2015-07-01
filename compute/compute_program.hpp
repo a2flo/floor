@@ -26,12 +26,10 @@
 
 class compute_program {
 public:
-	//! returns the kernel with the exact function name of "func_name", nullptr if not found
-	shared_ptr<compute_kernel> get_kernel(const string& func_name) const;
+	virtual ~compute_program() = 0;
 	
-	//! returns the first kernel whose function name contains "fuzzy_func_name", nullptr if none was found
-	//! NOTE: this might be necessary / an easier way of doing things due to c++ name mangling
-	shared_ptr<compute_kernel> get_kernel_fuzzy(const string& fuzzy_func_name) const;
+	//! returns the kernel with the exact function name of "func_name", nullptr if not found
+	virtual shared_ptr<compute_kernel> get_kernel(const string& func_name) const;
 	
 	//! returns a container of all kernels in this program
 	const vector<shared_ptr<compute_kernel>>& get_kernels() const {
@@ -44,8 +42,8 @@ public:
 	}
 	
 protected:
-	vector<shared_ptr<compute_kernel>> kernels;
-	vector<string> kernel_names;
+	mutable vector<shared_ptr<compute_kernel>> kernels;
+	mutable vector<string> kernel_names;
 	
 };
 

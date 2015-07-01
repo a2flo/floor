@@ -18,16 +18,10 @@
 
 #include <floor/compute/compute_program.hpp>
 
+compute_program::~compute_program() {}
+
 shared_ptr<compute_kernel> compute_program::get_kernel(const string& func_name) const {
 	const auto iter = find(cbegin(kernel_names), cend(kernel_names), func_name);
-	if(iter == cend(kernel_names)) return {};
-	return kernels[(size_t)distance(cbegin(kernel_names), iter)];
-}
-
-shared_ptr<compute_kernel> compute_program::get_kernel_fuzzy(const string& fuzzy_func_name) const {
-	const auto iter = find_if(cbegin(kernel_names), cend(kernel_names), [&fuzzy_func_name](const auto& name) {
-		return (name.find(fuzzy_func_name) != string::npos);
-	});
 	if(iter == cend(kernel_names)) return {};
 	return kernels[(size_t)distance(cbegin(kernel_names), iter)];
 }
