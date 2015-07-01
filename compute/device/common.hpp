@@ -192,7 +192,7 @@ template <typename T> using compute_constant_buffer = const T* const;
 #define constant_array constant compute_constant_array
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 //! generic parameter object/buffer
 template <typename T,
 		  typename param_wrapper = const conditional_t<
@@ -203,6 +203,8 @@ using param = const param_wrapper;
 #elif defined(FLOOR_COMPUTE_METAL)
 //! generic parameter object/buffer (stored in constant memory)
 template <typename T> using param = const constant T* const;
+#elif defined(FLOOR_COMPUTE_HOST)
+template <typename T> using param = const T*;
 #endif
 
 // implementation specific image headers

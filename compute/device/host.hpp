@@ -21,7 +21,7 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
-// id handling
+// id handling (NOTE: implemented in host_kernel.cpp)
 size_t get_global_id(uint32_t dimindx);
 size_t get_global_size(uint32_t dimindx);
 size_t get_local_id(uint32_t dimindx);
@@ -36,10 +36,6 @@ uint32_t get_work_dim();
 #define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
 #define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
 #define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
-
-void floor_setup_host_exec(const uint32_t& dim,
-						   const size3& global_work_size,
-						   const size3& local_work_size);
 
 // math functions
 #include <cmath>

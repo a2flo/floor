@@ -50,8 +50,13 @@ public:
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
+	//! returns a direct pointer to the internal host image buffer
+	uint8_t* __attribute__((aligned(128))) get_host_image_buffer_ptr() const {
+		return image;
+	}
+	
 protected:
-	void* image { nullptr };
+	alignas(128) uint8_t* image { nullptr };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
