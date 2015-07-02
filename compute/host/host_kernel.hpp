@@ -105,8 +105,6 @@ public:
 		// for group syncing purposes, waited on until all work-items in a group are done
 		atomic<uint32_t> group_id { ~0u };
 		
-		static condition_variable cv;
-		
 		for(uint32_t local_linear_idx = 0; local_linear_idx < local_size; ++local_linear_idx) {
 			task::spawn([&workers_in_flight, &items_in_flight, &group_id,
 						 local_linear_idx, local_size,
@@ -152,7 +150,6 @@ public:
 								// reset + signal that group is ready for execution
 								items_in_flight = local_size;
 								group_id = linear_group_id;
-								cv.notify_all();
 							}
 							else {
 								// wait until group init is done
