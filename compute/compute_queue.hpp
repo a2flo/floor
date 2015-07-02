@@ -36,12 +36,12 @@ protected:
 	template <typename T, typename = void> struct is_valid_arg { static constexpr bool valid() { return true; } };
 	template <typename T> struct is_valid_arg<T, enable_if_t<is_same<T, size_t>::value>> {
 		static constexpr bool valid()
-		__attribute__((unavailable("size_t is not allowed due to possible host/device size mismatch"))) { return false; }
+		__attribute__((unavailable("size_t is not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
 	template <typename T> struct is_valid_arg<T, enable_if_t<(is_floor_vector<T>::value &&
 															  is_same<typename T::decayed_scalar_type, size_t>::value)>> {
 		static constexpr bool valid()
-		__attribute__((unavailable("size_t vector types are not allowed due to possible host/device size mismatch"))) { return false; }
+		__attribute__((unavailable("size_t vector types are not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
 	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer<T>::value>> {
 		static constexpr bool valid()
@@ -52,13 +52,8 @@ protected:
 		__attribute__((unavailable("nullptr is not allowed"))) { return false; }
 	};
 	
-	//! no args, all good
-	static constexpr bool check_arg_types() {
-		return true;
-	}
-	
 	//! checks if an individual argument type is valid
-	template <typename T>
+	template <typename T = void>
 	static constexpr bool check_arg_types() {
 		constexpr const bool is_valid { is_valid_arg<T>::valid() };
 		static_assert(is_valid, "invalid argument type");

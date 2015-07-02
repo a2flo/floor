@@ -139,7 +139,9 @@ void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	if(!fill_check(size, fill_size, pattern_size, offset)) return;
 	
 	const size_t pattern_count = fill_size / pattern_size;
+#if defined(__APPLE__)
 	const size_t overspill = fill_size - (pattern_count * pattern_size);
+#endif
 	switch(pattern_size) {
 		case 1:
 			memset(buffer + offset, *(uint8_t*)pattern, pattern_count);

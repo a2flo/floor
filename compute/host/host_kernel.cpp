@@ -25,12 +25,13 @@
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/device/host.hpp>
 
+// id handling
 static uint32_t floor_work_dim { 1u };
 static size3 floor_global_work_size;
 static size3 floor_local_work_size;
 static size3 floor_group_size;
-static size3 floor_global_idx;
-static size3 floor_local_idx;
+static _Thread_local size3 floor_global_idx;
+static _Thread_local size3 floor_local_idx;
 static size3 floor_group_idx;
 
 size_t get_global_id(uint32_t dimindx) {
@@ -63,12 +64,10 @@ uint32_t get_work_dim() {
 
 void floor_host_exec_setup(const uint32_t& dim,
 						   const size3& global_work_size,
-						   const size3& local_work_size) {
+						   const uint3& local_work_size) {
 	floor_work_dim = dim;
 	floor_global_work_size = global_work_size;
 	floor_local_work_size = local_work_size;
-	floor_global_work_size.max(1u);
-	floor_local_work_size.max(1u);
 	
 	const auto mod_groups = floor_global_work_size % floor_local_work_size;
 	floor_group_size = floor_global_work_size / floor_local_work_size;
@@ -77,8 +76,8 @@ void floor_host_exec_setup(const uint32_t& dim,
 	if(mod_groups.z > 0) ++floor_group_size.z;
 	
 	floor_global_idx = { 0, 0, 0 };
-	floor_local_idx = { 0, 0, 0 };
-	floor_group_idx = { 0, 0, 0 };
+	floor_local_idx = { 0, 0, 0 }; // TODO: if single-threaded
+	floor_group_idx = { 0, 0, 0 }; // TODO: if single-threaded
 }
 
 size3& floor_host_exec_get_global() {
@@ -93,6 +92,33 @@ size3& floor_host_exec_get_group() {
 	return floor_group_idx;
 }
 
+// barrier handling
+void global_barrier() {
+	// TODO: !
+}
+void global_mem_fence() {
+	global_barrier();
+}
+void global_read_mem_fence() {
+	global_barrier();
+}
+void global_write_mem_fence() {
+	global_barrier();
+}
+void local_barrier() {
+	// TODO: !
+}
+void local_mem_fence() {
+	local_barrier();
+}
+void local_read_mem_fence() {
+	local_barrier();
+}
+void local_write_mem_fence() {
+	local_barrier();
+}
+
+//
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
 kernel((kernel_func_type)kernel_), func_name(func_name_) {
 }

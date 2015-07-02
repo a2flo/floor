@@ -47,31 +47,15 @@ namespace std {
 // printf
 #include <cstdio>
 
-// barrier and mem_fence functionality
-static floor_inline_always void global_barrier() {
-	// TODO: !
-}
-static floor_inline_always void global_mem_fence() {
-	// TODO: !
-}
-static floor_inline_always void global_read_mem_fence() {
-	// TODO: !
-}
-static floor_inline_always void global_write_mem_fence() {
-	// TODO: !
-}
-static floor_inline_always void local_barrier() {
-	// TODO: !
-}
-static floor_inline_always void local_mem_fence() {
-	// TODO: !
-}
-static floor_inline_always void local_read_mem_fence() {
-	// TODO: !
-}
-static floor_inline_always void local_write_mem_fence() {
-	// TODO: !
-}
+// barrier and mem_fence functionality (NOTE: implemented in host_kernel.cpp)
+void global_barrier();
+void global_mem_fence();
+void global_read_mem_fence();
+void global_write_mem_fence();
+void local_barrier();
+void local_mem_fence();
+void local_read_mem_fence();
+void local_write_mem_fence();
 
 #endif
 
