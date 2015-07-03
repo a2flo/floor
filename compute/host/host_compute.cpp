@@ -176,8 +176,8 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 		device.vendor_name = "Host";
 	}
 	
-	device.max_work_group_size = 1024; // should be enough for now
-	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
+	device.max_work_group_size = device.units;
+	device.max_work_group_item_sizes = { device.units, device.units, device.units };
 	device.max_work_item_sizes = { sizeof(uint64_t) };
 	device.max_image_1d_dim = { 0 };
 	device.max_image_2d_dim = { 0, 0 };

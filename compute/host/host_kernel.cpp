@@ -92,9 +92,28 @@ size3& floor_host_exec_get_group() {
 	return floor_group_idx;
 }
 
-// barrier handling
+// barrier handling (all the same)
+static atomic<uint32_t> barrier_counter { 0 };
+static atomic<uint32_t> barrier_gen { 0 };
+static uint32_t barrier_users { 0 };
 void global_barrier() {
-	// TODO: !
+	// save current barrier generation/id
+	const uint32_t cur_gen = barrier_gen;
+	
+	// dec counter, and:
+	if(--barrier_counter == 0) {
+		// if this is the last thread to encounter the barrier,
+		// reset the counter and increase the gen/id, so that the other threads can continue
+		barrier_counter = barrier_users;
+		++barrier_gen; // note: overflow doesn't matter
+	}
+	else {
+		// if this isn't the last thread to encounter the barrier,
+		// wait until the barrier gen/id changes, then continue
+		while(cur_gen == barrier_gen) {
+			this_thread::yield();
+		}
+	}
 }
 void global_mem_fence() {
 	global_barrier();
@@ -106,16 +125,26 @@ void global_write_mem_fence() {
 	global_barrier();
 }
 void local_barrier() {
-	// TODO: !
+	global_barrier();
 }
 void local_mem_fence() {
-	local_barrier();
+	global_barrier();
 }
 void local_read_mem_fence() {
-	local_barrier();
+	global_barrier();
 }
 void local_write_mem_fence() {
-	local_barrier();
+	global_barrier();
+}
+
+atomic<uint32_t>& floor_host_exec_get_barrier_counter() {
+	return barrier_counter;
+}
+atomic<uint32_t>& floor_host_exec_get_barrier_gen() {
+	return barrier_gen;
+}
+uint32_t& floor_host_exec_get_barrier_users() {
+	return barrier_users;
 }
 
 //

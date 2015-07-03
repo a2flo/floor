@@ -27,7 +27,6 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/threading/task.hpp>
-#include <condition_variable>
 
 #include <floor/core/timer.hpp> // TODO: remove this again
 
@@ -38,6 +37,9 @@ void floor_host_exec_setup(const uint32_t& dim,
 size3& floor_host_exec_get_global();
 size3& floor_host_exec_get_local();
 size3& floor_host_exec_get_group();
+atomic<uint32_t>& floor_host_exec_get_barrier_counter();
+atomic<uint32_t>& floor_host_exec_get_barrier_gen();
+uint32_t& floor_host_exec_get_barrier_users();
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_HOST_KERNEL_IMPL 1
@@ -105,6 +107,12 @@ public:
 		// for group syncing purposes, waited on until all work-items in a group are done
 		atomic<uint32_t> group_id { ~0u };
 		
+		// init barrier vars
+		floor_host_exec_get_barrier_counter() = local_size;
+		floor_host_exec_get_barrier_gen() = 0;
+		floor_host_exec_get_barrier_users() = local_size;
+		
+		// start worker threads
 		vector<unique_ptr<thread>> worker_threads(local_size);
 		for(uint32_t local_linear_idx = 0; local_linear_idx < local_size; ++local_linear_idx) {
 			worker_threads[local_linear_idx] = make_unique<thread>([&items_in_flight, &group_id,
