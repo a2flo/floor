@@ -32,7 +32,7 @@ static size3 floor_local_work_size;
 static size3 floor_group_size;
 static _Thread_local size3 floor_global_idx;
 static _Thread_local size3 floor_local_idx;
-static size3 floor_group_idx;
+static _Thread_local size3 floor_group_idx;
 
 size_t get_global_id(uint32_t dimindx) {
 	if(dimindx >= floor_work_dim) return 0;
@@ -75,7 +75,7 @@ void floor_host_exec_setup(const uint32_t& dim,
 	if(mod_groups.y > 0) ++floor_group_size.y;
 	if(mod_groups.z > 0) ++floor_group_size.z;
 	
-	floor_global_idx = { 0, 0, 0 };
+	floor_global_idx = { 0, 0, 0 }; // TODO: if single-threaded
 	floor_local_idx = { 0, 0, 0 }; // TODO: if single-threaded
 	floor_group_idx = { 0, 0, 0 }; // TODO: if single-threaded
 }
