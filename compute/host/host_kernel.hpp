@@ -102,25 +102,14 @@ public:
 		const uint32_t local_size = local_dim.x * local_dim.y * local_dim.z;
 		// amount of work-items (in a group) in-flight (0 when group is done, then reset for every group)
 		atomic<uint32_t> items_in_flight { 0 };
-		atomic<uint32_t> items_init_done { local_size };
 		// for group syncing purposes, waited on until all work-items in a group are done
 		atomic<uint32_t> group_id { ~0u };
 		
-#define FLOOR_MT_METHOD 3 // 1, 2, or 3
-#if FLOOR_MT_METHOD == 2
-		condition_variable_any cv;
-#endif
-		
 		vector<unique_ptr<thread>> worker_threads(local_size);
-		
 		for(uint32_t local_linear_idx = 0; local_linear_idx < local_size; ++local_linear_idx) {
-			worker_threads[local_linear_idx] = make_unique<thread>([&items_in_flight,
-																	&items_init_done, &group_id,
-#if FLOOR_MT_METHOD == 2
-																	&cv,
-#endif
+			worker_threads[local_linear_idx] = make_unique<thread>([&items_in_flight, &group_id,
 																	local_linear_idx, local_size,
-																	global_work_size, local_dim, group_dim,
+																	local_dim, group_dim,
 																	this, args...] {
 				// local id is fixed for all execution
 				const uint3 local_id {
@@ -129,10 +118,6 @@ public:
 					local_linear_idx / (local_dim.x * local_dim.y)
 				};
 				floor_host_exec_get_local() = local_id;
-							
-#if FLOOR_MT_METHOD == 2
-				safe_mutex lock;
-#endif
 				
 #if defined(FLOOR_DEBUG)
 				// set thread name for debugging purposes, shortened as far as possible
@@ -153,18 +138,12 @@ public:
 				for(uint32_t group_x = 0; group_x < group_dim.x; ++group_x) {
 					for(uint32_t group_y = 0; group_y < group_dim.y; ++group_y) {
 						for(uint32_t group_z = 0; group_z < group_dim.z; ++group_z, ++linear_group_id) {
-#if FLOOR_MT_METHOD == 1
 							// last thread is responsible for sync
 							if(local_linear_idx == local_size - 1) {
 								// wait until all prior work-items are done
 								while(items_in_flight != 0) {
-#if 1
-									this_thread::yield(); // TODO: to yield, or not to yield, ...
-#endif
+									this_thread::yield();
 								}
-								
-								// setup group
-								//floor_host_exec_get_group() = { group_x, group_y, group_z };
 								
 								// reset + signal that group is ready for execution
 								items_in_flight = local_size;
@@ -176,26 +155,7 @@ public:
 									this_thread::yield();
 								}
 							}
-#elif FLOOR_MT_METHOD == 2
-							unique_lock<safe_mutex> ulock(lock);
-							if(++items_in_flight == local_size) {
-								//floor_host_exec_get_group() = { group_x, group_y, group_z };
-								group_id = linear_group_id;
-								items_init_done = local_size - 1;
-								items_in_flight = 0;
-								while(items_init_done != 0) {
-									cv.notify_all();
-								}
-							}
-							else {
-								while(group_id != linear_group_id) {
-									cv.wait(ulock);
-								}
-								--items_init_done;
-							}
-#elif FLOOR_MT_METHOD == 3
-							// no sync
-#endif
+							
 							// setup group
 							floor_host_exec_get_group() = { group_x, group_y, group_z };
 							
@@ -210,10 +170,8 @@ public:
 							// finally: execute work-item
 							(*kernel)(handle_kernel_arg(args)...);
 							
-#if FLOOR_MT_METHOD == 1
 							// work-item done
 							--items_in_flight;
-#endif
 						}
 					}
 				}
