@@ -81,7 +81,7 @@ using namespace std;
 #include <floor/compute/device/atomic_compat.hpp>
 
 // libc++ stl functionality without (most of) the baggage
-#if defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE_HOST)
 #define _LIBCPP_NO_RTTI 1
 #define _LIBCPP_BUILD_STATIC 1
 #define _LIBCPP_NO_EXCEPTIONS 1

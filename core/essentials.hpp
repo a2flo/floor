@@ -73,7 +73,7 @@
 #endif
 
 // set compute defines if host-based compute is enabled
-#if !defined(FLOOR_NO_HOST_COMPUTE)
+#if !defined(FLOOR_NO_HOST_COMPUTE) && !defined(FLOOR_COMPUTE)
 #define FLOOR_COMPUTE 1
 #define FLOOR_COMPUTE_HOST 1
 #endif
