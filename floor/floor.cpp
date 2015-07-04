@@ -263,6 +263,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/include/floor/libcxx/clang");
 		
 		extract_whitelist(config.host_whitelist, "config.host.whitelist");
+		config.execution_model = config_doc.get<string>("config.host.exec_model", "mt-item");
 		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
 		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
 		config.host_as = config_doc.get<string>("config.host.as", "compute_as");
@@ -1170,6 +1171,9 @@ const string& floor::get_metal_clang_path() {
 
 const unordered_set<string>& floor::get_host_whitelist() {
 	return config.host_whitelist;
+}
+const string& floor::get_execution_model() {
+	return config.execution_model;
 }
 const string& floor::get_host_compiler() {
 	return config.host_compiler;

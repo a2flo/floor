@@ -178,6 +178,7 @@ public:
 	
 	// host
 	static const unordered_set<string>& get_host_whitelist();
+	static const string& get_execution_model();
 	static const string& get_host_compiler();
 	static const string& get_host_llc();
 	static const string& get_host_as();
@@ -275,6 +276,7 @@ protected:
 		
 		// host
 		unordered_set<string> host_whitelist;
+		string execution_model = "mt-item";
 		string host_compiler = "compute_clang";
 		string host_llc = "compute_llc";
 		string host_as = "compute_as";

@@ -28,7 +28,32 @@
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/threading/task.hpp>
 
-#include <floor/core/timer.hpp> // TODO: remove this again
+// host compute exeuction model, choose wisely:
+
+// single-threaded, one logical cpu (the calling thread) corresponding to all work-items and work-groups
+// NOTE: no parallelism
+//#define FLOOR_HOST_COMPUTE_ST 1
+
+// multi-threaded, each logical cpu ("h/w thread") corresponding to one work-item in a work-group
+// NOTE: intra-group parallelism, no inter-group parallelism
+// NOTE: no fibers, barriers are sync'ed through spin locking
+#define FLOOR_HOST_COMPUTE_MT_ITEM 1
+
+// multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in a work-group
+// NOTE: intra-group parallelism, no inter-group parallelism
+// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then spin lock sync
+//#define FLOOR_HOST_COMPUTE_MT_ITEM_FIBERED 1
+
+// multi-threaded, each logical cpu ("h/w thread") corresponding to one work-group
+// NOTE: no intra-group parallelism, inter-group parallelism
+// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
+//#define FLOOR_HOST_COMPUTE_MT_GROUP 1
+
+// multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in multiple work-groups
+// NOTE: intra-group parallelism, inter-group parallelism
+// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier in all work-groups,
+// then spin lock sync (TODO: +could continue as soon as one barrier has completed)
+//#define FLOOR_HOST_COMPUTE_MT_MIXED 1
 
 // TODO: better way of doing this?
 void floor_host_exec_setup(const uint32_t& dim,
@@ -69,8 +94,10 @@ public:
 		// setup id handling
 		floor_host_exec_setup(work_dim, global_work_size, local_dim);
 		
-		auto tstart = floor_timer2::start();
-#if 0 // single-threaded
+		// package + process args (so it doesn't need to be done on every call)
+		const auto tupled_args = make_tuple(handle_kernel_arg(args)...);
+		
+#if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 		// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
 		size3& global_idx = floor_host_exec_get_global();
 		size3& local_idx = floor_host_exec_get_local();
@@ -99,7 +126,7 @@ public:
 				}
 			}
 		}
-#else
+#elif defined(FLOOR_HOST_COMPUTE_MT_ITEM)
 		// #work-items per group
 		const uint32_t local_size = local_dim.x * local_dim.y * local_dim.z;
 		// amount of work-items (in a group) in-flight (0 when group is done, then reset for every group)
@@ -118,7 +145,7 @@ public:
 			worker_threads[local_linear_idx] = make_unique<thread>([&items_in_flight, &group_id,
 																	local_linear_idx, local_size,
 																	local_dim, group_dim,
-																	this, args...] {
+																	this, &tupled_args] {
 				// local id is fixed for all execution
 				const uint3 local_id {
 					local_linear_idx % local_dim.x,
@@ -176,7 +203,7 @@ public:
 							floor_host_exec_get_global() = global_id;
 							
 							// finally: execute work-item
-							(*kernel)(handle_kernel_arg(args)...);
+							apply(*kernel, forward<decltype(tupled_args)&&>(tupled_args));
 							
 							// work-item done
 							--items_in_flight;
@@ -190,7 +217,6 @@ public:
 			item->join();
 		}
 #endif
-		log_debug("time: %ums", double(floor_timer2::stop<chrono::microseconds>(tstart)) / 1000.0);
 	}
 	
 protected:
