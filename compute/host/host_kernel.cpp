@@ -23,6 +23,7 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
+#include <floor/compute/host/host_queue.hpp>
 #include <floor/compute/device/host.hpp>
 
 // id handling
@@ -97,6 +98,7 @@ static atomic<uint32_t> barrier_counter { 0 };
 static atomic<uint32_t> barrier_gen { 0 };
 static uint32_t barrier_users { 0 };
 void global_barrier() {
+#if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
 	// save current barrier generation/id
 	const uint32_t cur_gen = barrier_gen;
 	
@@ -114,6 +116,9 @@ void global_barrier() {
 			this_thread::yield();
 		}
 	}
+#elif defined(FLOOR_HOST_COMPUTE_MT_GROUP)
+	// TODO: !
+#endif
 }
 void global_mem_fence() {
 	global_barrier();
@@ -160,6 +165,10 @@ uint8_t* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) {
 
 uint8_t* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
 	return ((host_image*)image.get())->get_host_image_buffer_ptr();
+}
+
+uint32_t host_kernel::get_cpu_count(const compute_queue* queue) {
+	return ((host_queue*)queue)->get_device()->units;
 }
 
 #endif

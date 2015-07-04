@@ -35,22 +35,22 @@
 //#define FLOOR_HOST_COMPUTE_ST 1
 
 // multi-threaded, each logical cpu ("h/w thread") corresponding to one work-item in a work-group
-// NOTE: intra-group parallelism, no inter-group parallelism
+// NOTE: has intra-group parallelism, has no inter-group parallelism
 // NOTE: no fibers, barriers are sync'ed through spin locking
-#define FLOOR_HOST_COMPUTE_MT_ITEM 1
+//#define FLOOR_HOST_COMPUTE_MT_ITEM 1
 
 // multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in a work-group
-// NOTE: intra-group parallelism, no inter-group parallelism
+// NOTE: has intra-group parallelism, has no inter-group parallelism
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then spin lock sync
 //#define FLOOR_HOST_COMPUTE_MT_ITEM_FIBERED 1
 
 // multi-threaded, each logical cpu ("h/w thread") corresponding to one work-group
-// NOTE: no intra-group parallelism, inter-group parallelism
+// NOTE: has no intra-group parallelism, has inter-group parallelism
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
-//#define FLOOR_HOST_COMPUTE_MT_GROUP 1
+#define FLOOR_HOST_COMPUTE_MT_GROUP 1
 
 // multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in multiple work-groups
-// NOTE: intra-group parallelism, inter-group parallelism
+// NOTE: has intra-group parallelism and potentially inter-group parallelism
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier in all work-groups,
 // then spin lock sync (TODO: +could continue as soon as one barrier has completed)
 //#define FLOOR_HOST_COMPUTE_MT_MIXED 1
@@ -76,12 +76,13 @@ public:
 	host_kernel(const void* kernel, const string& func_name);
 	~host_kernel() override;
 	
-	template <typename... Args> void execute(compute_queue* queue floor_unused,
+	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim,
 											 const size3 global_work_size,
 											 const size3 local_work_size,
 											 Args&&... args) {
 		//
+		const auto cpu_count = get_cpu_count(queue);
 		const uint3 local_dim { local_work_size.maxed(1u) };
 		const uint3 group_dim_overflow {
 			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % local_dim.x), 1u) : 0u,
@@ -216,6 +217,60 @@ public:
 		for(auto& item : worker_threads) {
 			item->join();
 		}
+#elif defined(FLOOR_HOST_COMPUTE_MT_GROUP)
+		// #work-groups
+		const auto group_count = group_dim.x * group_dim.y * group_dim.z;
+		// #work-items per group
+		const uint32_t local_size = local_dim.x * local_dim.y * local_dim.z;
+		// group ticketing system, each worker thread will grab a new group id, once it's done with one group
+		atomic<uint32_t> group_idx { 0 };
+		
+		// start worker threads
+		vector<unique_ptr<thread>> worker_threads(cpu_count);
+		for(uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
+			worker_threads[cpu_idx] = make_unique<thread>([cpu_idx, this, &tupled_args,
+														   &group_idx, group_count, group_dim,
+														   local_size, local_dim] {
+				for(;;) {
+					// assign a new group to this thread/cpu and check if we're done
+					const auto group_linear_idx = group_idx++;
+					if(group_linear_idx >= group_count) break;
+					
+					// setup group
+					const uint3 group_id {
+						group_linear_idx % group_dim.x,
+						(group_linear_idx / group_dim.x) % group_dim.y,
+						group_linear_idx / (group_dim.x * group_dim.y)
+					};
+					floor_host_exec_get_group() = group_id;
+					
+					// iterate over all work-items in this group
+					for(uint32_t local_linear_idx = 0; local_linear_idx < local_size; ++local_linear_idx) {
+						// set local + global id
+						const uint3 local_id {
+							local_linear_idx % local_dim.x,
+							(local_linear_idx / local_dim.x) % local_dim.y,
+							local_linear_idx / (local_dim.x * local_dim.y)
+						};
+						floor_host_exec_get_local() = local_id;
+						
+						const uint3 global_id {
+							group_id.x * local_dim.x + local_id.x,
+							group_id.y * local_dim.y + local_id.y,
+							group_id.z * local_dim.z + local_id.z
+						};
+						floor_host_exec_get_global() = global_id;
+						
+						// finally: execute work-item
+						apply(*kernel, forward<decltype(tupled_args)&&>(tupled_args));
+					}
+				}
+			});
+		}
+		// wait for worker threads to finish
+		for(auto& item : worker_threads) {
+			item->join();
+		}
 #endif
 	}
 	
@@ -229,6 +284,8 @@ protected:
 	template <typename T> auto handle_kernel_arg(T&& obj) { return &obj; }
 	uint8_t* handle_kernel_arg(shared_ptr<compute_buffer> buffer);
 	uint8_t* handle_kernel_arg(shared_ptr<compute_image> buffer);
+	
+	static uint32_t get_cpu_count(const compute_queue* queue);
 	
 };
 

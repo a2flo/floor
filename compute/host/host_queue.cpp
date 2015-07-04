@@ -35,4 +35,8 @@ const void* host_queue::get_queue_ptr() const {
 	return this;
 }
 
+const host_device* host_queue::get_device() const {
+	return (host_device*)device.get();
+}
+
 #endif

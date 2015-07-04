@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/host/host_kernel.hpp>
+#include <floor/compute/host/host_device.hpp>
 
 class host_queue final : public compute_queue {
 public:
@@ -34,6 +35,8 @@ public:
 	void flush() const override;
 	
 	const void* get_queue_ptr() const override;
+	
+	const host_device* get_device() const;
 	
 protected:
 	shared_ptr<compute_device> device;
