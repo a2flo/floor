@@ -1,8 +1,12 @@
 
 // workaround some issues where ucontext_t hasn't got the correct size
+#if defined(__APPLE__)
 #define _XOPEN_SOURCE
+#endif
 #include <ucontext.h>
+#if defined(__APPLE__)
 #undef _XOPEN_SOURCE
+#endif
 
 #if defined(__cplusplus) && !defined(__OBJC__)
 #include "core/essentials.hpp"
