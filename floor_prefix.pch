@@ -1,4 +1,9 @@
 
+// workaround some issues where ucontext_t hasn't got the correct size
+#define _XOPEN_SOURCE
+#include <ucontext.h>
+#undef _XOPEN_SOURCE
+
 #if defined(__cplusplus) && !defined(__OBJC__)
 #include "core/essentials.hpp"
 #include "core/cpp_headers.hpp"

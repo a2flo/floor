@@ -180,7 +180,7 @@ template <typename T> using compute_global_buffer = global T*;
 #if !defined(FLOOR_COMPUTE_HOST) || 0
 #define local_buffer local compute_local_buffer
 #else // mt-group: local buffer must use thread local storage
-#define local_buffer static _Thread_local compute_local_buffer
+#define local_buffer alignas(128) static _Thread_local compute_local_buffer
 #endif
 template <typename T, size_t count_x> using compute_local_buffer_1d = T[count_x];
 template <typename T, size_t count_y, size_t count_x> using compute_local_buffer_2d = T[count_y][count_x];
