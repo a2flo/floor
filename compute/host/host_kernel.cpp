@@ -35,14 +35,18 @@
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
+//
+static const function<void()>* cur_kernel_function { nullptr };
+extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
+
 // id handling vars
 static uint32_t floor_work_dim { 1u };
-static size3 floor_global_work_size;
-static size3 floor_local_work_size;
-static size3 floor_group_size;
-static _Thread_local size3 floor_global_idx;
-static _Thread_local size3 floor_local_idx;
-static _Thread_local size3 floor_group_idx;
+static uint3 floor_global_work_size;
+static uint3 floor_local_work_size;
+static uint3 floor_group_size;
+static _Thread_local uint3 floor_global_idx;
+static _Thread_local uint3 floor_local_idx;
+static _Thread_local uint3 floor_group_idx;
 
 // barrier handling vars
 // -> mt-item
@@ -67,19 +71,14 @@ void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
 	return ((host_image*)image.get())->get_host_image_buffer_ptr();
 }
 
-uint32_t host_kernel::get_cpu_count(const compute_queue* queue) {
-	return ((host_queue*)queue)->get_device()->units;
-}
-
-extern "C" void setup_mt_group_ctx(int32_t idx);
 void host_kernel::execute_internal(compute_queue* queue,
 								   const uint32_t work_dim,
 								   const size3 global_work_size,
 								   const size3 local_work_size,
 								   const function<void()>& kernel_func) {
-	
 	//
-	const auto cpu_count = min(get_cpu_count(queue), 1u);
+	cur_kernel_function = &kernel_func;
+	const auto cpu_count = ((host_queue*)queue)->get_device()->units;
 	const uint3 local_dim { local_work_size.maxed(1u) };
 	const uint3 group_dim_overflow {
 		global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % local_dim.x), 1u) : 0u,
@@ -239,41 +238,14 @@ void host_kernel::execute_internal(compute_queue* queue,
 			// init contexts (aka fibers)
 			ucontext_t main_ctx;
 			memset(&main_ctx, 0, sizeof(ucontext_t));
-			
-			vector<ucontext_t> items(local_size);
-			memset(&items[0], 0, local_size * sizeof(ucontext_t));
+			auto items = make_unique<ucontext_t[]>(local_size);
 			
 			// 32k stack should be enough, considering this runs on gpus (also: this is the minimum stack size on os x)
+			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { 32768 };
-			static constexpr const size_t max_item_count { 128 }; // TODO: get/set this from host_compute/host_device
+			static constexpr const size_t max_item_count { 256 }; // TODO: get/set this from host_compute/host_device
 			uint8_t* item_stacks = new uint8_t[item_stack_size * max_item_count] alignas(128);
 			
-			//
-			static _Thread_local volatile bool done;
-			done = false;
-			getcontext((ucontext_t*)&main_ctx); // must init this before using it
-			if(!done) {
-				done = true;
-				
-				// must init these in reverse order due to makecontext depending on a valid uc_link/ucontext
-				for(uint32_t i = 0; i < local_size; ++i) {
-					ucontext_t* ctx = &items[i];
-					getcontext(ctx);
-					// continue with next on return, or return to main ctx when the last item returns
-					ctx->uc_link = (i + 1 < local_size ? &items[i + 1] : &main_ctx);
-					ctx->uc_stack.ss_size = item_stack_size;
-					ctx->uc_stack.ss_sp = &item_stacks[i * item_stack_size];
-					makecontext(ctx, (void (*)())setup_mt_group_ctx, 1, i);
-				}
-				logger::flush();
-				
-				// start first
-				setcontext(&items[0]);
-			}
-			
-			delete [] item_stacks; // TODO: better use unique_ptr
-			
-#if 0
 			for(;;) {
 				// assign a new group to this thread/cpu and check if we're done
 				const auto group_linear_idx = group_idx++;
@@ -285,30 +257,34 @@ void host_kernel::execute_internal(compute_queue* queue,
 					(group_linear_idx / group_dim.x) % group_dim.y,
 					group_linear_idx / (group_dim.x * group_dim.y)
 				};
-				floor_host_exec_get_group() = group_id;
+				floor_group_idx = group_id;
 				
-				// iterate over all work-items in this group
-				for(uint32_t local_linear_idx = 0; local_linear_idx < local_size; ++local_linear_idx) {
-					// set local + global id
-					const uint3 local_id {
-						local_linear_idx % local_dim.x,
-						(local_linear_idx / local_dim.x) % local_dim.y,
-						local_linear_idx / (local_dim.x * local_dim.y)
-					};
-					floor_host_exec_get_local() = local_id;
+				// init fibers (TODO: how much of clear + reinit is necessary?)
+				memset(&items[0], 0, local_size * sizeof(ucontext_t));
+				for(uint32_t i = 0; i < local_size; ++i) {
+					ucontext_t* ctx = &items[i];
+					getcontext(ctx);
+					// continue with next on return, or return to main ctx when the last item returns
+					// TODO: add option to use randomized order?
+					ctx->uc_link = (i + 1 < local_size ? &items[i + 1] : &main_ctx);
+					ctx->uc_stack.ss_size = item_stack_size;
+					ctx->uc_stack.ss_sp = &item_stacks[i * item_stack_size];
+					makecontext(ctx, (void (*)())run_mt_group_item, 1, i);
+				}
+				
+				// run fibers/work-items for this group
+				static _Thread_local volatile bool done;
+				done = false;
+				getcontext((ucontext_t*)&main_ctx);
+				if(!done) {
+					done = true;
 					
-					const uint3 global_id {
-						group_id.x * local_dim.x + local_id.x,
-						group_id.y * local_dim.y + local_id.y,
-						group_id.z * local_dim.z + local_id.z
-					};
-					floor_host_exec_get_global() = global_id;
-					
-					// finally: execute work-item
-					kernel_func();
+					// start first fiber
+					setcontext(&items[0]);
 				}
 			}
-#endif
+			
+			delete [] item_stacks; // TODO: better use unique_ptr
 		});
 	}
 	// wait for worker threads to finish
@@ -318,8 +294,24 @@ void host_kernel::execute_internal(compute_queue* queue,
 #endif
 }
 
-extern "C" void setup_mt_group_ctx(int32_t idx) {
-	printf("item: %d\n", idx); fflush(stdout);
+extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
+	// set local + global id
+	const uint3 local_id {
+		local_linear_idx % floor_local_work_size.x,
+		(local_linear_idx / floor_local_work_size.x) % floor_local_work_size.y,
+		local_linear_idx / (floor_local_work_size.x * floor_local_work_size.y)
+	};
+	floor_local_idx = local_id;
+	
+	const uint3 global_id {
+		floor_group_idx.x * floor_local_work_size.x + local_id.x,
+		floor_group_idx.y * floor_local_work_size.y + local_id.y,
+		floor_group_idx.z * floor_local_work_size.z + local_id.z
+	};
+	floor_global_idx = global_id;
+	
+	// execute work-item / kernel function
+	(*cur_kernel_function)();
 }
 
 // id handling implementation
@@ -373,8 +365,12 @@ void global_barrier() {
 		}
 	}
 #elif defined(FLOOR_HOST_COMPUTE_MT_GROUP)
-	// TODO: store + restore indices (+other stuff?)
+	// save indices, switch to next fiber and restore indices again
+	const auto saved_global_id = floor_global_idx;
+	const auto saved_local_id = floor_local_idx;
 	swapcontext(this_ctx, next_ctx);
+	floor_global_idx = saved_global_id;
+	floor_local_idx = saved_local_id;
 #endif
 }
 void global_mem_fence() {

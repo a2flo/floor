@@ -91,8 +91,6 @@ protected:
 						  const size3 local_work_size,
 						  const function<void()>& kernel_func);
 	
-	static uint32_t get_cpu_count(const compute_queue* queue);
-	
 };
 
 #endif

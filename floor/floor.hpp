@@ -276,7 +276,7 @@ protected:
 		
 		// host
 		unordered_set<string> host_whitelist;
-		string execution_model = "mt-item";
+		string execution_model = "mt-group";
 		string host_compiler = "compute_clang";
 		string host_llc = "compute_llc";
 		string host_as = "compute_as";
