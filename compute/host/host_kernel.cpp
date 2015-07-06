@@ -42,8 +42,11 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 // id handling vars
 static uint32_t floor_work_dim { 1u };
 static uint3 floor_global_work_size;
+static uint32_t floor_linear_global_work_size;
 static uint3 floor_local_work_size;
+static uint32_t floor_linear_local_work_size;
 static uint3 floor_group_size;
+static uint32_t floor_linear_group_size;
 static _Thread_local uint3 floor_global_idx;
 static _Thread_local uint3 floor_local_idx;
 static _Thread_local uint3 floor_group_idx;
@@ -54,7 +57,8 @@ static atomic<uint32_t> barrier_counter { 0 };
 static atomic<uint32_t> barrier_gen { 0 };
 static uint32_t barrier_users { 0 };
 // -> mt-group
-static _Thread_local ucontext_t* this_ctx, *next_ctx;
+static _Thread_local uint32_t item_local_linear_idx { 0 };
+static _Thread_local ucontext_t* item_contexts { nullptr };
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
@@ -98,6 +102,10 @@ void host_kernel::execute_internal(compute_queue* queue,
 	if(mod_groups.x > 0) ++floor_group_size.x;
 	if(mod_groups.y > 0) ++floor_group_size.y;
 	if(mod_groups.z > 0) ++floor_group_size.z;
+	
+	floor_linear_global_work_size = floor_global_work_size.x * floor_global_work_size.y * floor_global_work_size.z;
+	floor_linear_local_work_size = local_dim.x * local_dim.y * local_dim.z;
+	floor_linear_group_size = floor_group_size.x * floor_group_size.y * floor_group_size.z;
 	
 #if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 	// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
@@ -239,12 +247,12 @@ void host_kernel::execute_internal(compute_queue* queue,
 			ucontext_t main_ctx;
 			memset(&main_ctx, 0, sizeof(ucontext_t));
 			auto items = make_unique<ucontext_t[]>(local_size);
+			item_contexts = items.get();
 			
 			// 32k stack should be enough, considering this runs on gpus (also: this is the minimum stack size on os x)
 			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { 32768 };
-			static constexpr const size_t max_item_count { 256 }; // TODO: get/set this from host_compute/host_device
-			uint8_t* item_stacks = new uint8_t[item_stack_size * max_item_count] alignas(128);
+			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(128);
 			
 			for(;;) {
 				// assign a new group to this thread/cpu and check if we're done
@@ -302,6 +310,7 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
 		local_linear_idx / (floor_local_work_size.x * floor_local_work_size.y)
 	};
 	floor_local_idx = local_id;
+	item_local_linear_idx = local_linear_idx;
 	
 	const uint3 global_id {
 		floor_group_idx.x * floor_local_work_size.x + local_id.x,
@@ -368,9 +377,12 @@ void global_barrier() {
 	// save indices, switch to next fiber and restore indices again
 	const auto saved_global_id = floor_global_idx;
 	const auto saved_local_id = floor_local_idx;
-	swapcontext(this_ctx, next_ctx);
-	floor_global_idx = saved_global_id;
+	const auto save_item_local_linear_idx = item_local_linear_idx;
+	swapcontext(&item_contexts[item_local_linear_idx],
+				&item_contexts[(item_local_linear_idx + 1u) % floor_linear_local_work_size]);
+	item_local_linear_idx = save_item_local_linear_idx;
 	floor_local_idx = saved_local_id;
+	floor_global_idx = saved_global_id;
 #endif
 }
 void global_mem_fence() {
