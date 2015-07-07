@@ -180,8 +180,8 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 	device.max_work_group_size = device.units;
 	device.max_work_group_item_sizes = { device.units, device.units, device.units };
 #else // mt-group
-	device.max_work_group_size = 256; // TODO: -> sync with value in host_kernel
-	device.max_work_group_item_sizes = { 256, 256, 256 };
+	device.max_work_group_size = 1024; // TODO: -> sync with value in host_kernel
+	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
 #endif
 	device.max_work_item_sizes = { sizeof(uint64_t) };
 	device.max_image_1d_dim = { 0 };

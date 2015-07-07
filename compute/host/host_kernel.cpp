@@ -39,6 +39,190 @@
 static const function<void()>* cur_kernel_function { nullptr };
 extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 
+// NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
+#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+asm("floor_get_context_sysv_x86_64:"
+	// store all registers in fiber_context*
+	"movq %rbp, 0x0(%rdi);"
+	"movq %rbx, 0x8(%rdi);"
+	"movq %r12, 0x10(%rdi);"
+	"movq %r13, 0x18(%rdi);"
+	"movq %r14, 0x20(%rdi);"
+	"movq %r15, 0x28(%rdi);"
+	"movq %rsp, %rcx;"
+	"addq $0x8, %rcx;"
+	"movq %rcx, 0x30(%rdi);" // rsp
+	"movq (%rsp), %rcx;"
+	"movq %rcx, 0x38(%rdi);" // rip
+	"retq;");
+asm("floor_set_context_sysv_x86_64:"
+	// restore all registers from fiber_context*
+	"movq 0x0(%rdi), %rbp;"
+	"movq 0x8(%rdi), %rbx;"
+	"movq 0x10(%rdi), %r12;"
+	"movq 0x18(%rdi), %r13;"
+	"movq 0x20(%rdi), %r14;"
+	"movq 0x28(%rdi), %r15;"
+	"movq 0x30(%rdi), %rsp;"
+	"movq 0x38(%rdi), %rcx;"
+	// and jump to rip (rcx)
+	"jmp *%rcx;");
+asm(".extern exit;"
+	"floor_enter_context_sysv_x86_64:"
+	// retrieve fiber_context*
+	"movq 0x8(%rsp), %rax;"
+	// fiber_context->init_func
+	"movq 0x50(%rax), %rcx;"
+	// fiber_context->init_arg
+	"movq 0x60(%rax), %rdi;"
+	// call init_func(init_arg)
+	"callq *%rcx;"
+	// context is done, -> exit to set exit context, or exit(0)
+	// retrieve fiber_context* again
+	"movq 0x8(%rsp), %rax;"
+	// exit fiber_context*
+	"movq 0x58(%rax), %rdi;"
+	// TODO: cmp 0, -> exit(0)
+	// set_context(exit_context)
+	"callq floor_set_context_sysv_x86_64;"
+	// it's a trap!
+	"ud2");
+extern "C" void floor_get_context(void* ctx) asm("floor_get_context_sysv_x86_64");
+extern "C" void floor_set_context(void* ctx) asm("floor_set_context_sysv_x86_64");
+extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
+#endif
+
+struct fiber_context {
+	typedef void (*init_func_type)(const uint32_t);
+	
+#if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+	// sysv x86-64 abi compliant implementation
+	// callee-saved registers
+	uint64_t rbp { 0 };
+	uint64_t rbx { 0 };
+	uint64_t r12 { 0 };
+	uint64_t r13 { 0 };
+	uint64_t r14 { 0 };
+	uint64_t r15 { 0 };
+	// stack pointer
+	uint64_t rsp { 0 };
+	// return address / instruction pointer
+	uint64_t rip { 0 };
+	
+	void init(void* stack_ptr_, const size_t& stack_size_,
+			  init_func_type init_func_, const uint32_t& init_arg_,
+			  fiber_context* exit_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+	}
+	
+	void reset() {
+		// reset registers, set rip to enter_context and reset rsp
+		rbp = 0;
+		rbx = 0;
+		r12 = 0;
+		r13 = 0;
+		r14 = 0;
+		r15 = 0;
+		// we're pushing two 64-bit values here + needs to be 16-byte aligned
+		rsp = ((size_t)stack_ptr) + stack_size - 16u;
+		rip = (uint64_t)floor_enter_context;
+		// set first 64-bit value on stack to this context
+		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
+		// for stack protection (well, corruption detection ...) purposes
+		// TODO: check this on exit (in debug mode or when manually enabled)
+		*(uint64_t*)(rsp) = 0x0123456789ABCDEF;
+	}
+	
+	void get_context() {
+		floor_get_context(this);
+	}
+	
+	[[noreturn]] void set_context() {
+		floor_set_context(this);
+		floor_unreachable();
+	}
+	
+	void swap_context(fiber_context* next_ctx) {
+		volatile bool swapped = false;
+		get_context();
+		if(!swapped) {
+			swapped = true;
+			next_ctx->set_context();
+		}
+	}
+	
+//#elif defined(PLATFORM_X64) && defined(FLOOR_IOS)
+	// TODO: aarch64/armv8 implementation
+//#elif defined(PLATFORM_X32) && defined(FLOOR_IOS)
+	// TODO: armv7 implementation
+#elif defined(__WINDOWS__)
+	// TODO: windows implementation (-> use CreateFiber/etc)
+#error "not implemented yet"
+#else
+	// fallback to posix ucontext_t/etc
+	ucontext_t ctx;
+	
+	void init(void* stack_ptr_, const size_t& stack_size_,
+			  init_func_type init_func_, const uint32_t& init_arg_,
+			  fiber_context* exit_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+		
+		memset(&ctx, 0, sizeof(ucontext_t));
+		getcontext(&ctx);
+		
+		// unknown context vars -> query external
+		if(stack_ptr == nullptr) {
+			stack_ptr = ctx.uc_stack.ss_sp;
+			stack_size = ctx.uc_stack.ss_size;
+		}
+	}
+	
+	void reset() {
+		if(exit_ctx != nullptr) {
+			ctx.uc_link = &exit_ctx->ctx;
+		}
+		else ctx.uc_link = nullptr;
+		ctx.uc_stack.ss_sp = stack_ptr;
+		ctx.uc_stack.ss_size = stack_size;
+		makecontext(&ctx, (void (*)())init_func, 1, init_arg);
+	}
+	
+	void get_context() {
+		getcontext(&ctx);
+	}
+	
+	void set_context() {
+		setcontext(&ctx);
+	}
+	
+	void swap_context(fiber_context* next_ctx) {
+		swapcontext(&ctx, &next_ctx->ctx);
+	}
+#endif
+	void init_common(void* stack_ptr_, const size_t& stack_size_,
+					 init_func_type init_func_, const uint32_t& init_arg_,
+					 fiber_context* exit_ctx_) {
+		stack_ptr = stack_ptr_;
+		stack_size = stack_size_;
+		init_func = init_func_;
+		exit_ctx = exit_ctx_;
+		init_arg = init_arg_;
+	}
+	
+	// ctx vars
+	void* stack_ptr { nullptr };
+	size_t stack_size { 0 };
+	
+	//
+	init_func_type init_func { nullptr };
+	
+	//
+	fiber_context* exit_ctx { nullptr };
+	
+	//
+	uint32_t init_arg { 0 };
+};
+
 // id handling vars
 static uint32_t floor_work_dim { 1u };
 static uint3 floor_global_work_size;
@@ -58,7 +242,7 @@ static atomic<uint32_t> barrier_gen { 0 };
 static uint32_t barrier_users { 0 };
 // -> mt-group
 static _Thread_local uint32_t item_local_linear_idx { 0 };
-static _Thread_local ucontext_t* item_contexts { nullptr };
+static _Thread_local fiber_context* item_contexts { nullptr };
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
@@ -244,15 +428,24 @@ void host_kernel::execute_internal(compute_queue* queue,
 			static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
 			
 			// init contexts (aka fibers)
-			ucontext_t main_ctx;
-			memset(&main_ctx, 0, sizeof(ucontext_t));
-			auto items = make_unique<ucontext_t[]>(local_size);
+			fiber_context main_ctx;
+			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr);
+			auto items = make_unique<fiber_context[]>(local_size);
 			item_contexts = items.get();
 			
 			// 32k stack should be enough, considering this runs on gpus (also: this is the minimum stack size on os x)
 			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { 32768 };
 			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(128);
+			
+			// init fibers
+			for(uint32_t i = 0; i < local_size; ++i) {
+				items[i].init(&item_stacks[i * item_stack_size], item_stack_size,
+							  run_mt_group_item, i,
+							  // continue with next on return, or return to main ctx when the last item returns
+							  // TODO: add option to use randomized order?
+							  (i + 1 < local_size ? &items[i + 1] : &main_ctx));
+			}
 			
 			for(;;) {
 				// assign a new group to this thread/cpu and check if we're done
@@ -267,28 +460,20 @@ void host_kernel::execute_internal(compute_queue* queue,
 				};
 				floor_group_idx = group_id;
 				
-				// init fibers (TODO: how much of clear + reinit is necessary?)
-				memset(&items[0], 0, local_size * sizeof(ucontext_t));
+				// reset fibers
 				for(uint32_t i = 0; i < local_size; ++i) {
-					ucontext_t* ctx = &items[i];
-					getcontext(ctx);
-					// continue with next on return, or return to main ctx when the last item returns
-					// TODO: add option to use randomized order?
-					ctx->uc_link = (i + 1 < local_size ? &items[i + 1] : &main_ctx);
-					ctx->uc_stack.ss_size = item_stack_size;
-					ctx->uc_stack.ss_sp = &item_stacks[i * item_stack_size];
-					makecontext(ctx, (void (*)())run_mt_group_item, 1, i);
+					items[i].reset();
 				}
 				
 				// run fibers/work-items for this group
 				static _Thread_local volatile bool done;
 				done = false;
-				getcontext((ucontext_t*)&main_ctx);
+				main_ctx.get_context();
 				if(!done) {
 					done = true;
 					
 					// start first fiber
-					setcontext(&items[0]);
+					items[0].set_context();
 				}
 			}
 			
@@ -353,65 +538,6 @@ uint32_t get_work_dim() {
 	return floor_work_dim;
 }
 
-// lifted from libsystem_platform.dylib, w/o the slow sig handling syscall
-// NOTE: this requires that ctx has been initialized previously!
-[[noreturn]] static void floor_set_context(ucontext_t* ctx) {
-#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
-	auto mctx_data_ptr = &ctx->__mcontext_data;
-	
-	typedef int (**rip_ptr_type)(void);
-	auto rip_addr = (rip_ptr_type)mctx_data_ptr->__ss.__rip;
-	asm volatile("movq %0, %%rbx;"
-				 "movq %1, %%r12;"
-				 "movq %2, %%r13;"
-				 "movq %3, %%r14;"
-				 "movq %4, %%r15;"
-				 "movq %5, %%rsp;"
-				 "movq %6, %%rbp;"
-				 "xor %%eax, %%eax;"
-				 "jmp *%7;"
-				 : /* no output */
-				 :
-				 "m"(mctx_data_ptr->__ss.__rbx),
-				 "m"(mctx_data_ptr->__ss.__r12),
-				 "m"(mctx_data_ptr->__ss.__r13),
-				 "m"(mctx_data_ptr->__ss.__r14),
-				 "m"(mctx_data_ptr->__ss.__r15),
-				 "m"(mctx_data_ptr->__ss.__rsp),
-				 "m"(mctx_data_ptr->__ss.__rbp),
-				 "r"(rip_addr)
-				 : "%rbx", "%r12", "%r13", "%r14", "%r15", "%rsp", "%rbp", "%eax");
-	floor_unreachable();
-#else
-	// fallback to posix setcontext
-	setcontext(ctx);
-#endif
-}
-
-// again, more or less lifted from libsystem_platform.dylib, w/o the slow sig handling syscalls and stack size handling
-// NOTE: this requires that ctx has been initialized previously!
-// NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't anything wrong
-#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
-asm("floor_get_context_asm:"
-	"movq %rbx, 0x50(%rdi);"		// ctx->__mcontext_data.__ss.__rbx
-	"movq %rbp, 0x78(%rdi);"		// ctx->__mcontext_data.__ss.__rbp
-	"movq %r12, 0xA8(%rdi);"		// ctx->__mcontext_data.__ss.__r12
-	"movq %r13, 0xB0(%rdi);"		// ctx->__mcontext_data.__ss.__r13
-	"movq %r14, 0xB8(%rdi);"		// ctx->__mcontext_data.__ss.__r14
-	"movq %r15, 0xC0(%rdi);"		// ctx->__mcontext_data.__ss.__r15
-	"movq %rsp, %rcx;"
-	"addq $0x8, %rcx;"
-	"movq %rcx, 0x80(%rdi);"		// ctx->__mcontext_data.__ss.__rsp
-	"movq %rcx, 0x8(%rdi);"			// ctx->uc_stack.ss_sp
-	"movq (%rsp), %rcx;"
-	"movq %rcx, 0xC8(%rdi);"		// ctx->__mcontext_data.__ss.__rip
-	"retq;");
-extern "C" void floor_get_context(ucontext_t* ctx) asm("floor_get_context_asm");
-#else
-// fallback to posix getcontext
-#define floor_get_context(ctx) getcontext(ctx)
-#endif
-
 // barrier handling (all the same)
 void global_barrier() {
 #if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
@@ -438,19 +564,9 @@ void global_barrier() {
 	const auto saved_local_id = floor_local_idx;
 	const auto save_item_local_linear_idx = item_local_linear_idx;
 	
-	ucontext_t* this_ctx = &item_contexts[item_local_linear_idx];
-	ucontext_t* next_ctx = &item_contexts[(item_local_linear_idx + 1u) % floor_linear_local_work_size];
-#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
-	// swapcontext à la libsystem_platform.dylib
-	this_ctx->uc_onstack &= 0x7FFFFFFF;
-	floor_get_context(this_ctx);
-	if(this_ctx->uc_onstack >= 0) {
-		this_ctx->uc_onstack |= 0x80000000;
-		floor_set_context(next_ctx);
-	}
-#else
-	swapcontext(this_ctx, next_ctx);
-#endif
+	fiber_context* this_ctx = &item_contexts[item_local_linear_idx];
+	fiber_context* next_ctx = &item_contexts[(item_local_linear_idx + 1u) % floor_linear_local_work_size];
+	this_ctx->swap_context(next_ctx);
 	
 	item_local_linear_idx = save_item_local_linear_idx;
 	floor_local_idx = saved_local_id;
