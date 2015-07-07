@@ -65,6 +65,13 @@
 #define floor_inline_always inline
 #endif
 
+// makes sure a function is (almost) never inlined (GCC+clang)
+#if defined(__GNUC__)
+#define floor_noinline __attribute__((noinline))
+#else
+#define floor_noinline
+#endif
+
 // marks a function as hidden / doesn't export it
 #if defined(__GNUC__)
 #define floor_hidden __attribute__((visibility("hidden")))

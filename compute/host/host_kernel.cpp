@@ -353,6 +353,65 @@ uint32_t get_work_dim() {
 	return floor_work_dim;
 }
 
+// lifted from libsystem_platform.dylib, w/o the slow sig handling syscall
+// NOTE: this requires that ctx has been initialized previously!
+[[noreturn]] static void floor_set_context(ucontext_t* ctx) {
+#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
+	auto mctx_data_ptr = &ctx->__mcontext_data;
+	
+	typedef int (**rip_ptr_type)(void);
+	auto rip_addr = (rip_ptr_type)mctx_data_ptr->__ss.__rip;
+	asm volatile("movq %0, %%rbx;"
+				 "movq %1, %%r12;"
+				 "movq %2, %%r13;"
+				 "movq %3, %%r14;"
+				 "movq %4, %%r15;"
+				 "movq %5, %%rsp;"
+				 "movq %6, %%rbp;"
+				 "xor %%eax, %%eax;"
+				 "jmp *%7;"
+				 : /* no output */
+				 :
+				 "m"(mctx_data_ptr->__ss.__rbx),
+				 "m"(mctx_data_ptr->__ss.__r12),
+				 "m"(mctx_data_ptr->__ss.__r13),
+				 "m"(mctx_data_ptr->__ss.__r14),
+				 "m"(mctx_data_ptr->__ss.__r15),
+				 "m"(mctx_data_ptr->__ss.__rsp),
+				 "m"(mctx_data_ptr->__ss.__rbp),
+				 "r"(rip_addr)
+				 : "%rbx", "%r12", "%r13", "%r14", "%r15", "%rsp", "%rbp", "%eax");
+	floor_unreachable();
+#else
+	// fallback to posix setcontext
+	setcontext(ctx);
+#endif
+}
+
+// again, more or less lifted from libsystem_platform.dylib, w/o the slow sig handling syscalls and stack size handling
+// NOTE: this requires that ctx has been initialized previously!
+// NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't anything wrong
+#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
+asm("floor_get_context_asm:"
+	"movq %rbx, 0x50(%rdi);"		// ctx->__mcontext_data.__ss.__rbx
+	"movq %rbp, 0x78(%rdi);"		// ctx->__mcontext_data.__ss.__rbp
+	"movq %r12, 0xA8(%rdi);"		// ctx->__mcontext_data.__ss.__r12
+	"movq %r13, 0xB0(%rdi);"		// ctx->__mcontext_data.__ss.__r13
+	"movq %r14, 0xB8(%rdi);"		// ctx->__mcontext_data.__ss.__r14
+	"movq %r15, 0xC0(%rdi);"		// ctx->__mcontext_data.__ss.__r15
+	"movq %rsp, %rcx;"
+	"addq $0x8, %rcx;"
+	"movq %rcx, 0x80(%rdi);"		// ctx->__mcontext_data.__ss.__rsp
+	"movq %rcx, 0x8(%rdi);"			// ctx->uc_stack.ss_sp
+	"movq (%rsp), %rcx;"
+	"movq %rcx, 0xC8(%rdi);"		// ctx->__mcontext_data.__ss.__rip
+	"retq;");
+extern "C" void floor_get_context(ucontext_t* ctx) asm("floor_get_context_asm");
+#else
+// fallback to posix getcontext
+#define floor_get_context(ctx) getcontext(ctx)
+#endif
+
 // barrier handling (all the same)
 void global_barrier() {
 #if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
@@ -378,8 +437,21 @@ void global_barrier() {
 	const auto saved_global_id = floor_global_idx;
 	const auto saved_local_id = floor_local_idx;
 	const auto save_item_local_linear_idx = item_local_linear_idx;
-	swapcontext(&item_contexts[item_local_linear_idx],
-				&item_contexts[(item_local_linear_idx + 1u) % floor_linear_local_work_size]);
+	
+	ucontext_t* this_ctx = &item_contexts[item_local_linear_idx];
+	ucontext_t* next_ctx = &item_contexts[(item_local_linear_idx + 1u) % floor_linear_local_work_size];
+#if defined(__APPLE__) && !defined(FLOOR_IOS) && defined(PLATFORM_X64)
+	// swapcontext à la libsystem_platform.dylib
+	this_ctx->uc_onstack &= 0x7FFFFFFF;
+	floor_get_context(this_ctx);
+	if(this_ctx->uc_onstack >= 0) {
+		this_ctx->uc_onstack |= 0x80000000;
+		floor_set_context(next_ctx);
+	}
+#else
+	swapcontext(this_ctx, next_ctx);
+#endif
+	
 	item_local_linear_idx = save_item_local_linear_idx;
 	floor_local_idx = saved_local_id;
 	floor_global_idx = saved_global_id;
