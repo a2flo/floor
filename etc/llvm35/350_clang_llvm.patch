@@ -187,7 +187,7 @@ index 9cf911b..8d61d2b 100644
    AttributeSet Attrs = CS.getAttributes();
  
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 93fabf6..2dfb759 100644
+index 93fabf6..5bf4334 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -32,10 +32,18 @@ def SM21 : SubtargetFeature<"sm_21", "SmVersion", "21",
@@ -209,7 +209,7 @@ index 93fabf6..2dfb759 100644
  
  // PTX Versions
  def PTX30 : SubtargetFeature<"ptx30", "PTXVersion", "30",
-@@ -46,6 +54,10 @@ def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
+@@ -46,6 +54,12 @@ def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
                               "Use PTX version 3.2">;
  def PTX40 : SubtargetFeature<"ptx40", "PTXVersion", "40",
                               "Use PTX version 4.0">;
@@ -217,10 +217,12 @@ index 93fabf6..2dfb759 100644
 +                             "Use PTX version 4.1">;
 +def PTX42 : SubtargetFeature<"ptx42", "PTXVersion", "42",
 +                             "Use PTX version 4.2">;
++def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
++                             "Use PTX version 4.3">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -57,8 +69,12 @@ class Proc<string Name, list<SubtargetFeature> Features>
+@@ -57,8 +71,12 @@ class Proc<string Name, list<SubtargetFeature> Features>
  def : Proc<"sm_20", [SM20]>;
  def : Proc<"sm_21", [SM21]>;
  def : Proc<"sm_30", [SM30]>;
