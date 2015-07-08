@@ -31,6 +31,19 @@
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
 
+#include <floor/core/timer.hpp>
+//#define FLOOR_HOST_KERNEL_ENABLE_TIMING 1
+
+#if defined(__APPLE__)
+#include <mach/thread_policy.h>
+#include <mach/thread_act.h>
+#elif defined(__linux__) || defined(__FreeBSD__)
+#include <pthread.h>
+#if defined(__FreeBSD__)
+#include <pthread_np.h>
+#endif
+#endif
+
 #if defined(__clang__) // ignore warnings about deprecated functions
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #endif
@@ -97,6 +110,8 @@ struct fiber_context {
 	
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
+	static constexpr const size_t min_stack_size { 4096 };
+	
 	// callee-saved registers
 	uint64_t rbp { 0 };
 	uint64_t rbx { 0 };
@@ -160,6 +175,8 @@ struct fiber_context {
 #error "not implemented yet"
 #else
 	// fallback to posix ucontext_t/etc
+	static constexpr const size_t min_stack_size { 32768 };
+	
 	ucontext_t ctx;
 	
 	void init(void* stack_ptr_, const size_t& stack_size_,
@@ -222,6 +239,25 @@ struct fiber_context {
 	//
 	uint32_t init_arg { 0 };
 };
+
+// thread affinity handling
+static void floor_set_thread_affinity(const uint32_t& affinity) {
+#if defined(__APPLE__)
+	thread_port_t thread_port = pthread_mach_thread_np(pthread_self());
+	thread_affinity_policy thread_affinity { int(affinity) };
+	thread_policy_set(thread_port, THREAD_AFFINITY_POLICY, (thread_policy_t)&thread_affinity, THREAD_AFFINITY_POLICY_COUNT);
+#elif defined(__linux__) || defined(__FreeBSD__)
+	// use gnu extension
+	cpu_set_t cpu_set;
+	CPU_ZERO(&cpu_set);
+	CPU_SET(affinity - 1, &cpu_set);
+	pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpu_set);
+#elif defined(__OpenBSD__)
+	// TODO: pthread gnu extension not available here
+#elif defined(__WINDOWS__)
+	// TODO: !
+#endif
+}
 
 // id handling vars
 static uint32_t floor_work_dim { 1u };
@@ -419,6 +455,9 @@ void host_kernel::execute_internal(compute_queue* queue,
 	atomic<uint32_t> group_idx { 0 };
 	
 	// start worker threads
+#if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
+	const auto time_start = floor_timer2::start();
+#endif
 	vector<unique_ptr<thread>> worker_threads(cpu_count);
 	for(uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
 		worker_threads[cpu_idx] = make_unique<thread>([cpu_idx, &kernel_func,
@@ -427,15 +466,19 @@ void host_kernel::execute_internal(compute_queue* queue,
 			// sanity check (mostly necessary on os x where some fool had the idea to make the size of ucontext_t define dependent)
 			static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
 			
+			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
+			// on different cpus (starting at index 1, with 0 representing no affinity)
+			floor_set_thread_affinity(cpu_idx + 1);
+			
 			// init contexts (aka fibers)
 			fiber_context main_ctx;
 			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr);
 			auto items = make_unique<fiber_context[]>(local_size);
 			item_contexts = items.get();
 			
-			// 32k stack should be enough, considering this runs on gpus (also: this is the minimum stack size on os x)
+			// 4k stack should be enough, considering this runs on gpus
 			// TODO: stack protection?
-			static constexpr const size_t item_stack_size { 32768 };
+			static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
 			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(128);
 			
 			// init fibers
@@ -484,6 +527,9 @@ void host_kernel::execute_internal(compute_queue* queue,
 	for(auto& item : worker_threads) {
 		item->join();
 	}
+#if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
+	log_debug("kernel time: %ums", double(floor_timer2::stop<chrono::microseconds>(time_start)) / 1000.0);
+#endif
 #endif
 }
 
