@@ -31,8 +31,10 @@
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
 
-#include <floor/core/timer.hpp>
 //#define FLOOR_HOST_KERNEL_ENABLE_TIMING 1
+#if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
+#include <floor/core/timer.hpp>
+#endif
 
 #if defined(__APPLE__)
 #include <mach/thread_policy.h>
