@@ -207,6 +207,7 @@ static floor_inline_always void global_read_mem_fence() {
 static floor_inline_always void global_write_mem_fence() {
 	write_mem_fence(2u);
 }
+
 static floor_inline_always void local_barrier() {
 	barrier(1u);
 }
@@ -218,6 +219,10 @@ static floor_inline_always void local_read_mem_fence() {
 }
 static floor_inline_always void local_write_mem_fence() {
 	write_mem_fence(1u);
+}
+
+static floor_inline_always void barrier() {
+	barrier(3u);
 }
 
 #endif

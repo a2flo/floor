@@ -642,5 +642,8 @@ void local_read_mem_fence() {
 void local_write_mem_fence() {
 	global_barrier();
 }
+void barrier() {
+	global_barrier();
+}
 
 #endif

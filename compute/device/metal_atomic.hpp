@@ -75,30 +75,30 @@ metal_func int32_t metal_atomic_xor(volatile local int32_t* p, int32_t val, uint
 
 // add
 floor_inline_always int32_t atomic_add(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_add(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_add(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_add(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_add(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // sub
 floor_inline_always int32_t atomic_sub(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_sub(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_sub(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_sub(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_sub(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // inc
@@ -131,142 +131,142 @@ floor_inline_always uint32_t atomic_dec(volatile local uint32_t* p) {
 
 // xchg
 floor_inline_always int32_t atomic_xchg(volatile global int32_t* p, int32_t val) {
-	const uint32_t ret = metal_atomic_xchg((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	const uint32_t ret = metal_atomic_xchg((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_xchg(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always float atomic_xchg(volatile global float* p, float val) {
-	const uint32_t ret = metal_atomic_xchg((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	const uint32_t ret = metal_atomic_xchg((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(float*)&ret;
 }
 floor_inline_always int32_t atomic_xchg(volatile local int32_t* p, int32_t val) {
-	const uint32_t ret = metal_atomic_xchg((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	const uint32_t ret = metal_atomic_xchg((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_xchg(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_xchg(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always float atomic_xchg(volatile local float* p, float val) {
-	const uint32_t ret = metal_atomic_xchg((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	const uint32_t ret = metal_atomic_xchg((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(float*)&ret;
 }
 
 // cmpxchg
 floor_inline_always int32_t atomic_cmpxchg(volatile global int32_t* p, int32_t cmp, int32_t val) {
-	const uint32_t ret = metal_atomic_cmpxchg((volatile global uint32_t*)p, (uint32_t*)&cmp, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	const uint32_t ret = metal_atomic_cmpxchg((volatile global uint32_t*)p, (uint32_t*)&cmp, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_cmpxchg(volatile global uint32_t* p, uint32_t cmp, uint32_t val) {
-	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_cmpxchg(volatile local int32_t* p, int32_t cmp, int32_t val) {
-	const uint32_t ret = metal_atomic_cmpxchg((volatile local uint32_t*)p, (uint32_t*)&cmp, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	const uint32_t ret = metal_atomic_cmpxchg((volatile local uint32_t*)p, (uint32_t*)&cmp, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_cmpxchg(volatile local uint32_t* p, uint32_t cmp, uint32_t val) {
-	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_cmpxchg(p, &cmp, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // min
 floor_inline_always int32_t atomic_min(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_min(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_min(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_min(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_min(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // max
 floor_inline_always int32_t atomic_max(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_max(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_max(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_max(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_max(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // and
 floor_inline_always int32_t atomic_and(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_and(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_and(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_and(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_and(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // or
 floor_inline_always int32_t atomic_or(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_or(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_or(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_or(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_or(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // xor
 floor_inline_always int32_t atomic_xor(volatile global int32_t* p, int32_t val) {
-	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always uint32_t atomic_xor(volatile global uint32_t* p, uint32_t val) {
-	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_xor(volatile local int32_t* p, int32_t val) {
-	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always uint32_t atomic_xor(volatile local uint32_t* p, uint32_t val) {
-	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_xor(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // store
 floor_inline_always void atomic_store(volatile global int32_t* p, int32_t val) {
-	metal_atomic_store((volatile global uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	metal_atomic_store((volatile global uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always void atomic_store(volatile global uint32_t* p, uint32_t val) {
-	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always void atomic_store(volatile local int32_t* p, int32_t val) {
-	metal_atomic_store((volatile local uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	metal_atomic_store((volatile local uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always void atomic_store(volatile local uint32_t* p, uint32_t val) {
-	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // load
 floor_inline_always int32_t atomic_load(volatile global int32_t* p) {
-	const uint32_t ret = metal_atomic_load((volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	const uint32_t ret = metal_atomic_load((volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_load(volatile global uint32_t* p) {
-	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_GLOBAL);
+	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always int32_t atomic_load(volatile local int32_t* p) {
-	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(int32_t*)&ret;
 }
 floor_inline_always uint32_t atomic_load(volatile local uint32_t* p) {
-	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SCOPE_LOCAL);
+	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // fallback for non-natively supported float atomics

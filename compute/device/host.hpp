@@ -56,6 +56,7 @@ void local_barrier();
 void local_mem_fence();
 void local_read_mem_fence();
 void local_write_mem_fence();
+void barrier();
 
 #endif
 

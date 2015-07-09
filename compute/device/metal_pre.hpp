@@ -45,11 +45,19 @@ typedef __PTRDIFF_TYPE__ ssize_t;
 typedef __SIZE_TYPE__ uintptr_t;
 typedef __PTRDIFF_TYPE__ intptr_t;
 
-// NOTE: it would appear that either cl_kernel.h or metal_compute has a bug (global and local are mismatched)
-//       -> will be assuming that mem_flags: 0 = none, 1 = global, 2 = local, 3 = global + local
-// NOTE: scope: 2 = work-group, 3 = device
-#define FLOOR_METAL_SCOPE_GLOBAL 3
-#define FLOOR_METAL_SCOPE_LOCAL 2
+// memory and synchronization scopes
+// note that the inconsistencies are intentional, apparently apple isn't sure about this either,
+// cl_kernel.h and metal_compute/metal_atomic are doing the exact opposite. it also seems like that
+// these values don't actually make a difference!? (this is to be expected on nvidia h/w, but not on powervr or intel?)
+// -> will be using metal values now, as this is hopefully better tested than opencl
+#define FLOOR_METAL_SYNC_SCOPE_GLOBAL 2
+#define FLOOR_METAL_SYNC_SCOPE_LOCAL 1
+
+#define FLOOR_METAL_MEM_SCOPE_NONE 0
+#define FLOOR_METAL_MEM_SCOPE_GLOBAL 1
+#define FLOOR_METAL_MEM_SCOPE_LOCAL 2
+#define FLOOR_METAL_MEM_SCOPE_ALL 3
+#define FLOOR_METAL_MEM_SCOPE_TEXTURE 4
 
 #endif
 

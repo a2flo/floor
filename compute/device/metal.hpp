@@ -82,12 +82,21 @@ FLOOR_GET_ID_RET_TYPE get_global_id(uint32_t dimindx) asm("air.get_global_id.i32
 FLOOR_GET_ID_RET_TYPE get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
 FLOOR_GET_ID_RET_TYPE get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
 uint32_t get_work_dim() asm("air.get_work_dim.i32");
-FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
 FLOOR_GET_ID_RET_TYPE get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
 FLOOR_GET_ID_RET_TYPE get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
 FLOOR_GET_ID_RET_TYPE get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
 FLOOR_GET_ID_RET_TYPE get_global_linear_id() asm("air.get_global_linear_id.i32");
 FLOOR_GET_ID_RET_TYPE get_local_linear_id() asm("air.get_local_linear_id.i32");
+
+// NOTE: this is broken on intel gpus -> compute it manually
+#if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
+FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
+#else
+FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) {
+	return get_local_size(dimindx) * get_num_groups(dimindx);
+}
+#endif
+
 #else // -> use cuda style get_*_id functions if nvidia on osx
 #include <floor/compute/device/cuda_id.hpp>
 #endif
@@ -102,39 +111,37 @@ FLOOR_GET_ID_RET_TYPE get_local_linear_id() asm("air.get_local_linear_id.i32");
 #define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 
 // barrier and mem_fence functionality
-void air_wg_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.wg.barrier");
-// TODO/NOTE: apparently using this leads to a deadlock during final device compilation -> use wg barrier for now
-void air_mem_barrier(uint32_t air_mem_flags, int32_t scope) __attribute__((noduplicate)) __asm("air.mem_barrier");
+// (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)
+void air_wg_barrier(uint32_t mem_scope, int32_t sync_scope) __attribute__((noduplicate)) asm("air.wg.barrier");
 
 static floor_inline_always void global_barrier() {
-	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void global_mem_fence() {
-	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
-	//air_mem_barrier(1u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void global_read_mem_fence() {
-	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
-	//air_mem_barrier(1u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void global_write_mem_fence() {
-	air_wg_barrier(1u, FLOOR_METAL_SCOPE_GLOBAL);
-	//air_mem_barrier(1u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
+
 static floor_inline_always void local_barrier() {
-	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void local_mem_fence() {
-	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
-	//air_mem_barrier(2u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void local_read_mem_fence() {
-	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
-	//air_mem_barrier(2u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 static floor_inline_always void local_write_mem_fence() {
-	air_wg_barrier(2u, FLOOR_METAL_SCOPE_LOCAL);
-	//air_mem_barrier(2u, 2);
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+
+static floor_inline_always void barrier() {
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // not supported (neither __printf_cl nor __builtin_printf work)

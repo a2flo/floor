@@ -208,29 +208,34 @@ static int printf(const char* format, Args&&... args) {
 #include <floor/compute/device/cuda_id.hpp>
 
 // barrier and mem_fence functionality
-static floor_inline_always void global_barrier() {
+static floor_inline_always void global_barrier() __attribute__((noduplicate)) {
 	__syncthreads();
 }
-static floor_inline_always void global_mem_fence() {
+static floor_inline_always void global_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void global_read_mem_fence() {
+static floor_inline_always void global_read_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void global_write_mem_fence() {
+static floor_inline_always void global_write_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void local_barrier() {
+
+static floor_inline_always void local_barrier() __attribute__((noduplicate)) {
 	__syncthreads();
 }
-static floor_inline_always void local_mem_fence() {
+static floor_inline_always void local_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void local_read_mem_fence() {
+static floor_inline_always void local_read_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void local_write_mem_fence() {
+static floor_inline_always void local_write_mem_fence() __attribute__((noduplicate)) {
 	__nvvm_membar_cta();
+}
+
+static floor_inline_always void barrier() __attribute__((noduplicate)) {
+	__syncthreads();
 }
 
 // done

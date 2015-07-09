@@ -64,6 +64,13 @@
 		5C20C8CF1B4139260005F5EA /* host_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C20C8C01B4139260005F5EA /* host_program.hpp */; };
 		5C20C8D01B4139260005F5EA /* host_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8C11B4139260005F5EA /* host_queue.cpp */; };
 		5C20C8D11B4139260005F5EA /* host_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C20C8C21B4139260005F5EA /* host_queue.hpp */; };
+		5C266C351B4E84C90055F511 /* host_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B71B4139260005F5EA /* host_compute.cpp */; };
+		5C266C361B4E84C90055F511 /* host_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B41B4139260005F5EA /* host_buffer.cpp */; };
+		5C266C371B4E84C90055F511 /* host_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8B91B4139260005F5EA /* host_device.cpp */; };
+		5C266C381B4E84C90055F511 /* host_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BB1B4139260005F5EA /* host_image.cpp */; };
+		5C266C391B4E84C90055F511 /* host_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BD1B4139260005F5EA /* host_kernel.cpp */; };
+		5C266C3A1B4E84C90055F511 /* host_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BF1B4139260005F5EA /* host_program.cpp */; };
+		5C266C3B1B4E84C90055F511 /* host_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8C11B4139260005F5EA /* host_queue.cpp */; };
 		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
@@ -1117,6 +1124,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C266C351B4E84C90055F511 /* host_compute.cpp in Sources */,
+				5C266C361B4E84C90055F511 /* host_buffer.cpp in Sources */,
+				5C266C371B4E84C90055F511 /* host_device.cpp in Sources */,
+				5C266C381B4E84C90055F511 /* host_image.cpp in Sources */,
+				5C266C391B4E84C90055F511 /* host_kernel.cpp in Sources */,
+				5C266C3A1B4E84C90055F511 /* host_program.cpp in Sources */,
+				5C266C3B1B4E84C90055F511 /* host_queue.cpp in Sources */,
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,

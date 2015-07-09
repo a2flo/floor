@@ -78,7 +78,9 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	}
 	// -> shared host/opengl image
 	else {
+#if !defined(FLOOR_IOS)
 		if(!create_gl_image(copy_host_data)) return false;
+#endif
 		
 		// TODO: implement this!
 		
@@ -96,7 +98,9 @@ host_image::~host_image() {
 			log_warn("image still registered for opengl use - acquire before destructing a compute image!");
 		}
 		if(!gl_object_state) release_opengl_object(nullptr); // -> release to opengl
+#if !defined(FLOOR_IOS)
 		delete_gl_image();
+#endif
 	}
 	// then, also kill the host image
 	if(image != nullptr) {
