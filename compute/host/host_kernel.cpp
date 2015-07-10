@@ -112,7 +112,7 @@ struct fiber_context {
 	
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
-	static constexpr const size_t min_stack_size { 4096 };
+	static constexpr const size_t min_stack_size { 8192 };
 	
 	// callee-saved registers
 	uint64_t rbp { 0 };
