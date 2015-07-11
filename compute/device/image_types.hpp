@@ -54,8 +54,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! optional type: image uses gather sampling (aka tld4/fetch4)
 	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
-	// TODO: actually needed/wanted?
-	//FLAG_NORMALIZED_DATA	= (1u << (__FLAG_SHIFT + 11u)),
+	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
 	//! optional type: image data is stored in reverse order (i.e. BGRA instead of RGBA)
 	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
 	
@@ -188,6 +187,37 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 	//////////////////////////////////////////
 	// -> convenience aliases
+	
+	//! normalized unsigned integer formats (for consistency with opengl, without a UI and _NORM suffix)
+	R8						= CHANNELS_1 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RG8						= CHANNELS_2 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RGB8					= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RGBA8					= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	R16						= CHANNELS_1 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RG16					= CHANNELS_2 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RGB16					= CHANNELS_3 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RGBA16					= CHANNELS_4 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	//! normalized unsigned integer formats
+	R8UI_NORM				= CHANNELS_1 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RG8UI_NORM				= CHANNELS_2 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RGB8UI_NORM				= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	RGBA8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	R16UI_NORM				= CHANNELS_1 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RG16UI_NORM				= CHANNELS_2 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RGB16UI_NORM			= CHANNELS_3 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	RGBA16UI_NORM			= CHANNELS_4 | FORMAT_16 | UINT | FLAG_NORMALIZED,
+	
+	//! normalized integer formats
+	R8I_NORM				= CHANNELS_1 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	RG8I_NORM				= CHANNELS_2 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	RGB8I_NORM				= CHANNELS_3 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	RGBA8I_NORM				= CHANNELS_4 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	R16I_NORM				= CHANNELS_1 | FORMAT_16 | INT | FLAG_NORMALIZED,
+	RG16I_NORM				= CHANNELS_2 | FORMAT_16 | INT | FLAG_NORMALIZED,
+	RGB16I_NORM				= CHANNELS_3 | FORMAT_16 | INT | FLAG_NORMALIZED,
+	RGBA16I_NORM			= CHANNELS_4 | FORMAT_16 | INT | FLAG_NORMALIZED,
+	
+	//! non-normalized formats
 	R8UI					= CHANNELS_1 | FORMAT_8 | UINT,
 	RG8UI					= CHANNELS_2 | FORMAT_8 | UINT,
 	RGB8UI					= CHANNELS_3 | FORMAT_8 | UINT,
@@ -296,6 +326,36 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 		case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24;
 		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return 32;
 		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return 40;
+		default: return 0;
+	}
+}
+
+//! returns the amount of bits needed to store the specified channel
+static constexpr uint32_t image_bits_of_channel(const COMPUTE_IMAGE_TYPE& image_type, const uint32_t& channel) {
+	if(channel >= image_channel_count(image_type)) return 0;
+	switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
+		// arbitrary channel formats
+		case COMPUTE_IMAGE_TYPE::FORMAT_2: return 2;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4: return 4;
+		case COMPUTE_IMAGE_TYPE::FORMAT_8: return 8;
+		case COMPUTE_IMAGE_TYPE::FORMAT_16: return 16;
+		case COMPUTE_IMAGE_TYPE::FORMAT_32: return 32;
+		case COMPUTE_IMAGE_TYPE::FORMAT_64: return 64;
+			
+		// special channel specific formats
+		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel <= 1 ? 3 : 2);
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 5;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1: return (channel <= 2 ? 5 : 1);
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel == 1 ? 6 : 5);
+		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5: return (channel <= 2 ? 14 : 0); // tricky
+		case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10;
+		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2: return (channel <= 2 ? 10 : 2);
+		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel <= 1 ? 11 : 10);
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 12;
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 12;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return (channel == 0 ? 24 : 8);
+		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return (channel == 0 ? 32 : 8);
 		default: return 0;
 	}
 }

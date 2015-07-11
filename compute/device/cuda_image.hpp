@@ -156,90 +156,13 @@ image<image_type & (~COMPUTE_IMAGE_TYPE::READ) | COMPUTE_IMAGE_TYPE::WRITE>;
 template <COMPUTE_IMAGE_TYPE image_type> using cuda_rw_image =
 image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ_WRITE>;
 
-#if 0
-//
-template <typename ret_type,
-		  COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<((is_same<ret_type, uchar4>::value ||
-					   is_same<ret_type, char4>::value) &&
-					   is_surf<image_type>())>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, const int2& coord) {
-	ret_type ret;
-	asm("suld.b.2d.v4.b8.clamp { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) :
-		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y));
-	return ret;
-}
+// TODO: half float support
+// TODO: use suld (surface load) when appropriate?
 
-// TODO: half float?
-template <typename ret_type,
-		  COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<is_same<ret_type, float4>::value && is_surf<image_type>()>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, const int2& coord) {
-	ret_type ret;
-	asm("suld.b.2d.v4.b32.clamp { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
-		"l"(img.surf), "r"(coord.x * 32), "r"(coord.y));
-	return ret;
-}
-
+// image read functions
 template <COMPUTE_IMAGE_TYPE image_type,
-		  typename ret_type = typename cuda_surf_texel_data_type<image_type>::type,
-		  enable_if_t<is_same<ret_type, float4>::value && is_surf<image_type>()>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, const int2& coord) {
-	ret_type ret;
-	asm("suld.b.2d.v4.b32.clamp { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
-		"l"(img.surf), "r"(coord.x * 32), "r"(coord.y));
-	return ret;
-}
-#endif
-
-template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type = uchar4,
-enable_if_t<is_same<surf_data_type, uchar4>::value>* = nullptr>
-floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& data) {
-	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
-		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
-		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
-}
-
-template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type,
-enable_if_t<is_same<surf_data_type, float4>::value>* = nullptr>
-floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& unscaled_data) {
-	uchar4 data = unscaled_data * 255.0f;
-	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
-		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
-		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
-}
-
-#if 0
-// will only work with 32-bit uint types?
-template <typename ret_type = tex_data_type, COMPUTE_IMAGE_TYPE itype = image_type, enable_if_t<is_uint<itype>() && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER>(itype)>* = nullptr>
-floor_inline_always auto read(int2 coord) const {
-	uint4 ret;
-	asm("tex.2d.v4.u32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) :
-		"l"(surf), "r"(coord.x), "r"(coord.y));
-	return ret;
-}
-#endif
-
-// TODO: do this properly
-template <COMPUTE_IMAGE_TYPE image_type>
-static constexpr bool is_int32_format() {
-	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
-			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
-}
-
-template <COMPUTE_IMAGE_TYPE image_type>
-static constexpr bool is_uint32_format() {
-	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
-}
-
-template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(!is_uint32_format<image_type>() &&
-					   !is_int32_format<image_type>() &&
+		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	float4 color;
@@ -250,8 +173,8 @@ floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 }
 
 template <COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<(!is_uint32_format<image_type>() &&
-					   is_int32_format<image_type>() &&
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	int4 color;
@@ -262,9 +185,9 @@ floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 }
 
 template <COMPUTE_IMAGE_TYPE image_type,
-enable_if_t<(is_uint32_format<image_type>() &&
-			 !is_int32_format<image_type>() &&
-			 has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
 floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	uint4 color;
 	asm("tex.2d.v4.u32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
@@ -273,18 +196,23 @@ floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	return image_vec_ret_type<image_type, uint32_t>::fit(color);
 }
 
-// TODO: support non-float types
-#if 0
-template <typename ret_type, COMPUTE_IMAGE_TYPE image_type,
-		  enable_if_t<is_same<ret_type, uchar4>::value && has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)>* = nullptr>
-floor_inline_always ret_type read(const image<image_type>& img, int2 coord) {
-	float4 ret;
-	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
-		"=f"(ret.x), "=f"(ret.y), "=f"(ret.z), "=f"(ret.w) :
-		"l"(img.tex), "r"(coord.x), "r"(coord.y));
-	return uchar4 { ret * 255.0f };
+// image write functions
+template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type = uchar4,
+		  enable_if_t<is_same<surf_data_type, uchar4>::value>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& data) {
+	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
+		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
+		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
 }
-#endif
+
+template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type,
+		  enable_if_t<is_same<surf_data_type, float4>::value>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& unscaled_data) {
+	uchar4 data = unscaled_data * 255.0f;
+	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
+		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
+		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
+}
 
 #endif
 

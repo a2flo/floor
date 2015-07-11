@@ -250,22 +250,10 @@ auto convert_ocl_coord(const coord_type& coord) {
 	return ret_coord_type { coord };
 }
 
-// TODO: do this properly
-template <COMPUTE_IMAGE_TYPE image_type>
-static constexpr bool is_int32_format() {
-	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
-			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
-}
-
-template <COMPUTE_IMAGE_TYPE image_type>
-static constexpr bool is_uint32_format() {
-	return ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-			(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32);
-}
-
 // floor image read/write wrappers
 template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
-		  enable_if_t<!is_uint32_format<image_type>() && !is_int32_format<image_type>(), int> = 0>
+		  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT), int> = 0>
 auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
@@ -277,7 +265,8 @@ auto read_image(const ocl_img_type& img, const coord_type& coord) {
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
-		  enable_if_t<!is_uint32_format<image_type>() && is_int32_format<image_type>(), int> = 0>
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT), int> = 0>
 auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
@@ -289,7 +278,8 @@ auto read_image(const ocl_img_type& img, const coord_type& coord) {
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename ocl_img_type, typename coord_type,
-		  enable_if_t<is_uint32_format<image_type>() && !is_int32_format<image_type>(), int> = 0>
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT), int> = 0>
 auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #if defined(FLOOR_COMPUTE_SPIR)
 	const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;

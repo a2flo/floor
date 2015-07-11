@@ -35,36 +35,6 @@ host_image::host_image(const host_device* device,
 					   const opengl_image_info* gl_image_info) :
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
-	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
-		case COMPUTE_MEMORY_FLAG::READ:
-			break;
-		case COMPUTE_MEMORY_FLAG::WRITE:
-			break;
-		case COMPUTE_MEMORY_FLAG::READ_WRITE:
-			break;
-			// all possible cases handled
-		default: floor_unreachable();
-	}
-	
-	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
-		case COMPUTE_MEMORY_FLAG::HOST_READ:
-			break;
-		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
-			break;
-		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
-			// both - this is the default
-			break;
-		case COMPUTE_MEMORY_FLAG::NONE:
-			break;
-			// all possible cases handled
-		default: floor_unreachable();
-	}
-	
-	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		// "CL_MEM_COPY_HOST_PTR"
-	}
-	
 	// actually create the image
 	if(!create_internal(true, nullptr)) {
 		return; // can't do much else
@@ -74,7 +44,14 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	// -> normal host image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		// TODO: implement this!
+		image = new uint8_t[image_data_size] alignas(128);
+		
+		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
+		if(copy_host_data &&
+		   host_ptr != nullptr &&
+		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			memcpy(image, host_ptr, image_data_size);
+		}
 	}
 	// -> shared host/opengl image
 	else {
@@ -104,7 +81,7 @@ host_image::~host_image() {
 	}
 	// then, also kill the host image
 	if(image != nullptr) {
-		// TODO: implement this!
+		delete [] image;
 	}
 }
 
@@ -113,7 +90,7 @@ void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cq
 	if(image == nullptr) return nullptr;
 	
 	// TODO: implement this!
-	return nullptr;
+	return image;
 }
 
 void host_image::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {

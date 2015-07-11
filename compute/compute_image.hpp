@@ -111,6 +111,11 @@ public:
 												   const uint32_t& opengl_target,
 												   const COMPUTE_MEMORY_FLAG& flags);
 	
+	//! returns the image dim variable with which this image has been created
+	const uint4& get_image_dim() const {
+		return image_dim;
+	}
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;

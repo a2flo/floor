@@ -113,6 +113,7 @@ struct fiber_context {
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
 	static constexpr const size_t min_stack_size { 8192 };
+	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
 	
 	// callee-saved registers
 	uint64_t rbp { 0 };
@@ -130,23 +131,40 @@ struct fiber_context {
 			  init_func_type init_func_, const uint32_t& init_arg_,
 			  fiber_context* exit_ctx_) {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+		
+		if(stack_ptr != nullptr) {
+			// check stack pointer validity (must be 16-byte aligned)
+			if(size_t(stack_ptr) % 16u != 0u) {
+				log_error("stack must be 16-byte aligned!"); logger::flush();
+				return;
+			}
+			
+			// set the first 64-bit value on the stack to this context and the second value to a canary value
+			// note that this is only done once, not on every reset, because:
+			//  a) it isn't necessary (if everything goes well)
+			//  b) if the user kernel code does overwrite this (stack overflow), this will certainly crash (as it should!)
+			auto stack_addr = (uint64_t*)stack_ptr + stack_size / 8ull;
+			*(stack_addr - 1u) = (uint64_t)this;
+			// for stack protection (well, corruption detection ...) purposes
+			// TODO: check this on exit (in debug mode or when manually enabled)
+			*(stack_addr - 2u) = 0x0123456789ABCDEFull;
+		}
 	}
 	
 	void reset() {
 		// reset registers, set rip to enter_context and reset rsp
+#if defined(FLOOR_DEBUG) // this isn't actually necessary
 		rbp = 0;
 		rbx = 0;
 		r12 = 0;
 		r13 = 0;
 		r14 = 0;
 		r15 = 0;
-		// we're pushing two 64-bit values here + needs to be 16-byte aligned
+#endif
+		// we've pushed two 64-bit values here + needs to be 16-byte aligned
 		rsp = ((size_t)stack_ptr) + stack_size - 16u;
 		rip = (uint64_t)floor_enter_context;
-		// set first 64-bit value on stack to this context
 		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
-		// for stack protection (well, corruption detection ...) purposes
-		// TODO: check this on exit (in debug mode or when manually enabled)
 		*(uint64_t*)(rsp) = 0x0123456789ABCDEF;
 	}
 	
@@ -293,8 +311,11 @@ void* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) {
 	return ((host_buffer*)buffer.get())->get_host_buffer_ptr();
 }
 
-void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
-	return ((host_image*)image.get())->get_host_image_buffer_ptr();
+host_kernel::host_image_arg host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
+	return {
+		((host_image*)image.get())->get_host_image_buffer_ptr(),
+		image->get_image_dim()
+	};
 }
 
 void host_kernel::execute_internal(compute_queue* queue,
