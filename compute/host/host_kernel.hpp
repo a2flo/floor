@@ -83,8 +83,7 @@ protected:
 	
 	template <typename T> void* handle_kernel_arg(T&& obj) { return (void*)&obj; }
 	void* handle_kernel_arg(shared_ptr<compute_buffer> buffer);
-	struct host_image_arg { void* ptr; uint4 dim; };
-	host_image_arg handle_kernel_arg(shared_ptr<compute_image> buffer);
+	void* handle_kernel_arg(shared_ptr<compute_image> buffer);
 	
 	void execute_internal(compute_queue* queue,
 						  const uint32_t work_dim,

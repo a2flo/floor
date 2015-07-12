@@ -250,6 +250,8 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	RG32F					= CHANNELS_2 | FORMAT_32 | FLOAT,
 	RGB32F					= CHANNELS_3 | FORMAT_32 | FLOAT,
 	RGBA32F					= CHANNELS_4 | FORMAT_32 | FLOAT,
+	
+	//! depth and depth+stencil formats
 	D16						= IMAGE_DEPTH | FORMAT_16 | UINT,
 	D24						= IMAGE_DEPTH | FORMAT_24 | UINT,
 	D32						= IMAGE_DEPTH | FORMAT_32 | UINT,

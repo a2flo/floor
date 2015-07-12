@@ -311,11 +311,8 @@ void* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) {
 	return ((host_buffer*)buffer.get())->get_host_buffer_ptr();
 }
 
-host_kernel::host_image_arg host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
-	return {
-		((host_image*)image.get())->get_host_image_buffer_ptr(),
-		image->get_image_dim()
-	};
+void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
+	return ((host_image*)image.get())->get_host_image_kernel_info();
 }
 
 void host_kernel::execute_internal(compute_queue* queue,

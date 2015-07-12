@@ -42,9 +42,12 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+	kernel_info.image_dim = image_dim;
+	
 	// -> normal host image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		image = new uint8_t[image_data_size] alignas(128);
+		kernel_info.buffer = image;
 		
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
