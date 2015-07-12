@@ -293,7 +293,8 @@ auto read_image(const ocl_img_type& img, const coord_type& coord) {
 #define FLOOR_IMAGE_TYPE_EXTRACT(img) ((COMPUTE_IMAGE_TYPE)(\
 __builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | \
 __builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) | \
-__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__FORMAT_MASK)))
+__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::__FORMAT_MASK) | \
+__builtin_image_type_extract(img, COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED)))
 
 #define read(img, ...) read_image<FLOOR_IMAGE_TYPE_EXTRACT(img)>(img, __VA_ARGS__)
 
