@@ -106,6 +106,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 	//! bits 0-7: formats
 	//! NOTE: unless specified otherwise, a format is usable with any channel count
+	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
 	__FORMAT_MASK			= (0x000000FFu),
 	//! 2 bits per channel
 	FORMAT_2				= (1u),
