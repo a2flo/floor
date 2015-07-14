@@ -302,14 +302,14 @@ void opencl_compute::init(const bool use_platform_devices,
 			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
 			device.max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
-			device.max_work_group_size = cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
+			device.max_work_group_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
 			const auto max_work_group_item_sizes = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
 			if(max_work_group_item_sizes.size() != 3) {
 				log_warn("max workgroup sizes dim != 3: %u", max_work_group_item_sizes.size());
 			}
-			if(max_work_group_item_sizes.size() >= 1) device.max_work_group_item_sizes.x = max_work_group_item_sizes[0];
-			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = max_work_group_item_sizes[1];
-			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = max_work_group_item_sizes[2];
+			if(max_work_group_item_sizes.size() >= 1) device.max_work_group_item_sizes.x = (uint32_t)max_work_group_item_sizes[0];
+			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = (uint32_t)max_work_group_item_sizes[1];
+			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
 			
 #if defined(__APPLE__)
 			// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by SIMD width

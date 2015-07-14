@@ -49,8 +49,8 @@ public:
 	void remove_event_handler(const handler& handler_);
 	void remove_event_types_from_handler(const handler& handler_, const set<EVENT_TYPE>& types);
 
-	//! gets the mouses position (pnt)
-	pnt get_mouse_pos() const;
+	//! gets the mouses position
+	uint2 get_mouse_pos() const;
 	
 	void set_ldouble_click_time(unsigned int dctime);
 	void set_rdouble_click_time(unsigned int dctime);

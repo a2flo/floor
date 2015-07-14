@@ -67,8 +67,8 @@ public:
 	
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim,
-											 const size3 global_work_size,
-											 const size3 local_work_size,
+											 const uint3 global_work_size,
+											 const uint3 local_work_size,
 											 Args&&... args) {
 		execute_internal(queue, work_dim, global_work_size, local_work_size,
 						 [this, args...] { (*kernel)(handle_kernel_arg(args)...); });
@@ -87,8 +87,8 @@ protected:
 	
 	void execute_internal(compute_queue* queue,
 						  const uint32_t work_dim,
-						  const size3 global_work_size,
-						  const size3 local_work_size,
+						  const uint3 global_work_size,
+						  const uint3 local_work_size,
 						  const function<void()>& kernel_func);
 	
 };

@@ -293,12 +293,16 @@ static _Thread_local uint3 floor_group_idx;
 
 // barrier handling vars
 // -> mt-item
+#if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
 static atomic<uint32_t> barrier_counter { 0 };
 static atomic<uint32_t> barrier_gen { 0 };
 static uint32_t barrier_users { 0 };
+#endif
 // -> mt-group
+#if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
 static _Thread_local uint32_t item_local_linear_idx { 0 };
 static _Thread_local fiber_context* item_contexts { nullptr };
+#endif
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
@@ -317,8 +321,8 @@ void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
 
 void host_kernel::execute_internal(compute_queue* queue,
 								   const uint32_t work_dim,
-								   const size3 global_work_size,
-								   const size3 local_work_size,
+								   const uint3 global_work_size,
+								   const uint3 local_work_size,
 								   const function<void()>& kernel_func) {
 	//
 	cur_kernel_function = &kernel_func;
@@ -349,9 +353,9 @@ void host_kernel::execute_internal(compute_queue* queue,
 	
 #if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 	// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
-	size3& global_idx = floor_global_idx;
-	size3& local_idx = floor_local_idx;
-	size3& group_idx = floor_group_idx;
+	uint3& global_idx = floor_global_idx;
+	uint3& local_idx = floor_local_idx;
+	uint3& group_idx = floor_group_idx;
 	for(uint32_t group_x = 0; group_x < group_dim.x; ++group_x) {
 		for(uint32_t group_y = 0; group_y < group_dim.y; ++group_y) {
 			for(uint32_t group_z = 0; group_z < group_dim.z; ++group_z) {
@@ -576,29 +580,29 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
 
 // id handling implementation
 #include <floor/compute/device/host.hpp>
-size_t get_global_id(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 0;
-	return floor_global_idx[dimindx];
+uint32_t get_global_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_global_idx[dim];
 }
-size_t get_global_size(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 1;
-	return floor_global_work_size[dimindx];
+uint32_t get_global_size(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_global_work_size[dim];
 }
-size_t get_local_id(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 0;
-	return floor_local_idx[dimindx];
+uint32_t get_local_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_local_idx[dim];
 }
-size_t get_local_size(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 1;
-	return floor_local_work_size[dimindx];
+uint32_t get_local_size(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_local_work_size[dim];
 }
-size_t get_group_id(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 0;
-	return floor_group_idx[dimindx];
+uint32_t get_group_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_group_idx[dim];
 }
-size_t get_num_groups(uint32_t dimindx) {
-	if(dimindx >= floor_work_dim) return 1;
-	return floor_group_size[dimindx];
+uint32_t get_num_groups(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_group_size[dim];
 }
 uint32_t get_work_dim() {
 	return floor_work_dim;

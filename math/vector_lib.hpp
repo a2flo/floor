@@ -108,12 +108,6 @@ FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 2)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 3)
 FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TYPEDEF, 4)
 
-// misc aliases
-typedef uint2 pnt;
-typedef int2 ipnt;
-typedef float2 coord;
-typedef uint3 index3;
-
 // necessary non-osx/ios aliases
 #if !defined(__APPLE__) || (defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST))
 #if defined(PLATFORM_X64)

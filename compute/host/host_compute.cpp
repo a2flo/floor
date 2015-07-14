@@ -183,11 +183,11 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 	device.max_work_group_size = 1024; // TODO: -> sync with value in host_kernel
 	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
 #endif
-	device.max_work_item_sizes = { sizeof(uint64_t) };
+	device.max_work_item_sizes = { 0xFFFFFFFFu };
 	device.max_image_1d_dim = { 0 };
 	device.max_image_2d_dim = { 0, 0 };
 	device.max_image_3d_dim = { 0, 0, 0 };
-	device.image_support = false; // TODO: add image s/w support
+	device.image_support = true;
 	device.double_support = true;
 	device.unified_memory = true;
 	device.basic_64_bit_atomics_support = true; // TODO: also true on arm?

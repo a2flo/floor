@@ -40,24 +40,26 @@ void core::init() {
  *  @param v the 3d vertex
  *  @param p the 2d screen position
  */
-ipnt core::get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
+int2 core::get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
 	// transform vector (*TMVP)
 	const float3 mview_vec = vec * mview; // save tmp result, needed later
 	float3 proj_vec = mview_vec * mproj;
 	
 	// check if point is behind cam / "invisible"
 	if(mview_vec.z >= 0.0f) {
-		return ipnt(numeric_limits<int>::min());
+		return int2 { numeric_limits<int>::min() };
 	}
 	
 	proj_vec *= -1.0f / mview_vec.z;
 	
 	// and finally: compute window position
-	return ipnt((int)(viewport[2] * (proj_vec.x * 0.5f + 0.5f) + viewport[0]),
-				(int)(viewport[3] - viewport[3] * (proj_vec.y * 0.5f + 0.5f) + viewport[1])); // flip y
+	return {
+		(int)(viewport[2] * (proj_vec.x * 0.5f + 0.5f) + viewport[0]),
+		(int)(viewport[3] - viewport[3] * (proj_vec.y * 0.5f + 0.5f) + viewport[1]) // flip y
+	};
 }
 
-float3 core::get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
+float3 core::get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport) {
 	const matrix4f ipm((mview * mproj).invert());
 	const float3 wnd_vec((((p.x - float(viewport[0])) * 2.0f) / float(viewport[2])) - 1.0f,
 						 (((p.y - float(viewport[1])) * 2.0f) / float(viewport[3])) - 1.0f,
@@ -310,7 +312,7 @@ void core::compute_normal(const float3& v1, const float3& v2, const float3& v3, 
  */
 void core::compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
 										   float3& normal, float3& binormal, float3& tangent,
-										   const coord& t1, const coord& t2, const coord& t3) {
+										   const float2& t1, const float2& t2, const float2& t3) {
 	// compute deltas
 	const float delta_x1 = t2.x - t1.x;
 	const float delta_y1 = t2.y - t1.y;

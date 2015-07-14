@@ -29,11 +29,13 @@ opencl_kernel::~opencl_kernel() {}
 
 void opencl_kernel::execute_internal(compute_queue* queue,
 									 const uint32_t& work_dim,
-									 const size3& global_work_size,
-									 const size3& local_work_size) {
+									 const uint3& global_work_size,
+									 const uint3& local_work_size) {
+	const size3 global_ws { global_work_size };
+	const size3 local_ws { local_work_size };
 	const auto exec_error = clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
 												   kernel, work_dim, nullptr,
-												   global_work_size.data(), local_work_size.data(),
+												   global_ws.data(), local_ws.data(),
 												   // TODO: use of event stuff?
 												   0, nullptr, nullptr);
 	if(exec_error != CL_SUCCESS) {

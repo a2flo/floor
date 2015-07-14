@@ -90,9 +90,9 @@ template<EVENT_TYPE event_type> struct event_object_base : public event_object {
 
 // mouse events
 template<EVENT_TYPE event_type> struct mouse_event_base : public event_object_base<event_type> {
-	const ipnt position;
+	const int2 position;
 	const float pressure;
-	mouse_event_base(const unsigned int& time_, const ipnt& position_, const float& pressure_) :
+	mouse_event_base(const unsigned int& time_, const int2& position_, const float& pressure_) :
 	event_object_base<event_type>(time_), position(position_), pressure(pressure_) {}
 };
 
@@ -108,10 +108,10 @@ template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_
 };
 
 template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_event_base<event_type> {
-	const ipnt move;
+	const int2 move;
 	mouse_move_event_base(const unsigned int& time_,
-						  const ipnt& position_,
-						  const ipnt& move_,
+						  const int2& position_,
+						  const int2& move_,
 						  const float& pressure_)
 	: mouse_event_base<event_type>(time_, position_, pressure_), move(move_) {}
 };
@@ -119,7 +119,7 @@ template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_even
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
 	const unsigned int amount;
 	mouse_wheel_event_base(const unsigned int& time_,
-						   const ipnt& position_,
+						   const int2& position_,
 						   const unsigned int& amount_)
 	: mouse_event_base<event_type>(time_, position_, 0.0f), amount(amount_) {}
 };

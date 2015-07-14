@@ -40,8 +40,8 @@ public:
 	
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim,
-											 const size3 global_work_size,
-											 const size3 local_work_size,
+											 const uint3 global_work_size,
+											 const uint3 local_work_size,
 											 Args&&... args) REQUIRES(!args_lock) {
 		// need to make sure that only one thread is setting kernel arguments at a time
 		GUARD(args_lock);
@@ -63,8 +63,8 @@ protected:
 	
 	void execute_internal(compute_queue* queue,
 						  const uint32_t& work_dim,
-						  const size3& global_work_size,
-						  const size3& local_work_size);
+						  const uint3& global_work_size,
+						  const uint3& local_work_size);
 	
 	//! handle kernel call terminator
 	template <cl_uint num>

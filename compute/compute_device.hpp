@@ -120,12 +120,12 @@ public:
 	//! max chunk size that can be allocated in global memory
 	uint64_t max_mem_alloc { 0u };
 	//! max number of active work-items in a work-group (CUDA: threads per block)
-	size_t max_work_group_size { 0u };
+	uint32_t max_work_group_size { 0u };
 	//! max amount of work-items that can be active/used per dimension
 	//! (OpenCL: devices sizeof(size_t) range, CUDA: grid dim * block dim)
 	ulong3 max_work_item_sizes;
 	//! max amount of work-items that can be active/used per work-group (CUDA: block dim)
-	size3 max_work_group_item_sizes;
+	uint3 max_work_group_item_sizes;
 	//! max 1D image dimensions
 	size_t max_image_1d_dim { 0u };
 	//! max 2D image dimensions

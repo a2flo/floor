@@ -123,6 +123,16 @@ _LIBCPP_END_NAMESPACE_STD
 #include <floor/compute/device/host.hpp>
 #endif
 
+// id handling through "variables"/objects (cuda handles this slightly differently -> defined in cuda.hpp)
+#if !defined(FLOOR_COMPUTE_CUDA) && !(defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA))
+#define global_id uint3 { get_global_id(0), get_global_id(1), get_global_id(2) }
+#define global_size uint3 { get_global_size(0), get_global_size(1), get_global_size(2) }
+#define local_id uint3 { get_local_id(0), get_local_id(1), get_local_id(2) }
+#define local_size uint3 { get_local_size(0), get_local_size(1), get_local_size(2) }
+#define group_id uint3 { get_group_id(0), get_group_id(1), get_group_id(2) }
+#define group_size uint3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+#endif
+
 // always include const_math (and const_select) functionality
 #include <floor/constexpr/const_math.hpp>
 

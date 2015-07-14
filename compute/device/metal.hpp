@@ -78,37 +78,36 @@ namespace std {
 
 // these functions are defined for metal on ios and for intel on osx (TODO: amd?), but not for nvidia on osx!
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
-FLOOR_GET_ID_RET_TYPE get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
-FLOOR_GET_ID_RET_TYPE get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
-FLOOR_GET_ID_RET_TYPE get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
-uint32_t get_work_dim() asm("air.get_work_dim.i32");
-FLOOR_GET_ID_RET_TYPE get_global_offset(uint32_t dimindx) asm("air.get_global_offset.i32");
-FLOOR_GET_ID_RET_TYPE get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
-FLOOR_GET_ID_RET_TYPE get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
-FLOOR_GET_ID_RET_TYPE get_global_linear_id() asm("air.get_global_linear_id.i32");
-FLOOR_GET_ID_RET_TYPE get_local_linear_id() asm("air.get_local_linear_id.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_global_id(uint32_t dimindx) asm("air.get_global_id.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_local_id (uint32_t dimindx) asm("air.get_local_id.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_local_size(uint32_t dimindx) asm("air.get_local_size.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_group_id(uint32_t dimindx) asm("air.get_group_id.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_num_groups(uint32_t dimindx) asm("air.get_num_groups.i32");
+uint32_t metal_get_work_dim() asm("air.get_work_dim.i32");
 
 // NOTE: this is broken on intel gpus -> compute it manually
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
-FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
+FLOOR_GET_ID_RET_TYPE metal_get_global_size(uint32_t dimindx) asm("air.get_global_size.i32");
 #else
-FLOOR_GET_ID_RET_TYPE get_global_size(uint32_t dimindx) {
+FLOOR_GET_ID_RET_TYPE metal_get_global_size(uint32_t dimindx) {
 	return get_local_size(dimindx) * get_num_groups(dimindx);
 }
 #endif
+
+// wrap metal id handling functions so that uint32_t is always returned
+floor_inline_always uint32_t get_global_id(uint32_t dim) { return uint32_t(metal_get_global_id(dim)); }
+floor_inline_always uint32_t get_global_size(uint32_t dim) { return uint32_t(metal_get_global_size(dim)); }
+floor_inline_always uint32_t get_local_id(uint32_t dim) { return uint32_t(metal_get_local_id(dim)); }
+floor_inline_always uint32_t get_local_size(uint32_t dim) { return uint32_t(metal_get_local_size(dim)); }
+floor_inline_always uint32_t get_group_id(uint32_t dim) { return uint32_t(metal_get_group_id(dim)); }
+floor_inline_always uint32_t get_num_groups(uint32_t dim) { return uint32_t(metal_get_num_groups(dim)); }
+floor_inline_always uint32_t get_work_dim(uint32_t dim) { return metal_get_work_dim(); }
 
 #else // -> use cuda style get_*_id functions if nvidia on osx
 #include <floor/compute/device/cuda_id.hpp>
 #endif
 
 #undef FLOOR_GET_ID_RET_TYPE
-
-#define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
-#define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
-#define local_id size3 { get_local_id(0), get_local_id(1), get_local_id(2) }
-#define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
-#define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
-#define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 
 // barrier and mem_fence functionality
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)

@@ -257,8 +257,8 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 				device.mem_clock = 1600; // ram clock
 				break;
 		}
-		device.max_work_group_item_sizes = { 512, 512, 512 }; // note: not entirely sure if this is correct,
-		device.max_work_item_sizes = { sizeof(uint64_t) };    //       could also be (2^57, 2^57, 512)
+		device.max_work_group_item_sizes = { 512, 512, 512 };
+		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
 		device.max_image_1d_dim = { 4096 };
@@ -286,12 +286,12 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 		device.family = (uint32_t)[dev featureProfile];
 		device.family_version = device.family - 10000 + 1;
 		device.local_mem_size = [dev maxComputeThreadgroupMemory];
-		device.max_work_group_size = [dev maxTotalComputeThreadsPerThreadgroup];
+		device.max_work_group_size = (uint32_t)[dev maxTotalComputeThreadsPerThreadgroup];
 		device.units = 0; // sadly unknown and impossible to query
 		device.clock = 0;
 		device.mem_clock = 0;
 		device.max_work_group_item_sizes = { device.max_work_group_size, device.max_work_group_size, device.max_work_group_size };
-		device.max_work_item_sizes = { sizeof(uint64_t) };
+		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = ([dev doubleFPConfig] > 0);
 		device.unified_memory = true; // TODO: not sure about this?
 		device.max_image_1d_dim = { [dev maxTextureWidth1D] };

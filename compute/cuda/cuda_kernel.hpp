@@ -41,8 +41,8 @@ public:
 	
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim floor_unused,
-											 const size3 global_work_size,
-											 const size3 local_work_size,
+											 const uint3 global_work_size,
+											 const uint3 local_work_size,
 											 Args&&... args) {
 		// set and handle kernel arguments (all alloc'ed on stack)
 		array<void*, sizeof...(Args)> kernel_params;

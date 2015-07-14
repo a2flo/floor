@@ -22,20 +22,13 @@
 #if defined(FLOOR_COMPUTE_HOST)
 
 // id handling (NOTE: implemented in host_kernel.cpp)
-size_t get_global_id(uint32_t dimindx);
-size_t get_global_size(uint32_t dimindx);
-size_t get_local_id(uint32_t dimindx);
-size_t get_local_size(uint32_t dimindx);
-size_t get_group_id(uint32_t dimindx);
-size_t get_num_groups(uint32_t dimindx);
+uint32_t get_global_id(uint32_t dim);
+uint32_t get_global_size(uint32_t dim);
+uint32_t get_local_id(uint32_t dim);
+uint32_t get_local_size(uint32_t dim);
+uint32_t get_group_id(uint32_t dim);
+uint32_t get_num_groups(uint32_t dim);
 uint32_t get_work_dim();
-
-#define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
-#define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
-#define local_id size3 { get_local_id(0), get_local_id(1), get_local_id(2) }
-#define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
-#define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
-#define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 
 // math functions
 #include <cmath>

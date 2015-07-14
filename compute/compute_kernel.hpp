@@ -69,8 +69,8 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 #if !defined(FLOOR_NO_CUDA)
 			static_cast<cuda_kernel*>(this)->execute(queue_ptr,
 													 decay_t<work_size_type_global>::dim,
-													 size3 { global_work_size },
-													 size3 { local_work_size },
+													 uint3 { global_work_size },
+													 uint3 { local_work_size },
 													 forward<Args>(args)...);
 #endif // else: nop
 			break;
@@ -78,8 +78,8 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 			static_cast<host_kernel*>(this)->execute(queue_ptr,
 													 decay_t<work_size_type_global>::dim,
-													 size3 { global_work_size },
-													 size3 { local_work_size },
+													 uint3 { global_work_size },
+													 uint3 { local_work_size },
 													 forward<Args>(args)...);
 #endif // else: nop
 			break;
@@ -87,8 +87,8 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 #if !defined(FLOOR_NO_METAL)
 			static_cast<metal_kernel*>(this)->execute(queue_ptr,
 													  decay_t<work_size_type_global>::dim,
-													  size3 { global_work_size },
-													  size3 { local_work_size },
+													  uint3 { global_work_size },
+													  uint3 { local_work_size },
 													  forward<Args>(args)...);
 #endif // else: nop
 			break;
@@ -96,8 +96,8 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 #if !defined(FLOOR_NO_OPENCL)
 			static_cast<opencl_kernel*>(this)->execute(queue_ptr,
 													   decay_t<work_size_type_global>::dim,
-													   size3 { global_work_size },
-													   size3 { local_work_size },
+													   uint3 { global_work_size },
+													   uint3 { local_work_size },
 													   forward<Args>(args)...);
 #endif // else: nop
 			break;

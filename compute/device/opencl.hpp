@@ -23,27 +23,32 @@
 
 #define opencl_const_func __attribute__((const))
 
-#if defined(FLOOR_COMPUTE_APPLECL)
-#define opencl_c_func extern "C"
+// wrap opencl id handling functions so that uint32_t is always returned
+#if !defined(FLOOR_COMPUTE_APPLECL)
+size_t opencl_const_func cl_get_global_id(uint32_t dim) asm("_Z13get_global_idj");
+size_t opencl_const_func cl_get_global_size(uint32_t dim) asm("_Z15get_global_sizej");
+size_t opencl_const_func cl_get_local_id(uint32_t dim) asm("_Z12get_local_idj");
+size_t opencl_const_func cl_get_local_size(uint32_t dim) asm("_Z14get_local_sizej");
+size_t opencl_const_func cl_get_group_id(uint32_t dim) asm("_Z12get_group_idj");
+size_t opencl_const_func cl_get_num_groups(uint32_t dim) asm("_Z14get_num_groupsj");
+uint32_t opencl_const_func cl_get_work_dim() asm("_Z12get_work_dim");
 #else
-#define opencl_c_func
+size_t opencl_const_func cl_get_global_id(uint32_t dim) asm("get_global_id");
+size_t opencl_const_func cl_get_global_size(uint32_t dim) asm("get_global_size");
+size_t opencl_const_func cl_get_local_id(uint32_t dim) asm("get_local_id");
+size_t opencl_const_func cl_get_local_size(uint32_t dim) asm("get_local_size");
+size_t opencl_const_func cl_get_group_id(uint32_t dim) asm("get_group_id");
+size_t opencl_const_func cl_get_num_groups(uint32_t dim) asm("get_num_groups");
+uint32_t opencl_const_func cl_get_work_dim() asm("get_work_dim");
 #endif
 
-opencl_c_func size_t opencl_const_func get_global_id(uint dimindx);
-opencl_c_func size_t opencl_const_func get_global_size(uint dimindx);
-opencl_c_func size_t opencl_const_func get_local_id(uint dimindx);
-opencl_c_func size_t opencl_const_func get_local_size(uint dimindx);
-opencl_c_func size_t opencl_const_func get_group_id(uint dimindx);
-opencl_c_func size_t opencl_const_func get_num_groups(uint dimindx);
-opencl_c_func uint opencl_const_func get_work_dim();
-opencl_c_func size_t opencl_const_func get_global_offset(uint dimindx);
-
-#define global_id size3 { get_global_id(0), get_global_id(1), get_global_id(2) }
-#define global_size size3 { get_global_size(0), get_global_size(1), get_global_size(2) }
-#define local_id size3 { get_local_id(0), get_local_id(1), get_local_id(2) }
-#define local_size size3 { get_local_size(0), get_local_size(1), get_local_size(2) }
-#define group_id size3 { get_group_id(0), get_group_id(1), get_group_id(2) }
-#define group_size size3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+floor_inline_always uint32_t get_global_id(uint32_t dim) { return uint32_t(cl_get_global_id(dim)); }
+floor_inline_always uint32_t get_global_size(uint32_t dim) { return uint32_t(cl_get_global_size(dim)); }
+floor_inline_always uint32_t get_local_id(uint32_t dim) { return uint32_t(cl_get_local_id(dim)); }
+floor_inline_always uint32_t get_local_size(uint32_t dim) { return uint32_t(cl_get_local_size(dim)); }
+floor_inline_always uint32_t get_group_id(uint32_t dim) { return uint32_t(cl_get_group_id(dim)); }
+floor_inline_always uint32_t get_num_groups(uint32_t dim) { return uint32_t(cl_get_num_groups(dim)); }
+floor_inline_always uint32_t get_work_dim(uint32_t dim) { return cl_get_work_dim(); }
 
 #if defined(FLOOR_COMPUTE_APPLECL)
 float opencl_const_func __cl_fmod(float, float);
@@ -190,39 +195,46 @@ extern "C" int __printf_cl(const char __constant* __restrict st, ...);
 #endif
 
 // barrier and mem_fence functionality
-opencl_c_func void barrier(uint32_t flags) __attribute__((noduplicate));
-opencl_c_func void mem_fence(uint32_t flags) __attribute__((noduplicate));
-opencl_c_func void read_mem_fence(uint32_t flags) __attribute__((noduplicate));
-opencl_c_func void write_mem_fence(uint32_t flags) __attribute__((noduplicate));
+#if !defined(FLOOR_COMPUTE_APPLECL)
+void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("_Z7barrierj");
+void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z9mem_fencej");
+void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
+void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
+#else
+void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("barrier");
+void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("mem_fence");
+void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_mem_fence");
+void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_mem_fence");
+#endif
 
 static floor_inline_always void global_barrier() {
-	barrier(2u);
+	cl_barrier(2u);
 }
 static floor_inline_always void global_mem_fence() {
-	mem_fence(2u);
+	cl_mem_fence(2u);
 }
 static floor_inline_always void global_read_mem_fence() {
-	read_mem_fence(2u);
+	cl_read_mem_fence(2u);
 }
 static floor_inline_always void global_write_mem_fence() {
-	write_mem_fence(2u);
+	cl_write_mem_fence(2u);
 }
 
 static floor_inline_always void local_barrier() {
-	barrier(1u);
+	cl_barrier(1u);
 }
 static floor_inline_always void local_mem_fence() {
-	mem_fence(1u);
+	cl_mem_fence(1u);
 }
 static floor_inline_always void local_read_mem_fence() {
-	read_mem_fence(1u);
+	cl_read_mem_fence(1u);
 }
 static floor_inline_always void local_write_mem_fence() {
-	write_mem_fence(1u);
+	cl_write_mem_fence(1u);
 }
 
 static floor_inline_always void barrier() {
-	barrier(3u);
+	cl_barrier(3u);
 }
 
 #endif

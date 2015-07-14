@@ -151,9 +151,9 @@ void cuda_compute::init(const bool use_platform_devices floor_unused,
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Z, cuda_dev));
-		device.max_work_group_size = (size_t)max_work_group_size;
+		device.max_work_group_size = uint32_t(max_work_group_size);
 		device.max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
-		device.max_work_group_item_sizes = size3(max_block_dim);
+		device.max_work_group_item_sizes = uint3(max_block_dim);
 		
 		int max_image_1d;
 		int2 max_image_2d;

@@ -283,10 +283,8 @@ void event::handle_events() {
 	floor::release_context();
 }
 
-/*! gets the mouses position (pnt)
- */
-pnt event::get_mouse_pos() const {
-	pnt pos;
+uint2 event::get_mouse_pos() const {
+	uint2 pos;
 	SDL_GetMouseState((int*)&pos.x, (int*)&pos.y);
 	return pos;
 }

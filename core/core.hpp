@@ -31,13 +31,13 @@ public:
 	static void init();
 	
 	// 3d math functions
-	static ipnt get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
-	static float3 get_3d_from_2d(const pnt& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
+	static int2 get_2d_from_3d(const float3& vec, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
+	static float3 get_3d_from_2d(const uint2& p, const matrix4f& mview, const matrix4f& mproj, const int4& viewport);
 	
 	static void compute_normal(const float3& v1, const float3& v2, const float3& v3, float3& normal);
 	static void compute_normal_tangent_binormal(const float3& v1, const float3& v2, const float3& v3,
 												float3& normal, float3& binormal, float3& tangent,
-												const coord& t1, const coord& t2, const coord& t3);
+												const float2& t1, const float2& t2, const float2& t3);
 	
 	// random functions
 	static void set_random_seed(const unsigned int& seed);

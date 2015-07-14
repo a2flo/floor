@@ -80,9 +80,9 @@ public:
 	
 	//! enqueues (and executes) the specified kernel into this queue
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
-							is_same<decay_t<work_size_type_global>, size2>::value ||
-							is_same<decay_t<work_size_type_global>, size3>::value) &&
+			  enable_if_t<((is_same<decay_t<work_size_type_global>, uint1>::value ||
+							is_same<decay_t<work_size_type_global>, uint2>::value ||
+							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
 	void execute(shared_ptr<compute_kernel> kernel,
 				 work_size_type_global&& global_work_size,
@@ -92,9 +92,9 @@ public:
 	}
 	
 	template <typename... Args, class work_size_type_global, class work_size_type_local,
-			  enable_if_t<((is_same<decay_t<work_size_type_global>, size1>::value ||
-							is_same<decay_t<work_size_type_global>, size2>::value ||
-							is_same<decay_t<work_size_type_global>, size3>::value) &&
+			  enable_if_t<((is_same<decay_t<work_size_type_global>, uint1>::value ||
+							is_same<decay_t<work_size_type_global>, uint2>::value ||
+							is_same<decay_t<work_size_type_global>, uint3>::value) &&
 						   is_same<decay_t<work_size_type_global>, decay_t<work_size_type_local>>::value), int> = 0>
 	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));

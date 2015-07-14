@@ -49,8 +49,8 @@ public:
 	
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim floor_unused,
-											 const size3 global_work_size,
-											 const size3 local_work_size_,
+											 const uint3 global_work_size,
+											 const uint3 local_work_size_,
 											 Args&&... args) REQUIRES(!args_lock) {
 		// need to make sure that only one thread is setting kernel arguments at a time
 		GUARD(args_lock);
