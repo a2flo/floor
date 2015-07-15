@@ -368,6 +368,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 							 ((img->data[offset + 1u] >> 16u) & 0xFFu) +
 							 ((img->data[offset + 2u] >> 8u) & 0xFFu) +
 							 (img->data[offset + 3u] & 0xFFu));
+				break;
 			default:
 				floor_unreachable();
 		}
@@ -415,7 +416,6 @@ void write(host_device_image<image_type, readable, writable>* img, const int2& c
 	static_assert(writable, "image must be writable!");
 	
 	constexpr const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-	constexpr const auto channel_count = image_channel_count(image_type);
 	const auto offset = img->coord_to_offset(coord);
 	
 	if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
@@ -440,9 +440,60 @@ void write(host_device_image<image_type, readable, writable>* img, const int2& c
 	static_assert(writable, "image must be writable!");
 	depth_format_validity_check<image_type>();
 	
-	const auto offset = img->coord_to_offset(coord);
+	constexpr const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+	constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type);
 	
-	// TODO: !
+	// depth value input is always a float -> convert it to the correct output format
+	const auto offset = img->coord_to_offset(coord);
+	if(image_format == COMPUTE_IMAGE_TYPE::FLOAT) {
+		// can just pass-through the float value
+		memcpy(&img->data[offset], &color, sizeof(float));
+		if(has_stencil) {
+			memcpy(&img->data[offset + sizeof(float)], ((uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+		}
+	}
+	else { // UINT
+		// need to create a normalized uint
+		constexpr const size_t depth_bytes = (image_format == COMPUTE_IMAGE_TYPE::FORMAT_16 ? 2 :
+											  image_format == COMPUTE_IMAGE_TYPE::FORMAT_24 ? 3 :
+											  image_format == COMPUTE_IMAGE_TYPE::FORMAT_24_8 ? 3 :
+											  image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ? 4 :
+											  1 /* don't produce an error, validity is already confirmed */);
+		constexpr const uint32_t clamp_value = (depth_bytes <= 1 ? 0xFFu :
+												depth_bytes == 2 ? 0xFFFFu :
+												depth_bytes == 3 ? 0xFFFFFFu : 0xFFFFFFFFu);
+		// always use long double for better precision
+		constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
+		uint32_t depth_val = (uint32_t)scale_factor * ((long double)*(float*)&color);
+		if(depth_bytes != 4) {
+			// clamp non-32-bit values to their correct range
+			depth_val = const_math::clamp(depth_val, 0u, clamp_value);
+		}
+		switch(depth_bytes) {
+			case 2:
+				img->data[offset] = ((depth_val >> 8u) & 0xFFu);
+				img->data[offset + 1u] = (depth_val & 0xFFu);
+				break;
+			case 3:
+				img->data[offset] = ((depth_val >> 16u) & 0xFFu);
+				img->data[offset + 1u] = ((depth_val >> 8u) & 0xFFu);
+				img->data[offset + 2u] = (depth_val & 0xFFu);
+				break;
+			case 4:
+				img->data[offset] = ((depth_val >> 24u) & 0xFFu);
+				img->data[offset + 1u] = ((depth_val >> 16u) & 0xFFu);
+				img->data[offset + 2u] = ((depth_val >> 8u) & 0xFFu);
+				img->data[offset + 3u] = (depth_val & 0xFFu);
+				break;
+			default:
+				floor_unreachable();
+		}
+		
+		// finally, copy stencil
+		if(has_stencil) {
+			memcpy(&img->data[offset + depth_bytes], ((uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+		}
+	}
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
@@ -457,9 +508,13 @@ template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
 void write(host_device_image<image_type, readable, writable>* img, const int2& coord, const color_type& color) {
 	static_assert(writable, "image must be writable!");
-	const auto offset = img->coord_to_offset(coord);
 	
-	// TODO: !
+	// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
+	constexpr const auto channel_count = image_channel_count(image_type);
+	typedef vector_n<typename image_sized_data_type<image_type, image_bits_of_channel(image_type, 0)>::type, channel_count> storage_type;
+	static_assert(sizeof(storage_type) == image_bytes_per_pixel(image_type), "invalid storage type size!");
+	const storage_type raw_data = (storage_type)color; // nop if 32-bit/64-bit, cast down if 8-bit or 16-bit
+	memcpy(&img->data[img->coord_to_offset(coord)], raw_data);
 }
 
 #endif
