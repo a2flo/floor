@@ -32,25 +32,25 @@ struct host_device_image {
 	const int4 image_dim;
 	
 	//!
-	size_t coord_to_offset(const int& coord) const {
+	size_t coord_to_offset(int coord) const {
 		return const_math::clamp(coord, 0, image_dim.x - 1) * image_bytes_per_pixel(image_type);
 	}
 	
 	//!
-	size_t coord_to_offset(const int2& coord) const {
+	size_t coord_to_offset(int2 coord) const {
 		return (image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
 	//!
-	size_t coord_to_offset(const int3& coord) const {
+	size_t coord_to_offset(int3 coord) const {
 		return (image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
 				image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
 	//!
-	size_t coord_to_offset(const int4& coord) const {
+	size_t coord_to_offset(int4 coord) const {
 		return (image_dim.x * image_dim.y * image_dim.z * const_math::clamp(coord.w, 0, image_dim.w - 1) +
 				image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
 				image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
@@ -275,11 +275,13 @@ floor_inline_always auto host_image_fit_return_type(const vector_n<scalar_type, 
 }
 
 // image read functions
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type))>* = nullptr>
-floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, int2 coord) {
+floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, const coord_type& coord) {
 	static_assert(readable, "image must be readable!");
 	
 	// read/copy raw data
@@ -321,9 +323,11 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	return host_image_fit_return_type<float, channel_count>(ret);
 }
 
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)>* = nullptr>
-floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, int2 coord) {
+floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, const coord_type& coord) {
 	static_assert(readable, "image must be readable!");
 	
 	constexpr const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
@@ -383,11 +387,13 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	return ret;
 }
 
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
-floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, int2 coord) {
+floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, const coord_type& coord) {
 	static_assert(readable, "image must be readable!");
 	
 	// read/copy raw data
@@ -407,12 +413,14 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 }
 
 // image write functions
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  typename color_type = conditional_t<image_channel_count(image_type) == 1, float, vector_n<float, image_channel_count(image_type)>>,
 		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type))>* = nullptr>
-void write(host_device_image<image_type, readable, writable>* img, const int2& coord, const color_type& color) {
+void write(host_device_image<image_type, readable, writable>* img, const coord_type& coord, const color_type& color) {
 	static_assert(writable, "image must be writable!");
 	
 	constexpr const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -432,11 +440,13 @@ void write(host_device_image<image_type, readable, writable>* img, const int2& c
 }
 
 
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  /* float depth value, or float depth + uint8_t stencil */
 		  typename color_type = conditional_t<image_channel_count(image_type) == 1, float, pair<float, uint8_t>>,
 		  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)>* = nullptr>
-void write(host_device_image<image_type, readable, writable>* img, const int2& coord, const color_type& color) {
+void write(host_device_image<image_type, readable, writable>* img, const coord_type& coord, const color_type& color) {
 	static_assert(writable, "image must be writable!");
 	depth_format_validity_check<image_type>();
 	
@@ -496,7 +506,9 @@ void write(host_device_image<image_type, readable, writable>* img, const int2& c
 	}
 }
 
-template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
+template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
+		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
+					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
 		  typename scalar_type = conditional_t<image_bits_of_channel(image_type, 0) <= 32,
 											   conditional_t<(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int32_t, uint32_t>,
 											   conditional_t<(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int64_t, uint64_t>>,
@@ -506,7 +518,7 @@ template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
-void write(host_device_image<image_type, readable, writable>* img, const int2& coord, const color_type& color) {
+void write(host_device_image<image_type, readable, writable>* img, const coord_type& coord, const color_type& color) {
 	static_assert(writable, "image must be writable!");
 	
 	// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
