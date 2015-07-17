@@ -180,7 +180,7 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 	device.max_work_group_size = device.units;
 	device.max_work_group_item_sizes = { device.units, device.units, device.units };
 #else // mt-group
-	device.max_work_group_size = 1024; // TODO: -> sync with value in host_kernel
+	device.max_work_group_size = 1024;
 	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
 #endif
 	device.max_work_item_sizes = { 0xFFFFFFFFu };
@@ -190,7 +190,7 @@ void host_compute::init(const bool use_platform_devices floor_unused,
 	device.image_support = true;
 	device.double_support = true;
 	device.unified_memory = true;
-	device.basic_64_bit_atomics_support = true; // TODO: also true on arm?
+	device.basic_64_bit_atomics_support = true;
 	device.extended_64_bit_atomics_support = true;
 #if defined(PLATFORM_X32)
 	device.bitness = 32;
