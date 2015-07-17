@@ -241,16 +241,22 @@ floor_inline_always uint32_t atomic_xor(volatile local uint32_t* p, uint32_t val
 
 // store
 floor_inline_always void atomic_store(volatile global int32_t* p, int32_t val) {
-	metal_atomic_store((volatile global uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+	metal_atomic_store((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
 floor_inline_always void atomic_store(volatile global uint32_t* p, uint32_t val) {
 	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
+floor_inline_always void atomic_store(volatile global float* p, float val) {
+	metal_atomic_store((volatile global uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+}
 floor_inline_always void atomic_store(volatile local int32_t* p, int32_t val) {
-	metal_atomic_store((volatile local uint32_t*)p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	metal_atomic_store((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 floor_inline_always void atomic_store(volatile local uint32_t* p, uint32_t val) {
 	metal_atomic_store(p, val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+floor_inline_always void atomic_store(volatile local float* p, float val) {
+	metal_atomic_store((volatile local uint32_t*)p, *(uint32_t*)&val, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
 // load
@@ -261,6 +267,10 @@ floor_inline_always int32_t atomic_load(volatile global int32_t* p) {
 floor_inline_always uint32_t atomic_load(volatile global uint32_t* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
+floor_inline_always float atomic_load(volatile global float* p) {
+	const uint32_t ret = metal_atomic_load((volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+	return *(float*)&ret;
+}
 floor_inline_always int32_t atomic_load(volatile local int32_t* p) {
 	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(int32_t*)&ret;
@@ -268,20 +278,16 @@ floor_inline_always int32_t atomic_load(volatile local int32_t* p) {
 floor_inline_always uint32_t atomic_load(volatile local uint32_t* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-
-// fallback for non-natively supported float atomics
-#define FLOOR_METAL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
-	const auto expected = *ptr; \
-	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
-		return expected; \
-	} \
+floor_inline_always float atomic_load(volatile local float* p) {
+	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+	return *(float*)&ret;
 }
 
-floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(+, global, p, val) }
-floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(+, local, p, val) }
-floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(-, global, p, val) }
-floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_METAL_ATOMIC_FLOAT_OP(-, local, p, val) }
+// fallback for non-natively supported float atomics
+floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }
+floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, local, p, val) }
+floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, global, p, val) }
+floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, local, p, val) }
 floor_inline_always float atomic_inc(volatile global float* p) { return atomic_add(p, 1.0f); }
 floor_inline_always float atomic_inc(volatile local float* p) { return atomic_add(p, 1.0f); }
 floor_inline_always float atomic_dec(volatile global float* p) { return atomic_sub(p, 1.0f); }
@@ -318,8 +324,6 @@ floor_inline_always float atomic_max(volatile local float* p, float val) {
 	}
 	return atomic_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
-
-#undef FLOOR_METAL_ATOMIC_FLOAT_OP
 
 #endif
 

@@ -67,6 +67,10 @@ typedef uint64_t uintmax_t;
 using namespace std;
 
 // atomics (needed before c++ headers)
+#include <floor/compute/device/atomic_fallback.hpp>
+// ring dependencies ftw
+#define min(x, y) (x <= y ? x : y)
+#define max(x, y) (x >= y ? x : y)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_atomic.hpp>
 #elif defined(FLOOR_COMPUTE_OPENCL)
@@ -76,6 +80,9 @@ using namespace std;
 #elif defined(FLOOR_COMPUTE_HOST)
 #include <floor/compute/device/host_atomic.hpp>
 #endif
+// undef above min/max, we want the std::min/max
+#undef min
+#undef max
 
 // *_atomic.hpp headers included above, now add compat/forwarder/alias functions
 #include <floor/compute/device/atomic_compat.hpp>

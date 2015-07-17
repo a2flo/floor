@@ -135,6 +135,19 @@ uint64_t atomic_min(volatile global uint64_t* p, uint64_t val) { return atom_min
 int64_t atomic_min(volatile global int64_t* p, int64_t val) { return atom_min(p, val); }
 uint64_t atomic_min(volatile local uint64_t* p, uint64_t val) { return atom_min(p, val); }
 int64_t atomic_min(volatile local int64_t* p, int64_t val) { return atom_min(p, val); }
+#elif defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1) // fallback if 64-bit atomics are supported at all
+uint64_t atomic_min(volatile global uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, global, p, val)
+}
+int64_t atomic_min(volatile global int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, global, p, val)
+}
+uint64_t atomic_min(volatile local uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, local, p, val)
+}
+int64_t atomic_min(volatile local int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, local, p, val)
+}
 #endif
 
 // max
@@ -151,6 +164,19 @@ uint64_t atomic_max(volatile global uint64_t* p, uint64_t val) { return atom_max
 int64_t atomic_max(volatile global int64_t* p, int64_t val) { return atom_max(p, val); }
 uint64_t atomic_max(volatile local uint64_t* p, uint64_t val) { return atom_max(p, val); }
 int64_t atomic_max(volatile local int64_t* p, int64_t val) { return atom_max(p, val); }
+#elif defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
+uint64_t atomic_max(volatile global uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, global, p, val)
+}
+int64_t atomic_max(volatile global int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, global, p, val)
+}
+uint64_t atomic_max(volatile local uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, local, p, val)
+}
+int64_t atomic_max(volatile local int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, local, p, val)
+}
 #endif
 
 // and
@@ -167,6 +193,19 @@ uint64_t atomic_and(volatile global uint64_t* p, uint64_t val) { return atom_and
 int64_t atomic_and(volatile global int64_t* p, int64_t val) { return atom_and(p, val); }
 uint64_t atomic_and(volatile local uint64_t* p, uint64_t val) { return atom_and(p, val); }
 int64_t atomic_and(volatile local int64_t* p, int64_t val) { return atom_and(p, val); }
+#elif defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
+uint64_t atomic_and(volatile global uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(&, global, p, val)
+}
+int64_t atomic_and(volatie global int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(&, global, p, val)
+}
+uint64_t atomic_and(volatile local uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(&, local, p, val)
+}
+int64_t atomic_and(volatile local int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(&, local, p, val)
+}
 #endif
 
 // or
@@ -183,6 +222,19 @@ uint64_t atomic_or(volatile global uint64_t* p, uint64_t val) { return atom_or(p
 int64_t atomic_or(volatile global int64_t* p, int64_t val) { return atom_or(p, val); }
 uint64_t atomic_or(volatile local uint64_t* p, uint64_t val) { return atom_or(p, val); }
 int64_t atomic_or(volatile local int64_t* p, int64_t val) { return atom_or(p, val); }
+#elif defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
+uint64_t atomic_or(volatile global uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(|, global, p, val)
+}
+int64_t atomic_or(volatie global int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(|, global, p, val)
+}
+uint64_t atomic_or(volatile local uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(|, local, p, val)
+}
+int64_t atomic_or(volatile local int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(|, local, p, val)
+}
 #endif
 
 // xor
@@ -199,6 +251,19 @@ uint64_t atomic_xor(volatile global uint64_t* p, uint64_t val) { return atom_xor
 int64_t atomic_xor(volatile global int64_t* p, int64_t val) { return atom_xor(p, val); }
 uint64_t atomic_xor(volatile local uint64_t* p, uint64_t val) { return atom_xor(p, val); }
 int64_t atomic_xor(volatile local int64_t* p, int64_t val) { return atom_xor(p, val); }
+#elif defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
+uint64_t atomic_xor(volatile global uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(^, global, p, val)
+}
+int64_t atomic_xor(volatie global int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(^, global, p, val)
+}
+uint64_t atomic_xor(volatile local uint64_t* p, uint64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(^, local, p, val)
+}
+int64_t atomic_xor(volatile local int64_t* p, int64_t val) {
+	FLOOR_ATOMIC_FALLBACK_OP_64(^, local, p, val)
+}
 #endif
 
 // store (simple alias of xchg)
@@ -272,18 +337,10 @@ floor_inline_always int64_t atomic_load(volatile local int64_t* addr) {
 #endif
 
 // fallback for non-natively supported float atomics
-#define FLOOR_OPENCL_ATOMIC_FLOAT_OP(op, as, ptr, val) for(;;) { \
-	const auto expected = *ptr; \
-	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((volatile as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
-		return expected; \
-	} \
-}
-
-floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(+, global, p, val) }
-floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(+, local, p, val) }
-floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(-, global, p, val) }
-floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_OPENCL_ATOMIC_FLOAT_OP(-, local, p, val) }
+floor_inline_always float atomic_add(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }
+floor_inline_always float atomic_add(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, local, p, val) }
+floor_inline_always float atomic_sub(volatile global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, global, p, val) }
+floor_inline_always float atomic_sub(volatile local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, local, p, val) }
 floor_inline_always float atomic_inc(volatile global float* p) { return atomic_add(p, 1.0f); }
 floor_inline_always float atomic_inc(volatile local float* p) { return atomic_add(p, 1.0f); }
 floor_inline_always float atomic_dec(volatile global float* p) { return atomic_sub(p, 1.0f); }
@@ -320,8 +377,6 @@ floor_inline_always float atomic_max(volatile local float* p, float val) {
 	}
 	return atomic_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
-
-#undef FLOOR_OPENCL_ATOMIC_FLOAT_OP
 
 #endif
 

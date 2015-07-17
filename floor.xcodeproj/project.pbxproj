@@ -233,6 +233,7 @@
 		5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
+		5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -441,6 +442,7 @@
 		5CEEA6DA1A4EE1A5005239DA /* opencl_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_program.hpp; sourceTree = "<group>"; };
 		5CEEA6DE1A4F2EB5005239DA /* opencl_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_queue.cpp; sourceTree = "<group>"; };
 		5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_queue.hpp; sourceTree = "<group>"; };
+		5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = atomic_fallback.hpp; path = device/atomic_fallback.hpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -686,6 +688,7 @@
 				5CE843B01B28CE1E00D8B961 /* device_info.hpp */,
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */,
+				5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 				5CAF42921B15C04D00316FBB /* logger.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
@@ -944,6 +947,7 @@
 				5C20C8C71B4139260005F5EA /* host_compute.hpp in Headers */,
 				5C8FEF5F1AFE3BF4001D47BF /* opencl_image.hpp in Headers */,
 				5C7173B418D717EB00DDF097 /* audio_store.hpp in Headers */,
+				5CF8DA5D1B581E7F00472BC2 /* atomic_fallback.hpp in Headers */,
 				5C4E30EC1B428B120034E536 /* host_pre.hpp in Headers */,
 				5CBE41DA1B31B48600AE0E5F /* darwin_helper.hpp in Headers */,
 				5C5383EB1A641B1E007AEDD7 /* cuda_kernel.hpp in Headers */,

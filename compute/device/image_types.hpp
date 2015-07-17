@@ -382,7 +382,9 @@ static constexpr uint32_t image_bytes_per_pixel(const COMPUTE_IMAGE_TYPE& image_
 }
 
 //! returns the total amount of bytes needed to store the image of the specified dimensions and types
-static constexpr size_t image_data_size_from_types(const uint4& image_dim, const COMPUTE_IMAGE_TYPE& image_type) {
+static constexpr size_t image_data_size_from_types(const uint4& image_dim,
+												   const COMPUTE_IMAGE_TYPE& image_type,
+												   const size_t sample_count = 1) {
 	const auto dim_count = image_dim_count(image_type);
 	size_t size = size_t(image_dim.x);
 	if(dim_count >= 2) size *= size_t(image_dim.y);
@@ -396,6 +398,11 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim, const
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
 		// 6 cube sides
 		size *= 6u;
+	}
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+		// * sample count
+		size *= sample_count;
 	}
 	
 	// TODO: make sure special formats correspond to channel count

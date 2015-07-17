@@ -31,31 +31,40 @@ struct host_device_image {
 	__attribute__((align_value(128))) storage_type* data;
 	const int4 image_dim;
 	
-	//!
+	//! 1D, 1D buffer
 	size_t coord_to_offset(int coord) const {
 		return const_math::clamp(coord, 0, image_dim.x - 1) * image_bytes_per_pixel(image_type);
 	}
 	
-	//!
+	//! 1D array, 2D, 2D depth, 2D depth+stencil
 	size_t coord_to_offset(int2 coord) const {
 		return (image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
-	//!
+	//! 2D array, 3D, 2D depth array
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
 	size_t coord_to_offset(int3 coord) const {
 		return (image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
 				image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
-	//!
-	size_t coord_to_offset(int4 coord) const {
-		return (image_dim.x * image_dim.y * image_dim.z * const_math::clamp(coord.w, 0, image_dim.w - 1) +
-				image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
-				image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
-				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
+	//! cube, depth cube
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
+	size_t coord_to_offset(int3 coord) const {
+		// TODO: proper cube sampling
+		return 0;
 	}
+	
+	//! cuba array
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
+	size_t coord_to_offset(int4 coord) const {
+		// TODO: proper cube sampling
+		return 0;
+	}
+	
+	// NOTE: MSAA formats are not supported on the host
 };
 
 template <COMPUTE_IMAGE_TYPE type> using ro_image = const host_device_image<type, true, false>*;
