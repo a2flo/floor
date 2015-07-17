@@ -21,6 +21,10 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
+#if defined(__APPLE__)
+#include <AvailabilityMacros.h>
+#endif
+
 //
 #define kernel extern "C" __attribute__((noinline, used, visibility("default")))
 
