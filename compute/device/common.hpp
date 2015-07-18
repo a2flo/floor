@@ -207,7 +207,7 @@ template <typename T, size_t count_z, size_t count_y, size_t count_x> using comp
 template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0> using compute_local_buffer =
 	conditional_t<count_y == 0, compute_local_buffer_1d<T, count_x>,
 				  conditional_t<count_z == 0, compute_local_buffer_2d<T, count_y, count_x>,
-											  compute_local_buffer_3d<T, count_z, count_y, count_x>>;
+											  compute_local_buffer_3d<T, count_z, count_y, count_x>>>;
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
