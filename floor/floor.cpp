@@ -730,16 +730,12 @@ void floor::stop_draw(const bool window_swap) {
 	frame_time_counter = SDL_GetTicks();
 	
 	// check for kernel reload (this is safe to do here)
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA)
 	if(reload_kernels_flag) {
 		reload_kernels_flag = false;
 		if(compute_ctx != nullptr) {
-			compute_ctx->flush();
-			compute_ctx->finish();
 			//compute_ctx->reload_kernels(); // TODO: !
 		}
 	}
-#endif
 	
 	release_context();
 }

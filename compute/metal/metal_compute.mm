@@ -440,22 +440,6 @@ shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> d
 									opengl_target, opengl_image, &info);
 }
 
-void metal_compute::finish() {
-	// TODO: !
-}
-
-void metal_compute::flush() {
-	// TODO: !
-}
-
-void metal_compute::activate_context() {
-	// TODO: !
-}
-
-void metal_compute::deactivate_context() {
-	// TODO: !
-}
-
 shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
 															const string additional_options) {
 	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options, llvm_compute::TARGET::AIR),

@@ -370,22 +370,6 @@ shared_ptr<compute_image> cuda_compute::wrap_image(shared_ptr<compute_device> de
 								   opengl_target, opengl_image, &info);
 }
 
-void cuda_compute::finish() {
-	// TODO: !
-}
-
-void cuda_compute::flush() {
-	// TODO: !
-}
-
-void cuda_compute::activate_context() {
-	// TODO: !
-}
-
-void cuda_compute::deactivate_context() {
-	// TODO: !
-}
-
 shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
 	return add_program(llvm_compute::compile_program_file(devices[0], file_name, additional_options, llvm_compute::TARGET::PTX),

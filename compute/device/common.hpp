@@ -112,7 +112,6 @@ template <class data_type, size_t array_size> _LIBCPP_TYPE_VIS_ONLY struct array
 
 _LIBCPP_END_NAMESPACE_STD
 #else
-// TODO: or #define array const_array? properly handle this (or just use stl array instead everywhere and const_array only manually?)
 #include <array>
 #endif
 
@@ -192,7 +191,10 @@ namespace floor_compute {
 #define buffer __attribute__((align_value(128))) compute_global_buffer
 template <typename T> using compute_global_buffer = global T*;
 
-//! local memory buffer
+//! local memory buffer:
+//! local_buffer<T, 42> => T[42]
+//! local_buffer<T, 42, 23> => T[23][42]
+//! local_buffer<T, 42, 23, 21> => T[21][23][42]
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
 #if !defined(FLOOR_COMPUTE_HOST) || 0
 #define local_buffer local compute_local_buffer
@@ -201,8 +203,11 @@ template <typename T> using compute_global_buffer = global T*;
 #endif
 template <typename T, size_t count_x> using compute_local_buffer_1d = T[count_x];
 template <typename T, size_t count_y, size_t count_x> using compute_local_buffer_2d = T[count_y][count_x];
-template <typename T, size_t count_1, size_t count_2 = 0> using compute_local_buffer =
-	conditional_t<count_2 == 0, compute_local_buffer_1d<T, count_1>, compute_local_buffer_2d<T, count_1, count_2>>;
+template <typename T, size_t count_z, size_t count_y, size_t count_x> using compute_local_buffer_3d = T[count_z][count_y][count_x];
+template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0> using compute_local_buffer =
+	conditional_t<count_y == 0, compute_local_buffer_1d<T, count_x>,
+				  conditional_t<count_z == 0, compute_local_buffer_2d<T, count_y, count_x>,
+											  compute_local_buffer_3d<T, count_z, count_y, count_x>>;
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda

@@ -26,7 +26,6 @@
 #include <floor/compute/compute_base.hpp>
 class metal_program;
 
-//! TODO
 class metal_compute final : public compute_base {
 public:
 	//////////////////////////////////////////
@@ -122,14 +121,6 @@ public:
 										 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																			COMPUTE_MEMORY_FLAG::HOST_READ_WRITE |
 																			COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) override;
-	
-	//////////////////////////////////////////
-	// basic control functions
-	
-	void finish() override;
-	void flush() override;
-	void activate_context() override;
-	void deactivate_context() override;
 	
 	//////////////////////////////////////////
 	// program/kernel functionality

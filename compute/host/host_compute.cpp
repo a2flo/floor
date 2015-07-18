@@ -294,22 +294,6 @@ shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> de
 	return {};
 }
 
-void host_compute::finish() {
-	// TODO: !
-}
-
-void host_compute::flush() {
-	// TODO: !
-}
-
-void host_compute::activate_context() {
-	// TODO: !
-}
-
-void host_compute::deactivate_context() {
-	// TODO: !
-}
-
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
 														   const string additional_options floor_unused) {
 	return make_shared<host_program>();

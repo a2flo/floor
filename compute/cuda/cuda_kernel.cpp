@@ -46,7 +46,7 @@ void cuda_kernel::execute_internal(compute_queue* queue,
 	CU_CALL_NO_ACTION(cuLaunchKernel(kernel,
 									 grid_dim.x, grid_dim.y, grid_dim.z,
 									 block_dim.x, block_dim.y, block_dim.z,
-									 0, // TODO: make sharedMemBytes specifiable
+									 0,
 									 (CUstream)queue->get_queue_ptr(),
 									 kernel_params,
 									 nullptr),

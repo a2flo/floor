@@ -233,24 +233,6 @@ public:
 	// TODO: add is_image_format_supported(...) function
 	
 	//////////////////////////////////////////
-	// basic control functions
-	
-	//! block until all currently scheduled kernels have been executed
-	virtual void finish() = 0;
-	
-	//! flush all prior
-	virtual void flush() = 0;
-	
-	//! TODO: figure out how to do this in cuda
-	//virtual void barrier() = 0;
-	
-	//! makes the compute context active in the current thread
-	virtual void activate_context() = 0;
-	
-	//! makes the compute context inactive in the current thread
-	virtual void deactivate_context() = 0;
-	
-	//////////////////////////////////////////
 	// program/kernel functionality
 	
 	//! adds and compiles a program and its kernels from a file

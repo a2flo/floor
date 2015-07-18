@@ -128,14 +128,6 @@ public:
 																			COMPUTE_MEMORY_FLAG::OPENGL_SHARING)) override;
 	
 	//////////////////////////////////////////
-	// basic control functions
-	
-	void finish() override;
-	void flush() override;
-	void activate_context() override;
-	void deactivate_context() override;
-	
-	//////////////////////////////////////////
 	// program/kernel functionality
 	
 	shared_ptr<compute_program> add_program_file(const string& file_name,

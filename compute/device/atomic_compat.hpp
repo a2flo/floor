@@ -44,12 +44,26 @@ typedef enum memory_order {
 #endif
 
 constexpr bool floor_atomic_is_lock_free(const size_t& size) {
-	return (size == 4u); // TODO: 8 if supported
+#if !defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
+	return (size == 4u);
+#else
+	return (size == 4u || size == 8u);
+#endif
 }
-// TODO: check if supported
+
+#if !defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 #define FLOOR_ATOMIC_LONG_LOCK_FREE false
 #define FLOOR_ATOMIC_LLONG_LOCK_FREE false
+#else
+#define FLOOR_ATOMIC_LONG_LOCK_FREE true
+#define FLOOR_ATOMIC_LLONG_LOCK_FREE true
+#endif
+
+#if defined(PLATFORM_X32) || (defined(PLATFORM_X64) && defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1))
+#define FLOOR_ATOMIC_POINTER_LOCK_FREE true
+#else
 #define FLOOR_ATOMIC_POINTER_LOCK_FREE false
+#endif
 
 template <typename T> T floor_atomic_fetch_add(volatile global T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
 template <typename T> T floor_atomic_fetch_sub(volatile global T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }

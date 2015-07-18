@@ -396,15 +396,7 @@ void opencl_compute::init(const bool use_platform_devices,
 				
 				// device unit count on pocl is 0 -> figure out how many logical cpus actually exist
 				if(device.units == 0) {
-#if defined(__FreeBSD__)
-					int core_count = 0;
-					size_t size = sizeof(core_count);
-					sysctlbyname("hw.ncpu", &core_count, &size, nullptr, 0);
-					device.units = core_count;
-#else
-					// TODO: other platforms?
-					device.units = 1;
-#endif
+					device.units = core::get_hw_thread_count();
 				}
 			}
 			
@@ -805,22 +797,6 @@ shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> 
 	return make_shared<opencl_image>((opencl_device*)device.get(), info.image_dim, info.image_type, data,
 									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
 									 opengl_target, opengl_image, &info);
-}
-
-void opencl_compute::finish() {
-	// TODO: !
-}
-
-void opencl_compute::flush() {
-	// TODO: !
-}
-
-void opencl_compute::activate_context() {
-	// TODO: !
-}
-
-void opencl_compute::deactivate_context() {
-	// TODO: !
 }
 
 shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
