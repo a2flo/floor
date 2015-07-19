@@ -42,11 +42,12 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 
 bool host_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	// TODO: handle the remaining flags + host ptr
+	
+	// always allocate host memory (even with opengl, memory needs to be copied somewhere)
+	buffer = new uint8_t[size] alignas(128);
 
 	// -> normal host buffer
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		buffer = new uint8_t[size] alignas(128);
-		
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
@@ -57,8 +58,6 @@ bool host_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 	// -> shared host/opengl buffer
 	else {
 		if(!create_gl_buffer(copy_host_data)) return false;
-		
-		// TODO: implement this!
 		
 		// acquire for use with the host
 		acquire_opengl_object(cqueue);
@@ -247,12 +246,22 @@ bool host_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_siz
 	return true;
 }
 
-void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> cqueue floor_unused,
-													 const COMPUTE_MEMORY_MAP_FLAG flags_ floor_unused,
-													 const size_t size_ floor_unused, const size_t offset) {
+void* __attribute__((aligned(128))) host_buffer::map(shared_ptr<compute_queue> cqueue,
+													 const COMPUTE_MEMORY_MAP_FLAG flags_,
+													 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
+	
+	const size_t map_size = (size_ == 0 ? size : size_);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
+	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
 
-	// TODO: implement this!
+	if(blocking_map) {
+		cqueue->finish();
+	}
+	
+	// NOTE: this is returning a raw pointer to the internal buffer memory and specifically not creating+copying a new buffer
+	// -> the user is always responsible for proper sync when mapping a buffer multiple times and this way, it should be
+	// easier to detect any problems (race conditions, etc.)
 	return buffer + offset;
 }
 
@@ -260,7 +269,7 @@ void host_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __a
 	if(buffer == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 
-	// TODO: implement this!
+	// nop
 }
 
 bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
@@ -269,8 +278,22 @@ bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 		log_warn("opengl buffer has already been acquired for use with the host!");
 		return true;
 	}
-
-	// TODO: implement this!
+	
+	// copy gl buffer data to host memory (through r/o map)
+	glBindBuffer(opengl_type, gl_object);
+	void* gl_data = glMapBuffer(opengl_type, GL_READ_ONLY);
+	if(gl_data == nullptr) {
+		log_error("failed to acquire opengl buffer - opengl buffer mapping failed");
+		return false;
+	}
+	
+	memcpy(buffer, gl_data, size);
+	
+	if(!glUnmapBuffer(opengl_type)) {
+		log_error("opengl buffer unmapping failed");
+	}
+	glBindBuffer(opengl_type, 0);
+	
 	gl_object_state = false;
 	return true;
 }
@@ -282,8 +305,12 @@ bool host_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 		log_warn("opengl buffer has already been released for opengl use!");
 		return true;
 	}
-
-	// TODO: implement this!
+	
+	// copy the host data to the gl buffer
+	glBindBuffer(opengl_type, gl_object);
+	glBufferSubData(opengl_type, 0, (GLsizeiptr)size, buffer);
+	glBindBuffer(opengl_type, 0);
+	
 	gl_object_state = true;
 	return true;
 }

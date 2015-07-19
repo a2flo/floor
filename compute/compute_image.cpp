@@ -65,10 +65,6 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	void* pixel_ptr = (copy_host_data && host_ptr != nullptr &&
 					   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags) ?
 					   host_ptr : nullptr);
-	const int4 gl_dim { image_dim };
-	const GLsizei sample_count { 4 }; // TODO: support this properly
-	const GLint level { 0 }; // TODO: support this properly
-	const bool fixed_sample_locations { false }; // TODO: support this properly
 	
 	GLint internal_format = 0;
 	GLenum format = 0;
@@ -269,83 +265,145 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 		}
 	}
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
-		// TODO: how to init this?
+	if((image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) == COMPUTE_IMAGE_TYPE::NONE) {
+		log_error("storage dimension not set!");
+		return false;
 	}
-	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		const auto size_per_side = image_data_size / 6;
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Y, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_Z, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_X, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Y, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-		pixel_ptr = (void*)((uint8_t*)pixel_ptr + size_per_side);
-		
-		glTexImage2D(GL_TEXTURE_CUBE_MAP_NEGATIVE_Z, level, internal_format, gl_dim.x, gl_dim.y, 0,
-					 format, type, pixel_ptr);
-	}
-	else {
-		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_1D:
-				glTexImage1D(opengl_type, level, internal_format, gl_dim.x, 0, format, type, pixel_ptr);
-				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_2D:
-				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					glTexImage2D(opengl_type, level, internal_format,
-								 gl_dim.x, gl_dim.y, 0, format, type, pixel_ptr);
-				}
-				else {
-					glTexImage2DMultisample(opengl_type, sample_count,
-#if defined(__APPLE__)
-											internal_format,
-#else // why is this a different type than what's in glTexImage2D?
-											(GLenum)internal_format,
-#endif
-											gl_dim.x, gl_dim.y, fixed_sample_locations);
-				}
-				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_3D:
-				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					glTexImage3D(opengl_type, level, internal_format,
-								 gl_dim.x, gl_dim.y, gl_dim.z, 0, format, type, pixel_ptr);
-				}
-				else {
-					glTexImage3DMultisample(opengl_type, sample_count,
-#if defined(__APPLE__)
-											internal_format,
-#else
-											(GLenum)internal_format,
-#endif
-											gl_dim.x, gl_dim.y, gl_dim.z, fixed_sample_locations);
-				}
-				break;
-			default:
-				log_error("storage dimension not set!");
-				break;
-		}
-	}
-	glBindTexture(opengl_type, 0);
 	
 	// if everything has been successful, store the used gl types for later use
 	gl_internal_format = internal_format;
 	gl_format = format;
 	gl_type = type;
 	
+	// create gl texture (and init with host data if pixel_ptr != nullptr)
+	init_gl_image_data(pixel_ptr);
+	glBindTexture(opengl_type, 0);
+	
 	return true;
+}
+
+void compute_image::init_gl_image_data(const void* data) {
+	const int4 gl_dim { image_dim };
+	const GLsizei sample_count { 4 }; // TODO: support this properly
+	const GLint level { 0 }; // TODO: support this properly
+	const bool fixed_sample_locations { false }; // TODO: support this properly
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
+		// TODO: how to init this?
+	}
+	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+		const auto size_per_side = image_data_size / 6;
+		
+		static constexpr const GLenum cube_targets[] {
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+		};
+		
+		auto cube_data = data;
+		for(const auto& target : cube_targets) {
+			glTexImage2D(target, level, gl_internal_format, gl_dim.x, gl_dim.y, 0,
+						 gl_format, gl_type, cube_data);
+			
+			// advance to next side (if not nullptr init)
+			if(cube_data != nullptr) {
+				cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+			}
+		}
+	}
+	else {
+		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_1D:
+				glTexImage1D(opengl_type, level, gl_internal_format, gl_dim.x, 0, gl_format, gl_type, data);
+				break;
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_2D:
+				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+					glTexImage2D(opengl_type, level, gl_internal_format,
+								 gl_dim.x, gl_dim.y, 0, gl_format, gl_type, data);
+				}
+				else {
+					glTexImage2DMultisample(opengl_type, sample_count,
+#if defined(__APPLE__)
+											gl_internal_format,
+#else // why is this a different type than what's in glTexImage2D?
+											(GLenum)gl_internal_format,
+#endif
+											gl_dim.x, gl_dim.y, fixed_sample_locations);
+				}
+				break;
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_3D:
+				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+					glTexImage3D(opengl_type, level, gl_internal_format,
+								 gl_dim.x, gl_dim.y, gl_dim.z, 0, gl_format, gl_type, data);
+				}
+				else {
+					glTexImage3DMultisample(opengl_type, sample_count,
+#if defined(__APPLE__)
+											gl_internal_format,
+#else
+											(GLenum)gl_internal_format,
+#endif
+											gl_dim.x, gl_dim.y, gl_dim.z, fixed_sample_locations);
+				}
+				break;
+			default: // already checked
+				floor_unreachable();
+		}
+	}
+}
+
+void compute_image::update_gl_image_data(const void* data) {
+	if(data == nullptr) {
+		log_error("data pointer must not be nullptr!");
+		return;
+	}
+	
+	const int4 gl_dim { image_dim };
+	const GLint level { 0 }; // TODO: support this properly
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
+		// TODO: how to init this?
+	}
+	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+		const auto size_per_side = image_data_size / 6;
+		
+		static constexpr const GLenum cube_targets[] {
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+			GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+			GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+		};
+		
+		auto cube_data = data;
+		for(const auto& target : cube_targets) {
+			glTexSubImage2D(target, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, cube_data);
+			
+			// advance to next side (if not nullptr init)
+			if(cube_data != nullptr) {
+				cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+			}
+		}
+	}
+	else {
+		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_1D:
+				glTexSubImage1D(opengl_type, level, 0, gl_dim.x, gl_format, gl_type, data);
+				break;
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_2D:
+				glTexSubImage2D(opengl_type, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, data);
+				break;
+			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_3D:
+				glTexSubImage3D(opengl_type, level, 0, 0, 0, gl_dim.x, gl_dim.y, gl_dim.z, gl_format, gl_type, data);
+				break;
+			default: // already checked
+				floor_unreachable();
+		}
+	}
 }
 
 compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint32_t& opengl_image,
@@ -360,7 +418,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 	}
 	
 	opengl_image_info info;
-	GLint width = 0, height = 0, depth = 0, internal_format = 0, red_type = 0, depth_type = 0;
+	GLint width = 0, height = 0, depth = 0, internal_format = 0, red_type = 0, red_size = 0, depth_type = 0;
 	if(glIsTexture(opengl_image)) {
 		GLint cur_bound_tex = 0;
 		switch(opengl_target) {
@@ -417,6 +475,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_DEPTH, &depth);
 		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_INTERNAL_FORMAT, &internal_format);
 		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_RED_TYPE, &red_type);
+		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_RED_SIZE, &red_size);
 		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_DEPTH_TYPE, &depth_type);
 		
 		// rebind previous texture
@@ -550,12 +609,40 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 	else {
 		info.gl_type = (uint32_t)red_type;
 		
-		switch(image_channel_count(info.image_type)) {
-			case 1: info.gl_format = GL_RED; break;
-			case 2: info.gl_format = GL_RG; break;
-			case 3: info.gl_format = GL_RGB; break;
-			default:
-			case 4: info.gl_format = GL_RGBA; break;
+		// handle special cases
+		if(red_type == GL_UNSIGNED_NORMALIZED) {
+			switch(red_size) {
+				case 8: info.gl_type = GL_UNSIGNED_BYTE; break;
+				case 16: info.gl_type = GL_UNSIGNED_SHORT; break;
+				default: break; // TODO: other types
+			}
+		}
+		else if(red_type == GL_SIGNED_NORMALIZED) {
+			switch(red_size) {
+				case 8: info.gl_type = GL_BYTE; break;
+				case 16: info.gl_type = GL_SHORT; break;
+				default: break; // TODO: other types
+			}
+		}
+		
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(info.image_type) ||
+		   (info.image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) {
+			switch(image_channel_count(info.image_type)) {
+				case 1: info.gl_format = GL_RED; break;
+				case 2: info.gl_format = GL_RG; break;
+				case 3: info.gl_format = GL_RGB; break;
+				default:
+				case 4: info.gl_format = GL_RGBA; break;
+			}
+		}
+		else {
+			switch(image_channel_count(info.image_type)) {
+				case 1: info.gl_format = GL_RED_INTEGER; break;
+				case 2: info.gl_format = GL_RG_INTEGER; break;
+				case 3: info.gl_format = GL_RGB_INTEGER; break;
+				default:
+				case 4: info.gl_format = GL_RGBA_INTEGER; break;
+			}
 		}
 	}
 	

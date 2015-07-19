@@ -125,6 +125,10 @@ protected:
 	// internal function to create/delete an opengl image if compute/opengl sharing is used
 	bool create_gl_image(const bool copy_host_data);
 	void delete_gl_image();
+	
+	// helper functions to init/update opengl image data (handles all types)
+	void init_gl_image_data(const void* data);
+	void update_gl_image_data(const void* data);
 #endif
 	
 	// track gl format types (these are set after a gl texture has been created/wrapped)

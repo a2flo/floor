@@ -42,13 +42,12 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+	image = new uint8_t[image_data_size] alignas(128);
 	kernel_info.image_dim = image_dim;
+	kernel_info.buffer = image;
 	
 	// -> normal host image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		image = new uint8_t[image_data_size] alignas(128);
-		kernel_info.buffer = image;
-		
 		// copy host memory to "device" if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
@@ -61,8 +60,6 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 #if !defined(FLOOR_IOS)
 		if(!create_gl_image(copy_host_data)) return false;
 #endif
-		
-		// TODO: implement this!
 		
 		// acquire for use with the host
 		acquire_opengl_object(cqueue);
@@ -88,11 +85,14 @@ host_image::~host_image() {
 	}
 }
 
-void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue floor_unused,
-													const COMPUTE_MEMORY_MAP_FLAG flags_ floor_unused) {
+void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue,
+													const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;
 	
-	// TODO: implement this!
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
+	if(blocking_map) {
+		cqueue->finish();
+	}
 	return image;
 }
 
@@ -100,7 +100,7 @@ void host_image::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __at
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	// TODO: implement this!
+	// nop
 }
 
 bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
@@ -110,7 +110,11 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		return true;
 	}
 	
-	// TODO: implement this!
+	// copy gl image data to host memory
+	glBindTexture(opengl_type, gl_object);
+	glGetTexImage(opengl_type, 0, gl_format, gl_type, image);
+	glBindTexture(opengl_type, 0);
+	
 	gl_object_state = false;
 	return true;
 }
@@ -123,7 +127,11 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		return true;
 	}
 	
-	// TODO: implement this!
+	// copy the host data to the gl buffer
+	glBindTexture(opengl_type, gl_object);
+	update_gl_image_data(image);
+	glBindTexture(opengl_type, 0);
+	
 	gl_object_state = true;
 	return true;
 }

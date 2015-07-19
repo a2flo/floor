@@ -243,21 +243,27 @@ shared_ptr<compute_buffer> host_compute::create_buffer(shared_ptr<compute_device
 	return make_shared<host_buffer>((host_device*)device.get(), size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
-													 const uint32_t opengl_buffer floor_unused,
-													 const uint32_t opengl_type floor_unused,
-													 const COMPUTE_MEMORY_FLAG flags floor_unused) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device,
+													 const uint32_t opengl_buffer,
+													 const uint32_t opengl_type,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
+	if(!info.valid) return {};
+	return make_shared<host_buffer>((host_device*)device.get(), info.size, nullptr,
+									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									opengl_type, opengl_buffer);
 }
 
-shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
-													 const uint32_t opengl_buffer floor_unused,
-													 const uint32_t opengl_type floor_unused,
-													 void* data floor_unused,
-													 const COMPUTE_MEMORY_FLAG flags floor_unused) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_buffer> host_compute::wrap_buffer(shared_ptr<compute_device> device,
+													 const uint32_t opengl_buffer,
+													 const uint32_t opengl_type,
+													 void* data,
+													 const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
+	if(!info.valid) return {};
+	return make_shared<host_buffer>((host_device*)device.get(), info.size, data,
+									flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+									opengl_type, opengl_buffer);
 }
 
 shared_ptr<compute_image> host_compute::create_image(shared_ptr<compute_device> device,
@@ -277,21 +283,27 @@ shared_ptr<compute_image> host_compute::create_image(shared_ptr<compute_device> 
 	return make_shared<host_image>((host_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
-												   const uint32_t opengl_image floor_unused,
-												   const uint32_t opengl_target floor_unused,
-												   const COMPUTE_MEMORY_FLAG flags floor_unused) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
+												   const uint32_t opengl_image,
+												   const uint32_t opengl_target,
+												   const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
+	if(!info.valid) return {};
+	return make_shared<host_image>((host_device*)device.get(), info.image_dim, info.image_type, nullptr,
+								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+								   opengl_target, opengl_image, &info);
 }
 
-shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
-												   const uint32_t opengl_image floor_unused,
-												   const uint32_t opengl_target floor_unused,
-												   void* data floor_unused,
-												   const COMPUTE_MEMORY_FLAG flags floor_unused) {
-	// TODO: implement this
-	return {};
+shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> device,
+												   const uint32_t opengl_image,
+												   const uint32_t opengl_target,
+												   void* data,
+												   const COMPUTE_MEMORY_FLAG flags) {
+	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
+	if(!info.valid) return {};
+	return make_shared<host_image>((host_device*)device.get(), info.image_dim, info.image_type, data,
+								   flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
+								   opengl_target, opengl_image, &info);
 }
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
