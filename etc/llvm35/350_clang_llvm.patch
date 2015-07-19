@@ -253,6 +253,26 @@ index a9f9bdd..bf44862 100644
    void EmitInstruction(const MachineInstr *) override;
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
+diff --git a/lib/Target/NVPTX/NVPTXISelLowering.cpp b/lib/Target/NVPTX/NVPTXISelLowering.cpp
+index d76b20a..a444f10 100644
+--- a/lib/Target/NVPTX/NVPTXISelLowering.cpp
++++ b/lib/Target/NVPTX/NVPTXISelLowering.cpp
+@@ -205,7 +205,15 @@ NVPTXTargetLowering::NVPTXTargetLowering(NVPTXTargetMachine &TM)
+   // Turn FP extload into load/fextend
+   setLoadExtAction(ISD::EXTLOAD, MVT::f16, Expand);
+   setLoadExtAction(ISD::EXTLOAD, MVT::f32, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::f64, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v2f16, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v2f32, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v2f64, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v4f16, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v4f32, Expand);
++  setLoadExtAction(ISD::EXTLOAD, MVT::v4f64, Expand);
+   // Turn FP truncstore into trunc + store.
++  // FIXME: vector types should also be expanded
+   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
+   setTruncStoreAction(MVT::f64, MVT::f16, Expand);
+   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
 diff --git a/lib/Target/NVPTX/NVPTXInstrInfo.td b/lib/Target/NVPTX/NVPTXInstrInfo.td
 index 9900b8c..4879b84 100644
 --- a/lib/Target/NVPTX/NVPTXInstrInfo.td
