@@ -867,9 +867,12 @@ namespace const_math {
 	
 }
 
-// reenable warnings
+// reenable -Wfloat-equal warnings, disable -Wunused-function
 #if defined(__clang__)
 #pragma clang diagnostic pop
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
 #endif
 
 namespace const_select {
@@ -921,42 +924,50 @@ namespace const_select {
 	// least I haven't figured out a workaround yet), thus support for different types
 	// has to be handled/added manually.
 	
-	// decl here, constexpr impl here, non-constexpr impl in const_math.cpp
 #define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
-	extern __attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
-	extern __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
+	static __attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
 	__attribute__((enable_if(!__builtin_constant_p(val), ""))) asm("floor__const_math_" #func_name type_suffix ); \
 	\
-	__attribute__((always_inline)) constexpr type_name func_name (type_name val) \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
 	__attribute__((enable_if(!__builtin_constant_p(val), ""))) { \
 		return const_math:: func_name (val); \
+	} \
+	static __attribute__((always_inline)) type_name func_name (type_name val) { \
+		return rt_func ; \
 	}
 
 #define FLOOR_CONST_MATH_SELECT_2(func_name, rt_func, type_name, type_suffix) \
-	extern __attribute__((always_inline)) type_name func_name (type_name y, type_name x) asm("floor__const_math_" #func_name type_suffix ); \
-	extern __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
+	static __attribute__((always_inline)) type_name func_name (type_name y, type_name x) asm("floor__const_math_" #func_name type_suffix ); \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
 	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(x), ""))) asm("floor__const_math_" #func_name type_suffix ); \
 	\
-	__attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
 	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(x), ""))) { \
 		return const_math:: func_name (y, x); \
+	} \
+	static __attribute__((always_inline)) type_name func_name (type_name y, type_name x) { \
+		return rt_func ; \
 	}
 
 #define FLOOR_CONST_MATH_SELECT_3(func_name, rt_func, type_name, type_suffix) \
-	extern __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) \
+	static __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) \
 	asm("floor__const_math_" #func_name type_suffix ); \
-	extern __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
 	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(c), ""))) asm("floor__const_math_" #func_name type_suffix ); \
 	\
-	__attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
+	static __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
 	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
 	__attribute__((enable_if(!__builtin_constant_p(c), ""))) { \
 		return const_math:: func_name (a, b, c); \
+	} \
+	static __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) { \
+		return rt_func ; \
 	}
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), float, "f")
@@ -1034,5 +1045,10 @@ namespace const_select {
 #undef FLOOR_CONST_MATH_SELECT_3
 	
 }
+
+// reenable -Wunused-function
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif

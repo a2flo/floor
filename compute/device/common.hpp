@@ -244,14 +244,6 @@ template <typename T> using param = const T*;
 #include <floor/compute/device/host_image.hpp>
 #endif
 
-// yeah, it's kinda ugly to include a .cpp file, but this is never (and should never be) included by user code,
-// this is all correctly handled in llvm_compute which includes this header as a prefix header.
-// the .cpp is needed, because it provides the implementation and redirects of the functions defined in const_math.hpp
-// (would otherwise need to compile and link this separately which is obviously overkill and unnecessary)
-#if !defined(FLOOR_COMPUTE_HOST) // host code can/will link this separately however
-#include <floor/constexpr/const_math.cpp>
-#endif
-
 // device logging functions
 #include <floor/compute/device/logger.hpp>
 
