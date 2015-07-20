@@ -22,9 +22,8 @@
 // NOTE: this header adds misc base c++ functionality that either will be part of a future c++ standard, or should be part of it
 // NOTE: also don't include this header on its own, this is either included through core/cpp_headers.hpp or device/common.hpp
 
-// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode)
-#if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && \
-	!defined(FLOOR_COMPUTE_NO_NON_MEMBER_SIZE)
+// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode and VS2015)
+#if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && !defined(_MSC_VER)
 template <class C> floor_inline_always constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
 	return c.size();
 }

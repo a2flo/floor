@@ -25,6 +25,12 @@
     <Filter Include="compute\cuda">
       <UniqueIdentifier>{6230691a-c6b4-4151-abf5-dc5167983ed1}</UniqueIdentifier>
     </Filter>
+    <Filter Include="lang">
+      <UniqueIdentifier>{c74e6967-2a8f-4f5c-83df-25c570237576}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="compute\host">
+      <UniqueIdentifier>{c5974a86-f674-4992-9c7f-71106ef74816}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compute\compute_base.cpp">
@@ -96,9 +102,6 @@
     <ClCompile Include="compute\opencl\opencl_queue.cpp">
       <Filter>compute\opencl</Filter>
     </ClCompile>
-    <ClCompile Include="constexpr\const_math.cpp">
-      <Filter>constexpr</Filter>
-    </ClCompile>
     <ClCompile Include="core\core.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -149,6 +152,36 @@
     </ClCompile>
     <ClCompile Include="core\gl_shader.cpp">
       <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="lang\grammar.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="lang\lexer.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="lang\source_types.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_buffer.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_compute.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_device.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_image.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_kernel.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_program.cpp">
+      <Filter>compute\host</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\host\host_queue.cpp">
+      <Filter>compute\host</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -346,6 +379,48 @@
     </ClInclude>
     <ClInclude Include="core\gl_shader.hpp">
       <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="lang\grammar.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="lang\lang_context.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="lang\lexer.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="lang\source_types.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="core\cpp_ext.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="constexpr\const_array.hpp">
+      <Filter>constexpr</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_buffer.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_common.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_compute.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_device.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_image.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_kernel.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_program.hpp">
+      <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\host\host_queue.hpp">
+      <Filter>compute\host</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
