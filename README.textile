@@ -40,9 +40,7 @@
    define "FLOOR_NO_NET" or "./build.sh no-net"
 ** to disable OpenAL:
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
-** to disable language support (lexer/parser):
-   define "FLOOR_NO_LANG" or "./build.sh no-lang"
-** to disable C++ exceptions (implies no-net no-lang):
+** to disable C++ exceptions (implies no-net):
    define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
 *Build Instructions (Xcode / OS X / iOS):*

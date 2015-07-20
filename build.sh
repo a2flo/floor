@@ -62,7 +62,6 @@ BUILD_CONF_OPENAL=1
 BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
 BUILD_CONF_NET=1
-BUILD_CONF_LANG=1
 BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
@@ -101,8 +100,7 @@ for arg in "$@"; do
 			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
 			echo "	no-openal          disables openal support"
 			echo "	no-net             disables network support"
-			echo "	no-lang            disables lexer/parser/ast support"
-			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net no-lang!)"
+			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net!)"
 			echo "	cl-profiling       enables profiling of opencl kernel executions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			#echo "	libstdc++          use the libstdc++ library instead of libc++ (unsupported)"
@@ -159,9 +157,6 @@ for arg in "$@"; do
 		"no-net")
 			BUILD_CONF_NET=0
 			;;
-		"no-lang")
-			BUILD_CONF_LANG=0
-			;;
 		"no-exceptions")
 			BUILD_CONF_EXCEPTIONS=0
 			;;
@@ -189,10 +184,7 @@ done
 # sanity check
 if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
-		error "when building without exceptions, network support must be disabled as well! (./build.sh no-exceptions no-net no-lang)"
-	fi
-	if [ ${BUILD_CONF_LANG} -gt 0 ]; then
-		error "when building without exceptions, language support must be disabled as well! (./build.sh no-exceptions no-net no-lang)"
+		error "when building without exceptions, network support must be disabled as well! (./build.sh no-exceptions no-net)"
 	fi
 fi
 
@@ -539,7 +531,6 @@ else
 fi
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
-set_conf_val "###FLOOR_LANG###" "FLOOR_NO_LANG" ${BUILD_CONF_LANG}
 set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp

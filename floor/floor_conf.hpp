@@ -24,7 +24,6 @@
 #define FLOOR_NO_HOST_COMPUTE 1 // for now, until implemented
 #define FLOOR_NO_OPENAL 1
 #define FLOOR_NO_NET 1
-#define FLOOR_NO_LANG 1
 #define FLOOR_NO_EXCEPTIONS 1
 #endif
 
@@ -50,13 +49,10 @@
 // if defined, this disabled network support
 //#define FLOOR_NO_NET 1
 
-// if defined, this disabled language (lexer/parser/ast) support
-//#define FLOOR_NO_LANG 1
-
-// if defined, this disables c++ exception support (implies no-net no-lang!)
+// if defined, this disables c++ exception support (implies no-net!)
 //#define FLOOR_NO_EXCEPTIONS 1
-#if defined(FLOOR_NO_EXCEPTIONS) && (!defined(FLOOR_NO_NET) || !defined(FLOOR_NO_LANG))
-#error "disabled exception support also requires building without net and language support! (build with ./build.sh no-exceptions no-net no-lang)"
+#if defined(FLOOR_NO_EXCEPTIONS) && !defined(FLOOR_NO_NET)
+#error "disabled exception support also requires building without net support! (build with ./build.sh no-exceptions no-net)"
 #endif
 
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)

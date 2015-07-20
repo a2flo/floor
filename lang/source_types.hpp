@@ -20,9 +20,6 @@
 #define __FLOOR_SOURCE_TYPES_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_LANG)
-
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,7 +50,7 @@ struct source_range {
 	size_t size() const;
 };
 
-//! enum representation of all keywords
+//! enum representation of all C11 keywords
 enum class FLOOR_KEYWORD : uint16_t {
 	AUTO,
 	BREAK,
@@ -101,7 +98,7 @@ enum class FLOOR_KEYWORD : uint16_t {
 	THREAD_LOCAL,
 };
 
-//! enum representation of all punctuators
+//! enum representation of all C11 punctuators
 enum class FLOOR_PUNCTUATOR : uint16_t {
 	LEFT_BRACKET,		//!< [ and <:
 	RIGHT_BRACKET,		//!< ] and :>
@@ -209,7 +206,5 @@ typedef token_container::const_iterator token_iterator;
 
 //! inclusive token range in the source code: [first, second]
 typedef pair<token_iterator, token_iterator> token_range;
-
-#endif
 
 #endif

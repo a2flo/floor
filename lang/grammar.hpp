@@ -20,9 +20,6 @@
 #define __FLOOR_GRAMMAR_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_LANG)
-
 #include <floor/core/util.hpp>
 #include <floor/lang/source_types.hpp>
 #include <floor/lang/lang_context.hpp>
@@ -797,7 +794,5 @@ struct grammar_rule : public parser_node_base<grammar_rule> {
 	}
 	
 };
-
-#endif
 
 #endif

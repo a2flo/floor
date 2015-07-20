@@ -20,9 +20,6 @@
 #define __FLOOR_COMPILER_CONTEXT_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_LANG)
-
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -46,7 +43,5 @@ struct translation_unit {
 	
 	translation_unit(const string& file_name_) : file_name(file_name_) {}
 };
-
-#endif
 
 #endif
