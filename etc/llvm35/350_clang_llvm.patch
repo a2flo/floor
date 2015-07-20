@@ -338,6 +338,33 @@ index 8174df9..21a73ba 100644
  INITIALIZE_PASS_BEGIN(FunctionAttrs, "functionattrs",
                  "Deduce function attributes", false, false)
  INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
+index c970a1a..20d38ef 100644
+--- a/lib/Transforms/IPO/Internalize.cpp
++++ b/lib/Transforms/IPO/Internalize.cpp
+@@ -23,6 +23,7 @@
+ #include "llvm/ADT/SmallPtrSet.h"
+ #include "llvm/ADT/Statistic.h"
+ #include "llvm/Analysis/CallGraph.h"
++#include "llvm/IR/Function.h"
+ #include "llvm/IR/Module.h"
+ #include "llvm/Pass.h"
+ #include "llvm/Support/CommandLine.h"
+@@ -127,6 +128,14 @@ static bool shouldInternalize(const GlobalValue &GV,
+   if (ExternalNames.count(GV.getName()))
+     return false;
+ 
++  // is this a compute (opencl/cuda/metal) kernel function?
++  if (isa<Function>(GV)) {
++    const Function* F = dyn_cast<Function>(&GV);
++    if (F && F->hasFnAttribute("compute_kernel")) {
++      return false;
++    }
++  }
++
+   return true;
+ }
+ 
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
 index 701fb46..1bd7950 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
@@ -1504,7 +1531,7 @@ index 075f905..c9be0ff 100644
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..84b36ba 100644
+index cec48f3..41d6fb1 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -240,6 +240,14 @@ void EmitAssemblyHelper::CreatePasses() {
@@ -1522,6 +1549,17 @@ index cec48f3..84b36ba 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
+@@ -326,6 +334,10 @@ void EmitAssemblyHelper::CreatePasses() {
+   if (CodeGenOpts.VerifyModule)
+     MPM->add(createDebugInfoVerifierPass());
+ 
++  if (LangOpts.OpenCL || LangOpts.CUDA) {
++    MPM->add(createInternalizePass());
++  }
++
+   if (!CodeGenOpts.DisableGCov &&
+       (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
+     // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
 index 17c3354..5615b31 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
@@ -1809,7 +1847,7 @@ index 079ef72..5b0b575 100644
    }
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..83b0ceb 100644
+index 5ca3a78..88b05b1 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -2215,19 +2253,27 @@ index 5ca3a78..83b0ceb 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +921,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -558,6 +921,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
        EmitOpenCLKernelMetadata(FD, Fn);
    }
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
-+	// add floor specific metadata for kernel functions
-+	if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-+	  EmitFloorKernelMetadata(FD, Fn, Args);
++    if(const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
++      // add floor specific metadata for kernel functions
++      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
++        EmitFloorKernelMetadata(FD, Fn, Args);
++      }
++
++      // add "compute_kernel" llvm function attribute if this is a kernel function
++      if (FD->hasAttr<OpenCLKernelAttr>() || FD->hasAttr<CUDAGlobalAttr>()) {
++        Fn->addFnAttr("compute_kernel");
++      }
++    }
 +  }
  
    // If we are checking function types, emit a function type signature as
    // prefix data.
-@@ -755,6 +1123,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1131,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2311,7 +2357,7 @@ index 5ca3a78..83b0ceb 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1303,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1311,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
