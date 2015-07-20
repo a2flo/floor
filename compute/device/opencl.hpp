@@ -23,32 +23,33 @@
 
 #define opencl_const_func __attribute__((const))
 
-// wrap opencl id handling functions so that uint32_t is always returned
-#if !defined(FLOOR_COMPUTE_APPLECL)
-size_t opencl_const_func cl_get_global_id(uint32_t dim) asm("_Z13get_global_idj");
-size_t opencl_const_func cl_get_global_size(uint32_t dim) asm("_Z15get_global_sizej");
-size_t opencl_const_func cl_get_local_id(uint32_t dim) asm("_Z12get_local_idj");
-size_t opencl_const_func cl_get_local_size(uint32_t dim) asm("_Z14get_local_sizej");
-size_t opencl_const_func cl_get_group_id(uint32_t dim) asm("_Z12get_group_idj");
-size_t opencl_const_func cl_get_num_groups(uint32_t dim) asm("_Z14get_num_groupsj");
-uint32_t opencl_const_func cl_get_work_dim() asm("_Z12get_work_dim");
+#if defined(FLOOR_COMPUTE_APPLECL)
+#define opencl_c_func extern "C"
 #else
-size_t opencl_const_func cl_get_global_id(uint32_t dim) asm("get_global_id");
-size_t opencl_const_func cl_get_global_size(uint32_t dim) asm("get_global_size");
-size_t opencl_const_func cl_get_local_id(uint32_t dim) asm("get_local_id");
-size_t opencl_const_func cl_get_local_size(uint32_t dim) asm("get_local_size");
-size_t opencl_const_func cl_get_group_id(uint32_t dim) asm("get_group_id");
-size_t opencl_const_func cl_get_num_groups(uint32_t dim) asm("get_num_groups");
-uint32_t opencl_const_func cl_get_work_dim() asm("get_work_dim");
+#define opencl_c_func
 #endif
 
-floor_inline_always uint32_t get_global_id(uint32_t dim) { return uint32_t(cl_get_global_id(dim)); }
-floor_inline_always uint32_t get_global_size(uint32_t dim) { return uint32_t(cl_get_global_size(dim)); }
-floor_inline_always uint32_t get_local_id(uint32_t dim) { return uint32_t(cl_get_local_id(dim)); }
-floor_inline_always uint32_t get_local_size(uint32_t dim) { return uint32_t(cl_get_local_size(dim)); }
-floor_inline_always uint32_t get_group_id(uint32_t dim) { return uint32_t(cl_get_group_id(dim)); }
-floor_inline_always uint32_t get_num_groups(uint32_t dim) { return uint32_t(cl_get_num_groups(dim)); }
-floor_inline_always uint32_t get_work_dim(uint32_t dim) { return cl_get_work_dim(); }
+opencl_c_func size_t opencl_const_func get_global_id(uint32_t dim);
+opencl_c_func size_t opencl_const_func get_global_size(uint32_t dim);
+opencl_c_func size_t opencl_const_func get_local_id(uint32_t dim);
+opencl_c_func size_t opencl_const_func get_local_size(uint32_t dim);
+opencl_c_func size_t opencl_const_func get_group_id(uint32_t dim);
+opencl_c_func size_t opencl_const_func get_num_groups(uint32_t dim);
+opencl_c_func uint32_t opencl_const_func get_work_dim();
+
+// wrap opencl id handling functions so that uint32_t is always returned
+floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
+floor_inline_always uint32_t cl_get_global_size(uint32_t dim) { return uint32_t(get_global_size(dim)); }
+floor_inline_always uint32_t cl_get_local_id(uint32_t dim) { return uint32_t(get_local_id(dim)); }
+floor_inline_always uint32_t cl_get_local_size(uint32_t dim) { return uint32_t(get_local_size(dim)); }
+floor_inline_always uint32_t cl_get_group_id(uint32_t dim) { return uint32_t(get_group_id(dim)); }
+floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(get_num_groups(dim)); }
+#define get_global_id(x) cl_get_global_id(x)
+#define get_global_size(x) cl_get_global_size(x)
+#define get_local_id(x) cl_get_local_id(x)
+#define get_local_size(x) cl_get_local_size(x)
+#define get_group_id(x) cl_get_group_id(x)
+#define get_num_groups(x) cl_get_num_groups(x)
 
 #if defined(FLOOR_COMPUTE_APPLECL)
 float opencl_const_func __cl_fmod(float, float);
