@@ -22,7 +22,8 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter) {
+pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter,
+											   const string::const_iterator& end_iter) {
 	// figure out how long the utf-8 char is (how many bytes)
 	uint32_t size = 0;
 	const uint32_t char_code = ((uint32_t)*iter) & 0xFFu;
@@ -42,7 +43,12 @@ pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter) {
 	--size;
 	cur_code <<= size * 6; // shift up
 	for(uint32_t i = 0; i < size; i++) {
-		const auto cur_char_code = (uint32_t)*++iter;
+		// advance iter + check if iterator is past the end
+		++iter;
+		if(iter == end_iter) {
+			return { false, 0u };
+		}
+		const auto cur_char_code = (uint32_t)*iter;
 		
 		// must be 0b10xxxxxx
 		if((cur_char_code & 0x80u) != 0x80u) {
@@ -62,8 +68,9 @@ pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter) {
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
 	vector<unsigned int> ret;
 	
-	for(auto iter = str.cbegin(); iter != str.cend(); iter++) {
-		const auto code = decode_utf8_char(iter);
+	const auto end_iter = str.cend();
+	for(auto iter = str.cbegin(); iter != end_iter; iter++) {
+		const auto code = decode_utf8_char(iter, end_iter);
 		if(!code.first) return ret;
 		ret.emplace_back(code.second);
 	}
@@ -113,8 +120,9 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 }
 
 pair<bool, string::const_iterator> unicode::validate_utf8_string(const string& str) {
-	for(auto iter = str.cbegin(); iter != str.cend(); ++iter) {
-		const auto code = decode_utf8_char(iter);
+	const auto end_iter = str.cend();
+	for(auto iter = str.cbegin(); iter != end_iter; ++iter) {
+		const auto code = decode_utf8_char(iter, end_iter);
 		if(!code.first) {
 			return { false, iter };
 		}
