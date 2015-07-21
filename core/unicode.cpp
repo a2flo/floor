@@ -22,39 +22,50 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
+pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter) {
+	// figure out how long the utf-8 char is (how many bytes)
+	uint32_t size = 0;
+	const uint32_t char_code = ((uint32_t)*iter) & 0xFFu;
+	while((char_code & (1u << (7u - size))) != 0u) {
+		++size;
+	}
+	
+	// single "ASCII" byte
+	if(size == 0u) return { true, char_code & 0x7Fu };
+	// invalid since RFC 3629 (5 and 6 bytes long)
+	else if(size >= 5u) return { false, 0u };
+	// else: valid
+	
+	// AND lower (7 - size) bits of the first character
+	uint32_t cur_code = char_code & ((1u << (7u - size)) - 1u);
+	
+	--size;
+	cur_code <<= size * 6; // shift up
+	for(uint32_t i = 0; i < size; i++) {
+		const auto cur_char_code = (uint32_t)*++iter;
+		
+		// must be 0b10xxxxxx
+		if((cur_char_code & 0x80u) != 0x80u) {
+			return { false, 0u };
+		}
+		
+		cur_code += (cur_char_code & 0x3Fu) << ((size - i - 1u) * 6u);
+	}
+	
+	if(cur_code > 0x10FFFFu) {
+		// invalid unicode range
+		return { false, 0u };
+	}
+	return { true, cur_code };
+}
+
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
 	vector<unsigned int> ret;
 	
 	for(auto iter = str.cbegin(); iter != str.cend(); iter++) {
-		unsigned int size = 0;
-		const unsigned int char_code = ((unsigned int)*iter) & 0xFF;
-		while((char_code & (1 << (7 - size))) != 0) {
-			size++;
-		}
-		
-		if(size == 0) {
-			ret.emplace_back(char_code & 0x7F);
-			continue;
-		}
-		else if(size >= 5) {
-			// invalid -> abort
-			return ret;
-		}
-		
-		// AND lower (7 - size) bits of the first character
-		unsigned int cur_code = char_code & ((1 << (7 - size)) - 1);
-		
-		size--;
-		cur_code <<= size * 6; // shift up
-		
-		for(unsigned int i = 0; i < size; i++) {
-			cur_code += (((unsigned int)*++iter) & 0x3F) << ((size - i - 1) * 6);
-		}
-		if(cur_code > 0x10FFFF) {
-			// invalid -> abort
-			return ret;
-		}
-		ret.emplace_back(cur_code);
+		const auto code = decode_utf8_char(iter);
+		if(!code.first) return ret;
+		ret.emplace_back(code.second);
 	}
 	
 	return ret;
@@ -99,6 +110,16 @@ string unicode::unicode_to_utf8(const vector<unsigned int>& codes) {
 		}
 	}
 	return ret;
+}
+
+pair<bool, string::const_iterator> unicode::validate_utf8_string(const string& str) {
+	for(auto iter = str.cbegin(); iter != str.cend(); ++iter) {
+		const auto code = decode_utf8_char(iter);
+		if(!code.first) {
+			return { false, iter };
+		}
+	}
+	return { true, str.cend() };
 }
 
 #if defined(__APPLE__)

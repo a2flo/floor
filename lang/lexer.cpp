@@ -72,6 +72,22 @@ lexer::lex_return_type lexer::handle_error(const translation_unit& tu, const sou
 	log_error("%s:%u:%u: error: %s",
 			  tu.file_name, line_and_column.first, line_and_column.second, error_msg);
 	
+	// print erroneous line if possible
+	if(line_and_column.first != 0) {
+		// find and extract the correct line (without the \n)
+		const auto lines_begin = tu.lines.cbegin();
+		const auto line_end = tu.lines.lower_bound(iter);
+		const auto line_start = prev(line_end);
+		const string line_str = tu.source.substr(size_t(distance(*lines_begin, *line_start)), size_t(*line_end - *line_start) - 1u);
+		log_undecorated("%s", line_str);
+		
+		// print '^' at erroneous character if possible
+		if(line_and_column.second != 0) {
+			const string caret_string(line_and_column.second - 1, ' ');
+			log_undecorated("%s^", caret_string);
+		}
+	}
+	
 	return { false, {} };
 }
 
