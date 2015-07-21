@@ -271,7 +271,8 @@ protected:
 			log_error("map: WRITE_INVALIDATE map flag is mutually exclusive with the READ and WRITE flags!");
 			return false;
 		}
-		if((map_flags & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) == COMPUTE_MEMORY_MAP_FLAG::NONE) {
+		if(!has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(map_flags) &&
+		   (map_flags & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) == COMPUTE_MEMORY_MAP_FLAG::NONE) {
 			log_error("map: neither read nor write flags set for buffer mapping!");
 			return false;
 		}
