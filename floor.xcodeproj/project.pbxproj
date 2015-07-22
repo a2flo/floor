@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5C0416F91B60048100370253 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C0416F71B60048100370253 /* json.cpp */; };
+		5C0416FA1B60048100370253 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C0416F71B60048100370253 /* json.cpp */; };
+		5C0416FB1B60048100370253 /* json.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0416F81B60048100370253 /* json.hpp */; };
 		5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0686B819C9285200CF63C8 /* essentials.hpp */; };
 		5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0686BA19C92E1400CF63C8 /* floor_conf.hpp */; };
 		5C1091A617D1153E007F536E /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
@@ -236,6 +239,8 @@
 
 /* Begin PBXFileReference section */
 		5C02EE221A5B5EF800949E72 /* CUDA.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CUDA.framework; path = /Library/Frameworks/CUDA.framework; sourceTree = "<absolute>"; };
+		5C0416F71B60048100370253 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json.cpp; sourceTree = "<group>"; };
+		5C0416F81B60048100370253 /* json.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = json.hpp; sourceTree = "<group>"; };
 		5C0686B819C9285200CF63C8 /* essentials.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = essentials.hpp; sourceTree = "<group>"; };
 		5C0686BA19C92E1400CF63C8 /* floor_conf.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = floor_conf.hpp; sourceTree = "<group>"; };
 		5C0686BC19C95FD800CF63C8 /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
@@ -528,6 +533,8 @@
 				5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */,
 				5C10920117D1F80E007F536E /* gl_support.cpp */,
 				5C10920517D1F81B007F536E /* gl_support.hpp */,
+				5C0416F71B60048100370253 /* json.cpp */,
+				5C0416F81B60048100370253 /* json.hpp */,
 				5C10917617D1153E007F536E /* logger.cpp */,
 				5C10917717D1153E007F536E /* logger.hpp */,
 				5C515D661ACDB75D002FB38F /* option_handler.hpp */,
@@ -929,6 +936,7 @@
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C5383E91A641B1E007AEDD7 /* cuda_device.hpp in Headers */,
 				5CE843B11B28CE1E00D8B961 /* device_info.hpp in Headers */,
+				5C0416FB1B60048100370253 /* json.hpp in Headers */,
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */,
@@ -1095,6 +1103,7 @@
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,
 				5C1091C817D1153E007F536E /* error_code.cpp in Sources */,
 				5CD2174219E9213B0049D6AE /* compute_base.cpp in Sources */,
+				5C0416F91B60048100370253 /* json.cpp in Sources */,
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C20C8C61B4139260005F5EA /* host_compute.cpp in Sources */,
 				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
@@ -1142,6 +1151,7 @@
 				5CE0BDDB19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
+				5C0416FA1B60048100370253 /* json.cpp in Sources */,
 				5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */,
 				5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */,
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
