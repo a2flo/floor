@@ -312,6 +312,12 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 				  device.family);
 	}
 	
+	// check if there is any supported / whitelisted device
+	if(devices.empty()) {
+		log_error("no valid metal device found!");
+		return;
+	}
+	
 	// figure out the fastest device
 #if defined(FLOOR_IOS)
 	// only one device on ios

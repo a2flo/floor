@@ -318,7 +318,8 @@ public parser_node_base<literal_matcher<FLOOR_PUNCTUATOR, SOURCE_TOKEN_TYPE::PUN
 	constexpr literal_matcher(const FLOOR_PUNCTUATOR& punctuator_) noexcept : punctuator(punctuator_) {}
 	match_return_type match(parser_context& ctx) const {
 #if defined(FLOOR_DEBUG_PARSER) && !defined(FLOOR_DEBUG_PARSER_MATCHES_ONLY)
-		ctx.print_at_depth("matching PUNCTUATOR");
+		ctx.print_at_depth("matching PUNCTUATOR #" + to_string((uint16_t)punctuator) +
+						   " to " + to_string(uint32_t(ctx.iter->first & SOURCE_TOKEN_TYPE::__SUB_TYPE_MASK)));
 #endif
 		if(ctx.at_end() || (ctx.iter->first & SOURCE_TOKEN_TYPE::PUNCTUATOR) == SOURCE_TOKEN_TYPE::INVALID) {
 			return { false, false, {} };

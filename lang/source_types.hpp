@@ -100,6 +100,7 @@ enum class FLOOR_KEYWORD : uint16_t {
 
 //! enum representation of all C11 punctuators
 enum class FLOOR_PUNCTUATOR : uint16_t {
+	INVALID = 0,		//! used to signal invalid/uninitialized types
 	LEFT_BRACKET,		//!< [ and <:
 	RIGHT_BRACKET,		//!< ] and :>
 	LEFT_PAREN,			//!< (
