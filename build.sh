@@ -62,6 +62,7 @@ BUILD_CONF_OPENAL=1
 BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
 BUILD_CONF_NET=1
+BUILD_CONF_XML=1
 BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
@@ -100,6 +101,7 @@ for arg in "$@"; do
 			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
 			echo "	no-openal          disables openal support"
 			echo "	no-net             disables network support"
+			echo "	no-xml             disables xml support"
 			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net!)"
 			echo "	cl-profiling       enables profiling of opencl kernel executions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
@@ -156,6 +158,9 @@ for arg in "$@"; do
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
+			;;
+		"no-xml")
+			BUILD_CONF_XML=0
 			;;
 		"no-exceptions")
 			BUILD_CONF_EXCEPTIONS=0
@@ -329,8 +334,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
-	PACKAGES="sdl2 libxml-2.0"
+	PACKAGES="sdl2"
 	PACKAGES_OPT=""
+	if [ ${BUILD_CONF_XML} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} libxml-2.0"
+	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} libcrypto libssl"
 	fi
@@ -436,7 +444,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 else
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
 	INCLUDES="${INCLUDES} -isystem /opt/X11/include"
-	INCLUDES="${INCLUDES} -isystem /usr/include/libxml2"
+	if [ ${BUILD_CONF_XML} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /usr/include/libxml2"
+	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	fi
@@ -464,7 +474,9 @@ else
 	
 	# frameworks and libs
 	LDFLAGS="${LDFLAGS} -framework SDL2"
-	LDFLAGS="${LDFLAGS} -lxml2"
+	if [ ${BUILD_CONF_XML} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -lxml2"
+	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lcrypto -lssl"
 	fi
@@ -531,6 +543,7 @@ else
 fi
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
+set_conf_val "###FLOOR_XML###" "FLOOR_NO_XML" ${BUILD_CONF_XML}
 set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp

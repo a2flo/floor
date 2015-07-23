@@ -19,6 +19,10 @@
 #ifndef __FLOOR_XML_HPP__
 #define __FLOOR_XML_HPP__
 
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_XML)
+
 #include <floor/core/platform.hpp>
 #include <floor/core/core.hpp>
 
@@ -223,5 +227,7 @@ template<> bool xml::xml_doc::set<size4>(const string& path, const size4& value)
 template<> bool xml::xml_doc::set<ssize2>(const string& path, const ssize2& value);
 template<> bool xml::xml_doc::set<ssize3>(const string& path, const ssize3& value);
 template<> bool xml::xml_doc::set<ssize4>(const string& path, const ssize4& value);
+
+#endif
 
 #endif

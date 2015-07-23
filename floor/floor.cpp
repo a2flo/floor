@@ -32,20 +32,19 @@
 
 // init statics
 event* floor::evt = nullptr;
-xml* floor::x = nullptr;
 bool floor::console_only = false;
 shared_ptr<compute_base> floor::compute_ctx;
 unordered_set<string> floor::gl_extensions;
 
 struct floor::floor_config floor::config;
-xml::xml_doc floor::config_doc;
+json::document floor::config_doc;
 
 string floor::datapath = "";
 string floor::rel_datapath = "";
 string floor::callpath = "";
 string floor::kernelpath = "";
 string floor::abs_bin_path = "";
-string floor::config_name = "config.xml";
+string floor::config_name = "config.json";
 
 unsigned int floor::fps = 0;
 unsigned int floor::fps_counter = 0;
@@ -181,51 +180,57 @@ void floor::init(const char* callpath_, const char* datapath_,
 	// init core (atm this only initializes the rng on windows)
 	core::init();
 	
-	// init xml and load config
-	x = new xml();
+	// load config
 	const string config_filename(config_name +
 								 (file_io::is_file(data_path(config_name + ".local")) ? ".local" : ""));
-	config_doc = x->process_file(data_path(config_filename));
+	config_doc = json::create_document(data_path(config_filename));
 	if(config_doc.valid) {
-		config.width = config_doc.get<size_t>("config.screen.width", 1280);
-		config.height = config_doc.get<size_t>("config.screen.height", 720);
-		config.fullscreen = config_doc.get<bool>("config.screen.fullscreen", false);
-		config.vsync = config_doc.get<bool>("config.screen.vsync", false);
-		config.stereo = config_doc.get<bool>("config.screen.stereo", false);
-		config.dpi = config_doc.get<size_t>("config.screen.dpi", 0);
+		config.width = config_doc.get<uint64_t>("screen.width", 1280);
+		config.height = config_doc.get<uint64_t>("screen.height", 720);
+		config.fullscreen = config_doc.get<bool>("screen.fullscreen", false);
+		config.vsync = config_doc.get<bool>("screen.vsync", false);
+		config.stereo = config_doc.get<bool>("screen.stereo", false);
+		config.dpi = config_doc.get<uint64_t>("screen.dpi", 0);
 		
-		config.audio_disabled = config_doc.get<bool>("config.audio.disabled", true);
-		config.music_volume = const_math::clamp(config_doc.get<float>("config.audio.music", 1.0f), 0.0f, 1.0f);
-		config.sound_volume = const_math::clamp(config_doc.get<float>("config.audio.sound", 1.0f), 0.0f, 1.0f);
-		config.audio_device_name = config_doc.get<string>("config.audio.device", "");
+		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
+		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
+		config.sound_volume = const_math::clamp(config_doc.get<float>("audio.sound", 1.0f), 0.0f, 1.0f);
+		config.audio_device_name = config_doc.get<string>("audio.device", "");
 		
-		config.verbosity = config_doc.get<size_t>("config.logging.verbosity", (size_t)logger::LOG_TYPE::UNDECORATED);
-		config.separate_msg_file = config_doc.get<bool>("config.logging.separate_msg_file", false);
-		config.append_mode = config_doc.get<bool>("config.logging.append_mode", false);
-		config.log_use_time = config_doc.get<bool>("config.logging.use_time", true);
-		config.log_use_color = config_doc.get<bool>("config.logging.use_color", true);
-		config.log_filename = config_doc.get<string>("config.logging.log_filename", "");
-		config.msg_filename = config_doc.get<string>("config.logging.msg_filename", "");
+		config.verbosity = config_doc.get<uint64_t>("logging.verbosity", (size_t)logger::LOG_TYPE::UNDECORATED);
+		config.separate_msg_file = config_doc.get<bool>("logging.separate_msg_file", false);
+		config.append_mode = config_doc.get<bool>("logging.append_mode", false);
+		config.log_use_time = config_doc.get<bool>("logging.use_time", true);
+		config.log_use_color = config_doc.get<bool>("logging.use_color", true);
+		config.log_filename = config_doc.get<string>("logging.log_filename", "");
+		config.msg_filename = config_doc.get<string>("logging.msg_filename", "");
 		
-		config.fov = config_doc.get<float>("config.projection.fov", 72.0f);
-		config.near_far_plane.x = config_doc.get<float>("config.projection.near", 1.0f);
-		config.near_far_plane.y = config_doc.get<float>("config.projection.far", 1000.0f);
-		config.upscaling = config_doc.get<float>("config.projection.upscaling", 1.0f);
+		config.fov = config_doc.get<float>("projection.fov", 72.0f);
+		config.near_far_plane.x = config_doc.get<float>("projection.near", 1.0f);
+		config.near_far_plane.y = config_doc.get<float>("projection.far", 1000.0f);
+		config.upscaling = config_doc.get<float>("projection.upscaling", 1.0f);
 		
-		config.key_repeat = config_doc.get<size_t>("config.input.key_repeat", 200);
-		config.ldouble_click_time = config_doc.get<size_t>("config.input.ldouble_click_time", 200);
-		config.mdouble_click_time = config_doc.get<size_t>("config.input.mdouble_click_time", 200);
-		config.rdouble_click_time = config_doc.get<size_t>("config.input.rdouble_click_time", 200);
+		config.key_repeat = config_doc.get<uint64_t>("input.key_repeat", 200);
+		config.ldouble_click_time = config_doc.get<uint64_t>("input.ldouble_click_time", 200);
+		config.mdouble_click_time = config_doc.get<uint64_t>("input.mdouble_click_time", 200);
+		config.rdouble_click_time = config_doc.get<uint64_t>("input.rdouble_click_time", 200);
 		
-		config.platform = config_doc.get<string>("config.compute.platform", "opencl");
-		config.gl_sharing = config_doc.get<bool>("config.compute.gl_sharing", false);
-		config.debug = config_doc.get<bool>("config.compute.debug", false);
-		config.profiling = config_doc.get<bool>("config.compute.profiling", false);
-		config.log_binaries = config_doc.get<bool>("config.compute.log_binaries", false);
-		config.keep_temp = config_doc.get<bool>("config.compute.keep_temp", false);
-		config.keep_binaries = config_doc.get<bool>("config.compute.keep_binaries", true);
-		config.use_cache = config_doc.get<bool>("config.compute.use_cache", true);
-		config.log_commands = config_doc.get<bool>("config.compute.log_commands", false);
+		config.backend = config_doc.get<string>("compute.backend", "opencl");
+		config.gl_sharing = config_doc.get<bool>("compute.gl_sharing", false);
+		config.debug = config_doc.get<bool>("compute.debug", false);
+		config.profiling = config_doc.get<bool>("compute.profiling", false);
+		config.log_binaries = config_doc.get<bool>("compute.log_binaries", false);
+		config.keep_temp = config_doc.get<bool>("compute.keep_temp", false);
+		config.keep_binaries = config_doc.get<bool>("compute.keep_binaries", true);
+		config.use_cache = config_doc.get<bool>("compute.use_cache", true);
+		config.log_commands = config_doc.get<bool>("compute.log_commands", false);
+		
+		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "compute_clang");
+		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "compute_llc");
+		config.default_as = config_doc.get<string>("compute.toolchain.as", "compute_as");
+		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "compute_dis");
+		config.default_libcxx = config_doc.get<string>("compute.toolchain.libcxx", "/usr/include/floor/libcxx/include");
+		config.default_clang = config_doc.get<string>("compute.toolchain.clang", "/usr/include/floor/libcxx/clang");
 		
 		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
 			const auto whitelist_tokens = core::tokenize(config_doc.get<string>(config_entry_name, ""), ';');
@@ -235,41 +240,41 @@ void floor::init(const char* callpath_, const char* datapath_,
 			}
 		};
 		
-		config.opencl_platform = config_doc.get<string>("config.opencl.platform", "0");
-		extract_whitelist(config.opencl_whitelist, "config.opencl.whitelist");
-		config.opencl_compiler = config_doc.get<string>("config.opencl.compiler", "compute_clang");
-		config.opencl_llc = config_doc.get<string>("config.opencl.llc", "compute_llc");
-		config.opencl_as = config_doc.get<string>("config.opencl.as", "compute_as");
-		config.opencl_dis = config_doc.get<string>("config.opencl.dis", "compute_dis");
-		config.opencl_libcxx = config_doc.get<string>("config.opencl.libcxx", "/usr/include/floor/libcxx/include");
-		config.opencl_clang = config_doc.get<string>("config.opencl.clang", "/usr/include/floor/libcxx/clang");
+		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
+		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
+		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
+		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
+		config.opencl_as = config_doc.get<string>("compute.opencl.as", config.default_as);
+		config.opencl_dis = config_doc.get<string>("compute.opencl.dis", config.default_dis);
+		config.opencl_libcxx = config_doc.get<string>("compute.opencl.libcxx", config.default_libcxx);
+		config.opencl_clang = config_doc.get<string>("compute.opencl.clang", config.default_clang);
 		
-		extract_whitelist(config.cuda_whitelist, "config.cuda.whitelist");
-		config.cuda_compiler = config_doc.get<string>("config.cuda.compiler", "compute_clang");
-		config.cuda_llc = config_doc.get<string>("config.cuda.llc", "compute_llc");
-		config.cuda_as = config_doc.get<string>("config.cuda.as", "compute_as");
-		config.cuda_dis = config_doc.get<string>("config.cuda.dis", "compute_dis");
-		config.cuda_libcxx = config_doc.get<string>("config.cuda.libcxx", "/usr/include/floor/libcxx/include");
-		config.cuda_clang = config_doc.get<string>("config.cuda.clang", "/usr/include/floor/libcxx/clang");
-		config.cuda_force_driver_sm = config_doc.get<string>("config.cuda.force_driver_sm", "");
-		config.cuda_force_compile_sm = config_doc.get<string>("config.cuda.force_compile_sm", "");
+		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
+		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
+		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
+		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
+		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
+		config.cuda_as = config_doc.get<string>("compute.cuda.as", config.default_as);
+		config.cuda_dis = config_doc.get<string>("compute.cuda.dis", config.default_dis);
+		config.cuda_libcxx = config_doc.get<string>("compute.cuda.libcxx", config.default_libcxx);
+		config.cuda_clang = config_doc.get<string>("compute.cuda.clang", config.default_clang);
 		
-		extract_whitelist(config.metal_whitelist, "config.metal.whitelist");
-		config.metal_compiler = config_doc.get<string>("config.metal.compiler", "compute_clang");
-		config.metal_llc = config_doc.get<string>("config.metal.llc", "compute_llc");
-		config.metal_as = config_doc.get<string>("config.metal.as", "compute_as");
-		config.metal_dis = config_doc.get<string>("config.metal.dis", "compute_dis");
-		config.metal_libcxx = config_doc.get<string>("config.metal.libcxx", "/usr/include/floor/libcxx/include");
-		config.metal_clang = config_doc.get<string>("config.metal.clang", "/usr/include/floor/libcxx/clang");
+		extract_whitelist(config.metal_whitelist, "compute.metal.whitelist");
+		config.metal_compiler = config_doc.get<string>("compute.metal.compiler", config.default_compiler);
+		config.metal_llc = config_doc.get<string>("compute.metal.llc", config.default_llc);
+		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
+		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
+		config.metal_libcxx = config_doc.get<string>("compute.metal.libcxx", config.default_libcxx);
+		config.metal_clang = config_doc.get<string>("compute.metal.clang", config.default_clang);
 		
-		extract_whitelist(config.host_whitelist, "config.host.whitelist");
-		config.execution_model = config_doc.get<string>("config.host.exec_model", "mt-group");
-		config.host_compiler = config_doc.get<string>("config.host.compiler", "compute_clang");
-		config.host_llc = config_doc.get<string>("config.host.llc", "compute_llc");
-		config.host_as = config_doc.get<string>("config.host.as", "compute_as");
-		config.host_dis = config_doc.get<string>("config.host.dis", "compute_dis");
-		config.host_libcxx = config_doc.get<string>("config.host.libcxx", "/usr/include/floor/libcxx/include");
-		config.host_clang = config_doc.get<string>("config.host.clang", "/usr/include/floor/libcxx/clang");
+		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
+		extract_whitelist(config.host_whitelist, "compute.host.whitelist");
+		config.host_compiler = config_doc.get<string>("compute.host.compiler", config.default_compiler);
+		config.host_llc = config_doc.get<string>("compute.host.llc", config.default_llc);
+		config.host_as = config_doc.get<string>("compute.host.as", config.default_as);
+		config.host_dis = config_doc.get<string>("compute.host.dis", config.default_dis);
+		config.host_libcxx = config_doc.get<string>("compute.host.libcxx", config.default_libcxx);
+		config.host_clang = config_doc.get<string>("compute.host.clang", config.default_clang);
 	}
 	
 	// init logger and print out floor info
@@ -298,8 +303,6 @@ void floor::destroy() {
 #endif
 	
 	evt->remove_event_handler(event_handler_fnctr);
-	
-	if(x != nullptr) delete x;
 	
 	compute_ctx = nullptr;
 	
@@ -553,7 +556,7 @@ void floor::init_internal(const bool use_gl32_core
 	
 	// always create and init compute context (even in console-only mode)
 #if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL) || !defined(FLOOR_NO_HOST_COMPUTE)
-	if(config.platform == "cuda") {
+	if(config.backend == "cuda") {
 #if !defined(FLOOR_NO_CUDA)
 		log_debug("initializing CUDA ...");
 		compute_ctx = make_shared<cuda_compute>();
@@ -561,7 +564,7 @@ void floor::init_internal(const bool use_gl32_core
 		log_error("CUDA support is not enabled!");
 #endif
 	}
-	else if(config.platform == "metal") {
+	else if(config.backend == "metal") {
 #if !defined(FLOOR_NO_METAL)
 		log_debug("initializing Metal ...");
 		compute_ctx = make_shared<metal_compute>();
@@ -569,7 +572,7 @@ void floor::init_internal(const bool use_gl32_core
 		log_error("Metal support is not enabled!");
 #endif
 	}
-	else if(config.platform == "host") {
+	else if(config.backend == "host") {
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 		log_debug("initializing Host Compute ...");
 		compute_ctx = make_shared<host_compute>();
@@ -580,7 +583,7 @@ void floor::init_internal(const bool use_gl32_core
 	
 	if(compute_ctx == nullptr) {
 #if !defined(FLOOR_NO_OPENCL)
-		if(config.platform == "cuda" || config.platform == "metal" || config.platform == "host") {
+		if(config.backend == "cuda" || config.backend == "metal" || config.backend == "host") {
 			log_debug("initializing OpenCL (fallback) ...");
 		}
 		else log_debug("initializing OpenCL ...");
@@ -591,7 +594,7 @@ void floor::init_internal(const bool use_gl32_core
 	}
 	
 	if(compute_ctx != nullptr) {
-		compute_ctx->init(false, stou(config.opencl_platform),
+		compute_ctx->init(false, config.opencl_platform,
 						  config.gl_sharing & !console_only,
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
@@ -796,12 +799,6 @@ event* floor::get_event() {
 	return floor::evt;
 }
 
-/*! returns the xml class
- */
-xml* floor::get_xml() {
-	return floor::x;
-}
-
 /*! sets the data path
  *  @param data_path the data path
  */
@@ -943,11 +940,11 @@ const float2& floor::get_near_far_plane() {
 	return config.near_far_plane;
 }
 
-const size_t& floor::get_dpi() {
+const uint64_t& floor::get_dpi() {
 	return config.dpi;
 }
 
-xml::xml_doc& floor::get_config_doc() {
+json::document& floor::get_config_doc() {
 	return config_doc;
 }
 
@@ -1062,8 +1059,8 @@ const string& floor::get_audio_device_name() {
 	return config.audio_device_name;
 }
 
-const string& floor::get_compute_platform() {
-	return config.platform;
+const string& floor::get_compute_backend() {
+	return config.backend;
 }
 bool floor::get_compute_gl_sharing() {
 	return config.gl_sharing;
@@ -1089,11 +1086,29 @@ bool floor::get_compute_use_cache() {
 bool floor::get_compute_log_commands() {
 	return config.log_commands;
 }
+const string& floor::get_compute_default_compiler() {
+	return config.default_compiler;
+}
+const string& floor::get_compute_default_llc() {
+	return config.default_llc;
+}
+const string& floor::get_compute_default_as() {
+	return config.default_as;
+}
+const string& floor::get_compute_default_dis() {
+	return config.default_dis;
+}
+const string& floor::get_compute_default_libcxx_path() {
+	return config.default_libcxx;
+}
+const string& floor::get_compute_default_clang_path() {
+	return config.default_clang;
+}
 
 const unordered_set<string>& floor::get_opencl_whitelist() {
 	return config.opencl_whitelist;
 }
-const string& floor::get_opencl_platform() {
+const uint64_t& floor::get_opencl_platform() {
 	return config.opencl_platform;
 }
 const string& floor::get_opencl_compiler() {

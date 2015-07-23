@@ -73,7 +73,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
@@ -111,7 +111,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;libxml2.lib;iconv.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -158,6 +158,7 @@
     <ClCompile Include="core\file_io.cpp" />
     <ClCompile Include="core\gl_shader.cpp" />
     <ClCompile Include="core\gl_support.cpp" />
+    <ClCompile Include="core\json.cpp" />
     <ClCompile Include="core\logger.cpp" />
     <ClCompile Include="core\sig_handler.cpp" />
     <ClCompile Include="core\unicode.cpp" />
@@ -223,6 +224,7 @@
     <ClInclude Include="core\file_io.hpp" />
     <ClInclude Include="core\gl_shader.hpp" />
     <ClInclude Include="core\gl_support.hpp" />
+    <ClInclude Include="core\json.hpp" />
     <ClInclude Include="core\logger.hpp" />
     <ClInclude Include="core\option_handler.hpp" />
     <ClInclude Include="core\platform.hpp" />

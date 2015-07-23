@@ -17,6 +17,9 @@
  */
 
 #include <floor/core/xml.hpp>
+
+#if !defined(FLOOR_NO_XML)
+
 #include <libxml/encoding.h>
 #include <libxml/catalog.h>
 #include <libxml/parser.h>
@@ -518,3 +521,5 @@ const string& xml::xml_node::operator[](const string& attr_name) const {
 	if(attr == attributes.end()) return invalid_attr;
 	return attr->second;
 }
+
+#endif

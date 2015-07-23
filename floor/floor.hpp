@@ -23,7 +23,7 @@
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
 #include <floor/core/event.hpp>
-#include <floor/core/xml.hpp>
+#include <floor/core/json.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/matrix4.hpp>
 #include <floor/core/unicode.hpp>
@@ -32,7 +32,7 @@
 class floor {
 public:
 	static void init(const char* callpath, const char* datapath,
-					 const bool console_only = false, const string config_name = "config.xml",
+					 const bool console_only = false, const string config_name = "config.json",
 					 const bool use_gl32_core = false,
 					 // sdl window creation flags
 					 // note: fullscreen + borderless flag will be set automatically depending on the config setting
@@ -59,7 +59,6 @@ public:
 	
 	// class return functions
 	static event* get_event();
-	static xml* get_xml();
 
 	// miscellaneous control functions
 	static void set_caption(const string& caption);
@@ -92,7 +91,7 @@ public:
 	static bool is_new_fps_count();
 
 	// config functions
-	static xml::xml_doc& get_config_doc();
+	static json::document& get_config_doc();
 	
 	// screen/window
 	static SDL_Window* get_window();
@@ -104,7 +103,7 @@ public:
 	static bool get_fullscreen();
 	static bool get_vsync();
 	static bool get_stereo();
-	static const size_t& get_dpi();
+	static const uint64_t& get_dpi();
 	
 	static void set_width(const unsigned int& width);
 	static void set_height(const unsigned int& height);
@@ -136,7 +135,7 @@ public:
 	static unsigned int get_rdouble_click_time();
 	
 	// compute
-	static const string& get_compute_platform();
+	static const string& get_compute_backend();
 	static bool get_compute_gl_sharing();
 	static bool get_compute_debug();
 	static bool get_compute_profiling();
@@ -145,10 +144,16 @@ public:
 	static bool get_compute_keep_binaries();
 	static bool get_compute_use_cache();
 	static bool get_compute_log_commands();
+	static const string& get_compute_default_compiler();
+	static const string& get_compute_default_llc();
+	static const string& get_compute_default_as();
+	static const string& get_compute_default_dis();
+	static const string& get_compute_default_libcxx_path();
+	static const string& get_compute_default_clang_path();
 	
 	// opencl
 	static const unordered_set<string>& get_opencl_whitelist();
-	static const string& get_opencl_platform();
+	static const uint64_t& get_opencl_platform();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
@@ -196,7 +201,6 @@ protected:
 	floor& operator=(const floor&) = delete;
 	
 	static event* evt;
-	static xml* x;
 	static bool console_only;
 	static shared_ptr<compute_base> compute_ctx;
 	static unordered_set<string> gl_extensions;
@@ -205,7 +209,7 @@ protected:
 	
 	static struct floor_config {
 		// screen
-		size_t width = 1280, height = 720, dpi = 0;
+		uint64_t width = 1280, height = 720, dpi = 0;
 		bool fullscreen = false, vsync = false, stereo = false;
 		
 		// audio
@@ -214,7 +218,7 @@ protected:
 		string audio_device_name = "";
 		
 		// logging
-		size_t verbosity = (size_t)logger::LOG_TYPE::UNDECORATED;
+		uint64_t verbosity = (size_t)logger::LOG_TYPE::UNDECORATED;
 		bool separate_msg_file = false;
 		bool append_mode = false;
 		bool log_use_time = true;
@@ -228,13 +232,13 @@ protected:
 		float upscaling = 1.0f;
 		
 		// input
-		size_t key_repeat = 200;
-		size_t ldouble_click_time = 200;
-		size_t mdouble_click_time = 200;
-		size_t rdouble_click_time = 200;
+		uint64_t key_repeat = 200;
+		uint64_t ldouble_click_time = 200;
+		uint64_t mdouble_click_time = 200;
+		uint64_t rdouble_click_time = 200;
 		
 		// compute
-		string platform = "opencl";
+		string backend = "opencl";
 		bool gl_sharing = false;
 		bool debug = false;
 		bool profiling = false;
@@ -243,9 +247,15 @@ protected:
 		bool keep_binaries = true;
 		bool use_cache = true;
 		bool log_commands = false;
+		string default_compiler = "compute_clang";
+		string default_llc = "compute_llc";
+		string default_as = "compute_as";
+		string default_dis = "compute_dis";
+		string default_libcxx = "/usr/include/floor/libcxx/include";
+		string default_clang = "/usr/include/floor/libcxx/clang";
 		
 		// opencl
-		string opencl_platform = "0";
+		uint64_t opencl_platform = 0;
 		unordered_set<string> opencl_whitelist;
 		string opencl_compiler = "compute_clang";
 		string opencl_llc = "compute_llc";
@@ -293,7 +303,7 @@ protected:
 		
 		floor_config() {}
 	} config;
-	static xml::xml_doc config_doc;
+	static json::document config_doc;
 	
 	// path variables
 	static string datapath;

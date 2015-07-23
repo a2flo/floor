@@ -137,7 +137,7 @@ bool file_io::file_to_string_poll(const string& filename, string& str) {
 	fstream& fs = *file.get_filestream();
 	fs.clear();
 	for(;;) {
-		char ch;
+		char ch = 0;
 		fs.get(ch);
 		
 		if(fs.bad() ||

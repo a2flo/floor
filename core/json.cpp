@@ -754,7 +754,11 @@ struct json_grammar {
 		member_list.on_match(push_to_parent_even);
 		member.on_match([this](auto& matches) -> parser_context::match_list {
 			if(matches.size() == 3) {
-				return { make_unique<member_node>(matches[0].token->second.to_string(), move(matches[2].ast_node)) };
+				// remove " from front and back of key
+				auto key = matches[0].token->second.to_string();
+				key.erase(key.begin());
+				key.pop_back();
+				return { make_unique<member_node>(move(key), move(matches[2].ast_node)) };
 			}
 			log_error("invalid member match size: %u!", matches.size());
 			return { make_unique<member_node>(nullptr) };
@@ -845,4 +849,80 @@ json::document json::create_document_from_string(const string& json_data, const 
 		return {};
 	}
 	return doc;
+}
+
+template <typename T> static pair<bool, T> extract_value(const json::document& doc, const string& path) {
+	// empty path -> return root value
+	if(path.empty()) {
+		const auto ret = doc.root.get<T>();
+		if(!ret.first) log_error("specified type doesn't match type of value (root)!");
+		return ret;
+	}
+	
+	// check if root is actually an object that we can traverse
+	if(doc.root.type != json::json_value::VALUE_TYPE::OBJECT) {
+		log_error("root value is not an object!");
+		return { false, T {} };
+	}
+	
+	// tokenize input path, then traverse
+	const auto path_stack = core::tokenize(path, '.');
+	const json::json_value* cur_node = &doc.root;
+	for(size_t i = 0, count = path_stack.size(); i < count; ++i) {
+		const auto& key = path_stack[i];
+		bool found = false;
+		for(const auto& member : cur_node->object.members) {
+			if(member.key == key) {
+				// is leaf?
+				if(i == count - 1) {
+					const auto ret = member.value.get<T>();
+					if(!ret.first) {
+						log_error("type mismatch: value of \"%s\" is not of the requested type!", path);
+					}
+					return ret;
+				}
+				// set to next child node
+				cur_node = &member.value;
+				found = true;
+				break;
+			}
+		}
+		
+		// didn't find it -> abort
+		if(!found) {
+			return { false, T {} };
+		}
+		
+		// check if child node is actually a json object
+		if(cur_node->type != json::json_value::VALUE_TYPE::OBJECT) {
+			log_error("found child node (%s) is not a json object (path: %s)!", key, path);
+			return { false, T {} };
+		}
+	}
+	return { false, T {} };
+}
+
+template<> string json::document::get<string>(const string& path, const string default_value) const {
+	const auto ret = extract_value<string>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> float json::document::get<float>(const string& path, const float default_value) const {
+	const auto ret = extract_value<float>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> double json::document::get<double>(const string& path, const double default_value) const {
+	const auto ret = extract_value<double>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> uint64_t json::document::get<uint64_t>(const string& path, const uint64_t default_value) const {
+	const auto ret = extract_value<uint64_t>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> int64_t json::document::get<int64_t>(const string& path, const int64_t default_value) const {
+	const auto ret = extract_value<int64_t>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> bool json::document::get<bool>(const string& path, const bool default_value) const {
+	const auto ret = extract_value<bool>(*this, path);
+	return (ret.first ? ret.second : default_value);
 }

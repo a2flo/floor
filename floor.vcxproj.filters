@@ -114,6 +114,9 @@
     <ClCompile Include="core\gl_support.cpp">
       <Filter>core</Filter>
     </ClCompile>
+    <ClCompile Include="core\json.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
     <ClCompile Include="core\logger.cpp">
       <Filter>core</Filter>
     </ClCompile>
@@ -294,6 +297,9 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\gl_support.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="core\json.hpp">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\logger.hpp">

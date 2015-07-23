@@ -16,7 +16,6 @@
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.2+ ("2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D on Windows)
-** "libxml2":https://www.xmlsoft.org (probably with iconv)
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
 ** (opt) CUDA: requires "CUDA 6.5+ SDK":https://developer.nvidia.com/cuda-downloads and sm_20+/Fermi+ GPU
@@ -24,6 +23,7 @@
 ** (opt) Host Compute: requires just the compiler/toolchain that is stated above
 ** (opt) networking: requires "boost":https://www.boost.org 1.54+ headers and "OpenSSL":https://www.openssl.org 1.0.1+
 ** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
+** (opt) XML: requires "libxml2":https://www.xmlsoft.org (probably with iconv)
 
 *Build Instructions:*
 * run ./build.sh (use "./build.sh help" to get a list of all options)
@@ -40,6 +40,8 @@
    define "FLOOR_NO_NET" or "./build.sh no-net"
 ** to disable OpenAL:
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
+** to disable XML:
+   define "FLOOR_NO_XML" or "./build.sh no-xml"
 ** to disable C++ exceptions (implies no-net):
    define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
@@ -56,7 +58,7 @@
 * open floor.sln and build (lib and include paths might need to be modified)
 * some notes:
 ** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
-** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D and "libxml2+iconv":http://www.zlatkovic.com/libxml.en.html are required dependencies
+** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
 ** the CUDA SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
@@ -86,8 +88,8 @@
 ** cd floor/etc/llvm35/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
-** add "floor/etc/llvm35/compute_clang_*_*/" to your PATH environment variable, or set fixed/absolute binary paths in config.xml
-** "floor/etc/llvm35/compute_clang_*_*/libcxx/include" and "floor/etc/llvm35/compute_clang_*_*/clang" must be set in your config.xml (provided by a project using floor)
+** add "floor/etc/llvm35/compute_clang_*_*/" to your PATH environment variable, or set fixed/absolute binary paths in config.json
+** "floor/etc/llvm35/compute_clang_*_*/libcxx/include" and "floor/etc/llvm35/compute_clang_*_*/clang" must be set in your config.json (provided by a project using floor)
 ** as mentioned in "Installation (Windows)", FLOOR_INCLUDE must be set correctly
 
 *Projects and Examples using floor*:

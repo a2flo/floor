@@ -24,6 +24,7 @@
 #define FLOOR_NO_HOST_COMPUTE 1 // for now, until implemented
 #define FLOOR_NO_OPENAL 1
 #define FLOOR_NO_NET 1
+#define FLOOR_NO_XML 1
 #define FLOOR_NO_EXCEPTIONS 1
 #endif
 
@@ -48,6 +49,9 @@
 
 // if defined, this disabled network support
 //#define FLOOR_NO_NET 1
+
+// if defined, this disabled xml support
+//#define FLOOR_NO_XML 1
 
 // if defined, this disables c++ exception support (implies no-net!)
 //#define FLOOR_NO_EXCEPTIONS 1

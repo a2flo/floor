@@ -57,6 +57,59 @@ public:
 			};
 		};
 		
+		//! returns the value of this value if its type matches the specified type T,
+		//! returning it as <true, value>, or returning <false, 0> if the type doesn't match
+		template <typename T, enable_if_t<is_same<T, nullptr_t>::value>* = nullptr>
+		pair<bool, nullptr_t> get() const {
+			if(type != VALUE_TYPE::NULL_VALUE) {
+				return { false, nullptr };
+			}
+			return { true, nullptr };
+		}
+		template <typename T, enable_if_t<is_same<T, bool>::value>* = nullptr>
+		pair<bool, bool> get() const {
+			if(type != VALUE_TYPE::TRUE_VALUE &&
+			   type != VALUE_TYPE::FALSE_VALUE) {
+				return { false, 0 };
+			}
+			return { true, (type == VALUE_TYPE::TRUE_VALUE) };
+		}
+		template <typename T, enable_if_t<is_same<T, int64_t>::value>* = nullptr>
+		pair<bool, int64_t> get() const {
+			if(type != VALUE_TYPE::INT_NUMBER) {
+				return { false, 0 };
+			}
+			return { true, int_number };
+		}
+		template <typename T, enable_if_t<is_same<T, uint64_t>::value>* = nullptr>
+		pair<bool, uint64_t> get() const {
+			if(type != VALUE_TYPE::INT_NUMBER) {
+				return { false, 0 };
+			}
+			return { true, *(uint64_t*)&int_number };
+		}
+		template <typename T, enable_if_t<is_same<T, float>::value>* = nullptr>
+		pair<bool, float> get() const {
+			if(type != VALUE_TYPE::FP_NUMBER) {
+				return { false, 0.0f };
+			}
+			return { true, (float)fp_number };
+		}
+		template <typename T, enable_if_t<is_same<T, double>::value>* = nullptr>
+		pair<bool, double> get() const {
+			if(type != VALUE_TYPE::FP_NUMBER) {
+				return { false, 0.0 };
+			}
+			return { true, fp_number };
+		}
+		template <typename T, enable_if_t<is_same<T, string>::value>* = nullptr>
+		pair<bool, string> get() const {
+			if(type != VALUE_TYPE::STRING) {
+				return { false, "" };
+			}
+			return { true, str };
+		}
+		
 		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
 		json_value(const VALUE_TYPE& value_type);
 		json_value(json_value&& val);
@@ -75,8 +128,19 @@ public:
 	
 	//! json document, root is always a json value
 	struct document {
+	private:
+		template<typename T> struct default_value {
+			static T def() { return T(); }
+		};
+		
+	public:
 		json_value root;
 		bool valid { false };
+		
+		//! returns the value of the key specified by path "node.subnode.key",
+		//! or the root node if path is an empty string
+		template<typename T> T get(const string& path,
+								   const T default_val = default_value<T>::def()) const;
 	};
 	
 	//! reads the json file specified by 'filename' and creates a json document from it
@@ -94,5 +158,33 @@ protected:
 	json& operator=(const json&) = delete;
 
 };
+
+
+// explicit specializations of the json document getters
+template<> struct json::document::default_value<string> {
+	static string def() { return ""; }
+};
+template<> struct json::document::default_value<float> {
+	static constexpr float def() { return 0.0f; }
+};
+template<> struct json::document::default_value<double> {
+	static constexpr double def() { return 0.0; }
+};
+template<> struct json::document::default_value<uint64_t> {
+	static constexpr uint64_t def() { return 0ull; }
+};
+template<> struct json::document::default_value<int64_t> {
+	static constexpr int64_t def() { return 0ll; }
+};
+template<> struct json::document::default_value<bool> {
+	static constexpr bool def() { return false; }
+};
+
+template<> string json::document::get<string>(const string& path, const string default_value) const;
+template<> float json::document::get<float>(const string& path, const float default_value) const;
+template<> double json::document::get<double>(const string& path, const double default_value) const;
+template<> uint64_t json::document::get<uint64_t>(const string& path, const uint64_t default_value) const;
+template<> int64_t json::document::get<int64_t>(const string& path, const int64_t default_value) const;
+template<> bool json::document::get<bool>(const string& path, const bool default_value) const;
 
 #endif

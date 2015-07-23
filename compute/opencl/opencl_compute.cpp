@@ -35,11 +35,11 @@
 #include <floor/floor/floor.hpp>
 
 void opencl_compute::init(const bool use_platform_devices,
-						  const uint32_t platform_index_,
+						  const uint64_t platform_index_,
 						  const bool gl_sharing,
 						  const unordered_set<string> whitelist) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
-	const auto platform_index = (platform_index_ == ~0u ? stou(floor::get_opencl_platform()) : platform_index_);
+	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
 	
 	// get platforms
 	cl_uint platform_count = 0;

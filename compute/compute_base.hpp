@@ -48,7 +48,7 @@ public:
 	
 	//! initializes the compute context/object
 	virtual void init(const bool use_platform_devices = false,
-					  const uint32_t platform_index = ~0u,
+					  const uint64_t platform_index = ~0ull,
 					  const bool gl_sharing = false,
 					  const unordered_set<string> whitelist = {}) = 0;
 	

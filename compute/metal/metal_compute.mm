@@ -159,7 +159,7 @@ typedef struct {
 @end
 
 void metal_compute::init(const bool use_platform_devices floor_unused,
-						 const uint32_t platform_index_ floor_unused,
+						 const uint64_t platform_index_ floor_unused,
 						 const bool gl_sharing floor_unused,
 						 const unordered_set<string> whitelist) {
 #if defined(FLOOR_IOS)
