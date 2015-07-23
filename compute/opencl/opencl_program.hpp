@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_program.hpp>
+#include <floor/compute/llvm_compute.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
