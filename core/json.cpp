@@ -142,7 +142,7 @@ bool json_lexer::lex(translation_unit& tu) {
 	tu.tokens.reserve(tu.source.size() / 4);
 	
 	// lex
-	for(auto char_iter = tu.source.cbegin(), src_end = tu.source.cend();
+	for(auto src_begin = tu.source.data(), src_end = tu.source.data() + tu.source.size(), char_iter = src_begin;
 		char_iter != src_end;
 		/* NOTE: char_iter is incremented in the individual lex_* functions or whitespace case: */) {
 		switch(*char_iter) {
@@ -221,8 +221,8 @@ bool json_lexer::lex(translation_unit& tu) {
 						else invalid_char = "";
 					}
 					else {
-						invalid_char = "'" + tu.source.substr(size_t(distance(tu.source.cbegin(), char_start_iter)),
-															  size_t(distance(char_start_iter, char_iter)) + 1u) + "' ";
+						invalid_char = "'" + tu.source.substr(size_t(char_start_iter - src_begin),
+															  size_t(char_iter - char_start_iter) + 1u) + "' ";
 					}
 					invalid_char += "<0d" + to_string(utf32_char.second) + ">";
 				}

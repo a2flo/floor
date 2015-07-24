@@ -52,16 +52,16 @@ void lexer::map_characters(translation_unit& tu) {
 	
 	// TODO: don't use a set, rather use a vector (it is already sorted!) and binary_search
 	// now that we can store iterators, do so (+store it in an actual set<>)
-	const auto begin_iter = tu.source.cbegin();
+	const auto begin_iter = tu.source.data();
 	// add the "character before the first character" as a newline
 	// (yes, kind of a hack, but this keeps us from doing +1s/-1s and begin/end checking later on)
-	tu.lines.insert(tu.source.cbegin() - 1);
+	tu.lines.insert(begin_iter - 1);
 	// add all newline iterators (offset from the begin iterator)
 	for(const auto& line_offset : lines) {
 		tu.lines.insert(begin_iter + (int32_t)line_offset);
 	}
 	// also insert the "<eof> newline" (if it hasn't been added already)
-	tu.lines.insert(tu.source.cend());
+	tu.lines.insert(tu.source.data() + tu.source.size());
 	// NOTE: the additional begin+end newline iterators will make sure that there will always be
 	// a valid line iterator for each source_iterator (all tokens)
 }

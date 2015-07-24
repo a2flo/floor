@@ -29,8 +29,8 @@ using namespace std;
 //! underlying type of the source code
 typedef string source_type;
 
-//! constant iterator on the source code (NOTE: this basically boils down to a "const char*")
-typedef string::const_iterator source_iterator;
+//! constant iterator on the source code
+typedef const char* source_iterator;
 
 //! source code range: [begin, end)
 struct source_range {

@@ -30,6 +30,8 @@ public:
 	//! decodes a single multi-byte utf-8 character to a utf-32/32-bit uint,
 	//! returns <false, 0> if the utf-8 code point is invalid and <true, utf-32 code> if valid
 	//! NOTE: the specified 'iter' is advanced while doing this (will point to the last code point byte)
+	static pair<bool, uint32_t> decode_utf8_char(const char*& iter,
+												 const char* const& end_iter);
 	static pair<bool, uint32_t> decode_utf8_char(string::const_iterator& iter,
 												 const string::const_iterator& end_iter);
 	

@@ -22,8 +22,8 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter,
-											   const string::const_iterator& end_iter) {
+template <typename iter_type>
+static pair<bool, uint32_t> gen_iter_decode_utf8_char(iter_type& iter, const iter_type& end_iter) {
 	// figure out how long the utf-8 char is (how many bytes)
 	uint32_t size = 0;
 	const uint32_t char_code = ((uint32_t)*iter) & 0xFFu;
@@ -63,6 +63,16 @@ pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter,
 		return { false, 0u };
 	}
 	return { true, cur_code };
+}
+
+pair<bool, uint32_t> unicode::decode_utf8_char(const char*& iter,
+											   const char* const& end_iter) {
+	return gen_iter_decode_utf8_char(iter, end_iter);
+}
+
+pair<bool, uint32_t> unicode::decode_utf8_char(string::const_iterator& iter,
+											   const string::const_iterator& end_iter) {
+	return gen_iter_decode_utf8_char(iter, end_iter);
 }
 
 vector<unsigned int> unicode::utf8_to_unicode(const string& str) {
