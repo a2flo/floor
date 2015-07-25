@@ -134,8 +134,16 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
+	//////////////////////////////////////////
+	// metal specific functions
+	
+	shared_ptr<compute_queue> get_device_internal_queue(shared_ptr<compute_device> dev) const;
+	shared_ptr<compute_queue> get_device_internal_queue(const compute_device* dev) const;
+	
 protected:
 	void* ctx { nullptr };
+	
+	vector<pair<shared_ptr<compute_device>, shared_ptr<compute_queue>>> internal_queues;
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);

@@ -31,6 +31,7 @@
 #pragma clang diagnostic ignored "-Wweak-vtables"
 #endif
 
+class compute_queue;
 class metal_device final : public compute_device {
 public:
 	~metal_device() override {}
@@ -41,6 +42,9 @@ public:
 	// on iOS: 1 if iOS 8.x, 2 if iOS 9.x
 	// on OS X: 1 if 10.11
 	uint32_t family_version { 1u };
+	
+	// compute queue used for internal purposes (try not to use this ...)
+	compute_queue* internal_queue { nullptr };
 	
 #if !defined(FLOOR_NO_METAL)
 	// actual metal device object

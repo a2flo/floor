@@ -42,7 +42,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! base type: image is a stencil image
 	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
 	//! base type: image is a renderbuffer
-	//! NOTE: only applicable when using opengl sharing
+	//! NOTE: only applicable when using opengl sharing or metal
 	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),

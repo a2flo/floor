@@ -56,12 +56,17 @@ public:
 	id <MTLTexture> get_metal_image() const { return image; }
 	
 protected:
-	id <MTLTexture> image { nullptr };
+	id <MTLTexture> image { nil };
+	MTLTextureDescriptor* desc { nil };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	
+#if !defined(FLOOR_IOS)
+	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
+#endif
+	
 	// separate create buffer function, b/c it's called by the constructor and resize
-	bool create_internal(const bool copy_host_data);
+	bool create_internal(const bool copy_host_data, const metal_device* device, const compute_queue* cqueue);
 	
 };
 

@@ -342,6 +342,13 @@ void metal_compute::init(const bool use_platform_devices floor_unused,
 	fastest_device = fastest_gpu_device;
 #endif
 	log_debug("fastest GPU device: %s", fastest_gpu_device->name);
+	
+	// create an internal queue for each device
+	for(auto& dev : devices) {
+		auto dev_queue = create_queue(dev);
+		internal_queues.emplace_back(dev, dev_queue);
+		((metal_device*)dev.get())->internal_queue = dev_queue.get();
+	}
 }
 
 shared_ptr<compute_queue> metal_compute::create_queue(shared_ptr<compute_device> dev) {
@@ -359,6 +366,20 @@ shared_ptr<compute_queue> metal_compute::create_queue(shared_ptr<compute_device>
 	auto ret = make_shared<metal_queue>(queue);
 	queues.push_back(ret);
 	return ret;
+}
+
+shared_ptr<compute_queue> metal_compute::get_device_internal_queue(shared_ptr<compute_device> dev) const {
+	return get_device_internal_queue(dev.get());
+}
+
+shared_ptr<compute_queue> metal_compute::get_device_internal_queue(const compute_device* dev) const {
+	for(const auto& dev_queue : internal_queues) {
+		if(dev_queue.first.get() == dev) {
+			return dev_queue.second;
+		}
+	}
+	log_error("no internal queue exists for this device: %s!", dev->name);
+	return {};
 }
 
 shared_ptr<compute_buffer> metal_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
@@ -384,27 +405,21 @@ shared_ptr<compute_buffer> metal_compute::create_buffer(shared_ptr<compute_devic
 	return make_shared<metal_buffer>((metal_device*)device.get(), size, data, flags, opengl_type);
 }
 
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device,
-													  const uint32_t opengl_buffer,
-													  const uint32_t opengl_type,
-													  const COMPUTE_MEMORY_FLAG flags) {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return make_shared<metal_buffer>((metal_device*)device.get(), info.size, nullptr,
-									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									 opengl_type, opengl_buffer);
+shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+													  const uint32_t opengl_buffer floor_unused,
+													  const uint32_t opengl_type floor_unused,
+													  const COMPUTE_MEMORY_FLAG flags floor_unused) {
+	log_error("opengl buffer sharing not supported by metal!");
+	return {};
 }
 
-shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device,
-													  const uint32_t opengl_buffer,
-													  const uint32_t opengl_type,
-													  void* data,
-													  const COMPUTE_MEMORY_FLAG flags) {
-	const auto info = compute_buffer::get_opengl_buffer_info(opengl_buffer, opengl_type, flags);
-	if(!info.valid) return {};
-	return make_shared<metal_buffer>((metal_device*)device.get(), info.size, data,
-									 flags | COMPUTE_MEMORY_FLAG::OPENGL_SHARING,
-									 opengl_type, opengl_buffer);
+shared_ptr<compute_buffer> metal_compute::wrap_buffer(shared_ptr<compute_device> device floor_unused,
+													  const uint32_t opengl_buffer floor_unused,
+													  const uint32_t opengl_type floor_unused,
+													  void* data floor_unused,
+													  const COMPUTE_MEMORY_FLAG flags floor_unused) {
+	log_error("opengl buffer sharing not supported by metal!");
+	return {};
 }
 
 shared_ptr<compute_image> metal_compute::create_image(shared_ptr<compute_device> device,
@@ -424,26 +439,21 @@ shared_ptr<compute_image> metal_compute::create_image(shared_ptr<compute_device>
 	return make_shared<metal_image>((metal_device*)device.get(), image_dim, image_type, data, flags, opengl_type);
 }
 
-shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> device,
-													const uint32_t opengl_image,
-													const uint32_t opengl_target,
-													const COMPUTE_MEMORY_FLAG flags) {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	return make_shared<metal_image>((metal_device*)device.get(), info.image_dim, info.image_type, nullptr,
-									flags /*| COMPUTE_MEMORY_FLAG::OPENGL_SHARING*/, // TODO: sharing?
-									opengl_target, opengl_image, &info);
+shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
+													const uint32_t opengl_image floor_unused,
+													const uint32_t opengl_target floor_unused,
+													const COMPUTE_MEMORY_FLAG flags floor_unused) {
+	log_error("opengl image sharing not supported by metal!");
+	return {};
 }
 
-shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> device,
-													const uint32_t opengl_image,
-													const uint32_t opengl_target,
-													void* data,
-													const COMPUTE_MEMORY_FLAG flags) {
-	const auto info = compute_image::get_opengl_image_info(opengl_image, opengl_target, flags);
-	if(!info.valid) return {};
-	return make_shared<metal_image>((metal_device*)device.get(), info.image_dim, info.image_type, data,
-									flags /*| COMPUTE_MEMORY_FLAG::OPENGL_SHARING*/, // TODO: sharing?
-									opengl_target, opengl_image, &info);
+shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> device floor_unused,
+													const uint32_t opengl_image floor_unused,
+													const uint32_t opengl_target floor_unused,
+													void* data floor_unused,
+													const COMPUTE_MEMORY_FLAG flags floor_unused) {
+	log_error("opengl image sharing not supported by metal!");
+	return {};
 }
 
 shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
