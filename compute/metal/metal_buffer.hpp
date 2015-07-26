@@ -100,6 +100,9 @@ public:
 	//! returns the metal specific buffer object
 	id <MTLBuffer> get_metal_buffer() const { return buffer; }
 	
+	//! helper function for MTLResourceStorageModeManaged buffers/images (need to sync before read on cpu)
+	static void sync_metal_resource(shared_ptr<compute_queue> cqueue, id <MTLResource> rsrc);
+	
 protected:
 	id <MTLBuffer> buffer { nullptr };
 	

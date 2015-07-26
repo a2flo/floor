@@ -27,21 +27,6 @@
 
 // TODO: proper error (return) value handling everywhere
 
-// helper function for MTLResourceStorageModeManaged buffers (sync before read on cpu)
-#if !defined(FLOOR_IOS)
-static void sync_metal_buffer_resource(shared_ptr<compute_queue> cqueue, id <MTLBuffer> buffer) {
-	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
-	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	[blit_encoder synchronizeResource:buffer];
-	[blit_encoder endEncoding];
-	[cmd_buffer commit];
-	[cmd_buffer waitUntilCompleted];
-}
-#else
-// not available on iOS for now
-static void sync_metal_buffer_resource(shared_ptr<compute_queue>, id <MTLBuffer>) {};
-#endif
-
 metal_buffer::metal_buffer(const metal_device* device,
 						   const size_t& size_,
 						   void* host_ptr_,
@@ -116,7 +101,7 @@ bool metal_buffer::create_internal(const bool copy_host_data) {
 
 metal_buffer::~metal_buffer() {
 	// kill the buffer / auto-release
-	buffer = nullptr;
+	buffer = nil;
 }
 
 void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -124,7 +109,7 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, co
 }
 
 void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset)) return;
@@ -139,7 +124,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, c
 }
 
 void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src, const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	
 	const size_t write_size = (size_ == 0 ? size : size_);
 	if(!write_check(size, write_size, offset)) return;
@@ -151,7 +136,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const vo
 void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
 						shared_ptr<compute_buffer> src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	
 	const size_t src_size = src->get_size();
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
@@ -167,7 +152,7 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
 void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 						const void* pattern, const size_t& pattern_size,
 						const size_t size_, const size_t offset) {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return;
@@ -197,13 +182,13 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 }
 
 void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused_on_ios) {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	
 	GUARD(lock);
 	
 #if !defined(FLOOR_IOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_buffer_resource(cqueue, buffer);
+		sync_metal_resource(cqueue, buffer);
 	}
 #endif
 	
@@ -219,7 +204,7 @@ void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused_on_ios) {
 bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
 						  const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
 						  void* new_host_ptr floor_unused) {
-	if(buffer == nullptr) return false;
+	if(buffer == nil) return false;
 	
 	// TODO: !
 	return false;
@@ -228,7 +213,7 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const s
 void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_,
 													  const size_t size_, const size_t offset) NO_THREAD_SAFETY_ANALYSIS {
-	if(buffer == nullptr) return nullptr;
+	if(buffer == nil) return nullptr;
 	
 	const size_t map_size = (size_ == 0 ? size : size_);
 	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
@@ -266,7 +251,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 		// check if we need to copy the buffer from the device (in case READ was specified)
 		if(!write_only) {
 			// need to sync buffer (resource) before being able to read it
-			sync_metal_buffer_resource(cqueue, buffer);
+			sync_metal_resource(cqueue, buffer);
 			
 			// direct access to the metal buffer
 			host_buffer = ((uint8_t*)[buffer contents]) + offset;
@@ -293,7 +278,7 @@ void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> 
 
 void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 						 void* __attribute__((aligned(128))) mapped_ptr) NO_THREAD_SAFETY_ANALYSIS {
-	if(buffer == nullptr) return;
+	if(buffer == nil) return;
 	if(mapped_ptr == nullptr) return;
 	
 #if !defined(FLOOR_IOS)
@@ -339,6 +324,20 @@ bool metal_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_
 // NOTE: does not apply to metal - buffer can always/directly be used with graphics pipeline
 bool metal_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	return true;
+}
+
+void metal_buffer::sync_metal_resource(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
+									   id <MTLResource> rsrc floor_unused_on_ios) {
+#if !defined(FLOOR_IOS)
+	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+	[blit_encoder synchronizeResource:rsrc];
+	[blit_encoder endEncoding];
+	[cmd_buffer commit];
+	[cmd_buffer waitUntilCompleted];
+#else
+	// not available on iOS for now
+#endif
 }
 
 #endif

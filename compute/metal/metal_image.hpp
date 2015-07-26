@@ -65,6 +65,15 @@ protected:
 	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
 #endif
 	
+	struct metal_mapping {
+		const size_t size;
+		const MTLRegion region;
+		const COMPUTE_MEMORY_MAP_FLAG flags;
+		const bool write_only;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, metal_mapping> mappings;
+	
 	// separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, const metal_device* device, const compute_queue* cqueue);
 	

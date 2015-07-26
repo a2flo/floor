@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/core/logger.hpp>
+#include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_device.hpp>
 
@@ -249,13 +250,17 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		metal_queue* mqueue = (metal_queue*)(dev != nullptr ? device->internal_queue : cqueue);
 		
 		// copy to device memory must go through a blit command
+		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = image_bytes_per_pixel(image_type) * image_dim.x;
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
 		[image replaceRegion:region
 				 mipmapLevel:0
+					   slice:0
 				   withBytes:host_ptr
-				 bytesPerRow:bytes_per_row];
+				 bytesPerRow:bytes_per_row
+			   bytesPerImage:bytes_per_slice];
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
@@ -273,23 +278,128 @@ metal_image::~metal_image() {
 	}
 }
 
-void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue floor_unused,
-													 const COMPUTE_MEMORY_MAP_FLAG flags_ floor_unused) {
-	if(image == nullptr) return nullptr;
+void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
+													 const COMPUTE_MEMORY_MAP_FLAG flags_) {
+	if(image == nil) return nullptr;
 	
-	// TODO: implement this
-	return nullptr;
+	// TODO: parameter origin + region + layer
+	const auto dim_count = image_dim_count(image_type);
+	const MTLRegion region {
+		.origin = { 0, 0, 0 },
+		.size = {
+			image_dim.x,
+			dim_count >= 2 ? image_dim.y : 1,
+			dim_count >= 3 ? image_dim.z : 1,
+		}
+	};
+	// TODO: cube/array
+	const auto map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(image_type);
+	
+	// TODO: image map check + move this check there:
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
+		log_error("can't map an image which is set to be inaccessible by the host!");
+		return nullptr;
+	}
+	
+	bool write_only = false;
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
+		write_only = true;
+	}
+	else {
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
+				write_only = true;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
+			default:
+				log_error("neither read nor write flag set for image mapping!");
+				return nullptr;
+		}
+	}
+	
+	// alloc host memory
+	alignas(128) unsigned char* host_buffer = new unsigned char[map_size] alignas(128);
+	
+	// check if we need to copy the image from the device (in case READ was specified)
+	if(!write_only) {
+		// must finish up all current work before we can properly read from the current image
+		cqueue->finish();
+		
+#if !defined(FLOOR_IOS)
+		// need to sync image (resource) before being able to read it
+		if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+			metal_buffer::sync_metal_resource(cqueue, image);
+		}
+#endif
+		
+		// copy image data to the host
+		// TODO: handle arrays/slices correctly!
+		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
+		[image getBytes:host_buffer
+			bytesPerRow:bytes_per_row
+		  bytesPerImage:bytes_per_slice
+			 fromRegion:region
+			mipmapLevel:0
+				  slice:0];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+	}
+	
+	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
+	mappings.emplace(host_buffer, metal_mapping { map_size, region, flags_, write_only });
+	
+	return host_buffer;
 }
 
-void metal_image::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(image == nullptr) return;
+void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+	if(image == nil) return;
 	if(mapped_ptr == nullptr) return;
 	
-	// TODO: implement this
+	// check if this is actually a mapped pointer (+get the mapped size)
+	const auto iter = mappings.find(mapped_ptr);
+	if(iter == mappings.end()) {
+		log_error("invalid mapped pointer: %X", mapped_ptr);
+		return;
+	}
+	
+	// check if we need to actually copy data back to the device (not the case if read-only mapping)
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		// copy host memory to device memory
+		// TODO: handle arrays/slices correctly!
+		const auto dim_count = image_dim_count(image_type);
+		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
+		[image replaceRegion:iter->second.region
+				 mipmapLevel:0
+					   slice:0
+				   withBytes:mapped_ptr
+				 bytesPerRow:bytes_per_row
+			   bytesPerImage:bytes_per_slice];
+		[blit_encoder endEncoding];
+		[cmd_buffer commit];
+		[cmd_buffer waitUntilCompleted];
+	}
+	
+	// free host memory again and remove the mapping
+	delete [] (unsigned char*)mapped_ptr;
+	mappings.erase(mapped_ptr);
 }
 
 bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
-	if(image == nullptr) return false;
+	if(image == nil) return false;
 	if(gl_object_state) {
 		log_warn("image has already been acquired!");
 		return true;
@@ -299,7 +409,7 @@ bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 }
 
 bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
-	if(image == nullptr) return false;
+	if(image == nil) return false;
 	if(!gl_object_state) {
 		log_warn("image has already been released!");
 		return true;

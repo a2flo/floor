@@ -310,6 +310,7 @@
 		5C20C8C11B4139260005F5EA /* host_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_queue.cpp; path = host/host_queue.cpp; sourceTree = "<group>"; };
 		5C20C8C21B4139260005F5EA /* host_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_queue.hpp; path = host/host_queue.hpp; sourceTree = "<group>"; };
 		5C225FC71AAA190700FE42F3 /* llvm35 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = llvm35; path = etc/llvm35; sourceTree = "<group>"; };
+		5C2F83681B63FF1000B27BE3 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = ../../../../System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/lib/clang/3.5/include/metal; sourceTree = "<group>"; };
 		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
@@ -624,6 +625,7 @@
 			children = (
 				5C1091FC17D148DB007F536E /* libxml2.dylib */,
 				5CC97EE71A93808800611CF6 /* Metal.framework */,
+				5C2F83681B63FF1000B27BE3 /* metal */,
 				5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */,
 				5CE55CDE1B2754A6006C38E6 /* Metal.framework */,
 				5C1091FA17D148D0007F536E /* ApplicationServices.framework */,

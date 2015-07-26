@@ -381,14 +381,33 @@ static constexpr uint32_t image_bytes_per_pixel(const COMPUTE_IMAGE_TYPE& image_
 	return ((bpp + 7u) / 8u);
 }
 
+//! returns the total amount of bytes needed to store a slice of an image (or the complete image if it isn't an array or cube image)
+//! of the specified dimensions and types
+static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
+														 const COMPUTE_IMAGE_TYPE& image_type,
+														 const size_t sample_count = 1) {
+	const auto dim_count = image_dim_count(image_type);
+	size_t size = size_t(image_dim.x);
+	if(dim_count >= 2) size *= size_t(image_dim.y);
+	if(dim_count == 3) size *= size_t(image_dim.z);
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+		// * sample count
+		size *= sample_count;
+	}
+	
+	// TODO: make sure special formats correspond to channel count
+	size *= image_bytes_per_pixel(image_type);
+	
+	return size;
+}
+
 //! returns the total amount of bytes needed to store the image of the specified dimensions and types
 static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 												   const COMPUTE_IMAGE_TYPE& image_type,
 												   const size_t sample_count = 1) {
 	const auto dim_count = image_dim_count(image_type);
-	size_t size = size_t(image_dim.x);
-	if(dim_count >= 2) size *= size_t(image_dim.y);
-	if(dim_count == 3) size *= size_t(image_dim.z);
+	size_t size = image_slice_data_size_from_types(image_dim, image_type, sample_count);
 	
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
 		// array count after: width (, height (, depth))
@@ -399,14 +418,6 @@ static constexpr size_t image_data_size_from_types(const uint4& image_dim,
 		// 6 cube sides
 		size *= 6u;
 	}
-	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-		// * sample count
-		size *= sample_count;
-	}
-	
-	// TODO: make sure special formats correspond to channel count
-	size *= image_bytes_per_pixel(image_type);
 	
 	return size;
 }
