@@ -62,6 +62,10 @@ public:
 			IMAGE_2D_MSAA_DEPTH				= (10u),
 			IMAGE_2D_ARRAY_MSAA_DEPTH		= (11u),
 			IMAGE_3D						= (12u),
+			IMAGE_CUBE						= (13u),
+			IMAGE_CUBE_ARRAY				= (14u),
+			IMAGE_CUBE_DEPTH				= (15u),
+			IMAGE_CUBE_ARRAY_DEPTH			= (16u),
 		};
 		
 		enum class ARG_IMAGE_ACCESS : uint32_t {
