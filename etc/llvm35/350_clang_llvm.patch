@@ -702,7 +702,7 @@ index 488cace..a815eae 100644
  
  // OpenCL sampler_t.
 diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
-index 09862e4..c599b2d 100644
+index 09862e4..eed14f2 100644
 --- a/tools/clang/include/clang/AST/Type.h
 +++ b/tools/clang/include/clang/AST/Type.h
 @@ -403,10 +403,10 @@ public:
@@ -718,7 +718,7 @@ index 09862e4..c599b2d 100644
        // ObjC GC qualifiers can match, be added, or be removed, but can't be
        // changed.
        (getObjCGCAttr() == other.getObjCGCAttr() ||
-@@ -1575,6 +1575,16 @@ public:
+@@ -1575,10 +1575,22 @@ public:
    bool isImage1dBufferT() const;                // OpenCL image1d_buffer_t
    bool isImage2dT() const;                      // OpenCL image2d_t
    bool isImage2dArrayT() const;                 // OpenCL image2d_array_t
@@ -735,7 +735,13 @@ index 09862e4..c599b2d 100644
    bool isImage3dT() const;                      // OpenCL image3d_t
  
    bool isImageType() const;                     // Any OpenCL image type
-@@ -4803,7 +4813,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
+ 
++  bool isAggregateImageType() const;            // struct/class containing only image*_t members
++
+   bool isSamplerT() const;                      // OpenCL sampler_t
+   bool isEventT() const;                        // OpenCL event_t
+ 
+@@ -4803,7 +4815,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
  inline bool QualType::isMoreQualifiedThan(QualType other) const {
    Qualifiers myQuals = getQualifiers();
    Qualifiers otherQuals = other.getQualifiers();
@@ -744,7 +750,7 @@ index 09862e4..c599b2d 100644
  }
  
  /// isAtLeastAsQualifiedAs - Determine whether this type is at last
-@@ -4811,7 +4821,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
+@@ -4811,7 +4823,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
  /// int" is at least as qualified as "const int", "volatile int",
  /// "int", and "const volatile int".
  inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
@@ -753,7 +759,7 @@ index 09862e4..c599b2d 100644
  }
  
  /// getNonReferenceType - If Type is a reference type (e.g., const
-@@ -5008,6 +5018,46 @@ inline bool Type::isImage2dArrayT() const {
+@@ -5008,6 +5020,46 @@ inline bool Type::isImage2dArrayT() const {
    return isSpecificBuiltinType(BuiltinType::OCLImage2dArray);
  }
  
@@ -800,7 +806,7 @@ index 09862e4..c599b2d 100644
  inline bool Type::isImage3dT() const {
    return isSpecificBuiltinType(BuiltinType::OCLImage3d);
  }
-@@ -5023,6 +5073,11 @@ inline bool Type::isEventT() const {
+@@ -5023,11 +5075,16 @@ inline bool Type::isEventT() const {
  inline bool Type::isImageType() const {
    return isImage3dT() ||
           isImage2dT() || isImage2dArrayT() ||
@@ -812,6 +818,12 @@ index 09862e4..c599b2d 100644
           isImage1dT() || isImage1dArrayT() || isImage1dBufferT();
  }
  
+ inline bool Type::isOpenCLSpecificType() const {
+-  return isSamplerT() || isEventT() || isImageType();
++  return isSamplerT() || isEventT() || isImageType() || isAggregateImageType();
+ }
+ 
+ inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
 index 704a375..e6bc378 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
@@ -1520,7 +1532,7 @@ index 986b3b5..3f8aad8 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
-index 1677874..e7c54db 100644
+index 1677874..bc7f81f 100644
 --- a/tools/clang/lib/AST/Type.cpp
 +++ b/tools/clang/lib/AST/Type.cpp
 @@ -1546,6 +1546,16 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
@@ -1540,6 +1552,29 @@ index 1677874..e7c54db 100644
    case OCLImage3d:        return "image3d_t";
    case OCLSampler:        return "sampler_t";
    case OCLEvent:          return "event_t";
+@@ -2469,3 +2479,22 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+ CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
+   return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
+ }
++
++bool Type::isAggregateImageType() const {
++  // must be struct or class, union is not allowed
++  if(!isStructureOrClassType()) return false;
++
++  // must have a decl of course
++  const RecordDecl* decl = getAsStructureType()->getDecl();
++  if(!decl || decl->field_empty()) return false;
++
++  // iterate of all fields/members and check if all are image types
++  bool all_image = true;
++  for(const auto& field : decl->fields()) {
++    if(!field->getType()->isImageType()) {
++      all_image = false;
++      break;
++    }
++  }
++  return all_image;
++}
 diff --git a/tools/clang/lib/AST/TypeLoc.cpp b/tools/clang/lib/AST/TypeLoc.cpp
 index 208d695..3fca2c9 100644
 --- a/tools/clang/lib/AST/TypeLoc.cpp
@@ -1986,10 +2021,23 @@ index 079ef72..2c8c05b 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..0ab92bc 100644
+index 5ca3a78..81cb8bf 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -429,9 +429,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+         typeQuals += typeQuals.empty() ? "const" : " const";
+       if (pointeeTy.isVolatileQualified())
+         typeQuals += typeQuals.empty() ? "volatile" : " volatile";
+-    } else {
++    }
++	else if(ty->isAggregateImageType()) {
++		// TODO: implement this
++	}
++	else {
+       uint32_t AddrSpc = 0;
+       if (ty->isImageType())
+         AddrSpc =
+@@ -429,9 +433,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
        const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
        if (A && A->isWriteOnly())
          accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
@@ -2001,7 +2049,7 @@ index 5ca3a78..0ab92bc 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +447,339 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +451,432 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -2017,30 +2065,67 @@ index 5ca3a78..0ab92bc 100644
 +	const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
 +	
 +	//
-+	int i = 0;
-+	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
-+		SmallVector<llvm::Value*, 16> arg_info;
-+		const auto type = arg_iter->getType();
-+		const auto parm = FD->getParamDecl(i);
++	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
++	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
++		const auto llvm_parm = next(Fn->getArgumentList().begin(), arg_idx);
++		const auto llvm_type = llvm_parm->getType();
++
++		const auto add_image_arg = [&Builder, &tex_idx, &llvm_parm, &arg_infos,
++									&arg_idx, &Context](const clang::QualType& type,
++														const OpenCLImageAccessAttr* access_attr,
++														const std::string& name) {
++			SmallVector<llvm::Value*, 16> arg_info;
++			
++			// #0: param index
++			arg_info.push_back(Builder.getInt32(arg_idx));
++			// #1: storage type
++			arg_info.push_back(llvm::MDString::get(Context, "air.texture"));
++			// #2/#3: location_index (note: separate for buffers and textures)
++			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
++			arg_info.push_back(Builder.getInt32(tex_idx));
++			++tex_idx;
++			// #4: unknown? always 1
++			arg_info.push_back(Builder.getInt32(1));
++			// #5: access type (sample = 0, read = 1 or write = 2)
++			// note that "read" is essentially a subset of "sample" -> use "sample" for r/o
++			if(access_attr && access_attr->isWriteOnly()) {
++				arg_info.push_back(llvm::MDString::get(Context, "air.write"));
++			}
++			else if(access_attr && access_attr->isReadWrite()) {
++				// TODO: this isn't really supported
++				arg_info.push_back(llvm::MDString::get(Context, "air.write"));
++			}
++			else {
++				arg_info.push_back(llvm::MDString::get(Context, "air.sample"));
++			}
++			// #6/#7: texture type
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(Context, "texture")); // TODO: does this matter somehow?
++			// #8/#9: arg name
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(Context, StringRef(name)));
++			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++		};
 +		
-+		// TODO: support all non-pointer types
-+		if(!type->isPointerTy()) continue;
-+		const auto pointee_type = type->getPointerElementType();
-+		const auto clang_unq_ty = clang_type->getPointeeType().getTypePtr()->getBaseElementTypeUnsafe();
-+		
-+		// #0: param index
-+		arg_info.push_back(Builder.getInt32(i));
-+		// #1: storage type (buffer, TODO: image/texture/sampler stuff)
-+		arg_info.push_back(llvm::MDString::get(Context, "air.buffer"));
-+		// #2/#3: location_index
-+		arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
-+		// for now: use the same as param idx, TODO: handle texture/image indices and possible other problems
-+		arg_info.push_back(Builder.getInt32(i));
-+		// #4: unknown? always 1
-+		arg_info.push_back(Builder.getInt32(1));
-+		// #5: access (read/read_write, TODO: write?)
-+		if(type->isPointerTy()) {
++		// pointer / buffer
++		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			const auto pointee_type = llvm_type->getPointerElementType();
++			const auto clang_unq_ty = clang_type->getPointeeType().getTypePtr()->getBaseElementTypeUnsafe();
++			
++			SmallVector<llvm::Value*, 16> arg_info;
++			
++			// #0: param index
++			arg_info.push_back(Builder.getInt32(arg_idx));
++			// #1: storage type
++			arg_info.push_back(llvm::MDString::get(Context, "air.buffer"));
++			// #2/#3: location_index (note: separate for buffers and textures)
++			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
++			arg_info.push_back(Builder.getInt32(buffer_idx));
++			++buffer_idx;
++			// #4: unknown? always 1
++			arg_info.push_back(Builder.getInt32(1));
++			// #5: access (read/read_write, TODO: write?)
 +			const auto clang_pointee_type = clang_type->getPointeeType();
 +			if(clang_pointee_type.isConstQualified() ||
 +			   (clang_pointee_type.getAddressSpace() == LangAS::opencl_constant)) {
@@ -2049,37 +2134,59 @@ index 5ca3a78..0ab92bc 100644
 +			else {
 +				arg_info.push_back(llvm::MDString::get(Context, "air.read_write"));
 +			}
++			
++			// TODO: #6/#7: struct info
++			
++			// #8/#9: type size
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_size"));
++			arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type)));
++			// #10/#11: type alignment
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
++			arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeAllocSize(pointee_type)));
++			//getPrimitiveSizeInBits
++			// #12/#13: type name, note: air wants the pointed-to/pointee type here, w/o qualifiers
++			auto unqualified_type = clang_unq_ty->getCanonicalTypeInternal();
++			auto type_name = unqualified_type.getAsString(Policy);
++			// Turn "unsigned type" to "utype"
++			const auto pos = type_name.find("unsigned");
++			if(pos != std::string::npos) type_name.erase(pos + 1, 8);
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(Context, type_name));
++			// #14/#15: arg name
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(Context, parm->getName()));
++			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		}
++		// image
 +		else if(clang_type->isImageType()) {
-+			// TODO: image support
++			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(), parm->getName().str());
 +		}
++		// aggregate image
++		else if(clang_type->isAggregateImageType()) {
++			const auto decl = clang_type->getAsStructureType()->getDecl();
++			const std::string base_name = parm->getName().str() + ".";
++			unsigned field_idx = 0;
++			for(const auto& field : decl->fields()) {
++				const auto field_type = field->getType();
++				
++				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(), base_name + std::to_string(field_idx));
++				++field_idx;
++				
++				// next llvm arg
++				++arg_idx;
++			}
++			// fix up llvm arg count (will inc again after this)
++			--arg_idx;
++		}
++		// unsupported simple kernel parameter
 +		else {
-+			// TODO: what else is there?
++			CGM.Error(parm->getSourceRange().getBegin(),
++					  StringRef("metal kernel parameter must be a pointer or an image type!"));
++			return;
 +		}
 +		
-+		// TODO: #6/#7: struct info
-+		
-+		// #8/#9: type size
-+		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_size"));
-+		arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type)));
-+		// #10/#11: type alignment
-+		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
-+		arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeAllocSize(pointee_type)));
-+		//getPrimitiveSizeInBits
-+		// #12/#13: type name, note: air wants the pointed-to/pointee type here, w/o qualifiers
-+		// TODO: handle everything else besides buffers/pointers!
-+		auto unqualified_type = clang_unq_ty->getCanonicalTypeInternal();
-+		auto type_name = unqualified_type.getAsString(Policy);
-+		// Turn "unsigned type" to "utype"
-+		const auto pos = type_name.find("unsigned");
-+		if(pos != std::string::npos) type_name.erase(pos + 1, 8);
-+		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+		arg_info.push_back(llvm::MDString::get(Context, type_name));
-+		// #14/#15: arg name
-+		arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+		arg_info.push_back(llvm::MDString::get(Context, parm->getName()));
-+		
-+		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++		// next llvm arg
++		++arg_idx;
 +	}
 +	
 +	// insert into kernel metadata
@@ -2146,6 +2253,9 @@ index 5ca3a78..0ab92bc 100644
 +				arg_info.push_back(llvm::MDString::get(Context, "read"));
 +			}
 +		}
++		else if(clang_type->isAggregateImageType()) {
++			// TODO: implement this
++		}
 +		else {
 +			// simple kernel parameter (not a buffer) -> don't write anything
 +		}
@@ -2174,17 +2284,13 @@ index 5ca3a78..0ab92bc 100644
 +	// #1: kernel name
 +	arg_infos.push_back(llvm::MDString::get(Context, Fn->getName()));
 +	
-+	int i = 0;
-+	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
-+		if(uint32_t(i) >= FD->param_size()) {
-+			// signal that this is _very_ bad
-+			CGM.Error(FD->getSourceRange().getBegin(),
-+					  StringRef("function argument count mismatch!"));
-+			break;
-+		}
-+		const auto type = arg_iter->getType();
-+		const auto parm = FD->getParamDecl(i);
++	// iterate over clang function decl parameters
++	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
++	// (which is why it iterates over the original clang list!)
++	unsigned int arg_idx = 0;
++	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
++		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
 +		
 +		enum class FLOOR_ARG_INFO : uint64_t {
 +			// 0 == invalid!
@@ -2255,12 +2361,36 @@ index 5ca3a78..0ab92bc 100644
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
 +			}
 +		};
++		const auto add_image_arg = [this, &arg_infos, &set_image_access](const clang::QualType& type,
++																		 const OpenCLImageAccessAttr* access_attr) {
++			uint64_t arg_info = (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
++			
++			if(type->isImage1dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D;
++			else if(type->isImage1dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_ARRAY;
++			else if(type->isImage1dBufferT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_BUFFER;
++			else if(type->isImage2dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D;
++			else if(type->isImage2dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY;
++			else if(type->isImage2dDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_DEPTH;
++			else if(type->isImage2dArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
++			else if(type->isImage2dMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA;
++			else if(type->isImage2dArrayMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
++			else if(type->isImage2dMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
++			else if(type->isImage2dArrayMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
++			else if(type->isImage3dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_3D;
++			else if(type->isImageCubeT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE;
++			else if(type->isImageCubeArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
++			else if(type->isImageCubeDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
++			else if(type->isImageCubeArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
++			
++			set_image_access(access_attr, arg_info);
++			
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		};
 +		
 +		// #2+: argument sizes + types
-+		// TODO: support all non-pointer types
 +		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
 +			const auto clang_pointee_type = clang_type->getPointeeType();
-+			const auto pointee_type = type->getPointerElementType();
++			const auto pointee_type = llvm_type->getPointerElementType();
 +			
 +			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(pointee_type);
 +			if(getLangOpts().OpenCL) {
@@ -2275,33 +2405,30 @@ index 5ca3a78..0ab92bc 100644
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
-+			uint64_t arg_info = (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+			
-+			if(clang_type->isImage1dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D;
-+			else if(clang_type->isImage1dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_ARRAY;
-+			else if(clang_type->isImage1dBufferT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_BUFFER;
-+			else if(clang_type->isImage2dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D;
-+			else if(clang_type->isImage2dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY;
-+			else if(clang_type->isImage2dDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_DEPTH;
-+			else if(clang_type->isImage2dArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
-+			else if(clang_type->isImage2dMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA;
-+			else if(clang_type->isImage2dArrayMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
-+			else if(clang_type->isImage2dMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
-+			else if(clang_type->isImage2dArrayMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
-+			else if(clang_type->isImage3dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_3D;
-+			else if(clang_type->isImageCubeT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE;
-+			else if(clang_type->isImageCubeArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
-+			else if(clang_type->isImageCubeDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
-+			else if(clang_type->isImageCubeArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
-+			
-+			set_image_access(parm->getAttr<OpenCLImageAccessAttr>(), arg_info);
-+			
-+			arg_infos.push_back(Builder.getInt64(arg_info));
++			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>());
++		}
++		// aggregate of image types (used with opencl and metal)
++		else if(clang_type->isAggregateImageType()) {
++			const auto decl = clang_type->getAsStructureType()->getDecl();
++			for(const auto& field : decl->fields()) {
++				const auto field_type = field->getType();
++				if(!field_type->isImageType()) { // sanity check
++					CGM.Error(field->getSourceRange().getBegin(),
++							  StringRef("non-image type in an aggregate-image"));
++				}
++				
++				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>());
++				
++				// next llvm arg
++				++arg_idx;
++			}
++			// fix up llvm arg count (will inc again after this)
++			--arg_idx;
 +		}
 +		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
 +			// store the parameter size
-+			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(type);
++			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type);
 +			
 +			// check if parameter has image access qualifiers,
 +			// if so, it must be an image
@@ -2321,15 +2448,29 @@ index 5ca3a78..0ab92bc 100644
 +			// for now: just use the direct type size + no address space
 +			uint64_t arg_info = 0;
 +			// handle some llvm weirdness? why can this be a pointer still?
-+			if(type->isPointerTy()) {
-+				arg_info = CGM.getDataLayout().getTypeStoreSize(type->getPointerElementType());
++			if(llvm_type->isPointerTy()) {
++				arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type->getPointerElementType());
 +			}
 +			else {
-+				arg_info = CGM.getDataLayout().getTypeStoreSize(type);
++				arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type);
 +			}
 +			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
++		
++		// next llvm arg
++		++arg_idx;
++	}
++	
++	// if this is wrong, the kernel will almost certainly not be usable
++	if(arg_idx != Fn->arg_size()) {
++		// signal that this is _very_ bad
++		const std::string err_str {
++			"kernel function parameter count mismatch: " +
++			std::to_string(arg_idx) + " (clang), " +
++			std::to_string(Fn->arg_size()) + " (llvm)"
++		};
++		CGM.Error(FD->getSourceRange().getBegin(), StringRef(err_str));
 +	}
 +	
 +	//
@@ -2341,7 +2482,7 @@ index 5ca3a78..0ab92bc 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -457,10 +791,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +888,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -2359,7 +2500,7 @@ index 5ca3a78..0ab92bc 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +839,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +936,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2400,10 +2541,10 @@ index 5ca3a78..0ab92bc 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -558,6 +929,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
-     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-       EmitOpenCLKernelMetadata(FD, Fn);
+@@ -553,6 +1021,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+       Fn->addFnAttr(llvm::Attribute::NoInline);
    }
+ 
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
 +    if(const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
 +      // add floor specific metadata for kernel functions
@@ -2417,10 +2558,10 @@ index 5ca3a78..0ab92bc 100644
 +      }
 +    }
 +  }
- 
-   // If we are checking function types, emit a function type signature as
-   // prefix data.
-@@ -755,6 +1139,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+   if (getLangOpts().OpenCL) {
+     // Add metadata for a kernel function.
+     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+@@ -755,6 +1236,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2504,7 +2645,7 @@ index 5ca3a78..0ab92bc 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1319,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1416,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -2657,6 +2798,31 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
+diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
+index f75e59d..e2cc3d3 100644
+--- a/tools/clang/lib/CodeGen/TargetInfo.cpp
++++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
+@@ -46,6 +46,10 @@ static bool isAggregateTypeForABI(QualType T) {
+          T->isMemberFunctionPointerType();
+ }
+ 
++static bool isAggregateImageType(QualType T) {
++  return CodeGenFunction::hasAggregateEvaluationKind(T) && T->isAggregateImageType();
++}
++
+ ABIInfo::~ABIInfo() {}
+ 
+ static CGCXXABI::RecordArgABI getRecordArgABI(const RecordType *RT,
+@@ -376,6 +380,9 @@ llvm::Value *DefaultABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+ }
+ 
+ ABIArgInfo DefaultABIInfo::classifyArgumentType(QualType Ty) const {
++  if (isAggregateImageType(Ty))
++    return ABIArgInfo::getExpand();
++
+   if (isAggregateTypeForABI(Ty))
+     return ABIArgInfo::getIndirect(0);
+ 
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 index ce61a46..6870297 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
@@ -2787,7 +2953,7 @@ index 66be962..59f659c 100644
  
    // Since the target specific builtins for each arch overlap, only check those
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..93df749 100644
+index 8716227..81dd1a8 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,9 +5994,21 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -2815,6 +2981,26 @@ index 8716227..93df749 100644
    }
    
    // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program
+@@ -6740,6 +6752,10 @@ static void checkIsValidOpenCLKernelParameter(
+     // Add a null marker so we know when we've gone back up a level
+     VisitStack.push_back(nullptr);
+ 
++    // if this is an aggregate of images, all is well
++    if (RD->getTypeForDecl()->isAggregateImageType())
++      continue;
++
+     for (const auto *FD : RD->fields()) {
+       QualType QT = FD->getType();
+ 
+@@ -11941,7 +11957,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+   }
+ 
+   // OpenCL v1.2 s6.9.c: bitfields are not supported.
+-  if (BitWidth && getLangOpts().OpenCL) {
++  if (BitWidth && getLangOpts().OpenCL && !getLangOpts().CPlusPlus) {
+     Diag(Loc, diag::err_opencl_bitfields);
+     InvalidDecl = true;
+   }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
 index 61683cd..e472879 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
