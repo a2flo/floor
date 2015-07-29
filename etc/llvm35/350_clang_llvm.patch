@@ -1852,7 +1852,7 @@ index 7aacee4..5c002e0 100644
    // If there is an implicit parameter (e.g. VTT), emit it.
    if (ImplicitParam) {
 diff --git a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-index 079ef72..2c8c05b 100644
+index 079ef72..d31a3cb 100644
 --- a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 +++ b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 @@ -36,32 +36,137 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
@@ -1977,16 +1977,16 @@ index 079ef72..2c8c05b 100644
 +        llvm_unreachable("Unexpected metal builtin type!");
 +        return nullptr;
 +      case BuiltinType::OCLImage1d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture1d_t"), ImgAddrSpc);
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage1dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture1d_array_t"), ImgAddrSpc);
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_array_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage1dBuffer:
 +        llvm_unreachable("Unsupported image type (1D-buffer is not supported by metal)!");
 +        return nullptr;
 +      case BuiltinType::OCLImage2d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture2d_t"), ImgAddrSpc);
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage2dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture2d_array_t"), ImgAddrSpc);
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_array_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage2dDepth:
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage2dArrayDepth:
@@ -2021,7 +2021,7 @@ index 079ef72..2c8c05b 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..81cb8bf 100644
+index 5ca3a78..b0505be 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -2500,7 +2500,7 @@ index 5ca3a78..81cb8bf 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +936,39 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +936,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2511,21 +2511,22 @@ index 5ca3a78..81cb8bf 100644
 +
 +  // additional air info
 +  if(CGM.getCodeGenOpts().EmitAIRMetadata) {
++	  // only do this once
++	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
++	  if(AIRVersion->getNumOperands() > 0) return;
++	  
 +	  SmallVector <llvm::Value*, 3> air_version;
 +	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[0]));
 +	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[1]));
 +	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[2]));
++	  AIRVersion->addOperand(llvm::MDNode::get(Context, air_version));
 +	  
++	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
 +	  SmallVector <llvm::Value*, 4> air_lang_version;
 +	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
 +	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[0]));
 +	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[1]));
 +	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[2]));
-+	  
-+	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
-+	  AIRVersion->addOperand(llvm::MDNode::get(Context, air_version));
-+	  
-+	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
 +	  AIRLangVersion->addOperand(llvm::MDNode::get(Context, air_lang_version));
 +	  
 +	  llvm::NamedMDNode *AIRCompOpts = CGM.getModule().getOrInsertNamedMetadata("air.compile_options");
@@ -2541,7 +2542,7 @@ index 5ca3a78..81cb8bf 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1021,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1022,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -2561,7 +2562,7 @@ index 5ca3a78..81cb8bf 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1236,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1237,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2645,7 +2646,7 @@ index 5ca3a78..81cb8bf 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1416,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1417,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
