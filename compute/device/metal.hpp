@@ -78,18 +78,18 @@ namespace std {
 
 // these functions are defined for metal on ios and for intel on osx (TODO: amd?), but not for nvidia on osx!
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
-FLOOR_GET_ID_RET_TYPE metal_get_global_id(uint32_t dim) asm("air.get_global_id.i32");
-FLOOR_GET_ID_RET_TYPE metal_get_local_id (uint32_t dim) asm("air.get_local_id.i32");
-FLOOR_GET_ID_RET_TYPE metal_get_local_size(uint32_t dim) asm("air.get_local_size.i32");
-FLOOR_GET_ID_RET_TYPE metal_get_group_id(uint32_t dim) asm("air.get_group_id.i32");
-FLOOR_GET_ID_RET_TYPE metal_get_num_groups(uint32_t dim) asm("air.get_num_groups.i32");
-uint32_t metal_get_work_dim() asm("air.get_work_dim.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_id(uint32_t dim) asm("air.get_global_id.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_id (uint32_t dim) asm("air.get_local_id.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_size(uint32_t dim) asm("air.get_local_size.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_group_id(uint32_t dim) asm("air.get_group_id.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_num_groups(uint32_t dim) asm("air.get_num_groups.i32");
+uint32_t __attribute__((const)) metal_get_work_dim() asm("air.get_work_dim.i32");
 
 // NOTE: this is broken on intel gpus -> compute it manually
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
-FLOOR_GET_ID_RET_TYPE metal_get_global_size(uint32_t dim) asm("air.get_global_size.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_size(uint32_t dim) asm("air.get_global_size.i32");
 #else
-FLOOR_GET_ID_RET_TYPE metal_get_global_size(uint32_t dim) {
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_size(uint32_t dim) {
 	return metal_get_local_size(dim) * metal_get_num_groups(dim);
 }
 #endif
