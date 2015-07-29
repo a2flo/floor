@@ -22,18 +22,20 @@
 
 #include <floor/compute/metal/metal_queue.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
+#include <floor/compute/metal/metal_image.hpp>
 
 struct metal_kernel::metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer;
 	id <MTLComputeCommandEncoder> encoder;
 	unordered_set<metal_buffer*> buffers;
+	unordered_set<metal_image*> images;
 };
 
 metal_kernel::metal_kernel(const void* kernel_,
 						   const void* kernel_state_,
 						   const metal_device* device floor_unused,
-						   const llvm_compute::kernel_info& info) :
-kernel(kernel_), kernel_state(kernel_state_), func_name(info.name) {
+						   const llvm_compute::kernel_info& info_) :
+kernel(kernel_), kernel_state(kernel_state_), info(info_) {
 }
 
 metal_kernel::~metal_kernel() {}
@@ -48,6 +50,9 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 	for(auto& buffer : encoder->buffers) {
 		buffer->_lock();
 	}
+	for(auto& img : encoder->images) {
+		img->_lock();
+	}
 	
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
@@ -56,6 +61,9 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 	
 	// unlock all buffers again when this has finished executing
 	[encoder->cmd_buffer addCompletedHandler:[encoder](id <MTLCommandBuffer>) NO_THREAD_SAFETY_ANALYSIS {
+		for(auto& img : encoder->images) {
+			img->_unlock();
+		}
 		for(auto& buffer : encoder->buffers) {
 			buffer->_unlock();
 		}
@@ -67,24 +75,33 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue) {
 	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)queue)->make_command_buffer();
 	auto ret = make_shared<metal_encoder>(metal_encoder {
-		cmd_buffer, [cmd_buffer computeCommandEncoder], {}
+		cmd_buffer, [cmd_buffer computeCommandEncoder], {}, {}
 	});
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)kernel_state];
 	return ret;
 }
 
-void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& num,
+void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& idx,
 									   const void* ptr, const size_t& size) {
-	[encoder->encoder setBytes:ptr length:size atIndex:num];
+	[encoder->encoder setBytes:ptr length:size atIndex:idx];
 }
 
-void metal_kernel::set_kernel_argument(const uint32_t num,
+void metal_kernel::set_kernel_argument(uint32_t& buffer_idx, uint32_t&,
 									   metal_encoder* encoder,
 									   shared_ptr<compute_buffer> arg) {
 	[encoder->encoder setBuffer:((metal_buffer*)arg.get())->get_metal_buffer()
 						 offset:0
-						atIndex:num];
+						atIndex:buffer_idx++];
 	encoder->buffers.emplace((metal_buffer*)arg.get());
+}
+
+void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& texture_idx,
+									   metal_encoder* encoder,
+									   shared_ptr<compute_image> arg) {
+	// TODO: r/w images
+	[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
+						 atIndex:texture_idx++];
+	encoder->images.emplace((metal_image*)arg.get());
 }
 
 #endif
