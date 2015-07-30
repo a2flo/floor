@@ -2021,7 +2021,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..b0505be 100644
+index 5ca3a78..06b7f2b 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -2049,7 +2049,7 @@ index 5ca3a78..b0505be 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +451,432 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +451,481 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -2345,45 +2345,41 @@ index 5ca3a78..b0505be 100644
 +			}
 +			return FLOOR_ARG_INFO::AS_NONE;
 +		};
-+		const auto set_image_access = [](const OpenCLImageAccessAttr* access_attr, uint64_t& arg_info) {
++		const auto get_image_access = [](const OpenCLImageAccessAttr* access_attr) {
 +			if(access_attr != nullptr) {
 +				if(access_attr->isWriteOnly()) {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
++					return FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
 +				}
 +				else if(access_attr->isReadWrite()) {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
-+				}
-+				else {
-+					arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
++					return FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE;
 +				}
 +			}
-+			else {
-+				arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_ACCESS_READ;
-+			}
++			return FLOOR_ARG_INFO::IMG_ACCESS_READ;
 +		};
-+		const auto add_image_arg = [this, &arg_infos, &set_image_access](const clang::QualType& type,
-+																		 const OpenCLImageAccessAttr* access_attr) {
-+			uint64_t arg_info = (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+			
-+			if(type->isImage1dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D;
-+			else if(type->isImage1dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_ARRAY;
-+			else if(type->isImage1dBufferT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_1D_BUFFER;
-+			else if(type->isImage2dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D;
-+			else if(type->isImage2dArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY;
-+			else if(type->isImage2dDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_DEPTH;
-+			else if(type->isImage2dArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
-+			else if(type->isImage2dMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA;
-+			else if(type->isImage2dArrayMSAAT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
-+			else if(type->isImage2dMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
-+			else if(type->isImage2dArrayMSAADepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
-+			else if(type->isImage3dT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_3D;
-+			else if(type->isImageCubeT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE;
-+			else if(type->isImageCubeArrayT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
-+			else if(type->isImageCubeDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
-+			else if(type->isImageCubeArrayDepthT()) arg_info |= (uint64_t)FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
-+			
-+			set_image_access(access_attr, arg_info);
-+			
++		const auto img_type_to_floor_type = [](const clang::Type* type) {
++			if(type->isImage1dT()) return FLOOR_ARG_INFO::IMG_1D;
++			else if(type->isImage1dArrayT()) return FLOOR_ARG_INFO::IMG_1D_ARRAY;
++			else if(type->isImage1dBufferT()) return FLOOR_ARG_INFO::IMG_1D_BUFFER;
++			else if(type->isImage2dT()) return FLOOR_ARG_INFO::IMG_2D;
++			else if(type->isImage2dArrayT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY;
++			else if(type->isImage2dDepthT()) return FLOOR_ARG_INFO::IMG_2D_DEPTH;
++			else if(type->isImage2dArrayDepthT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
++			else if(type->isImage2dMSAAT()) return FLOOR_ARG_INFO::IMG_2D_MSAA;
++			else if(type->isImage2dArrayMSAAT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
++			else if(type->isImage2dMSAADepthT()) return FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
++			else if(type->isImage2dArrayMSAADepthT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
++			else if(type->isImage3dT()) return FLOOR_ARG_INFO::IMG_3D;
++			else if(type->isImageCubeT()) return FLOOR_ARG_INFO::IMG_CUBE;
++			else if(type->isImageCubeArrayT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
++			else if(type->isImageCubeDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
++			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
++			return (FLOOR_ARG_INFO)~0ull;
++		};
++		const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
++													  const FLOOR_ARG_INFO& access) {
++			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
++			arg_info |= uint64_t(floor_img_type);
++			arg_info |= uint64_t(access);
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		};
 +		
@@ -2405,25 +2401,77 @@ index 5ca3a78..b0505be 100644
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>());
++			add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
++						  get_image_access(parm->getAttr<OpenCLImageAccessAttr>()));
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto decl = clang_type->getAsStructureType()->getDecl();
++			
++			// field count must either be 1 (for single read or write images) or 2 (one read, one write image)
++			const auto field_count = std::distance(decl->field_begin(), decl->field_end());
++			if(field_count == 0) {
++				CGM.Error(decl->getSourceRange().getBegin(),
++						  StringRef("no fields in aggregate-image"));
++				return;
++			}
++			else if(field_count > 2) {
++				CGM.Error(decl->getSourceRange().getBegin(),
++						  StringRef("too many fields in aggregate-image"));
++				return;
++			}
++			
++			// sanity check that all field types are actually images, have proper access attributes and image types match
++			// (should probably put this somewhere else, since it is sema-checking, but then I'd need to duplicate code)
++			FLOOR_ARG_INFO floor_img_type = FLOOR_ARG_INFO::NONE;
++			uint64_t floor_img_access = 0;
 +			for(const auto& field : decl->fields()) {
 +				const auto field_type = field->getType();
-+				if(!field_type->isImageType()) { // sanity check
++				if(!field_type->isImageType() || field_type->isAggregateImageType()) {
 +					CGM.Error(field->getSourceRange().getBegin(),
 +							  StringRef("non-image type in an aggregate-image"));
++					return;
 +				}
 +				
-+				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>());
++				const auto access_attr = field->getAttr<OpenCLImageAccessAttr>();
++				if(access_attr == nullptr) {
++					CGM.Error(field->getSourceRange().getBegin(),
++							  StringRef("image type in an aggregate-image must have an access qualifier"));
++					return;
++				}
++				if(access_attr->isReadWrite()) {
++					CGM.Error(field->getSourceRange().getBegin(),
++							  StringRef("read-write access qualifier not allowed for images inside an aggregate-image"));
++					return;
++				}
++				floor_img_access |= uint64_t(get_image_access(access_attr));
 +				
-+				// next llvm arg
-+				++arg_idx;
++				// first field initializes this
++				if(floor_img_type == FLOOR_ARG_INFO::NONE) {
++					floor_img_type = img_type_to_floor_type(field_type.getTypePtr());
++				}
++				else {
++					// second field must have the same type!
++					if(floor_img_type != img_type_to_floor_type(field_type.getTypePtr())) {
++						CGM.Error(field->getSourceRange().getBegin(),
++								  StringRef("second image in aggregate-image does not have the same type as the first"));
++						return;
++					}
++				}
 +			}
-+			// fix up llvm arg count (will inc again after this)
-+			--arg_idx;
++			
++			// if the aggregate has two image objects, one must be read, one must be write -> read/write
++			if(field_count == 2 && floor_img_access != uint64_t(FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE)) {
++				CGM.Error(decl->getSourceRange().getBegin(),
++						  StringRef("aggregate-image has 2 image fields, but joint access is not read-write"));
++				return;
++			}
++			
++			// everything works out, add this as a single kernel argument (floor backends will handle r/w images as necessary)
++			add_image_arg(floor_img_type, (FLOOR_ARG_INFO)floor_img_access);
++			
++			// 1 clang aggregate-image == 2 llvm image types -> inc index once more
++			if(field_count == 2) ++arg_idx;
 +		}
 +		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
@@ -2434,7 +2482,7 @@ index 5ca3a78..b0505be 100644
 +			// if so, it must be an image
 +			const OpenCLImageAccessAttr* access_attr = parm->getAttr<OpenCLImageAccessAttr>();
 +			if(access_attr != nullptr) {
-+				set_image_access(access_attr, arg_info);
++				arg_info |= uint64_t(get_image_access(access_attr));
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
 +			}
 +			// if not, pretend it is constant
@@ -2471,6 +2519,7 @@ index 5ca3a78..b0505be 100644
 +			std::to_string(Fn->arg_size()) + " (llvm)"
 +		};
 +		CGM.Error(FD->getSourceRange().getBegin(), StringRef(err_str));
++		return;
 +	}
 +	
 +	//
@@ -2482,7 +2531,7 @@ index 5ca3a78..b0505be 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -457,10 +888,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +937,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -2500,7 +2549,7 @@ index 5ca3a78..b0505be 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +936,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +985,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2542,7 +2591,7 @@ index 5ca3a78..b0505be 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1022,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1071,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -2562,7 +2611,7 @@ index 5ca3a78..b0505be 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1237,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1286,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2646,7 +2695,7 @@ index 5ca3a78..b0505be 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1417,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1466,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
