@@ -303,6 +303,7 @@ namespace metal_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		
 		const opaque_type& readable_img() const { return r_img; }
+		const opaque_type& writable_img() const __attribute__((unavailable("image is read-only")));
 		
 	protected:
 		read_only opaque_type r_img;
@@ -312,6 +313,7 @@ namespace metal_image {
 	struct write_only_image : image<image_type, write_only_image<image_type>> {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		
+		const opaque_type& readable_img() const __attribute__((unavailable("image is write-only")));
 		const opaque_type& writable_img() const { return w_img; }
 		
 	protected:

@@ -32,29 +32,6 @@ metal_program::metal_program(const metal_device* device,
 	metal_kernels.resize(kernel_count);
 	for(size_t i = 0; i < kernel_count; ++i) {
 		const auto& info = kernels_info[i];
-		{ // TODO: remove this debug output later on
-			string sizes_str = "";
-			for(size_t j = 0, count = info.args.size(); j < count; ++j) {
-				switch(info.args[j].address_space) {
-					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::GLOBAL:
-						sizes_str += "global ";
-						break;
-					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::LOCAL:
-						sizes_str += "local ";
-						break;
-					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT:
-						sizes_str += "constant ";
-						break;
-					case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE:
-						sizes_str += "image ";
-						break;
-					default: break;
-				}
-				sizes_str += to_string(info.args[j].size) + (j + 1 < count ? "," : "") + " ";
-			}
-			sizes_str = core::trim(sizes_str);
-			log_debug("adding kernel \"%s\": %s", info.name, sizes_str);
-		}
 		id <MTLFunction> kernel = [program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
 		if(!kernel) {
 			log_error("failed to get function \"%s\"", info.name);

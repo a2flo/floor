@@ -86,7 +86,7 @@ void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& i
 	[encoder->encoder setBytes:ptr length:size atIndex:idx];
 }
 
-void metal_kernel::set_kernel_argument(uint32_t& buffer_idx, uint32_t&,
+void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
 									   metal_encoder* encoder,
 									   shared_ptr<compute_buffer> arg) {
 	[encoder->encoder setBuffer:((metal_buffer*)arg.get())->get_metal_buffer()
@@ -95,12 +95,18 @@ void metal_kernel::set_kernel_argument(uint32_t& buffer_idx, uint32_t&,
 	encoder->buffers.emplace((metal_buffer*)arg.get());
 }
 
-void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& texture_idx,
+void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t& texture_idx,
 									   metal_encoder* encoder,
 									   shared_ptr<compute_image> arg) {
-	// TODO: r/w images
 	[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
 						 atIndex:texture_idx++];
+	
+	// if this is a read/write image, add it again (one is read-only, the other is write-only)
+	if(info.args[total_idx].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
+							 atIndex:texture_idx++];
+	}
+	
 	encoder->images.emplace((metal_image*)arg.get());
 }
 
