@@ -258,7 +258,6 @@ namespace metal_image {
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) ||
 							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			//constexpr const metal_image::sampler smplrmplr {};
 			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
 		}
@@ -267,7 +266,6 @@ namespace metal_image {
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) &&
 							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			//constexpr const metal_image::sampler smplrmplr {};
 			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(clang_vec));
 		}
@@ -276,7 +274,6 @@ namespace metal_image {
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) &&
 							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			//constexpr const metal_image::sampler smplrmplr {};
 			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(clang_vec));
 		}
