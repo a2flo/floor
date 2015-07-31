@@ -55,6 +55,9 @@ public:
 	//! returns the metal specific image object
 	id <MTLTexture> get_metal_image() const { return image; }
 	
+	//! creates the mip-map chain for this metal image
+	void generate_mip_maps(shared_ptr<compute_queue> cqueue) const;
+	
 protected:
 	id <MTLTexture> image { nil };
 	MTLTextureDescriptor* desc { nil };
@@ -64,6 +67,9 @@ protected:
 #if !defined(FLOOR_IOS)
 	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
 #endif
+	
+	// for use with 3-channel image "emulation" through a corresponding 4-channel image
+	COMPUTE_IMAGE_TYPE shim_image_type;
 	
 	struct metal_mapping {
 		const size_t size;

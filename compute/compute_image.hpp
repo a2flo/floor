@@ -47,6 +47,12 @@ public:
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0) {
+		// can't be both mip-mapped and a multi-sampled image
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+			log_error("image can't be both mip-mapped and a multi-sampled image!");
+			return;
+		}
 		// TODO: make sure format is supported, fail early if not
 		if(!image_format_valid(image_type)) {
 			log_error("invalid image format: %X", image_type);

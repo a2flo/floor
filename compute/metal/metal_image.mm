@@ -27,6 +27,48 @@
 
 // TODO: proper error (return) value handling everywhere
 
+//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
+static uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+							const COMPUTE_IMAGE_TYPE& rgba_type,
+							const uint4& image_dim,
+							const uint8_t* rgb_data) {
+	// need to copy/convert the RGB host data to RGBA
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
+	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
+	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
+	
+	uint8_t* rgba_data_ptr = new uint8_t[rgba_size];
+	memset(rgba_data_ptr, 0xFF, rgba_size); // opaque
+	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
+		memcpy(&rgba_data_ptr[i * rgba_bytes_per_pixel],
+			   &((const uint8_t*)rgb_data)[rgb_bytes_per_pixel * i],
+			   rgb_bytes_per_pixel);
+	}
+	return rgba_data_ptr;
+}
+
+//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is allocated
+//! and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
+static uint8_t* rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+							const COMPUTE_IMAGE_TYPE& rgb_type,
+							const uint4& image_dim,
+							const uint8_t* rgba_data,
+							uint8_t* dst_rgb_data = nullptr) {
+	// need to copy/convert the RGB host data to RGBA
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
+	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type);
+	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
+	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
+	
+	uint8_t* rgb_data_ptr = (dst_rgb_data != nullptr ? dst_rgb_data : new uint8_t[rgb_size]);
+	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
+		memcpy(&rgb_data_ptr[i * rgb_bytes_per_pixel],
+			   &((const uint8_t*)rgba_data)[rgba_bytes_per_pixel * i],
+			   rgb_bytes_per_pixel);
+	}
+	return (dst_rgb_data != nullptr ? nullptr : rgb_data_ptr);
+}
+
 metal_image::metal_image(const metal_device* device,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
@@ -109,10 +151,6 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		log_error("cuba array image not support by metal (on ios)!");
 	}
 #endif
-	if(channel_count == 3) {
-		log_error("3-channel images are unsupported with metal!"); // TODO/NOTE: same issue as cuda
-		return false;
-	}
 	
 	const MTLRegion region {
 		.origin = { 0, 0, 0 },
@@ -187,6 +225,19 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		{ COMPUTE_IMAGE_TYPE::RG32UI, MTLPixelFormatRG32Uint },
 		{ COMPUTE_IMAGE_TYPE::RG32I, MTLPixelFormatRG32Sint },
 		{ COMPUTE_IMAGE_TYPE::RG32F, MTLPixelFormatRG32Float },
+		// RGB -> RGBA
+		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, MTLPixelFormatRGBA8Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, MTLPixelFormatRGBA8Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGB8UI, MTLPixelFormatRGBA8Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB8I, MTLPixelFormatRGBA8Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI_NORM, MTLPixelFormatRGBA16Unorm },
+		{ COMPUTE_IMAGE_TYPE::RGB16I_NORM, MTLPixelFormatRGBA16Snorm },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI, MTLPixelFormatRGBA16Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB16I, MTLPixelFormatRGBA16Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB16F, MTLPixelFormatRGBA16Float },
+		{ COMPUTE_IMAGE_TYPE::RGB32UI, MTLPixelFormatRGBA32Uint },
+		{ COMPUTE_IMAGE_TYPE::RGB32I, MTLPixelFormatRGBA32Sint },
+		{ COMPUTE_IMAGE_TYPE::RGB32F, MTLPixelFormatRGBA32Float },
 		// RGBA
 		{ COMPUTE_IMAGE_TYPE::RGBA8UI_NORM, MTLPixelFormatRGBA8Unorm },
 		{ COMPUTE_IMAGE_TYPE::RGBA8I_NORM, MTLPixelFormatRGBA8Snorm },
@@ -231,8 +282,27 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	}
 	[desc setPixelFormat:metal_format->second];
 	
+	// set shim format to the corresponding 4-channel format
+	if(channel_count == 3) {
+		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
+	}
+	// == original type if not 3-channel -> 4-channel emulation
+	else shim_image_type = image_type;
+	
 	// misc options
-	[desc setMipmapLevelCount:1];
+	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
+		[desc setMipmapLevelCount:1];
+	}
+	else {
+		const auto max_dim = std::max(std::max(region.size.width, region.size.height), region.size.depth);
+		if(max_dim > 1) {
+			// each mip level is half the size of its upper/parent level, until dim == 1
+			// -> get the closest power-of-two, then "ln(2^N) + 1"
+			// this can be done the fastest by counting the leading zeros in the 32-bit value
+			[desc setMipmapLevelCount:uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)))];
+		}
+		else [desc setMipmapLevelCount:1];
+	}
 	[desc setSampleCount:1];
 	
 	// usage/access options
@@ -253,17 +323,38 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
+		
+		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		
+		const void* data_ptr = host_ptr;
+		if(image_type != shim_image_type) {
+			// need to copy/convert the RGB host data to RGBA
+			data_ptr = rgb_to_rgba(image_type, shim_image_type, image_dim, (const uint8_t*)host_ptr);
+		}
+		
 		[image replaceRegion:region
 				 mipmapLevel:0
 					   slice:0
-				   withBytes:host_ptr
+				   withBytes:data_ptr
 				 bytesPerRow:bytes_per_row
 			   bytesPerImage:bytes_per_slice];
+		
+		// also create mip-map chain when initializing from a host pointer and mip-map flag is set
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+		   [desc mipmapLevelCount] > 1) {
+			[blit_encoder generateMipmapsForTexture:image];
+		}
+		
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
+		
+		// clean up shim data
+		if(image_type != shim_image_type) {
+			delete [] (const uint8_t*)data_ptr;
+		}
 	}
 	
 	return true;
@@ -342,9 +433,16 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
-		[image getBytes:host_buffer
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		
+		uint8_t* data_ptr = host_buffer;
+		if(image_type != shim_image_type) {
+			const auto shim_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type);
+			data_ptr = new uint8_t[shim_size];
+		}
+		
+		[image getBytes:data_ptr
 			bytesPerRow:bytes_per_row
 		  bytesPerImage:bytes_per_slice
 			 fromRegion:region
@@ -353,6 +451,12 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
+		
+		// convert to RGB + cleanup
+		if(image_type != shim_image_type) {
+			rgba_to_rgb(shim_image_type, image_type, image_dim, data_ptr, host_buffer);
+			delete [] data_ptr;
+		}
 	}
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
@@ -380,17 +484,29 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		const auto dim_count = image_dim_count(image_type);
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(image_type) * image_dim.x);
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, image_type);
+		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		
+		// again, need to convert RGB to RGBA if necessary
+		const uint8_t* data_ptr = (const uint8_t*)mapped_ptr;
+		if(image_type != shim_image_type) {
+			data_ptr = rgb_to_rgba(image_type, shim_image_type, image_dim, (const uint8_t*)mapped_ptr);
+		}
+		
 		[image replaceRegion:iter->second.region
 				 mipmapLevel:0
 					   slice:0
-				   withBytes:mapped_ptr
+				   withBytes:data_ptr
 				 bytesPerRow:bytes_per_row
 			   bytesPerImage:bytes_per_slice];
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
+		
+		// cleanup
+		if(image_type != shim_image_type) {
+			delete [] data_ptr;
+		}
 	}
 	
 	// free host memory again and remove the mapping
@@ -416,6 +532,18 @@ bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	}
 	gl_object_state = false;
 	return true;
+}
+
+void metal_image::generate_mip_maps(shared_ptr<compute_queue> cqueue) const {
+	// nothing to do here
+	if([image mipmapLevelCount] == 1) return;
+	
+	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+	[blit_encoder generateMipmapsForTexture:image];
+	[blit_encoder endEncoding];
+	[cmd_buffer commit];
+	[cmd_buffer waitUntilCompleted];
 }
 
 #endif
