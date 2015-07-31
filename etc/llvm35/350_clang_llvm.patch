@@ -2021,7 +2021,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..06b7f2b 100644
+index 5ca3a78..418424e 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -2049,7 +2049,7 @@ index 5ca3a78..06b7f2b 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +451,481 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +451,512 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -2099,9 +2099,40 @@ index 5ca3a78..06b7f2b 100644
 +			else {
 +				arg_info.push_back(llvm::MDString::get(Context, "air.sample"));
 +			}
++			
 +			// #6/#7: texture type
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+			arg_info.push_back(llvm::MDString::get(Context, "texture")); // TODO: does this matter somehow?
++			// proper type is necessary for metal debugging purposes
++			std::string tex_type_name;
++			if(type->isImage1dT()) tex_type_name = "texture1d";
++			else if(type->isImage1dArrayT()) tex_type_name = "texture1d_array";
++			//else if(type->isImage1dBufferT()) tex_type_name = ""; // not supported
++			else if(type->isImage2dT()) tex_type_name = "texture2d";
++			else if(type->isImage2dArrayT()) tex_type_name = "texture2d_array";
++			else if(type->isImage2dDepthT()) tex_type_name = "depth2d";
++			else if(type->isImage2dArrayDepthT()) tex_type_name = "depth2d_array";
++			else if(type->isImage2dMSAAT()) tex_type_name = "texture2d_ms";
++			//else if(type->isImage2dArrayMSAAT()) tex_type_name = ""; // not supported
++			else if(type->isImage2dMSAADepthT()) tex_type_name = "depth2d_ms";
++			//else if(type->isImage2dArrayMSAADepthT()) tex_type_name = ""; // not supported
++			else if(type->isImage3dT()) tex_type_name = "texture3d";
++			else if(type->isImageCubeT()) tex_type_name = "texturecube";
++			else if(type->isImageCubeArrayT()) tex_type_name = "texturecube_array";
++			else if(type->isImageCubeDepthT()) tex_type_name = "depthcube";
++			else if(type->isImageCubeArrayDepthT()) tex_type_name = "depthcube_array";
++			else tex_type_name = "texture";
++			
++			tex_type_name += "<";
++			tex_type_name += "float"; // TODO: proper type, will need another attr for this ...
++			tex_type_name += ", ";
++			if(access_attr && access_attr->isReadOnly()) {
++				tex_type_name += "sample";
++			}
++			else tex_type_name += "write";
++			tex_type_name += ">";
++			
++			arg_info.push_back(llvm::MDString::get(Context, tex_type_name));
++			
 +			// #8/#9: arg name
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
 +			arg_info.push_back(llvm::MDString::get(Context, StringRef(name)));
@@ -2531,7 +2562,7 @@ index 5ca3a78..06b7f2b 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -457,10 +937,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +968,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -2549,7 +2580,7 @@ index 5ca3a78..06b7f2b 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +985,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1016,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2591,7 +2622,7 @@ index 5ca3a78..06b7f2b 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1071,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1102,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -2611,7 +2642,7 @@ index 5ca3a78..06b7f2b 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1286,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1317,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2695,7 +2726,7 @@ index 5ca3a78..06b7f2b 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1466,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1497,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
