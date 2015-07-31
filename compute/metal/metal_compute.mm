@@ -489,16 +489,11 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
 	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
 	
-	string lib { "" };
-	if(!file_io::file_to_string("metal_tmp.metallib", lib)) {
-		log_error("failed to create or read metallib");
-		return {};
-	}
-	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	dispatch_data_t ddt = dispatch_data_create(lib.c_str(), lib.size(), dispatch_get_main_queue(), ^(void) {});
-	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithData:ddt error:&err];
+	const char* lib_path = "metal_tmp.metallib";
+	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:lib_path]
+																						  error:&err];
 	if(!program) {
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
@@ -523,14 +518,9 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 																		const vector<llvm_compute::kernel_info>& kernel_infos) {
 	log_debug("loading mtllib: %s", file_name);
 	
-	string data;
-	if(!file_io::file_to_string(file_name, data)) {
-		return {};
-	}
-	
 	NSError* err { nil };
-	dispatch_data_t ddt = dispatch_data_create(data.c_str(), data.size(), dispatch_get_main_queue(), ^(void) {});
-	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithData:ddt error:&err];
+	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:file_name.c_str()]
+																						  error:&err];
 	if(!program) {
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
