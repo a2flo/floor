@@ -89,12 +89,9 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 		return nullptr;
 	}
 	
-	const auto scale_factor = get_scale_factor(wnd);
 	int2 wnd_size;
 	SDL_GetWindowSize(wnd, &wnd_size.x, &wnd_size.y);
 	CGRect frame { { 0.0f, 0.0f }, { float(wnd_size.x), float(wnd_size.y) } };
-	frame.size.width /= scale_factor;
-	frame.size.height /= scale_factor;
 	
 	metal_view* view = [[metal_view alloc] initWithFrame:frame withDevice:device];
 #if !defined(FLOOR_IOS)
