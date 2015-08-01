@@ -66,6 +66,7 @@ protected:
 	
 #if !defined(FLOOR_IOS)
 	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
+	MTLStorageMode storage_options { MTLStorageModeAuto };
 #endif
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image

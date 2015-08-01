@@ -106,10 +106,12 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 		case COMPUTE_MEMORY_FLAG::HOST_READ_WRITE:
 			// keep the default MTLCPUCacheModeDefaultCache
 			break;
-		case COMPUTE_MEMORY_FLAG::NONE:
 		case COMPUTE_MEMORY_FLAG::HOST_WRITE:
-			// host will only write or not read/write at all -> can use write combined
+			// host will only write -> can use write combined
 			options = MTLCPUCacheModeWriteCombined;
+			break;
+		case COMPUTE_MEMORY_FLAG::NONE:
+			// don' set anything -> private storage will be set later
 			break;
 		// all possible cases handled
 		default: floor_unreachable();
@@ -118,9 +120,11 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 #if !defined(FLOOR_IOS)
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		options |= MTLResourceStorageModePrivate;
+		storage_options = MTLStorageModePrivate;
 	}
 	else {
 		options |= MTLResourceStorageModeManaged;
+		storage_options = MTLStorageModeManaged;
 	}
 #endif
 	
@@ -308,6 +312,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	// usage/access options
 	[desc setResourceOptions:options];
 #if !defined(FLOOR_IOS)
+	[desc setStorageMode:storage_options]; // don't know why this needs to be set twice
 	[desc setUsage:usage_options];
 #endif
 	

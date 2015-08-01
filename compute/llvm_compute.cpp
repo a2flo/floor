@@ -387,8 +387,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS="s + has_extended_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_"s + has_extended_64_bit_atomics_str;
 	
+	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
+	if(floor::get_compute_debug() && target != TARGET::SPIR) {
+		clang_cmd += " -gline-tables-only";
+	}
+	
 	// add generic flags/options that are always used
-	// TODO: use debug/profiling config options
 	clang_cmd += {
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR" +
