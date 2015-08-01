@@ -102,8 +102,8 @@ template <class protocol_policy, class reception_policy> net<protocol_policy, re
 
 template <class protocol_policy, class reception_policy>
 bool net<protocol_policy, reception_policy>::connect_to_server(const string& server_name,
-											 const unsigned short int port,
-											 const unsigned short int local_port floor_unused) {
+															   const unsigned short int port,
+															   const unsigned short int local_port floor_unused) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
 	
 	try {
@@ -116,7 +116,7 @@ bool net<protocol_policy, reception_policy>::connect_to_server(const string& ser
 		connected = true;
 	}
 	catch(...) {
-		log_error("failed to connect to server!");
+		log_error("failed to connect to server: %s:%u!", server_name, port);
 		unlock();
 		set_thread_should_finish(); // and quit ...
 		return false;
