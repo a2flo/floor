@@ -295,38 +295,112 @@ namespace metal_image {
 		}
 	};
 	
+	//! is image type sampling return type a float?
+	static constexpr bool is_sample_float(COMPUTE_IMAGE_TYPE image_type) {
+		return (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
+	}
+	
+	//! is image type sampling return type an int?
+	static constexpr bool is_sample_int(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
+	}
+	
+	//! is image type sampling return type an uint?
+	static constexpr bool is_sample_uint(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT);
+	}
+	
+	// read-only float/int/uint
+	template <COMPUTE_IMAGE_TYPE image_type, typename = void>
+	struct read_only_image : image<image_type, read_only_image<image_type>> {};
+	
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct read_only_image : image<image_type, read_only_image<image_type>> {
+	struct read_only_image<image_type, enable_if_t<is_sample_float(image_type)>> : image<image_type, read_only_image<image_type>> {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
-		
 		const opaque_type& readable_img() const { return r_img; }
 		const opaque_type& writable_img() const __attribute__((unavailable("image is read-only")));
-		
 	protected:
-		read_only opaque_type r_img;
+		__attribute__((floor_image_float)) read_only opaque_type r_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct read_only_image<image_type, enable_if_t<is_sample_int(image_type)>> : image<image_type, read_only_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const { return r_img; }
+		const opaque_type& writable_img() const __attribute__((unavailable("image is read-only")));
+	protected:
+		__attribute__((floor_image_int)) read_only opaque_type r_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct read_only_image<image_type, enable_if_t<is_sample_uint(image_type)>> : image<image_type, read_only_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const { return r_img; }
+		const opaque_type& writable_img() const __attribute__((unavailable("image is read-only")));
+	protected:
+		__attribute__((floor_image_uint)) read_only opaque_type r_img;
 	};
 	
+	// write-only float/int/uint
+	template <COMPUTE_IMAGE_TYPE image_type, typename = void>
+	struct write_only_image : image<image_type, write_only_image<image_type>> {};
+	
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct write_only_image : image<image_type, write_only_image<image_type>> {
+	struct write_only_image<image_type, enable_if_t<is_sample_float(image_type)>> : image<image_type, write_only_image<image_type>> {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
-		
 		const opaque_type& readable_img() const __attribute__((unavailable("image is write-only")));
 		const opaque_type& writable_img() const { return w_img; }
-		
 	protected:
-		write_only opaque_type w_img;
+		__attribute__((floor_image_float)) write_only opaque_type w_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct write_only_image<image_type, enable_if_t<is_sample_int(image_type)>> : image<image_type, write_only_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const __attribute__((unavailable("image is write-only")));
+		const opaque_type& writable_img() const { return w_img; }
+	protected:
+		__attribute__((floor_image_int)) write_only opaque_type w_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct write_only_image<image_type, enable_if_t<is_sample_uint(image_type)>> : image<image_type, write_only_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const __attribute__((unavailable("image is write-only")));
+		const opaque_type& writable_img() const { return w_img; }
+	protected:
+		__attribute__((floor_image_uint)) write_only opaque_type w_img;
 	};
 	
+	// read-write float/int/uint
+	template <COMPUTE_IMAGE_TYPE image_type, typename = void>
+	struct read_write_image : image<image_type, read_write_image<image_type>> {};
+	
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct read_write_image : image<image_type, read_write_image<image_type>> {
+	struct read_write_image<image_type, enable_if_t<is_sample_float(image_type)>> : image<image_type, read_write_image<image_type>> {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
-		
 		const opaque_type& readable_img() const { return r_img; }
 		const opaque_type& writable_img() const { return w_img; }
-		
 	protected:
-		read_only opaque_type r_img;
-		write_only opaque_type w_img;
+		__attribute__((floor_image_float)) read_only opaque_type r_img;
+		__attribute__((floor_image_float)) write_only opaque_type w_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct read_write_image<image_type, enable_if_t<is_sample_int(image_type)>> : image<image_type, read_write_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const { return r_img; }
+		const opaque_type& writable_img() const { return w_img; }
+	protected:
+		__attribute__((floor_image_int)) read_only opaque_type r_img;
+		__attribute__((floor_image_int)) write_only opaque_type w_img;
+	};
+	template <COMPUTE_IMAGE_TYPE image_type>
+	struct read_write_image<image_type, enable_if_t<is_sample_uint(image_type)>> : image<image_type, read_write_image<image_type>> {
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		const opaque_type& readable_img() const { return r_img; }
+		const opaque_type& writable_img() const { return w_img; }
+	protected:
+		__attribute__((floor_image_uint)) read_only opaque_type r_img;
+		__attribute__((floor_image_uint)) write_only opaque_type w_img;
 	};
 }
 

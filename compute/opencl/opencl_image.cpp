@@ -97,7 +97,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			cl_img_format.image_channel_order = CL_RGB;
 			break;
 		case COMPUTE_IMAGE_TYPE::CHANNELS_4:
-			cl_img_format.image_channel_order = CL_RGBA;
+			cl_img_format.image_channel_order = (has_flag<COMPUTE_IMAGE_TYPE::FLAG_REVERSE>(image_type) ? CL_BGRA : CL_RGBA);
 			break;
 		default: floor_unreachable();
 	}

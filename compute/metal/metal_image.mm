@@ -255,6 +255,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		{ COMPUTE_IMAGE_TYPE::RGBA32UI, MTLPixelFormatRGBA32Uint },
 		{ COMPUTE_IMAGE_TYPE::RGBA32I, MTLPixelFormatRGBA32Sint },
 		{ COMPUTE_IMAGE_TYPE::RGBA32F, MTLPixelFormatRGBA32Float },
+		// BGRA
+		{ COMPUTE_IMAGE_TYPE::BGRA8UI_NORM, MTLPixelFormatBGRA8Unorm },
 		// depth / depth+stencil
 		{ (COMPUTE_IMAGE_TYPE::FLOAT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
@@ -279,7 +281,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 															COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 															COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED |
 															COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-															COMPUTE_IMAGE_TYPE::FLAG_STENCIL));
+															COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
+															COMPUTE_IMAGE_TYPE::FLAG_REVERSE));
 	if(metal_format == end(format_lut)) {
 		log_error("unsupported image format: %X", image_type);
 		return false;
