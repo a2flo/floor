@@ -28,7 +28,12 @@ static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
 	size_t ret = 0;
 	const auto arg_count = info.args.size();
 	for(size_t i = 0; i < arg_count; ++i) {
-		ret += info.args[i].size;
+		// actual arg or pointer?
+		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT ||
+		   info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE) {
+			ret += info.args[i].size;
+		}
+		else ret += sizeof(void*);
 	}
 	return ret;
 }
