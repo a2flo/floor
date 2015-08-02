@@ -238,6 +238,25 @@ namespace metal_image {
 	
 	//////////////////////////////////////////
 	// actual image object implementation
+	
+	//! is image type sampling return type a float?
+	static constexpr bool is_sample_float(COMPUTE_IMAGE_TYPE image_type) {
+		return (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
+	}
+	
+	//! is image type sampling return type an int?
+	static constexpr bool is_sample_int(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
+	}
+	
+	//! is image type sampling return type an uint?
+	static constexpr bool is_sample_uint(COMPUTE_IMAGE_TYPE image_type) {
+		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT);
+	}
+	
 	template <COMPUTE_IMAGE_TYPE image_type, typename image_storage>
 	struct image {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() { return image_type; }
@@ -255,24 +274,27 @@ namespace metal_image {
 		
 		// read functions
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) ||
-							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT)>* = nullptr>
+				  enable_if_t<is_sample_float(image_type_) && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
 			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
 		}
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<is_sample_float(image_type_) && has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
+		auto read(const coord_type& coord) const {
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), 1, convert_coord(coord));
+			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
+		}
 		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) &&
-							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT)>* = nullptr>
+				  enable_if_t<is_sample_int(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
 			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(clang_vec));
 		}
 		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type_) &&
-							   (image_type_ & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT)>* = nullptr>
+				  enable_if_t<is_sample_uint(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
 			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
 			return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(clang_vec));
@@ -294,24 +316,6 @@ namespace metal_image {
 			write_imagef(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), data);
 		}
 	};
-	
-	//! is image type sampling return type a float?
-	static constexpr bool is_sample_float(COMPUTE_IMAGE_TYPE image_type) {
-		return (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
-				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
-	}
-	
-	//! is image type sampling return type an int?
-	static constexpr bool is_sample_int(COMPUTE_IMAGE_TYPE image_type) {
-		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
-				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
-	}
-	
-	//! is image type sampling return type an uint?
-	static constexpr bool is_sample_uint(COMPUTE_IMAGE_TYPE image_type) {
-		return (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
-				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT);
-	}
 	
 	// read-only float/int/uint
 	template <COMPUTE_IMAGE_TYPE image_type, typename = void>

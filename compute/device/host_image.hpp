@@ -339,6 +339,7 @@ template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename 
 floor_inline_always auto read(const host_device_image<image_type, readable, writable>* img, const coord_type& coord) {
 	static_assert(readable, "image must be readable!");
 	
+	constexpr const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 	constexpr const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 	constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type);
 	
@@ -350,7 +351,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	typedef conditional_t<!has_stencil, float, pair<float, uint8_t>> ret_type;
 	ret_type ret;
 	const auto offset = img->coord_to_offset(coord);
-	if(image_format == COMPUTE_IMAGE_TYPE::FLOAT) {
+	if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 		// can just pass-through the float value
 		memcpy(&ret, &img->data[offset], sizeof(float));
 		if(has_stencil) {
@@ -459,12 +460,13 @@ void write(host_device_image<image_type, readable, writable>* img, const coord_t
 	static_assert(writable, "image must be writable!");
 	depth_format_validity_check<image_type>();
 	
+	constexpr const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 	constexpr const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 	constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type);
 	
 	// depth value input is always a float -> convert it to the correct output format
 	const auto offset = img->coord_to_offset(coord);
-	if(image_format == COMPUTE_IMAGE_TYPE::FLOAT) {
+	if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 		// can just pass-through the float value
 		memcpy(&img->data[offset], &color, sizeof(float));
 		if(has_stencil) {

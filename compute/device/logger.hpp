@@ -56,8 +56,8 @@ public:
 		__TYPE_SHIFT = 0u,
 		__TYPE_MASK = 0xFFu,
 		INVALID = 0,
-		INT,
-		UINT,
+		INT32,
+		UINT32,
 		INT64,
 		UINT64,
 		STRING,
@@ -99,14 +99,14 @@ public:
 																 is_signed<T>::value &&
 																 !is_pointer<T>::value)>> {
 		static constexpr ARG_TYPE type() {
-			return (sizeof(T) <= 4 ? ARG_TYPE::INT : ARG_TYPE::INT64);
+			return (sizeof(T) <= 4 ? ARG_TYPE::INT32 : ARG_TYPE::INT64);
 		}
 	};
 	template <typename T> struct handle_arg_type<T, enable_if_t<(is_integral<T>::value &&
 																 !is_signed<T>::value &&
 																 !is_pointer<T>::value)>> {
 		static constexpr ARG_TYPE type() {
-			return (sizeof(T) <= 4 ? ARG_TYPE::UINT : ARG_TYPE::UINT64);
+			return (sizeof(T) <= 4 ? ARG_TYPE::UINT32 : ARG_TYPE::UINT64);
 		}
 	};
 	template <typename T> struct handle_arg_type<T, enable_if_t<is_floating_point<T>::value>> {
@@ -189,8 +189,8 @@ public:
 		// iterate over arg types (-1, b/c it is terminated by an additional INVALID type to properly handle "no args")
 		for(size_t i = 0; i < (array_len - 1); ++i) {
 			switch(arg_types[i] & ARG_TYPE::__TYPE_MASK) {
-				case ARG_TYPE::INT:
-				case ARG_TYPE::UINT:
+				case ARG_TYPE::INT32:
+				case ARG_TYPE::UINT32:
 				case ARG_TYPE::FLOAT:
 				case ARG_TYPE::DOUBLE:
 				case ARG_TYPE::STRING:
@@ -208,8 +208,8 @@ public:
 					size_t type_size = 0;
 					switch((ARG_TYPE)(uint32_t(arg_types[i] & ARG_TYPE::__ADD_SPEC_MASK) >>
 									  uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT))) {
-						case ARG_TYPE::INT:
-						case ARG_TYPE::UINT:
+						case ARG_TYPE::INT32:
+						case ARG_TYPE::UINT32:
 						case ARG_TYPE::FLOAT:
 						case ARG_TYPE::DOUBLE:
 						case ARG_TYPE::STRING:
@@ -231,8 +231,8 @@ public:
 					size_t type_size = 0;
 					switch((ARG_TYPE)(uint32_t(arg_types[i] & ARG_TYPE::__ADD_SPEC_MASK) >>
 									  uint32_t(ARG_TYPE::__ADD_SPEC_SHIFT))) {
-						case ARG_TYPE::INT:
-						case ARG_TYPE::UINT:
+						case ARG_TYPE::INT32:
+						case ARG_TYPE::UINT32:
 						case ARG_TYPE::FLOAT:
 						case ARG_TYPE::DOUBLE:
 						case ARG_TYPE::STRING:
@@ -281,10 +281,10 @@ public:
 						pstr[out_idx++] = '%';
 					}
 					switch(arg_type) {
-						case ARG_TYPE::INT:
+						case ARG_TYPE::INT32:
 							pstr[out_idx++] = 'd';
 							break;
-						case ARG_TYPE::UINT:
+						case ARG_TYPE::UINT32:
 							pstr[out_idx++] = 'u';
 							break;
 						case ARG_TYPE::FLOAT:
@@ -317,10 +317,10 @@ public:
 								}
 								pstr[out_idx++] = '%';
 								switch(comp_type) {
-									case ARG_TYPE::INT:
+									case ARG_TYPE::INT32:
 										pstr[out_idx++] = 'd';
 										break;
-									case ARG_TYPE::UINT:
+									case ARG_TYPE::UINT32:
 										pstr[out_idx++] = 'u';
 										break;
 									case ARG_TYPE::FLOAT:
@@ -367,10 +367,10 @@ public:
 									}
 									pstr[out_idx++] = '%';
 									switch(comp_type) {
-										case ARG_TYPE::INT:
+										case ARG_TYPE::INT32:
 											pstr[out_idx++] = 'd';
 											break;
-										case ARG_TYPE::UINT:
+										case ARG_TYPE::UINT32:
 											pstr[out_idx++] = 'u';
 											break;
 										case ARG_TYPE::FLOAT:

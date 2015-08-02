@@ -122,6 +122,16 @@ public:
 		return image_dim;
 	}
 	
+	//! returns the compute image type of this image
+	const COMPUTE_IMAGE_TYPE& get_image_type() const {
+		return image_type;
+	}
+	
+	//! returns the data size necessary to store this image in memory
+	const size_t& get_image_data_size() const {
+		return image_data_size;
+	}
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
