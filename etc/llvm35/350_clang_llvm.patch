@@ -825,7 +825,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..e6bc378 100644
+index 704a375..0942477 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -890,7 +890,7 @@ index 704a375..e6bc378 100644
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -582,36 +601,39 @@ def OpenCLKernel : InheritableAttr {
+@@ -582,36 +601,47 @@ def OpenCLKernel : InheritableAttr {
  // This attribute is both a type attribute, and a declaration attribute (for
  // parameter variables).
  def OpenCLImageAccess : Attr {
@@ -938,6 +938,14 @@ index 704a375..e6bc378 100644
  def OpenCLConstantAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
 +  let Spellings = [Keyword<"__constant">, GNU<"opencl_constant">];
++  let Documentation = [Undocumented];
++}
++
++def FloorImageSampleType : Attr {
++  let Spellings = [GNU<"floor_image_float">, GNU<"floor_image_int">, GNU<"floor_image_uint">];
++  let Accessors = [Accessor<"isFloat", [GNU<"floor_image_float">]>,
++                   Accessor<"isInt", [GNU<"floor_image_int">]>,
++                   Accessor<"isUint", [GNU<"floor_image_uint">]>];
    let Documentation = [Undocumented];
  }
  
@@ -2021,7 +2029,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..418424e 100644
+index 5ca3a78..b956370 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
@@ -2049,7 +2057,7 @@ index 5ca3a78..418424e 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +451,512 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -446,6 +451,520 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -2074,6 +2082,7 @@ index 5ca3a78..418424e 100644
 +		const auto add_image_arg = [&Builder, &tex_idx, &llvm_parm, &arg_infos,
 +									&arg_idx, &Context](const clang::QualType& type,
 +														const OpenCLImageAccessAttr* access_attr,
++														const FloorImageSampleTypeAttr* sample_type,
 +														const std::string& name) {
 +			SmallVector<llvm::Value*, 16> arg_info;
 +			
@@ -2123,7 +2132,14 @@ index 5ca3a78..418424e 100644
 +			else tex_type_name = "texture";
 +			
 +			tex_type_name += "<";
-+			tex_type_name += "float"; // TODO: proper type, will need another attr for this ...
++			std::string sample_type_str = "float";
++			if(sample_type) {
++				if(sample_type->isInt()) sample_type_str = "int";
++				else if(sample_type->isUint()) sample_type_str = "uint";
++				// else: float
++			}
++			// else: just assume float
++			tex_type_name += sample_type_str;
 +			tex_type_name += ", ";
 +			if(access_attr && access_attr->isReadOnly()) {
 +				tex_type_name += "sample";
@@ -2190,7 +2206,7 @@ index 5ca3a78..418424e 100644
 +		}
 +		// image
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(), parm->getName().str());
++			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(), parm->getAttr<FloorImageSampleTypeAttr>(), parm->getName().str());
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
@@ -2200,7 +2216,7 @@ index 5ca3a78..418424e 100644
 +			for(const auto& field : decl->fields()) {
 +				const auto field_type = field->getType();
 +				
-+				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(), base_name + std::to_string(field_idx));
++				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(), field->getAttr<FloorImageSampleTypeAttr>(), base_name + std::to_string(field_idx));
 +				++field_idx;
 +				
 +				// next llvm arg
@@ -2562,7 +2578,7 @@ index 5ca3a78..418424e 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -457,10 +968,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +976,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -2580,7 +2596,7 @@ index 5ca3a78..418424e 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1016,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1024,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2622,7 +2638,7 @@ index 5ca3a78..418424e 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1102,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1110,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -2642,7 +2658,7 @@ index 5ca3a78..418424e 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1317,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1325,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2726,7 +2742,7 @@ index 5ca3a78..418424e 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1497,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1505,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -3083,7 +3099,7 @@ index 8716227..81dd1a8 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..e472879 100644
+index 61683cd..040f9de 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
 @@ -2679,6 +2679,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -3155,6 +3171,16 @@ index 61683cd..e472879 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
+@@ -4405,6 +4460,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+   case AttributeList::AT_OpenCLImageAccess:
+     handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
+     break;
++  case AttributeList::AT_FloorImageSampleType:
++    handleSimpleAttribute<FloorImageSampleTypeAttr>(S, D, Attr);
++    break;
+ 
+   // Microsoft attributes:
+   case AttributeList::AT_MsStruct:
 diff --git a/tools/clang/lib/Sema/SemaDeclCXX.cpp b/tools/clang/lib/Sema/SemaDeclCXX.cpp
 index c5cd83d..7084757 100644
 --- a/tools/clang/lib/Sema/SemaDeclCXX.cpp
@@ -3346,6 +3372,20 @@ index accec95..d1095d9 100644
      const EnableIfAttr *EnableIf = dyn_cast<EnableIfAttr>(TmplAttr);
      if (EnableIf && EnableIf->getCond()->isValueDependent()) {
        instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
+diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
+index be1191c..fa80643 100644
+--- a/tools/clang/lib/Sema/SemaType.cpp
++++ b/tools/clang/lib/Sema/SemaType.cpp
+@@ -4931,6 +4931,9 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+       // imagine, but the original handler's checking was entirely superfluous.
+       attr.setUsedAsTypeAttr();
+       break;
++    case AttributeList::AT_FloorImageSampleType:
++      attr.setUsedAsTypeAttr();
++      break;
+ 
+     MS_TYPE_ATTRS_CASELIST:
+       if (!handleMSPointerTypeQualifierAttr(state, attr, type))
 diff --git a/tools/clang/lib/Serialization/ASTCommon.cpp b/tools/clang/lib/Serialization/ASTCommon.cpp
 index ad046ff..be31b68 100644
 --- a/tools/clang/lib/Serialization/ASTCommon.cpp
