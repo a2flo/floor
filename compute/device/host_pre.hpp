@@ -25,8 +25,12 @@
 #include <AvailabilityMacros.h>
 #endif
 
-//
-#define kernel extern "C" __attribute__((noinline, used, visibility("default")))
+// used to mark kernel functions which must be dynamically retrievable at runtime
+// extern "C": use C name mangling instead of C++ mangling (so function name is the same as written in the code)
+// inline: not actually inline, but makes sure that no prototype is required for global functions
+// attribute used: emit the function even if it apparently seems unused
+// visibility default: function name is publicly visible and can be retrieved at runtime
+#define kernel extern "C" inline __attribute__((used, visibility("default")))
 
 // workaround use of "global" in __locale header by including it before killing global
 #include <__locale>
