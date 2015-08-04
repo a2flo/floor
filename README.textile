@@ -15,7 +15,7 @@
 ** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/vs-2015-product-editions
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
-** "SDL2":http://www.libsdl.org 2.0.2+ ("2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D on Windows)
+** "SDL2":http://www.libsdl.org 2.0.4+ is recommended, earlier versions might work ("Windows 2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D)
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
 ** (opt) CUDA: requires "CUDA 6.5+ SDK":https://developer.nvidia.com/cuda-downloads and sm_20+/Fermi+ GPU
@@ -80,7 +80,7 @@
 ** export LIBGL_ALWAYS_INDIRECT=yes
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
-* the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taking care of by having the CUDA SDK path last)
+* the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taken care of by having the CUDA SDK path last)
 * on Windows: a nvcuda.dll must always be present on the system when CUDA support is enabled
 
 *Compute Toolchain:*

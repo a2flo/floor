@@ -188,6 +188,11 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 				if(!is_cube) tex_type = MTLTextureType2DArray;
 #if !defined(FLOOR_IOS) // os x only for now
 				else tex_type = MTLTextureTypeCubeArray;
+#else
+				else {
+					log_error("cube array is not supported on iOS!");
+					return false;
+				}
 #endif
 			}
 			else /* is_cube */ tex_type = MTLTextureTypeCube;
@@ -372,7 +377,6 @@ metal_image::~metal_image() {
 	// kill the image
 	image = nil;
 	if(desc != nil) {
-		[desc dealloc];
 		desc = nil;
 	}
 }

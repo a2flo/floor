@@ -104,6 +104,7 @@ void host_image::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __at
 }
 
 bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+#if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
 		log_warn("opengl image has already been acquired for use with the host!");
@@ -117,9 +118,14 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	
 	gl_object_state = false;
 	return true;
+#else
+	log_error("this is not supported in iOS!");
+	return false;
+#endif
 }
 
 bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
+#if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
 	if(image == 0) return false;
 	if(gl_object_state) {
@@ -134,6 +140,10 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	
 	gl_object_state = true;
 	return true;
+#else
+	log_error("this is not supported in iOS!");
+	return false;
+#endif
 }
 
 #endif

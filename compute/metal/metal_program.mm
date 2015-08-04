@@ -46,7 +46,6 @@ metal_program::metal_program(const metal_device* device,
 		if(!kernel_state) {
 			log_error("failed to create kernel state %s: %s", info.name,
 					  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
-			[kernel release];
 			continue;
 		}
 		log_debug("created kernel state: %X", (__bridge void*)kernel_state);

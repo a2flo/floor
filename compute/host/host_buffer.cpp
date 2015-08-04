@@ -281,7 +281,11 @@ bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	
 	// copy gl buffer data to host memory (through r/o map)
 	glBindBuffer(opengl_type, gl_object);
+#if !defined(FLOOR_IOS)
 	void* gl_data = glMapBuffer(opengl_type, GL_READ_ONLY);
+#else
+	void* gl_data = glMapBufferRange(opengl_type, 0, (GLsizeiptr)size, GL_MAP_READ_BIT);
+#endif
 	if(gl_data == nullptr) {
 		log_error("failed to acquire opengl buffer - opengl buffer mapping failed");
 		return false;

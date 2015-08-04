@@ -210,7 +210,7 @@ bool metal_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const s
 	return false;
 }
 
-void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue,
+void* __attribute__((aligned(128))) metal_buffer::map(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_,
 													  const size_t size_, const size_t offset) NO_THREAD_SAFETY_ANALYSIS {
 	if(buffer == nil) return nullptr;

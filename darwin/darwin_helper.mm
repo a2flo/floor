@@ -92,6 +92,11 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 	int2 wnd_size;
 	SDL_GetWindowSize(wnd, &wnd_size.x, &wnd_size.y);
 	CGRect frame { { 0.0f, 0.0f }, { float(wnd_size.x), float(wnd_size.y) } };
+#if defined(FLOOR_IOS) // TODO: not sure when and when not this is necessary? -> update sdl and check for hipdi?
+	const auto scale_factor = get_scale_factor(wnd);
+	frame.size.width /= scale_factor;
+	frame.size.height /= scale_factor;
+#endif
 	
 	metal_view* view = [[metal_view alloc] initWithFrame:frame withDevice:device];
 #if !defined(FLOOR_IOS)

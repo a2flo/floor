@@ -55,7 +55,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
 	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
-	//! optional type: image data is stored in reverse order (i.e. BGRA instead of RGBA)
+	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
 	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
 	
 	//! bits 16-17: dimensionality
