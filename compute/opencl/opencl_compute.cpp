@@ -34,7 +34,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-void opencl_compute::init(const bool use_platform_devices,
+void opencl_compute::init(const bool use_platform_devices floor_unused,
 						  const uint64_t platform_index_,
 						  const bool gl_sharing,
 						  const unordered_set<string> whitelist) {
@@ -76,9 +76,7 @@ void opencl_compute::init(const bool use_platform_devices,
 		CL_CALL_CONT(clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, all_device_count, all_cl_devices.data(), nullptr),
 					 "failed to get devices for platform")
 		
-		if(use_platform_devices) {
-			log_debug("found %u opencl device%s", all_cl_devices.size(), (all_cl_devices.size() == 1 ? "" : "s"));
-		}
+		log_debug("found %u opencl device%s", all_cl_devices.size(), (all_cl_devices.size() == 1 ? "" : "s"));
 		
 		// device whitelist
 		vector<cl_device_id> ctx_cl_devices;
@@ -172,16 +170,9 @@ void opencl_compute::init(const bool use_platform_devices,
 		};
 #endif
 		
-		if(use_platform_devices) {
-			CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
-														 nullptr, nullptr, &ctx_error),
-								   ctx_error, "failed to create opencl context")
-		}
-		else {
-			CL_CALL_ERR_PARAM_CONT(ctx = clCreateContextFromType(cl_properties, CL_DEVICE_TYPE_ALL,
-														 nullptr, nullptr, &ctx_error),
-								   ctx_error, "failed to create opencl context")
-		}
+		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
+													 nullptr, nullptr, &ctx_error),
+							   ctx_error, "failed to create opencl context")
 #endif
 		
 		// success
