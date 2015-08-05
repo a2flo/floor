@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_OPENCL)
 
 #include <floor/compute/compute_queue.hpp>
+#include <floor/compute/opencl/opencl_common.hpp>
 
 opencl_kernel::opencl_kernel(const cl_kernel kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
 }
@@ -33,14 +34,13 @@ void opencl_kernel::execute_internal(compute_queue* queue,
 									 const uint3& local_work_size) {
 	const size3 global_ws { global_work_size };
 	const size3 local_ws { local_work_size };
-	const auto exec_error = clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
-												   kernel, work_dim, nullptr,
-												   global_ws.data(), local_ws.data(),
-												   // TODO: use of event stuff?
-												   0, nullptr, nullptr);
-	if(exec_error != CL_SUCCESS) {
-		log_error("failed to execute kernel: %u!", exec_error);
-	}
+	
+	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
+									   kernel, work_dim, nullptr,
+									   global_ws.data(), local_ws.data(),
+									   // TODO: use of event stuff?
+									   0, nullptr, nullptr),
+				"failed to execute kernel")
 }
 
 #endif

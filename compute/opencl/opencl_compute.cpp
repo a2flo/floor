@@ -385,6 +385,7 @@ void opencl_compute::init(const bool use_platform_devices,
 				device.vendor = compute_device::VENDOR::APPLE;
 			}
 			else if(strstr(vendor_str.c_str(), "amd") != nullptr ||
+					strstr(vendor_str.c_str(), "advanced micro devices") != nullptr ||
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
 				device.vendor = compute_device::VENDOR::AMD;
@@ -871,13 +872,13 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(program, device));
 	}
 	
-#if 0
-	// for testing purposes: retrieve the compiled binaries again
-	const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(program);
-	for(size_t i = 0; i < binaries.size(); ++i) {
-		file_io::string_to_file("binary_" + to_string(i) + ".bin", binaries[i]);
+	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
+	if(floor::get_compute_keep_binaries()) {
+		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(program);
+		for(size_t i = 0; i < binaries.size(); ++i) {
+			file_io::string_to_file("binary_" + to_string(i) + ".bin", binaries[i]);
+		}
 	}
-#endif
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
 	auto ret_program = make_shared<opencl_program>(program, program_data.second,
