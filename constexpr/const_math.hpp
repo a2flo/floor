@@ -140,6 +140,12 @@ namespace const_math {
 		return (lhs > (rhs - arithmetic_type(EPSILON<>)) && lhs < (rhs + arithmetic_type(EPSILON<>)));
 	}
 	
+	//! tests if two values are unequal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr bool is_unequal(const arithmetic_type& lhs, const arithmetic_type& rhs) {
+		return (lhs < (rhs - arithmetic_type(EPSILON<>)) || lhs > (rhs + arithmetic_type(EPSILON<>)));
+	}
+	
 	//! tests if two values are equal +/- a specified epsilon
 	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
 	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {

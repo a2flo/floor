@@ -61,7 +61,7 @@ void event::handle_events() {
 		   event_type == SDL_MOUSEBUTTONUP) {
 			// mouse event handling
 			const int2 mouse_coord = int2(event_handle.button.x, event_handle.button.y);
-#if defined(__APPLE__) // currently only enabled in my patched/customized SDL lib
+#if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
 			const float pressure = event_handle.button.pressure;
 #else
 			const float pressure = 0.0f;
@@ -179,7 +179,7 @@ void event::handle_events() {
 				case SDL_MOUSEMOTION: {
 					const int2 abs_pos = int2(event_handle.motion.x, event_handle.motion.y);
 					const int2 rel_move = int2(event_handle.motion.xrel, event_handle.motion.yrel);
-#if defined(__APPLE__) // currently only enabled in my patched/customized SDL lib
+#if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
 					const float pressure = event_handle.motion.pressure;
 #else
 					const float pressure = 0.0f;

@@ -35,7 +35,7 @@ public:
 					 const bool console_only = false, const string config_name = "config.json",
 					 const bool use_gl32_core = false,
 					 // sdl window creation flags
-					 // note: fullscreen + borderless flag will be set automatically depending on the config setting
+					 // note: fullscreen, borderless and hidpi flags will be set automatically depending on the config settings
 #if !defined(FLOOR_IOS)
 					 const unsigned int window_flags = (SDL_WINDOW_OPENGL |
 														SDL_WINDOW_RESIZABLE)
@@ -97,19 +97,29 @@ public:
 	static SDL_Window* get_window();
 	static unsigned int get_window_flags();
 	static SDL_GLContext get_context();
-	static unsigned int get_width();
-	static unsigned int get_height();
-	static uint2 get_screen_size();
 	static bool get_fullscreen();
+	static void set_fullscreen(const bool& state);
 	static bool get_vsync();
+	static void set_vsync(const bool& state);
 	static bool get_stereo();
 	static const uint64_t& get_dpi();
+	static bool get_hidpi();
 	
-	static void set_width(const unsigned int& width);
-	static void set_height(const unsigned int& height);
+	//! gets the logical window width
+	static uint32_t get_width();
+	//! gets the logical window height
+	static uint32_t get_height();
+	//! gets the logical window size
+	static uint2 get_screen_size();
+	
+	//! gets the physical window height
+	static uint32_t get_physical_width();
+	//! gets the physical window height
+	static uint32_t get_physical_height();
+	//! gets the physical window size
+	static uint2 get_physical_screen_size();
+	
 	static void set_screen_size(const uint2& screen_size);
-	static void set_fullscreen(const bool& state);
-	static void set_vsync(const bool& state);
 	
 	// audio
 	static void set_audio_disabled(const bool& state);
@@ -210,7 +220,7 @@ protected:
 	static struct floor_config {
 		// screen
 		uint64_t width = 1280, height = 720, dpi = 0;
-		bool fullscreen = false, vsync = false, stereo = false;
+		bool fullscreen = false, vsync = false, stereo = false, hidpi = false;
 		
 		// audio
 		bool audio_disabled = true;

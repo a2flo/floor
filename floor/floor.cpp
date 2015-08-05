@@ -191,6 +191,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
 		config.stereo = config_doc.get<bool>("screen.stereo", false);
 		config.dpi = config_doc.get<uint64_t>("screen.dpi", 0);
+		config.hidpi = config_doc.get<bool>("screen.hidpi", false);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
 		config.music_volume = const_math::clamp(config_doc.get<float>("audio.music", 1.0f), 0.0f, 1.0f);
@@ -342,6 +343,7 @@ void floor::init_internal(const bool use_gl32_core
 		// set window creation flags
 		config.flags = window_flags;
 		
+		config.flags |= SDL_WINDOW_ALLOW_HIGHDPI; // allow by default, disable later if necessary
 #if !defined(FLOOR_IOS)
 		int2 windows_pos(SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 		if(config.fullscreen) {
@@ -363,6 +365,10 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 		
 		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
+		
+		// disable hidpi mode?
+		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
+		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
 		
 		// gl attributes
 		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
@@ -617,32 +623,6 @@ void floor::init_internal(const bool use_gl32_core
 	release_context();
 }
 
-/*! sets the windows width
- *  @param width the window width
- */
-void floor::set_width(const unsigned int& width) {
-	if(width == config.width) return;
-	config.width = width;
-	SDL_SetWindowSize(config.wnd, (int)config.width, (int)config.height);
-	// TODO: make this work:
-	/*SDL_SetWindowPosition(config.wnd,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED);*/
-}
-
-/*! sets the window height
- *  @param height the window height
- */
-void floor::set_height(const unsigned int& height) {
-	if(height == config.height) return;
-	config.height = height;
-	SDL_SetWindowSize(config.wnd, (int)config.width, (int)config.height);
-	// TODO: make this work:
-	/*SDL_SetWindowPosition(config.wnd,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED);*/
-}
-
 void floor::set_screen_size(const uint2& screen_size) {
 	if(screen_size.x == config.width && screen_size.y == config.height) return;
 	config.width = screen_size.x;
@@ -885,6 +865,36 @@ uint2 floor::get_screen_size() {
 	return uint2((unsigned int)config.width, (unsigned int)config.height);
 }
 
+unsigned int floor::get_physical_width() {
+	unsigned int ret = (unsigned int)config.width;
+#if defined(__APPLE__) // only supported on osx and ios right now
+	ret = uint32_t(double(ret) *
+				   (config.hidpi ?
+					double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+#endif
+	return ret;
+}
+
+unsigned int floor::get_physical_height() {
+	unsigned int ret = (unsigned int)config.height;
+#if defined(__APPLE__) // only supported on osx and ios right now
+	ret = uint32_t(double(ret) *
+				   (config.hidpi ?
+					double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+#endif
+	return ret;
+}
+
+uint2 floor::get_physical_screen_size() {
+	uint2 ret { (unsigned int)config.width, (unsigned int)config.height };
+#if defined(__APPLE__) // only supported on osx and ios right now
+	ret = uint2(double2(ret) *
+				(config.hidpi ?
+				 double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+#endif
+	return ret;
+}
+
 unsigned int floor::get_key_repeat() {
 	return (unsigned int)config.key_repeat;
 }
@@ -942,6 +952,10 @@ const float2& floor::get_near_far_plane() {
 
 const uint64_t& floor::get_dpi() {
 	return config.dpi;
+}
+
+bool floor::get_hidpi() {
+	return config.hidpi;
 }
 
 json::document& floor::get_config_doc() {

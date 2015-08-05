@@ -28,6 +28,8 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/util.hpp>
 #include <floor/darwin/darwin_helper.hpp>
+#include <floor/floor/floor.hpp>
+#include <floor/constexpr/const_math.hpp>
 
 #if !defined(FLOOR_IOS)
 #import <AppKit/AppKit.h>
@@ -43,13 +45,24 @@
 unordered_map<string, shared_ptr<floor_shader_object>> darwin_helper::shader_objects;
 #endif
 
+// cocoa or uikit window type
+#if !defined(FLOOR_IOS)
+typedef NSWindow* wnd_type_ptr;
+#else
+typedef UIWindow* wnd_type_ptr;
+#endif
+
 // metal renderer NSView/UIView implementation
 @interface metal_view : UI_VIEW_CLASS <NSCoding>
 @property (assign, nonatomic) CAMetalLayer* metal_layer;
+@property (assign, nonatomic) bool is_hidpi;
+@property (assign, nonatomic) wnd_type_ptr wnd;
 @end
 
 @implementation metal_view
 @synthesize metal_layer = _metal_layer;
+@synthesize is_hidpi = _is_hidpi;
+@synthesize wnd = _wnd;
 
 // override to signal this is a CAMetalLayer
 + (Class)layerClass {
@@ -61,22 +74,114 @@ unordered_map<string, shared_ptr<floor_shader_object>> darwin_helper::shader_obj
 	return [CAMetalLayer layer];
 }
 
-- (instancetype)initWithFrame:(CGRect)frame withDevice:(id <MTLDevice>)device {
+- (CGRect)create_frame {
+	const CGRect wnd_frame = {
+#if !defined(FLOOR_IOS)
+		[self.wnd contentRectForFrameRect:[self.wnd frame]]
+#else
+		[self.wnd frame]
+#endif
+	};
+	CGRect frame { { 0.0f, 0.0f }, { wnd_frame.size.width, wnd_frame.size.height } };
+	return frame;
+}
+
+- (CGFloat)get_scale_factor {
+	return {
+		self.is_hidpi ?
+#if !defined(FLOOR_IOS)
+		[self.wnd backingScaleFactor]
+#else
+		[[self.wnd screen] scale]
+#endif
+		: 1.0
+	};
+}
+
+- (instancetype)initWithWindow:(wnd_type_ptr)wnd withDevice:(id <MTLDevice>)device withHiDPI:(bool)hidpi {
+	self.wnd = wnd;
+	self.is_hidpi = hidpi;
+	const auto frame = [self create_frame];
+	
 	self = [super initWithFrame:frame];
 	if(self) {
 #if !defined(FLOOR_IOS)
 		[self setWantsLayer:true];
 #endif
-		_metal_layer = (CAMetalLayer*)self.layer;
-		_metal_layer.device = device;
-		_metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+		self.metal_layer = (CAMetalLayer*)self.layer;
+		self.metal_layer.device = device;
+		self.metal_layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 #if defined(FLOOR_IOS)
-		_metal_layer.opaque = true;
-		_metal_layer.backgroundColor = nil;
+		self.metal_layer.opaque = true;
+		self.metal_layer.backgroundColor = nil;
 #endif
-		_metal_layer.framebufferOnly = true; // note: must be false if used for compute processing
+		self.metal_layer.framebufferOnly = true; // note: must be false if used for compute processing
+		self.metal_layer.contentsScale = [self get_scale_factor];
+		
+#if !defined(FLOOR_IOS)
+		// need to listen for window resize events on os x (won't happen for ios)
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												 selector:@selector(windowDidResize:)
+													 name:NSWindowDidResizeNotification
+												   object:self.wnd];
+#else
+		// need to listen for device orientation change events on ios (won't happen for os x)
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												 selector:@selector(orientationChanged:)
+													 name:UIDeviceOrientationDidChangeNotification
+												   object:[UIDevice currentDevice]];
+#endif
 	}
 	return self;
+}
+
+- (void)dealloc {
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
+}
+
+#if !defined(FLOOR_IOS) // not applicable to ios
+- (void)viewDidChangeBackingProperties {
+	[super viewDidChangeBackingProperties];
+	[self reshape];
+}
+
+- (void)windowDidResize:(NSNotification*) floor_unused notification {
+	[self reshape];
+}
+#else // not applicable to osx
+- (void)orientationChanged:(NSNotification*) floor_unused notification {
+	[self reshape];
+}
+#endif
+
+- (void)reshape {
+	bool scale_change = false;
+	const auto new_scale = [self get_scale_factor];
+	if(const_math::is_unequal(self.metal_layer.contentsScale, new_scale)) {
+		scale_change = true;
+	}
+	
+	bool frame_change = false;
+	auto frame = [self create_frame];
+	if(const_math::is_unequal(frame.size.width, self.frame.size.width) ||
+	   const_math::is_unequal(frame.size.height, self.frame.size.height)) {
+		frame_change = true;
+	}
+	
+	if(scale_change) {
+		self.metal_layer.contentsScale = new_scale;
+	}
+	
+	if(frame_change) {
+		self.frame = frame;
+		self.metal_layer.frame = frame;
+	}
+	
+	if(frame_change || scale_change) {
+		frame.size.width *= self.metal_layer.contentsScale;
+		frame.size.height *= self.metal_layer.contentsScale;
+		self.metal_layer.drawableSize = frame.size;
+	}
 }
 @end
 
@@ -89,16 +194,15 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 		return nullptr;
 	}
 	
-	int2 wnd_size;
-	SDL_GetWindowSize(wnd, &wnd_size.x, &wnd_size.y);
-	CGRect frame { { 0.0f, 0.0f }, { float(wnd_size.x), float(wnd_size.y) } };
-#if defined(FLOOR_IOS) // TODO: not sure when and when not this is necessary? -> update sdl and check for hipdi?
-	const auto scale_factor = get_scale_factor(wnd);
-	frame.size.width /= scale_factor;
-	frame.size.height /= scale_factor;
+	metal_view* view = [[metal_view alloc]
+#if !defined(FLOOR_IOS)
+						initWithWindow:info.info.cocoa.window
+#else
+						initWithWindow:info.info.uikit.window
 #endif
+						withDevice:device
+						withHiDPI:floor::get_hidpi()];
 	
-	metal_view* view = [[metal_view alloc] initWithFrame:frame withDevice:device];
 #if !defined(FLOOR_IOS)
 	[[info.info.cocoa.window contentView] addSubview:view];
 #else
