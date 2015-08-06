@@ -436,6 +436,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 				devices.pop_back();
 				continue;
 			}
+			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 #endif
 			
 			// compute score and try to figure out which device is the fastest
@@ -851,9 +852,10 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 	else log_debug("successfully created opencl program!");
 	
 	// ... and build it
+	const string spir_options = additional_options + " -x spir -spir-std=1.2";
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(program,
 										 0, nullptr, // build for all devices specified when the program was created
-										 additional_options.c_str(), nullptr, nullptr),
+										 spir_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", {});
 	
 	

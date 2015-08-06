@@ -46,6 +46,10 @@
 #include <CL/cl_gl.h>
 #endif
 
+#if !defined(CL_DEVICE_SPIR_VERSIONS)
+#define CL_DEVICE_SPIR_VERSIONS 0x40E0
+#endif
+
 #include <cstdint>
 #include <iterator>
 
@@ -285,6 +289,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_PREFERRED_INTEROP_USER_SYNC, cl_bool) 
 F(cl_device_id, cl_device_info, CL_DEVICE_PRINTF_BUFFER_SIZE, size_t) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_PITCH_ALIGNMENT, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, cl_uint) \
+F(cl_device_id, cl_device_info, CL_DEVICE_SPIR_VERSIONS, string) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \
