@@ -34,8 +34,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-void opencl_compute::init(const bool use_platform_devices floor_unused,
-						  const uint64_t platform_index_,
+void opencl_compute::init(const uint64_t platform_index_,
 						  const bool gl_sharing,
 						  const unordered_set<string> whitelist) {
 	// if no platform was specified, use the one in the config (or default one, which is 0)

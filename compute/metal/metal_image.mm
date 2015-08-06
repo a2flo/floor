@@ -338,7 +338,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		
 		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		
 		const void* data_ptr = host_ptr;
@@ -445,14 +445,14 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		
-		uint8_t* data_ptr = host_buffer;
-		if(image_type != shim_image_type) {
-			const auto shim_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type);
-			data_ptr = new uint8_t[shim_size];
-		}
+		uint8_t* data_ptr {
+			image_type != shim_image_type ?
+			new uint8_t[region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type)] :
+			host_buffer
+		};
 		
 		[image getBytes:data_ptr
 			bytesPerRow:bytes_per_row
@@ -493,10 +493,9 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		// copy host memory to device memory
 		// TODO: handle arrays/slices correctly!
-		const auto dim_count = image_dim_count(image_type);
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = (dim_count == 0 ? 0 : image_bytes_per_pixel(shim_image_type) * image_dim.x);
+		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		
 		// again, need to convert RGB to RGBA if necessary

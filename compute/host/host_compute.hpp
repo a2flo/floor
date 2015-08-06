@@ -38,8 +38,7 @@ public:
 	
 	~host_compute() override {}
 	
-	void init(const bool use_platform_devices = false,
-			  const uint64_t platform_index = ~0ull,
+	void init(const uint64_t platform_index = ~0ull,
 			  const bool gl_sharing = false,
 			  const unordered_set<string> whitelist = {}) override;
 	

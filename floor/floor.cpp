@@ -600,7 +600,7 @@ void floor::init_internal(const bool use_gl32_core
 	}
 	
 	if(compute_ctx != nullptr) {
-		compute_ctx->init(false, config.opencl_platform,
+		compute_ctx->init(config.opencl_platform,
 						  config.gl_sharing & !console_only,
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
 						  compute_ctx->get_compute_type() == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :

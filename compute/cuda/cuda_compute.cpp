@@ -24,8 +24,7 @@
 #include <floor/floor/floor.hpp>
 
 // NOTE: all of these options are ignored in cuda mode (they make no sense there)
-void cuda_compute::init(const bool use_platform_devices floor_unused,
-						const uint64_t platform_index floor_unused,
+void cuda_compute::init(const uint64_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
 						const unordered_set<string> whitelist) {
 	// init cuda itself

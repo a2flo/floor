@@ -342,7 +342,7 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 		case COMPUTE_IMAGE_TYPE::FORMAT_24: return 24;
 		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: return 32;
 		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: return 40;
-		default: return 0;
+		default: return 1;
 	}
 }
 
