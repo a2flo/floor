@@ -852,10 +852,15 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 	else log_debug("successfully created opencl program!");
 	
 	// ... and build it
-	const string spir_options = additional_options + " -x spir -spir-std=1.2";
+	const string build_options {
+		additional_options
+#if !defined(__APPLE__)
+		+ " -x spir -spir-std=1.2"
+#endif
+	};
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(program,
 										 0, nullptr, // build for all devices specified when the program was created
-										 spir_options.c_str(), nullptr, nullptr),
+										 build_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", {});
 	
 	
