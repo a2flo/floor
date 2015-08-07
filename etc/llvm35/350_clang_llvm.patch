@@ -338,6 +338,64 @@ index 8174df9..21a73ba 100644
  INITIALIZE_PASS_BEGIN(FunctionAttrs, "functionattrs",
                  "Deduce function attributes", false, false)
  INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+diff --git a/lib/Transforms/IPO/GlobalOpt.cpp b/lib/Transforms/IPO/GlobalOpt.cpp
+index c1d0d3b..3d4303a 100644
+--- a/lib/Transforms/IPO/GlobalOpt.cpp
++++ b/lib/Transforms/IPO/GlobalOpt.cpp
+@@ -20,6 +20,7 @@
+ #include "llvm/ADT/SmallSet.h"
+ #include "llvm/ADT/SmallVector.h"
+ #include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/Triple.h"
+ #include "llvm/Analysis/ConstantFolding.h"
+ #include "llvm/Analysis/MemoryBuiltins.h"
+ #include "llvm/IR/CallSite.h"
+@@ -1869,6 +1870,17 @@ static void ChangeCalleesToFastCall(Function *F) {
+   }
+ }
+ 
++/// ChangeCalleesToSpirFunc - Walk all of the direct calls of the specified
++/// function, changing them to spir_func calling convention.
++static void ChangeCalleesToSpirFunc(Function *F) {
++  for (User *U : F->users()) {
++    if (isa<BlockAddress>(U))
++      continue;
++    CallSite CS(cast<Instruction>(U));
++    CS.setCallingConv(CallingConv::SPIR_FUNC);
++  }
++}
++
+ static AttributeSet StripNest(LLVMContext &C, const AttributeSet &Attrs) {
+   for (unsigned i = 0, e = Attrs.getNumSlots(); i != e; ++i) {
+     unsigned Index = Attrs.getSlotIndex(i);
+@@ -1903,6 +1915,7 @@ static bool isProfitableToMakeFastCC(Function *F) {
+ }
+ 
+ bool GlobalOpt::OptimizeFunctions(Module &M) {
++  const llvm::Triple triple(M.getTargetTriple());
+   bool Changed = false;
+   // Optimize functions.
+   for (Module::iterator FI = M.begin(), E = M.end(); FI != E; ) {
+@@ -1921,8 +1934,17 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
+         // If this function has a calling convention worth changing, is not a
+         // varargs function, and is only called directly, promote it to use the
+         // Fast calling convention.
+-        F->setCallingConv(CallingConv::Fast);
+-        ChangeCalleesToFastCall(F);
++        // with OpenCL/SPIR: change it to spir_func instead (fastcc is invalid)
++        if ((triple.getArch() == llvm::Triple::ArchType::spir ||
++             triple.getArch() == llvm::Triple::ArchType::spir64) &&
++            triple.getVendorName().str() == "unknown") {
++          F->setCallingConv(CallingConv::SPIR_FUNC);
++          ChangeCalleesToSpirFunc(F);
++        }
++        else {
++          F->setCallingConv(CallingConv::Fast);
++          ChangeCalleesToFastCall(F);
++        }
+         ++NumFastCallFns;
+         Changed = true;
+       }
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
 index c970a1a..20d38ef 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
@@ -666,6 +724,20 @@ index de724d4..831b1bb 100644
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
    unwrap(PM)->add(createAggressiveDCEPass());
  }
+diff --git a/tools/clang/include/clang-c/Index.h b/tools/clang/include/clang-c/Index.h
+index f69f567..e01cb6d 100644
+--- a/tools/clang/include/clang-c/Index.h
++++ b/tools/clang/include/clang-c/Index.h
+@@ -2822,6 +2822,9 @@ enum CXCallingConv {
+   CXCallingConv_IntelOclBicc = 9,
+   CXCallingConv_X86_64Win64 = 10,
+   CXCallingConv_X86_64SysV = 11,
++  // 12 is CXCallingConv_X86VectorCall in later clang/llvm
++  CXCallingConv_SpirFunction = 13,
++  CXCallingConv_SpirKernel = 14,
+ 
+   CXCallingConv_Invalid = 100,
+   CXCallingConv_Unexposed = 200
 diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
 index 8134f6b..bfcd916 100644
 --- a/tools/clang/include/clang/AST/ASTContext.h
@@ -1063,6 +1135,30 @@ index 9bffc7c..8fbc316 100644
  public:
    clang::ObjCRuntime ObjCRuntime;
  
+diff --git a/tools/clang/include/clang/Basic/Specifiers.h b/tools/clang/include/clang/Basic/Specifiers.h
+index f895673..78084dc 100644
+--- a/tools/clang/include/clang/Basic/Specifiers.h
++++ b/tools/clang/include/clang/Basic/Specifiers.h
+@@ -209,7 +209,9 @@ namespace clang {
+     CC_AAPCS,       // __attribute__((pcs("aapcs")))
+     CC_AAPCS_VFP,   // __attribute__((pcs("aapcs-vfp")))
+     CC_PnaclCall,   // __attribute__((pnaclcall))
+-    CC_IntelOclBicc // __attribute__((intel_ocl_bicc))
++    CC_IntelOclBicc,// __attribute__((intel_ocl_bicc))
++    CC_SpirFunction,// default for OpenCL functions on SPIR target
++    CC_SpirKernel   // inferred for OpenCL kernels on SPIR target
+   };
+ 
+   /// \brief Checks whether the given calling convention is callee-cleanup.
+@@ -219,6 +221,8 @@ namespace clang {
+     case CC_X86FastCall:
+     case CC_X86ThisCall:
+     case CC_X86Pascal:
++    case CC_SpirFunction:
++    case CC_SpirKernel:
+       return true;
+     default:
+       return false;
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
 index 5d08833..52d3d3e 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
@@ -1223,7 +1319,7 @@ index 7ae1977..a5ced4e 100644
        PREDEF_TYPE_IMAGE3D_ID    = 43,
        /// \brief OpenCL event type.
 diff --git a/tools/clang/lib/AST/ASTContext.cpp b/tools/clang/lib/AST/ASTContext.cpp
-index bccdae9..2dd8b0b 100644
+index bccdae9..80a9618 100644
 --- a/tools/clang/lib/AST/ASTContext.cpp
 +++ b/tools/clang/lib/AST/ASTContext.cpp
 @@ -1030,6 +1030,16 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
@@ -1277,6 +1373,17 @@ index bccdae9..2dd8b0b 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
+@@ -7973,7 +8003,9 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
+   if (IsCXXMethod)
+     return ABI->getDefaultMethodCallConv(IsVariadic);
+ 
+-  return (LangOpts.MRTD && !IsVariadic) ? CC_X86StdCall : CC_C;
++  if (LangOpts.MRTD && !IsVariadic) return CC_X86StdCall;
++
++  return Target->getDefaultCallingConv(TargetInfo::CCMT_Unknown);
+ }
+ 
+ bool ASTContext::isNearlyEmpty(const CXXRecordDecl *RD) const {
 diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
 index 7d7ca99..7db4b2e 100644
 --- a/tools/clang/lib/AST/ExprConstant.cpp
@@ -1540,7 +1647,7 @@ index 986b3b5..3f8aad8 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
-index 1677874..bc7f81f 100644
+index 1677874..bc4087c 100644
 --- a/tools/clang/lib/AST/Type.cpp
 +++ b/tools/clang/lib/AST/Type.cpp
 @@ -1546,6 +1546,16 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
@@ -1560,7 +1667,16 @@ index 1677874..bc7f81f 100644
    case OCLImage3d:        return "image3d_t";
    case OCLSampler:        return "sampler_t";
    case OCLEvent:          return "event_t";
-@@ -2469,3 +2479,22 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -1583,6 +1593,8 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
+   case CC_AAPCS_VFP: return "aapcs-vfp";
+   case CC_PnaclCall: return "pnaclcall";
+   case CC_IntelOclBicc: return "intel_ocl_bicc";
++  case CC_SpirFunction: return "spir_function";
++  case CC_SpirKernel: return "spir_kernel";
+   }
+ 
+   llvm_unreachable("Invalid calling convention.");
+@@ -2469,3 +2481,22 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -1604,8 +1720,25 @@ index 208d695..3fca2c9 100644
    case BuiltinType::OCLImage3d:
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
+diff --git a/tools/clang/lib/AST/TypePrinter.cpp b/tools/clang/lib/AST/TypePrinter.cpp
+index 061473e..9de3dad 100644
+--- a/tools/clang/lib/AST/TypePrinter.cpp
++++ b/tools/clang/lib/AST/TypePrinter.cpp
+@@ -694,6 +694,12 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
+     case CC_X86_64SysV:
+       OS << " __attribute__((sysv_abi))";
+       break;
++    case CC_SpirFunction:
++      OS << "spir_function";
++      break;
++    case CC_SpirKernel:
++      OS << "spir_kernel";
++      break;
+     }
+   }
+ 
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..c9be0ff 100644
+index 075f905..c581972 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -1629,7 +1762,24 @@ index 075f905..c9be0ff 100644
          .Default(false);
  
        return Valid;
-@@ -5886,6 +5892,7 @@ namespace {
+@@ -5872,12 +5878,11 @@ namespace {
+     0     // cuda_shared
+   };
+   class SPIRTargetInfo : public TargetInfo {
++  private:
++    // true for spir-unknown-* and spir64-unknown-* (-> false for AppleCL and Metal)
++    const bool is_pure_spir;
+   public:
+-    SPIRTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+-      assert(getTriple().getOS() == llvm::Triple::UnknownOS &&
+-        "SPIR target must use unknown OS");
+-      assert(getTriple().getEnvironment() == llvm::Triple::UnknownEnvironment &&
+-        "SPIR target must use unknown environment type");
++    SPIRTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple), is_pure_spir(Triple.getVendorName().str() == "unknown") {
+       BigEndian = false;
+       TLSSupported = false;
+       LongWidth = LongAlign = 64;
+@@ -5886,6 +5891,7 @@ namespace {
        // Define available target features
        // These must be defined in sorted order!
        NoAsmVariants = true;
@@ -1637,6 +1787,23 @@ index 075f905..c9be0ff 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
+@@ -5911,6 +5917,16 @@ namespace {
+     BuiltinVaListKind getBuiltinVaListKind() const override {
+       return TargetInfo::VoidPtrBuiltinVaList;
+     }
++
++    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
++      if (!is_pure_spir) return CCCR_OK;
++      return (CC == CC_SpirFunction ||
++              CC == CC_SpirKernel) ? CCCR_OK : CCCR_Warning;
++    }
++
++    CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
++      return (is_pure_spir ? CC_SpirFunction : CC_C);
++    }
+   };
+ 
+ 
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
 index cec48f3..41d6fb1 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
@@ -1668,10 +1835,19 @@ index cec48f3..41d6fb1 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..5615b31 100644
+index 17c3354..ec29564 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
-@@ -1526,6 +1526,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
+   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
+   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
+   case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
++  case CC_SpirFunction: return llvm::CallingConv::SPIR_FUNC;
++  case CC_SpirKernel: return llvm::CallingConv::SPIR_KERNEL;
+   // TODO: add support for CC_X86Pascal to llvm
+   }
+ }
+@@ -1526,6 +1528,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                AI->addAttr(llvm::AttributeSet::get(getLLVMContext(),
                                                    AI->getArgNo() + 1,
                                                    llvm::Attribute::NonNull));
@@ -1697,7 +1873,7 @@ index 17c3354..5615b31 100644
            }
          }
  
-@@ -2573,9 +2592,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
+@@ -2573,9 +2594,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
  }
  
  static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
@@ -1713,7 +1889,7 @@ index 17c3354..5615b31 100644
    else
      assert(FTy->isVarArg());
    ++ArgNo;
-@@ -2832,12 +2854,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2832,12 +2856,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
@@ -3392,10 +3568,37 @@ index accec95..d1095d9 100644
      if (EnableIf && EnableIf->getCond()->isValueDependent()) {
        instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..fa80643 100644
+index be1191c..510d945 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
-@@ -4931,6 +4931,9 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
+     }
+   }
+ 
+-  return S.Context.getDefaultCallingConvention(FTI.isVariadic,
+-                                               IsCXXInstanceMethod);
++  CallingConv CC = S.Context.getDefaultCallingConvention(FTI.isVariadic,
++                                                         IsCXXInstanceMethod);
++
++  // Attribute AT_OpenCLKernel affects the calling convention only on
++  // the SPIR target, hence it cannot be treated as a calling
++  // convention attribute. This is the simplest place to infer
++  // "spir_kernel" for OpenCL kernels on SPIR.
++  if (CC == CC_SpirFunction) {
++    for (const AttributeList *Attr = D.getDeclSpec().getAttributes().getList();
++         Attr; Attr = Attr->getNext()) {
++      if (Attr->getKind() == AttributeList::AT_OpenCLKernel) {
++        CC = CC_SpirKernel;
++        break;
++      }
++    }
++  }
++
++  return CC;
+ }
+ 
+ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4931,6 +4947,9 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        // imagine, but the original handler's checking was entirely superfluous.
        attr.setUsedAsTypeAttr();
        break;
@@ -3468,3 +3671,16 @@ index fc8703a..cb4d0bc 100644
    case BuiltinType::OCLImage3d:
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
+diff --git a/tools/clang/tools/libclang/CXType.cpp b/tools/clang/tools/libclang/CXType.cpp
+index fe45899..0f97dc0 100644
+--- a/tools/clang/tools/libclang/CXType.cpp
++++ b/tools/clang/tools/libclang/CXType.cpp
+@@ -526,6 +526,8 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
+       TCALLINGCONV(AAPCS_VFP);
+       TCALLINGCONV(PnaclCall);
+       TCALLINGCONV(IntelOclBicc);
++      TCALLINGCONV(SpirFunction);
++      TCALLINGCONV(SpirKernel);
+     }
+ #undef TCALLINGCONV
+   }
