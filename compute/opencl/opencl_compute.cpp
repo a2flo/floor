@@ -414,6 +414,18 @@ void opencl_compute::init(const uint64_t platform_index_,
 				log_error("invalid opencl c version string: %s", cl_c_version_str);
 			}
 			device.c_version = extracted_cl_c_version.second;
+
+			// there is no spir support on apple platforms, so don't even try this
+			// also, pocl doesn't support, but can apparently handle llvm bitcode files
+#if !defined(__APPLE__)
+			if(!core::contains(device.extensions, "cl_khr_spir") &&
+			   device.vendor != compute_device::VENDOR::POCL) {
+				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
+				devices.pop_back();
+				continue;
+			}
+			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
+#endif
 			
 			//
 			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
@@ -426,18 +438,6 @@ void opencl_compute::init(const uint64_t platform_index_,
 					  device.version_str,
 					  device.driver_version_str,
 					  cl_c_version_str);
-
-			// there is no spir support on apple platforms, so don't even try this
-			// also, pocl doesn't support, but can apparently handle llvm bitcode files
-#if !defined(__APPLE__)
-			if(!core::contains(device.extensions, "cl_khr_spir") &&
-			   device.vendor != compute_device::VENDOR::POCL) {
-				log_error("device does not support \"cl_khr_spir\", removing it!");
-				devices.pop_back();
-				continue;
-			}
-			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
-#endif
 			
 			// compute score and try to figure out which device is the fastest
 			if(device.internal_type & CL_DEVICE_TYPE_CPU) {

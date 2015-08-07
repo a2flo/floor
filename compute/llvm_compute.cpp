@@ -443,9 +443,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		core::find_and_replace(ir_output, "readonly", "");
 		core::find_and_replace(ir_output, "nocapture readnone", "");
 		
-		static const regex rx_spir_kernel("define (.*)section \\\"spir_kernel\\\" (.*)", regex::optimize);
-		ir_output = regex_replace(ir_output, rx_spir_kernel, "define spir_kernel $1$2");
-		
 		// strip floor metadata
 		static const regex rx_floor_metadata("(!floor.kernels = .*)");
 		ir_output = regex_replace(ir_output, rx_floor_metadata, "");
