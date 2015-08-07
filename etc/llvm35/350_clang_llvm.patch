@@ -1816,6 +1816,25 @@ index fc3f434..217f1d4 100644
    llvm::DIType OCLImage3dDITy;
    llvm::DIType OCLEventDITy;
    llvm::DIType BlockLiteralGeneric;
+diff --git a/tools/clang/lib/CodeGen/CGDecl.cpp b/tools/clang/lib/CodeGen/CGDecl.cpp
+index 91f8041..2b1634b 100644
+--- a/tools/clang/lib/CodeGen/CGDecl.cpp
++++ b/tools/clang/lib/CodeGen/CGDecl.cpp
+@@ -150,8 +150,13 @@ static std::string GetStaticDeclName(CodeGenFunction &CGF, const VarDecl &D,
+                                      const char *Separator) {
+   CodeGenModule &CGM = CGF.CGM;
+ 
+-  if (CGF.getLangOpts().CPlusPlus)
++  // don't cxx mangle OpenCL "local" variables (affects SPIR and AppleCL - Metal use cxx mangling)
++  if (CGF.getLangOpts().CPlusPlus &&
++      !(D.getStorageClass() == SC_OpenCLWorkGroupLocal &&
++        CGM.getContext().getLangOpts().OpenCL &&
++        CGM.getContext().getTargetInfo().getTriple().getVendorName().str() != "metal")) {
+     return CGM.getMangledName(&D).str();
++  }
+ 
+   StringRef ContextName;
+   if (!CGF.CurFuncDecl) {
 diff --git a/tools/clang/lib/CodeGen/CGExprAgg.cpp b/tools/clang/lib/CodeGen/CGExprAgg.cpp
 index 4cf94c0..53f4bb5 100644
 --- a/tools/clang/lib/CodeGen/CGExprAgg.cpp
