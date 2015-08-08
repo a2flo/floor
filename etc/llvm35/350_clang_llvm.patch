@@ -1647,7 +1647,7 @@ index 986b3b5..3f8aad8 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
-index 1677874..bc4087c 100644
+index 1677874..ce1adcc 100644
 --- a/tools/clang/lib/AST/Type.cpp
 +++ b/tools/clang/lib/AST/Type.cpp
 @@ -1546,6 +1546,16 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
@@ -1686,7 +1686,7 @@ index 1677874..bc4087c 100644
 +  if(!isStructureOrClassType()) return false;
 +
 +  // must have a decl of course
-+  const RecordDecl* decl = getAsStructureType()->getDecl();
++  const RecordDecl* decl = (isStructureType() ? getAsStructureType()->getDecl() : getAsCXXRecordDecl());
 +  if(!decl || decl->field_empty()) return false;
 +
 +  // iterate of all fields/members and check if all are image types
@@ -2224,10 +2224,47 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..b956370 100644
+index 5ca3a78..8e9a54f 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -397,7 +397,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -358,6 +358,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+   SmallVector<llvm::Value*, 8> argTypeNames;
+   argTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_type"));
+ 
++  // MDNode for the kernel argument base type names.
++  SmallVector<llvm::Value*, 8> argBaseTypeNames;
++  argBaseTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_base_type"));
++
+   // MDNode for the kernel argument type qualifiers.
+   SmallVector<llvm::Value*, 8> argTypeQuals;
+   argTypeQuals.push_back(llvm::MDString::get(Context, "kernel_arg_type_qual"));
+@@ -366,6 +370,17 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+   SmallVector<llvm::Value*, 8> argNames;
+   argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
+ 
++  static const auto create_base_type = [](std::string& type_name, const QualType& type) {
++	  // there doesn't seem to be official documentation about this, but everyone seems to agree
++	  // that struct/class types must be prefixed by "struct __"
++	  if ((!type->isImageType() && type->isStructureOrClassType()) ||
++		  (type->isPointerType() && type->getPointeeType()->isStructureOrClassType())) {
++		  type_name = "struct __" + type_name;
++	  }
++	  // else: just copy/keep the normal type for now
++	  return type_name;
++  };
++
+   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
+     const ParmVarDecl *parm = FD->getParamDecl(i);
+     QualType ty = parm->getType();
+@@ -388,6 +403,7 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+         typeName.erase(pos+1, 8);
+ 
+       argTypeNames.push_back(llvm::MDString::get(Context, typeName));
++      argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, ty)));
+ 
+       // Get argument type qualifiers:
+       if (ty.isRestrictQualified())
+@@ -397,7 +413,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
          typeQuals += typeQuals.empty() ? "const" : " const";
        if (pointeeTy.isVolatileQualified())
          typeQuals += typeQuals.empty() ? "volatile" : " volatile";
@@ -2240,7 +2277,15 @@ index 5ca3a78..b956370 100644
        uint32_t AddrSpc = 0;
        if (ty->isImageType())
          AddrSpc =
-@@ -429,9 +433,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -414,6 +434,7 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+         typeName.erase(pos+1, 8);
+ 
+       argTypeNames.push_back(llvm::MDString::get(Context, typeName));
++      argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, ty)));
+ 
+       // Get argument type qualifiers:
+       if (ty.isConstQualified())
+@@ -429,9 +450,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
        const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
        if (A && A->isWriteOnly())
          accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
@@ -2252,7 +2297,12 @@ index 5ca3a78..b956370 100644
      } else
        accessQuals.push_back(llvm::MDString::get(Context, "none"));
  
-@@ -446,6 +451,520 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -442,10 +464,525 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+   kernelMDArgs.push_back(llvm::MDNode::get(Context, addressQuals));
+   kernelMDArgs.push_back(llvm::MDNode::get(Context, accessQuals));
+   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeNames));
++  kernelMDArgs.push_back(llvm::MDNode::get(Context, argBaseTypeNames));
+   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeQuals));
    kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
  }
  
@@ -2648,7 +2698,7 @@ index 5ca3a78..b956370 100644
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = clang_type->getAsStructureType()->getDecl();
++			const auto decl = (clang_type->isStructureType() ? clang_type->getAsStructureType()->getDecl() : clang_type->getAsCXXRecordDecl());
 +			
 +			// field count must either be 1 (for single read or write images) or 2 (one read, one write image)
 +			const auto field_count = std::distance(decl->field_begin(), decl->field_end());
@@ -2773,7 +2823,7 @@ index 5ca3a78..b956370 100644
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
-@@ -457,10 +976,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +994,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -2791,7 +2841,7 @@ index 5ca3a78..b956370 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1024,40 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1042,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -2830,10 +2880,44 @@ index 5ca3a78..b956370 100644
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
 +												llvm::MDString::get(Context, "air.compile.native_double_disable")));
 +  }
++  // additional opencl info
++  else if(CGM.getCodeGenOpts().EmitOpenCLArgMetadata && !CGM.getCodeGenOpts().EmitAppleCLMetadata) {
++	  // only do this once
++	  llvm::NamedMDNode *CLVersion = CGM.getModule().getOrInsertNamedMetadata("opencl.ocl.version");
++	  if(CLVersion->getNumOperands() > 0) return;
++	  
++	  llvm::NamedMDNode *SPIRVersion = CGM.getModule().getOrInsertNamedMetadata("opencl.spir.version");
++	  SmallVector <llvm::Value*, 3> cl_spir_version; // set both to 1.2
++	  cl_spir_version.push_back(Builder.getInt32(1));
++	  cl_spir_version.push_back(Builder.getInt32(2));
++	  CLVersion->addOperand(llvm::MDNode::get(Context, cl_spir_version));
++	  SPIRVersion->addOperand(llvm::MDNode::get(Context, cl_spir_version));
++	  
++	  llvm::NamedMDNode *CLCompOpts = CGM.getModule().getOrInsertNamedMetadata("opencl.compiler.options");
++	  SmallVector <llvm::Value*, 4> cl_comp_options;
++	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-kernel-arg-info"));
++	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-mad-enable"));
++	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-denorms-are-zero"));
++	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-unsafe-math-optimizations"));
++	  CLCompOpts->addOperand(llvm::MDNode::get(Context, cl_comp_options));
++	  
++	  llvm::NamedMDNode *CLOptFeatures = CGM.getModule().getOrInsertNamedMetadata("opencl.used.optional.core.features");
++	  SmallVector <llvm::Value*, 2> cl_opt_features;
++	  cl_opt_features.push_back(llvm::MDString::get(Context, "cl_images")); // always use images
++	  //cl_opt_features.push_back(llvm::MDString::get(Context, "cl_doubles")); // TODO: flag for this?
++	  CLOptFeatures->addOperand(llvm::MDNode::get(Context, cl_opt_features));
++	  
++	  // TODO: proper command line option for this
++	  llvm::NamedMDNode *CLExts = CGM.getModule().getOrInsertNamedMetadata("opencl.used.extensions");
++	  SmallVector <llvm::Value*, 8> cl_exts;
++	  cl_exts.push_back(llvm::MDString::get(Context, "cl_khr_global_int32_base_atomics"));
++	  cl_exts.push_back(llvm::MDString::get(Context, "cl_khr_local_int32_base_atomics"));
++	  CLExts->addOperand(llvm::MDNode::get(Context, cl_exts));
++  }
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1110,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1162,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -2853,7 +2937,7 @@ index 5ca3a78..b956370 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1325,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1377,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -2937,7 +3021,7 @@ index 5ca3a78..b956370 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1505,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1557,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
