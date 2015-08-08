@@ -158,35 +158,6 @@ _LIBCPP_END_NAMESPACE_STD
 #include <floor/core/enum_helpers.hpp>
 #include <floor/compute/device/image_types.hpp>
 
-// buffer / local_buffer / constant_buffer / param target-specific specialization/implementation
-namespace floor_compute {
-	template <typename T> struct indirect_type_wrapper {
-		T elem;
-		
-		indirect_type_wrapper() {}
-		indirect_type_wrapper(const T& obj) : elem(obj) {}
-		indirect_type_wrapper& operator=(const T& obj) {
-			elem = obj;
-			return *this;
-		}
-		const T& operator*() const { return elem; }
-		T& operator*() { return elem; }
-		const T* const operator->() const { return &elem; }
-		T* operator->() { return &elem; }
-	};
-	template <typename T> struct direct_type_wrapper : T {
-		using T::T;
-		direct_type_wrapper& operator=(const T& obj) {
-			*((T*)this) = obj;
-			return *this;
-		}
-		const T& operator*() const { return *this; }
-		T& operator*() { return *this; }
-		const T* const operator->() const { return this; }
-		T* operator->() { return this; }
-	};
-}
-
 //! global memory buffer
 #define buffer __attribute__((align_value(128))) compute_global_buffer
 template <typename T> using compute_global_buffer = global T*;
@@ -218,19 +189,13 @@ template <typename T> using compute_constant_buffer = const T* const;
 #define constant_array constant compute_constant_array
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
 //! generic parameter object/buffer
-template <typename T,
-		  typename param_wrapper = const conditional_t<
-			  is_fundamental<T>::value,
-			  floor_compute::indirect_type_wrapper<T>,
-			  floor_compute::direct_type_wrapper<T>>>
-using param = const param_wrapper;
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
+template <typename T> using param = const T;
 #elif defined(FLOOR_COMPUTE_METAL)
-//! generic parameter object/buffer (stored in constant memory)
-template <typename T> using param = const constant T* const;
+template <typename T> using param = const constant T&;
 #elif defined(FLOOR_COMPUTE_HOST)
-template <typename T> using param = const T*;
+template <typename T> using param = const T&;
 #endif
 
 // implementation specific image headers

@@ -443,10 +443,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		core::find_and_replace(ir_output, "readonly", "");
 		core::find_and_replace(ir_output, "nocapture readnone", "");
 		
-		// strip floor metadata
-		static const regex rx_floor_metadata("(!floor.kernels = .*)");
-		ir_output = regex_replace(ir_output, rx_floor_metadata, "");
-		
 		// remove "dereferenceable(*)", this is not supported by spir
 		static const regex rx_deref("dereferenceable\\(\\d+\\)");
 		ir_output = regex_replace(ir_output, rx_deref, "");
