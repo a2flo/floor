@@ -44,7 +44,7 @@ opencl_program::opencl_program(const cl_program program_,
 		vector<cl_kernel> program_kernels(kernel_count);
 		const auto kernel_err = clCreateKernelsInProgram(program, (cl_uint)kernel_count, &program_kernels[0], nullptr);
 		if(kernel_err != CL_SUCCESS) {
-			log_error("failed to create kernels for program: %u", kernel_err);
+			log_error("failed to create kernels for program: %u: %s", kernel_err, cl_error_to_string(kernel_err));
 		}
 		else {
 			for(size_t i = 0; i < kernel_count; ++i) {

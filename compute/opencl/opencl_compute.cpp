@@ -650,7 +650,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	
 	// create the queue (w/ or w/o profiling support depending on the define)
 	cl_int create_err = CL_SUCCESS;
-#if defined(CL_VERSION_2_0) || defined(__APPLE__)
+#if /*defined(CL_VERSION_2_0) ||*/ defined(__APPLE__) // TODO: should only be enabled if platform (and device?) support opencl 2.0+
 #if defined(__APPLE__) && !defined(CL_VERSION_2_0)
 #define clCreateCommandQueueWithProperties clCreateCommandQueueWithPropertiesAPPLE
 #define cl_queue_properties cl_queue_properties_APPLE
@@ -673,7 +673,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 													 , &create_err);
 #endif
 	if(create_err != CL_SUCCESS) {
-		log_error("failed to create command queue: %u", create_err);
+		log_error("failed to create command queue: %u: %s", create_err, cl_error_to_string(create_err));
 		return {};
 	}
 	
@@ -839,7 +839,7 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 	const cl_program program = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
 														 &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &create_err);
 	if(create_err != CL_SUCCESS) {
-		log_error("failed to create opencl program: %u", create_err);
+		log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
 		log_error("devices binary status: %s", [&binary_status] {
 			string ret;
 			for(const auto& status : binary_status) {

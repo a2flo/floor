@@ -86,7 +86,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		buffer = clCreateBuffer(((opencl_device*)dev)->ctx, cl_flags, size, host_ptr, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create buffer: %u", create_err);
+			log_error("failed to create buffer: %u: %s", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
 			return false;
 		}
@@ -99,7 +99,7 @@ bool opencl_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
 		buffer = clCreateFromGLBuffer(((opencl_device*)dev)->ctx, cl_flags, gl_object, &create_err);
 		if(create_err != CL_SUCCESS) {
-			log_error("failed to create shared opengl/opencl buffer: %u", create_err);
+			log_error("failed to create shared opengl/opencl buffer: %u: %s", create_err, cl_error_to_string(create_err));
 			buffer = nullptr;
 			return false;
 		}
@@ -296,7 +296,7 @@ void* __attribute__((aligned(128))) opencl_buffer::map(shared_ptr<compute_queue>
 									  buffer, blocking_map, map_flags, offset, map_size,
 									  0, nullptr, nullptr, &map_err);
 	if(map_err != CL_SUCCESS) {
-		log_error("failed to map buffer: %u!", map_err);
+		log_error("failed to map buffer: %u: %s!", map_err, cl_error_to_string(map_err));
 		return nullptr;
 	}
 	return ret_ptr;
