@@ -36,20 +36,28 @@ mv llvm-${RELEASE}.src llvm
 mv cfe-${RELEASE}.src llvm/tools/clang
 mv libcxx-${RELEASE}.src libcxx
 
-# cp in spir-encoder and applecl-encoder
-SPIR_PATH=SPIR-Tools/spir-encoder/llvm_3.5_spir_encoder/
+# cp in spir-encoder, spir-verifier and applecl-encoder
+SPIR_ENC_PATH=SPIR-Tools/spir-encoder/llvm_3.5_spir_encoder
 mkdir llvm/tools/spir-encoder
-cp ${SPIR_PATH}/driver/*.cpp llvm/tools/spir-encoder/
-cp ${SPIR_PATH}/encoder/*.cpp llvm/tools/spir-encoder/
-cp ${SPIR_PATH}/encoder/*.h llvm/tools/spir-encoder/
-cp ${SPIR_PATH}/README llvm/tools/spir-encoder/
+cp ${SPIR_ENC_PATH}/driver/*.cpp llvm/tools/spir-encoder/
+cp ${SPIR_ENC_PATH}/encoder/*.cpp llvm/tools/spir-encoder/
+cp ${SPIR_ENC_PATH}/encoder/*.h llvm/tools/spir-encoder/
+cp ${SPIR_ENC_PATH}/README llvm/tools/spir-encoder/
 cp llvm/lib/Bitcode/Writer/ValueEnumerator.h llvm/tools/spir-encoder/
 printf "[component_0]\ntype = Tool\nname = spir-encoder\nparent = Tools\nrequired_libraries = IRReader\n" > llvm/tools/spir-encoder/LLVMBuild.txt
 printf "LEVEL := ../..\nTOOLNAME := spir-encoder\nLINK_COMPONENTS := irreader bitreader bitwriter\nTOOL_NO_EXPORTS := 1\ninclude \$(LEVEL)/Makefile.common\n" > llvm/tools/spir-encoder/Makefile
 
+SPIR_VRFY_PATH=SPIR-Tools/spir-tools/spir_verifier
+mkdir llvm/tools/spir-verifier
+cp ${SPIR_VRFY_PATH}/driver/*.cpp llvm/tools/spir-verifier/
+cp ${SPIR_VRFY_PATH}/validation/*.cpp llvm/tools/spir-verifier/
+cp ${SPIR_VRFY_PATH}/validation/*.h llvm/tools/spir-verifier/
+printf "[component_0]\ntype = Tool\nname = spir-verifier\nparent = Tools\nrequired_libraries = IRReader\n" > llvm/tools/spir-verifier/LLVMBuild.txt
+printf "LEVEL := ../..\nTOOLNAME := spir-verifier\nLINK_COMPONENTS := irreader bitreader bitwriter\nTOOL_NO_EXPORTS := 1\ninclude \$(LEVEL)/Makefile.common\n" > llvm/tools/spir-verifier/Makefile
+
 cp -R applecl-encoder llvm/tools/
 
-# patch makefile and spir-encoder
+# patch makefile, spir-encoder and spir-verifier
 cd llvm
 patch -p1 < ../llvm_tools_spir_applecl_encoder.patch
 cd ..
