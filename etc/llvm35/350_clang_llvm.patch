@@ -454,11 +454,26 @@ index 701fb46..1bd7950 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
+diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
+index de724d4..831b1bb 100644
+--- a/lib/Transforms/Scalar/Scalar.cpp
++++ b/lib/Transforms/Scalar/Scalar.cpp
+@@ -73,6 +73,10 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+   initializeScalarOpts(*unwrap(R));
+ }
+ 
++void LLVMAddAddressSpaceFixPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createAddressSpaceFixPass());
++}
++
+ void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(createAggressiveDCEPass());
+ }
+diff --git a/lib/Transforms/Utils/AddressSpaceFix.cpp b/lib/Transforms/Utils/AddressSpaceFix.cpp
 new file mode 100644
 index 0000000..1a072a3
 --- /dev/null
-+++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
++++ b/lib/Transforms/Utils/AddressSpaceFix.cpp
 @@ -0,0 +1,239 @@
 +//===- AddressSpaceFix.cpp - Example code from "Writing an LLVM Pass" -----===//
 +//
@@ -699,31 +714,16 @@ index 0000000..1a072a3
 +FunctionPass *llvm::createAddressSpaceFixPass() {
 +	return new AddressSpaceFix();
 +}
-diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 261ddda..7eed586 100644
---- a/lib/Transforms/Scalar/CMakeLists.txt
-+++ b/lib/Transforms/Scalar/CMakeLists.txt
+diff --git a/lib/Transforms/Utils/CMakeLists.txt b/lib/Transforms/Utils/CMakeLists.txt
+index fcf548f..38cbf0e 100644
+--- a/lib/Transforms/Utils/CMakeLists.txt
++++ b/lib/Transforms/Utils/CMakeLists.txt
 @@ -1,4 +1,5 @@
- add_llvm_library(LLVMScalarOpts
+ add_llvm_library(LLVMTransformUtils
 +  AddressSpaceFix.cpp
-   ADCE.cpp
-   ConstantHoisting.cpp
-   ConstantProp.cpp
-diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..831b1bb 100644
---- a/lib/Transforms/Scalar/Scalar.cpp
-+++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,10 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
-   initializeScalarOpts(*unwrap(R));
- }
- 
-+void LLVMAddAddressSpaceFixPass(LLVMPassManagerRef PM) {
-+  unwrap(PM)->add(createAddressSpaceFixPass());
-+}
-+
- void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
-   unwrap(PM)->add(createAggressiveDCEPass());
- }
+   AddDiscriminators.cpp
+   ASanStackFrameLayout.cpp
+   BasicBlockUtils.cpp
 diff --git a/tools/clang/include/clang-c/Index.h b/tools/clang/include/clang-c/Index.h
 index f69f567..e01cb6d 100644
 --- a/tools/clang/include/clang-c/Index.h
