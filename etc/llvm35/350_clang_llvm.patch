@@ -732,10 +732,10 @@ index 261ddda..9381a76 100644
    ConstantProp.cpp
 diff --git a/lib/Transforms/Scalar/SPIRFix.cpp b/lib/Transforms/Scalar/SPIRFix.cpp
 new file mode 100644
-index 0000000..37cdcdb
+index 0000000..df1203c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFix.cpp
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,248 @@
 +//===- SPIRFix.cpp - OpenCL/SPIR fixes ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -913,6 +913,65 @@ index 0000000..37cdcdb
 +				I.getIntrinsicID() == Intrinsic::lifetime_end) {
 +				I.eraseFromParent();
 +				was_modified = true;
++			}
++		}
++		
++		// "ashr" instructions may not be "exact"
++		void visitAShr(BinaryOperator& O) {
++			auto* ashr = cast<PossiblyExactOperator>(&O);
++			if(ashr && ashr->isExact()) {
++				// -> replace with a non-exact version
++				builder->SetInsertPoint(&O);
++				auto* new_ashr = builder->CreateAShr(O.getOperand(0), O.getOperand(1));
++				O.replaceAllUsesWith(new_ashr);
++				O.eraseFromParent();
++				was_modified = true;
++			}
++		}
++		
++		// unsupported LLVM IR instructions - fail on these
++		void visitIndirectBrInst(IndirectBrInst &I) {
++			ctx->emitError(&I, "indirect-br instruction is not supported by SPIR");
++		}
++		void visitInvokeInst(InvokeInst &I) {
++			ctx->emitError(&I, "invoke instruction is not supported by SPIR");
++		}
++		// NOTE: unwind no longer exists
++		void visitResumeInst(ResumeInst &I) {
++			ctx->emitError(&I, "resume instruction is not supported by SPIR");
++		}
++		void visitFenceInst(FenceInst &I) {
++			ctx->emitError(&I, "fence instruction is not supported by SPIR");
++		}
++		void visitAtomicCmpXchgInst(AtomicCmpXchgInst &I) {
++			ctx->emitError(&I, "atomic-cmp-xchg instruction is not supported by SPIR - use atomic_* function calls instead!");
++		}
++		void visitAtomicRMWInst(AtomicRMWInst &I) {
++			ctx->emitError(&I, "atomic-rmv instruction is not supported by SPIR - use atomic_* function calls instead!");
++		}
++		void visitVAArgInst(VAArgInst &I) {
++			ctx->emitError(&I, "va-arg instruction is not supported by SPIR");
++		}
++		void visitLandingPadInst(LandingPadInst &I) {
++			ctx->emitError(&I, "landing-pad instruction is not supported by SPIR");
++		}
++		
++		// calls to function pointers are not allowed
++		void visitCallInst(CallInst &I) {
++			if(I.getCalledFunction() == nullptr) {
++				ctx->emitError(&I, "indirect function call / call to function pointer is not supported by SPIR");
++			}
++		}
++		
++		// atomic load/store instructions are not allowed
++		void visitLoadInst(LoadInst &I) {
++			if(I.isAtomic()) {
++				ctx->emitError(&I, "atomic-load instruction is not supported by SPIR - use atomic_* function calls instead!");
++			}
++		}
++		void visitStoreInst(StoreInst &I) {
++			if(I.isAtomic()) {
++				ctx->emitError(&I, "atomic-store instruction is not supported by SPIR - use atomic_* function calls instead!");
 +			}
 +		}
 +	};
