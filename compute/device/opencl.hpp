@@ -21,14 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
-#define opencl_const_func __attribute__((const))
-
-#if defined(FLOOR_COMPUTE_APPLECL)
-#define opencl_c_func extern "C"
-#else
-#define opencl_c_func
-#endif
-
 opencl_c_func size_t opencl_const_func get_global_id(uint32_t dim);
 opencl_c_func size_t opencl_const_func get_global_size(uint32_t dim);
 opencl_c_func size_t opencl_const_func get_local_id(uint32_t dim);

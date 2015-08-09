@@ -91,6 +91,15 @@ typedef double opencl_double4 __attribute__((ext_vector_type(4)));
 #define local __attribute__((opencl_local))
 #define kernel extern "C" __kernel
 
+// proper function mangling (default to c++ mangling on spir, c on applecl)
+#if defined(FLOOR_COMPUTE_APPLECL)
+#define opencl_c_func extern "C"
+#else
+#define opencl_c_func
+#endif
+
+#define opencl_const_func __attribute__((const))
+
 #endif
 
 #endif

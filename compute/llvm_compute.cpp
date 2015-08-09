@@ -447,16 +447,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		static const regex rx_deref("dereferenceable\\(\\d+\\)");
 		ir_output = regex_replace(ir_output, rx_deref, "");
 		
-		// remove llvm lifetime intrinsices (not allowed by spir)
-		static const regex rx_lt_start("call void @llvm\\.lifetime\\.start.*");
-		static const regex rx_lt_end("call void @llvm\\.lifetime\\.end.*");
-		static const regex rx_lt_start_decl("declare void @llvm\\.lifetime\\.start.*");
-		static const regex rx_lt_end_decl("declare void @llvm\\.lifetime\\.end.*");
-		ir_output = regex_replace(ir_output, rx_lt_start, "");
-		ir_output = regex_replace(ir_output, rx_lt_end, "");
-		ir_output = regex_replace(ir_output, rx_lt_start_decl, "");
-		ir_output = regex_replace(ir_output, rx_lt_end_decl, "");
-		
 		// output modified ir back to a file and create a bc file so spir-encoder can consume it
 		if(!file_io::string_to_file("spir_3_5.ll", ir_output)) {
 			log_error("failed to output LLVM IR for SPIR consumption");
