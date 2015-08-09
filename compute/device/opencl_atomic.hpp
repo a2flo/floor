@@ -222,35 +222,35 @@ floor_inline_always int64_t atom_xor(volatile local int64_t* p, int64_t val) {
 
 // store (simple alias of xchg)
 floor_inline_always void atom_store(volatile global int32_t* addr, const int32_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile global uint32_t* addr, const uint32_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile global float* addr, const float& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile local int32_t* addr, const int32_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile local uint32_t* addr, const uint32_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile local float* addr, const float& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
 floor_inline_always void atom_store(volatile global uint64_t* addr, const uint64_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile global int64_t* addr, const int64_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile local uint64_t* addr, const uint64_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 floor_inline_always void atom_store(volatile local int64_t* addr, const int64_t& val) {
-	atomic_xchg(addr, val);
+	atom_xchg(addr, val);
 }
 #endif
 
@@ -309,25 +309,25 @@ floor_inline_always float atom_cmpxchg(volatile local float* p, float cmp, float
 }
 floor_inline_always float atom_min(volatile global float* p, float val) {
 	if(val < 0.0f) {
-		atomic_max((volatile global uint32_t*)p, *(uint32_t*)&val);
+		atom_max((volatile global uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atom_min((volatile global int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atom_min(volatile local float* p, float val) {
 	if(val < 0.0f) {
-		atomic_max((volatile local uint32_t*)p, *(uint32_t*)&val);
+		atom_max((volatile local uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atom_min((volatile local int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atom_max(volatile global float* p, float val) {
 	if(val < 0.0f) {
-		atomic_min((volatile global uint32_t*)p, *(uint32_t*)&val);
+		atom_min((volatile global uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atom_max((volatile global int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atom_max(volatile local float* p, float val) {
 	if(val < 0.0f) {
-		atomic_min((volatile local uint32_t*)p, *(uint32_t*)&val);
+		atom_min((volatile local uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atom_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
