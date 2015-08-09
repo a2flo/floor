@@ -21,6 +21,23 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
+// atomic_* -> atom_* macro aliases
+// certain implementations don't have proper atomic_* function implementations and the standard isn't sure about this either
+// -> use atom_* for everything (which should always exist), but add atomic_* aliases, because they're nicer
+#define atomic_add(...) atom_add(__VA_ARGS__)
+#define atomic_sub(...) atom_sub(__VA_ARGS__)
+#define atomic_int(...) atom_inc(__VA_ARGS__)
+#define atomic_dec(...) atom_dec(__VA_ARGS__)
+#define atomic_xchg(...) atom_xchg(__VA_ARGS__)
+#define atomic_cmpxchg(...) atom_cmpxchg(__VA_ARGS__)
+#define atomic_min(...) atom_min(__VA_ARGS__)
+#define atomic_max(...) atom_max(__VA_ARGS__)
+#define atomic_and(...) atom_and(__VA_ARGS__)
+#define atomic_or(...) atom_or(__VA_ARGS__)
+#define atomic_xor(...) atom_xor(__VA_ARGS__)
+#define atomic_store(...) atom_store(__VA_ARGS__)
+#define atomic_load(...) atom_load(__VA_ARGS__)
+
 // add
 int32_t atom_add(volatile global int32_t* p, int32_t val);
 uint32_t atom_add(volatile global uint32_t* p, uint32_t val);
@@ -331,23 +348,6 @@ floor_inline_always float atom_max(volatile local float* p, float val) {
 	}
 	return atom_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
-
-// atomic_* -> atom_* macro aliases
-// certain implementations don't have proper atomic_* function implementations and the standard isn't sure about this either
-// -> use atom_* for everything (which should always exist), but add atomic_* aliases, because they're nicer
-#define atomic_add(...) atom_add(__VA_ARGS__)
-#define atomic_sub(...) atom_sub(__VA_ARGS__)
-#define atomic_int(...) atom_inc(__VA_ARGS__)
-#define atomic_dec(...) atom_dec(__VA_ARGS__)
-#define atomic_xchg(...) atom_xchg(__VA_ARGS__)
-#define atomic_cmpxchg(...) atom_cmpxchg(__VA_ARGS__)
-#define atomic_min(...) atom_min(__VA_ARGS__)
-#define atomic_max(...) atom_max(__VA_ARGS__)
-#define atomic_and(...) atom_and(__VA_ARGS__)
-#define atomic_or(...) atom_or(__VA_ARGS__)
-#define atomic_xor(...) atom_xor(__VA_ARGS__)
-#define atomic_store(...) atom_store(__VA_ARGS__)
-#define atomic_load(...) atom_load(__VA_ARGS__)
 
 #endif
 
