@@ -2506,88 +2506,274 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..8e9a54f 100644
+index 5ca3a78..093793b 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -358,6 +358,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-   SmallVector<llvm::Value*, 8> argTypeNames;
-   argTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_type"));
- 
-+  // MDNode for the kernel argument base type names.
-+  SmallVector<llvm::Value*, 8> argBaseTypeNames;
-+  argBaseTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_base_type"));
-+
-   // MDNode for the kernel argument type qualifiers.
-   SmallVector<llvm::Value*, 8> argTypeQuals;
-   argTypeQuals.push_back(llvm::MDString::get(Context, "kernel_arg_type_qual"));
-@@ -366,6 +370,17 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-   SmallVector<llvm::Value*, 8> argNames;
-   argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
- 
-+  static const auto create_base_type = [](std::string& type_name, const QualType& type) {
-+	  // there doesn't seem to be official documentation about this, but everyone seems to agree
-+	  // that struct/class types must be prefixed by "struct __"
-+	  if ((!type->isImageType() && type->isStructureOrClassType()) ||
-+		  (type->isPointerType() && type->getPointeeType()->isStructureOrClassType())) {
-+		  type_name = "struct __" + type_name;
-+	  }
-+	  // else: just copy/keep the normal type for now
-+	  return type_name;
-+  };
-+
-   for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
-     const ParmVarDecl *parm = FD->getParamDecl(i);
-     QualType ty = parm->getType();
-@@ -388,6 +403,7 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-         typeName.erase(pos+1, 8);
- 
-       argTypeNames.push_back(llvm::MDString::get(Context, typeName));
-+      argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, ty)));
- 
-       // Get argument type qualifiers:
-       if (ty.isRestrictQualified())
-@@ -397,7 +413,11 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-         typeQuals += typeQuals.empty() ? "const" : " const";
-       if (pointeeTy.isVolatileQualified())
-         typeQuals += typeQuals.empty() ? "volatile" : " volatile";
+@@ -340,110 +340,687 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+                                  CodeGenModule &CGM,llvm::LLVMContext &Context,
+                                  SmallVector <llvm::Value*, 5> &kernelMDArgs,
+                                  CGBuilderTy& Builder, ASTContext &ASTCtx) {
+-  // Create MDNodes that represent the kernel arg metadata.
+-  // Each MDNode is a list in the form of "key", N number of values which is
+-  // the same number of values as their are kernel arguments.
+-
+-  const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
+-
+-  // MDNode for the kernel argument address space qualifiers.
+-  SmallVector<llvm::Value*, 8> addressQuals;
+-  addressQuals.push_back(llvm::MDString::get(Context, "kernel_arg_addr_space"));
+-
+-  // MDNode for the kernel argument access qualifiers (images only).
+-  SmallVector<llvm::Value*, 8> accessQuals;
+-  accessQuals.push_back(llvm::MDString::get(Context, "kernel_arg_access_qual"));
+-
+-  // MDNode for the kernel argument type names.
+-  SmallVector<llvm::Value*, 8> argTypeNames;
+-  argTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_type"));
+-
+-  // MDNode for the kernel argument type qualifiers.
+-  SmallVector<llvm::Value*, 8> argTypeQuals;
+-  argTypeQuals.push_back(llvm::MDString::get(Context, "kernel_arg_type_qual"));
+-
+-  // MDNode for the kernel argument names.
+-  SmallVector<llvm::Value*, 8> argNames;
+-  argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
+-
+-  for (unsigned i = 0, e = FD->getNumParams(); i != e; ++i) {
+-    const ParmVarDecl *parm = FD->getParamDecl(i);
+-    QualType ty = parm->getType();
+-    std::string typeQuals;
+-
+-    if (ty->isPointerType()) {
+-      QualType pointeeTy = ty->getPointeeType();
+-
+-      // Get address qualifier.
+-      addressQuals.push_back(Builder.getInt32(ASTCtx.getTargetAddressSpace(
+-        pointeeTy.getAddressSpace())));
+-
+-      // Get argument type name.
+-      std::string typeName =
+-          pointeeTy.getUnqualifiedType().getAsString(Policy) + "*";
+-
+-      // Turn "unsigned type" to "utype"
+-      std::string::size_type pos = typeName.find("unsigned");
+-      if (pos != std::string::npos)
+-        typeName.erase(pos+1, 8);
+-
+-      argTypeNames.push_back(llvm::MDString::get(Context, typeName));
+-
+-      // Get argument type qualifiers:
+-      if (ty.isRestrictQualified())
+-        typeQuals = "restrict";
+-      if (pointeeTy.isConstQualified() ||
+-          (pointeeTy.getAddressSpace() == LangAS::opencl_constant))
+-        typeQuals += typeQuals.empty() ? "const" : " const";
+-      if (pointeeTy.isVolatileQualified())
+-        typeQuals += typeQuals.empty() ? "volatile" : " volatile";
 -    } else {
-+    }
-+	else if(ty->isAggregateImageType()) {
-+		// TODO: implement this
+-      uint32_t AddrSpc = 0;
+-      if (ty->isImageType())
+-        AddrSpc =
+-          CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
+-
+-      addressQuals.push_back(Builder.getInt32(AddrSpc));
+-
+-      // Get argument type name.
+-      std::string typeName = ty.getUnqualifiedType().getAsString(Policy);
+-
+-      // Turn "unsigned type" to "utype"
+-      std::string::size_type pos = typeName.find("unsigned");
+-      if (pos != std::string::npos)
+-        typeName.erase(pos+1, 8);
+-
+-      argTypeNames.push_back(llvm::MDString::get(Context, typeName));
+-
+-      // Get argument type qualifiers:
+-      if (ty.isConstQualified())
+-        typeQuals = "const";
+-      if (ty.isVolatileQualified())
+-        typeQuals += typeQuals.empty() ? "volatile" : " volatile";
+-    }
+-
+-    argTypeQuals.push_back(llvm::MDString::get(Context, typeQuals));
++	// Create MDNodes that represent the kernel arg metadata.
++	// Each MDNode is a list in the form of "key", N number of values which is
++	// the same number of values as their are kernel arguments.
++	
++	const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
++	
++	// MDNode for the kernel argument address space qualifiers.
++	SmallVector<llvm::Value*, 8> addressQuals;
++	addressQuals.push_back(llvm::MDString::get(Context, "kernel_arg_addr_space"));
++	
++	// MDNode for the kernel argument access qualifiers (images only).
++	SmallVector<llvm::Value*, 8> accessQuals;
++	accessQuals.push_back(llvm::MDString::get(Context, "kernel_arg_access_qual"));
++	
++	// MDNode for the kernel argument type names.
++	SmallVector<llvm::Value*, 8> argTypeNames;
++	argTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_type"));
++	
++	// MDNode for the kernel argument base type names.
++	SmallVector<llvm::Value*, 8> argBaseTypeNames;
++	argBaseTypeNames.push_back(llvm::MDString::get(Context, "kernel_arg_base_type"));
++	
++	// MDNode for the kernel argument type qualifiers.
++	SmallVector<llvm::Value*, 8> argTypeQuals;
++	argTypeQuals.push_back(llvm::MDString::get(Context, "kernel_arg_type_qual"));
++	
++	// MDNode for the kernel argument names.
++	SmallVector<llvm::Value*, 8> argNames;
++	argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
++	
++	static const auto create_base_type = [](std::string& type_name, const QualType& type) {
++		// there doesn't seem to be official documentation about this, but everyone seems to agree
++		// that struct/class types must be prefixed by "struct __"
++		if ((!type->isImageType() && type->isStructureOrClassType()) ||
++			(type->isPointerType() && type->getPointeeType()->isStructureOrClassType())) {
++			type_name = "struct __" + type_name;
++		}
++		// else: just copy/keep the normal type for now
++		return type_name;
++	};
++	
++	const auto add_image_arg = [&Builder, &Context, &CGM, &Policy,
++								&addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
++								&argNames, &argTypeQuals](const clang::QualType& type,
++														  const OpenCLImageAccessAttr* access_attr,
++														  const std::string& name) {
++		// image is always in global address space
++		addressQuals.push_back(Builder.getInt32(CGM.getContext().getTargetAddressSpace(LangAS::opencl_global)));
++		
++		// set access qualifier
++		if (access_attr && access_attr->isWriteOnly()) {
++			accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
++		}
++		else if (access_attr && access_attr->isReadWrite()) {
++			accessQuals.push_back(llvm::MDString::get(Context, "read_write"));
++		}
++		else {
++			accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
++		}
++		
++		// image type
++		const auto img_type_name = type.getUnqualifiedType().getAsString(Policy);
++		argTypeNames.push_back(llvm::MDString::get(Context, img_type_name));
++		argBaseTypeNames.push_back(llvm::MDString::get(Context, img_type_name));
++		
++		// set arg name
++		argNames.push_back(llvm::MDString::get(Context, name));
++		
++		// type quals is always empty for images
++		argTypeQuals.push_back(llvm::MDString::get(Context, ""));
++	};
++	
++	for(const auto& parm : FD->params()) {
++		const auto clang_type = parm->getType();
++		
++		// pointer / buffer
++		if (clang_type->isPointerType() || clang_type->isReferenceType()) {
++			QualType pointeeTy = clang_type->getPointeeType();
++			
++			// Get address qualifier.
++			addressQuals.push_back(Builder.getInt32(ASTCtx.getTargetAddressSpace(pointeeTy.getAddressSpace())));
++			
++			// Get argument type name.
++			std::string typeName = pointeeTy.getUnqualifiedType().getAsString(Policy) + "*";
++			
++			// Turn "unsigned type" to "utype"
++			std::string::size_type pos = typeName.find("unsigned");
++			if (pos != std::string::npos) {
++				typeName.erase(pos + 1, 8);
++			}
++			
++			argTypeNames.push_back(llvm::MDString::get(Context, typeName));
++			argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, clang_type)));
++			
++			// Get argument type qualifiers:
++			std::string typeQuals;
++			if (clang_type.isRestrictQualified()) {
++				typeQuals = "restrict";
++			}
++			if (pointeeTy.isConstQualified() ||
++				(pointeeTy.getAddressSpace() == LangAS::opencl_constant)) {
++				typeQuals += typeQuals.empty() ? "const" : " const";
++			}
++			if (pointeeTy.isVolatileQualified()) {
++				typeQuals += typeQuals.empty() ? "volatile" : " volatile";
++			}
++			
++			accessQuals.push_back(llvm::MDString::get(Context, "none"));
++			argNames.push_back(llvm::MDString::get(Context, parm->getName()));
++			argTypeQuals.push_back(llvm::MDString::get(Context, typeQuals));
++		}
++		// normal image
++		else if(clang_type->isImageType()) {
++			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(),
++						  parm->getName().str());
++		}
++		// aggregate image
++		else if(clang_type->isAggregateImageType()) {
++			const auto decl = clang_type->getAsStructureType()->getDecl();
++			const std::string base_name = parm->getName().str() + ".";
++			unsigned field_idx = 0;
++			for(const auto& field : decl->fields()) {
++				const auto field_type = field->getType();
++				
++				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(),
++							  base_name + std::to_string(field_idx));
++				++field_idx;
++			}
++		}
++		// kernel parameter
++		else {
++			addressQuals.push_back(Builder.getInt32(0 /* private address space*/));
++			
++			// Get argument type name.
++			std::string typeName = clang_type.getUnqualifiedType().getAsString(Policy);
++			
++			// Turn "unsigned type" to "utype"
++			std::string::size_type pos = typeName.find("unsigned");
++			if (pos != std::string::npos) {
++				typeName.erase(pos + 1, 8);
++			}
++			
++			argTypeNames.push_back(llvm::MDString::get(Context, typeName));
++			argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, clang_type)));
++			
++			// Get argument type qualifiers:
++			std::string typeQuals;
++			if (clang_type.isConstQualified()) {
++				typeQuals = "const";
++			}
++			if (clang_type.isVolatileQualified()) {
++				typeQuals += typeQuals.empty() ? "volatile" : " volatile";
++			}
++			
++			accessQuals.push_back(llvm::MDString::get(Context, "none"));
++			argNames.push_back(llvm::MDString::get(Context, parm->getName()));
++			argTypeQuals.push_back(llvm::MDString::get(Context, typeQuals));
++		}
 +	}
-+	else {
-       uint32_t AddrSpc = 0;
-       if (ty->isImageType())
-         AddrSpc =
-@@ -414,6 +434,7 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-         typeName.erase(pos+1, 8);
++	
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, addressQuals));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, accessQuals));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeNames));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, argBaseTypeNames));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeQuals));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
++}
  
-       argTypeNames.push_back(llvm::MDString::get(Context, typeName));
-+      argBaseTypeNames.push_back(llvm::MDString::get(Context, create_base_type(typeName, ty)));
- 
-       // Get argument type qualifiers:
-       if (ty.isConstQualified())
-@@ -429,9 +450,10 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-       const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
-       if (A && A->isWriteOnly())
-         accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
-+      else if (A && A->isReadWrite())
-+        accessQuals.push_back(llvm::MDString::get(Context, "read_write"));
-       else
-         accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
+-    // Get image access qualifier:
+-    if (ty->isImageType()) {
+-      const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
+-      if (A && A->isWriteOnly())
+-        accessQuals.push_back(llvm::MDString::get(Context, "write_only"));
+-      else
+-        accessQuals.push_back(llvm::MDString::get(Context, "read_only"));
 -      // FIXME: what about read_write?
-     } else
-       accessQuals.push_back(llvm::MDString::get(Context, "none"));
- 
-@@ -442,10 +464,525 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
-   kernelMDArgs.push_back(llvm::MDNode::get(Context, addressQuals));
-   kernelMDArgs.push_back(llvm::MDNode::get(Context, accessQuals));
-   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeNames));
-+  kernelMDArgs.push_back(llvm::MDNode::get(Context, argBaseTypeNames));
-   kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeQuals));
-   kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
- }
- 
+-    } else
+-      accessQuals.push_back(llvm::MDString::get(Context, "none"));
 +static void GenAIRMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 +						   CodeGenModule &CGM,llvm::LLVMContext &Context,
 +						   SmallVector <llvm::Value*, 5> &kernelMDArgs,
@@ -2603,10 +2789,9 @@ index 5ca3a78..8e9a54f 100644
 +	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
-+		const auto llvm_parm = next(Fn->getArgumentList().begin(), arg_idx);
-+		const auto llvm_type = llvm_parm->getType();
++		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
 +
-+		const auto add_image_arg = [&Builder, &tex_idx, &llvm_parm, &arg_infos,
++		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos,
 +									&arg_idx, &Context](const clang::QualType& type,
 +														const OpenCLImageAccessAttr* access_attr,
 +														const FloorImageSampleTypeAttr* sample_type,
@@ -2733,7 +2918,8 @@ index 5ca3a78..8e9a54f 100644
 +		}
 +		// image
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(), parm->getAttr<FloorImageSampleTypeAttr>(), parm->getName().str());
++			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(),
++						  parm->getAttr<FloorImageSampleTypeAttr>(), parm->getName().str());
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
@@ -2743,7 +2929,8 @@ index 5ca3a78..8e9a54f 100644
 +			for(const auto& field : decl->fields()) {
 +				const auto field_type = field->getType();
 +				
-+				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(), field->getAttr<FloorImageSampleTypeAttr>(), base_name + std::to_string(field_idx));
++				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(),
++							  field->getAttr<FloorImageSampleTypeAttr>(), base_name + std::to_string(field_idx));
 +				++field_idx;
 +				
 +				// next llvm arg
@@ -2767,7 +2954,10 @@ index 5ca3a78..8e9a54f 100644
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, empty_set));
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
 +}
-+
+ 
+-    // Get argument name.
+-    argNames.push_back(llvm::MDString::get(Context, parm->getName()));
+-  }
 +static void GenAppleCLMetadata(const FunctionDecl *FD, llvm::Function *Fn,
 +							   CodeGenModule &CGM,llvm::LLVMContext &Context,
 +							   SmallVector <llvm::Value*, 5> &kernelMDArgs,
@@ -2840,7 +3030,12 @@ index 5ca3a78..8e9a54f 100644
 +	// insert into kernel metadata
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
 +}
-+
+ 
+-  kernelMDArgs.push_back(llvm::MDNode::get(Context, addressQuals));
+-  kernelMDArgs.push_back(llvm::MDNode::get(Context, accessQuals));
+-  kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeNames));
+-  kernelMDArgs.push_back(llvm::MDNode::get(Context, argTypeQuals));
+-  kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args) {
@@ -3100,12 +3295,10 @@ index 5ca3a78..8e9a54f 100644
 +	llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, arg_infos);
 +	llvm::NamedMDNode *FloorKernelMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.kernels");
 +	FloorKernelMetadata->addOperand(kernelMDNode);
-+}
-+
+ }
+ 
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-                                                llvm::Function *Fn)
- {
-@@ -457,10 +994,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +1034,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -3123,7 +3316,7 @@ index 5ca3a78..8e9a54f 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1042,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1082,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -3199,7 +3392,7 @@ index 5ca3a78..8e9a54f 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1162,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1202,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -3219,7 +3412,7 @@ index 5ca3a78..8e9a54f 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1377,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1417,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -3303,7 +3496,7 @@ index 5ca3a78..8e9a54f 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1557,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1597,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
