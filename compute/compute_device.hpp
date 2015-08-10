@@ -23,6 +23,7 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/enum_helpers.hpp>
+#include <floor/compute/compute_common.hpp>
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -80,30 +81,10 @@ public:
 	//! type for internal use (OpenCL: stores cl_device_type, CUDA: N/A)
 	uint32_t internal_type { 0u };
 	
-	//! device vendors
-	enum class VENDOR : uint32_t {
-		NVIDIA,
-		INTEL,
-		AMD,
-		APPLE,
-		POCL,
-		HOST,
-		UNKNOWN
-	};
 	//! vendor of this device
-	VENDOR vendor { VENDOR::UNKNOWN };
-	//! returns the string representation of the enum VENDOR
-	static constexpr const char* vendor_to_string(const VENDOR& vendor) {
-		switch(vendor) {
-			case VENDOR::NVIDIA: return "NVIDIA";
-			case VENDOR::INTEL: return "INTEL";
-			case VENDOR::AMD: return "AMD";
-			case VENDOR::APPLE: return "APPLE";
-			case VENDOR::POCL: return "POCL";
-			case VENDOR::HOST: return "HOST";
-			default: return "UNKNOWN";
-		}
-	}
+	COMPUTE_VENDOR vendor { COMPUTE_VENDOR::UNKNOWN };
+	//! platform vendor of this device
+	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };
 	
 	//! number of compute units in the device
 	uint32_t units { 0u };

@@ -197,13 +197,14 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		device.device = dev;
 		device.name = [[dev name] UTF8String];
 		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
+		device.platform_vendor = COMPUTE_VENDOR::APPLE;
 		++device_num;
 		
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
 		device.vendor_name = "Apple";
 		device.driver_version_str = "1.0.0"; // for now, should update with iOS >8 (iOS8 versions: metal 1.0.0, air 1.6.0, language 1.0.0)
-		device.vendor = compute_device::VENDOR::APPLE;
+		device.vendor = COMPUTE_VENDOR::APPLE;
 		device.clock = 450; // actually unknown, and won't matter for now
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
@@ -269,15 +270,15 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		device.driver_version_str = "1.1.0"; // TODO: proper version info?
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
-			device.vendor = compute_device::VENDOR::NVIDIA;
+			device.vendor = COMPUTE_VENDOR::NVIDIA;
 		}
 		else if(lc_vendor_name.find("intel") != string::npos) {
-			device.vendor = compute_device::VENDOR::INTEL;
+			device.vendor = COMPUTE_VENDOR::INTEL;
 		}
 		else if(lc_vendor_name.find("amd") != string::npos) {
-			device.vendor = compute_device::VENDOR::AMD;
+			device.vendor = COMPUTE_VENDOR::AMD;
 		}
-		else device.vendor = compute_device::VENDOR::UNKNOWN;
+		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
 		device.max_mem_alloc = [dev maxBufferLength];
 		// TODO: this is not correct, but there is no way to query the global mem size - however, global mem size is usually 4 * max alloc
 		device.global_mem_size = device.max_mem_alloc * 4;
@@ -304,7 +305,7 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		
 		// done
 		supported = true;
-		platform_vendor = compute_base::PLATFORM_VENDOR::APPLE;
+		platform_vendor = COMPUTE_VENDOR::APPLE;
 		log_debug("GPU (Memory: %u MB): %s, family %u",
 				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
 				  device.name,
@@ -327,11 +328,11 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 	// -> assume devices are returned in order of their speed
 	// -> assume that nvidia and amd cards are faster than intel cards
 	fastest_gpu_device = devices[0]; // start off with the first device
-	if(fastest_gpu_device->vendor != compute_device::VENDOR::NVIDIA &&
-	   fastest_gpu_device->vendor != compute_device::VENDOR::AMD) { // if this is false, we already have a nvidia/amd device
+	if(fastest_gpu_device->vendor != COMPUTE_VENDOR::NVIDIA &&
+	   fastest_gpu_device->vendor != COMPUTE_VENDOR::AMD) { // if this is false, we already have a nvidia/amd device
 		for(size_t i = 1; i < devices.size(); ++i) {
-			if(devices[i]->vendor == compute_device::VENDOR::NVIDIA ||
-			   devices[i]->vendor == compute_device::VENDOR::AMD) {
+			if(devices[i]->vendor == COMPUTE_VENDOR::NVIDIA ||
+			   devices[i]->vendor == COMPUTE_VENDOR::AMD) {
 				// found a nvidia or amd device, consider it the fastest
 				fastest_gpu_device = devices[i];
 				break;

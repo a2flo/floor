@@ -46,7 +46,7 @@
 void host_compute::init(const uint64_t platform_index_ floor_unused,
 						const bool gl_sharing floor_unused,
 						const unordered_set<string> whitelist floor_unused) {
-	platform_vendor = PLATFORM_VENDOR::HOST;
+	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//
 	devices.emplace_back(make_shared<host_device>());
@@ -158,22 +158,23 @@ void host_compute::init(const uint64_t platform_index_ floor_unused,
 	
 	const auto lc_cpu_name = core::str_to_lower(device.name);
 	if(lc_cpu_name.find("intel") != string::npos) {
-		device.vendor = compute_device::VENDOR::INTEL;
+		device.vendor = COMPUTE_VENDOR::INTEL;
 		device.vendor_name = "Intel";
 	}
 	else if(lc_cpu_name.find("amd") != string::npos) {
-		device.vendor = compute_device::VENDOR::AMD;
+		device.vendor = COMPUTE_VENDOR::AMD;
 		device.vendor_name = "AMD";
 	}
 	else if(lc_cpu_name.find("apple") != string::npos) {
-		device.vendor = compute_device::VENDOR::APPLE;
+		device.vendor = COMPUTE_VENDOR::APPLE;
 		device.vendor_name = "Apple";
 	}
 	// TODO: ARM cpu names?
 	else {
-		device.vendor = compute_device::VENDOR::HOST;
+		device.vendor = COMPUTE_VENDOR::HOST;
 		device.vendor_name = "Host";
 	}
+	device.platform_vendor = COMPUTE_VENDOR::HOST;
 	
 #if 0 // mt-item
 	device.max_work_group_size = device.units;

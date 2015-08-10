@@ -25,7 +25,7 @@
 //! note that most of this information can also be accessed through macros/defines, but this provides an
 //! easier to use interface when using it with c++ constructs (templates enable_if, type_traits, etc).
 namespace device_info {
-	//! device vendors
+	//! device and platform vendors
 	enum class VENDOR : uint32_t {
 		NVIDIA,
 		INTEL,
@@ -38,6 +38,10 @@ namespace device_info {
 	//! returns the device vendor
 	constexpr VENDOR vendor() {
 		return VENDOR::FLOOR_COMPUTE_INFO_VENDOR;
+	}
+	//! returns the platform vendor
+	constexpr VENDOR platform_vendor() {
+		return VENDOR::FLOOR_COMPUTE_INFO_PLATFORM_VENDOR;
 	}
 	
 	//! device bitness (32 or 64)

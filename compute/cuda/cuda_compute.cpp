@@ -27,6 +27,8 @@
 void cuda_compute::init(const uint64_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
 						const unordered_set<string> whitelist) {
+	platform_vendor = COMPUTE_VENDOR::NVIDIA;
+	
 	// init cuda itself
 	CU_CALL_RET(cuInit(0), "failed to initialize CUDA")
 	
@@ -111,7 +113,8 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		device.device_id = cuda_dev;
 		device.sm = uint2(cc);
 		device.type = (compute_device::TYPE)gpu_counter++;
-		device.vendor = compute_device::VENDOR::NVIDIA;
+		device.vendor = COMPUTE_VENDOR::NVIDIA;
+		device.platform_vendor = COMPUTE_VENDOR::NVIDIA;
 		device.name = dev_name;
 		device.vendor_name = "NVIDIA";
 		device.version_str = to_string(cc.x) + "." + to_string(cc.y);
@@ -252,7 +255,6 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 	}
 	// else: init successful, set supported to true
 	supported = true;
-	platform_vendor = compute_base::PLATFORM_VENDOR::NVIDIA;
 	
 	//
 	if(fastest_gpu_device != nullptr) {

@@ -29,4 +29,28 @@ enum class COMPUTE_TYPE : uint32_t {
 	HOST,
 };
 
+//! used to identify the platform and device vendor
+enum class COMPUTE_VENDOR : uint32_t {
+	NVIDIA,
+	INTEL,
+	AMD,
+	APPLE,
+	POCL,
+	HOST,
+	UNKNOWN
+};
+
+//! returns the string representation of the enum COMPUTE_VENDOR
+floor_inline_always static constexpr const char* compute_vendor_to_string(const COMPUTE_VENDOR& vendor) {
+	switch(vendor) {
+		case COMPUTE_VENDOR::NVIDIA: return "NVIDIA";
+		case COMPUTE_VENDOR::INTEL: return "INTEL";
+		case COMPUTE_VENDOR::AMD: return "AMD";
+		case COMPUTE_VENDOR::APPLE: return "APPLE";
+		case COMPUTE_VENDOR::POCL: return "POCL";
+		case COMPUTE_VENDOR::HOST: return "HOST";
+		default: return "UNKNOWN";
+	}
+}
+
 #endif

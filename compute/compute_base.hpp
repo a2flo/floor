@@ -58,35 +58,6 @@ public:
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
 	
 	//////////////////////////////////////////
-	// enums
-	
-	//! opencl and cuda platform vendors
-	enum class PLATFORM_VENDOR : uint32_t {
-		NVIDIA,
-		INTEL,
-		AMD,
-		APPLE,
-		POCL,
-		CUDA,
-		HOST,
-		UNKNOWN
-	};
-	
-	//! returns a string representation of the specified PLATFORM_VENDOR enum
-	static constexpr const char* platform_vendor_to_string(const PLATFORM_VENDOR& pvendor) {
-		switch(pvendor) {
-			case PLATFORM_VENDOR::NVIDIA: return "NVIDIA";
-			case PLATFORM_VENDOR::INTEL: return "INTEL";
-			case PLATFORM_VENDOR::AMD: return "AMD";
-			case PLATFORM_VENDOR::APPLE: return "APPLE";
-			case PLATFORM_VENDOR::POCL: return "POCL";
-			case PLATFORM_VENDOR::CUDA: return "CUDA";
-			case PLATFORM_VENDOR::HOST: return "HOST";
-			case PLATFORM_VENDOR::UNKNOWN: return "UNKNOWN";
-		}
-	}
-	
-	//////////////////////////////////////////
 	// device functions
 	
 	//! returns the array of all valid devices in this context
@@ -248,7 +219,7 @@ public:
 	
 protected:
 	//! platform vendor enum (set after initialization)
-	PLATFORM_VENDOR platform_vendor { PLATFORM_VENDOR::UNKNOWN };
+	COMPUTE_VENDOR platform_vendor { COMPUTE_VENDOR::UNKNOWN };
 	
 	//! true if compute support (set after initialization)
 	bool supported { false };

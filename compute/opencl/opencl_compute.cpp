@@ -124,7 +124,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 		
 		//
 #if defined(__APPLE__)
-		platform_vendor = PLATFORM_VENDOR::APPLE;
+		platform_vendor = COMPUTE_VENDOR::APPLE;
 		
 		// drop all devices when using gl sharing (not adding cpu devices here, because this would cause other issues)
 		if(gl_sharing) {
@@ -186,14 +186,14 @@ void opencl_compute::init(const uint64_t platform_index_,
 		// get platform vendor
 		const string platform_vendor_str = core::str_to_lower(cl_get_info<CL_PLATFORM_VENDOR>(platform));
 		if(platform_vendor_str.find("nvidia") != string::npos) {
-			platform_vendor = PLATFORM_VENDOR::NVIDIA;
+			platform_vendor = COMPUTE_VENDOR::NVIDIA;
 		}
 		else if(platform_vendor_str.find("amd") != string::npos ||
 				platform_vendor_str.find("advanced micro devices") != string::npos) {
-			platform_vendor = PLATFORM_VENDOR::AMD;
+			platform_vendor = COMPUTE_VENDOR::AMD;
 		}
 		else if(platform_vendor_str.find("intel") != string::npos) {
-			platform_vendor = PLATFORM_VENDOR::INTEL;
+			platform_vendor = COMPUTE_VENDOR::INTEL;
 		}
 #endif
 		
@@ -241,12 +241,12 @@ void opencl_compute::init(const uint64_t platform_index_,
 		
 		// pocl only identifies itself in the platform version string, not the vendor string
 		if(cl_version_str.find("pocl") != string::npos) {
-			platform_vendor = PLATFORM_VENDOR::POCL;
+			platform_vendor = COMPUTE_VENDOR::POCL;
 		}
 		
 		//
 		log_msg("opencl platform \"%s\" version recognized as CL%s",
-				  platform_vendor_to_string(platform_vendor),
+				  compute_vendor_to_string(platform_vendor),
 				  (platform_cl_version == OPENCL_VERSION::OPENCL_1_0 ? "1.0" :
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
 					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" :
@@ -353,7 +353,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 			log_msg("double support: %b", device.double_support);
 			log_msg("image support: %b", device.image_support);
 			if(// pocl has no support for this yet
-			   platform_vendor != PLATFORM_VENDOR::POCL) {
+			   platform_vendor != COMPUTE_VENDOR::POCL) {
 				const unsigned long long int printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
 				log_msg("printf buffer size: %u bytes / %u MB",
 						printf_buffer_size,
@@ -363,27 +363,28 @@ void opencl_compute::init(const uint64_t platform_index_,
 			}
 			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
-			device.vendor = compute_device::VENDOR::UNKNOWN;
+			device.platform_vendor = platform_vendor;
+			device.vendor = COMPUTE_VENDOR::UNKNOWN;
 			string vendor_str = core::str_to_lower(device.vendor_name);
 			if(strstr(vendor_str.c_str(), "nvidia") != nullptr) {
-				device.vendor = compute_device::VENDOR::NVIDIA;
+				device.vendor = COMPUTE_VENDOR::NVIDIA;
 			}
 			else if(strstr(vendor_str.c_str(), "intel") != nullptr) {
-				device.vendor = compute_device::VENDOR::INTEL;
+				device.vendor = COMPUTE_VENDOR::INTEL;
 			}
 			else if(strstr(vendor_str.c_str(), "apple") != nullptr) {
-				device.vendor = compute_device::VENDOR::APPLE;
+				device.vendor = COMPUTE_VENDOR::APPLE;
 			}
 			else if(strstr(vendor_str.c_str(), "amd") != nullptr ||
 					strstr(vendor_str.c_str(), "advanced micro devices") != nullptr ||
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
-				device.vendor = compute_device::VENDOR::AMD;
+				device.vendor = COMPUTE_VENDOR::AMD;
 			}
 			
 			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
 			if(device.version_str.find("pocl") != string::npos) {
-				device.vendor = compute_device::VENDOR::POCL;
+				device.vendor = COMPUTE_VENDOR::POCL;
 				
 				// device unit count on pocl is 0 -> figure out how many logical cpus actually exist
 				if(device.units == 0) {
@@ -419,7 +420,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 			// also, pocl doesn't support, but can apparently handle llvm bitcode files
 #if !defined(__APPLE__)
 			if(!core::contains(device.extensions, "cl_khr_spir") &&
-			   device.vendor != compute_device::VENDOR::POCL) {
+			   device.vendor != COMPUTE_VENDOR::POCL) {
 				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
 				devices.pop_back();
 				continue;
@@ -457,11 +458,11 @@ void opencl_compute::init(const uint64_t platform_index_,
 				const auto compute_gpu_score = [](const compute_device& dev) -> unsigned int {
 					unsigned int multiplier = 1;
 					switch(dev.vendor) {
-						case compute_device::VENDOR::NVIDIA:
+						case COMPUTE_VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024
 							multiplier = (dev.max_work_group_size >= 1024 ? 32 : 8);
 							break;
-						case compute_device::VENDOR::AMD:
+						case COMPUTE_VENDOR::AMD:
 							multiplier = 16;
 							break;
 							// none for INTEL
@@ -519,7 +520,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 	
 	// context has been created, query image format information
 	image_formats.clear();
-	if(platform_vendor != PLATFORM_VENDOR::POCL) {
+	if(platform_vendor != COMPUTE_VENDOR::POCL) {
 		cl_uint image_format_count = 0;
 		clGetSupportedImageFormats(ctx, CL_MEM_READ_WRITE, CL_MEM_OBJECT_IMAGE2D, 0, nullptr, &image_format_count);
 		image_formats.resize(image_format_count);
@@ -891,7 +892,7 @@ shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
 	auto ret_program = make_shared<opencl_program>(program, program_data.second,
 												   // as of 0.11 pocl doesn't support cl_program_info queries, so don't use them
-												   platform_vendor != PLATFORM_VENDOR::POCL);
+												   platform_vendor != COMPUTE_VENDOR::POCL);
 	{
 		GUARD(programs_lock);
 		programs.push_back(ret_program);

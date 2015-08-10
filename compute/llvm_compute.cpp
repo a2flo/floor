@@ -327,7 +327,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	
 	// add device information
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
-	const auto vendor_str = compute_device::vendor_to_string(device->vendor);
+	const auto vendor_str = compute_vendor_to_string(device->vendor);
+	const auto platform_vendor_str = compute_vendor_to_string(device->platform_vendor);
 	const auto type_str = (compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "GPU" :
 						   compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? "CPU" : "UNKNOWN");
 	const auto os_str = (target != TARGET::AIR ?
@@ -354,6 +355,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR="s + vendor_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_VENDOR_"s + vendor_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_PLATFORM_VENDOR="s + platform_vendor_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_PLATFORM_VENDOR_"s + platform_vendor_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_TYPE="s + type_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_TYPE_"s + type_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_OS="s + os_str;
