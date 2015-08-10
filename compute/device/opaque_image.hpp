@@ -61,17 +61,36 @@ namespace floor_image {
 			return ret_coord_type { coord };
 		}
 		
+		// intel does not support sampler-less read functions -> create and use a sampler instead, which should do the same
+#if defined(FLOOR_COMPUTE_OPENCL) && \
+	(defined(FLOOR_COMPUTE_INFO_PLATFORM_VENDOR_INTEL) || defined(FLOOR_COMPUTE_INFO_PLATFORM_VENDOR_UNKNOWN))
+#define FLOOR_INTEL_SAMPLER_QUIRK 1
+#endif
+		
 		// read functions
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<is_sample_float(image_type_) && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+#endif
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+											   smplr,
+#endif
+											   convert_coord(coord));
 			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
 		}
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<is_sample_float(image_type_) && has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+#endif
 			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+											   smplr,
+#endif
 #if defined(FLOOR_COMPUTE_METAL)
 											   1,
 #endif
@@ -82,14 +101,28 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<is_sample_int(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+#endif
+			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(),
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+											   smplr,
+#endif
+											   convert_coord(coord));
 			return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(clang_vec));
 		}
 		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<is_sample_uint(image_type_)>* = nullptr>
 		auto read(const coord_type& coord) const {
-			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(), convert_coord(coord));
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+#endif
+			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(),
+#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+												smplr,
+#endif
+												convert_coord(coord));
 			return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(clang_vec));
 		}
 		
