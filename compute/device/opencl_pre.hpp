@@ -48,41 +48,6 @@ typedef unsigned long int size_t;
 typedef long int ssize_t;
 #endif
 
-// opencl vector types
-typedef char opencl_char2 __attribute__((ext_vector_type(2)));
-typedef char opencl_char3 __attribute__((ext_vector_type(3)));
-typedef char opencl_char4 __attribute__((ext_vector_type(4)));
-typedef uchar opencl_uchar2 __attribute__((ext_vector_type(2)));
-typedef uchar opencl_uchar3 __attribute__((ext_vector_type(3)));
-typedef uchar opencl_uchar4 __attribute__((ext_vector_type(4)));
-typedef short opencl_short2 __attribute__((ext_vector_type(2)));
-typedef short opencl_short3 __attribute__((ext_vector_type(3)));
-typedef short opencl_short4 __attribute__((ext_vector_type(4)));
-typedef ushort opencl_ushort2 __attribute__((ext_vector_type(2)));
-typedef ushort opencl_ushort3 __attribute__((ext_vector_type(3)));
-typedef ushort opencl_ushort4 __attribute__((ext_vector_type(4)));
-typedef int opencl_int2 __attribute__((ext_vector_type(2)));
-typedef int opencl_int3 __attribute__((ext_vector_type(3)));
-typedef int opencl_int4 __attribute__((ext_vector_type(4)));
-typedef uint opencl_uint2 __attribute__((ext_vector_type(2)));
-typedef uint opencl_uint3 __attribute__((ext_vector_type(3)));
-typedef uint opencl_uint4 __attribute__((ext_vector_type(4)));
-typedef long opencl_long2 __attribute__((ext_vector_type(2)));
-typedef long opencl_long3 __attribute__((ext_vector_type(3)));
-typedef long opencl_long4 __attribute__((ext_vector_type(4)));
-typedef ulong opencl_ulong2 __attribute__((ext_vector_type(2)));
-typedef ulong opencl_ulong3 __attribute__((ext_vector_type(3)));
-typedef ulong opencl_ulong4 __attribute__((ext_vector_type(4)));
-typedef float opencl_float2 __attribute__((ext_vector_type(2)));
-typedef float opencl_float3 __attribute__((ext_vector_type(3)));
-typedef float opencl_float4 __attribute__((ext_vector_type(4)));
-typedef half opencl_half2 __attribute__((ext_vector_type(2)));
-typedef half opencl_half3 __attribute__((ext_vector_type(3)));
-typedef half opencl_half4 __attribute__((ext_vector_type(4)));
-typedef double opencl_double2 __attribute__((ext_vector_type(2)));
-typedef double opencl_double3 __attribute__((ext_vector_type(3)));
-typedef double opencl_double4 __attribute__((ext_vector_type(4)));
-
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)
 // -> need to add simple macro aliases here
