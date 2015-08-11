@@ -1813,8 +1813,8 @@ public:
 	
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! sign: -1, no sign: 1
-	template <typename signed_type = signed_vector_type,
-			  typename enable_if<is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
+	template <typename signed_type = decayed_scalar_type,
+			  enable_if_t<is_signed<signed_type>::value>* = nullptr>
 	constexpr signed_vector_type sign() const {
 		// signed version
 		return {
@@ -1823,8 +1823,8 @@ public:
 	}
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all 1
-	template <typename signed_type = signed_vector_type,
-			  typename enable_if<!is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
+	template <typename signed_type = decayed_scalar_type,
+			  enable_if_t<!is_signed<signed_type>::value>* = nullptr>
 	constexpr signed_vector_type sign() const {
 		// unsigned version
 		return { (signed_type)1 };
@@ -1832,16 +1832,16 @@ public:
 	
 	//! returns a bool vector with each component representing the sign of the corresponding component in this vector:
 	//! true: sign, false: no sign
-	template <typename signed_type = signed_vector_type,
-			  typename enable_if<is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
+	template <typename signed_type = decayed_scalar_type,
+			  enable_if_t<is_signed<signed_type>::value>* = nullptr>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
 	}
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all false
-	template <typename signed_type = signed_vector_type,
-			  typename enable_if<!is_same<decayed_scalar_type, signed_type>::value, int>::type = 0>
+	template <typename signed_type = decayed_scalar_type,
+			  enable_if_t<!is_signed<signed_type>::value>* = nullptr>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// unsigned version
 		return { false };
