@@ -53,6 +53,7 @@ void event::handle_events() {
 	floor::acquire_context();
 	
 	// internal engine event handler
+	const int coord_scale = (floor::get_hidpi() ? int(floor::get_scale_factor()) : 1);
 	while(SDL_PollEvent(&event_handle)) {
 		const unsigned int event_type = event_handle.type;
 		const unsigned int cur_ticks = SDL_GetTicks();
@@ -60,7 +61,7 @@ void event::handle_events() {
 		if(event_type == SDL_MOUSEBUTTONDOWN ||
 		   event_type == SDL_MOUSEBUTTONUP) {
 			// mouse event handling
-			const int2 mouse_coord = int2(event_handle.button.x, event_handle.button.y);
+			const int2 mouse_coord { event_handle.button.x * coord_scale, event_handle.button.y * coord_scale };
 #if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
 			const float pressure = event_handle.button.pressure;
 #else
@@ -177,8 +178,8 @@ void event::handle_events() {
 				event_type == SDL_MOUSEWHEEL) {
 			switch(event_type) {
 				case SDL_MOUSEMOTION: {
-					const int2 abs_pos = int2(event_handle.motion.x, event_handle.motion.y);
-					const int2 rel_move = int2(event_handle.motion.xrel, event_handle.motion.yrel);
+					const int2 abs_pos { event_handle.motion.x * coord_scale, event_handle.motion.y * coord_scale };
+					const int2 rel_move { event_handle.motion.xrel * coord_scale, event_handle.motion.yrel * coord_scale };
 #if defined(FLOOR_SDL_PRESSURE) // currently only enabled in my patched/customized SDL lib
 					const float pressure = event_handle.motion.pressure;
 #else
@@ -213,7 +214,7 @@ void event::handle_events() {
 				event_type == SDL_FINGERUP ||
 				event_type == SDL_FINGERMOTION) {
 			// touch event handling
-			const float2 finger_coord { event_handle.tfinger.x, event_handle.tfinger.y };
+			const float2 finger_coord { event_handle.tfinger.x * coord_scale, event_handle.tfinger.y * coord_scale };
 			const float pressure = event_handle.tfinger.pressure;
 			const auto finger_id = event_handle.tfinger.fingerId;
 			
@@ -286,6 +287,7 @@ void event::handle_events() {
 uint2 event::get_mouse_pos() const {
 	uint2 pos;
 	SDL_GetMouseState((int*)&pos.x, (int*)&pos.y);
+	pos *= (floor::get_hidpi() ? uint32_t(floor::get_scale_factor()) : 1u);
 	return pos;
 }
 
