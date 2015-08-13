@@ -2506,7 +2506,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..58e3fba 100644
+index 5ca3a78..33cef9c 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -2517,7 +2517,7 @@ index 5ca3a78..58e3fba 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -340,110 +341,757 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,110 +341,774 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -2701,11 +2701,11 @@ index 5ca3a78..58e3fba 100644
 +		return Ret + "*";
 +	};
 +	
-+	const auto add_image_arg = [&Builder, &Context, &CGM,
-+								&addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
-+								&argNames, &argTypeQuals](const clang::QualType& type,
-+														  const OpenCLImageAccessAttr* access_attr,
-+														  const std::string& name) {
++	static const auto add_image_arg = [&Builder, &Context, &CGM,
++									   &addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
++									   &argNames, &argTypeQuals](const clang::QualType& type,
++																 const OpenCLImageAccessAttr* access_attr,
++																 const std::string& name) {
 +		// image is always in global address space
 +		addressQuals.push_back(Builder.getInt32(CGM.getContext().getTargetAddressSpace(LangAS::opencl_global)));
 +		
@@ -2789,7 +2789,9 @@ index 5ca3a78..58e3fba 100644
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = clang_type->getAsStructureType()->getDecl();
++			const auto decl = (clang_type->isStructureType() ?
++							   clang_type->getAsStructureType()->getDecl() :
++							   clang_type->getAsCXXRecordDecl());
 +			const std::string base_name = parm->getName().str() + ".";
 +			unsigned field_idx = 0;
 +			for(const auto& field : decl->fields()) {
@@ -2869,11 +2871,11 @@ index 5ca3a78..58e3fba 100644
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
 +
-+		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos,
-+									&arg_idx, &Context](const clang::QualType& type,
-+														const OpenCLImageAccessAttr* access_attr,
-+														const FloorImageSampleTypeAttr* sample_type,
-+														const std::string& name) {
++		static const auto add_image_arg = [&Builder, &tex_idx, &arg_infos,
++										   &arg_idx, &Context](const clang::QualType& type,
++															   const OpenCLImageAccessAttr* access_attr,
++															   const FloorImageSampleTypeAttr* sample_type,
++															   const std::string& name) {
 +			SmallVector<llvm::Value*, 16> arg_info;
 +			
 +			// #0: param index
@@ -3001,7 +3003,9 @@ index 5ca3a78..58e3fba 100644
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = clang_type->getAsStructureType()->getDecl();
++			const auto decl = (clang_type->isStructureType() ?
++							   clang_type->getAsStructureType()->getDecl() :
++							   clang_type->getAsCXXRecordDecl());
 +			const std::string base_name = parm->getName().str() + ".";
 +			unsigned field_idx = 0;
 +			for(const auto& field : decl->fields()) {
@@ -3047,14 +3051,31 @@ index 5ca3a78..58e3fba 100644
 +	arg_infos.push_back(llvm::MDString::get(Context, "apple.cl.arg_metadata"));
 +	
 +	//
-+	int i = 0;
-+	for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
-+		SmallVector<llvm::Value*, 3> arg_info;
-+		const auto parm = FD->getParamDecl(i);
++	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
++		
++		static const auto add_image_arg = [&arg_infos, &Context](const OpenCLImageAccessAttr* access_attr) {
++			SmallVector<llvm::Value*, 2> arg_info;
++			
++			arg_info.push_back(llvm::MDString::get(Context, "image"));
++			
++			// access qualifier
++			if(access_attr && access_attr->isWriteOnly()) {
++				arg_info.push_back(llvm::MDString::get(Context, "write"));
++			}
++			else if(access_attr && access_attr->isReadWrite()) {
++				arg_info.push_back(llvm::MDString::get(Context, "read/write"));
++			}
++			else {
++				arg_info.push_back(llvm::MDString::get(Context, "read"));
++			}
++			
++			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++		};
 +		
 +		// #0: storage type (stream or image)
 +		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
++			SmallVector<llvm::Value*, 3> arg_info;
 +			arg_info.push_back(llvm::MDString::get(Context, "stream"));
 +			
 +			// #1: access qualifier
@@ -3079,30 +3100,24 @@ index 5ca3a78..58e3fba 100644
 +					arg_info.push_back(llvm::MDString::get(Context, "constant"));
 +					break;
 +			}
++			
++			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		}
 +		else if(clang_type->isImageType()) {
-+			arg_info.push_back(llvm::MDString::get(Context, "image"));
-+			
-+			// #1: access qualifier
-+			const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
-+			if(A && A->isWriteOnly()) {
-+				arg_info.push_back(llvm::MDString::get(Context, "write"));
-+			}
-+			else if(A && A->isReadWrite()) {
-+				arg_info.push_back(llvm::MDString::get(Context, "read/write"));
-+			}
-+			else {
-+				arg_info.push_back(llvm::MDString::get(Context, "read"));
-+			}
++			add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
 +		}
 +		else if(clang_type->isAggregateImageType()) {
-+			// TODO: implement this
++			const auto decl = (clang_type->isStructureType() ?
++							   clang_type->getAsStructureType()->getDecl() :
++							   clang_type->getAsCXXRecordDecl());
++			for(const auto& field : decl->fields()) {
++				add_image_arg(field->getAttr<OpenCLImageAccessAttr>());
++			}
 +		}
 +		else {
 +			// simple kernel parameter (not a buffer) -> don't write anything
++			arg_infos.push_back(llvm::MDNode::get(Context, {}));
 +		}
-+		
-+		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +	}
 +	
 +	// insert into kernel metadata
@@ -3180,7 +3195,7 @@ index 5ca3a78..58e3fba 100644
 +			IMG_ACCESS_READ_WRITE		= (IMG_ACCESS_READ | IMG_ACCESS_WRITE),
 +		};
 +		
-+		const auto to_fas = [](const unsigned& addr_space) {
++		static const auto to_fas = [](const unsigned& addr_space) {
 +			if(addr_space == LangAS::opencl_global) {
 +				return FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
@@ -3192,7 +3207,7 @@ index 5ca3a78..58e3fba 100644
 +			}
 +			return FLOOR_ARG_INFO::AS_NONE;
 +		};
-+		const auto get_image_access = [](const OpenCLImageAccessAttr* access_attr) {
++		static const auto get_image_access = [](const OpenCLImageAccessAttr* access_attr) {
 +			if(access_attr != nullptr) {
 +				if(access_attr->isWriteOnly()) {
 +					return FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
@@ -3203,7 +3218,7 @@ index 5ca3a78..58e3fba 100644
 +			}
 +			return FLOOR_ARG_INFO::IMG_ACCESS_READ;
 +		};
-+		const auto img_type_to_floor_type = [](const clang::Type* type) {
++		static const auto img_type_to_floor_type = [](const clang::Type* type) {
 +			if(type->isImage1dT()) return FLOOR_ARG_INFO::IMG_1D;
 +			else if(type->isImage1dArrayT()) return FLOOR_ARG_INFO::IMG_1D_ARRAY;
 +			else if(type->isImage1dBufferT()) return FLOOR_ARG_INFO::IMG_1D_BUFFER;
@@ -3222,8 +3237,8 @@ index 5ca3a78..58e3fba 100644
 +			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+		const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
-+													  const FLOOR_ARG_INFO& access) {
++		static const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
++															 const FLOOR_ARG_INFO& access) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
@@ -3253,7 +3268,9 @@ index 5ca3a78..58e3fba 100644
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = (clang_type->isStructureType() ? clang_type->getAsStructureType()->getDecl() : clang_type->getAsCXXRecordDecl());
++			const auto decl = (clang_type->isStructureType() ?
++							   clang_type->getAsStructureType()->getDecl() :
++							   clang_type->getAsCXXRecordDecl());
 +			
 +			// field count must either be 1 (for single read or write images) or 2 (one read, one write image)
 +			const auto field_count = std::distance(decl->field_begin(), decl->field_end());
@@ -3376,7 +3393,7 @@ index 5ca3a78..58e3fba 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-@@ -457,10 +1105,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -457,10 +1122,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    SmallVector <llvm::Value*, 5> kernelMDArgs;
    kernelMDArgs.push_back(Fn);
  
@@ -3394,7 +3411,7 @@ index 5ca3a78..58e3fba 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1153,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1170,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -3470,7 +3487,7 @@ index 5ca3a78..58e3fba 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1273,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1290,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -3490,7 +3507,7 @@ index 5ca3a78..58e3fba 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1488,83 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1505,92 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -3518,11 +3535,22 @@ index 5ca3a78..58e3fba 100644
 +			//  float f, const float g, read_only image2d_t h, write_only image2d_t i, read_write image2d_t j"
 +			// -> "218890056a"
 +			// TODO: sampler is "4" (NOTE: all other "numbers/chars" are unused)
-+			int i = 0;
 +			std::string arg_info = "";
-+			for(auto arg_iter = Fn->arg_begin(); arg_iter != Fn->arg_end(); ++arg_iter, ++i) {
-+				const auto parm = FD->getParamDecl(i);
++			for(const auto& parm : FD->params()) {
 +				const auto clang_type = parm->getType();
++				
++				static const auto add_image_arg = [&arg_info](const OpenCLImageAccessAttr* access_attr) {
++					// access qualifier
++					if(access_attr && access_attr->isWriteOnly()) {
++						arg_info += "6";
++					}
++					else if(access_attr && access_attr->isReadWrite()) {
++						arg_info += "a";
++					}
++					else {
++						arg_info += "5";
++					}
++				};
 +				
 +				// storage type (stream or image)
 +				if(clang_type->isPointerType() || clang_type->isReferenceType()) {
@@ -3548,16 +3576,14 @@ index 5ca3a78..58e3fba 100644
 +					}
 +				}
 +				else if(clang_type->isImageType()) {
-+					// access qualifier
-+					const OpenCLImageAccessAttr *A = parm->getAttr<OpenCLImageAccessAttr>();
-+					if(A && A->isWriteOnly()) {
-+						arg_info += "6";
-+					}
-+					else if(A && A->isReadWrite()) {
-+						arg_info += "a";
-+					}
-+					else {
-+						arg_info += "5";
++					add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
++				}
++				else if(clang_type->isAggregateImageType()) {
++					const auto decl = (clang_type->isStructureType() ?
++									   clang_type->getAsStructureType()->getDecl() :
++									   clang_type->getAsCXXRecordDecl());
++					for(const auto& field : decl->fields()) {
++						add_image_arg(field->getAttr<OpenCLImageAccessAttr>());
 +					}
 +				}
 +				else {
@@ -3574,7 +3600,7 @@ index 5ca3a78..58e3fba 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1668,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1694,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
