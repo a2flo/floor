@@ -77,6 +77,9 @@ enum class EVENT_TYPE : unsigned int {
 	FLOOR_USER_EVENT_TYPES
 };
 EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1);
+#if defined(__GLIBCXX__) // libstdc++ is not standard compliant - need to provide a manual std::hash specialization for now
+enum_class_hash(EVENT_TYPE)
+#endif
 
 //
 struct event_object {

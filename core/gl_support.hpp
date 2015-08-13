@@ -117,7 +117,7 @@ extern "C" {
 #endif
 #include <GL/glcorearb.h>
 #include <GL/glext.h>
-#if !defined(__WINDOWS__)
+#if !defined(_WIN32)
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #endif
@@ -136,7 +136,7 @@ typedef void (APIENTRYP PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC) (GLen
 OGL_API extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC _glRenderbufferStorageMultisampleCoverageNV_ptr; // NV_framebuffer_multisample_coverage
 
 #if !defined(__LINUX__) // gl 1.0 - 1.3 are already defined in linux
-#if defined(_MSC_VER) // msvc no longer supports any opengl
+#if defined(_WIN32) // windows no longer supports any opengl
 // OpenGL 1.0
 OGL_API extern PFNGLCULLFACEPROC _glCullFace_ptr;
 OGL_API extern PFNGLFRONTFACEPROC _glFrontFace_ptr;
@@ -653,7 +653,7 @@ OGL_API extern PFNGLCOPYIMAGESUBDATAPROC _glCopyImageSubData_ptr; // ARB_copy_im
 // syntactic sugar
 #define glRenderbufferStorageMultisampleCoverageNV ((PFNGLRENDERBUFFERSTORAGEMULTISAMPLECOVERAGENVPROC)_glRenderbufferStorageMultisampleCoverageNV_ptr)
 #if !defined(__LINUX__)
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 #define glCullFace ((PFNGLCULLFACEPROC)_glCullFace_ptr)
 #define glFrontFace ((PFNGLFRONTFACEPROC)_glFrontFace_ptr)
 #define glHint ((PFNGLHINTPROC)_glHint_ptr)

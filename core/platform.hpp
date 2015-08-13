@@ -27,6 +27,12 @@
 // Windows
 #if (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64) || defined(__WINDOWS__) || defined(MINGW)) && !defined(CYGWIN)
 
+#if defined(MINGW)
+#include <stdlib.h>
+#include <malloc.h>
+#include <wchar.h>
+#endif
+
 #if defined(_MSC_VER)
 #include <windows.h>
 #include <winnt.h>

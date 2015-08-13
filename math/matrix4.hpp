@@ -21,6 +21,7 @@
 
 #include <utility>
 #include <tuple>
+#include <functional>
 #if !defined(FLOOR_NO_MATH_STR)
 #include <ostream>
 #include <sstream>

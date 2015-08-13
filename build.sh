@@ -548,10 +548,13 @@ set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTI
 set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
 
-# checks if any source files have updated (are newer than the target binary)
-# if so, this increments the build version by one (updates the header file)
-info "build version update ..."
-. ./floor/build_version.sh
+# only update build version if FLOOR_DEV environment variable is set
+if [ -n "${FLOOR_DEV}" ]; then
+	# checks if any source files have updated (are newer than the target binary)
+	# if so, this increments the build version by one (updates the header file)
+	info "build version update ..."
+	. ./floor/build_version.sh
+fi
 
 # version of the target (preprocess the floor version header, grep the version defines, transform them to exports and eval)
 eval $(${CXX} -E -dM -I../ floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
@@ -778,9 +781,18 @@ if [ ${BUILD_VERBOSE} -gt 0 ]; then
 fi
 
 # build the precompiled header
+# -> kill old pch file if it exists
+if [ -f "floor.pch" ]; then
+	rm floor.pch
+fi
 info "building precompiled header ..."
-verbose ${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch
-${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch
+verbose "${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch"
+precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch"
+eval ${precomp_header_cmd}
+
+if [ ! -f "floor.pch" ]; then
+	error "precompiled header compilation failed"
+fi
 
 # build the target
 build_file() {

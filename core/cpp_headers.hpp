@@ -32,6 +32,12 @@
 #define OGL_API
 #endif // FLOOR_EXPORTS
 
+#if defined(MINGW)
+#include <stdlib.h>
+#include <malloc.h>
+#include <wchar.h>
+#endif
+
 #if defined(__WINDOWS__) || defined(MINGW)
 #include <windows.h>
 #endif

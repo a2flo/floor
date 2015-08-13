@@ -31,7 +31,7 @@ void glCopyImageSubData(GLuint, GLenum, GLint, GLint, GLint, GLint,
 #define glGetProcAddress(x) SDL_GL_GetProcAddress(x)
 
 #if !defined(__LINUX__)
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 // OpenGL 1.0
 OGL_API PFNGLCULLFACEPROC _glCullFace_ptr = nullptr;
 OGL_API PFNGLFRONTFACEPROC _glFrontFace_ptr = nullptr;
@@ -546,7 +546,7 @@ OGL_API PFNGLCOPYIMAGESUBDATAPROC _glCopyImageSubData_ptr = nullptr; // ARB_copy
 
 void init_gl_funcs() {
 #if !defined(__LINUX__)
-#if defined(_MSC_VER)
+#if defined(_WIN32)
 	//OpenGL1.0
 	_glCullFace_ptr = (PFNGLCULLFACEPROC)glGetProcAddress("glCullFace");
 	_glFrontFace_ptr = (PFNGLFRONTFACEPROC)glGetProcAddress("glFrontFace");

@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if !defined(_MSC_VER)
+#if !defined(_WIN32)
 // need to include this before all else
 #if defined(__APPLE__) && !defined(_XOPEN_SOURCE) && !defined(_STRUCT_UCONTEXT)
 #define _XOPEN_SOURCE

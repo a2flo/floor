@@ -31,6 +31,7 @@
 #include <floor/math/matrix4.hpp>
 #include <type_traits>
 #include <tuple>
+#include <functional>
 
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <random>
