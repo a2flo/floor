@@ -257,7 +257,7 @@ F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs ^ rhs) \
 F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs << rhs) \
 F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0f ? 0.0f : 1.0f)) \
-F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (__FLT_MAX__ - const_select::abs(val))) \
+F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - const_select::abs(val))) \
 )
 
 #define FLOOR_VH_IMPL_DEF_DOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(double, \
@@ -288,7 +288,7 @@ F2_INT(bit_xor, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs ^ rhs) \
 F2_INT(bit_left_shift, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs << rhs) \
 F2_INT(bit_right_shift, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0 ? 0.0 : 1.0)) \
-F1(unary_complement, constexpr, (val < 0.0 ? 1.0 : -1.0) * (__DBL_MAX__ - const_select::abs(val))) \
+F1(unary_complement, constexpr, (val < 0.0 ? 1.0 : -1.0) * (numeric_limits<double>::max() - const_select::abs(val))) \
 )
 
 #define FLOOR_VH_IMPL_DEF_LDOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(long double, \
@@ -319,7 +319,7 @@ F2_INT(bit_xor, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs ^ 
 F2_INT(bit_left_shift, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs << rhs) \
 F2_INT(bit_right_shift, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0L ? 0.0L : 1.0L)) \
-F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (__LDBL_MAX__ - const_select::abs(val))) \
+F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (numeric_limits<long double>::max() - const_select::abs(val))) \
 )
 
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \

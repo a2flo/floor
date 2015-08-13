@@ -34,8 +34,8 @@
 
 class __attribute__((packed, aligned(4))) bbox {
 public:
-	float3 min { __FLT_MAX__ };
-	float3 max { -__FLT_MAX__ };
+	float3 min { numeric_limits<float>::max() };
+	float3 max { -numeric_limits<float>::max() };
 	
 	constexpr bbox() noexcept = default;
 	constexpr bbox(const bbox& box) noexcept : min(box.min), max(box.max) {}

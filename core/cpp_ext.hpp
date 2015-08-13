@@ -43,12 +43,12 @@ template <typename... vec_params> struct is_vector<vector<vec_params...>> : publ
 
 // for whatever reason there is no "string to 32-bit uint" conversion function in the standard
 #if !defined(FLOOR_NO_STOU)
-floor_inline_always static unsigned int stou(const string& str, size_t* pos = nullptr, int base = 10) {
+floor_inline_always static uint32_t stou(const string& str, size_t* pos = nullptr, int base = 10) {
 	const auto ret = stoull(str, pos, base);
 	if(ret > 0xFFFFFFFFull) {
-		return UINT_MAX;
+		return numeric_limits<uint32_t>::max();
 	}
-	return (unsigned int)ret;
+	return (uint32_t)ret;
 }
 #endif
 // same for size_t
@@ -57,7 +57,7 @@ floor_inline_always static unsigned int stou(const string& str, size_t* pos = nu
 floor_inline_always static size_t stosize(const string& str, size_t* pos = nullptr, int base = 10) {
 	const auto ret = stoull(str, pos, base);
 	if(ret > 0xFFFFFFFFull) {
-		return (size_t)UINT_MAX;
+		return (size_t)numeric_limits<uint32_t>::max();
 	}
 	return (unsigned int)ret;
 }

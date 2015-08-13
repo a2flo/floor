@@ -52,18 +52,6 @@
 #define __func__ __FUNCTION__
 #endif
 
-#if !defined(__FLT_MAX__)
-#define __FLT_MAX__ FLT_MAX
-#endif
-
-#if !defined(SIZE_T_MAX)
-#if defined(MAXSIZE_T)
-#define SIZE_T_MAX MAXSIZE_T
-#else
-#define SIZE_T_MAX (~((size_t)0))
-#endif
-#endif
-
 #if !defined(ssize_t)
 #define ssize_t SSIZE_T
 #endif
@@ -85,10 +73,6 @@
 #else
 #define FLOOR_OS_DIR_SLASH "/"
 #include <dirent.h>
-
-#if !defined(SIZE_T_MAX)
-#define SIZE_T_MAX (~((size_t)0))
-#endif
 
 #endif // Windows
 
