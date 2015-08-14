@@ -105,7 +105,7 @@ for arg in "$@"; do
 			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net!)"
 			echo "	cl-profiling       enables profiling of opencl kernel executions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
-			#echo "	libstdc++          use the libstdc++ library instead of libc++ (unsupported)"
+			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo ""
