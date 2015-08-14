@@ -47,22 +47,21 @@ public:
 			}
 			
 			// for all other options: call the registered function and provide the current context
-#if defined(FLOOR_NO_EXCEPTIONS)
-			// if there is no function registered for an option, this will print an error and abort further parsing
-			const auto opt_iter = const_options.find(arg);
-			if(opt_iter == const_options.end()) {
-				log_error("unknown argument '%s'", arg);
-				return;
+#if !defined(FLOOR_NO_EXCEPTIONS)
+			try
+#endif
+			{
+				// if there is no function registered for an option, this will print an error and abort further parsing
+				const auto opt_iter = find_if(cbegin(const_options), cend(const_options), [&arg](const auto& elem) {
+					return (elem.first == arg);
+				});
+				if(opt_iter == const_options.end()) {
+					log_error("unknown argument '%s'", arg);
+					return;
+				}
+				opt_iter->second(option_ctx, arg_ptr);
 			}
-			opt_iter->second(option_ctx, arg_ptr);
-#else
-			// if there is no function registered for an option, this will throw an "out_of_range" exception
-			try {
-				const_options.at(arg)(option_ctx, arg_ptr);
-			}
-			catch(out_of_range&) {
-				log_error("unknown argument '%s'", arg);
-			}
+#if !defined(FLOOR_NO_EXCEPTIONS)
 			catch(...) {
 				log_error("caught unknown exception");
 			}
@@ -83,12 +82,14 @@ public:
 	
 	//! adds a single options
 	static void add_option(string option, option_function func) {
-		options.emplace(option, func);
+		options.emplace_back(make_pair(option, func));
 	}
 	
 	//! adds multiple options at once (NOTE: use braces { ... })
 	static void add_options(initializer_list<pair<const string, option_function>> options_) {
-		options.insert(options_);
+		for(const auto& opt : options_) {
+			options.emplace_back(opt);
+		}
 	}
 	
 protected:
@@ -98,7 +99,7 @@ protected:
 	option_handler& operator=(const option_handler&) = delete;
 	
 	//! NOTE: this _must_ be instantiated/set by the user of this class
-	static unordered_map<string, option_handler<option_context>::option_function> options;
+	static vector<pair<string, option_handler<option_context>::option_function>> options;
 	
 };
 

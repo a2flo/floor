@@ -127,16 +127,6 @@ protected:
 	
 };
 
-//! contains all valid punctuators
-static const unordered_map<string, FLOOR_PUNCTUATOR> json_punctuator_tokens {
-	{ "[", FLOOR_PUNCTUATOR::LEFT_BRACKET },
-	{ "]", FLOOR_PUNCTUATOR::RIGHT_BRACKET },
-	{ "{", FLOOR_PUNCTUATOR::LEFT_BRACE },
-	{ "}", FLOOR_PUNCTUATOR::RIGHT_BRACE },
-	{ ":", FLOOR_PUNCTUATOR::COLON },
-	{ ",", FLOOR_PUNCTUATOR::COMMA },
-};
-
 bool json_lexer::lex(translation_unit& tu) {
 	// tokens reserve strategy: "4 chars : 1 token" seems like a good ratio for now
 	tu.tokens.reserve(tu.source.size() / 4);
@@ -501,6 +491,16 @@ lexer::lex_return_type json_lexer::lex_comment(const translation_unit& tu,
 }
 
 void json_lexer::assign_token_sub_types(translation_unit& tu) {
+	//! contains all valid punctuators
+	static const unordered_map<string, FLOOR_PUNCTUATOR> json_punctuator_tokens {
+		{ "[", FLOOR_PUNCTUATOR::LEFT_BRACKET },
+		{ "]", FLOOR_PUNCTUATOR::RIGHT_BRACKET },
+		{ "{", FLOOR_PUNCTUATOR::LEFT_BRACE },
+		{ "}", FLOOR_PUNCTUATOR::RIGHT_BRACE },
+		{ ":", FLOOR_PUNCTUATOR::COLON },
+		{ ",", FLOOR_PUNCTUATOR::COMMA },
+	};
+
 	for(auto& token : tu.tokens) {
 		// skip non-punctuators
 		if(token.first != SOURCE_TOKEN_TYPE::PUNCTUATOR) {
