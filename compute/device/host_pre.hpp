@@ -32,8 +32,8 @@
 // visibility default: function name is publicly visible and can be retrieved at runtime
 #define kernel extern "C" inline __attribute__((used, visibility("default")))
 
-// workaround use of "global" in __locale header by including it before killing global
-#include <__locale>
+// workaround use of "global" in locale header by including it before killing global
+#include <locale>
 
 // kill address space keywords
 #define global

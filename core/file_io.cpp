@@ -84,6 +84,10 @@ bool file_io::open(const string& filename, OPEN_TYPE open_type_) {
 		filestream.clear();
 		return false;
 	}
+	
+	// don't throw exceptions
+	filestream.exceptions(fstream::goodbit);
+	
 	return true;
 }
 
