@@ -65,15 +65,19 @@
 ** networking (boost/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
 
 *Installation (Unix):*
-* sudo ln -sf /path/to/floor/bin/libfloor{,d}.{so,dylib} /usr/lib/
-* sudo ln -sf /path/to/floor/bin/libfloor{,d}_static.a /usr/lib/
-* sudo ln -sf /path/to/floor /usr/include/floor
+* mkdir /opt/floor
+* sudo ln -sf /path/to/floor /opt/floor/include
+* sudo ln -sf /path/to/floor/bin /opt/floor/bin
 * alternatively: copy these files/folders there
 
-*Installation (Windows):*
-* copy floor.lib/floord.lib to your libraries folder or directly link it
-* add the parent directory of where floor is located to the include paths (e.g. C:/some_path/ if floor is located in C:/some_path/floor)
-** when using compute, also set an environment variable named FLOOR_INCLUDE with this path
+*Installation (Windows / VS):*
+* create a "%ProgramFiles%/floor" folder (C:/Program Files/floor)
+* inside this folder:
+** create a "bin" folder and copy floor.lib/floord.lib there
+** copy the original "floor" folder there (containing all floor source code) and name it "include"
+
+*Installation (Windows / MSYS2):*
+* WIP (expecting it to be /c/msys/opt/floor, then same as Unix)
 
 *Misc Hints:*
 * when using X11 forwarding, set these env variables:
@@ -88,9 +92,13 @@
 ** cd floor/etc/llvm35/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
-** add "floor/etc/llvm35/compute_clang_*_*/" to your PATH environment variable, or set fixed/absolute binary paths in config.json
-** "floor/etc/llvm35/compute_clang_*_*/libcxx/include" and "floor/etc/llvm35/compute_clang_*_*/clang" must be set in your config.json (provided by a project using floor)
-** as mentioned in "Installation (Windows)", FLOOR_INCLUDE must be set correctly
+** Unix:
+*** copy the "compute_clang_*_*" folder as "compute" to /opt/floor/ (should then be /opt/floor/compute/{bin,clang,libcxx})
+*** inside /opt/floor/compute, add a symlink to the floor include folder: sudo ln -sf ../include floor
+** Windows:
+*** copy the "compute_clang_*_*" folder as "compute" to "%ProgramFiles%/floor" (should then be "%ProgramFiles%/floor/compute/{bin,clang,libcxx}")
+*** inside "%ProgramFiles%/floor/compute", copy the floor "include" folder from the folder above it into this folder and name it "floor"
+* NOTE: this is the expected default setup - paths can be changed inside the config.json (compute.toolchain.paths)
 
 *Projects and Examples using floor*:
 * "floor_examples":https://github.com/a2flo/floor_examples
