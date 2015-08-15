@@ -226,30 +226,83 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.use_cache = config_doc.get<bool>("compute.use_cache", true);
 		config.log_commands = config_doc.get<bool>("compute.log_commands", false);
 		
-		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "compute_clang");
-		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "compute_llc");
-		config.default_as = config_doc.get<string>("compute.toolchain.as", "compute_as");
-		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "compute_dis");
-		config.default_libcxx = config_doc.get<string>("compute.toolchain.libcxx", "/usr/include/floor/libcxx/include");
-		config.default_clang = config_doc.get<string>("compute.toolchain.clang", "/usr/include/floor/libcxx/clang");
+		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "clang");
+		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "llc");
+		config.default_as = config_doc.get<string>("compute.toolchain.as", "llvm-as");
+		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "llvm-dis");
 		
-		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
-			const auto whitelist_tokens = core::tokenize(config_doc.get<string>(config_entry_name, ""), ';');
-			for(const auto& token : whitelist_tokens) {
-				if(token == "") continue;
-				whitelist.emplace(core::str_to_lower(token));
+		//
+		static const auto get_viable_toolchain_path = [](const json::json_array& paths,
+														 const string& compiler,
+														 const string& llc,
+														 const string& as,
+														 const string& dis,
+														 const vector<string> additional_bins = {}) {
+			for(const auto& path : paths) {
+				if(path.type != json::json_value::VALUE_TYPE::STRING) {
+					log_error("toolchain path must be a string!");
+					continue;
+				}
+				if(!file_io::is_file(path.str + "/bin/" + compiler)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + llc)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + as)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + dis)) continue;
+				if(!file_io::is_directory(path.str + "/clang")) continue;
+				if(!file_io::is_directory(path.str + "/floor")) continue;
+				if(!file_io::is_directory(path.str + "/libcxx")) continue;
+				bool found_additional_bins = true;
+				for(const auto& bin : additional_bins) {
+					if(!file_io::is_file(path.str + "/bin/" + bin)) {
+						found_additional_bins = false;
+						break;
+					}
+				}
+				if(!found_additional_bins) continue;
+				return path.str + "/";
+			}
+			return ""s;
+		};
+		
+		static const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
+			const auto whitelist_elems = config_doc.get<json::json_array>(config_entry_name);
+			for(const auto& elem : whitelist_elems) {
+				if(elem.type != json::json_value::VALUE_TYPE::STRING) {
+					log_error("whitelist element must be a string!");
+					continue;
+				}
+				if(elem.str == "") continue;
+				whitelist.emplace(core::str_to_lower(elem.str));
 			}
 		};
 		
+		const auto default_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths");
+		
+		const auto opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
 		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
 		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
 		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
 		config.opencl_as = config_doc.get<string>("compute.opencl.as", config.default_as);
 		config.opencl_dis = config_doc.get<string>("compute.opencl.dis", config.default_dis);
-		config.opencl_libcxx = config_doc.get<string>("compute.opencl.libcxx", config.default_libcxx);
-		config.opencl_clang = config_doc.get<string>("compute.opencl.clang", config.default_clang);
+		config.opencl_spir_encoder = config_doc.get<string>("compute.opencl.spir-encoder", config.opencl_spir_encoder);
+		config.opencl_applecl_encoder = config_doc.get<string>("compute.opencl.applecl-encoder", config.opencl_applecl_encoder);
+		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
+															config.opencl_compiler, config.opencl_llc,
+															config.opencl_as, config.opencl_dis,
+															vector<string> { config.opencl_spir_encoder, config.opencl_applecl_encoder });
+		if(config.opencl_base_path == "") {
+			log_error("opencl toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+		}
+		else {
+			config.opencl_compiler.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_llc.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_dis.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_spir_encoder.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_applecl_encoder.insert(0, config.opencl_base_path + "bin/");
+		}
 		
+		const auto cuda_toolchain_paths = config_doc.get<json::json_array>("compute.cuda.paths", default_toolchain_paths);
 		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
 		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
 		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
@@ -257,25 +310,40 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
 		config.cuda_as = config_doc.get<string>("compute.cuda.as", config.default_as);
 		config.cuda_dis = config_doc.get<string>("compute.cuda.dis", config.default_dis);
-		config.cuda_libcxx = config_doc.get<string>("compute.cuda.libcxx", config.default_libcxx);
-		config.cuda_clang = config_doc.get<string>("compute.cuda.clang", config.default_clang);
+		config.cuda_base_path = get_viable_toolchain_path(cuda_toolchain_paths,
+														  config.cuda_compiler, config.cuda_llc,
+														  config.cuda_as, config.cuda_dis);
+		if(config.cuda_base_path == "") {
+			log_error("cuda toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+		}
+		else {
+			config.cuda_compiler.insert(0, config.cuda_base_path + "bin/");
+			config.cuda_llc.insert(0, config.cuda_base_path + "bin/");
+			config.cuda_as.insert(0, config.cuda_base_path + "bin/");
+			config.cuda_dis.insert(0, config.cuda_base_path + "bin/");
+		}
 		
+		const auto metal_toolchain_paths = config_doc.get<json::json_array>("compute.metal.paths", default_toolchain_paths);
 		extract_whitelist(config.metal_whitelist, "compute.metal.whitelist");
 		config.metal_compiler = config_doc.get<string>("compute.metal.compiler", config.default_compiler);
 		config.metal_llc = config_doc.get<string>("compute.metal.llc", config.default_llc);
 		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
-		config.metal_libcxx = config_doc.get<string>("compute.metal.libcxx", config.default_libcxx);
-		config.metal_clang = config_doc.get<string>("compute.metal.clang", config.default_clang);
+		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
+														   config.metal_compiler, config.metal_llc,
+														   config.metal_as, config.metal_dis);
+		if(config.metal_base_path == "") {
+			log_error("metal toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+		}
+		else {
+			config.metal_compiler.insert(0, config.metal_base_path + "bin/");
+			config.metal_llc.insert(0, config.metal_base_path + "bin/");
+			config.metal_as.insert(0, config.metal_base_path + "bin/");
+			config.metal_dis.insert(0, config.metal_base_path + "bin/");
+		}
 		
 		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
 		extract_whitelist(config.host_whitelist, "compute.host.whitelist");
-		config.host_compiler = config_doc.get<string>("compute.host.compiler", config.default_compiler);
-		config.host_llc = config_doc.get<string>("compute.host.llc", config.default_llc);
-		config.host_as = config_doc.get<string>("compute.host.as", config.default_as);
-		config.host_dis = config_doc.get<string>("compute.host.dis", config.default_dis);
-		config.host_libcxx = config_doc.get<string>("compute.host.libcxx", config.default_libcxx);
-		config.host_clang = config_doc.get<string>("compute.host.clang", config.default_clang);
 	}
 	
 	// init logger and print out floor info
@@ -1100,6 +1168,7 @@ bool floor::get_compute_use_cache() {
 bool floor::get_compute_log_commands() {
 	return config.log_commands;
 }
+
 const string& floor::get_compute_default_compiler() {
 	return config.default_compiler;
 }
@@ -1112,13 +1181,10 @@ const string& floor::get_compute_default_as() {
 const string& floor::get_compute_default_dis() {
 	return config.default_dis;
 }
-const string& floor::get_compute_default_libcxx_path() {
-	return config.default_libcxx;
-}
-const string& floor::get_compute_default_clang_path() {
-	return config.default_clang;
-}
 
+const string& floor::get_opencl_base_path() {
+	return config.opencl_base_path;
+}
 const unordered_set<string>& floor::get_opencl_whitelist() {
 	return config.opencl_whitelist;
 }
@@ -1137,13 +1203,16 @@ const string& floor::get_opencl_as() {
 const string& floor::get_opencl_dis() {
 	return config.opencl_dis;
 }
-const string& floor::get_opencl_libcxx_path() {
-	return config.opencl_libcxx;
+const string& floor::get_opencl_spir_encoder() {
+	return config.opencl_spir_encoder;
 }
-const string& floor::get_opencl_clang_path() {
-	return config.opencl_clang;
+const string& floor::get_opencl_applecl_encoder() {
+	return config.opencl_applecl_encoder;
 }
 
+const string& floor::get_cuda_base_path() {
+	return config.cuda_base_path;
+}
 const unordered_set<string>& floor::get_cuda_whitelist() {
 	return config.cuda_whitelist;
 }
@@ -1159,12 +1228,6 @@ const string& floor::get_cuda_as() {
 const string& floor::get_cuda_dis() {
 	return config.cuda_dis;
 }
-const string& floor::get_cuda_libcxx_path() {
-	return config.cuda_libcxx;
-}
-const string& floor::get_cuda_clang_path() {
-	return config.cuda_clang;
-}
 const string& floor::get_cuda_force_driver_sm() {
 	return config.cuda_force_driver_sm;
 }
@@ -1172,6 +1235,9 @@ const string& floor::get_cuda_force_compile_sm() {
 	return config.cuda_force_compile_sm;
 }
 
+const string& floor::get_metal_base_path() {
+	return config.metal_base_path;
+}
 const unordered_set<string>& floor::get_metal_whitelist() {
 	return config.metal_whitelist;
 }
@@ -1187,36 +1253,12 @@ const string& floor::get_metal_as() {
 const string& floor::get_metal_dis() {
 	return config.metal_dis;
 }
-const string& floor::get_metal_libcxx_path() {
-	return config.metal_libcxx;
-}
-const string& floor::get_metal_clang_path() {
-	return config.metal_clang;
-}
 
 const unordered_set<string>& floor::get_host_whitelist() {
 	return config.host_whitelist;
 }
 const string& floor::get_execution_model() {
 	return config.execution_model;
-}
-const string& floor::get_host_compiler() {
-	return config.host_compiler;
-}
-const string& floor::get_host_llc() {
-	return config.host_llc;
-}
-const string& floor::get_host_as() {
-	return config.host_as;
-}
-const string& floor::get_host_dis() {
-	return config.host_dis;
-}
-const string& floor::get_host_libcxx_path() {
-	return config.host_libcxx;
-}
-const string& floor::get_host_clang_path() {
-	return config.host_clang;
 }
 
 shared_ptr<compute_base> floor::get_compute_context() {

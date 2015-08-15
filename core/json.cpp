@@ -36,10 +36,10 @@ json::json_value::json_value(const VALUE_TYPE& value_type) : type(value_type) {
 			// nop
 			break;
 		case VALUE_TYPE::OBJECT:
-			new (&this->object) vector<json_member>();
+			new (&this->object) json_object();
 			break;
 		case VALUE_TYPE::ARRAY:
-			new (&this->array) vector<json_value>();
+			new (&this->array) json_array();
 			break;
 		case VALUE_TYPE::STRING:
 			new (&this->str) string();
@@ -64,16 +64,41 @@ json::json_value& json::json_value::operator=(json::json_value&& val) {
 			fp_number = val.fp_number;
 			break;
 		case VALUE_TYPE::OBJECT:
-			new (&this->object) vector<json_member>(move(val.object.members));
+			new (&this->object) json_object(move(val.object.members));
 			break;
 		case VALUE_TYPE::ARRAY:
-			new (&this->array) vector<json_value>(move(val.array.values));
+			new (&this->array) json_array(move(val.array.values));
 			break;
 		case VALUE_TYPE::STRING:
 			new (&this->str) string(move(val.str));
 			break;
 	}
 	return *this;
+}
+json::json_value::json_value(const json_value& val) {
+	type = val.type;
+	switch(type) {
+		case VALUE_TYPE::NULL_VALUE:
+		case VALUE_TYPE::TRUE_VALUE:
+		case VALUE_TYPE::FALSE_VALUE:
+			// nop
+			break;
+		case VALUE_TYPE::INT_NUMBER:
+			int_number = val.int_number;
+			break;
+		case VALUE_TYPE::FP_NUMBER:
+			fp_number = val.fp_number;
+			break;
+		case VALUE_TYPE::OBJECT:
+			new (&this->object) json_object(val.object.members);
+			break;
+		case VALUE_TYPE::ARRAY:
+			new (&this->array) json_array(val.array.values);
+			break;
+		case VALUE_TYPE::STRING:
+			new (&this->str) string(val.str);
+			break;
+	}
 }
 json::json_value::~json_value() {
 	switch(type) {
@@ -924,5 +949,13 @@ template<> int64_t json::document::get<int64_t>(const string& path, const int64_
 }
 template<> bool json::document::get<bool>(const string& path, const bool default_value) const {
 	const auto ret = extract_value<bool>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> json::json_object json::document::get<json::json_object>(const string& path, const json::json_object default_value) const {
+	const auto ret = extract_value<json::json_object>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> json::json_array json::document::get<vector<json::json_value>>(const string& path, const json::json_array default_value) const {
+	const auto ret = extract_value<json::json_array>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }

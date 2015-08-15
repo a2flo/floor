@@ -147,5 +147,4 @@ echo ""
 #
 cd ..
 echo "copying clang includes to libcxx folder ..."
-cp -R build/Release/lib/clang/${RELEASE}/include libcxx/clang
 echo "done"

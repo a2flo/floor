@@ -1,19 +1,23 @@
 #!/bin/sh
 
+RELEASE=3.5.1
+
 VERSION=$(date +%Y%m%d_%H%M)
 mkdir compute_clang_${VERSION}
 cd compute_clang_${VERSION}
-cp ../build/Release/bin/clang++ compute_clang
-cp ../build/Release/bin/llc compute_llc
-cp ../build/Release/bin/llvm-dis compute_dis
-cp ../build/Release/bin/llvm-as compute_as
-cp ../build/Release/bin/spir-encoder .
-cp ../build/Release/bin/spir-verifier .
-cp ../build/Release/bin/applecl-encoder .
 
-mkdir libcxx
-cp -R ../libcxx/clang libcxx/
-cp -R ../libcxx/include libcxx/
+mkdir bin
+cp ../build/Release/bin/clang bin/
+cp ../build/Release/bin/llc bin/
+cp ../build/Release/bin/llvm-dis bin/
+cp ../build/Release/bin/llvm-as bin/
+cp ../build/Release/bin/spir-encoder bin/
+cp ../build/Release/bin/spir-verifier bin/
+cp ../build/Release/bin/applecl-encoder bin/
+
+cp -R ../build/Release/lib/clang/${RELEASE}/include .
+
+cp -R ../libcxx/include libcxx
 cp ../libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
 cd ..

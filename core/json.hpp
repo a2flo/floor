@@ -24,6 +24,9 @@
 class json {
 public:
 	struct json_member;
+	struct json_value;
+	typedef vector<json_member> json_object;
+	typedef vector<json_value> json_array;
 	
 	//! json value (keyword, object, array, number or string)
 	struct json_value {
@@ -41,10 +44,10 @@ public:
 		
 		union {
 			struct {
-				vector<json_member> members;
+				json_object members;
 			} object;
 			struct {
-				vector<json_value> values;
+				json_array values;
 			} array;
 			struct {
 				int64_t int_number;
@@ -109,11 +112,26 @@ public:
 			}
 			return { true, str };
 		}
+		template <typename T, enable_if_t<is_same<T, json_object>::value>* = nullptr>
+		pair<bool, json_object> get() const {
+			if(type != VALUE_TYPE::OBJECT) {
+				return { false, {} };
+			}
+			return { true, object.members };
+		}
+		template <typename T, enable_if_t<is_same<T, json_array>::value>* = nullptr>
+		pair<bool, json_array> get() const {
+			if(type != VALUE_TYPE::ARRAY) {
+				return { false, {} };
+			}
+			return { true, array.values };
+		}
 		
 		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
 		json_value(const VALUE_TYPE& value_type);
 		json_value(json_value&& val);
 		json_value& operator=(json_value&& val);
+		json_value(const json_value& val);
 		~json_value();
 	};
 	
@@ -124,6 +142,7 @@ public:
 		
 		json_member(json_member&& member_) : key(move(member_.key)), value(move(member_.value)) {}
 		json_member(string&& key_, json_value&& value_) : key(move(key_)), value(move(value_)) {}
+		json_member(const json_member& member_) = default;
 	};
 	
 	//! json document, root is always a json value
@@ -179,6 +198,12 @@ template<> struct json::document::default_value<int64_t> {
 template<> struct json::document::default_value<bool> {
 	static constexpr bool def() { return false; }
 };
+template<> struct json::document::default_value<json::json_object> {
+	static json::json_object def() { return {}; }
+};
+template<> struct json::document::default_value<json::json_array> {
+	static json::json_array def() { return {}; }
+};
 
 template<> string json::document::get<string>(const string& path, const string default_value) const;
 template<> float json::document::get<float>(const string& path, const float default_value) const;
@@ -186,5 +211,7 @@ template<> double json::document::get<double>(const string& path, const double d
 template<> uint64_t json::document::get<uint64_t>(const string& path, const uint64_t default_value) const;
 template<> int64_t json::document::get<int64_t>(const string& path, const int64_t default_value) const;
 template<> bool json::document::get<bool>(const string& path, const bool default_value) const;
+template<> json::json_object json::document::get<json::json_object>(const string& path, const json::json_object default_value) const;
+template<> json::json_array json::document::get<json::json_array>(const string& path, const json::json_array default_value) const;
 
 #endif

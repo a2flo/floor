@@ -241,12 +241,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 #endif
 	
 	// create the initial clang compilation command
-	string clang_cmd = cmd_prefix + " ";
-	string libcxx_path = " -isystem ", clang_path = " -isystem ";
+	string clang_cmd = cmd_prefix;
+	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	switch(target) {
 		case TARGET::SPIR:
 			clang_cmd += {
-				floor::get_opencl_compiler() +
+				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-kernel-arg-info" \
@@ -258,8 +258,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
 			};
-			libcxx_path += floor::get_opencl_libcxx_path();
-			clang_path += floor::get_opencl_clang_path();
+			libcxx_path += floor::get_opencl_base_path() + "libcxx";
+			clang_path += floor::get_opencl_base_path() + "clang";
+			floor_path += floor::get_opencl_base_path() + "floor";
 			break;
 		case TARGET::AIR: {
 			const auto mtl_dev = (metal_device*)device.get();
@@ -281,7 +282,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			}
 			
 			clang_cmd += {
-				floor::get_metal_compiler() +
+				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-metal-unknown" \
 				" -Xclang -metal-air=" + metal_target +
@@ -292,23 +293,25 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL"
 			};
-			libcxx_path += floor::get_metal_libcxx_path();
-			clang_path += floor::get_metal_clang_path();
+			libcxx_path += floor::get_metal_base_path() + "libcxx";
+			clang_path += floor::get_metal_base_path() + "clang";
+			floor_path += floor::get_metal_base_path() + "floor";
 		} break;
 		case TARGET::PTX:
 			clang_cmd += {
-				floor::get_cuda_compiler() +
+				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
 				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
-			libcxx_path += floor::get_cuda_libcxx_path();
-			clang_path += floor::get_cuda_clang_path();
+			libcxx_path += floor::get_cuda_base_path() + "libcxx";
+			clang_path += floor::get_cuda_base_path() + "clang";
+			floor_path += floor::get_cuda_base_path() + "floor";
 			break;
 		case TARGET::APPLECL:
 			clang_cmd += {
-				floor::get_opencl_compiler() +
+				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-applecl-unknown" : "spir64-applecl-unknown") +
 				" -Xclang -applecl-kernel-info" \
@@ -320,10 +323,14 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -DFLOOR_COMPUTE_APPLECL" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
 			};
-			libcxx_path += floor::get_opencl_libcxx_path();
-			clang_path += floor::get_opencl_clang_path();
+			libcxx_path += floor::get_opencl_base_path() + "libcxx";
+			clang_path += floor::get_opencl_base_path() + "clang";
+			floor_path += floor::get_opencl_base_path() + "floor";
 			break;
 	}
+	libcxx_path += "\"";
+	clang_path += "\"";
+	floor_path += "\"";
 	
 	// add device information
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
@@ -399,13 +406,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += {
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR" +
-		libcxx_path + clang_path +
-#if !defined(_MSC_VER) // TODO: better use a config entry for these as well
-		" -isystem /usr/include"
-#else
-		" -isystem %FLOOR_INCLUDE%"
-#endif
-		" -include floor/compute/device/common.hpp"
+		clang_path + libcxx_path + floor_path +
+		" -include compute/device/common.hpp"
 		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
 		warning_flags +
 		additional_options +
@@ -455,11 +457,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			log_error("failed to output LLVM IR for SPIR consumption");
 			return {};
 		}
-		core::system(floor::get_opencl_as() + " -o spir_3_5.bc spir_3_5.ll");
+		core::system("\"" + floor::get_opencl_as() + "\" -o spir_3_5.bc spir_3_5.ll");
 		
 		// run spir-encoder for 3.5 -> 3.2 conversion
 		const string spir_3_2_encoder_cmd {
-			"spir-encoder spir_3_5.bc spir_3_2.bc"
+			"\"" + floor::get_opencl_spir_encoder() + "\" spir_3_5.bc spir_3_2.bc"
 #if !defined(_MSC_VER)
 			" 2>&1"
 #endif
@@ -539,7 +541,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		
 		// compile llvm ir to ptx
 		const string llc_cmd {
-			floor::get_cuda_llc() +
+			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
 			" -mcpu=sm_" + sm_version + " -mattr=ptx42" +
 			" -o - cuda_ptx.ll"
@@ -577,11 +579,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			log_error("failed to output LLVM IR for AppleCL consumption");
 			return {};
 		}
-		core::system(floor::get_opencl_as() + " -o applecl_3_5.bc applecl_3_5.ll");
+		core::system("\"" + floor::get_opencl_as() + "\" -o applecl_3_5.bc applecl_3_5.ll");
 		
 		// run applecl-encoder for 3.5 -> 3.2 conversion
 		const string applecl_3_2_encoder_cmd {
-			"applecl-encoder"s +
+			"\"" + floor::get_opencl_applecl_encoder() + "\"" +
 			(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
 			" applecl_3_5.bc applecl_3_2.bc"
 #if !defined(_MSC_VER)

@@ -154,52 +154,45 @@ public:
 	static bool get_compute_keep_binaries();
 	static bool get_compute_use_cache();
 	static bool get_compute_log_commands();
+	
+	// compute toolchain
 	static const string& get_compute_default_compiler();
 	static const string& get_compute_default_llc();
 	static const string& get_compute_default_as();
 	static const string& get_compute_default_dis();
-	static const string& get_compute_default_libcxx_path();
-	static const string& get_compute_default_clang_path();
 	
 	// opencl
+	static const string& get_opencl_base_path();
 	static const unordered_set<string>& get_opencl_whitelist();
 	static const uint64_t& get_opencl_platform();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
 	static const string& get_opencl_dis();
-	static const string& get_opencl_libcxx_path();
-	static const string& get_opencl_clang_path();
+	static const string& get_opencl_spir_encoder();
+	static const string& get_opencl_applecl_encoder();
 	
 	// cuda
+	static const string& get_cuda_base_path();
 	static const unordered_set<string>& get_cuda_whitelist();
 	static const string& get_cuda_compiler();
 	static const string& get_cuda_llc();
-	static const string& get_cuda_libcxx_path();
-	static const string& get_cuda_clang_path();
 	static const string& get_cuda_as();
 	static const string& get_cuda_dis();
 	static const string& get_cuda_force_driver_sm();
 	static const string& get_cuda_force_compile_sm();
 	
 	// metal
+	static const string& get_metal_base_path();
 	static const unordered_set<string>& get_metal_whitelist();
 	static const string& get_metal_compiler();
 	static const string& get_metal_llc();
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
-	static const string& get_metal_libcxx_path();
-	static const string& get_metal_clang_path();
 	
 	// host
 	static const unordered_set<string>& get_host_whitelist();
 	static const string& get_execution_model();
-	static const string& get_host_compiler();
-	static const string& get_host_llc();
-	static const string& get_host_as();
-	static const string& get_host_dis();
-	static const string& get_host_libcxx_path();
-	static const string& get_host_clang_path();
 	
 	// compute (opencl/cuda/metal/host)
 	static shared_ptr<compute_base> get_compute_context();
@@ -257,52 +250,46 @@ protected:
 		bool keep_binaries = true;
 		bool use_cache = true;
 		bool log_commands = false;
-		string default_compiler = "compute_clang";
-		string default_llc = "compute_llc";
-		string default_as = "compute_as";
-		string default_dis = "compute_dis";
-		string default_libcxx = "/usr/include/floor/libcxx/include";
-		string default_clang = "/usr/include/floor/libcxx/clang";
+		
+		// compute toolchain
+		string default_compiler = "clang";
+		string default_llc = "llc";
+		string default_as = "llvm-as";
+		string default_dis = "llvm-dis";
 		
 		// opencl
+		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
 		unordered_set<string> opencl_whitelist;
-		string opencl_compiler = "compute_clang";
-		string opencl_llc = "compute_llc";
-		string opencl_as = "compute_as";
-		string opencl_dis = "compute_dis";
-		string opencl_libcxx = "/usr/include/floor/libcxx/include";
-		string opencl_clang = "/usr/include/floor/libcxx/clang";
+		string opencl_compiler = "";
+		string opencl_llc = "";
+		string opencl_as = "";
+		string opencl_dis = "";
+		string opencl_spir_encoder = "spir-encoder";
+		string opencl_applecl_encoder = "applecl-encoder";
 		
 		// cuda
+		string cuda_base_path = "";
 		unordered_set<string> cuda_whitelist;
-		string cuda_compiler = "compute_clang";
-		string cuda_llc = "compute_llc";
-		string cuda_as = "compute_as";
-		string cuda_dis = "compute_dis";
-		string cuda_libcxx = "/usr/include/floor/libcxx/include";
-		string cuda_clang = "/usr/include/floor/libcxx/clang";
+		string cuda_compiler = "";
+		string cuda_llc = "";
+		string cuda_as = "";
+		string cuda_dis = "";
 		string cuda_force_driver_sm = "";
 		string cuda_force_compile_sm = "";
 		
 		// metal
+		string metal_base_path = "";
 		unordered_set<string> metal_whitelist;
-		string metal_compiler = "compute_clang";
-		string metal_llc = "compute_llc";
-		string metal_as = "compute_as";
-		string metal_dis = "compute_dis";
-		string metal_libcxx = "/usr/include/floor/libcxx/include";
-		string metal_clang = "/usr/include/floor/libcxx/clang";
+		string metal_compiler = "";
+		string metal_llc = "";
+		string metal_as = "";
+		string metal_dis = "";
 		
 		// host
+		string host_base_path = "";
 		unordered_set<string> host_whitelist;
 		string execution_model = "mt-group";
-		string host_compiler = "compute_clang";
-		string host_llc = "compute_llc";
-		string host_as = "compute_as";
-		string host_dis = "compute_dis";
-		string host_libcxx = "/usr/include/floor/libcxx/include";
-		string host_clang = "/usr/include/floor/libcxx/clang";
 
 		// sdl
 		SDL_Window* wnd = nullptr;
