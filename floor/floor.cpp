@@ -291,7 +291,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.opencl_as, config.opencl_dis,
 															vector<string> { config.opencl_spir_encoder, config.opencl_applecl_encoder });
 		if(config.opencl_base_path == "") {
-			log_error("opencl toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
 			config.opencl_compiler.insert(0, config.opencl_base_path + "bin/");
@@ -314,7 +314,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 														  config.cuda_compiler, config.cuda_llc,
 														  config.cuda_as, config.cuda_dis);
 		if(config.cuda_base_path == "") {
-			log_error("cuda toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+			log_error("cuda toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
 			config.cuda_compiler.insert(0, config.cuda_base_path + "bin/");
@@ -333,7 +333,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 														   config.metal_compiler, config.metal_llc,
 														   config.metal_as, config.metal_dis);
 		if(config.metal_base_path == "") {
-			log_error("metal toolchain is unavailable - could not find all binaries in any specified toolchain path!");
+			log_error("metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
 			config.metal_compiler.insert(0, config.metal_base_path + "bin/");
