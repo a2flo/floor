@@ -184,9 +184,11 @@ void host_compute::init(const uint64_t platform_index_ floor_unused,
 	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
 #endif
 	device.max_work_item_sizes = { 0xFFFFFFFFu };
-	device.max_image_1d_dim = { 0 };
-	device.max_image_2d_dim = { 0, 0 };
-	device.max_image_3d_dim = { 0, 0, 0 };
+	device.max_image_1d_buffer_dim = { device.max_mem_alloc };
+	// can technically use any dim as long as it fits into memory
+	device.max_image_1d_dim = { 65536 };
+	device.max_image_2d_dim = { 65536, 65536 };
+	device.max_image_3d_dim = { 65536, 65536, 65536 };
 	device.image_support = true;
 	device.double_support = true;
 	device.unified_memory = true;

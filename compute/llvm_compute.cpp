@@ -407,7 +407,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +
-		" -include compute/device/common.hpp"
+		" -include floor/compute/device/common.hpp"
 		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
 		warning_flags +
 		additional_options +

@@ -261,6 +261,7 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
+		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_1d_dim = { 4096 };
 		device.max_image_2d_dim = { 4096, 4096 };
 		device.max_image_3d_dim = { 4096, 4096, 2048 };
@@ -294,6 +295,7 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = ([dev doubleFPConfig] > 0);
 		device.unified_memory = true; // TODO: not sure about this?
+		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_1d_dim = { [dev maxTextureWidth1D] };
 		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
 		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };

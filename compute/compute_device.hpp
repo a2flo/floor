@@ -109,6 +109,8 @@ public:
 	uint3 max_work_group_item_sizes;
 	//! max 1D image dimensions
 	size_t max_image_1d_dim { 0u };
+	//! max 1D buffer image dimensions
+	size_t max_image_1d_buffer_dim { 0u };
 	//! max 2D image dimensions
 	size2 max_image_2d_dim;
 	//! max 3D image dimensions

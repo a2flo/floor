@@ -157,16 +157,18 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		device.max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
 		device.max_work_group_item_sizes = uint3(max_block_dim);
 		
-		int max_image_1d;
+		int max_image_1d, max_image_1d_buffer;
 		int2 max_image_2d;
 		int3 max_image_3d;
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_1d, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LINEAR_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_1d_buffer, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LINEAR_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_1d, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_2d.x, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_2d.y, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_HEIGHT, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.x, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.y, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_HEIGHT, cuda_dev));
 		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.z, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_DEPTH, cuda_dev));
 		device.max_image_1d_dim = size_t(max_image_1d);
+		device.max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
 		device.max_image_2d_dim = size2(max_image_2d);
 		device.max_image_3d_dim = size3(max_image_3d);
 		

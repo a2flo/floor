@@ -357,7 +357,6 @@
 		5C7F30BD17F5EB6F0071C3D1 /* http_scheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = http_scheduler.cpp; sourceTree = "<group>"; };
 		5C7F30C117F5EB930071C3D1 /* http_scheduler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_scheduler.hpp; sourceTree = "<group>"; };
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
-		5C81C42F17E59FE800FE6791 /* install.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install.sh; sourceTree = "<group>"; };
 		5C84613B1A914758004D4745 /* metal_queue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_queue.mm; path = metal/metal_queue.mm; sourceTree = "<group>"; };
 		5C84613C1A914758004D4745 /* metal_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_queue.hpp; path = metal/metal_queue.hpp; sourceTree = "<group>"; };
 		5C84613D1A914758004D4745 /* metal_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_program.hpp; path = metal/metal_program.hpp; sourceTree = "<group>"; };
@@ -779,7 +778,6 @@
 		5C81C42C17E59A1A00FE6791 /* build */ = {
 			isa = PBXGroup;
 			children = (
-				5C81C42F17E59FE800FE6791 /* install.sh */,
 				5C782595187226DA00725EAF /* floor_prefix.pch */,
 				5C0686BC19C95FD800CF63C8 /* build.sh */,
 				5CD2176819EBEC4B0049D6AE /* README.textile */,
@@ -1273,7 +1271,7 @@
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1299,7 +1297,6 @@
 					"-lcrypto",
 					"-lssl",
 				);
-				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libfloord;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";
@@ -1399,7 +1396,7 @@
 				HEADER_SEARCH_PATHS = ../;
 				INSTALL_PATH = "@rpath";
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
-				LD_RUNPATH_SEARCH_PATHS = "/usr/local/lib /usr/lib @loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
 				LLVM_VECTORIZE_LOOPS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 10.9;
 				OTHER_CFLAGS = (
@@ -1424,7 +1421,6 @@
 					"-lcrypto",
 					"-lssl",
 				);
-				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 				PRODUCT_NAME = libfloor;
 				SDKROOT = macosx;
 				STRINGS_FILE_OUTPUT_ENCODING = "UTF-8";

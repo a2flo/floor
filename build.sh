@@ -476,11 +476,12 @@ else
 
 	# rpath voodoo
 	LDFLAGS="${LDFLAGS} -install_name @rpath/${TARGET_BIN_NAME}"
-	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/lib"
-	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/lib"
 	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker @loader_path/../Resources"
 	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker @loader_path/../Frameworks"
 	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /Library/Frameworks"
+	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/lib"
+	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/lib"
+	LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /opt/floor/lib"
 	
 	# probably necessary
 	LDFLAGS="${LDFLAGS} -fobjc-link-runtime"
@@ -512,7 +513,7 @@ fi
 
 # just in case, also add these rather default ones (should also go after all previous libs/includes,
 # in case a local or otherwise set up lib is overwriting a system lib and should be used instead)
-LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib"
+LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib -L/opt/floor/lib"
 INCLUDES="${INCLUDES}"
 # don't automatically add /usr/include and /usr/local/include on mingw/msys (these will lead to the wrong headers being included)
 if [ $BUILD_OS != "mingw" ]; then

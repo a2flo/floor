@@ -302,18 +302,19 @@ void opencl_compute::init(const uint64_t platform_index_,
 			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
 			
 #if defined(__APPLE__)
-			// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by SIMD width
+			// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by (at least) 8
 			if(device.internal_type == CL_DEVICE_TYPE_CPU) {
-				const uint32_t simd_width = (SDL_HasAVX() ? 8 : 4);
-				if(device.max_work_group_size > simd_width) device.max_work_group_size /= simd_width;
-				if(device.max_work_group_item_sizes.x > simd_width) device.max_work_group_item_sizes.x /= simd_width;
-				if(device.max_work_group_item_sizes.y > simd_width) device.max_work_group_item_sizes.y /= simd_width;
-				if(device.max_work_group_item_sizes.z > simd_width) device.max_work_group_item_sizes.z /= simd_width;
+				const auto size_div = std::max(8u, device.units); // might be cpu/unit count, don't have the h/w to test this -> assume at least 8
+				if(device.max_work_group_size > size_div) device.max_work_group_size /= size_div;
+				if(device.max_work_group_item_sizes.x > size_div) device.max_work_group_item_sizes.x /= size_div;
+				if(device.max_work_group_item_sizes.y > size_div) device.max_work_group_item_sizes.y /= size_div;
+				if(device.max_work_group_item_sizes.z > size_div) device.max_work_group_item_sizes.z /= size_div;
 			}
 #endif
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
-			device.max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
+			device.max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
+			device.max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
 			device.max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
 										cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
 			device.max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
