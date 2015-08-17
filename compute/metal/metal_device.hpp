@@ -21,7 +21,7 @@
 
 #include <floor/compute/compute_device.hpp>
 
-#if !defined(FLOOR_NO_METAL)
+#if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
 #include <floor/compute/metal/metal_common.hpp>
 #include <Metal/Metal.h>
 #endif
@@ -46,7 +46,7 @@ public:
 	// compute queue used for internal purposes (try not to use this ...)
 	compute_queue* internal_queue { nullptr };
 	
-#if !defined(FLOOR_NO_METAL)
+#if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
 	// actual metal device object
 	id <MTLDevice> device;
 #endif

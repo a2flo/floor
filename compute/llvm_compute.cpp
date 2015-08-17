@@ -33,7 +33,7 @@
 #endif
 #include <floor/compute/metal/metal_device.hpp>
 
-static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::kernel_info>& kernels) {
+bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
 	const auto parse_metadata_line = [](const string& line, const auto& per_elem_func) {
 		const auto set_start = line.find('{');
@@ -98,7 +98,7 @@ static bool get_floor_metadata(const string& lines_str, vector<llvm_compute::ker
 	};
 	
 	// go through all lines and process the found metadata lines
-	auto lines = core::tokenize(lines_str, '\n');
+	auto lines = core::tokenize(llvm_ir, '\n');
 	unordered_map<uint64_t, const string*> metadata_refs;
 	vector<uint64_t> kernel_refs;
 	for(const auto& line : lines) {
@@ -505,8 +505,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 		
 		// strip floor metadata
-		static const regex rx_floor_metadata("(!floor.kernels = .*)");
-		ir_output = regex_replace(ir_output, rx_floor_metadata, "");
+		//static const regex rx_floor_metadata("(!floor.kernels = .*)");
+		//ir_output = regex_replace(ir_output, rx_floor_metadata, "");
 		
 		// kill "unnamed_addr" in local and constant mem global vars
 		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");

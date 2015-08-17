@@ -76,10 +76,10 @@ namespace std {
 #define FLOOR_GET_ID_RET_TYPE size_t
 #endif
 
-// these functions are defined for metal on ios and for intel on osx (TODO: amd?), but not for nvidia on osx!
-#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA)
+// these functions are defined for metal on ios and for intel on osx, but not for nvidia and amd on osx!
+#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
 FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_id(uint32_t dim) asm("air.get_global_id.i32");
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_id (uint32_t dim) asm("air.get_local_id.i32");
+FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_id(uint32_t dim) asm("air.get_local_id.i32");
 FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_size(uint32_t dim) asm("air.get_local_size.i32");
 FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_group_id(uint32_t dim) asm("air.get_group_id.i32");
 FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_num_groups(uint32_t dim) asm("air.get_num_groups.i32");
@@ -101,10 +101,12 @@ floor_inline_always uint32_t get_local_id(uint32_t dim) { return uint32_t(metal_
 floor_inline_always uint32_t get_local_size(uint32_t dim) { return uint32_t(metal_get_local_size(dim)); }
 floor_inline_always uint32_t get_group_id(uint32_t dim) { return uint32_t(metal_get_group_id(dim)); }
 floor_inline_always uint32_t get_num_groups(uint32_t dim) { return uint32_t(metal_get_num_groups(dim)); }
-floor_inline_always uint32_t get_work_dim(uint32_t dim) { return metal_get_work_dim(); }
+floor_inline_always uint32_t get_work_dim() { return metal_get_work_dim(); }
 
-#else // -> use cuda style get_*_id functions if nvidia on osx
+#elif defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) // -> use cuda style get_*_id functions if nvidia on osx
 #include <floor/compute/device/cuda_id.hpp>
+#elif defined(FLOOR_COMPUTE_INFO_VENDOR_AMD) // TODO: fix this (none of the air.* functions work and neither do llvm.r600.* or other builtins)
+#error "currently unsupported"
 #endif
 
 #undef FLOOR_GET_ID_RET_TYPE

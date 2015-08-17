@@ -133,6 +133,10 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
+	//! NOTE: for internal purposes (not exposed by other backends)
+	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
+											const string additional_options) REQUIRES(!programs_lock);
+	
 	//////////////////////////////////////////
 	// metal specific functions
 	
@@ -146,9 +150,6 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<metal_program>> programs GUARDED_BY(programs_lock);
-	
-	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-											const string additional_options) REQUIRES(!programs_lock);
 	
 };
 
