@@ -21,27 +21,29 @@ index e1c9a14..1c9e06b 100644
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..fdbec7a 100644
+index 02f4259..8522878 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -64,6 +64,8 @@ void initializeTarget(PassRegistry&);
+@@ -64,6 +64,9 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
 +void initializeAddressSpaceFixPass(PassRegistry&);
++void initializeMetalFixPass(PassRegistry&);
 +void initializeSPIRFixPass(PassRegistry&);
  void initializeADCEPass(PassRegistry&);
  void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
  void initializeAliasAnalysisCounterPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..cd2e7b6 100644
+index e06560c..2c1beda 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
-@@ -48,6 +48,8 @@ namespace {
+@@ -48,6 +48,9 @@ namespace {
          return;
  
        (void) llvm::createAAEvalPass();
 +      (void) llvm::createAddressSpaceFixPass();
++      (void) llvm::createMetalFixPass();
 +      (void) llvm::createSPIRFixPass();
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
@@ -59,23 +61,24 @@ index ce1a7d6..8042a55 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..b022c6a 100644
+index 50877d0..9f7712b 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -118,6 +118,8 @@ public:
+@@ -118,6 +118,9 @@ public:
    bool LoopVectorize;
    bool RerollLoops;
    bool LoadCombine;
 +  bool EnableAddressSpaceFix;
++  bool EnableMetalFix;
 +  bool EnableSPIRFix;
  
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..0ce9cbe 100644
+index 413134e..6eaf55a 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -30,6 +30,19 @@ class TargetMachine;
+@@ -30,6 +30,25 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -83,6 +86,12 @@ index 413134e..0ce9cbe 100644
 +// pointers that should be non-addrspace pointers.
 +//
 +FunctionPass *createAddressSpaceFixPass();
++
++//===----------------------------------------------------------------------===//
++//
++// MetalFix - This pass fixes Metal/AIR issues.
++//
++FunctionPass *createMetalFixPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -433,19 +442,20 @@ index c970a1a..20d38ef 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..ec4bbde 100644
+index 701fb46..c0b6e91 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -70,6 +70,8 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -70,6 +70,9 @@ PassManagerBuilder::PassManagerBuilder() {
      LoopVectorize = RunLoopVectorization;
      RerollLoops = RunLoopRerolling;
      LoadCombine = RunLoadCombine;
 +    EnableAddressSpaceFix = false;
++    EnableMetalFix = false;
 +    EnableSPIRFix = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -153,6 +155,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -153,6 +156,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -464,13 +474,14 @@ index 701fb46..ec4bbde 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +294,9 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +295,10 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
 +
-+  // run SPIRFix pass at the very end, no IR should change after this point!
++  // run MetalFix/SPIRFix pass at the very end, no IR should change after this point!
 +  if(EnableSPIRFix) MPM.add(createSPIRFixPass());
++  else if(EnableMetalFix) MPM.add(createMetalFixPass());
  }
  
  void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
@@ -720,16 +731,205 @@ index 0000000..437368f
 +	return new AddressSpaceFix();
 +}
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 261ddda..9381a76 100644
+index 261ddda..2dcb102 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,6 @@
+@@ -1,4 +1,7 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
++  MetalFix.cpp
 +  SPIRFix.cpp
    ADCE.cpp
    ConstantHoisting.cpp
    ConstantProp.cpp
+diff --git a/lib/Transforms/Scalar/MetalFix.cpp b/lib/Transforms/Scalar/MetalFix.cpp
+new file mode 100644
+index 0000000..092534b
+--- /dev/null
++++ b/lib/Transforms/Scalar/MetalFix.cpp
+@@ -0,0 +1,182 @@
++//===- MetalFix.cpp - Metal fixes -----------------------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file fixes certain post-codegen issues.
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++#include <cxxabi.h>
++using namespace llvm;
++
++#define DEBUG_TYPE "MetalFix"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	// MetalFix
++	struct MetalFix : public FunctionPass, InstVisitor<MetalFix> {
++		friend class InstVisitor<MetalFix>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		std::shared_ptr<llvm::IRBuilder<>> builder;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		
++		// added function args
++		Argument* global_id { nullptr };
++		Argument* global_size { nullptr };
++		Argument* local_id { nullptr };
++		Argument* local_size { nullptr };
++		Argument* group_id { nullptr };
++		Argument* group_size { nullptr };
++		
++		MetalFix() : FunctionPass(ID) {
++			initializeMetalFixPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			
++			// if not a kernel function, return (for now)
++			if(!F.hasFnAttribute("compute_kernel")) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			
++			// add args
++			const auto vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
++			global_id = new llvm::Argument(vec_type, "__metal__global_id__", &F);
++			global_size = new llvm::Argument(vec_type, "__metal__global_size__", &F);
++			local_id = new llvm::Argument(vec_type, "__metal__local_id__", &F);
++			local_size = new llvm::Argument(vec_type, "__metal__local_size__", &F);
++			group_id = new llvm::Argument(vec_type, "__metal__group_id__", &F);
++			group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
++			
++			// visit everything in this function
++			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++			visit(F);
++			
++			// always modified
++			return true;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<MetalFix>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<MetalFix>::visit(I);
++		}
++		
++		//
++		void visitCallInst(CallInst &I) {
++			const auto func_name = I.getCalledFunction()->getName();
++			if(!func_name.startswith("floor.")) return;
++			
++			CallSite CS { &I };
++			builder->SetInsertPoint(&I);
++			
++			// figure out which one we need
++			Argument* id;
++			if(func_name == "floor.get_global_id.i32") {
++				id = global_id;
++			}
++			else if(func_name == "floor.get_global_size.i32") {
++				id = global_size;
++			}
++			else if(func_name == "floor.get_local_id.i32") {
++				id = local_id;
++			}
++			else if(func_name == "floor.get_local_size.i32") {
++				id = local_size;
++			}
++			else if(func_name == "floor.get_group_id.i32") {
++				id = group_id;
++			}
++			else if(func_name == "floor.get_group_size.i32") {
++				id = group_size;
++			}
++			else if(func_name == "floor.get_work_dim.i32") {
++				// special case
++				// => group_size.z == 1 ? (group_size.y == 1 ? 1 : 2) : 3
++				const auto size_z = builder->CreateExtractElement(group_size, builder->getInt32(2));
++				const auto size_y = builder->CreateExtractElement(group_size, builder->getInt32(1));
++				const auto cmp_z = builder->CreateICmp(ICmpInst::ICMP_EQ, size_z, builder->getInt32(1));
++				const auto cmp_y = builder->CreateICmp(ICmpInst::ICMP_EQ, size_y, builder->getInt32(1));
++				const auto sel_x_or_y = builder->CreateSelect(cmp_y, builder->getInt32(1), builder->getInt32(2));
++				const auto sel_xy_or_z = builder->CreateSelect(cmp_z, sel_x_or_y, builder->getInt32(3));
++				I.replaceAllUsesWith(sel_xy_or_z);
++				I.eraseFromParent();
++				return;
++			}
++			// unknown -> ignore for now
++			else return;
++			
++			// replace call with vector load / elem extraction from the appropriate vector
++			I.replaceAllUsesWith(builder->CreateExtractElement(id, CS.getArgument(0)));
++			I.eraseFromParent();
++		}
++		
++	};
++}
++
++char MetalFix::ID = 0;
++INITIALIZE_PASS_BEGIN(MetalFix, "MetalFix", "MetalFix Pass", false, false)
++INITIALIZE_PASS_END(MetalFix, "MetalFix", "MetalFix Pass", false, false)
++
++FunctionPass *llvm::createMetalFixPass() {
++	return new MetalFix();
++}
 diff --git a/lib/Transforms/Scalar/SPIRFix.cpp b/lib/Transforms/Scalar/SPIRFix.cpp
 new file mode 100644
 index 0000000..df1203c
@@ -985,15 +1185,19 @@ index 0000000..df1203c
 +	return new SPIRFix();
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..19d2da8 100644
+index de724d4..69a49c4 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,14 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -73,6 +73,18 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
 +void LLVMAddAddressSpaceFixPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createAddressSpaceFixPass());
++}
++
++void LLVMAddMetalFixPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalFixPass());
 +}
 +
 +void LLVMAddSPIRFixPass(LLVMPassManagerRef PM) {
@@ -2084,10 +2288,10 @@ index 075f905..c581972 100644
  
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..d73287f 100644
+index cec48f3..d95b581 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,17 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,20 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
@@ -2102,10 +2306,13 @@ index cec48f3..d73287f 100644
 +  // only enable this for OpenCL/SPIR
 +  PMBuilder.EnableSPIRFix = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown";
 +
++  // only enable this for Metal/AIR
++  PMBuilder.EnableMetalFix = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "metal";
++
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -326,6 +337,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +340,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -2506,7 +2713,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..33cef9c 100644
+index 5ca3a78..92035ee 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -2517,7 +2724,7 @@ index 5ca3a78..33cef9c 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -340,110 +341,774 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,110 +341,796 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -3032,6 +3239,28 @@ index 5ca3a78..33cef9c 100644
 +		++arg_idx;
 +	}
 +	
++	// add id handling arg metadata
++	// NOTE: the actual args are later added by MetalFix + the order in here must match the order in MetalFix
++	static const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
++		SmallVector<llvm::Value*, 6> arg_info;
++		arg_info.push_back(Builder.getInt32(arg_idx));
++		arg_info.push_back(llvm::MDString::get(Context, air_name));
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++		arg_info.push_back(llvm::MDString::get(Context, "uint3"));
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++		arg_info.push_back(llvm::MDString::get(Context, name));
++		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++		
++		// next llvm arg
++		++arg_idx;
++	};
++	add_id_arg("__metal__global_id__", "air.thread_position_in_grid");
++	add_id_arg("__metal__global_size__", "air.threads_per_grid");
++	add_id_arg("__metal__local_id__", "air.thread_position_in_threadgroup");
++	add_id_arg("__metal__local_size__", "air.threads_per_threadgroup");
++	add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid");
++	add_id_arg("__metal__group_size__", "air.threadgroups_per_grid");
++
 +	// insert into kernel metadata
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, empty_set));
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
@@ -3393,9 +3622,28 @@ index 5ca3a78..33cef9c 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-@@ -457,10 +1122,16 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -455,12 +1142,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+   llvm::LLVMContext &Context = getLLVMContext();
+ 
    SmallVector <llvm::Value*, 5> kernelMDArgs;
-   kernelMDArgs.push_back(Fn);
+-  kernelMDArgs.push_back(Fn);
++  if (!CGM.getCodeGenOpts().EmitAIRMetadata) {
++    kernelMDArgs.push_back(Fn);
++  }
++  else { // -> need to id/size handling args to the kernel function type
++	  // add original arg types
++	  SmallVector<llvm::Type*, 16> arg_types;
++	  for(const auto& arg : Fn->args()) {
++		  arg_types.push_back(arg.getType());
++	  }
++	  // add id types
++	  const auto id_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(Context), 3);
++	  for(int i = 0; i < 6; ++i) arg_types.push_back(id_vec_type);
++	  
++	  // create + add new function type
++	  const auto func_type_with_ids = llvm::FunctionType::get(Fn->getReturnType(), arg_types, false);
++	  kernelMDArgs.push_back(llvm::Function::Create(func_type_with_ids, Fn->getLinkage(), Fn->getName()));
++  }
  
 -  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata)
 +  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata && !CGM.getCodeGenOpts().EmitAppleCLMetadata)
@@ -3411,7 +3659,7 @@ index 5ca3a78..33cef9c 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1170,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1208,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -3487,7 +3735,7 @@ index 5ca3a78..33cef9c 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1290,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1328,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -3507,7 +3755,7 @@ index 5ca3a78..33cef9c 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1505,92 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1543,92 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -3600,7 +3848,7 @@ index 5ca3a78..33cef9c 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1694,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1732,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
