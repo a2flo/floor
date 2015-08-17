@@ -19,24 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_CUDA_ID_HPP__
 #define __FLOOR_COMPUTE_DEVICE_CUDA_ID_HPP__
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL)
-
-// this is a workaround for missing "air.get_*_id.i32" functions on metal on os x
-// -> nvvm/ptx builtin functions aren't defined there, llvm intrinsics are piped through correctly however
-#if defined(FLOOR_COMPUTE_METAL)
-metal_func uint32_t __builtin_ptx_read_tid_x() asm("llvm.nvvm.read.ptx.sreg.tid.x");
-metal_func uint32_t __builtin_ptx_read_tid_y() asm("llvm.nvvm.read.ptx.sreg.tid.y");
-metal_func uint32_t __builtin_ptx_read_tid_z() asm("llvm.nvvm.read.ptx.sreg.tid.z");
-metal_func uint32_t __builtin_ptx_read_ntid_x() asm("llvm.nvvm.read.ptx.sreg.ntid.x");
-metal_func uint32_t __builtin_ptx_read_ntid_y() asm("llvm.nvvm.read.ptx.sreg.ntid.y");
-metal_func uint32_t __builtin_ptx_read_ntid_z() asm("llvm.nvvm.read.ptx.sreg.ntid.z");
-metal_func uint32_t __builtin_ptx_read_ctaid_x() asm("llvm.nvvm.read.ptx.sreg.ctaid.x");
-metal_func uint32_t __builtin_ptx_read_ctaid_y() asm("llvm.nvvm.read.ptx.sreg.ctaid.y");
-metal_func uint32_t __builtin_ptx_read_ctaid_z() asm("llvm.nvvm.read.ptx.sreg.ctaid.z");
-metal_func uint32_t __builtin_ptx_read_nctaid_x() asm("llvm.nvvm.read.ptx.sreg.nctaid.x");
-metal_func uint32_t __builtin_ptx_read_nctaid_y() asm("llvm.nvvm.read.ptx.sreg.nctaid.y");
-metal_func uint32_t __builtin_ptx_read_nctaid_z() asm("llvm.nvvm.read.ptx.sreg.nctaid.z");
-#endif
+#if defined(FLOOR_COMPUTE_CUDA)
 
 // make this a little easier to use
 #define FLOOR_CUDA_DIM0 __attribute__((always_inline, flatten, pure, enable_if(dim == 0, "const 0")))

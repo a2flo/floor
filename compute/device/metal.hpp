@@ -66,50 +66,21 @@ namespace std {
 	metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
 }
 
-// would usually have to provide these as kernel arguments in metal, but this works as well
-// (thx for providing these apple, interesting cl_kernel_air64.h and cl_kernel.h you have there ;))
-#if defined(FLOOR_COMPUTE_INFO_OS_IOS)
-// on iOS, these all do and have to return 32-bit values, otherwise bad things(tm) will happen
-#define FLOOR_GET_ID_RET_TYPE uint32_t
-#else
-// on OS X, these actually have to return size_t as they're supposed to
-#define FLOOR_GET_ID_RET_TYPE size_t
-#endif
-
-// these functions are defined for metal on ios and for intel on osx, but not for nvidia and amd on osx!
-#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) && !defined(FLOOR_COMPUTE_INFO_VENDOR_AMD)
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_id(uint32_t dim) asm("air.get_global_id.i32");
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_id(uint32_t dim) asm("air.get_local_id.i32");
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_local_size(uint32_t dim) asm("air.get_local_size.i32");
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_group_id(uint32_t dim) asm("air.get_group_id.i32");
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_num_groups(uint32_t dim) asm("air.get_num_groups.i32");
-uint32_t __attribute__((const)) metal_get_work_dim() asm("air.get_work_dim.i32");
-
-// NOTE: this is broken on intel gpus -> compute it manually
-#if !defined(FLOOR_COMPUTE_INFO_VENDOR_INTEL)
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_size(uint32_t dim) asm("air.get_global_size.i32");
-#else
-FLOOR_GET_ID_RET_TYPE __attribute__((const)) metal_get_global_size(uint32_t dim) {
-	return metal_get_local_size(dim) * metal_get_num_groups(dim);
-}
-#endif
-
-// wrap metal id handling functions so that uint32_t is always returned
-floor_inline_always uint32_t get_global_id(uint32_t dim) { return uint32_t(metal_get_global_id(dim)); }
-floor_inline_always uint32_t get_global_size(uint32_t dim) { return uint32_t(metal_get_global_size(dim)); }
-floor_inline_always uint32_t get_local_id(uint32_t dim) { return uint32_t(metal_get_local_id(dim)); }
-floor_inline_always uint32_t get_local_size(uint32_t dim) { return uint32_t(metal_get_local_size(dim)); }
-floor_inline_always uint32_t get_group_id(uint32_t dim) { return uint32_t(metal_get_group_id(dim)); }
-floor_inline_always uint32_t get_num_groups(uint32_t dim) { return uint32_t(metal_get_num_groups(dim)); }
-floor_inline_always uint32_t get_work_dim() { return metal_get_work_dim(); }
-
-#elif defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) // -> use cuda style get_*_id functions if nvidia on osx
-#include <floor/compute/device/cuda_id.hpp>
-#elif defined(FLOOR_COMPUTE_INFO_VENDOR_AMD) // TODO: fix this (none of the air.* functions work and neither do llvm.r600.* or other builtins)
-#error "currently unsupported"
-#endif
-
-#undef FLOOR_GET_ID_RET_TYPE
+// metal itself does not provide get_*_id/get_*_size functions, but rather handles this by using additional kernel arguments
+// that must be tagged with a specific attribute. personally, I think this is a bad design decision that adds unnecessary work
+// to both the user and the backend/frontend developer (me), and makes everything more complex than it has to be. furthermore,
+// the way of doing it like this makes it incompatible to the way opencl and cuda handle this.
+// note that "air.get_*_id.i32" intrinsics do exist, but are only partially available or not available at all to all backends,
+// and for those that are supported, the return type is sometimes a 32-bit and sometimes a 64-bit integer -> unusable.
+// solution: add compiler voodoo that automatically adds the special kernel arguments and loads these arguments in places
+// where the following "intrinsics" are used. thus, compatible to the opencl/cuda way of doing it (and sane ...).
+__attribute__((const)) uint32_t get_global_id(uint32_t dim) asm("floor.get_global_id.i32");
+__attribute__((const)) uint32_t get_global_size(uint32_t dim) asm("floor.get_global_size.i32");
+__attribute__((const)) uint32_t get_local_id(uint32_t dim) asm("floor.get_local_id.i32");
+__attribute__((const)) uint32_t get_local_size(uint32_t dim) asm("floor.get_local_size.i32");
+__attribute__((const)) uint32_t get_group_id(uint32_t dim) asm("floor.get_group_id.i32");
+__attribute__((const)) uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
+__attribute__((const)) uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 
 // barrier and mem_fence functionality
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)
