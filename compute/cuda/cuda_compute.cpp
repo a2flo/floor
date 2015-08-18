@@ -32,7 +32,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 	// init cuda itself
 	CU_CALL_RET(cuInit(0), "failed to initialize CUDA")
 	
-	// need at least 6.5 right now
+	// need at least 7.5 right now
 	const auto to_driver_major = [](const int& version) { return version / 1000; };
 	const auto to_driver_minor = [](const int& version) { return (version % 100) / 10; };
 	int driver_version = 0;

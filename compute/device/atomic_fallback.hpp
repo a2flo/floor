@@ -23,7 +23,7 @@
 #define FLOOR_ATOMIC_FALLBACK_OP_32(op, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \
 	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
+	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == *(uint32_t*)&expected) { \
 		return expected; \
 	} \
 }
@@ -32,7 +32,7 @@
 #define FLOOR_ATOMIC_FALLBACK_OP_64(op, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \
 	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((as uint64_t*)ptr, *(uint64_t*)&expected, *(uint64_t*)&wanted) == expected) { \
+	if(atomic_cmpxchg((as uint64_t*)ptr, *(uint64_t*)&expected, *(uint64_t*)&wanted) == *(uint64_t*)&expected) { \
 		return expected; \
 	} \
 }
@@ -41,7 +41,7 @@
 #define FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(func, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \
 	const auto wanted = func(expected, val); \
-	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == expected) { \
+	if(atomic_cmpxchg((as uint32_t*)ptr, *(uint32_t*)&expected, *(uint32_t*)&wanted) == *(uint32_t*)&expected) { \
 		return expected; \
 	} \
 }
@@ -50,7 +50,7 @@
 #define FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(func, as, ptr, val) for(;;) { \
 	const auto expected = *ptr; \
 	const auto wanted = func(expected, val); \
-	if(atomic_cmpxchg((as uint64_t*)ptr, *(uint64_t*)&expected, *(uint64_t*)&wanted) == expected) { \
+	if(atomic_cmpxchg((as uint64_t*)ptr, *(uint64_t*)&expected, *(uint64_t*)&wanted) == *(uint64_t*)&expected) { \
 		return expected; \
 	} \
 }

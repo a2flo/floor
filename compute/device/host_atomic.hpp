@@ -45,7 +45,7 @@ floor_inline_always uint64_t atomic_cmpxchg(volatile uint64_t* p, uint64_t cmp, 
 	return __c11_atomic_compare_exchange_weak((_Atomic(uint64_t)*)p, &cmp, val,
 											  memory_order_relaxed, memory_order_relaxed);
 }
-floor_inline_always double atomic_cmpxchg(volatile float* p, double cmp, double val) {
+floor_inline_always double atomic_cmpxchg(volatile double* p, double cmp, double val) {
 	const auto ret = atomic_cmpxchg((volatile uint64_t*)p, *(uint64_t*)&cmp, *(uint64_t*)&val);
 	return *(double*)&ret;
 }
@@ -66,7 +66,7 @@ floor_inline_always int64_t atomic_add(volatile int64_t* p, int64_t val) {
 floor_inline_always uint64_t atomic_add(volatile uint64_t* p, uint64_t val) {
 	return __c11_atomic_fetch_add((_Atomic(uint64_t)*)p, val, memory_order_relaxed);
 }
-floor_inline_always float atomic_add(volatile double* p, double val) {
+floor_inline_always double atomic_add(volatile double* p, double val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(+, , p, val)
 }
 
@@ -86,7 +86,7 @@ floor_inline_always int64_t atomic_sub(volatile int64_t* p, int64_t val) {
 floor_inline_always uint64_t atomic_sub(volatile uint64_t* p, uint64_t val) {
 	return __c11_atomic_fetch_sub((_Atomic(uint64_t)*)p, val, memory_order_relaxed);
 }
-floor_inline_always float atomic_sub(volatile double* p, double val) {
+floor_inline_always double atomic_sub(volatile double* p, double val) {
 	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(-, , p, val)
 }
 

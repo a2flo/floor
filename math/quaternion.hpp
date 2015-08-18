@@ -30,10 +30,8 @@ template <typename T> class quaternion;
 typedef quaternion<float> quaternionf;
 typedef quaternion<double> quaterniond;
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpacked"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(packed)
 
 template <typename T> class __attribute__((packed, aligned(4))) quaternion {
 public:
@@ -264,8 +262,6 @@ extern template class quaternion<float>;
 extern template class quaternion<double>;
 #endif
 		
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

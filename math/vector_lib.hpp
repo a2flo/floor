@@ -21,10 +21,8 @@
 
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(float-equal)
 
 // forwarder for many math functions for all necessary base types
 #include <floor/math/vector_helper.hpp>
@@ -171,8 +169,6 @@ struct is_floor_vector<vec_type, enable_if_t<(decay_t<vec_type>::dim >= 1 &&
 											  is_same<decay_t<vec_type>, typename decay_t<vec_type>::vector_type>::value)>> : public true_type {};
 
 // reenable warnings
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

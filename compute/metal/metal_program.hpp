@@ -26,10 +26,8 @@
 #include <floor/compute/compute_program.hpp>
 #include <Metal/Metal.h>
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 class metal_program final : public compute_program {
 public:
@@ -46,9 +44,7 @@ protected:
 	
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif
 

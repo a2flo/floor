@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C02C85F1B82962C00569270 /* cuda_api.hpp */; };
 		5C0416F91B60048100370253 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C0416F71B60048100370253 /* json.cpp */; };
 		5C0416FA1B60048100370253 /* json.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C0416F71B60048100370253 /* json.cpp */; };
 		5C0416FB1B60048100370253 /* json.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C0416F81B60048100370253 /* json.hpp */; };
@@ -238,6 +239,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5C02C85F1B82962C00569270 /* cuda_api.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_api.hpp; sourceTree = "<group>"; };
 		5C02EE221A5B5EF800949E72 /* CUDA.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CUDA.framework; path = /Library/Frameworks/CUDA.framework; sourceTree = "<absolute>"; };
 		5C0416F71B60048100370253 /* json.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = json.cpp; sourceTree = "<group>"; };
 		5C0416F81B60048100370253 /* json.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = json.hpp; sourceTree = "<group>"; };
@@ -819,6 +821,7 @@
 		5CD2175219E985D80049D6AE /* cuda */ = {
 			isa = PBXGroup;
 			children = (
+				5C02C85F1B82962C00569270 /* cuda_api.hpp */,
 				5C5383DA1A61FEF5007AEDD7 /* cuda_common.hpp */,
 				5CD2175319E985D80049D6AE /* cuda_compute.cpp */,
 				5CD2175419E985D80049D6AE /* cuda_compute.hpp */,
@@ -923,6 +926,7 @@
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
+				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,
 				5C4E30ED1B428B120034E536 /* host.hpp in Headers */,
 				5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */,

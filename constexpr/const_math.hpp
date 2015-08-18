@@ -37,10 +37,8 @@ using namespace std;
 
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfloat-equal"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(float-equal)
 
 namespace const_math {
 	//! largest supported floating point type at compile-time
@@ -874,12 +872,9 @@ namespace const_math {
 }
 
 // reenable -Wfloat-equal warnings, disable -Wunused-function
-#if defined(__clang__)
-#pragma clang diagnostic pop
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-function"
-#endif
+FLOOR_POP_WARNINGS()
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(unused-function)
 
 namespace const_select {
 	// dear reader of this code,
@@ -1053,8 +1048,6 @@ namespace const_select {
 }
 
 // reenable -Wunused-function
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

@@ -667,10 +667,8 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 																   properties, &create_err);
 #else
 	
-#if defined(__clang__) // silence "clCreateCommandQueue" is deprecated warning
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+FLOOR_PUSH_WARNINGS() // silence "clCreateCommandQueue" is deprecated warning
+FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
 	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id,
 #if !defined(FLOOR_CL_PROFILING)
@@ -680,10 +678,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 #endif
 													 , &create_err);
 	
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
-	
+FLOOR_POP_WARNINGS()
 #endif
 	if(create_err != CL_SUCCESS) {
 		log_error("failed to create command queue: %u: %s", create_err, cl_error_to_string(create_err));

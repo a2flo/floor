@@ -16,32 +16,11 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_OPENCL_PROGRAM_HPP__
-#define __FLOOR_OPENCL_PROGRAM_HPP__
+#ifndef __FLOOR_CUDA_API_HPP__
+#define __FLOOR_CUDA_API_HPP__
 
-#include <floor/compute/opencl/opencl_common.hpp>
+#include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_OPENCL)
 
-#include <floor/compute/compute_program.hpp>
-#include <floor/compute/llvm_compute.hpp>
-
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(weak-vtables)
-
-class opencl_program final : public compute_program {
-public:
-	opencl_program(const cl_program program,
-				   const vector<llvm_compute::kernel_info>& kernels_info,
-				   const bool use_cl_queries = true);
-	
-protected:
-	const cl_program program;
-	
-};
-
-FLOOR_POP_WARNINGS()
-
-#endif
 
 #endif

@@ -32,10 +32,8 @@
 #include <floor/compute/compute_program.hpp>
 
 // necessary here, because there are no out-of-line virtual method definitions
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_base {
@@ -238,8 +236,6 @@ protected:
 	
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

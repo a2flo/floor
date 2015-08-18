@@ -27,10 +27,8 @@
 #include <string>
 #endif
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-virtual-dtor"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(non-virtual-dtor)
 
 class __attribute__((packed, aligned(4))) bbox {
 public:
@@ -179,9 +177,7 @@ public:
 	
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif
 

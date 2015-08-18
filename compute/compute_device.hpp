@@ -21,14 +21,12 @@
 
 #include <string>
 #include <vector>
+#include <floor/compute/compute_common.hpp>
 #include <floor/math/vector_lib.hpp>
 #include <floor/core/enum_helpers.hpp>
-#include <floor/compute/compute_common.hpp>
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 class compute_device {
 public:
@@ -142,8 +140,6 @@ public:
 	
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

@@ -39,10 +39,8 @@ typedef matrix4<unsigned int> matrix4ui;
 
 template <typename T> class vector4;
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wpacked"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(packed)
 
 //! column-major 4x4 matrix
 template <typename T> class __attribute__((packed, aligned(16))) matrix4 {
@@ -468,8 +466,6 @@ extern template class matrix4<int>;
 extern template class matrix4<unsigned int>;
 #endif
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

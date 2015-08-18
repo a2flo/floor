@@ -33,10 +33,8 @@ using namespace std;
 
 // disable recursive macro expansion warnings here, b/c glibc screwed up
 #if defined(__GNU_LIBRARY__)
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(disabled-macro-expansion)
 #endif
 
 #include <signal.h>
@@ -142,9 +140,7 @@ void register_segfault_handler() {
 	
 // reenable warnings that were disabled above, b/c of glibc
 #if defined(__GNU_LIBRARY__)
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 #endif
 
 #elif !defined(_MSC_VER) // mingw version:

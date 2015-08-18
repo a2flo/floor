@@ -48,9 +48,8 @@
 #endif
 #endif
 
-#if defined(__clang__) // ignore warnings about deprecated functions
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+// ignore warnings about deprecated functions
+FLOOR_IGNORE_WARNING(deprecated-declarations)
 
 //
 static const function<void()>* cur_kernel_function { nullptr };

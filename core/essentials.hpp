@@ -90,6 +90,18 @@
 #define constant
 #endif
 
+// ignore warning handling
+#if defined(__clang__)
+#define FLOOR_PUSH_WARNINGS() _Pragma("clang diagnostic push");
+#define FLOOR_POP_WARNINGS() _Pragma("clang diagnostic pop");
+#define FLOOR_IGNORE_WARNING_FWD(warning_str) _Pragma(#warning_str);
+#define FLOOR_IGNORE_WARNING(warning) FLOOR_IGNORE_WARNING_FWD(clang diagnostic ignored "-W"#warning)
+#else
+#define FLOOR_PUSH_WARNINGS()
+#define FLOOR_POP_WARNINGS()
+#define FLOOR_IGNORE_WARNING(warning)
+#endif
+
 #endif // __FLOOR_ESSENTIALS_HPP__
 
 // -> keep these outside the header guard

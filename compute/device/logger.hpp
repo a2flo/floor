@@ -26,11 +26,10 @@
 
 // silence clang warnings about non-literal format strings - while it might be right that
 // these aren't proper c string literals, this whole thing wouldn't work if the input literals weren't
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wformat-security"
-#pragma clang diagnostic ignored "-Wformat-nonliteral"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(format-security)
+FLOOR_IGNORE_WARNING(format-nonliteral)
+FLOOR_IGNORE_WARNING(duplicate-enum)
 
 // "make_const_string" for strings in constant address space
 template <size_t n> constexpr auto make_constant_string(const constant char (&str)[n]) {
@@ -93,7 +92,7 @@ public:
 	// type -> ARG_TYPE
 	template <typename T, typename = void> struct handle_arg_type {
 		// will error on unhandled types later on
-		static constexpr ARG_TYPE type() { return ARG_TYPE::INVALID; }
+		static constexpr ARG_TYPE type() { return ARG_TYPE::INVALID; }
 	};
 	template <typename T> struct handle_arg_type<T, enable_if_t<(is_integral<T>::value &&
 																 is_signed<T>::value &&
@@ -461,8 +460,6 @@ public:
 };
 
 // cleanup
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

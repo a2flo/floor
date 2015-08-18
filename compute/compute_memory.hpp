@@ -97,10 +97,8 @@ enum class COMPUTE_MEMORY_MAP_FLAG : uint32_t {
 };
 floor_global_enum_ext(COMPUTE_MEMORY_MAP_FLAG)
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 class compute_memory {
 public:
@@ -170,8 +168,6 @@ protected:
 	
 };
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

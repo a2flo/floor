@@ -26,10 +26,8 @@
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
 
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wweak-vtables"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(weak-vtables)
 
 class compute_kernel {
 public:
@@ -105,8 +103,6 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 }
 #endif
 
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 #endif

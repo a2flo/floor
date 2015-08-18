@@ -28,38 +28,38 @@ struct host_device_image {
 	static constexpr bool is_read_only() { return readable && !writable; }
 	
 	typedef conditional_t<is_read_only(), const uint8_t, uint8_t> storage_type;
-	__attribute__((align_value(128))) storage_type* data;
+	storage_type* data;
 	const int4 image_dim;
 	
 	//! 1D, 1D buffer
 	size_t coord_to_offset(int coord) const {
-		return const_math::clamp(coord, 0, image_dim.x - 1) * image_bytes_per_pixel(image_type);
+		return size_t(const_math::clamp(coord, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
 	//! 1D array, 2D, 2D depth, 2D depth+stencil
 	size_t coord_to_offset(int2 coord) const {
-		return (image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
-				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
+		return size_t(image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
+					  const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
 	//! 2D array, 3D, 2D depth array
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
 	size_t coord_to_offset(int3 coord) const {
-		return (image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
-				image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
-				const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
+		return size_t(image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
+					  image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
+					  const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
 	
 	//! cube, depth cube
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-	size_t coord_to_offset(int3 coord) const {
+	size_t coord_to_offset(int3 coord floor_unused) const {
 		// TODO: proper cube sampling
 		return 0;
 	}
 	
 	//! cuba array
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-	size_t coord_to_offset(int4 coord) const {
+	size_t coord_to_offset(int4 coord floor_unused) const {
 		// TODO: proper cube sampling
 		return 0;
 	}
@@ -187,7 +187,7 @@ floor_inline_always auto extract_channels(const uint8_t (&raw_data)[N]) {
 }
 template <COMPUTE_IMAGE_TYPE image_type, size_t N,
 		  enable_if_t<(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT>* = nullptr>
-floor_inline_always auto extract_channels(const uint8_t (&raw_data)[N]) {
+floor_inline_always auto extract_channels(const uint8_t (&raw_data)[N] floor_unused) {
 	// this is a dummy function and never called, but necessary for compilation
 	return vector_n<uint8_t, image_channel_count(image_type)> {};
 }
@@ -283,6 +283,9 @@ floor_inline_always auto host_image_fit_return_type(const vector_n<scalar_type, 
 	return vec;
 }
 
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
+
 // image read functions
 template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
 		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
@@ -295,7 +298,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	
 	// read/copy raw data
 	constexpr const size_t bpp = image_bytes_per_pixel(image_type);
-	uint8_t raw_data[bpp];
+	alignas(4) uint8_t raw_data[bpp];
 	memcpy(raw_data, &img->data[img->coord_to_offset(coord)], bpp);
 	
 	// extract channel bits/bytes
@@ -331,6 +334,8 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	}
 	return host_image_fit_return_type<float, channel_count>(ret);
 }
+
+FLOOR_POP_WARNINGS()
 
 template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
 		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
@@ -397,6 +402,9 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	return ret;
 }
 
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
+
 template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,
 		  enable_if_t<((is_arithmetic<coord_type>::value && image_coordinate_width(image_type) == 1u) ||
 					   (is_floor_vector<coord_type>::value && image_coordinate_width(image_type) == coord_type::dim))>* = nullptr,
@@ -408,7 +416,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 	
 	// read/copy raw data
 	constexpr const size_t bpp = image_bytes_per_pixel(image_type);
-	uint8_t raw_data[bpp];
+	alignas(4) uint8_t raw_data[bpp];
 	memcpy(raw_data, &img->data[img->coord_to_offset(coord)], bpp);
 	
 	// for compatibility with opencl/cuda, always return 32-bit values for anything <= 32-bit (and 64-bit values for > 32-bit)
@@ -421,6 +429,8 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 		*(vector_n<typename image_sized_data_type<image_type, image_bits_of_channel(image_type, 0)>::type, channel_count>*)raw_data;
 	return host_image_fit_return_type<ret_type, channel_count>(ret);
 }
+
+FLOOR_POP_WARNINGS()
 
 // image write functions
 template <COMPUTE_IMAGE_TYPE image_type, bool readable, bool writable, typename coord_type,

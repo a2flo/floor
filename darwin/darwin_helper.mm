@@ -23,8 +23,8 @@
 #include <SDL2/SDL_syswm.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
-#include <floor/math/vector_lib.hpp>
 #include <floor/core/core.hpp>
+#include <floor/math/vector_lib.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/util.hpp>
 #include <floor/darwin/darwin_helper.hpp>

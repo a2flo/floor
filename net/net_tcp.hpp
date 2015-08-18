@@ -51,10 +51,8 @@ namespace floor_net {
 	};
 	
 	// ignore ssl deprecation warnings on os x
-#if defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
 	// ssl
 	template <> struct protocol_details<true> {
@@ -122,9 +120,7 @@ namespace floor_net {
 		}
 	};
 	
-#if defined(__clang__)
-#pragma clang diagnostic pop
-#endif
+FLOOR_POP_WARNINGS()
 
 };
 
