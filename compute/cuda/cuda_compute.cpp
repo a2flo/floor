@@ -268,6 +268,9 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		// make context of fastest device current
 		CU_CALL_IGNORE(cuCtxSetCurrent(((cuda_device*)fastest_gpu_device.get())->ctx));
 	}
+	
+	// init shaders in cuda_image
+	cuda_image::init_internal();
 }
 
 shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev) {

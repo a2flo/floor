@@ -102,15 +102,15 @@ bool cuda_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 			
 			// register the cuda object
 			uint32_t cuda_gl_flags = 0;
-			switch(flags & COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE) {
-				case COMPUTE_MEMORY_FLAG::OPENGL_READ:
+			switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+				case COMPUTE_MEMORY_FLAG::READ:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
 					break;
-				case COMPUTE_MEMORY_FLAG::OPENGL_WRITE:
+				case COMPUTE_MEMORY_FLAG::WRITE:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD;
 					break;
 				default:
-				case COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE:
+				case COMPUTE_MEMORY_FLAG::READ_WRITE:
 					cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_NONE;
 					break;
 			}

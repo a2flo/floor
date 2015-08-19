@@ -74,14 +74,7 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! creates the memory with opengl sharing enabled
 	//! NOTE: the opengl object can be retrieved via get_opengl_object()
 	//! NOTE: OPENGL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
-	//! NOTE: if no OPENGL_READ or OPENGL_WRITE is specified, OPENGL_READ_WRITE is assumed
 	OPENGL_SHARING		= (1u << 8u),
-	//! the compute implementation has only read access to the opengl object
-	OPENGL_READ			= (1u << 9u),
-	//! the compute implementation has only write (discard) access to the opengl object
-	OPENGL_WRITE		= (1u << 10u),
-	//! the compute implementation has read and write access to the opengl object (default)
-	OPENGL_READ_WRITE	= (OPENGL_READ | OPENGL_WRITE),
 	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)

@@ -39,6 +39,7 @@ struct floor_shader_object {
 	const string name;
 	internal_shader_object program;
 	
+	floor_shader_object() = default;
 	floor_shader_object(const string& shd_name) : name(shd_name) {}
 	~floor_shader_object() = default;
 };

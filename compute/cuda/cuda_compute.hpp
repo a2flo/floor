@@ -99,16 +99,14 @@ public:
 	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) override;
 	
 	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 										   const uint4 image_dim,
 										   const COMPUTE_IMAGE_TYPE image_type,
 										   void* data,
-										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																			  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 										   const uint32_t opengl_type = 0) override;
 	
 	shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
@@ -137,6 +135,9 @@ public:
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
+	
+	//////////////////////////////////////////
+	// cuda specific functions
 	
 protected:
 	atomic_spin_lock programs_lock;

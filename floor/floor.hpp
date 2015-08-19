@@ -329,6 +329,7 @@ protected:
 	// misc
 	static atomic<bool> reload_kernels_flag;
 	static bool use_gl_context;
+	static uint32_t global_vao;
 
 };
 

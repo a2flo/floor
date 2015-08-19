@@ -98,11 +98,10 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! image is read-only (exluding host operations)
 	READ					= (1u << __ACCESS_SHIFT),
 	//! image is write-only (exluding host operations)
-	//! NOTE: automatically sets FLAG_NO_SAMPLER (since the image won't be read/sampled)
-	WRITE					= (2u << __ACCESS_SHIFT) | FLAG_NO_SAMPLER,
+	WRITE					= (2u << __ACCESS_SHIFT),
 	//! image is read-write
 	//! NOTE: also applies if neither is set
-	READ_WRITE				= (3u << __ACCESS_SHIFT),
+	READ_WRITE				= (READ | WRITE),
 	
 	//! bits 0-7: formats
 	//! NOTE: unless specified otherwise, a format is usable with any channel count

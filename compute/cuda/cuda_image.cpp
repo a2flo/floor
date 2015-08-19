@@ -24,6 +24,62 @@
 #include <floor/core/logger.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
+#include <floor/core/gl_shader.hpp>
+
+// internal shaders for copying/blitting opengl textures
+static const char blit_vs_text[] {
+	"#version 150 core\n"
+	"out vec2 tex_coord;\n"
+	"void main() {\n"
+	"	const vec2 fullscreen_triangle[3] = vec2[](vec2(1.0, 1.0), vec2(-3.0, 1.0), vec2(1.0, -3.0));\n"
+	"	tex_coord = fullscreen_triangle[gl_VertexID] * 0.5 + 0.5;\n"
+	"	gl_Position = vec4(fullscreen_triangle[gl_VertexID], 0.0, 1.0);\n"
+	"}\n"
+};
+static const char blit_to_color_fs_text[] {
+	"#version 330 core\n"
+	"uniform sampler2D in_tex;\n"
+	"in vec2 tex_coord;\n"
+	"layout (location = 0) out float out_depth;\n"
+	"void main() {\n"
+	"	out_depth = texture(in_tex, tex_coord).x;\n"
+	"}\n"
+};
+static const char blit_to_depth_fs_text[] {
+	"#version 330 core\n"
+	"uniform sampler2D in_tex;\n"
+	"in vec2 tex_coord;\n"
+	"void main() {\n"
+	"	gl_FragDepth = texture(in_tex, tex_coord).x;\n"
+	"}\n"
+};
+
+namespace cuda_image_support {
+	enum class CUDA_SHADER : uint32_t {
+		BLIT_DEPTH_TO_COLOR,
+		BLIT_COLOR_TO_DEPTH,
+		__MAX_CUDA_SHADER
+	};
+	static array<floor_shader_object, (uint32_t)CUDA_SHADER::__MAX_CUDA_SHADER> shaders;
+	
+	static void init() {
+		static bool did_init = false;
+		if(did_init) return;
+		did_init = true;
+		
+		// compile internal shaders
+		if(!floor_compile_shader(shaders[(uint32_t)CUDA_SHADER::BLIT_DEPTH_TO_COLOR], blit_vs_text, blit_to_color_fs_text)) {
+			log_error("failed to compile internal shader: BLIT_DEPTH_TO_COLOR");
+		}
+		if(!floor_compile_shader(shaders[(uint32_t)CUDA_SHADER::BLIT_COLOR_TO_DEPTH], blit_vs_text, blit_to_depth_fs_text)) {
+			log_error("failed to compile internal shader: BLIT_COLOR_TO_DEPTH");
+		}
+	}
+}
+
+void cuda_image::init_internal() {
+	cuda_image_support::init();
+}
 
 // TODO: proper error (return) value handling everywhere
 
@@ -214,20 +270,51 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				glTexImage3D(opengl_type, 0, (GLint)depth_compat_format, (int)image_dim.x, (int)image_dim.y, (int)image_dim.z,
 							 0, GL_RED, gl_type, nullptr);
 			}
+			
+			// need a copy fbo when ARB_copy_image is not available
+			if(!floor::has_opengl_extension("GL_ARB_copy_image")) {
+				// check if depth 2D image, others are not supported (stencil should work by simply being dropped)
+				if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ||
+				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
+				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+					log_error("unsupported depth image format (%X), only 2D depth or depth+stencil is supported!",
+							  image_type);
+					return false;
+				}
+				
+				// cleanup
+				if(depth_copy_fbo != 0) {
+					glDeleteFramebuffers(1, &depth_copy_fbo);
+				}
+				
+				glGenFramebuffers(1, &depth_copy_fbo);
+				glBindFramebuffer(GL_FRAMEBUFFER, depth_copy_fbo);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, depth_compat_tex, 0);
+				
+				// check for gl/fbo errors
+				const auto err = glGetError();
+				const auto fbo_err = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+				if(err != 0 || fbo_err != GL_FRAMEBUFFER_COMPLETE) {
+					log_error("depth compat fbo/tex error: %X %X", err, fbo_err);
+					return false;
+				}
+				
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+			}
 			glBindTexture(opengl_type, 0);
 		}
 		
 		// register the cuda object
 		uint32_t cuda_gl_flags = 0;
-		switch(flags & COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE) {
-			case COMPUTE_MEMORY_FLAG::OPENGL_READ:
+		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_FLAG::READ:
 				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
 				break;
-			case COMPUTE_MEMORY_FLAG::OPENGL_WRITE:
+			case COMPUTE_MEMORY_FLAG::WRITE:
 				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD;
 				break;
 			default:
-			case COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE:
+			case COMPUTE_MEMORY_FLAG::READ_WRITE:
 				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_NONE;
 				break;
 		}
@@ -318,7 +405,10 @@ cuda_image::~cuda_image() {
 		}
 	}
 	
-	// clean up depth compat object
+	// clean up depth compat objects
+	if(depth_copy_fbo != 0) {
+		glDeleteFramebuffers(1, &depth_copy_fbo);
+	}
 	if(depth_compat_tex != 0) {
 		glDeleteTextures(1, &depth_compat_tex);
 	}
@@ -448,6 +538,48 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	mappings.erase(mapped_ptr);
 }
 
+template <bool depth_to_color /* or color_to_depth if false */>
+floor_inline_always static void copy_depth_texture(const uint32_t& depth_copy_fbo,
+												   const uint32_t& input_tex,
+												   const uint32_t& output_tex,
+												   const uint32_t& opengl_type,
+												   const uint4& image_dim) {
+	// get current state
+	GLint cur_fbo = 0, front_face = 0, cull_face_mode = 0;
+	glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &cur_fbo);
+	glGetIntegerv(GL_FRONT_FACE, &front_face);
+	glGetIntegerv(GL_CULL_FACE_MODE, &cull_face_mode);
+	
+	// bind our copy fbo and draw / copy the image using a shader
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, depth_copy_fbo);
+	if(depth_to_color) {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, output_tex, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, opengl_type, 0, 0);
+	}
+	else {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, opengl_type, 0, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, opengl_type, output_tex, 0);
+	}
+	glViewport(0, 0, int(image_dim.x), int(image_dim.y));
+	
+	// cull the right side (geometry in shader is CCW)
+	glEnable(GL_CULL_FACE);
+	glCullFace(front_face == GL_CCW ? GL_BACK : GL_FRONT);
+	
+	glUseProgram(cuda_image_support::shaders[(uint32_t)(depth_to_color ?
+														cuda_image_support::CUDA_SHADER::BLIT_DEPTH_TO_COLOR :
+														cuda_image_support::CUDA_SHADER::BLIT_COLOR_TO_DEPTH)].program.program);
+	glUniform1i(0, 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(opengl_type, input_tex);
+	glDrawArrays(GL_TRIANGLES, 0, 3);
+	glUseProgram(0);
+	
+	// restore (note: not goind to store/restore shader state, this is assumed to be unsafe)
+	glCullFace((GLuint)cull_face_mode);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, (GLuint)cur_fbo);
+}
+
 bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
@@ -464,7 +596,7 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
 		}
 		else {
-			// TODO: shader copy
+			copy_depth_texture<true /* depth to color */>(depth_copy_fbo, gl_object, depth_compat_tex, opengl_type, image_dim);
 		}
 	}
 	
@@ -502,7 +634,7 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 							   (int)image_dim.x, (int)image_dim.y, std::max((int)image_dim.z, 1));
 		}
 		else {
-			// TODO: shader copy?
+			copy_depth_texture<false /* color to depth */>(depth_copy_fbo, depth_compat_tex, gl_object, opengl_type, image_dim);
 		}
 	}
 	

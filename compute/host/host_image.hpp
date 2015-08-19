@@ -32,8 +32,7 @@ public:
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   void* host_ptr = nullptr,
-			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-												   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+			   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 			   const uint32_t opengl_type = 0,
 			   const uint32_t external_gl_object_ = 0,
 			   const opengl_image_info* gl_image_info = nullptr);

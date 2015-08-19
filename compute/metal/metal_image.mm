@@ -27,48 +27,6 @@
 
 // TODO: proper error (return) value handling everywhere
 
-//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
-static uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
-							const COMPUTE_IMAGE_TYPE& rgba_type,
-							const uint4& image_dim,
-							const uint8_t* rgb_data) {
-	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
-	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
-	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
-	
-	uint8_t* rgba_data_ptr = new uint8_t[rgba_size];
-	memset(rgba_data_ptr, 0xFF, rgba_size); // opaque
-	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
-		memcpy(&rgba_data_ptr[i * rgba_bytes_per_pixel],
-			   &((const uint8_t*)rgb_data)[rgb_bytes_per_pixel * i],
-			   rgb_bytes_per_pixel);
-	}
-	return rgba_data_ptr;
-}
-
-//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is allocated
-//! and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
-static uint8_t* rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
-							const COMPUTE_IMAGE_TYPE& rgb_type,
-							const uint4& image_dim,
-							const uint8_t* rgba_data,
-							uint8_t* dst_rgb_data = nullptr) {
-	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
-	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type);
-	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
-	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
-	
-	uint8_t* rgb_data_ptr = (dst_rgb_data != nullptr ? dst_rgb_data : new uint8_t[rgb_size]);
-	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
-		memcpy(&rgb_data_ptr[i * rgb_bytes_per_pixel],
-			   &((const uint8_t*)rgba_data)[rgba_bytes_per_pixel * i],
-			   rgb_bytes_per_pixel);
-	}
-	return (dst_rgb_data != nullptr ? nullptr : rgb_data_ptr);
-}
-
 metal_image::metal_image(const metal_device* device,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
@@ -344,7 +302,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		const void* data_ptr = host_ptr;
 		if(image_type != shim_image_type) {
 			// need to copy/convert the RGB host data to RGBA
-			data_ptr = rgb_to_rgba(image_type, shim_image_type, image_dim, (const uint8_t*)host_ptr);
+			data_ptr = rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)host_ptr);
 		}
 		
 		[image replaceRegion:region
@@ -466,7 +424,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		
 		// convert to RGB + cleanup
 		if(image_type != shim_image_type) {
-			rgba_to_rgb(shim_image_type, image_type, image_dim, data_ptr, host_buffer);
+			rgba_to_rgb(shim_image_type, image_type, data_ptr, host_buffer);
 			delete [] data_ptr;
 		}
 	}
@@ -501,7 +459,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		// again, need to convert RGB to RGBA if necessary
 		const uint8_t* data_ptr = (const uint8_t*)mapped_ptr;
 		if(image_type != shim_image_type) {
-			data_ptr = rgb_to_rgba(image_type, shim_image_type, image_dim, (const uint8_t*)mapped_ptr);
+			data_ptr = rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)mapped_ptr);
 		}
 		
 		[image replaceRegion:iter->second.region

@@ -60,6 +60,7 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 
 atomic<bool> floor::reload_kernels_flag { false };
 bool floor::use_gl_context { true };
+uint32_t floor::global_vao { 0u };
 
 // dll main for windows dll export
 #if defined(__WINDOWS__)
@@ -528,6 +529,12 @@ void floor::init_internal(const bool use_gl32_core
 			log_debug("multi-threaded opengl context enabled!");
 		}
 #endif
+#endif
+		
+#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
+		// create and bind vao
+		glGenVertexArrays(1, &global_vao);
+		glBindVertexArray(global_vao);
 #endif
 	}
 	acquire_context();

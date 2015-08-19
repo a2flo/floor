@@ -22,14 +22,6 @@
 static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG flags, const uint32_t opengl_type) {
 	// opengl sharing handling
 	if(has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		// need to make sure that opengl read/write flags are set (it isn't a good idea to
-		// set OPENGL_READ_WRITE as the default parameter, because opengl sharing might
-		// not be enabled/set)
-		if((flags & COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
-			// neither read nor write is set -> set read/write
-			flags |= COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE;
-		}
-		
 		// check if specified opengl type is valid
 		if(opengl_type == 0) {
 			log_error("OpenGL sharing has been set, but no OpenGL object type has been specified!");
@@ -38,13 +30,12 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 		
 		// clear out USE_HOST_MEMORY flag if it is set
 		if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
-			flags &= (COMPUTE_MEMORY_FLAG)~uint32_t(COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY);
+			flags &= ~COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY;
 		}
 	}
 	else {
 		// clear out opengl flags, just in case
-		flags &= (COMPUTE_MEMORY_FLAG)~uint32_t(COMPUTE_MEMORY_FLAG::OPENGL_SHARING |
-												COMPUTE_MEMORY_FLAG::OPENGL_READ_WRITE);
+		flags &= ~COMPUTE_MEMORY_FLAG::OPENGL_SHARING;
 	}
 	
 	// handle read/write flags

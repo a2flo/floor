@@ -29,18 +29,37 @@ class compute_image : public compute_memory {
 public:
 	struct opengl_image_info;
 	
+	//! this sets the r/w flags in a COMPUTE_MEMORY_FLAG enum according to the ones in an COMPUTE_IMAGE_TYPE enum
+	static constexpr COMPUTE_MEMORY_FLAG infer_rw_flags(const COMPUTE_IMAGE_TYPE& image_type, COMPUTE_MEMORY_FLAG flags) {
+		// clear existing r/w flags
+		flags &= ~COMPUTE_MEMORY_FLAG::READ_WRITE;
+		// set r/w flags from specified image type
+		if(has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) flags |= COMPUTE_MEMORY_FLAG::READ;
+		if(has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) flags |= COMPUTE_MEMORY_FLAG::WRITE;
+		return flags;
+	}
+	
+	//! automatically sets/infers image_type flags when certain conditions are met
+	static constexpr COMPUTE_IMAGE_TYPE infer_image_flags(COMPUTE_IMAGE_TYPE image_type) {
+		// set no-sampler flag if write-only
+		if(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+		   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
+			image_type |= COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER;
+		}
+		return image_type;
+	}
+	
 	//! TODO: create image descriptor for advanced use?
 	compute_image(const void* device,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
 				  void* host_ptr_ = nullptr,
-				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-													  COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+				  const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				  const uint32_t opengl_type_ = 0,
 				  const uint32_t external_gl_object_ = 0,
 				  const opengl_image_info* gl_image_info = nullptr) :
-	compute_memory(device, host_ptr_, flags_, opengl_type_, external_gl_object_),
-	image_dim(image_dim_), image_type(image_type_),
+	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
+	image_dim(image_dim_), image_type(infer_image_flags(image_type_)),
 	image_data_size(image_data_size_from_types(image_dim, image_type)),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
@@ -149,6 +168,19 @@ protected:
 	int32_t gl_internal_format { 0 };
 	uint32_t gl_format { 0u };
 	uint32_t gl_type { 0u };
+	
+	
+	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
+	uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
+						 const COMPUTE_IMAGE_TYPE& rgba_type,
+						 const uint8_t* rgb_data);
+	
+	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
+	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
+	uint8_t* rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
+						 const COMPUTE_IMAGE_TYPE& rgb_type,
+						 const uint8_t* rgba_data,
+						 uint8_t* dst_rgb_data = nullptr);
 	
 };
 
