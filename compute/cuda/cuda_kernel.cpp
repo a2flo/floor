@@ -38,7 +38,7 @@ static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
 	return ret;
 }
 
-cuda_kernel::cuda_kernel(const CUfunction kernel_, const llvm_compute::kernel_info& info_) :
+cuda_kernel::cuda_kernel(const cu_function kernel_, const llvm_compute::kernel_info& info_) :
 kernel(kernel_), func_name(info_.name), kernel_args_size(compute_kernel_args_size(info_)), info(info_) {
 }
 
@@ -48,13 +48,13 @@ void cuda_kernel::execute_internal(compute_queue* queue,
 								   const uint3& grid_dim,
 								   const uint3& block_dim,
 								   void** kernel_params) {
-	CU_CALL_NO_ACTION(cuLaunchKernel(kernel,
-									 grid_dim.x, grid_dim.y, grid_dim.z,
-									 block_dim.x, block_dim.y, block_dim.z,
-									 0,
-									 (CUstream)queue->get_queue_ptr(),
-									 kernel_params,
-									 nullptr),
+	CU_CALL_NO_ACTION(cu_launch_kernel(kernel,
+									   grid_dim.x, grid_dim.y, grid_dim.z,
+									   block_dim.x, block_dim.y, block_dim.z,
+									   0,
+									   (cu_stream)queue->get_queue_ptr(),
+									   kernel_params,
+									   nullptr),
 					  "failed to execute kernel");
 }
 

@@ -31,10 +31,10 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class cuda_program final : public compute_program {
 public:
-	cuda_program(const CUmodule program, const vector<llvm_compute::kernel_info>& kernels_info);
+	cuda_program(const cu_module program, const vector<llvm_compute::kernel_info>& kernels_info);
 	
 protected:
-	const CUmodule program;
+	const cu_module program;
 	
 };
 

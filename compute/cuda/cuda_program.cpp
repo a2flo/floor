@@ -22,12 +22,12 @@
 
 #include <floor/compute/cuda/cuda_kernel.hpp>
 
-cuda_program::cuda_program(const CUmodule program_, const vector<llvm_compute::kernel_info>& kernels_info) :
+cuda_program::cuda_program(const cu_module program_, const vector<llvm_compute::kernel_info>& kernels_info) :
 program(program_) {
 	// create kernels (all in the program)
 	for(const auto& info : kernels_info) {
-		CUfunction kernel;
-		CU_CALL_CONT(cuModuleGetFunction(&kernel, program, info.name.c_str()),
+		cu_function kernel;
+		CU_CALL_CONT(cu_module_get_function(&kernel, program, info.name.c_str()),
 					 "failed to get function \"" + info.name + "\"");
 		kernels.emplace_back(make_shared<cuda_kernel>(kernel, info));
 		kernel_names.emplace_back(info.name);
@@ -35,7 +35,7 @@ program(program_) {
 #if 0
 		// use this to compute max occupancy
 		int min_grid_size = 0, block_size = 0;
-		CU_CALL_NO_ACTION(cuOccupancyMaxPotentialBlockSize(&min_grid_size, &block_size, kernel, 0, 0, 0),
+		CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, kernel, 0, 0, 0),
 						  "failed to compute max potential occupancy");
 		log_debug("%s max occupancy: grid size >= %u with block size %u", info.name, min_grid_size, block_size);
 #endif

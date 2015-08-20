@@ -27,28 +27,17 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/core/gl_support.hpp>
-
-#if 1
-#if defined(__APPLE__)
-#include <CUDA/cuda.h>
-#include <CUDA/cudaGL.h>
-#else
-#include <cuda.h>
-#include <cudaGL.h>
-#endif
-#else
 #include <floor/compute/cuda/cuda_api.hpp>
-#endif
 
 //
 #define CU_CALL_FWD(call, error_msg, line_num, do_stuff) {									\
-	CUresult _cu_err = call;																\
+	CU_RESULT _cu_err = call;																\
 	/* check if call was successful, or if cuda is already shutting down, */				\
 	/* in which case we just pretend nothing happened and continue ...    */				\
-	if(_cu_err != CUDA_SUCCESS && _cu_err != CUDA_ERROR_DEINITIALIZED) {					\
+	if(_cu_err != CU_RESULT::SUCCESS && _cu_err != CU_RESULT::DEINITIALIZED) {				\
 		const char* err_name, *err_str;														\
-		cuGetErrorName(_cu_err, &err_name);													\
-		cuGetErrorString(_cu_err, &err_str);												\
+		cu_get_error_name(_cu_err, &err_name);												\
+		cu_get_error_string(_cu_err, &err_str);												\
 		log_error("%s: line %u: cuda error %s (#%u): %s (call: %s)",						\
 				  error_msg, line_num, (err_name != nullptr ? err_name : "INVALID"),		\
 				  _cu_err, (err_str != nullptr ? err_str : "INVALID"), #call);				\

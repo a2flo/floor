@@ -98,7 +98,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
 	if(device->ctx != nullptr) {
-		CU_CALL_RET(cuCtxSetCurrent(device->ctx),
+		CU_CALL_RET(cu_ctx_set_current(device->ctx),
 					"failed to make cuda context current");
 	}
 	
@@ -154,19 +154,19 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	// TODO: cube map: make sure width == height
 	
 	//
-	CUarray_format format;
-	CUresourceViewFormat rsrc_view_format;
+	CU_ARRAY_FORMAT format;
+	CU_RESOURCE_VIEW_FORMAT rsrc_view_format;
 	
-	static const unordered_map<COMPUTE_IMAGE_TYPE, pair<CUarray_format, CUresourceViewFormat>> format_lut {
-		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_AD_FORMAT_SIGNED_INT8, CU_RES_VIEW_FORMAT_SINT_1X8 } },
-		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_SIGNED_INT16, CU_RES_VIEW_FORMAT_SINT_1X16 } },
-		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_SIGNED_INT32, CU_RES_VIEW_FORMAT_SINT_1X32 } },
-		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_AD_FORMAT_UNSIGNED_INT8, CU_RES_VIEW_FORMAT_UINT_1X8 } },
-		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_UNSIGNED_INT16, CU_RES_VIEW_FORMAT_UINT_1X16 } },
-		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_24, { CU_AD_FORMAT_UNSIGNED_INT32, CU_RES_VIEW_FORMAT_UINT_1X32 } },
-		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_UNSIGNED_INT32, CU_RES_VIEW_FORMAT_UINT_1X32 } },
-		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_AD_FORMAT_HALF, CU_RES_VIEW_FORMAT_FLOAT_1X16 } },
-		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_AD_FORMAT_FLOAT, CU_RES_VIEW_FORMAT_FLOAT_1X32 } },
+	static const unordered_map<COMPUTE_IMAGE_TYPE, pair<CU_ARRAY_FORMAT, CU_RESOURCE_VIEW_FORMAT>> format_lut {
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_ARRAY_FORMAT::SIGNED_INT8, CU_RESOURCE_VIEW_FORMAT::SINT_1X8 } },
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_ARRAY_FORMAT::SIGNED_INT16, CU_RESOURCE_VIEW_FORMAT::SINT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_ARRAY_FORMAT::SIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::SINT_1X32 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_8, { CU_ARRAY_FORMAT::UNSIGNED_INT8, CU_RESOURCE_VIEW_FORMAT::UINT_1X8 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_ARRAY_FORMAT::UNSIGNED_INT16, CU_RESOURCE_VIEW_FORMAT::UINT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_24, { CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UINT_1X32 } },
+		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UINT_1X32 } },
+		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_ARRAY_FORMAT::HALF, CU_RESOURCE_VIEW_FORMAT::FLOAT_1X16 } },
+		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_ARRAY_FORMAT::FLOAT, CU_RESOURCE_VIEW_FORMAT::FLOAT_1X32 } },
 	};
 	const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK | COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
 	if(cuda_format == end(format_lut)) {
@@ -174,47 +174,49 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		return false;
 	}
 	format = cuda_format->second.first;
-	rsrc_view_format = (CUresourceViewFormat)(cuda_format->second.second + (channel_count == 1 ? 0 :
-																			(channel_count == 2 ? 1 : 2 /* 4 channels */)));
+	rsrc_view_format = (CU_RESOURCE_VIEW_FORMAT)(uint32_t(cuda_format->second.second) + (channel_count == 1 ? 0 :
+																			   (channel_count == 2 ? 1 : 2 /* 4 channels */)));
 	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		const CUDA_ARRAY3D_DESCRIPTOR desc {
-			.Width = image_dim.x,
-			.Height = (dim_count >= 2 ? image_dim.y : 0),
-			.Depth = depth,
-			.Format = format,
-			.NumChannels = channel_count,
-			.Flags = (
-				(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? CUDA_ARRAY3D_LAYERED : 0u) |
-				(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? CUDA_ARRAY3D_CUBEMAP : 0u) |
-				(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CUDA_ARRAY3D_DEPTH_TEXTURE : 0u) |
-				(has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CUDA_ARRAY3D_TEXTURE_GATHER : 0u) |
-				(need_surf ? CUDA_ARRAY3D_SURFACE_LDST : 0u)
+		const cu_array_3d_descriptor desc {
+			.dim = {
+				image_dim.x,
+				(dim_count >= 2 ? image_dim.y : 0),
+				depth
+			},
+			.format = format,
+			.channel_count = channel_count,
+			.flags = (
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? CUDA_ARRAY_3D_FLAGS::LAYERED : CUDA_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? CUDA_ARRAY_3D_FLAGS::CUBE_MAP : CUDA_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CUDA_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CUDA_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CUDA_ARRAY_3D_FLAGS::TEXTURE_GATHER : CUDA_ARRAY_3D_FLAGS::NONE) |
+					  (need_surf ? CUDA_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CUDA_ARRAY_3D_FLAGS::NONE)
 			)
 		};
-		log_debug("surf/tex %u/%u; dim %u; %u %u %u; channels %u; flags %u; format: %X",
-				  need_surf, need_tex, dim_count, desc.Width, desc.Height, desc.Depth, desc.NumChannels, desc.Flags, desc.Format);
-		CU_CALL_RET(cuArray3DCreate(&image, &desc),
+		log_debug("surf/tex %u/%u; dim %u: %v; channels %u; flags %u; format: %X",
+				  need_surf, need_tex, dim_count, desc.dim, desc.channel_count, desc.flags, desc.format);
+		CU_CALL_RET(cu_array_3d_create(&image, &desc),
 					"failed to create cuda array/image", false);
 		
 		// copy host memory to device if it is non-null and NO_INITIAL_COPY is not specified
 		if(copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 			log_debug("copying %u bytes from %X to array %X",
 					  image_data_size, host_ptr, image);
-			CUDA_MEMCPY3D mcpy3d;
-			memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
-			mcpy3d.srcMemoryType = CU_MEMORYTYPE_HOST;
-			mcpy3d.srcHost = host_ptr;
-			mcpy3d.srcPitch = image_data_size / (std::max(desc.Height, size_t(1)) * std::max(desc.Depth, size_t(1)));
-			mcpy3d.srcHeight = desc.Height;
-			mcpy3d.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-			mcpy3d.dstArray = image;
-			mcpy3d.dstXInBytes = 0;
-			mcpy3d.WidthInBytes = mcpy3d.srcPitch;
-			mcpy3d.Height = mcpy3d.srcHeight;
-			mcpy3d.Depth = std::max(depth, size_t(1));
-			CU_CALL_RET(cuMemcpy3D(&mcpy3d),
+			cu_memcpy_3d_descriptor mcpy3d;
+			memset(&mcpy3d, 0, sizeof(cu_memcpy_3d_descriptor));
+			mcpy3d.src.memory_type = CU_MEMORY_TYPE::HOST;
+			mcpy3d.src.host_ptr = host_ptr;
+			mcpy3d.src.pitch = image_data_size / (std::max(desc.dim.y, size_t(1)) * std::max(desc.dim.z, size_t(1)));
+			mcpy3d.src.height = desc.dim.y;
+			mcpy3d.dst.memory_type = CU_MEMORY_TYPE::ARRAY;
+			mcpy3d.dst.array = image;
+			mcpy3d.dst.x_in_bytes = 0;
+			mcpy3d.width_in_bytes = mcpy3d.src.pitch;
+			mcpy3d.height = mcpy3d.src.height;
+			mcpy3d.depth = std::max(depth, size_t(1));
+			CU_CALL_RET(cu_memcpy_3d(&mcpy3d),
 						"failed to copy initial host data to device", false);
 		}
 	}
@@ -247,7 +249,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 					depth_compat_format = GL_R32F;
 					
 					// correct view format, since stencil isn't supported
-					rsrc_view_format = CU_RES_VIEW_FORMAT_FLOAT_1X32;
+					rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::FLOAT_1X32;
 					break;
 				default:
 					log_error("can't share opengl depth format %X with cuda", gl_internal_format);
@@ -305,22 +307,22 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		}
 		
 		// register the cuda object
-		uint32_t cuda_gl_flags = 0;
+		CU_GRAPHICS_REGISTER_FLAGS cuda_gl_flags;
 		switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 			case COMPUTE_MEMORY_FLAG::READ:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY;
+				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::READ_ONLY;
 				break;
 			case COMPUTE_MEMORY_FLAG::WRITE:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD;
+				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::WRITE_DISCARD;
 				break;
 			default:
 			case COMPUTE_MEMORY_FLAG::READ_WRITE:
-				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS_NONE;
+				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::NONE;
 				break;
 		}
-		CU_CALL_RET(cuGraphicsGLRegisterImage(&rsrc,
-											  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
-											  opengl_type, cuda_gl_flags),
+		CU_CALL_RET(cu_graphics_gl_register_image(&rsrc,
+												  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
+												  opengl_type, cuda_gl_flags),
 					"failed to register opengl image with cuda", false);
 		if(rsrc == nullptr) {
 			log_error("created cuda gl graphics resource is invalid!");
@@ -331,41 +333,42 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	}
 	
 	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
-	CUDA_RESOURCE_DESC rsrc_desc;
-	CUDA_RESOURCE_VIEW_DESC rsrc_view_desc;
-	CUDA_TEXTURE_DESC tex_desc;
-	memset(&rsrc_desc, 0, sizeof(CUDA_RESOURCE_DESC));
-	memset(&rsrc_view_desc, 0, sizeof(CUDA_RESOURCE_VIEW_DESC));
-	memset(&tex_desc, 0, sizeof(CUDA_TEXTURE_DESC));
+	cu_resource_descriptor rsrc_desc;
+	cu_resource_view_descriptor rsrc_view_desc;
+	cu_texture_descriptor tex_desc;
+	memset(&rsrc_desc, 0, sizeof(cu_resource_descriptor));
+	memset(&rsrc_view_desc, 0, sizeof(cu_resource_view_descriptor));
+	memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
 	
 	// TODO: support CU_RESOURCE_TYPE_MIPMAPPED_ARRAY + CU_RESOURCE_TYPE_LINEAR
-	rsrc_desc.resType = CU_RESOURCE_TYPE_ARRAY;
-	rsrc_desc.res.array.hArray = image;
-	rsrc_desc.flags = 0; // must be 0
+	rsrc_desc.type = CU_RESOURCE_TYPE::ARRAY;
+	rsrc_desc.array = image;
 	
 	if(need_tex) {
-		tex_desc.addressMode[0] = CU_TR_ADDRESS_MODE_CLAMP;
-		if(dim_count >= 2) tex_desc.addressMode[1] = CU_TR_ADDRESS_MODE_CLAMP;
-		if(dim_count >= 3) tex_desc.addressMode[2] = CU_TR_ADDRESS_MODE_CLAMP;
-		tex_desc.filterMode = CU_TR_FILTER_MODE_POINT;
+		tex_desc.address_mode[0] = CU_ADDRESS_MODE::CLAMP;
+		if(dim_count >= 2) tex_desc.address_mode[1] = CU_ADDRESS_MODE::CLAMP;
+		if(dim_count >= 3) tex_desc.address_mode[2] = CU_ADDRESS_MODE::CLAMP;
+		tex_desc.filter_mode = CU_FILTER_MODE::NEAREST;
 		tex_desc.flags = 0;
-		tex_desc.maxAnisotropy = 1;
-		tex_desc.mipmapFilterMode = CU_TR_FILTER_MODE_POINT;
-		tex_desc.mipmapLevelBias = 0.0f;
-		tex_desc.minMipmapLevelClamp = 0;
-		tex_desc.maxMipmapLevelClamp = 0;
+		tex_desc.max_anisotropy = 1;
+		tex_desc.mip_map_filter_mode = CU_FILTER_MODE::NEAREST;
+		tex_desc.mip_map_level_bias = 0.0f;
+		tex_desc.min_mip_map_level_clamp = 0;
+		tex_desc.max_mip_map_level_clamp = 0;
 		
 		rsrc_view_desc.format = rsrc_view_format;
-		rsrc_view_desc.width = image_dim.x;
-		rsrc_view_desc.height = (dim_count >= 2 ? image_dim.y : 0);
-		rsrc_view_desc.depth = depth;
+		rsrc_view_desc.dim = {
+			image_dim.x,
+			(dim_count >= 2 ? image_dim.y : 0),
+			depth
+		};
 		// rest is already 0
 		
-		CU_CALL_RET(cuTexObjectCreate(&texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
+		CU_CALL_RET(cu_tex_object_create(&texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
 					"failed to create texture object", false);
 	}
 	if(need_surf) {
-		CU_CALL_RET(cuSurfObjectCreate(&surface, &rsrc_desc),
+		CU_CALL_RET(cu_surf_object_create(&surface, &rsrc_desc),
 					"failed to create surface object", false);
 	}
 	
@@ -377,17 +380,17 @@ cuda_image::~cuda_image() {
 	if(image == nullptr) return;
 	
 	if(texture != 0) {
-		CU_CALL_NO_ACTION(cuTexObjectDestroy(texture),
+		CU_CALL_NO_ACTION(cu_tex_object_destroy(texture),
 						  "failed to destroy texture object");
 	}
 	if(surface != 0) {
-		CU_CALL_NO_ACTION(cuSurfObjectDestroy(surface),
+		CU_CALL_NO_ACTION(cu_surf_object_destroy(surface),
 						  "failed to destroy surface object");
 	}
 	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		CU_CALL_RET(cuArrayDestroy(image),
+		CU_CALL_RET(cu_array_destroy(image),
 					"failed to free device memory");
 	}
 	// -> opengl image
@@ -470,28 +473,28 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
-		CUDA_MEMCPY3D mcpy3d;
-		memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
-		mcpy3d.dstMemoryType = CU_MEMORYTYPE_HOST;
-		mcpy3d.dstHost = host_buffer;
-		mcpy3d.dstPitch = image_data_size / (region.y * region.z);
-		mcpy3d.dstHeight = region.y;
-		mcpy3d.srcMemoryType = CU_MEMORYTYPE_ARRAY;
-		mcpy3d.srcArray = image;
-		mcpy3d.srcXInBytes = 0;
-		mcpy3d.WidthInBytes = mcpy3d.dstPitch;
-		mcpy3d.Height = mcpy3d.dstHeight;
-		mcpy3d.Depth = region.z;
+		cu_memcpy_3d_descriptor mcpy3d;
+		memset(&mcpy3d, 0, sizeof(cu_memcpy_3d_descriptor));
+		mcpy3d.dst.memory_type = CU_MEMORY_TYPE::HOST;
+		mcpy3d.dst.host_ptr = host_buffer;
+		mcpy3d.dst.pitch = image_data_size / (region.y * region.z);
+		mcpy3d.dst.height = region.y;
+		mcpy3d.src.memory_type = CU_MEMORY_TYPE::ARRAY;
+		mcpy3d.src.array = image;
+		mcpy3d.src.x_in_bytes = 0;
+		mcpy3d.width_in_bytes = mcpy3d.dst.pitch;
+		mcpy3d.height = mcpy3d.dst.height;
+		mcpy3d.depth = region.z;
 	
 		if(blocking_map) {
 			// must finish up all current work before we can properly read from the current buffer
 			cqueue->finish();
 			
-			CU_CALL_NO_ACTION(cuMemcpy3D(&mcpy3d),
+			CU_CALL_NO_ACTION(cu_memcpy_3d(&mcpy3d),
 							  "failed to copy device memory to host");
 		}
 		else {
-			CU_CALL_NO_ACTION(cuMemcpy3DAsync(&mcpy3d, (CUstream)cqueue->get_queue_ptr()),
+			CU_CALL_NO_ACTION(cu_memcpy_3d_async(&mcpy3d, (cu_stream)cqueue->get_queue_ptr()),
 							  "failed to copy device memory to host");
 		}
 	}
@@ -517,19 +520,19 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		CUDA_MEMCPY3D mcpy3d;
-		memset(&mcpy3d, 0, sizeof(CUDA_MEMCPY3D));
-		mcpy3d.srcMemoryType = CU_MEMORYTYPE_HOST;
-		mcpy3d.srcHost = mapped_ptr;
-		mcpy3d.srcPitch = image_data_size / (iter->second.region.y * iter->second.region.z);
-		mcpy3d.srcHeight = iter->second.region.y;
-		mcpy3d.dstMemoryType = CU_MEMORYTYPE_ARRAY;
-		mcpy3d.dstArray = image;
-		mcpy3d.dstXInBytes = 0;
-		mcpy3d.WidthInBytes = mcpy3d.srcPitch;
-		mcpy3d.Height = mcpy3d.srcHeight;
-		mcpy3d.Depth = iter->second.region.z;
-		CU_CALL_NO_ACTION(cuMemcpy3D(&mcpy3d),
+		cu_memcpy_3d_descriptor mcpy3d;
+		memset(&mcpy3d, 0, sizeof(cu_memcpy_3d_descriptor));
+		mcpy3d.src.memory_type = CU_MEMORY_TYPE::HOST;
+		mcpy3d.src.host_ptr = mapped_ptr;
+		mcpy3d.src.pitch = image_data_size / (iter->second.region.y * iter->second.region.z);
+		mcpy3d.src.height = iter->second.region.y;
+		mcpy3d.dst.memory_type = CU_MEMORY_TYPE::ARRAY;
+		mcpy3d.dst.array = image;
+		mcpy3d.dst.x_in_bytes = 0;
+		mcpy3d.width_in_bytes = mcpy3d.src.pitch;
+		mcpy3d.height = mcpy3d.src.height;
+		mcpy3d.depth = iter->second.region.z;
+		CU_CALL_NO_ACTION(cu_memcpy_3d(&mcpy3d),
 						  "failed to copy host memory to device");
 	}
 	
@@ -600,13 +603,13 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 		}
 	}
 	
-	CU_CALL_RET(cuGraphicsMapResources(1, &rsrc,
-									   (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
+	CU_CALL_RET(cu_graphics_map_resources(1, &rsrc,
+										  (cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to acquire opengl image - cuda resource mapping failed!", false);
 	gl_object_state = false;
 	
 	// TODO: handle opengl array/layers and mip-mapping
-	CU_CALL_RET(cuGraphicsSubResourceGetMappedArray(&image, rsrc, 0, 0),
+	CU_CALL_RET(cu_graphics_sub_resource_get_mapped_array(&image, rsrc, 0, 0),
 				"failed to retrieve mapped cuda image from opengl buffer!", false);
 	
 	if(image == nullptr) {
@@ -639,8 +642,8 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	}
 	
 	image = 0; // reset buffer pointer, this is no longer valid
-	CU_CALL_RET(cuGraphicsUnmapResources(1, &rsrc,
-										 (cqueue != nullptr ? (CUstream)cqueue->get_queue_ptr() : nullptr)),
+	CU_CALL_RET(cu_graphics_unmap_resources(1, &rsrc,
+											(cqueue != nullptr ? (cu_stream)cqueue->get_queue_ptr() : nullptr)),
 				"failed to release opengl image - cuda resource unmapping failed!", false);
 	gl_object_state = true;
 	

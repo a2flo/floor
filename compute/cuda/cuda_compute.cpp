@@ -29,14 +29,20 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 						const unordered_set<string> whitelist) {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
+	// init cuda api functions
+	if(!cuda_api_init()) {
+		log_error("failed to initialize CUDA API functions");
+		return;
+	}
+	
 	// init cuda itself
-	CU_CALL_RET(cuInit(0), "failed to initialize CUDA")
+	CU_CALL_RET(cu_init(0), "failed to initialize CUDA")
 	
 	// need at least 7.5 right now
 	const auto to_driver_major = [](const int& version) { return version / 1000; };
 	const auto to_driver_minor = [](const int& version) { return (version % 100) / 10; };
 	int driver_version = 0;
-	cuDriverGetVersion(&driver_version);
+	cu_driver_get_version(&driver_version);
 	if(driver_version < FLOOR_CUDA_API_VERSION_MIN) {
 		log_error("at least CUDA %u.%u is required, got CUDA %u.%u!",
 				  to_driver_major(FLOOR_CUDA_API_VERSION_MIN), to_driver_minor(FLOOR_CUDA_API_VERSION_MIN),
@@ -46,7 +52,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 	
 	//
 	int device_count = 0;
-	CU_CALL_RET(cuDeviceGetCount(&device_count), "cuDeviceGetCount failed")
+	CU_CALL_RET(cu_device_get_count(&device_count), "cu_device_get_count failed")
 	if(device_count == 0) {
 		log_error("there is no device that supports CUDA!");
 		return;
@@ -66,14 +72,14 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 	unsigned int fastest_gpu_score = 0;
 	for(int cur_device = 0; cur_device < device_count; ++cur_device) {
 		// get and create device
-		CUdevice cuda_dev;
-		CU_CALL_CONT(cuDeviceGet(&cuda_dev, cur_device),
+		cu_device cuda_dev;
+		CU_CALL_CONT(cu_device_get(&cuda_dev, cur_device),
 					 "failed to get device #" + to_string(cur_device))
 		
 		//
 		char dev_name[256];
 		memset(dev_name, 0, 256);
-		CU_CALL_IGNORE(cuDeviceGetName(dev_name, 255, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_name(dev_name, 255, cuda_dev));
 		
 		// check whitelist
 		if(!whitelist.empty()) {
@@ -90,7 +96,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		
 		// need at least sm_20 capability (fermi)
 		int2 cc;
-		CU_CALL_IGNORE(cuDeviceComputeCapability(&cc.x, &cc.y, cuda_dev));
+		CU_CALL_IGNORE(cu_device_compute_capability(&cc.x, &cc.y, cuda_dev));
 		if(cc.x < 2) {
 			log_error("unsupported cuda device \"%s\": at least compute capability 2.0 is required (has %u.%u)!",
 					  dev_name, cc.x, cc.y);
@@ -98,10 +104,10 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		}
 		
 		// create the context for this device
-		CUcontext ctx;
-		CU_CALL_CONT(cuCtxCreate(&ctx, CU_CTX_SCHED_AUTO, cuda_dev),
+		cu_context ctx;
+		CU_CALL_CONT(cu_ctx_create(&ctx, CU_CONTEXT_FLAGS::SCHEDULE_AUTO, cuda_dev),
 					 "failed to create context for device");
-		CU_CALL_IGNORE(cuCtxSetCurrent(ctx));
+		CU_CALL_IGNORE(cu_ctx_set_current(ctx));
 		
 		//
 		devices.emplace_back(make_shared<cuda_device>());
@@ -129,30 +135,30 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		
 		// get all the attributes!
 		size_t global_mem_size = 0;
-		CU_CALL_IGNORE(cuDeviceTotalMem(&global_mem_size, cuda_dev));
+		CU_CALL_IGNORE(cu_device_total_mem(&global_mem_size, cuda_dev));
 		device.global_mem_size = (uint64_t)global_mem_size;
 		
 		int const_mem, local_mem, l2_cache_size;
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.vendor_id, CU_DEVICE_ATTRIBUTE_PCI_DEVICE_ID, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.units, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&const_mem, CU_DEVICE_ATTRIBUTE_TOTAL_CONSTANT_MEMORY, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&local_mem, CU_DEVICE_ATTRIBUTE_MAX_SHARED_MEMORY_PER_BLOCK, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.max_registers_per_block, CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_BLOCK, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE_L2_CACHE_SIZE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.vendor_id, CU_DEVICE_ATTRIBUTE::PCI_DEVICE_ID, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.units, CU_DEVICE_ATTRIBUTE::MULTIPROCESSOR_COUNT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&const_mem, CU_DEVICE_ATTRIBUTE::TOTAL_CONSTANT_MEMORY, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&local_mem, CU_DEVICE_ATTRIBUTE::MAX_SHARED_MEMORY_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.max_registers_per_block, CU_DEVICE_ATTRIBUTE::MAX_REGISTERS_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE::L2_CACHE_SIZE, cuda_dev));
 		device.constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
 		device.local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
 		device.l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
 		int max_work_group_size;
 		int3 max_block_dim, max_grid_dim;
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.warp_size, CU_DEVICE_ATTRIBUTE_WARP_SIZE, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_work_group_size, CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_block_dim.y, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Y, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_block_dim.z, CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_Z, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_X, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Y, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Z, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_work_group_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_X, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.y, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Y, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.z, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Z, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_X, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Y, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev));
 		device.max_work_group_size = uint32_t(max_work_group_size);
 		device.max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
 		device.max_work_group_item_sizes = uint3(max_block_dim);
@@ -160,34 +166,34 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		int max_image_1d, max_image_1d_buffer;
 		int2 max_image_2d;
 		int3 max_image_3d;
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_1d_buffer, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_LINEAR_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_1d, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_2d.x, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_2d.y, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_HEIGHT, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.x, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.y, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_HEIGHT, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&max_image_3d.z, CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE3D_DEPTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d_buffer, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_LINEAR_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_HEIGHT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_HEIGHT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.z, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_DEPTH, cuda_dev));
 		device.max_image_1d_dim = size_t(max_image_1d);
 		device.max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
 		device.max_image_2d_dim = size2(max_image_2d);
 		device.max_image_3d_dim = size3(max_image_3d);
 		
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.clock, CU_DEVICE_ATTRIBUTE_CLOCK_RATE, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.mem_clock, CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.mem_bus_width, CU_DEVICE_ATTRIBUTE_GLOBAL_MEMORY_BUS_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute((int*)&device.async_engine_count, CU_DEVICE_ATTRIBUTE_ASYNC_ENGINE_COUNT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_bus_width, CU_DEVICE_ATTRIBUTE::GLOBAL_MEMORY_BUS_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.async_engine_count, CU_DEVICE_ATTRIBUTE::ASYNC_ENGINE_COUNT, cuda_dev));
 		device.clock /= 1000; // to MHz
 		device.mem_clock /= 1000;
 		
 		int exec_timeout, overlap, map_host_memory, integrated, concurrent, ecc, tcc, unified_memory;
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&exec_timeout, CU_DEVICE_ATTRIBUTE_KERNEL_EXEC_TIMEOUT, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&overlap, CU_DEVICE_ATTRIBUTE_GPU_OVERLAP, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&map_host_memory, CU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&integrated, CU_DEVICE_ATTRIBUTE_INTEGRATED, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&concurrent, CU_DEVICE_ATTRIBUTE_CONCURRENT_KERNELS, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&ecc, CU_DEVICE_ATTRIBUTE_ECC_ENABLED, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&tcc, CU_DEVICE_ATTRIBUTE_TCC_DRIVER, cuda_dev));
-		CU_CALL_IGNORE(cuDeviceGetAttribute(&unified_memory, CU_DEVICE_ATTRIBUTE_UNIFIED_ADDRESSING, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&exec_timeout, CU_DEVICE_ATTRIBUTE::KERNEL_EXEC_TIMEOUT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&overlap, CU_DEVICE_ATTRIBUTE::GPU_OVERLAP, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&map_host_memory, CU_DEVICE_ATTRIBUTE::CAN_MAP_HOST_MEMORY, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&integrated, CU_DEVICE_ATTRIBUTE::INTEGRATED, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&concurrent, CU_DEVICE_ATTRIBUTE::CONCURRENT_KERNELS, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&ecc, CU_DEVICE_ATTRIBUTE::ECC_ENABLED, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&tcc, CU_DEVICE_ATTRIBUTE::TCC_DRIVER, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&unified_memory, CU_DEVICE_ATTRIBUTE::UNIFIED_ADDRESSING, cuda_dev));
 		device.unified_memory = (unified_memory != 0);
 		
 		device.basic_64_bit_atomics_support = true; // always true since sm_20
@@ -235,7 +241,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		log_msg("max work-item sizes: %v", device.max_work_item_sizes);
 		
 		size_t printf_buffer_size = 0;
-		cuCtxGetLimit(&printf_buffer_size, CU_LIMIT_PRINTF_FIFO_SIZE);
+		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);
 		log_msg("printf buffer size: %u bytes / %u MB",
 				printf_buffer_size,
 				printf_buffer_size / 1024ULL / 1024ULL);
@@ -266,7 +272,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		fastest_device = fastest_gpu_device;
 		
 		// make context of fastest device current
-		CU_CALL_IGNORE(cuCtxSetCurrent(((cuda_device*)fastest_gpu_device.get())->ctx));
+		CU_CALL_IGNORE(cu_ctx_set_current(((cuda_device*)fastest_gpu_device.get())->ctx));
 	}
 	
 	// init shaders in cuda_image
@@ -279,8 +285,8 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 		return {};
 	}
 	
-	CUstream stream;
-	CU_CALL_RET(cuStreamCreate(&stream, CU_STREAM_NON_BLOCKING),
+	cu_stream stream;
+	CU_CALL_RET(cu_stream_create(&stream, CU_STREAM_FLAGS::NON_BLOCKING),
 				"failed to create cuda stream", {});
 	
 	auto ret = make_shared<cuda_queue>(stream);
@@ -398,14 +404,14 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : (uint32_t)stoul(force_sm));
-	CUmodule program;
+	cu_module program;
 	
 #if !defined(FLOOR_DEBUG) // TODO: config option -> fast / build w/o logs
-	const CUjit_option jit_options[] {
-		CU_JIT_TARGET,
-		CU_JIT_GENERATE_LINE_INFO,
-		CU_JIT_GENERATE_DEBUG_INFO,
-		CU_JIT_MAX_REGISTERS
+	const CU_JIT_OPTION jit_options[] {
+		CU_JIT_OPTION::TARGET,
+		CU_JIT_OPTION::GENERATE_LINE_INFO,
+		CU_JIT_OPTION::GENERATE_DEBUG_INFO,
+		CU_JIT_OPTION::MAX_REGISTERS
 	};
 	constexpr const size_t option_count { size(jit_options) };
 	
@@ -420,25 +426,25 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	};
 	static_assert(option_count == size(jit_option_values), "mismatching option count");
 	
-	CU_CALL_RET(cuModuleLoadDataEx(&program,
-								   program_data.first.c_str(),
-								   option_count,
-								   (CUjit_option*)&jit_options[0],
-								   (void**)&jit_option_values[0]),
+	CU_CALL_RET(cu_module_load_data_ex(&program,
+									   program_data.first.c_str(),
+									   option_count,
+									   (CU_JIT_OPTION*)&jit_options[0],
+									   (void**)&jit_option_values[0]),
 				"failed to load/jit cuda module", {});
 #else
 	// jit the module / ptx code
-	const CUjit_option jit_options[] {
-		CU_JIT_TARGET,
-		CU_JIT_GENERATE_LINE_INFO,
-		CU_JIT_GENERATE_DEBUG_INFO,
-		CU_JIT_MAX_REGISTERS,
-		CU_JIT_OPTIMIZATION_LEVEL,
-		CU_JIT_LOG_VERBOSE,
-		CU_JIT_ERROR_LOG_BUFFER,
-		CU_JIT_INFO_LOG_BUFFER,
-		CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES,
-		CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES,
+	const CU_JIT_OPTION jit_options[] {
+		CU_JIT_OPTION::TARGET,
+		CU_JIT_OPTION::GENERATE_LINE_INFO,
+		CU_JIT_OPTION::GENERATE_DEBUG_INFO,
+		CU_JIT_OPTION::MAX_REGISTERS,
+		CU_JIT_OPTION::OPTIMIZATION_LEVEL,
+		CU_JIT_OPTION::LOG_VERBOSE,
+		CU_JIT_OPTION::ERROR_LOG_BUFFER,
+		CU_JIT_OPTION::INFO_LOG_BUFFER,
+		CU_JIT_OPTION::ERROR_LOG_BUFFER_SIZE_BYTES,
+		CU_JIT_OPTION::INFO_LOG_BUFFER_SIZE_BYTES,
 	};
 	constexpr const size_t option_count { size(jit_options) };
 	constexpr const size_t log_size { 65536 };
@@ -470,39 +476,39 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	static_assert(option_count == size(jit_option_values), "mismatching option count");
 	
 	// TODO: print out llvm_compute log
-	CUlinkState link_state;
+	cu_link_state link_state;
 	void* cubin_ptr = nullptr;
 	size_t cubin_size = 0;
-	CU_CALL_RET(cuLinkCreate(option_count,
-							 (CUjit_option*)&jit_options[0],
-							 (void**)&jit_option_values[0],
-							 &link_state),
+	CU_CALL_RET(cu_link_create(option_count,
+							   (CU_JIT_OPTION*)&jit_options[0],
+							   (void**)&jit_option_values[0],
+							   &link_state),
 				"failed to create link state", {});
-	CU_CALL_ERROR_EXEC(cuLinkAddData(link_state, CU_JIT_INPUT_PTX,
-									 (void*)program_data.first.c_str(), program_data.first.size(),
-									 nullptr, 0, nullptr, nullptr),
+	CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
+										(void*)program_data.first.c_str(), program_data.first.size(),
+										nullptr, 0, nullptr, nullptr),
 					   "failed to add ptx data to link state", {
 						   print_error_log();
-						   cuLinkDestroy(link_state);
+						   cu_link_destroy(link_state);
 						   return {};
 					   });
-	CU_CALL_ERROR_EXEC(cuLinkComplete(link_state, &cubin_ptr, &cubin_size),
+	CU_CALL_ERROR_EXEC(cu_link_complete(link_state, &cubin_ptr, &cubin_size),
 					   "failed to link ptx data", {
 						   print_error_log();
-						   cuLinkDestroy(link_state);
+						   cu_link_destroy(link_state);
 						   return {};
 					   });
-	CU_CALL_ERROR_EXEC(cuModuleLoadData(&program, cubin_ptr),
+	CU_CALL_ERROR_EXEC(cu_module_load_data(&program, cubin_ptr),
 					   "failed to load cuda module", {
 						   print_error_log();
 						   if(info_log[0] != 0) {
 							   info_log[log_size - 1] = 0;
 							   log_debug("ptx build info: %s", info_log);
 						   }
-						   cuLinkDestroy(link_state);
+						   cu_link_destroy(link_state);
 						   return {};
 					   });
-	CU_CALL_NO_ACTION(cuLinkDestroy(link_state),
+	CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 					  "failed to destroy link state");
 
 	if(info_log[0] != 0) {

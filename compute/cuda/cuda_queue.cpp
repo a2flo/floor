@@ -20,11 +20,11 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-cuda_queue::cuda_queue(const CUstream queue_) : queue(queue_) {
+cuda_queue::cuda_queue(const cu_stream queue_) : queue(queue_) {
 }
 
 void cuda_queue::finish() const {
-	CU_CALL_RET(cuStreamSynchronize(queue),
+	CU_CALL_RET(cu_stream_synchronize(queue),
 				"failed to finish (synchronize) queue");
 }
 

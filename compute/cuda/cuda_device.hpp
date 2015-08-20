@@ -50,13 +50,11 @@ public:
 	//!
 	uint32_t async_engine_count { 0u };
 	
-#if !defined(FLOOR_NO_CUDA)
 	// cuda requires a context for each device (no shared context)
-	CUcontext ctx { nullptr };
+	cu_context ctx { nullptr };
 	
 	//!
-	CUdevice device_id { 0u };
-#endif
+	cu_device device_id { 0u };
 	
 };
 

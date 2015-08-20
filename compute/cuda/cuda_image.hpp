@@ -50,22 +50,22 @@ public:
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns the cuda specific image pointer (cuda array)
-	const CUarray& get_cuda_image() const { return image; }
+	const cu_array& get_cuda_image() const { return image; }
 	
 	//! returns the cuda surface object
-	const CUsurfObject& get_cuda_surface() const { return surface; }
+	const cu_surf_object& get_cuda_surface() const { return surface; }
 	
 	//! returns the cuda texture object
-	const CUtexObject& get_cuda_texture() const { return texture; }
+	const cu_tex_object& get_cuda_texture() const { return texture; }
 	
 	//! internal function - initialized once by cuda_compute
 	static void init_internal();
 	
 protected:
-	CUarray image { nullptr };
-	CUsurfObject surface { 0ull };
-	CUtexObject texture { 0ull };
-	CUgraphicsResource rsrc { nullptr };
+	cu_array image { nullptr };
+	cu_surf_object surface { 0ull };
+	cu_tex_object texture { 0ull };
+	cu_graphics_resource rsrc { nullptr };
 	
 	struct cuda_mapping {
 		const size3 origin;

@@ -95,13 +95,13 @@ public:
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	
 	//! returns the cuda specific buffer pointer (device pointer)
-	const CUdeviceptr& get_cuda_buffer() const {
+	const cu_device_ptr& get_cuda_buffer() const {
 		return buffer;
 	}
 	
 protected:
-	CUdeviceptr buffer { 0ull };
-	CUgraphicsResource rsrc { nullptr };
+	cu_device_ptr buffer { 0ull };
+	cu_graphics_resource rsrc { nullptr };
 	
 	struct cuda_mapping {
 		const size_t size;

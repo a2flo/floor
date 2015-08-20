@@ -36,7 +36,7 @@
 
 class cuda_kernel final : public compute_kernel {
 public:
-	cuda_kernel(const CUfunction kernel, const llvm_compute::kernel_info& info);
+	cuda_kernel(const cu_function kernel, const llvm_compute::kernel_info& info);
 	~cuda_kernel() override;
 	
 	template <typename... Args> void execute(compute_queue* queue,
@@ -64,7 +64,7 @@ public:
 	}
 	
 protected:
-	const CUfunction kernel;
+	const cu_function kernel;
 	const string func_name;
 	const size_t kernel_args_size;
 	const llvm_compute::kernel_info info;
@@ -96,8 +96,8 @@ protected:
 	
 	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, shared_ptr<compute_buffer> arg) {
 		*param = data;
-		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(CUdeviceptr));
-		data += sizeof(CUdeviceptr);
+		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(cu_device_ptr));
+		data += sizeof(cu_device_ptr);
 	}
 	
 	floor_inline_always void set_kernel_argument(const uint8_t num, void** param, uint8_t*& data, shared_ptr<compute_image> arg) {

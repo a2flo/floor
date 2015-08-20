@@ -28,7 +28,7 @@
 
 class cuda_queue final : public compute_queue {
 public:
-	cuda_queue(const CUstream queue);
+	cuda_queue(const cu_stream queue);
 	
 	void finish() const override;
 	void flush() const override;
@@ -36,7 +36,7 @@ public:
 	const void* get_queue_ptr() const override;
 	
 protected:
-	const CUstream queue;
+	const cu_stream queue;
 	
 };
 
