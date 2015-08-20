@@ -1275,3 +1275,7 @@ shared_ptr<compute_base> floor::get_compute_context() {
 bool floor::has_opengl_extension(const char* name) {
 	return (gl_extensions.count(name) > 0);
 }
+
+bool floor::is_console_only() {
+	return console_only;
+}

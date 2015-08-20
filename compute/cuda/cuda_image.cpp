@@ -78,7 +78,10 @@ namespace cuda_image_support {
 }
 
 void cuda_image::init_internal() {
-	cuda_image_support::init();
+	// only need to (can) init gl shaders when there's a window / gl context
+	if(!floor::is_console_only()) {
+		cuda_image_support::init();
+	}
 }
 
 // TODO: proper error (return) value handling everywhere

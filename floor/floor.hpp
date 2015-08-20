@@ -56,6 +56,7 @@ public:
 	static void swap();
 	static const string get_version();
 	static bool has_opengl_extension(const char* ext_name);
+	static bool is_console_only();
 	
 	// class return functions
 	static event* get_event();
