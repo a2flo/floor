@@ -547,6 +547,11 @@ else
 fi
 CFLAGS="${CFLAGS} -std=gnu11"
 
+OBJCFLAGS="${OBJCFLAGS}"
+if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
+	OBJCFLAGS="${OBJCFLAGS} -fobjc-arc"
+fi
+
 # disable exception support
 if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -fno-exceptions"
@@ -786,10 +791,10 @@ build_file() {
 			build_cmd="${CC} ${CFLAGS}"
 			;;
 		*".mm")
-			build_cmd="${CXX} -x objective-c++ -fobjc-arc ${CXXFLAGS}"
+			build_cmd="${CXX} -x objective-c++ ${OBJCFLAGS} ${CXXFLAGS}"
 			;;
 		*".m")
-			build_cmd="${CC} -x objective-c -fobjc-arc ${CFLAGS}"
+			build_cmd="${CC} -x objective-c ${OBJCFLAGS} ${CFLAGS}"
 			;;
 		*)
 			error "unknown source file ending: ${source_file}"
