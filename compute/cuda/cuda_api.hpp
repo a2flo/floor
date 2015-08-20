@@ -20,6 +20,7 @@
 #define __FLOOR_CUDA_API_HPP__
 
 #include <floor/core/essentials.hpp>
+#include <floor/math/vector_lib.hpp>
 
 enum class CU_RESULT : uint32_t {
 	SUCCESS = 0,

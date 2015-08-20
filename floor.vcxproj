@@ -43,8 +43,8 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\deps\include;C:\;Z:\;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\lib\Win32;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432);C:\deps\include;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -131,6 +131,7 @@
     <ClCompile Include="compute\compute_memory.cpp" />
     <ClCompile Include="compute\compute_program.cpp" />
     <ClCompile Include="compute\compute_queue.cpp" />
+    <ClCompile Include="compute\cuda\cuda_api.cpp" />
     <ClCompile Include="compute\cuda\cuda_buffer.cpp" />
     <ClCompile Include="compute\cuda\cuda_compute.cpp" />
     <ClCompile Include="compute\cuda\cuda_device.cpp" />
@@ -185,6 +186,7 @@
     <ClInclude Include="compute\compute_memory.hpp" />
     <ClInclude Include="compute\compute_program.hpp" />
     <ClInclude Include="compute\compute_queue.hpp" />
+    <ClInclude Include="compute\cuda\cuda_api.hpp" />
     <ClInclude Include="compute\cuda\cuda_buffer.hpp" />
     <ClInclude Include="compute\cuda\cuda_common.hpp" />
     <ClInclude Include="compute\cuda\cuda_compute.hpp" />

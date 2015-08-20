@@ -423,7 +423,7 @@ vector<string> cl_get_info(const cl_program& program) {
 	
 	// strip the invalid binaries
 	if(binary_count != sizes_count) {
-		ret.erase(next(begin(ret), (ssize_t)sizes_count), end(ret));
+		ret.erase(next(begin(ret), (iterator_traits<decltype(begin(ret))>::difference_type)sizes_count), end(ret));
 	}
 	
 	// note: clGetProgramInfo should have directly written into the strings in the return vector

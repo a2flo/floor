@@ -186,6 +186,9 @@
     <ClCompile Include="compute\host\host_queue.cpp">
       <Filter>compute\host</Filter>
     </ClCompile>
+    <ClCompile Include="compute\cuda\cuda_api.cpp">
+      <Filter>compute\cuda</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compute\compute_base.hpp">
@@ -427,6 +430,9 @@
     </ClInclude>
     <ClInclude Include="compute\host\host_queue.hpp">
       <Filter>compute\host</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\cuda\cuda_api.hpp">
+      <Filter>compute\cuda</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

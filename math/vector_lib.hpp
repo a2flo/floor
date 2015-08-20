@@ -19,6 +19,8 @@
 #ifndef __FLOOR_VECTOR_LIB_HPP__
 #define __FLOOR_VECTOR_LIB_HPP__
 
+#include <floor/core/essentials.hpp>
+
 // disable "comparing floating point with == or != is unsafe" warnings,
 // b/c the comparisons here are actually supposed to be bitwise comparisons
 FLOOR_PUSH_WARNINGS()
