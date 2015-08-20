@@ -371,9 +371,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_OPENCL} -gt 0 -a ${BUILD_CONF_POCL} -eq 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
-	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} cuda"
-	fi
 
 	# add os specific libs
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
@@ -392,7 +389,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		LDFLAGS="${LDFLAGS} -L/lib"
 	fi
 	
-	# windows/mingw opencl and cuda handling
+	# windows/mingw opencl handling
 	if [ $BUILD_OS == "mingw" ]; then
 		if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 			if [ ! -z "${AMDAPPSDKROOT}" ]; then
@@ -413,31 +410,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 					LDFLAGS="${LDFLAGS} -L\"${INTELOCLSDKROOT_FIXED}lib/x64\""
 				fi
 				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
-			elif [ ! -z "${CUDA_PATH}" ]; then
-				# use nvidia opencl/cuda sdk
-				CUDA_PATH_FIXED=$(echo ${CUDA_PATH} | sed -E "s/\\\\/\//g")
-				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-					LDFLAGS="${LDFLAGS} -L\"${CUDA_PATH_FIXED}/lib/Win32\""
-				else
-					LDFLAGS="${LDFLAGS} -L\"${CUDA_PATH_FIXED}/lib/x64\""
-				fi
-				INCLUDES="${INCLUDES} -isystem \"${CUDA_PATH_FIXED}/include\""
 			else
-				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel, AMD or NVIDIA OpenCL SDK!"
+				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel or AMD OpenCL SDK!"
 			fi
-		fi
-		
-		if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-			CUDA_PATH_FIXED=$(echo ${CUDA_PATH} | sed -E "s/\\\\/\//g")
-			if [ -z "${CUDA_PATH}" ]; then
-				error "building with CUDA support, but CUDA is not installed or CUDA_PATH is not set!"
-			fi
-			if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-				LDFLAGS="${LDFLAGS} -L\"${CUDA_PATH_FIXED}/lib/Win32\""
-			else
-				LDFLAGS="${LDFLAGS} -L\"${CUDA_PATH_FIXED}/lib/x64\""
-			fi
-			INCLUDES="${INCLUDES} -isystem \"${CUDA_PATH_FIXED}/include\""
 		fi
 	fi
 
@@ -494,9 +469,6 @@ else
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lcrypto -lssl"
 	fi
-	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-		LDFLAGS="${LDFLAGS} -weak_framework CUDA"
-	fi
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework OpenALSoft"
 	fi
@@ -518,19 +490,6 @@ INCLUDES="${INCLUDES}"
 # don't automatically add /usr/include and /usr/local/include on mingw/msys (these will lead to the wrong headers being included)
 if [ $BUILD_OS != "mingw" ]; then
     INCLUDES="${INCLUDES} -isystem /usr/include -isystem /usr/local/include"
-fi
-
-# on linux: need to explicitly add the cuda lib + include folder and must do this _after_ /usr/{include,lib},
-# because its obsolete CL folder and lib conflict with the system ones
-if [ $BUILD_OS == "linux" ]; then
-	if [ ${BUILD_CONF_CUDA} -gt 0 ]; then
-		INCLUDES="${INCLUDES} -isystem /opt/cuda/include"
-		if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
-			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib"
-		else
-			LDFLAGS="${LDFLAGS} -L/opt/cuda/lib64"
-		fi
-	fi
 fi
 
 # create the floor_conf.hpp file
@@ -827,10 +786,10 @@ build_file() {
 			build_cmd="${CC} ${CFLAGS}"
 			;;
 		*".mm")
-			build_cmd="${CXX} -x objective-c++ ${CXXFLAGS}"
+			build_cmd="${CXX} -x objective-c++ -fobjc-arc ${CXXFLAGS}"
 			;;
 		*".m")
-			build_cmd="${CC} -x objective-c ${CFLAGS}"
+			build_cmd="${CC} -x objective-c -fobjc-arc ${CFLAGS}"
 			;;
 		*)
 			error "unknown source file ending: ${source_file}"
