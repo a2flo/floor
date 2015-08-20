@@ -33,87 +33,87 @@
 #define FLOOR_OPENCL_FILTER_LINEAR               0x20
 
 // opencl image read functions
-clang_float4 opencl_const_func read_imagef(image1d_t image, sampler_t sampler, int coord);
-clang_float4 opencl_const_func read_imagef(image1d_t image, sampler_t sampler, float coord);
-clang_int4 opencl_const_func read_imagei(image1d_t image, sampler_t sampler, int coord);
-clang_int4 opencl_const_func read_imagei(image1d_t image, sampler_t sampler, float coord);
-clang_uint4 opencl_const_func read_imageui(image1d_t image, sampler_t sampler, int coord);
-clang_uint4 opencl_const_func read_imageui(image1d_t image, sampler_t sampler, float coord);
-clang_float4 opencl_const_func read_imagef(image1d_t image, int coord);
-clang_int4 opencl_const_func read_imagei(image1d_t image, int coord);
-clang_uint4 opencl_const_func read_imageui(image1d_t image, int coord);
+const_func clang_float4 read_imagef(image1d_t image, sampler_t sampler, int coord);
+const_func clang_float4 read_imagef(image1d_t image, sampler_t sampler, float coord);
+const_func clang_int4 read_imagei(image1d_t image, sampler_t sampler, int coord);
+const_func clang_int4 read_imagei(image1d_t image, sampler_t sampler, float coord);
+const_func clang_uint4 read_imageui(image1d_t image, sampler_t sampler, int coord);
+const_func clang_uint4 read_imageui(image1d_t image, sampler_t sampler, float coord);
+const_func clang_float4 read_imagef(image1d_t image, int coord);
+const_func clang_int4 read_imagei(image1d_t image, int coord);
+const_func clang_uint4 read_imageui(image1d_t image, int coord);
 
-clang_float4 opencl_const_func read_imagef(image1d_buffer_t image, int coord);
-clang_int4 opencl_const_func read_imagei(image1d_buffer_t image, int coord);
-clang_uint4 opencl_const_func read_imageui(image1d_buffer_t image, int coord);
+const_func clang_float4 read_imagef(image1d_buffer_t image, int coord);
+const_func clang_int4 read_imagei(image1d_buffer_t image, int coord);
+const_func clang_uint4 read_imageui(image1d_buffer_t image, int coord);
 
-clang_float4 opencl_const_func read_imagef(image1d_array_t image, sampler_t sampler, clang_int2 coord);
-clang_float4 opencl_const_func read_imagef(image1d_array_t image, sampler_t sampler, clang_float2 coord);
-clang_int4 opencl_const_func read_imagei(image1d_array_t image, sampler_t sampler, clang_int2 coord);
-clang_int4 opencl_const_func read_imagei(image1d_array_t image, sampler_t sampler, clang_float2 coord);
-clang_uint4 opencl_const_func read_imageui(image1d_array_t image, sampler_t sampler, clang_int2 coord);
-clang_uint4 opencl_const_func read_imageui(image1d_array_t image, sampler_t sampler, clang_float2 coord);
-clang_float4 opencl_const_func read_imagef(image1d_array_t image, clang_int2 coord);
-clang_int4 opencl_const_func read_imagei(image1d_array_t image, clang_int2 coord);
-clang_uint4 opencl_const_func read_imageui(image1d_array_t image, clang_int2 coord);
+const_func clang_float4 read_imagef(image1d_array_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_float4 read_imagef(image1d_array_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_int4 read_imagei(image1d_array_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_int4 read_imagei(image1d_array_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_uint4 read_imageui(image1d_array_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_uint4 read_imageui(image1d_array_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_float4 read_imagef(image1d_array_t image, clang_int2 coord);
+const_func clang_int4 read_imagei(image1d_array_t image, clang_int2 coord);
+const_func clang_uint4 read_imageui(image1d_array_t image, clang_int2 coord);
 
-clang_float4 opencl_const_func read_imagef(image2d_t image, sampler_t sampler, clang_int2 coord);
-clang_float4 opencl_const_func read_imagef(image2d_t image, sampler_t sampler, clang_float2 coord);
-clang_half4 opencl_const_func read_imageh(image2d_t image, sampler_t sampler, clang_int2 coord);
-clang_half4 opencl_const_func read_imageh(image2d_t image, sampler_t sampler, clang_float2 coord);
-clang_int4 opencl_const_func read_imagei(image2d_t image, sampler_t sampler, clang_int2 coord);
-clang_int4 opencl_const_func read_imagei(image2d_t image, sampler_t sampler, clang_float2 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_t image, sampler_t sampler, clang_int2 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_t image, sampler_t sampler, clang_float2 coord);
-clang_float4 opencl_const_func read_imagef (image2d_t image, clang_int2 coord);
-clang_int4 opencl_const_func read_imagei(image2d_t image, clang_int2 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_t image, clang_int2 coord);
+const_func clang_float4 read_imagef(image2d_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_float4 read_imagef(image2d_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_half4 read_imageh(image2d_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_half4 read_imageh(image2d_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_int4 read_imagei(image2d_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_int4 read_imagei(image2d_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_uint4 read_imageui(image2d_t image, sampler_t sampler, clang_int2 coord);
+const_func clang_uint4 read_imageui(image2d_t image, sampler_t sampler, clang_float2 coord);
+const_func clang_float4 read_imagef (image2d_t image, clang_int2 coord);
+const_func clang_int4 read_imagei(image2d_t image, clang_int2 coord);
+const_func clang_uint4 read_imageui(image2d_t image, clang_int2 coord);
 
-clang_float4 opencl_const_func read_imagef(image2d_array_t image, clang_int4 coord);
-clang_int4 opencl_const_func read_imagei(image2d_array_t image, clang_int4 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_array_t image, clang_int4 coord);
-clang_float4 opencl_const_func read_imagef(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
-clang_float4 opencl_const_func read_imagef(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
-clang_int4 opencl_const_func read_imagei(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
-clang_int4 opencl_const_func read_imagei(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
+const_func clang_float4 read_imagef(image2d_array_t image, clang_int4 coord);
+const_func clang_int4 read_imagei(image2d_array_t image, clang_int4 coord);
+const_func clang_uint4 read_imageui(image2d_array_t image, clang_int4 coord);
+const_func clang_float4 read_imagef(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
+const_func clang_float4 read_imagef(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
+const_func clang_int4 read_imagei(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
+const_func clang_int4 read_imagei(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
+const_func clang_uint4 read_imageui(image2d_array_t image_array, sampler_t sampler, clang_int4 coord);
+const_func clang_uint4 read_imageui(image2d_array_t image_array, sampler_t sampler, clang_float4 coord);
 
-clang_float4 opencl_const_func read_imagef(image2d_msaa_t image, clang_int2 coord, int sample);
-clang_int4 opencl_const_func read_imagei(image2d_msaa_t image, clang_int2 coord, int sample);
-clang_uint4 opencl_const_func read_imageui(image2d_msaa_t image, clang_int2 coord, int sample);
+const_func clang_float4 read_imagef(image2d_msaa_t image, clang_int2 coord, int sample);
+const_func clang_int4 read_imagei(image2d_msaa_t image, clang_int2 coord, int sample);
+const_func clang_uint4 read_imageui(image2d_msaa_t image, clang_int2 coord, int sample);
 
-clang_float4 opencl_const_func read_imagef(image2d_array_msaa_t image, clang_int4 coord, int sample);
-clang_int4 opencl_const_func read_imagei(image2d_array_msaa_t image, clang_int4 coord, int sample);
-clang_uint4 opencl_const_func read_imageui(image2d_array_msaa_t image, clang_int4 coord, int sample);
+const_func clang_float4 read_imagef(image2d_array_msaa_t image, clang_int4 coord, int sample);
+const_func clang_int4 read_imagei(image2d_array_msaa_t image, clang_int4 coord, int sample);
+const_func clang_uint4 read_imageui(image2d_array_msaa_t image, clang_int4 coord, int sample);
 
-float opencl_const_func read_imagef(image2d_msaa_depth_t image, clang_int2 coord, int sample);
-float opencl_const_func read_imagef(image2d_array_msaa_depth_t image, clang_int4 coord, int sample);
+const_func float read_imagef(image2d_msaa_depth_t image, clang_int2 coord, int sample);
+const_func float read_imagef(image2d_array_msaa_depth_t image, clang_int4 coord, int sample);
 
-float opencl_const_func read_imagef(image2d_depth_t image, sampler_t sampler, clang_int2 coord);
-float opencl_const_func read_imagef(image2d_depth_t image, sampler_t sampler, clang_float2 coord);
-float opencl_const_func read_imagef(image2d_depth_t image, clang_int2 coord);
+const_func float read_imagef(image2d_depth_t image, sampler_t sampler, clang_int2 coord);
+const_func float read_imagef(image2d_depth_t image, sampler_t sampler, clang_float2 coord);
+const_func float read_imagef(image2d_depth_t image, clang_int2 coord);
 
-float opencl_const_func read_imagef(image2d_array_depth_t image, sampler_t sampler, clang_int4 coord);
-float opencl_const_func read_imagef(image2d_array_depth_t image, sampler_t sampler, clang_float4 coord);
-float opencl_const_func read_imagef(image2d_array_depth_t image, clang_int4 coord);
+const_func float read_imagef(image2d_array_depth_t image, sampler_t sampler, clang_int4 coord);
+const_func float read_imagef(image2d_array_depth_t image, sampler_t sampler, clang_float4 coord);
+const_func float read_imagef(image2d_array_depth_t image, clang_int4 coord);
 
-clang_float4 opencl_const_func read_imagef(image3d_t image, sampler_t sampler, clang_int4 coord);
-clang_float4 opencl_const_func read_imagef(image3d_t image, sampler_t sampler, clang_float4 coord);
-clang_int4 opencl_const_func read_imagei(image3d_t image, sampler_t sampler, clang_int4 coord);
-clang_int4 opencl_const_func read_imagei(image3d_t image, sampler_t sampler, clang_float4 coord);
-clang_uint4 opencl_const_func read_imageui(image3d_t image, sampler_t sampler, clang_int4 coord);
-clang_uint4 opencl_const_func read_imageui(image3d_t image, sampler_t sampler, clang_float4 coord);
-clang_float4 opencl_const_func read_imagef(image3d_t image, clang_int4 coord);
-clang_int4 opencl_const_func read_imagei(image3d_t image, clang_int4 coord);
-clang_uint4 opencl_const_func read_imageui(image3d_t image, clang_int4 coord);
+const_func clang_float4 read_imagef(image3d_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_float4 read_imagef(image3d_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_int4 read_imagei(image3d_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_int4 read_imagei(image3d_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_uint4 read_imageui(image3d_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_uint4 read_imageui(image3d_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_float4 read_imagef(image3d_t image, clang_int4 coord);
+const_func clang_int4 read_imagei(image3d_t image, clang_int4 coord);
+const_func clang_uint4 read_imageui(image3d_t image, clang_int4 coord);
 
-clang_float4 opencl_const_func read_imagef(image2d_array_t image, sampler_t sampler, clang_int4 coord);
-clang_float4 opencl_const_func read_imagef(image2d_array_t image, sampler_t sampler, clang_float4 coord);
-clang_int4 opencl_const_func read_imagei(image2d_array_t image, sampler_t sampler, clang_int4 coord);
-clang_int4 opencl_const_func read_imagei(image2d_array_t image, sampler_t sampler, clang_float4 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_array_t image, sampler_t sampler, clang_int4 coord);
-clang_uint4 opencl_const_func read_imageui(image2d_array_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_float4 read_imagef(image2d_array_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_float4 read_imagef(image2d_array_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_int4 read_imagei(image2d_array_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_int4 read_imagei(image2d_array_t image, sampler_t sampler, clang_float4 coord);
+const_func clang_uint4 read_imageui(image2d_array_t image, sampler_t sampler, clang_int4 coord);
+const_func clang_uint4 read_imageui(image2d_array_t image, sampler_t sampler, clang_float4 coord);
 
 // opencl image write functions
 void write_imagef(image1d_t image, int coord, clang_float4 color);

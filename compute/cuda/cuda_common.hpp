@@ -28,12 +28,16 @@
 
 #include <floor/core/gl_support.hpp>
 
+#if 1
 #if defined(__APPLE__)
 #include <CUDA/cuda.h>
 #include <CUDA/cudaGL.h>
 #else
 #include <cuda.h>
 #include <cudaGL.h>
+#endif
+#else
+#include <floor/compute/cuda/cuda_api.hpp>
 #endif
 
 //

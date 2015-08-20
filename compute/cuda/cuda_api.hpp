@@ -21,6 +21,9 @@
 
 #include <floor/core/essentials.hpp>
 
-
+namespace cuda_api {
+	extern "C" {
+	}
+}
 
 #endif

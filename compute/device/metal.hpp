@@ -23,47 +23,47 @@
 
 namespace std {
 	// straightforward wrapping, use the fast_* version when possible
-	metal_func float sqrt(float) asm("air.fast_sqrt.f32");
-	metal_func float rsqrt(float) asm("air.fast_rsqrt.f32");
-	metal_func float fabs(float) asm("air.fast_fabs.f32");
-	metal_func float fmin(float, float) asm("air.fast_fmin.f32");
-	metal_func float fmax(float, float) asm("air.fast_fmax.f32");
-	metal_func float floor(float) asm("air.fast_floor.f32");
-	metal_func float ceil(float) asm("air.fast_ceil.f32");
-	metal_func float round(float) asm("air.fast_round.f32");
-	metal_func float trunc(float) asm("air.fast_trunc.f32");
-	metal_func float rint(float) asm("air.fast_rint.f32");
-	metal_func float sin(float) asm("air.fast_sin.f32");
-	metal_func float cos(float) asm("air.fast_cos.f32");
-	metal_func float tan(float) asm("air.fast_tan.f32");
-	metal_func float asin(float) asm("air.fast_asin.f32");
-	metal_func float acos(float) asm("air.fast_acos.f32");
-	metal_func float atan(float) asm("air.fast_atan.f32");
-	metal_func float atan2(float, float) asm("air.fast_atan2.f32");
+	const_func metal_func float sqrt(float) asm("air.fast_sqrt.f32");
+	const_func metal_func float rsqrt(float) asm("air.fast_rsqrt.f32");
+	const_func metal_func float fabs(float) asm("air.fast_fabs.f32");
+	const_func metal_func float fmin(float, float) asm("air.fast_fmin.f32");
+	const_func metal_func float fmax(float, float) asm("air.fast_fmax.f32");
+	const_func metal_func float floor(float) asm("air.fast_floor.f32");
+	const_func metal_func float ceil(float) asm("air.fast_ceil.f32");
+	const_func metal_func float round(float) asm("air.fast_round.f32");
+	const_func metal_func float trunc(float) asm("air.fast_trunc.f32");
+	const_func metal_func float rint(float) asm("air.fast_rint.f32");
+	const_func metal_func float sin(float) asm("air.fast_sin.f32");
+	const_func metal_func float cos(float) asm("air.fast_cos.f32");
+	const_func metal_func float tan(float) asm("air.fast_tan.f32");
+	const_func metal_func float asin(float) asm("air.fast_asin.f32");
+	const_func metal_func float acos(float) asm("air.fast_acos.f32");
+	const_func metal_func float atan(float) asm("air.fast_atan.f32");
+	const_func metal_func float atan2(float, float) asm("air.fast_atan2.f32");
 	// metal for os x doesn't define an fma function or intrinsic (although mentioned in the docs!),
 	// however it still works for the intel backend (TODO: amd?), but it doesn't for the nvidia backend
 #if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) // -> use intrinsic for ios metal and osx metal if intel
-	metal_func float fma(float, float, float) asm("air.fma.f32");
+	const_func metal_func float fma(float, float, float) asm("air.fma.f32");
 #else // -> use nvidia intrinsic on osx
-	metal_func float fma(float, float, float) asm("llvm.nvvm.fma.rz.ftz.f");
+	const_func metal_func float fma(float, float, float) asm("llvm.nvvm.fma.rz.ftz.f");
 #endif
-	metal_func float exp(float) asm("air.fast_exp.f32");
-	metal_func float exp2(float) asm("air.fast_exp2.f32");
-	metal_func float log(float) asm("air.fast_log.f32");
-	metal_func float log2(float) asm("air.fast_log2.f32");
-	metal_func float pow(float, float) asm("air.fast_pow.f32");
-	metal_func float fmod(float, float) asm("air.fast_fmod.f32");
+	const_func metal_func float exp(float) asm("air.fast_exp.f32");
+	const_func metal_func float exp2(float) asm("air.fast_exp2.f32");
+	const_func metal_func float log(float) asm("air.fast_log.f32");
+	const_func metal_func float log2(float) asm("air.fast_log2.f32");
+	const_func metal_func float pow(float, float) asm("air.fast_pow.f32");
+	const_func metal_func float fmod(float, float) asm("air.fast_fmod.f32");
 	
-	metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
-	metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
-	metal_func int64_t abs(int64_t) asm("air.abs.s.i64");
+	const_func metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
+	const_func metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
+	const_func metal_func int64_t abs(int64_t) asm("air.abs.s.i64");
 	
-	metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
-	metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
-	metal_func int64_t mulhi(int64_t x, int64_t y) asm("air.mul_hi.i64");
-	metal_func uint64_t mulhi(uint64_t x, uint64_t y) asm("air.mul_hi.u.i64");
+	const_func metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
+	const_func metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
+	const_func metal_func int64_t mulhi(int64_t x, int64_t y) asm("air.mul_hi.i64");
+	const_func metal_func uint64_t mulhi(uint64_t x, uint64_t y) asm("air.mul_hi.u.i64");
 	
-	metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
+	const_func metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
 }
 
 // metal itself does not provide get_*_id/get_*_size functions, but rather handles this by using additional kernel arguments
@@ -74,13 +74,13 @@ namespace std {
 // and for those that are supported, the return type is sometimes a 32-bit and sometimes a 64-bit integer -> unusable.
 // solution: add compiler voodoo that automatically adds the special kernel arguments and loads these arguments in places
 // where the following "intrinsics" are used. thus, compatible to the opencl/cuda way of doing it (and sane ...).
-__attribute__((const)) uint32_t get_global_id(uint32_t dim) asm("floor.get_global_id.i32");
-__attribute__((const)) uint32_t get_global_size(uint32_t dim) asm("floor.get_global_size.i32");
-__attribute__((const)) uint32_t get_local_id(uint32_t dim) asm("floor.get_local_id.i32");
-__attribute__((const)) uint32_t get_local_size(uint32_t dim) asm("floor.get_local_size.i32");
-__attribute__((const)) uint32_t get_group_id(uint32_t dim) asm("floor.get_group_id.i32");
-__attribute__((const)) uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
-__attribute__((const)) uint32_t get_work_dim() asm("floor.get_work_dim.i32");
+const_func uint32_t get_global_id(uint32_t dim) asm("floor.get_global_id.i32");
+const_func uint32_t get_global_size(uint32_t dim) asm("floor.get_global_size.i32");
+const_func uint32_t get_local_id(uint32_t dim) asm("floor.get_local_id.i32");
+const_func uint32_t get_local_size(uint32_t dim) asm("floor.get_local_size.i32");
+const_func uint32_t get_group_id(uint32_t dim) asm("floor.get_group_id.i32");
+const_func uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
+const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 
 // barrier and mem_fence functionality
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)

@@ -59,19 +59,19 @@
 	__builtin_ptx_read_nctaid_z() \
 }
 
-static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_ctaid_x() * __builtin_ptx_read_ntid_x() + __builtin_ptx_read_tid_x();
 }
-static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_ctaid_y() * __builtin_ptx_read_ntid_y() + __builtin_ptx_read_tid_y();
 }
-static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_ctaid_z() * __builtin_ptx_read_ntid_z() + __builtin_ptx_read_tid_z();
 }
 static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_ctaid_x() * __builtin_ptx_read_ntid_x() + __builtin_ptx_read_tid_x();
 		case 1: return __builtin_ptx_read_ctaid_y() * __builtin_ptx_read_ntid_y() + __builtin_ptx_read_tid_y();
@@ -79,19 +79,19 @@ static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 		default: return 0;
 	}
 }
-static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_nctaid_x() * __builtin_ptx_read_ntid_x();
 }
-static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_nctaid_y() * __builtin_ptx_read_ntid_y();
 }
-static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_nctaid_z() * __builtin_ptx_read_ntid_z();
 }
 static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_nctaid_x() * __builtin_ptx_read_ntid_x();
 		case 1: return __builtin_ptx_read_nctaid_y() * __builtin_ptx_read_ntid_y();
@@ -100,19 +100,19 @@ static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_tid_x();
 }
-static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_tid_y();
 }
-static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_tid_z();
 }
 static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_tid_x();
 		case 1: return __builtin_ptx_read_tid_y();
@@ -121,19 +121,19 @@ static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_ntid_x();
 }
-static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_ntid_y();
 }
-static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_ntid_z();
 }
 static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_ntid_x();
 		case 1: return __builtin_ptx_read_ntid_y();
@@ -142,19 +142,19 @@ static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_ctaid_x();
 }
-static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_ctaid_y();
 }
-static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_ctaid_z();
 }
 static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_ctaid_x();
 		case 1: return __builtin_ptx_read_ctaid_y();
@@ -163,19 +163,19 @@ static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_nctaid_x();
 }
-static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __builtin_ptx_read_nctaid_y();
 }
-static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __builtin_ptx_read_nctaid_z();
 }
 static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-static uint32_t get_num_groups(uint32_t dim) FLOOR_CUDA_DIM_RT {
+const_func static uint32_t get_num_groups(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __builtin_ptx_read_nctaid_x();
 		case 1: return __builtin_ptx_read_nctaid_y();
@@ -184,7 +184,7 @@ static uint32_t get_num_groups(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-static uint32_t get_work_dim() {
+const_func static uint32_t get_work_dim() {
 	// grid dim (X, Y, Z)
 	// -> if Z is 1, must either be 1D or 2D
 	if(__builtin_ptx_read_nctaid_z() == 1) {

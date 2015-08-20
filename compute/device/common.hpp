@@ -101,6 +101,10 @@ typedef double clang_double2 __attribute__((ext_vector_type(2)));
 typedef double clang_double3 __attribute__((ext_vector_type(3)));
 typedef double clang_double4 __attribute__((ext_vector_type(4)));
 
+// const attribute allows external functions to be optimized away when not needed
+// (used for asm label functions, functions containing non-side-effect asm code, other external functions)
+#define const_func __attribute__((const))
+
 using namespace std;
 
 // atomics (needed before c++ headers)
@@ -167,7 +171,7 @@ _LIBCPP_END_NAMESPACE_STD
 #endif
 
 // id handling through "variables"/objects (cuda handles this slightly differently -> defined in cuda.hpp)
-#if !defined(FLOOR_COMPUTE_CUDA) && !(defined(FLOOR_COMPUTE_METAL) && defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA))
+#if !defined(FLOOR_COMPUTE_CUDA)
 #define global_id uint3 { get_global_id(0), get_global_id(1), get_global_id(2) }
 #define global_size uint3 { get_global_size(0), get_global_size(1), get_global_size(2) }
 #define local_id uint3 { get_local_id(0), get_local_id(1), get_local_id(2) }

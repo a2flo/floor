@@ -21,13 +21,13 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
-opencl_c_func size_t opencl_const_func get_global_id(uint32_t dim);
-opencl_c_func size_t opencl_const_func get_global_size(uint32_t dim);
-opencl_c_func size_t opencl_const_func get_local_id(uint32_t dim);
-opencl_c_func size_t opencl_const_func get_local_size(uint32_t dim);
-opencl_c_func size_t opencl_const_func get_group_id(uint32_t dim);
-opencl_c_func size_t opencl_const_func get_num_groups(uint32_t dim);
-opencl_c_func uint32_t opencl_const_func get_work_dim();
+const_func opencl_c_func size_t get_global_id(uint32_t dim);
+const_func opencl_c_func size_t get_global_size(uint32_t dim);
+const_func opencl_c_func size_t get_local_id(uint32_t dim);
+const_func opencl_c_func size_t get_local_size(uint32_t dim);
+const_func opencl_c_func size_t get_group_id(uint32_t dim);
+const_func opencl_c_func size_t get_num_groups(uint32_t dim);
+const_func opencl_c_func uint32_t get_work_dim();
 
 // wrap opencl id handling functions so that uint32_t is always returned
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
@@ -44,53 +44,53 @@ floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(g
 #define get_num_groups(x) cl_get_num_groups(x)
 
 #if defined(FLOOR_COMPUTE_APPLECL)
-float opencl_const_func __cl_fmod(float, float);
-float opencl_const_func __cl_sqrt(float);
-float opencl_const_func __cl_fabs(float);
-float opencl_const_func __cl_floor(float);
-float opencl_const_func __cl_ceil(float);
-float opencl_const_func __cl_round(float);
-float opencl_const_func __cl_trunc(float);
-float opencl_const_func __cl_rint(float);
-float opencl_const_func __cl_sin(float);
-float opencl_const_func __cl_cos(float);
-float opencl_const_func __cl_tan(float);
-float opencl_const_func __cl_asin(float);
-float opencl_const_func __cl_acos(float);
-float opencl_const_func __cl_atan(float);
-float opencl_const_func __cl_atan2(float, float);
-float opencl_const_func __cl_fma(float, float, float);
-float opencl_const_func __cl_exp(float);
-float opencl_const_func __cl_exp2(float);
-float opencl_const_func __cl_log(float);
-float opencl_const_func __cl_log2(float);
-float opencl_const_func __cl_pow(float, float);
-int16_t opencl_const_func __cl_abs(int16_t);
-int32_t opencl_const_func __cl_abs(int32_t);
-int64_t opencl_const_func __cl_abs(int64_t);
+const_func float __cl_fmod(float, float);
+const_func float __cl_sqrt(float);
+const_func float __cl_fabs(float);
+const_func float __cl_floor(float);
+const_func float __cl_ceil(float);
+const_func float __cl_round(float);
+const_func float __cl_trunc(float);
+const_func float __cl_rint(float);
+const_func float __cl_sin(float);
+const_func float __cl_cos(float);
+const_func float __cl_tan(float);
+const_func float __cl_asin(float);
+const_func float __cl_acos(float);
+const_func float __cl_atan(float);
+const_func float __cl_atan2(float, float);
+const_func float __cl_fma(float, float, float);
+const_func float __cl_exp(float);
+const_func float __cl_exp2(float);
+const_func float __cl_log(float);
+const_func float __cl_log2(float);
+const_func float __cl_pow(float, float);
+const_func int16_t __cl_abs(int16_t);
+const_func int32_t __cl_abs(int32_t);
+const_func int64_t __cl_abs(int64_t);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-double opencl_const_func __cl_fmod(double, double);
-double opencl_const_func __cl_sqrt(double);
-double opencl_const_func __cl_fabs(double);
-double opencl_const_func __cl_floor(double);
-double opencl_const_func __cl_ceil(double);
-double opencl_const_func __cl_round(double);
-double opencl_const_func __cl_trunc(double);
-double opencl_const_func __cl_rint(double);
-double opencl_const_func __cl_sin(double);
-double opencl_const_func __cl_cos(double);
-double opencl_const_func __cl_tan(double);
-double opencl_const_func __cl_asin(double);
-double opencl_const_func __cl_acos(double);
-double opencl_const_func __cl_atan(double);
-double opencl_const_func __cl_atan2(double, double);
-double opencl_const_func __cl_fma(double, double, double);
-double opencl_const_func __cl_exp(double);
-double opencl_const_func __cl_exp2(double);
-double opencl_const_func __cl_log(double);
-double opencl_const_func __cl_log2(double);
-double opencl_const_func __cl_pow(double, double);
+const_func double __cl_fmod(double, double);
+const_func double __cl_sqrt(double);
+const_func double __cl_fabs(double);
+const_func double __cl_floor(double);
+const_func double __cl_ceil(double);
+const_func double __cl_round(double);
+const_func double __cl_trunc(double);
+const_func double __cl_rint(double);
+const_func double __cl_sin(double);
+const_func double __cl_cos(double);
+const_func double __cl_tan(double);
+const_func double __cl_asin(double);
+const_func double __cl_acos(double);
+const_func double __cl_atan(double);
+const_func double __cl_atan2(double, double);
+const_func double __cl_fma(double, double, double);
+const_func double __cl_exp(double);
+const_func double __cl_exp2(double);
+const_func double __cl_log(double);
+const_func double __cl_log2(double);
+const_func double __cl_pow(double, double);
 #endif
 
 #define CL_FWD(func, ...) { return func(__VA_ARGS__); }
@@ -100,55 +100,55 @@ double opencl_const_func __cl_pow(double, double);
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
-float opencl_const_func fmod(float x, float y) CL_FWD(__cl_fmod, x, y)
-float opencl_const_func sqrt(float x) CL_FWD(__cl_sqrt, x);
-float opencl_const_func rsqrt(float x);
-float opencl_const_func fabs(float x) CL_FWD(__cl_fabs, x)
-float opencl_const_func floor(float x) CL_FWD(__cl_floor, x)
-float opencl_const_func ceil(float x) CL_FWD(__cl_ceil, x)
-float opencl_const_func round(float x) CL_FWD(__cl_round, x)
-float opencl_const_func trunc(float x) CL_FWD(__cl_trunc, x)
-float opencl_const_func rint(float x) CL_FWD(__cl_rint, x)
-float opencl_const_func sin(float x) CL_FWD(__cl_sin, x)
-float opencl_const_func cos(float x) CL_FWD(__cl_cos, x)
-float opencl_const_func tan(float x) CL_FWD(__cl_tan, x)
-float opencl_const_func asin(float x) CL_FWD(__cl_asin, x)
-float opencl_const_func acos(float x) CL_FWD(__cl_acos, x)
-float opencl_const_func atan(float x) CL_FWD(__cl_atan, x)
-float opencl_const_func atan2(float x, float y) CL_FWD(__cl_atan2, x, y)
-float opencl_const_func fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
-float opencl_const_func exp(float x) CL_FWD(__cl_exp, x)
-float opencl_const_func exp2(float x) CL_FWD(__cl_exp2, x)
-float opencl_const_func log(float x) CL_FWD(__cl_log, x)
-float opencl_const_func log2(float x) CL_FWD(__cl_log2, x)
-float opencl_const_func pow(float x, float y) CL_FWD(__cl_pow, x, y)
-int16_t opencl_const_func abs(int16_t x) CL_FWD(__cl_abs, x)
-int32_t opencl_const_func abs(int32_t x) CL_FWD(__cl_abs, x)
-int64_t opencl_const_func abs(int64_t x) CL_FWD(__cl_abs, x)
+const_func float fmod(float x, float y) CL_FWD(__cl_fmod, x, y)
+const_func float sqrt(float x) CL_FWD(__cl_sqrt, x);
+const_func float rsqrt(float x);
+const_func float fabs(float x) CL_FWD(__cl_fabs, x)
+const_func float floor(float x) CL_FWD(__cl_floor, x)
+const_func float ceil(float x) CL_FWD(__cl_ceil, x)
+const_func float round(float x) CL_FWD(__cl_round, x)
+const_func float trunc(float x) CL_FWD(__cl_trunc, x)
+const_func float rint(float x) CL_FWD(__cl_rint, x)
+const_func float sin(float x) CL_FWD(__cl_sin, x)
+const_func float cos(float x) CL_FWD(__cl_cos, x)
+const_func float tan(float x) CL_FWD(__cl_tan, x)
+const_func float asin(float x) CL_FWD(__cl_asin, x)
+const_func float acos(float x) CL_FWD(__cl_acos, x)
+const_func float atan(float x) CL_FWD(__cl_atan, x)
+const_func float atan2(float x, float y) CL_FWD(__cl_atan2, x, y)
+const_func float fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
+const_func float exp(float x) CL_FWD(__cl_exp, x)
+const_func float exp2(float x) CL_FWD(__cl_exp2, x)
+const_func float log(float x) CL_FWD(__cl_log, x)
+const_func float log2(float x) CL_FWD(__cl_log2, x)
+const_func float pow(float x, float y) CL_FWD(__cl_pow, x, y)
+const_func int16_t abs(int16_t x) CL_FWD(__cl_abs, x)
+const_func int32_t abs(int32_t x) CL_FWD(__cl_abs, x)
+const_func int64_t abs(int64_t x) CL_FWD(__cl_abs, x)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-double opencl_const_func fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
-double opencl_const_func sqrt(double x) CL_FWD(__cl_sqrt, x);
-double opencl_const_func rsqrt(double x);
-double opencl_const_func fabs(double x) CL_FWD(__cl_fabs, x)
-double opencl_const_func floor(double x) CL_FWD(__cl_floor, x)
-double opencl_const_func ceil(double x) CL_FWD(__cl_ceil, x)
-double opencl_const_func round(double x) CL_FWD(__cl_round, x)
-double opencl_const_func trunc(double x) CL_FWD(__cl_trunc, x)
-double opencl_const_func rint(double x) CL_FWD(__cl_rint, x)
-double opencl_const_func sin(double x) CL_FWD(__cl_sin, x)
-double opencl_const_func cos(double x) CL_FWD(__cl_cos, x)
-double opencl_const_func tan(double x) CL_FWD(__cl_tan, x)
-double opencl_const_func asin(double x) CL_FWD(__cl_asin, x)
-double opencl_const_func acos(double x) CL_FWD(__cl_acos, x)
-double opencl_const_func atan(double x) CL_FWD(__cl_atan, x)
-double opencl_const_func atan2(double x, double y) CL_FWD(__cl_atan2, x, y)
-double opencl_const_func fma(double a, double b, double c) CL_FWD(__cl_fma, a, b, c)
-double opencl_const_func exp(double x) CL_FWD(__cl_exp, x)
-double opencl_const_func exp2(double x) CL_FWD(__cl_exp2, x)
-double opencl_const_func log(double x) CL_FWD(__cl_log, x)
-double opencl_const_func log2(double x) CL_FWD(__cl_log2, x)
-double opencl_const_func pow(double x, double y) CL_FWD(__cl_pow, x, y)
+const_func double fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
+const_func double sqrt(double x) CL_FWD(__cl_sqrt, x);
+const_func double rsqrt(double x);
+const_func double fabs(double x) CL_FWD(__cl_fabs, x)
+const_func double floor(double x) CL_FWD(__cl_floor, x)
+const_func double ceil(double x) CL_FWD(__cl_ceil, x)
+const_func double round(double x) CL_FWD(__cl_round, x)
+const_func double trunc(double x) CL_FWD(__cl_trunc, x)
+const_func double rint(double x) CL_FWD(__cl_rint, x)
+const_func double sin(double x) CL_FWD(__cl_sin, x)
+const_func double cos(double x) CL_FWD(__cl_cos, x)
+const_func double tan(double x) CL_FWD(__cl_tan, x)
+const_func double asin(double x) CL_FWD(__cl_asin, x)
+const_func double acos(double x) CL_FWD(__cl_acos, x)
+const_func double atan(double x) CL_FWD(__cl_atan, x)
+const_func double atan2(double x, double y) CL_FWD(__cl_atan2, x, y)
+const_func double fma(double a, double b, double c) CL_FWD(__cl_fma, a, b, c)
+const_func double exp(double x) CL_FWD(__cl_exp, x)
+const_func double exp2(double x) CL_FWD(__cl_exp2, x)
+const_func double log(double x) CL_FWD(__cl_log, x)
+const_func double log2(double x) CL_FWD(__cl_log2, x)
+const_func double pow(double x, double y) CL_FWD(__cl_pow, x, y)
 #endif
 
 // add them to std::

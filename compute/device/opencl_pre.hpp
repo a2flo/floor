@@ -63,8 +63,6 @@ typedef long int ssize_t;
 #define opencl_c_func
 #endif
 
-#define opencl_const_func __attribute__((const))
-
 #endif
 
 #endif

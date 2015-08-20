@@ -164,7 +164,7 @@ template <COMPUTE_IMAGE_TYPE image_type,
 		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+const_func floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	float4 color;
 	asm("tex.2d.v4.f32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
 		"=f"(color.x), "=f"(color.y), "=f"(color.z), "=f"(color.w) :
@@ -176,7 +176,7 @@ template <COMPUTE_IMAGE_TYPE image_type,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+const_func floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	int4 color;
 	asm("tex.2d.v4.s32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
 		"=r"(color.x), "=r"(color.y), "=r"(color.z), "=r"(color.w) :
@@ -188,7 +188,7 @@ template <COMPUTE_IMAGE_TYPE image_type,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-floor_inline_always auto read(const image<image_type>& img, int2 coord) {
+const_func floor_inline_always auto read(const image<image_type>& img, int2 coord) {
 	uint4 color;
 	asm("tex.2d.v4.u32.s32 { %0, %1, %2, %3 }, [%4, { %5, %6 }];" :
 		"=r"(color.x), "=r"(color.y), "=r"(color.z), "=r"(color.w) :

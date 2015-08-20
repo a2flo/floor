@@ -41,73 +41,73 @@
 
 namespace std {
 	// float math functions
-	floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
-	floor_inline_always float rsqrt(float a) { return __nvvm_rsqrt_approx_ftz_f(a); }
-	floor_inline_always float fmod(float x, float y) { return x - y * __nvvm_trunc_ftz_f(x / y); }
-	floor_inline_always float fabs(float a) { return __nvvm_fabs_ftz_f(a); }
-	floor_inline_always float floor(float a) { return __nvvm_floor_ftz_f(a); }
-	floor_inline_always float ceil(float a) { return __nvvm_ceil_ftz_f(a); }
-	floor_inline_always float round(float a) { return __nvvm_round_ftz_f(a); }
-	floor_inline_always float trunc(float a) { return __nvvm_trunc_ftz_f(a); }
-	floor_inline_always float rint(float a) { return __nvvm_trunc_ftz_f(a); }
+	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
+	const_func floor_inline_always float rsqrt(float a) { return __nvvm_rsqrt_approx_ftz_f(a); }
+	const_func floor_inline_always float fmod(float x, float y) { return x - y * __nvvm_trunc_ftz_f(x / y); }
+	const_func floor_inline_always float fabs(float a) { return __nvvm_fabs_ftz_f(a); }
+	const_func floor_inline_always float floor(float a) { return __nvvm_floor_ftz_f(a); }
+	const_func floor_inline_always float ceil(float a) { return __nvvm_ceil_ftz_f(a); }
+	const_func floor_inline_always float round(float a) { return __nvvm_round_ftz_f(a); }
+	const_func floor_inline_always float trunc(float a) { return __nvvm_trunc_ftz_f(a); }
+	const_func floor_inline_always float rint(float a) { return __nvvm_trunc_ftz_f(a); }
 	
-	floor_inline_always float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
-	floor_inline_always float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
-	floor_inline_always float tan(float a) { return __nvvm_sin_approx_ftz_f(a) / __nvvm_cos_approx_ftz_f(a); }
+	const_func floor_inline_always float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
+	const_func floor_inline_always float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
+	const_func floor_inline_always float tan(float a) { return __nvvm_sin_approx_ftz_f(a) / __nvvm_cos_approx_ftz_f(a); }
 	// TODO: not supported in h/w, write proper rt computation
-	floor_inline_always float asin(float a) { return 0.0f; }
-	floor_inline_always float acos(float a) { return 0.0f; }
-	floor_inline_always float atan(float a) { return 0.0f; }
-	floor_inline_always float atan2(float y, float x) { return 0.0f; }
+	const_func floor_inline_always float asin(float a) { return 0.0f; }
+	const_func floor_inline_always float acos(float a) { return 0.0f; }
+	const_func floor_inline_always float atan(float a) { return 0.0f; }
+	const_func floor_inline_always float atan2(float y, float x) { return 0.0f; }
 	
-	floor_inline_always float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
-	floor_inline_always float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
-	floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * 1.442695041f); } // 2^(x / ln(2))
-	floor_inline_always float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
-	floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * 1.442695041f; } // log_e = log_2(x) / log_2(e)
-	floor_inline_always float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
+	const_func floor_inline_always float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
+	const_func floor_inline_always float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
+	const_func floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * 1.442695041f); } // 2^(x / ln(2))
+	const_func floor_inline_always float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
+	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * 1.442695041f; } // log_e = log_2(x) / log_2(e)
+	const_func floor_inline_always float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
 	
 	// double math functions
-	floor_inline_always double sqrt(double a) { return __nvvm_sqrt_rz_d(a); }
-	floor_inline_always double rsqrt(double a) { return __nvvm_rsqrt_approx_d(a); }
-	floor_inline_always double fmod(double x, double y) { return x - y * __nvvm_trunc_d(x / y); }
-	floor_inline_always double fabs(double a) { return __nvvm_fabs_d(a); }
-	floor_inline_always double floor(double a) { return __nvvm_floor_d(a); }
-	floor_inline_always double ceil(double a) { return __nvvm_ceil_d(a); }
-	floor_inline_always double round(double a) { return __nvvm_round_d(a); }
-	floor_inline_always double trunc(double a) { return __nvvm_trunc_d(a); }
-	floor_inline_always double rint(double a) { return __nvvm_trunc_d(a); }
+	const_func floor_inline_always double sqrt(double a) { return __nvvm_sqrt_rz_d(a); }
+	const_func floor_inline_always double rsqrt(double a) { return __nvvm_rsqrt_approx_d(a); }
+	const_func floor_inline_always double fmod(double x, double y) { return x - y * __nvvm_trunc_d(x / y); }
+	const_func floor_inline_always double fabs(double a) { return __nvvm_fabs_d(a); }
+	const_func floor_inline_always double floor(double a) { return __nvvm_floor_d(a); }
+	const_func floor_inline_always double ceil(double a) { return __nvvm_ceil_d(a); }
+	const_func floor_inline_always double round(double a) { return __nvvm_round_d(a); }
+	const_func floor_inline_always double trunc(double a) { return __nvvm_trunc_d(a); }
+	const_func floor_inline_always double rint(double a) { return __nvvm_trunc_d(a); }
 	
 	// TODO: higher precision sin/cos/tan?
-	floor_inline_always double sin(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))); }
-	floor_inline_always double cos(double a) { return double(__nvvm_cos_approx_ftz_f(float(a))); }
-	floor_inline_always double tan(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))) / double(__nvvm_cos_approx_ftz_f(float(a))); }
+	const_func floor_inline_always double sin(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))); }
+	const_func floor_inline_always double cos(double a) { return double(__nvvm_cos_approx_ftz_f(float(a))); }
+	const_func floor_inline_always double tan(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))) / double(__nvvm_cos_approx_ftz_f(float(a))); }
 	// TODO: not supported in h/w, write proper rt computation
-	floor_inline_always double asin(double a) { return 0.0f; }
-	floor_inline_always double acos(double a) { return 0.0f; }
-	floor_inline_always double atan(double a) { return 0.0f; }
-	floor_inline_always double atan2(double y, double x) { return 0.0f; }
+	const_func floor_inline_always double asin(double a) { return 0.0f; }
+	const_func floor_inline_always double acos(double a) { return 0.0f; }
+	const_func floor_inline_always double atan(double a) { return 0.0f; }
+	const_func floor_inline_always double atan2(double y, double x) { return 0.0f; }
 	
-	floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
+	const_func floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
 	// TODO: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
-	floor_inline_always double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
-	floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
-	floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
-	floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
-	floor_inline_always double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
+	const_func floor_inline_always double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
+	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
+	const_func floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
+	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
+	const_func floor_inline_always double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
 	
 	// int math functions
-	floor_inline_always int16_t abs(int16_t a) {
+	const_func floor_inline_always int16_t abs(int16_t a) {
 		int16_t ret;
 		asm("abs.s16 %0, %1;" : "=h"(ret) : "h"(a));
 		return ret;
 	}
-	floor_inline_always int32_t abs(int32_t a) {
+	const_func floor_inline_always int32_t abs(int32_t a) {
 		int32_t ret;
 		asm("abs.s32 %0, %1;" : "=r"(ret) : "r"(a));
 		return ret;
 	}
-	floor_inline_always int64_t abs(int64_t a) {
+	const_func floor_inline_always int64_t abs(int64_t a) {
 		int64_t ret;
 		asm("abs.s64 %0, %1;" : "=l"(ret) : "l"(a));
 		return ret;
