@@ -543,7 +543,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		const string llc_cmd {
 			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
-			" -mcpu=sm_" + sm_version + " -mattr=ptx42" +
+			" -mcpu=sm_" + sm_version + " -mattr=ptx43" +
 			" -o - cuda_ptx.ll"
 #if !defined(_MSC_VER)
 			" 2>&1"
