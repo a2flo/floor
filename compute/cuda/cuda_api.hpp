@@ -343,7 +343,7 @@ typedef int32_t cu_device;
 typedef size_t cu_device_ptr;
 typedef uint64_t cu_surf_object;
 typedef uint64_t cu_tex_object;
-typedef size_t (*cu_occupancy_b2d_size)(int block_size);
+typedef size_t (*cu_occupancy_b2d_size)(int32_t block_size);
 
 // structs that can actually be filled by the user
 struct cu_array_3d_descriptor {
@@ -400,7 +400,7 @@ struct cu_resource_descriptor {
 			size_t pitch_in_bytes;
 		} pitch_2d;
 		struct {
-			int _reserved[32];
+			int32_t _reserved[32];
 		};
 	};
 	
@@ -426,7 +426,7 @@ struct cu_texture_descriptor {
 	float mip_map_level_bias;
 	float min_mip_map_level_clamp;
 	float max_mip_map_level_clamp;
-	int _reserved[16];
+	int32_t _reserved[16];
 };
 
 // actual cuda api function pointers

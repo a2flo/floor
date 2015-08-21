@@ -105,35 +105,6 @@ public:
 #endif
 		};
 		
-		// scalar accessors (.s0/.s1/.s2/.s3)
-		struct {
-			scalar_type s0;
-#if FLOOR_VECTOR_WIDTH >= 2
-			scalar_type s1;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			scalar_type s2;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			scalar_type s3;
-#endif
-		};
-		// two-component .s* accessors
-#if FLOOR_VECTOR_WIDTH >= 3
-		struct {
-			vector2<scalar_type> s01;
-#if FLOOR_VECTOR_WIDTH >= 4
-			vector2<scalar_type> s23;
-#endif
-		};
-#endif
-		// three-component .s* accessors
-#if FLOOR_VECTOR_WIDTH >= 4
-		struct {
-			vector3<scalar_type> s012;
-		};
-#endif
-		
 		// accessors that are directly usable (.xy, .zw, .xyz)
 		// other kinds must be made via a function call
 #if FLOOR_VECTOR_WIDTH >= 3
@@ -341,14 +312,14 @@ public:
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	const scalar_type& operator[](const size_t& index) const {
-		return ((scalar_type*)this)[index];
+		return ((const array<scalar_type, FLOOR_VECTOR_WIDTH>*)this)->at(index);
 	}
 	
 	//! subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	scalar_type& operator[](const size_t& index) {
-		return ((scalar_type*)this)[index];
+		return ((array<scalar_type, FLOOR_VECTOR_WIDTH>*)this)->at(index);
 	}
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
@@ -952,6 +923,14 @@ public:
 	}
 	
 	//! normalizes this vector / returns a normalized vector of this vector
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_OPENCL) // prefer performance and shortness
+	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"
+					   inv_length * ,
+					   normalize, normalized,
+					   // compute "1 / ||vec||"
+					   const scalar_type inv_length = vector_helper<decayed_scalar_type>::inv_sqrt(dot());
+					   )
+#else
 	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"
 					   inv_length * ,
 					   normalize, normalized,
@@ -960,7 +939,7 @@ public:
 					   // compute "1 / ||vec||"
 					   const scalar_type inv_length = vector_helper<decayed_scalar_type>::inv_sqrt(dot());
 					   )
-	
+#endif
 	
 	//! returns N if Nref.dot(I) < 0, else -N
 	static constexpr vector_type faceforward(const vector_type& N,

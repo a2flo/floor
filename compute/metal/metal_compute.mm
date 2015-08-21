@@ -482,20 +482,40 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 #define FLOOR_METAL_TOOLS_PATH "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
 	static constexpr const char* metal_as { FLOOR_METAL_TOOLS_PATH "metal-as" };
 	static constexpr const char* metal_ar { FLOOR_METAL_TOOLS_PATH "metal-ar" };
+	static constexpr const char* metal_opt { FLOOR_METAL_TOOLS_PATH "metal-opt" };
 	static constexpr const char* metallib { FLOOR_METAL_TOOLS_PATH "metallib" };
 	if(!file_io::string_to_file("metal_tmp.ll", program_data.first)) {
 		log_error("failed to write tmp metal ll file");
 		return {};
 	}
 	core::system(metal_as + " -o=metal_tmp.air metal_tmp.ll"s);
-	core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
+	if(!floor::get_compute_debug()) {
+		core::system(metal_opt + " -Oz metal_tmp.air -o metal_tmp_opt.air"s);
+		core::system(metal_ar + " r metal_tmp.a metal_tmp_opt.air"s);
+	}
+	else {
+		core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
+	}
 	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
+	
+	static const auto cleanup = []() {
+#if !defined(_MSC_VER)
+		core::system("rm metal_tmp.ll");
+		core::system("rm metal_tmp.air");
+		if(!floor::get_compute_debug()) core::system("rm metal_tmp_opt.air");
+		core::system("rm metal_tmp.a");
+		core::system("rm metal_tmp.metallib");
+#else
+		// TODO: windows
+#endif
+	};
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
 	const char* lib_path = "metal_tmp.metallib";
 	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:lib_path]
 																						  error:&err];
+	cleanup();
 	if(!program) {
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
