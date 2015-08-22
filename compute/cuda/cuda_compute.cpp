@@ -403,7 +403,7 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
-	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : (uint32_t)stoul(force_sm));
+	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cu_module program;
 	
 #if !defined(FLOOR_DEBUG) // TODO: config option -> fast / build w/o logs

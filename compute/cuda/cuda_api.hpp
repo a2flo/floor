@@ -319,7 +319,7 @@ enum class CU_STREAM_FLAGS : uint32_t {
 	NON_BLOCKING = 1
 };
 
-enum class CUDA_ARRAY_3D_FLAGS : uint32_t {
+enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	NONE = 0,
 	LAYERED = 1,
 	SURFACE_LOAD_STORE = 2,
@@ -327,7 +327,7 @@ enum class CUDA_ARRAY_3D_FLAGS : uint32_t {
 	TEXTURE_GATHER = 8,
 	DEPTH_TEXTURE = 16
 };
-floor_global_enum_ext(CUDA_ARRAY_3D_FLAGS)
+floor_global_enum_ext(CU_ARRAY_3D_FLAGS)
 
 // these are all external opaque types
 typedef struct _cu_array* cu_array;
@@ -350,7 +350,7 @@ struct cu_array_3d_descriptor {
 	size3 dim;
 	CU_ARRAY_FORMAT format;
 	uint32_t channel_count;
-	CUDA_ARRAY_3D_FLAGS flags;
+	CU_ARRAY_3D_FLAGS flags;
 };
 
 struct cu_memcpy_3d_descriptor {

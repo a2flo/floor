@@ -191,11 +191,11 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			.format = format,
 			.channel_count = channel_count,
 			.flags = (
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? CUDA_ARRAY_3D_FLAGS::LAYERED : CUDA_ARRAY_3D_FLAGS::NONE) |
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? CUDA_ARRAY_3D_FLAGS::CUBE_MAP : CUDA_ARRAY_3D_FLAGS::NONE) |
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CUDA_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CUDA_ARRAY_3D_FLAGS::NONE) |
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CUDA_ARRAY_3D_FLAGS::TEXTURE_GATHER : CUDA_ARRAY_3D_FLAGS::NONE) |
-					  (need_surf ? CUDA_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CUDA_ARRAY_3D_FLAGS::NONE)
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? CU_ARRAY_3D_FLAGS::LAYERED : CU_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? CU_ARRAY_3D_FLAGS::CUBE_MAP : CU_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CU_ARRAY_3D_FLAGS::NONE) |
+					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CU_ARRAY_3D_FLAGS::TEXTURE_GATHER : CU_ARRAY_3D_FLAGS::NONE) |
+					  (need_surf ? CU_ARRAY_3D_FLAGS::SURFACE_LOAD_STORE : CU_ARRAY_3D_FLAGS::NONE)
 			)
 		};
 		log_debug("surf/tex %u/%u; dim %u: %v; channels %u; flags %u; format: %X",

@@ -481,7 +481,7 @@ uint32_t core::get_hw_thread_count() {
 	char output[buffer_size];
 	GetEnvironmentVariable("NUMBER_OF_PROCESSORS", output, size);
 	output[buffer_size - 1] = 0;
-	hw_thread_count = (uint32_t)stoul(output);
+	hw_thread_count = stou(output);
 #else // other platforms?
 #endif
 	return hw_thread_count;
