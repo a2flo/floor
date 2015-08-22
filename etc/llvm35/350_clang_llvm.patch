@@ -21,30 +21,34 @@ index e1c9a14..1c9e06b 100644
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..8522878 100644
+index 02f4259..744e850 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -64,6 +64,9 @@ void initializeTarget(PassRegistry&);
+@@ -64,6 +64,11 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
 +void initializeAddressSpaceFixPass(PassRegistry&);
-+void initializeMetalFixPass(PassRegistry&);
-+void initializeSPIRFixPass(PassRegistry&);
++void initializeCUDAFirstPass(PassRegistry&);
++void initializeCUDAFinalPass(PassRegistry&);
++void initializeMetalFinalPass(PassRegistry&);
++void initializeSPIRFinalPass(PassRegistry&);
  void initializeADCEPass(PassRegistry&);
  void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
  void initializeAliasAnalysisCounterPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..2c1beda 100644
+index e06560c..ccab99a 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
-@@ -48,6 +48,9 @@ namespace {
+@@ -48,6 +48,11 @@ namespace {
          return;
  
        (void) llvm::createAAEvalPass();
 +      (void) llvm::createAddressSpaceFixPass();
-+      (void) llvm::createMetalFixPass();
-+      (void) llvm::createSPIRFixPass();
++      (void) llvm::createCUDAFirstPass();
++      (void) llvm::createCUDAFinalPass();
++      (void) llvm::createMetalFinalPass();
++      (void) llvm::createSPIRFinalPass();
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
        (void) llvm::createAliasDebugger();
@@ -61,24 +65,25 @@ index ce1a7d6..8042a55 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..9f7712b 100644
+index 50877d0..0e9dd02 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -118,6 +118,9 @@ public:
+@@ -118,6 +118,10 @@ public:
    bool LoopVectorize;
    bool RerollLoops;
    bool LoadCombine;
 +  bool EnableAddressSpaceFix;
-+  bool EnableMetalFix;
-+  bool EnableSPIRFix;
++  bool EnableCUDAPasses;
++  bool EnableMetalPasses;
++  bool EnableSPIRPasses;
  
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..6eaf55a 100644
+index 413134e..ea0d968 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -30,6 +30,25 @@ class TargetMachine;
+@@ -30,6 +30,37 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -89,15 +94,27 @@ index 413134e..6eaf55a 100644
 +
 +//===----------------------------------------------------------------------===//
 +//
-+// MetalFix - This pass fixes Metal/AIR issues.
++// CUDAFirst - first pass, making CUDA related IR changes.
 +//
-+FunctionPass *createMetalFixPass();
++FunctionPass *createCUDAFirstPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
-+// SPIRFix - This pass fixes LLVM IR to be SPIR-compliant.
++// CUDAFinal - final pass, making CUDA related IR changes.
 +//
-+FunctionPass *createSPIRFixPass();
++FunctionPass *createCUDAFinalPass();
++
++//===----------------------------------------------------------------------===//
++//
++// MetalFinal - This pass fixes Metal/AIR issues.
++//
++FunctionPass *createMetalFinalPass();
++
++//===----------------------------------------------------------------------===//
++//
++// SPIRFinal - This pass fixes LLVM IR to be SPIR-compliant.
++//
++FunctionPass *createSPIRFinalPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -442,20 +459,31 @@ index c970a1a..20d38ef 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..c0b6e91 100644
+index 701fb46..8e06212 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -70,6 +70,9 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -70,6 +70,10 @@ PassManagerBuilder::PassManagerBuilder() {
      LoopVectorize = RunLoopVectorization;
      RerollLoops = RunLoopRerolling;
      LoadCombine = RunLoadCombine;
 +    EnableAddressSpaceFix = false;
-+    EnableMetalFix = false;
-+    EnableSPIRFix = false;
++    EnableCUDAPasses = false;
++    EnableMetalPasses = false;
++    EnableSPIRPasses = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -153,6 +156,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -130,6 +134,9 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+ }
+ 
+ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
++  // run "first" passes that should run before all else
++  if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
++
+   // If all optimizations are disabled, just run the always-inline pass.
+   if (OptLevel == 0) {
+     if (Inliner) {
+@@ -153,6 +160,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -474,14 +502,15 @@ index 701fb46..c0b6e91 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +295,10 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +299,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
 +
-+  // run MetalFix/SPIRFix pass at the very end, no IR should change after this point!
-+  if(EnableSPIRFix) MPM.add(createSPIRFixPass());
-+  else if(EnableMetalFix) MPM.add(createMetalFixPass());
++  // run CUDAFinal/MetalFinal/SPIRFinal pass at the very end, no IR should change after this point!
++  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
++  else if(EnableMetalPasses) MPM.add(createMetalFinalPass());
++  else if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
  }
  
  void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
@@ -731,24 +760,567 @@ index 0000000..437368f
 +	return new AddressSpaceFix();
 +}
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 261ddda..2dcb102 100644
+index 261ddda..bc96e84 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,7 @@
+@@ -1,4 +1,9 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
-+  MetalFix.cpp
-+  SPIRFix.cpp
++  CUDAFirst.cpp
++  CUDAFinal.cpp
++  MetalFinal.cpp
++  SPIRFinal.cpp
    ADCE.cpp
    ConstantHoisting.cpp
    ConstantProp.cpp
-diff --git a/lib/Transforms/Scalar/MetalFix.cpp b/lib/Transforms/Scalar/MetalFix.cpp
+diff --git a/lib/Transforms/Scalar/CUDAFinal.cpp b/lib/Transforms/Scalar/CUDAFinal.cpp
 new file mode 100644
-index 0000000..092534b
+index 0000000..b77f9fa
 --- /dev/null
-+++ b/lib/Transforms/Scalar/MetalFix.cpp
++++ b/lib/Transforms/Scalar/CUDAFinal.cpp
+@@ -0,0 +1,116 @@
++//===- CUDAFinal.cpp - CUDA final pass ------------------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// TODO
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++#include <cxxabi.h>
++using namespace llvm;
++
++#define DEBUG_TYPE "CUDAFinal"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	// CUDAFinal
++	struct CUDAFinal : public FunctionPass, InstVisitor<CUDAFinal> {
++		friend class InstVisitor<CUDAFinal>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		std::shared_ptr<llvm::IRBuilder<>> builder;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		bool was_modified { false };
++		
++		CUDAFinal() : FunctionPass(ID) {
++			initializeCUDAFinalPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			
++			// if not a kernel function, return (for now)
++			if(!F.hasFnAttribute("compute_kernel")) return false;
++			
++			// reset
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			was_modified = false;
++			
++			// visit everything in this function
++			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++			visit(F);
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<CUDAFinal>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<CUDAFinal>::visit(I);
++		}
++		
++	};
++}
++
++char CUDAFinal::ID = 0;
++INITIALIZE_PASS_BEGIN(CUDAFinal, "CUDAFinal", "CUDAFinal Pass", false, false)
++INITIALIZE_PASS_END(CUDAFinal, "CUDAFinal", "CUDAFinal Pass", false, false)
++
++FunctionPass *llvm::createCUDAFinalPass() {
++	return new CUDAFinal();
++}
+diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
+new file mode 100644
+index 0000000..363f3f4
+--- /dev/null
++++ b/lib/Transforms/Scalar/CUDAFirst.cpp
+@@ -0,0 +1,413 @@
++//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// TODO
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++#include <cxxabi.h>
++using namespace llvm;
++
++#define DEBUG_TYPE "CUDAFirst"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++// condensed version of the COMPUTE_IMAGE_TYPE defined by floor
++enum class COMPUTE_IMAGE_TYPE : uint32_t {
++	//! invalid/uninitialized
++	NONE					= (0u),
++	
++	//////////////////////////////////////////
++	// -> image flags and types
++	//! upper 14-bit (18-31): type flags (currently used: 13/14)
++	__FLAG_MASK				= (0xFFFC0000u),
++	__FLAG_SHIFT			= (18u),
++	//! base type: image is an array (aka has layers)
++	FLAG_ARRAY				= (1u << (__FLAG_SHIFT + 0u)),
++	//! base type: image is a buffer object
++	FLAG_BUFFER				= (1u << (__FLAG_SHIFT + 1u)),
++	//! base type: image uses mutli-sampling (consists of multiple samples)
++	FLAG_MSAA				= (1u << (__FLAG_SHIFT + 2u)),
++	//! base type: image is a cube map
++	FLAG_CUBE				= (1u << (__FLAG_SHIFT + 3u)),
++	//! base type: image is a depth image
++	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
++	//! base type: image is a stencil image
++	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
++	//! base type: image is a renderbuffer
++	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
++	//! optional type: image uses mip-mapping, i.e. has multiple LODs
++	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
++	//! optional type: image uses anisotropic filtering
++	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 8u)),
++	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
++	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
++	//! optional type: image uses gather sampling (aka tld4/fetch4)
++	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
++	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
++	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
++	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
++	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
++	
++	//! bits 16-17: dimensionality
++	__DIM_MASK				= (0x00030000u),
++	__DIM_SHIFT				= (16u),
++	DIM_1D					= (1u << __DIM_SHIFT),
++	DIM_2D					= (2u << __DIM_SHIFT),
++	DIM_3D					= (3u << __DIM_SHIFT),
++	
++	//! bits 14-15: actual storage dimensionality (for arrays/layers: dim + 1, else: == dim)
++	__DIM_STORAGE_MASK		= (0x0000C000u),
++	__DIM_STORAGE_SHIFT		= (14u),
++	DIM_STORAGE_1D			= (1u << __DIM_STORAGE_SHIFT),
++	DIM_STORAGE_2D			= (2u << __DIM_STORAGE_SHIFT),
++	DIM_STORAGE_3D			= (3u << __DIM_STORAGE_SHIFT),
++	
++	//! bits 12-13: channel count
++	__CHANNELS_MASK			= (0x00003000u),
++	__CHANNELS_SHIFT		= (12u),
++	CHANNELS_1				= (0u << __CHANNELS_SHIFT),
++	CHANNELS_2				= (1u << __CHANNELS_SHIFT),
++	CHANNELS_3				= (2u << __CHANNELS_SHIFT),
++	CHANNELS_4				= (3u << __CHANNELS_SHIFT),
++	
++	//! bits 10-11: storage data type
++	__DATA_TYPE_MASK		= (0x00000C00u),
++	__DATA_TYPE_SHIFT		= (10u),
++	INT						= (1u << __DATA_TYPE_SHIFT),
++	UINT					= (2u << __DATA_TYPE_SHIFT),
++	FLOAT					= (3u << __DATA_TYPE_SHIFT),
++	
++	//! bits 8-9: access qualifier
++	__ACCESS_MASK			= (0x00000300u),
++	__ACCESS_SHIFT			= (8u),
++	//! image is read-only (exluding host operations)
++	READ					= (1u << __ACCESS_SHIFT),
++	//! image is write-only (exluding host operations)
++	WRITE					= (2u << __ACCESS_SHIFT),
++	//! image is read-write
++	//! NOTE: also applies if neither is set
++	READ_WRITE				= (READ | WRITE),
++	
++	//! bits 0-7: formats
++	__FORMAT_MASK			= (0x000000FFu),
++	
++	//////////////////////////////////////////
++	// -> base image types
++	//! 1D image
++	IMAGE_1D				= DIM_1D | DIM_STORAGE_1D,
++	//! array of 1D images
++	IMAGE_1D_ARRAY			= DIM_1D | DIM_STORAGE_2D | FLAG_ARRAY,
++	//! 1D image buffer (special format on some platforms)
++	IMAGE_1D_BUFFER			= DIM_1D | DIM_STORAGE_1D | FLAG_BUFFER,
++	
++	//! 2D image
++	IMAGE_2D				= DIM_2D | DIM_STORAGE_2D,
++	//! array of 2D images
++	IMAGE_2D_ARRAY			= DIM_2D | DIM_STORAGE_3D | FLAG_ARRAY,
++	//! multi-sampled 2D image
++	IMAGE_2D_MSAA			= DIM_2D | DIM_STORAGE_2D | FLAG_MSAA,
++	//! array of multi-sampled 2D images
++	IMAGE_2D_MSAA_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_MSAA | FLAG_ARRAY,
++	
++	//! 3D image
++	IMAGE_3D				= DIM_3D | DIM_STORAGE_3D,
++	//! cube map image
++	IMAGE_CUBE				= DIM_2D | DIM_STORAGE_3D | FLAG_CUBE,
++	//! array of cube map images
++	IMAGE_CUBE_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_CUBE | FLAG_ARRAY,
++	
++	//! 2D depth image
++	IMAGE_DEPTH				= FLAG_DEPTH | IMAGE_2D,
++	//! combined 2D depth + stencil image
++	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | IMAGE_2D | FLAG_STENCIL,
++	//! array of 2D depth images
++	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | IMAGE_2D_ARRAY,
++	//! depth cube map image
++	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | IMAGE_CUBE,
++	//! multi-sampled 2D depth image
++	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | IMAGE_2D_MSAA,
++	//! array of multi-sampled 2D depth images
++	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | IMAGE_2D_MSAA_ARRAY,
++	
++	//
++	BASE_TYPE_MASK			= (__DIM_MASK | __DIM_STORAGE_MASK |
++							   FLAG_ARRAY | FLAG_BUFFER | FLAG_CUBE | FLAG_DEPTH | FLAG_MSAA | FLAG_STENCIL),
++	
++};
++
++namespace {
++	// CUDAFirst
++	struct CUDAFirst : public FunctionPass, InstVisitor<CUDAFirst> {
++		friend class InstVisitor<CUDAFirst>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		std::shared_ptr<llvm::IRBuilder<>> builder;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		bool was_modified { false };
++		
++		CUDAFirst() : FunctionPass(ID) {
++			initializeCUDAFirstPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			
++			// reset
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			was_modified = false;
++			
++			// visit everything in this function
++			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++			visit(F);
++			
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<CUDAFirst>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<CUDAFirst>::visit(I);
++		}
++		
++		//
++		void visitCallInst(CallInst &I) {
++			const auto func = I.getCalledFunction();
++			if(!func) return;
++			
++			const auto func_name = func->getName();
++			if(!func_name.startswith("floor.read_image.")) return;
++			//else return;
++			
++			CallSite CS { &I };
++			builder->SetInsertPoint(&I);
++			
++			// check + get arguments
++			if(CS.arg_size() != 4) {
++				ctx->emitError(&I, "invalid read_image argument count (expected 4)");
++				return;
++			}
++			
++			// -> tex handle
++			const auto tex_handle_arg = CS.getArgument(0);
++			
++			// -> type enum
++			const auto image_type_arg = cast<ConstantInt>(CS.getArgument(1));
++			if(!image_type_arg) {
++				ctx->emitError(&I, "image type argument must be a constant value");
++				return;
++			}
++			const COMPUTE_IMAGE_TYPE image_type = (COMPUTE_IMAGE_TYPE)(image_type_arg->getZExtValue() &
++																	   (uint64_t)COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK);
++			
++			// -> coord
++			const auto coord_arg = CS.getArgument(2);
++			const auto coord_arg_type = coord_arg->getType();
++			if(!(coord_arg_type->isFloatTy() ||
++				 coord_arg_type->isIntegerTy() ||
++				 (coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
++												   coord_arg_type->getVectorElementType()->isIntegerTy())))) {
++				ctx->emitError(&I, "invalid image coordinate type");
++				return;
++			}
++			   
++			
++			// -> layer
++			const auto layer_arg = CS.getArgument(3);
++			
++			//
++			SmallVector<llvm::Type*, 16> asm_arg_types;
++			SmallVector<llvm::Value*, 16> asm_args;
++			std::string constraints_str = "";
++			std::string dtype;
++			llvm::Type* ret_type, *ret_vec_type;
++			if(func_name == "floor.read_image.float") {
++				dtype = "f32";
++				constraints_str = "=f,=f,=f,=f";
++				ret_type = llvm::StructType::get(*ctx, {
++					llvm::Type::getFloatTy(*ctx),
++					llvm::Type::getFloatTy(*ctx),
++					llvm::Type::getFloatTy(*ctx),
++					llvm::Type::getFloatTy(*ctx)
++				});
++				ret_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
++			}
++			else if(func_name == "floor.read_image.int") {
++				dtype = "s32";
++				constraints_str = "=r,=r,=r,=r";
++				ret_type = llvm::StructType::get(*ctx, {
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx)
++				});
++				ret_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name == "floor.read_image.uint") {
++				dtype = "u32";
++				constraints_str = "=r,=r,=r,=r";
++				ret_type = llvm::StructType::get(*ctx, {
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx),
++					llvm::Type::getInt32Ty(*ctx)
++				});
++				ret_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			// unknown -> ignore
++			else return;
++			
++			constraints_str += ",l"; // u64 tex handle
++			asm_arg_types.push_back(llvm::Type::getInt64Ty(*ctx));
++			asm_args.push_back(tex_handle_arg);
++			
++			//
++			std::string geom; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "2dms"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "a2dms"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "cube"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:				geom = "2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "a2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "cube"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "2dms"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "a2dms"; break;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			
++			//
++			std::string ctype;
++			std::string coords_placeholders;
++			static const auto set_coords = [&constraints_str, &coords_placeholders,
++											&ctype](llvm::Type* coord_type, const uint32_t coord_count) {
++				ctype = (coord_type->isFloatTy() ? "f32" : "s32");
++				const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
++				for(uint32_t i = 0; i < coord_count; ++i) {
++					constraints_str += "," + coord_type_str;
++					coords_placeholders += (i == 0 ? " $" : ", $");
++					coords_placeholders += std::to_string(5 + i);
++				}
++				if(coord_count == 3) {
++					coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0"); // TODO: check this
++				}
++			};
++			
++			if(coord_arg_type->isVectorTy()) {
++				auto coord_vec_type = cast<VectorType>(coord_arg_type);
++				if(!coord_vec_type) {
++					ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++					return;
++				}
++				const auto vec_elems = coord_vec_type->getVectorNumElements();
++				for(uint32_t i = 0; i < vec_elems; ++i) {
++					asm_arg_types.push_back(coord_vec_type->getElementType());
++					asm_args.push_back(builder->CreateExtractElement(coord_arg, builder->getInt32(i)));
++				}
++				set_coords(coord_vec_type->getElementType(), vec_elems);
++			}
++			// scalar
++			else {
++				asm_arg_types.push_back(coord_arg_type);
++				asm_args.push_back(coord_arg);
++				set_coords(coord_arg_type, 1);
++			}
++			
++			//
++			std::string asm_str = "tex." + geom + ".v4." + dtype + "." + ctype;
++			asm_str += " { $0, $1, $2, $3 },";
++			asm_str += " [$4, {" + coords_placeholders + " }];";
++			
++			const auto asm_func_type = FunctionType::get(ret_type, asm_arg_types, false);
++			auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, false);
++			auto asm_call = builder->CreateCall(asm_func, asm_args);
++			asm_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			
++			//
++			llvm::Value* dst_vec = UndefValue::get(ret_vec_type);
++			for(uint32_t i = 0; i < 4; ++i) {
++				auto scalar = builder->CreateExtractValue(asm_call, i);
++				dst_vec = builder->CreateInsertElement(dst_vec, scalar, builder->getInt32(i));
++			}
++			
++			//
++			was_modified = true;
++			I.replaceAllUsesWith(dst_vec);
++			I.eraseFromParent();
++		}
++		
++	};
++}
++
++char CUDAFirst::ID = 0;
++INITIALIZE_PASS_BEGIN(CUDAFirst, "CUDAFirst", "CUDAFirst Pass", false, false)
++INITIALIZE_PASS_END(CUDAFirst, "CUDAFirst", "CUDAFirst Pass", false, false)
++
++FunctionPass *llvm::createCUDAFirstPass() {
++	return new CUDAFirst();
++}
+diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
+new file mode 100644
+index 0000000..0736e59
+--- /dev/null
++++ b/lib/Transforms/Scalar/MetalFinal.cpp
 @@ -0,0 +1,182 @@
-+//===- MetalFix.cpp - Metal fixes -----------------------------------------===//
++//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
 +//
@@ -801,7 +1373,7 @@ index 0000000..092534b
 +#include <cxxabi.h>
 +using namespace llvm;
 +
-+#define DEBUG_TYPE "MetalFix"
++#define DEBUG_TYPE "MetalFinal"
 +
 +#if 1
 +#define DBG(x)
@@ -810,9 +1382,9 @@ index 0000000..092534b
 +#endif
 +
 +namespace {
-+	// MetalFix
-+	struct MetalFix : public FunctionPass, InstVisitor<MetalFix> {
-+		friend class InstVisitor<MetalFix>;
++	// MetalFinal
++	struct MetalFinal : public FunctionPass, InstVisitor<MetalFinal> {
++		friend class InstVisitor<MetalFinal>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
 +		
@@ -831,8 +1403,8 @@ index 0000000..092534b
 +		Argument* group_id { nullptr };
 +		Argument* group_size { nullptr };
 +		
-+		MetalFix() : FunctionPass(ID) {
-+			initializeMetalFixPass(*PassRegistry::getPassRegistry());
++		MetalFinal() : FunctionPass(ID) {
++			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -866,9 +1438,9 @@ index 0000000..092534b
 +		}
 +		
 +		// InstVisitor overrides...
-+		using InstVisitor<MetalFix>::visit;
++		using InstVisitor<MetalFinal>::visit;
 +		void visit(Instruction& I) {
-+			InstVisitor<MetalFix>::visit(I);
++			InstVisitor<MetalFinal>::visit(I);
 +		}
 +		
 +		//
@@ -923,20 +1495,20 @@ index 0000000..092534b
 +	};
 +}
 +
-+char MetalFix::ID = 0;
-+INITIALIZE_PASS_BEGIN(MetalFix, "MetalFix", "MetalFix Pass", false, false)
-+INITIALIZE_PASS_END(MetalFix, "MetalFix", "MetalFix Pass", false, false)
++char MetalFinal::ID = 0;
++INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
++INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +
-+FunctionPass *llvm::createMetalFixPass() {
-+	return new MetalFix();
++FunctionPass *llvm::createMetalFinalPass() {
++	return new MetalFinal();
 +}
-diff --git a/lib/Transforms/Scalar/SPIRFix.cpp b/lib/Transforms/Scalar/SPIRFix.cpp
+diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..df1203c
+index 0000000..c1c8108
 --- /dev/null
-+++ b/lib/Transforms/Scalar/SPIRFix.cpp
++++ b/lib/Transforms/Scalar/SPIRFinal.cpp
 @@ -0,0 +1,248 @@
-+//===- SPIRFix.cpp - OpenCL/SPIR fixes ------------------------------------===//
++//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
 +//
@@ -989,7 +1561,7 @@ index 0000000..df1203c
 +#include <cxxabi.h>
 +using namespace llvm;
 +
-+#define DEBUG_TYPE "SPIRFix"
++#define DEBUG_TYPE "SPIRFinal"
 +
 +#if 1
 +#define DBG(x)
@@ -998,9 +1570,9 @@ index 0000000..df1203c
 +#endif
 +
 +namespace {
-+	// SPIRFix
-+	struct SPIRFix : public FunctionPass, InstVisitor<SPIRFix> {
-+		friend class InstVisitor<SPIRFix>;
++	// SPIRFinal
++	struct SPIRFinal : public FunctionPass, InstVisitor<SPIRFinal> {
++		friend class InstVisitor<SPIRFinal>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
 +		
@@ -1012,8 +1584,8 @@ index 0000000..df1203c
 +		Instruction* alloca_insert { nullptr };
 +		bool was_modified { false };
 +		
-+		SPIRFix() : FunctionPass(ID) {
-+			initializeSPIRFixPass(*PassRegistry::getPassRegistry());
++		SPIRFinal() : FunctionPass(ID) {
++			initializeSPIRFinalPass(*PassRegistry::getPassRegistry());
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -1038,9 +1610,9 @@ index 0000000..df1203c
 +		}
 +		
 +		// InstVisitor overrides...
-+		using InstVisitor<SPIRFix>::visit;
++		using InstVisitor<SPIRFinal>::visit;
 +		void visit(Instruction& I) {
-+			InstVisitor<SPIRFix>::visit(I);
++			InstVisitor<SPIRFinal>::visit(I);
 +		}
 +		
 +		// SPIR only supports scalar conversion ops ->
@@ -1177,18 +1749,18 @@ index 0000000..df1203c
 +	};
 +}
 +
-+char SPIRFix::ID = 0;
-+INITIALIZE_PASS_BEGIN(SPIRFix, "SPIRFix", "SPIRFix Pass", false, false)
-+INITIALIZE_PASS_END(SPIRFix, "SPIRFix", "SPIRFix Pass", false, false)
++char SPIRFinal::ID = 0;
++INITIALIZE_PASS_BEGIN(SPIRFinal, "SPIRFinal", "SPIRFinal Pass", false, false)
++INITIALIZE_PASS_END(SPIRFinal, "SPIRFinal", "SPIRFinal Pass", false, false)
 +
-+FunctionPass *llvm::createSPIRFixPass() {
-+	return new SPIRFix();
++FunctionPass *llvm::createSPIRFinalPass() {
++	return new SPIRFinal();
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..69a49c4 100644
+index de724d4..6cbfb40 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,18 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -73,6 +73,26 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -1196,12 +1768,20 @@ index de724d4..69a49c4 100644
 +  unwrap(PM)->add(createAddressSpaceFixPass());
 +}
 +
-+void LLVMAddMetalFixPass(LLVMPassManagerRef PM) {
-+  unwrap(PM)->add(createMetalFixPass());
++void LLVMAddCUDAFirstPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createCUDAFirstPass());
 +}
 +
-+void LLVMAddSPIRFixPass(LLVMPassManagerRef PM) {
-+  unwrap(PM)->add(createSPIRFixPass());
++void LLVMAddCUDAFinalPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createCUDAFinalPass());
++}
++
++void LLVMAddMetalFinalPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalFinalPass());
++}
++
++void LLVMAddSPIRFinalPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createSPIRFinalPass());
 +}
 +
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
@@ -2288,10 +2868,10 @@ index 075f905..c581972 100644
  
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..d95b581 100644
+index cec48f3..8304e13 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,20 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,23 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
@@ -2303,16 +2883,19 @@ index cec48f3..d95b581 100644
 +    return;
 +  }
 +
-+  // only enable this for OpenCL/SPIR
-+  PMBuilder.EnableSPIRFix = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown";
++  // only enable this for CUDA
++  PMBuilder.EnableCUDAPasses = LangOpts.CUDA;
 +
 +  // only enable this for Metal/AIR
-+  PMBuilder.EnableMetalFix = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "metal";
++  PMBuilder.EnableMetalPasses = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "metal";
++
++  // only enable this for OpenCL/SPIR
++  PMBuilder.EnableSPIRPasses = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown";
 +
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -326,6 +340,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +343,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -2713,7 +3296,7 @@ index 079ef72..d31a3cb 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..92035ee 100644
+index 5ca3a78..8b8024f 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -3240,7 +3823,7 @@ index 5ca3a78..92035ee 100644
 +	}
 +	
 +	// add id handling arg metadata
-+	// NOTE: the actual args are later added by MetalFix + the order in here must match the order in MetalFix
++	// NOTE: the actual args are later added by MetalFinal + the order in here must match the order in MetalFinal
 +	static const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
 +		SmallVector<llvm::Value*, 6> arg_info;
 +		arg_info.push_back(Builder.getInt32(arg_idx));
