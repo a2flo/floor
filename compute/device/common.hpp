@@ -65,38 +65,49 @@ typedef uint64_t uintmax_t;
 #endif
 
 // clang vector types that are needed in some places (opencl/metal)
+typedef int8_t clang_char1 __attribute__((ext_vector_type(1)));
 typedef int8_t clang_char2 __attribute__((ext_vector_type(2)));
 typedef int8_t clang_char3 __attribute__((ext_vector_type(3)));
 typedef int8_t clang_char4 __attribute__((ext_vector_type(4)));
+typedef uint8_t clang_uchar1 __attribute__((ext_vector_type(1)));
 typedef uint8_t clang_uchar2 __attribute__((ext_vector_type(2)));
 typedef uint8_t clang_uchar3 __attribute__((ext_vector_type(3)));
 typedef uint8_t clang_uchar4 __attribute__((ext_vector_type(4)));
+typedef int16_t clang_short1 __attribute__((ext_vector_type(1)));
 typedef int16_t clang_short2 __attribute__((ext_vector_type(2)));
 typedef int16_t clang_short3 __attribute__((ext_vector_type(3)));
 typedef int16_t clang_short4 __attribute__((ext_vector_type(4)));
+typedef uint16_t clang_ushort1 __attribute__((ext_vector_type(1)));
 typedef uint16_t clang_ushort2 __attribute__((ext_vector_type(2)));
 typedef uint16_t clang_ushort3 __attribute__((ext_vector_type(3)));
 typedef uint16_t clang_ushort4 __attribute__((ext_vector_type(4)));
+typedef int32_t clang_int1 __attribute__((ext_vector_type(1)));
 typedef int32_t clang_int2 __attribute__((ext_vector_type(2)));
 typedef int32_t clang_int3 __attribute__((ext_vector_type(3)));
 typedef int32_t clang_int4 __attribute__((ext_vector_type(4)));
+typedef uint32_t clang_uint1 __attribute__((ext_vector_type(1)));
 typedef uint32_t clang_uint2 __attribute__((ext_vector_type(2)));
 typedef uint32_t clang_uint3 __attribute__((ext_vector_type(3)));
 typedef uint32_t clang_uint4 __attribute__((ext_vector_type(4)));
+typedef int64_t clang_long1 __attribute__((ext_vector_type(1)));
 typedef int64_t clang_long2 __attribute__((ext_vector_type(2)));
 typedef int64_t clang_long3 __attribute__((ext_vector_type(3)));
 typedef int64_t clang_long4 __attribute__((ext_vector_type(4)));
+typedef uint64_t clang_ulong1 __attribute__((ext_vector_type(1)));
 typedef uint64_t clang_ulong2 __attribute__((ext_vector_type(2)));
 typedef uint64_t clang_ulong3 __attribute__((ext_vector_type(3)));
 typedef uint64_t clang_ulong4 __attribute__((ext_vector_type(4)));
+typedef float clang_float1 __attribute__((ext_vector_type(1)));
 typedef float clang_float2 __attribute__((ext_vector_type(2)));
 typedef float clang_float3 __attribute__((ext_vector_type(3)));
 typedef float clang_float4 __attribute__((ext_vector_type(4)));
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+typedef half clang_half1 __attribute__((ext_vector_type(1)));
 typedef half clang_half2 __attribute__((ext_vector_type(2)));
 typedef half clang_half3 __attribute__((ext_vector_type(3)));
 typedef half clang_half4 __attribute__((ext_vector_type(4)));
 #endif
+typedef double clang_double1 __attribute__((ext_vector_type(1)));
 typedef double clang_double2 __attribute__((ext_vector_type(2)));
 typedef double clang_double3 __attribute__((ext_vector_type(3)));
 typedef double clang_double4 __attribute__((ext_vector_type(4)));

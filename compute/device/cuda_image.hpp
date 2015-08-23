@@ -165,57 +165,87 @@ namespace cuda_image {
 	static auto convert_coord(const coord_type& coord) {
 		return ret_coord_type { coord };
 	}
-	// convert any fundamental (single value) coordinate type to int or float
-	template <typename coord_type, typename ret_coord_type = conditional_t<is_integral<coord_type>::value, int, float>, enable_if_t<is_fundamental<coord_type>::value>>
+	// convert any fundamental (single value) coordinate type to int1 or float1
+	template <typename coord_type, typename ret_coord_type = conditional_t<is_integral<coord_type>::value, int1, float1>, enable_if_t<is_fundamental<coord_type>::value>>
 	static auto convert_coord(const coord_type& coord) {
 		return ret_coord_type { coord };
 	}
 	
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, int32_t coord, uint32_t layer = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, float coord, uint32_t layer = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
 	
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, int32_t coord, uint32_t layer = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, float coord, uint32_t layer = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
 	
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, int32_t coord, uint32_t layer = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, float coord, uint32_t layer = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
 }
 
 // image read functions
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
 						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord) {
-	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex, image_type, cuda_image::convert_coord(coord))));
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
-					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord) {
-	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex, image_type, cuda_image::convert_coord(coord))));
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
 					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type))>* = nullptr>
-const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord) {
-	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex, image_type, cuda_image::convert_coord(coord))));
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
+}
+
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
+}
+
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
+}
+
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
+const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
+	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
 }
 
 // image write functions
