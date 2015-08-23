@@ -897,10 +897,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..363f3f4
+index 0000000..0832867
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,413 @@
+@@ -0,0 +1,444 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1136,24 +1136,31 @@ index 0000000..363f3f4
 +			
 +			const auto func_name = func->getName();
 +			if(!func_name.startswith("floor.read_image.")) return;
-+			//else return;
 +			
 +			CallSite CS { &I };
 +			builder->SetInsertPoint(&I);
 +			
 +			// check + get arguments
-+			if(CS.arg_size() != 4) {
-+				ctx->emitError(&I, "invalid read_image argument count (expected 4)");
++			if(CS.arg_size() != 5) {
++				ctx->emitError(&I, "invalid read_image argument count (expected 5)");
 +				return;
 +			}
 +			
 +			// -> tex handle
 +			const auto tex_handle_arg = CS.getArgument(0);
++			if(!tex_handle_arg->getType()->isIntegerTy()) {
++				ctx->emitError(&I, "invalid image handle type (must be integer)");
++				return;
++			}
 +			
 +			// -> type enum
 +			const auto image_type_arg = cast<ConstantInt>(CS.getArgument(1));
 +			if(!image_type_arg) {
 +				ctx->emitError(&I, "image type argument must be a constant value");
++				return;
++			}
++			if(!image_type_arg->getType()->isIntegerTy()) {
++				ctx->emitError(&I, "invalid image-type type (must be enum/integer)");
 +				return;
 +			}
 +			const COMPUTE_IMAGE_TYPE image_type = (COMPUTE_IMAGE_TYPE)(image_type_arg->getZExtValue() &
@@ -1162,17 +1169,25 @@ index 0000000..363f3f4
 +			// -> coord
 +			const auto coord_arg = CS.getArgument(2);
 +			const auto coord_arg_type = coord_arg->getType();
-+			if(!(coord_arg_type->isFloatTy() ||
-+				 coord_arg_type->isIntegerTy() ||
-+				 (coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
-+												   coord_arg_type->getVectorElementType()->isIntegerTy())))) {
++			if(!(coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
++												  coord_arg_type->getVectorElementType()->isIntegerTy()))) {
 +				ctx->emitError(&I, "invalid image coordinate type");
 +				return;
 +			}
-+			   
 +			
 +			// -> layer
 +			const auto layer_arg = CS.getArgument(3);
++			if(!layer_arg->getType()->isIntegerTy()) {
++				ctx->emitError(&I, "invalid image layer index type (must be integer)");
++				return;
++			}
++			
++			// -> sample
++			const auto sample_arg = CS.getArgument(4);
++			if(!sample_arg->getType()->isIntegerTy()) {
++				ctx->emitError(&I, "invalid image sample index type (must be integer)");
++				return;
++			}
 +			
 +			//
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
@@ -1222,63 +1237,79 @@ index 0000000..363f3f4
 +			
 +			//
 +			std::string geom; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
++			bool is_array = false, is_msaa = false;
 +			switch(image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "2dms"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "a2dms"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "2dms"; is_msaa = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "a2dms"; is_array = true; is_msaa = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "cube"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:				geom = "2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "a2d"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "cube"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "2dms"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "a2dms"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; is_array = true; break;
 +				default:
 +					ctx->emitError(&I, "unknown or incorrect image type");
 +					return;
 +			}
 +			
 +			//
-+			std::string ctype;
-+			std::string coords_placeholders;
-+			static const auto set_coords = [&constraints_str, &coords_placeholders,
-+											&ctype](llvm::Type* coord_type, const uint32_t coord_count) {
-+				ctype = (coord_type->isFloatTy() ? "f32" : "s32");
-+				const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
-+				for(uint32_t i = 0; i < coord_count; ++i) {
-+					constraints_str += "," + coord_type_str;
-+					coords_placeholders += (i == 0 ? " $" : ", $");
-+					coords_placeholders += std::to_string(5 + i);
-+				}
-+				if(coord_count == 3) {
-+					coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0"); // TODO: check this
-+				}
-+			};
-+			
-+			if(coord_arg_type->isVectorTy()) {
-+				auto coord_vec_type = cast<VectorType>(coord_arg_type);
-+				if(!coord_vec_type) {
-+					ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
-+					return;
-+				}
-+				const auto vec_elems = coord_vec_type->getVectorNumElements();
-+				for(uint32_t i = 0; i < vec_elems; ++i) {
-+					asm_arg_types.push_back(coord_vec_type->getElementType());
-+					asm_args.push_back(builder->CreateExtractElement(coord_arg, builder->getInt32(i)));
-+				}
-+				set_coords(coord_vec_type->getElementType(), vec_elems);
++			auto coord_vec_type = cast<VectorType>(coord_arg_type);
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
 +			}
-+			// scalar
-+			else {
-+				asm_arg_types.push_back(coord_arg_type);
-+				asm_args.push_back(coord_arg);
-+				set_coords(coord_arg_type, 1);
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(is_msaa && !coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer for msaa images");
++				return;
++			}
++			if((image_type == COMPUTE_IMAGE_TYPE::IMAGE_CUBE ||
++				image_type == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY ||
++				image_type == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE) && !coord_type->isFloatTy()) {
++				ctx->emitError(&I, "coordinate type must be float for cube images");
++				return;
++			}
++			
++			const auto vec_elems = coord_vec_type->getVectorNumElements();
++			std::string ctype = (coord_type->isFloatTy() ? "f32" : "s32");
++			std::string coords_placeholders;
++			const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
++			uint32_t coord_start_idx = 5;
++			if(is_msaa) {
++				asm_arg_types.push_back(sample_arg->getType());
++				asm_args.push_back(sample_arg);
++				constraints_str += ",r";
++				coords_placeholders += " $";
++				coords_placeholders += std::to_string(coord_start_idx);
++				++coord_start_idx;
++			}
++			if(is_array) {
++				asm_arg_types.push_back(layer_arg->getType());
++				asm_args.push_back(layer_arg);
++				constraints_str += ",r";
++				coords_placeholders += (!is_msaa ? " $" : ", $");
++				coords_placeholders += std::to_string(coord_start_idx);
++				++coord_start_idx;
++			}
++			for(uint32_t i = 0; i < vec_elems; ++i) {
++				asm_arg_types.push_back(coord_type);
++				asm_args.push_back(builder->CreateExtractElement(coord_arg, builder->getInt32(i)));
++				constraints_str += "," + coord_type_str;
++				coords_placeholders += (i == 0 && coord_start_idx == 5 ? " $" : ", $");
++				coords_placeholders += std::to_string(coord_start_idx + i);
++			}
++			
++			if(vec_elems == 3) {
++				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0"); // TODO: check this
 +			}
 +			
 +			//
