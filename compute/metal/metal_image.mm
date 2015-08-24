@@ -339,6 +339,10 @@ metal_image::~metal_image() {
 	}
 }
 
+void metal_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
+	// TODO: implement this
+}
+
 void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
 													 const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nil) return nullptr;

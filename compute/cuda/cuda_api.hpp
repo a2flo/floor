@@ -432,6 +432,7 @@ struct cu_texture_descriptor {
 // actual cuda api function pointers
 struct cuda_api_ptrs {
 	CU_RESULT (*array_3d_create)(cu_array* p_handle, const cu_array_3d_descriptor* p_allocate_array);
+	CU_RESULT (*array_3d_get_descriptor)(cu_array_3d_descriptor* p_array_descriptor, cu_array h_array);
 	CU_RESULT (*array_destroy)(cu_array h_array);
 	CU_RESULT (*ctx_create)(cu_context* pctx, CU_CONTEXT_FLAGS flags, cu_device dev);
 	CU_RESULT (*ctx_get_limit)(size_t* pvalue, CU_LIMIT limit);
@@ -488,6 +489,7 @@ extern cuda_api_ptrs cuda_api;
 extern bool cuda_api_init();
 
 #define cu_array_3d_create cuda_api.array_3d_create
+#define cu_array_3d_get_descriptor cuda_api.array_3d_get_descriptor
 #define cu_array_destroy cuda_api.array_destroy
 #define cu_ctx_create cuda_api.ctx_create
 #define cu_ctx_get_limit cuda_api.ctx_get_limit

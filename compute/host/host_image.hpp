@@ -47,6 +47,8 @@ public:
 											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
 											 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) override;
 	
+	void zero(shared_ptr<compute_queue> cqueue) override;
+	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
 	//! returns a direct pointer to the internal host image buffer

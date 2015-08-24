@@ -42,6 +42,8 @@ public:
 	bool acquire_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	bool release_opengl_object(shared_ptr<compute_queue> cqueue) override;
 	
+	void zero(shared_ptr<compute_queue> cqueue) override;
+	
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags =
 											(COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
@@ -66,6 +68,7 @@ protected:
 	cu_surf_object surface { 0ull };
 	cu_tex_object texture { 0ull };
 	cu_graphics_resource rsrc { nullptr };
+	cu_array_3d_descriptor desc;
 	
 	struct cuda_mapping {
 		const size3 origin;

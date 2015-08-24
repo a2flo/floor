@@ -178,11 +178,11 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	}
 	format = cuda_format->second.first;
 	rsrc_view_format = (CU_RESOURCE_VIEW_FORMAT)(uint32_t(cuda_format->second.second) + (channel_count == 1 ? 0 :
-																			   (channel_count == 2 ? 1 : 2 /* 4 channels */)));
+																						 (channel_count == 2 ? 1 : 2 /* 4 channels */)));
 	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		const cu_array_3d_descriptor desc {
+		desc = cu_array_3d_descriptor {
 			.dim = {
 				image_dim.x,
 				(dim_count >= 2 ? image_dim.y : 0),
@@ -333,6 +333,10 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		}
 		// acquire for use with cuda
 		acquire_opengl_object(cqueue);
+		
+		// query descriptor
+		CU_CALL_RET(cu_array_3d_get_descriptor(&desc, image),
+					"failed to retrieve image descriptor", false);
 	}
 	
 	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
@@ -418,6 +422,33 @@ cuda_image::~cuda_image() {
 	if(depth_compat_tex != 0) {
 		glDeleteTextures(1, &depth_compat_tex);
 	}
+}
+
+void cuda_image::zero(shared_ptr<compute_queue> cqueue) {
+	if(image == nullptr) return;
+	
+	alignas(128) uint8_t* zero_data = new uint8_t[image_data_size];
+	memset(zero_data, 0, image_data_size);
+	
+	cu_memcpy_3d_descriptor mcpy3d;
+	memset(&mcpy3d, 0, sizeof(cu_memcpy_3d_descriptor));
+	mcpy3d.src.memory_type = CU_MEMORY_TYPE::HOST;
+	mcpy3d.src.host_ptr = zero_data;
+	mcpy3d.src.pitch = image_data_size / (std::max(desc.dim.y, size_t(1)) * std::max(desc.dim.z, size_t(1)));
+	mcpy3d.src.height = desc.dim.y;
+	mcpy3d.dst.memory_type = CU_MEMORY_TYPE::ARRAY;
+	mcpy3d.dst.array = image;
+	mcpy3d.dst.x_in_bytes = 0;
+	mcpy3d.width_in_bytes = mcpy3d.src.pitch;
+	mcpy3d.height = mcpy3d.src.height;
+	mcpy3d.depth = std::max(desc.dim.z, size_t(1));
+	
+	cqueue->finish();
+	
+	CU_CALL_NO_ACTION(cu_memcpy_3d(&mcpy3d),
+					  "failed to zero image");
+	
+	delete [] zero_data;
 }
 
 void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {

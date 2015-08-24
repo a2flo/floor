@@ -156,9 +156,6 @@ image<image_type & (~COMPUTE_IMAGE_TYPE::READ) | COMPUTE_IMAGE_TYPE::WRITE>;
 template <COMPUTE_IMAGE_TYPE image_type> using cuda_rw_image =
 image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ_WRITE>;
 
-// TODO: half float support
-// TODO: use suld (surface load) when appropriate?
-
 namespace cuda_image {
 	// convert any coordinate vector type to int* or float*
 	template <typename coord_type, typename ret_coord_type = vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim>>
@@ -169,6 +166,22 @@ namespace cuda_image {
 	template <typename coord_type, typename ret_coord_type = conditional_t<is_integral<coord_type>::value, int1, float1>, enable_if_t<is_fundamental<coord_type>::value>>
 	static auto convert_coord(const coord_type& coord) {
 		return ret_coord_type { coord };
+	}
+	
+	// converts any fundamental (single value) type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
+	template <typename expected_scalar_type, typename data_type, enable_if_t<is_fundamental<data_type>::value>* = nullptr>
+	static auto convert_data(const data_type& data) {
+		using scalar_type = data_type;
+		static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+		return vector_n<scalar_type, 4> { data, (scalar_type)0, (scalar_type)0, (scalar_type)0 };
+	}
+	
+	// converts any vector* type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
+	template <typename expected_scalar_type, typename data_type, enable_if_t<!is_fundamental<data_type>::value>* = nullptr>
+	static auto convert_data(const data_type& data) {
+		using scalar_type = typename data_type::decayed_scalar_type;
+		static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+		return vector_n<scalar_type, 4> { data };
 	}
 	
 	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
@@ -191,6 +204,18 @@ namespace cuda_image {
 	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
 	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
 	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
+	
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
+	
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
 }
 
 // image read functions
@@ -249,21 +274,61 @@ const_func floor_inline_always auto read(const image<image_type>& img, const coo
 }
 
 // image write functions
-template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type = uchar4,
-		  enable_if_t<is_same<surf_data_type, uchar4>::value>* = nullptr>
-floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& data) {
-	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
-		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
-		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, float, vector_n<float, image_channel_count(image_type)>>,
+		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const color_type& data) {
+	cuda_image::write_imagef(img.surf, image_type, cuda_image::convert_coord(coord), 0, cuda_image::convert_data<float>(data));
+}
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, float, vector_n<float, image_channel_count(image_type)>>,
+		  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ||
+						(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const uint32_t layer, const color_type& data) {
+	cuda_image::write_imagef(img.surf, image_type, cuda_image::convert_coord(coord), layer, cuda_image::convert_data<float>(data));
 }
 
-template <COMPUTE_IMAGE_TYPE image_type, typename surf_data_type,
-		  enable_if_t<is_same<surf_data_type, float4>::value>* = nullptr>
-floor_inline_always void write(const image<image_type>& img, const int2& coord, const surf_data_type& unscaled_data) {
-	uchar4 data = unscaled_data * 255.0f;
-	asm("sust.b.2d.v4.b8.clamp [%0, { %1, %2 }], { %3, %4, %5, %6 };" : :
-		"l"(img.surf), "r"(coord.x * 4), "r"(coord.y),
-		"r"(data.x), "r"(data.y), "r"(data.z), "r"(data.w));
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, int32_t, vector_n<int32_t, image_channel_count(image_type)>>,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const color_type& data) {
+	cuda_image::write_imagei(img.surf, image_type, cuda_image::convert_coord(coord), 0, cuda_image::convert_data<int32_t>(data));
+}
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, int32_t, vector_n<int32_t, image_channel_count(image_type)>>,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const uint32_t layer, const color_type& data) {
+	cuda_image::write_imagei(img.surf, image_type, cuda_image::convert_coord(coord), layer, cuda_image::convert_data<int32_t>(data));
+}
+
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, uint32_t, vector_n<uint32_t, image_channel_count(image_type)>>,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const color_type& data) {
+	cuda_image::write_imageui(img.surf, image_type, cuda_image::convert_coord(coord), 0, cuda_image::convert_data<uint32_t>(data));
+}
+template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
+		  typename color_type = conditional_t<image_channel_count(image_type) == 1, uint32_t, vector_n<uint32_t, image_channel_count(image_type)>>,
+		  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) &&
+					   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
+					   has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) &&
+					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))>* = nullptr>
+floor_inline_always void write(const image<image_type>& img, const coord_type& coord, const uint32_t layer, const color_type& data) {
+	cuda_image::write_imageui(img.surf, image_type, cuda_image::convert_coord(coord), layer, cuda_image::convert_data<uint32_t>(data));
 }
 
 #endif

@@ -85,6 +85,13 @@ host_image::~host_image() {
 	}
 }
 
+void host_image::zero(shared_ptr<compute_queue> cqueue) {
+	if(image == nullptr) return;
+	
+	cqueue->finish();
+	memset(image, 0, image_data_size);
+}
+
 void* __attribute__((aligned(128))) host_image::map(shared_ptr<compute_queue> cqueue,
 													const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;

@@ -60,6 +60,9 @@ bool cuda_api_init() {
 	(void*&)cuda_api.array_3d_create = load_symbol(cuda_lib_ptr, "cuArray3DCreate_v2");
 	if(cuda_api.array_3d_create == nullptr) log_error("failed to retrieve function pointer for \"cuArray3DCreate_v2\"");
 	
+	(void*&)cuda_api.array_3d_get_descriptor = load_symbol(cuda_lib_ptr, "cuArray3DGetDescriptor_v2");
+	if(cuda_api.array_3d_get_descriptor == nullptr) log_error("failed to retrieve function pointer for \"cuArray3DGetDescriptor_v2\"");
+	
 	(void*&)cuda_api.array_destroy = load_symbol(cuda_lib_ptr, "cuArrayDestroy");
 	if(cuda_api.array_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuArrayDestroy\"");
 	
