@@ -200,33 +200,33 @@ void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_me
 void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_mem_fence");
 #endif
 
-static floor_inline_always void global_barrier() {
+floor_inline_always static void global_barrier() {
 	cl_barrier(2u);
 }
-static floor_inline_always void global_mem_fence() {
+floor_inline_always static void global_mem_fence() {
 	cl_mem_fence(2u);
 }
-static floor_inline_always void global_read_mem_fence() {
+floor_inline_always static void global_read_mem_fence() {
 	cl_read_mem_fence(2u);
 }
-static floor_inline_always void global_write_mem_fence() {
+floor_inline_always static void global_write_mem_fence() {
 	cl_write_mem_fence(2u);
 }
 
-static floor_inline_always void local_barrier() {
+floor_inline_always static void local_barrier() {
 	cl_barrier(1u);
 }
-static floor_inline_always void local_mem_fence() {
+floor_inline_always static void local_mem_fence() {
 	cl_mem_fence(1u);
 }
-static floor_inline_always void local_read_mem_fence() {
+floor_inline_always static void local_read_mem_fence() {
 	cl_read_mem_fence(1u);
 }
-static floor_inline_always void local_write_mem_fence() {
+floor_inline_always static void local_write_mem_fence() {
 	cl_write_mem_fence(1u);
 }
 
-static floor_inline_always void barrier() {
+floor_inline_always static void barrier() {
 	cl_barrier(3u);
 }
 

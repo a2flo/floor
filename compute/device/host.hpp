@@ -33,8 +33,8 @@ uint32_t get_work_dim();
 // math functions
 #include <cmath>
 namespace std {
-	static floor_inline_always float rsqrt(float x) { return 1.0f / sqrt(x); }
-	static floor_inline_always double rsqrt(double x) { return 1.0 / sqrt(x); }
+	floor_inline_always static float rsqrt(float x) { return 1.0f / sqrt(x); }
+	floor_inline_always static double rsqrt(double x) { return 1.0 / sqrt(x); }
 }
 
 // printf

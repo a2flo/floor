@@ -98,7 +98,7 @@ template <typename T> bool floor_atomic_compare_exchange_weak(volatile local T* 
 #endif
 
 // this is not supported (or in any way useful with just memory_order_relaxed)
-__attribute__((deprecated("not supported"))) static floor_inline_always void floor_atomic_thread_fence(memory_order) {
+__attribute__((deprecated("not supported"))) floor_inline_always static void floor_atomic_thread_fence(memory_order) {
 	// nop
 }
 

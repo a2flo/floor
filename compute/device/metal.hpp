@@ -86,33 +86,33 @@ const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)
 void air_wg_barrier(uint32_t mem_scope, int32_t sync_scope) __attribute__((noduplicate)) asm("air.wg.barrier");
 
-static floor_inline_always void global_barrier() {
+floor_inline_always static void global_barrier() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void global_mem_fence() {
+floor_inline_always static void global_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void global_read_mem_fence() {
+floor_inline_always static void global_read_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void global_write_mem_fence() {
+floor_inline_always static void global_write_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_GLOBAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
-static floor_inline_always void local_barrier() {
+floor_inline_always static void local_barrier() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void local_mem_fence() {
+floor_inline_always static void local_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void local_read_mem_fence() {
+floor_inline_always static void local_read_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-static floor_inline_always void local_write_mem_fence() {
+floor_inline_always static void local_write_mem_fence() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_LOCAL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
-static floor_inline_always void barrier() {
+floor_inline_always static void barrier() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 

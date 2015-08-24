@@ -78,7 +78,6 @@ namespace std {
 	const_func floor_inline_always double trunc(double a) { return __nvvm_trunc_d(a); }
 	const_func floor_inline_always double rint(double a) { return __nvvm_trunc_d(a); }
 	
-	// TODO: higher precision sin/cos/tan?
 	const_func floor_inline_always double sin(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))); }
 	const_func floor_inline_always double cos(double a) { return double(__nvvm_cos_approx_ftz_f(float(a))); }
 	const_func floor_inline_always double tan(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))) / double(__nvvm_cos_approx_ftz_f(float(a))); }
@@ -89,7 +88,7 @@ namespace std {
 	const_func floor_inline_always double atan2(double y, double x) { return 0.0f; }
 	
 	const_func floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
-	// TODO: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
+	// NOTE: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
 	const_func floor_inline_always double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
 	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
 	const_func floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
@@ -208,33 +207,33 @@ static int printf(const char* format, Args&&... args) {
 #include <floor/compute/device/cuda_id.hpp>
 
 // barrier and mem_fence functionality
-static floor_inline_always void global_barrier() __attribute__((noduplicate)) {
+floor_inline_always static void global_barrier() {
 	__syncthreads();
 }
-static floor_inline_always void global_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void global_mem_fence() {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void global_read_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void global_read_mem_fence() {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void global_write_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void global_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 
-static floor_inline_always void local_barrier() __attribute__((noduplicate)) {
+floor_inline_always static void local_barrier() {
 	__syncthreads();
 }
-static floor_inline_always void local_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void local_mem_fence() {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void local_read_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void local_read_mem_fence() {
 	__nvvm_membar_cta();
 }
-static floor_inline_always void local_write_mem_fence() __attribute__((noduplicate)) {
+floor_inline_always static void local_write_mem_fence() {
 	__nvvm_membar_cta();
 }
 
-static floor_inline_always void barrier() __attribute__((noduplicate)) {
+floor_inline_always static void barrier() {
 	__syncthreads();
 }
 
