@@ -897,10 +897,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..0832867
+index 0000000..6d6ceb3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,444 @@
+@@ -0,0 +1,754 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -910,7 +910,8 @@ index 0000000..0832867
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// TODO
++// This pass currently builds PTX texture/surface instructions (inline asm) from
++// floor.read_image.* and floor.write_image.* intrinsics.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -951,6 +952,7 @@ index 0000000..0832867
 +#include <algorithm>
 +#include <cstdarg>
 +#include <memory>
++#include <array>
 +#include <cxxabi.h>
 +using namespace llvm;
 +
@@ -1041,6 +1043,45 @@ index 0000000..0832867
 +	
 +	//! bits 0-7: formats
 +	__FORMAT_MASK			= (0x000000FFu),
++	//! 2 bits per channel
++	FORMAT_2				= (1u),
++	//! 3 channel format: 3-bit/3-bit/2-bit
++	FORMAT_3_3_2			= (2u),
++	//! 4 bits per channel
++	FORMAT_4				= (3u),
++	//! 3 channel format: 5-bit/5-bit/5-bit
++	FORMAT_5_5_5			= (4u),
++	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
++	FORMAT_5_5_5_1			= (5u),
++	//! 3 channel format: 5-bit/6-bit/5-bit
++	FORMAT_5_6_5			= (6u),
++	//! 8 bits per channel
++	FORMAT_8				= (7u),
++	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
++	FORMAT_9_9_9_5			= (8u),
++	//! 3 channel format: 10-bit/10-bit/10-bit
++	FORMAT_10				= (9u),
++	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
++	FORMAT_10_10_10_2		= (10u),
++	//! 3 channel format: 11-bit/11-bit/10-bit
++	FORMAT_11_11_10			= (11u),
++	//! 3 channel format: 12-bit/12-bit/12-bit
++	FORMAT_12_12_12			= (12u),
++	//! 4 channel format: 12-bit/12-bit/12-bit/12-bit
++	FORMAT_12_12_12_12		= (13u),
++	//! 16 bits per channel
++	FORMAT_16				= (14u),
++	//! 1 channel format: 24-bit
++	FORMAT_24				= (15u),
++	//! 2 channel format: 24-bit/8-bit
++	FORMAT_24_8				= (16u),
++	//! 32 bits per channel
++	FORMAT_32				= (17u),
++	//! 2 channel format: 32-bit/8-bit
++	FORMAT_32_8				= (18u),
++	//! 64 bits per channel
++	FORMAT_64				= (19u),
++	__FORMAT_MAX			= FORMAT_64,
 +	
 +	//////////////////////////////////////////
 +	// -> base image types
@@ -1085,6 +1126,20 @@ index 0000000..0832867
 +							   FLAG_ARRAY | FLAG_BUFFER | FLAG_CUBE | FLAG_DEPTH | FLAG_MSAA | FLAG_STENCIL),
 +	
 +};
++__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator|(const COMPUTE_IMAGE_TYPE& e0,
++																				   const COMPUTE_IMAGE_TYPE& e1) {
++	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 |
++								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
++}
++__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator&(const COMPUTE_IMAGE_TYPE& e0,
++																			 const COMPUTE_IMAGE_TYPE& e1) {
++	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 &
++								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
++}
++template <COMPUTE_IMAGE_TYPE flag, typename int_type = typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type>
++__attribute__((always_inline, used)) static constexpr bool has_flag(const COMPUTE_IMAGE_TYPE& enum_object) {
++	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
++}
 +
 +namespace {
 +	// CUDAFirst
@@ -1135,20 +1190,25 @@ index 0000000..0832867
 +			if(!func) return;
 +			
 +			const auto func_name = func->getName();
-+			if(!func_name.startswith("floor.read_image.")) return;
-+			
++			if(func_name.startswith("floor.read_image.") ||
++			   func_name.startswith("floor.write_image.")) {
++				handle_image(I, func_name);
++			}
++		}
++		
++		void handle_image(CallInst& I, const StringRef& func_name) {
 +			CallSite CS { &I };
 +			builder->SetInsertPoint(&I);
 +			
 +			// check + get arguments
 +			if(CS.arg_size() != 5) {
-+				ctx->emitError(&I, "invalid read_image argument count (expected 5)");
++				ctx->emitError(&I, func_name + ": invalid argument count (expected 5)");
 +				return;
 +			}
 +			
-+			// -> tex handle
-+			const auto tex_handle_arg = CS.getArgument(0);
-+			if(!tex_handle_arg->getType()->isIntegerTy()) {
++			// -> tex/surf handle
++			const auto img_handle_arg = CS.getArgument(0);
++			if(!img_handle_arg->getType()->isIntegerTy()) {
 +				ctx->emitError(&I, "invalid image handle type (must be integer)");
 +				return;
 +			}
@@ -1163,8 +1223,27 @@ index 0000000..0832867
 +				ctx->emitError(&I, "invalid image-type type (must be enum/integer)");
 +				return;
 +			}
-+			const COMPUTE_IMAGE_TYPE image_type = (COMPUTE_IMAGE_TYPE)(image_type_arg->getZExtValue() &
-+																	   (uint64_t)COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK);
++			const uint32_t image_channel_count = ((uint32_t(image_type_arg->getZExtValue()) &
++												   uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) >>
++												  uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) + 1u;
++			const auto full_image_type = COMPUTE_IMAGE_TYPE(image_type_arg->getZExtValue());
++			const COMPUTE_IMAGE_TYPE image_type = full_image_type & COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK;
++			const COMPUTE_IMAGE_TYPE format_type = full_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
++			const bool is_normalized = has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(full_image_type);
++			
++			// check if format is supported
++			switch(format_type) {
++				case COMPUTE_IMAGE_TYPE::FORMAT_8:
++				case COMPUTE_IMAGE_TYPE::FORMAT_16:
++				case COMPUTE_IMAGE_TYPE::FORMAT_24: // as 32-bit
++				case COMPUTE_IMAGE_TYPE::FORMAT_32:
++				case COMPUTE_IMAGE_TYPE::FORMAT_32_8: // for depth+stencil
++					break;
++				default:
++					// all else: nope
++					ctx->emitError(&I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
++					return;
++			}
 +			
 +			// -> coord
 +			const auto coord_arg = CS.getArgument(2);
@@ -1182,17 +1261,50 @@ index 0000000..0832867
 +				return;
 +			}
 +			
-+			// -> sample
-+			const auto sample_arg = CS.getArgument(4);
-+			if(!sample_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(&I, "invalid image sample index type (must be integer)");
-+				return;
++			if(func_name.startswith("floor.read_image.")) {
++				// -> sample
++				const auto sample_arg = CS.getArgument(4);
++				if(!sample_arg->getType()->isIntegerTy()) {
++					ctx->emitError(&I, "invalid image sample index type (must be integer)");
++					return;
++				}
++				handle_read_image(I, CS, func_name,
++								  img_handle_arg, image_type, coord_arg, coord_arg_type,
++								  layer_arg, sample_arg);
 +			}
-+			
-+			//
++			else {
++				// -> data
++				const auto data_arg = CS.getArgument(4);
++				const auto data_type = data_arg->getType();
++				if(!data_type->isVectorTy() ||
++				   data_type->getVectorNumElements() != 4) {
++					ctx->emitError(&I, "invalid image data type (must be 4-component vector)");
++					return;
++				}
++				if(!data_type->getVectorElementType()->isFloatTy() &&
++				   !data_type->getVectorElementType()->isIntegerTy()) {
++					ctx->emitError(&I, "invalid image data type (must be a float or integer vector)");
++					return;
++				}
++				handle_write_image(I, CS, func_name,
++								   img_handle_arg, image_type, format_type, is_normalized, image_channel_count,
++								   coord_arg, coord_arg_type,
++								   layer_arg, data_arg);
++			}
++		}
++		
++		void handle_read_image(CallInst& I, const CallSite& CS, const StringRef& func_name,
++							   llvm::Value* img_handle_arg,
++							   const COMPUTE_IMAGE_TYPE& image_type,
++							   llvm::Value* coord_arg,
++							   llvm::Type* coord_arg_type,
++							   llvm::Value* layer_arg,
++							   llvm::Value* sample_arg) {
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
 +			SmallVector<llvm::Value*, 16> asm_args;
 +			std::string constraints_str = "";
++			
++			// -> return data
 +			std::string dtype;
 +			llvm::Type* ret_type, *ret_vec_type;
 +			if(func_name == "floor.read_image.float") {
@@ -1233,9 +1345,9 @@ index 0000000..0832867
 +			
 +			constraints_str += ",l"; // u64 tex handle
 +			asm_arg_types.push_back(llvm::Type::getInt64Ty(*ctx));
-+			asm_args.push_back(tex_handle_arg);
++			asm_args.push_back(img_handle_arg);
 +			
-+			//
++			// -> geom
 +			std::string geom; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
 +			bool is_array = false, is_msaa = false;
 +			switch(image_type) {
@@ -1260,7 +1372,7 @@ index 0000000..0832867
 +					return;
 +			}
 +			
-+			//
++			// -> coords
 +			auto coord_vec_type = cast<VectorType>(coord_arg_type);
 +			if(!coord_vec_type) {
 +				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
@@ -1312,13 +1424,13 @@ index 0000000..0832867
 +				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0"); // TODO: check this
 +			}
 +			
-+			//
++			// -> build asm string
 +			std::string asm_str = "tex." + geom + ".v4." + dtype + "." + ctype;
 +			asm_str += " { $0, $1, $2, $3 },";
 +			asm_str += " [$4, {" + coords_placeholders + " }];";
 +			
 +			const auto asm_func_type = FunctionType::get(ret_type, asm_arg_types, false);
-+			auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, false);
++			auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, false /* non-volatile */);
 +			auto asm_call = builder->CreateCall(asm_func, asm_args);
 +			asm_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
@@ -1332,6 +1444,204 @@ index 0000000..0832867
 +			//
 +			was_modified = true;
 +			I.replaceAllUsesWith(dst_vec);
++			I.eraseFromParent();
++		}
++		
++		void handle_write_image(CallInst& I, const CallSite& CS, const StringRef& func_name,
++								llvm::Value* img_handle_arg,
++								const COMPUTE_IMAGE_TYPE& image_type,
++								const COMPUTE_IMAGE_TYPE& format_type,
++								const bool& is_normalized,
++								const uint32_t& image_channel_count,
++								llvm::Value* coord_arg,
++								llvm::Type* coord_arg_type,
++								llvm::Value* layer_arg,
++								llvm::Value* data_arg) {
++			SmallVector<llvm::Type*, 16> asm_arg_types;
++			SmallVector<llvm::Value*, 16> asm_args;
++			
++			// more arg checking
++			auto coord_vec_type = cast<VectorType>(coord_arg_type);
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(!coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			if(func_name != "floor.write_image.float" &&
++			   func_name != "floor.write_image.int" &&
++			   func_name != "floor.write_image.uint") {
++				return; // unknown -> ignore
++			}
++			
++			//
++			std::string constraints_str = "l"; // u64 surf handle
++			asm_arg_types.push_back(llvm::Type::getInt64Ty(*ctx));
++			asm_args.push_back(img_handle_arg);
++			
++			// -> geom
++			std::string geom; // .1d, .2d, .3d, .a1d, .a2d
++			bool is_array = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "a2d"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
++				// cube and msaa formats are not writable by cuda/ptx
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					ctx->emitError(&I, "invalid image type - type is not writable");
++					return;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			
++			// -> coords
++			const auto vec_elems = coord_vec_type->getVectorNumElements();
++			std::string coords_placeholders;
++			static const uint32_t coord_start_idx = 1;
++			uint32_t coord_idx = 0;
++			size_t x_coord_idx = 0;
++			if(is_array) {
++				asm_arg_types.push_back(layer_arg->getType());
++				asm_args.push_back(layer_arg);
++				constraints_str += ",r";
++				coords_placeholders += " $";
++				coords_placeholders += std::to_string(coord_idx++);
++			}
++			for(uint32_t i = 0; i < vec_elems; ++i) {
++				asm_arg_types.push_back(coord_type);
++				auto coord_elem = builder->CreateExtractElement(coord_arg, builder->getInt32(i));
++				if(i == 0) {
++					x_coord_idx = asm_args.size();
++				}
++				asm_args.push_back(coord_elem);
++				constraints_str += ",r";
++				coords_placeholders += (coord_idx == 0 ? " $" : ", $");
++				coords_placeholders += std::to_string(coord_start_idx + coord_idx++);
++			}
++			
++			if(vec_elems == 3) {
++				coords_placeholders += ", 0"; // TODO: check this
++			}
++			
++			// -> data
++			const auto write_channel_count = (image_channel_count == 3 ? 4 : image_channel_count);
++			std::array<llvm::Value*, 4> data_args {{
++				builder->CreateExtractElement(data_arg, builder->getInt32(0)),
++				builder->CreateExtractElement(data_arg, builder->getInt32(1)),
++				builder->CreateExtractElement(data_arg, builder->getInt32(2)),
++				builder->CreateExtractElement(data_arg, builder->getInt32(3))
++			}};
++			
++			std::string dtype, rtype;
++			const bool is_signed_int = ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
++			const bool is_float = ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
++			if(is_normalized) {
++				// need to normalize 32-bit float -> 8-bit or 16-bit unsigned/signed int
++				if(format_type != COMPUTE_IMAGE_TYPE::FORMAT_8 && format_type != COMPUTE_IMAGE_TYPE::FORMAT_16) {
++					ctx->emitError(&I, "invalid normalized write format (expected 8-bit or 16-bit dst format");
++					return;
++				}
++				
++				bool is_8_bit = true;
++				if(format_type == COMPUTE_IMAGE_TYPE::FORMAT_8) {
++					dtype = "b8";
++				}
++				else {
++					dtype = "b16";
++					is_8_bit = false;
++				}
++				rtype = "h"; // can't go lower than 16-bit
++				
++				for(uint32_t i = 0; i < write_channel_count; ++i) {
++					data_args[i] = builder->CreateFMul(data_args[i],
++													   ConstantFP::get(builder->getFloatTy(),
++																	   is_signed_int ?
++																	   (is_8_bit ? 127.0 : 32767.0) :
++																	   (is_8_bit ? 255.0 : 65535.0)));
++					data_args[i] = builder->CreateFPToUI(data_args[i],
++														 is_8_bit ? builder->getInt8Ty() : builder->getInt16Ty());
++				}
++			}
++			else {
++				switch(format_type) {
++					case COMPUTE_IMAGE_TYPE::FORMAT_8:
++						dtype = "b8";
++						rtype = "h"; // can't go lower than 16-bit
++						break;
++					case COMPUTE_IMAGE_TYPE::FORMAT_16:
++						dtype = "b16";
++						rtype = (is_float ? "f" : "h");
++						break;
++					case COMPUTE_IMAGE_TYPE::FORMAT_24:
++					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
++					case COMPUTE_IMAGE_TYPE::FORMAT_32:
++						dtype = "b32";
++						rtype = (is_float ? "f" : "r");
++						break;
++					default:
++						ctx->emitError(&I, "invalid write format");
++						return;
++				}
++				
++				// need to trunc 32-bit data to 16-bit (for 8-bit/16-bit int/uint writes)
++				if(rtype == "h") {
++					for(uint32_t i = 0; i < write_channel_count; ++i) {
++						builder->CreateTrunc(data_args[i], builder->getInt16Ty());
++					}
++				}
++			}
++			
++			// we know the written binary data size now -> update x coordinate offset
++			asm_args[x_coord_idx] = builder->CreateMul(asm_args[x_coord_idx],
++													   builder->getInt32(write_channel_count *
++																		 (dtype == "b16" ? 2 :
++																		  (dtype == "b32" ? 4 : 1 /* b8 */))));
++			
++			std::string data_placeholders;
++			uint32_t data_idx = coord_start_idx + coord_idx;
++			for(uint32_t i = 0; i < write_channel_count; ++i) {
++				asm_arg_types.push_back(data_args[i]->getType());
++				asm_args.push_back(data_args[i]);
++				constraints_str += "," + rtype;
++				data_placeholders += (i == 0 ? " $" : ", $");
++				data_placeholders += std::to_string(data_idx++);
++			}
++			
++			// -> build asm string
++			std::string asm_str = "sust.b." + geom + ".";
++			asm_str += (image_channel_count == 1 ? "" : (image_channel_count == 2 ? "v2." : "v4."));
++			asm_str += dtype + ".";
++			asm_str += "zero"; // ignore out-of-bounds writes (TODO: might want to trap in debug mode?)
++			
++			asm_str += " [$0, {" + coords_placeholders + " }],";
++			asm_str += " {" + data_placeholders + " };";
++			
++			const auto asm_func_type = FunctionType::get(builder->getVoidTy(), asm_arg_types, false);
++			auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, true /* volatile */);
++			auto asm_call = builder->CreateCall(asm_func, asm_args);
++			asm_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			
++			//
++			was_modified = true;
++			I.replaceAllUsesWith(asm_call);
 +			I.eraseFromParent();
 +		}
 +		
