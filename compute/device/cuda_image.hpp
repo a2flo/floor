@@ -21,120 +21,18 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
-// NOTE: cuda surf call return type is an untyped ("binary") 8-bit, 16-bit, 32-bit or 64-bit value
-template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct cuda_surf_texel_data_type {};
-
-// standard types
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  ((image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_2 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_4 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_8 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_3_3_2 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_5_5_5 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_5_6_5)
-														  )>> {
-	typedef vector_n<typename image_sized_data_type<image_type, 8u>::type, image_channel_count(image_type)> type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  ((image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_16 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_10 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_11_11_10 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_12_12_12 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12)
-														  )>> {
-	typedef vector_n<typename image_sized_data_type<image_type, 16u>::type, image_channel_count(image_type)> type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32)>> {
-	typedef vector_n<typename image_sized_data_type<image_type, 32u>::type, image_channel_count(image_type)> type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64)>> {
-	typedef vector_n<typename image_sized_data_type<image_type, 64u>::type, image_channel_count(image_type)> type;
-};
-// depth types
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_16)>> {
-	typedef uint16_t type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-														  ((image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_24 ||
-														   (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32)
-														  )>> {
-	typedef uint32_t type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32)>> {
-	typedef float type;
-};
-// depth + stencil types
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_24_8)>> {
-	typedef pair<uint32_t, uint8_t> type;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct cuda_surf_texel_data_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) &&
-														  has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type) &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
-														  (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_32_8)>> {
-	typedef pair<float, uint8_t> type;
-};
-
-// cuda specific
-template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_surf() { return (itype & COMPUTE_IMAGE_TYPE::WRITE) == COMPUTE_IMAGE_TYPE::WRITE; }
-
-template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_tex() { return !is_surf<itype>(); }
-
-template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_uint() { return (itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT; }
-
-template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_int() { return (itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT; }
-
-template <COMPUTE_IMAGE_TYPE itype>
-static constexpr bool is_float() { return (itype & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT; }
-
-
 template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct image {};
 template <COMPUTE_IMAGE_TYPE image_type>
 struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type)>> {
-	static constexpr COMPUTE_IMAGE_TYPE type { image_type };
-	typedef typename image_texel_data_type<image_type>::type tex_data_type;
-	
 	const uint64_t tex;
 };
 template <COMPUTE_IMAGE_TYPE image_type>
 struct image<image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)>> {
-	static constexpr COMPUTE_IMAGE_TYPE type { image_type };
-	typedef typename cuda_surf_texel_data_type<image_type>::type surf_data_type;
-	
 	const uint64_t surf;
 };
 template <COMPUTE_IMAGE_TYPE image_type>
 struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type)>> {
-	static constexpr COMPUTE_IMAGE_TYPE type { image_type };
-	typedef typename image_texel_data_type<image_type>::type tex_data_type;
-	typedef typename cuda_surf_texel_data_type<image_type>::type surf_data_type;
-	
-	// NOTE: this needs to packed like this, so that we don't get weird optimization behavior when one isn't used
+	// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is uses
 	union {
 		struct {
 			const uint64_t tex;
@@ -146,7 +44,7 @@ struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(im
 
 #define ro_image read_only cuda_ro_image
 template <COMPUTE_IMAGE_TYPE image_type> using cuda_ro_image =
-image<image_type & (~COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER) | COMPUTE_IMAGE_TYPE::READ>;
+image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ>;
 
 #define wo_image write_only cuda_wo_image
 template <COMPUTE_IMAGE_TYPE image_type> using cuda_wo_image =
@@ -154,7 +52,7 @@ image<image_type & (~COMPUTE_IMAGE_TYPE::READ) | COMPUTE_IMAGE_TYPE::WRITE>;
 
 #define rw_image read_write cuda_rw_image
 template <COMPUTE_IMAGE_TYPE image_type> using cuda_rw_image =
-image<image_type & (~COMPUTE_IMAGE_TYPE::WRITE) | COMPUTE_IMAGE_TYPE::READ_WRITE>;
+image<image_type | COMPUTE_IMAGE_TYPE::READ_WRITE>;
 
 namespace cuda_image {
 	// convert any coordinate vector type to int* or float*
