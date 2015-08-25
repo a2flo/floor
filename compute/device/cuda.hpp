@@ -54,11 +54,6 @@ namespace std {
 	const_func floor_inline_always float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
 	const_func floor_inline_always float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
 	const_func floor_inline_always float tan(float a) { return __nvvm_sin_approx_ftz_f(a) / __nvvm_cos_approx_ftz_f(a); }
-	// TODO: not supported in h/w, write proper rt computation
-	const_func floor_inline_always float asin(float a) { return 0.0f; }
-	const_func floor_inline_always float acos(float a) { return 0.0f; }
-	const_func floor_inline_always float atan(float a) { return 0.0f; }
-	const_func floor_inline_always float atan2(float y, float x) { return 0.0f; }
 	
 	const_func floor_inline_always float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
 	const_func floor_inline_always float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
@@ -66,6 +61,13 @@ namespace std {
 	const_func floor_inline_always float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
 	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * 1.442695041f; } // log_e = log_2(x) / log_2(e)
 	const_func floor_inline_always float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
+	
+	const_func floor_inline_always float copysign(float a, float b) {
+		float ret;
+		// NOTE: ptx has the a and b parameter reversed (in comparison to std c++ / llvm / opencl)
+		asm("copysign.f32 %0, %1, %2;" : "=f"(ret) : "f"(b), "f"(a));
+		return ret;
+	}
 	
 	// double math functions
 	const_func floor_inline_always double sqrt(double a) { return __nvvm_sqrt_rz_d(a); }
@@ -81,11 +83,6 @@ namespace std {
 	const_func floor_inline_always double sin(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))); }
 	const_func floor_inline_always double cos(double a) { return double(__nvvm_cos_approx_ftz_f(float(a))); }
 	const_func floor_inline_always double tan(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))) / double(__nvvm_cos_approx_ftz_f(float(a))); }
-	// TODO: not supported in h/w, write proper rt computation
-	const_func floor_inline_always double asin(double a) { return 0.0f; }
-	const_func floor_inline_always double acos(double a) { return 0.0f; }
-	const_func floor_inline_always double atan(double a) { return 0.0f; }
-	const_func floor_inline_always double atan2(double y, double x) { return 0.0f; }
 	
 	const_func floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
 	// NOTE: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
@@ -94,6 +91,12 @@ namespace std {
 	const_func floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
 	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
 	const_func floor_inline_always double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
+	
+	const_func floor_inline_always double copysign(double a, double b) {
+		double ret;
+		asm("copysign.f64 %0, %1, %2;" : "=d"(ret) : "d"(b), "d"(a));
+		return ret;
+	}
 	
 	// int math functions
 	const_func floor_inline_always int16_t abs(int16_t a) {
@@ -110,6 +113,70 @@ namespace std {
 		int64_t ret;
 		asm("abs.s64 %0, %1;" : "=l"(ret) : "l"(a));
 		return ret;
+	}
+	
+	// asin/acos/atan s/w computation
+	const_func floor_inline_always float asin(float a) {
+		// nvidia hardware does not provide hardware instruction to compute asin/acos/atan,
+		// so that these must be computed in software.
+		//
+		// as a fast and accurate approximation in [-0.5, 0.5] use:
+		//   EconomizedRationalApproximation[ArcSin[x], {x, {-0.55, 0.55}, 12, 0}]
+		//   divided by the "first factor of x" so that we have "1*x"
+		//   (note that this isn't being corrected for, but it doesn't matter)
+		// =>  x + 0.1666700692808536 x^3 + 0.07487039270444955 x^5 + 0.04641537654451593 x^7 +
+		//     0.01979579886701673 x^9 + 0.04922871471335342 x^11
+		//
+		// for the [-1, -0.5[ and ]0.5, 1] intervals:
+		// -> from https://en.wikipedia.org/wiki/List_of_trigonometric_identities
+		//    we get: asin(x) = pi/2 - 2 * asin(sqrt((1 - x) / 2))
+		// which can be used from 0.5 onwards, or -0.5 downwards:
+		// -> (sqrt((1 - 0.5) / 2) = 0.5 => sqrt((1 - 1) / 2) = 0) using this same function
+		//    (also see asin(x) in const_math.hpp for comparison)
+		//
+		// note that nvidia is using something very similar to this, so I'm assuming this should be
+		// accurate enough for general usage (+this has a slightly smaller total error than nvidia).
+		
+		const float abs_a = fabs(a);
+		// sqrt(fma(abs_a, -0.5f, 0.5f)) == sqrt((1 - |x|) / 2)
+		const float x = (abs_a > 0.5f ? sqrt(fma(abs_a, -0.5f, 0.5f)) : a);
+		// factored out one x and precompute x^2, then do some nice fma nesting
+		const float x_2 = x * x;
+		const float asin_0_05 = fma(fma(fma(fma(fma(0.04922871471335342f, x_2, 0.01979579886701673f),
+												x_2, 0.04641537654451593f),
+											x_2, 0.07487039270444955f),
+										x_2, 0.1666700692808536f) * x_2, // <- note: doing the *x_2 here,
+									x, x);                               // <- is more accurate than x * x_2 there
+		// TODO: need to put constants into a separate header ...
+		// since we computed the asin with the absolute x value, need to copy the original sign back in
+		return copysign(abs_a > 0.5f ?
+						// pi/2 - 2 * asin(sqrt((1 - |x|) / 2))
+						fma(asin_0_05, -2.0f, 1.57079632679489661923132169163975144209858469968755f /* pi/2 */) :
+						asin_0_05,
+						a);
+	}
+	// TODO: not supported in h/w, write proper rt computation
+	const_func floor_inline_always float acos(float a) { return 0.0f; }
+	const_func floor_inline_always float atan(float a) { return asin(a * rsqrt(a * a + 1.0f)); }
+	
+	const_func floor_inline_always double asin(double a) { return 0.0f; }
+	const_func floor_inline_always double acos(double a) { return 0.0f; }
+	const_func floor_inline_always double atan(double a) { return asin(a * rsqrt(a * a + 1.0)); }
+	
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type atan2(fp_type y, fp_type x) {
+		// these constants would usually be found in const_math.hpp, but ring-dependencies ...
+		constexpr const fp_type fp_pi { 3.14159265358979323846264338327950288419716939937510L };
+		constexpr const fp_type fp_pi_div_2 { 1.57079632679489661923132169163975144209858469968755L };
+		if(x > (fp_type)0.0) {
+			return atan(y / x);
+		}
+		else if(x < (fp_type)0.0) {
+			return atan(y / x) + (y >= (fp_type)0.0 ? fp_pi : -fp_pi);
+		}
+		else { // x == 0
+			return (y > (fp_type)0.0 ? fp_pi_div_2 : (y < (fp_type)0.0 ? -fp_pi_div_2 : numeric_limits<fp_type>::quiet_NaN()));
+		}
 	}
 	
 }
