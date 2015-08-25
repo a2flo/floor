@@ -21,6 +21,8 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
+#include <floor/math/constants.hpp>
+
 #define cuda_lane_id __builtin_ptx_read_laneid()
 #define cuda_warp_id __builtin_ptx_read_warpid()
 #define cuda_warp_size __builtin_ptx_read_nwarpid()
@@ -57,9 +59,9 @@ namespace std {
 	
 	const_func floor_inline_always float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
 	const_func floor_inline_always float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
-	const_func floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * 1.442695041f); } // 2^(x / ln(2))
+	const_func floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * const_math::_1_DIV_LN2<float>); } // 2^(x / ln(2))
 	const_func floor_inline_always float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
-	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * 1.442695041f; } // log_e = log_2(x) / log_2(e)
+	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * const_math::_1_DIV_LN2<float>; } // log_e = log_2(x) / log_2(e)
 	const_func floor_inline_always float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
 	
 	const_func floor_inline_always float copysign(float a, float b) {
@@ -87,9 +89,9 @@ namespace std {
 	const_func floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
 	// NOTE: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
 	const_func floor_inline_always double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
-	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * 1.442695041f)); } // 2^(x / ln(2))
+	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * const_math::_1_DIV_LN2<float>)); } // 2^(x / ln(2))
 	const_func floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
-	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * 1.442695041; } // log_e = log_2(x) / log_2(e)
+	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * const_math::_1_DIV_LN2<float>; } // log_e = log_2(x) / log_2(e)
 	const_func floor_inline_always double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
 	
 	const_func floor_inline_always double copysign(double a, double b) {
@@ -147,11 +149,10 @@ namespace std {
 											x_2, 0.07487039270444955f),
 										x_2, 0.1666700692808536f) * x_2, // <- note: doing the *x_2 here,
 									x, x);                               // <- is more accurate than x * x_2 there
-		// TODO: need to put constants into a separate header ...
 		// since we computed the asin with the absolute x value, need to copy the original sign back in
 		return copysign(abs_a > 0.5f ?
 						// pi/2 - 2 * asin(sqrt((1 - |x|) / 2))
-						fma(asin_0_05, -2.0f, 1.57079632679489661923132169163975144209858469968755f /* pi/2 */) :
+						fma(asin_0_05, -2.0f, const_math::PI_DIV_2<float>) :
 						asin_0_05,
 						a);
 	}
@@ -165,17 +166,16 @@ namespace std {
 	
 	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
 	const_func floor_inline_always fp_type atan2(fp_type y, fp_type x) {
-		// these constants would usually be found in const_math.hpp, but ring-dependencies ...
-		constexpr const fp_type fp_pi { 3.14159265358979323846264338327950288419716939937510L };
-		constexpr const fp_type fp_pi_div_2 { 1.57079632679489661923132169163975144209858469968755L };
 		if(x > (fp_type)0.0) {
 			return atan(y / x);
 		}
 		else if(x < (fp_type)0.0) {
-			return atan(y / x) + (y >= (fp_type)0.0 ? fp_pi : -fp_pi);
+			return atan(y / x) + (y >= (fp_type)0.0 ? const_math::PI<fp_type> : -const_math::PI<fp_type>);
 		}
 		else { // x == 0
-			return (y > (fp_type)0.0 ? fp_pi_div_2 : (y < (fp_type)0.0 ? -fp_pi_div_2 : numeric_limits<fp_type>::quiet_NaN()));
+			return (y > (fp_type)0.0 ? const_math::PI_DIV_2<fp_type> :
+					(y < (fp_type)0.0 ? -const_math::PI_DIV_2<fp_type> :
+					 numeric_limits<fp_type>::quiet_NaN()));
 		}
 	}
 	
