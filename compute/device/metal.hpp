@@ -54,6 +54,13 @@ namespace std {
 	const_func metal_func float pow(float, float) asm("air.fast_pow.f32");
 	const_func metal_func float fmod(float, float) asm("air.fast_fmod.f32");
 	
+	const_func floor_inline_always metal_func float copysign(float a, float b) {
+		// metal/air doesn't have a builtin function/intrinsic for this and does bit ops instead -> do the same
+		uint32_t ret = (*(uint32_t*)&a) & 0x7FFFFFFFu;
+		ret |= (*(uint32_t*)&b) & 0x80000000u;
+		return *(float*)&ret;
+	}
+	
 	const_func metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
 	const_func metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
 	const_func metal_func int64_t abs(int64_t) asm("air.abs.s.i64");

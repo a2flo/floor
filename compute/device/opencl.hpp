@@ -65,6 +65,7 @@ const_func float __cl_exp2(float);
 const_func float __cl_log(float);
 const_func float __cl_log2(float);
 const_func float __cl_pow(float, float);
+const_func float __cl_copysign(float, float);
 const_func int16_t __cl_abs(int16_t);
 const_func int32_t __cl_abs(int32_t);
 const_func int64_t __cl_abs(int64_t);
@@ -91,6 +92,7 @@ const_func double __cl_exp2(double);
 const_func double __cl_log(double);
 const_func double __cl_log2(double);
 const_func double __cl_pow(double, double);
+const_func double __cl_copysign(double, double);
 #endif
 
 #define CL_FWD(func, ...) { return func(__VA_ARGS__); }
@@ -122,6 +124,7 @@ const_func float exp2(float x) CL_FWD(__cl_exp2, x)
 const_func float log(float x) CL_FWD(__cl_log, x)
 const_func float log2(float x) CL_FWD(__cl_log2, x)
 const_func float pow(float x, float y) CL_FWD(__cl_pow, x, y)
+const_func float copysign(float x, float y) CL_FWD(__cl_copysign, x, y)
 const_func int16_t abs(int16_t x) CL_FWD(__cl_abs, x)
 const_func int32_t abs(int32_t x) CL_FWD(__cl_abs, x)
 const_func int64_t abs(int64_t x) CL_FWD(__cl_abs, x)
@@ -149,6 +152,7 @@ const_func double exp2(double x) CL_FWD(__cl_exp2, x)
 const_func double log(double x) CL_FWD(__cl_log, x)
 const_func double log2(double x) CL_FWD(__cl_log2, x)
 const_func double pow(double x, double y) CL_FWD(__cl_pow, x, y)
+const_func double copysign(double x, double y) CL_FWD(__cl_copysign, x, y)
 #endif
 
 // add them to std::
@@ -175,6 +179,7 @@ namespace std {
 	using ::log;
 	using ::log2;
 	using ::pow;
+	using ::copysign;
 }
 
 #if defined(FLOOR_COMPUTE_SPIR)

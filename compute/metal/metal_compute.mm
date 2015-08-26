@@ -499,15 +499,11 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
 	
 	static const auto cleanup = []() {
-#if !defined(_MSC_VER)
 		core::system("rm metal_tmp.ll");
 		core::system("rm metal_tmp.air");
 		if(!floor::get_compute_debug()) core::system("rm metal_tmp_opt.air");
 		core::system("rm metal_tmp.a");
 		core::system("rm metal_tmp.metallib");
-#else
-		// TODO: windows
-#endif
 	};
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
@@ -515,7 +511,7 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	const char* lib_path = "metal_tmp.metallib";
 	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:lib_path]
 																						  error:&err];
-	cleanup();
+	if(!floor::get_compute_keep_temp()) cleanup();
 	if(!program) {
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
