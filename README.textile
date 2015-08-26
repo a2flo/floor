@@ -88,7 +88,9 @@
 * on Windows: a nvcuda.dll must always be present on the system when CUDA support is enabled
 
 *Compute Toolchain:*
-* compile the toolchain (this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows):
+* NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
+* NOTE: the absolute build path must not contain spaces
+* compile the toolchain:
 ** cd floor/etc/llvm35/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
