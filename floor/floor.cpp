@@ -81,7 +81,7 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 static string expand_path_with_env(const string& in) {
 	static thread_local char expanded_path[32768]; // 32k is the max
 	const auto expanded_size = ExpandEnvironmentStringsA(in.c_str(), expanded_path, 32767);
-	if (expanded_size == 0 || expanded_size == 32767) {
+	if(expanded_size == 0 || expanded_size == 32767) {
 		log_error("failed to expand file path: %s", in);
 		return in;
 	}

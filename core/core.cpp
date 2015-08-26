@@ -357,11 +357,11 @@ void core::system(const string& cmd, string& output) {
 #endif
 	FILE* sys_pipe = popen(
 #if !defined(__WINDOWS__)
-		cmd.c_str(),
+						   cmd.c_str()
 #else // always wrap commands in quotes, b/c #windowsproblems
-		("\"" + cmd + "\"").c_str(),
+						   ("\"" + cmd + "\"").c_str()
 #endif
-		"r");
+						   , "r");
 	while(fgets(buffer, buffer_size, sys_pipe) != nullptr) {
 		output += buffer;
 		memset(buffer, 0, buffer_size); // size+1 is always 0
