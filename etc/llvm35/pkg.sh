@@ -15,7 +15,7 @@ cp ../build/Release/bin/spir-encoder bin/
 cp ../build/Release/bin/spir-verifier bin/
 cp ../build/Release/bin/applecl-encoder bin/
 
-cp -R ../build/Release/lib/clang/${RELEASE}/include .
+cp -R ../build/Release/lib/clang/${RELEASE}/include clang
 
 cp -R ../libcxx/include libcxx
 cp ../libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
