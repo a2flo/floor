@@ -14,6 +14,7 @@
     <ProjectGuid>{99D60AA7-75A7-470D-B53F-E0A57355D142}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>floor</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -43,14 +44,16 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432);C:\deps\include;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
     <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
+    <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\deps\include;C:\;Z:\;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
     <LibraryPath>C:\deps\lib\x86;C:\Program Files (x86)\AMD APP SDK\3.0-0-Beta\lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v7.0\lib\Win32;C:\Program Files (x86)\Microsoft SDKs\Windows\v7.1A\Lib;$(LibraryPath)</LibraryPath>
+    <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
