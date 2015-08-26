@@ -897,7 +897,7 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..6d6ceb3
+index 0000000..8371614
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
 @@ -0,0 +1,754 @@
@@ -1310,34 +1310,34 @@ index 0000000..6d6ceb3
 +			if(func_name == "floor.read_image.float") {
 +				dtype = "f32";
 +				constraints_str = "=f,=f,=f,=f";
-+				ret_type = llvm::StructType::get(*ctx, {
++				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
 +					llvm::Type::getFloatTy(*ctx),
 +					llvm::Type::getFloatTy(*ctx),
 +					llvm::Type::getFloatTy(*ctx),
 +					llvm::Type::getFloatTy(*ctx)
-+				});
++				}});
 +				ret_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
 +			}
 +			else if(func_name == "floor.read_image.int") {
 +				dtype = "s32";
 +				constraints_str = "=r,=r,=r,=r";
-+				ret_type = llvm::StructType::get(*ctx, {
++				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx)
-+				});
++				}});
 +				ret_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
 +			else if(func_name == "floor.read_image.uint") {
 +				dtype = "u32";
 +				constraints_str = "=r,=r,=r,=r";
-+				ret_type = llvm::StructType::get(*ctx, {
++				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx),
 +					llvm::Type::getInt32Ty(*ctx)
-+				});
++				}});
 +				ret_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
 +			// unknown -> ignore
