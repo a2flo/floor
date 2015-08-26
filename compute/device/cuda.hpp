@@ -118,7 +118,8 @@ namespace std {
 	}
 	
 	// asin/acos/atan s/w computation
-	const_func floor_inline_always float asin(float a) {
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type asin(fp_type a) {
 		// nvidia hardware does not provide hardware instruction to compute asin/acos/atan,
 		// so that these must be computed in software.
 		//
@@ -139,42 +140,41 @@ namespace std {
 		// note that nvidia is using something very similar to this, so I'm assuming this should be
 		// accurate enough for general usage (+this has a slightly smaller total error than nvidia).
 		
-		const float abs_a = fabs(a);
+		const fp_type abs_a = fabs(a);
 		// sqrt(fma(abs_a, -0.5f, 0.5f)) == sqrt((1 - |x|) / 2)
-		const float x = (abs_a > 0.5f ? sqrt(fma(abs_a, -0.5f, 0.5f)) : a);
+		const fp_type x = (abs_a > fp_type(0.5) ? sqrt(fma(abs_a, fp_type(-0.5), fp_type(0.5))) : a);
 		// factored out one x and precompute x^2, then do some nice fma nesting
-		const float x_2 = x * x;
-		const float asin_0_05 = fma(fma(fma(fma(fma(0.04922871471335342f, x_2, 0.01979579886701673f),
-												x_2, 0.04641537654451593f),
-											x_2, 0.07487039270444955f),
-										x_2, 0.1666700692808536f) * x_2, // <- note: doing the *x_2 here,
-									x, x);                               // <- is more accurate than x * x_2 there
+		const fp_type x_2 = x * x;
+		const fp_type asin_0_05 = fma(fma(fma(fma(fma(fp_type(0.04922871471335342), x_2, fp_type(0.01979579886701673)),
+												  x_2, fp_type(0.04641537654451593)),
+											  x_2, fp_type(0.07487039270444955)),
+										  x_2, fp_type(0.1666700692808536)) * x_2, // <- note: doing the *x_2 here,
+									  x, x);                                       // <- is more accurate than x * x_2 there
 		// since we computed the asin with the absolute x value, need to copy the original sign back in
-		return copysign(abs_a > 0.5f ?
+		return copysign(abs_a > fp_type(0.5) ?
 						// pi/2 - 2 * asin(sqrt((1 - |x|) / 2))
-						fma(asin_0_05, -2.0f, const_math::PI_DIV_2<float>) :
+						fma(asin_0_05, fp_type(-2.0), const_math::PI_DIV_2<fp_type>) :
 						asin_0_05,
 						a);
 	}
-	// TODO: not supported in h/w, write proper rt computation
-	const_func floor_inline_always float acos(float a) { return 0.0f; }
-	const_func floor_inline_always float atan(float a) { return asin(a * rsqrt(a * a + 1.0f)); }
 	
-	const_func floor_inline_always double asin(double a) { return 0.0f; }
-	const_func floor_inline_always double acos(double a) { return 0.0f; }
-	const_func floor_inline_always double atan(double a) { return asin(a * rsqrt(a * a + 1.0)); }
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type acos(fp_type a) { return const_math::PI_DIV_2<fp_type> - asin(a); }
+	
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type atan(fp_type a) { return asin(a * rsqrt(a * a + fp_type(1.0))); }
 	
 	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
 	const_func floor_inline_always fp_type atan2(fp_type y, fp_type x) {
-		if(x > (fp_type)0.0) {
+		if(x > fp_type(0.0)) {
 			return atan(y / x);
 		}
-		else if(x < (fp_type)0.0) {
-			return atan(y / x) + (y >= (fp_type)0.0 ? const_math::PI<fp_type> : -const_math::PI<fp_type>);
+		else if(x < fp_type(0.0)) {
+			return atan(y / x) + (y >= fp_type(0.0) ? const_math::PI<fp_type> : -const_math::PI<fp_type>);
 		}
 		else { // x == 0
-			return (y > (fp_type)0.0 ? const_math::PI_DIV_2<fp_type> :
-					(y < (fp_type)0.0 ? -const_math::PI_DIV_2<fp_type> :
+			return (y > fp_type(0.0) ? const_math::PI_DIV_2<fp_type> :
+					(y < fp_type(0.0) ? -const_math::PI_DIV_2<fp_type> :
 					 numeric_limits<fp_type>::quiet_NaN()));
 		}
 	}

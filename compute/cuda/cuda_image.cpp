@@ -37,16 +37,16 @@ static const char blit_vs_text[] {
 	"}\n"
 };
 static const char blit_to_color_fs_text[] {
-	"#version 330 core\n"
+	"#version 150 core\n"
 	"uniform sampler2D in_tex;\n"
 	"in vec2 tex_coord;\n"
-	"layout (location = 0) out float out_depth;\n"
+	"out float out_depth;\n"
 	"void main() {\n"
 	"	out_depth = texture(in_tex, tex_coord).x;\n"
 	"}\n"
 };
 static const char blit_to_depth_fs_text[] {
-	"#version 330 core\n"
+	"#version 150 core\n"
 	"uniform sampler2D in_tex;\n"
 	"in vec2 tex_coord;\n"
 	"void main() {\n"
