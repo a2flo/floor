@@ -57,6 +57,7 @@ public:
 	static const string get_version();
 	static bool has_opengl_extension(const char* ext_name);
 	static bool is_console_only();
+	static bool is_gl_version(const uint32_t& major, const uint32_t& minor);
 	
 	// class return functions
 	static event* get_event();

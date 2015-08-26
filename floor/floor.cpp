@@ -244,16 +244,22 @@ void floor::init(const char* callpath_, const char* datapath_,
 					log_error("toolchain path must be a string!");
 					continue;
 				}
-				if(!file_io::is_file(path.str + "/bin/" + compiler)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + llc)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + as)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + dis)) continue;
+				
+#if !defined(__WINDOWS__)
+				const char* suffix = "";
+#else
+				const char* suffix = ".exe";
+#endif
+				if(!file_io::is_file(path.str + "/bin/" + compiler + suffix)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + llc + suffix)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + as + suffix)) continue;
+				if(!file_io::is_file(path.str + "/bin/" + dis + suffix)) continue;
 				if(!file_io::is_directory(path.str + "/clang")) continue;
 				if(!file_io::is_directory(path.str + "/floor")) continue;
 				if(!file_io::is_directory(path.str + "/libcxx")) continue;
 				bool found_additional_bins = true;
 				for(const auto& bin : additional_bins) {
-					if(!file_io::is_file(path.str + "/bin/" + bin)) {
+					if(!file_io::is_file(path.str + "/bin/" + bin + suffix)) {
 						found_additional_bins = false;
 						break;
 					}
@@ -532,9 +538,11 @@ void floor::init_internal(const bool use_gl32_core
 #endif
 		
 #if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
-		// create and bind vao
-		glGenVertexArrays(1, &global_vao);
-		glBindVertexArray(global_vao);
+		if(is_gl_version(3, 0)) {
+			// create and bind vao
+			glGenVertexArrays(1, &global_vao);
+			glBindVertexArray(global_vao);
+		}
 #endif
 	}
 	acquire_context();
@@ -1278,4 +1286,11 @@ bool floor::has_opengl_extension(const char* name) {
 
 bool floor::is_console_only() {
 	return console_only;
+}
+
+bool floor::is_gl_version(const uint32_t& major, const uint32_t& minor) {
+	const char* version = (const char*)glGetString(GL_VERSION);
+	if((uint32_t)(version[0] - '0') > major) return true;
+	else if((uint32_t)(version[0] - '0') == major && (uint32_t)(version[2] - '0') >= minor) return true;
+	return false;
 }
