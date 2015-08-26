@@ -77,6 +77,21 @@ BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPV
 }
 #endif // __WINDOWS__
 
+#if defined(__WINDOWS__)
+static string expand_path_with_env(const string& in) {
+	static thread_local char expanded_path[32768]; // 32k is the max
+	const auto expanded_size = ExpandEnvironmentStringsA(in.c_str(), expanded_path, 32767);
+	if (expanded_size == 0 || expanded_size == 32767) {
+		log_error("failed to expand file path: %s", in);
+		return in;
+	}
+	expanded_path[32767] = 0;
+	return string(expanded_path, expanded_size - 1);
+}
+#else
+#define expand_path_with_env(path) path
+#endif
+
 /*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
  *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
  */
@@ -234,38 +249,46 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		//
 		static const auto get_viable_toolchain_path = [](const json::json_array& paths,
-														 const string& compiler,
-														 const string& llc,
-														 const string& as,
-														 const string& dis,
-														 const vector<string> additional_bins = {}) {
+														 string& compiler,
+														 string& llc,
+														 string& as,
+														 string& dis,
+														 vector<string*> additional_bins = {}) {
+#if defined(__WINDOWS__)
+			// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
+			compiler = expand_path_with_env(compiler + ".exe");
+			llc = expand_path_with_env(llc + ".exe");
+			as = expand_path_with_env(as + ".exe");
+			dis = expand_path_with_env(dis + ".exe");
+			for(auto& bin : additional_bins) {
+				*bin = expand_path_with_env(*bin + ".exe");
+			}
+#endif
+
 			for(const auto& path : paths) {
 				if(path.type != json::json_value::VALUE_TYPE::STRING) {
 					log_error("toolchain path must be a string!");
 					continue;
 				}
+
+				const auto path_str = expand_path_with_env(path.str);
 				
-#if !defined(__WINDOWS__)
-				const char* suffix = "";
-#else
-				const char* suffix = ".exe";
-#endif
-				if(!file_io::is_file(path.str + "/bin/" + compiler + suffix)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + llc + suffix)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + as + suffix)) continue;
-				if(!file_io::is_file(path.str + "/bin/" + dis + suffix)) continue;
-				if(!file_io::is_directory(path.str + "/clang")) continue;
-				if(!file_io::is_directory(path.str + "/floor")) continue;
-				if(!file_io::is_directory(path.str + "/libcxx")) continue;
+				if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
+				if(!file_io::is_file(path_str + "/bin/" + llc)) continue;
+				if(!file_io::is_file(path_str + "/bin/" + as)) continue;
+				if(!file_io::is_file(path_str + "/bin/" + dis)) continue;
+				if(!file_io::is_directory(path_str + "/clang")) continue;
+				if(!file_io::is_directory(path_str + "/floor")) continue;
+				if(!file_io::is_directory(path_str + "/libcxx")) continue;
 				bool found_additional_bins = true;
 				for(const auto& bin : additional_bins) {
-					if(!file_io::is_file(path.str + "/bin/" + bin + suffix)) {
+					if(!file_io::is_file(path_str + "/bin/" + *bin)) {
 						found_additional_bins = false;
 						break;
 					}
 				}
 				if(!found_additional_bins) continue;
-				return path.str + "/";
+				return path_str + "/";
 			}
 			return ""s;
 		};
@@ -296,7 +319,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
-															vector<string> { config.opencl_spir_encoder, config.opencl_applecl_encoder });
+															vector<string*> { &config.opencl_spir_encoder, &config.opencl_applecl_encoder });
 		if(config.opencl_base_path == "") {
 			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}

@@ -205,7 +205,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program_fi
 																				   const string& filename,
 																				   const string additional_options,
 																				   const TARGET target) {
-	return compile_input(filename, "", device, additional_options, target);
+	return compile_input("\"" + filename + "\"", "", device, additional_options, target);
 }
 
 pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(const string& input,
