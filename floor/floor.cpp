@@ -536,14 +536,6 @@ void floor::init_internal(const bool use_gl32_core
 		}
 #endif
 #endif
-		
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
-		if(is_gl_version(3, 0)) {
-			// create and bind vao
-			glGenVertexArrays(1, &global_vao);
-			glBindVertexArray(global_vao);
-		}
-#endif
 	}
 	acquire_context();
 	
@@ -553,6 +545,14 @@ void floor::init_internal(const bool use_gl32_core
 		// initialize opengl functions (get function pointers) on non-apple platforms
 #if !defined(__APPLE__)
 		init_gl_funcs();
+#endif
+		
+#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
+		if(is_gl_version(3, 0)) {
+			// create and bind vao
+			glGenVertexArrays(1, &global_vao);
+			glBindVertexArray(global_vao);
+		}
 #endif
 		
 		// get supported opengl extensions
