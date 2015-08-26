@@ -244,6 +244,7 @@
     <ClInclude Include="lang\lexer.hpp" />
     <ClInclude Include="lang\source_types.hpp" />
     <ClInclude Include="math\bbox.hpp" />
+    <ClInclude Include="math\constants.hpp" />
     <ClInclude Include="math\matrix4.hpp" />
     <ClInclude Include="math\quaternion.hpp" />
     <ClInclude Include="math\ray.hpp" />

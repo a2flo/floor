@@ -434,5 +434,8 @@
     <ClInclude Include="compute\cuda\cuda_api.hpp">
       <Filter>compute\cuda</Filter>
     </ClInclude>
+    <ClInclude Include="math\constants.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

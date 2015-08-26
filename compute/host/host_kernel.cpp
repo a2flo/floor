@@ -48,6 +48,11 @@
 #endif
 #endif
 
+#if !defined(_WIN32)
+// sanity check (mostly necessary on os x where some fool had the idea to make the size of ucontext_t define dependent)
+static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
+#endif
+
 // ignore warnings about deprecated functions
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 
@@ -488,9 +493,6 @@ void host_kernel::execute_internal(compute_queue* queue,
 		worker_threads[cpu_idx] = make_unique<thread>([cpu_idx, &kernel_func,
 													   &group_idx, group_count, group_dim,
 													   local_size, local_dim] {
-			// sanity check (mostly necessary on os x where some fool had the idea to make the size of ucontext_t define dependent)
-			static_assert(sizeof(ucontext_t) > 64, "ucontext_t should not be this small, something is wrong!");
-			
 			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
 			// on different cpus (starting at index 1, with 0 representing no affinity)
 			floor_set_thread_affinity(cpu_idx + 1);
@@ -501,7 +503,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 			auto items = make_unique<fiber_context[]>(local_size);
 			item_contexts = items.get();
 			
-			// 4k stack should be enough, considering this runs on gpus
+			// 8k stack should be enough, considering this runs on gpus
 			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
 			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(128);

@@ -32,6 +32,7 @@
 #include <type_traits>
 #include <tuple>
 #include <functional>
+#include <array>
 
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <random>
