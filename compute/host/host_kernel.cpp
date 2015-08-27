@@ -115,12 +115,12 @@ extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
 
 struct fiber_context {
 	typedef void (*init_func_type)(const uint32_t);
-	
+
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 	// sysv x86-64 abi compliant implementation
 	static constexpr const size_t min_stack_size { 8192 };
 	static_assert(min_stack_size % 16ull == 0, "stack must be 16-byte aligned");
-	
+
 	// callee-saved registers
 	uint64_t rbp { 0 };
 	uint64_t rbx { 0 };
@@ -132,12 +132,12 @@ struct fiber_context {
 	uint64_t rsp { 0 };
 	// return address / instruction pointer
 	uint64_t rip { 0 };
-	
+
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
 			  fiber_context* exit_ctx_) {
 		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
-		
+
 		if(stack_ptr != nullptr) {
 			// check stack pointer validity (must be 16-byte aligned)
 			if(size_t(stack_ptr) % 16u != 0u) {
@@ -156,7 +156,7 @@ struct fiber_context {
 			*(stack_addr - 2u) = 0x0123456789ABCDEFull;
 		}
 	}
-	
+
 	void reset() {
 		// reset registers, set rip to enter_context and reset rsp
 #if defined(FLOOR_DEBUG) // this isn't actually necessary
@@ -173,16 +173,16 @@ struct fiber_context {
 		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
 		*(uint64_t*)(rsp) = 0x0123456789ABCDEF;
 	}
-	
+
 	void get_context() {
 		floor_get_context(this);
 	}
-	
+
 	[[noreturn]] void set_context() {
 		floor_set_context(this);
 		floor_unreachable();
 	}
-	
+
 	void swap_context(fiber_context* next_ctx) {
 		volatile bool swapped = false;
 		get_context();
@@ -191,14 +191,87 @@ struct fiber_context {
 			next_ctx->set_context();
 		}
 	}
-	
+
 //#elif defined(PLATFORM_X64) && defined(FLOOR_IOS)
 	// TODO: aarch64/armv8 implementation
 //#elif defined(PLATFORM_X32) && defined(FLOOR_IOS)
 	// TODO: armv7 implementation
 #elif defined(__WINDOWS__)
-	// TODO: windows implementation (-> use CreateFiber/etc)
-#error "not implemented yet"
+	static constexpr const size_t min_stack_size { 8192 };
+
+	// the windows fiber context
+	void* ctx { nullptr };
+
+#if defined(PLATFORM_X32)
+	__stdcall
+#endif
+	static void fiber_run(void* data) {
+		auto this_ctx = (fiber_context*)data;
+		(*this_ctx->init_func)(this_ctx->init_arg);
+		if(this_ctx->exit_ctx != nullptr) {
+			SwitchToFiber(this_ctx->exit_ctx->ctx);
+		}
+	}
+
+	void init(void* stack_ptr_, const size_t& stack_size_,
+			  init_func_type init_func_, const uint32_t& init_arg_,
+			  fiber_context* exit_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+
+		if(stack_ptr == nullptr) {
+			// this is the main thread
+			// -> need to convert to fiber before creating/using all other fibers
+			ctx = ConvertThreadToFiber(nullptr);
+			if(ctx == nullptr) {
+				log_error("failed to convert thread to fiber");
+			}
+		}
+	}
+
+	~fiber_context() {
+		if(ctx == nullptr) return;
+		if(stack_ptr == nullptr) {
+			// main thread, convert fiber back to thread
+			if(!ConvertFiberToThread()) {
+				log_error("failed to convert fiber to thread");
+			}
+		}
+		else {
+			// worker fiber
+			DeleteFiber(ctx);
+		}
+		ctx = nullptr;
+	}
+
+	void reset() {
+		// don't do anything in the main fiber/thread
+		if(stack_ptr == nullptr) return;
+
+		// kill the old fiber if there was one (can't simply reset a windows fiber)
+		if(ctx != nullptr) {
+			DeleteFiber(ctx);
+			ctx = nullptr;
+		}
+
+		// this is a worker fiber/context
+		// -> create a new windows fiber context for this
+		ctx = CreateFiber(stack_size, fiber_run, this);
+		if(ctx == nullptr) {
+			log_error("failed to create worker fiber context");
+		}
+	}
+
+	void get_context() {
+		// nop
+	}
+
+	void set_context() {
+		SwitchToFiber(ctx);
+	}
+
+	void swap_context(fiber_context* next_ctx) {
+		SwitchToFiber(next_ctx->ctx);
+	}
 #else
 	// fallback to posix ucontext_t/etc
 	static constexpr const size_t min_stack_size { 32768 };
@@ -242,6 +315,7 @@ struct fiber_context {
 		swapcontext(&ctx, &next_ctx->ctx);
 	}
 #endif
+
 	void init_common(void* stack_ptr_, const size_t& stack_size_,
 					 init_func_type init_func_, const uint32_t& init_arg_,
 					 fiber_context* exit_ctx_) {

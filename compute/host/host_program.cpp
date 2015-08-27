@@ -21,17 +21,24 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/compute/host/host_program.hpp>
 #include <floor/compute/host/host_kernel.hpp>
+
+#if !defined(__WINDOWS__)
 #include <dlfcn.h>
+#endif
 
 host_program::host_program() {
 }
 
 shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
+#if !defined(__WINDOWS__)
 	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.c_str());
 	if(func_ptr == nullptr) {
 		log_error("failed to retrieve function pointer to \"%s\": %s", func_name, dlerror());
 		return {};
 	}
+#else
+	void* func_ptr = nullptr; // TODO: !
+#endif
 	
 	auto kernel = make_shared<host_kernel>(func_ptr, func_name);
 	kernels.emplace_back(kernel);
