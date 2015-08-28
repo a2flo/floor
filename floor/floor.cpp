@@ -62,21 +62,6 @@ atomic<bool> floor::reload_kernels_flag { false };
 bool floor::use_gl_context { true };
 uint32_t floor::global_vao { 0u };
 
-// dll main for windows dll export
-#if defined(__WINDOWS__)
-BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPVOID lpReserved floor_unused);
-BOOL APIENTRY DllMain(HANDLE hModule floor_unused, DWORD ul_reason_for_call, LPVOID lpReserved floor_unused) {
-	switch(ul_reason_for_call) {
-		case DLL_PROCESS_ATTACH:
-		case DLL_THREAD_ATTACH:
-		case DLL_THREAD_DETACH:
-		case DLL_PROCESS_DETACH:
-			break;
-	}
-	return TRUE;
-}
-#endif // __WINDOWS__
-
 #if defined(__WINDOWS__)
 static string expand_path_with_env(const string& in) {
 	static thread_local char expanded_path[32768]; // 32k is the max
@@ -85,8 +70,7 @@ static string expand_path_with_env(const string& in) {
 		log_error("failed to expand file path: %s", in);
 		return in;
 	}
-	expanded_path[32767] = 0;
-	return string(expanded_path, expanded_size - 1);
+	return string(expanded_path, std::min(expanded_size - 1, size(expanded_path) - 1);
 }
 #else
 #define expand_path_with_env(path) path
