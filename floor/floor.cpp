@@ -70,7 +70,7 @@ static string expand_path_with_env(const string& in) {
 		log_error("failed to expand file path: %s", in);
 		return in;
 	}
-	return string(expanded_path, std::min(expanded_size - 1, size(expanded_path) - 1);
+	return string(expanded_path, std::min(uint32_t(expanded_size - 1), uint32_t(size(expanded_path) - 1)));
 }
 #else
 #define expand_path_with_env(path) path
