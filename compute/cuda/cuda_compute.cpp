@@ -23,7 +23,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-// NOTE: all of these options are ignored in cuda mode (they make no sense there)
+// NOTE: platform index and gl sharing flag are ignored in cuda mode (they make no sense there)
 void cuda_compute::init(const uint64_t platform_index floor_unused,
 						const bool gl_sharing floor_unused,
 						const unordered_set<string> whitelist) {

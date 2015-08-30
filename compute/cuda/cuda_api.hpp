@@ -22,6 +22,12 @@
 #include <floor/core/essentials.hpp>
 #include <floor/math/vector_lib.hpp>
 
+#if defined(__WINDOWS__)
+#define CU_API __stdcall
+#else
+#define CU_API
+#endif
+
 enum class CU_RESULT : uint32_t {
 	SUCCESS = 0,
 	INVALID_VALUE = 1,
@@ -343,7 +349,7 @@ typedef int32_t cu_device;
 typedef size_t cu_device_ptr;
 typedef uint64_t cu_surf_object;
 typedef uint64_t cu_tex_object;
-typedef size_t (*cu_occupancy_b2d_size)(int32_t block_size);
+typedef size_t (CU_API *cu_occupancy_b2d_size)(int32_t block_size);
 
 // structs that can actually be filled by the user
 struct cu_array_3d_descriptor {
@@ -431,59 +437,59 @@ struct cu_texture_descriptor {
 
 // actual cuda api function pointers
 struct cuda_api_ptrs {
-	CU_RESULT (*array_3d_create)(cu_array* p_handle, const cu_array_3d_descriptor* p_allocate_array);
-	CU_RESULT (*array_3d_get_descriptor)(cu_array_3d_descriptor* p_array_descriptor, cu_array h_array);
-	CU_RESULT (*array_destroy)(cu_array h_array);
-	CU_RESULT (*ctx_create)(cu_context* pctx, CU_CONTEXT_FLAGS flags, cu_device dev);
-	CU_RESULT (*ctx_get_limit)(size_t* pvalue, CU_LIMIT limit);
-	CU_RESULT (*ctx_set_current)(cu_context ctx);
-	CU_RESULT (*device_compute_capability)(int32_t* major, int32_t* minor, cu_device dev);
-	CU_RESULT (*device_get)(cu_device* device, int32_t ordinal);
-	CU_RESULT (*device_get_attribute)(int32_t* pi, CU_DEVICE_ATTRIBUTE attrib, cu_device dev);
-	CU_RESULT (*device_get_count)(int32_t* count);
-	CU_RESULT (*device_get_name)(char* name, int32_t len, cu_device dev);
-	CU_RESULT (*device_total_mem)(size_t* bytes, cu_device dev);
-	CU_RESULT (*driver_get_version)(int32_t* driver_version);
-	CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
-	CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
-	CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
-	CU_RESULT (*graphics_gl_register_image)(cu_graphics_resource* p_cuda_resource, GLuint image, GLenum target, CU_GRAPHICS_REGISTER_FLAGS flags);
-	CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
-	CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
-	CU_RESULT (*graphics_sub_resource_get_mapped_array)(cu_array* p_array, cu_graphics_resource resource, uint32_t array_index, uint32_t mip_level);
-	CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
-	CU_RESULT (*init)(uint32_t flags);
-	CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params, void** extra);
-	CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, void* data, size_t size, const char* name, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
-	CU_RESULT (*link_complete)(cu_link_state state, void** cubin_out, size_t* size_out);
-	CU_RESULT (*link_create)(uint32_t num_options, CU_JIT_OPTION* options, void** option_values, cu_link_state* state_out);
-	CU_RESULT (*link_destroy)(cu_link_state state);
-	CU_RESULT (*mem_alloc)(cu_device_ptr* dptr, size_t bytesize);
-	CU_RESULT (*mem_free)(cu_device_ptr dptr);
-	CU_RESULT (*mem_host_get_device_pointer)(cu_device_ptr* pdptr, void* p, uint32_t flags);
-	CU_RESULT (*mem_host_register)(void* p, size_t bytesize, CU_MEM_HOST_REGISTER flags);
-	CU_RESULT (*mem_host_unregister)(void* p);
-	CU_RESULT (*memcpy_3d)(const cu_memcpy_3d_descriptor* p_copy);
-	CU_RESULT (*memcpy_3d_async)(const cu_memcpy_3d_descriptor* p_copy, cu_stream h_stream);
-	CU_RESULT (*memcpy_dtod)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count);
-	CU_RESULT (*memcpy_dtod_async)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
-	CU_RESULT (*memcpy_dtoh)(void* dst_host, cu_device_ptr src_device, size_t byte_count);
-	CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
-	CU_RESULT (*memcpy_htod)(cu_device_ptr dst_device, const void* src_host, size_t byte_count);
-	CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, cu_stream h_stream);
-	CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, cu_stream h_stream);
-	CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, cu_stream h_stream);
-	CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, cu_stream h_stream);
-	CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
-	CU_RESULT (*module_load_data)(cu_module* module, const void* image);
-	CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
-	CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
-	CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
-	CU_RESULT (*stream_synchronize)(cu_stream h_stream);
-	CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
-	CU_RESULT (*surf_object_destroy)(cu_surf_object surf_object);
-	CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);
-	CU_RESULT (*tex_object_destroy)(cu_tex_object tex_object);
+	CU_API CU_RESULT (*array_3d_create)(cu_array* p_handle, const cu_array_3d_descriptor* p_allocate_array);
+	CU_API CU_RESULT (*array_3d_get_descriptor)(cu_array_3d_descriptor* p_array_descriptor, cu_array h_array);
+	CU_API CU_RESULT (*array_destroy)(cu_array h_array);
+	CU_API CU_RESULT (*ctx_create)(cu_context* pctx, CU_CONTEXT_FLAGS flags, cu_device dev);
+	CU_API CU_RESULT (*ctx_get_limit)(size_t* pvalue, CU_LIMIT limit);
+	CU_API CU_RESULT (*ctx_set_current)(cu_context ctx);
+	CU_API CU_RESULT (*device_compute_capability)(int32_t* major, int32_t* minor, cu_device dev);
+	CU_API CU_RESULT (*device_get)(cu_device* device, int32_t ordinal);
+	CU_API CU_RESULT (*device_get_attribute)(int32_t* pi, CU_DEVICE_ATTRIBUTE attrib, cu_device dev);
+	CU_API CU_RESULT (*device_get_count)(int32_t* count);
+	CU_API CU_RESULT (*device_get_name)(char* name, int32_t len, cu_device dev);
+	CU_API CU_RESULT (*device_total_mem)(size_t* bytes, cu_device dev);
+	CU_API CU_RESULT (*driver_get_version)(int32_t* driver_version);
+	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
+	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
+	CU_API CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
+	CU_API CU_RESULT (*graphics_gl_register_image)(cu_graphics_resource* p_cuda_resource, GLuint image, GLenum target, CU_GRAPHICS_REGISTER_FLAGS flags);
+	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
+	CU_API CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
+	CU_API CU_RESULT (*graphics_sub_resource_get_mapped_array)(cu_array* p_array, cu_graphics_resource resource, uint32_t array_index, uint32_t mip_level);
+	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
+	CU_API CU_RESULT (*init)(uint32_t flags);
+	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params, void** extra);
+	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, void* data, size_t size, const char* name, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
+	CU_API CU_RESULT (*link_complete)(cu_link_state state, void** cubin_out, size_t* size_out);
+	CU_API CU_RESULT (*link_create)(uint32_t num_options, CU_JIT_OPTION* options, void** option_values, cu_link_state* state_out);
+	CU_API CU_RESULT (*link_destroy)(cu_link_state state);
+	CU_API CU_RESULT (*mem_alloc)(cu_device_ptr* dptr, size_t bytesize);
+	CU_API CU_RESULT (*mem_free)(cu_device_ptr dptr);
+	CU_API CU_RESULT (*mem_host_get_device_pointer)(cu_device_ptr* pdptr, void* p, uint32_t flags);
+	CU_API CU_RESULT (*mem_host_register)(void* p, size_t bytesize, CU_MEM_HOST_REGISTER flags);
+	CU_API CU_RESULT (*mem_host_unregister)(void* p);
+	CU_API CU_RESULT (*memcpy_3d)(const cu_memcpy_3d_descriptor* p_copy);
+	CU_API CU_RESULT (*memcpy_3d_async)(const cu_memcpy_3d_descriptor* p_copy, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_dtod)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count);
+	CU_API CU_RESULT (*memcpy_dtod_async)(cu_device_ptr dst_device, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_dtoh)(void* dst_host, cu_device_ptr src_device, size_t byte_count);
+	CU_API CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memcpy_htod)(cu_device_ptr dst_device, const void* src_host, size_t byte_count);
+	CU_API CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, cu_stream h_stream);
+	CU_API CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
+	CU_API CU_RESULT (*module_load_data)(cu_module* module, const void* image);
+	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
+	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
+	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
+	CU_API CU_RESULT (*stream_synchronize)(cu_stream h_stream);
+	CU_API CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
+	CU_API CU_RESULT (*surf_object_destroy)(cu_surf_object surf_object);
+	CU_API CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);
+	CU_API CU_RESULT (*tex_object_destroy)(cu_tex_object tex_object);
 };
 extern cuda_api_ptrs cuda_api;
 extern bool cuda_api_init();
