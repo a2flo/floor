@@ -30,7 +30,11 @@
 // inline: not actually inline, but makes sure that no prototype is required for global functions
 // attribute used: emit the function even if it apparently seems unused
 // visibility default: function name is publicly visible and can be retrieved at runtime
+//#if !defined(__WINDOWS__) // TODO: needs to marked dllexport on windows, but this doesn't allow TLS in turn ...
 #define kernel extern "C" inline __attribute__((used, visibility("default")))
+//#else
+//#define kernel extern "C" inline __attribute__((used, visibility("default"))) __declspec(dllexport)
+//#endif
 
 // workaround use of "global" in locale header by including it before killing global
 #include <locale>

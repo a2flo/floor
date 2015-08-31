@@ -24,6 +24,8 @@
 
 #if !defined(__WINDOWS__)
 #include <dlfcn.h>
+#else
+static HMODULE exe_module { nullptr };
 #endif
 
 host_program::host_program() {
@@ -32,13 +34,29 @@ host_program::host_program() {
 shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
 #if !defined(__WINDOWS__)
 	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.c_str());
-	if(func_ptr == nullptr) {
-		log_error("failed to retrieve function pointer to \"%s\": %s", func_name, dlerror());
+#else
+	// get a handle to the main program / exe if it hasn't been created yet
+	if(exe_module == nullptr) {
+		exe_module = GetModuleHandle(nullptr);
+	}
+	// failed to get a handle
+	if(exe_module == nullptr) {
+		log_error("failed to get a module handle of the main program exe");
 		return {};
 	}
-#else
-	void* func_ptr = nullptr; // TODO: !
+
+	auto func_ptr = GetProcAddress(exe_module, func_name.c_str());
 #endif
+	if(func_ptr == nullptr) {
+		log_error("failed to retrieve function pointer to \"%s\": %s", func_name,
+#if !defined(__WINDOWS__)
+				  dlerror()
+#else
+				  GetLastError()
+#endif
+				 );
+		return {};
+	}
 	
 	auto kernel = make_shared<host_kernel>(func_ptr, func_name);
 	kernels.emplace_back(kernel);
