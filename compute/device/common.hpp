@@ -219,11 +219,13 @@ template <typename T> using compute_global_buffer = global T*;
 //! local_buffer<T, 42, 23> => T[23][42]
 //! local_buffer<T, 42, 23, 21> => T[21][23][42]
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
-#if !defined(FLOOR_COMPUTE_HOST) || 0
+//#if !defined(__WINDOWS__)
+#if !defined(FLOOR_COMPUTE_HOST)
 #define local_buffer local compute_local_buffer
-#else // mt-group: local buffer must use thread local storage
-#define local_buffer alignas(128) static _Thread_local compute_local_buffer
-#endif
+//#else // mt-group: local buffer must use thread local storage
+//#define local_buffer alignas(128) static _Thread_local compute_local_buffer
+//#endif
+
 template <typename T, size_t count_x> using compute_local_buffer_1d = T[count_x];
 template <typename T, size_t count_y, size_t count_x> using compute_local_buffer_2d = T[count_y][count_x];
 template <typename T, size_t count_z, size_t count_y, size_t count_x> using compute_local_buffer_3d = T[count_z][count_y][count_x];
@@ -231,6 +233,47 @@ template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0> us
 	conditional_t<count_y == 0, compute_local_buffer_1d<T, count_x>,
 				  conditional_t<count_z == 0, compute_local_buffer_2d<T, count_y, count_x>,
 											  compute_local_buffer_3d<T, count_z, count_y, count_x>>>;
+
+#else // -> windows
+
+// NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
+#define local_buffer static compute_local_buffer
+
+// defined and set in host_kernel.cpp, must be extern so to avoid an opaque function call (which would kill vectorization)
+extern _Thread_local uint32_t floor_thread_idx;
+extern _Thread_local uint32_t floor_thread_local_memory_offset;
+
+template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0>
+class compute_local_buffer {
+protected:
+	constexpr uint32_t dim() { return (count_y == 0 ? 1 : (count_z == 0 ? 2 : 3)); }
+	constexpr size_t data_size() {
+		constexpr auto type_size = sizeof(T);
+		switch(dim()) {
+			case 1: return count_x * type_size;
+			case 2: return count_x * count_y * type_size;
+			default: return count_x * count_y * count_z * type_size;
+		}
+	}
+	
+	T* __attribute__((aligned(128))) data;
+	uint32_t offset { 0 };
+	
+public:
+	// TODO: 2d/3d access
+	
+	T& operator[](const size_t& index) {
+		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 16))[index];
+	}
+	const T& operator[](const size_t& index) const {
+		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 16))[index];
+	}
+	
+	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 16)) {}
+	
+};
+
+#endif
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda

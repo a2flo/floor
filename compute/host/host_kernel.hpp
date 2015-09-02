@@ -93,6 +93,14 @@ protected:
 	
 };
 
+#if defined(__WINDOWS__) || 1
+// this is used to compute the offset into local memory depending on the worker thread id.
+// this must be declared extern, so that it is properly visible to host compute code, so that
+// no "opaque" function has to called, which would be detrimental to vectorization.
+extern _Thread_local uint32_t floor_thread_idx;
+extern _Thread_local uint32_t floor_thread_local_memory_offset;
+#endif
+
 #endif
 
 #endif

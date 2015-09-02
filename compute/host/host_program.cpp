@@ -48,13 +48,11 @@ shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) con
 	auto func_ptr = GetProcAddress(exe_module, func_name.c_str());
 #endif
 	if(func_ptr == nullptr) {
-		log_error("failed to retrieve function pointer to \"%s\": %s", func_name,
 #if !defined(__WINDOWS__)
-				  dlerror()
+		log_error("failed to retrieve function pointer to \"%s\": %s", func_name, dlerror());
 #else
-				  GetLastError()
+		log_error("failed to retrieve function pointer to \"%s\": %u", func_name, GetLastError());
 #endif
-				 );
 		return {};
 	}
 	

@@ -95,7 +95,7 @@ asm(".extern exit;"
 	// fiber_context->init_func
 	"movq 0x50(%rax), %rcx;"
 	// fiber_context->init_arg
-	"movq 0x60(%rax), %rdi;"
+	"movq 0x68(%rax), %rdi;"
 	// call init_func(init_arg)
 	"callq *%rcx;"
 	// context is done, -> exit to set exit context, or exit(0)
@@ -135,8 +135,8 @@ struct fiber_context {
 
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_) {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 
 		if(stack_ptr != nullptr) {
 			// check stack pointer validity (must be 16-byte aligned)
@@ -215,8 +215,8 @@ struct fiber_context {
 
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_) {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 
 		if(stack_ptr == nullptr) {
 			// this is the main thread
@@ -280,8 +280,8 @@ struct fiber_context {
 	
 	void init(void* stack_ptr_, const size_t& stack_size_,
 			  init_func_type init_func_, const uint32_t& init_arg_,
-			  fiber_context* exit_ctx_) {
-		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_);
+			  fiber_context* exit_ctx_, fiber_context* main_ctx_) {
+		init_common(stack_ptr_, stack_size_, init_func_, init_arg_, exit_ctx_, main_ctx_);
 		
 		memset(&ctx, 0, sizeof(ucontext_t));
 		getcontext(&ctx);
@@ -318,26 +318,29 @@ struct fiber_context {
 
 	void init_common(void* stack_ptr_, const size_t& stack_size_,
 					 init_func_type init_func_, const uint32_t& init_arg_,
-					 fiber_context* exit_ctx_) {
+					 fiber_context* exit_ctx_, fiber_context* main_ctx_) {
 		stack_ptr = stack_ptr_;
 		stack_size = stack_size_;
 		init_func = init_func_;
 		exit_ctx = exit_ctx_;
+		main_ctx = main_ctx_;
 		init_arg = init_arg_;
+	}
+	
+	void exit_to_main() {
+		swap_context(main_ctx);
 	}
 	
 	// ctx vars
 	void* stack_ptr { nullptr };
 	size_t stack_size { 0 };
 	
-	//
+	// do not change the order of these vars
 	init_func_type init_func { nullptr };
-	
-	//
 	fiber_context* exit_ctx { nullptr };
-	
-	//
+	fiber_context* main_ctx { nullptr };
 	uint32_t init_arg { 0 };
+	
 };
 
 // thread affinity handling
@@ -370,6 +373,10 @@ static uint32_t floor_linear_group_size;
 static _Thread_local uint3 floor_global_idx;
 static _Thread_local uint3 floor_local_idx;
 static _Thread_local uint3 floor_group_idx;
+// will be initialized to "max h/w threads", note that this is stored in a global var,
+// so that core::get_hw_thread_count() doesn't have to called over and over again, and
+// so this is actually a consistent value (bad things will happen if it isn't)
+static uint32_t floor_max_thread_count { 0 };
 
 // barrier handling vars
 // -> mt-item
@@ -383,6 +390,16 @@ static uint32_t barrier_users { 0 };
 static _Thread_local uint32_t item_local_linear_idx { 0 };
 static _Thread_local fiber_context* item_contexts { nullptr };
 #endif
+
+// local memory management (needed early)
+static constexpr const size_t floor_local_memory_max_size { 128 * 1024 * 1024 }; // 128k
+static uint32_t local_memory_alloc_offset { 0 };
+static bool local_memory_exceeded { false };
+void floor_alloc_local_memory();
+
+// extern in host_kernel.hpp and common.hpp
+_Thread_local uint32_t floor_thread_idx { 0 };
+_Thread_local uint32_t floor_thread_local_memory_offset { 0 };
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
@@ -404,9 +421,23 @@ void host_kernel::execute_internal(compute_queue* queue,
 								   const uint3 global_work_size,
 								   const uint3 local_work_size,
 								   const function<void()>& kernel_func) {
+	// only a single kernel can be active/executed at one time
+	static safe_mutex exec_lock {};
+	GUARD(exec_lock);
+	
+	// init max thread count (once!)
+	if(floor_max_thread_count == 0) {
+		floor_max_thread_count = core::get_hw_thread_count();
+	}
+	
 	//
 	cur_kernel_function = &kernel_func;
 	const auto cpu_count = ((host_queue*)queue)->get_device()->units;
+	// device cpu count must be <= h/w thread count, b/c local memory is only allocated for such many threads
+	if(cpu_count > floor_max_thread_count) {
+		log_error("device cpu count exceeds h/w count");
+		return;
+	}
 	const uint3 local_dim { local_work_size.maxed(1u) };
 	const uint3 group_dim_overflow {
 		global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % local_dim.x), 1u) : 0u,
@@ -430,6 +461,13 @@ void host_kernel::execute_internal(compute_queue* queue,
 	floor_linear_global_work_size = floor_global_work_size.x * floor_global_work_size.y * floor_global_work_size.z;
 	floor_linear_local_work_size = local_dim.x * local_dim.y * local_dim.z;
 	floor_linear_group_size = floor_group_size.x * floor_group_size.y * floor_group_size.z;
+	
+	// setup local memory management
+	// -> reset vars
+	local_memory_alloc_offset = 0;
+	local_memory_exceeded = false;
+	// alloc local memory (for all threads) if it hasn't been allocated yet
+	floor_alloc_local_memory();
 	
 #if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 	// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
@@ -564,16 +602,20 @@ void host_kernel::execute_internal(compute_queue* queue,
 #endif
 	vector<unique_ptr<thread>> worker_threads(cpu_count);
 	for(uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
-		worker_threads[cpu_idx] = make_unique<thread>([cpu_idx, &kernel_func,
+		worker_threads[cpu_idx] = make_unique<thread>([this, cpu_idx, &kernel_func,
 													   &group_idx, group_count, group_dim,
 													   local_size, local_dim] {
 			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled
 			// on different cpus (starting at index 1, with 0 representing no affinity)
 			floor_set_thread_affinity(cpu_idx + 1);
 			
+			// set the tls thread index for this (needed to compute local memory offsets)
+			floor_thread_idx = cpu_idx;
+			floor_thread_local_memory_offset = cpu_idx * floor_local_memory_max_size;
+			
 			// init contexts (aka fibers)
 			fiber_context main_ctx;
-			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr);
+			main_ctx.init(nullptr, 0, nullptr, ~0u, nullptr, nullptr);
 			auto items = make_unique<fiber_context[]>(local_size);
 			item_contexts = items.get();
 			
@@ -588,7 +630,8 @@ void host_kernel::execute_internal(compute_queue* queue,
 							  run_mt_group_item, i,
 							  // continue with next on return, or return to main ctx when the last item returns
 							  // TODO: add option to use randomized order?
-							  (i + 1 < local_size ? &items[i + 1] : &main_ctx));
+							  (i + 1 < local_size ? &items[i + 1] : &main_ctx),
+							  &main_ctx);
 			}
 			
 			for(;;) {
@@ -618,6 +661,14 @@ void host_kernel::execute_internal(compute_queue* queue,
 					
 					// start first fiber
 					items[0].set_context();
+				}
+				
+				// exit due to excessive local memory allocation?
+				if(local_memory_exceeded) {
+					log_error("exceeded local memory allocation for kernel \"%s\" - requested %u bytes, limit is is %u bytes",
+							  //func_name, local_memory_alloc_offset / floor_max_thread_count, floor_local_memory_max_size);
+							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
+					break;
 				}
 			}
 			
@@ -743,6 +794,32 @@ void local_write_mem_fence() {
 }
 void barrier() {
 	global_barrier();
+}
+
+// local memory management
+// NOTE: this is called when allocating storage for local buffers when using mt-group
+static uint8_t* __attribute__((aligned(128))) floor_local_memory_data { nullptr };
+
+void floor_alloc_local_memory() {
+	if(floor_local_memory_data != nullptr) return;
+	floor_local_memory_data = new uint8_t[floor_local_memory_max_size * floor_max_thread_count] alignas(128);
+}
+
+uint8_t* __attribute__((aligned(128))) floor_requisition_local_memory(const size_t size, uint32_t& offset) {
+	// align to 128-bit / 16 bytes
+	const auto per_thread_alloc_size = (size % 16 == 0 ? size : (((size / 16) + 1) * 16));
+	// set the offset to this allocation
+	offset = local_memory_alloc_offset;
+	// adjust allocation offset for the next allocation
+	local_memory_alloc_offset += per_thread_alloc_size;
+	// check if this allocation exceeds the max size
+	if(local_memory_alloc_offset > floor_local_memory_max_size) {
+		// if so, signal the main thread that things are bad and switch to it
+		local_memory_exceeded = true;
+		item_contexts[item_local_linear_idx].exit_to_main();
+	}
+	
+	return floor_local_memory_data;
 }
 
 #endif
