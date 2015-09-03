@@ -61,6 +61,7 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 atomic<bool> floor::reload_kernels_flag { false };
 bool floor::use_gl_context { true };
 uint32_t floor::global_vao { 0u };
+string floor::gl_vendor { "" };
 
 #if defined(__WINDOWS__)
 static string expand_path_with_env(const string& in) {
@@ -599,7 +600,8 @@ void floor::init_internal(const bool use_gl33
 		log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
 		
 		// print out some opengl informations
-		log_debug("vendor: %s", glGetString(GL_VENDOR));
+		gl_vendor = (const char*)glGetString(GL_VENDOR);
+		log_debug("vendor: %s", gl_vendor);
 		log_debug("renderer: %s", glGetString(GL_RENDERER));
 		log_debug("version: %s", glGetString(GL_VERSION));
 		
@@ -1299,4 +1301,8 @@ bool floor::is_gl_version(const uint32_t& major, const uint32_t& minor) {
 	if((uint32_t)(version[0] - '0') > major) return true;
 	else if((uint32_t)(version[0] - '0') == major && (uint32_t)(version[2] - '0') >= minor) return true;
 	return false;
+}
+
+const string& floor::get_gl_vendor() {
+	return gl_vendor;
 }

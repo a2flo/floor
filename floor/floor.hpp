@@ -58,6 +58,7 @@ public:
 	static bool has_opengl_extension(const char* ext_name);
 	static bool is_console_only();
 	static bool is_gl_version(const uint32_t& major, const uint32_t& minor);
+	static const string& get_gl_vendor();
 	
 	// class return functions
 	static event* get_event();
@@ -332,6 +333,7 @@ protected:
 	static atomic<bool> reload_kernels_flag;
 	static bool use_gl_context;
 	static uint32_t global_vao;
+	static string gl_vendor;
 
 };
 
