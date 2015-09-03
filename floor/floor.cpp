@@ -81,7 +81,7 @@ static string expand_path_with_env(const string& in) {
  */
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
-				 const bool use_gl32_core_, const unsigned int window_flags) {
+				 const bool use_gl33_, const unsigned int window_flags) {
 	//
 	register_segfault_handler();
 	
@@ -371,7 +371,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
-	init_internal(use_gl32_core_, window_flags);
+	init_internal(use_gl33_, window_flags);
 }
 
 void floor::destroy() {
@@ -403,9 +403,9 @@ void floor::destroy() {
 	log_debug("floor destroyed!");
 }
 
-void floor::init_internal(const bool use_gl32_core
-#if !defined(__APPLE__) || defined(FLOOR_IOS)
-						  floor_unused // use_gl32_core is only used on os x
+void floor::init_internal(const bool use_gl33
+#if defined(FLOOR_IOS)
+						  floor_unused // only used on desktop platforms
 #endif
 						  , const unsigned int window_flags) {
 	log_debug("initializing floor");
@@ -460,7 +460,7 @@ void floor::init_internal(const bool use_gl32_core
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
 #if !defined(FLOOR_IOS)
-		if(use_gl32_core) {
+		if(use_gl33) {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 #if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms

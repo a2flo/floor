@@ -33,7 +33,7 @@ class floor {
 public:
 	static void init(const char* callpath, const char* datapath,
 					 const bool console_only = false, const string config_name = "config.json",
-					 const bool use_gl32_core = false,
+					 const bool use_gl33 = false,
 					 // sdl window creation flags
 					 // note: fullscreen, borderless and hidpi flags will be set automatically depending on the config settings
 #if !defined(FLOOR_IOS)
@@ -210,7 +210,7 @@ protected:
 	static shared_ptr<compute_base> compute_ctx;
 	static unordered_set<string> gl_extensions;
 	
-	static void init_internal(const bool use_gl32_core, const unsigned int window_flags);
+	static void init_internal(const bool use_gl33, const unsigned int window_flags);
 	
 	static struct floor_config {
 		// screen
