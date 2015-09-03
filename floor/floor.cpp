@@ -460,19 +460,18 @@ void floor::init_internal(const bool use_gl32_core
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
 #if !defined(FLOOR_IOS)
-#if defined(__APPLE__)
-		// only default to opengl 3.2 core on os x for now (opengl version doesn't really matter on other platforms)
 		if(use_gl32_core) {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+#if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
 		}
 		else {
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
 		}
-#endif
 #else
 #if defined(PLATFORM_X32)
 		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");

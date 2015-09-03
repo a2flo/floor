@@ -180,8 +180,13 @@ void host_compute::init(const uint64_t platform_index_ floor_unused,
 	device.max_work_group_size = device.units;
 	device.max_work_group_item_sizes = { device.units, device.units, device.units };
 #else // mt-group
+#if !defined(__WINDOWS__)
 	device.max_work_group_size = 1024;
 	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
+#else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
+	device.max_work_group_size = 64;
+	device.max_work_group_item_sizes = { 64, 64, 64 };
+#endif
 #endif
 	device.max_work_item_sizes = { 0xFFFFFFFFu };
 	device.max_image_1d_buffer_dim = { device.max_mem_alloc };

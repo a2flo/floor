@@ -197,7 +197,7 @@ struct fiber_context {
 //#elif defined(PLATFORM_X32) && defined(FLOOR_IOS)
 	// TODO: armv7 implementation
 #elif defined(__WINDOWS__)
-	static constexpr const size_t min_stack_size { 8192 };
+	static constexpr const size_t min_stack_size { 4096 };
 
 	// the windows fiber context
 	void* ctx { nullptr };
@@ -223,7 +223,8 @@ struct fiber_context {
 			// -> need to convert to fiber before creating/using all other fibers
 			ctx = ConvertThreadToFiber(nullptr);
 			if(ctx == nullptr) {
-				log_error("failed to convert thread to fiber");
+				log_error("failed to convert thread to fiber: %u", GetLastError());
+				logger::flush();
 			}
 		}
 	}
@@ -233,7 +234,8 @@ struct fiber_context {
 		if(stack_ptr == nullptr) {
 			// main thread, convert fiber back to thread
 			if(!ConvertFiberToThread()) {
-				log_error("failed to convert fiber to thread");
+				log_error("failed to convert fiber to thread: %u", GetLastError());
+				logger::flush();
 			}
 		}
 		else {
@@ -255,9 +257,10 @@ struct fiber_context {
 
 		// this is a worker fiber/context
 		// -> create a new windows fiber context for this
-		ctx = CreateFiber(stack_size, fiber_run, this);
+		ctx = CreateFiberEx(stack_size, stack_size, 0, fiber_run, this);
 		if(ctx == nullptr) {
-			log_error("failed to create worker fiber context");
+			log_error("failed to create worker fiber context: %u", GetLastError());
+			logger::flush();
 		}
 	}
 
