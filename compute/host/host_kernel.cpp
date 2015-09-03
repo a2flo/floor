@@ -666,7 +666,6 @@ void host_kernel::execute_internal(compute_queue* queue,
 				// exit due to excessive local memory allocation?
 				if(local_memory_exceeded) {
 					log_error("exceeded local memory allocation for kernel \"%s\" - requested %u bytes, limit is is %u bytes",
-							  //func_name, local_memory_alloc_offset / floor_max_thread_count, floor_local_memory_max_size);
 							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
 					break;
 				}
@@ -806,18 +805,20 @@ void floor_alloc_local_memory() {
 }
 
 uint8_t* __attribute__((aligned(128))) floor_requisition_local_memory(const size_t size, uint32_t& offset) {
+	// check if this allocation exceeds the max size
+	// note: using the unaligned size, since the padding isn't actually used
+	if((local_memory_alloc_offset + size) > floor_local_memory_max_size) {
+		// if so, signal the main thread that things are bad and switch to it
+		local_memory_exceeded = true;
+		item_contexts[item_local_linear_idx].exit_to_main();
+	}
+	
 	// align to 128-bit / 16 bytes
 	const auto per_thread_alloc_size = (size % 16 == 0 ? size : (((size / 16) + 1) * 16));
 	// set the offset to this allocation
 	offset = local_memory_alloc_offset;
 	// adjust allocation offset for the next allocation
 	local_memory_alloc_offset += per_thread_alloc_size;
-	// check if this allocation exceeds the max size
-	if(local_memory_alloc_offset > floor_local_memory_max_size) {
-		// if so, signal the main thread that things are bad and switch to it
-		local_memory_exceeded = true;
-		item_contexts[item_local_linear_idx].exit_to_main();
-	}
 	
 	return floor_local_memory_data;
 }

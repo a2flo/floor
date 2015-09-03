@@ -265,9 +265,6 @@ public:
 	T& operator[](const size_t& index) {
 		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 16))[index];
 	}
-	const T& operator[](const size_t& index) const {
-		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 16))[index];
-	}
 	
 	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 16)) {}
 	

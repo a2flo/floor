@@ -102,6 +102,11 @@
 #define FLOOR_IGNORE_WARNING(warning)
 #endif
 
+// clang < 3.6 doesn't have this, so just pass it through
+#if !__has_builtin(__builtin_assume_aligned)
+#define __builtin_assume_aligned(ptr, alignment) (ptr)
+#endif
+
 #endif // __FLOOR_ESSENTIALS_HPP__
 
 // -> keep these outside the header guard
