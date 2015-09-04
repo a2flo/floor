@@ -55,10 +55,27 @@ namespace floor_image {
 		static auto convert_coord(const coord_type& coord) {
 			return ret_coord_type { coord };
 		}
+		
 		// convert any fundamental (single value) coordinate type to int or float
 		template <typename coord_type, typename ret_coord_type = conditional_t<is_integral<coord_type>::value, int, float>, enable_if_t<is_fundamental<coord_type>::value>>
 		static auto convert_coord(const coord_type& coord) {
 			return ret_coord_type { coord };
+		}
+		
+		// converts any fundamental (single value) type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
+		template <typename expected_scalar_type, typename data_type, enable_if_t<is_fundamental<data_type>::value>* = nullptr>
+		static auto convert_data(const data_type& data) {
+			using scalar_type = data_type;
+			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+			return vector_n<scalar_type, 4> { data, (scalar_type)0, (scalar_type)0, (scalar_type)0 };
+		}
+		
+		// converts any vector* type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
+		template <typename expected_scalar_type, typename data_type, enable_if_t<!is_fundamental<data_type>::value>* = nullptr>
+		static auto convert_data(const data_type& data) {
+			using scalar_type = typename data_type::decayed_scalar_type;
+			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
+			return vector_n<scalar_type, 4> { data };
 		}
 		
 		// intel does not support sampler-less read functions -> create and use a sampler instead, which should do the same
@@ -127,20 +144,28 @@ namespace floor_image {
 		}
 		
 		// write functions
-		// TODO: scalar/vector{1,2,3} -> vector4 widen
-		template <typename coord_type>
-		void write(const coord_type& coord, const float4& data) const {
-			write_imagef(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), data);
+		template <typename coord_type,
+			      typename color_type = conditional_t<image_channel_count(image_type) == 1,
+													  float, vector_n<float, image_channel_count(image_type)>>,
+				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type_)>* = nullptr>
+		void write(const coord_type& coord, const color_type& data) const {
+			write_imagef(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), convert_data<float>(data));
 		}
 		
-		template <typename coord_type>
-		void write(const coord_type& coord, const int4& data) const {
-			write_imagef(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), data);
+		template <typename coord_type,
+			      typename color_type = conditional_t<image_channel_count(image_type) == 1,
+													  int32_t, vector_n<int32_t, image_channel_count(image_type)>>,
+				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_int(image_type_)>* = nullptr>
+		void write(const coord_type& coord, const color_type& data) const {
+			write_imagei(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), convert_data<int32_t>(data));
 		}
 		
-		template <typename coord_type>
-		void write(const coord_type& coord, const uint4& data) const {
-			write_imagef(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), data);
+		template <typename coord_type,
+			      typename color_type = conditional_t<image_channel_count(image_type) == 1,
+													  uint32_t, vector_n<uint32_t, image_channel_count(image_type)>>,
+				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_uint(image_type_)>* = nullptr>
+		void write(const coord_type& coord, const color_type& data) const {
+			write_imageui(static_cast<const image_storage*>(this)->writable_img(), convert_coord(coord), convert_data<uint32_t>(data));
 		}
 	};
 	

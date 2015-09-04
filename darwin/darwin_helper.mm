@@ -297,7 +297,6 @@ float darwin_helper::get_menu_bar_height() {
 #endif
 
 size_t darwin_helper::get_system_version() {
-	// TODO: fix for 10.10
 	// add a define for the run time os x version
 	string osrelease(16, 0);
 	size_t size = osrelease.size() - 1;

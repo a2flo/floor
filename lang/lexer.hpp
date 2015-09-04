@@ -77,10 +77,10 @@ public:
 	static bool is_escape_sequence_char(const source_iterator& iter);
 	
 	//! checks whether a single character is part of the source character set
-	static bool is_char_in_character_set(const source_iterator& iter); // TODO: utf-8
+	static bool is_char_in_character_set(const source_iterator& iter);
 	
 	//! checks whether a single character is printable
-	static bool is_printable_char(const source_iterator& iter); // TODO: utf-8
+	static bool is_printable_char(const source_iterator& iter);
 	
 	//! simple SOURCE_TOKEN_TYPE enum to C11 token name string conversion
 	static constexpr const char* token_type_to_string(const SOURCE_TOKEN_TYPE& token_type) {

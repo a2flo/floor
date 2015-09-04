@@ -104,8 +104,6 @@ void logger_thread::run() {
 	
 	// write all log store entries
 	for(auto& entry : log_output_store) {
-		// TODO: color config setting + timestamp setting?
-		
 		// finally: output
 		if(entry.first != logger::LOG_TYPE::ERROR_MSG) {
 			cout << entry.second;

@@ -725,10 +725,6 @@ void floor::set_screen_size(const uint2& screen_size) {
 	SDL_SetWindowPosition(config.wnd,
 						  bounds.x + (bounds.w - int(config.width)) / 2,
 						  bounds.y + (bounds.h - int(config.height)) / 2);
-	// TODO: make this work:
-	/*SDL_SetWindowPosition(config.wnd,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED,
-						  config.fullscreen ? 0 : SDL_WINDOWPOS_CENTERED);*/
 }
 
 void floor::set_fullscreen(const bool& state) {
