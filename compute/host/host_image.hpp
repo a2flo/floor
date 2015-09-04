@@ -62,7 +62,7 @@ public:
 	}
 	
 protected:
-	alignas(128) uint8_t* image { nullptr };
+	uint8_t* __attribute__((aligned(1024))) image { nullptr };
 	
 	struct image_kernel_info {
 		uint8_t* __attribute__((aligned(128))) buffer;

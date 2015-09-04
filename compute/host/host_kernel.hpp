@@ -93,13 +93,20 @@ protected:
 	
 };
 
-#if defined(__WINDOWS__) || 1
 // this is used to compute the offset into local memory depending on the worker thread id.
 // this must be declared extern, so that it is properly visible to host compute code, so that
 // no "opaque" function has to called, which would be detrimental to vectorization.
 extern _Thread_local uint32_t floor_thread_idx;
 extern _Thread_local uint32_t floor_thread_local_memory_offset;
-#endif
+
+// id handling vars, as above, this is externally visible to aid vectorization
+extern uint32_t floor_work_dim;
+extern uint3 floor_global_work_size;
+extern uint3 floor_local_work_size;
+extern uint3 floor_group_size;
+extern _Thread_local uint3 floor_global_idx;
+extern _Thread_local uint3 floor_local_idx;
+extern _Thread_local uint3 floor_group_idx;
 
 #endif
 

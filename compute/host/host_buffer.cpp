@@ -44,7 +44,7 @@ bool host_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_
 	// TODO: handle the remaining flags + host ptr
 	
 	// always allocate host memory (even with opengl, memory needs to be copied somewhere)
-	buffer = new uint8_t[size] alignas(128);
+	buffer = new uint8_t[size] alignas(1024);
 
 	// -> normal host buffer
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {

@@ -366,16 +366,16 @@ static void floor_set_thread_affinity(const uint32_t& affinity) {
 }
 
 // id handling vars
-static uint32_t floor_work_dim { 1u };
-static uint3 floor_global_work_size;
+uint32_t floor_work_dim { 1u };
+uint3 floor_global_work_size;
 static uint32_t floor_linear_global_work_size;
-static uint3 floor_local_work_size;
+uint3 floor_local_work_size;
 static uint32_t floor_linear_local_work_size;
-static uint3 floor_group_size;
+uint3 floor_group_size;
 static uint32_t floor_linear_group_size;
-static _Thread_local uint3 floor_global_idx;
-static _Thread_local uint3 floor_local_idx;
-static _Thread_local uint3 floor_group_idx;
+_Thread_local uint3 floor_global_idx;
+_Thread_local uint3 floor_local_idx;
+_Thread_local uint3 floor_group_idx;
 // will be initialized to "max h/w threads", note that this is stored in a global var,
 // so that core::get_hw_thread_count() doesn't have to called over and over again, and
 // so this is actually a consistent value (bad things will happen if it isn't)
@@ -394,15 +394,20 @@ static _Thread_local uint32_t item_local_linear_idx { 0 };
 static _Thread_local fiber_context* item_contexts { nullptr };
 #endif
 
-// local memory management (needed early)
+// local memory management
 static constexpr const size_t floor_local_memory_max_size { 128 * 1024 * 1024 }; // 128k
 static uint32_t local_memory_alloc_offset { 0 };
 static bool local_memory_exceeded { false };
-void floor_alloc_local_memory();
+static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr };
 
 // extern in host_kernel.hpp and common.hpp
 _Thread_local uint32_t floor_thread_idx { 0 };
 _Thread_local uint32_t floor_thread_local_memory_offset { 0 };
+
+static void floor_alloc_local_memory() {
+	if(floor_local_memory_data != nullptr) return;
+	floor_local_memory_data = new uint8_t[floor_local_memory_max_size * floor_max_thread_count] alignas(1024);
+}
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
@@ -625,7 +630,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 			// 8k stack should be enough, considering this runs on gpus
 			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
-			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(128);
+			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(1024);
 			
 			// init fibers
 			for(uint32_t i = 0; i < local_size; ++i) {
@@ -708,35 +713,8 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
 	(*cur_kernel_function)();
 }
 
-// id handling implementation
+// -> kernel lib function implementations
 #include <floor/compute/device/host.hpp>
-uint32_t get_global_id(uint32_t dim) {
-	if(dim >= floor_work_dim) return 0;
-	return floor_global_idx[dim];
-}
-uint32_t get_global_size(uint32_t dim) {
-	if(dim >= floor_work_dim) return 1;
-	return floor_global_work_size[dim];
-}
-uint32_t get_local_id(uint32_t dim) {
-	if(dim >= floor_work_dim) return 0;
-	return floor_local_idx[dim];
-}
-uint32_t get_local_size(uint32_t dim) {
-	if(dim >= floor_work_dim) return 1;
-	return floor_local_work_size[dim];
-}
-uint32_t get_group_id(uint32_t dim) {
-	if(dim >= floor_work_dim) return 0;
-	return floor_group_idx[dim];
-}
-uint32_t get_num_groups(uint32_t dim) {
-	if(dim >= floor_work_dim) return 1;
-	return floor_group_size[dim];
-}
-uint32_t get_work_dim() {
-	return floor_work_dim;
-}
 
 // barrier handling (all the same)
 void global_barrier() {
@@ -800,14 +778,7 @@ void barrier() {
 
 // local memory management
 // NOTE: this is called when allocating storage for local buffers when using mt-group
-static uint8_t* __attribute__((aligned(128))) floor_local_memory_data { nullptr };
-
-void floor_alloc_local_memory() {
-	if(floor_local_memory_data != nullptr) return;
-	floor_local_memory_data = new uint8_t[floor_local_memory_max_size * floor_max_thread_count] alignas(128);
-}
-
-uint8_t* __attribute__((aligned(128))) floor_requisition_local_memory(const size_t size, uint32_t& offset) {
+uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset) {
 	// check if this allocation exceeds the max size
 	// note: using the unaligned size, since the padding isn't actually used
 	if((local_memory_alloc_offset + size) > floor_local_memory_max_size) {
@@ -816,8 +787,8 @@ uint8_t* __attribute__((aligned(128))) floor_requisition_local_memory(const size
 		item_contexts[item_local_linear_idx].exit_to_main();
 	}
 	
-	// align to 128-bit / 16 bytes
-	const auto per_thread_alloc_size = (size % 16 == 0 ? size : (((size / 16) + 1) * 16));
+	// align to 1024-bit / 64 bytes
+	const auto per_thread_alloc_size = (size % 64 == 0 ? size : (((size / 64) + 1) * 64));
 	// set the offset to this allocation
 	offset = local_memory_alloc_offset;
 	// adjust allocation offset for the next allocation

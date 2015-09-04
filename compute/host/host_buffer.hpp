@@ -100,7 +100,7 @@ public:
 	}
 
 protected:
-	alignas(128) uint8_t* buffer { nullptr };
+	uint8_t* __attribute__((aligned(1024))) buffer { nullptr };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

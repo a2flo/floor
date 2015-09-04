@@ -21,14 +21,45 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
-// id handling (NOTE: implemented in host_kernel.cpp)
-uint32_t get_global_id(uint32_t dim);
-uint32_t get_global_size(uint32_t dim);
-uint32_t get_local_id(uint32_t dim);
-uint32_t get_local_size(uint32_t dim);
-uint32_t get_group_id(uint32_t dim);
-uint32_t get_num_groups(uint32_t dim);
-uint32_t get_work_dim();
+// already need this here
+#include <floor/math/vector_lib.hpp>
+
+// id handling
+extern uint32_t floor_work_dim;
+extern uint3 floor_global_work_size;
+extern uint3 floor_local_work_size;
+extern uint3 floor_group_size;
+extern _Thread_local uint3 floor_global_idx;
+extern _Thread_local uint3 floor_local_idx;
+extern _Thread_local uint3 floor_group_idx;
+
+floor_inline_always static uint32_t get_global_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_global_idx[dim];
+}
+floor_inline_always static uint32_t get_global_size(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_global_work_size[dim];
+}
+floor_inline_always static uint32_t get_local_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_local_idx[dim];
+}
+floor_inline_always static uint32_t get_local_size(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_local_work_size[dim];
+}
+floor_inline_always static uint32_t get_group_id(uint32_t dim) {
+	if(dim >= floor_work_dim) return 0;
+	return floor_group_idx[dim];
+}
+floor_inline_always static uint32_t get_num_groups(uint32_t dim) {
+	if(dim >= floor_work_dim) return 1;
+	return floor_group_size[dim];
+}
+floor_inline_always static uint32_t get_work_dim() {
+	return floor_work_dim;
+}
 
 // math functions
 #include <cmath>
@@ -52,7 +83,7 @@ void local_write_mem_fence();
 void barrier();
 
 // local memory management (NOTE: implemented in host_kernel.cpp)
-uint8_t* __attribute__((aligned(128))) floor_requisition_local_memory(const size_t size, uint32_t& offset);
+uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset);
 
 #endif
 

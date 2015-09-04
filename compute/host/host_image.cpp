@@ -42,7 +42,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	image = new uint8_t[image_data_size] alignas(128);
+	image = new uint8_t[image_data_size] alignas(1024);
 	kernel_info.image_dim = image_dim;
 	kernel_info.buffer = image;
 	

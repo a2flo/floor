@@ -211,20 +211,17 @@ _LIBCPP_END_NAMESPACE_STD
 #include <floor/compute/device/image_types.hpp>
 
 //! global memory buffer
-#define buffer __attribute__((align_value(128))) compute_global_buffer
+#define buffer __attribute__((align_value(1024))) compute_global_buffer
 template <typename T> using compute_global_buffer = global T*;
 
 //! local memory buffer:
 //! local_buffer<T, 42> => T[42]
 //! local_buffer<T, 42, 23> => T[23][42]
 //! local_buffer<T, 42, 23, 21> => T[21][23][42]
-// NOTE: need to workaround the issue that "local" is not part of the type in cuda
-//#if !defined(__WINDOWS__)
 #if !defined(FLOOR_COMPUTE_HOST)
+
+// NOTE: need to workaround the issue that "local" is not part of the type in cuda
 #define local_buffer local compute_local_buffer
-//#else // mt-group: local buffer must use thread local storage
-//#define local_buffer alignas(128) static _Thread_local compute_local_buffer
-//#endif
 
 template <typename T, size_t count_x> using compute_local_buffer_1d = T[count_x];
 template <typename T, size_t count_y, size_t count_x> using compute_local_buffer_2d = T[count_y][count_x];
@@ -256,17 +253,17 @@ protected:
 		}
 	}
 	
-	T* __attribute__((aligned(128))) data;
+	T* __attribute__((aligned(1024))) data;
 	uint32_t offset { 0 };
 	
 public:
 	// TODO: 2d/3d access
 	
 	T& operator[](const size_t& index) {
-		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 16))[index];
+		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 64))[index];
 	}
 	
-	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 16)) {}
+	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 64)) {}
 	
 };
 
@@ -274,7 +271,7 @@ public:
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
-#define constant_buffer __attribute__((align_value(128))) constant compute_constant_buffer
+#define constant_buffer __attribute__((align_value(1024))) constant compute_constant_buffer
 template <typename T> using compute_constant_buffer = const T* const;
 
 //! array for use with static constant memory

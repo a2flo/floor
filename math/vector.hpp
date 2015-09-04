@@ -313,22 +313,14 @@ public:
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	const scalar_type& operator[](const size_t& index) const {
-#if !defined(_MSC_VER)
-		return ((const array<scalar_type, FLOOR_VECTOR_WIDTH>*)this)->at(index);
-#else
 		return ((scalar_type*)this)[index];
-#endif
 	}
 	
 	//! subscript access, with index in [0, #components - 1]
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	scalar_type& operator[](const size_t& index) {
-#if !defined(_MSC_VER)
-		return ((array<scalar_type, FLOOR_VECTOR_WIDTH>*)this)->at(index);
-#else
 		return ((scalar_type*)this)[index];
-#endif
 	}
 	
 #if !defined(_MSC_VER) // duplicate name mangling issues
