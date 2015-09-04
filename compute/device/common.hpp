@@ -215,21 +215,18 @@ _LIBCPP_END_NAMESPACE_STD
 template <typename T> using compute_global_buffer = global T*;
 
 //! local memory buffer:
-//! local_buffer<T, 42> => T[42]
-//! local_buffer<T, 42, 23> => T[23][42]
-//! local_buffer<T, 42, 23, 21> => T[21][23][42]
 #if !defined(FLOOR_COMPUTE_HOST)
 
 // NOTE: need to workaround the issue that "local" is not part of the type in cuda
 #define local_buffer local compute_local_buffer
 
-template <typename T, size_t count_x> using compute_local_buffer_1d = T[count_x];
-template <typename T, size_t count_y, size_t count_x> using compute_local_buffer_2d = T[count_y][count_x];
-template <typename T, size_t count_z, size_t count_y, size_t count_x> using compute_local_buffer_3d = T[count_z][count_y][count_x];
-template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0> using compute_local_buffer =
-	conditional_t<count_y == 0, compute_local_buffer_1d<T, count_x>,
-				  conditional_t<count_z == 0, compute_local_buffer_2d<T, count_y, count_x>,
-											  compute_local_buffer_3d<T, count_z, count_y, count_x>>>;
+template <typename T, size_t count_1> using compute_local_buffer_1d = T[count_1];
+template <typename T, size_t count_1, size_t count_2> using compute_local_buffer_2d = T[count_1][count_2];
+template <typename T, size_t count_1, size_t count_2, size_t count_3> using compute_local_buffer_3d = T[count_1][count_2][count_3];
+template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0> using compute_local_buffer =
+	conditional_t<count_2 == 0, compute_local_buffer_1d<T, count_1>,
+				  conditional_t<count_3 == 0, compute_local_buffer_2d<T, count_1, count_2>,
+											  compute_local_buffer_3d<T, count_1, count_2, count_3>>>;
 
 #else // -> windows
 
@@ -240,27 +237,40 @@ template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0> us
 extern _Thread_local uint32_t floor_thread_idx;
 extern _Thread_local uint32_t floor_thread_local_memory_offset;
 
-template <typename T, size_t count_x, size_t count_y = 0, size_t count_z = 0>
+template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0>
 class compute_local_buffer {
 protected:
-	constexpr uint32_t dim() { return (count_y == 0 ? 1 : (count_z == 0 ? 2 : 3)); }
-	constexpr size_t data_size() {
+	static constexpr uint32_t dim() { return (count_2 == 0 ? 1 : (count_3 == 0 ? 2 : 3)); }
+	static constexpr size_t data_size() {
 		constexpr auto type_size = sizeof(T);
 		switch(dim()) {
-			case 1: return count_x * type_size;
-			case 2: return count_x * count_y * type_size;
-			default: return count_x * count_y * count_z * type_size;
+			case 1: return count_1 * type_size;
+			case 2: return count_1 * count_2 * type_size;
+			default: return count_1 * count_2 * count_3 * type_size;
 		}
 	}
 	
 	T* __attribute__((aligned(1024))) data;
 	uint32_t offset { 0 };
 	
-public:
-	// TODO: 2d/3d access
+	typedef T type_1d;
+	typedef T type_2d[count_2];
+	typedef T type_3d[count_2][count_3];
 	
+public:
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 1>* = nullptr>
 	T& operator[](const size_t& index) {
-		return ((T*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 64))[index];
+		return ((type_1d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 64))[index];
+	}
+	
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 2>* = nullptr>
+	T (&operator[](const size_t& index)) [count_2] {
+		return ((type_2d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 64))[index];
+	}
+	
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 3>* = nullptr>
+	T (&operator[](const size_t& index)) [count_2][count_3] {
+		return ((type_3d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 64))[index];
 	}
 	
 	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 64)) {}
