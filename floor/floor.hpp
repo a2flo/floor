@@ -246,7 +246,7 @@ protected:
 		uint64_t rdouble_click_time = 200;
 		
 		// compute
-		string backend = "opencl";
+		string backend = "";
 		bool gl_sharing = false;
 		bool debug = false;
 		bool profiling = false;
@@ -263,6 +263,7 @@ protected:
 		string default_dis = "llvm-dis";
 		
 		// opencl
+		bool opencl_toolchain_exists = false;
 		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
@@ -276,6 +277,7 @@ protected:
 		string opencl_applecl_encoder = "applecl-encoder";
 		
 		// cuda
+		bool cuda_toolchain_exists = false;
 		string cuda_base_path = "";
 		unordered_set<string> cuda_whitelist;
 		string cuda_compiler = "";
@@ -286,6 +288,7 @@ protected:
 		string cuda_force_compile_sm = "";
 		
 		// metal
+		bool metal_toolchain_exists = false;
 		string metal_base_path = "";
 		unordered_set<string> metal_whitelist;
 		string metal_compiler = "";

@@ -217,7 +217,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.mdouble_click_time = config_doc.get<uint64_t>("input.mdouble_click_time", 200);
 		config.rdouble_click_time = config_doc.get<uint64_t>("input.rdouble_click_time", 200);
 		
-		config.backend = config_doc.get<string>("compute.backend", "opencl");
+		config.backend = config_doc.get<string>("compute.backend", "");
 		config.gl_sharing = config_doc.get<bool>("compute.gl_sharing", false);
 		config.debug = config_doc.get<bool>("compute.debug", false);
 		config.profiling = config_doc.get<bool>("compute.profiling", false);
@@ -315,6 +315,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
+			config.opencl_toolchain_exists = true;
 			config.opencl_compiler.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_llc.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
@@ -339,6 +340,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			log_error("cuda toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
+			config.cuda_toolchain_exists = true;
 			config.cuda_compiler.insert(0, config.cuda_base_path + "bin/");
 			config.cuda_llc.insert(0, config.cuda_base_path + "bin/");
 			config.cuda_as.insert(0, config.cuda_base_path + "bin/");
@@ -358,6 +360,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			log_error("metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
 		else {
+			config.metal_toolchain_exists = true;
 			config.metal_compiler.insert(0, config.metal_base_path + "bin/");
 			config.metal_llc.insert(0, config.metal_base_path + "bin/");
 			config.metal_as.insert(0, config.metal_base_path + "bin/");
@@ -659,55 +662,93 @@ void floor::init_internal(const bool use_gl33
 	}
 	
 	// always create and init compute context (even in console-only mode)
-#if !defined(FLOOR_NO_OPENCL) || !defined(FLOOR_NO_CUDA) || !defined(FLOOR_NO_METAL) || !defined(FLOOR_NO_HOST_COMPUTE)
-	if(config.backend == "cuda") {
-#if !defined(FLOOR_NO_CUDA)
-		log_debug("initializing CUDA ...");
-		compute_ctx = make_shared<cuda_compute>();
-#else
-		log_error("CUDA support is not enabled!");
+	{
+		// get the backend that was set in the config
+		COMPUTE_TYPE config_compute_type = COMPUTE_TYPE::NONE;
+		if(config.backend == "opencl") config_compute_type = COMPUTE_TYPE::OPENCL;
+		else if(config.backend == "cuda") config_compute_type = COMPUTE_TYPE::CUDA;
+		else if(config.backend == "metal") config_compute_type = COMPUTE_TYPE::METAL;
+		else if(config.backend == "host") config_compute_type = COMPUTE_TYPE::HOST;
+		
+		// default compute backends (will try these in order, using the first working one)
+#if defined(__APPLE__)
+#if !defined(FLOOR_IOS) // osx
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL, COMPUTE_TYPE::CUDA, COMPUTE_TYPE::OPENCL };
+#else // ios
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
 #endif
-	}
-	else if(config.backend == "metal") {
-#if !defined(FLOOR_NO_METAL)
-		log_debug("initializing Metal ...");
-		compute_ctx = make_shared<metal_compute>();
-#else
-		log_error("Metal support is not enabled!");
+#else // linux, windows, ...
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::CUDA };
 #endif
-	}
-	else if(config.backend == "host") {
-#if !defined(FLOOR_NO_HOST_COMPUTE)
-		log_debug("initializing Host Compute ...");
-		compute_ctx = make_shared<host_compute>();
-#else
-		log_error("Host Compute support is not enabled!");
-#endif
-	}
-	
-	if(compute_ctx == nullptr) {
-#if !defined(FLOOR_NO_OPENCL)
-		if(config.backend == "cuda" || config.backend == "metal" || config.backend == "host") {
-			log_debug("initializing OpenCL (fallback) ...");
+		// always start with the configured one (if one has been set)
+		if(config_compute_type != COMPUTE_TYPE::NONE) {
+			// erase existing entry first, so that we don't try to init it twice
+			core::erase_if(compute_defaults, [&config_compute_type](const auto& iter) { return (*iter == config_compute_type); });
+			compute_defaults.insert(compute_defaults.begin(), config_compute_type);
 		}
-		else log_debug("initializing OpenCL ...");
-		compute_ctx = make_shared<opencl_compute>();
-#else
-		log_error("OpenCL support is not enabled!");
+		// always end with host compute (as a fallback), if it isn't already part of the list
+		if(find(compute_defaults.begin(), compute_defaults.end(), COMPUTE_TYPE::HOST) == compute_defaults.end()) {
+			compute_defaults.emplace_back(COMPUTE_TYPE::HOST);
+		}
+		
+		// iterate over all backends in the default set, using the first one that works
+		compute_ctx = nullptr; // just to be sure
+		for(const auto& backend : compute_defaults) {
+			switch(backend) {
+				case COMPUTE_TYPE::CUDA:
+#if !defined(FLOOR_NO_CUDA)
+					if(!config.cuda_toolchain_exists) break;
+					log_debug("initializing CUDA ...");
+					compute_ctx = make_shared<cuda_compute>();
 #endif
-	}
-	
-	if(compute_ctx != nullptr) {
-		compute_ctx->init(config.opencl_platform,
-						  config.gl_sharing & !console_only,
-						  compute_ctx->get_compute_type() == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
-						  compute_ctx->get_compute_type() == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
-						  compute_ctx->get_compute_type() == COMPUTE_TYPE::METAL ? config.metal_whitelist :
-						  compute_ctx->get_compute_type() == COMPUTE_TYPE::HOST ? config.host_whitelist :
-						  unordered_set<string> {});
-	}
-	else log_error("failed to create any compute context!");
+					break;
+				case COMPUTE_TYPE::OPENCL:
+#if !defined(FLOOR_NO_OPENCL)
+					if(!config.opencl_toolchain_exists) break;
+					log_debug("initializing OpenCL ...");
+					compute_ctx = make_shared<opencl_compute>();
 #endif
+					break;
+				case COMPUTE_TYPE::METAL:
+#if !defined(FLOOR_NO_METAL)
+					if(!config.metal_toolchain_exists) break;
+					log_debug("initializing Metal ...");
+					compute_ctx = make_shared<metal_compute>();
+#endif
+					break;
+				case COMPUTE_TYPE::HOST:
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+					log_debug("initializing Host Compute ...");
+					compute_ctx = make_shared<host_compute>();
+#endif
+					break;
+				default: break;
+			}
+			
+			if(compute_ctx != nullptr) {
+				compute_ctx->init(config.opencl_platform,
+								  config.gl_sharing & !console_only,
+								  backend == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
+								  backend == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
+								  backend == COMPUTE_TYPE::METAL ? config.metal_whitelist :
+								  backend == COMPUTE_TYPE::HOST ? config.host_whitelist :
+								  unordered_set<string> {});
+				
+				if(!compute_ctx->is_supported()) {
+					log_error("failed to create a \"%s\" context, trying next backend ...", compute_type_to_string(backend));
+					compute_ctx = nullptr;
+				}
+				else {
+					break; // success
+				}
+			}
+		}
+		
+		// this is rather bad
+		if(compute_ctx == nullptr) {
+			log_error("failed to create any compute context!");
+		}
+	}
 	
 	// also always init openal/audio
 #if !defined(FLOOR_NO_OPENAL)

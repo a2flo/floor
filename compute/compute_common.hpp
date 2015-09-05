@@ -23,11 +23,23 @@
 
 //! used to differentiate between the different compute implementations
 enum class COMPUTE_TYPE : uint32_t {
+	NONE,
 	OPENCL,
 	CUDA,
 	METAL,
 	HOST,
 };
+
+//! returns the string representation of the enum COMPUTE_TYPE
+floor_inline_always static constexpr const char* compute_type_to_string(const COMPUTE_TYPE& vendor) {
+	switch(vendor) {
+		case COMPUTE_TYPE::OPENCL: return "OpenCL";
+		case COMPUTE_TYPE::CUDA: return "CUDA";
+		case COMPUTE_TYPE::METAL: return "Metal";
+		case COMPUTE_TYPE::HOST: return "Host Compute";
+		default: return "NONE";
+	}
+}
 
 //! used to identify the platform and device vendor
 enum class COMPUTE_VENDOR : uint32_t {

@@ -99,6 +99,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 													   forward<Args>(args)...);
 #endif // else: nop
 			break;
+		default: break;
 	}
 }
 #endif

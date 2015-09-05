@@ -207,6 +207,7 @@ void host_compute::init(const uint64_t platform_index_ floor_unused,
 #endif
 	
 	//
+	supported = true;
 	fastest_cpu_device = devices[0];
 	fastest_device = fastest_cpu_device;
 	if(fastest_cpu_device != nullptr) {
