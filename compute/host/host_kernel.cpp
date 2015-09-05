@@ -361,7 +361,7 @@ static void floor_set_thread_affinity(const uint32_t& affinity) {
 #elif defined(__OpenBSD__)
 	// TODO: pthread gnu extension not available here
 #elif defined(__WINDOWS__)
-	// TODO: !
+	SetThreadAffinityMask(GetCurrentThread(), 1u << (affinity - 1u));
 #endif
 }
 
