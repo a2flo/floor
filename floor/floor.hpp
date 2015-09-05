@@ -168,11 +168,13 @@ public:
 	static const string& get_opencl_base_path();
 	static const unordered_set<string>& get_opencl_whitelist();
 	static const uint64_t& get_opencl_platform();
+	static bool get_opencl_verify_spir();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
 	static const string& get_opencl_dis();
 	static const string& get_opencl_spir_encoder();
+	static const string& get_opencl_spir_verifier();
 	static const string& get_opencl_applecl_encoder();
 	
 	// cuda
@@ -263,12 +265,14 @@ protected:
 		// opencl
 		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
+		bool opencl_verify_spir = false;
 		unordered_set<string> opencl_whitelist;
 		string opencl_compiler = "";
 		string opencl_llc = "";
 		string opencl_as = "";
 		string opencl_dis = "";
 		string opencl_spir_encoder = "spir-encoder";
+		string opencl_spir_verifier = "spir-verifier";
 		string opencl_applecl_encoder = "applecl-encoder";
 		
 		// cuda

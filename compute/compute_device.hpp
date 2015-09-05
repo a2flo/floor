@@ -94,6 +94,8 @@ public:
 	uint64_t global_mem_size { 0u };
 	//! local (OpenCL) / shared (CUDA) memory size in bytes
 	uint64_t local_mem_size { 0u };
+	//! true if dedicated local memory h/w exists, false if not (i.e. stored in global memory instead)
+	bool local_mem_dedicated { false };
 	//! constant memory size in bytes
 	uint64_t constant_mem_size { 0u };
 	//! max chunk size that can be allocated in global memory

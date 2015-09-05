@@ -212,7 +212,7 @@ floor_inline_always auto insert_channels(const vector_n<float, image_channel_cou
 	typedef typename image_sized_data_type<COMPUTE_IMAGE_TYPE::UINT, max_bpc>::type uchannel_type;
 	typedef conditional_t<max_bpc <= 8u, float, conditional_t<max_bpc <= 16u, double, long double>> fp_scale_type;
 	vector_n<channel_type, channel_count> scaled_color;
-#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 	for(uint32_t i = 0; i < channel_count; ++i) {
 		// scale with 2^(bpc (- 1 if signed)) - 1 (e.g. 255 for unsigned 8-bit, 127 for signed 8-bit)
 		scaled_color[i] = channel_type(color[i] * fp_scale_type((uchannel_type(1)
@@ -317,7 +317,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 		constexpr const auto bpc = compute_image_bpc<image_type>();
 		if(data_type == COMPUTE_IMAGE_TYPE::UINT) {
 			// normalized unsigned-integer formats, normalized to [0, 1]
-#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 			for(uint32_t i = 0; i < channel_count; ++i) {
 				// normalized = channel / (2^bpc_i - 1)
 				ret[i] = float(channels[i]) * float(1.0 / double((1ull << bpc[i]) - 1ull));
@@ -325,7 +325,7 @@ floor_inline_always auto read(const host_device_image<image_type, readable, writ
 		}
 		else if(data_type == COMPUTE_IMAGE_TYPE::INT) {
 			// normalized integer formats, normalized to [-1, 1]
-#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 			for(uint32_t i = 0; i < channel_count; ++i) {
 				// normalized = channel / (2^(bpc_i - 1) - 1)
 				ret[i] = float(channels[i]) * float(1.0 / double((1ull << (bpc[i] - 1u)) - 1ull));

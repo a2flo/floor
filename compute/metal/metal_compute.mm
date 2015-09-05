@@ -300,6 +300,7 @@ void metal_compute::init(const uint64_t platform_index_ floor_unused,
 		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
 		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
 #endif
+		device.local_mem_dedicated = true;
 		device.image_support = true;
 		device.bitness = 64; // seems to be true for all devices? (at least nvptx64, igil64 and A7+)
 		device.basic_64_bit_atomics_support = false; // not supported at all

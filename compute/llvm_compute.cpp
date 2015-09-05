@@ -397,6 +397,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS="s + has_extended_64_bit_atomics_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_"s + has_extended_64_bit_atomics_str;
 	
+	// has device actual dedicated local memory
+	const auto has_dedicated_local_memory_str = to_string(device->local_mem_dedicated);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
+	
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
 	if(floor::get_compute_debug() && target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
@@ -469,6 +474,22 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		string spir_encoder_output = "";
 		core::system(spir_3_2_encoder_cmd, spir_encoder_output);
 		log_msg("spir encoder: %s", spir_encoder_output);
+		
+		// run spir-verifier if specified
+		if(floor::get_opencl_verify_spir()) {
+			const string spir_verifier_cmd {
+				"\"" + floor::get_opencl_spir_verifier() + "\" spir_3_2.bc"
+#if !defined(_MSC_VER)
+				" 2>&1"
+#endif
+			};
+			string spir_verifier_output = "";
+			core::system(spir_verifier_cmd, spir_verifier_output);
+			if(!spir_verifier_output.empty() && spir_verifier_output[spir_verifier_output.size() - 1] == '\n') {
+				spir_verifier_output.pop_back(); // trim last newline
+			}
+			log_msg("spir verifier: %s", spir_verifier_output);
+		}
 		
 		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
 		if(!file_io::file_to_string("spir_3_2.bc", compiled_code)) {

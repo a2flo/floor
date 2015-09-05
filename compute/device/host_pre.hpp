@@ -120,6 +120,17 @@
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS 1
 #define FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1
 
+// local memory is emulated through global ("normal") memory, although almost certainly cached
+#define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY 0
+#define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_0
+
+// for use with "#pragma clang loop unroll(x)", this is named "full" after clang 3.5, and "enable" for 3.5
+#if (__clang_major__ == 3 && __clang_minor__ == 5)
+#define FLOOR_CLANG_UNROLL_FULL enable
+#else
+#define FLOOR_CLANG_UNROLL_FULL full
+#endif
+
 // other required c++ headers
 #include <vector>
 #include <limits>

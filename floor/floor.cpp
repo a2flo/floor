@@ -294,17 +294,23 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		const auto opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
 		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
+		config.opencl_verify_spir = config_doc.get<bool>("compute.opencl.verify_spir", false);
 		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
 		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
 		config.opencl_as = config_doc.get<string>("compute.opencl.as", config.default_as);
 		config.opencl_dis = config_doc.get<string>("compute.opencl.dis", config.default_dis);
 		config.opencl_spir_encoder = config_doc.get<string>("compute.opencl.spir-encoder", config.opencl_spir_encoder);
+		config.opencl_spir_verifier = config_doc.get<string>("compute.opencl.spir-verifier", config.opencl_spir_verifier);
 		config.opencl_applecl_encoder = config_doc.get<string>("compute.opencl.applecl-encoder", config.opencl_applecl_encoder);
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
-															vector<string*> { &config.opencl_spir_encoder, &config.opencl_applecl_encoder });
+															vector<string*> {
+																&config.opencl_spir_encoder,
+																&config.opencl_spir_verifier,
+																&config.opencl_applecl_encoder
+															});
 		if(config.opencl_base_path == "") {
 			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
@@ -314,6 +320,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_dis.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_spir_encoder.insert(0, config.opencl_base_path + "bin/");
+			config.opencl_spir_verifier.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_applecl_encoder.insert(0, config.opencl_base_path + "bin/");
 		}
 		
@@ -1210,6 +1217,9 @@ const unordered_set<string>& floor::get_opencl_whitelist() {
 const uint64_t& floor::get_opencl_platform() {
 	return config.opencl_platform;
 }
+bool floor::get_opencl_verify_spir() {
+	return config.opencl_verify_spir;
+}
 const string& floor::get_opencl_compiler() {
 	return config.opencl_compiler;
 }
@@ -1224,6 +1234,9 @@ const string& floor::get_opencl_dis() {
 }
 const string& floor::get_opencl_spir_encoder() {
 	return config.opencl_spir_encoder;
+}
+const string& floor::get_opencl_spir_verifier() {
+	return config.opencl_spir_verifier;
 }
 const string& floor::get_opencl_applecl_encoder() {
 	return config.opencl_applecl_encoder;

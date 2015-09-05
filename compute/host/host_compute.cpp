@@ -152,6 +152,7 @@ void host_compute::init(const uint64_t platform_index_ floor_unused,
 	device.global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
 	device.max_mem_alloc = device.global_mem_size;
 	device.local_mem_size = 128ull * 1024ull * 1024ull; // 128k -> must be sync'ed with host_kernel.cpp
+	device.local_mem_dedicated = false;
 	device.constant_mem_size = device.global_mem_size; // not different from normal ram
 	device.version_str = FLOOR_BUILD_VERSION_STR;
 	device.driver_version_str = FLOOR_BUILD_VERSION_STR;

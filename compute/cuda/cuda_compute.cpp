@@ -147,6 +147,7 @@ void cuda_compute::init(const uint64_t platform_index floor_unused,
 		CU_CALL_IGNORE(cu_device_get_attribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE::L2_CACHE_SIZE, cuda_dev));
 		device.constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
 		device.local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
+		device.local_mem_dedicated = true;
 		device.l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
 		int max_work_group_size;

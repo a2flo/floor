@@ -119,6 +119,11 @@ namespace device_info {
 #endif
 	}
 	
+	//! returns true if the device has dedicated local memory h/w
+	constexpr bool has_dedicated_local_memory() {
+		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
+	}
+	
 }
 
 #endif

@@ -284,6 +284,7 @@ void opencl_compute::init(const uint64_t platform_index_,
 			device.clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
 			device.global_mem_size = cl_get_info<CL_DEVICE_GLOBAL_MEM_SIZE>(cl_dev);
 			device.local_mem_size = cl_get_info<CL_DEVICE_LOCAL_MEM_SIZE>(cl_dev);
+			device.local_mem_dedicated = (cl_get_info<CL_DEVICE_LOCAL_MEM_TYPE>(cl_dev) == CL_LOCAL);
 			device.constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
 			device.name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
 			device.vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
