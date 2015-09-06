@@ -37,6 +37,7 @@ typedef matrix4<double> matrix4d;
 typedef matrix4<int> matrix4i;
 typedef matrix4<unsigned int> matrix4ui;
 
+template <typename scalar_type> class vector3;
 template <typename scalar_type> class vector4;
 
 FLOOR_PUSH_WARNINGS()
@@ -375,6 +376,12 @@ public:
 		return *this;
 	}
 	
+	//! translates this matrix by (x, y, z) of the given vector
+	constexpr matrix4& translate(const vector3<scalar_type>& vec) {
+		*this *= translation(vec);
+		return *this;
+	}
+	
 	//! sets the "translation components" of this matrix to (x, y, z)
 	constexpr matrix4& set_translation(const scalar_type x, const scalar_type y, const scalar_type z) {
 		data[12] = x;
@@ -386,6 +393,12 @@ public:
 	//! scales this matrix by (x, y, z)
 	constexpr matrix4& scale(const scalar_type x, const scalar_type y, const scalar_type z) {
 		*this *= scaling(x, y, z);
+		return *this;
+	}
+	
+	//! scales this matrix by (x, y, z) of the given vector
+	constexpr matrix4& scale(const vector3<scalar_type>& vec) {
+		*this *= scaling(vec);
 		return *this;
 	}
 	
@@ -426,6 +439,11 @@ public:
 			x, y, z, scalar_type(1)
 		};
 	}
+
+	//! returns a translation matrix set to (x, y, z) of the given vector
+	static constexpr matrix4 translation(const vector3<scalar_type>& vec) {
+		return translation(vec[0], vec[1], vec[2]);
+	}
 	
 	//! returns a scale matrix with the specified scale components
 	static constexpr matrix4 scaling(const scalar_type sx, const scalar_type sy, const scalar_type sz) {
@@ -435,6 +453,11 @@ public:
 			scalar_type(0), scalar_type(0), scalar_type(sz), scalar_type(0),
 			scalar_type(0), scalar_type(0), scalar_type(0), scalar_type(1)
 		};
+	}
+	
+	//! returns a scale matrix with the specified scale components (x, y, z) of the given vector
+	static constexpr matrix4 scaling(const vector3<scalar_type>& vec) {
+		return scaling(vec[0], vec[1], vec[2]);
 	}
 	
 	//! returns a matrix that is rotated by 'rad_angle' radians on the specified axis (0 = x, 1 = y, 2 = z)
@@ -525,6 +548,16 @@ public:
 			-(top + bottom) / (top - bottom),
 			-(z_far + z_near) / (z_far - z_near),
 			scalar_type(1)
+		};
+	}
+	
+	//! computes the outer product of the two given 4-component vectors, resulting in a matrix4
+	static constexpr matrix4 outer_product(const vector4<scalar_type>& v0, const vector4<scalar_type>& v1) {
+		return {
+			v0[0] * v1[0], v0[1] * v1[0], v0[2] * v1[0], v0[3] * v1[0],
+			v0[0] * v1[1], v0[1] * v1[1], v0[2] * v1[1], v0[3] * v1[1],
+			v0[0] * v1[2], v0[1] * v1[2], v0[2] * v1[2], v0[3] * v1[2],
+			v0[0] * v1[3], v0[1] * v1[3], v0[2] * v1[3], v0[3] * v1[3]
 		};
 	}
 	
