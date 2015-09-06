@@ -1970,6 +1970,7 @@ public:
 	
 	//////////////////////////////////////////
 	// type conversion
+#pragma mark type conversion
 	
 #if FLOOR_VECTOR_WIDTH == 1
 	//! vector1<scalar_type> is directly convertible to its scalar_type
