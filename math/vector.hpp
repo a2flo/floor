@@ -145,6 +145,8 @@ public:
 	
 	//! "this" vector type
 	typedef FLOOR_VECNAME<scalar_type> vector_type;
+	//! this scalar type
+	typedef scalar_type this_scalar_type;
 	//! decayed scalar type (removes refs/etc.)
 	typedef decay_t<scalar_type> decayed_scalar_type;
 	//! signed vector type corresponding to this type
