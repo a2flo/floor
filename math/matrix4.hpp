@@ -31,12 +31,6 @@
 #include <floor/constexpr/const_array.hpp>
 #include <floor/math/vector_helper.hpp>
 
-template <typename scalar_type> class matrix4;
-typedef matrix4<float> matrix4f;
-typedef matrix4<double> matrix4d;
-typedef matrix4<int> matrix4i;
-typedef matrix4<unsigned int> matrix4ui;
-
 template <typename scalar_type> class vector3;
 template <typename scalar_type> class vector4;
 
@@ -563,6 +557,16 @@ public:
 	
 };
 
+typedef matrix4<float> matrix4f;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE) // disable double + long double if specified
+typedef matrix4<double> matrix4d;
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // always disable long double on compute platforms (except host)
+typedef matrix4<long double> matrix4l;
+#endif
+#endif
+typedef matrix4<int32_t> matrix4i;
+typedef matrix4<uint32_t> matrix4ui;
+
 //! type trait function to determine if a type is a floor matrix4*
 template <typename any_type, typename = void> struct is_floor_matrix : public false_type {};
 template <typename mat_type>
@@ -572,8 +576,9 @@ struct is_floor_matrix<mat_type, enable_if_t<is_same<decay_t<mat_type>, typename
 // only instantiate this in the matrix4.cpp
 extern template class matrix4<float>;
 extern template class matrix4<double>;
-extern template class matrix4<int>;
-extern template class matrix4<unsigned int>;
+extern template class matrix4<long double>;
+extern template class matrix4<int32_t>;
+extern template class matrix4<uint32_t>;
 #endif
 
 FLOOR_POP_WARNINGS()

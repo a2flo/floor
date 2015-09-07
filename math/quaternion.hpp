@@ -26,26 +26,69 @@
 #include <string>
 #endif
 
-template <typename T> class quaternion;
-typedef quaternion<float> quaternionf;
-typedef quaternion<double> quaterniond;
-
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(packed)
 
-template <typename T> class __attribute__((packed, aligned(4))) quaternion {
+template <typename scalar_type> class __attribute__((packed, aligned(16))) quaternion {
 public:
-	T x, y, z, r;
-	constexpr quaternion() noexcept : x(T(0)), y(T(0)), z(T(0)), r(T(1)) {}
-	constexpr quaternion(const T& x_, const T& y_, const T& z_, const T& r_) noexcept : x(x_), y(y_), z(z_), r(r_) {}
-	constexpr quaternion(const quaternion& q) noexcept : x(q.x), y(q.y), z(q.z), r(q.r) {}
-	constexpr quaternion(const T& a, const vector3<T>& v) noexcept { set_rotation(a, v); }
+	//! "this" quaternion type
+	typedef quaternion<scalar_type> quaternion_type;
+	//! this scalar type
+	typedef scalar_type this_scalar_type;
+	//! decayed scalar type (removes refs/etc.)
+	typedef decay_t<scalar_type> decayed_scalar_type;
+	//! this vector type
+	typedef vector3<scalar_type> this_vector_type;
+	//! decayed vector type (with decayed_scalar_type)
+	typedef vector3<decayed_scalar_type> decayed_vector_type;
 	
+	//! quaternion 3D vector component
+	vector3<scalar_type> v;
+	//! quaternion real component
+	scalar_type r;
+	
+	//////////////////////////////////////////
+	// constructors and assignment operators
+#pragma mark constructors and assignment operators
+	
+	//! constructs an identity quaternion
+	constexpr quaternion() noexcept : v(scalar_type(0)), r(scalar_type(1)) {}
+	
+	//! constructs a quaternion with the vector component set to 'vec' and the real component set to 'r_'
+	constexpr quaternion(const vector3<scalar_type>& vec, const scalar_type& r_) noexcept : v(vec), r(r_) {}
+	
+	//! constructs a quaternion with the vector component set to (x, y, z) and the real component set to 'r_'
+	constexpr quaternion(const scalar_type& x, const scalar_type& y, const scalar_type& z, const scalar_type& r_) noexcept :
+	v(x, y, z), r(r_) {}
+	
+	//! copy-construct from same quaternion type
+	constexpr quaternion(const quaternion& q) noexcept : v(q.v), r(q.r) {}
+	
+	//! copy-construct from same quaternion type (rvalue)
+	constexpr quaternion(quaternion&& q) noexcept : v(q.v), r(q.r) {}
+	
+	//! copy-construct from same quaternion type (pointer)
+	constexpr quaternion(const quaternion* q) noexcept : v(q->v), r(q->r) {}
+	
+	//! copy assignment
+	constexpr quaternion& operator=(const quaternion& q) {
+		v = q.v;
+		r = q.r;
+		return *this;
+	}
+	
+	//////////////////////////////////////////
+	// I/O
+#pragma mark I/O
+
 #if !defined(FLOOR_NO_MATH_STR)
+	//! ostream output of this quaternion
 	friend ostream& operator<<(ostream& output, const quaternion& q) {
-		output << "(" << q.r << ": " << q.x << ", " << q.y << ", " << q.z << ")";
+		output << "(" << q.r << ": " << q.v << ")";
 		return output;
 	}
+	
+	//! returns a string representation of this quaternion
 	string to_string() const {
 		stringstream sstr;
 		sstr << *this;
@@ -53,213 +96,229 @@ public:
 	}
 #endif
 	
-	constexpr quaternion operator+(const quaternion& q) const;
-	constexpr quaternion operator-(const quaternion& q) const;
-	constexpr quaternion operator*(const quaternion& q) const;
-	constexpr quaternion operator*(const T& f) const;
-	constexpr quaternion operator/(const quaternion& q) const;
-	constexpr quaternion operator/(const T& f) const;
-	constexpr quaternion& operator=(const quaternion& q);
-	constexpr quaternion& operator+=(const quaternion& q);
-	constexpr quaternion& operator-=(const quaternion& q);
-	constexpr quaternion& operator*=(const quaternion& q);
-	constexpr quaternion& operator*=(const T& f);
-	constexpr quaternion& operator/=(const quaternion& q);
-	constexpr quaternion& operator/=(const T& f);
+	//////////////////////////////////////////
+	// basic ops
+#pragma mark basic ops
 	
-	//
-	constexpr T magnitude() const;
+	//! adds this quaternion to 'q' and returns the result
+	constexpr quaternion operator+(const quaternion& q) const {
+		return { v + q.v, r + q.r };
+	}
 	
-	constexpr quaternion& invert();
-	constexpr quaternion inverted() const;
+	//! adds this quaternion to 'q' and sets this quaternion to the result
+	constexpr quaternion& operator+=(const quaternion& q) {
+		v += q.v;
+		r += q.r;
+		return *this;
+	}
 	
-	constexpr quaternion& conjugate();
-	constexpr quaternion conjugated() const;
+	//! subtracts 'q' from this quaternion and returns the result
+	constexpr quaternion operator-(const quaternion& q) const {
+		return { v - q.v, r - q.r };
+	}
 	
-	constexpr quaternion& normalize();
-	constexpr quaternion normalized() const;
+	//! subtracts 'q' from this quaternion and sets this quaternion to the result
+	constexpr quaternion& operator-=(const quaternion& q) {
+		v -= q.v;
+		r -= q.r;
+		return *this;
+	}
 	
-	constexpr quaternion& compute_r();
+	//! multiplies this quaternion with 'q' and returns the result
+	constexpr quaternion operator*(const quaternion& q) const {
+		return {
+			r * q.v + q.r * v + v.crossed(q.v),
+			r * q.r - v.dot(q.v)
+		};
+	}
+
+	//! scales/multiplies each vector component and the quaternion real part with 'f' and returns the result
+	constexpr quaternion operator*(const scalar_type& f) const {
+		return { v * f, r * f };
+	}
 	
-	constexpr vector3<T> rotate(const vector3<T>& v) const;
-	constexpr quaternion& set_rotation(const T& a, const vector3<T>& v);
-	constexpr quaternion& set_rotation(const T& a, const T& i, const T& j, const T& k);
+	//! multiplies this quaternion with 'q' and sets this quaternion to the result
+	constexpr quaternion& operator*=(const quaternion& q) {
+		*this = *this * q;
+		return *this;
+	}
 	
-	//
-	constexpr vector3<T> to_euler() const;
-	constexpr matrix4<T> to_matrix4() const;
-	constexpr quaternion& from_euler(const vector3<T>& v);
+	//! scales/multiplies each vector component and the quaternion real part with 'f' and sets this quaternion to the result
+	constexpr quaternion& operator*=(const scalar_type& f) {
+		*this = *this * f;
+		return *this;
+	}
+	
+	//! divides this quaternion by 'q' (multiplies with 'q's inverted form) and returns the result
+	constexpr quaternion operator/(const quaternion& q) const {
+		return *this * q.inverted();
+	}
+	
+	//! divides ("scales") each vector component and the quaternion real part by 'f' and returns the result
+	constexpr quaternion operator/(const scalar_type& f) const {
+		// rather perform 1 division instead of 4
+		const auto one_div_f = scalar_type(1) / f;
+		return { v * one_div_f, r * one_div_f };
+	}
+	
+	//! divides this quaternion by 'q' (multiplies with 'q's inverted form) and sets this quaternion to the result
+	constexpr quaternion& operator/=(const quaternion& q) {
+		*this = *this / q;
+		return *this;
+	}
+	
+	//! divides ("scales") each vector component and the quaternion real part by 'f' and sets this quaternion to the result
+	constexpr quaternion& operator/=(const scalar_type& f) {
+		*this = *this / f;
+		return *this;
+	}
+	
+	//! computes the magnitude of this quaternion
+	constexpr scalar_type magnitude() const {
+		return vector_helper<scalar_type>::sqrt(r * r + v.dot());
+	}
+	
+	//! computes the "1 / magnitude" of this quaternion
+	constexpr scalar_type inv_magnitude() const {
+		return vector_helper<scalar_type>::inv_sqrt(r * r + v.dot());
+	}
+	
+	//! inverts this quaternion
+	constexpr quaternion& invert() {
+		*this = inverted();
+		return *this;
+	}
+	
+	//! returns the inverted form of this quaternion
+	constexpr quaternion inverted() const {
+		return conjugated() / (r * r + v.dot());
+	}
+	
+	//! conjugates this quaternion (flip v)
+	constexpr quaternion& conjugate() {
+		v = -v;
+		return *this;
+	}
+
+	//! returns the conjugated form of this quaternion
+	constexpr quaternion conjugated() const {
+		return { -v, r };
+	}
+	
+	//! normalizes this quaternion
+	constexpr quaternion& normalize() {
+		*this *= inv_magnitude();
+		return *this;
+	}
+	
+	//! returns the normalized form of this quaternion
+	constexpr quaternion normalized() const {
+		return *this * inv_magnitude();
+	}
+	
+	//! computes the r component for this quaternion when only the vector component has been set (used for compression)
+	constexpr quaternion& compute_r() {
+		const scalar_type val = scalar_type(1) - v.dot();
+		r = (val < scalar_type(0) ? scalar_type(0) : -vector_helper<scalar_type>::sqrt(val));
+		return *this;
+	}
+	
+	//! rotates to the specified vector 'vec' and sets this quaternion to the resulting quaternion
+	constexpr quaternion& rotate(const vector3<scalar_type>& vec) {
+		*this = rotated(vec);
+		return *this;
+	}
+
+	//! rotates to the specified vector 'vec' and returns the resulting quaternion
+	constexpr quaternion rotated(const vector3<scalar_type>& vec) const {
+		return (*this * quaternion { vec, scalar_type(0) } * conjugated());
+	}
+
+	//! rotates the specified vector 'vec' according to this quaternion and returns the result
+	constexpr vector3<scalar_type> rotate_vector(const vector3<scalar_type>& vec) const {
+		return (*this * quaternion { vec, scalar_type(0) } * conjugated()).v;
+	}
+	
+	//! converts the rotation of this quaternion to euler angles
+	constexpr vector3<scalar_type> to_euler() const {
+		// http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Conversion
+		return {
+			vector_helper<scalar_type>::atan2(scalar_type(2) * (r * v.x + v.y * v.z),
+											  scalar_type(1) - scalar_type(2) * (v.x * v.x + v.y * v.y)),
+			vector_helper<scalar_type>::asin(scalar_type(2) * (r * v.y - v.z * v.x)),
+			vector_helper<scalar_type>::atan2(scalar_type(2) * (r * v.z + v.x * v.y),
+											  scalar_type(1) - scalar_type(2) * (v.y * v.y + v.z * v.z))
+		};
+	}
+	
+	//! converts the rotation of this quaternion to a 4x4 matrix
+	constexpr matrix4<scalar_type> to_matrix4() const {
+		// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
+		const auto xx = v.x * v.x;
+		const auto yy = v.y * v.y;
+		const auto zz = v.z * v.z;
+		
+		return {
+			scalar_type(1) - scalar_type(2) * yy - scalar_type(2) * zz,
+			scalar_type(2) * (v.x * v.y - v.z * r),
+			scalar_type(2) * (v.x * v.z + v.y * r),
+			scalar_type(0),
+			
+			scalar_type(2) * (v.x * v.y + v.z * r),
+			scalar_type(1) - scalar_type(2) * xx - scalar_type(2) * zz,
+			scalar_type(2) * (v.y * v.z - v.x * r),
+			scalar_type(0),
+			
+			scalar_type(2) * (v.x * v.z - v.y * r),
+			scalar_type(2) * (v.y * v.z + v.x * r),
+			scalar_type(1) - scalar_type(2) * xx - scalar_type(2) * yy,
+			scalar_type(0),
+			
+			scalar_type(0),
+			scalar_type(0),
+			scalar_type(0),
+			scalar_type(1)
+		};
+	}
+	
+	//////////////////////////////////////////
+	// static quaternion creation functions
+#pragma mark static quaternion creation functions
+	
+	//! creates a quaternion from the specified radian angle 'rad_angle' and axis vector 'vec'
+	static constexpr quaternion rotation(const scalar_type& rad_angle, const vector3<scalar_type>& vec) {
+		const auto rad_angle_2 = rad_angle * 0.5f;
+		return {
+			vec.normalized() * vector_helper<scalar_type>::sin(rad_angle_2),
+			vector_helper<scalar_type>::cos(rad_angle_2)
+		};
+	}
+	
+	//! creates a quaternion from the specified degrees angle 'deg_angle' and axis vector 'vec'
+	static constexpr quaternion rotation_deg(const scalar_type& deg_angle, const vector3<scalar_type>& vec) {
+		// note that this already performs the later division by 2
+		const auto rad_angle = const_math::PI_DIV_360<scalar_type> * deg_angle;
+		return {
+			vec.normalized() * vector_helper<scalar_type>::sin(rad_angle),
+			vector_helper<scalar_type>::cos(rad_angle)
+		};
+	}
+	
 };
 
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator+(const quaternion& q) const {
-	return { x + q.x, y + q.y, z + q.z, r + q.r };
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator-(const quaternion& q) const {
-	return { x - q.x, y - q.y, z - q.z, r - q.r };
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator*(const quaternion& q) const {
-	return {
-		r * q.x + x * q.r + y * q.z - z * q.y,
-		r * q.y - x * q.z + y * q.r + z * q.x,
-		r * q.z + x * q.y - y * q.x + z * q.r,
-		r * q.r - x * q.x - y * q.y - z * q.z
-	};
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator*(const T& f) const {
-	return { x * f, y * f, z * f, r * f };
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator/(const quaternion& q) const {
-	return *this * q.inverted();
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::operator/(const T& f) const {
-	return { x / f, y / f, z / f, r / f };
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator=(const quaternion& q) {
-	x = q.x;
-	y = q.y;
-	z = q.z;
-	r = q.r;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator+=(const quaternion& q) {
-	x += q.x;
-	y += q.y;
-	z += q.z;
-	r += q.r;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator-=(const quaternion& q) {
-	x -= q.x;
-	y -= q.y;
-	z -= q.z;
-	r -= q.r;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator*=(const quaternion& q) {
-	*this = *this * q;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator*=(const T& f) {
-	*this = *this * f;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator/=(const quaternion& q) {
-	*this = *this * q.inverted();
-  	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::operator/=(const T& f) {
-	*this = *this / f;
-	return *this;
-}
-
-template<typename T> constexpr T quaternion<T>::magnitude() const {
-	return const_select::sqrt(r * r + x * x + y * y + z * z);
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::inverted() const {
-	return conjugated() / (r * r + x * x + y * y + z * z);
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::conjugated() const {
-	return { -x, -y, -z, r };
-}
-
-template<typename T> constexpr quaternion<T> quaternion<T>::normalized() const {
-	return *this / magnitude();
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::invert() {
-	*this = conjugated() / (r * r + x * x + y * y + z * z);
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::conjugate() {
-	x = -x;
-	y = -y;
-	z = -z;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::normalize() {
-	*this /= magnitude();
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::compute_r() {
-	const T val = ((T)1) - (x * x) - (y * y) - (z * z);
-	r = (val < ((T)0) ? ((T)0) : -const_select::sqrt(val));
-	return *this;
-}
-
-template<typename T> constexpr vector3<T> quaternion<T>::rotate(const vector3<T>& v) const {
-	const auto qvec2 = *this * quaternion<T> { v.x, v.y, v.z, (T)0 } * conjugated();
-	return { qvec2.x, qvec2.y, qvec2.z };
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::set_rotation(const T& a, const vector3<T>& v) {
-	const auto angle = a * const_math::PI_DIV_360<T>;
-	const auto sin_a = const_select::sin(angle);
-	const auto cos_a = const_select::cos(angle);
-	const auto nv_sin = v.normalized() * sin_a;
-	x = nv_sin.x;
-	y = nv_sin.y;
-	z = nv_sin.z;
-	r = cos_a;
-	return *this;
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::set_rotation(const T& a, const T& i, const T& j, const T& k) {
-	return set_rotation(a, vector3<T> { i, j, k });
-}
-
-template<typename T> constexpr vector3<T> quaternion<T>::to_euler() const {
-	// http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles#Conversion
-	return {
-		const_select::atan2(((T)2) * (r * x + y * z), ((T)1) - ((T)2) * (x * x + y * y)),
-		const_select::asin(((T)2) * (r * y - z * x)),
-		const_select::atan2(((T)2) * (r * z + x * y), ((T)1) - ((T)2) * (y * y + z * z))
-	};
-}
-
-template<typename T> constexpr matrix4<T> quaternion<T>::to_matrix4() const {
-	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToMatrix/index.htm
-	const auto xx = x * x;
-	const auto yy = y * y;
-	const auto zz = z * z;
-	
-	return {
-		((T)1) - ((T)2) * yy - ((T)2) * zz, ((T)2) * (x * y - z * r), ((T)2) * (x * z + y * r), ((T)0),
-		((T)2) * (x * y + z * r), ((T)1) - ((T)2) * xx - ((T)2) * zz, ((T)2) * (y * z - x * r), ((T)0),
-		((T)2) * (x * z - y * r), ((T)2) * (y * z + x * r), ((T)1) - ((T)2) * xx - ((T)2) * yy, ((T)0),
-		((T)0), ((T)0), ((T)0), ((T)1)
-	};
-}
-
-template<typename T> constexpr quaternion<T>& quaternion<T>::from_euler(const vector3<T>& v) {
-	x = const_select::sin((v.x - v.z) / ((T)2)) / const_select::sin(v.y / ((T)2));
-	y = -const_select::sin((v.x + v.z) / ((T)2)) / const_select::cos(v.y / ((T)2));
-	z = const_select::cos((v.x + v.z) / ((T)2)) / const_select::cos(v.y / ((T)2));
-	r = -const_select::cos((v.x - v.z) / ((T)2)) / const_select::sin(v.y / ((T)2));
-	return *this;
-}
+typedef quaternion<float> quaternionf;
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE) // disable double + long double if specified
+typedef quaternion<double> quaterniond;
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // always disable long double on compute platforms (except host)
+typedef quaternion<long double> quaternionl;
+#endif
+#endif
 
 #if defined(FLOOR_EXPORT)
 // only instantiate this in the quaternion.cpp
 extern template class quaternion<float>;
 extern template class quaternion<double>;
+extern template class quaternion<long double>;
 #endif
 		
 FLOOR_POP_WARNINGS()

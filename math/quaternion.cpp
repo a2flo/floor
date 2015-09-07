@@ -22,4 +22,5 @@
 // instantiate
 template class quaternion<float>;
 template class quaternion<double>;
+template class quaternion<long double>;
 #endif

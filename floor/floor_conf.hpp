@@ -60,7 +60,10 @@
 
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
+// NOTE: don't enable this for compute (these won't compile the necessary .cpp files)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #define FLOOR_EXPORT 1
+#endif
 
 // if defined, this will create opencl command queues with enabled profiling and will output profiling
 // information after each kernel execution (times between queued, submit, start and end)
