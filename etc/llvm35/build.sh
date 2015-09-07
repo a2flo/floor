@@ -1,6 +1,6 @@
 #!/bin/sh
 
-RELEASE=3.5.1
+RELEASE=3.5.2
 
 # download src archives (if not already done)
 if [ ! -f llvm-${RELEASE}.src.tar.xz ]; then

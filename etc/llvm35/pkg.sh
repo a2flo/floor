@@ -1,6 +1,6 @@
 #!/bin/sh
 
-RELEASE=3.5.1
+RELEASE=3.5.2
 
 VERSION=$(date +%Y%m%d_%H%M)
 mkdir compute_clang_${VERSION}
