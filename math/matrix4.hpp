@@ -490,7 +490,7 @@ public:
 	
 	//! returns a matrix that is rotated by 'rad_angle' radians on the specified axis ('x', 'y' or 'z')
 	template <char axis>
-	static constexpr matrix4 rotation(const scalar_type rad_angle) {
+	static constexpr matrix4 rotation_named(const scalar_type rad_angle) {
 		static_assert(axis == 'x' || axis == 'y' || axis == 'z', "axis must be x, y or z");
 		switch(axis) {
 			case 'x': return rotation<0>(rad_angle);
@@ -508,8 +508,8 @@ public:
 	
 	//! returns a matrix that is rotated by 'deg_angle' degrees on the specified axis ('x', 'y' or 'z')
 	template <char axis>
-	static constexpr matrix4 rotation_deg(const scalar_type deg_angle) {
-		return rotation<axis>(const_math::deg_to_rad(deg_angle));
+	static constexpr matrix4 rotation_deg_named(const scalar_type deg_angle) {
+		return rotation_named<axis>(const_math::deg_to_rad(deg_angle));
 	}
 	
 	//! returns a perspective projection matrix according to the specified parameters
