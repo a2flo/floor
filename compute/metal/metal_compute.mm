@@ -158,9 +158,7 @@ typedef struct {
 @property(readonly, retain, nonatomic) NSMutableDictionary *functionDictionary;
 @end
 
-void metal_compute::init(const uint64_t platform_index_ floor_unused,
-						 const bool gl_sharing floor_unused,
-						 const unordered_set<string> whitelist) {
+metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_context() {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
 	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();

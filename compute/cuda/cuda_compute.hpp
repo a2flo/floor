@@ -36,11 +36,9 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	~cuda_compute() override {}
+	cuda_compute(const unordered_set<string> whitelist = {});
 	
-	void init(const uint64_t platform_index = ~0ull,
-			  const bool gl_sharing = false,
-			  const unordered_set<string> whitelist = {}) override;
+	~cuda_compute() override {}
 	
 	bool is_supported() const override { return supported; }
 	

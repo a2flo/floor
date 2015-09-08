@@ -23,10 +23,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-// NOTE: platform index and gl sharing flag are ignored in cuda mode (they make no sense there)
-void cuda_compute::init(const uint64_t platform_index floor_unused,
-						const bool gl_sharing floor_unused,
-						const unordered_set<string> whitelist) {
+cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
 	// init cuda api functions

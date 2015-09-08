@@ -368,7 +368,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 		}
 		
 		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
-		extract_whitelist(config.host_whitelist, "compute.host.whitelist");
 	}
 	
 	// init logger and print out floor info
@@ -699,21 +698,23 @@ void floor::init_internal(const bool use_gl33
 #if !defined(FLOOR_NO_CUDA)
 					if(!config.cuda_toolchain_exists) break;
 					log_debug("initializing CUDA ...");
-					compute_ctx = make_shared<cuda_compute>();
+					compute_ctx = make_shared<cuda_compute>(config.cuda_whitelist);
 #endif
 					break;
 				case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
 					if(!config.opencl_toolchain_exists) break;
 					log_debug("initializing OpenCL ...");
-					compute_ctx = make_shared<opencl_compute>();
+					compute_ctx = make_shared<opencl_compute>(config.opencl_platform,
+															  config.gl_sharing & !console_only,
+															  config.opencl_whitelist);
 #endif
 					break;
 				case COMPUTE_TYPE::METAL:
 #if !defined(FLOOR_NO_METAL)
 					if(!config.metal_toolchain_exists) break;
 					log_debug("initializing Metal ...");
-					compute_ctx = make_shared<metal_compute>();
+					compute_ctx = make_shared<metal_compute>(config.metal_whitelist);
 #endif
 					break;
 				case COMPUTE_TYPE::HOST:
@@ -726,14 +727,6 @@ void floor::init_internal(const bool use_gl33
 			}
 			
 			if(compute_ctx != nullptr) {
-				compute_ctx->init(config.opencl_platform,
-								  config.gl_sharing & !console_only,
-								  backend == COMPUTE_TYPE::OPENCL ? config.opencl_whitelist :
-								  backend == COMPUTE_TYPE::CUDA ? config.cuda_whitelist :
-								  backend == COMPUTE_TYPE::METAL ? config.metal_whitelist :
-								  backend == COMPUTE_TYPE::HOST ? config.host_whitelist :
-								  unordered_set<string> {});
-				
 				if(!compute_ctx->is_supported()) {
 					log_error("failed to create a \"%s\" context, trying next backend ...", compute_type_to_string(backend));
 					compute_ctx = nullptr;
@@ -1327,9 +1320,6 @@ const string& floor::get_metal_dis() {
 	return config.metal_dis;
 }
 
-const unordered_set<string>& floor::get_host_whitelist() {
-	return config.host_whitelist;
-}
 const string& floor::get_execution_model() {
 	return config.execution_model;
 }

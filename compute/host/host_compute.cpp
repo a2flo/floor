@@ -43,9 +43,7 @@
 #include <cpuid.h>
 #endif
 
-void host_compute::init(const uint64_t platform_index_ floor_unused,
-						const bool gl_sharing floor_unused,
-						const unordered_set<string> whitelist floor_unused) {
+host_compute::host_compute() : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//

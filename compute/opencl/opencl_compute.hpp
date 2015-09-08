@@ -36,11 +36,11 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	~opencl_compute() override {}
+	opencl_compute(const uint64_t platform_index = ~0ull,
+				   const bool gl_sharing = false,
+				   const unordered_set<string> whitelist = {});
 	
-	void init(const uint64_t platform_index = ~0ull,
-			  const bool gl_sharing = false,
-			  const unordered_set<string> whitelist = {}) override;
+	~opencl_compute() override {}
 	
 	bool is_supported() const override { return supported; }
 	

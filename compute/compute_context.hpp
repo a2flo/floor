@@ -44,11 +44,6 @@ public:
 	//! unfortunately necessary, has empty body in .cpp
 	virtual ~compute_context() = 0;
 	
-	//! initializes the compute context/object
-	virtual void init(const uint64_t platform_index = ~0ull,
-					  const bool gl_sharing = false,
-					  const unordered_set<string> whitelist = {}) = 0;
-	
 	//! returns true if there is compute support (i.e. a compute context could be created and available compute devices exist)
 	virtual bool is_supported() const = 0;
 	

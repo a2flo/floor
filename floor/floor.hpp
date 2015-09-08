@@ -196,7 +196,6 @@ public:
 	static const string& get_metal_dis();
 	
 	// host
-	static const unordered_set<string>& get_host_whitelist();
 	static const string& get_execution_model();
 	
 	// compute (opencl/cuda/metal/host)
@@ -298,7 +297,6 @@ protected:
 		
 		// host
 		string host_base_path = "";
-		unordered_set<string> host_whitelist;
 		string execution_model = "mt-group";
 
 		// sdl

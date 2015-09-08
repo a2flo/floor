@@ -34,9 +34,9 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-void opencl_compute::init(const uint64_t platform_index_,
-						  const bool gl_sharing,
-						  const unordered_set<string> whitelist) {
+opencl_compute::opencl_compute(const uint64_t platform_index_,
+							   const bool gl_sharing,
+							   const unordered_set<string> whitelist) : compute_context() {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
 	
