@@ -33,10 +33,6 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 			flags &= ~COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY;
 		}
 	}
-	else {
-		// clear out opengl flags, just in case
-		flags &= ~COMPUTE_MEMORY_FLAG::OPENGL_SHARING;
-	}
 	
 	// handle read/write flags
 	if((flags & COMPUTE_MEMORY_FLAG::READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {

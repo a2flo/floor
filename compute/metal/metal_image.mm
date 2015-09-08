@@ -92,8 +92,184 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	}
 }
 
+static uint4 compute_metal_image_dim(id <MTLTexture> img) {
+	// start with straightforward copy, some of these may be 0
+	uint4 dim = { (uint32_t)[img width], (uint32_t)[img height], (uint32_t)[img depth], 0 };
+	
+	// set layer count for array formats
+	const auto texture_type = [img textureType];
+	const auto layer_count = (uint32_t)[img arrayLength];
+	if(texture_type == MTLTextureType1DArray) dim.y = layer_count;
+	else if(texture_type == MTLTextureType2DArray ||
+			texture_type == MTLTextureTypeCubeArray) {
+		dim.z = layer_count;
+	}
+	
+	return dim;
+}
+
+static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> img, const COMPUTE_MEMORY_FLAG flags) {
+	COMPUTE_IMAGE_TYPE type { COMPUTE_IMAGE_TYPE::NONE };
+	
+	if([img isFramebufferOnly]) {
+		log_error("metal image can only be used as a framebuffer");
+		return COMPUTE_IMAGE_TYPE::NONE;
+	}
+	
+	// start with the base format
+	switch([img textureType]) {
+		case MTLTextureType1D: type = COMPUTE_IMAGE_TYPE::IMAGE_1D; break;
+		case MTLTextureType1DArray: type = COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY; break;
+		case MTLTextureType2D: type = COMPUTE_IMAGE_TYPE::IMAGE_2D; break;
+		case MTLTextureType2DArray: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY; break;
+		case MTLTextureType2DMultisample: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA; break;
+		case MTLTextureType3D: type = COMPUTE_IMAGE_TYPE::IMAGE_3D; break;
+		case MTLTextureTypeCube: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE; break;
+		case MTLTextureTypeCubeArray: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY; break;
+		
+		// yay for forwards compatibility, or at least detecting that something is wrong(tm) ...
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(covered-switch-default)
+		default:
+			log_error("invalid or unknown metal texture type: %X", [img textureType]);
+			return COMPUTE_IMAGE_TYPE::NONE;
+FLOOR_POP_WARNINGS()
+	}
+	
+	// handle the pixel format
+	static const unordered_map<MTLPixelFormat, COMPUTE_IMAGE_TYPE> format_lut {
+		// R
+		{ MTLPixelFormatR8Unorm, COMPUTE_IMAGE_TYPE::R8UI_NORM },
+		{ MTLPixelFormatR8Snorm, COMPUTE_IMAGE_TYPE::R8I_NORM },
+		{ MTLPixelFormatR8Uint, COMPUTE_IMAGE_TYPE::R8UI },
+		{ MTLPixelFormatR8Sint, COMPUTE_IMAGE_TYPE::R8I },
+		{ MTLPixelFormatR16Unorm, COMPUTE_IMAGE_TYPE::R16UI_NORM },
+		{ MTLPixelFormatR16Snorm, COMPUTE_IMAGE_TYPE::R16I_NORM },
+		{ MTLPixelFormatR16Uint, COMPUTE_IMAGE_TYPE::R16UI },
+		{ MTLPixelFormatR16Sint, COMPUTE_IMAGE_TYPE::R16I },
+		{ MTLPixelFormatR16Float, COMPUTE_IMAGE_TYPE::R16F },
+		{ MTLPixelFormatR32Uint, COMPUTE_IMAGE_TYPE::R32UI },
+		{ MTLPixelFormatR32Sint, COMPUTE_IMAGE_TYPE::R32I },
+		{ MTLPixelFormatR32Float, COMPUTE_IMAGE_TYPE::R32F },
+		// RG
+		{ MTLPixelFormatRG8Unorm, COMPUTE_IMAGE_TYPE::RG8UI_NORM },
+		{ MTLPixelFormatRG8Snorm, COMPUTE_IMAGE_TYPE::RG8I_NORM },
+		{ MTLPixelFormatRG8Uint, COMPUTE_IMAGE_TYPE::RG8UI },
+		{ MTLPixelFormatRG8Sint, COMPUTE_IMAGE_TYPE::RG8I },
+		{ MTLPixelFormatRG16Unorm, COMPUTE_IMAGE_TYPE::RG16UI_NORM },
+		{ MTLPixelFormatRG16Snorm, COMPUTE_IMAGE_TYPE::RG16I_NORM },
+		{ MTLPixelFormatRG16Uint, COMPUTE_IMAGE_TYPE::RG16UI },
+		{ MTLPixelFormatRG16Sint, COMPUTE_IMAGE_TYPE::RG16I },
+		{ MTLPixelFormatRG16Float, COMPUTE_IMAGE_TYPE::RG16F },
+		{ MTLPixelFormatRG32Uint, COMPUTE_IMAGE_TYPE::RG32UI },
+		{ MTLPixelFormatRG32Sint, COMPUTE_IMAGE_TYPE::RG32I },
+		{ MTLPixelFormatRG32Float, COMPUTE_IMAGE_TYPE::RG32F },
+		// RGBA
+		{ MTLPixelFormatRGBA8Unorm, COMPUTE_IMAGE_TYPE::RGBA8UI_NORM },
+		{ MTLPixelFormatRGBA8Snorm, COMPUTE_IMAGE_TYPE::RGBA8I_NORM },
+		{ MTLPixelFormatRGBA8Uint, COMPUTE_IMAGE_TYPE::RGBA8UI },
+		{ MTLPixelFormatRGBA8Sint, COMPUTE_IMAGE_TYPE::RGBA8I },
+		{ MTLPixelFormatRGBA16Unorm, COMPUTE_IMAGE_TYPE::RGBA16UI_NORM },
+		{ MTLPixelFormatRGBA16Snorm, COMPUTE_IMAGE_TYPE::RGBA16I_NORM },
+		{ MTLPixelFormatRGBA16Uint, COMPUTE_IMAGE_TYPE::RGBA16UI },
+		{ MTLPixelFormatRGBA16Sint, COMPUTE_IMAGE_TYPE::RGBA16I },
+		{ MTLPixelFormatRGBA16Float, COMPUTE_IMAGE_TYPE::RGBA16F },
+		{ MTLPixelFormatRGBA32Uint, COMPUTE_IMAGE_TYPE::RGBA32UI },
+		{ MTLPixelFormatRGBA32Sint, COMPUTE_IMAGE_TYPE::RGBA32I },
+		{ MTLPixelFormatRGBA32Float, COMPUTE_IMAGE_TYPE::RGBA32F },
+		// BGRA
+		{ MTLPixelFormatBGRA8Unorm, COMPUTE_IMAGE_TYPE::BGRA8UI_NORM },
+		// depth / depth+stencil
+		{ MTLPixelFormatDepth32Float, (COMPUTE_IMAGE_TYPE::FLOAT |
+									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
+									   COMPUTE_IMAGE_TYPE::FORMAT_32 |
+									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
+#if !defined(FLOOR_IOS) // os x only (or ios 9)
+		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
+												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
+												COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
+												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+		{ MTLPixelFormatDepth32Float_Stencil8, (COMPUTE_IMAGE_TYPE::FLOAT |
+												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
+												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
+												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+#endif
+	};
+	const auto metal_format = format_lut.find([img pixelFormat]);
+	if(metal_format == end(format_lut)) {
+		log_error("unsupported image pixel format: %X", [img pixelFormat]);
+		return COMPUTE_IMAGE_TYPE::NONE;
+	}
+	type |= metal_format->second;
+	
+	// handle read/write flags
+	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) type |= COMPUTE_IMAGE_TYPE::READ;
+	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) type |= COMPUTE_IMAGE_TYPE::WRITE;
+	if(!has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
+		// assume read/write if no flags are set
+		type |= COMPUTE_IMAGE_TYPE::READ_WRITE;
+	}
+	
+	// handle mip-mapping / msaa flags (although both are possible with == 1 as well)
+	if([img mipmapLevelCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
+	if([img sampleCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
+	
+	// can only do this on os x (not that it matters much)
+#if !defined(FLOOR_IOS)
+	if(([img usage] & MTLTextureUsageRenderTarget) != 0) {
+		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER;
+	}
+#endif
+	
+	return type;
+}
+
+metal_image::metal_image(shared_ptr<compute_device> device,
+						 id <MTLTexture> external_image,
+						 void* host_ptr_,
+						 const COMPUTE_MEMORY_FLAG flags_) :
+compute_image(device.get(), compute_metal_image_dim(external_image), compute_metal_image_type(external_image, flags_),
+			  host_ptr_, flags_, 0, 0, nullptr), image(external_image), is_external(true) {
+	// device must match
+	if(((metal_device*)device.get())->device != [external_image device]) {
+		log_error("specified metal device does not match the device set in the external image");
+		return;
+	}
+	
+	// copy existing options
+	options = [image cpuCacheMode];
+	
+#if !defined(FLOOR_IOS)
+	switch([image storageMode]) {
+		case MTLStorageModeShared:
+			options |= MTLResourceStorageModeShared;
+			break;
+		case MTLStorageModeManaged:
+			options |= MTLResourceStorageModeManaged;
+			break;
+		case MTLStorageModePrivate:
+			options |= MTLResourceStorageModePrivate;
+			break;
+	}
+	
+	usage_options = [image usage];
+	storage_options = [image storageMode];
+#endif
+	
+	// shim type is unnecessary here
+	shim_image_type = image_type;
+}
+
 bool metal_image::create_internal(const bool copy_host_data, const metal_device* device, const compute_queue* cqueue) {
 	// NOTE: opengl sharing flag is ignored, because there is no metal/opengl sharing and metal can interop with itself w/o explicit sharing
+	
+	// should not be called under that condition, but just to be safe
+	if(is_external) {
+		log_error("image is external!");
+		return false;
+	}
 	
 	// create an appropriate texture descriptor
 	desc = [[MTLTextureDescriptor alloc] init];

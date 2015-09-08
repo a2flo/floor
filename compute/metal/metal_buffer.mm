@@ -77,7 +77,50 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 }
 
+metal_buffer::metal_buffer(shared_ptr<compute_device> device,
+						   id <MTLBuffer> external_buffer,
+						   void* host_ptr_,
+						   const COMPUTE_MEMORY_FLAG flags_) :
+compute_buffer(device.get(), [external_buffer length], host_ptr_, flags_, 0, 0), buffer(external_buffer), is_external(true) {
+	// size _has_ to match and be valid/compatible (compute_buffer will try to fix the size, but it's obviously an external object)
+	// -> detect size mismatch and bail out
+	if(size != [external_buffer length]) {
+		log_error("can't wrap a buffer that has an incompatible size/length!");
+		return;
+	}
+	if(size < min_multiple()) return;
+	
+	// device must match
+	if(((metal_device*)device.get())->device != [external_buffer device]) {
+		log_error("specified metal device does not match the device set in the external buffer");
+		return;
+	}
+	
+	// copy existing options
+	options = [buffer cpuCacheMode];
+	
+#if !defined(FLOOR_IOS)
+	switch([buffer storageMode]) {
+		case MTLStorageModeShared:
+			options |= MTLResourceStorageModeShared;
+			break;
+		case MTLStorageModeManaged:
+			options |= MTLResourceStorageModeManaged;
+			break;
+		case MTLStorageModePrivate:
+			options |= MTLResourceStorageModePrivate;
+			break;
+	}
+#endif
+}
+
 bool metal_buffer::create_internal(const bool copy_host_data) {
+	// should not be called under that condition, but just to be safe
+	if(is_external) {
+		log_error("buffer is external!");
+		return false;
+	}
+	
 	// -> use host memory
 	if(has_flag<COMPUTE_MEMORY_FLAG::USE_HOST_MEMORY>(flags)) {
 		buffer = [((metal_device*)dev)->device newBufferWithBytesNoCopy:host_ptr length:size options:options

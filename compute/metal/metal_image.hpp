@@ -28,6 +28,7 @@
 #include <Metal/Metal.h>
 
 class metal_device;
+class compute_device;
 class metal_image final : public compute_image {
 public:
 	metal_image(const metal_device* device,
@@ -38,6 +39,13 @@ public:
 				const uint32_t opengl_type = 0,
 				const uint32_t external_gl_object_ = 0,
 				const opengl_image_info* gl_image_info = nullptr);
+	
+	//! wraps an already existing metal image, with the specified flags and backed by the specified host pointer
+	metal_image(shared_ptr<compute_device> device,
+				id <MTLTexture> external_image,
+				void* host_ptr = nullptr,
+				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
 	~metal_image() override;
 	
@@ -62,6 +70,7 @@ public:
 protected:
 	id <MTLTexture> image { nil };
 	MTLTextureDescriptor* desc { nil };
+	bool is_external { false };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	

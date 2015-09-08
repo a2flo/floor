@@ -28,6 +28,7 @@
 #include <Metal/Metal.h>
 
 class metal_device;
+class compute_device;
 class metal_buffer final : public compute_buffer {
 public:
 	metal_buffer(const metal_device* device,
@@ -60,6 +61,13 @@ public:
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				 const uint32_t opengl_type_ = 0) :
 	metal_buffer(device, sizeof(data_type) * n, (void*)&data[0], flags_, opengl_type_) {}
+	
+	//! wraps an already existing metal buffer, with the specified flags and backed by the specified host pointer
+	metal_buffer(shared_ptr<compute_device> device,
+				 id <MTLBuffer> external_buffer,
+				 void* host_ptr = nullptr,
+				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
+													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
 	
 	~metal_buffer() override;
 	
@@ -105,6 +113,7 @@ public:
 	
 protected:
 	id <MTLBuffer> buffer { nullptr };
+	bool is_external { false };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };
 	
