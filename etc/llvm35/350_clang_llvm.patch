@@ -2456,21 +2456,6 @@ index e6d6a33..3e7bdc1 100644
  def MSInheritanceDocs : Documentation {
    let Category = DocCatType;
    let Heading = "__single_inhertiance, __multiple_inheritance, __virtual_inheritance";
-diff --git a/tools/clang/include/clang/Basic/Builtins.def b/tools/clang/include/clang/Basic/Builtins.def
-index e705382..8d81d77 100644
---- a/tools/clang/include/clang/Basic/Builtins.def
-+++ b/tools/clang/include/clang/Basic/Builtins.def
-@@ -1210,6 +1210,10 @@ BUILTIN(__builtin_addressof, "v*v&", "nct")
- BUILTIN(__builtin_operator_new, "v*z", "c")
- BUILTIN(__builtin_operator_delete, "vv*", "n")
- 
-+// floor builtins.
-+BUILTIN(__builtin_image_type_compare, "i.", "nctu")
-+BUILTIN(__builtin_image_type_extract, "i.", "nctu")
-+
- #undef BUILTIN
- #undef LIBBUILTIN
- #undef LANGBUILTIN
 diff --git a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td b/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
 index 1665a45..3778e80 100644
 --- a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
@@ -2789,7 +2774,7 @@ index bccdae9..80a9618 100644
  
  bool ASTContext::isNearlyEmpty(const CXXRecordDecl *RD) const {
 diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
-index 7d7ca99..7db4b2e 100644
+index 7d7ca99..88f46dd 100644
 --- a/tools/clang/lib/AST/ExprConstant.cpp
 +++ b/tools/clang/lib/AST/ExprConstant.cpp
 @@ -835,7 +835,8 @@ CallStackFrame::~CallStackFrame() {
@@ -2870,92 +2855,6 @@ index 7d7ca99..7db4b2e 100644
      if (!Visit(SubExpr))
        return false;
      // Bitcasts to cv void* are static_casts, not reinterpret_casts, so are
-@@ -5849,6 +5877,74 @@ bool IntExprEvaluator::CheckReferencedDecl(const Expr* E, const Decl* D) {
-   return false;
- }
- 
-+/// EvaluateBuiltinImageTypeCompare - Evaluate __builtin_image_type_compare(expr, mask, cmp).
-+static int EvaluateBuiltinImageTypeCompare(ASTContext &Ctx, const CallExpr *E) {
-+	if(E->getNumArgs() != 3) return 0;
-+	const auto img_arg = E->getArg(0);
-+	const auto mask_arg = E->getArg(1);
-+	const auto cmp_arg = E->getArg(2);
-+	
-+	// mask and cmp must both be integer constant exprs (enum values, evaluable at compile-time)
-+	if(!mask_arg->isIntegerConstantExpr(Ctx)) {
-+		return 0;
-+	}
-+	if(!cmp_arg->isIntegerConstantExpr(Ctx)) {
-+		return 0;
-+	}
-+	
-+	llvm::APSInt mask_int, cmp_int;
-+	if(!mask_arg->EvaluateAsInt(mask_int, Ctx)) {
-+		return 0;
-+	}
-+	if(!cmp_arg->EvaluateAsInt(cmp_int, Ctx)) {
-+		return 0;
-+	}
-+	
-+	// image arg must be a template
-+	if(const auto img_tmpl_type = img_arg->getType()->getAs<TemplateSpecializationType>()) {
-+		if(img_tmpl_type->getNumArgs() < 1) return 0;
-+		if(auto img_tmpl_arg_expr = img_tmpl_type->getArg(0).getAsExpr()) {
-+			llvm::APSInt img_type_int;
-+			if(img_tmpl_arg_expr->EvaluateAsInt(img_type_int, Ctx)) {
-+				// note: all ints are unsigned 32-bit
-+				return ((uint32_t(img_type_int.getZExtValue()) & uint32_t(mask_int.getZExtValue())) ==
-+						uint32_t(cmp_int.getZExtValue()));
-+			}
-+		}
-+	}
-+	return 0;
-+}
-+
-+/// EvaluateBuiltinImageTypeExtract - Evaluate __builtin_image_type_extract(expr, mask).
-+static uint32_t EvaluateBuiltinImageTypeExtract(ASTContext &Ctx, const CallExpr *E) {
-+	if(E->getNumArgs() != 2) return 0;
-+	const auto img_arg = E->getArg(0);
-+	const auto mask_arg = E->getArg(1);
-+	
-+	// mask must be an integer constant expr (enum value, evaluable at compile-time)
-+	if(!mask_arg->isIntegerConstantExpr(Ctx)) {
-+		return 0;
-+	}
-+	
-+	llvm::APSInt mask_int;
-+	if(!mask_arg->EvaluateAsInt(mask_int, Ctx)) {
-+		return 0;
-+	}
-+	
-+	// image arg must be a template
-+	if(const auto img_tmpl_type = img_arg->getType()->getAs<TemplateSpecializationType>()) {
-+		if(img_tmpl_type->getNumArgs() < 1) return 0;
-+		if(auto img_tmpl_arg_expr = img_tmpl_type->getArg(0).getAsExpr()) {
-+			llvm::APSInt img_type_int;
-+			if(img_tmpl_arg_expr->EvaluateAsInt(img_type_int, Ctx)) {
-+				// note: all ints are unsigned 32-bit
-+				return uint32_t(img_type_int.getZExtValue()) & uint32_t(mask_int.getZExtValue());
-+			}
-+		}
-+	}
-+	return 0;
-+}
-+
- /// EvaluateBuiltinClassifyType - Evaluate __builtin_classify_type the same way
- /// as GCC.
- static int EvaluateBuiltinClassifyType(const CallExpr *E) {
-@@ -6263,6 +6359,10 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
-     return BuiltinOp == Builtin::BI__atomic_always_lock_free ?
-         Success(0, E) : Error(E);
-   }
-+  case Builtin::BI__builtin_image_type_compare:
-+    return Success(EvaluateBuiltinImageTypeCompare(Info.Ctx, E), E);
-+  case Builtin::BI__builtin_image_type_extract:
-+    return Success(EvaluateBuiltinImageTypeExtract(Info.Ctx, E), E);
-   }
- }
- 
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
 index 977d6fc..30f70da 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
@@ -5060,25 +4959,6 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
-diff --git a/tools/clang/lib/Sema/SemaChecking.cpp b/tools/clang/lib/Sema/SemaChecking.cpp
-index 66be962..59f659c 100644
---- a/tools/clang/lib/Sema/SemaChecking.cpp
-+++ b/tools/clang/lib/Sema/SemaChecking.cpp
-@@ -327,6 +327,14 @@ Sema::CheckBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
-     // so ensure that they are declared.
-     DeclareGlobalNewDelete();
-     break;
-+  case Builtin::BI__builtin_image_type_compare:
-+    if (checkArgCount(*this, TheCall, 3)) return true;
-+    TheCall->setType(Context.IntTy);
-+    break;
-+  case Builtin::BI__builtin_image_type_extract:
-+    if (checkArgCount(*this, TheCall, 2)) return true;
-+    TheCall->setType(Context.IntTy);
-+    break;
-   }
- 
-   // Since the target specific builtins for each arch overlap, only check those
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
 index 8716227..81dd1a8 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
