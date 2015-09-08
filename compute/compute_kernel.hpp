@@ -41,7 +41,7 @@ public:
 				 Args&&... args);
 	
 protected:
-	//! same as the one in compute_base, but this way we don't need access to that object
+	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
 	
 };

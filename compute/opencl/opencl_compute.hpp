@@ -23,7 +23,7 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/opencl/opencl_buffer.hpp>
 #include <floor/compute/opencl/opencl_image.hpp>
 #include <floor/compute/opencl/opencl_device.hpp>
@@ -31,7 +31,7 @@
 #include <floor/compute/opencl/opencl_program.hpp>
 #include <floor/compute/opencl/opencl_queue.hpp>
 
-class opencl_compute final : public compute_base {
+class opencl_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation

@@ -23,7 +23,7 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_device.hpp>
@@ -31,7 +31,7 @@
 #include <floor/compute/host/host_program.hpp>
 #include <floor/compute/host/host_queue.hpp>
 
-class host_compute final : public compute_base {
+class host_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation

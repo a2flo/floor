@@ -23,7 +23,7 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 #include <floor/compute/cuda/cuda_buffer.hpp>
 #include <floor/compute/cuda/cuda_image.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
@@ -31,7 +31,7 @@
 #include <floor/compute/cuda/cuda_program.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 
-class cuda_compute final : public compute_base {
+class cuda_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation

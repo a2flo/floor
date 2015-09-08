@@ -33,7 +33,7 @@
 // init statics
 event* floor::evt = nullptr;
 bool floor::console_only = false;
-shared_ptr<compute_base> floor::compute_ctx;
+shared_ptr<compute_context> floor::compute_ctx;
 unordered_set<string> floor::gl_extensions;
 
 struct floor::floor_config floor::config;
@@ -1334,7 +1334,7 @@ const string& floor::get_execution_model() {
 	return config.execution_model;
 }
 
-shared_ptr<compute_base> floor::get_compute_context() {
+shared_ptr<compute_context> floor::get_compute_context() {
 	return compute_ctx;
 }
 

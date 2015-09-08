@@ -23,10 +23,10 @@
 
 #if !defined(FLOOR_NO_METAL)
 
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 class metal_program;
 
-class metal_compute final : public compute_base {
+class metal_compute final : public compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation

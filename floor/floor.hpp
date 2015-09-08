@@ -27,7 +27,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/matrix4.hpp>
 #include <floor/core/unicode.hpp>
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 
 class floor {
 public:
@@ -200,7 +200,7 @@ public:
 	static const string& get_execution_model();
 	
 	// compute (opencl/cuda/metal/host)
-	static shared_ptr<compute_base> get_compute_context();
+	static shared_ptr<compute_context> get_compute_context();
 	
 protected:
 	// static class
@@ -210,7 +210,7 @@ protected:
 	
 	static event* evt;
 	static bool console_only;
-	static shared_ptr<compute_base> compute_ctx;
+	static shared_ptr<compute_context> compute_ctx;
 	static unordered_set<string> gl_extensions;
 	
 	static void init_internal(const bool use_gl33, const unsigned int window_flags);

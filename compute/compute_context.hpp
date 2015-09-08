@@ -16,8 +16,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_BASE_HPP__
-#define __FLOOR_COMPUTE_BASE_HPP__
+#ifndef __FLOOR_COMPUTE_CONTEXT_HPP__
+#define __FLOOR_COMPUTE_CONTEXT_HPP__
 
 #include <unordered_set>
 
@@ -36,13 +36,13 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
-class compute_base {
+class compute_context {
 public:
 	//////////////////////////////////////////
 	// init / context creation
 	
 	//! unfortunately necessary, has empty body in .cpp
-	virtual ~compute_base() = 0;
+	virtual ~compute_context() = 0;
 	
 	//! initializes the compute context/object
 	virtual void init(const uint64_t platform_index = ~0ull,

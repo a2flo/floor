@@ -126,7 +126,7 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="compute\compute_base.cpp" />
+    <ClCompile Include="compute\compute_context.cpp" />
     <ClCompile Include="compute\compute_buffer.cpp" />
     <ClCompile Include="compute\compute_device.cpp" />
     <ClCompile Include="compute\compute_image.cpp" />
@@ -180,7 +180,7 @@
     <ClCompile Include="threading\thread_base.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="compute\compute_base.hpp" />
+    <ClInclude Include="compute\compute_context.hpp" />
     <ClInclude Include="compute\compute_buffer.hpp" />
     <ClInclude Include="compute\compute_common.hpp" />
     <ClInclude Include="compute\compute_device.hpp" />

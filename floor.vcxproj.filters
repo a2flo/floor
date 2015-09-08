@@ -33,7 +33,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="compute\compute_base.cpp">
+    <ClCompile Include="compute\compute_context.cpp">
       <Filter>compute</Filter>
     </ClCompile>
     <ClCompile Include="compute\compute_buffer.cpp">
@@ -191,7 +191,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="compute\compute_base.hpp">
+    <ClInclude Include="compute\compute_context.hpp">
       <Filter>compute</Filter>
     </ClInclude>
     <ClInclude Include="compute\compute_buffer.hpp">

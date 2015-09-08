@@ -16,11 +16,11 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/compute/compute_base.hpp>
+#include <floor/compute/compute_context.hpp>
 
-compute_base::~compute_base() {}
+compute_context::~compute_context() {}
 
-shared_ptr<compute_device> compute_base::get_device(const compute_device::TYPE type) const {
+shared_ptr<compute_device> compute_context::get_device(const compute_device::TYPE type) const {
 	switch(type) {
 		case compute_device::TYPE::ANY:
 			// just return the first valid device if one exists
