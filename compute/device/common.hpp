@@ -64,7 +64,7 @@ typedef int64_t intmax_t;
 typedef uint64_t uintmax_t;
 #endif
 
-// clang vector types that are needed in some places (opencl/metal)
+// clang vector types that are needed in some places (image functions)
 typedef int8_t clang_char1 __attribute__((ext_vector_type(1)));
 typedef int8_t clang_char2 __attribute__((ext_vector_type(2)));
 typedef int8_t clang_char3 __attribute__((ext_vector_type(3)));

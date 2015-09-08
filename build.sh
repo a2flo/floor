@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# TODO: intro
-
 ##########################################
 # helper functions
 error() {
@@ -82,7 +80,6 @@ case $BUILD_ARCH in
 		;;
 esac
 
-# TODO: install/uninstall?
 for arg in "$@"; do
 	case $arg in
 		"help"|"-help"|"--help")

@@ -22,16 +22,11 @@
 
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
+#include <floor/compute/metal/metal_device.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
 #endif
-
-// need certain metal device info, but no obj-c stuff
-#if !defined(FLOOR_NO_METAL)
-#define FLOOR_NO_METAL
-#endif
-#include <floor/compute/metal/metal_device.hpp>
 
 bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
@@ -165,30 +160,6 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 			++elem_idx;
 		});
 	}
-	
-#if 0
-	// print info about all kernels and their arguments
-	for(const auto& kernel : kernels) {
-		string sizes_str = "";
-		for(size_t i = 0, count = kernel.arg_sizes.size(); i < count; ++i) {
-			switch(kernel.arg_address_spaces[i]) {
-				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::GLOBAL:
-					sizes_str += "global ";
-					break;
-				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::LOCAL:
-					sizes_str += "local ";
-					break;
-				case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT:
-					sizes_str += "constant ";
-					break;
-				default: break;
-			}
-			sizes_str += to_string(kernel.arg_sizes[i]) + (i + 1 < count ? "," : "") + " ";
-		}
-		sizes_str = core::trim(sizes_str);
-		log_msg("kernel: %s (%s)", kernel.name, sizes_str);
-	}
-#endif
 	
 	return true;
 }
@@ -524,10 +495,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			ir_output = regex_replace(ir_output, rx_datalayout,
 									  "target datalayout = \"e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32\"");
 		}
-		
-		// strip floor metadata
-		//static const regex rx_floor_metadata("(!floor.kernels = .*)");
-		//ir_output = regex_replace(ir_output, rx_floor_metadata, "");
 		
 		// kill "unnamed_addr" in local and constant mem global vars
 		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");

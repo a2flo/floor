@@ -76,7 +76,7 @@ public:
 	//! types of this device
 	TYPE type { TYPE::NONE };
 	
-	//! type for internal use (OpenCL: stores cl_device_type, CUDA: N/A)
+	//! type for internal use (OpenCL: stores cl_device_type)
 	uint32_t internal_type { 0u };
 	
 	//! vendor of this device
@@ -137,7 +137,7 @@ public:
 	string version_str { "" };
 	//! device driver version in string form
 	string driver_version_str { "" };
-	//! array of supported extensions (OpenCL only, CUDA: TBD)
+	//! array of supported extensions (OpenCL only)
 	vector<string> extensions;
 	
 };
