@@ -515,8 +515,39 @@ metal_image::~metal_image() {
 	}
 }
 
-void metal_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
-	// TODO: implement this
+void metal_image::zero(shared_ptr<compute_queue> cqueue) {
+	if(image == nil) return;
+	
+	// TODO: handle arrays/slices correctly!
+	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
+	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
+	const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
+	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+	
+	alignas(128) uint8_t* zero_data = new uint8_t[bytes_per_slice];
+	memset(zero_data, 0, bytes_per_slice);
+	
+	const auto dim_count = image_dim_count(image_type);
+	const MTLRegion region {
+		.origin = { 0, 0, 0 },
+		.size = {
+			image_dim.x,
+			dim_count >= 2 ? image_dim.y : 1,
+			dim_count >= 3 ? image_dim.z : 1,
+		}
+	};
+	[image replaceRegion:region
+			 mipmapLevel:0
+				   slice:0
+			   withBytes:zero_data
+			 bytesPerRow:bytes_per_row
+		   bytesPerImage:bytes_per_slice];
+	
+	[blit_encoder endEncoding];
+	[cmd_buffer commit];
+	[cmd_buffer waitUntilCompleted];
+	
+	delete [] zero_data;
 }
 
 void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,

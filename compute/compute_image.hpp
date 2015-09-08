@@ -49,7 +49,6 @@ public:
 		return image_type;
 	}
 	
-	//! TODO: create image descriptor for advanced use?
 	compute_image(const void* device,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,

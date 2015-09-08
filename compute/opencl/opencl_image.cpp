@@ -213,8 +213,16 @@ opencl_image::~opencl_image() {
 	}
 }
 
-void opencl_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
-	// TODO: implement this
+void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
+	if(image == nullptr) return;
+	
+	const float4 black { 0.0f }; // bit identical to uint4(0) and int4(0), so format doesn't matter here
+	const size3 origin { 0, 0, 0 };
+	const size3 region { image_dim.xyz.maxed(1) };
+	CL_CALL_RET(clEnqueueFillImage(queue_or_default_queue(cqueue), image,
+								   (const void*)&black, origin.data(), region.data(),
+								   0, nullptr, nullptr),
+				"failed to zero image")
 }
 
 void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {

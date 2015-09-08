@@ -174,6 +174,28 @@ public:
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) = 0;
 	
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data, explicitly on the specified device
+	template <typename data_type>
+	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   const vector<data_type>& data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) {
+		return create_image(device, image_dim, image_type, &data[0], flags, opengl_type);
+	}
+	
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data, explicitly on the specified device
+	template <typename data_type, size_t n>
+	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
+										   const uint4 image_dim,
+										   const COMPUTE_IMAGE_TYPE image_type,
+										   const array<data_type, n>& data,
+										   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
+										   const uint32_t opengl_type = 0) {
+		return create_image(device, image_dim, image_type, &data[0], flags, opengl_type);
+	}
+	
 	//! wraps an already existing opengl image, with the specified flags
 	//! NOTE: OPENGL_SHARING flag is always implied
 	virtual shared_ptr<compute_image> wrap_image(shared_ptr<compute_device> device,
@@ -191,7 +213,6 @@ public:
 												 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																					COMPUTE_MEMORY_FLAG::HOST_READ_WRITE)) = 0;
 	
-	// TODO: add remaining image create functions, with init via vector/buffer and w/o device ptr
 	// TODO: add is_image_format_supported(...) function
 	
 	//////////////////////////////////////////
