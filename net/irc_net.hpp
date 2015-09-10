@@ -117,7 +117,7 @@ public:
 	
 	// protocol passthrough functions
 	bool connect_to_server(const string& server_name,
-						   const unsigned short int port) {
+						   const uint16_t port) {
 		return (use_ssl ? ssl_protocol.connect_to_server(server_name, port) : plain_protocol.connect_to_server(server_name, port));
 	}
 	bool is_running() const {
@@ -135,13 +135,13 @@ public:
 	boost::asio::ip::address get_local_address() const {
 		return (use_ssl ? ssl_protocol.get_local_address() : plain_protocol.get_local_address());
 	}
-	unsigned short int get_local_port() const {
+	uint16_t get_local_port() const {
 		return (use_ssl ? ssl_protocol.get_local_port() : plain_protocol.get_local_port());
 	}
 	boost::asio::ip::address get_remote_address() const {
 		return (use_ssl ? ssl_protocol.get_remote_address() : plain_protocol.get_remote_address());
 	}
-	unsigned short int get_remote_port() const {
+	uint16_t get_remote_port() const {
 		return (use_ssl ? ssl_protocol.get_remote_port() : plain_protocol.get_remote_port());
 	}
 	

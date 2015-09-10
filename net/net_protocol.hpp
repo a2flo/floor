@@ -40,7 +40,7 @@ public:
 	bool ready() const;
 	void invalidate();
 	
-	bool connect(const string& address, const unsigned short int& port);
+	bool connect(const string& address, const uint16_t& port);
 	
 	size_t receive(void* recv_data, const size_t max_len);
 	bool send(const char* data, const size_t len);

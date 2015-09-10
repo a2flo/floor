@@ -80,7 +80,7 @@ protected:
 	bool continue_on_error_status { true };
 	string server_name { "" };
 	string server_url { "/" };
-	unsigned short int server_port { 80 };
+	uint16_t server_port { 80 };
 	
 	vector<string> receive_store;
 	string page_data { "" };
@@ -139,8 +139,8 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	server_port = (use_ssl ? 443 : 80);
 	const size_t colon_pos = server_name.find(":");
 	if(colon_pos != string::npos) {
-		server_port = (unsigned short int)strtoul(server_name.substr(colon_pos + 1, server_name.size() - colon_pos - 1).c_str(),
-												  nullptr, 10);
+		server_port = (uint16_t)strtoul(server_name.substr(colon_pos + 1, server_name.size() - colon_pos - 1).c_str(),
+										nullptr, 10);
 		server_name = server_name.substr(0, colon_pos);
 	}
 	

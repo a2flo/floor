@@ -139,7 +139,7 @@ public:
 	}
 	
 	// client connect
-	bool connect(const string& address, const unsigned short int& port) {
+	bool connect(const string& address, const uint16_t& port) {
 		if(!valid) return false;
 		socket_set = true;
 		
@@ -175,12 +175,12 @@ public:
 	}
 	
 	// server listen/open
-	bool open_socket(const string& address, const unsigned short int& port) {
+	bool listen(const string& address, const uint16_t& port) {
 		if(!valid) return false;
 		socket_set = true;
 		
 		boost::system::error_code ec;
-		auto endpoint = *resolver.resolve({ address, to_string(port) });
+		tcp::endpoint endpoint = *resolver.resolve({ address, to_string(port) });
 		acceptor.open(endpoint.protocol(), ec);
 		if(ec) {
 			log_error("couldn't open server socket: %s", ec.message());
@@ -246,14 +246,14 @@ public:
 	boost::asio::ip::address get_local_address() const {
 		return data.socket_layer.local_endpoint().address();
 	}
-	unsigned short int get_local_port() const {
+	uint16_t get_local_port() const {
 		return data.socket_layer.local_endpoint().port();
 	}
 	
 	boost::asio::ip::address get_remote_address() const {
 		return data.socket_layer.remote_endpoint().address();
 	}
-	unsigned short int get_remote_port() const {
+	uint16_t get_remote_port() const {
 		return data.socket_layer.remote_endpoint().port();
 	}
 	
@@ -266,14 +266,19 @@ public:
 		return data;
 	}
 	
+	auto& get_socket() {
+		return data.socket;
+	}
+	
+	// allow direct access to these (use with caution)
+	boost::asio::io_service io_service;
+	tcp::resolver resolver;
+	tcp::acceptor acceptor;
+	
 protected:
 	atomic<bool> socket_set { false };
 	atomic<bool> valid { true };
 	atomic<bool> closed { true };
-	
-	boost::asio::io_service io_service;
-	tcp::resolver resolver;
-	tcp::acceptor acceptor;
 	
 	floor_net::protocol_details<use_ssl> data;
 	

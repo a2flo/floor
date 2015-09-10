@@ -41,9 +41,8 @@ public:
 	virtual ~net();
 	
 	virtual void run();
-	virtual bool connect_to_server(const string& server_name,
-								   const unsigned short int port,
-								   const unsigned short int local_port = 65535);
+	virtual bool connect_to_server(const string& server_name, const uint16_t port);
+	virtual bool listen_as_server(const string& server_name, const uint16_t port);
 	
 	virtual bool is_received_data() const;
 	virtual deque<vector<char>> get_and_clear_received_data();
@@ -57,9 +56,9 @@ public:
 	virtual void send_data(const char* packet_data, const size_t length);
 	
 	virtual boost::asio::ip::address get_local_address() const;
-	virtual unsigned short int get_local_port() const;
+	virtual uint16_t get_local_port() const;
 	virtual boost::asio::ip::address get_remote_address() const;
-	virtual unsigned short int get_remote_port() const;
+	virtual uint16_t get_remote_port() const;
 	
 	virtual const protocol_policy& get_protocol() const;
 	virtual protocol_policy& get_protocol();
@@ -101,9 +100,7 @@ template <class protocol_policy, class reception_policy> net<protocol_policy, re
 }
 
 template <class protocol_policy, class reception_policy>
-bool net<protocol_policy, reception_policy>::connect_to_server(const string& server_name,
-															   const unsigned short int port,
-															   const unsigned short int local_port floor_unused) {
+bool net<protocol_policy, reception_policy>::connect_to_server(const string& server_name, const uint16_t port) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
 	
 	try {
@@ -117,6 +114,30 @@ bool net<protocol_policy, reception_policy>::connect_to_server(const string& ser
 	}
 	catch(...) {
 		log_error("failed to connect to server: %s:%u!", server_name, port);
+		unlock();
+		set_thread_should_finish(); // and quit ...
+		return false;
+	}
+	
+	unlock();
+	return true;
+}
+
+template <class protocol_policy, class reception_policy>
+bool net<protocol_policy, reception_policy>::listen_as_server(const string& server_name, const uint16_t port) {
+	lock(); // we need to lock the net class, so run() isn't called while we're connecting
+	
+	try {
+		if(!protocol.is_valid()) throw exception();
+		
+		// listen as server on "server_name":"port"
+		if(!protocol.listen(server_name, port)) throw exception();
+		
+		// connection created - data transfer is now possible
+		connected = true;
+	}
+	catch(...) {
+		log_error("failed to listen as server: %s:%u!", server_name, port);
 		unlock();
 		set_thread_should_finish(); // and quit ...
 		return false;
@@ -268,14 +289,14 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_local_address() const {
 	return protocol.get_local_address();
 }
-template <class protocol_policy, class reception_policy> unsigned short int net<protocol_policy, reception_policy>::get_local_port() const {
+template <class protocol_policy, class reception_policy> uint16_t net<protocol_policy, reception_policy>::get_local_port() const {
 	return protocol.get_local_port();
 }
 
 template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_remote_address() const {
 	return protocol.get_remote_address();
 }
-template <class protocol_policy, class reception_policy> unsigned short int net<protocol_policy, reception_policy>::get_remote_port() const {
+template <class protocol_policy, class reception_policy> uint16_t net<protocol_policy, reception_policy>::get_remote_port() const {
 	return protocol.get_remote_port();
 }
 
