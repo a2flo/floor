@@ -32,6 +32,7 @@ class compute_queue {
 protected:
 	//! argument type validity specializations, with pretty error messages
 	template <typename T, typename = void> struct is_valid_arg { static constexpr bool valid() { return true; } };
+#if !defined(_MSC_VER) // size_t == uint32_t with msvc (which is obviously allowed), TODO: check if this is the same with x64
 	template <typename T> struct is_valid_arg<T, enable_if_t<is_same<T, size_t>::value>> {
 		static constexpr bool valid()
 		__attribute__((unavailable("size_t is not allowed due to a possible host/device size mismatch"))) { return false; }
@@ -41,6 +42,7 @@ protected:
 		static constexpr bool valid()
 		__attribute__((unavailable("size_t vector types are not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
+#endif
 	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer<T>::value>> {
 		static constexpr bool valid()
 		__attribute__((unavailable("raw pointers are not allowed"))) { return false; }
