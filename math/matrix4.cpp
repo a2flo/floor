@@ -17,6 +17,7 @@
  */
 
 #include <floor/math/matrix4.hpp>
+#include <floor/math/vector_lib.hpp>
 
 #if defined(FLOOR_EXPORT)
 // instantiate
