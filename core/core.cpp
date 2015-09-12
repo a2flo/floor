@@ -75,14 +75,25 @@ string core::find_and_replace(const string& str, const string& find, const strin
 
 void core::find_and_replace(string& str, const string& find, const string& repl) {
 	// consecutive search and replace routine
-	size_t pos, old_pos;
-	size_t find_len = find.size();
-	size_t replace_len = repl.size();
+	const size_t find_len = find.size();
+	const size_t replace_len = repl.size();
 	if(find_len == 0) return; // replace_len might be 0 (if it's an empty string -> "")
-	old_pos = 0;
+	
+	size_t pos, old_pos = 0;
 	while((pos = str.find(find, old_pos)) != string::npos) {
 		str.replace(pos, find_len, repl.c_str(), replace_len);
 		old_pos = pos + replace_len;
+	}
+}
+
+void core::find_and_replace_once(string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
+	const size_t find_len = find_str.size();
+	const size_t replace_len = repl_str.size();
+	if(find_len == 0) return;
+	
+	size_t pos;
+	if((pos = str.find(find_str, start_pos)) != string::npos) {
+		str.replace(pos, find_len, repl_str.c_str(), replace_len);
 	}
 }
 
