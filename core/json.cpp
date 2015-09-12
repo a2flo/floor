@@ -120,6 +120,55 @@ json::json_value::~json_value() {
 			break;
 	}
 }
+void json::json_value::print(const uint32_t depth) const {
+	switch(type) {
+		case VALUE_TYPE::NULL_VALUE:
+			cout << "null";
+			break;
+		case VALUE_TYPE::TRUE_VALUE:
+			cout << "true";
+			break;
+		case VALUE_TYPE::FALSE_VALUE:
+			cout << "false";
+			break;
+		case VALUE_TYPE::INT_NUMBER:
+			cout << int_number;
+			break;
+		case VALUE_TYPE::FP_NUMBER:
+			cout << fp_number;
+			break;
+		case VALUE_TYPE::STRING:
+			cout << '\"' << str << '\"';
+			break;
+		case VALUE_TYPE::OBJECT: {
+			const string space_string((depth + 1) * 4, ' ');
+			cout << "{" << endl;
+			for(size_t i = 0, count = size(object.members); i < count; ++i) {
+				cout << space_string << '\"' << object.members[i].key << "\": ";
+				object.members[i].value.print(depth + 1);
+				if(i < count - 1) cout << ",";
+				cout << endl;
+			}
+			cout << string(depth * 4, ' ') << "}";
+			break;
+		}
+		case VALUE_TYPE::ARRAY: {
+			const string space_string((depth + 1) * 4, ' ');
+			cout << "[" << endl;
+			for(size_t i = 0, count = size(array.values); i < count; ++i) {
+				cout << space_string;
+				array.values[i].print(depth + 1);
+				if(i < count - 1) cout << ",";
+				cout << endl;
+			}
+			cout << string(depth * 4, ' ') << "]";
+			break;
+		}
+	}
+	
+	// one last newline if this is @ depth 0
+	if(depth == 0) cout << endl;
+}
 
 class json_lexer final : public lexer {
 public:

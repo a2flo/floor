@@ -127,6 +127,8 @@ public:
 			return { true, array.values };
 		}
 		
+		void print(const uint32_t depth = 0) const;
+		
 		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
 		json_value(const VALUE_TYPE& value_type);
 		json_value(json_value&& val);
@@ -160,6 +162,11 @@ public:
 		//! or the root node if path is an empty string
 		template<typename T> T get(const string& path,
 								   const T default_val = default_value<T>::def()) const;
+		
+		//! dumps the document to cout
+		void print() const {
+			root.print();
+		}
 	};
 	
 	//! reads the json file specified by 'filename' and creates a json document from it

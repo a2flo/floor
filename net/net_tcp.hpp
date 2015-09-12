@@ -267,7 +267,7 @@ public:
 	}
 	
 	auto& get_socket() {
-		return data.socket;
+		return data.socket_layer;
 	}
 	
 	// allow direct access to these (use with caution)
