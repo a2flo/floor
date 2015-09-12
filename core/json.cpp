@@ -303,7 +303,7 @@ bool json_lexer::lex(translation_unit& tu) {
 lexer::lex_return_type json_lexer::lex_keyword(const translation_unit& tu,
 											   source_iterator& iter,
 											   const source_iterator& source_end) {
-	static const auto check_len = [&tu, &iter, &source_end](const size_t& expected_len) -> lexer::lex_return_type {
+	const auto check_len = [&tu, &iter, &source_end](const size_t& expected_len) -> lexer::lex_return_type {
 		const auto end_iter = iter + (ssize_t)(expected_len - 1u);
 		if(end_iter >= source_end) {
 			return handle_error(tu, iter, "premature EOF while lexing keyword");
@@ -356,7 +356,7 @@ lexer::lex_return_type json_lexer::lex_decimal_constant(const translation_unit& 
 														source_iterator& iter,
 														const source_iterator& source_end) {
 	// lexes [0 - 9]+
-	static const auto lex_digit = [&tu, &iter, &source_end]() {
+	const auto lex_digit = [&tu, &iter, &source_end]() {
 		size_t len = 0;
 		for(bool lexed = false; iter != source_end; ++iter, ++len) {
 			switch(*iter) {
