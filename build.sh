@@ -841,6 +841,8 @@ for source_file in ${SRC_FILES}; do
 
 	# abort on build errors
 	if [ ${build_error} == "true" ]; then
+		# wait until all build jobs have finished (all error output has been written)
+		wait
 		exit -1
 	fi
 done
