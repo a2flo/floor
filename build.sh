@@ -774,11 +774,14 @@ if [ ! -f "floor.pch" ]; then
 fi
 
 # build the target
+export build_error=false
+trap build_error=true USR1
 build_file() {
 	# this function builds one source file
 	source_file=$1
 	file_num=$2
 	file_count=$3
+	parent_pid=$4
 	info "building ${source_file} [${file_num}/${file_count}]"
 	case ${source_file} in
 		*".cpp")
@@ -800,6 +803,13 @@ build_file() {
 	build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
 	verbose "${build_cmd}"
 	eval ${build_cmd}
+
+	# handle errors
+	ret_code=$?
+	if [ ${ret_code} -ne 0 ]; then
+		kill -USR1 ${parent_pid}
+		error "compilation failed (${source_file})"
+	fi
 }
 job_count() {
 	echo $(jobs -p | wc -l)
@@ -824,9 +834,14 @@ for source_file in ${SRC_FILES}; do
 			fi
 			sleep 0.1
 		done
-		(build_file $source_file $file_counter $file_count) &
+		(build_file $source_file $file_counter $file_count $$) &
 	else
-		build_file $source_file $file_counter $file_count
+		build_file $source_file $file_counter $file_count $$
+	fi
+
+	# abort on build errors
+	if [ ${build_error} == "true" ]; then
+		exit -1
 	fi
 done
 # all jobs were started, now we just have to wait until all are done
