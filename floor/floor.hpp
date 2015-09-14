@@ -305,8 +305,6 @@ protected:
 		unsigned int flags = 0;
 		recursive_mutex ctx_lock;
 		atomic<unsigned int> ctx_active_locks { 0 };
-		
-		floor_config() {}
 	} config;
 	static json::document config_doc;
 	

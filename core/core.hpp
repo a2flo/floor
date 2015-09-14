@@ -194,30 +194,4 @@ protected:
 
 };
 
-// TODO: move this somewhere appropriate
-struct rect {
-	union {
-		struct {
-			unsigned int x1;
-			unsigned int y1;
-			unsigned int x2;
-			unsigned int y2;
-		};
-	};
-	
-	void set(const unsigned int& x1_, const unsigned int& y1_, const unsigned int& x2_, const unsigned int& y2_) {
-		x1 = x1_; y1 = y1_; x2 = x2_; y2 = y2_;
-	}
-	
-	friend ostream& operator<<(ostream& output, const rect& r) {
-		output << "(" << r.x1 << ", " << r.y1 << ") x (" << r.x2 << ", " << r.y2 << ")";
-		return output;
-	}
-	
-	rect() : x1(0), y1(0), x2(0), y2(0) {}
-	rect(const rect& r) : x1(r.x1), y1(r.y1), x2(r.x2), y2(r.y2) {}
-	rect(const unsigned int& x1_, const unsigned int& y1_, const unsigned int& x2_, const unsigned int& y2_) : x1(x1_), y1(y1_), x2(x2_), y2(y2_) {}
-	~rect() {}
-};
-
 #endif

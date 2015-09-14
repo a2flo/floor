@@ -172,8 +172,6 @@ public:
 	static constexpr T unary_not(const T& val);
 	static constexpr T unary_complement(const T& val);
 	
-	// TODO: I/O?
-	
 protected:
 	// static class
 	vector_helper(const vector_helper&) = delete;
