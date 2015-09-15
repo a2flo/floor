@@ -137,14 +137,17 @@ fi
 
 CC=${CC} CXX=${CXX} ../llvm/configure ${CONFIG_OPTIONS} --enable-optimized --disable-assertions --enable-cxx11 --enable-targets="host,nvptx" --disable-docs --disable-jit --disable-bindings --with-optimize-option="-Ofast -msse4.1 ${CLANG_OPTIONS} -funroll-loops -mtune=native" --with-extra-options="${EXTRA_OPTIONS}"
 make -j ${BUILD_CPU_COUNT}
+make_ret_code=$?
 
-echo ""
-echo "#########################"
-echo "# clang/llvm build done #"
-echo "#########################"
-echo ""
-
-#
+# get out of the "build" folder
 cd ..
-echo "copying clang includes to libcxx folder ..."
-echo "done"
+if [ ${make_ret_code} -ne 0 ]; then
+	echo "toolchain compilation failed!"
+	exit 1
+else
+	echo ""
+	echo "#########################"
+	echo "# clang/llvm build done #"
+	echo "#########################"
+	echo ""
+fi

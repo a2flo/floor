@@ -65,8 +65,4 @@
 #define FLOOR_EXPORT 1
 #endif
 
-// if defined, this will create opencl command queues with enabled profiling and will output profiling
-// information after each kernel execution (times between queued, submit, start and end)
-//#define FLOOR_CL_PROFILING 1
-
 #endif

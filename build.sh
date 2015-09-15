@@ -62,7 +62,6 @@ BUILD_CONF_METAL=1
 BUILD_CONF_NET=1
 BUILD_CONF_XML=1
 BUILD_CONF_EXCEPTIONS=1
-BUILD_CONF_NO_CL_PROFILING=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 
@@ -100,7 +99,6 @@ for arg in "$@"; do
 			echo "	no-net             disables network support"
 			echo "	no-xml             disables xml support"
 			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net!)"
-			echo "	cl-profiling       enables profiling of opencl kernel executions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
@@ -161,9 +159,6 @@ for arg in "$@"; do
 			;;
 		"no-exceptions")
 			BUILD_CONF_EXCEPTIONS=0
-			;;
-		"cl-profiling")
-			BUILD_CONF_NO_CL_PROFILING=0
 			;;
 		"pocl")
 			BUILD_CONF_POCL=1
@@ -515,7 +510,6 @@ set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 set_conf_val "###FLOOR_XML###" "FLOOR_NO_XML" ${BUILD_CONF_XML}
 set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
-set_conf_val "###FLOOR_CL_PROFILING###" "FLOOR_CL_PROFILING" ${BUILD_CONF_NO_CL_PROFILING}
 echo "${CONF}" > floor/floor_conf.hpp
 
 # only update build version if FLOOR_DEV environment variable is set

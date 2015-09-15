@@ -651,19 +651,14 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 		}
 	}
 	
-	// create the queue (w/ or w/o profiling support depending on the define)
+	// create the queue
 	cl_int create_err = CL_SUCCESS;
 #if /*defined(CL_VERSION_2_0) ||*/ defined(__APPLE__) // TODO: should only be enabled if platform (and device?) support opencl 2.0+
 #if defined(__APPLE__) && !defined(CL_VERSION_2_0)
 #define clCreateCommandQueueWithProperties clCreateCommandQueueWithPropertiesAPPLE
 #define cl_queue_properties cl_queue_properties_APPLE
 #endif
-	const cl_queue_properties properties[] {
-#if !defined(FLOOR_CL_PROFILING)
-		CL_QUEUE_PROPERTIES, CL_QUEUE_PROFILING_ENABLE,
-#endif
-		0
-	};
+	const cl_queue_properties properties[] { 0 };
 	cl_command_queue cl_queue = clCreateCommandQueueWithProperties(ctx, ((opencl_device*)dev.get())->device_id,
 																   properties, &create_err);
 #else
@@ -671,13 +666,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 FLOOR_PUSH_WARNINGS() // silence "clCreateCommandQueue" is deprecated warning
 FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
-	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id,
-#if !defined(FLOOR_CL_PROFILING)
-													 0
-#else
-													 CL_QUEUE_PROFILING_ENABLE
-#endif
-													 , &create_err);
+	cl_command_queue cl_queue = clCreateCommandQueue(ctx, ((opencl_device*)dev.get())->device_id, 0, &create_err);
 	
 FLOOR_POP_WARNINGS()
 #endif
