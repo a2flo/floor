@@ -2,6 +2,23 @@
 
 RELEASE=3.5.2
 
+# handle args
+BUILD_JOB_COUNT=0
+for arg in "$@"; do
+	case $arg in
+		# NOTE: this overwrites the detected job/cpu count
+		"-j"*)
+			BUILD_JOB_COUNT=$(echo $arg | cut -c 3-)
+			if [ -z ${BUILD_JOB_COUNT} ]; then
+				BUILD_JOB_COUNT=0
+			fi
+			;;
+		*)
+			warning "unknown argument: ${arg}"
+			;;
+	esac
+done
+
 # download src archives (if not already done)
 if [ ! -f llvm-${RELEASE}.src.tar.xz ]; then
 	curl -o llvm-${RELEASE}.src.tar.xz http://llvm.org/releases/${RELEASE}/llvm-${RELEASE}.src.tar.xz
@@ -118,6 +135,11 @@ case ${BUILD_PLATFORM} in
 		;;
 esac
 
+# if job count is unspecified (0), set it to #cpus
+if [ ${BUILD_JOB_COUNT} -eq 0 ]; then
+	BUILD_JOB_COUNT=${BUILD_CPU_COUNT}
+fi
+
 EXTRA_OPTIONS=""
 if [ $BUILD_OS == "osx" ]; then
 	EXTRA_OPTIONS="-mmacosx-version-min=10.9"
@@ -136,7 +158,7 @@ if [ $BUILD_OS == "linux" ]; then
 fi
 
 CC=${CC} CXX=${CXX} ../llvm/configure ${CONFIG_OPTIONS} --enable-optimized --disable-assertions --enable-cxx11 --enable-targets="host,nvptx" --disable-docs --disable-jit --disable-bindings --with-optimize-option="-Ofast -msse4.1 ${CLANG_OPTIONS} -funroll-loops -mtune=native" --with-extra-options="${EXTRA_OPTIONS}"
-make -j ${BUILD_CPU_COUNT}
+make -j ${BUILD_JOB_COUNT}
 make_ret_code=$?
 
 # get out of the "build" folder
