@@ -130,10 +130,21 @@ public:
 		void print(const uint32_t depth = 0) const;
 		
 		constexpr json_value() noexcept : type(VALUE_TYPE::NULL_VALUE), int_number(0) {}
-		json_value(const VALUE_TYPE& value_type);
 		json_value(json_value&& val);
 		json_value& operator=(json_value&& val);
 		json_value(const json_value& val);
+		// init for null/true/false and default init + allocation for all else
+		json_value(const VALUE_TYPE& value_type);
+		// init as string
+		json_value(const string& str_) : json_value(VALUE_TYPE::STRING) { str = str_; }
+		// init as signed integer
+		json_value(const int64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = val; }
+		// init as unsigned integer
+		json_value(const uint64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = *(int64_t*)&val; }
+		// init as single precision floating point
+		json_value(const float& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
+		// init as double precision floating point
+		json_value(const double& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
 		~json_value();
 	};
 	

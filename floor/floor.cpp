@@ -290,7 +290,13 @@ void floor::init(const char* callpath_, const char* datapath_,
 			}
 		};
 		
-		const auto default_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths");
+		const auto default_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths",
+																			  json::json_array {
+																				  json::json_value("/opt/floor/compute"),
+																				  json::json_value("/c/msys/opt/floor/compute"),
+																				  json::json_value("%ProgramW6432%/floor/compute"),
+																				  json::json_value("%ProgramFiles%/floor/compute")
+																			  });
 		
 		const auto opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
 		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
