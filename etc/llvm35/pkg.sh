@@ -22,4 +22,11 @@ cp ../libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
 cd ..
 
-zip -r compute_clang_${VERSION}.zip compute_clang_${VERSION}
+zip -qr compute_clang_${VERSION}.zip compute_clang_${VERSION}
+zip_ret_code=$?
+if [ ${zip_ret_code} -ne 0 ]; then
+	echo "failed to create toolchain archive!"
+	exit 1
+else
+	echo "sucessfully created toolchain archive: compute_clang_${VERSION}.zip"
+fi
