@@ -60,7 +60,6 @@
 ** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
 ** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
-** the CUDA SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
 ** networking (boost/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
 
@@ -85,7 +84,6 @@
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
 * the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taken care of by having the CUDA SDK path last)
-* on Windows: a nvcuda.dll must always be present on the system when CUDA support is enabled
 
 *Compute Toolchain:*
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows

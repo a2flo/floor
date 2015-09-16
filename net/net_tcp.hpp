@@ -98,7 +98,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		
 		bool handle_post_client_connect() {
 			boost::system::error_code ec;
-			socket.handshake(boost::asio::ssl::stream_base::client);
+			socket.handshake(boost::asio::ssl::stream_base::client, ec);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -107,7 +107,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		}
 		bool handle_post_server_connect() {
 			boost::system::error_code ec;
-			socket.handshake(boost::asio::ssl::stream_base::server);
+			socket.handshake(boost::asio::ssl::stream_base::server, ec);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
