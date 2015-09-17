@@ -62,16 +62,28 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		protocol_details<true>(boost::asio::io_service& io_service) :
 		context(io_service, boost::asio::ssl::context::tlsv12),
 		socket(io_service, context), socket_layer(socket.next_layer()) {
-			context.set_options(boost::asio::ssl::context::no_compression);
+			context.set_options(boost::asio::ssl::context::no_compression |
+								boost::asio::ssl::context::default_workarounds |
+								boost::asio::ssl::context::no_sslv2 |
+								boost::asio::ssl::context::no_sslv3 |
+								boost::asio::ssl::context::no_tlsv1 |
+								boost::asio::ssl::context::no_tlsv1_1);
 			context.set_default_verify_paths();
+			
+			// enable ecdh(e)
+			SSL_CTX_set_ecdh_auto(context.native_handle(), true);
+			
 			// TODO: make this properly configurable
 #if !defined(FLOOR_SSL_CIPHER_LIST)
 			SSL_set_cipher_list(socket.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
+			SSL_CTX_set_cipher_list(context.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
 #else
 #define FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers) #ciphers
 #define FLOOR_SSL_CIPHER_LIST_STR(ciphers) FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers)
 			SSL_set_cipher_list(socket.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
+			SSL_CTX_set_cipher_list(context.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
 #endif
+			
 			socket.set_verify_mode(boost::asio::ssl::verify_peer);
 			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
 		}
