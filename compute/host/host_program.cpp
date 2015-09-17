@@ -56,7 +56,7 @@ shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) con
 		return {};
 	}
 	
-	auto kernel = make_shared<host_kernel>(func_ptr, func_name);
+	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name);
 	kernels.emplace_back(kernel);
 	kernel_names.emplace_back(func_name);
 	

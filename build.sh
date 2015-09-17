@@ -419,6 +419,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		LDFLAGS="${LDFLAGS} -lc++.dll -Wl,--allow-multiple-definition -lsupc++"
 	fi
 	
+	# needed for ___chkstk_ms
+	if [ $BUILD_OS == "mingw" ]; then
+		LDFLAGS="${LDFLAGS} -lgcc"
+	fi
+	
 	# add all libs to LDFLAGS
 	LDFLAGS="${LDFLAGS} ${LIBS}"
 else
@@ -546,6 +551,11 @@ fi
 # disable exception support
 if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -fno-exceptions"
+fi
+
+# so not standard compliant ...
+if [ $BUILD_OS == "mingw" ]; then
+	CXXFLAGS="${CXXFLAGS} -pthread"
 fi
 
 # arch handling (use -arch on osx/ios and -m32/-m64 everywhere else, except for mingw)

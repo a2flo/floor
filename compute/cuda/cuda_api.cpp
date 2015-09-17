@@ -30,7 +30,7 @@ typedef void* lib_handle_type;
 #else
 #include <windows.h>
 #define open_dynamic_library(file_name) LoadLibrary(file_name)
-#define load_symbol(lib_handle, symbol_name) GetProcAddress(lib_handle, symbol_name)
+#define load_symbol(lib_handle, symbol_name) (void*)GetProcAddress(lib_handle, symbol_name)
 typedef HMODULE lib_handle_type;
 #endif
 static lib_handle_type cuda_lib { nullptr };

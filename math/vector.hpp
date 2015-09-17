@@ -20,6 +20,9 @@
 #error "don't include this header file - include vector_lib.hpp"
 #endif
 
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is always be aligned correctly
+
 #define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width
 #define FLOOR_VECNAME_EVAL(vec_width) FLOOR_VECNAME_CONCAT(vec_width)
 #define FLOOR_VECNAME FLOOR_VECNAME_EVAL(FLOOR_VECTOR_WIDTH)
@@ -59,13 +62,13 @@ struct floor_vector_rand {
 //! assume that this class is the fastest at runtime and it should generally be used
 //! over the other one, except for the cases where the other one is absolutely necessary.
 //! -- "one vector class to rule them all, ... and in the darkness bind them."
-template <typename scalar_type> class FLOOR_VECNAME {
+template <typename scalar_type> class __attribute__((packed, aligned(sizeof(scalar_type) != 12 ? sizeof(scalar_type) : 4))) FLOOR_VECNAME {
 public:
 	// the underlying type of the vector
 	// NOTE: only .xyzw are usable with constexpr
-	union {
+	union __attribute__((packed)) {
 		// main scalar accessors (.xyzw)
-		struct {
+		struct __attribute__((packed)) {
 			scalar_type x;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type y;
@@ -79,7 +82,7 @@ public:
 		};
 		
 		// scalar accessors (.rgba)
-		struct {
+		struct __attribute__((packed)) {
 			scalar_type r;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type g;
@@ -93,7 +96,7 @@ public:
 		};
 		
 		// scalar accessors (.stpq)
-		struct {
+		struct __attribute__((packed)) {
 			scalar_type s;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type t;
@@ -109,7 +112,7 @@ public:
 		// accessors that are directly usable (.xy, .zw, .xyz)
 		// other kinds must be made via a function call
 #if FLOOR_VECTOR_WIDTH >= 3
-		struct {
+		struct __attribute__((packed)) {
 			vector2<scalar_type> xy;
 #if FLOOR_VECTOR_WIDTH >= 4
 			vector2<scalar_type> zw;
@@ -118,20 +121,20 @@ public:
 #endif
 		
 #if FLOOR_VECTOR_WIDTH >= 4
-		struct {
+		struct __attribute__((packed)) {
 			vector3<scalar_type> xyz;
 		};
 #endif
 		
 		// lo/hi accessors
 #if FLOOR_VECTOR_WIDTH == 2
-		struct {
+		struct __attribute__((packed)) {
 			vector1<scalar_type> lo;
 			vector1<scalar_type> hi;
 		};
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		struct {
+		struct __attribute__((packed)) {
 			vector2<scalar_type> lo;
 #if FLOOR_VECTOR_WIDTH == 3
 			vector1<scalar_type> hi;
@@ -324,7 +327,7 @@ public:
 	scalar_type& operator[](const size_t& index) {
 		return ((scalar_type*)this)[index];
 	}
-	
+
 #if !defined(_MSC_VER) // duplicate name mangling issues
 	//! constexpr subscript access, with index == 0
 	constexpr const scalar_type& operator[](const size_t& index) const __attribute__((enable_if(index == 0, "index is const"))) {
@@ -2022,3 +2025,5 @@ public:
 #undef FLOOR_VECNAME_STR_STRINGIFY
 #undef FLOOR_VECNAME_STR_EVAL
 #undef FLOOR_VECNAME_STR
+
+FLOOR_POP_WARNINGS()
