@@ -221,7 +221,7 @@ case ${BUILD_PLATFORM} in
 		# untested
 		BUILD_OS="cygwin"
 		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([:digit:]*)/\1/g')
-		warning "cygwin support is untested!"
+		warning "cygwin support is untested and unsupported!"
 		;;
 	"mingw"*)
 		BUILD_OS="mingw"
