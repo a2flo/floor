@@ -94,13 +94,11 @@
 #include <SDL2/SDL_cpuinfo.h>
 #include <SDL2/SDL_platform.h>
 #include <SDL2/SDL_syswm.h>
-#include <SDL2/SDL_image.h>
 
 #else
 #include <SDL.h>
 #include <SDL_thread.h>
 #include <SDL_cpuinfo.h>
-#include <SDL_image.h>
 #include <SDL_platform.h>
 #include <SDL_syswm.h>
 #include <sys/types.h>
