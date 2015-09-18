@@ -42,7 +42,7 @@
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
 ** to disable XML:
    define "FLOOR_NO_XML" or "./build.sh no-xml"
-** to disable C++ exceptions (implies no-net):
+** to disable C++ exceptions:
    define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
 
 *Build Instructions (Xcode / OS X / iOS):*

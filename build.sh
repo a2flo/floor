@@ -98,7 +98,7 @@ for arg in "$@"; do
 			echo "	no-openal          disables openal support"
 			echo "	no-net             disables network support"
 			echo "	no-xml             disables xml support"
-			echo "	no-exceptions      disables building with c++ exceptions (must build with no-net!)"
+			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
@@ -177,13 +177,6 @@ for arg in "$@"; do
 			;;
 	esac
 done
-
-# sanity check
-if [ ${BUILD_CONF_EXCEPTIONS} -eq 0 ]; then
-	if [ ${BUILD_CONF_NET} -gt 0 ]; then
-		error "when building without exceptions, network support must be disabled as well! (./build.sh no-exceptions no-net)"
-	fi
-fi
 
 ##########################################
 # target and build environment setup

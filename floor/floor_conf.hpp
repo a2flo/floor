@@ -52,11 +52,8 @@
 // if defined, this disabled xml support
 //#define FLOOR_NO_XML 1
 
-// if defined, this disables c++ exception support (implies no-net!)
+// if defined, this disables c++ exception support
 //#define FLOOR_NO_EXCEPTIONS 1
-#if defined(FLOOR_NO_EXCEPTIONS) && !defined(FLOOR_NO_NET)
-#error "disabled exception support also requires building without net support! (build with ./build.sh no-exceptions no-net)"
-#endif
 
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
