@@ -68,23 +68,31 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 								asio::ssl::context::no_tlsv1_1);
 			context.set_default_verify_paths();
 			
+			if(asio_error_handler::is_error()) {
+				log_error("error on setting context options: %s", asio_error_handler::handle_all());
+			}
+			
 			// enable ecdh(e)
 			SSL_CTX_set_ecdh_auto(context.native_handle(), true);
 			
 			// TODO: make this properly configurable
 #if !defined(FLOOR_SSL_CIPHER_LIST)
-			SSL_set_cipher_list(socket.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
 			SSL_CTX_set_cipher_list(context.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
+			SSL_set_cipher_list(socket.native_handle(), "ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA");
 #else
 #define FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers) #ciphers
 #define FLOOR_SSL_CIPHER_LIST_STR(ciphers) FLOOR_SSL_CIPHER_LIST_STRINGIFY(ciphers)
-			SSL_set_cipher_list(socket.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
 			SSL_CTX_set_cipher_list(context.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
+			SSL_set_cipher_list(socket.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
 #endif
 			
 			socket.set_verify_mode(asio::ssl::verify_peer);
 			socket.set_verify_callback(bind(&protocol_details<true>::verify_certificate, this,
 											std::placeholders::_1, std::placeholders::_2));
+			
+			if(asio_error_handler::is_error()) {
+				log_error("error on setting socket options: %s", asio_error_handler::handle_all());
+			}
 		}
 		~protocol_details<true>() {
 			socket_layer.close();
@@ -111,6 +119,10 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 				log_error("handshake failed: %s", ec.message());
 				return false;
 			}
+			if(asio_error_handler::is_error()) {
+				log_error("handshake failed: %s", asio_error_handler::handle_all());
+				return false;
+			}
 			return true;
 		}
 		bool handle_post_server_connect() {
@@ -118,6 +130,10 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			socket.handshake(asio::ssl::stream_base::server, ec);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
+				return false;
+			}
+			if(asio_error_handler::is_error()) {
+				log_error("handshake failed: %s", asio_error_handler::handle_all());
 				return false;
 			}
 			return true;
@@ -160,6 +176,11 @@ public:
 			valid = false;
 			return false;
 		}
+		if(asio_error_handler::is_error()) {
+			log_error("socket connection error: %s", asio_error_handler::handle_all());
+			valid = false;
+			return false;
+		}
 		if(!data.socket_layer.is_open()) {
 			log_error("couldn't open socket!");
 			valid = false;
@@ -195,6 +216,11 @@ public:
 			valid = false;
 			return false;
 		}
+		if(asio_error_handler::is_error()) {
+			log_error("couldn't open server socket: %s", asio_error_handler::handle_all());
+			valid = false;
+			return false;
+		}
 		
 		acceptor.set_option(tcp::acceptor::reuse_address(true));
 		acceptor.bind(endpoint, ec);
@@ -203,8 +229,18 @@ public:
 			valid = false;
 			return false;
 		}
+		if(asio_error_handler::is_error()) {
+			log_error("couldn't bind to endpoint: %s", asio_error_handler::handle_all());
+			valid = false;
+			return false;
+		}
 		
 		acceptor.listen();
+		if(asio_error_handler::is_error()) {
+			log_error("acceptor failed to listen: %s", asio_error_handler::handle_all());
+			valid = false;
+			return false;
+		}
 		return true;
 	}
 	
@@ -218,6 +254,11 @@ public:
 		}
 		if(ec) {
 			log_error("error while receiving data (received %u): %s", data_received, ec.message());
+			valid = false;
+			return 0;
+		}
+		if(asio_error_handler::is_error()) {
+			log_error("error while receiving data (received %u): %s", data_received, asio_error_handler::handle_all());
 			valid = false;
 			return 0;
 		}
@@ -239,6 +280,11 @@ public:
 		}
 		if(ec) {
 			log_error("error while sending data (sent %u): %s", data_sent, ec.message());
+			valid = false;
+			return false;
+		}
+		if(asio_error_handler::is_error()) {
+			log_error("error while sending data (sent %u): %s", data_sent, asio_error_handler::handle_all());
 			valid = false;
 			return false;
 		}
