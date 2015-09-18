@@ -58,7 +58,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		asio::ssl::stream<tcp::socket> socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
 		protocol_details<true>(asio::io_service& io_service) :
-		context(io_service, asio::ssl::context::tlsv12),
+		context(asio::ssl::context::tlsv12),
 		socket(io_service, context), socket_layer(socket.next_layer()) {
 			context.set_options(asio::ssl::context::no_compression |
 								asio::ssl::context::default_workarounds |
