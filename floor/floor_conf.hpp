@@ -69,6 +69,7 @@
 #if !defined(FLOOR_NO_NET)
 #define ASIO_STANDALONE 1
 #define ASIO_HEADER_ONLY 1
+#define ASIO_NO_EXCEPTIONS 1
 #endif
 
 #endif

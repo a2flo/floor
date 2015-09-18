@@ -80,6 +80,9 @@
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
 		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
+		5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
+		5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
+		5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -313,6 +316,8 @@
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
 		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
+		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
+		5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = asio_error_handler.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A718F953590039BFD4 /* lang_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = lang_context.hpp; sourceTree = "<group>"; };
@@ -554,6 +559,8 @@
 		5C10919117D1153E007F536E /* net */ = {
 			isa = PBXGroup;
 			children = (
+				5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */,
+				5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */,
 				5C10919617D1153E007F536E /* http_net.hpp */,
 				5C10919717D1153E007F536E /* irc_net.hpp */,
 				5C10919817D1153E007F536E /* net.hpp */,
@@ -916,6 +923,7 @@
 				5C6008AB1AB6D69700BC7012 /* common.hpp in Headers */,
 				5C1091D217D1153E007F536E /* thread_base.hpp in Headers */,
 				5C1091CA17D1153E007F536E /* http_net.hpp in Headers */,
+				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
 				5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */,
 				5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */,
@@ -1114,6 +1122,7 @@
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
 				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
+				5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1138,6 +1147,7 @@
 				5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */,
 				5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */,
 				5CE0BDDB19BB2A75000B28B3 /* matrix4.cpp in Sources */,
+				5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
 				5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */,
 				5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
