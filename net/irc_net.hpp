@@ -132,13 +132,13 @@ public:
 	deque<vector<char>> get_and_clear_received_data() {
 		return (use_ssl ? ssl_protocol.get_and_clear_received_data() : plain_protocol.get_and_clear_received_data());
 	}
-	boost::asio::ip::address get_local_address() const {
+	asio::ip::address get_local_address() const {
 		return (use_ssl ? ssl_protocol.get_local_address() : plain_protocol.get_local_address());
 	}
 	uint16_t get_local_port() const {
 		return (use_ssl ? ssl_protocol.get_local_port() : plain_protocol.get_local_port());
 	}
-	boost::asio::ip::address get_remote_address() const {
+	asio::ip::address get_remote_address() const {
 		return (use_ssl ? ssl_protocol.get_remote_address() : plain_protocol.get_remote_address());
 	}
 	uint16_t get_remote_port() const {

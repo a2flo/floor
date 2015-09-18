@@ -21,7 +21,7 @@
 ** (opt) CUDA: requires sm_20+/Fermi+ GPU and CUDA 7.5+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 8.3+ and A7+ CPU/GPU, or OS X 10.11+ and appropriate GPU
 ** (opt) Host Compute: requires just the compiler/toolchain that is stated above
-** (opt) networking: requires "boost":https://www.boost.org 1.54+ headers and "OpenSSL":https://www.openssl.org 1.0.1+
+** (opt) networking: requires "asio":http://think-async.com/Asio headers and "OpenSSL":https://www.openssl.org 1.0.1+
 ** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
 ** (opt) XML: requires "libxml2":https://www.xmlsoft.org (probably with iconv)
 
@@ -36,7 +36,7 @@
    define "FLOOR_NO_METAL" or "./build.sh no-metal"
 ** to disable Host Compute:
    define "FLOOR_NO_HOST_COMPUTE" or "./build.sh no-host-compute"
-** to disable network support (ssl/crypto/boost-asio):
+** to disable network support (ssl/crypto/asio):
    define "FLOOR_NO_NET" or "./build.sh no-net"
 ** to disable OpenAL:
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
@@ -61,7 +61,7 @@
 ** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
-** networking (boost/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
+** networking (asio/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
 
 *Installation (Unix):*
 * mkdir -p /opt/floor/include

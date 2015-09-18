@@ -23,10 +23,9 @@
 
 #if !defined(FLOOR_NO_NET)
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
-#include <boost/bind.hpp>
-using boost::asio::ip::tcp;
+#include <asio.hpp>
+#include <asio/ssl.hpp>
+using asio::ip::tcp;
 
 #include <floor/core/platform.hpp>
 

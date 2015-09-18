@@ -280,7 +280,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl constexpr core floor lang math net net/boost_system threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl constexpr core floor lang math net threading"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
@@ -640,8 +640,6 @@ if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 	if [ $BUILD_OS == "mingw" ]; then
 		# set __WINDOWS__ and mingw specific flag
 		COMMON_FLAGS="${COMMON_FLAGS} -D__WINDOWS__ -DMINGW"
-		# tell boost to use windows.h (will get conflicts otherwise)
-		COMMON_FLAGS="${COMMON_FLAGS} -DBOOST_USE_WINDOWS_H"
 	fi
 	if [ $BUILD_OS == "cygwin" ]; then
 		# set cygwin specific flag

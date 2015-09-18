@@ -55,9 +55,9 @@ public:
 	virtual void send_data(const string& packet_data);
 	virtual void send_data(const char* packet_data, const size_t length);
 	
-	virtual boost::asio::ip::address get_local_address() const;
+	virtual asio::ip::address get_local_address() const;
 	virtual uint16_t get_local_port() const;
-	virtual boost::asio::ip::address get_remote_address() const;
+	virtual asio::ip::address get_remote_address() const;
 	virtual uint16_t get_remote_port() const;
 	
 	virtual const protocol_policy& get_protocol() const;
@@ -286,14 +286,14 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 	this->unlock();
 }
 
-template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_local_address() const {
+template <class protocol_policy, class reception_policy> asio::ip::address net<protocol_policy, reception_policy>::get_local_address() const {
 	return protocol.get_local_address();
 }
 template <class protocol_policy, class reception_policy> uint16_t net<protocol_policy, reception_policy>::get_local_port() const {
 	return protocol.get_local_port();
 }
 
-template <class protocol_policy, class reception_policy> boost::asio::ip::address net<protocol_policy, reception_policy>::get_remote_address() const {
+template <class protocol_policy, class reception_policy> asio::ip::address net<protocol_policy, reception_policy>::get_remote_address() const {
 	return protocol.get_remote_address();
 }
 template <class protocol_policy, class reception_policy> uint16_t net<protocol_policy, reception_policy>::get_remote_port() const {

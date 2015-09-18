@@ -34,7 +34,7 @@ namespace floor_net {
 	template <> struct protocol_details<false> {
 		tcp::socket socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
-		protocol_details<false>(boost::asio::io_service& io_service) :
+		protocol_details<false>(asio::io_service& io_service) :
 		socket(io_service), socket_layer(socket) {
 		}
 		~protocol_details<false>() {
@@ -56,18 +56,18 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 	
 	// ssl
 	template <> struct protocol_details<true> {
-		boost::asio::ssl::context context;
-		boost::asio::ssl::stream<tcp::socket> socket;
+		asio::ssl::context context;
+		asio::ssl::stream<tcp::socket> socket;
 		tcp::socket& socket_layer; // ref to the actual socket layer
-		protocol_details<true>(boost::asio::io_service& io_service) :
-		context(io_service, boost::asio::ssl::context::tlsv12),
+		protocol_details<true>(asio::io_service& io_service) :
+		context(io_service, asio::ssl::context::tlsv12),
 		socket(io_service, context), socket_layer(socket.next_layer()) {
-			context.set_options(boost::asio::ssl::context::no_compression |
-								boost::asio::ssl::context::default_workarounds |
-								boost::asio::ssl::context::no_sslv2 |
-								boost::asio::ssl::context::no_sslv3 |
-								boost::asio::ssl::context::no_tlsv1 |
-								boost::asio::ssl::context::no_tlsv1_1);
+			context.set_options(asio::ssl::context::no_compression |
+								asio::ssl::context::default_workarounds |
+								asio::ssl::context::no_sslv2 |
+								asio::ssl::context::no_sslv3 |
+								asio::ssl::context::no_tlsv1 |
+								asio::ssl::context::no_tlsv1_1);
 			context.set_default_verify_paths();
 			
 			// enable ecdh(e)
@@ -84,8 +84,9 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			SSL_CTX_set_cipher_list(context.native_handle(), FLOOR_SSL_CIPHER_LIST_STR(FLOOR_SSL_CIPHER_LIST));
 #endif
 			
-			socket.set_verify_mode(boost::asio::ssl::verify_peer);
-			socket.set_verify_callback(boost::bind(&protocol_details<true>::verify_certificate, this, _1, _2));
+			socket.set_verify_mode(asio::ssl::verify_peer);
+			socket.set_verify_callback(bind(&protocol_details<true>::verify_certificate, this,
+											std::placeholders::_1, std::placeholders::_2));
 		}
 		~protocol_details<true>() {
 			try {
@@ -98,7 +99,7 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		}
 		
 		//
-		bool verify_certificate(bool preverified floor_unused, boost::asio::ssl::verify_context& ctx) {
+		bool verify_certificate(bool preverified floor_unused, asio::ssl::verify_context& ctx) {
 			// TODO: actually verify cert
 			// TODO: don't use deprecated/legacy functions
 			char subject_name[256];
@@ -109,8 +110,8 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 		}
 		
 		bool handle_post_client_connect() {
-			boost::system::error_code ec;
-			socket.handshake(boost::asio::ssl::stream_base::client, ec);
+			asio::error_code ec;
+			socket.handshake(asio::ssl::stream_base::client, ec);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -118,8 +119,8 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 			return true;
 		}
 		bool handle_post_server_connect() {
-			boost::system::error_code ec;
-			socket.handshake(boost::asio::ssl::stream_base::server, ec);
+			asio::error_code ec;
+			socket.handshake(asio::ssl::stream_base::server, ec);
 			if(ec) {
 				log_error("handshake failed: %s", ec.message());
 				return false;
@@ -155,9 +156,9 @@ public:
 		if(!valid) return false;
 		socket_set = true;
 		
-		boost::system::error_code ec;
+		asio::error_code ec;
 		auto endpoint_iterator = resolver.resolve({ address, to_string(port) });
-		boost::asio::connect(data.socket_layer, endpoint_iterator, ec);
+		asio::connect(data.socket_layer, endpoint_iterator, ec);
 		
 		if(ec) {
 			log_error("socket connection error: %s", ec.message());
@@ -180,7 +181,7 @@ public:
 		
 		// set keep-alive flag (this only handles the simple cases and
 		// usually has a big timeout value, but still better than nothing)
-		boost::asio::socket_base::keep_alive option(true);
+		asio::socket_base::keep_alive option(true);
 		data.socket_layer.set_option(option);
 		
 		return true;
@@ -191,7 +192,7 @@ public:
 		if(!valid) return false;
 		socket_set = true;
 		
-		boost::system::error_code ec;
+		asio::error_code ec;
 		tcp::endpoint endpoint = *resolver.resolve({ address, to_string(port) });
 		acceptor.open(endpoint.protocol(), ec);
 		if(ec) {
@@ -213,9 +214,9 @@ public:
 	}
 	
 	size_t receive(void* recv_data, const size_t max_len) {
-		boost::system::error_code ec;
-		size_t data_received = data.socket.read_some(boost::asio::buffer(recv_data, max_len), ec);
-		if(ec == boost::asio::error::eof) {
+		asio::error_code ec;
+		size_t data_received = data.socket.read_some(asio::buffer(recv_data, max_len), ec);
+		if(ec == asio::error::eof) {
 			valid = false;
 			closed = true;
 			return 0;
@@ -234,9 +235,9 @@ public:
 	}
 	
 	bool send(const char* send_data, const size_t len) {
-		boost::system::error_code ec;
-		const auto data_sent = boost::asio::write(data.socket, boost::asio::buffer(send_data, len), ec);
-		if(ec == boost::asio::error::eof) {
+		asio::error_code ec;
+		const auto data_sent = asio::write(data.socket, asio::buffer(send_data, len), ec);
+		if(ec == asio::error::eof) {
 			valid = false;
 			closed = true;
 			return 0;
@@ -255,14 +256,14 @@ public:
 		return true;
 	}
 	
-	boost::asio::ip::address get_local_address() const {
+	asio::ip::address get_local_address() const {
 		return data.socket_layer.local_endpoint().address();
 	}
 	uint16_t get_local_port() const {
 		return data.socket_layer.local_endpoint().port();
 	}
 	
-	boost::asio::ip::address get_remote_address() const {
+	asio::ip::address get_remote_address() const {
 		return data.socket_layer.remote_endpoint().address();
 	}
 	uint16_t get_remote_port() const {
@@ -283,7 +284,7 @@ public:
 	}
 	
 	// allow direct access to these (use with caution)
-	boost::asio::io_service io_service;
+	asio::io_service io_service;
 	tcp::resolver resolver;
 	tcp::acceptor acceptor;
 	

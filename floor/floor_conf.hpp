@@ -65,4 +65,10 @@
 #define FLOOR_EXPORT 1
 #endif
 
+// use asio standalone and header-only
+#if !defined(FLOOR_NO_NET)
+#define ASIO_STANDALONE 1
+#define ASIO_HEADER_ONLY 1
+#endif
+
 #endif
