@@ -70,10 +70,13 @@ public:
 	const string& get_server_url() const;
 	bool uses_ssl() const { return use_ssl; }
 	
+	bool is_failure() const { return failure; }
+	
 protected:
 	net<TCP_protocol, net_receive_raw> plain_protocol;
 	net<TCP_ssl_protocol, net_receive_raw> ssl_protocol;
 	const bool use_ssl;
+	bool failure { false };
 	
 	receive_functor receive_cb;
 	size_t request_timeout { default_timeout };
@@ -116,7 +119,9 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	if(!(use_ssl ?
 		 (server.size() >= 8 && server.substr(0, 8) == "https://") :
 		 (server.size() >= 7 && server.substr(0, 7) == "http://"))) {
-		throw floor_exception("invalid request: "+server);
+		log_error("invalid request: %s", server);
+		failure = true;
+		return;
 	}
 	
 	// extract server name and server url from url
@@ -146,7 +151,9 @@ thread_base("http"), use_ssl(server.size() >= 5 && server.substr(0, 5) == "https
 	
 	// finally: open connection ...
 	if(!reconnect()) {
-		throw floor_exception("couldn't connect to server: "+server);
+		log_error("couldn't connect to server: %s", server);
+		failure = true;
+		return;
 	}
 	
 	// ... and start the worker thread
@@ -169,6 +176,14 @@ http_net::http_net(const string& server_url_, receive_functor receive_cb_,
 http_net(server_url_, timeout, continue_on_error_status_) {
 	// note: server_url has already been extracted in the delegated http_net constructor
 	receive_cb = receive_cb_;
+	
+	if(failure) {
+		if(receive_cb) {
+			receive_cb(this, HTTP_STATUS::NONE, server_name, "failure");
+		}
+		return;
+	}
+	
 	send_http_request(server_url, server_name);
 }
 

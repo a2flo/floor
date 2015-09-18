@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_NET)
 
 #include <floor/net/net_protocol.hpp>
+#include <floor/net/asio_error_handler.hpp>
 #include <floor/core/platform.hpp>
 
 // non-ssl and ssl specific implementation
@@ -38,12 +39,9 @@ namespace floor_net {
 		socket(io_service), socket_layer(socket) {
 		}
 		~protocol_details<false>() {
-			try {
-				socket.close();
-			}
-			catch(...) {
-				// catch uninitialized exceptions
-			}
+			socket.close();
+			// ignore errors (socket might have been uninitialized)
+			asio_error_handler::get_error();
 		}
 		
 		bool handle_post_client_connect() { return true; }
@@ -89,13 +87,10 @@ FLOOR_IGNORE_WARNING(deprecated-declarations)
 											std::placeholders::_1, std::placeholders::_2));
 		}
 		~protocol_details<true>() {
-			try {
-				socket_layer.close();
-				socket.shutdown();
-			}
-			catch(...) {
-				// catch uninitialized exceptions
-			}
+			socket_layer.close();
+			asio_error_handler::get_error(); // ignore errors
+			socket.shutdown();
+			asio_error_handler::get_error(); // ignore errors
 		}
 		
 		//

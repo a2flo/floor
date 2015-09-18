@@ -103,23 +103,18 @@ template <class protocol_policy, class reception_policy>
 bool net<protocol_policy, reception_policy>::connect_to_server(const string& server_name, const uint16_t port) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
 	
-	try {
-		if(!protocol.is_valid()) throw exception();
-		
-		// connect to the server
-		if(!protocol.connect(server_name, port)) throw exception();
-		
+	if(!protocol.is_valid() ||
+	   // connect to the server
+	   !protocol.connect(server_name, port)) {
+		log_error("failed to connect to server: %s:%u!", server_name, port);
+	}
+	else {
 		// connection created - data transfer is now possible
 		connected = true;
 	}
-	catch(...) {
-		log_error("failed to connect to server: %s:%u!", server_name, port);
-		unlock();
-		set_thread_should_finish(); // and quit ...
-		return false;
-	}
 	
 	unlock();
+	if(!connected) set_thread_should_finish(); // quit on failure
 	return true;
 }
 
@@ -127,24 +122,19 @@ template <class protocol_policy, class reception_policy>
 bool net<protocol_policy, reception_policy>::listen_as_server(const string& server_name, const uint16_t port) {
 	lock(); // we need to lock the net class, so run() isn't called while we're connecting
 	
-	try {
-		if(!protocol.is_valid()) throw exception();
-		
-		// listen as server on "server_name":"port"
-		if(!protocol.listen(server_name, port)) throw exception();
-		
+	if(!protocol.is_valid() ||
+	   // listen as server on "server_name":"port"
+	   !protocol.listen(server_name, port)) {
+		log_error("failed to listen as server: %s:%u!", server_name, port);
+	}
+	else {
 		// connection created - data transfer is now possible
 		connected = true;
 	}
-	catch(...) {
-		log_error("failed to listen as server: %s:%u!", server_name, port);
-		unlock();
-		set_thread_should_finish(); // and quit ...
-		return false;
-	}
 	
 	unlock();
-	return true;
+	if(!connected) set_thread_should_finish(); // quit on failure
+	return connected;
 }
 
 template <class protocol_policy, class reception_policy> void net<protocol_policy, reception_policy>::run() {
@@ -152,47 +142,43 @@ template <class protocol_policy, class reception_policy> void net<protocol_polic
 	
 	// receive data - if possible
 	size_t len = 0, used = 0;
-	try {
-		if(protocol.is_valid()) {
-			if(protocol.ready()) {
-				receive_data.fill(0);
-				len = receive_packet(&receive_data[0], packet_max_len);
-				if(protocol.is_closed()) {
-					connected = false;
-					set_thread_should_finish();
-					return;
+	if(protocol.is_valid()) {
+		if(protocol.ready() && !asio_error_handler::is_error()) {
+			receive_data.fill(0);
+			len = receive_packet(&receive_data[0], packet_max_len);
+			if(asio_error_handler::is_error()) {
+				connected = false;
+			}
+			else if(protocol.is_closed()) {
+				// normal close (not an error)
+				connected = false;
+				set_thread_should_finish();
+				return;
+			}
+			else if(len == 0 || len > packet_max_len) {
+				// failure, kill this object/thread
+				connected = false;
+			}
+			else {
+				string data(receive_data.data(), len);
+				if(last_packet_remains.length() > 0) {
+					data = last_packet_remains + data;
+					len += last_packet_remains.length();
+					last_packet_remains = "";
 				}
-				else if(len == 0 || len > packet_max_len) {
-					// failure, kill this object/thread
-					throw exception();
-				}
-				else {
-					string data(receive_data.data(), len);
-					if(last_packet_remains.length() > 0) {
-						data = last_packet_remains + data;
-						len += last_packet_remains.length();
-						last_packet_remains = "";
-					}
-					
-					used = process_packet(data, len);
-					len -= used;
-					if(used == 0 || len > 0) {
-						last_packet_remains = data.substr(used, len);
-					}
+				
+				used = process_packet(data, len);
+				len -= used;
+				if(used == 0 || len > 0) {
+					last_packet_remains = data.substr(used, len);
 				}
 			}
 		}
-		else throw runtime_error("invalid protocol");
 	}
-	catch(exception& e) {
-		log_error("net error: %s", e.what());
-		connected = false;
-		set_thread_should_finish();
-		return;
-	}
-	catch(...) {
-		// something is wrong, finsh and return
-		log_error("unknown net error, exiting ...");
+	else connected = false;
+	
+	if(!connected) {
+		log_error("net error: %s", asio_error_handler::handle_all());
 		connected = false;
 		set_thread_should_finish();
 		return;
