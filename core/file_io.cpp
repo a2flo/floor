@@ -18,13 +18,18 @@
 
 #include <floor/core/file_io.hpp>
 
+#if defined(MINGW)
+#include <sys/stat.h>
+#include <errno.h>
+#endif
+
 /*! there is no function currently
  */
 file_io::file_io() {
 }
 
-file_io::file_io(const string& filename, const OPEN_TYPE open_type_) {
-	open(filename, open_type_);
+file_io::file_io(const string& filename_, const OPEN_TYPE open_type_) {
+	open(filename_, open_type_);
 }
 
 /*! there is no function currently
@@ -39,11 +44,12 @@ file_io::~file_io() {
  *  @param filename the name of the file
  *  @param open_type enum that specifies how we want to open the file (like "r", "wb", etc. ...)
  */
-bool file_io::open(const string& filename, OPEN_TYPE open_type_) {
+bool file_io::open(const string& filename_, OPEN_TYPE open_type_) {
 	if(check_open()) {
 		log_error("a file is already opened! can't open another file!");
 		return false;
 	}
+	filename = filename_;
 
 	open_type = open_type_;
 	switch(open_type) {
@@ -258,6 +264,7 @@ float file_io::get_float() {
 /*! returns the filesize
  */
 long long int file_io::get_filesize() {
+#if !defined(MINGW) // this is broken on mingw/libstdc++
 	// get current get pointer position
 	streampos cur_position = filestream.tellg();
 
@@ -271,6 +278,14 @@ long long int file_io::get_filesize() {
 
 	// return file size
 	return size;
+#else
+	struct stat file_stat;
+	if(stat(filename.c_str(), &file_stat) != 0) {
+		log_error("failed to get file size of \"%s\": ", filename, strerror(errno));
+		return 0;
+	}
+	return file_stat.st_size;
+#endif
 }
 
 /*! seeks to offset

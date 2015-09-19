@@ -118,7 +118,8 @@ public:
 	bool is_open() const;
 
 protected:
-	OPEN_TYPE open_type = OPEN_TYPE::READ;
+	OPEN_TYPE open_type { OPEN_TYPE::READ_BINARY };
+	string filename { "" };
 	fstream filestream;
 
 	bool check_open();
