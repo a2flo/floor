@@ -130,13 +130,7 @@
 #undef false
 #endif
 
-// these are defined by windows headers
-#if defined(VOID)
-#undef VOID
-#endif
-#if defined(CONST)
-#undef CONST
-#endif
+// defined by windows headers
 #if defined(ERROR)
 #undef ERROR
 #endif
