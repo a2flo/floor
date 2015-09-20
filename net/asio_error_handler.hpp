@@ -27,6 +27,7 @@
 #include <exception>
 #include <string>
 #include <utility>
+using namespace std;
 
 //! this error handler is used instead of normal c++ exception handling to handle any exceptions/errors that
 //! occur when using asio functions. this makes it possible to use asio/net functionality on targets that

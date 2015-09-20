@@ -31,6 +31,9 @@
     <Filter Include="compute\host">
       <UniqueIdentifier>{c5974a86-f674-4992-9c7f-71106ef74816}</UniqueIdentifier>
     </Filter>
+    <Filter Include="net">
+      <UniqueIdentifier>{716aded6-6967-492b-b98f-2aa0e2455111}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compute\compute_context.cpp">
@@ -188,6 +191,9 @@
     </ClCompile>
     <ClCompile Include="compute\cuda\cuda_api.cpp">
       <Filter>compute\cuda</Filter>
+    </ClCompile>
+    <ClCompile Include="net\asio_error_handler.cpp">
+      <Filter>net</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -436,6 +442,24 @@
     </ClInclude>
     <ClInclude Include="math\constants.hpp">
       <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="net\asio_error_handler.hpp">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\http_net.hpp">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\irc_net.hpp">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\net.hpp">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\net_protocol.hpp">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="net\net_tcp.hpp">
+      <Filter>net</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_NET)
 
 #include <floor/core/logger.hpp>
+#include <algorithm>
 
 struct asio_error_stack {
 	// keep the last 16 errors in a ring buffer
@@ -31,7 +32,7 @@ struct asio_error_stack {
 	
 	void add(const char* error_msg) {
 		errors[idx].is_error = true;
-		strncpy(errors[idx].error_msg, error_msg, sizeof(asio_error_handler::error::error_msg));
+		memcpy(errors[idx].error_msg, error_msg, std::min(strlen(error_msg), sizeof(asio_error_handler::error::error_msg)));
 		errors[idx].error_msg[sizeof(asio_error_handler::error::error_msg) - 1] = '\0';
 		idx = (idx + 1u) % size;
 		if(unhandled < size) ++unhandled;

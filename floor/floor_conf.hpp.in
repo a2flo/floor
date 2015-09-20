@@ -22,9 +22,11 @@
 // when building on windows, always disable these for now
 #if defined(_MSC_VER)
 #define FLOOR_NO_OPENAL 1
-#define FLOOR_NO_NET 1
 #define FLOOR_NO_XML 1
 #define FLOOR_NO_EXCEPTIONS 1
+#if !defined(FLOOR_MSVC_NET) // optional, must be enabled explicitly
+#define FLOOR_NO_NET 1
+#endif
 #endif
 
 // if defined, this disables cuda support
