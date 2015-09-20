@@ -61,7 +61,8 @@
 ** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
-** networking (asio/openssl), audio (openal) and use of exceptions are disabled by default (and not supported)
+** audio (openal) and use of exceptions are disabled by default (and not supported)
+** networking (asio/openssl) is supported optionally and can be enabled through using the "_net" build configurations
 
 *Installation (Unix):*
 * mkdir -p /opt/floor/include
@@ -76,7 +77,7 @@
 ** create an "include" folder and copy the original "floor" folder in there (containing all floor source code)
 
 *Installation (Windows / MSYS2):*
-* WIP (expecting it to be /c/msys/opt/floor, then same as Unix)
+* WIP (expecting it to be /opt/floor, then same as Unix)
 
 *Misc Hints:*
 * when using X11 forwarding, set these env variables:
