@@ -86,6 +86,12 @@ void core::find_and_replace(string& str, const string& find, const string& repl)
 	}
 }
 
+string core::find_and_replace_once(const string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
+	string ret = str;
+	find_and_replace_once(ret, find_str, repl_str, start_pos);
+	return ret;
+}
+
 void core::find_and_replace_once(string& str, const string& find_str, const string& repl_str, const size_t start_pos) {
 	const size_t find_len = find_str.size();
 	const size_t replace_len = repl_str.size();
