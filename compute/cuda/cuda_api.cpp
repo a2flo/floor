@@ -19,6 +19,8 @@
 #include <floor/compute/cuda/cuda_common.hpp>
 #include <floor/compute/cuda/cuda_api.hpp>
 
+#if !defined(FLOOR_NO_CUDA)
+
 // instantiated in here
 cuda_api_ptrs cuda_api;
 
@@ -223,3 +225,5 @@ bool cuda_api_init() {
 	init_success = true;
 	return init_success;
 }
+
+#endif

@@ -20,6 +20,9 @@
 #define __FLOOR_CUDA_API_HPP__
 
 #include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_CUDA)
+
 #include <floor/math/vector_lib.hpp>
 
 #if defined(__WINDOWS__)
@@ -547,5 +550,7 @@ extern bool cuda_api_init();
 #define cu_surf_object_destroy cuda_api.surf_object_destroy
 #define cu_tex_object_create cuda_api.tex_object_create
 #define cu_tex_object_destroy cuda_api.tex_object_destroy
+
+#endif
 
 #endif
