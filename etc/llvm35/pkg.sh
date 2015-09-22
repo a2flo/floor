@@ -20,7 +20,21 @@ cp -R ../build/Release/lib/clang/${RELEASE}/include clang
 cp -R ../libcxx/include libcxx
 cp ../libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
+BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
+case ${BUILD_PLATFORM} in
+	"mingw"*)
+		# also copy all necessary .dll files
+		cp "/mingw64/bin/libgcc_s_seh-1.dll" bin/
+		cp "/mingw64/bin/libstdc++-6.dll" bin/
+		cp "/mingw64/bin/libwinpthread-1.dll" bin/
+		cp "/mingw64/bin/zlib1.dll" bin/
+		;;
+	*)
+		;;
+esac
+
 cd ..
+
 
 zip -qr compute_toolchain_${VERSION}.zip compute_toolchain_${VERSION}
 zip_ret_code=$?
