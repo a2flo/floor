@@ -3,8 +3,8 @@
 RELEASE=3.5.2
 
 VERSION=$(date +%Y%m%d_%H%M)
-mkdir compute_clang_${VERSION}
-cd compute_clang_${VERSION}
+mkdir compute_toolchain_${VERSION}
+cd compute_toolchain_${VERSION}
 
 mkdir bin
 cp ../build/Release/bin/clang bin/
@@ -22,11 +22,11 @@ cp ../libcxx/{LICENSE.TXT,CREDITS.TXT} libcxx/
 
 cd ..
 
-zip -qr compute_clang_${VERSION}.zip compute_clang_${VERSION}
+zip -qr compute_toolchain_${VERSION}.zip compute_toolchain_${VERSION}
 zip_ret_code=$?
 if [ ${zip_ret_code} -ne 0 ]; then
 	echo "failed to create toolchain archive!"
 	exit 1
 else
-	echo "sucessfully created toolchain archive: compute_clang_${VERSION}.zip"
+	echo "sucessfully created toolchain archive: compute_toolchain_${VERSION}.zip"
 fi
