@@ -318,7 +318,9 @@ void floor::init(const char* callpath_, const char* datapath_,
 																&config.opencl_applecl_encoder
 															});
 		if(config.opencl_base_path == "") {
+#if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("opencl toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+#endif
 		}
 		else {
 			config.opencl_toolchain_exists = true;
@@ -343,7 +345,9 @@ void floor::init(const char* callpath_, const char* datapath_,
 														  config.cuda_compiler, config.cuda_llc,
 														  config.cuda_as, config.cuda_dis);
 		if(config.cuda_base_path == "") {
+#if !defined(FLOOR_IOS) // not available on iOS anyways
 			log_error("cuda toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+#endif
 		}
 		else {
 			config.cuda_toolchain_exists = true;
@@ -362,10 +366,18 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
 														   config.metal_compiler, config.metal_llc,
 														   config.metal_as, config.metal_dis);
+#if defined(FLOOR_IOS)
+		// compute toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
+		if(config.metal_base_path == "") {
+			config.metal_base_path = "/opt/floor/compute";
+		}
+#else
 		if(config.metal_base_path == "") {
 			log_error("metal toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
 		}
-		else {
+		else
+#endif
+		{
 			config.metal_toolchain_exists = true;
 			config.metal_compiler.insert(0, config.metal_base_path + "bin/");
 			config.metal_llc.insert(0, config.metal_base_path + "bin/");

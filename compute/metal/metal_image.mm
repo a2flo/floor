@@ -100,8 +100,11 @@ static uint4 compute_metal_image_dim(id <MTLTexture> img) {
 	const auto texture_type = [img textureType];
 	const auto layer_count = (uint32_t)[img arrayLength];
 	if(texture_type == MTLTextureType1DArray) dim.y = layer_count;
-	else if(texture_type == MTLTextureType2DArray ||
-			texture_type == MTLTextureTypeCubeArray) {
+	else if(texture_type == MTLTextureType2DArray
+#if !defined(FLOOR_IOS)
+			|| texture_type == MTLTextureTypeCubeArray
+#endif
+			) {
 		dim.z = layer_count;
 	}
 	
@@ -125,7 +128,9 @@ static COMPUTE_IMAGE_TYPE compute_metal_image_type(id <MTLTexture> img, const CO
 		case MTLTextureType2DMultisample: type = COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA; break;
 		case MTLTextureType3D: type = COMPUTE_IMAGE_TYPE::IMAGE_3D; break;
 		case MTLTextureTypeCube: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE; break;
+#if !defined(FLOOR_IOS)
 		case MTLTextureTypeCubeArray: type = COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY; break;
+#endif
 		
 		// yay for forwards compatibility, or at least detecting that something is wrong(tm) ...
 FLOOR_PUSH_WARNINGS()
