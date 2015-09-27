@@ -224,6 +224,8 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			case 0:
 				log_error("unsupported hardware - family is 0!");
 				return;
+				
+			// A7/A7X
 			case 3:
 				device.family_version = 2;
 				floor_fallthrough;
@@ -234,25 +236,35 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 				device.max_work_group_size = 512;
 				device.mem_clock = 1600; // ram clock
 				break;
-				
-			default:
-				log_warn("unknown device family (%u), defaulting to family 2 (A8)", device.family);
-				floor_fallthrough;
+			
+			// A8/A8X
 			case 4:
 				device.family_version = 2;
 				floor_fallthrough;
 			case 2:
 				device.family = 2;
-				if(device.name.find("A8X") != string::npos) { // A8X
+				if(device.name.find("A8X") != string::npos) {
 					device.units = 8; // GXA6850
 					device.max_work_group_size = 1024;
 				}
-				else { // A8
+				else {
 					device.units = 4; // GX6450
 					device.max_work_group_size = 512;
 				}
 				device.local_mem_size = 16384;
 				device.mem_clock = 1600; // ram clock
+				break;
+			
+			// A9/A9X
+			default:
+				log_warn("unknown device family (%u), defaulting to family 3 (A9)", device.family);
+				floor_fallthrough;
+			case 5:
+				device.family = 3;
+				device.units = 8; // TODO
+				device.max_work_group_size = 1024; // TODO
+				device.local_mem_size = 16384; // TODO
+				device.mem_clock = 1600; // TODO: ram clock
 				break;
 		}
 		device.max_work_group_item_sizes = { 512, 512, 512 };
