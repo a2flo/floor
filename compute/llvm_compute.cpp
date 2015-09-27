@@ -238,7 +238,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			string metal_target;
 			if(mtl_dev->family < 10000) {
 				// -> iOS
-				if(mtl_dev->family_version == 1) {
+				if(mtl_dev->family_version == 1 && mtl_dev->family < 3 /* A7 or A8 */) {
 					// iOS 8.x, build ios-metal1.0
 					metal_target = "1,6,0,1,0,0";
 				}
