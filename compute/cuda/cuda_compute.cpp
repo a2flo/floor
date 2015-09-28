@@ -404,116 +404,119 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cu_module program;
 	
-#if !defined(FLOOR_DEBUG) // TODO: config option -> fast / build w/o logs
-	const CU_JIT_OPTION jit_options[] {
-		CU_JIT_OPTION::TARGET,
-		CU_JIT_OPTION::GENERATE_LINE_INFO,
-		CU_JIT_OPTION::GENERATE_DEBUG_INFO,
-		CU_JIT_OPTION::MAX_REGISTERS
-	};
-	constexpr const size_t option_count { size(jit_options) };
-	
-	const union alignas(void*) {
-		void* ptr;
-		size_t ui;
-	} jit_option_values[] {
-		{ .ui = sm_version },
-		{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
-		{ .ui = floor::get_compute_debug() ? 1u : 0u },
-		{ .ui = 32u }, // TODO: configurable!
-	};
-	static_assert(option_count == size(jit_option_values), "mismatching option count");
-	
-	CU_CALL_RET(cu_module_load_data_ex(&program,
-									   program_data.first.c_str(),
-									   option_count,
-									   (CU_JIT_OPTION*)&jit_options[0],
-									   (void**)&jit_option_values[0]),
-				"failed to load/jit cuda module", {});
-#else
-	// jit the module / ptx code
-	const CU_JIT_OPTION jit_options[] {
-		CU_JIT_OPTION::TARGET,
-		CU_JIT_OPTION::GENERATE_LINE_INFO,
-		CU_JIT_OPTION::GENERATE_DEBUG_INFO,
-		CU_JIT_OPTION::MAX_REGISTERS,
-		CU_JIT_OPTION::OPTIMIZATION_LEVEL,
-		CU_JIT_OPTION::LOG_VERBOSE,
-		CU_JIT_OPTION::ERROR_LOG_BUFFER,
-		CU_JIT_OPTION::INFO_LOG_BUFFER,
-		CU_JIT_OPTION::ERROR_LOG_BUFFER_SIZE_BYTES,
-		CU_JIT_OPTION::INFO_LOG_BUFFER_SIZE_BYTES,
-	};
-	constexpr const size_t option_count { size(jit_options) };
-	constexpr const size_t log_size { 65536 };
-	char error_log[log_size], info_log[log_size];
-	error_log[0] = 0;
-	info_log[0] = 0;
-	const auto print_error_log = [&error_log] {
-		if(error_log[0] != 0) {
-			error_log[log_size - 1] = 0;
-			log_error("ptx build errors: %s", error_log);
-		}
-	};
-	
-	const union alignas(void*) {
-		void* ptr;
-		size_t ui;
-	} jit_option_values[] {
-		{ .ui = sm_version },
-		{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
-		{ .ui = floor::get_compute_debug() ? 1u : 0u },
-		{ .ui = 32u }, // TODO: configurable!
-		{ .ui = 4u },
-		{ .ui = 1u },
-		{ .ptr = error_log },
-		{ .ptr = info_log },
-		{ .ui = log_size - 1u },
-		{ .ui = log_size - 1u },
-	};
-	static_assert(option_count == size(jit_option_values), "mismatching option count");
-	
-	// TODO: print out llvm_compute log
-	cu_link_state link_state;
-	void* cubin_ptr = nullptr;
-	size_t cubin_size = 0;
-	CU_CALL_RET(cu_link_create(option_count,
-							   (CU_JIT_OPTION*)&jit_options[0],
-							   (void**)&jit_option_values[0],
-							   &link_state),
-				"failed to create link state", {});
-	CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
-										(void*)program_data.first.c_str(), program_data.first.size(),
-										nullptr, 0, nullptr, nullptr),
-					   "failed to add ptx data to link state", {
-						   print_error_log();
-						   cu_link_destroy(link_state);
-						   return {};
-					   });
-	CU_CALL_ERROR_EXEC(cu_link_complete(link_state, &cubin_ptr, &cubin_size),
-					   "failed to link ptx data", {
-						   print_error_log();
-						   cu_link_destroy(link_state);
-						   return {};
-					   });
-	CU_CALL_ERROR_EXEC(cu_module_load_data(&program, cubin_ptr),
-					   "failed to load cuda module", {
-						   print_error_log();
-						   if(info_log[0] != 0) {
-							   info_log[log_size - 1] = 0;
-							   log_debug("ptx build info: %s", info_log);
-						   }
-						   cu_link_destroy(link_state);
-						   return {};
-					   });
-	CU_CALL_NO_ACTION(cu_link_destroy(link_state),
-					  "failed to destroy link state");
-
-	if(info_log[0] != 0) {
-		info_log[log_size - 1] = 0;
-		log_debug("ptx build info: %s", info_log);
+	if(!floor::get_cuda_jit_verbose()) {
+		const CU_JIT_OPTION jit_options[] {
+			CU_JIT_OPTION::TARGET,
+			CU_JIT_OPTION::GENERATE_LINE_INFO,
+			CU_JIT_OPTION::GENERATE_DEBUG_INFO,
+			CU_JIT_OPTION::MAX_REGISTERS,
+			CU_JIT_OPTION::OPTIMIZATION_LEVEL,
+		};
+		constexpr const size_t option_count { size(jit_options) };
+		
+		const union alignas(void*) {
+			void* ptr;
+			size_t ui;
+		} jit_option_values[] {
+			{ .ui = sm_version },
+			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
+			{ .ui = floor::get_compute_debug() ? 1u : 0u },
+			{ .ui = floor::get_cuda_max_registers() },
+			{ .ui = floor::get_cuda_jit_opt_level() },
+		};
+		static_assert(option_count == size(jit_option_values), "mismatching option count");
+		
+		CU_CALL_RET(cu_module_load_data_ex(&program,
+										   program_data.first.c_str(),
+										   option_count,
+										   (CU_JIT_OPTION*)&jit_options[0],
+										   (void**)&jit_option_values[0]),
+					"failed to load/jit cuda module", {});
 	}
-#endif
+	else {
+		// jit the module / ptx code
+		const CU_JIT_OPTION jit_options[] {
+			CU_JIT_OPTION::TARGET,
+			CU_JIT_OPTION::GENERATE_LINE_INFO,
+			CU_JIT_OPTION::GENERATE_DEBUG_INFO,
+			CU_JIT_OPTION::MAX_REGISTERS,
+			CU_JIT_OPTION::OPTIMIZATION_LEVEL,
+			CU_JIT_OPTION::LOG_VERBOSE,
+			CU_JIT_OPTION::ERROR_LOG_BUFFER,
+			CU_JIT_OPTION::INFO_LOG_BUFFER,
+			CU_JIT_OPTION::ERROR_LOG_BUFFER_SIZE_BYTES,
+			CU_JIT_OPTION::INFO_LOG_BUFFER_SIZE_BYTES,
+		};
+		constexpr const size_t option_count { size(jit_options) };
+		constexpr const size_t log_size { 65536 };
+		char error_log[log_size], info_log[log_size];
+		error_log[0] = 0;
+		info_log[0] = 0;
+		const auto print_error_log = [&error_log] {
+			if(error_log[0] != 0) {
+				error_log[log_size - 1] = 0;
+				log_error("ptx build errors: %s", error_log);
+			}
+		};
+		
+		const union alignas(void*) {
+			void* ptr;
+			size_t ui;
+		} jit_option_values[] {
+			{ .ui = sm_version },
+			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
+			{ .ui = floor::get_compute_debug() ? 1u : 0u },
+			{ .ui = floor::get_cuda_max_registers() },
+			{ .ui = floor::get_cuda_jit_opt_level() },
+			{ .ui = 1u },
+			{ .ptr = error_log },
+			{ .ptr = info_log },
+			{ .ui = log_size - 1u },
+			{ .ui = log_size - 1u },
+		};
+		static_assert(option_count == size(jit_option_values), "mismatching option count");
+		
+		// TODO: print out llvm_compute log
+		cu_link_state link_state;
+		void* cubin_ptr = nullptr;
+		size_t cubin_size = 0;
+		CU_CALL_RET(cu_link_create(option_count,
+								   (CU_JIT_OPTION*)&jit_options[0],
+								   (void**)&jit_option_values[0],
+								   &link_state),
+					"failed to create link state", {});
+		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
+											(void*)program_data.first.c_str(), program_data.first.size(),
+											nullptr, 0, nullptr, nullptr),
+						   "failed to add ptx data to link state", {
+							   print_error_log();
+							   cu_link_destroy(link_state);
+							   return {};
+						   });
+		CU_CALL_ERROR_EXEC(cu_link_complete(link_state, &cubin_ptr, &cubin_size),
+						   "failed to link ptx data", {
+							   print_error_log();
+							   cu_link_destroy(link_state);
+							   return {};
+						   });
+		CU_CALL_ERROR_EXEC(cu_module_load_data(&program, cubin_ptr),
+						   "failed to load cuda module", {
+							   print_error_log();
+							   if(info_log[0] != 0) {
+								   info_log[log_size - 1] = 0;
+								   log_debug("ptx build info: %s", info_log);
+							   }
+							   cu_link_destroy(link_state);
+							   return {};
+						   });
+		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
+						  "failed to destroy link state");
+		
+		if(info_log[0] != 0) {
+			info_log[log_size - 1] = 0;
+			log_debug("ptx build info: %s", info_log);
+		}
+	}
 	log_debug("successfully created cuda program!");
 	
 #if defined(FLOOR_DEBUG)

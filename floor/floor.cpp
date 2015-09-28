@@ -336,6 +336,9 @@ void floor::init(const char* callpath_, const char* datapath_,
 		const auto cuda_toolchain_paths = config_doc.get<json::json_array>("compute.cuda.paths", default_toolchain_paths);
 		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
 		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
+		config.cuda_max_registers = (uint32_t)config_doc.get<uint64_t>("compute.cuda.max_registers", 32);
+		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
+		config.cuda_jit_opt_level = (uint32_t)config_doc.get<uint64_t>("compute.cuda.jit_opt_level", 4);
 		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
 		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
@@ -1317,6 +1320,15 @@ const string& floor::get_cuda_force_driver_sm() {
 }
 const string& floor::get_cuda_force_compile_sm() {
 	return config.cuda_force_compile_sm;
+}
+const uint32_t& floor::get_cuda_max_registers() {
+	return config.cuda_max_registers;
+}
+const bool& floor::get_cuda_jit_verbose() {
+	return config.cuda_jit_verbose;
+}
+const uint32_t& floor::get_cuda_jit_opt_level() {
+	return config.cuda_jit_opt_level;
 }
 
 const string& floor::get_metal_base_path() {
