@@ -516,13 +516,13 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 			info_log[log_size - 1] = 0;
 			log_debug("ptx build info: %s", info_log);
 		}
+	
+		if(floor::get_compute_log_binaries()) {
+			// for testing purposes: dump the compiled binaries again
+			file_io::buffer_to_file("binary_" + to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
+		}
 	}
 	log_debug("successfully created cuda program!");
-	
-#if defined(FLOOR_DEBUG)
-	// for testing purposes: dump the compiled binaries again
-	file_io::buffer_to_file("binary_" + to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
-#endif
 	
 	// create the program object, which in turn will create kernel objects for all kernel functions in the program
 	auto ret_program = make_shared<cuda_program>(program, program_data.second);
