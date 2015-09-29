@@ -270,10 +270,10 @@ protected:
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
 		unordered_set<string> opencl_whitelist;
-		string opencl_compiler = "";
-		string opencl_llc = "";
-		string opencl_as = "";
-		string opencl_dis = "";
+		string opencl_compiler = default_compiler;
+		string opencl_llc = default_llc;
+		string opencl_as = default_as;
+		string opencl_dis = default_dis;
 		string opencl_spir_encoder = "spir-encoder";
 		string opencl_spir_verifier = "spir-verifier";
 		string opencl_applecl_encoder = "applecl-encoder";
@@ -282,10 +282,10 @@ protected:
 		bool cuda_toolchain_exists = false;
 		string cuda_base_path = "";
 		unordered_set<string> cuda_whitelist;
-		string cuda_compiler = "";
-		string cuda_llc = "";
-		string cuda_as = "";
-		string cuda_dis = "";
+		string cuda_compiler = default_compiler;
+		string cuda_llc = default_llc;
+		string cuda_as = default_as;
+		string cuda_dis = default_dis;
 		string cuda_force_driver_sm = "";
 		string cuda_force_compile_sm = "";
 		uint32_t cuda_max_registers = 32;
@@ -296,10 +296,10 @@ protected:
 		bool metal_toolchain_exists = false;
 		string metal_base_path = "";
 		unordered_set<string> metal_whitelist;
-		string metal_compiler = "";
-		string metal_llc = "";
-		string metal_as = "";
-		string metal_dis = "";
+		string metal_compiler = default_compiler;
+		string metal_llc = default_llc;
+		string metal_as = default_as;
+		string metal_dis = default_dis;
 		
 		// host
 		string host_base_path = "";

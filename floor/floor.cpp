@@ -182,9 +182,30 @@ void floor::init(const char* callpath_, const char* datapath_,
 	core::init();
 	
 	// load config
-	const string config_filename(config_name +
-								 (file_io::is_file(data_path(config_name + ".local")) ? ".local" : ""));
-	config_doc = json::create_document(data_path(config_filename));
+#if !defined(_MSC_VER)
+	const auto floor_sys_path = [](const string& str) {
+		return "/opt/floor/data/" + str;
+	};
+#else
+	const auto floor_sys_path = [](const string& str) {
+		return expand_path_with_env("%ProgramW6432%/floor/data/") + str;
+	};
+#endif
+	
+	string config_filename = config_name;
+	if(file_io::is_file(data_path(config_name + ".local"))) config_filename = data_path(config_name + ".local");
+	else if(file_io::is_file(data_path(config_name))) config_filename = data_path(config_name);
+	else if(file_io::is_file(floor_sys_path(config_name + ".local"))) config_filename = floor_sys_path(config_name + ".local");
+	else if(file_io::is_file(floor_sys_path(config_name))) config_filename = floor_sys_path(config_name);
+	config_doc = json::create_document(config_filename);
+	
+	json::json_array default_toolchain_paths {
+		json::json_value("/opt/floor/compute"),
+		json::json_value("/c/msys/opt/floor/compute"),
+		json::json_value("%ProgramW6432%/floor/compute"),
+		json::json_value("%ProgramFiles%/floor/compute")
+	};
+	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths;
 	if(config_doc.valid) {
 		config.width = config_doc.get<uint64_t>("screen.width", 1280);
 		config.height = config_doc.get<uint64_t>("screen.height", 720);
@@ -227,58 +248,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.use_cache = config_doc.get<bool>("compute.use_cache", true);
 		config.log_commands = config_doc.get<bool>("compute.log_commands", false);
 		
-		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "clang");
-		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "llc");
-		config.default_as = config_doc.get<string>("compute.toolchain.as", "llvm-as");
-		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "llvm-dis");
-		
 		//
-		static const auto get_viable_toolchain_path = [](const json::json_array& paths,
-														 string& compiler,
-														 string& llc,
-														 string& as,
-														 string& dis,
-														 vector<string*> additional_bins = {}) {
-#if defined(__WINDOWS__)
-			// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
-			compiler = expand_path_with_env(compiler + ".exe");
-			llc = expand_path_with_env(llc + ".exe");
-			as = expand_path_with_env(as + ".exe");
-			dis = expand_path_with_env(dis + ".exe");
-			for(auto& bin : additional_bins) {
-				*bin = expand_path_with_env(*bin + ".exe");
-			}
-#endif
-
-			for(const auto& path : paths) {
-				if(path.type != json::json_value::VALUE_TYPE::STRING) {
-					log_error("toolchain path must be a string!");
-					continue;
-				}
-
-				const auto path_str = expand_path_with_env(path.str);
-				
-				if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
-				if(!file_io::is_file(path_str + "/bin/" + llc)) continue;
-				if(!file_io::is_file(path_str + "/bin/" + as)) continue;
-				if(!file_io::is_file(path_str + "/bin/" + dis)) continue;
-				if(!file_io::is_directory(path_str + "/clang")) continue;
-				if(!file_io::is_directory(path_str + "/floor")) continue;
-				if(!file_io::is_directory(path_str + "/libcxx")) continue;
-				bool found_additional_bins = true;
-				for(const auto& bin : additional_bins) {
-					if(!file_io::is_file(path_str + "/bin/" + *bin)) {
-						found_additional_bins = false;
-						break;
-					}
-				}
-				if(!found_additional_bins) continue;
-				return path_str + "/";
-			}
-			return ""s;
-		};
-		
-		static const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
+		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
 			const auto whitelist_elems = config_doc.get<json::json_array>(config_entry_name);
 			for(const auto& elem : whitelist_elems) {
 				if(elem.type != json::json_value::VALUE_TYPE::STRING) {
@@ -290,15 +261,15 @@ void floor::init(const char* callpath_, const char* datapath_,
 			}
 		};
 		
-		const auto default_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths",
-																			  json::json_array {
-																				  json::json_value("/opt/floor/compute"),
-																				  json::json_value("/c/msys/opt/floor/compute"),
-																				  json::json_value("%ProgramW6432%/floor/compute"),
-																				  json::json_value("%ProgramFiles%/floor/compute")
-																			  });
+		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "clang");
+		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "llc");
+		config.default_as = config_doc.get<string>("compute.toolchain.as", "llvm-as");
+		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "llvm-dis");
 		
-		const auto opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
+		const auto config_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths");
+		if(!config_toolchain_paths.empty()) default_toolchain_paths = config_toolchain_paths;
+		
+		opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
 		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
 		config.opencl_verify_spir = config_doc.get<bool>("compute.opencl.verify_spir", false);
 		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
@@ -309,6 +280,83 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_spir_encoder = config_doc.get<string>("compute.opencl.spir-encoder", config.opencl_spir_encoder);
 		config.opencl_spir_verifier = config_doc.get<string>("compute.opencl.spir-verifier", config.opencl_spir_verifier);
 		config.opencl_applecl_encoder = config_doc.get<string>("compute.opencl.applecl-encoder", config.opencl_applecl_encoder);
+		
+		cuda_toolchain_paths = config_doc.get<json::json_array>("compute.cuda.paths", default_toolchain_paths);
+		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
+		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
+		config.cuda_max_registers = (uint32_t)config_doc.get<uint64_t>("compute.cuda.max_registers", 32);
+		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
+		config.cuda_jit_opt_level = (uint32_t)config_doc.get<uint64_t>("compute.cuda.jit_opt_level", 4);
+		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
+		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
+		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
+		config.cuda_as = config_doc.get<string>("compute.cuda.as", config.default_as);
+		config.cuda_dis = config_doc.get<string>("compute.cuda.dis", config.default_dis);
+		
+		metal_toolchain_paths = config_doc.get<json::json_array>("compute.metal.paths", default_toolchain_paths);
+		extract_whitelist(config.metal_whitelist, "compute.metal.whitelist");
+		config.metal_compiler = config_doc.get<string>("compute.metal.compiler", config.default_compiler);
+		config.metal_llc = config_doc.get<string>("compute.metal.llc", config.default_llc);
+		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
+		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
+		
+		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
+	}
+	
+	// handle compute toolchain paths
+	if(opencl_toolchain_paths.empty()) opencl_toolchain_paths = default_toolchain_paths;
+	if(cuda_toolchain_paths.empty()) cuda_toolchain_paths = default_toolchain_paths;
+	if(metal_toolchain_paths.empty()) metal_toolchain_paths = default_toolchain_paths;
+	log_debug("test: %u, %u, %u, %u",
+			  default_toolchain_paths.size(), opencl_toolchain_paths.size(), metal_toolchain_paths.size(), cuda_toolchain_paths.size());
+	
+	const auto get_viable_toolchain_path = [](const json::json_array& paths,
+											  string& compiler,
+											  string& llc,
+											  string& as,
+											  string& dis,
+											  vector<string*> additional_bins = {}) {
+#if defined(__WINDOWS__)
+		// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
+		compiler = expand_path_with_env(compiler + ".exe");
+		llc = expand_path_with_env(llc + ".exe");
+		as = expand_path_with_env(as + ".exe");
+		dis = expand_path_with_env(dis + ".exe");
+		for(auto& bin : additional_bins) {
+			*bin = expand_path_with_env(*bin + ".exe");
+		}
+#endif
+		
+		for(const auto& path : paths) {
+			if(path.type != json::json_value::VALUE_TYPE::STRING) {
+				log_error("toolchain path must be a string!");
+				continue;
+			}
+			
+			const auto path_str = expand_path_with_env(path.str);
+			
+			if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
+			if(!file_io::is_file(path_str + "/bin/" + llc)) continue;
+			if(!file_io::is_file(path_str + "/bin/" + as)) continue;
+			if(!file_io::is_file(path_str + "/bin/" + dis)) continue;
+			if(!file_io::is_directory(path_str + "/clang")) continue;
+			if(!file_io::is_directory(path_str + "/floor")) continue;
+			if(!file_io::is_directory(path_str + "/libcxx")) continue;
+			bool found_additional_bins = true;
+			for(const auto& bin : additional_bins) {
+				if(!file_io::is_file(path_str + "/bin/" + *bin)) {
+					found_additional_bins = false;
+					break;
+				}
+			}
+			if(!found_additional_bins) continue;
+			return path_str + "/";
+		}
+		return ""s;
+	};
+	
+	{
+		// -> opencl toolchain
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
@@ -333,17 +381,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.opencl_applecl_encoder.insert(0, config.opencl_base_path + "bin/");
 		}
 		
-		const auto cuda_toolchain_paths = config_doc.get<json::json_array>("compute.cuda.paths", default_toolchain_paths);
-		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
-		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
-		config.cuda_max_registers = (uint32_t)config_doc.get<uint64_t>("compute.cuda.max_registers", 32);
-		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
-		config.cuda_jit_opt_level = (uint32_t)config_doc.get<uint64_t>("compute.cuda.jit_opt_level", 4);
-		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
-		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
-		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
-		config.cuda_as = config_doc.get<string>("compute.cuda.as", config.default_as);
-		config.cuda_dis = config_doc.get<string>("compute.cuda.dis", config.default_dis);
+		// -> cuda toolchain
 		config.cuda_base_path = get_viable_toolchain_path(cuda_toolchain_paths,
 														  config.cuda_compiler, config.cuda_llc,
 														  config.cuda_as, config.cuda_dis);
@@ -360,12 +398,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.cuda_dis.insert(0, config.cuda_base_path + "bin/");
 		}
 		
-		const auto metal_toolchain_paths = config_doc.get<json::json_array>("compute.metal.paths", default_toolchain_paths);
-		extract_whitelist(config.metal_whitelist, "compute.metal.whitelist");
-		config.metal_compiler = config_doc.get<string>("compute.metal.compiler", config.default_compiler);
-		config.metal_llc = config_doc.get<string>("compute.metal.llc", config.default_llc);
-		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
-		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
+		// -> metal toolchain
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
 														   config.metal_compiler, config.metal_llc,
 														   config.metal_as, config.metal_dis);
@@ -387,8 +420,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.metal_as.insert(0, config.metal_base_path + "bin/");
 			config.metal_dis.insert(0, config.metal_base_path + "bin/");
 		}
-		
-		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
 	}
 	
 	// init logger and print out floor info

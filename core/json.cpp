@@ -76,6 +76,9 @@ json::json_value& json::json_value::operator=(json::json_value&& val) {
 	return *this;
 }
 json::json_value::json_value(const json_value& val) {
+	*this = val;
+}
+json::json_value& json::json_value::operator=(const json::json_value& val) {
 	type = val.type;
 	switch(type) {
 		case VALUE_TYPE::NULL_VALUE:
@@ -99,6 +102,7 @@ json::json_value::json_value(const json_value& val) {
 			new (&this->str) string(val.str);
 			break;
 	}
+	return *this;
 }
 json::json_value::~json_value() {
 	switch(type) {

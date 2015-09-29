@@ -133,6 +133,7 @@ public:
 		json_value(json_value&& val);
 		json_value& operator=(json_value&& val);
 		json_value(const json_value& val);
+		json_value& operator=(const json_value& val);
 		// init for null/true/false and default init + allocation for all else
 		json_value(const VALUE_TYPE& value_type);
 		// init as string
