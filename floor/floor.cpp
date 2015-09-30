@@ -307,8 +307,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 	if(opencl_toolchain_paths.empty()) opencl_toolchain_paths = default_toolchain_paths;
 	if(cuda_toolchain_paths.empty()) cuda_toolchain_paths = default_toolchain_paths;
 	if(metal_toolchain_paths.empty()) metal_toolchain_paths = default_toolchain_paths;
-	log_debug("test: %u, %u, %u, %u",
-			  default_toolchain_paths.size(), opencl_toolchain_paths.size(), metal_toolchain_paths.size(), cuda_toolchain_paths.size());
 	
 	const auto get_viable_toolchain_path = [](const json::json_array& paths,
 											  string& compiler,
