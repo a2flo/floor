@@ -250,7 +250,7 @@ public:
 					ret += (16 * type_size +
 							(3 /* tabs per line */ * 4 /* elems per line */) +
 							(3 /* front char, back char, newline */ * 4));
-				};
+				} break;
 				case ARG_TYPE::INVALID:
 				default:
 					break;

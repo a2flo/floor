@@ -657,7 +657,7 @@ namespace const_math {
 		return (val % max);
 	}
 	
-	//! computes the linear interpolation between a and b
+	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
