@@ -26,6 +26,7 @@ namespace std {
 	const_func metal_func float sqrt(float) asm("air.fast_sqrt.f32");
 	const_func metal_func float rsqrt(float) asm("air.fast_rsqrt.f32");
 	const_func metal_func float fabs(float) asm("air.fast_fabs.f32");
+	const_func metal_func float abs(float) asm("air.fast_fabs.f32");
 	const_func metal_func float fmin(float, float) asm("air.fast_fmin.f32");
 	const_func metal_func float fmax(float, float) asm("air.fast_fmax.f32");
 	const_func metal_func float floor(float) asm("air.fast_floor.f32");

@@ -47,6 +47,7 @@ namespace std {
 	const_func floor_inline_always float rsqrt(float a) { return __nvvm_rsqrt_approx_ftz_f(a); }
 	const_func floor_inline_always float fmod(float x, float y) { return x - y * __nvvm_trunc_ftz_f(x / y); }
 	const_func floor_inline_always float fabs(float a) { return __nvvm_fabs_ftz_f(a); }
+	const_func floor_inline_always float abs(float a) { return fabs(a); }
 	const_func floor_inline_always float floor(float a) { return __nvvm_floor_ftz_f(a); }
 	const_func floor_inline_always float ceil(float a) { return __nvvm_ceil_ftz_f(a); }
 	const_func floor_inline_always float round(float a) { return __nvvm_round_ftz_f(a); }
@@ -76,6 +77,7 @@ namespace std {
 	const_func floor_inline_always double rsqrt(double a) { return __nvvm_rsqrt_approx_d(a); }
 	const_func floor_inline_always double fmod(double x, double y) { return x - y * __nvvm_trunc_d(x / y); }
 	const_func floor_inline_always double fabs(double a) { return __nvvm_fabs_d(a); }
+	const_func floor_inline_always double abs(double a) { return fabs(a); }
 	const_func floor_inline_always double floor(double a) { return __nvvm_floor_d(a); }
 	const_func floor_inline_always double ceil(double a) { return __nvvm_ceil_d(a); }
 	const_func floor_inline_always double round(double a) { return __nvvm_round_d(a); }

@@ -180,6 +180,12 @@ namespace std {
 	using ::log2;
 	using ::pow;
 	using ::copysign;
+	
+	const_func floor_inline_always float abs(float x) { return fabs(x); }
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	const_func floor_inline_always double abs(double x) { return fabs(x); }
+#endif
+	
 }
 
 #if defined(FLOOR_COMPUTE_SPIR)
