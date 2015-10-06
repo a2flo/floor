@@ -50,6 +50,14 @@ public:
 		uint8_t* data_ptr = &kernel_params_data[0];
 		set_kernel_arguments(0, &kernel_params[0], data_ptr, forward<Args>(args)...);
 		
+#if defined(FLOOR_DEBUG) // internal sanity check, this should never happen in user code
+		const auto written_args_size = distance(&kernel_params_data[0], data_ptr);
+		if((size_t)written_args_size != kernel_args_size) {
+			log_error("invalid kernel parameter size: got %u, expected %", written_args_size, kernel_args_size);
+			return;
+		}
+#endif
+		
 		// run
 		const uint3 block_dim { local_work_size.maxed(1u) }; // prevent % or / by 0, also: cuda needs at least 1
 		const uint3 grid_dim_overflow {
@@ -100,7 +108,11 @@ protected:
 		data += sizeof(cu_device_ptr);
 	}
 	
-	floor_inline_always void set_kernel_argument(const uint8_t num, void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
+	floor_inline_always void set_kernel_argument(const uint8_t
+#if defined(FLOOR_DEBUG)
+												 num // only used in debug mode
+#endif
+												 , void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
 		cuda_image* cu_img = (cuda_image*)arg.get();
 		
 #if defined(FLOOR_DEBUG)
@@ -111,8 +123,8 @@ protected:
 		}
 		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
 		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			if(cu_img->get_cuda_texture() == 0) {
-				log_error("image is set to be readable, but texture object doesn't exist!");
+			if(cu_img->get_cuda_textures()[0] == 0) {
+				log_error("image is set to be readable, but texture objects don't exist!");
 				return;
 			}
 		}
@@ -128,17 +140,16 @@ protected:
 		// set this to the start
 		*param = data;
 		
-		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
-		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			memcpy(data, &cu_img->get_cuda_texture(), sizeof(uint64_t));
+		// set texture+sampler objects
+		const auto& textures = cu_img->get_cuda_textures();
+		for(const auto& texture : textures) {
+			memcpy(data, &texture, sizeof(uint64_t));
 			data += sizeof(uint64_t);
 		}
 		
-		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
-		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
-			data += sizeof(uint64_t);
-		}
+		// set surface object
+		memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
+		data += sizeof(uint64_t);
 	}
 	
 };

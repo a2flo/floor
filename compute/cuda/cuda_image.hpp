@@ -25,6 +25,18 @@
 
 #include <floor/compute/compute_image.hpp>
 
+//! fixed cuda sampler types that are always created
+enum class CUDA_SAMPLER_TYPE : uint32_t {
+	CLAMP_NEAREST_NON_NORMALIZED_COORDS = 0,
+	CLAMP_NEAREST_NORMALIZED_COORDS,
+	CLAMP_LINEAR_NON_NORMALIZED_COORDS,
+	CLAMP_LINEAR_NORMALIZED_COORDS,
+	__MAX_CUDA_SAMPLER_TYPE
+};
+static floor_inline_always constexpr uint32_t cuda_sampler_count() {
+	return uint32_t(CUDA_SAMPLER_TYPE::__MAX_CUDA_SAMPLER_TYPE);
+}
+
 class cuda_device;
 class cuda_image final : public compute_image {
 public:
@@ -58,17 +70,23 @@ public:
 	const cu_surf_object& get_cuda_surface() const { return surface; }
 	
 	//! returns the cuda texture object
-	const cu_tex_object& get_cuda_texture() const { return texture; }
+	const auto& get_cuda_textures() const {
+		return textures;
+	}
 	
 	//! internal function - initialized once by cuda_compute
 	static void init_internal();
 	
 protected:
 	cu_array image { nullptr };
-	cu_surf_object surface { 0ull };
-	cu_tex_object texture { 0ull };
 	cu_graphics_resource rsrc { nullptr };
 	cu_array_3d_descriptor desc;
+	
+	// only need one surface object (only needs to point to image)
+	cu_surf_object surface { 0ull };
+	// the way cuda reads/samples images must be specified in the host api, which will basically
+	// create a combined texture+sampler object -> need to create these for all possible types
+	array<cu_tex_object, cuda_sampler_count()> textures;
 	
 	struct cuda_mapping {
 		const size3 origin;

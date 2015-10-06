@@ -46,6 +46,50 @@ namespace floor_image {
 				(image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT);
 	}
 	
+	//! returns true if coord_type is an int/integral type (int, int2, int3, ...), false if float (or anything else)
+	template <typename coord_type, bool ret_value = ((is_floor_vector<coord_type>::value &&
+													  is_integral<typename coord_type::decayed_scalar_type>::value) ||
+													 (is_fundamental<coord_type>::value && is_integral<coord_type>::value))>
+	static constexpr bool is_int_coord() {
+		return ret_value;
+	}
+	
+	//! backend specific default sampler (for integral and floating point coordinates)
+	template <typename coord_type, typename = void> struct default_sampler {};
+	template <typename coord_type> struct default_sampler<coord_type, enable_if_t<is_int_coord<coord_type>()>> { // int
+		static constexpr auto value() {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			return (FLOOR_OPENCL_NORMALIZED_COORDS_FALSE |
+					FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE |
+					FLOOR_OPENCL_FILTER_NEAREST);
+#elif defined(FLOOR_COMPUTE_METAL)
+			return metal_image::sampler { /* use default params in sampler constructor */ };
+#endif
+		}
+	};
+	template <typename coord_type> struct default_sampler<coord_type, enable_if_t<!is_int_coord<coord_type>()>> { // float
+		static constexpr auto value() {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			return (FLOOR_OPENCL_NORMALIZED_COORDS_TRUE |
+					FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE |
+					FLOOR_OPENCL_FILTER_NEAREST);
+#elif defined(FLOOR_COMPUTE_METAL)
+			return metal_image::sampler {
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::COORD_MODE::NORMALIZED
+				// rest: use defaults
+			};
+#endif
+		}
+	};
+	
+	//! backend specific sampler type
+#if defined(FLOOR_COMPUTE_OPENCL)
+	typedef sampler_t sampler_type;
+#elif defined(FLOOR_COMPUTE_METAL)
+	typedef metal_image::sampler sampler_type;
+#endif
+	
 	template <COMPUTE_IMAGE_TYPE image_type, typename image_storage>
 	struct image {
 		floor_inline_always static constexpr COMPUTE_IMAGE_TYPE type() { return image_type; }
@@ -78,37 +122,25 @@ namespace floor_image {
 			return vector_n<scalar_type, 4> { data };
 		}
 		
-		// intel does not support sampler-less read functions -> create and use a sampler instead, which should do the same
-#if defined(FLOOR_COMPUTE_OPENCL) && \
-	(defined(FLOOR_COMPUTE_INFO_PLATFORM_VENDOR_INTEL) || defined(FLOOR_COMPUTE_INFO_PLATFORM_VENDOR_UNKNOWN))
-#define FLOOR_INTEL_SAMPLER_QUIRK 1
-#endif
-		
-		// read functions
+		// read functions (floating point coordinates)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_float(image_type_) && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
+				  enable_if_t<(is_sample_float(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
+							   !is_int_coord<coord_type>())>* = nullptr>
 		auto read(const coord_type& coord) const {
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-#endif
-			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-											   smplr,
-#endif
-											   convert_coord(coord));
+			const sampler_type smplr = default_sampler<coord_type>::value();
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), smplr, convert_coord(coord));
 			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
 		}
+		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_float(image_type_) && has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_)>* = nullptr>
+				  enable_if_t<(is_sample_float(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
+							   !is_int_coord<coord_type>())>* = nullptr>
 		auto read(const coord_type& coord) const {
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
-#endif
-			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-											   smplr,
-#endif
-#if defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type>::value();
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(), smplr,
+#if defined(FLOOR_COMPUTE_METAL) // metal weirdness, signals that depth is a float (no other types are supported)
 											   1,
 #endif
 											   convert_coord(coord));
@@ -116,13 +148,64 @@ namespace floor_image {
 		}
 		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_int(image_type_)>* = nullptr>
+				  enable_if_t<is_sample_int(image_type_) && !is_int_coord<coord_type>()>* = nullptr>
 		auto read(const coord_type& coord) const {
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+			const sampler_type smplr = default_sampler<coord_type>::value();
+			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(), smplr, convert_coord(coord));
+			return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(clang_vec));
+		}
+		
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<is_sample_uint(image_type_) && !is_int_coord<coord_type>()>* = nullptr>
+		auto read(const coord_type& coord) const {
+			const sampler_type smplr = default_sampler<coord_type>::value();
+			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(), smplr, convert_coord(coord));
+			return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(clang_vec));
+		}
+		
+		// read functions (integral coordinates)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<(is_sample_float(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
+							   is_int_coord<coord_type>())>* = nullptr>
+		auto read(const coord_type& coord) const {
+#if !defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type>::value();
+#endif
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
+#if !defined(FLOOR_COMPUTE_METAL)
+											   smplr,
+#endif
+											   convert_coord(coord));
+			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
+		}
+		
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<(is_sample_float(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
+							   is_int_coord<coord_type>())>* = nullptr>
+		auto read(const coord_type& coord) const {
+#if !defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type>::value();
+#endif
+			const auto clang_vec = read_imagef(static_cast<const image_storage*>(this)->readable_img(),
+#if !defined(FLOOR_COMPUTE_METAL)
+											   smplr,
+#else // metal weirdness, signals that depth is a float (no other types are supported)
+											   1,
+#endif
+											   convert_coord(coord));
+			return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(clang_vec));
+		}
+		
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<is_sample_int(image_type_) && is_int_coord<coord_type>()>* = nullptr>
+		auto read(const coord_type& coord) const {
+#if !defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type>::value();
 #endif
 			const auto clang_vec = read_imagei(static_cast<const image_storage*>(this)->readable_img(),
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+#if !defined(FLOOR_COMPUTE_METAL)
 											   smplr,
 #endif
 											   convert_coord(coord));
@@ -130,13 +213,13 @@ namespace floor_image {
 		}
 		
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_uint(image_type_)>* = nullptr>
+				  enable_if_t<is_sample_uint(image_type_) && is_int_coord<coord_type>()>* = nullptr>
 		auto read(const coord_type& coord) const {
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
-			const sampler_t smplr = FLOOR_OPENCL_NORMALIZED_COORDS_FALSE | FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE | FLOOR_OPENCL_FILTER_NEAREST;
+#if !defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type>::value();
 #endif
 			const auto clang_vec = read_imageui(static_cast<const image_storage*>(this)->readable_img(),
-#if defined(FLOOR_INTEL_SAMPLER_QUIRK)
+#if !defined(FLOOR_COMPUTE_METAL)
 												smplr,
 #endif
 												convert_coord(coord));

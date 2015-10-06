@@ -98,6 +98,9 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
 	// TODO: handle the remaining flags + host ptr
 	
+	// zero init cuda textures array
+	textures.fill(0);
+	
 	// need to allocate the buffer on the correct device, if a context was specified,
 	// else: assume the correct context is already active
 	if(device->ctx != nullptr) {
@@ -342,27 +345,14 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	// create texture/surface objects, depending on read/write flags and sampler support (TODO: and sm_xy)
 	cu_resource_descriptor rsrc_desc;
 	cu_resource_view_descriptor rsrc_view_desc;
-	cu_texture_descriptor tex_desc;
 	memset(&rsrc_desc, 0, sizeof(cu_resource_descriptor));
 	memset(&rsrc_view_desc, 0, sizeof(cu_resource_view_descriptor));
-	memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
 	
 	// TODO: support CU_RESOURCE_TYPE_MIPMAPPED_ARRAY + CU_RESOURCE_TYPE_LINEAR
 	rsrc_desc.type = CU_RESOURCE_TYPE::ARRAY;
 	rsrc_desc.array = image;
 	
 	if(need_tex) {
-		tex_desc.address_mode[0] = CU_ADDRESS_MODE::CLAMP;
-		if(dim_count >= 2) tex_desc.address_mode[1] = CU_ADDRESS_MODE::CLAMP;
-		if(dim_count >= 3) tex_desc.address_mode[2] = CU_ADDRESS_MODE::CLAMP;
-		tex_desc.filter_mode = CU_FILTER_MODE::NEAREST;
-		tex_desc.flags = 0;
-		tex_desc.max_anisotropy = 1;
-		tex_desc.mip_map_filter_mode = CU_FILTER_MODE::NEAREST;
-		tex_desc.mip_map_level_bias = 0.0f;
-		tex_desc.min_mip_map_level_clamp = 0;
-		tex_desc.max_mip_map_level_clamp = 0;
-		
 		rsrc_view_desc.format = rsrc_view_format;
 		rsrc_view_desc.dim = {
 			image_dim.x,
@@ -371,8 +361,52 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		};
 		// rest is already 0
 		
-		CU_CALL_RET(cu_tex_object_create(&texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
-					"failed to create texture object", false);
+		for(size_t i = 0, count = size(textures); i < count; ++i) {
+			cu_texture_descriptor tex_desc;
+			memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
+			
+			// address mode is fixed for now
+			tex_desc.address_mode[0] = CU_ADDRESS_MODE::CLAMP;
+			if(dim_count >= 2) tex_desc.address_mode[1] = CU_ADDRESS_MODE::CLAMP;
+			if(dim_count >= 3) tex_desc.address_mode[2] = CU_ADDRESS_MODE::CLAMP;
+			
+			// filter mode
+			switch((CUDA_SAMPLER_TYPE)i) {
+				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NON_NORMALIZED_COORDS:
+				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NORMALIZED_COORDS:
+					tex_desc.filter_mode = CU_FILTER_MODE::NEAREST;
+					tex_desc.mip_map_filter_mode = CU_FILTER_MODE::NEAREST;
+					break;
+				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NON_NORMALIZED_COORDS:
+				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NORMALIZED_COORDS:
+					tex_desc.filter_mode = CU_FILTER_MODE::LINEAR;
+					tex_desc.mip_map_filter_mode = CU_FILTER_MODE::LINEAR;
+					break;
+				default: break;
+			}
+			
+			// non-normalized / normalized coordinates
+			switch((CUDA_SAMPLER_TYPE)i) {
+				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NON_NORMALIZED_COORDS:
+				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NON_NORMALIZED_COORDS:
+					tex_desc.flags = CU_TEXTURE_FLAGS::NONE;
+					break;
+				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NORMALIZED_COORDS:
+				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NORMALIZED_COORDS:
+					tex_desc.flags = CU_TEXTURE_FLAGS::NORMALIZED_COORDINATES;
+					break;
+				default: break;
+			}
+			
+			// no variable anisotropy yet
+			tex_desc.max_anisotropy = 1;
+			tex_desc.mip_map_level_bias = 0.0f;
+			tex_desc.min_mip_map_level_clamp = 0;
+			tex_desc.max_mip_map_level_clamp = 0;
+			
+			CU_CALL_RET(cu_tex_object_create(&textures[i], &rsrc_desc, &tex_desc, &rsrc_view_desc),
+						"failed to create texture object #" + to_string(i), false);
+		}
 	}
 	if(need_surf) {
 		CU_CALL_RET(cu_surf_object_create(&surface, &rsrc_desc),
@@ -386,9 +420,11 @@ cuda_image::~cuda_image() {
 	// kill the image
 	if(image == nullptr) return;
 	
-	if(texture != 0) {
-		CU_CALL_NO_ACTION(cu_tex_object_destroy(texture),
-						  "failed to destroy texture object");
+	for(const auto& texture : textures) {
+		if(texture != 0) {
+			CU_CALL_NO_ACTION(cu_tex_object_destroy(texture),
+							  "failed to destroy texture object");
+		}
 	}
 	if(surface != 0) {
 		CU_CALL_NO_ACTION(cu_surf_object_destroy(surface),

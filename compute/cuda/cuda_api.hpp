@@ -338,6 +338,14 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 };
 floor_global_enum_ext(CU_ARRAY_3D_FLAGS)
 
+enum class CU_TEXTURE_FLAGS : uint32_t {
+	NONE = 0,
+	READ_AS_INTEGER = 1,
+	NORMALIZED_COORDINATES = 2,
+	SRGB = 16,
+};
+floor_global_enum_ext(CU_TEXTURE_FLAGS)
+
 // these are all external opaque types
 typedef struct _cu_array* cu_array;
 typedef struct _cu_mip_mapped_array* cu_mip_mapped_array;
@@ -429,7 +437,7 @@ struct cu_resource_view_descriptor {
 struct cu_texture_descriptor {
 	CU_ADDRESS_MODE address_mode[3];
 	CU_FILTER_MODE filter_mode;
-	uint32_t flags;
+	CU_TEXTURE_FLAGS flags;
 	uint32_t max_anisotropy;
 	CU_FILTER_MODE mip_map_filter_mode;
 	float mip_map_level_bias;

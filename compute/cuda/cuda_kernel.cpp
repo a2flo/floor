@@ -29,9 +29,11 @@ static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
 	const auto arg_count = info.args.size();
 	for(size_t i = 0; i < arg_count; ++i) {
 		// actual arg or pointer?
-		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT ||
-		   info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE) {
+		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT) {
 			ret += info.args[i].size;
+		}
+		else if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE) {
+			ret += sizeof(uint64_t) * (cuda_sampler_count() + 1 /* surface */);
 		}
 		else ret += sizeof(void*);
 	}

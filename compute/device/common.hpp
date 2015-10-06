@@ -307,6 +307,7 @@ template <typename T> using param = const T&;
 #elif defined(FLOOR_COMPUTE_HOST)
 #include <floor/compute/device/host_image.hpp>
 #endif
+#include <floor/compute/device/image.hpp>
 
 // device logging functions
 #include <floor/compute/device/logger.hpp>

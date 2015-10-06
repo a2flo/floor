@@ -21,24 +21,14 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
-template <COMPUTE_IMAGE_TYPE image_type, typename = void> struct image {};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && !has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type)>> {
-	const uint64_t tex;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct image<image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)>> {
-	const uint64_t surf;
-};
-template <COMPUTE_IMAGE_TYPE image_type>
-struct image<image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(image_type)>> {
-	// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is uses
+template <COMPUTE_IMAGE_TYPE image_type> struct image {
+	// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is used
 	union {
 		struct {
-			const uint64_t tex;
+			const uint64_t tex[4];
 			const uint64_t surf;
 		};
-		const uint2 surf_tex_id;
+		const uint64_t ids[5];
 	};
 };
 
@@ -82,38 +72,53 @@ namespace cuda_image {
 		return vector_n<scalar_type, 4> { data };
 	}
 	
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
-	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float");
+	// returns the texture index corresponding to the used coordinate type
+	// with: int/uint coords -> non-normalized coordinates texture+sampler, float coords -> normalized coordinates texture+sampler
+	template <typename coord_type, enable_if_t<is_floor_vector<coord_type>::value>* = nullptr,
+			  uint32_t ret_value = (is_integral<typename coord_type::decayed_scalar_type>::value ? 0 : 1)>
+	constexpr uint32_t tex_select() {
+		return ret_value;
+	}
+	// returns the texture index corresponding to the used coordinate type
+	// with: int/uint coords -> non-normalized coordinates texture+sampler, float coords -> normalized coordinates texture+sampler
+	template <typename coord_type, enable_if_t<is_fundamental<coord_type>::value>* = nullptr,
+			  uint32_t ret_value = (is_integral<coord_type>::value ? 0 : 1)>
+	constexpr uint32_t tex_select() {
+		return ret_value;
+	}
 	
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
-	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.i1");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.f1");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.i2");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.f2");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.i3");
+	const_func clang_float4 read_imagef(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.float.f3");
 	
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
-	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.i1");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.f1");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.i2");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.f2");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.i3");
+	const_func clang_int4 read_imagei(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.int.f3");
 	
-	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
-	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
-	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.i1");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.f1");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.i2");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.f2");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.i3");
+	const_func clang_uint4 read_imageui(uint64_t tex, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0) asm("floor.read_image.uint.f3");
 	
-	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
-	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
-	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int");
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float.i1");
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float.i2");
+	void write_imagef(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_float4 data) asm("floor.write_image.float.i3");
 	
-	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
-	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
-	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint");
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int.i1");
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int.i2");
+	void write_imagei(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_int4 data) asm("floor.write_image.int.i3");
+	
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint.i1");
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint.i2");
+	void write_imageui(uint64_t surf, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer, clang_uint4 data) asm("floor.write_image.uint.i3");
 }
 
 // image read functions
@@ -123,7 +128,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
+	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
@@ -132,7 +137,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
+	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
@@ -141,7 +146,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex, image_type, cuda_image::convert_coord(coord), layer)));
+	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
@@ -150,7 +155,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
+	return image_vec_ret_type<image_type, float>::fit(float4::from_clang_vector(cuda_image::read_imagef(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer, sample)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
@@ -159,7 +164,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
+	return image_vec_ret_type<image_type, int32_t>::fit(int4::from_clang_vector(cuda_image::read_imagei(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer, sample)));
 }
 
 template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
@@ -168,7 +173,7 @@ template <COMPUTE_IMAGE_TYPE image_type, typename coord_type,
 					   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
 					   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type))>* = nullptr>
 const_func floor_inline_always auto read(const image<image_type>& img, const coord_type& coord, const uint32_t sample, const uint32_t layer = 0) {
-	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex, image_type, cuda_image::convert_coord(coord), layer, sample)));
+	return image_vec_ret_type<image_type, uint32_t>::fit(uint4::from_clang_vector(cuda_image::read_imageui(img.tex[cuda_image::tex_select<coord_type>()], image_type, cuda_image::convert_coord(coord), layer, sample)));
 }
 
 // image write functions

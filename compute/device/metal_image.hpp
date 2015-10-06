@@ -99,8 +99,14 @@ namespace metal_image {
 		compare_func(compare_func_),
 		_unused(0u), is_constant(1u) {}
 		
+		constexpr sampler(const sampler& s) :
+		s_address(s.s_address), t_address(s.t_address), r_address(s.r_address),
+		mag_filter(s.mag_filter), min_filter(s.min_filter), mip_filter(s.mip_filter),
+		coord_mode(s.coord_mode),
+		compare_func(s.compare_func),
+		_unused(0u), is_constant(1u) {}
+		
 		// unavailable
-		sampler(const sampler&) = delete;
 		void operator=(const sampler&) = delete;
 		void operator&() = delete;
 	};
