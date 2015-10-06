@@ -897,10 +897,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..8371614
+index 0000000..3d2aa45
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,754 @@
+@@ -0,0 +1,760 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1185,42 +1185,48 @@ index 0000000..8371614
 +		}
 +		
 +		//
-+		void visitCallInst(CallInst &I) {
-+			const auto func = I.getCalledFunction();
++		void visitCallSite(CallSite CS) {
++			const auto func = CS.getCalledFunction();
 +			if(!func) return;
 +			
-+			const auto func_name = func->getName();
-+			if(func_name.startswith("floor.read_image.") ||
-+			   func_name.startswith("floor.write_image.")) {
-+				handle_image(I, func_name);
++			const auto full_func_name = func->getName();
++			if(full_func_name.startswith("floor.read_image.float.") ||
++			   full_func_name.startswith("floor.write_image.float.") ||
++			   full_func_name.startswith("floor.read_image.int.") ||
++			   full_func_name.startswith("floor.write_image.int.") ||
++			   full_func_name.startswith("floor.read_image.uint.") ||
++			   full_func_name.startswith("floor.write_image.uint.")) {
++				// strip off .(i|f)(1|2|3) from the end of the func name
++				const auto func_name = full_func_name.rsplit('.').first;
++				handle_image(CS, func_name);
 +			}
 +		}
 +		
-+		void handle_image(CallInst& I, const StringRef& func_name) {
-+			CallSite CS { &I };
-+			builder->SetInsertPoint(&I);
++		void handle_image(CallSite& CS, const StringRef& func_name) {
++			Instruction* I = CS.getInstruction();
++			builder->SetInsertPoint(I);
 +			
 +			// check + get arguments
 +			if(CS.arg_size() != 5) {
-+				ctx->emitError(&I, func_name + ": invalid argument count (expected 5)");
++				ctx->emitError(I, func_name + ": invalid argument count (expected 5)");
 +				return;
 +			}
 +			
 +			// -> tex/surf handle
 +			const auto img_handle_arg = CS.getArgument(0);
 +			if(!img_handle_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(&I, "invalid image handle type (must be integer)");
++				ctx->emitError(I, "invalid image handle type (must be integer)");
 +				return;
 +			}
 +			
 +			// -> type enum
 +			const auto image_type_arg = cast<ConstantInt>(CS.getArgument(1));
 +			if(!image_type_arg) {
-+				ctx->emitError(&I, "image type argument must be a constant value");
++				ctx->emitError(I, "image type argument must be a constant value");
 +				return;
 +			}
 +			if(!image_type_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(&I, "invalid image-type type (must be enum/integer)");
++				ctx->emitError(I, "invalid image-type type (must be enum/integer)");
 +				return;
 +			}
 +			const uint32_t image_channel_count = ((uint32_t(image_type_arg->getZExtValue()) &
@@ -1241,7 +1247,7 @@ index 0000000..8371614
 +					break;
 +				default:
 +					// all else: nope
-+					ctx->emitError(&I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
++					ctx->emitError(I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
 +					return;
 +			}
 +			
@@ -1250,14 +1256,14 @@ index 0000000..8371614
 +			const auto coord_arg_type = coord_arg->getType();
 +			if(!(coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
 +												  coord_arg_type->getVectorElementType()->isIntegerTy()))) {
-+				ctx->emitError(&I, "invalid image coordinate type");
++				ctx->emitError(I, "invalid image coordinate type");
 +				return;
 +			}
 +			
 +			// -> layer
 +			const auto layer_arg = CS.getArgument(3);
 +			if(!layer_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(&I, "invalid image layer index type (must be integer)");
++				ctx->emitError(I, "invalid image layer index type (must be integer)");
 +				return;
 +			}
 +			
@@ -1265,10 +1271,10 @@ index 0000000..8371614
 +				// -> sample
 +				const auto sample_arg = CS.getArgument(4);
 +				if(!sample_arg->getType()->isIntegerTy()) {
-+					ctx->emitError(&I, "invalid image sample index type (must be integer)");
++					ctx->emitError(I, "invalid image sample index type (must be integer)");
 +					return;
 +				}
-+				handle_read_image(I, CS, func_name,
++				handle_read_image(*I, func_name,
 +								  img_handle_arg, image_type, coord_arg, coord_arg_type,
 +								  layer_arg, sample_arg);
 +			}
@@ -1278,22 +1284,22 @@ index 0000000..8371614
 +				const auto data_type = data_arg->getType();
 +				if(!data_type->isVectorTy() ||
 +				   data_type->getVectorNumElements() != 4) {
-+					ctx->emitError(&I, "invalid image data type (must be 4-component vector)");
++					ctx->emitError(I, "invalid image data type (must be 4-component vector)");
 +					return;
 +				}
 +				if(!data_type->getVectorElementType()->isFloatTy() &&
 +				   !data_type->getVectorElementType()->isIntegerTy()) {
-+					ctx->emitError(&I, "invalid image data type (must be a float or integer vector)");
++					ctx->emitError(I, "invalid image data type (must be a float or integer vector)");
 +					return;
 +				}
-+				handle_write_image(I, CS, func_name,
++				handle_write_image(*I, func_name,
 +								   img_handle_arg, image_type, format_type, is_normalized, image_channel_count,
 +								   coord_arg, coord_arg_type,
 +								   layer_arg, data_arg);
 +			}
 +		}
 +		
-+		void handle_read_image(CallInst& I, const CallSite& CS, const StringRef& func_name,
++		void handle_read_image(Instruction& I, const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
 +							   llvm::Value* coord_arg,
@@ -1447,7 +1453,7 @@ index 0000000..8371614
 +			I.eraseFromParent();
 +		}
 +		
-+		void handle_write_image(CallInst& I, const CallSite& CS, const StringRef& func_name,
++		void handle_write_image(Instruction& I, const StringRef& func_name,
 +								llvm::Value* img_handle_arg,
 +								const COMPUTE_IMAGE_TYPE& image_type,
 +								const COMPUTE_IMAGE_TYPE& format_type,
