@@ -1663,10 +1663,10 @@ index 0000000..3d2aa45
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..0736e59
+index 0000000..8d0e7f0
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,182 @@
+@@ -0,0 +1,250 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1741,6 +1741,8 @@ index 0000000..0736e59
 +		LLVMContext* ctx { nullptr };
 +		Function* func { nullptr };
 +		Instruction* alloca_insert { nullptr };
++		bool was_modified { false };
++		bool is_kernel_func { false };
 +		
 +		// added function args
 +		Argument* global_id { nullptr };
@@ -1758,30 +1760,31 @@ index 0000000..0736e59
 +			// exit if empty function
 +			if(F.empty()) return false;
 +			
-+			// if not a kernel function, return (for now)
-+			if(!F.hasFnAttribute("compute_kernel")) return false;
-+			
 +			//
 +			M = F.getParent();
 +			ctx = &M->getContext();
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
 +			
-+			// add args
-+			const auto vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
-+			global_id = new llvm::Argument(vec_type, "__metal__global_id__", &F);
-+			global_size = new llvm::Argument(vec_type, "__metal__global_size__", &F);
-+			local_id = new llvm::Argument(vec_type, "__metal__local_id__", &F);
-+			local_size = new llvm::Argument(vec_type, "__metal__local_size__", &F);
-+			group_id = new llvm::Argument(vec_type, "__metal__group_id__", &F);
-+			group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
++			// add args if this is a kernel function
++			is_kernel_func = F.hasFnAttribute("compute_kernel");
++			if(is_kernel_func) {
++				const auto vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
++				global_id = new llvm::Argument(vec_type, "__metal__global_id__", &F);
++				global_size = new llvm::Argument(vec_type, "__metal__global_size__", &F);
++				local_id = new llvm::Argument(vec_type, "__metal__local_id__", &F);
++				local_size = new llvm::Argument(vec_type, "__metal__local_size__", &F);
++				group_id = new llvm::Argument(vec_type, "__metal__group_id__", &F);
++				group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
++			}
 +			
 +			// visit everything in this function
++			was_modified = false; // reset every time
 +			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
 +			visit(F);
 +			
 +			// always modified
-+			return true;
++			return was_modified || is_kernel_func;
 +		}
 +		
 +		// InstVisitor overrides...
@@ -1792,6 +1795,9 @@ index 0000000..0736e59
 +		
 +		//
 +		void visitCallInst(CallInst &I) {
++			// if this isn't a kernel function we don't need to do anything here (yet)
++			if(!is_kernel_func) return;
++			
 +			const auto func_name = I.getCalledFunction()->getName();
 +			if(!func_name.startswith("floor.")) return;
 +			
@@ -1837,6 +1843,68 @@ index 0000000..0736e59
 +			// replace call with vector load / elem extraction from the appropriate vector
 +			I.replaceAllUsesWith(builder->CreateExtractElement(id, CS.getArgument(0)));
 +			I.eraseFromParent();
++		}
++		
++		// like SPIR, Metal only supports scalar conversion ops ->
++		// * scalarize source vector
++		// * call conversion op for each scalar
++		// * reassemble a vector from the converted scalars
++		// * replace all uses of the original vector
++		template <Instruction::CastOps cast_op>
++		__attribute__((always_inline))
++		void vec_to_scalar_ops(CastInst& I) {
++			if(!I.getType()->isVectorTy()) return;
++			
++			// start insertion before instruction
++			builder->SetInsertPoint(&I);
++			
++			// setup
++			auto* src_vec = I.getOperand(0);
++			const auto dim = src_vec->getType()->getVectorNumElements();
++			const auto si_type = I.getDestTy();
++			const auto si_scalar_type = si_type->getScalarType();
++			llvm::Value* dst_vec = UndefValue::get(si_type);
++			
++			// iterate over all vector components, emit a scalar instruction and insert into a new vector
++			for(uint32_t i = 0; i < dim; ++i) {
++				auto scalar = builder->CreateExtractElement(src_vec, builder->getInt32(i));
++				dst_vec = builder->CreateInsertElement(dst_vec,
++													   builder->CreateCast(cast_op, scalar, si_scalar_type),
++													   builder->getInt32(i));
++			}
++			
++			// finally, replace all uses with the new vector and remove the old vec instruction
++			I.replaceAllUsesWith(dst_vec);
++			I.eraseFromParent();
++			was_modified = true;
++		}
++		
++		void visitTruncInst(TruncInst &I) {
++			vec_to_scalar_ops<Instruction::Trunc>(I);
++		}
++		void visitZExtInst(ZExtInst &I) {
++			vec_to_scalar_ops<Instruction::ZExt>(I);
++		}
++		void visitSExtInst(SExtInst &I) {
++			vec_to_scalar_ops<Instruction::SExt>(I);
++		}
++		void visitFPTruncInst(FPTruncInst &I) {
++			vec_to_scalar_ops<Instruction::FPTrunc>(I);
++		}
++		void visitFPExtInst(FPExtInst &I) {
++			vec_to_scalar_ops<Instruction::FPExt>(I);
++		}
++		void visitFPToUIInst(FPToUIInst &I) {
++			vec_to_scalar_ops<Instruction::FPToUI>(I);
++		}
++		void visitFPToSIInst(FPToSIInst &I) {
++			vec_to_scalar_ops<Instruction::FPToSI>(I);
++		}
++		void visitUIToFPInst(UIToFPInst &I) {
++			vec_to_scalar_ops<Instruction::UIToFP>(I);
++		}
++		void visitSIToFPInst(SIToFPInst &I) {
++			vec_to_scalar_ops<Instruction::SIToFP>(I);
 +		}
 +		
 +	};
