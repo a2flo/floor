@@ -499,20 +499,20 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 		log_error("failed to write tmp metal ll file");
 		return {};
 	}
-	core::system(metal_as + " -o=metal_tmp.air metal_tmp.ll"s);
 	if(!floor::get_compute_debug()) {
-		core::system(metal_opt + " -Oz metal_tmp.air -o metal_tmp_opt.air"s);
-		core::system(metal_ar + " r metal_tmp.a metal_tmp_opt.air"s);
+		core::system(metal_as + " -o=metal_tmp_unopt.air metal_tmp.ll"s);
+		core::system(metal_opt + " -Oz metal_tmp_unopt.air -o metal_tmp.air"s);
 	}
 	else {
-		core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
+		core::system(metal_as + " -o=metal_tmp.air metal_tmp.ll"s);
 	}
+	core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
 	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
 	
 	static const auto cleanup = []() {
 		core::system("rm metal_tmp.ll");
 		core::system("rm metal_tmp.air");
-		if(!floor::get_compute_debug()) core::system("rm metal_tmp_opt.air");
+		if(!floor::get_compute_debug()) core::system("rm metal_tmp_unopt.air");
 		core::system("rm metal_tmp.a");
 		core::system("rm metal_tmp.metallib");
 	};
