@@ -32,22 +32,64 @@ struct host_device_image {
 	const int4 image_dim;
 	
 	//! 1D, 1D buffer
-	size_t coord_to_offset(int coord) const {
+	size_t coord_to_offset(int32_t coord) const {
 		return size_t(const_math::clamp(coord, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
+	size_t coord_to_offset(uint32_t coord) const { return coord_to_offset(int32_t(coord)); }
+	size_t coord_to_offset(float coord) const {
+		const auto fdim = float(image_dim.x - 1);
+		return size_t(const_math::clamp(coord * fdim + 0.5f, 0.0f, fdim)) * image_bytes_per_pixel(image_type);
+	}
 	
-	//! 1D array, 2D, 2D depth, 2D depth+stencil
+	//! 1D array
+	size_t coord_to_offset(int32_t coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	size_t coord_to_offset(uint32_t coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	size_t coord_to_offset(float coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	
+	//! 2D, 2D depth, 2D depth+stencil
 	size_t coord_to_offset(int2 coord) const {
 		return size_t(image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 					  const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
 	}
+	size_t coord_to_offset(uint2 coord) const { return coord_to_offset(int2(coord)); }
+	size_t coord_to_offset(float2 coord) const {
+		const float2 fdim { image_dim.xy - 1 };
+		return size_t(image_dim.x * int32_t(const_math::clamp(coord.y * fdim.y + 0.5f, 0.0f, fdim.y)) +
+					  int32_t(const_math::clamp(coord.x * fdim.x + 0.5f, 0.0f, fdim.x))) * image_bytes_per_pixel(image_type);
+	}
 	
-	//! 2D array, 3D, 2D depth array
+	//! 2D array, 2D depth array
+	size_t coord_to_offset(int2 coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	size_t coord_to_offset(uint2 coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	size_t coord_to_offset(float2 coord, uint32_t layer) const {
+		return coord_to_offset(coord) + image_slice_data_size_from_types(image_dim, image_type) * layer;
+	}
+	
+	//! 3D
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
 	size_t coord_to_offset(int3 coord) const {
 		return size_t(image_dim.x * image_dim.y * const_math::clamp(coord.z, 0, image_dim.z - 1) +
 					  image_dim.x * const_math::clamp(coord.y, 0, image_dim.y - 1) +
 					  const_math::clamp(coord.x, 0, image_dim.x - 1)) * image_bytes_per_pixel(image_type);
+	}
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
+	size_t coord_to_offset(uint3 coord) const { return coord_to_offset(int3(coord)); }
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
+	size_t coord_to_offset(float3 coord) const {
+		const float3 fdim { image_dim.xyz - 1 };
+		return size_t(image_dim.x * image_dim.y * int32_t(const_math::clamp(coord.z * fdim.z + 0.5f, 0.0f, fdim.z)) +
+					  image_dim.x * int32_t(const_math::clamp(coord.y * fdim.y + 0.5f, 0.0f, fdim.y)) +
+					  int32_t(const_math::clamp(coord.x * fdim.x + 0.5f, 0.0f, fdim.x))) * image_bytes_per_pixel(image_type);
 	}
 	
 	//! cube, depth cube
@@ -56,10 +98,21 @@ struct host_device_image {
 		// TODO: proper cube sampling
 		return 0;
 	}
-	
-	//! cuba array
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-	size_t coord_to_offset(int4 coord floor_unused) const {
+	size_t coord_to_offset(uint3 coord) const { return coord_to_offset(int3(coord)); }
+	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
+	size_t coord_to_offset(float3 coord floor_unused) const {
+		// TODO: proper cube sampling
+		return 0;
+	}
+	
+	//! cube array
+	size_t coord_to_offset(int3 coord floor_unused, uint32_t layer floor_unused) const {
+		// TODO: proper cube sampling
+		return 0;
+	}
+	size_t coord_to_offset(uint3 coord, uint32_t layer) const { return coord_to_offset(int3(coord), layer); }
+	size_t coord_to_offset(float3 coord floor_unused, uint32_t layer floor_unused) const {
 		// TODO: proper cube sampling
 		return 0;
 	}
