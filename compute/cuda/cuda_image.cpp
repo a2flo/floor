@@ -28,7 +28,6 @@
 
 // internal shaders for copying/blitting opengl textures
 static const char blit_vs_text[] {
-	"#version 150 core\n"
 	"out vec2 tex_coord;\n"
 	"void main() {\n"
 	"	const vec2 fullscreen_triangle[3] = vec2[](vec2(1.0, 1.0), vec2(-3.0, 1.0), vec2(1.0, -3.0));\n"
@@ -37,7 +36,6 @@ static const char blit_vs_text[] {
 	"}\n"
 };
 static const char blit_to_color_fs_text[] {
-	"#version 150 core\n"
 	"uniform sampler2D in_tex;\n"
 	"in vec2 tex_coord;\n"
 	"out float out_depth;\n"
@@ -46,7 +44,6 @@ static const char blit_to_color_fs_text[] {
 	"}\n"
 };
 static const char blit_to_depth_fs_text[] {
-	"#version 150 core\n"
 	"uniform sampler2D in_tex;\n"
 	"in vec2 tex_coord;\n"
 	"void main() {\n"
@@ -68,12 +65,17 @@ namespace cuda_image_support {
 		did_init = true;
 		
 		// compile internal shaders
-		if(!floor_compile_shader(shaders[(uint32_t)CUDA_SHADER::BLIT_DEPTH_TO_COLOR], blit_vs_text, blit_to_color_fs_text)) {
-			log_error("failed to compile internal shader: BLIT_DEPTH_TO_COLOR");
+		const auto depth_to_color_shd = floor_compile_shader("BLIT_DEPTH_TO_COLOR", blit_vs_text, blit_to_color_fs_text);
+		if(!depth_to_color_shd.first) {
+			log_error("failed to compile internal shader: %s", depth_to_color_shd.second.name);
 		}
-		if(!floor_compile_shader(shaders[(uint32_t)CUDA_SHADER::BLIT_COLOR_TO_DEPTH], blit_vs_text, blit_to_depth_fs_text)) {
-			log_error("failed to compile internal shader: BLIT_COLOR_TO_DEPTH");
+		else shaders[(uint32_t)CUDA_SHADER::BLIT_DEPTH_TO_COLOR] = depth_to_color_shd.second;
+		
+		const auto color_to_depth_shd = floor_compile_shader("BLIT_COLOR_TO_DEPTH", blit_vs_text, blit_to_depth_fs_text);
+		if(!color_to_depth_shd.first) {
+			log_error("failed to compile internal shader: %s", color_to_depth_shd.second.name);
 		}
+		else shaders[(uint32_t)CUDA_SHADER::BLIT_COLOR_TO_DEPTH] = color_to_depth_shd.second;
 	}
 }
 

@@ -62,13 +62,13 @@ public:
 	// iOS specific
 	static void* get_eagl_sharegroup();
 	static void compile_shaders();
-	static shared_ptr<floor_shader_object> get_shader(const string& name);
+	static floor_shader_object* get_shader(const string& name);
 #endif
 	
 protected:
 #if defined(FLOOR_IOS)
 	// iOS specific
-	static unordered_map<string, shared_ptr<floor_shader_object>> shader_objects;
+	static unordered_map<string, floor_shader_object> shader_objects;
 #endif
 	
 public:

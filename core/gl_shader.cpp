@@ -91,12 +91,12 @@ static bool is_gl_sampler_type(const GLenum& type) {
 #endif // !FLOOR_IOS
 
 #if defined(__APPLE__)
-static void log_pretty_print(const char* log, const char* code) {
+static void log_pretty_print(const char* log, const string& code) {
 	static const regex rx_log_line("\\w+: 0:(\\d+):.*");
 	smatch regex_result;
 	
 	const vector<string> lines { core::tokenize(string(log), '\n') };
-	const vector<string> code_lines { core::tokenize(string(code), '\n') };
+	const vector<string> code_lines { core::tokenize(code, '\n') };
 	for(const string& line : lines) {
 		if(line.size() == 0) continue;
 		log_undecorated("## \033[31m%s\033[m", line);
@@ -118,13 +118,36 @@ static void log_pretty_print(const char* log, const char* code) {
 	}
 }
 #else
-static void log_pretty_print(const char* log, const char*) {
+static void log_pretty_print(const char* log, const string&) {
 	log_undecorated("%s", log);
 }
 #endif
 
 #define SHADER_LOG_SIZE 32767
-bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text) {
+pair<bool, floor_shader_object> floor_compile_shader(const char* name,
+													 const char* vs_text, const char* fs_text,
+													 const uint32_t glsl_version,
+													 const vector<pair<string, int32_t>> options) {
+	floor_shader_object shd { .name = name };
+	
+	// start header with requested glsl version:
+	// opengl 2.x / opengl es 2.0 -> glsl 1.10/1.20 / glsl es 1.00: no suffix
+	// opengl 3.0+ -> glsl 1.30 - glsl 4.50+: always core suffix
+	// opengl es 3.0 -> glsl es 3.00: always es suffix
+	string header = "#version " + to_string(glsl_version) + (glsl_version < 130 ? "" :
+															 (glsl_version == 300 ? " es" : " core")) + "\n";
+	
+	// add options/defines list
+	for(const auto& option : options) {
+		header += "#define " + option.first + " " + to_string(option.second) + "\n";
+	}
+	
+	// combine code
+	const string vs_code = header + vs_text;
+	const string fs_code = header + fs_text;
+	const auto vs_code_ptr = vs_code.c_str();
+	const auto fs_code_ptr = fs_code.c_str();
+	
 	// success flag (if it's 1 (true), we successfully created a shader object)
 	GLint success = 0;
 	GLchar info_log[SHADER_LOG_SIZE+1];
@@ -135,26 +158,26 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	
 	// create the vertex shader object
 	shd_obj.vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(shd_obj.vertex_shader, 1, (GLchar const**)&vs_text, nullptr);
+	glShaderSource(shd_obj.vertex_shader, 1, (GLchar const**)&vs_code_ptr, nullptr);
 	glCompileShader(shd_obj.vertex_shader);
 	glGetShaderiv(shd_obj.vertex_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {
 		glGetShaderInfoLog(shd_obj.vertex_shader, SHADER_LOG_SIZE, nullptr, info_log);
 		log_error("error in vertex shader \"%s\" compilation:", shd.name);
-		log_pretty_print(info_log, vs_text);
-		return false;
+		log_pretty_print(info_log, vs_code);
+		return { false, {} };
 	}
 	
 	// create the fragment shader object
 	shd_obj.fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(shd_obj.fragment_shader, 1, (GLchar const**)&fs_text, nullptr);
+	glShaderSource(shd_obj.fragment_shader, 1, (GLchar const**)&fs_code_ptr, nullptr);
 	glCompileShader(shd_obj.fragment_shader);
 	glGetShaderiv(shd_obj.fragment_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {
 		glGetShaderInfoLog(shd_obj.fragment_shader, SHADER_LOG_SIZE, nullptr, info_log);
 		log_error("error in fragment shader \"%s\" compilation:", shd.name);
-		log_pretty_print(info_log, fs_text);
-		return false;
+		log_pretty_print(info_log, fs_code);
+		return { false, {} };
 	}
 	
 	// create the program object
@@ -169,7 +192,7 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	if(!success) {
 		glGetProgramInfoLog(shd_obj.program, SHADER_LOG_SIZE, nullptr, info_log);
 		log_error("error in program \"%s\" linkage!\nInfo log: %s", shd.name, info_log);
-		return false;
+		return { false, {} };
 	}
 	glUseProgram(shd_obj.program);
 	
@@ -244,7 +267,7 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	if(!success) {
 		glGetProgramInfoLog(shd_obj.program, SHADER_LOG_SIZE, nullptr, info_log);
 		log_error("error in program \"%s\" validation!\nInfo log: %s", shd.name, info_log);
-		return false;
+		return { false, {} };
 	}
 	else {
 		glGetProgramInfoLog(shd_obj.program, SHADER_LOG_SIZE, nullptr, info_log);
@@ -257,5 +280,5 @@ bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const c
 	
 	//
 	glUseProgram(0);
-	return true;
+	return { true, shd };
 }

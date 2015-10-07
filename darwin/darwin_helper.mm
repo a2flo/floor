@@ -421,15 +421,17 @@ void darwin_helper::compile_shaders() {
 			gl_FragColor = texture2D(tex, tex_coord);
 		}
 	)RAWSTR"};
-		
-	auto shd = make_shared<floor_shader_object>("BLIT");
-	floor_compile_shader(*shd.get(), blit_vs_text, blit_fs_text);
-	shader_objects.emplace("BLIT", shd);
+	
+	const auto blit_shd = floor_compile_shader("BLIT", blit_vs_text, blit_fs_text);
+	if(!blit_shd.first) {
+		log_error("failed to compile BLIT shader");
+	}
+	else shader_objects.emplace(blit_shd.second.name, blit_shd.second);
 }
 
-shared_ptr<floor_shader_object> darwin_helper::get_shader(const string& name) {
+floor_shader_object* darwin_helper::get_shader(const string& name) {
 	const auto iter = shader_objects.find(name);
 	if(iter == shader_objects.end()) return nullptr;
-	return iter->second;
+	return &iter->second;
 }
 #endif

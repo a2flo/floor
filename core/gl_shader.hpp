@@ -23,27 +23,34 @@
 
 struct floor_shader_object {
 	struct internal_shader_object {
-		unsigned int program { 0 };
-		unsigned int vertex_shader { 0 };
-		unsigned int fragment_shader { 0 };
+		uint32_t program { 0u };
+		uint32_t vertex_shader { 0u };
+		uint32_t fragment_shader { 0u };
 		
 		struct shader_variable {
-			int location;
-			int size;
-			unsigned int type;
+			int32_t location;
+			int32_t size;
+			uint32_t type;
 		};
 		unordered_map<string, shader_variable> uniforms;
 		unordered_map<string, shader_variable> attributes;
-		unordered_map<string, int> samplers;
-	};
-	const string name;
-	internal_shader_object program;
+		unordered_map<string, int32_t> samplers;
+	} program {};
 	
-	floor_shader_object() = default;
-	floor_shader_object(const string& shd_name) : name(shd_name) {}
-	~floor_shader_object() = default;
+	string name;
 };
 
-bool floor_compile_shader(floor_shader_object& shd, const char* vs_text, const char* fs_text);
+pair<bool, floor_shader_object> floor_compile_shader(const char* name,
+													 const char* vs_text, const char* fs_text,
+#if !defined(FLOOR_IOS)
+													 const uint32_t glsl_version = 150, // glsl 1.50 core
+#else
+#if defined(PLATFORM_X64)
+													 const uint32_t glsl_version = 300, // glsl es 3.00
+#else
+													 const uint32_t glsl_version = 100, // glsl es 1.00
+#endif
+#endif
+													 const vector<pair<string, int32_t>> options = {});
 
 #endif
