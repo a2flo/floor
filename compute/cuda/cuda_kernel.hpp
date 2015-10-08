@@ -53,7 +53,7 @@ public:
 #if defined(FLOOR_DEBUG) // internal sanity check, this should never happen in user code
 		const auto written_args_size = distance(&kernel_params_data[0], data_ptr);
 		if((size_t)written_args_size != kernel_args_size) {
-			log_error("invalid kernel parameter size: got %u, expected %", written_args_size, kernel_args_size);
+			log_error("invalid kernel parameter size: got %u, expected %u", written_args_size, kernel_args_size);
 			return;
 		}
 #endif
