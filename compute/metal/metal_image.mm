@@ -472,7 +472,6 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		metal_queue* mqueue = (metal_queue*)(dev != nullptr ? device->internal_queue : cqueue);
 		
 		// copy to device memory must go through a blit command
-		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		
@@ -480,18 +479,30 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		
-		const void* data_ptr = host_ptr;
-		if(image_type != shim_image_type) {
+		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
+		const size_t slice_count = [desc arrayLength] * (is_cube ? 6u : 1u);
+		
+		const uint8_t* data_ptr {
+			image_type != shim_image_type ?
 			// need to copy/convert the RGB host data to RGBA
-			data_ptr = rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)host_ptr);
+			rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)host_ptr) :
+			// else: can use host ptr directly
+			(const uint8_t*)host_ptr
+		};
+		
+		for(size_t slice = 0; slice < slice_count; ++slice) {
+			[image replaceRegion:region
+					 mipmapLevel:0
+						   slice:slice
+					   withBytes:(data_ptr + slice * bytes_per_slice)
+					 bytesPerRow:bytes_per_row
+				   bytesPerImage:bytes_per_slice];
 		}
 		
-		[image replaceRegion:region
-				 mipmapLevel:0
-					   slice:0
-				   withBytes:data_ptr
-				 bytesPerRow:bytes_per_row
-			   bytesPerImage:bytes_per_slice];
+		// clean up shim data
+		if(image_type != shim_image_type) {
+			delete [] data_ptr;
+		}
 		
 		// also create mip-map chain when initializing from a host pointer and mip-map flag is set
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
@@ -502,11 +513,6 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
-		
-		// clean up shim data
-		if(image_type != shim_image_type) {
-			delete [] (const uint8_t*)data_ptr;
-		}
 	}
 	
 	return true;
@@ -523,7 +529,6 @@ metal_image::~metal_image() {
 void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	if(image == nil) return;
 	
-	// TODO: handle arrays/slices correctly!
 	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
@@ -541,12 +546,15 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 			dim_count >= 3 ? image_dim.z : 1,
 		}
 	};
-	[image replaceRegion:region
-			 mipmapLevel:0
-				   slice:0
-			   withBytes:zero_data
-			 bytesPerRow:bytes_per_row
-		   bytesPerImage:bytes_per_slice];
+	const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
+	for(size_t slice = 0; slice < slice_count; ++slice) {
+		[image replaceRegion:region
+				 mipmapLevel:0
+					   slice:slice
+				   withBytes:zero_data
+				 bytesPerRow:bytes_per_row
+			   bytesPerImage:bytes_per_slice];
+	}
 	
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
@@ -569,8 +577,9 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 			dim_count >= 3 ? image_dim.z : 1,
 		}
 	};
-	// TODO: cube/array
-	const auto map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(image_type);
+	const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
+	const auto map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(image_type) * slice_count;
+	const auto shim_map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type) * slice_count;
 	
 	// TODO: image map check + move this check there:
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
@@ -616,7 +625,6 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 #endif
 		
 		// copy image data to the host
-		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
@@ -624,16 +632,17 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		
 		uint8_t* data_ptr {
 			image_type != shim_image_type ?
-			new uint8_t[region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type)] :
+			new uint8_t[shim_map_size] :
 			host_buffer
 		};
-		
-		[image getBytes:data_ptr
-			bytesPerRow:bytes_per_row
-		  bytesPerImage:bytes_per_slice
-			 fromRegion:region
-			mipmapLevel:0
-				  slice:0];
+		for(size_t slice = 0; slice < slice_count; ++slice) {
+			[image getBytes:(data_ptr + slice * bytes_per_slice)
+				bytesPerRow:bytes_per_row
+			  bytesPerImage:bytes_per_slice
+				 fromRegion:region
+				mipmapLevel:0
+					  slice:slice];
+		}
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
@@ -666,7 +675,6 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		// copy host memory to device memory
-		// TODO: handle arrays/slices correctly!
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
@@ -678,12 +686,15 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 			data_ptr = rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)mapped_ptr);
 		}
 		
-		[image replaceRegion:iter->second.region
-				 mipmapLevel:0
-					   slice:0
-				   withBytes:data_ptr
-				 bytesPerRow:bytes_per_row
-			   bytesPerImage:bytes_per_slice];
+		const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
+		for(size_t slice = 0; slice < slice_count; ++slice) {
+			[image replaceRegion:iter->second.region
+					 mipmapLevel:0
+						   slice:slice
+					   withBytes:(data_ptr + slice * bytes_per_slice)
+					 bytesPerRow:bytes_per_row
+				   bytesPerImage:bytes_per_slice];
+		}
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
