@@ -31,6 +31,8 @@ event::event() : thread_base("event") {
 }
 
 event::~event() {
+	// finish/kill the event thread before deleting any shared event data
+	finish();
 }
 
 void event::run() {
