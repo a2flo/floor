@@ -65,6 +65,12 @@ BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 
+BUILD_CONF_SANITIZERS=0
+BUILD_CONF_ASAN=0
+BUILD_CONF_MSAN=0
+BUILD_CONF_TSAN=0
+BUILD_CONF_UBSAN=0
+
 BUILD_ARCH_SIZE="x64"
 BUILD_ARCH=$(${CC} -dumpmachine | sed "s/-.*//")
 case $BUILD_ARCH in
@@ -103,6 +109,12 @@ for arg in "$@"; do
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
+			echo ""
+			echo "sanitizers:"
+			echo "  asan               build with address sanitizer"
+			echo "  msan               build with memory sanitizer"
+			echo "  tsan               build with thread sanitizer"
+			echo "  ubsan              build with undefined behavior sanitizer"
 			echo ""
 			echo "misc flags:"
 			echo "	-v                 verbose output (prints all executed compiler and linker commands, and some other information)"
@@ -171,6 +183,22 @@ for arg in "$@"; do
 			;;
 		"x64")
 			BUILD_ARCH_SIZE="x64"
+			;;
+		"asan")
+			BUILD_CONF_SANITIZERS=1
+			BUILD_CONF_ASAN=1
+			;;
+		"msan")
+			BUILD_CONF_SANITIZERS=1
+			BUILD_CONF_MSAN=1
+			;;
+		"tsan")
+			BUILD_CONF_SANITIZERS=1
+			BUILD_CONF_TSAN=1
+			;;
+		"ubsan")
+			BUILD_CONF_SANITIZERS=1
+			BUILD_CONF_UBSAN=1
 			;;
 		*)
 			warning "unknown argument: ${arg}"
@@ -306,6 +334,26 @@ if [ $BUILD_OS != "mingw" ]; then
 		LDFLAGS="${LDFLAGS} -m32"
 	else
 		LDFLAGS="${LDFLAGS} -m64"
+	fi
+fi
+
+# handle clang/llvm sanitizers
+if [ ${BUILD_CONF_SANITIZERS} -gt 0 ]; then
+	if [ ${BUILD_CONF_ASAN} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -fsanitize=address"
+		COMMON_FLAGS="${COMMON_FLAGS} -fsanitize=address -fno-omit-frame-pointer"
+	fi
+	if [ ${BUILD_CONF_MSAN} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -fsanitize=memory"
+		COMMON_FLAGS="${COMMON_FLAGS} -fsanitize=memory -fno-omit-frame-pointer"
+	fi
+	if [ ${BUILD_CONF_TSAN} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -fsanitize=thread"
+		COMMON_FLAGS="${COMMON_FLAGS} -fsanitize=thread -fno-omit-frame-pointer"
+	fi
+	if [ ${BUILD_CONF_UBSAN} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -fsanitize=undefined-trap -fsanitize-undefined-trap-on-error"
+		COMMON_FLAGS="${COMMON_FLAGS} -fsanitize=undefined-trap -fsanitize-undefined-trap-on-error -fno-omit-frame-pointer"
 	fi
 fi
 
