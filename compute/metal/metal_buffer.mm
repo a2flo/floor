@@ -52,22 +52,21 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 		default: floor_unreachable();
 	}
 	
-#if !defined(FLOOR_IOS)
-	// NOTE: storage mode was introduced with OS X 10.11 and iOS 9.0, but only do this on os x, because:
-	//  * iOS 8.3 is the minimum supported version and doesn't support storage modes
-	//  * even iOS 9.0 doesn't support managed storage
-	//  * it's better to use shared storage (the default) on ios anyways
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		// if buffer is not accessed by the host at all, use private storage
 		// note that this disables pretty much all functionality of this class!
 		options |= MTLResourceStorageModePrivate;
 	}
 	else {
+#if !defined(FLOOR_IOS)
 		// if the buffer is accessed by the host in some way, use managed storage
 		// note that this requires us to perform explicit sync operations
 		options |= MTLResourceStorageModeManaged;
-	}
+#else
+		// iOS only knows private and shared storage modes
+		options |= MTLResourceStorageModeShared;
 #endif
+	}
 	
 	// TODO: handle the remaining flags + host ptr
 	
@@ -99,18 +98,27 @@ compute_buffer(device.get(), [external_buffer length], host_ptr_, flags_, 0, 0),
 	// copy existing options
 	options = [buffer cpuCacheMode];
 	
-#if !defined(FLOOR_IOS)
+#if defined(FLOOR_IOS)
+	FLOOR_PUSH_WARNINGS()
+	FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
+#endif
+	
 	switch([buffer storageMode]) {
 		case MTLStorageModeShared:
 			options |= MTLResourceStorageModeShared;
 			break;
-		case MTLStorageModeManaged:
-			options |= MTLResourceStorageModeManaged;
-			break;
 		case MTLStorageModePrivate:
 			options |= MTLResourceStorageModePrivate;
 			break;
+#if !defined(FLOOR_IOS)
+		case MTLStorageModeManaged:
+			options |= MTLResourceStorageModeManaged;
+			break;
+#endif
 	}
+	
+#if defined(FLOOR_IOS)
+FLOOR_POP_WARNINGS()
 #endif
 }
 

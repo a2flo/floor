@@ -42,7 +42,7 @@
 #if defined(FLOOR_IOS)
 #include <OpenGLES/EAGL.h>
 
-unordered_map<string, shared_ptr<floor_shader_object>> darwin_helper::shader_objects;
+unordered_map<string, floor_shader_object> darwin_helper::shader_objects;
 #endif
 
 // cocoa or uikit window type

@@ -660,8 +660,12 @@ REL_OPT_LD_FLAGS="-flto"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
 		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.9"
-	else
-		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=8.0"
+	else # ios
+		if [ ${BUILD_CONF_METAL} -gt 0 ]; then
+			COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=9.0"
+		else
+			COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=7.0"
+		fi
 	fi
 	
 	# set lib version

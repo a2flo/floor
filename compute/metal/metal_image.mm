@@ -37,7 +37,6 @@ metal_image::metal_image(const metal_device* device,
 						 const opengl_image_info* gl_image_info) :
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info) {
-#if !defined(FLOOR_IOS)
 	// introduced with os x 10.11 / ios 9.0, kernel/shader access flags can actually be set
 	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
 		case COMPUTE_MEMORY_FLAG::READ:
@@ -56,7 +55,6 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER>(image_type)) {
 		usage_options |= MTLTextureUsageRenderTarget;
 	}
-#endif
 	
 	// NOTE: same as metal_buffer:
 	switch(flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) {
@@ -75,16 +73,19 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 		default: floor_unreachable();
 	}
 	
-#if !defined(FLOOR_IOS)
 	if((flags & COMPUTE_MEMORY_FLAG::HOST_READ_WRITE) == COMPUTE_MEMORY_FLAG::NONE) {
 		options |= MTLResourceStorageModePrivate;
 		storage_options = MTLStorageModePrivate;
 	}
 	else {
+#if !defined(FLOOR_IOS)
 		options |= MTLResourceStorageModeManaged;
 		storage_options = MTLStorageModeManaged;
-	}
+#else
+		options |= MTLResourceStorageModeShared;
+		storage_options = MTLStorageModeShared;
 #endif
+	}
 	
 	// actually create the image
 	if(!create_internal(true, device, nullptr)) {
@@ -189,18 +190,18 @@ FLOOR_POP_WARNINGS()
 									   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 									   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 									   COMPUTE_IMAGE_TYPE::FLAG_DEPTH) },
-#if !defined(FLOOR_IOS) // os x only (or ios 9)
+#if !defined(FLOOR_IOS) // os x only
 		{ MTLPixelFormatDepth24Unorm_Stencil8, (COMPUTE_IMAGE_TYPE::UINT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 												COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+#endif
 		{ MTLPixelFormatDepth32Float_Stencil8, (COMPUTE_IMAGE_TYPE::FLOAT |
 												COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
-#endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
 	if(metal_format == end(format_lut)) {
@@ -221,12 +222,9 @@ FLOOR_POP_WARNINGS()
 	if([img mipmapLevelCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
 	if([img sampleCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
 	
-	// can only do this on os x (not that it matters much)
-#if !defined(FLOOR_IOS)
 	if(([img usage] & MTLTextureUsageRenderTarget) != 0) {
 		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER;
 	}
-#endif
 	
 	return type;
 }
@@ -245,23 +243,32 @@ compute_image(device.get(), compute_metal_image_dim(external_image), compute_met
 	
 	// copy existing options
 	options = [image cpuCacheMode];
+
+#if defined(FLOOR_IOS)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
+#endif
 	
-#if !defined(FLOOR_IOS)
 	switch([image storageMode]) {
 		case MTLStorageModeShared:
 			options |= MTLResourceStorageModeShared;
 			break;
-		case MTLStorageModeManaged:
-			options |= MTLResourceStorageModeManaged;
-			break;
 		case MTLStorageModePrivate:
 			options |= MTLResourceStorageModePrivate;
 			break;
+#if !defined(FLOOR_IOS)
+		case MTLStorageModeManaged:
+			options |= MTLResourceStorageModeManaged;
+			break;
+#endif
 	}
+	
+#if defined(FLOOR_IOS)
+FLOOR_POP_WARNINGS()
+#endif
 	
 	usage_options = [image usage];
 	storage_options = [image storageMode];
-#endif
 	
 	// shim type is unnecessary here
 	shim_image_type = image_type;
@@ -406,18 +413,18 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		   COMPUTE_IMAGE_TYPE::CHANNELS_1 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_32 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH), MTLPixelFormatDepth32Float },
-#if !defined(FLOOR_IOS) // os x only (or ios 9)
+#if !defined(FLOOR_IOS) // os x only
 		{ (COMPUTE_IMAGE_TYPE::UINT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_24_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth24Unorm_Stencil8 },
+#endif
 		{ (COMPUTE_IMAGE_TYPE::FLOAT |
 		   COMPUTE_IMAGE_TYPE::CHANNELS_2 |
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
-#endif
 		// TODO: special image formats, these are partially supported
 	};
 	const auto metal_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -458,10 +465,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	
 	// usage/access options
 	[desc setResourceOptions:options];
-#if !defined(FLOOR_IOS)
 	[desc setStorageMode:storage_options]; // don't know why this needs to be set twice
 	[desc setUsage:usage_options];
-#endif
 	
 	// create the actual metal image with the just created descriptor
 	image = [mtl_device newTextureWithDescriptor:desc];
