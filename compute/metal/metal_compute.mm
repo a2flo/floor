@@ -210,9 +210,9 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		
 		// hard to make this forward compatible, there is no direct "get family" call
 		// -> just try the first 32 types, good enough for now
-		for(uint32_t i = 0; i < 32; ++i) {
-			if([dev supportsFeatureSet:(MTLFeatureSet)i]) {
-				device.family = i + 1;
+		for(uint32_t i = 32; i > 0; --i) {
+			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
+				device.family = i;
 				break;
 			}
 		}
@@ -319,10 +319,11 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
-		log_debug("GPU (Memory: %u MB): %s, family %u",
+		log_debug("GPU (Memory: %u MB): %s, family %u, family version %u",
 				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
 				  device.name,
-				  device.family);
+				  device.family,
+				  device.family_version);
 	}
 	
 	// check if there is any supported / whitelisted device

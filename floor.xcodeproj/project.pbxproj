@@ -1009,7 +1009,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0700;
-				ORGANIZATIONNAME = "Florian Ziesche";
+				ORGANIZATIONNAME = "libfloor";
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
 			compatibilityVersion = "Xcode 3.2";
