@@ -406,6 +406,24 @@ void* darwin_helper::get_eagl_sharegroup() {
 }
 
 void darwin_helper::compile_shaders() {
+#if defined(PLATFORM_X64) // glsl es 3.00
+	static constexpr const char blit_vs_text[] { u8R"RAWSTR(
+		in vec2 in_vertex;
+		out lowp vec2 tex_coord;
+		void main() {
+			gl_Position = vec4(in_vertex.x, in_vertex.y, 0.0, 1.0);
+			tex_coord = in_vertex * 0.5 + 0.5;
+		}
+	)RAWSTR"};
+	static constexpr const char blit_fs_text[] { u8R"RAWSTR(
+		uniform sampler2D tex;
+		in lowp vec2 tex_coord;
+		layout (location = 0) out lowp vec4 frag_color;
+		void main() {
+			frag_color = texture(tex, tex_coord);
+		}
+	)RAWSTR"};
+#else // glsl es 1.00
 	static constexpr const char blit_vs_text[] { u8R"RAWSTR(
 		attribute vec2 in_vertex;
 		varying lowp vec2 tex_coord;
@@ -421,6 +439,7 @@ void darwin_helper::compile_shaders() {
 			gl_FragColor = texture2D(tex, tex_coord);
 		}
 	)RAWSTR"};
+#endif
 	
 	const auto blit_shd = floor_compile_shader("BLIT", blit_vs_text, blit_fs_text);
 	if(!blit_shd.first) {
