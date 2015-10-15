@@ -255,23 +255,23 @@ floor_inline_always void atomic_store(volatile double* p, double val) {
 }
 
 // load
-floor_inline_always int32_t atomic_load(volatile int32_t* p) {
+floor_inline_always int32_t atomic_load(const volatile int32_t* p) {
 	return __c11_atomic_load((_Atomic(int32_t)*)p, memory_order_relaxed);
 }
-floor_inline_always uint32_t atomic_load(volatile uint32_t* p) {
+floor_inline_always uint32_t atomic_load(const volatile uint32_t* p) {
 	return __c11_atomic_load((_Atomic(uint32_t)*)p, memory_order_relaxed);
 }
-floor_inline_always float atomic_load(volatile float* p) {
+floor_inline_always float atomic_load(const volatile float* p) {
 	const uint32_t ret = __c11_atomic_load((_Atomic(uint32_t)*)p, memory_order_relaxed);
 	return *(float*)&ret;
 }
-floor_inline_always int64_t atomic_load(volatile int64_t* p) {
+floor_inline_always int64_t atomic_load(const volatile int64_t* p) {
 	return __c11_atomic_load((_Atomic(int64_t)*)p, memory_order_relaxed);
 }
-floor_inline_always uint64_t atomic_load(volatile uint64_t* p) {
+floor_inline_always uint64_t atomic_load(const volatile uint64_t* p) {
 	return __c11_atomic_load((_Atomic(uint64_t)*)p, memory_order_relaxed);
 }
-floor_inline_always double atomic_load(volatile double* p) {
+floor_inline_always double atomic_load(const volatile double* p) {
 	const uint64_t ret = __c11_atomic_load((_Atomic(uint64_t)*)p, memory_order_relaxed);
 	return *(double*)&ret;
 }

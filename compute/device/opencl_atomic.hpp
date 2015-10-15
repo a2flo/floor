@@ -272,38 +272,38 @@ floor_inline_always void atom_store(volatile local int64_t* addr, const int64_t&
 #endif
 
 // load (no proper instruction for this, so just perform a "+ 0")
-floor_inline_always int32_t atom_load(volatile global int32_t* addr) {
-	return atom_add(addr, 0);
+floor_inline_always int32_t atom_load(const volatile global int32_t* addr) {
+	return atom_add((volatile global int32_t*)addr, 0);
 }
-floor_inline_always uint32_t atom_load(volatile global uint32_t* addr) {
-	return atom_add(addr, 0u);
+floor_inline_always uint32_t atom_load(const volatile global uint32_t* addr) {
+	return atom_add((volatile global uint32_t*)addr, 0u);
 }
-floor_inline_always float atom_load(volatile global float* addr) {
+floor_inline_always float atom_load(const volatile global float* addr) {
 	const uint32_t ret = atom_add((volatile global uint32_t*)addr, 0u);
 	return *(float*)&ret;
 }
-floor_inline_always int32_t atom_load(volatile local int32_t* addr) {
-	return atom_add(addr, 0);
+floor_inline_always int32_t atom_load(const volatile local int32_t* addr) {
+	return atom_add((volatile local int32_t*)addr, 0);
 }
-floor_inline_always uint32_t atom_load(volatile local uint32_t* addr) {
-	return atom_add(addr, 0u);
+floor_inline_always uint32_t atom_load(const volatile local uint32_t* addr) {
+	return atom_add((volatile local uint32_t*)addr, 0u);
 }
-floor_inline_always float atom_load(volatile local float* addr) {
+floor_inline_always float atom_load(const volatile local float* addr) {
 	const uint32_t ret = atom_add((volatile local uint32_t*)addr, 0u);
 	return *(float*)&ret;
 }
 #if defined(FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS_1)
-floor_inline_always uint64_t atom_load(volatile global uint64_t* addr) {
-	return atom_add(addr, 0ull);
+floor_inline_always uint64_t atom_load(const volatile global uint64_t* addr) {
+	return atom_add((volatile global uint64_t*)addr, 0ull);
 }
-floor_inline_always int64_t atom_load(volatile global int64_t* addr) {
-	return atom_add(addr, 0ll);
+floor_inline_always int64_t atom_load(const volatile global int64_t* addr) {
+	return atom_add((volatile global int64_t*)addr, 0ll);
 }
-floor_inline_always uint64_t atom_load(volatile local uint64_t* addr) {
-	return atom_add(addr, 0ull);
+floor_inline_always uint64_t atom_load(const volatile local uint64_t* addr) {
+	return atom_add((volatile local uint64_t*)addr, 0ull);
 }
-floor_inline_always int64_t atom_load(volatile local int64_t* addr) {
-	return atom_add(addr, 0ll);
+floor_inline_always int64_t atom_load(const volatile local int64_t* addr) {
+	return atom_add((volatile local int64_t*)addr, 0ll);
 }
 #endif
 

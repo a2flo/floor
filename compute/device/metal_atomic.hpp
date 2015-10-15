@@ -27,8 +27,8 @@
 metal_func void metal_atomic_store(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope) asm("air.atomic.global.store.i32");
 metal_func void metal_atomic_store(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope) asm("air.atomic.local.store.i32");
 
-metal_func uint32_t metal_atomic_load(volatile global uint32_t* p, uint32_t mem_order, uint32_t scope) asm("air.atomic.global.load.i32");
-metal_func uint32_t metal_atomic_load(volatile local uint32_t* p, uint32_t mem_order, uint32_t scope) asm("air.atomic.local.load.i32");
+metal_func uint32_t metal_atomic_load(const volatile global uint32_t* p, uint32_t mem_order, uint32_t scope) asm("air.atomic.global.load.i32");
+metal_func uint32_t metal_atomic_load(const volatile local uint32_t* p, uint32_t mem_order, uint32_t scope) asm("air.atomic.local.load.i32");
 
 metal_func uint32_t metal_atomic_xchg(volatile global uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope) asm("air.atomic.global.xchg.i32");
 metal_func uint32_t metal_atomic_xchg(volatile local uint32_t* p, uint32_t desired, uint32_t mem_order, uint32_t scope) asm("air.atomic.local.xchg.i32");
@@ -260,26 +260,26 @@ floor_inline_always void atomic_store(volatile local float* p, float val) {
 }
 
 // load
-floor_inline_always int32_t atomic_load(volatile global int32_t* p) {
-	const uint32_t ret = metal_atomic_load((volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+floor_inline_always int32_t atomic_load(const volatile global int32_t* p) {
+	const uint32_t ret = metal_atomic_load((const volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(int32_t*)&ret;
 }
-floor_inline_always uint32_t atomic_load(volatile global uint32_t* p) {
+floor_inline_always uint32_t atomic_load(const volatile global uint32_t* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 }
-floor_inline_always float atomic_load(volatile global float* p) {
-	const uint32_t ret = metal_atomic_load((volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
+floor_inline_always float atomic_load(const volatile global float* p) {
+	const uint32_t ret = metal_atomic_load((const volatile global uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_GLOBAL);
 	return *(float*)&ret;
 }
-floor_inline_always int32_t atomic_load(volatile local int32_t* p) {
-	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+floor_inline_always int32_t atomic_load(const volatile local int32_t* p) {
+	const uint32_t ret = metal_atomic_load((const volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(int32_t*)&ret;
 }
-floor_inline_always uint32_t atomic_load(volatile local uint32_t* p) {
+floor_inline_always uint32_t atomic_load(const volatile local uint32_t* p) {
 	return metal_atomic_load(p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
-floor_inline_always float atomic_load(volatile local float* p) {
-	const uint32_t ret = metal_atomic_load((volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+floor_inline_always float atomic_load(const volatile local float* p) {
+	const uint32_t ret = metal_atomic_load((const volatile local uint32_t*)p, FLOOR_METAL_MEM_ORDER_RELAXED, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 	return *(float*)&ret;
 }
 

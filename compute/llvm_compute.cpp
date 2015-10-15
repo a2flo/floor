@@ -235,27 +235,30 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			break;
 		case TARGET::AIR: {
 			const auto mtl_dev = (metal_device*)device.get();
-			string metal_target;
+			string metal_target, os_target;
 			if(mtl_dev->family < 10000) {
 				// -> iOS
 				if(mtl_dev->family_version == 1 && mtl_dev->family < 3 /* A7 or A8 */) {
 					// iOS 8.x, build ios-metal1.0
 					metal_target = "1,6,0,1,0,0";
+					os_target = "ios8.3.0 -miphoneos-version-min=8.3";
 				}
 				else {
 					// iOS 9.x, build ios-metal1.1
 					metal_target = "1,8,0,1,1,0";
+					os_target = "ios9.0.0 -miphoneos-version-min=9.0";
 				}
 			}
 			else {
 				// -> OS X, always build osx-metal1.1
 				metal_target = "1,8,0,1,1,0";
+				os_target = "macosx10.11.0 -mmacosx-version-min=10.11";
 			}
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
-				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target spir64-metal-unknown" \
+				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target air64-apple-" + os_target +
 				" -Xclang -metal-air=" + metal_target +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \

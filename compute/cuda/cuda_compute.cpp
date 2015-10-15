@@ -404,7 +404,7 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cu_module program;
 	
-	if(!floor::get_cuda_jit_verbose()) {
+	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
 		const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
@@ -419,8 +419,8 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 			size_t ui;
 		} jit_option_values[] {
 			{ .ui = sm_version },
-			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
-			{ .ui = floor::get_compute_debug() ? 1u : 0u },
+			{ .ui = floor::get_compute_profiling() ? 1u : 0u },
+			{ .ui = 0u },
 			{ .ui = floor::get_cuda_max_registers() },
 			{ .ui = floor::get_cuda_jit_opt_level() },
 		};
@@ -467,7 +467,8 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
 			{ .ui = floor::get_compute_debug() ? 1u : 0u },
 			{ .ui = floor::get_cuda_max_registers() },
-			{ .ui = floor::get_cuda_jit_opt_level() },
+			// opt level must be 0 when debug info is generated
+			{ .ui = (floor::get_compute_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },
 			{ .ptr = error_log },
 			{ .ptr = info_log },

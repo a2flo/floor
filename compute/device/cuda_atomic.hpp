@@ -350,20 +350,20 @@ floor_inline_always void atomic_store(volatile uint64_t* addr, const uint64_t& v
 }
 
 // load (no proper instruction for this, so just perform a "+ 0")
-floor_inline_always int32_t atomic_load(volatile int32_t* addr) {
-	return atomic_add(addr, 0);
+floor_inline_always int32_t atomic_load(const volatile int32_t* addr) {
+	return atomic_add((volatile int32_t*)addr, 0);
 }
-floor_inline_always uint32_t atomic_load(volatile uint32_t* addr) {
-	return atomic_add(addr, 0u);
+floor_inline_always uint32_t atomic_load(const volatile uint32_t* addr) {
+	return atomic_add((volatile uint32_t*)addr, 0u);
 }
-floor_inline_always float atomic_load(volatile float* addr) {
-	return atomic_add(addr, 0.0f);
+floor_inline_always float atomic_load(const volatile float* addr) {
+	return atomic_add((volatile float*)addr, 0.0f);
 }
-floor_inline_always int64_t atomic_load(volatile int64_t* addr) {
-	return atomic_add(addr, 0ll);
+floor_inline_always int64_t atomic_load(const volatile int64_t* addr) {
+	return atomic_add((volatile int64_t*)addr, 0ll);
 }
-floor_inline_always uint64_t atomic_load(volatile uint64_t* addr) {
-	return atomic_add(addr, 0ull);
+floor_inline_always uint64_t atomic_load(const volatile uint64_t* addr) {
+	return atomic_add((volatile uint64_t*)addr, 0ull);
 }
 
 #endif
