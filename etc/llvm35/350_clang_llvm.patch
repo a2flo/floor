@@ -32,6 +32,20 @@ index de14c1a..80fc6bc 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/IR/Metadata.h b/include/llvm/IR/Metadata.h
+index 7a0ca88..4b27374 100644
+--- a/include/llvm/IR/Metadata.h
++++ b/include/llvm/IR/Metadata.h
+@@ -30,7 +30,8 @@ template<typename ValueSubClass, typename ItemParentClass>
+ 
+ 
+ enum LLVMConstants : uint32_t {
+-  DEBUG_METADATA_VERSION = 1  // Current debug info version number.
++  DEBUG_METADATA_VERSION = 1,  // Current debug info version number.
++  IOS_METAL_DEBUG_METADATA_VERSION = 360203
+ };
+ 
+ //===----------------------------------------------------------------------===//
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
 index 02f4259..744e850 100644
 --- a/include/llvm/InitializePasses.h
@@ -4917,7 +4931,7 @@ index 59cc30d..11cf78e 100644
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..4c859f3 100644
+index 48823be..cdf2647 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -359,7 +359,10 @@ void CodeGenModule::Release() {
@@ -4925,10 +4939,10 @@ index 48823be..4c859f3 100644
      // (and warn about it, too).
      getModule().addModuleFlag(llvm::Module::Warning, "Debug Info Version",
 -                              llvm::DEBUG_METADATA_VERSION);
-+							  Context.getTargetInfo().getTriple().getOS() != llvm::Triple::IOS ?
-+							  llvm::DEBUG_METADATA_VERSION :
-+							  // metal/ios uses/requires a very specific metadata version number
-+							  360203);
++                              Context.getTargetInfo().getTriple().getOS() != llvm::Triple::IOS ?
++                              llvm::DEBUG_METADATA_VERSION :
++                              // metal/ios uses/requires a very specific metadata version number
++                              llvm::IOS_METAL_DEBUG_METADATA_VERSION);
  
    // We need to record the widths of enums and wchar_t, so that we can generate
    // the correct build attributes in the ARM backend.
