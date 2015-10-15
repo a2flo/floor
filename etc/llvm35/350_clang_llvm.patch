@@ -1,3 +1,15 @@
+diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
+index b96f114..0ac3249 100644
+--- a/include/llvm/ADT/Triple.h
++++ b/include/llvm/ADT/Triple.h
+@@ -77,6 +77,7 @@ public:
+     amdil,      // amdil: amd IL
+     spir,       // SPIR: standard portable IR for OpenCL 32-bit version
+     spir64,     // SPIR: standard portable IR for OpenCL 64-bit version
++    air64,      // AIR: Apple IR, used for Metal, always 64-bit
+     kalimba     // Kalimba: generic kalimba
+   };
+   enum SubArchType {
 diff --git a/include/llvm/CodeGen/AsmPrinter.h b/include/llvm/CodeGen/AsmPrinter.h
 index de14c1a..80fc6bc 100644
 --- a/include/llvm/CodeGen/AsmPrinter.h
@@ -221,6 +233,74 @@ index 9cf911b..8d61d2b 100644
  
    AttributeSet Attrs = CS.getAttributes();
  
+diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
+index 714d9e8..18e01ff 100644
+--- a/lib/Support/Triple.cpp
++++ b/lib/Support/Triple.cpp
+@@ -50,6 +50,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
+   case amdil:       return "amdil";
+   case spir:        return "spir";
+   case spir64:      return "spir64";
++  case air64:       return "air64";
+   case kalimba:     return "kalimba";
+   }
+ 
+@@ -101,6 +102,7 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
+   case amdil:       return "amdil";
+   case spir:        return "spir";
+   case spir64:      return "spir";
++  case air64:       return "air64";
+   case kalimba:     return "kalimba";
+   }
+ }
+@@ -211,6 +213,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
+     .Case("amdil", amdil)
+     .Case("spir", spir)
+     .Case("spir64", spir64)
++    .Case("air64", air64)
+     .Case("kalimba", kalimba)
+     .Default(UnknownArch);
+ }
+@@ -241,6 +244,7 @@ const char *Triple::getArchNameForAssembler() {
+     .Case("amdil", "amdil")
+     .Case("spir", "spir")
+     .Case("spir64", "spir64")
++    .Case("air64", "air64")
+     .Default(nullptr);
+ }
+ 
+@@ -285,6 +289,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
+     .Case("amdil", Triple::amdil)
+     .Case("spir", Triple::spir)
+     .Case("spir64", Triple::spir64)
++    .Case("air64", Triple::air64)
+     .Case("kalimba", Triple::kalimba)
+     .Default(Triple::UnknownArch);
+ }
+@@ -848,6 +853,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
+   case llvm::Triple::systemz:
+   case llvm::Triple::x86_64:
+   case llvm::Triple::spir64:
++  case llvm::Triple::air64:
+     return 64;
+   }
+   llvm_unreachable("Invalid architecture value");
+@@ -876,6 +882,7 @@ Triple Triple::get32BitArchVariant() const {
+   case Triple::msp430:
+   case Triple::systemz:
+   case Triple::ppc64le:
++  case Triple::air64:
+     T.setArch(UnknownArch);
+     break;
+ 
+@@ -933,6 +940,7 @@ Triple Triple::get64BitArchVariant() const {
+   case Triple::aarch64:
+   case Triple::aarch64_be:
+   case Triple::spir64:
++  case Triple::air64:
+   case Triple::mips64:
+   case Triple::mips64el:
+   case Triple::nvptx64:
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
 index 93fabf6..5bf4334 100644
 --- a/lib/Target/NVPTX/NVPTX.td
@@ -1663,10 +1743,10 @@ index 0000000..3d2aa45
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..8d0e7f0
+index 0000000..e26b5af
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,250 @@
+@@ -0,0 +1,257 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1776,6 +1856,13 @@ index 0000000..8d0e7f0
 +				local_size = new llvm::Argument(vec_type, "__metal__local_size__", &F);
 +				group_id = new llvm::Argument(vec_type, "__metal__group_id__", &F);
 +				group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
++				
++				std::vector<Type*> param_types;
++				for(const auto& arg : F.getArgumentList()) {
++					param_types.push_back(arg.getType());
++				}
++				auto new_func_type = PointerType::get(FunctionType::get(F.getReturnType(), param_types, false), 0);
++				F.mutateType(new_func_type);
 +			}
 +			
 +			// visit everything in this function
@@ -3115,7 +3202,7 @@ index 061473e..9de3dad 100644
    }
  
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..c581972 100644
+index 075f905..2f524b7 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -3144,7 +3231,7 @@ index 075f905..c581972 100644
    };
    class SPIRTargetInfo : public TargetInfo {
 +  private:
-+    // true for spir-unknown-* and spir64-unknown-* (-> false for AppleCL and Metal)
++    // true for spir-unknown-* and spir64-unknown-* (-> false for AppleCL and AIR/Metal)
 +    const bool is_pure_spir;
    public:
 -    SPIRTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
@@ -3181,11 +3268,63 @@ index 075f905..c581972 100644
    };
  
  
+@@ -5944,6 +5960,26 @@ namespace {
+       DefineStd(Builder, "SPIR64", Opts);
+     }
+   };
++
++  class AIR64TargetInfo : public SPIRTargetInfo {
++  public:
++    AIR64TargetInfo(const llvm::Triple &Triple) : SPIRTargetInfo(Triple) {
++      PointerWidth = PointerAlign = 64;
++      SizeType     = TargetInfo::UnsignedLong;
++      PtrDiffType = IntPtrType = TargetInfo::SignedLong;
++      if(Triple.getOS() == llvm::Triple::IOS) {
++        DescriptionString = "e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-"
++                            "v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32";
++      }
++      else { // os x, or default
++        DescriptionString = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32";
++      }
++    }
++    void getTargetDefines(const LangOptions &Opts,
++                          MacroBuilder &Builder) const override {
++      DefineStd(Builder, "AIR64", Opts);
++    }
++  };
+ }
+ 
+ namespace {
+@@ -6369,18 +6405,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+       return new X86_64TargetInfo(Triple);
+     }
+ 
+-    case llvm::Triple::spir: {
+-      if (Triple.getOS() != llvm::Triple::UnknownOS ||
+-          Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+-        return nullptr;
+-      return new SPIR32TargetInfo(Triple);
+-    }
+-    case llvm::Triple::spir64: {
+-      if (Triple.getOS() != llvm::Triple::UnknownOS ||
+-          Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+-        return nullptr;
+-      return new SPIR64TargetInfo(Triple);
+-    }
++  case llvm::Triple::spir:
++    return new SPIR32TargetInfo(Triple);
++  case llvm::Triple::spir64:
++    return new SPIR64TargetInfo(Triple);
++  case llvm::Triple::air64:
++    return new AIR64TargetInfo(Triple);
+   }
+ }
+ 
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..8304e13 100644
+index cec48f3..a676bd3 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,23 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,25 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
@@ -3201,15 +3340,17 @@ index cec48f3..8304e13 100644
 +  PMBuilder.EnableCUDAPasses = LangOpts.CUDA;
 +
 +  // only enable this for Metal/AIR
-+  PMBuilder.EnableMetalPasses = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "metal";
++  PMBuilder.EnableMetalPasses = LangOpts.OpenCL && (Triple(TheModule->getTargetTriple()).getArch() == Triple::air64);
 +
 +  // only enable this for OpenCL/SPIR
-+  PMBuilder.EnableSPIRPasses = LangOpts.OpenCL && Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown";
++  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
++                                (Triple(TheModule->getTargetTriple()).getArch() == Triple::spir64) &&
++                                (Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown"));
 +
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -326,6 +343,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +345,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -3379,7 +3520,7 @@ index fc3f434..217f1d4 100644
    llvm::DIType OCLEventDITy;
    llvm::DIType BlockLiteralGeneric;
 diff --git a/tools/clang/lib/CodeGen/CGDecl.cpp b/tools/clang/lib/CodeGen/CGDecl.cpp
-index 91f8041..2b1634b 100644
+index 91f8041..977712e 100644
 --- a/tools/clang/lib/CodeGen/CGDecl.cpp
 +++ b/tools/clang/lib/CodeGen/CGDecl.cpp
 @@ -150,8 +150,13 @@ static std::string GetStaticDeclName(CodeGenFunction &CGF, const VarDecl &D,
@@ -3387,11 +3528,11 @@ index 91f8041..2b1634b 100644
    CodeGenModule &CGM = CGF.CGM;
  
 -  if (CGF.getLangOpts().CPlusPlus)
-+  // don't cxx mangle OpenCL "local" variables (affects SPIR and AppleCL - Metal use cxx mangling)
++  // don't cxx mangle OpenCL "local" variables (affects SPIR and AppleCL - Metal/AIR use cxx mangling)
 +  if (CGF.getLangOpts().CPlusPlus &&
 +      !(D.getStorageClass() == SC_OpenCLWorkGroupLocal &&
 +        CGM.getContext().getLangOpts().OpenCL &&
-+        CGM.getContext().getTargetInfo().getTriple().getVendorName().str() != "metal")) {
++		CGM.getContext().getTargetInfo().getTriple().getArch() != llvm::Triple::air64)) {
      return CGM.getMangledName(&D).str();
 +  }
  
@@ -4776,10 +4917,22 @@ index 59cc30d..11cf78e 100644
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..a537874 100644
+index 48823be..4c859f3 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-@@ -1147,6 +1147,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
+@@ -359,7 +359,10 @@ void CodeGenModule::Release() {
+     // parser will drop debug info with a different version number
+     // (and warn about it, too).
+     getModule().addModuleFlag(llvm::Module::Warning, "Debug Info Version",
+-                              llvm::DEBUG_METADATA_VERSION);
++							  Context.getTargetInfo().getTriple().getOS() != llvm::Triple::IOS ?
++							  llvm::DEBUG_METADATA_VERSION :
++							  // metal/ios uses/requires a very specific metadata version number
++							  360203);
+ 
+   // We need to record the widths of enums and wchar_t, so that we can generate
+   // the correct build attributes in the ARM backend.
+@@ -1147,6 +1150,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
      Annotations.push_back(EmitAnnotateAttr(GV, I, D->getLocation()));
  }
  
@@ -4819,7 +4972,7 @@ index 48823be..a537874 100644
  bool CodeGenModule::MayDeferGeneration(const ValueDecl *Global) {
    // Never defer when EmitAllDecls is specified.
    if (LangOpts.EmitAllDecls)
-@@ -1218,23 +1251,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -1218,23 +1254,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<AliasAttr>())
      return EmitAliasDefinition(GD);
  
@@ -4924,20 +5077,36 @@ index f75e59d..e2cc3d3 100644
    if (isAggregateTypeForABI(Ty))
      return ABIArgInfo::getIndirect(0);
  
+diff --git a/tools/clang/lib/Driver/Tools.cpp b/tools/clang/lib/Driver/Tools.cpp
+index 198e82e..41a24da 100644
+--- a/tools/clang/lib/Driver/Tools.cpp
++++ b/tools/clang/lib/Driver/Tools.cpp
+@@ -5366,6 +5366,7 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
+     .Case("nvptx64", llvm::Triple::nvptx64)
+     .Case("amdil", llvm::Triple::amdil)
+     .Case("spir", llvm::Triple::spir)
++    .Case("air64", llvm::Triple::air64)
+     .Default(llvm::Triple::UnknownArch);
+ }
+ 
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..6870297 100644
+index ce61a46..e4da1c9 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -474,6 +474,8 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -474,6 +474,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
 +  Opts.EmitAIRMetadata = Args.hasArg(OPT_metal_air);
++  if (Opts.EmitAIRMetadata) {
++    // dwarf version must always be 2 for metal/air
++    Opts.DwarfVersion = 2;
++  }
 +  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -1276,7 +1278,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1276,7 +1282,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -4946,7 +5115,7 @@ index ce61a46..6870297 100644
            Diags.Report(diag::err_drv_argument_not_allowed_with)
              << A->getAsString(Args) << "OpenCL";
          break;
-@@ -1311,6 +1313,32 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1311,6 +1317,32 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
