@@ -929,23 +929,12 @@ public:
 	}
 	
 	//! normalizes this vector / returns a normalized vector of this vector
-#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_OPENCL) // prefer performance and shortness
 	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"
 					   inv_length * ,
 					   normalize, normalized,
 					   // compute "1 / ||vec||"
 					   const scalar_type inv_length = vector_helper<decayed_scalar_type>::inv_sqrt(dot());
 					   )
-#else
-	FLOOR_VEC_FUNC_EXT(// multiply each component with "1 / ||vec||"
-					   inv_length * ,
-					   normalize, normalized,
-					   // if this vector is 0, there is nothing to normalize
-					   if(is_null()) return *this;
-					   // compute "1 / ||vec||"
-					   const scalar_type inv_length = vector_helper<decayed_scalar_type>::inv_sqrt(dot());
-					   )
-#endif
 	
 	//! returns N if Nref.dot(I) < 0, else -N
 	static constexpr vector_type faceforward(const vector_type& N,
