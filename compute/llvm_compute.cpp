@@ -474,27 +474,16 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	else if(target == TARGET::AIR) {
 		// this exchanges the module header/target to the one apple expects
 		static const regex rx_datalayout("target datalayout = \"(.*)\"");
-		static const regex rx_triple("target triple = \"(.*)\"");
 		
 		// iOS is 1 or 2 (+), os x is 10000+
 		const auto mtl_dev = (metal_device*)device.get();
 		if(mtl_dev->family < 10000) {
 			// -> iOS
-			if(mtl_dev->family_version == 1) {
-				// iOS 8.x
-				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios8.3.0\"");
-			}
-			else {
-				// iOS 9.x
-				ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-ios9.0.0\"");
-			}
-			// datalayout stays the same
 			ir_output = regex_replace(ir_output, rx_datalayout,
 									  "target datalayout = \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
 		}
 		else {
 			// -> OS X
-			ir_output = regex_replace(ir_output, rx_triple, "target triple = \"air64-apple-macosx10.11.0\"");
 			ir_output = regex_replace(ir_output, rx_datalayout,
 									  "target datalayout = \"e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32\"");
 		}

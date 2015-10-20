@@ -228,7 +228,7 @@ template <typename T, size_t count_1, size_t count_2 = 0, size_t count_3 = 0> us
 				  conditional_t<count_3 == 0, compute_local_buffer_2d<T, count_1, count_2>,
 											  compute_local_buffer_3d<T, count_1, count_2, count_3>>>;
 
-#else // -> windows
+#else // -> host-compute
 
 // NOTE: since this is "static", it should only ever be called (allocated + initialized) by a single thread once
 #define local_buffer static compute_local_buffer
