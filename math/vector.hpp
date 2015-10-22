@@ -1940,7 +1940,7 @@ public:
 	//! applies the sqrt function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sqrt, sqrt, sqrted)
 	//! applies the inv_sqrt function on all components
-	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::inv_sqrt, inv_sqrt, inv_sqrt)
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::inv_sqrt, inv_sqrt, inv_sqrted)
 	//! applies the sin function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sin, sin, sined)
 	//! applies the cos function on all components
