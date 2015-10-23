@@ -23,8 +23,6 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/opencl/opencl_common.hpp>
 
-atomic_spin_lock opencl_kernel::args_lock {};
-
 opencl_kernel::opencl_kernel(const cl_kernel kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
 }
 

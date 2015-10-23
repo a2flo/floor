@@ -57,7 +57,7 @@ protected:
 	const cl_kernel kernel;
 	const string func_name;
 	
-	static atomic_spin_lock args_lock;
+	atomic_spin_lock args_lock;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
 	

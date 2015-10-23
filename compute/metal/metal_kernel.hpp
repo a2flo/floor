@@ -51,10 +51,7 @@ public:
 											 const uint32_t work_dim floor_unused,
 											 const uint3 global_work_size,
 											 const uint3 local_work_size_,
-											 Args&&... args) REQUIRES(!args_lock) {
-		// need to make sure that only one thread is setting kernel arguments at a time
-		GUARD(args_lock);
-		
+											 Args&&... args) {
 		//
 		auto encoder = create_encoder(queue);
 		
@@ -79,8 +76,6 @@ protected:
 	const void* kernel;
 	const void* kernel_state;
 	const llvm_compute::kernel_info info;
-	
-	static atomic_spin_lock args_lock;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	

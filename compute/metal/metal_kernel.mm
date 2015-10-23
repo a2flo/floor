@@ -24,8 +24,6 @@
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 
-atomic_spin_lock metal_kernel::args_lock {};
-
 struct metal_kernel::metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer;
 	id <MTLComputeCommandEncoder> encoder;
