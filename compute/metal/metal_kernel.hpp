@@ -80,7 +80,7 @@ protected:
 	const void* kernel_state;
 	const llvm_compute::kernel_info info;
 	
-	atomic_spin_lock args_lock;
+	static atomic_spin_lock args_lock;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::METAL; }
 	
