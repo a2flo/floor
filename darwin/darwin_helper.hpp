@@ -54,6 +54,7 @@ public:
 	static string utf8_decomp_to_precomp(const string& str);
 	static int64_t get_memory_size();
 	static string get_bundle_identifier();
+	static string get_pref_path();
 
 #if !defined(FLOOR_IOS)
 	// OS X specific

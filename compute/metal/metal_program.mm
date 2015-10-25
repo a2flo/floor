@@ -49,6 +49,8 @@ metal_program::metal_program(const metal_device* device,
 			continue;
 		}
 		log_debug("created kernel state: %X", (__bridge void*)kernel_state);
+		//log_debug("%s: max work-items: %u, simd width: %u",
+		//		  info.name, [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
 		
 		metal_kernels[i].kernel = kernel;
 		metal_kernels[i].state = kernel_state;

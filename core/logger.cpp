@@ -165,18 +165,13 @@ void logger::init(const size_t verbosity,
 	// if either is empty, use the default log/msg file name, with special treatment on iOS
 	if(log_filename_.empty() || msg_filename_.empty()) {
 #if defined(FLOOR_IOS)
-		// get the bundle identifier of this .app and get the preferences path from sdl (we can/must store the log there)
-		const auto bundle_id = darwin_helper::get_bundle_identifier();
-		const auto bundle_dot = bundle_id.rfind('.');
-		if(bundle_dot != string::npos) {
-			char* pref_path = SDL_GetPrefPath(bundle_id.substr(0, bundle_dot).c_str(),
-													bundle_id.substr(bundle_dot + 1, bundle_id.size() - bundle_dot - 1).c_str());
-			if(pref_path != nullptr) {
-				log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
-				msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
-				SDL_free(pref_path);
-			}
+		// we can/must store the log in a writable path (-> pref path)
+		const auto pref_path = darwin_helper::get_pref_path();
+		if(pref_path != "") {
+			log_filename = (log_filename_.empty() ? pref_path + "log.txt"s : log_filename_);
+			msg_filename = (msg_filename_.empty() ? pref_path + "msg.txt"s : msg_filename_);
 		}
+		
 		// check if still empty and just try the default
 		if(log_filename.empty() && log_filename_.empty()) log_filename = "log.txt";
 		if(msg_filename.empty() && msg_filename_.empty()) msg_filename = "msg.txt";

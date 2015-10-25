@@ -400,6 +400,22 @@ string darwin_helper::get_bundle_identifier() {
 	return [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"CFBundleIdentifier"] UTF8String];
 }
 
+string darwin_helper::get_pref_path() {
+	// get the bundle identifier of this .app and get the preferences path from sdl
+	const auto bundle_id = darwin_helper::get_bundle_identifier();
+	const auto bundle_dot = bundle_id.rfind('.');
+	string ret { "" };
+	if(bundle_dot != string::npos) {
+		char* pref_path = SDL_GetPrefPath(bundle_id.substr(0, bundle_dot).c_str(),
+										  bundle_id.substr(bundle_dot + 1, bundle_id.size() - bundle_dot - 1).c_str());
+		if(pref_path != nullptr) {
+			ret = pref_path;
+			SDL_free(pref_path);
+		}
+	}
+	return ret;
+}
+
 #if defined(FLOOR_IOS)
 void* darwin_helper::get_eagl_sharegroup() {
 	return (__bridge void*)[[EAGLContext currentContext] sharegroup];

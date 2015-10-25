@@ -265,8 +265,8 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 		}
 	}
 	
-	if((image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) == COMPUTE_IMAGE_TYPE::NONE) {
-		log_error("storage dimension not set!");
+	if((image_type & COMPUTE_IMAGE_TYPE::__DIM_MASK) == COMPUTE_IMAGE_TYPE::NONE) {
+		log_error("dimension not set!");
 		return false;
 	}
 	
@@ -315,11 +315,11 @@ void compute_image::init_gl_image_data(const void* data) {
 		}
 	}
 	else {
-		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_1D:
+		switch(image_storage_dim_count(image_type)) {
+			case 1:
 				glTexImage1D(opengl_type, level, gl_internal_format, gl_dim.x, 0, gl_format, gl_type, data);
 				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_2D:
+			case 2:
 				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
 					glTexImage2D(opengl_type, level, gl_internal_format,
 								 gl_dim.x, gl_dim.y, 0, gl_format, gl_type, data);
@@ -334,7 +334,7 @@ void compute_image::init_gl_image_data(const void* data) {
 											gl_dim.x, gl_dim.y, fixed_sample_locations);
 				}
 				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_3D:
+			case 3:
 				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
 					glTexImage3D(opengl_type, level, gl_internal_format,
 								 gl_dim.x, gl_dim.y, gl_dim.z, 0, gl_format, gl_type, data);
@@ -390,14 +390,14 @@ void compute_image::update_gl_image_data(const void* data) {
 		}
 	}
 	else {
-		switch(image_type & COMPUTE_IMAGE_TYPE::__DIM_STORAGE_MASK) {
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_1D:
+		switch(image_storage_dim_count(image_type)) {
+			case 1:
 				glTexSubImage1D(opengl_type, level, 0, gl_dim.x, gl_format, gl_type, data);
 				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_2D:
+			case 2:
 				glTexSubImage2D(opengl_type, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, data);
 				break;
-			case COMPUTE_IMAGE_TYPE::DIM_STORAGE_3D:
+			case 3:
 				glTexSubImage3D(opengl_type, level, 0, 0, 0, gl_dim.x, gl_dim.y, gl_dim.z, gl_format, gl_type, data);
 				break;
 			default: // already checked

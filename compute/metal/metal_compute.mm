@@ -267,7 +267,6 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 				device.mem_clock = 1600; // TODO: ram clock
 				break;
 		}
-		device.max_work_group_item_sizes = { 512, 512, 512 };
 		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
@@ -301,7 +300,6 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.units = 0; // sadly unknown and impossible to query
 		device.clock = 0;
 		device.mem_clock = 0;
-		device.max_work_group_item_sizes = { device.max_work_group_size, device.max_work_group_size, device.max_work_group_size };
 		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = ([dev doubleFPConfig] > 0);
 		device.unified_memory = true; // TODO: not sure about this?
@@ -310,6 +308,12 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
 		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
 #endif
+		device.max_work_group_item_sizes = {
+			(uint32_t)[dev maxThreadsPerThreadgroup].width,
+			(uint32_t)[dev maxThreadsPerThreadgroup].height,
+			(uint32_t)[dev maxThreadsPerThreadgroup].depth
+		};
+		log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
 		device.local_mem_dedicated = true;
 		device.image_support = true;
 		device.bitness = 64; // seems to be true for all devices? (at least nvptx64, igil64 and A7+)

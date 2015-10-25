@@ -202,6 +202,17 @@ FLOOR_POP_WARNINGS()
 												COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 												COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 												COMPUTE_IMAGE_TYPE::FLAG_STENCIL) },
+#if defined(FLOOR_IOS)
+		// PVRTC formats
+		{ MTLPixelFormatPVRTC_RGB_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB2 },
+		{ MTLPixelFormatPVRTC_RGB_4BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGB4 },
+		{ MTLPixelFormatPVRTC_RGBA_2BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGBA2 },
+		{ MTLPixelFormatPVRTC_RGBA_4BPP, COMPUTE_IMAGE_TYPE::PVRTC_RGBA4 },
+		{ MTLPixelFormatPVRTC_RGB_2BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGB2_SRGB },
+		{ MTLPixelFormatPVRTC_RGB_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB },
+		{ MTLPixelFormatPVRTC_RGBA_2BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB },
+		{ MTLPixelFormatPVRTC_RGBA_4BPP_sRGB, COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB },
+#endif
 	};
 	const auto metal_format = format_lut.find([img pixelFormat]);
 	if(metal_format == end(format_lut)) {
@@ -291,6 +302,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
+	const bool is_mipmapped = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type);
+	const bool is_compressed = image_compressed(image_type);
 	auto mtl_device = device->device;
 	if(is_msaa && is_array) {
 		log_error("msaa array image not supported by metal!");
@@ -425,15 +438,28 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		   COMPUTE_IMAGE_TYPE::FORMAT_32_8 |
 		   COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 		   COMPUTE_IMAGE_TYPE::FLAG_STENCIL), MTLPixelFormatDepth32Float_Stencil8 },
+#if defined(FLOOR_IOS)
+		// PVRTC formats
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2, MTLPixelFormatPVRTC_RGB_2BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4, MTLPixelFormatPVRTC_RGB_4BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2, MTLPixelFormatPVRTC_RGBA_2BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4, MTLPixelFormatPVRTC_RGBA_4BPP },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB2_SRGB, MTLPixelFormatPVRTC_RGB_2BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGB4_SRGB, MTLPixelFormatPVRTC_RGB_4BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA2_SRGB, MTLPixelFormatPVRTC_RGBA_2BPP_sRGB },
+		{ COMPUTE_IMAGE_TYPE::PVRTC_RGBA4_SRGB, MTLPixelFormatPVRTC_RGBA_4BPP_sRGB },
+#endif
 		// TODO: special image formats, these are partially supported
 	};
 	const auto metal_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
 															COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
+															COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
 															COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 															COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED |
 															COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 															COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
-															COMPUTE_IMAGE_TYPE::FLAG_REVERSE));
+															COMPUTE_IMAGE_TYPE::FLAG_REVERSE |
+															COMPUTE_IMAGE_TYPE::FLAG_SRGB));
 	if(metal_format == end(format_lut)) {
 		log_error("unsupported image format: %X", image_type);
 		return false;
@@ -441,14 +467,15 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	[desc setPixelFormat:metal_format->second];
 	
 	// set shim format to the corresponding 4-channel format
-	if(channel_count == 3) {
+	// compressed images will always be used in their original state, even if they are RGB
+	if(channel_count == 3 && !is_compressed) {
 		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
 	}
 	// == original type if not 3-channel -> 4-channel emulation
 	else shim_image_type = image_type;
 	
 	// misc options
-	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
+	if(!is_mipmapped) {
 		[desc setMipmapLevelCount:1];
 	}
 	else {
@@ -458,6 +485,11 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 			// -> get the closest power-of-two, then "ln(2^N) + 1"
 			// this can be done the fastest by counting the leading zeros in the 32-bit value
 			[desc setMipmapLevelCount:uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)))];
+			
+			// for compressed images, 8x8 is the minimum image and mip-map size -> substract 3 levels (1x1, 2x2 and 4x4)
+			if(is_compressed) {
+				[desc setMipmapLevelCount:(std::max((uint32_t)[desc mipmapLevelCount], 4u) - 3u)];
+			}
 		}
 		else [desc setMipmapLevelCount:1];
 	}
@@ -500,8 +532,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 					 mipmapLevel:0
 						   slice:slice
 					   withBytes:(data_ptr + slice * bytes_per_slice)
-					 bytesPerRow:bytes_per_row
-				   bytesPerImage:bytes_per_slice];
+					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+				   bytesPerImage:(is_compressed ? 0 : bytes_per_slice)];
 		}
 		
 		// clean up shim data
@@ -510,9 +542,32 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		}
 		
 		// also create mip-map chain when initializing from a host pointer and mip-map flag is set
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
-		   [desc mipmapLevelCount] > 1) {
-			[blit_encoder generateMipmapsForTexture:image];
+		if(is_mipmapped && [desc mipmapLevelCount] > 1) {
+			// can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
+			if(!is_compressed) {
+				[blit_encoder generateMipmapsForTexture:image];
+			}
+			// for compressed images, assume/require that mip-map data is already present in the original data
+			else {
+				auto mipmap_region = region;
+				uint32_t offset = 0;
+				for(uint32_t mip_level = 1; mip_level < [desc mipmapLevelCount]; ++mip_level) {
+					// offset from previous level
+					const auto prev_dim = uint2 { (uint32_t)mipmap_region.size.width, (uint32_t)mipmap_region.size.height };
+					offset += image_slice_data_size_from_types(prev_dim, image_type);
+					
+					// /2 per level
+					mipmap_region.size.width >>= 1;
+					mipmap_region.size.height >>= 1;
+					
+					[image replaceRegion:mipmap_region
+							 mipmapLevel:mip_level
+								   slice:0
+							   withBytes:(data_ptr + offset)
+							 bytesPerRow:0
+						   bytesPerImage:0];
+				}
+			}
 		}
 		
 		[blit_encoder endEncoding];
@@ -538,6 +593,7 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 	const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+	const bool is_compressed = image_compressed(image_type);
 	
 	alignas(128) uint8_t* zero_data = new uint8_t[bytes_per_slice];
 	memset(zero_data, 0, bytes_per_slice);
@@ -557,7 +613,7 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 				 mipmapLevel:0
 					   slice:slice
 				   withBytes:zero_data
-				 bytesPerRow:bytes_per_row
+				 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
 			   bytesPerImage:bytes_per_slice];
 	}
 	
@@ -634,6 +690,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		const bool is_compressed = image_compressed(image_type);
 		
 		uint8_t* data_ptr {
 			image_type != shim_image_type ?
@@ -642,7 +699,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		};
 		for(size_t slice = 0; slice < slice_count; ++slice) {
 			[image getBytes:(data_ptr + slice * bytes_per_slice)
-				bytesPerRow:bytes_per_row
+				bytesPerRow:(is_compressed ? 0 : bytes_per_row)
 			  bytesPerImage:bytes_per_slice
 				 fromRegion:region
 				mipmapLevel:0
@@ -684,6 +741,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
+		const bool is_compressed = image_compressed(image_type);
 		
 		// again, need to convert RGB to RGBA if necessary
 		const uint8_t* data_ptr = (const uint8_t*)mapped_ptr;
@@ -697,7 +755,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 					 mipmapLevel:0
 						   slice:slice
 					   withBytes:(data_ptr + slice * bytes_per_slice)
-					 bytesPerRow:bytes_per_row
+					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
 				   bytesPerImage:bytes_per_slice];
 		}
 		[blit_encoder endEncoding];

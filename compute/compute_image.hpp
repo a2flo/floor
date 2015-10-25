@@ -42,8 +42,7 @@ public:
 	//! automatically sets/infers image_type flags when certain conditions are met
 	static constexpr COMPUTE_IMAGE_TYPE infer_image_flags(COMPUTE_IMAGE_TYPE image_type) {
 		// set no-sampler flag if write-only
-		if(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) &&
-		   has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type)) {
+		if(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
 			image_type |= COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER;
 		}
 		return image_type;
@@ -67,6 +66,11 @@ public:
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
 		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
 			log_error("image can't be both mip-mapped and a multi-sampled image!");
+			return;
+		}
+		// writing to compressed formats is not supported anywhere
+		if(image_compressed(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
+			log_error("image can not be compressed and writable!");
 			return;
 		}
 		// TODO: make sure format is supported, fail early if not

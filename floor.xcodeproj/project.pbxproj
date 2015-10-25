@@ -1009,7 +1009,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 0700;
-				ORGANIZATIONNAME = "libfloor";
+				ORGANIZATIONNAME = libfloor;
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1561,9 +1561,9 @@
 				PRODUCT_NAME = floord_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTED_PLATFORMS = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
+				VALID_ARCHS = "arm64 armv7s";
 			};
 			name = Debug;
 		};
@@ -1614,9 +1614,9 @@
 				PRODUCT_NAME = floor_static;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTED_PLATFORMS = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				VALID_ARCHS = "arm64 armv7 armv7s x86_64 i386";
+				VALID_ARCHS = "arm64 armv7s";
 			};
 			name = Release;
 		};

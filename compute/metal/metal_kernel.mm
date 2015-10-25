@@ -69,7 +69,7 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 		}
 	}];
 	
-	[encoder->cmd_buffer commit]; // TODO: or just enqueue? speed diff?
+	[encoder->cmd_buffer commit];
 }
 
 shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue) {
