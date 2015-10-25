@@ -991,10 +991,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..3d2aa45
+index 0000000..323da44
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,760 @@
+@@ -0,0 +1,804 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1065,7 +1065,7 @@ index 0000000..3d2aa45
 +	
 +	//////////////////////////////////////////
 +	// -> image flags and types
-+	//! upper 14-bit (18-31): type flags (currently used: 13/14)
++	//! upper 14-bit (18-31): type flags
 +	__FLAG_MASK				= (0xFFFC0000u),
 +	__FLAG_SHIFT			= (18u),
 +	//! base type: image is an array (aka has layers)
@@ -1081,12 +1081,14 @@ index 0000000..3d2aa45
 +	//! base type: image is a stencil image
 +	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
 +	//! base type: image is a renderbuffer
++	//! NOTE: only applicable when using opengl sharing or metal
 +	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
 +	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 +	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
 +	//! optional type: image uses anisotropic filtering
 +	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 8u)),
 +	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
++	//! NOTE: on some platforms this might provide better performance and/or less overhead
 +	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
 +	//! optional type: image uses gather sampling (aka tld4/fetch4)
 +	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
@@ -1094,39 +1096,41 @@ index 0000000..3d2aa45
 +	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
 +	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
 +	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
++	//! optional type: image data contains sRGB data
++	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 13u)),
 +	
 +	//! bits 16-17: dimensionality
++	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
++	//!       -> 2D for cube maps, 2D for 2D arrays, 1D for 1D arrays
 +	__DIM_MASK				= (0x00030000u),
 +	__DIM_SHIFT				= (16u),
 +	DIM_1D					= (1u << __DIM_SHIFT),
 +	DIM_2D					= (2u << __DIM_SHIFT),
 +	DIM_3D					= (3u << __DIM_SHIFT),
 +	
-+	//! bits 14-15: actual storage dimensionality (for arrays/layers: dim + 1, else: == dim)
-+	__DIM_STORAGE_MASK		= (0x0000C000u),
-+	__DIM_STORAGE_SHIFT		= (14u),
-+	DIM_STORAGE_1D			= (1u << __DIM_STORAGE_SHIFT),
-+	DIM_STORAGE_2D			= (2u << __DIM_STORAGE_SHIFT),
-+	DIM_STORAGE_3D			= (3u << __DIM_STORAGE_SHIFT),
-+	
-+	//! bits 12-13: channel count
-+	__CHANNELS_MASK			= (0x00003000u),
-+	__CHANNELS_SHIFT		= (12u),
++	//! bits 14-15: channel count
++	__CHANNELS_MASK			= (0x0000C000u),
++	__CHANNELS_SHIFT		= (14u),
 +	CHANNELS_1				= (0u << __CHANNELS_SHIFT),
 +	CHANNELS_2				= (1u << __CHANNELS_SHIFT),
 +	CHANNELS_3				= (2u << __CHANNELS_SHIFT),
 +	CHANNELS_4				= (3u << __CHANNELS_SHIFT),
++	//! channel convenience aliases
++	R 						= CHANNELS_1,
++	RG 						= CHANNELS_2,
++	RGB 					= CHANNELS_3,
++	RGBA					= CHANNELS_4,
 +	
-+	//! bits 10-11: storage data type
-+	__DATA_TYPE_MASK		= (0x00000C00u),
-+	__DATA_TYPE_SHIFT		= (10u),
++	//! bits 12-13: storage data type
++	__DATA_TYPE_MASK		= (0x00003000u),
++	__DATA_TYPE_SHIFT		= (12u),
 +	INT						= (1u << __DATA_TYPE_SHIFT),
 +	UINT					= (2u << __DATA_TYPE_SHIFT),
 +	FLOAT					= (3u << __DATA_TYPE_SHIFT),
 +	
-+	//! bits 8-9: access qualifier
-+	__ACCESS_MASK			= (0x00000300u),
-+	__ACCESS_SHIFT			= (8u),
++	//! bits 10-11: access qualifier
++	__ACCESS_MASK			= (0x00000C00u),
++	__ACCESS_SHIFT			= (10u),
 +	//! image is read-only (exluding host operations)
 +	READ					= (1u << __ACCESS_SHIFT),
 +	//! image is write-only (exluding host operations)
@@ -1135,88 +1139,128 @@ index 0000000..3d2aa45
 +	//! NOTE: also applies if neither is set
 +	READ_WRITE				= (READ | WRITE),
 +	
-+	//! bits 0-7: formats
-+	__FORMAT_MASK			= (0x000000FFu),
++	//! bits 6-9: compressed formats
++	__COMPRESSION_MASK		= (0x000003C0),
++	__COMPRESSION_SHIFT		= (6u),
++	//! image data is not compressed
++	UNCOMPRESSED			= (0u << __COMPRESSION_SHIFT),
++	//! S3TC/DXTn
++	BC1						= (1u << __COMPRESSION_SHIFT),
++	BC2						= (2u << __COMPRESSION_SHIFT),
++	BC3						= (3u << __COMPRESSION_SHIFT),
++	//! RGTC1/RGTC2
++	RGTC					= (4u << __COMPRESSION_SHIFT),
++	BC4						= RGTC,
++	BC5						= RGTC,
++	//! BPTC/BPTC_FLOAT
++	BPTC					= (5u << __COMPRESSION_SHIFT),
++	BC6H					= BPTC,
++	BC7						= BPTC,
++	//! PVRTC
++	PVRTC					= (6u << __COMPRESSION_SHIFT),
++	//! PVRTC2
++	PVRTC2					= (7u << __COMPRESSION_SHIFT),
++	//! EAC/ETC1
++	EAC						= (8u << __COMPRESSION_SHIFT),
++	ETC1					= EAC,
++	//! ETC2
++	ETC2					= (9u << __COMPRESSION_SHIFT),
++	//! ASTC
++	ASTC					= (10u << __COMPRESSION_SHIFT),
++	
++	//! bits 0-5: formats
++	//! NOTE: unless specified otherwise, a format is usable with any channel count
++	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
++	__FORMAT_MASK			= (0x0000003Fu),
++	//! 1 bit per channel
++	FORMAT_1				= (1u),
 +	//! 2 bits per channel
-+	FORMAT_2				= (1u),
++	FORMAT_2				= (2u),
 +	//! 3 channel format: 3-bit/3-bit/2-bit
-+	FORMAT_3_3_2			= (2u),
-+	//! 4 bits per channel
-+	FORMAT_4				= (3u),
++	FORMAT_3_3_2			= (3u),
++	//! 4 bits per channel or YUV444
++	FORMAT_4				= (4u),
++	//! YUV420
++	FORMAT_4_2_0			= (5u),
++	//! YUV411
++	FORMAT_4_1_1			= (6u),
++	//! YUV422
++	FORMAT_4_2_2			= (7u),
 +	//! 3 channel format: 5-bit/5-bit/5-bit
-+	FORMAT_5_5_5			= (4u),
++	FORMAT_5_5_5			= (8u),
 +	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
-+	FORMAT_5_5_5_1			= (5u),
++	FORMAT_5_5_5_1			= (9u),
 +	//! 3 channel format: 5-bit/6-bit/5-bit
-+	FORMAT_5_6_5			= (6u),
++	FORMAT_5_6_5			= (10u),
 +	//! 8 bits per channel
-+	FORMAT_8				= (7u),
++	FORMAT_8				= (11u),
 +	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
-+	FORMAT_9_9_9_5			= (8u),
++	FORMAT_9_9_9_5			= (12u),
 +	//! 3 channel format: 10-bit/10-bit/10-bit
-+	FORMAT_10				= (9u),
++	FORMAT_10				= (13u),
 +	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
-+	FORMAT_10_10_10_2		= (10u),
++	FORMAT_10_10_10_2		= (14u),
 +	//! 3 channel format: 11-bit/11-bit/10-bit
-+	FORMAT_11_11_10			= (11u),
++	FORMAT_11_11_10			= (15u),
 +	//! 3 channel format: 12-bit/12-bit/12-bit
-+	FORMAT_12_12_12			= (12u),
++	FORMAT_12_12_12			= (16u),
 +	//! 4 channel format: 12-bit/12-bit/12-bit/12-bit
-+	FORMAT_12_12_12_12		= (13u),
++	FORMAT_12_12_12_12		= (17u),
 +	//! 16 bits per channel
-+	FORMAT_16				= (14u),
++	FORMAT_16				= (18u),
 +	//! 1 channel format: 24-bit
-+	FORMAT_24				= (15u),
++	FORMAT_24				= (19u),
 +	//! 2 channel format: 24-bit/8-bit
-+	FORMAT_24_8				= (16u),
++	FORMAT_24_8				= (20u),
 +	//! 32 bits per channel
-+	FORMAT_32				= (17u),
++	FORMAT_32				= (21u),
 +	//! 2 channel format: 32-bit/8-bit
-+	FORMAT_32_8				= (18u),
++	FORMAT_32_8				= (22u),
 +	//! 64 bits per channel
-+	FORMAT_64				= (19u),
++	FORMAT_64				= (23u),
 +	__FORMAT_MAX			= FORMAT_64,
 +	
 +	//////////////////////////////////////////
 +	// -> base image types
 +	//! 1D image
-+	IMAGE_1D				= DIM_1D | DIM_STORAGE_1D,
++	IMAGE_1D				= DIM_1D,
 +	//! array of 1D images
-+	IMAGE_1D_ARRAY			= DIM_1D | DIM_STORAGE_2D | FLAG_ARRAY,
++	IMAGE_1D_ARRAY			= DIM_1D | FLAG_ARRAY,
 +	//! 1D image buffer (special format on some platforms)
-+	IMAGE_1D_BUFFER			= DIM_1D | DIM_STORAGE_1D | FLAG_BUFFER,
++	IMAGE_1D_BUFFER			= DIM_1D | FLAG_BUFFER,
 +	
 +	//! 2D image
-+	IMAGE_2D				= DIM_2D | DIM_STORAGE_2D,
++	IMAGE_2D				= DIM_2D,
 +	//! array of 2D images
-+	IMAGE_2D_ARRAY			= DIM_2D | DIM_STORAGE_3D | FLAG_ARRAY,
++	IMAGE_2D_ARRAY			= DIM_2D | FLAG_ARRAY,
 +	//! multi-sampled 2D image
-+	IMAGE_2D_MSAA			= DIM_2D | DIM_STORAGE_2D | FLAG_MSAA,
++	IMAGE_2D_MSAA			= DIM_2D | FLAG_MSAA,
 +	//! array of multi-sampled 2D images
-+	IMAGE_2D_MSAA_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_MSAA | FLAG_ARRAY,
++	IMAGE_2D_MSAA_ARRAY		= DIM_2D | FLAG_MSAA | FLAG_ARRAY,
 +	
-+	//! 3D image
-+	IMAGE_3D				= DIM_3D | DIM_STORAGE_3D,
 +	//! cube map image
-+	IMAGE_CUBE				= DIM_2D | DIM_STORAGE_3D | FLAG_CUBE,
++	IMAGE_CUBE				= DIM_2D | FLAG_CUBE,
 +	//! array of cube map images
-+	IMAGE_CUBE_ARRAY		= DIM_2D | DIM_STORAGE_3D | FLAG_CUBE | FLAG_ARRAY,
++	IMAGE_CUBE_ARRAY		= DIM_2D | FLAG_CUBE | FLAG_ARRAY,
 +	
 +	//! 2D depth image
-+	IMAGE_DEPTH				= FLAG_DEPTH | IMAGE_2D,
++	IMAGE_DEPTH				= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D,
 +	//! combined 2D depth + stencil image
-+	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | IMAGE_2D | FLAG_STENCIL,
++	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | CHANNELS_2 | IMAGE_2D | FLAG_STENCIL,
 +	//! array of 2D depth images
-+	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | IMAGE_2D_ARRAY,
++	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_ARRAY,
 +	//! depth cube map image
-+	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | IMAGE_CUBE,
++	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE,
 +	//! multi-sampled 2D depth image
-+	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | IMAGE_2D_MSAA,
++	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA,
 +	//! array of multi-sampled 2D depth images
-+	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | IMAGE_2D_MSAA_ARRAY,
++	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA_ARRAY,
++	
++	//! 3D image
++	IMAGE_3D				= DIM_3D,
 +	
 +	//
-+	BASE_TYPE_MASK			= (__DIM_MASK | __DIM_STORAGE_MASK |
++	BASE_TYPE_MASK			= (__DIM_MASK |
 +							   FLAG_ARRAY | FLAG_BUFFER | FLAG_CUBE | FLAG_DEPTH | FLAG_MSAA | FLAG_STENCIL),
 +	
 +};
