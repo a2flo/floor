@@ -206,7 +206,6 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.clock = 450; // actually unknown, and won't matter for now
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
 		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
-		device.max_mem_alloc = device.global_mem_size / 4; // usually the case
 		
 		// hard to make this forward compatible, there is no direct "get family" call
 		// -> just try the first 32 types, good enough for now
@@ -232,9 +231,9 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			case 1:
 				device.family = 1;
 				device.units = 4; // G6430
-				device.local_mem_size = 16384;
-				device.max_work_group_size = 512;
 				device.mem_clock = 1600; // ram clock
+				device.max_image_1d_dim = { 8192 };
+				device.max_image_2d_dim = { 8192, 8192 };
 				break;
 			
 			// A8/A8X
@@ -245,14 +244,13 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 				device.family = 2;
 				if(device.name.find("A8X") != string::npos) {
 					device.units = 8; // GXA6850
-					device.max_work_group_size = 1024;
 				}
 				else {
 					device.units = 4; // GX6450
-					device.max_work_group_size = 512;
 				}
-				device.local_mem_size = 16384;
 				device.mem_clock = 1600; // ram clock
+				device.max_image_1d_dim = { 8192 };
+				device.max_image_2d_dim = { 8192, 8192 };
 				break;
 			
 			// A9/A9X
@@ -262,18 +260,18 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			case 5:
 				device.family = 3;
 				device.units = 8; // TODO
-				device.max_work_group_size = 1024; // TODO
-				device.local_mem_size = 16384; // TODO
 				device.mem_clock = 1600; // TODO: ram clock
+				device.max_image_1d_dim = { 16384 };
+				device.max_image_2d_dim = { 16384, 16384 };
 				break;
 		}
+		device.local_mem_size = 16384;
+		device.max_work_group_size = 512;
 		device.max_work_item_sizes = { 0xFFFFFFFFu };
 		device.double_support = false; // double config is 0
 		device.unified_memory = true;
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
-		device.max_image_1d_dim = { 4096 };
-		device.max_image_2d_dim = { 4096, 4096 };
-		device.max_image_3d_dim = { 4096, 4096, 2048 };
+		device.max_image_3d_dim = { 2048, 2048, 2048 };
 #else
 		// on os x, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev vendorName] UTF8String];
@@ -289,9 +287,7 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			device.vendor = COMPUTE_VENDOR::AMD;
 		}
 		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
-		device.max_mem_alloc = [dev maxBufferLength];
-		// TODO: this is not correct, but there is no way to query the global mem size - however, global mem size is usually 4 * max alloc
-		device.global_mem_size = device.max_mem_alloc * 4;
+		device.global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
 		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
 		device.family = (uint32_t)[dev featureProfile];
 		device.family_version = device.family - 10000 + 1;
@@ -308,6 +304,7 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
 		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
 #endif
+		device.max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
 		device.max_work_group_item_sizes = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
 			(uint32_t)[dev maxThreadsPerThreadgroup].height,

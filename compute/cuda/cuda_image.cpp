@@ -129,8 +129,9 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	
 	//
 	const auto dim_count = image_dim_count(image_type);
+	const auto is_compressed = image_compressed(image_type);
 	auto channel_count = image_channel_count(image_type);
-	if(channel_count == 3) {
+	if(channel_count == 3 && !is_compressed) {
 		log_error("3-channel images are unsupported with cuda!");
 		// TODO: make this work transparently by using an empty alpha channel (pun not intended ;)),
 		// this will certainly segfault when using a host pointer that only points to 3-channel data
@@ -175,15 +176,83 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		{ COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UINT_1X32 } },
 		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_16, { CU_ARRAY_FORMAT::HALF, CU_RESOURCE_VIEW_FORMAT::FLOAT_1X16 } },
 		{ COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_32, { CU_ARRAY_FORMAT::FLOAT, CU_RESOURCE_VIEW_FORMAT::FLOAT_1X32 } },
+		// all BC formats must be UNSIGNED_INT32, only chanel count differs (BC1-4: 2 channels, BC5-7: 4 channels)
+		{
+			COMPUTE_IMAGE_TYPE::BC1 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_1,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC1 }
+		},
+		{
+			COMPUTE_IMAGE_TYPE::BC2 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_2,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC2 }
+		},
+		{
+			COMPUTE_IMAGE_TYPE::BC3 | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_2,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC3 }
+		},
+		// NOTE: same for BC4/BC5, BC5 fixup based on channel count later
+		{
+			COMPUTE_IMAGE_TYPE::RGTC | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_4,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC4 }
+		},
+		{
+			COMPUTE_IMAGE_TYPE::RGTC | COMPUTE_IMAGE_TYPE::INT | COMPUTE_IMAGE_TYPE::FORMAT_4,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::SIGNED_BC4 }
+		},
+		// NOTE: same for signed/unsigned BC6H, unsigned fixup based on normalized flag later
+		{
+			COMPUTE_IMAGE_TYPE::BPTC | COMPUTE_IMAGE_TYPE::FLOAT | COMPUTE_IMAGE_TYPE::FORMAT_3_3_2,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::SIGNED_BC6H }
+		},
+		{
+			COMPUTE_IMAGE_TYPE::BPTC | COMPUTE_IMAGE_TYPE::UINT | COMPUTE_IMAGE_TYPE::FORMAT_2,
+			{ CU_ARRAY_FORMAT::UNSIGNED_INT32, CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC7 }
+		},
 	};
-	const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK | COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
+	const auto cuda_format = format_lut.find(image_type & (COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
+														   COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
+														   COMPUTE_IMAGE_TYPE::__FORMAT_MASK));
 	if(cuda_format == end(format_lut)) {
 		log_error("unsupported image format: %X", image_type);
 		return false;
 	}
+	
 	format = cuda_format->second.first;
-	rsrc_view_format = (CU_RESOURCE_VIEW_FORMAT)(uint32_t(cuda_format->second.second) + (channel_count == 1 ? 0 :
-																						 (channel_count == 2 ? 1 : 2 /* 4 channels */)));
+	rsrc_view_format = cuda_format->second.second;
+	if(!is_compressed) {
+		rsrc_view_format = (CU_RESOURCE_VIEW_FORMAT)(uint32_t(rsrc_view_format) + (channel_count == 1 ? 0 :
+																				   (channel_count == 2 ? 1 : 2 /* 4 channels */)));
+	}
+	else {
+		// BC5 and BC6H fixup
+		if(rsrc_view_format == CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC4 && channel_count == 2) {
+			rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC5;
+		}
+		else if(rsrc_view_format == CU_RESOURCE_VIEW_FORMAT::SIGNED_BC4 && channel_count == 2) {
+			rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::SIGNED_BC5;
+		}
+		else if(rsrc_view_format == CU_RESOURCE_VIEW_FORMAT::SIGNED_BC6H && has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type)) {
+			rsrc_view_format = CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC6H;
+		}
+		
+		// fix cuda channel count, cuda documentation says:
+		// BC1 - BC4: 2 channels, BC5-7: 4 channels
+		switch(rsrc_view_format) {
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC1:
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC2:
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC3:
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC4:
+			case CU_RESOURCE_VIEW_FORMAT::SIGNED_BC4:
+				channel_count = 2;
+				break;
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC5:
+			case CU_RESOURCE_VIEW_FORMAT::SIGNED_BC5:
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC6H:
+			case CU_RESOURCE_VIEW_FORMAT::SIGNED_BC6H:
+			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC7:
+				channel_count = 4;
+				break;
+		}
+	}
 	
 	// -> cuda array
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
