@@ -251,6 +251,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			case CU_RESOURCE_VIEW_FORMAT::UNSIGNED_BC7:
 				channel_count = 4;
 				break;
+			default: floor_unreachable();
 		}
 	}
 	

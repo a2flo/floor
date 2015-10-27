@@ -57,9 +57,8 @@ namespace metal_image {
 			GREATER_EQUAL	= 4,
 			EQUAL			= 5,
 			NOT_EQUAL		= 6,
-			// unavailable right now
-			// ALWAYS		= 7,
-			// NEVER		= 8
+			ALWAYS			= 7,
+			NEVER			= 8
 		};
 		
 		union {
@@ -128,64 +127,64 @@ namespace {
 	//       -> can simply use signed int types here w/o any issues (which actually makes this more correct than apples api ;))
 	
 	// metal/air read functions
-	const_func clang_float4 read_imagef(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.v4f32");
+	const_func clang_float4 read_imagef(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.v4f32");
 	const_func clang_float4 read_imagef(image1d_array_t image, int32_t coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_1d_array.v4f32");
-	const_func clang_float4 read_imagef(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.v4f32");
+	const_func clang_float4 read_imagef(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.v4f32");
 	const_func clang_float4 read_imagef(image1d_t image, int32_t coord, uint32_t lod = 0) asm("air.read_texture_1d.v4f32");
-	const_func float read_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_depth_2d_array.f32");
-	const_func float read_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, float compare_value, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_2d_array.f32");
+	const_func float read_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_depth_2d_array.f32");
+	const_func float read_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, float compare_value, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_2d_array.f32");
 	const_func float read_imagef(image2d_array_depth_t image, uint32_t depth_format, clang_int2 coord, uint32_t layer, uint32_t lod = 0) asm("air.read_depth_2d_array.f32");
 	const_func clang_float4 read_imagef(image2d_array_t image, clang_int2 coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_2d_array.v4f32");
-	const_func clang_float4 read_imagef(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.v4f32");
-	const_func float read_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_depth_2d.f32");
-	const_func float read_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, float compare_value, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_2d.f32");
+	const_func clang_float4 read_imagef(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.v4f32");
+	const_func float read_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_depth_2d.f32");
+	const_func float read_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, float compare_value, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_2d.f32");
 	const_func float read_imagef(image2d_depth_t image, uint32_t depth_format, clang_int2 coord, uint32_t lod = 0) asm("air.read_depth_2d.f32");
 	const_func float read_imagef(image2d_msaa_depth_t image, uint32_t depth_format, clang_int2 coord, uint32_t sample) asm("air.read_depth_2d_ms.f32");
 	const_func clang_float4 read_imagef(image2d_msaa_t image, clang_int2 coord, uint32_t sample) asm("air.read_texture_2d_ms.v4f32");
 	const_func clang_float4 read_imagef(image2d_t image, clang_int2 coord, uint32_t lod = 0) asm("air.read_texture_2d.v4f32");
-	const_func clang_float4 read_imagef(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.v4f32");
+	const_func clang_float4 read_imagef(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.v4f32");
 	const_func clang_float4 read_imagef(image3d_t image, clang_int3 coord, uint32_t lod = 0) asm("air.read_texture_3d.v4f32");
-	const_func clang_float4 read_imagef(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = false, clang_int3 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.v4f32");
-	const_func float read_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_depth_cube_array.f32");
-	const_func float read_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer, float compare_value, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_cube_array.f32");
+	const_func clang_float4 read_imagef(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = true, clang_int3 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.v4f32");
+	const_func float read_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_depth_cube_array.f32");
+	const_func float read_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer, float compare_value, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_cube_array.f32");
 	const_func float read_imagef(imagecube_array_depth_t image, uint32_t depth_format, clang_int2 coord, uint32_t face, uint32_t layer, uint32_t lod = 0) asm("air.read_depth_cube_array.f32");
 	const_func clang_float4 read_imagef(imagecube_array_t image, clang_int2 coord, uint32_t face, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_cube_array.v4f32");
-	const_func clang_float4 read_imagef(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.v4f32");
-	const_func float read_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_depth_cube.f32");
-	const_func float read_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, float compare_value, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_cube.f32");
+	const_func clang_float4 read_imagef(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.v4f32");
+	const_func float read_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_depth_cube.f32");
+	const_func float read_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, float compare_value, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_compare_depth_cube.f32");
 	const_func float read_imagef(imagecube_depth_t image, uint32_t depth_format, clang_int2 coord, uint32_t face, uint32_t lod = 0) asm("air.read_depth_cube.f32");
 	const_func clang_float4 read_imagef(imagecube_t image, clang_int2 coord, uint32_t face, uint32_t lod = 0) asm("air.read_texture_cube.v4f32");
-	const_func clang_float4 read_imagef(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.v4f32");
-	const_func clang_int4 read_imagei(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.s.v4i32");
+	const_func clang_float4 read_imagef(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.v4f32");
+	const_func clang_int4 read_imagei(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.s.v4i32");
 	const_func clang_int4 read_imagei(image1d_array_t image, int32_t coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_1d_array.s.v4i32");
-	const_func clang_int4 read_imagei(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.s.v4i32");
+	const_func clang_int4 read_imagei(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.s.v4i32");
 	const_func clang_int4 read_imagei(image1d_t image, int32_t coord, uint32_t lod = 0) asm("air.read_texture_1d.s.v4i32");
 	const_func clang_int4 read_imagei(image2d_array_t image, clang_int2 coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_2d_array.s.v4i32");
-	const_func clang_int4 read_imagei(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.s.v4i32");
+	const_func clang_int4 read_imagei(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.s.v4i32");
 	const_func clang_int4 read_imagei(image2d_msaa_t image, clang_int2 coord, uint32_t sample) asm("air.read_texture_2d_ms.s.v4i32");
 	const_func clang_int4 read_imagei(image2d_t image, clang_int2 coord, uint32_t lod = 0) asm("air.read_texture_2d.s.v4i32");
-	const_func clang_int4 read_imagei(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.s.v4i32");
+	const_func clang_int4 read_imagei(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.s.v4i32");
 	const_func clang_int4 read_imagei(image3d_t image, clang_int3 coord, uint32_t lod = 0) asm("air.read_texture_3d.s.v4i32");
-	const_func clang_int4 read_imagei(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = false, clang_int3 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.s.v4i32");
+	const_func clang_int4 read_imagei(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = true, clang_int3 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.s.v4i32");
 	const_func clang_int4 read_imagei(imagecube_array_t image, clang_int2 coord, uint32_t face, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_cube_array.s.v4i32");
-	const_func clang_int4 read_imagei(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.s.v4i32");
+	const_func clang_int4 read_imagei(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.s.v4i32");
 	const_func clang_int4 read_imagei(imagecube_t image, clang_int2 coord, uint32_t face, uint32_t lod = 0) asm("air.read_texture_cube.s.v4i32");
-	const_func clang_int4 read_imagei(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.s.v4i32");
-	const_func clang_uint4 read_imageui(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.u.v4i32");
+	const_func clang_int4 read_imagei(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.s.v4i32");
+	const_func clang_uint4 read_imageui(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d_array.u.v4i32");
 	const_func clang_uint4 read_imageui(image1d_array_t image, int32_t coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_1d_array.u.v4i32");
-	const_func clang_uint4 read_imageui(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = false, int32_t offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.u.v4i32");
+	const_func clang_uint4 read_imageui(image1d_t image, metal_sampler_t smplr, float coord, bool enable_offset = true, int32_t offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_1d.u.v4i32");
 	const_func clang_uint4 read_imageui(image1d_t image, int32_t coord, uint32_t lod = 0) asm("air.read_texture_1d.u.v4i32");
 	const_func clang_uint4 read_imageui(image2d_array_t image, clang_int2 coord, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_2d_array.u.v4i32");
-	const_func clang_uint4 read_imageui(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.u.v4i32");
+	const_func clang_uint4 read_imageui(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d_array.u.v4i32");
 	const_func clang_uint4 read_imageui(image2d_msaa_t image, clang_int2 coord, uint32_t sample) asm("air.read_texture_2d_ms.u.v4i32");
 	const_func clang_uint4 read_imageui(image2d_t image, clang_int2 coord, uint32_t lod = 0) asm("air.read_texture_2d.u.v4i32");
-	const_func clang_uint4 read_imageui(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.u.v4i32");
+	const_func clang_uint4 read_imageui(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_2d.u.v4i32");
 	const_func clang_uint4 read_imageui(image3d_t image, clang_int3 coord, uint32_t lod = 0) asm("air.read_texture_3d.u.v4i32");
-	const_func clang_uint4 read_imageui(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = false, clang_int3 offset = 0, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.u.v4i32");
+	const_func clang_uint4 read_imageui(image3d_t image, metal_sampler_t smplr, clang_float3 coord, bool enable_offset = true, clang_int3 offset = 0, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_3d.u.v4i32");
 	const_func clang_uint4 read_imageui(imagecube_array_t image, clang_int2 coord, uint32_t face, uint32_t layer, uint32_t lod = 0) asm("air.read_texture_cube_array.u.v4i32");
-	const_func clang_uint4 read_imageui(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.u.v4i32");
+	const_func clang_uint4 read_imageui(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube_array.u.v4i32");
 	const_func clang_uint4 read_imageui(imagecube_t image, clang_int2 coord, uint32_t face, uint32_t lod = 0) asm("air.read_texture_cube.u.v4i32");
-	const_func clang_uint4 read_imageui(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = true, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.u.v4i32");
+	const_func clang_uint4 read_imageui(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, bool lod_or_bias = false, float lod_or_bias_value = 0.0f) asm("air.sample_texture_cube.u.v4i32");
 	
 	// metal/air write functions
 	void write_imagef(image1d_array_t image, int32_t coord, uint32_t layer, clang_float4 color, uint32_t lod = 0) asm("air.write_texture_1d_array.v4f32");
@@ -211,24 +210,24 @@ namespace {
 	void write_imageui(imagecube_t image, clang_int2 coord, uint32_t face, clang_uint4 color, uint32_t lod = 0) asm("air.write_texture_cube.u.v4i32");
 	
 #if 0 // gather support is not yet enabled
-	const_func clang_float4 gather_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0) asm("air.gather_depth_2d_array.v4f32");
-	const_func clang_float4 gather_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, float compare_value, bool enable_offset = false, clang_int2 offset = 0) asm("air.gather_compare_depth_2d_array.f32");
-	const_func clang_float4 gather_imagef(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.v4f32");
-	const_func clang_float4 gather_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0) asm("air.gather_depth_2d.v4f32");
-	const_func clang_float4 gather_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, float compare_value, bool enable_offset = false, clang_int2 offset = 0) asm("air.gather_compare_depth_2d.f32");
-	const_func clang_float4 gather_imagef(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.v4f32");
+	const_func clang_float4 gather_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0) asm("air.gather_depth_2d_array.v4f32");
+	const_func clang_float4 gather_imagef(image2d_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, uint32_t layer, float compare_value, bool enable_offset = true, clang_int2 offset = 0) asm("air.gather_compare_depth_2d_array.f32");
+	const_func clang_float4 gather_imagef(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.v4f32");
+	const_func clang_float4 gather_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0) asm("air.gather_depth_2d.v4f32");
+	const_func clang_float4 gather_imagef(image2d_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float2 coord, float compare_value, bool enable_offset = true, clang_int2 offset = 0) asm("air.gather_compare_depth_2d.f32");
+	const_func clang_float4 gather_imagef(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.v4f32");
 	const_func clang_float4 gather_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer) asm("air.gather_depth_cube_array.v4f32");
 	const_func clang_float4 gather_imagef(imagecube_array_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, uint32_t layer, float compare_value) asm("air.gather_compare_depth_cube_array.f32");
 	const_func clang_float4 gather_imagef(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, int32_t component = 0) asm("air.gather_texture_cube_array.v4f32");
 	const_func clang_float4 gather_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord) asm("air.gather_depth_cube.v4f32");
 	const_func clang_float4 gather_imagef(imagecube_depth_t image, metal_sampler_t smplr, uint32_t depth_format, clang_float3 coord, float compare_value) asm("air.gather_compare_depth_cube.f32");
 	const_func clang_float4 gather_imagef(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, int32_t component = 0) asm("air.gather_texture_cube.v4f32");
-	const_func clang_int4 gather_imagei(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.s.v4i32");
-	const_func clang_int4 gather_imagei(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.s.v4i32");
+	const_func clang_int4 gather_imagei(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.s.v4i32");
+	const_func clang_int4 gather_imagei(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.s.v4i32");
 	const_func clang_int4 gather_imagei(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, int32_t component = 0) asm("air.gather_texture_cube_array.s.v4i32");
 	const_func clang_int4 gather_imagei(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, int32_t component = 0) asm("air.gather_texture_cube.s.v4i32");
-	const_func clang_uint4 gather_imageui(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.u.v4i32");
-	const_func clang_uint4 gather_imageui(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = false, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.u.v4i32");
+	const_func clang_uint4 gather_imageui(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d_array.u.v4i32");
+	const_func clang_uint4 gather_imageui(image2d_t image, metal_sampler_t smplr, clang_float2 coord, bool enable_offset = true, clang_int2 offset = 0, int32_t component = 0) asm("air.gather_texture_2d.u.v4i32");
 	const_func clang_uint4 gather_imageui(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, int32_t component = 0) asm("air.gather_texture_cube_array.u.v4i32");
 	const_func clang_uint4 gather_imageui(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, int32_t component = 0) asm("air.gather_texture_cube.u.v4i32");
 #endif

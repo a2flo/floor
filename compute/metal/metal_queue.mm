@@ -56,7 +56,7 @@ id <MTLCommandQueue> metal_queue::get_queue() {
 }
 
 id <MTLCommandBuffer> metal_queue::make_command_buffer() {
-	id <MTLCommandBuffer> cmd_buffer = [queue commandBuffer];
+	id <MTLCommandBuffer> cmd_buffer = [queue commandBufferWithUnretainedReferences];
 	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer> buffer) {
 		GUARD(cmd_buffers_lock);
 		const auto iter = find(cbegin(cmd_buffers), cend(cmd_buffers), buffer);

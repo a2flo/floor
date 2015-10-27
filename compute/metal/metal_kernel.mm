@@ -47,12 +47,12 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 	// lock all buffers
 	// TODO/NOTE: a) this is very deadlock-susceptible (use shared locking if going to use this in the future)
 	//            b) this doesn't actually guarantee that all buffers have finished their prior processing?
-	for(auto& buffer : encoder->buffers) {
+	/*for(auto& buffer : encoder->buffers) {
 		buffer->_lock();
 	}
 	for(auto& img : encoder->images) {
 		img->_lock();
-	}
+	}*/
 	
 	const MTLSize metal_grid_dim { grid_dim.x, grid_dim.y, grid_dim.z };
 	const MTLSize metal_block_dim { block_dim.x, block_dim.y, block_dim.z };
@@ -60,14 +60,14 @@ void metal_kernel::execute_internal(compute_queue* queue floor_unused,
 	[encoder->encoder endEncoding];
 	
 	// unlock all buffers again when this has finished executing
-	[encoder->cmd_buffer addCompletedHandler:[encoder](id <MTLCommandBuffer>) NO_THREAD_SAFETY_ANALYSIS {
+	/*[encoder->cmd_buffer addCompletedHandler:[encoder](id <MTLCommandBuffer>) NO_THREAD_SAFETY_ANALYSIS {
 		for(auto& img : encoder->images) {
 			img->_unlock();
 		}
 		for(auto& buffer : encoder->buffers) {
 			buffer->_unlock();
 		}
-	}];
+	}];*/
 	
 	[encoder->cmd_buffer commit];
 }

@@ -37,9 +37,10 @@ metal_program::metal_program(const metal_device* device,
 			log_error("failed to get function \"%s\"", info.name);
 			continue;
 		}
-		log_debug("created kernel func: %X", (__bridge void*)kernel);
+#if defined(FLOOR_DEBUG)
 		log_debug("kernel func info: %s, %u", [[kernel name] UTF8String], (int)[kernel functionType]);
 		logger::flush();
+#endif
 		
 		NSError* err = nullptr;
 		id <MTLComputePipelineState> kernel_state = [[program device] newComputePipelineStateWithFunction:kernel error:&err];
@@ -48,9 +49,10 @@ metal_program::metal_program(const metal_device* device,
 					  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
 			continue;
 		}
-		log_debug("created kernel state: %X", (__bridge void*)kernel_state);
-		//log_debug("%s: max work-items: %u, simd width: %u",
-		//		  info.name, [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
+#if defined(FLOOR_DEBUG)
+		log_debug("%s: max work-items: %u, simd width: %u",
+				  info.name, [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
+#endif
 		
 		metal_kernels[i].kernel = kernel;
 		metal_kernels[i].state = kernel_state;
