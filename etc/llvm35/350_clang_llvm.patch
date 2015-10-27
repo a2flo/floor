@@ -179,6 +179,20 @@ index ac6e0e5..9e922f8 100644
    Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
    return false;
  }
+diff --git a/lib/IR/AutoUpgrade.cpp b/lib/IR/AutoUpgrade.cpp
+index 459bd88..ac77437 100644
+--- a/lib/IR/AutoUpgrade.cpp
++++ b/lib/IR/AutoUpgrade.cpp
+@@ -567,7 +567,8 @@ Value *llvm::UpgradeBitCastExpr(unsigned Opc, Constant *C, Type *DestTy) {
+ /// info. Return true if module is modified.
+ bool llvm::UpgradeDebugInfo(Module &M) {
+   unsigned Version = getDebugMetadataVersionFromModule(M);
+-  if (Version == DEBUG_METADATA_VERSION)
++  if (Version == DEBUG_METADATA_VERSION ||
++      Version == IOS_METAL_DEBUG_METADATA_VERSION)
+     return false;
+ 
+   bool RetCode = StripDebugInfo(M);
 diff --git a/lib/IR/Constants.cpp b/lib/IR/Constants.cpp
 index 7557886..a9f4def 100644
 --- a/lib/IR/Constants.cpp
