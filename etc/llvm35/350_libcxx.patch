@@ -15,7 +15,7 @@ index 6766793..6dfb843 100644
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
 diff --git a/include/algorithm b/include/algorithm
-index 3b74a6b..f77b8c5 100644
+index 3b74a6b..fff2d34 100644
 --- a/include/algorithm
 +++ b/include/algorithm
 @@ -623,7 +623,9 @@ template <class BidirectionalIterator, class Compare>
@@ -129,7 +129,218 @@ index 3b74a6b..f77b8c5 100644
  
  template <class _ForwardIterator, class _Predicate>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -4488,6 +4496,7 @@ struct __inplace_merge_switch
+@@ -3836,188 +3844,30 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
+     typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
+     const difference_type __limit = is_trivially_copy_constructible<value_type>::value &&
+                                     is_trivially_copy_assignable<value_type>::value ? 30 : 6;
+-    while (true)
++
++    // compute note: keep the special cases if len <= 5, but always fallback to using
++    //               __insertion_sort_3 for len > 5 as it doesn't require recursion
++    difference_type __len = __last - __first;
++    switch (__len)
+     {
+-    __restart:
+-        difference_type __len = __last - __first;
+-        switch (__len)
+-        {
+-        case 0:
+-        case 1:
+-            return;
+-        case 2:
+-            if (__comp(*--__last, *__first))
+-                swap(*__first, *__last);
+-            return;
+-        case 3:
+-            _VSTD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
+-            return;
+-        case 4:
+-            _VSTD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
+-            return;
+-        case 5:
+-            _VSTD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
+-            return;
+-        }
+-        if (__len <= __limit)
+-        {
+-            _VSTD::__insertion_sort_3<_Compare>(__first, __last, __comp);
+-            return;
+-        }
+-        // __len > 5
+-        _RandomAccessIterator __m = __first;
+-        _RandomAccessIterator __lm1 = __last;
+-        --__lm1;
+-        unsigned __n_swaps;
+-        {
+-        difference_type __delta;
+-        if (__len >= 1000)
+-        {
+-            __delta = __len/2;
+-            __m += __delta;
+-            __delta /= 2;
+-            __n_swaps = _VSTD::__sort5<_Compare>(__first, __first + __delta, __m, __m+__delta, __lm1, __comp);
+-        }
+-        else
+-        {
+-            __delta = __len/2;
+-            __m += __delta;
+-            __n_swaps = _VSTD::__sort3<_Compare>(__first, __m, __lm1, __comp);
+-        }
+-        }
+-        // *__m is median
+-        // partition [__first, __m) < *__m and *__m <= [__m, __last)
+-        // (this inhibits tossing elements equivalent to __m around unnecessarily)
+-        _RandomAccessIterator __i = __first;
+-        _RandomAccessIterator __j = __lm1;
+-        // j points beyond range to be tested, *__m is known to be <= *__lm1
+-        // The search going up is known to be guarded but the search coming down isn't.
+-        // Prime the downward search with a guard.
+-        if (!__comp(*__i, *__m))  // if *__first == *__m
+-        {
+-            // *__first == *__m, *__first doesn't go in first part
+-            // manually guard downward moving __j against __i
+-            while (true)
+-            {
+-                if (__i == --__j)
+-                {
+-                    // *__first == *__m, *__m <= all other elements
+-                    // Parition instead into [__first, __i) == *__first and *__first < [__i, __last)
+-                    ++__i;  // __first + 1
+-                    __j = __last;
+-                    if (!__comp(*__first, *--__j))  // we need a guard if *__first == *(__last-1)
+-                    {
+-                        while (true)
+-                        {
+-                            if (__i == __j)
+-                                return;  // [__first, __last) all equivalent elements
+-                            if (__comp(*__first, *__i))
+-                            {
+-                                swap(*__i, *__j);
+-                                ++__n_swaps;
+-                                ++__i;
+-                                break;
+-                            }
+-                            ++__i;
+-                        }
+-                    }
+-                    // [__first, __i) == *__first and *__first < [__j, __last) and __j == __last - 1
+-                    if (__i == __j)
+-                        return;
+-                    while (true)
+-                    {
+-                        while (!__comp(*__first, *__i))
+-                            ++__i;
+-                        while (__comp(*__first, *--__j))
+-                            ;
+-                        if (__i >= __j)
+-                            break;
+-                        swap(*__i, *__j);
+-                        ++__n_swaps;
+-                        ++__i;
+-                    }
+-                    // [__first, __i) == *__first and *__first < [__i, __last)
+-                    // The first part is sorted, sort the secod part
+-                    // _VSTD::__sort<_Compare>(__i, __last, __comp);
+-                    __first = __i;
+-                    goto __restart;
+-                }
+-                if (__comp(*__j, *__m))
+-                {
+-                    swap(*__i, *__j);
+-                    ++__n_swaps;
+-                    break;  // found guard for downward moving __j, now use unguarded partition
+-                }
+-            }
+-        }
+-        // It is known that *__i < *__m
+-        ++__i;
+-        // j points beyond range to be tested, *__m is known to be <= *__lm1
+-        // if not yet partitioned...
+-        if (__i < __j)
+-        {
+-            // known that *(__i - 1) < *__m
+-            // known that __i <= __m
+-            while (true)
+-            {
+-                // __m still guards upward moving __i
+-                while (__comp(*__i, *__m))
+-                    ++__i;
+-                // It is now known that a guard exists for downward moving __j
+-                while (!__comp(*--__j, *__m))
+-                    ;
+-                if (__i > __j)
+-                    break;
+-                swap(*__i, *__j);
+-                ++__n_swaps;
+-                // It is known that __m != __j
+-                // If __m just moved, follow it
+-                if (__m == __i)
+-                    __m = __j;
+-                ++__i;
+-            }
+-        }
+-        // [__first, __i) < *__m and *__m <= [__i, __last)
+-        if (__i != __m && __comp(*__m, *__i))
+-        {
+-            swap(*__i, *__m);
+-            ++__n_swaps;
+-        }
+-        // [__first, __i) < *__i and *__i <= [__i+1, __last)
+-        // If we were given a perfect partition, see if insertion sort is quick...
+-        if (__n_swaps == 0)
+-        {
+-            bool __fs = _VSTD::__insertion_sort_incomplete<_Compare>(__first, __i, __comp);
+-            if (_VSTD::__insertion_sort_incomplete<_Compare>(__i+1, __last, __comp))
+-            {
+-                if (__fs)
+-                    return;
+-                __last = __i;
+-                continue;
+-            }
+-            else
+-            {
+-                if (__fs)
+-                {
+-                    __first = ++__i;
+-                    continue;
+-                }
+-            }
+-        }
+-        // sort smaller range with recursive call and larger with tail recursion elimination
+-        if (__i - __first < __last - __i)
+-        {
+-            _VSTD::__sort<_Compare>(__first, __i, __comp);
+-            // _VSTD::__sort<_Compare>(__i+1, __last, __comp);
+-            __first = ++__i;
+-        }
+-        else
+-        {
+-            _VSTD::__sort<_Compare>(__i+1, __last, __comp);
+-            // _VSTD::__sort<_Compare>(__first, __i, __comp);
+-            __last = __i;
+-        }
++    case 0:
++    case 1:
++        return;
++    case 2:
++        if (__comp(*--__last, *__first))
++            swap(*__first, *__last);
++        return;
++    case 3:
++        _VSTD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
++        return;
++    case 4:
++        _VSTD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
++        return;
++    case 5:
++        _VSTD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
++        return;
+     }
++    _VSTD::__insertion_sort_3<_Compare>(__first, __last, __comp);
+ }
+ 
+ // This forwarder keeps the top call and the recursive calls using the same instantiation, forcing a reference _Compare
+@@ -4488,6 +4338,7 @@ struct __inplace_merge_switch
      static const unsigned value = is_trivially_copy_assignable<_Tp>::value;
  };
  
@@ -137,7 +348,7 @@ index 3b74a6b..f77b8c5 100644
  template <class _BidirectionalIterator, class _Compare>
  inline _LIBCPP_INLINE_VISIBILITY
  void
-@@ -4517,6 +4526,7 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
+@@ -4517,6 +4368,7 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
                                              __buf.first, __buf.second);
  #endif  // _LIBCPP_DEBUG
  }
@@ -145,7 +356,7 @@ index 3b74a6b..f77b8c5 100644
  
  template <class _BidirectionalIterator>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -4702,6 +4712,7 @@ __stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Comp
+@@ -4702,6 +4554,7 @@ __stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Comp
      __inplace_merge<_Compare>(__first, __m, __last, __comp, __l2, __len - __l2, __buff, __buff_size);
  }
  
@@ -153,7 +364,7 @@ index 3b74a6b..f77b8c5 100644
  template <class _RandomAccessIterator, class _Compare>
  inline _LIBCPP_INLINE_VISIBILITY
  void
-@@ -4726,6 +4737,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
+@@ -4726,6 +4579,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
      __stable_sort<_Comp_ref>(__first, __last, __comp, __len, __buf.first, __buf.second);
  #endif  // _LIBCPP_DEBUG
  }
