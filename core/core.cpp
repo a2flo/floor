@@ -550,3 +550,36 @@ bool core::cpu_has_fma() {
 #endif
 #endif
 }
+
+string core::create_tmp_file_name(const string prefix, const string suffix) {
+	seed_seq seed {
+		rd(),
+		(uint32_t)(uintptr_t)&prefix,
+		unix_timestamp()
+	};
+	mt19937 twister { seed };
+	twister.discard(32);
+	
+	static constexpr const char chars[] {
+		'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+		'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+		'u', 'v', 'w', 'x', 'y', 'z',
+		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+	};
+	uniform_int_distribution<> dist(0, size(chars) - 1);
+	
+	string ret {
+#if !defined(_MSC_VER)
+		"/tmp/" +
+#endif
+		prefix
+	};
+	
+	static constexpr const int random_char_count { 16 };
+	for(int i = 0; i < random_char_count; ++i) {
+		ret += chars[dist(twister)];
+	}
+	
+	ret += suffix;
+	return ret;
+}

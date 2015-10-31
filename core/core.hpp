@@ -115,6 +115,19 @@ public:
 	static string strip_path(const string& in_path);
 	//! extracts the filename from in_path
 	static string strip_filename(const string& in_path);
+	//! creates a temporary file name, optionally prefixed by 'prefix' and suffixed by 'suffix', and returns it
+	static string create_tmp_file_name(const string prefix = "", const string suffix = "");
+	//! creates an array of temporary file names using, each prefixed by a corresponding element in 'prefixes'
+	//! and suffixed by a corresponding element in 'suffixes', and returns the array
+	template <size_t count>
+	static array<string, count> create_tmp_file_names(const array<const char*, count>& prefixes,
+													  const array<const char*, count>& suffixes) {
+		array<string, count> ret;
+		for(size_t i = 0; i < count; ++i) {
+			ret[i] = create_tmp_file_name(prefixes[i], suffixes[i]);
+		}
+		return ret;
+	}
 	
 	// system functions
 	static void system(const string& cmd);

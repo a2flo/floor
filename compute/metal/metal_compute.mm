@@ -497,32 +497,56 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	static constexpr const char* metal_ar { FLOOR_METAL_TOOLS_PATH "metal-ar" };
 	static constexpr const char* metal_opt { FLOOR_METAL_TOOLS_PATH "metal-opt" };
 	static constexpr const char* metallib { FLOOR_METAL_TOOLS_PATH "metallib" };
-	if(!file_io::string_to_file("metal_tmp.ll", program_data.first)) {
+	enum : uint32_t {
+		METAL_LL_FILE = 0,
+		METAL_UNOPT_AIR_FILE,
+		METAL_OPT_AIR_FILE,
+		METAL_ARCHIVE_FILE,
+		METAL_LIB_FILE,
+		__MAX_METAL_FILE
+	};
+	const auto tmp_files = core::create_tmp_file_names(array<const char*, __MAX_METAL_FILE> {{
+		"metal_ll_",
+		"metal_unopt_air_",
+		"metal_opt_air_",
+		"metal_ar_",
+		"metal_lib_",
+	}}, array<const char*, __MAX_METAL_FILE> {{
+		".ll",
+		".air",
+		".air",
+		".a",
+		".metallib",
+	}});
+	
+	//
+	if(!file_io::string_to_file(tmp_files[METAL_LL_FILE], program_data.first)) {
 		log_error("failed to write tmp metal ll file");
 		return {};
 	}
 	if(!floor::get_compute_debug()) {
-		core::system(metal_as + " -o=metal_tmp_unopt.air metal_tmp.ll"s);
-		core::system(metal_opt + " -Oz metal_tmp_unopt.air -o metal_tmp.air"s);
+		core::system(metal_as + " -o="s + tmp_files[METAL_UNOPT_AIR_FILE] + " " + tmp_files[METAL_LL_FILE]);
+		core::system(metal_opt + " -Oz "s + tmp_files[METAL_UNOPT_AIR_FILE] + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {
-		core::system(metal_as + " -o=metal_tmp.air metal_tmp.ll"s);
+		core::system(metal_as + " -o="s + tmp_files[METAL_OPT_AIR_FILE] + " " + tmp_files[METAL_LL_FILE]);
 	}
-	core::system(metal_ar + " r metal_tmp.a metal_tmp.air"s);
-	core::system(metallib + " -o metal_tmp.metallib metal_tmp.a"s);
+	core::system(metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
+	core::system(metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
 	
-	static const auto cleanup = []() {
-		core::system("rm metal_tmp.ll");
-		core::system("rm metal_tmp.air");
-		if(!floor::get_compute_debug()) core::system("rm metal_tmp_unopt.air");
-		core::system("rm metal_tmp.a");
-		core::system("rm metal_tmp.metallib");
+	const auto cleanup = [&tmp_files]() {
+		core::system("rm "s + tmp_files[METAL_LL_FILE]);
+		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);
+		if(!floor::get_compute_debug()) {
+			core::system("rm "s + tmp_files[METAL_UNOPT_AIR_FILE]);
+		}
+		core::system("rm "s + tmp_files[METAL_ARCHIVE_FILE]);
+		core::system("rm "s + tmp_files[METAL_LIB_FILE]);
 	};
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	const char* lib_path = "metal_tmp.metallib";
-	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:lib_path]
+	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()]
 																						  error:&err];
 	if(!floor::get_compute_keep_temp()) cleanup();
 	if(!program) {
@@ -556,18 +580,6 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
 		return {};
 	}
-	
-#if 0
-	//auto path = [NSString stringWithUTF8String:file_name.c_str()];
-	auto path = [NSString stringWithUTF8String:"/Users/flo/sync/floor_examples/nbody/src/nbody.cpp"];
-	_MTLLibrary* lib = ([program respondsToSelector:@selector(baseObject)] ?
-						[program performSelector:@selector(baseObject)] :
-						program);
-	for(id key in [lib functionDictionary]) {
-		id <MTLFunctionSPI> func = [[lib functionDictionary] objectForKey:key];
-		func.filePath = path;
-	}
-#endif
 	
 	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, kernel_infos);
 	{
