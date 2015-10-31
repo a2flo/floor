@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
-host_queue::host_queue(shared_ptr<compute_device> dev) : device(dev) {
+host_queue::host_queue(shared_ptr<compute_device> device_) : compute_queue(device_) {
 }
 
 void host_queue::finish() const {
@@ -33,10 +33,6 @@ void host_queue::flush() const {
 
 const void* host_queue::get_queue_ptr() const {
 	return this;
-}
-
-const host_device* host_queue::get_device() const {
-	return (host_device*)device.get();
 }
 
 #endif

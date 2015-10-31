@@ -28,7 +28,7 @@
 
 class cuda_queue final : public compute_queue {
 public:
-	cuda_queue(const cu_stream queue);
+	cuda_queue(shared_ptr<compute_device> device, const cu_stream queue);
 	
 	void finish() const override;
 	void flush() const override;

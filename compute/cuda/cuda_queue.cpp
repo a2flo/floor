@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-cuda_queue::cuda_queue(const cu_stream queue_) : queue(queue_) {
+cuda_queue::cuda_queue(shared_ptr<compute_device> device_, const cu_stream queue_) : compute_queue(device_), queue(queue_) {
 }
 
 void cuda_queue::finish() const {

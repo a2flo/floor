@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_OPENCL)
 
-opencl_queue::opencl_queue(const cl_command_queue queue_) : queue(queue_) {
+opencl_queue::opencl_queue(shared_ptr<compute_device> device_, const cl_command_queue queue_) : compute_queue(device_), queue(queue_) {
 }
 
 void opencl_queue::finish() const {

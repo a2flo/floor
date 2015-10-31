@@ -287,7 +287,7 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 	CU_CALL_RET(cu_stream_create(&stream, CU_STREAM_FLAGS::NON_BLOCKING),
 				"failed to create cuda stream", {});
 	
-	auto ret = make_shared<cuda_queue>(stream);
+	auto ret = make_shared<cuda_queue>(dev, stream);
 	queues.push_back(ret);
 	return ret;
 }

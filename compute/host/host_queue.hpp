@@ -29,17 +29,12 @@
 
 class host_queue final : public compute_queue {
 public:
-	host_queue(shared_ptr<compute_device> dev);
+	host_queue(shared_ptr<compute_device> device);
 	
 	void finish() const override;
 	void flush() const override;
 	
 	const void* get_queue_ptr() const override;
-	
-	const host_device* get_device() const;
-	
-protected:
-	shared_ptr<compute_device> device;
 	
 };
 

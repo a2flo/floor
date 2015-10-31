@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_METAL)
 
-metal_queue::metal_queue(id <MTLCommandQueue> queue_) : queue(queue_) {
+metal_queue::metal_queue(shared_ptr<compute_device> device_, id <MTLCommandQueue> queue_) : compute_queue(device_), queue(queue_) {
 }
 
 void metal_queue::finish() const {

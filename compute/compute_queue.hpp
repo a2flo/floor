@@ -67,6 +67,7 @@ protected:
 	}
 	
 public:
+	compute_queue(shared_ptr<compute_device> device_) : device(device_) {}
 	virtual ~compute_queue() = 0;
 	
 	//! blocks until all currently scheduled work in this queue has been executed
@@ -99,7 +100,11 @@ public:
 	void execute(shared_ptr<compute_kernel>, work_size_type_global&&, work_size_type_local&&, Args&&...)
 	__attribute__((enable_if(!check_arg_types<Args...>(), "invalid args"), unavailable("invalid kernel argument(s)!")));
 	
+	//! returns the compute device associated with this queue
+	shared_ptr<compute_device> get_device() const { return device; }
+	
 protected:
+	shared_ptr<compute_device> device;
 	
 };
 

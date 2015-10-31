@@ -440,7 +440,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 	
 	//
 	cur_kernel_function = &kernel_func;
-	const auto cpu_count = ((host_queue*)queue)->get_device()->units;
+	const auto cpu_count = queue->get_device()->units;
 	// device cpu count must be <= h/w thread count, b/c local memory is only allocated for such many threads
 	if(cpu_count > floor_max_thread_count) {
 		log_error("device cpu count exceeds h/w count");

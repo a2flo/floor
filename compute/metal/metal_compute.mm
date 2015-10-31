@@ -378,7 +378,7 @@ shared_ptr<compute_queue> metal_compute::create_queue(shared_ptr<compute_device>
 		return {};
 	}
 	
-	auto ret = make_shared<metal_queue>(queue);
+	auto ret = make_shared<metal_queue>(dev, queue);
 	queues.push_back(ret);
 	return ret;
 }

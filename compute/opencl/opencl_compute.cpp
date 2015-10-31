@@ -675,7 +675,7 @@ FLOOR_POP_WARNINGS()
 		return {};
 	}
 	
-	auto ret = make_shared<opencl_queue>(cl_queue);
+	auto ret = make_shared<opencl_queue>(dev, cl_queue);
 	queues.push_back(ret);
 	
 	// set the default queue if it hasn't been set yet

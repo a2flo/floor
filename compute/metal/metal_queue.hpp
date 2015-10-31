@@ -29,7 +29,7 @@
 
 class metal_queue final : public compute_queue {
 public:
-	metal_queue(id <MTLCommandQueue> queue);
+	metal_queue(shared_ptr<compute_device> device, id <MTLCommandQueue> queue);
 	
 	void finish() const override REQUIRES(!cmd_buffers_lock);
 	void flush() const override REQUIRES(!cmd_buffers_lock);
