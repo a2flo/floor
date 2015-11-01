@@ -28,6 +28,7 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class compute_device;
 class compute_queue {
 protected:
 	//! argument type validity specializations, with pretty error messages
