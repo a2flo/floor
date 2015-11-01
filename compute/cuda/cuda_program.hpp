@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_program.hpp>
 #include <floor/compute/llvm_compute.hpp>
+#include <floor/core/flat_map.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
