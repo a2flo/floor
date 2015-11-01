@@ -160,6 +160,8 @@ public:
 	// forward auxiliary functions
 	auto begin() { return data.begin(); }
 	auto end() { return data.end(); }
+	auto begin() const { return data.begin(); }
+	auto end() const { return data.end(); }
 	auto cbegin() const { return data.cbegin(); }
 	auto cend() const { return data.cend(); }
 	auto size() const { return data.size(); }

@@ -46,7 +46,7 @@ public:
 	cuda_program(program_map_type&& programs);
 	
 protected:
-	program_map_type programs;
+	const program_map_type programs;
 	
 };
 
