@@ -31,45 +31,89 @@ public:
 	//! single <key, value> entry in this map
 	typedef pair<key_type, value_type> entry_type;
 	
+protected:
 	//! map storage
 	vector<entry_type> data;
 	
+	//! removes all duplicate entries for each unique key in this map
+	void unique() {
+		const auto end_iter = unique(begin(), end(), [](const key_type& kv_1, const value_type& kv_2) {
+			return (kv_1.first == kv_2.first);
+		});
+		data.erase(end_iter, end());
+	}
+	
+public:
 	typedef typename decltype(data)::iterator iterator;
 	typedef typename decltype(data)::const_iterator const_iterator;
+	
+	//! default empty map constructor
+	constexpr flat_map() noexcept {}
+	
+	//! move construct from another flat_map
+	flat_map(flat_map&& fmap) : data(move(fmap.data)) {}
+	
+	//! copy construct from another flat_map
+	flat_map(const flat_map& fmap) : data(fmap.data) {}
+	
+	//! construct through a initializer_list, note that all entries will be uniqued
+	flat_map(initializer_list<entry_type> ilist) : data(ilist) {
+		unique();
+	}
+	
+	//! move construct through a vector, note that all entries will be uniqued
+	flat_map(vector<entry_type>&& vec) : data(move(vec)) {
+		unique();
+	}
+	
+	//! copy construct through a vector, note that all entries will be uniqued
+	flat_map(const vector<entry_type>& vec) : data(vec) {
+		unique();
+	}
 	
 	//! look up 'key' and if found, return its associated value, if not found,
 	//! insert a new <key, value> pair using the value_types default constructor and return it
 	value_type& operator[](const key_type& key) {
 		const auto iter = find(key);
-		if(iter != end(data)) {
+		if(iter != end()) {
 			return iter->second;
 		}
 		return insert_or_assign(key, value_type {})->second;
 	}
 	
 	//! returns a <found flag, iterator> pair, returning <true, iterator to <key, value>> if 'key' was found,
-	//! and <false, end(data)> if 'key' was not found (will not modify this object)
+	//! and <false, end()> if 'key' was not found (will not modify this object)
 	pair<bool, iterator> get(const key_type& key) {
 		const auto iter = find(key);
-		return { iter != end(data), iter };
+		return { iter != end(), iter };
 	}
 	
 	//! returns a <found flag, const_iterator> pair, returning <true, const_iterator to <key, value>> if 'key' was found,
-	//! and <false, end(data)> if 'key' was not found
+	//! and <false, end()> if 'key' was not found
 	pair<bool, const_iterator> get(const key_type& key) const {
 		const auto iter = find(key);
-		return { iter != end(data), iter };
+		return { iter != end(), iter };
 	}
 	
 	//! inserts a new <key, value> pair if no entry for 'key' exists yet, or replaces the current <key, value> entry if it does,
 	//! returns an iterator to the <key, value> pair
 	iterator insert_or_assign(const key_type& key, const value_type& value) {
-		const auto iter = find(key);
-		if(iter != end(data)) {
+		auto iter = find(key);
+		if(iter != end()) {
 			iter->second = value;
-			return *iter;
+			return iter;
 		}
-		return data.emplace(end(data), key, value);
+		return data.emplace(end(), key, value);
+	}
+	
+	//! inserts a new <key, value> pair if no entry for 'key' exists yet and returns pair<true, iterator to it>,
+	//! or returns pair<false, iterator to the current <key, value> entry> if it already exists
+	pair<bool, iterator> insert(const key_type& key, const value_type& value) {
+		auto iter = find(key);
+		if(iter != end()) {
+			return { false, iter };
+		}
+		return { true, data.emplace(end(), key, value) };
 	}
 	
 	//! erases the <key, value> pair at 'iter',
@@ -85,36 +129,40 @@ public:
 	}
 	
 	//! erases the <key, value> pair for the specified 'key', returns a <erased flag, iterator> pair set to
-	//! <true, next entry> if 'key' was found, and <false, end(data)> if key was not found
+	//! <true, next entry> if 'key' was found, and <false, end()> if key was not found
 	pair<bool, iterator> erase(const key_type& key) {
 		const auto iter = find(key);
-		if(iter != end(data)) {
+		if(iter != end()) {
 			return { true, data.erase(iter) };
 		}
-		return { false, end(data) };
+		return { false, end() };
 	}
 	
-	//! returns an iterator to the <key, value> pair corresponding to 'key', returns end(data) if not found
+	//! returns an iterator to the <key, value> pair corresponding to 'key', returns end() if not found
 	iterator find(const key_type& key) {
-		return find(begin(data), end(data), key);
+		return find_if(data.begin(), data.end(), [&key](const entry_type& entry) {
+			return (entry.first == key);
+		});
 	}
 	
-	//! returns a const_iterator to the <key, value> pair corresponding to 'key', returns end(data) if not found
+	//! returns a const_iterator to the <key, value> pair corresponding to 'key', returns end() if not found
 	const_iterator find(const key_type& key) const {
-		return find(begin(data), end(data), key);
+		return find_if(data.cbegin(), data.cend(), [&key](const entry_type& entry) {
+			return (entry.first == key);
+		});
 	}
 	
 	//! returns 1 if a <key, value> entry for 'key' exists in this map, 0 if not
 	size_t count(const key_type& key) const {
-		return (find(key) != end(data) ? 1 : 0);
+		return (find(key) != end() ? 1 : 0);
 	}
 	
 	// forward auxiliary functions
-	auto begin() { return begin(data); }
-	auto end() { return end(data); }
-	auto cbegin() const { return cbegin(data); }
-	auto cend() const { return cend(data); }
-	auto size() const { return size(data); }
+	auto begin() { return data.begin(); }
+	auto end() { return data.end(); }
+	auto cbegin() const { return data.cbegin(); }
+	auto cend() const { return data.cend(); }
+	auto size() const { return data.size(); }
 	auto empty() const { return data.empty(); }
 	auto clear() { data.clear(); }
 	void reserve(const size_t& count) { data.reserve(count); }

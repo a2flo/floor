@@ -34,9 +34,17 @@
 #include <floor/compute/compute_kernel.hpp>
 #undef FLOOR_CUDA_KERNEL_IMPL
 
+class cuda_device;
 class cuda_kernel final : public compute_kernel {
 public:
-	cuda_kernel(const cu_function kernel, const llvm_compute::kernel_info& info);
+	struct kernel_entry {
+		cu_function kernel { nullptr };
+		const llvm_compute::kernel_info* info;
+		size_t kernel_args_size;
+	};
+	typedef flat_map<cuda_device*, kernel_entry> kernel_map_type;
+	
+	cuda_kernel(kernel_map_type&& kernels);
 	~cuda_kernel() override;
 	
 	template <typename... Args> void execute(compute_queue* queue,
@@ -44,16 +52,24 @@ public:
 											 const uint3 global_work_size,
 											 const uint3 local_work_size,
 											 Args&&... args) {
+		// find entry for queue device
+		const auto kernel_iter = get_kernel(queue);
+		if(kernel_iter == kernels.cend()) {
+			log_error("no kernel for this compute queue/device exists!");
+			return;
+		}
+		
 		// set and handle kernel arguments (all alloc'ed on stack)
 		array<void*, sizeof...(Args)> kernel_params;
-		vector<uint8_t> kernel_params_data(kernel_args_size);
+		vector<uint8_t> kernel_params_data(kernel_iter->second.kernel_args_size);
 		uint8_t* data_ptr = &kernel_params_data[0];
-		set_kernel_arguments(0, &kernel_params[0], data_ptr, forward<Args>(args)...);
+		set_kernel_arguments(0, kernel_iter->second, &kernel_params[0], data_ptr, forward<Args>(args)...);
 		
 #if defined(FLOOR_DEBUG) // internal sanity check, this should never happen in user code
 		const auto written_args_size = distance(&kernel_params_data[0], data_ptr);
-		if((size_t)written_args_size != kernel_args_size) {
-			log_error("invalid kernel parameter size: got %u, expected %u", written_args_size, kernel_args_size);
+		if((size_t)written_args_size != kernel_iter->second.kernel_args_size) {
+			log_error("invalid kernel parameter size: got %u, expected %u",
+					  written_args_size, kernel_iter->second.kernel_args_size);
 			return;
 		}
 #endif
@@ -68,68 +84,73 @@ public:
 		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 		grid_dim.max(1u);
 		
-		execute_internal(queue, grid_dim, block_dim, &kernel_params[0]);
+		execute_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	}
 	
 protected:
-	const cu_function kernel;
-	const string func_name;
-	const size_t kernel_args_size;
-	const llvm_compute::kernel_info info;
+	const kernel_map_type kernels;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
 	
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	
 	void execute_internal(compute_queue* queue,
+						  const kernel_entry& entry,
 						  const uint3& grid_dim,
 						  const uint3& block_dim,
 						  void** kernel_params);
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(const uint8_t num, void** params, uint8_t*& data, T&& arg, Args&&... args) {
-		set_kernel_argument(num, params, data, forward<T>(arg));
-		set_kernel_arguments(num + 1, ++params, data, forward<Args>(args)...);
+	floor_inline_always void set_kernel_arguments(const uint8_t num, const kernel_entry& entry,
+												  void** params, uint8_t*& data, T&& arg, Args&&... args) {
+		set_kernel_argument(num, entry, params, data, forward<T>(arg));
+		set_kernel_arguments(num + 1, entry, ++params, data, forward<Args>(args)...);
 	}
 	
 	//! handle kernel call terminator
-	floor_inline_always void set_kernel_arguments(const uint8_t, void**, uint8_t*&) {}
+	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&, void**, uint8_t*&) {}
 	
 	//! actual kernel argument setter
 	template <typename T>
-	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, T&& arg) {
+	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
+												 void** param, uint8_t*& data, T&& arg) {
 		*param = data;
 		memcpy(data, &arg, sizeof(T));
 		data += sizeof(T);
 	}
 	
-	floor_inline_always void set_kernel_argument(const uint8_t, void** param, uint8_t*& data, shared_ptr<compute_buffer> arg) {
+	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
+												 void** param, uint8_t*& data, shared_ptr<compute_buffer> arg) {
 		*param = data;
 		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(cu_device_ptr));
 		data += sizeof(cu_device_ptr);
 	}
 	
-	floor_inline_always void set_kernel_argument(const uint8_t
-#if defined(FLOOR_DEBUG)
-												 num // only used in debug mode
+	floor_inline_always void set_kernel_argument(
+#if defined(FLOOR_DEBUG) // only used in debug mode
+												 const uint8_t num, const kernel_entry& entry,
+#else
+												 const uint8_t, const kernel_entry&,
 #endif
-												 , void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
+												 void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
 		cuda_image* cu_img = (cuda_image*)arg.get();
 		
 #if defined(FLOOR_DEBUG)
 		// sanity checks
-		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::NONE) {
+		if(entry.info->args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::NONE) {
 			log_error("no image access qualifier specified!");
 			return;
 		}
-		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
-		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if(entry.info->args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ ||
+		   entry.info->args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 			if(cu_img->get_cuda_textures()[0] == 0) {
 				log_error("image is set to be readable, but texture objects don't exist!");
 				return;
 			}
 		}
-		if(info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
-		   info.args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if(entry.info->args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE ||
+		   entry.info->args[num].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 			if(cu_img->get_cuda_surface() == 0) {
 				log_error("image is set to be writable, but surface object doesn't exist!");
 				return;

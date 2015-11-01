@@ -22,35 +22,21 @@
 
 #include <floor/compute/compute_queue.hpp>
 
-// note that cuda doesn't have any special argument types and everything is just sized "memory"
-// -> only need to add up sizes
-static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
-	size_t ret = 0;
-	const auto arg_count = info.args.size();
-	for(size_t i = 0; i < arg_count; ++i) {
-		// actual arg or pointer?
-		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT) {
-			ret += info.args[i].size;
-		}
-		else if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE) {
-			ret += sizeof(uint64_t) * (cuda_sampler_count() + 1 /* surface */);
-		}
-		else ret += sizeof(void*);
-	}
-	return ret;
-}
-
-cuda_kernel::cuda_kernel(const cu_function kernel_, const llvm_compute::kernel_info& info_) :
-kernel(kernel_), func_name(info_.name), kernel_args_size(compute_kernel_args_size(info_)), info(info_) {
+cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(kernels_) {
 }
 
 cuda_kernel::~cuda_kernel() {}
 
+typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(const compute_queue* queue) const {
+	return kernels.find((cuda_device*)queue->get_device().get());
+}
+
 void cuda_kernel::execute_internal(compute_queue* queue,
+								   const kernel_entry& entry,
 								   const uint3& grid_dim,
 								   const uint3& block_dim,
 								   void** kernel_params) {
-	CU_CALL_NO_ACTION(cu_launch_kernel(kernel,
+	CU_CALL_NO_ACTION(cu_launch_kernel(entry.kernel,
 									   grid_dim.x, grid_dim.y, grid_dim.z,
 									   block_dim.x, block_dim.y, block_dim.z,
 									   0,

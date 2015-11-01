@@ -25,6 +25,7 @@
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
+#include <floor/core/flat_map.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)

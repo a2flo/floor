@@ -30,12 +30,23 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class cuda_device;
 class cuda_program final : public compute_program {
 public:
-	cuda_program(const cu_module program, const vector<llvm_compute::kernel_info>& kernels_info);
+	//! stores a cuda program + kernel infos for an individual device
+	struct program_entry {
+		cu_module program;
+		vector<llvm_compute::kernel_info> kernels_info;
+		bool valid { false };
+	};
+	
+	//! lookup map that contains the corresponding cuda program for multiple devices
+	typedef flat_map<cuda_device*, program_entry> program_map_type;
+	
+	cuda_program(program_map_type&& programs);
 	
 protected:
-	const cu_module program;
+	program_map_type programs;
 	
 };
 

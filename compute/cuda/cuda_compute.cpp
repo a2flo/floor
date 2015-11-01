@@ -380,29 +380,48 @@ shared_ptr<compute_image> cuda_compute::wrap_image(shared_ptr<compute_device> de
 								   opengl_target, opengl_image, &info);
 }
 
+shared_ptr<cuda_program> cuda_compute::add_program(cuda_program::program_map_type&& prog_map) {
+	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
+	// for all devices contained in the program map
+	auto prog = make_shared<cuda_program>(move(prog_map));
+	{
+		GUARD(programs_lock);
+		programs.push_back(prog);
+	}
+	return prog;
+}
+
 shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
-	return add_program(llvm_compute::compile_program_file(devices[0], file_name, additional_options, llvm_compute::TARGET::PTX),
-					   additional_options);
+	// compile the source file for all devices in the context
+	flat_map<cuda_device*, cuda_program::program_entry> prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((cuda_device*)dev.get(),
+								  create_cuda_program(llvm_compute::compile_program_file(dev, file_name, additional_options,
+																						 llvm_compute::TARGET::PTX)));
+	}
+	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
 															 const string additional_options) {
-	// TODO: build for all cuda devices (if needed due to different sm_*)
-	
-	// compile the source code to cuda ptx
-	return add_program(llvm_compute::compile_program(devices[0], // TODO: do for all devices
-													 source_code, additional_options, llvm_compute::TARGET::PTX),
-					   additional_options);
+	// compile the source code for all devices in the context
+	flat_map<cuda_device*, cuda_program::program_entry> prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((cuda_device*)dev.get(),
+								  create_cuda_program(llvm_compute::compile_program_file(dev, source_code, additional_options,
+																						 llvm_compute::TARGET::PTX)));
+	}
+	return add_program(move(prog_map));
 }
 
-shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-													  const string additional_options floor_unused) {
-	
+cuda_program::program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
-	cu_module program;
+	cuda_program::program_entry ret { {}, program_data.second };
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
 		const CU_JIT_OPTION jit_options[] {
@@ -426,7 +445,7 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 		};
 		static_assert(option_count == size(jit_option_values), "mismatching option count");
 		
-		CU_CALL_RET(cu_module_load_data_ex(&program,
+		CU_CALL_RET(cu_module_load_data_ex(&ret.program,
 										   program_data.first.c_str(),
 										   option_count,
 										   (CU_JIT_OPTION*)&jit_options[0],
@@ -492,15 +511,15 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 						   "failed to add ptx data to link state", {
 							   print_error_log();
 							   cu_link_destroy(link_state);
-							   return {};
+							   return ret;
 						   });
 		CU_CALL_ERROR_EXEC(cu_link_complete(link_state, &cubin_ptr, &cubin_size),
 						   "failed to link ptx data", {
 							   print_error_log();
 							   cu_link_destroy(link_state);
-							   return {};
+							   return ret;
 						   });
-		CU_CALL_ERROR_EXEC(cu_module_load_data(&program, cubin_ptr),
+		CU_CALL_ERROR_EXEC(cu_module_load_data(&ret.program, cubin_ptr),
 						   "failed to load cuda module", {
 							   print_error_log();
 							   if(info_log[0] != 0) {
@@ -508,7 +527,7 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 								   log_debug("ptx build info: %s", info_log);
 							   }
 							   cu_link_destroy(link_state);
-							   return {};
+							   return ret;
 						   });
 		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 						  "failed to destroy link state");
@@ -525,13 +544,8 @@ shared_ptr<compute_program> cuda_compute::add_program(pair<string, vector<llvm_c
 	}
 	log_debug("successfully created cuda program!");
 	
-	// create the program object, which in turn will create kernel objects for all kernel functions in the program
-	auto ret_program = make_shared<cuda_program>(program, program_data.second);
-	{
-		GUARD(programs_lock);
-		programs.push_back(ret_program);
-	}
-	return ret_program;
+	ret.valid = true;
+	return ret;
 }
 
 shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const string& file_name floor_unused,

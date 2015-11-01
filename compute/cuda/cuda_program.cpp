@@ -21,24 +21,74 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/cuda/cuda_kernel.hpp>
+#include <floor/compute/cuda/cuda_device.hpp>
 
-cuda_program::cuda_program(const cu_module program_, const vector<llvm_compute::kernel_info>& kernels_info) :
-program(program_) {
-	// create kernels (all in the program)
-	for(const auto& info : kernels_info) {
-		cu_function kernel;
-		CU_CALL_CONT(cu_module_get_function(&kernel, program, info.name.c_str()),
-					 "failed to get function \"" + info.name + "\"");
-		kernels.emplace_back(make_shared<cuda_kernel>(kernel, info));
-		kernel_names.emplace_back(info.name);
+// note that cuda doesn't have any special argument types and everything is just sized "memory"
+// -> only need to add up sizes
+static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
+	size_t ret = 0;
+	const auto arg_count = info.args.size();
+	for(size_t i = 0; i < arg_count; ++i) {
+		// actual arg or pointer?
+		if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT) {
+			ret += info.args[i].size;
+		}
+		else if(info.args[i].address_space == llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE) {
+			ret += sizeof(uint64_t) * (cuda_sampler_count() + 1 /* surface */);
+		}
+		else ret += sizeof(void*);
+	}
+	return ret;
+}
+
+cuda_program::cuda_program(program_map_type&& programs_) : programs(move(programs_)) {
+	if(programs.empty()) return;
+	
+	// start off with going through all kernels in all device programs and create a unique list of all kernel names
+	kernel_names.clear(); // just in case
+	for(const auto& prog : programs) {
+		if(!prog.second.valid) continue;
+		for(const auto& info : prog.second.kernels_info) {
+			kernel_names.push_back(info.name);
+		}
+	}
+	kernel_names.erase(unique(begin(kernel_names), end(kernel_names)), end(kernel_names));
+	
+	// create all kernels of all device programs
+	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
+	kernels.reserve(kernel_names.size());
+	for(const auto& kernel_name : kernel_names) {
+		cuda_kernel::kernel_map_type kernel_map;
+		kernel_map.reserve(kernel_names.size());
 		
+		for(const auto& prog : programs) {
+			if(!prog.second.valid) continue;
+			for(const auto& info : prog.second.kernels_info) {
+				if(info.name == kernel_name) {
+					cuda_kernel::kernel_entry entry {
+						.info = &info,
+						.kernel_args_size = compute_kernel_args_size(info)
+					};
+					
+					CU_CALL_CONT(cu_module_get_function(&entry.kernel, prog.second.program, kernel_name.c_str()),
+								 "failed to get function \"" + kernel_name + "\"");
+					
 #if 0
-		// use this to compute max occupancy
-		int min_grid_size = 0, block_size = 0;
-		CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, kernel, 0, 0, 0),
-						  "failed to compute max potential occupancy");
-		log_debug("%s max occupancy: grid size >= %u with block size %u", info.name, min_grid_size, block_size);
+					// use this to compute max occupancy
+					int min_grid_size = 0, block_size = 0;
+					CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, &entry.kernel, 0, 0, 0),
+									  "failed to compute max potential occupancy");
+					log_debug("%s max occupancy: grid size >= %u with block size %u", kernel_name, min_grid_size, block_size);
 #endif
+					
+					// success, insert into map
+					kernel_map.insert_or_assign(prog.first, entry);
+					break;
+				}
+			}
+		}
+		
+		kernels.emplace_back(make_shared<cuda_kernel>(move(kernel_map)));
 	}
 }
 
