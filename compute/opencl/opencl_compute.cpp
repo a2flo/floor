@@ -895,4 +895,9 @@ shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const s
 	return {};
 }
 
+shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
+																				pair<string, vector<llvm_compute::kernel_info>> program_data) {
+	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program_data));
+}
+
 #endif

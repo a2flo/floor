@@ -130,6 +130,9 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override;
 	
+	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
+																	pair<string, vector<llvm_compute::kernel_info>> program_data) override;
+	
 	//////////////////////////////////////////
 	// host specific functions
 	

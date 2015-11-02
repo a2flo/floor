@@ -329,4 +329,9 @@ shared_ptr<compute_program> host_compute::add_precompiled_program_file(const str
 	return {};
 }
 
+shared_ptr<compute_program::program_entry> host_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
+																			  pair<string, vector<llvm_compute::kernel_info>> program_data) {
+	return make_shared<compute_program::program_entry>(compute_program::program_entry { program_data.second, true });
+}
+
 #endif
