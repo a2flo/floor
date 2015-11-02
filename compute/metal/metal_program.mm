@@ -60,7 +60,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(programs_)
 					}
 #if defined(FLOOR_DEBUG)
 					log_debug("%s (%s): max work-items: %u, simd width: %u",
-							  info.name, prog.first->Name,
+							  info.name, prog.first->name,
 							  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
 #endif
 					
