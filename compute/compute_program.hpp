@@ -23,6 +23,7 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel.hpp>
+#include <floor/compute/llvm_compute.hpp>
 
 class compute_program {
 public:
