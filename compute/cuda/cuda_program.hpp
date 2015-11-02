@@ -34,14 +34,12 @@ class cuda_device;
 class cuda_program final : public compute_program {
 public:
 	//! stores a cuda program + kernel infos for an individual device
-	struct program_entry {
-		cu_module program;
-		vector<llvm_compute::kernel_info> kernels_info;
-		bool valid { false };
+	struct cuda_program_entry : program_entry {
+		cu_module program { nullptr };
 	};
 	
 	//! lookup map that contains the corresponding cuda program for multiple devices
-	typedef flat_map<cuda_device*, program_entry> program_map_type;
+	typedef flat_map<cuda_device*, cuda_program_entry> program_map_type;
 	
 	cuda_program(program_map_type&& programs);
 	

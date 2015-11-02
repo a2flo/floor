@@ -471,24 +471,27 @@ shared_ptr<compute_image> metal_compute::wrap_image(shared_ptr<compute_device> d
 	return {};
 }
 
-shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
-															const string additional_options) {
-	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options, llvm_compute::TARGET::AIR),
-					   additional_options);
+static shared_ptr<metal_program> add_metal_program(metal_program::program_map_type&& prog_map,
+												   vector<shared_ptr<metal_program>>* programs,
+												   atomic_spin_lock& programs_lock) REQUIRES(!programs_lock) {
+	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
+	// for all devices contained in the program map
+	auto prog = make_shared<metal_program>(move(prog_map));
+	{
+		GUARD(programs_lock);
+		programs->push_back(prog);
+	}
+	return prog;
 }
 
-shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
-															  const string additional_options) {
-	// compile the source code to apple IR / air (this produces/returns an llvm 3.5 bitcode binary file)
-	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options, llvm_compute::TARGET::AIR),
-					   additional_options);
-}
-
-shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-													   const string additional_options floor_unused) {
+static metal_program::metal_program_entry create_metal_program(const metal_device* device,
+															   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+	metal_program::metal_program_entry ret;
+	ret.kernels_info = program_data.second;
+	
 	if(program_data.first.empty()) {
 		log_error("compilation failed");
-		return {};
+		return ret;
 	}
 	
 #if !defined(FLOOR_IOS) // can only do this on os x
@@ -522,7 +525,7 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	//
 	if(!file_io::string_to_file(tmp_files[METAL_LL_FILE], program_data.first)) {
 		log_error("failed to write tmp metal ll file");
-		return {};
+		return ret;
 	}
 	if(!floor::get_compute_debug()) {
 		core::system(metal_as + " -o="s + tmp_files[METAL_UNOPT_AIR_FILE] + " " + tmp_files[METAL_LL_FILE]);
@@ -546,47 +549,75 @@ shared_ptr<compute_program> metal_compute::add_program(pair<string, vector<llvm_
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()]
-																						  error:&err];
+	ret.program = [device->device newLibraryWithFile:[NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()]
+											   error:&err];
 	if(!floor::get_compute_keep_temp()) cleanup();
-	if(!program) {
-		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
-		return {};
+	if(!ret.program) {
+		log_error("failed to create metal program/library for device %s: %s",
+				  device->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+		return ret;
 	}
 	
 	// TODO: print out the build log
-	
-	// create the program object, which in turn will create kernel objects for all kernel functions in the program
-	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, program_data.second);
-	{
-		GUARD(programs_lock);
-		programs.push_back(ret_program);
-	}
-	return ret_program;
+	ret.valid = true;
+	return ret;
 #else
 	log_error("this is not supported on iOS!");
-	return {};
+	return ret;
 #endif
+}
+
+shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
+															const string additional_options) {
+	// compile the source file for all devices in the context
+	metal_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((metal_device*)dev.get(),
+								  create_metal_program((metal_device*)dev.get(),
+													   llvm_compute::compile_program_file(dev, file_name, additional_options,
+																						  llvm_compute::TARGET::AIR)));
+	}
+	return add_metal_program(move(prog_map), &programs, programs_lock);
+}
+
+shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
+															  const string additional_options) {
+	// compile the source code for all devices in the context
+	metal_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((metal_device*)dev.get(),
+								  create_metal_program((metal_device*)dev.get(),
+													   llvm_compute::compile_program_file(dev, source_code, additional_options,
+																						  llvm_compute::TARGET::AIR)));
+	}
+	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
 																		const vector<llvm_compute::kernel_info>& kernel_infos) {
 	log_debug("loading mtllib: %s", file_name);
 	
-	NSError* err { nil };
-	id <MTLLibrary> program = [((metal_device*)fastest_device.get())->device newLibraryWithFile:[NSString stringWithUTF8String:file_name.c_str()]
-																						  error:&err];
-	if(!program) {
-		log_error("failed to create metal program/library: %s", (err != nil ? [[err localizedDescription] UTF8String] : "unknown"));
-		return {};
+	// assume pre-compiled program is the same for all devices
+	metal_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		metal_program::metal_program_entry entry;
+		entry.kernels_info = kernel_infos;
+		
+		NSError* err { nil };
+		entry.program = [((metal_device*)dev.get())->device newLibraryWithFile:[NSString stringWithUTF8String:file_name.c_str()]
+																		 error:&err];
+		if(!entry.program) {
+			log_error("failed to create metal program/library for device %s: %s",
+					  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
+			continue;
+		}
+		
+		prog_map.insert_or_assign((metal_device*)dev.get(), entry);
 	}
-	
-	auto ret_program = make_shared<metal_program>((metal_device*)fastest_device.get(), program, kernel_infos);
-	{
-		GUARD(programs_lock);
-		programs.push_back(ret_program);
-	}
-	return ret_program;
+	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
 
 #endif

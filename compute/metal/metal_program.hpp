@@ -31,16 +31,25 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class metal_program final : public compute_program {
 public:
-	metal_program(const metal_device* device, id <MTLLibrary> program, const vector<llvm_compute::kernel_info>& kernels_info);
+	//! stores a metal program + kernel infos for an individual device
+	struct metal_program_entry : program_entry {
+		id <MTLLibrary> program;
+		
+		struct metal_kernel_data {
+			id <MTLFunction> kernel;
+			id <MTLComputePipelineState> state;
+		};
+		//! internal state, automatically created in metal_program
+		vector<metal_kernel_data> metal_kernels {};
+	};
+	
+	//! lookup map that contains the corresponding metal program for multiple devices
+	typedef flat_map<metal_device*, metal_program_entry> program_map_type;
+	
+	metal_program(program_map_type&& programs);
 	
 protected:
-	id <MTLLibrary> program;
-	
-	struct metal_kernel_data {
-		id <MTLFunction> kernel;
-		id <MTLComputePipelineState> state;
-	};
-	vector<metal_kernel_data> metal_kernels;
+	program_map_type programs;
 	
 };
 

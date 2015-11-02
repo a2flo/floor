@@ -43,16 +43,7 @@ static size_t compute_kernel_args_size(const llvm_compute::kernel_info& info) {
 
 cuda_program::cuda_program(program_map_type&& programs_) : programs(move(programs_)) {
 	if(programs.empty()) return;
-	
-	// start off with going through all kernels in all device programs and create a unique list of all kernel names
-	kernel_names.clear(); // just in case
-	for(const auto& prog : programs) {
-		if(!prog.second.valid) continue;
-		for(const auto& info : prog.second.kernels_info) {
-			kernel_names.push_back(info.name);
-		}
-	}
-	kernel_names.erase(unique(begin(kernel_names), end(kernel_names)), end(kernel_names));
+	retrieve_unique_kernel_names(programs);
 	
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"

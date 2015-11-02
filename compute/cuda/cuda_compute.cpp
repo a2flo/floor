@@ -394,7 +394,7 @@ shared_ptr<cuda_program> cuda_compute::add_program(cuda_program::program_map_typ
 shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
 	// compile the source file for all devices in the context
-	flat_map<cuda_device*, cuda_program::program_entry> prog_map;
+	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((cuda_device*)dev.get(),
@@ -407,7 +407,7 @@ shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_na
 shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
 															 const string additional_options) {
 	// compile the source code for all devices in the context
-	flat_map<cuda_device*, cuda_program::program_entry> prog_map;
+	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((cuda_device*)dev.get(),
@@ -417,11 +417,12 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	return add_program(move(prog_map));
 }
 
-cuda_program::program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data) {
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
-	cuda_program::program_entry ret { {}, program_data.second };
+	cuda_program::cuda_program_entry ret;
+	ret.kernels_info = program_data.second;
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
 		const CU_JIT_OPTION jit_options[] {

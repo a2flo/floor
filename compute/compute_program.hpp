@@ -41,9 +41,28 @@ public:
 		return kernel_names;
 	}
 	
+	//! stores a program + kernel infos for an individual device
+	struct program_entry {
+		vector<llvm_compute::kernel_info> kernels_info;
+		bool valid { false };
+	};
+	
 protected:
 	mutable vector<shared_ptr<compute_kernel>> kernels;
 	mutable vector<string> kernel_names;
+	
+	template <typename device_type, typename program_entry_type>
+	void retrieve_unique_kernel_names(const flat_map<device_type, program_entry_type>& programs) {
+		// go through all kernels in all device programs and create a unique list of all kernel names
+		kernel_names.clear(); // just in case
+		for(const auto& prog : programs) {
+			if(!prog.second.valid) continue;
+			for(const auto& info : prog.second.kernels_info) {
+				kernel_names.push_back(info.name);
+			}
+		}
+		kernel_names.erase(unique(begin(kernel_names), end(kernel_names)), end(kernel_names));
+	}
 	
 };
 

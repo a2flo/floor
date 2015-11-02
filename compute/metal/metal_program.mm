@@ -21,45 +21,60 @@
 #if !defined(FLOOR_NO_METAL)
 
 #include <floor/compute/metal/metal_kernel.hpp>
+#include <floor/compute/metal/metal_device.hpp>
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/core/core.hpp>
 
-metal_program::metal_program(const metal_device* device,
-							 id <MTLLibrary> program_,
-							 const vector<llvm_compute::kernel_info>& kernels_info) : program(program_) {
-	// create kernels (all in the program)
-	const auto kernel_count = kernels_info.size();
-	metal_kernels.resize(kernel_count);
-	for(size_t i = 0; i < kernel_count; ++i) {
-		const auto& info = kernels_info[i];
-		id <MTLFunction> kernel = [program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
-		if(!kernel) {
-			log_error("failed to get function \"%s\"", info.name);
-			continue;
-		}
-#if defined(FLOOR_DEBUG)
-		log_debug("kernel func info: %s, %u", [[kernel name] UTF8String], (int)[kernel functionType]);
-		logger::flush();
-#endif
+metal_program::metal_program(program_map_type&& programs_) : programs(programs_) {
+	if(programs.empty()) return;
+	retrieve_unique_kernel_names(programs);
+	
+	// create all kernels of all device programs
+	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
+	kernels.reserve(kernel_names.size());
+	for(const auto& kernel_name : kernel_names) {
+		metal_kernel::kernel_map_type kernel_map;
+		kernel_map.reserve(kernel_names.size());
 		
-		NSError* err = nullptr;
-		id <MTLComputePipelineState> kernel_state = [[program device] newComputePipelineStateWithFunction:kernel error:&err];
-		if(!kernel_state) {
-			log_error("failed to create kernel state %s: %s", info.name,
-					  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
-			continue;
-		}
+		for(auto& prog : programs) {
+			if(!prog.second.valid) continue;
+			for(const auto& info : prog.second.kernels_info) {
+				if(info.name == kernel_name) {
+					metal_kernel::kernel_entry entry {
+						.info = &info
+					};
+					
+					//
+					id <MTLFunction> kernel = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
+					if(!kernel) {
+						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first->name);
+						continue;
+					}
+					
+					NSError* err = nullptr;
+					id <MTLComputePipelineState> kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:kernel error:&err];
+					if(!kernel_state) {
+						log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first->name,
+								  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
+						continue;
+					}
 #if defined(FLOOR_DEBUG)
-		log_debug("%s: max work-items: %u, simd width: %u",
-				  info.name, [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
+					log_debug("%s (%s): max work-items: %u, simd width: %u",
+							  info.name, prog.first->Name,
+							  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
 #endif
+					
+					// success, insert necessary info/data everywhere
+					prog.second.metal_kernels.emplace_back(metal_program_entry::metal_kernel_data { kernel, kernel_state });
+					entry.kernel = (__bridge void*)kernel;
+					entry.kernel_state = (__bridge void*)kernel_state;
+					kernel_map.insert_or_assign(prog.first, entry);
+					break;
+				}
+			}
+		}
 		
-		metal_kernels[i].kernel = kernel;
-		metal_kernels[i].state = kernel_state;
-		kernels.emplace_back(make_shared<metal_kernel>((__bridge void*)metal_kernels[i].kernel,
-													   (__bridge void*)metal_kernels[i].state,
-													   device, info));
-		kernel_names.emplace_back(info.name);
+		kernels.emplace_back(make_shared<metal_kernel>(move(kernel_map)));
 	}
 }
 

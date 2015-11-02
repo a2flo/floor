@@ -131,7 +131,7 @@ public:
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
-	cuda_program::program_entry create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data);
+	cuda_program::cuda_program_entry create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<cuda_program> add_program(cuda_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
