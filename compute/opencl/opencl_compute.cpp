@@ -870,7 +870,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 #endif
 	};
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
-										 0, nullptr, // build for all devices specified when the program was created
+										 1, &cl_dev->device_id,
 										 build_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", {});
 	
