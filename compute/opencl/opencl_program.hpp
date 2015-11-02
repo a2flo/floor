@@ -29,14 +29,21 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class opencl_device;
 class opencl_program final : public compute_program {
 public:
-	opencl_program(const cl_program program,
-				   const vector<llvm_compute::kernel_info>& kernels_info,
-				   const bool use_cl_queries = true);
+	//! stores a opencl program + kernel infos for an individual device
+	struct opencl_program_entry : program_entry {
+		cl_program program { nullptr };
+	};
+	
+	//! lookup map that contains the corresponding opencl program for multiple devices
+	typedef flat_map<opencl_device*, opencl_program_entry> program_map_type;
+	
+	opencl_program(program_map_type&& programs);
 	
 protected:
-	const cl_program program;
+	const program_map_type programs;
 	
 };
 

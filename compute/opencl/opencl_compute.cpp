@@ -789,101 +789,103 @@ shared_ptr<compute_image> opencl_compute::wrap_image(shared_ptr<compute_device> 
 									 opengl_target, opengl_image, &info);
 }
 
+shared_ptr<opencl_program> opencl_compute::add_program(opencl_program::program_map_type&& prog_map) {
+	// create the program object, which in turn will create kernel objects for all kernel functions in the program,
+	// for all devices contained in the program map
+	auto prog = make_shared<opencl_program>(move(prog_map));
+	{
+		GUARD(programs_lock);
+		programs.push_back(prog);
+	}
+	return prog;
+}
+
 shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
 															 const string additional_options) {
-	return add_program(llvm_compute::compile_program_file(fastest_device, file_name, additional_options,
+	// compile the source file for all devices in the context
+	opencl_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((opencl_device*)dev.get(),
+								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name, additional_options,
 #if !defined(__APPLE__)
-														  llvm_compute::TARGET::SPIR
+																								llvm_compute::TARGET::SPIR
 #else
-														  llvm_compute::TARGET::APPLECL
+																								llvm_compute::TARGET::APPLECL
 #endif
-														  ),
-					   additional_options);
+																								)));
+	}
+	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
-	// compile the source code to spir 1.2 or applecl (this produces/returns an llvm bitcode binary file)
-	// TODO: compile for devices w/o double support separately
-	return add_program(llvm_compute::compile_program(fastest_device, source_code, additional_options,
+	// compile the source code for all devices in the context
+	opencl_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		prog_map.insert_or_assign((opencl_device*)dev.get(),
+								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, source_code, additional_options,
 #if !defined(__APPLE__)
-													 llvm_compute::TARGET::SPIR
+																								llvm_compute::TARGET::SPIR
 #else
-													 llvm_compute::TARGET::APPLECL
+																								llvm_compute::TARGET::APPLECL
 #endif
-													 ),
-					   additional_options);
+																								)));
+	}
+	return add_program(move(prog_map));
 }
 
-shared_ptr<compute_program> opencl_compute::add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-														const string additional_options) {
+opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
+																		   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+	opencl_program::opencl_program_entry ret;
+	ret.kernels_info = program_data.second;
+	const auto cl_dev = (const opencl_device*)device.get();
+	
 	if(program_data.first.empty()) {
 		log_error("compilation failed");
-		return {};
+		return ret;
 	}
 
 	// opencl api handling
-	vector<size_t> length_ptrs(devices.size());
-	vector<const unsigned char*> binary_ptrs(devices.size());
-	vector<cl_int> binary_status(devices.size());
-	for(size_t i = 0; i < devices.size(); ++i) {
-		length_ptrs[i] = program_data.first.size();
-		binary_ptrs[i] = (const unsigned char*)program_data.first.data();
-		binary_status[i] = CL_SUCCESS;
-	}
+	const size_t length = program_data.first.size();
+	const unsigned char* binary_ptr = (const unsigned char*)program_data.first.data();
+	cl_int binary_status = CL_SUCCESS;
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
-	const cl_program program = clCreateProgramWithBinary(ctx, (cl_uint)ctx_devices.size(), (const cl_device_id*)&ctx_devices[0],
-														 &length_ptrs[0], &binary_ptrs[0], &binary_status[0], &create_err);
+	ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
+											&length, &binary_ptr, &binary_status, &create_err);
 	if(create_err != CL_SUCCESS) {
 		log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
-		log_error("devices binary status: %s", [&binary_status] {
-			string ret;
-			for(const auto& status : binary_status) {
-				ret += to_string(status) + " ";
-			}
-			return ret;
-		}());
-		return {};
+		log_error("devices binary status: %s", to_string(binary_status));
+		return ret;
 	}
 	else log_debug("successfully created opencl program!");
 	
 	// ... and build it
 	const string build_options {
-		additional_options
 #if !defined(__APPLE__)
 		+ " -x spir -spir-std=1.2"
 #endif
 	};
-	CL_CALL_ERR_PARAM_RET(clBuildProgram(program,
+	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
 										 0, nullptr, // build for all devices specified when the program was created
 										 build_options.c_str(), nullptr, nullptr),
 						  build_err, "failed to build opencl program", {});
 	
 	
 	// print out build log
-	for(const auto& device : ctx_devices) {
-		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(program, device));
-	}
+	log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
 	if(floor::get_compute_keep_binaries()) {
-		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(program);
-		for(size_t i = 0; i < binaries.size(); ++i) {
-			file_io::string_to_file("binary_" + to_string(i) + ".bin", binaries[i]);
-		}
+		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(ret.program);
+		file_io::string_to_file("binary_" + core::to_file_name(device->name) + ".bin", binaries[0]);
 	}
 	
-	// create the program object, which in turn will create kernel objects for all kernel functions in the program
-	auto ret_program = make_shared<opencl_program>(program, program_data.second,
-												   // as of 0.11 pocl doesn't support cl_program_info queries, so don't use them
-												   platform_vendor != COMPUTE_VENDOR::POCL);
-	{
-		GUARD(programs_lock);
-		programs.push_back(ret_program);
-	}
-	return ret_program;
+	ret.valid = true;
+	return ret;
 }
 
 shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const string& file_name floor_unused,

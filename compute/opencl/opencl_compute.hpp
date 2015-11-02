@@ -132,6 +132,13 @@ public:
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
 															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
+	//! NOTE: for internal purposes (not exposed by other backends)
+	opencl_program::opencl_program_entry create_opencl_program(shared_ptr<compute_device> device,
+															   pair<string, vector<llvm_compute::kernel_info>> program_data);
+	
+	//! NOTE: for internal purposes (not exposed by other backends)
+	shared_ptr<opencl_program> add_program(opencl_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
+	
 	//////////////////////////////////////////
 	// opencl specific functions
 	
@@ -155,9 +162,6 @@ protected:
 	
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<opencl_program>> programs GUARDED_BY(programs_lock);
-	
-	shared_ptr<compute_program> add_program(pair<string, vector<llvm_compute::kernel_info>> program_data,
-											const string additional_options) REQUIRES(!programs_lock);
 	
 };
 

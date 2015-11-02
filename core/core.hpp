@@ -128,6 +128,8 @@ public:
 		}
 		return ret;
 	}
+	//! converts an input string to a string that can be used as a file name (mostly ASCII)
+	static string to_file_name(const string& str);
 	
 	// system functions
 	static void system(const string& cmd);

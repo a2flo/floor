@@ -25,7 +25,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/core/core.hpp>
 
-metal_program::metal_program(program_map_type&& programs_) : programs(programs_) {
+metal_program::metal_program(program_map_type&& programs_) : programs(move(programs_)) {
 	if(programs.empty()) return;
 	retrieve_unique_kernel_names(programs);
 	

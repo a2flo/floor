@@ -23,12 +23,17 @@
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/opencl/opencl_common.hpp>
 
-opencl_kernel::opencl_kernel(const cl_kernel kernel_, const string& func_name_) : kernel(kernel_), func_name(func_name_) {
+opencl_kernel::opencl_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
 opencl_kernel::~opencl_kernel() {}
 
+typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kernel(const compute_queue* queue) const {
+	return kernels.find((opencl_device*)queue->get_device().get());
+}
+
 void opencl_kernel::execute_internal(compute_queue* queue,
+									 const kernel_entry& entry,
 									 const uint32_t& work_dim,
 									 const uint3& global_work_size,
 									 const uint3& local_work_size) {
@@ -36,7 +41,7 @@ void opencl_kernel::execute_internal(compute_queue* queue,
 	const size3 local_ws { local_work_size };
 	
 	CL_CALL_RET(clEnqueueNDRangeKernel((cl_command_queue)queue->get_queue_ptr(),
-									   kernel, work_dim, nullptr,
+									   entry.kernel, work_dim, nullptr,
 									   global_ws.data(), local_ws.data(),
 									   // TODO: use of event stuff?
 									   0, nullptr, nullptr),

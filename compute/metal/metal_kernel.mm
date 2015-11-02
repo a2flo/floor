@@ -31,7 +31,7 @@ struct metal_kernel::metal_encoder {
 	unordered_set<metal_image*> images;
 };
 
-metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(kernels_) {
+metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
 metal_kernel::~metal_kernel() {}

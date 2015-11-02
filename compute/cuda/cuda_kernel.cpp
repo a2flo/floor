@@ -22,7 +22,7 @@
 
 #include <floor/compute/compute_queue.hpp>
 
-cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(kernels_) {
+cuda_kernel::cuda_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
 cuda_kernel::~cuda_kernel() {}

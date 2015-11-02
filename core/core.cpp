@@ -583,3 +583,22 @@ string core::create_tmp_file_name(const string prefix, const string suffix) {
 	ret += suffix;
 	return ret;
 }
+
+string core::to_file_name(const string& str) {
+	string ret = str;
+	for(auto& ch : ret) {
+		if((ch >= 'A' && ch <= 'Z') ||
+		   (ch >= 'a' && ch <= 'z') ||
+		   (ch >= '0' && ch <= '9') ||
+		   (ch >= '#' && ch <= '.') ||
+		   (ch >= ':' && ch <= '@') ||
+		   (ch >= '{' && ch <= '~') ||
+		   ch == '!' || ch == '[' ||
+		   ch == ']' || ch == '^' ||
+		   ch == '_' || ch == '`') {
+			continue;
+		}
+		ch = '_';
+	}
+	return ret;
+}
