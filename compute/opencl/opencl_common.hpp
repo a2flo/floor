@@ -314,7 +314,14 @@ F(cl_kernel, cl_kernel_info, CL_KERNEL_NUM_ARGS, cl_uint) \
 F(cl_kernel, cl_kernel_info, CL_KERNEL_REFERENCE_COUNT, cl_uint) \
 F(cl_kernel, cl_kernel_info, CL_KERNEL_CONTEXT, cl_context) \
 F(cl_kernel, cl_kernel_info, CL_KERNEL_PROGRAM, cl_program) \
-F(cl_kernel, cl_kernel_info, CL_KERNEL_ATTRIBUTES, string)
+F(cl_kernel, cl_kernel_info, CL_KERNEL_ATTRIBUTES, string) \
+/* cl_kernel_work_group_info */ \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_WORK_GROUP_SIZE, size_t) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_COMPILE_WORK_GROUP_SIZE, vector<size_t>) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_LOCAL_MEM_SIZE, cl_ulong) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, size_t) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_PRIVATE_MEM_SIZE, cl_ulong) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_GLOBAL_WORK_SIZE, vector<size_t>)
 
 template <cl_uint info_type> struct cl_info_type;
 template <typename cl_info_object, cl_uint info_type> struct cl_is_valid_info_type : public false_type {};
@@ -330,8 +337,8 @@ FLOOR_CL_INFO_RET_TYPES(FLOOR_CL_INFO_RET_TYPE_SPEC)
 
 // handle additional arguments for certain clGet*Info functions
 #define FLOOR_CI_NO_ADD()
-#define FLOOR_CI_PROGRAM_BUILD_INFO_ARGS() , const cl_device_id& device
-#define FLOOR_CI_PROGRAM_BUILD_INFO_ARG_NAMES() , device
+#define FLOOR_CI_ADD_DEVICE_ARG() , const cl_device_id& device
+#define FLOOR_CI_ADD_DEVICE_ARG_NAME() , device
 
 #define FLOOR_CL_INFO_TYPES(F) \
 F(cl_platform_id, cl_platform_info, clGetPlatformInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
@@ -342,8 +349,9 @@ F(cl_mem, cl_mem_info, clGetMemObjectInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
 F(cl_mem, cl_image_info, clGetImageInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
 F(cl_sampler, cl_sampler_info, clGetSamplerInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
 F(cl_program, cl_program_info, clGetProgramInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_program, cl_program_build_info, clGetProgramBuildInfo, FLOOR_CI_PROGRAM_BUILD_INFO_ARGS, FLOOR_CI_PROGRAM_BUILD_INFO_ARG_NAMES) \
+F(cl_program, cl_program_build_info, clGetProgramBuildInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME) \
 F(cl_kernel, cl_kernel_info, clGetKernelInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_kernel, cl_kernel_work_group_info, clGetKernelWorkGroupInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME) \
 F(cl_event, cl_event_info, clGetEventInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
 F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD)
 

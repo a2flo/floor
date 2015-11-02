@@ -315,12 +315,12 @@ shared_ptr<compute_image> host_compute::wrap_image(shared_ptr<compute_device> de
 
 shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
 														   const string additional_options floor_unused) {
-	return make_shared<host_program>();
+	return make_shared<host_program>(fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
 															 const string additional_options floor_unused) {
-	return make_shared<host_program>();
+	return make_shared<host_program>(fastest_device);
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,

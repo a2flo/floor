@@ -33,10 +33,10 @@ typename opencl_kernel::kernel_map_type::const_iterator opencl_kernel::get_kerne
 }
 
 void opencl_kernel::execute_internal(compute_queue* queue,
-									 const kernel_entry& entry,
+									 const opencl_kernel_entry& entry,
 									 const uint32_t& work_dim,
 									 const uint3& global_work_size,
-									 const uint3& local_work_size) {
+									 const uint3& local_work_size) const {
 	const size3 global_ws { global_work_size };
 	const size3 local_ws { local_work_size };
 	

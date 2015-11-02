@@ -40,13 +40,15 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 			
 			for(const auto& info : prog.second.kernels_info) {
 				if(info.name == kernel_name) {
-					opencl_kernel::kernel_entry entry {
-						.info = &info
-					};
+					opencl_kernel::opencl_kernel_entry entry;
+					entry.info = &info;
 					
 					CL_CALL_ERR_PARAM_CONT(entry.kernel = clCreateKernel(prog.second.program, kernel_name.c_str(),
 																		 &kernel_err), kernel_err,
 										   "failed to create kernel \"" + kernel_name + "\" for device \"" + prog.first->name + "\"");
+					
+					// retrieve max possible work-group size for this device for this kernel
+					entry.max_local_work_size = cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first->device_id);
 					
 					// success, insert into map
 					kernel_map.insert_or_assign(prog.first, entry);

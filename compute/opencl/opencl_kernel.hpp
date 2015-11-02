@@ -36,11 +36,10 @@
 class opencl_device;
 class opencl_kernel final : public compute_kernel {
 public:
-	struct kernel_entry {
+	struct opencl_kernel_entry : kernel_entry {
 		cl_kernel kernel { nullptr };
-		const llvm_compute::kernel_info* info;
 	};
-	typedef flat_map<opencl_device*, kernel_entry> kernel_map_type;
+	typedef flat_map<opencl_device*, opencl_kernel_entry> kernel_map_type;
 	
 	opencl_kernel(kernel_map_type&& kernels);
 	~opencl_kernel() override;
@@ -48,7 +47,7 @@ public:
 	template <typename... Args> void execute(compute_queue* queue,
 											 const uint32_t work_dim,
 											 const uint3 global_work_size,
-											 const uint3 local_work_size,
+											 const uint3 local_work_size_,
 											 Args&&... args) REQUIRES(!args_lock) {
 		// find entry for queue device
 		const auto kernel_iter = get_kernel(queue);
@@ -56,6 +55,9 @@ public:
 			log_error("no kernel for this compute queue/device exists!");
 			return;
 		}
+		
+		// check work size
+		const uint3 local_work_size = check_local_work_size(kernel_iter->second, local_work_size_);
 		
 		// need to make sure that only one thread is setting kernel arguments at a time
 		GUARD(args_lock);
@@ -69,6 +71,7 @@ public:
 	
 protected:
 	const kernel_map_type kernels;
+	flat_map<const kernel_entry*, bool> warn_map;
 	
 	atomic_spin_lock args_lock;
 	
@@ -77,38 +80,40 @@ protected:
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::OPENCL; }
 	
 	void execute_internal(compute_queue* queue,
-						  const kernel_entry& entry,
+						  const opencl_kernel_entry& entry,
 						  const uint32_t& work_dim,
 						  const uint3& global_work_size,
-						  const uint3& local_work_size);
+						  const uint3& local_work_size) const;
 	
 	//! handle kernel call terminator
 	template <cl_uint num>
-	floor_inline_always void set_kernel_arguments(const kernel_entry&) {}
+	floor_inline_always void set_kernel_arguments(const opencl_kernel_entry&) const {}
 	
 	//! set kernel argument and recurse
 	template <cl_uint num, typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(const kernel_entry& entry, T&& arg, Args&&... args) {
+	floor_inline_always void set_kernel_arguments(const opencl_kernel_entry& entry,
+												  T&& arg, Args&&... args) const {
 		set_kernel_argument(entry, num, forward<T>(arg));
 		set_kernel_arguments<num + 1>(entry, forward<Args>(args)...);
 	}
 	
 	//! actual kernel argument setter
 	template <typename T>
-	floor_inline_always void set_kernel_argument(const kernel_entry& entry, const cl_uint num, T&& arg) {
+	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
+												 const cl_uint num, T&& arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(T), &arg),
 					"failed to set generic kernel argument");
 	}
 	
-	floor_inline_always void set_kernel_argument(const kernel_entry& entry,
-												 const cl_uint num, shared_ptr<compute_buffer> arg) {
+	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
+												 const cl_uint num, shared_ptr<compute_buffer> arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(cl_mem),
 								   &((opencl_buffer*)arg.get())->get_cl_buffer()),
 					"failed to set buffer kernel argument");
 	}
 	
-	floor_inline_always void set_kernel_argument(const kernel_entry& entry,
-												 const cl_uint num, shared_ptr<compute_image> arg) {
+	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
+												 const cl_uint num, shared_ptr<compute_image> arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(cl_mem),
 								   &((opencl_image*)arg.get())->get_cl_image()),
 					"failed to set image kernel argument");

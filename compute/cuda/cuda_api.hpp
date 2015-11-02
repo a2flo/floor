@@ -183,6 +183,18 @@ enum class CU_DEVICE_ATTRIBUTE : uint32_t {
 	MULTI_GPU_BOARD = 84,
 	MULTI_GPU_BOARD_GROUP_ID = 85
 };
+enum class CU_FUNCTION_ATTRIBUTE : uint32_t {
+	MAX_THREADS_PER_BLOCK = 0,
+	//! NOTE: cl naming
+	LOCAL_SIZE_BYTES = 1,
+	CONST_SIZE_BYTES = 2,
+	//! NOTE: cl naming
+	PRIVATE_SIZE_BYTES = 3,
+	NUM_REGISTERS = 4,
+	PTX_VERSION = 5,
+	BINARY_VERSION = 6,
+	CACHE_MODE_CA = 7
+};
 enum class CU_JIT_OPTION : uint32_t {
 	MAX_REGISTERS = 0,
 	THREADS_PER_BLOCK,
@@ -461,6 +473,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*device_get_name)(char* name, int32_t len, cu_device dev);
 	CU_API CU_RESULT (*device_total_mem)(size_t* bytes, cu_device dev);
 	CU_API CU_RESULT (*driver_get_version)(int32_t* driver_version);
+	CU_API CU_RESULT (*function_get_attribute)(int32_t* ret, CU_FUNCTION_ATTRIBUTE attrib, cu_function hfunc);
 	CU_API CU_RESULT (*get_error_name)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*get_error_string)(CU_RESULT error, const char** p_str);
 	CU_API CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
@@ -518,6 +531,7 @@ extern bool cuda_api_init();
 #define cu_device_get_name cuda_api.device_get_name
 #define cu_device_total_mem cuda_api.device_total_mem
 #define cu_driver_get_version cuda_api.driver_get_version
+#define cu_function_get_attribute cuda_api.function_get_attribute
 #define cu_get_error_name cuda_api.get_error_name
 #define cu_get_error_string cuda_api.get_error_string
 #define cu_graphics_gl_register_buffer cuda_api.graphics_gl_register_buffer

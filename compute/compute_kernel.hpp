@@ -25,7 +25,9 @@
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
+#include <floor/compute/llvm_compute.hpp>
 #include <floor/core/flat_map.hpp>
+#include <floor/threading/atomic_spin_lock.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
@@ -33,6 +35,11 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_kernel {
 public:
 	virtual ~compute_kernel() = 0;
+	
+	struct kernel_entry {
+		const llvm_compute::kernel_info* info { nullptr };
+		size_t max_local_work_size { 0u };
+	};
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!
 	template <typename... Args, class work_size_type_global, class work_size_type_local>
@@ -44,6 +51,16 @@ public:
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
+	
+	atomic_spin_lock warn_map_lock;
+	//! used to prevent console/log spam by remembering if a warning/error has already been printed for a kernel
+	flat_map<const kernel_entry*, bool> warn_map GUARDED_BY(warn_map_lock);
+	
+	//! checks the specified local work size against the max local work size in the kernel_entry,
+	//! and will compute a proper local work size if the specified one is invalid
+	//! NOTE: will only warn/error once per kernel per device
+	uint3 check_local_work_size(const kernel_entry& entry,
+								const uint3& local_work_size) REQUIRES(!warn_map_lock);
 	
 };
 

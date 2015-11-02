@@ -51,7 +51,7 @@ typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(
 	return kernels.find((metal_device*)queue->get_device().get());
 }
 
-shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue, const kernel_entry& entry) {
+shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue, const metal_kernel_entry& entry) const {
 	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)queue)->make_command_buffer();
 	auto ret = make_shared<metal_encoder>(metal_encoder {
 		cmd_buffer, [cmd_buffer computeCommandEncoder], {}, {}
@@ -61,13 +61,13 @@ shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_que
 }
 
 void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& idx,
-									   const void* ptr, const size_t& size) {
+									   const void* ptr, const size_t& size) const {
 	[encoder->encoder setBytes:ptr length:size atIndex:idx];
 }
 
 void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
 									   metal_encoder* encoder, const kernel_entry&,
-									   shared_ptr<compute_buffer> arg) {
+									   shared_ptr<compute_buffer> arg) const {
 	[encoder->encoder setBuffer:((metal_buffer*)arg.get())->get_metal_buffer()
 						 offset:0
 						atIndex:buffer_idx++];
@@ -76,7 +76,7 @@ void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t
 
 void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t& texture_idx,
 									   metal_encoder* encoder, const kernel_entry& entry,
-									   shared_ptr<compute_image> arg) {
+									   shared_ptr<compute_image> arg) const {
 	[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
 						 atIndex:texture_idx++];
 	

@@ -37,12 +37,11 @@
 class cuda_device;
 class cuda_kernel final : public compute_kernel {
 public:
-	struct kernel_entry {
+	struct cuda_kernel_entry : kernel_entry {
 		cu_function kernel { nullptr };
-		const llvm_compute::kernel_info* info;
 		size_t kernel_args_size;
 	};
-	typedef flat_map<cuda_device*, kernel_entry> kernel_map_type;
+	typedef flat_map<cuda_device*, cuda_kernel_entry> kernel_map_type;
 	
 	cuda_kernel(kernel_map_type&& kernels);
 	~cuda_kernel() override;
@@ -58,6 +57,9 @@ public:
 			log_error("no kernel for this compute queue/device exists!");
 			return;
 		}
+		
+		// check work size (NOTE: will set elements to at least 1)
+		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size);
 		
 		// set and handle kernel arguments (all alloc'ed on stack)
 		array<void*, sizeof...(Args)> kernel_params;
@@ -75,7 +77,6 @@ public:
 #endif
 		
 		// run
-		const uint3 block_dim { local_work_size.maxed(1u) }; // prevent % or / by 0, also: cuda needs at least 1
 		const uint3 grid_dim_overflow {
 			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
 			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
@@ -95,7 +96,7 @@ protected:
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
 	
 	void execute_internal(compute_queue* queue,
-						  const kernel_entry& entry,
+						  const cuda_kernel_entry& entry,
 						  const uint3& grid_dim,
 						  const uint3& block_dim,
 						  void** kernel_params);
@@ -103,25 +104,28 @@ protected:
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>
 	floor_inline_always void set_kernel_arguments(const uint8_t num, const kernel_entry& entry,
-												  void** params, uint8_t*& data, T&& arg, Args&&... args) {
+												  void** params, uint8_t*& data,
+												  T&& arg, Args&&... args) const {
 		set_kernel_argument(num, entry, params, data, forward<T>(arg));
 		set_kernel_arguments(num + 1, entry, ++params, data, forward<Args>(args)...);
 	}
 	
 	//! handle kernel call terminator
-	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&, void**, uint8_t*&) {}
+	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&,
+												  void**, uint8_t*&) const {}
 	
 	//! actual kernel argument setter
 	template <typename T>
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
-												 void** param, uint8_t*& data, T&& arg) {
+												 void** param, uint8_t*& data, T&& arg) const {
 		*param = data;
 		memcpy(data, &arg, sizeof(T));
 		data += sizeof(T);
 	}
 	
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
-												 void** param, uint8_t*& data, shared_ptr<compute_buffer> arg) {
+												 void** param, uint8_t*& data,
+												 shared_ptr<compute_buffer> arg) const {
 		*param = data;
 		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(cu_device_ptr));
 		data += sizeof(cu_device_ptr);
@@ -133,7 +137,8 @@ protected:
 #else
 												 const uint8_t, const kernel_entry&,
 #endif
-												 void** param, uint8_t*& data, shared_ptr<compute_image> arg) {
+												 void** param, uint8_t*& data,
+												 shared_ptr<compute_image> arg) const {
 		cuda_image* cu_img = (cuda_image*)arg.get();
 		
 #if defined(FLOOR_DEBUG)

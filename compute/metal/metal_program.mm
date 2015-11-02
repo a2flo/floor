@@ -40,9 +40,8 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 			if(!prog.second.valid) continue;
 			for(const auto& info : prog.second.kernels_info) {
 				if(info.name == kernel_name) {
-					metal_kernel::kernel_entry entry {
-						.info = &info
-					};
+					metal_kernel::metal_kernel_entry entry;
+					entry.info = &info;
 					
 					//
 					id <MTLFunction> kernel = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
@@ -68,6 +67,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					prog.second.metal_kernels.emplace_back(metal_program_entry::metal_kernel_data { kernel, kernel_state });
 					entry.kernel = (__bridge void*)kernel;
 					entry.kernel_state = (__bridge void*)kernel_state;
+					entry.max_local_work_size = [kernel_state maxTotalThreadsPerThreadgroup];
 					kernel_map.insert_or_assign(prog.first, entry);
 					break;
 				}

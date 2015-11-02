@@ -41,12 +41,11 @@ protected:
 	struct metal_encoder;
 	
 public:
-	struct kernel_entry {
+	struct metal_kernel_entry : kernel_entry {
 		const void* kernel { nullptr };
 		const void* kernel_state { nullptr };
-		const llvm_compute::kernel_info* info;
 	};
-	typedef flat_map<metal_device*, kernel_entry> kernel_map_type;
+	typedef flat_map<metal_device*, metal_kernel_entry> kernel_map_type;
 	
 	metal_kernel(kernel_map_type&& kernels);
 	~metal_kernel() override;
@@ -63,6 +62,9 @@ public:
 			return;
 		}
 		
+		// check work size (NOTE: will set elements to at least 1)
+		const auto block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
+		
 		//
 		auto encoder = create_encoder(queue, kernel_iter->second);
 		
@@ -72,7 +74,6 @@ public:
 							 total_idx, buffer_idx, texture_idx, forward<Args>(args)...);
 		
 		// run
-		const uint3 block_dim { local_work_size_.maxed(1u) }; // prevent % or / by 0, also: needs at least 1
 		const uint3 grid_dim_overflow {
 			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
 			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
@@ -92,8 +93,7 @@ protected:
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
 	
 	// must use shared_ptr, b/c metal_encoder is incomplete at this point
-	shared_ptr<metal_encoder> create_encoder(compute_queue* queue,
-											 const kernel_entry& entry);
+	shared_ptr<metal_encoder> create_encoder(compute_queue* queue, const metal_kernel_entry& entry) const;
 	
 	void execute_internal(shared_ptr<metal_encoder> encoder,
 						  const uint3& grid_dim,
@@ -101,13 +101,13 @@ protected:
 	
 	//! handle kernel call terminator
 	floor_inline_always void set_kernel_arguments(metal_encoder*, const kernel_entry&,
-												  uint32_t&, uint32_t&, uint32_t&) {}
+												  uint32_t&, uint32_t&, uint32_t&) const {}
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>
 	floor_inline_always void set_kernel_arguments(metal_encoder* encoder, const kernel_entry& entry,
 												  uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
-												  T&& arg, Args&&... args) {
+												  T&& arg, Args&&... args) const {
 		set_kernel_argument(total_idx, buffer_idx, texture_idx, encoder, entry, forward<T>(arg));
 		++total_idx;
 		set_kernel_arguments(encoder, entry, total_idx, buffer_idx, texture_idx, forward<Args>(args)...);
@@ -116,19 +116,19 @@ protected:
 	//! actual kernel argument setter
 	template <typename T>
 	void set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
-							 metal_encoder* encoder, const kernel_entry&, T&& arg) {
+							 metal_encoder* encoder, const kernel_entry&, T&& arg) const {
 		set_const_parameter(encoder, buffer_idx, &arg, sizeof(T));
 		++buffer_idx;
 	}
 	void set_const_parameter(metal_encoder* encoder, const uint32_t& idx,
-							 const void* ptr, const size_t& size);
+							 const void* ptr, const size_t& size) const;
 	
 	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder* encoder, const kernel_entry& entry,
-							 shared_ptr<compute_buffer> arg);
+							 shared_ptr<compute_buffer> arg) const;
 	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder* encoder, const kernel_entry& entry,
-							 shared_ptr<compute_image> arg);
+							 shared_ptr<compute_image> arg) const;
 	
 };
 

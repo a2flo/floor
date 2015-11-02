@@ -99,6 +99,9 @@ bool cuda_api_init() {
 	(void*&)cuda_api.driver_get_version = load_symbol(cuda_lib, "cuDriverGetVersion");
 	if(cuda_api.driver_get_version == nullptr) log_error("failed to retrieve function pointer for \"cuDriverGetVersion\"");
 	
+	(void*&)cuda_api.function_get_attribute = load_symbol(cuda_lib, "cuFuncGetAttribute");
+	if(cuda_api.function_get_attribute == nullptr) log_error("failed to retrieve function pointer for \"cuFuncGetAttribute\"");
+	
 	(void*&)cuda_api.get_error_name = load_symbol(cuda_lib, "cuGetErrorName");
 	if(cuda_api.get_error_name == nullptr) log_error("failed to retrieve function pointer for \"cuGetErrorName\"");
 	

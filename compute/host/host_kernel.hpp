@@ -62,7 +62,7 @@
 
 class host_kernel final : public compute_kernel {
 public:
-	host_kernel(const void* kernel, const string& func_name);
+	host_kernel(const void* kernel, const string& func_name, compute_kernel::kernel_entry&& entry);
 	~host_kernel() override;
 	
 	template <typename... Args> void execute(compute_queue* queue,
@@ -70,7 +70,7 @@ public:
 											 const uint3 global_work_size,
 											 const uint3 local_work_size,
 											 Args&&... args) {
-		execute_internal(queue, work_dim, global_work_size, local_work_size,
+		execute_internal(queue, work_dim, global_work_size, check_local_work_size(entry, local_work_size),
 						 [this, args...] { (*kernel)(handle_kernel_arg(args)...); });
 	}
 	
@@ -78,12 +78,13 @@ protected:
 	typedef void (*kernel_func_type)(...);
 	const kernel_func_type kernel;
 	const string func_name;
+	const compute_kernel::kernel_entry entry;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
-	template <typename T> void* handle_kernel_arg(T&& obj) { return (void*)&obj; }
-	void* handle_kernel_arg(shared_ptr<compute_buffer> buffer);
-	void* handle_kernel_arg(shared_ptr<compute_image> buffer);
+	template <typename T> void* handle_kernel_arg(T&& obj) const { return (void*)&obj; }
+	void* handle_kernel_arg(shared_ptr<compute_buffer> buffer) const;
+	void* handle_kernel_arg(shared_ptr<compute_image> buffer) const;
 	
 	void execute_internal(compute_queue* queue,
 						  const uint32_t work_dim,

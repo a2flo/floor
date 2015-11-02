@@ -410,17 +410,17 @@ static void floor_alloc_local_memory() {
 }
 
 //
-host_kernel::host_kernel(const void* kernel_, const string& func_name_) :
-kernel((kernel_func_type)kernel_), func_name(func_name_) {
+host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
+kernel((kernel_func_type)kernel_), func_name(func_name_), entry(move(entry_)) {
 }
 
 host_kernel::~host_kernel() {}
 
-void* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) {
+void* host_kernel::handle_kernel_arg(shared_ptr<compute_buffer> buffer) const {
 	return ((host_buffer*)buffer.get())->get_host_buffer_ptr();
 }
 
-void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) {
+void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) const {
 	return ((host_image*)image.get())->get_host_image_kernel_info();
 }
 

@@ -32,7 +32,7 @@ typename cuda_kernel::kernel_map_type::const_iterator cuda_kernel::get_kernel(co
 }
 
 void cuda_kernel::execute_internal(compute_queue* queue,
-								   const kernel_entry& entry,
+								   const cuda_kernel_entry& entry,
 								   const uint3& grid_dim,
 								   const uint3& block_dim,
 								   void** kernel_params) {
