@@ -519,18 +519,32 @@ void floor::init_internal(const bool use_gl33
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
-#if !defined(FLOOR_IOS)
-		if(use_gl33) {
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-#if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-#endif
+#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
+		// detect x11 forwarding, and if detected, don't set/request any specific opengl version
+		bool ignore_gl_version = false;
+		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
+		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
+			const char* env_ssh_connection = getenv("SSH_CONNECTION");
+			if(env_ssh_connection != nullptr) {
+				ignore_gl_version = true;
+			}
 		}
-		else {
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+#endif
+		
+#if !defined(FLOOR_IOS)
+		if(!ignore_gl_version) {
+			if(use_gl33) {
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+#if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
+			}
+			else {
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+				SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+			}
 		}
 #else
 #if defined(PLATFORM_X32)
