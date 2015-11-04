@@ -118,10 +118,25 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		return true;
 	}
 	
-	// copy gl image data to host memory
-	glBindTexture(opengl_type, gl_object);
-	glGetTexImage(opengl_type, 0, gl_format, gl_type, image);
-	glBindTexture(opengl_type, 0);
+	// copy gl image data to host memory (if read access is set)
+	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
+		glBindTexture(opengl_type, gl_object);
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
+		   // contrary to GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_ARRAY can be copied directly
+		   (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type))) {
+			glGetTexImage(opengl_type, 0, gl_format, gl_type, image);
+		}
+		else {
+			// must copy cube faces individually
+			const auto face_size = image_slice_data_size_from_types(image_dim, image_type);
+			auto img_ptr = image;
+			for(uint32_t i = 0; i < 6; ++i) {
+				glGetTexImage(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, gl_format, gl_type, img_ptr);
+				img_ptr += face_size;
+			}
+		}
+		glBindTexture(opengl_type, 0);
+	}
 	
 	gl_object_state = false;
 	return true;
@@ -140,10 +155,12 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		return true;
 	}
 	
-	// copy the host data to the gl buffer
-	glBindTexture(opengl_type, gl_object);
-	update_gl_image_data(image);
-	glBindTexture(opengl_type, 0);
+	// copy the host data back to the gl buffer (if write access is set)
+	if(has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags)) {
+		glBindTexture(opengl_type, gl_object);
+		update_gl_image_data(image);
+		glBindTexture(opengl_type, 0);
+	}
 	
 	gl_object_state = true;
 	return true;

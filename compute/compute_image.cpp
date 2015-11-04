@@ -292,26 +292,32 @@ void compute_image::init_gl_image_data(const void* data) {
 		// TODO: how to init this?
 	}
 	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		const auto size_per_side = image_data_size / 6;
-		
-		static constexpr const GLenum cube_targets[] {
-			GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-			GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-			GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-		};
-		
-		auto cube_data = data;
-		for(const auto& target : cube_targets) {
-			glTexImage2D(target, level, gl_internal_format, gl_dim.x, gl_dim.y, 0,
-						 gl_format, gl_type, cube_data);
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+			const auto size_per_side = image_data_size / 6;
 			
-			// advance to next side (if not nullptr init)
-			if(cube_data != nullptr) {
-				cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+			static constexpr const GLenum cube_targets[] {
+				GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+				GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+				GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+			};
+			
+			auto cube_data = data;
+			for(const auto& target : cube_targets) {
+				glTexImage2D(target, level, gl_internal_format, gl_dim.x, gl_dim.y, 0,
+							 gl_format, gl_type, cube_data);
+				
+				// advance to next side (if not nullptr init)
+				if(cube_data != nullptr) {
+					cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+				}
 			}
+		}
+		else {
+			glTexImage3D(opengl_type, level, gl_internal_format,
+						 gl_dim.x, gl_dim.y, gl_dim.z * 6, 0, gl_format, gl_type, data);
 		}
 	}
 	else {
@@ -368,25 +374,31 @@ void compute_image::update_gl_image_data(const void* data) {
 		// TODO: how to init this?
 	}
 	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		const auto size_per_side = image_data_size / 6;
-		
-		static constexpr const GLenum cube_targets[] {
-			GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-			GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-			GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-			GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-		};
-		
-		auto cube_data = data;
-		for(const auto& target : cube_targets) {
-			glTexSubImage2D(target, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, cube_data);
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+			const auto size_per_side = image_data_size / 6;
 			
-			// advance to next side (if not nullptr init)
-			if(cube_data != nullptr) {
-				cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+			static constexpr const GLenum cube_targets[] {
+				GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+				GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+				GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+				GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+			};
+			
+			auto cube_data = data;
+			for(const auto& target : cube_targets) {
+				glTexSubImage2D(target, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, cube_data);
+				
+				// advance to next side (if not nullptr init)
+				if(cube_data != nullptr) {
+					cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+				}
 			}
+		}
+		else {
+			// can upload cube map array directly
+			glTexSubImage3D(opengl_type, level, 0, 0, 0, gl_dim.x, gl_dim.y, gl_dim.z * 6, gl_format, gl_type, data);
 		}
 	}
 	else {
@@ -421,6 +433,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 	GLint width = 0, height = 0, depth = 0, internal_format = 0, red_type = 0, red_size = 0, depth_type = 0;
 	if(glIsTexture(opengl_image)) {
 		GLint cur_bound_tex = 0;
+		uint32_t storage_target = opengl_target;
 		switch(opengl_target) {
 			case GL_TEXTURE_1D:
 				info.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_1D;
@@ -453,6 +466,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 			case GL_TEXTURE_CUBE_MAP:
 				info.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_CUBE;
 				glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &cur_bound_tex);
+				storage_target = GL_TEXTURE_CUBE_MAP_POSITIVE_X;
 				break;
 			case GL_TEXTURE_CUBE_MAP_ARRAY:
 				info.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY;
@@ -470,13 +484,13 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 		// bind query texture
 		glBindTexture(opengl_target, opengl_image);
 	
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_WIDTH, &width);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_HEIGHT, &height);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_DEPTH, &depth);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_INTERNAL_FORMAT, &internal_format);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_RED_TYPE, &red_type);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_RED_SIZE, &red_size);
-		glGetTexLevelParameteriv(opengl_target, 0, GL_TEXTURE_DEPTH_TYPE, &depth_type);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_WIDTH, &width);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_HEIGHT, &height);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_DEPTH, &depth);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_INTERNAL_FORMAT, &internal_format);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_RED_TYPE, &red_type);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_RED_SIZE, &red_size);
+		glGetTexLevelParameteriv(storage_target, 0, GL_TEXTURE_DEPTH_TYPE, &depth_type);
 		
 		// rebind previous texture
 		glBindTexture(opengl_target, (GLuint)cur_bound_tex);

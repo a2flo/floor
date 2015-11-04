@@ -94,27 +94,48 @@ struct host_device_image {
 	
 	//! cube, depth cube
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-	size_t coord_to_offset(int3 coord floor_unused) const {
-		// TODO: proper cube sampling
-		return 0;
+	size_t coord_to_offset(int3 coord) const {
+		// NOTE: assuming that .z is layer index
+		return coord_to_offset(coord.xy, (uint32_t)coord.z);
 	}
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
 	size_t coord_to_offset(uint3 coord) const { return coord_to_offset(int3(coord)); }
 	template <COMPUTE_IMAGE_TYPE type = image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-	size_t coord_to_offset(float3 coord floor_unused) const {
-		// TODO: proper cube sampling
-		return 0;
+	size_t coord_to_offset(float3 coord) const {
+		const auto coord_layer = compute_cube_coord_and_layer(coord);
+		return coord_to_offset(coord_layer.first, coord_layer.second);
 	}
 	
 	//! cube array
-	size_t coord_to_offset(int3 coord floor_unused, uint32_t layer floor_unused) const {
-		// TODO: proper cube sampling
-		return 0;
+	size_t coord_to_offset(int3 coord, uint32_t layer) const {
+		// NOTE: assuming that .z is layer index inside one cube map element, and layer the element index
+		return coord_to_offset(coord.xy, layer * 6u + (uint32_t)coord.z);
 	}
 	size_t coord_to_offset(uint3 coord, uint32_t layer) const { return coord_to_offset(int3(coord), layer); }
-	size_t coord_to_offset(float3 coord floor_unused, uint32_t layer floor_unused) const {
-		// TODO: proper cube sampling
-		return 0;
+	size_t coord_to_offset(float3 coord, uint32_t layer) const {
+		const auto coord_layer = compute_cube_coord_and_layer(coord);
+		return coord_to_offset(coord_layer.first, layer * 6u + coord_layer.second);
+	}
+	
+	//! cube mapping helper function, transforms the input 3D coordinate/direction to the resp. 2D texture coordinate + layer index
+	floor_inline_always static pair<float2, uint32_t> compute_cube_coord_and_layer(float3 coord) {
+		// NOTE: cube face order is: +X, -X, +Y, -Y, +Z, -Z
+		const auto abs_coord = coord.absed();
+		const uint32_t layer = (abs_coord.x >= abs_coord.y ?
+								(abs_coord.x >= abs_coord.z ? (coord.x >= 0.0f ? 0 : 1) : (coord.z >= 0.0f ? 4 : 5)) :
+								(abs_coord.y >= abs_coord.z ? (coord.y >= 0.0f ? 2 : 3) : (coord.z >= 0.0f ? 4 : 5)));
+		float3 st_ma;
+		switch(layer) {
+			case 0: st_ma = { -coord.z, -coord.y, abs_coord.x }; break;
+			case 1: st_ma = { coord.z, -coord.y, abs_coord.x }; break;
+			case 2: st_ma = { coord.x, coord.z, abs_coord.y }; break;
+			case 3: st_ma = { coord.x, -coord.z, abs_coord.y }; break;
+			case 4: st_ma = { coord.x, -coord.y, abs_coord.z }; break;
+			case 5: st_ma = { -coord.x, -coord.y, abs_coord.z }; break;
+			default: floor_unreachable();
+		}
+		st_ma.xy = (st_ma.xy * (0.5f / st_ma.z)) + 0.5f;
+		return { st_ma.xy, layer };
 	}
 	
 	// NOTE: MSAA formats are not supported on the host

@@ -273,6 +273,13 @@ public:
 		};
 	}
 	
+	//! computes the determinant of the top left 2x2 part of this matrix
+	constexpr scalar_type determinant_2x2() const {
+		return {
+			data[0] * data[5] - data[4] * data[1]
+		};
+	}
+	
 	//! resets this matrix to an identity matrix
 	constexpr matrix4& identity() {
 		*this = matrix4 {};

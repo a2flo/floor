@@ -158,9 +158,14 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			// if FLAG_ARRAY is also present, .z/depth has been specified by the user -> multiply by 6,
 			// else, just specify 6 directly
 			depth = (depth != 0 ? depth * 6 : 6);
+			
+			// make sure width == height
+			if(image_dim.x != image_dim.y) {
+				log_error("cube map side width and height must be equal (%u != %u)!", image_dim.x, image_dim.y);
+				return false;
+			}
 		}
 	}
-	// TODO: cube map: make sure width == height
 	
 	//
 	CU_ARRAY_FORMAT format;
