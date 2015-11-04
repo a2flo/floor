@@ -519,9 +519,9 @@ void floor::init_internal(const bool use_gl33
 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
-#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
 		// detect x11 forwarding, and if detected, don't set/request any specific opengl version
 		bool ignore_gl_version = false;
+#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
 		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
 		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
 			const char* env_ssh_connection = getenv("SSH_CONNECTION");
