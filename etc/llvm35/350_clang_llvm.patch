@@ -330,11 +330,19 @@ index 714d9e8..18e01ff 100644
    case Triple::mips64el:
    case Triple::nvptx64:
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 93fabf6..5bf4334 100644
+index 93fabf6..e12ada6 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
-@@ -32,10 +32,18 @@ def SM21 : SubtargetFeature<"sm_21", "SmVersion", "21",
+@@ -26,16 +26,37 @@ include "NVPTXInstrInfo.td"
+ //===----------------------------------------------------------------------===//
+ 
+ // SM Versions
++// Fermi
+ def SM20 : SubtargetFeature<"sm_20", "SmVersion", "20",
+                             "Target SM 2.0">;
+ def SM21 : SubtargetFeature<"sm_21", "SmVersion", "21",
                              "Target SM 2.1">;
++// Kepler
  def SM30 : SubtargetFeature<"sm_30", "SmVersion", "30",
                              "Target SM 3.0">;
 +def SM32 : SubtargetFeature<"sm_32", "SmVersion", "32",
@@ -343,16 +351,27 @@ index 93fabf6..5bf4334 100644
                              "Target SM 3.5">;
 +def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
 +                            "Target SM 3.7">;
++// Kepler
  def SM50 : SubtargetFeature<"sm_50", "SmVersion", "50",
                              "Target SM 5.0">;
 +def SM52 : SubtargetFeature<"sm_52", "SmVersion", "52",
 +                            "Target SM 5.2">;
 +def SM53 : SubtargetFeature<"sm_53", "SmVersion", "53",
 +                            "Target SM 5.3">;
++// Pascal
++def SM60 : SubtargetFeature<"sm_60", "SmVersion", "60",
++                            "Target SM 6.0">;
++def SM61 : SubtargetFeature<"sm_61", "SmVersion", "61",
++                            "Target SM 6.1">;
++def SM62 : SubtargetFeature<"sm_62", "SmVersion", "62",
++                            "Target SM 6.2">;
++// Volta
++def SM70 : SubtargetFeature<"sm_70", "SmVersion", "70",
++                            "Target SM 7.0">;
  
  // PTX Versions
  def PTX30 : SubtargetFeature<"ptx30", "PTXVersion", "30",
-@@ -46,6 +54,12 @@ def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
+@@ -46,6 +67,14 @@ def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
                               "Use PTX version 3.2">;
  def PTX40 : SubtargetFeature<"ptx40", "PTXVersion", "40",
                               "Use PTX version 4.0">;
@@ -362,10 +381,12 @@ index 93fabf6..5bf4334 100644
 +                             "Use PTX version 4.2">;
 +def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
 +                             "Use PTX version 4.3">;
++def PTX50 : SubtargetFeature<"ptx50", "PTXVersion", "50",
++                             "Use PTX version 5.0">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -57,8 +71,12 @@ class Proc<string Name, list<SubtargetFeature> Features>
+@@ -57,8 +86,16 @@ class Proc<string Name, list<SubtargetFeature> Features>
  def : Proc<"sm_20", [SM20]>;
  def : Proc<"sm_21", [SM21]>;
  def : Proc<"sm_30", [SM30]>;
@@ -376,6 +397,10 @@ index 93fabf6..5bf4334 100644
 +def : Proc<"sm_50", [SM50, PTX40]>;
 +def : Proc<"sm_52", [SM52, PTX41]>;
 +def : Proc<"sm_53", [SM53, PTX42]>;
++def : Proc<"sm_60", [SM60, PTX50]>;
++def : Proc<"sm_61", [SM61, PTX50]>;
++def : Proc<"sm_62", [SM62, PTX50]>;
++def : Proc<"sm_70", [SM70, PTX50]>;
  
  
  def NVPTXInstrInfo : InstrInfo {
@@ -3274,7 +3299,7 @@ index 061473e..9de3dad 100644
    }
  
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..2f524b7 100644
+index 075f905..7da7b69 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -3285,7 +3310,7 @@ index 075f905..2f524b7 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -1411,7 +1412,12 @@ namespace {
+@@ -1411,7 +1412,16 @@ namespace {
          .Case("sm_20", true)
          .Case("sm_21", true)
          .Case("sm_30", true)
@@ -3295,10 +3320,14 @@ index 075f905..2f524b7 100644
 +        .Case("sm_50", true)
 +        .Case("sm_52", true)
 +        .Case("sm_53", true)
++        .Case("sm_60", true)
++        .Case("sm_61", true)
++        .Case("sm_62", true)
++        .Case("sm_70", true)
          .Default(false);
  
        return Valid;
-@@ -5872,12 +5878,11 @@ namespace {
+@@ -5872,12 +5882,11 @@ namespace {
      0     // cuda_shared
    };
    class SPIRTargetInfo : public TargetInfo {
@@ -3315,7 +3344,7 @@ index 075f905..2f524b7 100644
        BigEndian = false;
        TLSSupported = false;
        LongWidth = LongAlign = 64;
-@@ -5886,6 +5891,7 @@ namespace {
+@@ -5886,6 +5895,7 @@ namespace {
        // Define available target features
        // These must be defined in sorted order!
        NoAsmVariants = true;
@@ -3323,7 +3352,7 @@ index 075f905..2f524b7 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -5911,6 +5917,16 @@ namespace {
+@@ -5911,6 +5921,16 @@ namespace {
      BuiltinVaListKind getBuiltinVaListKind() const override {
        return TargetInfo::VoidPtrBuiltinVaList;
      }
@@ -3340,7 +3369,7 @@ index 075f905..2f524b7 100644
    };
  
  
-@@ -5944,6 +5960,26 @@ namespace {
+@@ -5944,6 +5964,26 @@ namespace {
        DefineStd(Builder, "SPIR64", Opts);
      }
    };
@@ -3367,7 +3396,7 @@ index 075f905..2f524b7 100644
  }
  
  namespace {
-@@ -6369,18 +6405,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+@@ -6369,18 +6409,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
        return new X86_64TargetInfo(Triple);
      }
  
