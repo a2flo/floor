@@ -39,6 +39,10 @@
 
 // workaround use of "global" in locale header by including it before killing global
 #include <locale>
+// provide alternate function
+floor_inline_always static std::locale locale_global(const std::locale& loc) {
+	return std::locale::global(loc);
+}
 
 // kill address space keywords
 #define global
