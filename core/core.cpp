@@ -551,6 +551,40 @@ bool core::cpu_has_fma() {
 #endif
 }
 
+bool core::cpu_has_avx() {
+#if !defined(FLOOR_IOS)
+	int eax, ebx, ecx, edx;
+	__cpuid(1, eax, ebx, ecx, edx);
+	return (ecx & bit_AVX) > 0;
+#else
+	return false;
+#endif
+}
+
+bool core::cpu_has_avx2() {
+#if !defined(FLOOR_IOS)
+	int eax, ebx, ecx, edx;
+	__cpuid(0, eax, ebx, ecx, edx);
+	if(eax < 7) return false;
+	__cpuid(7, eax, ebx, ecx, edx);
+	return (ebx & 0x00000020) > 0;
+#else
+	return false;
+#endif
+}
+
+bool core::cpu_has_avx512() {
+#if !defined(FLOOR_IOS)
+	int eax, ebx, ecx, edx;
+	__cpuid(0, eax, ebx, ecx, edx);
+	if(eax < 7) return false;
+	__cpuid(7, eax, ebx, ecx, edx);
+	return (ebx & 0x00010000) > 0;
+#else
+	return false;
+#endif
+}
+
 string core::create_tmp_file_name(const string prefix, const string suffix) {
 	seed_seq seed {
 		rd(),

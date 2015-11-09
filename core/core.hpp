@@ -198,6 +198,12 @@ public:
 	
 	//! returns true if the cpu has fma instruction support
 	static bool cpu_has_fma();
+	//! returns true if the cpu has avx instruction support
+	static bool cpu_has_avx();
+	//! returns true if the cpu has avx2 instruction support
+	static bool cpu_has_avx2();
+	//! returns true if the cpu has avx-512 instruction support
+	static bool cpu_has_avx512();
 	
 protected:
 	// static class

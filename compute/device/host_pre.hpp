@@ -114,9 +114,14 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_0
 #endif
 
-// always disabled for now, can't properly detect this at compile-time or handle backwards-compat
+// use compiler specific define to detect if this is wanted or not
+#if defined(__FMA__)
+#define FLOOR_COMPUTE_INFO_HAS_FMA 1
+#define FLOOR_COMPUTE_INFO_HAS_FMA_1
+#else
 #define FLOOR_COMPUTE_INFO_HAS_FMA 0
 #define FLOOR_COMPUTE_INFO_HAS_FMA_0
+#endif
 
 // these are always set, as all targets (x86/arm) should/must support these
 #define FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS 1
@@ -127,6 +132,19 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 // local memory is emulated through global ("normal") memory, although almost certainly cached
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY 0
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_0
+
+// handle simd-width, as this obviously needs to be known at compile-time (even though it might be different at run-time),
+// make this dependent on compiler specific defines
+#if defined(__AVX512F__)
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 16
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH_16
+#elif defined(__AVX__)
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 8
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH_8
+#else // fallback to always 4 (see/neon)
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 4
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH_4
+#endif
 
 // for use with "#pragma clang loop unroll(x)", this is named "full" after clang 3.5, and "enable" for 3.5
 #if (__clang_major__ == 3 && __clang_minor__ == 5)

@@ -129,6 +129,7 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 #elif defined(PLATFORM_X64)
 		device.bitness = 64;
 #endif
+		device.simd_width = 32;
 		
 		// get all the attributes!
 		size_t global_mem_size = 0;

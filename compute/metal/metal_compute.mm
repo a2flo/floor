@@ -259,7 +259,7 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 				floor_fallthrough;
 			case 5:
 				device.family = 3;
-				device.units = 8; // TODO
+				device.units = 6; // GT7600
 				device.mem_clock = 1600; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
 				device.max_image_2d_dim = { 16384, 16384 };
@@ -272,6 +272,7 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.unified_memory = true;
 		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
 		device.max_image_3d_dim = { 2048, 2048, 2048 };
+		device.simd_width = 32; // always 32 for powervr 6 and 7 series
 #else
 		// on os x, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev vendorName] UTF8String];
@@ -279,12 +280,15 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::NVIDIA;
+			device.simd_width = 32;
 		}
 		else if(lc_vendor_name.find("intel") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::INTEL;
+			device.simd_width = 16; // actually variable (8, 16 or 32), but 16 is a good estimate
 		}
 		else if(lc_vendor_name.find("amd") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::AMD;
+			device.simd_width = 64;
 		}
 		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
 		device.global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)

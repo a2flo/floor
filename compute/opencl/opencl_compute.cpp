@@ -370,18 +370,24 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			string vendor_str = core::str_to_lower(device.vendor_name);
 			if(strstr(vendor_str.c_str(), "nvidia") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::NVIDIA;
+				device.simd_width = 32;
 			}
 			else if(strstr(vendor_str.c_str(), "intel") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::INTEL;
+				device.simd_width = 16; // actually variable (8, 16 or 32), but 16 is a good estimate
+				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "apple") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::APPLE;
+				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "amd") != nullptr ||
 					strstr(vendor_str.c_str(), "advanced micro devices") != nullptr ||
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::AMD;
+				device.simd_width = 64;
+				// -> cpu simd width later
 			}
 			
 			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
@@ -409,6 +415,12 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			if(device.internal_type & CL_DEVICE_TYPE_DEFAULT) {
 				dev_type_str += "Default ";
+			}
+			
+			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
+				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
 			const string cl_c_version_str = cl_get_info<CL_DEVICE_OPENCL_C_VERSION>(cl_dev);

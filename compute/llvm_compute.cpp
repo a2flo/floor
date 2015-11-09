@@ -376,6 +376,29 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
 	
+	// handle device simd width
+	uint32_t simd_width = device->simd_width;
+	if(simd_width == 0) {
+		// try to figure out the simd width of the device if it's 0
+		if(compute_device::has_flag<compute_device::TYPE::GPU>(device->type)) {
+			switch(device->vendor) {
+				case COMPUTE_VENDOR::NVIDIA: simd_width = 32; break;
+				case COMPUTE_VENDOR::AMD: simd_width = 64; break;
+				case COMPUTE_VENDOR::INTEL: simd_width = 16; break; // variable (8, 16 or 32)
+				case COMPUTE_VENDOR::APPLE: simd_width = 32; break;
+				// else: unknown gpu
+				default: break;
+			}
+		}
+		else if(compute_device::has_flag<compute_device::TYPE::CPU>(device->type)) {
+			// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
+			simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+		}
+	}
+	const auto simd_width_str = to_string(simd_width);
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH="s + simd_width_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
+	
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
 	if(floor::get_compute_debug() && target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";

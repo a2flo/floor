@@ -124,6 +124,15 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
 	}
 	
+	//! returns the SIMD-width of the device (or 0 if unknown)
+	constexpr uint32_t simd_width() {
+#if !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE)
+		return FLOOR_COMPUTE_INFO_SIMD_WIDTH;
+#else // provide mechanism to override the detected SIMD-width
+		return FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE;
+#endif
+	}
+	
 }
 
 #endif
