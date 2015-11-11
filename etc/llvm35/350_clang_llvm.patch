@@ -2559,7 +2559,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..0942477 100644
+index 704a375..0f085f9 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -2624,7 +2624,7 @@ index 704a375..0942477 100644
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -582,36 +601,47 @@ def OpenCLKernel : InheritableAttr {
+@@ -582,36 +601,46 @@ def OpenCLKernel : InheritableAttr {
  // This attribute is both a type attribute, and a declaration attribute (for
  // parameter variables).
  def OpenCLImageAccess : Attr {
@@ -2675,11 +2675,10 @@ index 704a375..0942477 100644
 +  let Documentation = [Undocumented];
 +}
 +
-+def FloorImageSampleType : Attr {
-+  let Spellings = [GNU<"floor_image_float">, GNU<"floor_image_int">, GNU<"floor_image_uint">];
-+  let Accessors = [Accessor<"isFloat", [GNU<"floor_image_float">]>,
-+                   Accessor<"isInt", [GNU<"floor_image_int">]>,
-+                   Accessor<"isUint", [GNU<"floor_image_uint">]>];
++def FloorImageDataType : InheritableAttr {
++  let Spellings = [GNU<"floor_image">];
++  let Args = [TypeArgument<"ImageDataType">];
++  let TemplateDependent = 1;
    let Documentation = [Undocumented];
  }
  
@@ -3853,7 +3852,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..8b8024f 100644
+index 5ca3a78..ce9d032 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4048,11 +4047,11 @@ index 5ca3a78..8b8024f 100644
 +		return Ret + "*";
 +	};
 +	
-+	static const auto add_image_arg = [&Builder, &Context, &CGM,
-+									   &addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
-+									   &argNames, &argTypeQuals](const clang::QualType& type,
-+																 const OpenCLImageAccessAttr* access_attr,
-+																 const std::string& name) {
++	const auto add_image_arg = [&Builder, &Context, &CGM,
++								&addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
++								&argNames, &argTypeQuals](const clang::QualType& type,
++														  const OpenCLImageAccessAttr* access_attr,
++														  const std::string& name) {
 +		// image is always in global address space
 +		addressQuals.push_back(Builder.getInt32(CGM.getContext().getTargetAddressSpace(LangAS::opencl_global)));
 +		
@@ -4218,11 +4217,11 @@ index 5ca3a78..8b8024f 100644
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
 +
-+		static const auto add_image_arg = [&Builder, &tex_idx, &arg_infos,
-+										   &arg_idx, &Context](const clang::QualType& type,
-+															   const OpenCLImageAccessAttr* access_attr,
-+															   const FloorImageSampleTypeAttr* sample_type,
-+															   const std::string& name) {
++		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx,
++									&Context, &ASTCtx, &CGM](const clang::QualType& type,
++															 const OpenCLImageAccessAttr* access_attr,
++															 const FloorImageDataTypeAttr* data_type,
++															 const std::string& name) {
 +			SmallVector<llvm::Value*, 16> arg_info;
 +			
 +			// #0: param index
@@ -4272,12 +4271,12 @@ index 5ca3a78..8b8024f 100644
 +			
 +			tex_type_name += "<";
 +			std::string sample_type_str = "float";
-+			if(sample_type) {
-+				if(sample_type->isInt()) sample_type_str = "int";
-+				else if(sample_type->isUint()) sample_type_str = "uint";
-+				// else: float
++			if(data_type) {
++				const auto canon_data_type = data_type->getImageDataType().getCanonicalType();
++				if(canon_data_type->isIntegerType()) sample_type_str = "int";
++				if(canon_data_type->isUnsignedIntegerType()) sample_type_str = "uint";
++				// else: just assume float
 +			}
-+			// else: just assume float
 +			tex_type_name += sample_type_str;
 +			tex_type_name += ", ";
 +			if(access_attr && access_attr->isReadOnly()) {
@@ -4346,7 +4345,7 @@ index 5ca3a78..8b8024f 100644
 +		// image
 +		else if(clang_type->isImageType()) {
 +			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(),
-+						  parm->getAttr<FloorImageSampleTypeAttr>(), parm->getName().str());
++						  parm->getAttr<FloorImageDataTypeAttr>(), parm->getName().str());
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
@@ -4359,7 +4358,7 @@ index 5ca3a78..8b8024f 100644
 +				const auto field_type = field->getType();
 +				
 +				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(),
-+							  field->getAttr<FloorImageSampleTypeAttr>(), base_name + std::to_string(field_idx));
++							  field->getAttr<FloorImageDataTypeAttr>(), base_name + std::to_string(field_idx));
 +				++field_idx;
 +				
 +				// next llvm arg
@@ -4381,7 +4380,7 @@ index 5ca3a78..8b8024f 100644
 +	
 +	// add id handling arg metadata
 +	// NOTE: the actual args are later added by MetalFinal + the order in here must match the order in MetalFinal
-+	static const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
++	const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
 +		SmallVector<llvm::Value*, 6> arg_info;
 +		arg_info.push_back(Builder.getInt32(arg_idx));
 +		arg_info.push_back(llvm::MDString::get(Context, air_name));
@@ -4423,7 +4422,7 @@ index 5ca3a78..8b8024f 100644
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		
-+		static const auto add_image_arg = [&arg_infos, &Context](const OpenCLImageAccessAttr* access_attr) {
++		const auto add_image_arg = [&arg_infos, &Context](const OpenCLImageAccessAttr* access_attr) {
 +			SmallVector<llvm::Value*, 2> arg_info;
 +			
 +			arg_info.push_back(llvm::MDString::get(Context, "image"));
@@ -4606,8 +4605,8 @@ index 5ca3a78..8b8024f 100644
 +			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+		static const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
-+															 const FLOOR_ARG_INFO& access) {
++		const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
++													  const FLOOR_ARG_INFO& access) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
@@ -4927,7 +4926,7 @@ index 5ca3a78..8b8024f 100644
 +			for(const auto& parm : FD->params()) {
 +				const auto clang_type = parm->getType();
 +				
-+				static const auto add_image_arg = [&arg_info](const OpenCLImageAccessAttr* access_attr) {
++				const auto add_image_arg = [&arg_info](const OpenCLImageAccessAttr* access_attr) {
 +					// access qualifier
 +					if(access_attr && access_attr->isWriteOnly()) {
 +						arg_info += "6";
@@ -5354,10 +5353,30 @@ index 8716227..81dd1a8 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..040f9de 100644
+index 61683cd..4eea96d 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-@@ -2679,6 +2679,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+@@ -1956,6 +1956,19 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
+     D->addAttr(newAttr);
+ }
+ 
++static void handleFloorImageDataTypeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
++  if (!Attr.hasParsedType()) {
++    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
++      << Attr.getName() << 1;
++    return;
++  }
++
++  TypeSourceInfo *ParmTSI = nullptr;
++  S.GetTypeFromParser(Attr.getTypeArg(), &ParmTSI);
++  D->addAttr(::new (S.Context) FloorImageDataTypeAttr(Attr.getLoc(), S.Context, ParmTSI,
++                                                      Attr.getAttributeSpellingListIndex()));
++}
++
+ static void handleObjCMethodFamilyAttr(Sema &S, Decl *decl,
+                                        const AttributeList &Attr) {
+   ObjCMethodDecl *method = cast<ObjCMethodDecl>(decl);
+@@ -2679,6 +2692,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                            Attr.getAttributeSpellingListIndex()));
  }
  
@@ -5416,7 +5435,7 @@ index 61683cd..040f9de 100644
  static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    // check the attribute arguments.
    if (Attr.getNumArgs() > 1) {
-@@ -4102,6 +4154,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4102,6 +4167,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -5426,12 +5445,12 @@ index 61683cd..040f9de 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4405,6 +4460,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4405,6 +4473,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_OpenCLImageAccess:
      handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
      break;
-+  case AttributeList::AT_FloorImageSampleType:
-+    handleSimpleAttribute<FloorImageSampleTypeAttr>(S, D, Attr);
++  case AttributeList::AT_FloorImageDataType:
++    handleFloorImageDataTypeAttr(S, D, Attr);
 +    break;
  
    // Microsoft attributes:
@@ -5593,7 +5612,7 @@ index 53a75d2..1e31cb8 100644
      } else {        
        // Qualifiers are compatible, so have the argument type adopt the
 diff --git a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index accec95..d1095d9 100644
+index accec95..cb2f01b 100644
 --- a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -129,6 +129,17 @@ static void instantiateDependentAlignedAttr(
@@ -5614,7 +5633,27 @@ index accec95..d1095d9 100644
  static void instantiateDependentEnableIfAttr(
      Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
      const EnableIfAttr *A, const Decl *Tmpl, Decl *New) {
-@@ -176,6 +187,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+@@ -164,6 +175,19 @@ static void instantiateDependentEnableIfAttr(
+   New->addAttr(EIA);
+ }
+ 
++static void instantiateDependentFloorImageDataTypeAttr(
++    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
++    const FloorImageDataTypeAttr *A, const Decl *Tmpl, Decl *New) {
++  TypeSourceInfo *Result = S.SubstType(A->getImageDataTypeLoc(), TemplateArgs,
++                                       A->getLocation(), DeclarationName());
++  if (Result) {
++    FloorImageDataTypeAttr *new_attr = new (S.getASTContext())
++        FloorImageDataTypeAttr(A->getLocation(), S.getASTContext(), Result,
++                               A->getSpellingListIndex());
++    New->addAttr(new_attr);
++  }
++}
++
+ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+                             const Decl *Tmpl, Decl *New,
+                             LateInstantiatedAttrVec *LateAttrs,
+@@ -176,6 +200,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
        continue;
      }
  
@@ -5627,8 +5666,21 @@ index accec95..d1095d9 100644
      const EnableIfAttr *EnableIf = dyn_cast<EnableIfAttr>(TmplAttr);
      if (EnableIf && EnableIf->getCond()->isValueDependent()) {
        instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
+@@ -183,6 +213,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+       continue;
+     }
+ 
++    const FloorImageDataTypeAttr *ImgType = dyn_cast<FloorImageDataTypeAttr>(TmplAttr);
++    if (ImgType && ImgType->getImageDataType()->isDependentType()) {
++      instantiateDependentFloorImageDataTypeAttr(*this, TemplateArgs, ImgType, Tmpl, New);
++      continue;
++    }
++
+     assert(!TmplAttr->isPackExpansion());
+     if (TmplAttr->isLateParsed() && LateAttrs) {
+       // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..510d945 100644
+index be1191c..54ecd6f 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
 @@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
@@ -5662,7 +5714,7 @@ index be1191c..510d945 100644
        // imagine, but the original handler's checking was entirely superfluous.
        attr.setUsedAsTypeAttr();
        break;
-+    case AttributeList::AT_FloorImageSampleType:
++    case AttributeList::AT_FloorImageDataType:
 +      attr.setUsedAsTypeAttr();
 +      break;
  
