@@ -3207,7 +3207,7 @@ index 986b3b5..3f8aad8 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
-index 1677874..ce1adcc 100644
+index 1677874..fb31818 100644
 --- a/tools/clang/lib/AST/Type.cpp
 +++ b/tools/clang/lib/AST/Type.cpp
 @@ -1546,6 +1546,16 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
@@ -3236,28 +3236,49 @@ index 1677874..ce1adcc 100644
    }
  
    llvm_unreachable("Invalid calling convention.");
-@@ -2469,3 +2481,22 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -2469,3 +2481,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
++
++static std::pair<bool, bool> isAggregateImageTypeRecurse(const CXXRecordDecl* decl) {
++	if(decl == nullptr) return { false, false };
++	
++	// union is not allowed
++	if(decl->isUnion()) return { false, false };
++	
++	// must have definition
++	if(!decl->hasDefinition()) return { false, false };
++	
++	// iterate over all fields/members and check if all are image types
++	bool has_any_image = false;
++	for(const auto& field : decl->fields()) {
++		if(!field->getType()->isImageType()) {
++			return { false, false };
++		}
++		has_any_image = true;
++	}
++	
++	// iterate over / recurse into all bases, check if they only consist of image types
++	for(const auto& base : decl->bases()) {
++		const auto base_ret = isAggregateImageTypeRecurse(base.getType()->getAsCXXRecordDecl());
++		if(!base_ret.first) {
++			return { false, false };
++		}
++		has_any_image |= base_ret.second;
++	}
++	
++	// all passed
++	return { true, has_any_image };
++}
 +
 +bool Type::isAggregateImageType() const {
 +  // must be struct or class, union is not allowed
 +  if(!isStructureOrClassType()) return false;
 +
-+  // must have a decl of course
-+  const RecordDecl* decl = (isStructureType() ? getAsStructureType()->getDecl() : getAsCXXRecordDecl());
-+  if(!decl || decl->field_empty()) return false;
-+
-+  // iterate of all fields/members and check if all are image types
-+  bool all_image = true;
-+  for(const auto& field : decl->fields()) {
-+    if(!field->getType()->isImageType()) {
-+      all_image = false;
-+      break;
-+    }
-+  }
-+  return all_image;
++  // check class/struct itself + all inherited base classes/structs
++  const auto valid_and_has_image = isAggregateImageTypeRecurse(getAsCXXRecordDecl());
++  return valid_and_has_image.first && valid_and_has_image.second;
 +}
 diff --git a/tools/clang/lib/AST/TypeLoc.cpp b/tools/clang/lib/AST/TypeLoc.cpp
 index 208d695..3fca2c9 100644
@@ -3462,7 +3483,7 @@ index cec48f3..a676bd3 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..ec29564 100644
+index 17c3354..de27860 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
 @@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3474,11 +3495,49 @@ index 17c3354..ec29564 100644
    // TODO: add support for CC_X86Pascal to llvm
    }
  }
-@@ -1526,6 +1528,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
-               AI->addAttr(llvm::AttributeSet::get(getLLVMContext(),
+@@ -579,6 +581,15 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+       }
+       if (LargestFD)
+         GetExpandedTypes(LargestFD->getType(), expandedTypes);
++    }
++    else if(type->isAggregateImageType()) {
++      const auto cxx_decl = type->getAsCXXRecordDecl();
++      for (const auto& base : cxx_decl->bases()) {
++        GetExpandedTypes(base.getType(), expandedTypes);
++      }
++      for (const auto *I : RD->fields()) {
++        GetExpandedTypes(I->getType(), expandedTypes);
++      }
+     } else {
+       for (const auto *I : RD->fields()) {
+         assert(!I->isBitField() &&
+@@ -630,6 +641,22 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+         LValue SubLV = EmitLValueForField(LV, LargestFD);
+         AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
+       }
++    }
++    else if(Ty->isAggregateImageType()) {
++      const auto cxx_decl = Ty->getAsCXXRecordDecl();
++      for (const auto& base : cxx_decl->bases()) {
++        // TODO: should use the base offset:
++        // getContext().getASTRecordLayout(cxx_decl).getBaseClassOffset(base.getType()->getAsCXXRecordDecl());
++        llvm::Value* addr = Builder.CreateConstGEP2_32(LV.getAddress(), 0, 0);
++        LValue BaseLV = MakeAddrLValue(addr, base.getType());
++        AI = ExpandTypeFromArgs(base.getType(), BaseLV, AI);
++      }
++      for (const auto *FD : RD->fields()) {
++        QualType FT = FD->getType();
++        // FIXME: What are the right qualifiers here?
++        LValue SubLV = EmitLValueForField(LV, FD);
++        AI = ExpandTypeFromArgs(FT, SubLV, AI);
++      }
+     } else {
+       for (const auto *FD : RD->fields()) {
+         QualType FT = FD->getType();
+@@ -1527,6 +1554,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                                                    AI->getArgNo() + 1,
                                                    llvm::Attribute::NonNull));
-+		  }
+           }
 +
 +          const auto *AVAttr = PVD->getAttr<AlignValueAttr>();
 +          if (!AVAttr)
@@ -3497,10 +3556,11 @@ index 17c3354..ec29564 100644
 +            Attrs.addAlignmentAttr(Alignment);
 +            AI->addAttr(llvm::AttributeSet::get(getLLVMContext(),
 +                                                AI->getArgNo() + 1, Attrs));
-           }
++          }
          }
  
-@@ -2573,9 +2594,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
+         if (Arg->getType().isRestrictQualified())
+@@ -2573,9 +2619,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
  }
  
  static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
@@ -3516,23 +3576,40 @@ index 17c3354..ec29564 100644
    else
      assert(FTy->isVarArg());
    ++ArgNo;
-@@ -2832,12 +2856,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2615,6 +2664,16 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+         RValue FldRV = EmitRValueForField(LV, LargestFD, SourceLocation());
+         ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy);
+       }
++    }
++    else if(Ty->isAggregateImageType()) {
++      const auto cxx_decl = Ty->getAsCXXRecordDecl();
++      for (const auto& base : cxx_decl->bases()) {
++        ExpandTypeToArgs(base.getType(), RV, Args, IRFuncTy);
++      }
++      for (const auto *FD : RD->fields()) {
++        RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
++        ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy);
++      }
+     } else {
+       for (const auto *FD : RD->fields()) {
+         RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
+@@ -2832,12 +2891,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
-+		bool ignore_type_check = false;
++        bool ignore_type_check = false;
          if (IRArgNo < IRFuncTy->getNumParams() &&
 -            V->getType() != IRFuncTy->getParamType(IRArgNo))
 -          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(IRArgNo));
-+			V->getType() != IRFuncTy->getParamType(IRArgNo)) {
-+			const auto src_as = V->getType()->getPointerAddressSpace();
-+			auto param_type = IRFuncTy->getParamType(IRArgNo);
-+			if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
-+				param_type = llvm::PointerType::get(cast<llvm::PointerType>(param_type->getScalarType())->getElementType(), src_as);
-+				ignore_type_check = true;
-+			}
-+			V = Builder.CreateBitCast(V, param_type);
-+		}
++          V->getType() != IRFuncTy->getParamType(IRArgNo)) {
++          const auto src_as = V->getType()->getPointerAddressSpace();
++          auto param_type = IRFuncTy->getParamType(IRArgNo);
++          if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
++            param_type = llvm::PointerType::get(cast<llvm::PointerType>(param_type->getScalarType())->getElementType(), src_as);
++            ignore_type_check = true;
++          }
++          V = Builder.CreateBitCast(V, param_type);
++        }
          Args.push_back(V);
          
 -        checkArgMatches(V, IRArgNo, IRFuncTy);
@@ -3852,7 +3929,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..ce9d032 100644
+index 5ca3a78..799c015 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -3863,7 +3940,48 @@ index 5ca3a78..ce9d032 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -340,110 +341,796 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -333,6 +334,40 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+   EmitNounwindRuntimeCall(MCountFn);
+ }
+ 
++// will recurse through the specified class/struct decl and its base classes,
++// returning a vector containing all iterators to all contained image types
++// NOTE: will return an empty vector if not a proper aggregate image
++static std::vector<RecordDecl::field_iterator> get_aggregate_image_fields(const CXXRecordDecl* decl) {
++	if(decl == nullptr) return {};
++	
++	// union is not allowed
++	if(decl->isUnion()) return {};
++	
++	// must have definition
++	if(!decl->hasDefinition()) return {};
++	
++	//
++	std::vector<RecordDecl::field_iterator> ret;
++	
++	// iterate over / recurse into all bases
++	for(const auto& base : decl->bases()) {
++		const auto base_ret = get_aggregate_image_fields(base.getType()->getAsCXXRecordDecl());
++		if(!base_ret.empty()) {
++			ret.insert(ret.end(), base_ret.begin(), base_ret.end());
++		}
++	}
++	
++	// iterate over all fields/members and extract image types
++	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
++		if(!iter->getType()->isImageType()) {
++			return {};
++		}
++		ret.push_back(iter);
++	}
++	
++	return ret;
++}
++
+ // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
+ // information in the program executable. The argument information stored
+ // includes the argument name, its type, the address and access qualifiers used.
+@@ -340,110 +375,788 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4135,17 +4253,17 @@ index 5ca3a78..ce9d032 100644
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = (clang_type->isStructureType() ?
-+							   clang_type->getAsStructureType()->getDecl() :
-+							   clang_type->getAsCXXRecordDecl());
++			const auto decl = clang_type->getAsCXXRecordDecl();
++			const auto agg_images = get_aggregate_image_fields(decl);
++			
 +			const std::string base_name = parm->getName().str() + ".";
-+			unsigned field_idx = 0;
-+			for(const auto& field : decl->fields()) {
-+				const auto field_type = field->getType();
++			unsigned int img_idx = 0;
++			for(const auto& img : agg_images) {
++				const auto img_type = img->getType();
 +				
-+				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(),
-+							  base_name + std::to_string(field_idx));
-+				++field_idx;
++				add_image_arg(img_type, img->getAttr<OpenCLImageAccessAttr>(),
++							  base_name + std::to_string(img_idx));
++				++img_idx;
 +			}
 +		}
 +		// kernel parameter
@@ -4349,17 +4467,17 @@ index 5ca3a78..ce9d032 100644
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = (clang_type->isStructureType() ?
-+							   clang_type->getAsStructureType()->getDecl() :
-+							   clang_type->getAsCXXRecordDecl());
++			const auto decl = clang_type->getAsCXXRecordDecl();
++			const auto agg_images = get_aggregate_image_fields(decl);
++			
 +			const std::string base_name = parm->getName().str() + ".";
-+			unsigned field_idx = 0;
-+			for(const auto& field : decl->fields()) {
-+				const auto field_type = field->getType();
++			unsigned int img_idx = 0;
++			for(const auto& img : agg_images) {
++				const auto img_type = img->getType();
 +				
-+				add_image_arg(field_type, field->getAttr<OpenCLImageAccessAttr>(),
-+							  field->getAttr<FloorImageDataTypeAttr>(), base_name + std::to_string(field_idx));
-+				++field_idx;
++				add_image_arg(img_type, img->getAttr<OpenCLImageAccessAttr>(),
++							  img->getAttr<FloorImageDataTypeAttr>(), base_name + std::to_string(img_idx));
++				++img_idx;
 +				
 +				// next llvm arg
 +				++arg_idx;
@@ -4475,11 +4593,10 @@ index 5ca3a78..ce9d032 100644
 +			add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
 +		}
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = (clang_type->isStructureType() ?
-+							   clang_type->getAsStructureType()->getDecl() :
-+							   clang_type->getAsCXXRecordDecl());
-+			for(const auto& field : decl->fields()) {
-+				add_image_arg(field->getAttr<OpenCLImageAccessAttr>());
++			const auto decl = clang_type->getAsCXXRecordDecl();
++			const auto agg_images = get_aggregate_image_fields(decl);
++			for(const auto& img : agg_images) {
++				add_image_arg(img->getAttr<OpenCLImageAccessAttr>());
 +			}
 +		}
 +		else {
@@ -4636,20 +4753,19 @@ index 5ca3a78..ce9d032 100644
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = (clang_type->isStructureType() ?
-+							   clang_type->getAsStructureType()->getDecl() :
-+							   clang_type->getAsCXXRecordDecl());
++			const auto decl = clang_type->getAsCXXRecordDecl();
++			const auto agg_images = get_aggregate_image_fields(decl);
 +			
-+			// field count must either be 1 (for single read or write images) or 2 (one read, one write image)
-+			const auto field_count = std::distance(decl->field_begin(), decl->field_end());
++			// image count must either be 1 (for single read or write images) or 2 (one read, one write image)
++			const auto field_count = agg_images.size();
 +			if(field_count == 0) {
 +				CGM.Error(decl->getSourceRange().getBegin(),
-+						  StringRef("no fields in aggregate-image"));
++						  StringRef("no images in aggregate-image (min: 1)"));
 +				return;
 +			}
 +			else if(field_count > 2) {
 +				CGM.Error(decl->getSourceRange().getBegin(),
-+						  StringRef("too many fields in aggregate-image"));
++						  StringRef("too many images in aggregate-image (max: 2)"));
 +				return;
 +			}
 +			
@@ -4657,35 +4773,29 @@ index 5ca3a78..ce9d032 100644
 +			// (should probably put this somewhere else, since it is sema-checking, but then I'd need to duplicate code)
 +			FLOOR_ARG_INFO floor_img_type = FLOOR_ARG_INFO::NONE;
 +			uint64_t floor_img_access = 0;
-+			for(const auto& field : decl->fields()) {
-+				const auto field_type = field->getType();
-+				if(!field_type->isImageType() || field_type->isAggregateImageType()) {
-+					CGM.Error(field->getSourceRange().getBegin(),
-+							  StringRef("non-image type in an aggregate-image"));
-+					return;
-+				}
-+				
-+				const auto access_attr = field->getAttr<OpenCLImageAccessAttr>();
++			for(const auto& img : agg_images) {
++				const auto access_attr = img->getAttr<OpenCLImageAccessAttr>();
 +				if(access_attr == nullptr) {
-+					CGM.Error(field->getSourceRange().getBegin(),
++					CGM.Error(img->getSourceRange().getBegin(),
 +							  StringRef("image type in an aggregate-image must have an access qualifier"));
 +					return;
 +				}
 +				if(access_attr->isReadWrite()) {
-+					CGM.Error(field->getSourceRange().getBegin(),
++					CGM.Error(img->getSourceRange().getBegin(),
 +							  StringRef("read-write access qualifier not allowed for images inside an aggregate-image"));
 +					return;
 +				}
 +				floor_img_access |= uint64_t(get_image_access(access_attr));
 +				
 +				// first field initializes this
++				const auto img_type = img->getType();
 +				if(floor_img_type == FLOOR_ARG_INFO::NONE) {
-+					floor_img_type = img_type_to_floor_type(field_type.getTypePtr());
++					floor_img_type = img_type_to_floor_type(img_type.getTypePtr());
 +				}
 +				else {
 +					// second field must have the same type!
-+					if(floor_img_type != img_type_to_floor_type(field_type.getTypePtr())) {
-+						CGM.Error(field->getSourceRange().getBegin(),
++					if(floor_img_type != img_type_to_floor_type(img_type.getTypePtr())) {
++						CGM.Error(img->getSourceRange().getBegin(),
 +								  StringRef("second image in aggregate-image does not have the same type as the first"));
 +						return;
 +					}
@@ -4761,7 +4871,7 @@ index 5ca3a78..ce9d032 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-@@ -455,12 +1142,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -455,12 +1168,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    llvm::LLVMContext &Context = getLLVMContext();
  
    SmallVector <llvm::Value*, 5> kernelMDArgs;
@@ -4798,7 +4908,7 @@ index 5ca3a78..ce9d032 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1208,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1234,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -4874,7 +4984,7 @@ index 5ca3a78..ce9d032 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1328,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1354,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -4894,7 +5004,7 @@ index 5ca3a78..ce9d032 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1543,92 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1569,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -4966,11 +5076,10 @@ index 5ca3a78..ce9d032 100644
 +					add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
 +				}
 +				else if(clang_type->isAggregateImageType()) {
-+					const auto decl = (clang_type->isStructureType() ?
-+									   clang_type->getAsStructureType()->getDecl() :
-+									   clang_type->getAsCXXRecordDecl());
-+					for(const auto& field : decl->fields()) {
-+						add_image_arg(field->getAttr<OpenCLImageAccessAttr>());
++					const auto decl = clang_type->getAsCXXRecordDecl();
++					const auto agg_images = get_aggregate_image_fields(decl);
++					for(const auto& img : agg_images) {
++						add_image_arg(img->getAttr<OpenCLImageAccessAttr>());
 +					}
 +				}
 +				else {
@@ -4987,7 +5096,7 @@ index 5ca3a78..ce9d032 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1732,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1757,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
