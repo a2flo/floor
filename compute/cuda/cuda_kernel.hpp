@@ -176,6 +176,10 @@ protected:
 		// set surface object
 		memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
 		data += sizeof(uint64_t);
+		
+		// set run-time image type
+		memcpy(data, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
+		data += sizeof(COMPUTE_IMAGE_TYPE);
 	}
 	
 };

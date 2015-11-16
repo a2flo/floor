@@ -149,9 +149,6 @@ void write_imagei(image3d_t image, clang_int4 coord, clang_int4 color);
 void write_imageui(image3d_t image, clang_int4 coord, clang_uint4 color);
 void write_imageh(image3d_t image, clang_int4 coord, clang_half4 color);
 
-// actual image implementation is shared with metal
-#include <floor/compute/device/opaque_image.hpp>
-
 #endif
 
 #endif

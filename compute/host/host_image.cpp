@@ -25,6 +25,13 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
 
+#if defined(FLOOR_DEBUG)
+static constexpr const size_t protection_size { 1024u };
+static constexpr const uint8_t protection_byte { 0xA5 };
+#else
+static constexpr const size_t protection_size { 0u };
+#endif
+
 host_image::host_image(const host_device* device,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
@@ -42,9 +49,17 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	image = new uint8_t[image_data_size] alignas(1024);
-	kernel_info.image_dim = image_dim;
+	image = new uint8_t[image_data_size + protection_size] alignas(1024);
 	kernel_info.buffer = image;
+	kernel_info.runtime_image_type = image_type;
+	kernel_info.image_dim = image_dim;
+	kernel_info.image_clamp_dim.int_dim = image_dim - 1;
+	kernel_info.image_clamp_dim.float_dim = kernel_info.image_clamp_dim.int_dim;
+	
+#if defined(FLOOR_DEBUG)
+	// set protection bytes
+	memset(image + image_data_size, protection_byte, protection_size);
+#endif
 	
 	// -> normal host image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
@@ -136,6 +151,18 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 			}
 		}
 		glBindTexture(opengl_type, 0);
+		
+#if defined(FLOOR_DEBUG)
+		// check memory protection strip
+		for(size_t i = 0; i < protection_size; ++i) {
+			if(*(image + image_data_size + i) != protection_byte) {
+				log_error("DO PANIC: opengl wrote too many bytes: image: %X, gl object: %u, @ protection byte #%u, expected data size %u",
+						  this, gl_object, i, image_data_size);
+				logger::flush();
+				break;
+			}
+		}
+#endif
 	}
 	
 	gl_object_state = false;

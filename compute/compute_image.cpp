@@ -638,6 +638,9 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 				default: break; // TODO: other types
 			}
 		}
+		else if(red_type == GL_FLOAT) {
+			if(red_size == 16) info.gl_type = GL_HALF_FLOAT;
+		}
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(info.image_type) ||
 		   (info.image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) {

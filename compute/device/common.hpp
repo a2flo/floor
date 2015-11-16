@@ -197,18 +197,12 @@ _LIBCPP_END_NAMESPACE_STD
 // always include vector lib/types
 #include <floor/math/vector_lib.hpp>
 
-// image support headers + common attributes
-#if !defined(FLOOR_COMPUTE_HOST)
-#define read_only __attribute__((image_read_only))
-#define write_only __attribute__((image_write_only))
-#define read_write __attribute__((image_read_write))
-#else
-#define read_only
-#define write_only
-#define read_write
-#endif
+// image types / enum (+enum helpers as this depends on it)
 #include <floor/core/enum_helpers.hpp>
 #include <floor/compute/device/image_types.hpp>
+
+// device logging functions
+#include <floor/compute/device/logger.hpp>
 
 //! global memory buffer
 #define buffer __attribute__((align_value(1024))) compute_global_buffer
@@ -308,9 +302,6 @@ template <typename T> using param = const T&;
 #include <floor/compute/device/host_image.hpp>
 #endif
 #include <floor/compute/device/image.hpp>
-
-// device logging functions
-#include <floor/compute/device/logger.hpp>
 
 #endif
 

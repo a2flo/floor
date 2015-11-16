@@ -66,7 +66,12 @@ protected:
 	
 	struct image_kernel_info {
 		uint8_t* __attribute__((aligned(128))) buffer;
+		COMPUTE_IMAGE_TYPE runtime_image_type;
 		uint4 image_dim;
+		struct {
+			uint4 int_dim;
+			float4 float_dim;
+		} image_clamp_dim;
 	} kernel_info;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize

@@ -46,8 +46,9 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
-	//! optional type: image uses anisotropic filtering
-	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 8u)),
+	//! optional type: image uses a fixed channel count
+	//! NOTE: only used internally, serves no purpose on the user-side
+	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
 	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
 	//! NOTE: on some platforms this might provide better performance and/or less overhead
 	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),

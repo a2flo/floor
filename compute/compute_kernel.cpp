@@ -35,9 +35,14 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 			warn_map.insert(&entry, true);
 		}
 		
-		// return max possible local work size "{ max, 1, 1 }"
-		// TODO: might want to have/keep a specific shape, or at least y == 2 if possible
-		ret = { (uint32_t)entry.max_local_work_size, 1, 1 };
+		// if local work size y-dim is > 1, set it at least to 2 if possible
+		// note that this is usually a good idea for image accesses / cache use
+		if(local_work_size.y > 1 && entry.max_local_work_size > 1) {
+			ret = { (uint32_t)(entry.max_local_work_size / 2u), 2, 1 };
+			// TODO: might want to have/keep a specific shape
+		}
+		// just return max possible local work size "{ max, 1, 1 }"
+		else ret = { (uint32_t)entry.max_local_work_size, 1, 1 };
 		
 		if(do_warn) {
 			log_error("specified work-group size (%u) too large for this device (max: %u) - using %v now!",

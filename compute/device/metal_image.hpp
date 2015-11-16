@@ -234,9 +234,6 @@ namespace {
 	
 }
 
-// actual image implementation is shared with opencl
-#include <floor/compute/device/opaque_image.hpp>
-
 #endif
 
 #endif
