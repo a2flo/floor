@@ -1030,10 +1030,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..323da44
+index 0000000..bddbb3e
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,804 @@
+@@ -0,0 +1,812 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1124,8 +1124,9 @@ index 0000000..323da44
 +	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
 +	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 +	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
-+	//! optional type: image uses anisotropic filtering
-+	FLAG_ANISOTROPIC		= (1u << (__FLAG_SHIFT + 8u)),
++	//! optional type: image uses a fixed channel count
++	//! NOTE: only used internally, serves no purpose on the user-side
++	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
 +	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
 +	//! NOTE: on some platforms this might provide better performance and/or less overhead
 +	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
@@ -1382,6 +1383,7 @@ index 0000000..323da44
 +		void handle_image(CallSite& CS, const StringRef& func_name) {
 +			Instruction* I = CS.getInstruction();
 +			builder->SetInsertPoint(I);
++			const bool is_image_read = func_name.startswith("floor.read_image.");
 +			
 +			// check + get arguments
 +			if(CS.arg_size() != 5) {
@@ -1412,20 +1414,23 @@ index 0000000..323da44
 +			const auto full_image_type = COMPUTE_IMAGE_TYPE(image_type_arg->getZExtValue());
 +			const COMPUTE_IMAGE_TYPE image_type = full_image_type & COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK;
 +			const COMPUTE_IMAGE_TYPE format_type = full_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
++			const COMPUTE_IMAGE_TYPE image_data_type = full_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK;
 +			const bool is_normalized = has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(full_image_type);
 +			
-+			// check if format is supported
-+			switch(format_type) {
-+				case COMPUTE_IMAGE_TYPE::FORMAT_8:
-+				case COMPUTE_IMAGE_TYPE::FORMAT_16:
-+				case COMPUTE_IMAGE_TYPE::FORMAT_24: // as 32-bit
-+				case COMPUTE_IMAGE_TYPE::FORMAT_32:
-+				case COMPUTE_IMAGE_TYPE::FORMAT_32_8: // for depth+stencil
-+					break;
-+				default:
-+					// all else: nope
-+					ctx->emitError(I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
-+					return;
++			// check if format is supported (only for image write now)
++			if(!is_image_read) {
++				switch(format_type) {
++					case COMPUTE_IMAGE_TYPE::FORMAT_8:
++					case COMPUTE_IMAGE_TYPE::FORMAT_16:
++					case COMPUTE_IMAGE_TYPE::FORMAT_24: // as 32-bit
++					case COMPUTE_IMAGE_TYPE::FORMAT_32:
++					case COMPUTE_IMAGE_TYPE::FORMAT_32_8: // for depth+stencil
++						break;
++					default:
++						// all else: nope
++						ctx->emitError(I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
++						return;
++				}
 +			}
 +			
 +			// -> coord
@@ -1444,7 +1449,7 @@ index 0000000..323da44
 +				return;
 +			}
 +			
-+			if(func_name.startswith("floor.read_image.")) {
++			if(is_image_read) {
 +				// -> sample
 +				const auto sample_arg = CS.getArgument(4);
 +				if(!sample_arg->getType()->isIntegerTy()) {
@@ -1470,7 +1475,9 @@ index 0000000..323da44
 +					return;
 +				}
 +				handle_write_image(*I, func_name,
-+								   img_handle_arg, image_type, format_type, is_normalized, image_channel_count,
++								   img_handle_arg,
++								   image_type, format_type, image_data_type,
++								   is_normalized, image_channel_count,
 +								   coord_arg, coord_arg_type,
 +								   layer_arg, data_arg);
 +			}
@@ -1634,6 +1641,7 @@ index 0000000..323da44
 +								llvm::Value* img_handle_arg,
 +								const COMPUTE_IMAGE_TYPE& image_type,
 +								const COMPUTE_IMAGE_TYPE& format_type,
++								const COMPUTE_IMAGE_TYPE& data_type,
 +								const bool& is_normalized,
 +								const uint32_t& image_channel_count,
 +								llvm::Value* coord_arg,
@@ -1734,8 +1742,8 @@ index 0000000..323da44
 +			}};
 +			
 +			std::string dtype, rtype;
-+			const bool is_signed_int = ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
-+			const bool is_float = ((image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
++			const bool is_signed_int = ((data_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
++			const bool is_float = ((data_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT);
 +			if(is_normalized) {
 +				// need to normalize 32-bit float -> 8-bit or 16-bit unsigned/signed int
 +				if(format_type != COMPUTE_IMAGE_TYPE::FORMAT_8 && format_type != COMPUTE_IMAGE_TYPE::FORMAT_16) {
@@ -3929,7 +3937,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..799c015 100644
+index 5ca3a78..be3fbfc 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -3940,7 +3948,7 @@ index 5ca3a78..799c015 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +334,40 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +334,77 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -3978,10 +3986,47 @@ index 5ca3a78..799c015 100644
 +	return ret;
 +}
 +
++// will recurse through the specified class/struct decl and its base classes,
++// returning the first image access attribute that it encounters (or nullptr if none)
++static const OpenCLImageAccessAttr* get_aggregate_access_attr(const CXXRecordDecl* decl) {
++	if(decl == nullptr) return nullptr;
++	
++	// must have definition
++	if(!decl->hasDefinition()) return nullptr;
++	
++	// iterate over / recurse into all bases
++	for(const auto& base : decl->bases()) {
++		const auto base_ret = get_aggregate_access_attr(base.getTypeSourceInfo()->getType()->getAsCXXRecordDecl());
++		if(base_ret != nullptr) {
++			return base_ret;
++		}
++	}
++	
++	// iterate over all fields/members and return the first access attr
++	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
++		// try direct attr first
++		const OpenCLImageAccessAttr* access_attr = iter->getAttr<OpenCLImageAccessAttr>();
++		if(access_attr != nullptr) {
++			return access_attr;
++		}
++		
++		// then check if this is a c++ decl (struct/union/class) and check if it has the attr
++		const auto as_decl = iter->getType()->getAsCXXRecordDecl();
++		if(as_decl != nullptr) {
++			access_attr = as_decl->getAttr<OpenCLImageAccessAttr>();
++			if(access_attr != nullptr) {
++				return access_attr;
++			}
++		}
++	}
++	
++	return nullptr;
++}
++
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,110 +375,788 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,110 +412,793 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4823,6 +4868,11 @@ index 5ca3a78..799c015 100644
 +			// check if parameter has image access qualifiers,
 +			// if so, it must be an image
 +			const OpenCLImageAccessAttr* access_attr = parm->getAttr<OpenCLImageAccessAttr>();
++			if(access_attr == nullptr) {
++				// get access attr if this is an aggregate type
++				access_attr = get_aggregate_access_attr(clang_type->getAsCXXRecordDecl());
++			}
++			
 +			if(access_attr != nullptr) {
 +				arg_info |= uint64_t(get_image_access(access_attr));
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
@@ -4871,7 +4921,7 @@ index 5ca3a78..799c015 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-@@ -455,12 +1168,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -455,12 +1210,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    llvm::LLVMContext &Context = getLLVMContext();
  
    SmallVector <llvm::Value*, 5> kernelMDArgs;
@@ -4908,7 +4958,7 @@ index 5ca3a78..799c015 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1234,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -499,8 +1276,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
    llvm::NamedMDNode *OpenCLKernelMetadata =
@@ -4984,7 +5034,7 @@ index 5ca3a78..799c015 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1354,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,6 +1396,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5004,7 +5054,7 @@ index 5ca3a78..799c015 100644
    if (getLangOpts().OpenCL) {
      // Add metadata for a kernel function.
      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1569,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1611,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -5096,7 +5146,7 @@ index 5ca3a78..799c015 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1757,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1799,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
