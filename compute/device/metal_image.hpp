@@ -115,11 +115,9 @@ namespace metal_image {
 		void operator=(const sampler&) = delete;
 		void operator&() = delete;
 	};
-}
-
-namespace {
+	
 	//////////////////////////////////////////
-	// metal/air image function wrappers/forwarders
+	// metal/air image functions
 	// NOTE: I've decided to go with an OpenCL-like approach of function naming, which makes this *a lot* easier to use
 	// NOTE: in the original metal texture API, it seems like some well-meaning fool decided it was a good idea to have _unsigned_
 	//       coordinates, but forgot that there are modes like "clamp to edge" or "repeat". However, LLVM only knows signed types
@@ -231,6 +229,140 @@ namespace {
 	const_func clang_uint4 gather_imageui(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, int32_t component = 0) asm("air.gather_texture_cube_array.u.v4i32");
 	const_func clang_uint4 gather_imageui(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, int32_t component = 0) asm("air.gather_texture_cube.u.v4i32");
 #endif
+	
+	//////////////////////////////////////////
+	// metal/air image forwarders (for convenience)
+	// NOTE: unavailable functions exist for compilation purposes only (sema checking) and will obviously never function
+	// NOTE: MSAA write support is nonexistent, so no sample parameter is needed
+	
+	// read float with int coords
+	floor_inline_always const_func clang_float4 read_float(image1d_t image, metal_sampler_t, int32_t coord, uint32_t, uint32_t) { return read_imagef(image, coord); }
+	floor_inline_always const_func clang_float4 read_float(image1d_array_t image, metal_sampler_t, int32_t coord, uint32_t layer, uint32_t) { return read_imagef(image, coord, layer); }
+	floor_inline_always const_func clang_float4 read_float(image2d_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t) { return read_imagef(image, coord); }
+	floor_inline_always const_func clang_float4 read_float(image2d_array_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t) { return read_imagef(image, coord, layer); }
+	floor_inline_always const_func float read_float(image2d_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t) { return read_imagef(image, 1, coord); }
+	floor_inline_always const_func float read_float(image2d_array_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t) { return read_imagef(image, 1, coord, layer); }
+	floor_inline_always const_func clang_float4 read_float(image2d_msaa_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample) { return read_imagef(image, coord, sample); }
+	floor_inline_always const_func float read_float(image2d_msaa_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample) { return read_imagef(image, 1, coord, sample); }
+	floor_inline_always const_func clang_float4 read_float(image3d_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imagef(image, coord); }
+	floor_inline_always const_func clang_float4 read_float(imagecube_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imagef(image, coord.xy, coord.z); }
+	floor_inline_always const_func clang_float4 read_float(imagecube_array_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t) { return read_imagef(image, coord.xy, coord.z, layer); }
+	floor_inline_always const_func float read_float(imagecube_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imagef(image, 1, coord.xy, coord.z); }
+	floor_inline_always const_func float read_float(imagecube_array_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t) { return read_imagef(image, 1, coord.xy, coord.z, layer); }
+	
+	// read float with float coords + sampler
+	floor_inline_always const_func clang_float4 read_float(image1d_t image, metal_sampler_t smplr, float coord, uint32_t, uint32_t) { return read_imagef(image, smplr, coord); }
+	floor_inline_always const_func clang_float4 read_float(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, coord, layer); }
+	floor_inline_always const_func clang_float4 read_float(image2d_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, coord); }
+	floor_inline_always const_func clang_float4 read_float(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, coord, layer); }
+	floor_inline_always const_func float read_float(image2d_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, 1, coord); }
+	floor_inline_always const_func float read_float(image2d_array_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, 1, coord, layer); }
+	floor_inline_always const_func clang_float4 read_float(image2d_msaa_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func float read_float(image2d_msaa_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func clang_float4 read_float(image3d_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, coord); }
+	floor_inline_always const_func clang_float4 read_float(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, coord); }
+	floor_inline_always const_func clang_float4 read_float(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, coord, layer); }
+	floor_inline_always const_func float read_float(imagecube_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, 1, coord); }
+	floor_inline_always const_func float read_float(imagecube_array_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, 1, coord, layer); }
+	
+	// read int with int coords
+	floor_inline_always const_func clang_int4 read_int(image1d_t image, metal_sampler_t, int32_t coord, uint32_t, uint32_t) { return read_imagei(image, coord); }
+	floor_inline_always const_func clang_int4 read_int(image1d_array_t image, metal_sampler_t, int32_t coord, uint32_t layer, uint32_t) { return read_imagei(image, coord, layer); }
+	floor_inline_always const_func clang_int4 read_int(image2d_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t) { return read_imagei(image, coord); }
+	floor_inline_always const_func clang_int4 read_int(image2d_array_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t) { return read_imagei(image, coord, layer); }
+	floor_inline_always const_func int32_t read_int(image2d_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func int32_t read_int(image2d_array_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t); // unavailable
+	floor_inline_always const_func clang_int4 read_int(image2d_msaa_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample) { return read_imagei(image, coord, sample); }
+	floor_inline_always const_func int32_t read_int(image2d_msaa_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func clang_int4 read_int(image3d_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imagei(image, coord); }
+	floor_inline_always const_func clang_int4 read_int(imagecube_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imagei(image, coord.xy, coord.z); }
+	floor_inline_always const_func clang_int4 read_int(imagecube_array_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t) { return read_imagei(image, coord.xy, coord.z, layer); }
+	floor_inline_always const_func int32_t read_int(imagecube_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func int32_t read_int(imagecube_array_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t); // unavailable
+	
+	// read int with float coords + sampler
+	floor_inline_always const_func clang_int4 read_int(image1d_t image, metal_sampler_t smplr, float coord, uint32_t, uint32_t) { return read_imagei(image, smplr, coord); }
+	floor_inline_always const_func clang_int4 read_int(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, uint32_t) { return read_imagei(image, smplr, coord, layer); }
+	floor_inline_always const_func clang_int4 read_int(image2d_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t) { return read_imagei(image, smplr, coord); }
+	floor_inline_always const_func clang_int4 read_int(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t) { return read_imagei(image, smplr, coord, layer); }
+	floor_inline_always const_func int32_t read_int(image2d_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func int32_t read_int(image2d_array_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t); // unavailable
+	floor_inline_always const_func clang_int4 read_int(image2d_msaa_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func int32_t read_int(image2d_msaa_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func clang_int4 read_int(image3d_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagei(image, smplr, coord); }
+	floor_inline_always const_func clang_int4 read_int(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagei(image, smplr, coord); }
+	floor_inline_always const_func clang_int4 read_int(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imagei(image, smplr, coord, layer); }
+	floor_inline_always const_func int32_t read_int(imagecube_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func int32_t read_int(imagecube_array_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t); // unavailable
+	
+	// read uint with int coords
+	floor_inline_always const_func clang_uint4 read_uint(image1d_t image, metal_sampler_t, int32_t coord, uint32_t, uint32_t) { return read_imageui(image, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(image1d_array_t image, metal_sampler_t, int32_t coord, uint32_t layer, uint32_t) { return read_imageui(image, coord, layer); }
+	floor_inline_always const_func clang_uint4 read_uint(image2d_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t) { return read_imageui(image, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(image2d_array_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t) { return read_imageui(image, coord, layer); }
+	floor_inline_always const_func uint32_t read_uint(image2d_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func uint32_t read_uint(image2d_array_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t layer, uint32_t); // unavailable
+	floor_inline_always const_func clang_uint4 read_uint(image2d_msaa_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample) { return read_imageui(image, coord, sample); }
+	floor_inline_always const_func uint32_t read_uint(image2d_msaa_depth_t image, metal_sampler_t, clang_int2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func clang_uint4 read_uint(image3d_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imageui(image, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(imagecube_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t) { return read_imageui(image, coord.xy, coord.z); }
+	floor_inline_always const_func clang_uint4 read_uint(imagecube_array_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t) { return read_imageui(image, coord.xy, coord.z, layer); }
+	floor_inline_always const_func uint32_t read_uint(imagecube_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func uint32_t read_uint(imagecube_array_depth_t image, metal_sampler_t, clang_int3 coord, uint32_t layer, uint32_t); // unavailable
+	
+	// read uint with float coords + sampler
+	floor_inline_always const_func clang_uint4 read_uint(image1d_t image, metal_sampler_t smplr, float coord, uint32_t, uint32_t) { return read_imageui(image, smplr, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(image1d_array_t image, metal_sampler_t smplr, float coord, uint32_t layer, uint32_t) { return read_imageui(image, smplr, coord, layer); }
+	floor_inline_always const_func clang_uint4 read_uint(image2d_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t) { return read_imageui(image, smplr, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(image2d_array_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t) { return read_imageui(image, smplr, coord, layer); }
+	floor_inline_always const_func uint32_t read_uint(image2d_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func uint32_t read_uint(image2d_array_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, uint32_t); // unavailable
+	floor_inline_always const_func clang_uint4 read_uint(image2d_msaa_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func uint32_t read_uint(image2d_msaa_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, uint32_t sample); // unavailable
+	floor_inline_always const_func clang_uint4 read_uint(image3d_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imageui(image, smplr, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(imagecube_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imageui(image, smplr, coord); }
+	floor_inline_always const_func clang_uint4 read_uint(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imageui(image, smplr, coord, layer); }
+	floor_inline_always const_func uint32_t read_uint(imagecube_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t); // unavailable
+	floor_inline_always const_func uint32_t read_uint(imagecube_array_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t); // unavailable
+	
+	// write float with int coords
+	floor_inline_always void write_float(image1d_t image, int32_t coord, uint32_t, clang_float4 data) { write_imagef(image, coord, data); }
+	floor_inline_always void write_float(image1d_array_t image, int32_t coord, uint32_t layer, clang_float4 data) { write_imagef(image, coord, layer, data); }
+	floor_inline_always void write_float(image2d_t image, clang_int2 coord, uint32_t, clang_float4 data) { write_imagef(image, coord, data); }
+	floor_inline_always void write_float(image2d_array_t image, clang_int2 coord, uint32_t layer, clang_float4 data) { write_imagef(image, coord, layer, data); }
+	floor_inline_always void write_float(image2d_depth_t image, clang_int2 coord, uint32_t, clang_float4 data); // unavailable
+	floor_inline_always void write_float(image2d_array_depth_t image, clang_int2 coord, uint32_t layer, clang_float4 data); // unavailable
+	floor_inline_always void write_float(image3d_t image, clang_int3 coord, uint32_t, clang_float4 data) { write_imagef(image, coord, data); }
+	floor_inline_always void write_float(imagecube_t image, clang_int3 coord, uint32_t, clang_float4 data) { write_imagef(image, coord.xy, coord.z, data); }
+	floor_inline_always void write_float(imagecube_array_t image, clang_int3 coord, uint32_t layer, clang_float4 data) { write_imagef(image, coord.xy, coord.z, layer, data); }
+	floor_inline_always void write_float(imagecube_depth_t image, clang_int3 coord, uint32_t, clang_float4 data); // unavailable
+	floor_inline_always void write_float(imagecube_array_depth_t image, clang_int3 coord, uint32_t layer, clang_float4 data); // unavailable
+	
+	// write int with int coords
+	floor_inline_always void write_int(image1d_t image, int32_t coord, uint32_t, clang_int4 data) { write_imagei(image, coord, data); }
+	floor_inline_always void write_int(image1d_array_t image, int32_t coord, uint32_t layer, clang_int4 data) { write_imagei(image, coord, layer, data); }
+	floor_inline_always void write_int(image2d_t image, clang_int2 coord, uint32_t, clang_int4 data) { write_imagei(image, coord, data); }
+	floor_inline_always void write_int(image2d_array_t image, clang_int2 coord, uint32_t layer, clang_int4 data) { write_imagei(image, coord, layer, data); }
+	floor_inline_always void write_int(image2d_depth_t image, clang_int2 coord, uint32_t, clang_int4 data); // unavailable
+	floor_inline_always void write_int(image2d_array_depth_t image, clang_int2 coord, uint32_t layer, clang_int4 data); // unavailable
+	floor_inline_always void write_int(image3d_t image, clang_int3 coord, uint32_t, clang_int4 data) { write_imagei(image, coord, data); }
+	floor_inline_always void write_int(imagecube_t image, clang_int3 coord, uint32_t, clang_int4 data) { write_imagei(image, coord.xy, coord.z, data); }
+	floor_inline_always void write_int(imagecube_array_t image, clang_int3 coord, uint32_t layer, clang_int4 data) { write_imagei(image, coord.xy, coord.z, layer, data); }
+	floor_inline_always void write_int(imagecube_depth_t image, clang_int3 coord, uint32_t, clang_int4 data); // unavailable
+	floor_inline_always void write_int(imagecube_array_depth_t image, clang_int3 coord, uint32_t layer, clang_int4 data); // unavailable
+	
+	// write uint with int coords
+	floor_inline_always void write_uint(image1d_t image, int32_t coord, uint32_t, clang_uint4 data) { write_imageui(image, coord, data); }
+	floor_inline_always void write_uint(image1d_array_t image, int32_t coord, uint32_t layer, clang_uint4 data) { write_imageui(image, coord, layer, data); }
+	floor_inline_always void write_uint(image2d_t image, clang_int2 coord, uint32_t, clang_uint4 data) { write_imageui(image, coord, data); }
+	floor_inline_always void write_uint(image2d_array_t image, clang_int2 coord, uint32_t layer, clang_uint4 data) { write_imageui(image, coord, layer, data); }
+	floor_inline_always void write_uint(image2d_depth_t image, clang_int2 coord, uint32_t, clang_uint4 data); // unavailable
+	floor_inline_always void write_uint(image2d_array_depth_t image, clang_int2 coord, uint32_t layer, clang_uint4 data); // unavailable
+	floor_inline_always void write_uint(image3d_t image, clang_int3 coord, uint32_t, clang_uint4 data) { write_imageui(image, coord, data); }
+	floor_inline_always void write_uint(imagecube_t image, clang_int3 coord, uint32_t, clang_uint4 data) { write_imageui(image, coord.xy, coord.z, data); }
+	floor_inline_always void write_uint(imagecube_array_t image, clang_int3 coord, uint32_t layer, clang_uint4 data) { write_imageui(image, coord.xy, coord.z, layer, data); }
+	floor_inline_always void write_uint(imagecube_depth_t image, clang_int3 coord, uint32_t, clang_uint4 data); // unavailable
+	floor_inline_always void write_uint(imagecube_array_depth_t image, clang_int3 coord, uint32_t layer, clang_uint4 data); // unavailable
 	
 }
 

@@ -137,43 +137,34 @@ void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return;
 	
-	const size_t pattern_count = fill_size / pattern_size;
-#if defined(__APPLE__)
-	const size_t overspill = fill_size - (pattern_count * pattern_size);
-#endif
 	switch(pattern_size) {
 		case 1:
-			memset(buffer + offset, *(uint8_t*)pattern, pattern_count);
+			memset(buffer + offset, *(uint8_t*)pattern, fill_size);
 			break;
 #if defined(__APPLE__) // TODO: check for availability on linux, *bsd, windows
+		// NOTE: memset_pattern* will simple truncate any overspill, so size checking is not necessary
+		// NOTE: 3rd parameter is the fill/buffer size and has nothing to do with the pattern count
 		case 4:
-			// size is guaranteed to be a multiple of 4
-			memset_pattern4(buffer + offset, (const void*)pattern, pattern_count);
+			memset_pattern4(buffer + offset, (const void*)pattern, fill_size);
 			break;
 		case 8:
+			memset_pattern8(buffer + offset, (const void*)pattern, fill_size);
+			break;
 		case 16:
-			// if overspill is 0, we know that size is a multiple of 8 or 16 resp.
-			// otherwise, fallthrough to the slow+safe path
-			if(overspill == 0) {
-				if(pattern_size == 8) {
-					memset_pattern8(buffer + offset, (const void*)pattern, pattern_count);
-				}
-				else if(pattern_size == 16) {
-					memset_pattern16(buffer + offset, (const void*)pattern, pattern_count);
-				}
-				break;
-			}
-			floor_fallthrough;
+			memset_pattern16(buffer + offset, (const void*)pattern, fill_size);
+			break;
 #endif
-		default:
+		default: {
 			// not a pattern size that allows a fast memset
 			// -> copy pattern manually in a loop
+			const size_t pattern_count = fill_size / pattern_size;
 			uint8_t* write_ptr = buffer + offset;
 			for(size_t i = 0; i < pattern_count; ++i) {
 				memcpy(write_ptr, pattern, pattern_size);
 				write_ptr += pattern_size;
 			}
 			break;
+		}
 	}
 }
 

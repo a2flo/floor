@@ -21,8 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
-// TODO: handle scalar tex coordinates (-> vec1 types)
-
 template <COMPUTE_IMAGE_TYPE> struct host_device_image;
 
 namespace host_image_impl {
@@ -359,11 +357,15 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord) {
+		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
 			// read/copy raw data
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			alignas(4) uint8_t raw_data[bpp];
-			memcpy(raw_data, &img->data[coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord))], bpp);
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+			memcpy(raw_data, &img->data[offset], bpp);
 			
 			// extract channel bits/bytes
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -418,7 +420,8 @@ FLOOR_POP_WARNINGS()
 
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord) {
+		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
@@ -430,7 +433,9 @@ FLOOR_POP_WARNINGS()
 			// NOTE: neither opencl, nor cuda support reading depth+stencil images, so a proper return type is unclear right now
 			typedef conditional_t<!has_stencil, float, pair<float, uint8_t>> ret_type;
 			ret_type ret;
-			const auto offset = coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord));
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
@@ -485,11 +490,15 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord) {
+		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
 			// read/copy raw data
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			alignas(4) uint8_t raw_data[bpp];
-			memcpy(raw_data, &img->data[coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord))], bpp);
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+			memcpy(raw_data, &img->data[offset], bpp);
 			
 			// for compatibility with opencl/cuda, always return 32-bit values for anything <= 32-bit (and 64-bit values for > 32-bit)
 			constexpr const bool is_signed_format = ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT);
@@ -509,10 +518,13 @@ FLOOR_POP_WARNINGS()
 				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static void write(const host_device_image<type>* img, const coord_type& coord, const float4& color) {
+		static void write(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer, const float4& color) {
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
-			const auto offset = coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord));
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
 			
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				constexpr const auto channel_count = image_channel_count(type);
@@ -553,15 +565,18 @@ FLOOR_POP_WARNINGS()
 				  /* float depth value, or float depth + uint8_t stencil */
 				  typename color_type = conditional_t<image_channel_count(type) == 1, float, pair<float, uint8_t>>,
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
-		static void write(const host_device_image<type>* img, const coord_type& coord, const color_type& color) {
+		static void write(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer, const color_type& color) {
 			depth_format_validity_check();
 			
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
 			
 			// depth value input is always a float -> convert it to the correct output format
-			const auto offset = coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord));
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
@@ -620,13 +635,17 @@ FLOOR_POP_WARNINGS()
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
-		static void write(const host_device_image<type>* img, const coord_type& coord, const vector_n<scalar_type, 4>& color) {
+		static void write(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer, const vector_n<scalar_type, 4>& color) {
 			// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
+			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto channel_count = image_channel_count(type);
 			typedef vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count> storage_type;
 			static_assert(sizeof(storage_type) == image_bytes_per_pixel(type), "invalid storage type size!");
 			const storage_type raw_data = (storage_type)color; // nop if 32-bit/64-bit, cast down if 8-bit or 16-bit
-			memcpy(&img->data[coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord))], raw_data);
+			const auto offset = __builtin_choose_expr(!is_array,
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+			memcpy(&img->data[offset], raw_data);
 		}
 	};
 }

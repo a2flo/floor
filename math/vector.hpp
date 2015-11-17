@@ -1980,6 +1980,12 @@ public:
 		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
+	//! explicitly converts this vector to the corresponding clang vector type,
+	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
+	constexpr clang_vector_type to_clang_vector() const {
+		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
+	}
+	
 	//! converts the corresponding clang vector type to this vector type
 	static constexpr vector_type from_clang_vector(const clang_vector_type& vec) {
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };

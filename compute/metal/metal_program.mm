@@ -42,6 +42,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 				if(info.name == kernel_name) {
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
+					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
 					//
 					id <MTLFunction> kernel = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];

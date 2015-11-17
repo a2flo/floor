@@ -59,6 +59,7 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 					cuda_kernel::cuda_kernel_entry entry;
 					entry.info = &info;
 					entry.kernel_args_size = compute_kernel_args_size(info);
+					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
 					CU_CALL_CONT(cu_module_get_function(&entry.kernel, prog.second.program, kernel_name.c_str()),
 								 "failed to get function \"" + kernel_name + "\"");

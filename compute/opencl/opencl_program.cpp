@@ -42,6 +42,7 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 				if(info.name == kernel_name) {
 					opencl_kernel::opencl_kernel_entry entry;
 					entry.info = &info;
+					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
 					CL_CALL_ERR_PARAM_CONT(entry.kernel = clCreateKernel(prog.second.program, kernel_name.c_str(),
 																		 &kernel_err), kernel_err,

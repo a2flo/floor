@@ -51,25 +51,28 @@ namespace floor_image {
 		return ret_value;
 	}
 	
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 	//! backend specific default sampler (for integral and floating point coordinates)
-	template <typename coord_type, typename = void> struct default_sampler {};
-	template <typename coord_type> struct default_sampler<coord_type, enable_if_t<is_int_coord<coord_type>()>> { // int
+	template <typename coord_type, bool sample_linear, typename = void> struct default_sampler {};
+	template <typename coord_type, bool sample_linear>
+	struct default_sampler<coord_type, sample_linear, enable_if_t<is_int_coord<coord_type>() && !sample_linear>> { // int (nearest)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
-			return (FLOOR_OPENCL_NORMALIZED_COORDS_FALSE |
-					FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE |
-					FLOOR_OPENCL_FILTER_NEAREST);
+			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+					opencl_image::sampler::COORD_MODE::PIXEL |
+					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler { /* use default params in sampler constructor */ };
 #endif
 		}
 	};
-	template <typename coord_type> struct default_sampler<coord_type, enable_if_t<!is_int_coord<coord_type>()>> { // float
+	template <typename coord_type, bool sample_linear>
+	struct default_sampler<coord_type, sample_linear, enable_if_t<!is_int_coord<coord_type>() && !sample_linear>> { // float (nearest)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
-			return (FLOOR_OPENCL_NORMALIZED_COORDS_TRUE |
-					FLOOR_OPENCL_ADDRESS_CLAMP_TO_EDGE |
-					FLOOR_OPENCL_FILTER_NEAREST);
+			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+					opencl_image::sampler::COORD_MODE::NORMALIZED |
+					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
@@ -79,6 +82,42 @@ namespace floor_image {
 #endif
 		}
 	};
+	template <typename coord_type, bool sample_linear>
+	struct default_sampler<coord_type, sample_linear, enable_if_t<is_int_coord<coord_type>() && sample_linear>> { // int (linear)
+		static constexpr auto value() {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
+					opencl_image::sampler::COORD_MODE::PIXEL |
+					opencl_image::sampler::FILTER_MODE::LINEAR);
+#elif defined(FLOOR_COMPUTE_METAL)
+			return metal_image::sampler {
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::COORD_MODE::PIXEL,
+				metal_image::sampler::FILTER_MODE::LINEAR,
+				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR
+			};
+#endif
+		}
+	};
+	template <typename coord_type, bool sample_linear>
+	struct default_sampler<coord_type, sample_linear, enable_if_t<!is_int_coord<coord_type>() && sample_linear>> { // float (linear)
+		static constexpr auto value() {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
+					opencl_image::sampler::COORD_MODE::NORMALIZED |
+					opencl_image::sampler::FILTER_MODE::LINEAR);
+#elif defined(FLOOR_COMPUTE_METAL)
+			return metal_image::sampler {
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::COORD_MODE::NORMALIZED,
+				metal_image::sampler::FILTER_MODE::LINEAR,
+				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR
+				// rest: use defaults
+			};
+#endif
+		}
+	};
+#endif
 	
 	//! backend specific sampler type
 #if defined(FLOOR_COMPUTE_OPENCL)
@@ -237,12 +276,13 @@ namespace floor_image {
 		static constexpr bool is_write_only() { return !is_readable() && is_writable(); }
 		static constexpr bool is_read_write() { return is_readable() && is_writable(); }
 		
-		//! convert any coordinate vector type to int* or float*
+#if !defined(FLOOR_COMPUTE_HOST) // opencl/metal/cuda coordinate conversion
+		//! convert any coordinate vector type to int* or float* clang vector types
 		template <typename coord_type>
 		static auto convert_coord(const coord_type& coord) {
-			return vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim> {
+			return (vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim> {
 				coord
-			};
+			}).to_clang_vector();
 		}
 		
 		//! convert any fundamental (single value) coordinate type to int or float
@@ -251,6 +291,18 @@ namespace floor_image {
 		static auto convert_coord(const coord_type& coord) {
 			return conditional_t<is_integral<coord_type>::value, int, float> { coord };
 		}
+#else // host-compute
+		//! convert any coordinate vector type to floor int{1,2,3,4} or float{1,2,3,4} vectors
+		template <typename coord_type>
+		static auto convert_coord(const coord_type& coord) {
+			typedef conditional_t<is_fundamental<coord_type>::value,
+								  conditional_t<is_integral<coord_type>::value, int, float>,
+								  conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>> scalar_type;
+			return vector_n<scalar_type, __builtin_choose_expr(is_fundamental<coord_type>::value, 1, coord_type::dim)> {
+				coord
+			};
+		}
+#endif
 		
 		//! converts any fundamental (single value) type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
 		template <typename expected_scalar_type, typename data_type, enable_if_t<is_fundamental<data_type>::value>* = nullptr>
@@ -269,190 +321,143 @@ namespace floor_image {
 		}
 	};
 	
-	// TODO: handle MSAA and layers (parameters)
-	// TODO: read_linear
-	
 	//! const/read-only image container
 	template <COMPUTE_IMAGE_TYPE image_type>
 	class const_image : public image_base<image_type> {
 	public:
 		typedef image_base<image_type> image_base_type;
 		using typename image_base_type::image_storage_type;
+		using typename image_base_type::sample_type;
 		using image_storage_type::r_img;
 		using image_base_type::convert_coord;
-		using image_base_type::convert_data;
 		
 	public:
-		// read functions (floating point coordinates)
-		//! fp read, with fp coord
-		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(is_sample_float(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
-							   !is_int_coord<coord_type>())>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-			const auto clang_vec = read_imagef(r_img, smplr, convert_coord(coord));
-			const auto color = float4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = float4::from_clang_vector(cuda_image::read_imagef(r_img.tex[CUDA_CLAMP_NEAREST_NORMALIZED_COORDS],
-																				 image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
+		//! internal read function, handling all kinds of reads
+		//! NOTE: while this is an internal function, it might be useful for anyone insane enough to use it directly on the outside
+		//!       -> this is a public function and not protected
+		template <bool sample_linear, typename coord_type>
+		floor_inline_always auto read_internal(const coord_type& coord,
+											   const uint32_t layer,
+											   const uint32_t sample
+#if defined(FLOOR_COMPUTE_HOST) // NOTE: MSAA/sample is not supported on host-compute
+											   floor_unused
 #endif
-			return image_vec_ret_type<image_type, float>::fit(color);
+		) const {
+			constexpr const bool is_float = is_sample_float(image_type);
+			constexpr const bool is_int = is_sample_int(image_type);
+			static_assert(is_float || is_int || is_sample_uint(image_type), "invalid sample type");
+			
+			// backend specific coordinate conversion (also: any input -> float or int)
+			const auto converted_coord = convert_coord(coord);
+			
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+			const sampler_type smplr = default_sampler<coord_type, sample_linear>::value();
+#if defined(FLOOR_COMPUTE_OPENCL)
+			const auto read_color = __builtin_choose_expr(is_float,
+														  opencl_image::read_float(r_img, smplr, converted_coord, layer, sample),
+														  __builtin_choose_expr(is_int,
+														  opencl_image::read_int(r_img, smplr, converted_coord, layer, sample),
+														  opencl_image::read_uint(r_img, smplr, converted_coord, layer, sample)));
+#else
+			const auto read_color = __builtin_choose_expr(is_float,
+														  metal_image::read_float(r_img, smplr, converted_coord, layer, sample),
+														  __builtin_choose_expr(is_int,
+														  metal_image::read_int(r_img, smplr, converted_coord, layer, sample),
+														  metal_image::read_uint(r_img, smplr, converted_coord, layer, sample)));
+#endif
+#elif defined(FLOOR_COMPUTE_CUDA)
+			constexpr const auto cuda_tex_idx = (!sample_linear ?
+												 (!is_int_coord<coord_type>() ?
+												  CUDA_CLAMP_NEAREST_NORMALIZED_COORDS : CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS) :
+												 (!is_int_coord<coord_type>() ?
+												  CUDA_CLAMP_LINEAR_NORMALIZED_COORDS : CUDA_CLAMP_LINEAR_NON_NORMALIZED_COORDS));
+			const auto read_color = __builtin_choose_expr(is_float,
+														  cuda_image::read_imagef(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample),
+														  __builtin_choose_expr(is_int,
+														  cuda_image::read_imagei(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample),
+														  cuda_image::read_imageui(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample)));
+#elif defined(FLOOR_COMPUTE_HOST)
+			// TODO: (bi)linear sampling
+			const auto color = r_img->read(converted_coord, layer);
+#endif
+			
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA)
+			const auto color = __builtin_choose_expr(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type),
+													 vector_n<sample_type, 4>::from_clang_vector(read_color),
+#if !defined(FLOOR_COMPUTE_CUDA)
+													 // opencl/metal: depth is always a scalar value, so just pass it through
+													 read_color
+#else
+													 // cuda: take .x component manually
+													 read_color.x
+#endif
+													 );
+#endif
+			return image_vec_ret_type<image_type, sample_type>::fit(color);
 		}
 		
-		//! depth image fp read, with fp coord
+		//! image read with nearest/point sampling (non-array, non-msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(is_sample_float(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
-							   !is_int_coord<coord_type>())>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-			return read_imagef(r_img, smplr,
-#if defined(FLOOR_COMPUTE_METAL) // metal weirdness, signals that depth is a float (no other types are supported)
-							   1,
-#endif
-							   convert_coord(coord));
-#elif defined(FLOOR_COMPUTE_CUDA)
-			return cuda_image::read_imagef(r_img.tex[CUDA_CLAMP_NEAREST_NORMALIZED_COORDS],
-										   image_type, convert_coord(coord), 0).x;
-#elif defined(FLOOR_COMPUTE_HOST)
-			return r_img->read(coord);
-#endif
+				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read(const coord_type& coord) {
+			return read_internal<false>(coord, 0, 0);
 		}
 		
-		//! int read, with fp coord
+		//! image read with nearest/point sampling (array, non-msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_int(image_type_) && !is_int_coord<coord_type>()>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-			const auto clang_vec = read_imagei(r_img, smplr, convert_coord(coord));
-			const auto color = int4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = int4::from_clang_vector(cuda_image::read_imagei(r_img.tex[CUDA_CLAMP_NEAREST_NORMALIZED_COORDS],
-																			   image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
-#endif
-			return image_vec_ret_type<image_type, int32_t>::fit(color);
+				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read(const coord_type& coord, const uint32_t layer) {
+			return read_internal<false>(coord, layer, 0);
 		}
 		
-		//! uint read, with fp coord
+		//! image read with nearest/point sampling (non-array, msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_uint(image_type_) && !is_int_coord<coord_type>()>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-			const auto clang_vec = read_imageui(r_img, smplr, convert_coord(coord));
-			const auto color = uint4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = uint4::from_clang_vector(cuda_image::read_imageui(r_img.tex[CUDA_CLAMP_NEAREST_NORMALIZED_COORDS],
-																				 image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
-#endif
-			return image_vec_ret_type<image_type, uint32_t>::fit(color);
+				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read(const coord_type& coord, const uint32_t sample) {
+			return read_internal<false>(coord, 0, sample);
 		}
 		
-		// read functions (integral coordinates)
-		//! fp read, with int coord
+		//! image read with nearest/point sampling (array, msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(is_sample_float(image_type_) &&
-							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
-							   is_int_coord<coord_type>())>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-#if !defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-#endif
-			const auto clang_vec = read_imagef(r_img,
-#if !defined(FLOOR_COMPUTE_METAL)
-											   smplr,
-#endif
-											   convert_coord(coord));
-			const auto color = float4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = float4::from_clang_vector(cuda_image::read_imagef(r_img.tex[CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS],
-																				 image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
-#endif
-			return image_vec_ret_type<image_type, float>::fit(color);
+				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read(const coord_type& coord, const uint32_t layer, const uint32_t sample) {
+			return read_internal<false>(coord, layer, sample);
 		}
 		
-		//! depth image fp read, with int coord
+		//! image read with linear sampling (non-array, non-msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<(is_sample_float(image_type_) &&
-							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type_) &&
-							   is_int_coord<coord_type>())>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-#if !defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-#endif
-			return read_imagef(r_img,
-#if !defined(FLOOR_COMPUTE_METAL)
-							   smplr,
-#else // metal weirdness, signals that depth is a float (no other types are supported)
-							   1,
-#endif
-							   convert_coord(coord));
-#elif defined(FLOOR_COMPUTE_CUDA)
-			return cuda_image::read_imagef(r_img.tex[CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS],
-										   image_type, convert_coord(coord), 0).x;
-#elif defined(FLOOR_COMPUTE_HOST)
-			return r_img->read(coord);
-#endif
+				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read_linear(const coord_type& coord) {
+			return read_internal<true>(coord, 0, 0);
 		}
 		
-		//! int read, with int coord
+		//! image read with linear sampling (array, non-msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_int(image_type_) && is_int_coord<coord_type>()>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-#if !defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-#endif
-			const auto clang_vec = read_imagei(r_img,
-#if !defined(FLOOR_COMPUTE_METAL)
-											   smplr,
-#endif
-											   convert_coord(coord));
-			const auto color = int4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = int4::from_clang_vector(cuda_image::read_imagei(r_img.tex[CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS],
-																			   image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
-#endif
-			return image_vec_ret_type<image_type, int32_t>::fit(color);
+				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read_linear(const coord_type& coord, const uint32_t layer) {
+			return read_internal<true>(coord, layer, 0);
 		}
 		
-		//! uint read, with int coord
+		//! image read with linear sampling (non-array, msaa)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
-				  enable_if_t<is_sample_uint(image_type_) && is_int_coord<coord_type>()>* = nullptr>
-		auto read(const coord_type& coord) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-#if !defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type>::value();
-#endif
-			const auto clang_vec = read_imageui(r_img,
-#if !defined(FLOOR_COMPUTE_METAL)
-												smplr,
-#endif
-												convert_coord(coord));
-			const auto color = uint4::from_clang_vector(clang_vec);
-#elif defined(FLOOR_COMPUTE_CUDA)
-			const auto color = uint4::from_clang_vector(cuda_image::read_imageui(r_img.tex[CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS],
-																				 image_type, convert_coord(coord), 0));
-#elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = r_img->read(coord);
-#endif
-			return image_vec_ret_type<image_type, uint32_t>::fit(color);
+				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read_linear(const coord_type& coord, const uint32_t sample) {
+			return read_internal<true>(coord, 0, sample);
+		}
+		
+		//! image read with linear sampling (array, msaa)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
+		auto read_linear(const coord_type& coord, const uint32_t layer, const uint32_t sample) {
+			return read_internal<true>(coord, layer, sample);
 		}
 		
 	};
@@ -473,47 +478,71 @@ namespace floor_image {
 #endif
 		
 	public:
-		// write functions
-		//! fp write
+		//! internal fp write function
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type_)>* = nullptr>
-		floor_inline_always void write(const coord_type& coord, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			write_imagef(w_img, convert_coord(coord), image_base_type::template convert_data<sample_type>(data));
+		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			opencl_image::write_float(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+#elif defined(FLOOR_COMPUTE_METAL)
+			metal_image::write_float(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_float<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), 0,
+			cuda_image::write_float<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
 												image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(coord, image_base_type::template convert_data<sample_type>(data));
+			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
 		}
 		
-		//! int write
+		//! internal int write function
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_int(image_type_)>* = nullptr>
-		floor_inline_always void write(const coord_type& coord, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			write_imagei(w_img, convert_coord(coord), image_base_type::template convert_data<sample_type>(data));
+		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			opencl_image::write_int(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+#elif defined(FLOOR_COMPUTE_METAL)
+			metal_image::write_int(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_int<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), 0,
+			cuda_image::write_int<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
 											  image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(coord, image_base_type::template convert_data<sample_type>(data));
+			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
 		}
 		
-		//! uint write
+		//! internal uint write function
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_uint(image_type_)>* = nullptr>
-		floor_inline_always void write(const coord_type& coord, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			write_imageui(w_img, convert_coord(coord), image_base_type::template convert_data<sample_type>(data));
+		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
+#if defined(FLOOR_COMPUTE_OPENCL)
+			opencl_image::write_uint(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+#elif defined(FLOOR_COMPUTE_METAL)
+			metal_image::write_uint(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_uint<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), 0,
+			cuda_image::write_uint<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
 											   image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(coord, image_base_type::template convert_data<sample_type>(data));
+			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
+		}
+		
+		//! image write (non-array)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		floor_inline_always auto write(const coord_type& coord,
+				   const vector_sample_type& data) {
+			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
+			return write_internal(coord, 0, data);
+		}
+		
+		//! image write (array)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		floor_inline_always auto write(const coord_type& coord,
+				   const uint32_t layer,
+				   const vector_sample_type& data) {
+			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
+			return write_internal(coord, layer, data);
 		}
 		
 	};

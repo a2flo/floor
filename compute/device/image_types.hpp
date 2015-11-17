@@ -544,10 +544,13 @@ struct image_texel_data_type {
 	typedef vector_n<typename image_tex_channel_data_type<image_type>::type, image_channel_count(image_type)> type;
 };
 
-//! fits a 4-component vector to the corresponding image data vector type
+//! fits a 4-component vector to the corresponding image data vector type, or passthrough for scalar values
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type, typename = void> struct image_vec_ret_type {};
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>
 struct image_vec_ret_type<image_type, data_type, enable_if_t<image_channel_count(image_type) == 1>> {
+	//! scalar passthrough
+	static constexpr floor_inline_always data_type fit(const data_type& color) { return color; }
+	//! 4-component -> scalar
 	static constexpr floor_inline_always data_type fit(const vector_n<data_type, 4>& color) { return color.x; }
 };
 template <COMPUTE_IMAGE_TYPE image_type, typename data_type>

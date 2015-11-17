@@ -39,6 +39,7 @@ public:
 	struct kernel_entry {
 		const llvm_compute::kernel_info* info { nullptr };
 		size_t max_local_work_size { 0u };
+		uint3 max_work_group_item_sizes;
 	};
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!

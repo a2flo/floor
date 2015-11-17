@@ -35,9 +35,9 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 			warn_map.insert(&entry, true);
 		}
 		
-		// if local work size y-dim is > 1, set it at least to 2 if possible
+		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2
 		// note that this is usually a good idea for image accesses / cache use
-		if(local_work_size.y > 1 && entry.max_local_work_size > 1) {
+		if(local_work_size.y > 1 && entry.max_local_work_size > 1 && entry.max_work_group_item_sizes.y > 1) {
 			ret = { (uint32_t)(entry.max_local_work_size / 2u), 2, 1 };
 			// TODO: might want to have/keep a specific shape
 		}
