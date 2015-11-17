@@ -1030,10 +1030,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..bddbb3e
+index 0000000..89a8fee
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,812 @@
+@@ -0,0 +1,814 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1610,8 +1610,9 @@ index 0000000..bddbb3e
 +				coords_placeholders += std::to_string(coord_start_idx + i);
 +			}
 +			
-+			if(vec_elems == 3) {
-+				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0"); // TODO: check this
++			// append (ignored) 0 coordinate if #coordinates == 3
++			if((vec_elems + (is_msaa ? 1 : 0) + (is_array ? 1 : 0)) == 3) {
++				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0");
 +			}
 +			
 +			// -> build asm string
@@ -1728,8 +1729,9 @@ index 0000000..bddbb3e
 +				coords_placeholders += std::to_string(coord_start_idx + coord_idx++);
 +			}
 +			
-+			if(vec_elems == 3) {
-+				coords_placeholders += ", 0"; // TODO: check this
++			// append (ignored) 0 coordinate if #coordinates == 3
++			if((vec_elems + (is_array ? 1 : 0)) == 3) {
++				coords_placeholders += ", 0";
 +			}
 +			
 +			// -> data
