@@ -89,11 +89,6 @@ public:
 					  const void* pattern, const size_t& pattern_size,
 					  const size_t size = 0, const size_t offset = 0) = 0;
 	
-	//! zeros/clears the complete buffer
-	virtual void zero(shared_ptr<compute_queue> cqueue) = 0;
-	//! zeros/clears the complete buffer
-	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
-	
 	//! resizes (recreates) the buffer to "size" and either copies the old data from the old buffer if specified,
 	//! or copies the data (again) from the previously specified host pointer or the one provided to this call,
 	//! and will also update the host memory pointer (if used!) to "new_host_ptr" if set to non-nullptr

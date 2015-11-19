@@ -143,6 +143,11 @@ public:
 	//! releases the associated opengl object from use with compute (-> acquire for opengl use)
 	virtual bool release_opengl_object(shared_ptr<compute_queue> cqueue) = 0;
 	
+	//! zeros/clears the complete memory object
+	virtual void zero(shared_ptr<compute_queue> cqueue) = 0;
+	//! zeros/clears the complete memory object
+	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
+	
 	//! NOTE: for debugging/development purposes only
 	void _lock() ACQUIRE(lock) REQUIRES(!lock);
 	void _unlock() RELEASE(lock);

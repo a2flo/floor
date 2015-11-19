@@ -86,11 +86,6 @@ public:
 	// TODO: read, write, copy, fill
 	// TODO: map with dim size and dim coords/offset
 	
-	//! zeros/clears the complete image
-	virtual void zero(shared_ptr<compute_queue> cqueue) = 0;
-	//! zeros/clears the complete image
-	void clear(shared_ptr<compute_queue> cqueue) { zero(cqueue); }
-	
 	//! maps device memory into host accessible memory,
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
