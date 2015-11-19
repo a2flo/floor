@@ -113,19 +113,6 @@ public:
 													const size_t size = 0, const size_t offset = 0) = 0;
 	
 	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset",
-	//! returning the mapped pointer as a vector<> of "data_type"
-	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
-	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	template <typename data_type>
-	vector<data_type>* map(shared_ptr<compute_queue> cqueue,
-						   const COMPUTE_MEMORY_MAP_FLAG flags_ =
-						   (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-							COMPUTE_MEMORY_MAP_FLAG::BLOCK),
-						   const size_t size_ = 0, const size_t offset = 0) {
-		return (vector<data_type>*)map(cqueue, flags_, size_, offset);
-	}
-	
-	//! maps device memory into host accessible memory, of the specified "size" (0 = complete buffer) and buffer "offset",
 	//! returning the mapped pointer as an array<> of "data_type" with "n" elements
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not

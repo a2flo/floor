@@ -100,18 +100,6 @@ public:
 													 COMPUTE_MEMORY_MAP_FLAG::BLOCK)) = 0;
 	
 	//! maps device memory into host accessible memory,
-	//! returning the mapped pointer as a vector<> of "data_type"
-	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
-	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
-	template <typename data_type>
-	vector<data_type>* map(shared_ptr<compute_queue> cqueue,
-						   const COMPUTE_MEMORY_MAP_FLAG flags_ =
-						   (COMPUTE_MEMORY_MAP_FLAG::READ_WRITE |
-							COMPUTE_MEMORY_MAP_FLAG::BLOCK)) {
-		return (vector<data_type>*)map(cqueue, flags_);
-	}
-	
-	//! maps device memory into host accessible memory,
 	//! returning the mapped pointer as an array<> of "data_type" with "n" elements
 	//! NOTE: this might require a complete buffer copy on map and/or unmap (use READ, WRITE and WRITE_INVALIDATE appropriately)
 	//! NOTE: this call might block regardless of if the BLOCK flag is set or not
