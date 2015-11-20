@@ -400,7 +400,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read(const coord_type& coord) {
+		auto read(const coord_type& coord) const {
 			return read_internal<false>(coord, 0, 0);
 		}
 		
@@ -408,7 +408,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read(const coord_type& coord, const uint32_t layer) {
+		auto read(const coord_type& coord, const uint32_t layer) const {
 			return read_internal<false>(coord, layer, 0);
 		}
 		
@@ -416,7 +416,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read(const coord_type& coord, const uint32_t sample) {
+		auto read(const coord_type& coord, const uint32_t sample) const {
 			return read_internal<false>(coord, 0, sample);
 		}
 		
@@ -424,7 +424,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read(const coord_type& coord, const uint32_t layer, const uint32_t sample) {
+		auto read(const coord_type& coord, const uint32_t layer, const uint32_t sample) const {
 			return read_internal<false>(coord, layer, sample);
 		}
 		
@@ -432,7 +432,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_linear(const coord_type& coord) {
+		auto read_linear(const coord_type& coord) const {
 			return read_internal<true>(coord, 0, 0);
 		}
 		
@@ -440,7 +440,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_linear(const coord_type& coord, const uint32_t layer) {
+		auto read_linear(const coord_type& coord, const uint32_t layer) const {
 			return read_internal<true>(coord, layer, 0);
 		}
 		
@@ -448,7 +448,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_linear(const coord_type& coord, const uint32_t sample) {
+		auto read_linear(const coord_type& coord, const uint32_t sample) const {
 			return read_internal<true>(coord, 0, sample);
 		}
 		
@@ -456,7 +456,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_linear(const coord_type& coord, const uint32_t layer, const uint32_t sample) {
+		auto read_linear(const coord_type& coord, const uint32_t layer, const uint32_t sample) const {
 			return read_internal<true>(coord, layer, sample);
 		}
 		
@@ -530,7 +530,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		floor_inline_always auto write(const coord_type& coord,
-				   const vector_sample_type& data) {
+				   const vector_sample_type& data) const {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal(coord, 0, data);
 		}
@@ -540,7 +540,7 @@ namespace floor_image {
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		floor_inline_always auto write(const coord_type& coord,
 				   const uint32_t layer,
-				   const vector_sample_type& data) {
+				   const vector_sample_type& data) const {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal(coord, layer, data);
 		}
