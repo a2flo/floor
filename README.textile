@@ -43,7 +43,7 @@
 ** to disable XML:
    define "FLOOR_NO_XML" or "./build.sh no-xml"
 ** to disable C++ exceptions:
-   define "FLOOR_NO_EXCEPTIONS" -> "./build.sh no-exceptions"
+   define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 
 *Build Instructions (Xcode / OS X / iOS):*
 * open floor.xcodeproj and build
@@ -77,14 +77,13 @@
 ** create an "include" folder and copy the original "floor" folder in there (containing all floor source code)
 
 *Installation (Windows / MSYS2):*
-* WIP (expecting it to be /opt/floor, then same as Unix)
+* WIP, currently unsupported due to gcc/clang incompatibilities (expecting it to be /opt/floor, then same as Unix)
 
 *Misc Hints:*
 * when using X11 forwarding, set these env variables:
 ** export LIBGL_ALWAYS_INDIRECT=yes
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
-* the CUDA SDK might provide conflicting OpenCL 1.1 headers and library, simply remove them if this happens (although this is usally taken care of by having the CUDA SDK path last)
 
 *Compute Toolchain:*
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
