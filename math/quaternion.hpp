@@ -29,7 +29,7 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(packed)
 
-template <typename scalar_type> class __attribute__((packed, aligned(16))) quaternion {
+template <typename scalar_type> class __attribute__((aligned(16))) quaternion {
 public:
 	//! "this" quaternion type
 	typedef quaternion<scalar_type> quaternion_type;

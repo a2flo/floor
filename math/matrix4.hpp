@@ -38,7 +38,7 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(packed)
 
 //! column-major 4x4 matrix
-template <typename scalar_type> class __attribute__((packed, aligned(16))) matrix4 {
+template <typename scalar_type> class __attribute__((aligned(16))) matrix4 {
 public:
 	//! "this" matrix type
 	typedef matrix4<scalar_type> matrix_type;

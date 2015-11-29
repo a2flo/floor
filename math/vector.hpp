@@ -52,6 +52,16 @@ struct floor_vector_rand {
 #endif
 #endif
 
+// vector must be aligned and packed on the host (mostly for weirdly sized scalar types like long double)
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL)
+#define FLOOR_VECTOR_ALIGN_AND_PACK __attribute__((packed, aligned(sizeof(scalar_type) != 12 ? sizeof(scalar_type) : 4)))
+#define FLOOR_VECTOR_PACK __attribute__((packed))
+#else
+// on compute devices this doesn't matter as it always will be correctly packed and aligned
+#define FLOOR_VECTOR_ALIGN_AND_PACK
+#define FLOOR_VECTOR_PACK
+#endif
+
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },
 //! and is instantiated for all float types (float, double, long double), all unsigned types from
 //! 8-bit to 64-bit and all signed types from 8-bit to 64-bit.
@@ -62,13 +72,13 @@ struct floor_vector_rand {
 //! assume that this class is the fastest at runtime and it should generally be used
 //! over the other one, except for the cases where the other one is absolutely necessary.
 //! -- "one vector class to rule them all, ... and in the darkness bind them."
-template <typename scalar_type> class __attribute__((packed, aligned(sizeof(scalar_type) != 12 ? sizeof(scalar_type) : 4))) FLOOR_VECNAME {
+template <typename scalar_type> class FLOOR_VECTOR_ALIGN_AND_PACK FLOOR_VECNAME {
 public:
 	// the underlying type of the vector
 	// NOTE: only .xyzw are usable with constexpr
-	union __attribute__((packed)) {
+	union FLOOR_VECTOR_PACK {
 		// main scalar accessors (.xyzw)
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			scalar_type x;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type y;
@@ -82,7 +92,7 @@ public:
 		};
 		
 		// scalar accessors (.rgba)
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			scalar_type r;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type g;
@@ -96,7 +106,7 @@ public:
 		};
 		
 		// scalar accessors (.stpq)
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			scalar_type s;
 #if FLOOR_VECTOR_WIDTH >= 2
 			scalar_type t;
@@ -112,7 +122,7 @@ public:
 		// accessors that are directly usable (.xy, .zw, .xyz)
 		// other kinds must be made via a function call
 #if FLOOR_VECTOR_WIDTH >= 3
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			vector2<scalar_type> xy;
 #if FLOOR_VECTOR_WIDTH >= 4
 			vector2<scalar_type> zw;
@@ -121,20 +131,20 @@ public:
 #endif
 		
 #if FLOOR_VECTOR_WIDTH >= 4
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			vector3<scalar_type> xyz;
 		};
 #endif
 		
 		// lo/hi accessors
 #if FLOOR_VECTOR_WIDTH == 2
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			vector1<scalar_type> lo;
 			vector1<scalar_type> hi;
 		};
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		struct __attribute__((packed)) {
+		struct FLOOR_VECTOR_PACK {
 			vector2<scalar_type> lo;
 #if FLOOR_VECTOR_WIDTH == 3
 			vector1<scalar_type> hi;
@@ -2013,6 +2023,9 @@ public:
 
 // cleanup macros
 #include <floor/math/vector_ops_cleanup.hpp>
+
+#undef FLOOR_VECTOR_ALIGN_AND_PACK
+#undef FLOOR_VECTOR_PACK
 
 #undef FLOOR_VECNAME_CONCAT
 #undef FLOOR_VECNAME_EVAL
