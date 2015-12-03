@@ -180,7 +180,7 @@ public:
 	
 	//! computes the "1 / magnitude" of this quaternion
 	constexpr scalar_type inv_magnitude() const {
-		return vector_helper<scalar_type>::inv_sqrt(r * r + v.dot());
+		return vector_helper<scalar_type>::rsqrt(r * r + v.dot());
 	}
 	
 	//! inverts this quaternion

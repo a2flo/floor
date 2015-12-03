@@ -399,7 +399,7 @@ namespace const_math {
 	//! computes the square root and inverse/reciprocal square root of val
 	//! return pair: <square root, inverse/reciprocal square root>
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr pair<fp_type, fp_type> sqrt_and_inv_sqrt(fp_type val) {
+	constexpr pair<fp_type, fp_type> sqrt_and_rsqrt(fp_type val) {
 		// make sure this is IEC559/IEEE-754 compliant
 		static_assert(numeric_limits<fp_type>::is_iec559, "compiler or target is not IEC559/IEEE-754 compliant!");
 		
@@ -490,13 +490,13 @@ namespace const_math {
 	//! computes the square root of val
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type sqrt(fp_type val) {
-		return sqrt_and_inv_sqrt(val).first;
+		return sqrt_and_rsqrt(val).first;
 	}
 	
 	//! computes the inverse/reciprocal square root of val
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr fp_type inv_sqrt(fp_type val) {
-		return sqrt_and_inv_sqrt(val).second;
+	constexpr fp_type rsqrt(fp_type val) {
+		return sqrt_and_rsqrt(val).second;
 	}
 	
 	//! computes cos(x), the cosine of the radian angle x
@@ -905,7 +905,7 @@ namespace const_select {
 	
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), float, "f")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(inv_sqrt, const_math::native_rsqrt(val), float, "f")
+	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(abs, std::fabs(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(floor, std::floor(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(ceil, std::ceil(val), float, "f")
@@ -928,7 +928,7 @@ namespace const_select {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
 	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(inv_sqrt, const_math::native_rsqrt(val), double, "d")
+	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(abs, std::fabs(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(floor, std::floor(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(ceil, std::ceil(val), double, "d")
@@ -952,7 +952,7 @@ namespace const_select {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	FLOOR_CONST_MATH_SELECT_2(fmod, ::fmodl(y, x), long double, "l")
 	FLOOR_CONST_MATH_SELECT(sqrt, ::sqrtl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(inv_sqrt, const_math::native_rsqrt(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(abs, ::fabsl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(floor, ::floorl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(ceil, ::ceill(val), long double, "l")

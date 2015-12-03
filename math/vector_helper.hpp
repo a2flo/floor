@@ -145,7 +145,7 @@ public:
 	// these have no implementation in here
 	static constexpr T modulo(const T& lhs, const T& rhs);
 	static constexpr T sqrt(const T& val);
-	static constexpr T inv_sqrt(const T& val);
+	static constexpr T rsqrt(const T& val);
 	static constexpr T abs(const T& val);
 	static constexpr T floor(const T& val);
 	static constexpr T ceil(const T& val);
@@ -230,7 +230,7 @@ protected: \
 #define FLOOR_VH_IMPL_DEF_FLOAT(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(float, \
 F2(modulo, constexpr, const_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_select::sqrt(val)) \
-F1(inv_sqrt, constexpr, const_select::inv_sqrt(val)) \
+F1(rsqrt, constexpr, const_select::rsqrt(val)) \
 F1(abs, constexpr, const_select::abs(val)) \
 F1(floor, constexpr, const_select::floor(val)) \
 F1(ceil, constexpr, const_select::ceil(val)) \
@@ -261,7 +261,7 @@ F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<fl
 #define FLOOR_VH_IMPL_DEF_DOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(double, \
 F2(modulo, constexpr, const_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_select::sqrt(val)) \
-F1(inv_sqrt, constexpr, const_select::inv_sqrt(val)) \
+F1(rsqrt, constexpr, const_select::rsqrt(val)) \
 F1(abs, constexpr, const_select::abs(val)) \
 F1(floor, constexpr, const_select::floor(val)) \
 F1(ceil, constexpr, const_select::ceil(val)) \
@@ -292,7 +292,7 @@ F1(unary_complement, constexpr, (val < 0.0 ? 1.0 : -1.0) * (numeric_limits<doubl
 #define FLOOR_VH_IMPL_DEF_LDOUBLE(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(long double, \
 F2(modulo, constexpr, const_select::fmod(lhs, rhs)) \
 F1(sqrt, constexpr, const_select::sqrt(val)) \
-F1(inv_sqrt, constexpr, const_select::inv_sqrt(val)) \
+F1(rsqrt, constexpr, const_select::rsqrt(val)) \
 F1(abs, constexpr, const_select::abs(val)) \
 F1(floor, constexpr, const_select::floor(val)) \
 F1(ceil, constexpr, const_select::ceil(val)) \
@@ -323,7 +323,7 @@ F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (numeric_limits<lo
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -354,7 +354,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_UINT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint32_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -385,7 +385,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_INT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int8_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -416,7 +416,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_UINT8(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint8_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -447,7 +447,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_INT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int16_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -478,7 +478,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_UINT16(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint16_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -509,7 +509,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_INT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int64_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -540,7 +540,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_UINT64(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(uint64_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -571,7 +571,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_SSIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(ssize_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -602,7 +602,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_SIZE_T(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(size_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -633,7 +633,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_INT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__int128_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, const_math::abs(val)) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -664,7 +664,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_UINT128(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(__uint128_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
@@ -695,7 +695,7 @@ F1(unary_complement, constexpr, (~val)) \
 #define FLOOR_VH_IMPL_DEF_BOOL(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(bool, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, val) \
-F1(inv_sqrt, constexpr, val) \
+F1(rsqrt, constexpr, val) \
 F1(abs, constexpr, val) \
 F1(floor, constexpr, val) \
 F1(ceil, constexpr, val) \
