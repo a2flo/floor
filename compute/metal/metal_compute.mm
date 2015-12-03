@@ -260,10 +260,10 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			case 5:
 				device.family = 3;
 				if(device.name.find("A9X") != string::npos) {
-					device.units = 6; // GT7600
+					device.units = 12; // GT7800/7900?
 				}
 				else {
-					device.units = 12; // GT7800/7900?
+					device.units = 6; // GT7600
 				}
 				device.mem_clock = 1600; // TODO: ram clock
 				device.max_image_1d_dim = { 16384 };
