@@ -163,6 +163,7 @@ public:
 	static constexpr T exp2(const T& val);
 	static constexpr T log(const T& val);
 	static constexpr T log2(const T& val);
+	static constexpr T pow(const T& lhs, const T& rhs);
 	static constexpr T fma(const T& a, const T& b, const T& c);
 	static constexpr T bit_and(const T& lhs, const integral_type& rhs);
 	static constexpr T bit_or(const T& lhs, const integral_type& rhs);
@@ -248,6 +249,7 @@ F1(exp, constexpr, const_select::exp(val)) \
 F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
 F1(log2, constexpr, const_select::log2(val)) \
+F2(pow, constexpr, const_select::pow(lhs, rhs)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
@@ -279,6 +281,7 @@ F1(exp, constexpr, const_select::exp(val)) \
 F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
 F1(log2, constexpr, const_select::log2(val)) \
+F2(pow, constexpr, const_select::pow(lhs, rhs)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs & rhs) \
 F2_INT(bit_or, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs | rhs) \
@@ -310,6 +313,7 @@ F1(exp, constexpr, const_select::exp(val)) \
 F1(exp2, constexpr, const_select::exp2(val)) \
 F1(log, constexpr, const_select::log(val)) \
 F1(log2, constexpr, const_select::log2(val)) \
+F2(pow, constexpr, const_select::pow(lhs, rhs)) \
 F3(fma, constexpr, const_select::fma(a, b, c)) \
 F2_INT(bit_and, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs & rhs) \
 F2_INT(bit_or, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs | rhs) \
@@ -341,6 +345,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -372,6 +377,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -403,6 +409,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -434,6 +441,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -465,6 +473,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -496,6 +505,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -527,6 +537,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -558,6 +569,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -589,6 +601,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -620,6 +633,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -651,6 +665,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -682,6 +697,7 @@ F1(exp, constexpr, (scalar_type)const_select::exp((const_math::max_rt_fp_type)va
 F1(exp2, constexpr, (scalar_type)const_select::exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)const_select::log((const_math::max_rt_fp_type)val)) \
 F1(log2, constexpr, (scalar_type)const_select::log2((const_math::max_rt_fp_type)val)) \
+F2(pow, constexpr, (scalar_type)const_select::pow((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \
@@ -713,6 +729,7 @@ F1(exp, constexpr, val) \
 F1(exp2, constexpr, val) \
 F1(log, constexpr, val) \
 F1(log2, constexpr, val) \
+F2(pow, constexpr, lhs | rhs) \
 F3(fma, constexpr, ((a * b) + c)) \
 F2_INT(bit_and, constexpr, (lhs & rhs)) \
 F2_INT(bit_or, constexpr, (lhs | rhs)) \

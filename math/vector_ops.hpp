@@ -220,8 +220,8 @@ FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, func_ext, (),
 #define FLOOR_VEC_FUNC_ARGS(func_name, func_name_this, func_name_copy, func_args, ...) \
 FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, FLOOR_NOP, func_args, FLOOR_NOP, FLOOR_NOP_FUNC, FLOOR_VEC_RHS_NOP, __VA_ARGS__)
 
-#define FLOOR_VEC_FUNC_ARGS_VEC(func_name, func_name_this, func_name_copy, func_args, rhs, rhs_sel, ...) \
-FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, FLOOR_NOP, func_args, rhs, FLOOR_COMMA_FUNC, rhs_sel, __VA_ARGS__)
+#define FLOOR_VEC_FUNC_ARGS_VEC(func_name, func_name_this, func_name_copy, func_args, rhs) \
+FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, FLOOR_NOP, func_args, rhs, FLOOR_COMMA_FUNC, FLOOR_VEC_RHS_VEC)
 
 #define FLOOR_VEC_FUNC_EXT_ARGS(func_name, func_name_this, func_name_copy, func_ext, func_args, rhs, rhs_sep, rhs_sel, ...) \
 	constexpr vector_type& func_name_this func_args { \

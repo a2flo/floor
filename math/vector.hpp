@@ -1963,6 +1963,14 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::acos, acos, acosed)
 	//! applies the atan function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::atan, atan, ataned)
+	//! applies the atan2 function on all components (scalar x)
+	FLOOR_VEC_FUNC_ARGS(vector_helper<decayed_scalar_type>::atan2, atan2, atan2ed,
+						(const scalar_type& rhs),
+						rhs)
+	//! applies the atan2 function on all components (vector x)
+	FLOOR_VEC_FUNC_ARGS_VEC(vector_helper<decayed_scalar_type>::atan2, atan2, atan2ed,
+							(const vector_type& rhs),
+							rhs.)
 	//! applies the exp function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::exp, exp, exped)
 	//! applies the exp2 function on all components
@@ -1971,6 +1979,14 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log, log, loged)
 	//! applies the log2 function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::log2, log2, log2ed)
+	//! applies the pow function on all components (scalar exponent)
+	FLOOR_VEC_FUNC_ARGS(vector_helper<decayed_scalar_type>::pow, pow, powed,
+						(const scalar_type& exponent),
+						exponent)
+	//! applies the pow function on all components (vector exponent)
+	FLOOR_VEC_FUNC_ARGS_VEC(vector_helper<decayed_scalar_type>::pow, pow, powed,
+							(const vector_type& exponent),
+							exponent.)
 	
 	//////////////////////////////////////////
 	// type conversion
