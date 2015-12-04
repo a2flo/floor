@@ -375,6 +375,13 @@ namespace const_math {
 		return ret;
 	}
 	
+	//! computes base^exponent, base to the power of exponent
+	//! NOTE: not precise, especially for huge values
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type pow(const fp_type base, const fp_type exponent) {
+		return const_math::exp(exponent * const_math::log(base));
+	}
+	
 	//! returns the amount of halley iterations needed for a certain precision (type)
 	//! for float: needs 3 iterations of halley to compute 1 / sqrt(x),
 	//! although 2 iterations are enough for ~99.999% of all cases,
@@ -390,6 +397,7 @@ namespace const_math {
 			case 8: return 4;
 			// long double
 			case 10:
+			case 12:
 			case 16:
 			default:
 				return 5;
@@ -758,6 +766,12 @@ namespace const_math {
 		return width;
 	}
 	
+	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	constexpr fp_type copysign(const fp_type& a, const fp_type& b) {
+		return (b < 0.0f ? -1.0f : 1.0f) * const_math::abs(a);
+	}
+	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"
 	//! note: all arguments are cast to long double, then used to do the computation and then cast back to the return type
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
@@ -924,6 +938,8 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), float, "f")
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), float, "f")
+	FLOOR_CONST_MATH_SELECT_2(pow, std::pow(y, x), float, "f")
+	FLOOR_CONST_MATH_SELECT_2(copysign, std::copysign(y, x), float, "f")
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
@@ -947,6 +963,8 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log, std::log(val), double, "d")
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
+	FLOOR_CONST_MATH_SELECT_2(pow, std::pow(y, x), double, "d")
+	FLOOR_CONST_MATH_SELECT_2(copysign, std::copysign(y, x), double, "d")
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
@@ -971,6 +989,8 @@ namespace const_select {
 	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log, ::logl(val), long double, "l")
 	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
+	FLOOR_CONST_MATH_SELECT_2(pow, ::powl(y, x), long double, "l")
+	FLOOR_CONST_MATH_SELECT_2(copysign, ::copysignl(y, x), long double, "l")
 #endif
 
 #undef FLOOR_CONST_MATH_SELECT
