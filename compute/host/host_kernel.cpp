@@ -630,7 +630,8 @@ void host_kernel::execute_internal(compute_queue* queue,
 			// 8k stack should be enough, considering this runs on gpus
 			// TODO: stack protection?
 			static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
-			uint8_t* item_stacks = new uint8_t[item_stack_size * local_size] alignas(1024);
+			auto item_stacks_alloc = make_unique<uint8_t[]>(item_stack_size * local_size);
+			uint8_t* item_stacks = item_stacks_alloc.get();
 			
 			// init fibers
 			for(uint32_t i = 0; i < local_size; ++i) {
@@ -678,8 +679,6 @@ void host_kernel::execute_internal(compute_queue* queue,
 					break;
 				}
 			}
-			
-			delete [] item_stacks; // TODO: better use unique_ptr
 		});
 	}
 	// wait for worker threads to finish

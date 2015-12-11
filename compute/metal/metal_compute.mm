@@ -201,7 +201,7 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
 		device.vendor_name = "Apple";
-		device.driver_version_str = "1.0.0"; // for now, should update with iOS >8 (iOS8 versions: metal 1.0.0, air 1.6.0, language 1.0.0)
+		device.driver_version_str = "1.1.0"; // for now (iOS9 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
 		device.vendor = COMPUTE_VENDOR::APPLE;
 		device.clock = 450; // actually unknown, and won't matter for now
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
@@ -493,7 +493,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 	return prog;
 }
 
-static metal_program::metal_program_entry create_metal_program(const metal_device* device,
+static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,
 															   pair<string, vector<llvm_compute::kernel_info>> program_data) {
 	metal_program::metal_program_entry ret;
 	ret.kernels_info = program_data.second;
@@ -623,6 +623,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 					  dev->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
 			continue;
 		}
+		entry.valid = true;
 		
 		prog_map.insert_or_assign((metal_device*)dev.get(), entry);
 	}
