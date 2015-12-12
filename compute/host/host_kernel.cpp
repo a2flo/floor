@@ -674,7 +674,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 				
 				// exit due to excessive local memory allocation?
 				if(local_memory_exceeded) {
-					log_error("exceeded local memory allocation for kernel \"%s\" - requested %u bytes, limit is is %u bytes",
+					log_error("exceeded local memory allocation for kernel \"%s\" - requested %u bytes, limit is %u bytes",
 							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
 					break;
 				}

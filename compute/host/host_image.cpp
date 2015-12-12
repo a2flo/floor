@@ -129,7 +129,9 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 #if !defined(FLOOR_IOS)
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been acquired for use with the host!");
+#endif
 		return true;
 	}
 	
@@ -178,7 +180,9 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	if(gl_object == 0) return false;
 	if(image == 0) return false;
 	if(gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been released for opengl use!");
+#endif
 		return true;
 	}
 	

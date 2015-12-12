@@ -837,13 +837,13 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, source_code, additional_options,
+								  create_opencl_program(dev, llvm_compute::compile_program(dev, source_code, additional_options,
 #if !defined(__APPLE__)
-																								llvm_compute::TARGET::SPIR
+																						   llvm_compute::TARGET::SPIR
 #else
-																								llvm_compute::TARGET::APPLECL
+																						   llvm_compute::TARGET::APPLECL
 #endif
-																								)));
+																						   )));
 	}
 	return add_program(move(prog_map));
 }

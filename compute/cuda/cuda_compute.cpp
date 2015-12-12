@@ -412,8 +412,8 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((cuda_device*)dev.get(),
-								  create_cuda_program(llvm_compute::compile_program_file(dev, source_code, additional_options,
-																						 llvm_compute::TARGET::PTX)));
+								  create_cuda_program(llvm_compute::compile_program(dev, source_code, additional_options,
+																					llvm_compute::TARGET::PTX)));
 	}
 	return add_program(move(prog_map));
 }

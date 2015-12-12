@@ -159,13 +159,18 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, co
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst, const size_t size_, const size_t offset) {
+void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused_on_ios, void* dst, const size_t size_, const size_t offset) {
 	if(buffer == nil) return;
 	
 	const size_t read_size = (size_ == 0 ? size : size_);
 	if(!read_check(size, read_size, offset)) return;
 	
-	// TODO: !
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, buffer);
+	}
+#endif
+	
 	GUARD(lock);
 	memcpy(dst, (uint8_t*)[buffer contents] + offset, size_);
 }
@@ -182,9 +187,15 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const vo
 	
 	GUARD(lock);
 	memcpy((uint8_t*)[buffer contents] + offset, src, write_size);
+	
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		[buffer didModifyRange:NSRange { offset, offset + write_size }];
+	}
+#endif
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
 						shared_ptr<compute_buffer> src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;
@@ -193,11 +204,23 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
 	const size_t copy_size = (size_ == 0 ? std::min(src_size, size) : size_);
 	if(!copy_check(size, src_size, copy_size, dst_offset, src_offset)) return;
 	
-	// TODO: !
 	GUARD(lock);
+	
+#if !defined(FLOOR_IOS)
+	if((((metal_buffer*)src.get())->get_metal_resource_options() & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		sync_metal_resource(cqueue, buffer);
+	}
+#endif
+	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
 		   (uint8_t*)[((metal_buffer*)src.get())->get_metal_buffer() contents] + src_offset,
 		   size_);
+	
+#if !defined(FLOOR_IOS)
+	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
+		[buffer didModifyRange:NSRange { dst_offset, dst_offset + size_ }];
+	}
+#endif
 }
 
 void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
@@ -208,8 +231,8 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	const size_t fill_size = (size_ == 0 ? size : size_);
 	if(!fill_check(size, fill_size, pattern_size, offset)) return;
 	
-	// TODO: !
 	GUARD(lock);
+	
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
@@ -230,18 +253,18 @@ void metal_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 			}
 			break;
 	}
-}
-
-void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused_on_ios) {
-	if(buffer == nil) return;
-	
-	GUARD(lock);
 	
 #if !defined(FLOOR_IOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		sync_metal_resource(cqueue, buffer);
+		[buffer didModifyRange:NSRange { offset, offset + fill_size }];
 	}
 #endif
+}
+
+void metal_buffer::zero(shared_ptr<compute_queue> cqueue floor_unused) {
+	if(buffer == nil) return;
+	
+	GUARD(lock);
 	
 	memset([buffer contents], 0, size);
 	
@@ -355,7 +378,7 @@ void metal_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 			// else: the user received pointer directly to the metal buffer and nothing needs to be copied
 			
 			// finally, notify the buffer that we changed its contents
-			[buffer didModifyRange:NSRange { iter->second.offset, iter->second.size }];
+			[buffer didModifyRange:NSRange { iter->second.offset, iter->second.offset + iter->second.size }];
 		}
 		
 		// remove the mapping

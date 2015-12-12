@@ -734,7 +734,9 @@ bool cuda_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(rsrc == nullptr) return false;
 	if(!gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been acquired for use with cuda!");
+#endif
 		return true;
 	}
 	
@@ -772,7 +774,9 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(image == nullptr) return false;
 	if(rsrc == nullptr) return false;
 	if(gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been released for opengl use!");
+#endif
 		return true;
 	}
 	

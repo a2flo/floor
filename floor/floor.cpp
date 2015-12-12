@@ -31,6 +31,7 @@
 #endif
 
 // init statics
+static atomic<bool> floor_initialized { false };
 event* floor::evt = nullptr;
 bool floor::console_only = false;
 shared_ptr<compute_context> floor::compute_ctx;
@@ -83,6 +84,11 @@ static string expand_path_with_env(const string& in) {
 void floor::init(const char* callpath_, const char* datapath_,
 				 const bool console_only_, const string config_name_,
 				 const bool use_gl33_, const unsigned int window_flags) {
+	// return if already initialized
+	if(floor_initialized.exchange(true)) {
+		return;
+	}
+	
 	//
 	register_segfault_handler();
 	
@@ -435,6 +441,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 }
 
 void floor::destroy() {
+	// only destroy if initialized
+	if(!floor_initialized) return;
 	log_debug("destroying floor ...");
 	
 	if(!console_only) acquire_context();
@@ -461,6 +469,7 @@ void floor::destroy() {
 	SDL_Quit();
 	
 	log_debug("floor destroyed!");
+	floor_initialized = false;
 }
 
 void floor::init_internal(const bool use_gl33

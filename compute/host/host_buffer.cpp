@@ -266,7 +266,9 @@ void host_buffer::unmap(shared_ptr<compute_queue> cqueue floor_unused, void* __a
 bool host_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl buffer has already been acquired for use with the host!");
+#endif
 		return true;
 	}
 	
@@ -297,7 +299,9 @@ bool host_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	if(gl_object == 0) return false;
 	if(buffer == 0) return false;
 	if(gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl buffer has already been released for opengl use!");
+#endif
 		return true;
 	}
 	

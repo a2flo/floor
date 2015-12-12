@@ -598,8 +598,8 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((metal_device*)dev.get(),
 								  create_metal_program((metal_device*)dev.get(),
-													   llvm_compute::compile_program_file(dev, source_code, additional_options,
-																						  llvm_compute::TARGET::AIR)));
+													   llvm_compute::compile_program(dev, source_code, additional_options,
+																					 llvm_compute::TARGET::AIR)));
 	}
 	return add_metal_program(move(prog_map), &programs, programs_lock);
 }

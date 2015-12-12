@@ -283,7 +283,9 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(!gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been acquired for use with opencl!");
+#endif
 		return true;
 	}
 	
@@ -297,7 +299,9 @@ bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
 	if(image == 0) return false;
 	if(gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been released for opengl use!");
+#endif
 		return true;
 	}
 	

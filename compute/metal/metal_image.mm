@@ -776,7 +776,9 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(image == nil) return false;
 	if(gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("image has already been acquired!");
+#endif
 		return true;
 	}
 	gl_object_state = true;
@@ -786,7 +788,9 @@ bool metal_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(image == nil) return false;
 	if(!gl_object_state) {
+#if defined(FLOOR_DEBUG) && 0
 		log_warn("image has already been released!");
+#endif
 		return true;
 	}
 	gl_object_state = false;
