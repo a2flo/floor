@@ -116,7 +116,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
@@ -150,7 +149,6 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
@@ -188,7 +186,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
@@ -224,7 +221,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>SDL2.lib;OpenCL.lib;cuda.lib;OpenGL32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <Version>0.2</Version>
       <GenerateMapFile>true</GenerateMapFile>
       <MapExports>true</MapExports>
