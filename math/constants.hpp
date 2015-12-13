@@ -83,6 +83,9 @@ namespace const_math {
 	//! 1/ln(2)
 	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type _1_DIV_LN2 = fp_type(1.4426950408889634073599246810018921374266459541529859341354494L);
+	//! 1/ld(e)
+	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	constexpr fp_type _1_DIV_LD2_E = fp_type(0.6931471805599453094172321214581765680755001343602552L);
 	//! epsilon (for general use)
 	template <typename fp_type = max_fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type EPSILON = fp_type(0.00001L);

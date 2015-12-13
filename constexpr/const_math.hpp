@@ -268,19 +268,19 @@ namespace const_math {
 		if(k > n) return 0u;
 		if(k == 0u || k == n) return 1u;
 		
-		// if n is small enough, doubles are safe to use
-		if(n <= 53) {
+		// if n is small enough, long doubles are safe to use
+		if(n <= 63) {
 			k = const_math::min(k, n - k);
-			double ret = 1.0;
+			long double ret = 1.0;
 			for(uint64_t i = 1u; i <= k; ++i) {
 				// sadly have to use fp math because of this
-				ret *= double((n + 1u) - i) / double(i);
+				ret *= ((long double)((n + 1u) - i)) / ((long double)(i));
 			}
 			return (uint64_t)const_math::round(ret);
 		}
 		// else: compute it recursively
 		else {
-			// here: n > 53, k > 0
+			// here: n > 63, k > 0
 			return binomial(n - 1u, k - 1u) + binomial(n - 1u, k);
 		}
 	}
@@ -330,7 +330,7 @@ namespace const_math {
 	//! computes exp2(val) == 2^val == exp(val * ln(2))
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type exp2(fp_type val) {
-		return fp_type(exp(max_fp_type(val)) * 0.69314718055994530941723212145817656807550013436025525412068_fp /* "ln(2)" */);
+		return fp_type(exp(max_fp_type(val) * const_math::LN2<>));
 	}
 	
 	//! computes ln(val), the natural logarithm of val
@@ -362,7 +362,8 @@ namespace const_math {
 	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type log2(fp_type val) {
-		return fp_type(log((max_fp_type)val) * 1.44269504088896340735992468100189213742664595415298593413545_fp /* "1 / ln(2)" */);
+		// log_2(x) = ln(x) / ln(2)
+		return fp_type(log((max_fp_type)val) * const_math::_1_DIV_LN2<>);
 	}
 	
 	//! computes base^exponent, base to the power of exponent
