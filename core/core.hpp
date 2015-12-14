@@ -130,6 +130,8 @@ public:
 	}
 	//! converts an input string to a string that can be used as a file name (mostly ASCII)
 	static string to_file_name(const string& str);
+	//! for use on windows: expands %ENV% variables in the given path/string
+	static string expand_path_with_env(const string& in);
 	
 	// system functions
 	static void system(const string& cmd);

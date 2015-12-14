@@ -64,20 +64,6 @@ bool floor::use_gl_context { true };
 uint32_t floor::global_vao { 0u };
 string floor::gl_vendor { "" };
 
-#if defined(__WINDOWS__)
-static string expand_path_with_env(const string& in) {
-	static thread_local char expanded_path[32768]; // 32k is the max
-	const auto expanded_size = ExpandEnvironmentStringsA(in.c_str(), expanded_path, 32767);
-	if(expanded_size == 0 || expanded_size == 32767) {
-		log_error("failed to expand file path: %s", in);
-		return in;
-	}
-	return string(expanded_path, std::min(uint32_t(expanded_size - 1), uint32_t(size(expanded_path) - 1)));
-}
-#else
-#define expand_path_with_env(path) path
-#endif
-
 /*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
  *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
  */
@@ -194,7 +180,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	};
 #else
 	const auto floor_sys_path = [](const string& str) {
-		return expand_path_with_env("%ProgramW6432%/floor/data/") + str;
+		return core::expand_path_with_env("%ProgramW6432%/floor/data/") + str;
 	};
 #endif
 	
@@ -322,12 +308,12 @@ void floor::init(const char* callpath_, const char* datapath_,
 											  vector<string*> additional_bins = {}) {
 #if defined(__WINDOWS__)
 		// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
-		compiler = expand_path_with_env(compiler + ".exe");
-		llc = expand_path_with_env(llc + ".exe");
-		as = expand_path_with_env(as + ".exe");
-		dis = expand_path_with_env(dis + ".exe");
+		compiler = core::expand_path_with_env(compiler + ".exe");
+		llc = core::expand_path_with_env(llc + ".exe");
+		as = core::expand_path_with_env(as + ".exe");
+		dis = core::expand_path_with_env(dis + ".exe");
 		for(auto& bin : additional_bins) {
-			*bin = expand_path_with_env(*bin + ".exe");
+			*bin = core::expand_path_with_env(*bin + ".exe");
 		}
 #endif
 		
@@ -337,7 +323,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 				continue;
 			}
 			
-			const auto path_str = expand_path_with_env(path.str);
+			const auto path_str = core::expand_path_with_env(path.str);
 			
 			if(!file_io::is_file(path_str + "/bin/" + compiler)) continue;
 			if(!file_io::is_file(path_str + "/bin/" + llc)) continue;
