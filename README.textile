@@ -86,6 +86,7 @@
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
 
 *Compute Toolchain:*
+* automated builds for Linux, OS X and Windows can be found at: https://libfloor.org/builds/toolchain
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
 * compile the toolchain:
