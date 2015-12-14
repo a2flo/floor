@@ -379,7 +379,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					// for 32-bit/64-bit float formats, just pass-through raw data
 					ret = *(decltype(ret)*)raw_data;
 				}
-#if !defined(_MSC_VER) // TODO: not support with clang/msvc for now, added a s/w solution
+#if !defined(_MSC_VER) && !defined(__linux__) // TODO: a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
