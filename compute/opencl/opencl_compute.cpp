@@ -302,16 +302,31 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = (uint32_t)max_work_group_item_sizes[1];
 			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
 			
-#if defined(__APPLE__)
-			// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by (at least) 8
+			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
+			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
+				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+			}
+			
 			if(device.internal_type == CL_DEVICE_TYPE_CPU) {
+#if defined(__APPLE__)
+				// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by (at least) 8
 				const auto size_div = std::max(8u, device.units); // might be cpu/unit count, don't have the h/w to test this -> assume at least 8
 				if(device.max_work_group_size > size_div) device.max_work_group_size /= size_div;
 				if(device.max_work_group_item_sizes.x > size_div) device.max_work_group_item_sizes.x /= size_div;
 				if(device.max_work_group_item_sizes.y > size_div) device.max_work_group_item_sizes.y /= size_div;
 				if(device.max_work_group_item_sizes.z > size_div) device.max_work_group_item_sizes.z /= size_div;
-			}
+#else
+				// intel cpu is reporting 8192, but this isn't actually working on SSE cpus (unsure about avx, so leaving it for now)
+				// -> set it to 4096 as it is actually working
+				if(platform_vendor == COMPUTE_VENDOR::INTEL &&
+				   device.simd_width == 4 &&
+				   device.max_work_group_size >= 8192) {
+					device.max_work_group_size = 4096;
+					device.max_work_group_item_sizes.min(device.max_work_group_size);
+				}
 #endif
+			}
 			
 			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
 			device.max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
@@ -415,12 +430,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			if(device.internal_type & CL_DEVICE_TYPE_DEFAULT) {
 				dev_type_str += "Default ";
-			}
-			
-			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
-			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
-				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
-				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
 			const string cl_c_version_str = cl_get_info<CL_DEVICE_OPENCL_C_VERSION>(cl_dev);
