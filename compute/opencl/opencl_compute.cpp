@@ -304,7 +304,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			
 			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
 			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
-				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
+				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx2, 16-wide if avx-512
 				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
