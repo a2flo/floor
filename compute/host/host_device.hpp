@@ -20,6 +20,7 @@
 #define __FLOOR_HOST_DEVICE_HPP__
 
 #include <floor/compute/compute_device.hpp>
+#include <floor/core/core.hpp>
 #include <floor/floor/floor_version.hpp>
 
 FLOOR_PUSH_WARNINGS()
