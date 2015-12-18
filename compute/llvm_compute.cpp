@@ -391,6 +391,19 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH="s + simd_width_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
 	
+	// handle cuda sm version
+	string sm_version = "20"; // default to fermi/sm_20
+	if(target == TARGET::PTX) {
+		const auto& force_sm = floor::get_cuda_force_compile_sm();
+#if !defined(FLOOR_NO_CUDA)
+		const auto& sm = ((cuda_device*)device.get())->sm;
+		sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
+#else
+		if(!force_sm.empty()) sm_version = force_sm;
+#endif
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
+	}
+	
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
 	if(floor::get_compute_debug() && target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
@@ -531,14 +544,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		compiled_code.swap(ir_output);
 	}
 	else if(target == TARGET::PTX) {
-		const auto& force_sm = floor::get_cuda_force_compile_sm();
-#if !defined(FLOOR_NO_CUDA)
-		const auto& sm = ((cuda_device*)device.get())->sm;
-		const string sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
-#else
-		const string sm_version = (force_sm.empty() ? "20" /* just default to fermi/sm_20 */ : force_sm);
-#endif
-		
 		// llc expects an input file (or stdin, but we can't write there reliably)
 		const auto cuda_ll = core::create_tmp_file_name("cuda", ".ll");
 		if(!file_io::string_to_file(cuda_ll, ir_output)) {

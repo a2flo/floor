@@ -133,6 +133,15 @@ namespace device_info {
 #endif
 	}
 	
+	//! when using cuda, this returns the sm version of the device this is compiled for, returns 0 otherwise
+	constexpr uint32_t cuda_sm() {
+#if defined(FLOOR_COMPUTE_CUDA)
+		return FLOOR_COMPUTE_INFO_CUDA_SM;
+#else
+		return 0;
+#endif
+	}
+	
 }
 
 #endif
