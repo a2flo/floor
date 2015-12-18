@@ -195,13 +195,11 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device.device = dev;
 		device.name = [[dev name] UTF8String];
 		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
-		device.platform_vendor = COMPUTE_VENDOR::APPLE;
 		++device_num;
 		
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
 		device.vendor_name = "Apple";
-		device.driver_version_str = "1.1.0"; // for now (iOS9 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
 		device.vendor = COMPUTE_VENDOR::APPLE;
 		device.clock = 450; // actually unknown, and won't matter for now
 		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
@@ -281,7 +279,6 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 #else
 		// on os x, we can get to the device properties through MTLDeviceSPI
 		device.vendor_name = [[dev vendorName] UTF8String];
-		device.driver_version_str = "1.1.0"; // TODO: proper version info?
 		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
 			device.vendor = COMPUTE_VENDOR::NVIDIA;
@@ -320,11 +317,6 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
 		log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
-		device.local_mem_dedicated = true;
-		device.image_support = true;
-		device.bitness = 64; // seems to be true for all devices? (at least nvptx64, igil64 and A7+)
-		device.basic_64_bit_atomics_support = false; // not supported at all
-		device.extended_64_bit_atomics_support = false; // not supported at all
 		
 		// done
 		supported = true;

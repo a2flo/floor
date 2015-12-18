@@ -116,21 +116,10 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		device.device_id = cuda_dev;
 		device.sm = uint2(cc);
 		device.type = (compute_device::TYPE)gpu_counter++;
-		device.vendor = COMPUTE_VENDOR::NVIDIA;
-		device.platform_vendor = COMPUTE_VENDOR::NVIDIA;
 		device.name = dev_name;
-		device.vendor_name = "NVIDIA";
 		device.version_str = to_string(cc.x) + "." + to_string(cc.y);
 		device.driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
-		device.image_support = true;
-		device.double_support = true; // true for all gpus since fermi
-#if defined(PLATFORM_X32)
-		device.bitness = 32;
-#elif defined(PLATFORM_X64)
-		device.bitness = 64;
-#endif
-		device.simd_width = 32;
-		
+
 		// get all the attributes!
 		size_t global_mem_size = 0;
 		CU_CALL_IGNORE(cu_device_total_mem(&global_mem_size, cuda_dev));
@@ -145,7 +134,6 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_device_get_attribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE::L2_CACHE_SIZE, cuda_dev));
 		device.constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
 		device.local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
-		device.local_mem_dedicated = true;
 		device.l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
 		int max_work_group_size;
@@ -195,7 +183,6 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_device_get_attribute(&unified_memory, CU_DEVICE_ATTRIBUTE::UNIFIED_ADDRESSING, cuda_dev));
 		device.unified_memory = (unified_memory != 0);
 		
-		device.basic_64_bit_atomics_support = true; // always true since sm_20
 		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
 		
 		// compute score and try to figure out which device is the fastest

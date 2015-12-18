@@ -27,6 +27,26 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class cuda_device final : public compute_device {
 public:
+	cuda_device() : compute_device() {
+		// init statically known info
+		type = compute_device::TYPE::GPU;
+		
+		vendor = COMPUTE_VENDOR::NVIDIA;
+		platform_vendor = COMPUTE_VENDOR::NVIDIA;
+		vendor_name = "NVIDIA";
+		
+		simd_width = 32;
+		local_mem_dedicated = true;
+		image_support = true;
+		double_support = true; // true for all gpus since fermi/sm_20
+		basic_64_bit_atomics_support = true; // always true since fermi/sm_20
+		
+#if defined(PLATFORM_X32)
+		bitness = 32;
+#elif defined(PLATFORM_X64)
+		bitness = 64;
+#endif
+	}
 	~cuda_device() override {}
 	
 	//! compute capability (aka sm_xx)

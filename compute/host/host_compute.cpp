@@ -32,7 +32,6 @@
 
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
-#include <floor/floor/floor_version.hpp>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
 #include <sys/types.h>
@@ -145,17 +144,12 @@ host_compute::host_compute() : compute_context() {
 #endif
 	if(cpu_name == "") cpu_name = "UNKNOWN CPU";
 	
-	device.type = compute_device::TYPE::CPU0;
 	device.name = cpu_name;
 	device.units = core::get_hw_thread_count();
 	device.clock = uint32_t(cpu_clock);
 	device.global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
 	device.max_mem_alloc = device.global_mem_size;
-	device.local_mem_size = 128ull * 1024ull * 1024ull; // 128k -> must be sync'ed with host_kernel.cpp
-	device.local_mem_dedicated = false;
 	device.constant_mem_size = device.global_mem_size; // not different from normal ram
-	device.version_str = FLOOR_BUILD_VERSION_STR;
-	device.driver_version_str = FLOOR_BUILD_VERSION_STR;
 	
 	const auto lc_cpu_name = core::str_to_lower(device.name);
 	if(lc_cpu_name.find("intel") != string::npos) {
@@ -175,7 +169,6 @@ host_compute::host_compute() : compute_context() {
 		device.vendor = COMPUTE_VENDOR::HOST;
 		device.vendor_name = "Host";
 	}
-	device.platform_vendor = COMPUTE_VENDOR::HOST;
 	
 #if 0 // mt-item
 	device.max_work_group_size = device.units;
@@ -189,24 +182,7 @@ host_compute::host_compute() : compute_context() {
 	device.max_work_group_item_sizes = { 64, 64, 64 };
 #endif
 #endif
-	device.max_work_item_sizes = { 0xFFFFFFFFu };
 	device.max_image_1d_buffer_dim = { device.max_mem_alloc };
-	// can technically use any dim as long as it fits into memory
-	device.max_image_1d_dim = { 65536 };
-	device.max_image_2d_dim = { 65536, 65536 };
-	device.max_image_3d_dim = { 65536, 65536, 65536 };
-	device.image_support = true;
-	device.double_support = true;
-	device.unified_memory = true;
-	device.basic_64_bit_atomics_support = true;
-	device.extended_64_bit_atomics_support = true;
-#if defined(PLATFORM_X32)
-	device.bitness = 32;
-#elif defined(PLATFORM_X64)
-	device.bitness = 64;
-#endif
-	// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
-	device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 	
 	//
 	supported = true;

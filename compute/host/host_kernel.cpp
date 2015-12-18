@@ -395,7 +395,7 @@ static _Thread_local fiber_context* item_contexts { nullptr };
 #endif
 
 // local memory management
-static constexpr const size_t floor_local_memory_max_size { 128 * 1024 * 1024 }; // 128k
+static constexpr const size_t floor_local_memory_max_size { host_device::host_compute_local_memory_size };
 static uint32_t local_memory_alloc_offset { 0 };
 static bool local_memory_exceeded { false };
 static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr };
