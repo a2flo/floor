@@ -25,7 +25,7 @@
 #include <sys/sysctl.h>
 #endif
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 #include <cpuid.h>
 #endif
 
@@ -538,10 +538,12 @@ string core::get_current_thread_name() {
 }
 
 bool core::cpu_has_fma() {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
 	return (ecx & bit_FMA) > 0;
+#elif !defined(FLOOR_IOS) && defined(__c2__)
+	return false; // TODO: c2 cpuid
 #else
 #if defined(PLATFORM_X64)
 	return true; // armv8
@@ -552,34 +554,40 @@ bool core::cpu_has_fma() {
 }
 
 bool core::cpu_has_avx() {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 	int eax, ebx, ecx, edx;
 	__cpuid(1, eax, ebx, ecx, edx);
 	return (ecx & bit_AVX) > 0;
+#elif !defined(FLOOR_IOS) && defined(__c2__)
+	return false; // TODO: c2 cpuid
 #else
 	return false;
 #endif
 }
 
 bool core::cpu_has_avx2() {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 	int eax, ebx, ecx, edx;
 	__cpuid(0, eax, ebx, ecx, edx);
 	if(eax < 7) return false;
 	__cpuid(7, eax, ebx, ecx, edx);
 	return (ebx & 0x00000020) > 0;
+#elif !defined(FLOOR_IOS) && defined(__c2__)
+	return false; // TODO: c2 cpuid
 #else
 	return false;
 #endif
 }
 
 bool core::cpu_has_avx512() {
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 	int eax, ebx, ecx, edx;
 	__cpuid(0, eax, ebx, ecx, edx);
 	if(eax < 7) return false;
 	__cpuid(7, eax, ebx, ecx, edx);
 	return (ebx & 0x00010000) > 0;
+#elif !defined(FLOOR_IOS) && defined(__c2__)
+	return false; // TODO: c2 cpuid
 #else
 	return false;
 #endif

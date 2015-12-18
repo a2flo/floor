@@ -786,15 +786,27 @@ namespace const_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static float native_fma(float a, float b, float c) {
+#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fmaf(a, b, c);
+#else
+		return (a * b) + c;
+#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static double native_fma(double a, double b, double c) {
+#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fma(a, b, c);
+#else
+		return (a * b) + c;
+#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static long double native_fma(long double a, long double b, long double c) {
+#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fmal(a, b, c);
+#else
+	return (a * b) + c;
+#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>

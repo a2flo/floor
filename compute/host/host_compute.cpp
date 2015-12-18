@@ -39,7 +39,7 @@
 #include <sys/sysctl.h>
 #endif
 
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 #include <cpuid.h>
 #endif
 
@@ -56,7 +56,7 @@ host_compute::host_compute() : compute_context() {
 	uint64_t cpu_clock = 0;
 	
 	// we can get the actual cpu name quite easily on x86 through cpuid instructions
-#if !defined(FLOOR_IOS)
+#if !defined(FLOOR_IOS) && !defined(__c2__)
 	// cpuid magic
 	uint32_t eax, ebx, ecx, edx;
 	__cpuid(0x80000000u, eax, ebx, ecx, edx);
@@ -76,6 +76,8 @@ host_compute::host_compute() : compute_context() {
 		}
 		cpu_name = core::trim(cpuid_name);
 	}
+#elif !defined(FLOOR_IOS) && defined(__c2__)
+	// TODO: cpuid from elsewhere?
 #else // this can't be done on ARM or iOS however (TODO: handle other arm cpus)
 	// -> hardcode the name for now
 #if defined(PLATFORM_X32)
