@@ -5759,6 +5759,19 @@ index 03001d8..2c4bc8c 100644
        return ICS;
    }
  
+diff --git a/tools/clang/lib/Sema/SemaStmtAttr.cpp b/tools/clang/lib/Sema/SemaStmtAttr.cpp
+index a32e0fb..9876c05 100644
+--- a/tools/clang/lib/Sema/SemaStmtAttr.cpp
++++ b/tools/clang/lib/Sema/SemaStmtAttr.cpp
+@@ -95,7 +95,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
+     }
+     if (ValueInfo->isStr("disable"))
+       ValueInt = 0;
+-    else if (ValueInfo->isStr("enable"))
++    else if (ValueInfo->isStr("enable") || ValueInfo->isStr("full"))
+       ValueInt = 1;
+     else {
+       S.Diag(ValueLoc->Loc, diag::err_pragma_loop_invalid_keyword);
 diff --git a/tools/clang/lib/Sema/SemaTemplateDeduction.cpp b/tools/clang/lib/Sema/SemaTemplateDeduction.cpp
 index 53a75d2..1e31cb8 100644
 --- a/tools/clang/lib/Sema/SemaTemplateDeduction.cpp
