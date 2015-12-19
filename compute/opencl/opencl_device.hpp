@@ -40,6 +40,9 @@ public:
 	//! associated opencl_compute context
 	opencl_compute* compute_ctx { nullptr };
 	
+	//! opencl version of the device
+	OPENCL_VERSION cl_version { OPENCL_VERSION::OPENCL_1_0 };
+	
 	//! opencl c version of the device
 	OPENCL_VERSION c_version { OPENCL_VERSION::OPENCL_1_0 };
 	

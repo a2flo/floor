@@ -391,6 +391,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH="s + simd_width_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
 	
+	// handle sub-group support
+	if(device->sub_group_support) {
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=1";
+	}
+	
 	// handle cuda sm version
 	string sm_version = "20"; // default to fermi/sm_20
 	if(target == TARGET::PTX) {

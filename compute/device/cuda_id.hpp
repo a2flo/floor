@@ -58,6 +58,13 @@
 	__builtin_ptx_read_nctaid_y(), \
 	__builtin_ptx_read_nctaid_z() \
 }
+#define sub_group_id ((__builtin_ptx_read_tid_x() + \
+					   __builtin_ptx_read_tid_y() * __builtin_ptx_read_nctaid_x() + \
+					   __builtin_ptx_read_tid_z() * __builtin_ptx_read_nctaid_y() * __builtin_ptx_read_nctaid_x()) \
+					  / FLOOR_COMPUTE_INFO_SIMD_WIDTH)
+#define sub_group_local_id __builtin_ptx_read_laneid()
+#define sub_group_size FLOOR_COMPUTE_INFO_SIMD_WIDTH
+#define sub_group_count __builtin_ptx_read_nwarpid()
 
 const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __builtin_ptx_read_ctaid_x() * __builtin_ptx_read_ntid_x() + __builtin_ptx_read_tid_x();
@@ -193,6 +200,23 @@ const_func static uint32_t get_work_dim() {
 	}
 	// else: -> Z is not 1, must always be 3D
 	return 3;
+}
+
+const_func static uint32_t get_sub_group_id() {
+	// NOTE: %warpid should not be used as per ptx isa spec
+	return sub_group_id;
+}
+
+const_func static uint32_t get_sub_group_local_id() {
+	return __builtin_ptx_read_laneid();
+}
+
+const_func constexpr static uint32_t get_sub_group_size() {
+	return FLOOR_COMPUTE_INFO_SIMD_WIDTH;
+}
+
+const_func static uint32_t get_num_sub_groups() {
+	return __builtin_ptx_read_nwarpid();
 }
 
 #endif

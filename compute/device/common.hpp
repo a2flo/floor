@@ -189,6 +189,17 @@ _LIBCPP_END_NAMESPACE_STD
 #define local_size uint3 { get_local_size(0), get_local_size(1), get_local_size(2) }
 #define group_id uint3 { get_group_id(0), get_group_id(1), get_group_id(2) }
 #define group_size uint3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+#define sub_group_id get_sub_group_id()
+#define sub_group_local_id get_sub_group_local_id()
+#define sub_group_size get_sub_group_size()
+#define sub_group_count get_num_sub_groups()
+#endif
+// signal that these functions are unavailable
+#if !defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+floor_inline_always static uint32_t get_sub_group_id() __attribute__((unavailable("sub-group functionality not available")));
+floor_inline_always static uint32_t get_sub_group_local_id() __attribute__((unavailable("sub-group functionality not available")));
+floor_inline_always static uint32_t get_sub_group_size() __attribute__((unavailable("sub-group functionality not available")));
+floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavailable("sub-group functionality not available")));
 #endif
 
 // always include const_math (and const_select) functionality

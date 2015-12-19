@@ -26,7 +26,7 @@
 // -> use atom_* for everything (which should always exist), but add atomic_* aliases, because they're nicer
 #define atomic_add(...) atom_add(__VA_ARGS__)
 #define atomic_sub(...) atom_sub(__VA_ARGS__)
-#define atomic_int(...) atom_inc(__VA_ARGS__)
+#define atomic_inc(...) atom_inc(__VA_ARGS__)
 #define atomic_dec(...) atom_dec(__VA_ARGS__)
 #define atomic_xchg(...) atom_xchg(__VA_ARGS__)
 #define atomic_cmpxchg(...) atom_cmpxchg(__VA_ARGS__)

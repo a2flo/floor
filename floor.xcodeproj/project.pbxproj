@@ -76,6 +76,7 @@
 		5C2DA5BB1B9ECAA200FA6F23 /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
 		5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
 		5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */; };
+		5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */; };
 		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
@@ -314,6 +315,7 @@
 		5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_context.cpp; sourceTree = "<group>"; };
 		5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_context.hpp; sourceTree = "<group>"; };
 		5C2F83681B63FF1000B27BE3 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = ../../../../System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/lib/clang/3.5/include/metal; sourceTree = "<group>"; };
+		5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = compute_algorithm.hpp; path = device/compute_algorithm.hpp; sourceTree = "<group>"; };
 		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
@@ -691,6 +693,7 @@
 				5C6008AA1AB6D69700BC7012 /* common.hpp */,
 				5C1CC88C1B3CE21100A36096 /* atomic_compat.hpp */,
 				5CF8DA5C1B581E7F00472BC2 /* atomic_fallback.hpp */,
+				5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */,
 				5CBBFF571BC2B786001813E0 /* image.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 				5CAF42921B15C04D00316FBB /* logger.hpp */,
@@ -916,6 +919,7 @@
 				5C20C8CB1B4139260005F5EA /* host_image.hpp in Headers */,
 				5C4E30EB1B428B120034E536 /* host_image.hpp in Headers */,
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
+				5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */,
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,

@@ -29,6 +29,13 @@ const_func opencl_c_func size_t get_group_id(uint32_t dim);
 const_func opencl_c_func size_t get_num_groups(uint32_t dim);
 const_func opencl_c_func uint32_t get_work_dim();
 
+#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+const_func opencl_c_func uint32_t get_sub_group_id();
+const_func opencl_c_func uint32_t get_sub_group_local_id();
+const_func opencl_c_func uint32_t get_sub_group_size();
+const_func opencl_c_func uint32_t get_num_sub_groups();
+#endif
+
 // wrap opencl id handling functions so that uint32_t is always returned
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
 floor_inline_always uint32_t cl_get_global_size(uint32_t dim) { return uint32_t(get_global_size(dim)); }

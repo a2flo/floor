@@ -289,6 +289,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device.name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
 			device.vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
 			device.version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
+			device.cl_version = extract_cl_version(device.version_str, "OpenCL ").second;
 			device.driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
 			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
@@ -351,6 +352,9 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device.unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
 			device.basic_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_base_atomics");
 			device.extended_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_extended_atomics");
+			device.sub_group_support = (core::contains(device.extensions, "cl_khr_subgroups") ||
+										core::contains(device.extensions, "cl_intel_sub_groups") ||
+										(device.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
 			
 			log_msg("address space size: %u", device.bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",

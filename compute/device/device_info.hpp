@@ -133,6 +133,15 @@ namespace device_info {
 #endif
 	}
 	
+	//! returns true if the device supports sub-groups (opencl with extension; always true with cuda)
+	constexpr bool has_sub_groups() {
+#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+		return true;
+#else
+		return false;
+#endif
+	}
+	
 	//! when using cuda, this returns the sm version of the device this is compiled for, returns 0 otherwise
 	constexpr uint32_t cuda_sm() {
 #if defined(FLOOR_COMPUTE_CUDA)

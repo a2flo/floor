@@ -40,6 +40,7 @@ public:
 		image_support = true;
 		double_support = true; // true for all gpus since fermi/sm_20
 		basic_64_bit_atomics_support = true; // always true since fermi/sm_20
+		sub_group_support = true;
 		
 #if defined(PLATFORM_X32)
 		bitness = 32;
