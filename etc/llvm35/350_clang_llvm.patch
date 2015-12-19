@@ -3329,7 +3329,7 @@ index 061473e..9de3dad 100644
    }
  
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..7da7b69 100644
+index 075f905..230850f 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -3340,7 +3340,15 @@ index 075f905..7da7b69 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -1411,7 +1412,16 @@ namespace {
+@@ -1394,6 +1395,7 @@ namespace {
+       case 'l':
+       case 'f':
+       case 'd':
++      case 'b':
+         Info.setAllowsRegister();
+         return true;
+       }
+@@ -1411,7 +1413,16 @@ namespace {
          .Case("sm_20", true)
          .Case("sm_21", true)
          .Case("sm_30", true)
@@ -3357,7 +3365,7 @@ index 075f905..7da7b69 100644
          .Default(false);
  
        return Valid;
-@@ -5872,12 +5882,11 @@ namespace {
+@@ -5872,12 +5883,11 @@ namespace {
      0     // cuda_shared
    };
    class SPIRTargetInfo : public TargetInfo {
@@ -3374,7 +3382,7 @@ index 075f905..7da7b69 100644
        BigEndian = false;
        TLSSupported = false;
        LongWidth = LongAlign = 64;
-@@ -5886,6 +5895,7 @@ namespace {
+@@ -5886,6 +5896,7 @@ namespace {
        // Define available target features
        // These must be defined in sorted order!
        NoAsmVariants = true;
@@ -3382,7 +3390,7 @@ index 075f905..7da7b69 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -5911,6 +5921,16 @@ namespace {
+@@ -5911,6 +5922,16 @@ namespace {
      BuiltinVaListKind getBuiltinVaListKind() const override {
        return TargetInfo::VoidPtrBuiltinVaList;
      }
@@ -3399,7 +3407,7 @@ index 075f905..7da7b69 100644
    };
  
  
-@@ -5944,6 +5964,26 @@ namespace {
+@@ -5944,6 +5965,26 @@ namespace {
        DefineStd(Builder, "SPIR64", Opts);
      }
    };
@@ -3426,7 +3434,7 @@ index 075f905..7da7b69 100644
  }
  
  namespace {
-@@ -6369,18 +6409,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+@@ -6369,18 +6410,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
        return new X86_64TargetInfo(Triple);
      }
  
