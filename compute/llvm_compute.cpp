@@ -388,7 +388,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 	}
 	const auto simd_width_str = to_string(simd_width);
-	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH="s + simd_width_str;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH="s + simd_width_str + "u";
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_SIMD_WIDTH_"s + simd_width_str;
 	
 	// handle sub-group support
@@ -420,7 +420,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +
 		" -include floor/compute/device/common.hpp"
-		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast " +
+		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast -ffp-contract=fast " +
 		warning_flags +
 		additional_options +
 		// compile to the right device bitness

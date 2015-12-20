@@ -190,6 +190,9 @@ _LIBCPP_END_NAMESPACE_STD
 #define group_id uint3 { get_group_id(0), get_group_id(1), get_group_id(2) }
 #define group_size uint3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
 #define sub_group_id get_sub_group_id()
+#define sub_group_id_1d sub_group_id
+#define sub_group_id_2d sub_group_id
+#define sub_group_id_3d sub_group_id
 #define sub_group_local_id get_sub_group_local_id()
 #define sub_group_size get_sub_group_size()
 #define sub_group_count get_num_sub_groups()
@@ -313,6 +316,9 @@ template <typename T> using param = const T&;
 #include <floor/compute/device/host_image.hpp>
 #endif
 #include <floor/compute/device/image.hpp>
+
+// compute algorithms
+#include <floor/compute/device/compute_algorithm.hpp>
 
 #endif
 

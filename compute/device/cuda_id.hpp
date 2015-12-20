@@ -58,10 +58,15 @@
 	__builtin_ptx_read_nctaid_y(), \
 	__builtin_ptx_read_nctaid_z() \
 }
-#define sub_group_id ((__builtin_ptx_read_tid_x() + \
-					   __builtin_ptx_read_tid_y() * __builtin_ptx_read_nctaid_x() + \
-					   __builtin_ptx_read_tid_z() * __builtin_ptx_read_nctaid_y() * __builtin_ptx_read_nctaid_x()) \
+#define sub_group_id ((uint32_t(__builtin_ptx_read_tid_x()) + \
+					   uint32_t(__builtin_ptx_read_tid_y()) * uint32_t(__builtin_ptx_read_nctaid_x()) + \
+					   uint32_t(__builtin_ptx_read_tid_z()) * uint32_t(__builtin_ptx_read_nctaid_y()) * uint32_t(__builtin_ptx_read_nctaid_x())) \
 					  / FLOOR_COMPUTE_INFO_SIMD_WIDTH)
+// faster alternatives to sub_group_id if kernel execution dim is known
+#define sub_group_id_1d (uint32_t(__builtin_ptx_read_tid_x()) / FLOOR_COMPUTE_INFO_SIMD_WIDTH)
+#define sub_group_id_2d ((uint32_t(__builtin_ptx_read_tid_x()) + uint32_t(__builtin_ptx_read_tid_y()) * uint32_t(__builtin_ptx_read_nctaid_x())) \
+						 / FLOOR_COMPUTE_INFO_SIMD_WIDTH)
+#define sub_group_id_3d sub_group_id
 #define sub_group_local_id __builtin_ptx_read_laneid()
 #define sub_group_size FLOOR_COMPUTE_INFO_SIMD_WIDTH
 #define sub_group_count __builtin_ptx_read_nwarpid()

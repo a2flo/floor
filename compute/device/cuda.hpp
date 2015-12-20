@@ -23,10 +23,6 @@
 
 #include <floor/math/constants.hpp>
 
-#define cuda_lane_id __builtin_ptx_read_laneid()
-#define cuda_warp_id __builtin_ptx_read_warpid()
-#define cuda_warp_size __builtin_ptx_read_nwarpid()
-
 // misc (not directly defined by cuda?)
 #define cuda_sm_id __builtin_ptx_read_smid()
 #define cuda_sm_dim __builtin_ptx_read_nsmid()
@@ -53,6 +49,8 @@ namespace std {
 	const_func floor_inline_always float round(float a) { return __nvvm_round_ftz_f(a); }
 	const_func floor_inline_always float trunc(float a) { return __nvvm_trunc_ftz_f(a); }
 	const_func floor_inline_always float rint(float a) { return __nvvm_trunc_ftz_f(a); }
+	const_func floor_inline_always float min(float a, float b) { return __nvvm_fmin_f(a, b); }
+	const_func floor_inline_always float max(float a, float b) { return __nvvm_fmax_f(a, b); }
 	
 	const_func floor_inline_always float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
 	const_func floor_inline_always float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
@@ -83,6 +81,8 @@ namespace std {
 	const_func floor_inline_always double round(double a) { return __nvvm_round_d(a); }
 	const_func floor_inline_always double trunc(double a) { return __nvvm_trunc_d(a); }
 	const_func floor_inline_always double rint(double a) { return __nvvm_trunc_d(a); }
+	const_func floor_inline_always double min(double a, double b) { return __nvvm_fmin_d(a, b); }
+	const_func floor_inline_always double max(double a, double b) { return __nvvm_fmax_d(a, b); }
 	
 	const_func floor_inline_always double sin(double a) { return double(__nvvm_sin_approx_ftz_f(float(a))); }
 	const_func floor_inline_always double cos(double a) { return double(__nvvm_cos_approx_ftz_f(float(a))); }
@@ -118,6 +118,35 @@ namespace std {
 		asm("abs.s64 %0, %1;" : "=l"(ret) : "l"(a));
 		return ret;
 	}
+	
+	const_func floor_inline_always int16_t min(int16_t a) {
+		int16_t ret;
+		asm("min.s16 %0, %1;" : "=h"(ret) : "h"(a));
+		return ret;
+	}
+	const_func floor_inline_always uint16_t min(uint16_t a) {
+		uint16_t ret;
+		asm("min.u16 %0, %1;" : "=h"(ret) : "h"(a));
+		return ret;
+	}
+	const_func floor_inline_always int16_t max(int16_t a) {
+		int16_t ret;
+		asm("max.s16 %0, %1;" : "=h"(ret) : "h"(a));
+		return ret;
+	}
+	const_func floor_inline_always uint16_t max(uint16_t a) {
+		uint16_t ret;
+		asm("max.u16 %0, %1;" : "=h"(ret) : "h"(a));
+		return ret;
+	}
+	const_func floor_inline_always int32_t min(int32_t a, int32_t b) { return __nvvm_min_i(a, b); }
+	const_func floor_inline_always uint32_t min(uint32_t a, uint32_t b) { return __nvvm_min_ui(a, b); }
+	const_func floor_inline_always int64_t min(int64_t a, int64_t b) { return __nvvm_min_ll(a, b); }
+	const_func floor_inline_always uint64_t min(uint64_t a, uint64_t b) { return __nvvm_min_ull(a, b); }
+	const_func floor_inline_always int32_t max(int32_t a, int32_t b) { return __nvvm_max_i(a, b); }
+	const_func floor_inline_always uint32_t max(uint32_t a, uint32_t b) { return __nvvm_max_ui(a, b); }
+	const_func floor_inline_always int64_t max(int64_t a, int64_t b) { return __nvvm_max_ll(a, b); }
+	const_func floor_inline_always uint64_t max(uint64_t a, uint64_t b) { return __nvvm_max_ull(a, b); }
 	
 	// asin/acos/atan s/w computation
 	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>

@@ -29,13 +29,6 @@ const_func opencl_c_func size_t get_group_id(uint32_t dim);
 const_func opencl_c_func size_t get_num_groups(uint32_t dim);
 const_func opencl_c_func uint32_t get_work_dim();
 
-#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
-const_func opencl_c_func uint32_t get_sub_group_id();
-const_func opencl_c_func uint32_t get_sub_group_local_id();
-const_func opencl_c_func uint32_t get_sub_group_size();
-const_func opencl_c_func uint32_t get_num_sub_groups();
-#endif
-
 // wrap opencl id handling functions so that uint32_t is always returned
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
 floor_inline_always uint32_t cl_get_global_size(uint32_t dim) { return uint32_t(get_global_size(dim)); }
@@ -73,9 +66,23 @@ const_func float __cl_log(float);
 const_func float __cl_log2(float);
 const_func float __cl_pow(float, float);
 const_func float __cl_copysign(float, float);
+const_func float __cl_fmin(float, float);
+const_func float __cl_fmax(float, float);
 const_func int16_t __cl_abs(int16_t);
 const_func int32_t __cl_abs(int32_t);
 const_func int64_t __cl_abs(int64_t);
+const_func int16_t __cl_min(int16_t, int16_t);
+const_func int32_t __cl_min(int32_t, int32_t);
+const_func int64_t __cl_min(int64_t, int64_t);
+const_func uint16_t __cl_min(uint16_t, uint16_t);
+const_func uint32_t __cl_min(uint32_t, uint32_t);
+const_func uint64_t __cl_min(uint64_t, uint64_t);
+const_func int16_t __cl_max(int16_t, int16_t);
+const_func int32_t __cl_max(int32_t, int32_t);
+const_func int64_t __cl_max(int64_t, int64_t);
+const_func uint16_t __cl_max(uint16_t, uint16_t);
+const_func uint32_t __cl_max(uint32_t, uint32_t);
+const_func uint64_t __cl_max(uint64_t, uint64_t);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double __cl_fmod(double, double);
@@ -100,6 +107,8 @@ const_func double __cl_log(double);
 const_func double __cl_log2(double);
 const_func double __cl_pow(double, double);
 const_func double __cl_copysign(double, double);
+const_func double __cl_fmin(double, double);
+const_func double __cl_fmax(double, double);
 #endif
 
 #define CL_FWD(func, ...) { return func(__VA_ARGS__); }
@@ -132,9 +141,23 @@ const_func float log(float x) CL_FWD(__cl_log, x)
 const_func float log2(float x) CL_FWD(__cl_log2, x)
 const_func float pow(float x, float y) CL_FWD(__cl_pow, x, y)
 const_func float copysign(float x, float y) CL_FWD(__cl_copysign, x, y)
+const_func float fmin(float x, float y) CL_FWD(__cl_fmin, x, y)
+const_func float fmax(float x, float y) CL_FWD(__cl_fmax, x, y)
 const_func int16_t abs(int16_t x) CL_FWD(__cl_abs, x)
 const_func int32_t abs(int32_t x) CL_FWD(__cl_abs, x)
 const_func int64_t abs(int64_t x) CL_FWD(__cl_abs, x)
+const_func int16_t min(int16_t x, int16_t y) CL_FWD(__cl_min, x, y)
+const_func int32_t min(int32_t x, int32_t y) CL_FWD(__cl_min, x, y)
+const_func int64_t min(int64_t x, int64_t y) CL_FWD(__cl_min, x, y)
+const_func uint16_t min(uint16_t x, uint16_t y) CL_FWD(__cl_min, x, y)
+const_func uint32_t min(uint32_t x, uint32_t y) CL_FWD(__cl_min, x, y)
+const_func uint64_t min(uint64_t x, uint64_t y) CL_FWD(__cl_min, x, y)
+const_func int16_t max(int16_t x, int16_t y) CL_FWD(__cl_max, x, y)
+const_func int32_t max(int32_t x, int32_t y) CL_FWD(__cl_max, x, y)
+const_func int64_t max(int64_t x, int64_t y) CL_FWD(__cl_max, x, y)
+const_func uint16_t max(uint16_t x, uint16_t y) CL_FWD(__cl_max, x, y)
+const_func uint32_t max(uint32_t x, uint32_t y) CL_FWD(__cl_max, x, y)
+const_func uint64_t max(uint64_t x, uint64_t y) CL_FWD(__cl_max, x, y)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
@@ -160,6 +183,8 @@ const_func double log(double x) CL_FWD(__cl_log, x)
 const_func double log2(double x) CL_FWD(__cl_log2, x)
 const_func double pow(double x, double y) CL_FWD(__cl_pow, x, y)
 const_func double copysign(double x, double y) CL_FWD(__cl_copysign, x, y)
+const_func double fmin(double x, double y) CL_FWD(__cl_fmin, x, y)
+const_func double fmax(double x, double y) CL_FWD(__cl_fmax, x, y)
 #endif
 
 // add them to std::
@@ -187,10 +212,16 @@ namespace std {
 	using ::log2;
 	using ::pow;
 	using ::copysign;
+	using ::min;
+	using ::max;
 	
 	const_func floor_inline_always float abs(float x) { return fabs(x); }
+	const_func floor_inline_always float min(float x, float y) { return fmin(x, y); }
+	const_func floor_inline_always float max(float x, float y) { return fmax(x, y); }
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	const_func floor_inline_always double abs(double x) { return fabs(x); }
+	const_func floor_inline_always double min(double x, double y) { return fmin(x, y); }
+	const_func floor_inline_always double max(double x, double y) { return fmax(x, y); }
 #endif
 	
 }
@@ -247,6 +278,34 @@ floor_inline_always static void local_write_mem_fence() {
 floor_inline_always static void barrier() {
 	cl_barrier(3u);
 }
+
+// sub-group functionality (opencl 2.1+, cl_khr_subgroups, cl_intel_sub_groups)
+#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+const_func uint32_t get_sub_group_id();
+const_func uint32_t get_sub_group_local_id();
+const_func uint32_t get_sub_group_size();
+const_func uint32_t get_num_sub_groups();
+
+// sub_group_reduce_*/sub_group_scan_exclusive_*/sub_group_scan_inclusive_*
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+#define SUB_GROUP_TYPES(F, P) F(int32_t, P) F(int64_t, P) F(uint32_t, P) F(uint64_t, P) F(float, P)
+#else
+#define SUB_GROUP_TYPES(F, P) F(int32_t, P) F(int64_t, P) F(uint32_t, P) F(uint64_t, P) F(float, P) F(double, P)
+#endif
+#define SUB_GROUP_FUNC(type, func) type func(type);
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_reduce_add)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_reduce_min)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_reduce_max)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_exclusive_add)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_exclusive_min)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_exclusive_max)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_add)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_min)
+SUB_GROUP_TYPES(SUB_GROUP_FUNC, sub_group_scan_inclusive_max)
+#undef SUB_GROUP_TYPES
+#undef SUB_GROUP_FUNC
+
+#endif
 
 #endif
 
