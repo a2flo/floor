@@ -353,7 +353,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device.basic_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_base_atomics");
 			device.extended_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_extended_atomics");
 			device.sub_group_support = (core::contains(device.extensions, "cl_khr_subgroups") ||
-										core::contains(device.extensions, "cl_intel_sub_groups") ||
+										core::contains(device.extensions, "cl_intel_subgroups") ||
 										(device.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
 			
 			log_msg("address space size: %u", device.bitness);
@@ -390,10 +390,12 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			if(strstr(vendor_str.c_str(), "nvidia") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::NVIDIA;
 				device.simd_width = 32;
+				device.simd_range = { device.simd_width, device.simd_width };
 			}
 			else if(strstr(vendor_str.c_str(), "intel") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::INTEL;
-				device.simd_width = 16; // actually variable (8, 16 or 32), but 16 is a good estimate
+				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
+				device.simd_range = { 8, 32 };
 				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "apple") != nullptr) {
@@ -406,6 +408,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
 				device.vendor = COMPUTE_VENDOR::AMD;
 				device.simd_width = 64;
+				device.simd_range = { device.simd_width, device.simd_width };
 				// -> cpu simd width later
 			}
 			

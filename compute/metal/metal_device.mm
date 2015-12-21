@@ -17,3 +17,18 @@
  */
 
 #include <floor/compute/metal/metal_device.hpp>
+
+metal_device::metal_device() : compute_device() {
+	// init statically known info
+	type = compute_device::TYPE::GPU;
+	platform_vendor = COMPUTE_VENDOR::APPLE;
+	
+	local_mem_dedicated = true;
+	image_support = true;
+	
+	// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
+	bitness = 64;
+	
+	// for now (iOS9/OSX11 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
+	driver_version_str = "1.1.0";
+}

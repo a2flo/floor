@@ -86,8 +86,10 @@ public:
 	
 	//! number of compute units in the device
 	uint32_t units { 0u };
-	//! SIMD-width of the device (or 0 if unknown)
+	//! expected SIMD-width of the device (or 0 if unknown)
 	uint32_t simd_width { 0u };
+	//! minimum/maximum SIMD-width for devices with a variable range
+	uint2 simd_range;
 	//! clock frequency in MHz
 	uint32_t clock { 0u };
 	//! memory clock frequency in MHz

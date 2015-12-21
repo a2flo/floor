@@ -137,16 +137,18 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 // make this dependent on compiler specific defines
 #if !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE) && !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH) // use these to override
 #if defined(__AVX512F__)
-#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 16
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 16u
 #define FLOOR_COMPUTE_INFO_SIMD_WIDTH_16
 #elif defined(__AVX__)
-#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 8
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 8u
 #define FLOOR_COMPUTE_INFO_SIMD_WIDTH_8
 #else // fallback to always 4 (sse/neon)
-#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 4
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH 4u
 #define FLOOR_COMPUTE_INFO_SIMD_WIDTH_4
 #endif
 #endif
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH_MIN 1u
+#define FLOOR_COMPUTE_INFO_SIMD_WIDTH_MAX FLOOR_COMPUTE_INFO_SIMD_WIDTH
 
 // for use with "#pragma clang loop unroll(x)", this is named "full" after clang 3.5, and "enable" for 3.5
 #if (__clang_major__ == 3 && __clang_minor__ == 5)

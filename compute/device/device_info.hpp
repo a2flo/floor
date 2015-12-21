@@ -124,13 +124,25 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
 	}
 	
-	//! returns the SIMD-width of the device (or 0 if unknown)
+	//! returns the expected SIMD-width of the device (or 0 if unknown)
+	//! NOTE: for certain devices this might be variable both at run-time and at compile-time,
+	//!       use simd_width_min() and simd_width_max() to retrieve the expected range
 	constexpr uint32_t simd_width() {
 #if !defined(FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE)
 		return FLOOR_COMPUTE_INFO_SIMD_WIDTH;
 #else // provide mechanism to override the detected SIMD-width
 		return FLOOR_COMPUTE_INFO_SIMD_WIDTH_OVERRIDE;
 #endif
+	}
+	
+	//! returns the minimum SIMD-width of the device (or 0 if unknown)
+	constexpr uint32_t simd_width_min() {
+		return FLOOR_COMPUTE_INFO_SIMD_WIDTH_MIN;
+	}
+	
+	//! returns the maximum SIMD-width of the device (or 0 if unknown)
+	constexpr uint32_t simd_width_max() {
+		return FLOOR_COMPUTE_INFO_SIMD_WIDTH_MAX;
 	}
 	
 	//! returns true if the device supports sub-groups (opencl with extension; always true with cuda)

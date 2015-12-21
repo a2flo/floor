@@ -32,20 +32,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_queue;
 class metal_device final : public compute_device {
 public:
-	metal_device() : compute_device() {
-		// init statically known info
-		type = compute_device::TYPE::GPU;
-		platform_vendor = COMPUTE_VENDOR::APPLE;
-		
-		local_mem_dedicated = true;
-		image_support = true;
-		
-		// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
-		bitness = 64;
-		
-		// for now (iOS9/OSX11 versions: metal 1.1.0, air 1.8.0, language 1.1.0)
-		driver_version_str = "1.1.0";
-	}
+	metal_device();
 	~metal_device() override {}
 	
 	// device family, currently 1 (A7), 2 (A8/A8X), 3 (A9/A9X) and 10000 (anything on OS X)

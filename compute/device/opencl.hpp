@@ -279,7 +279,7 @@ floor_inline_always static void barrier() {
 	cl_barrier(3u);
 }
 
-// sub-group functionality (opencl 2.1+, cl_khr_subgroups, cl_intel_sub_groups)
+// sub-group functionality (opencl 2.1+, cl_khr_subgroups, cl_intel_subgroups)
 #if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
 const_func uint32_t get_sub_group_id();
 const_func uint32_t get_sub_group_local_id();
