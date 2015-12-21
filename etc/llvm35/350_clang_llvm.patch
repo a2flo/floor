@@ -5473,10 +5473,10 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..81dd1a8 100644
+index 8716227..b3db62b 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
-@@ -5994,9 +5994,21 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+@@ -5994,17 +5994,40 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
    if (getLangOpts().OpenCL && NewVD->isFileVarDecl()
        && T.getAddressSpace() != LangAS::opencl_constant
        && !T->isSamplerT()){
@@ -5485,9 +5485,9 @@ index 8716227..81dd1a8 100644
 -    return;
 +    // if the variable doesn't have an address space, but is a global static const variable,
 +    // automatically add the constant address space
-+    if(T.getAddressSpace() == 0 &&
-+       (NewVD->isStaticDataMember() || NewVD->hasGlobalStorage()) &&
-+       T.isConstQualified()) {
++    if (T.getAddressSpace() == 0 &&
++        (NewVD->isStaticDataMember() || NewVD->hasGlobalStorage()) &&
++        T.isConstQualified()) {
 +      QualType constant_T = Context.getAddrSpaceQualType(T, LangAS::opencl_constant);
 +      TypeSourceInfo* constant_Tinfo = Context.getTrivialTypeSourceInfo(constant_T);
 +      NewVD->setType(constant_Tinfo->getType());
@@ -5500,8 +5500,33 @@ index 8716227..81dd1a8 100644
 +    }
    }
    
-   // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program
-@@ -6740,6 +6752,10 @@ static void checkIsValidOpenCLKernelParameter(
+-  // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program
+-  // scope.
+-  if ((getLangOpts().OpenCLVersion >= 120)
+-      && NewVD->isStaticLocal()) {
+-    Diag(NewVD->getLocation(), diag::err_static_function_scope);
+-    NewVD->setInvalidDecl();
++  // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program scope.
++  // (same for Metal, enabled for CUDA as well for compatibility)
++  if (NewVD->isStaticLocal()) {
++    // however, if it is constexpr, this can be safely put into the constant address space
++    if (NewVD->isConstexpr()) {
++      // CUDA (backend) can handle this on its own
++      if (getLangOpts().OpenCL) {
++        QualType constant_T = Context.getAddrSpaceQualType(T, LangAS::opencl_constant);
++        TypeSourceInfo* constant_Tinfo = Context.getTrivialTypeSourceInfo(constant_T);
++        NewVD->setType(constant_Tinfo->getType());
++        NewVD->setTypeSourceInfo(constant_Tinfo);
++      }
++    }
++    else {
++      Diag(NewVD->getLocation(), diag::err_static_function_scope);
++      NewVD->setInvalidDecl();
++    }
+     return;
+   }
+ 
+@@ -6740,6 +6763,10 @@ static void checkIsValidOpenCLKernelParameter(
      // Add a null marker so we know when we've gone back up a level
      VisitStack.push_back(nullptr);
  
@@ -5512,7 +5537,7 @@ index 8716227..81dd1a8 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -11941,7 +11957,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +11968,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
