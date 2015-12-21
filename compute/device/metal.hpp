@@ -29,8 +29,6 @@ namespace std {
 	const_func metal_func float abs(float) asm("air.fast_fabs.f32");
 	const_func metal_func float fmin(float, float) asm("air.fast_fmin.f32");
 	const_func metal_func float fmax(float, float) asm("air.fast_fmax.f32");
-	const_func metal_func float min(float, float) asm("air.fast_fmin.f32");
-	const_func metal_func float max(float, float) asm("air.fast_fmax.f32");
 	const_func metal_func float floor(float) asm("air.fast_floor.f32");
 	const_func metal_func float ceil(float) asm("air.fast_ceil.f32");
 	const_func metal_func float round(float) asm("air.fast_round.f32");
@@ -67,14 +65,18 @@ namespace std {
 	const_func metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
 	const_func metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
 	
-	const_func metal_func int16_t min(int16_t, int16_t) asm("air.min.s.i16");
-	const_func metal_func uint16_t min(uint16_t, uint16_t) asm("air.min.u.i16");
-	const_func metal_func int32_t min(int32_t, int32_t) asm("air.min.s.i32");
-	const_func metal_func uint32_t min(uint32_t, uint32_t) asm("air.min.u.i32");
-	const_func metal_func int16_t max(int16_t, int16_t) asm("air.max.s.i16");
-	const_func metal_func uint16_t max(uint16_t, uint16_t) asm("air.max.u.i16");
-	const_func metal_func int32_t max(int32_t, int32_t) asm("air.max.s.i32");
-	const_func metal_func uint32_t max(uint32_t, uint32_t) asm("air.max.u.i32");
+	const_func metal_func int16_t floor_rt_min(int16_t, int16_t) asm("air.min.s.i16");
+	const_func metal_func uint16_t floor_rt_min(uint16_t, uint16_t) asm("air.min.u.i16");
+	const_func metal_func int32_t floor_rt_min(int32_t, int32_t) asm("air.min.s.i32");
+	const_func metal_func uint32_t floor_rt_min(uint32_t, uint32_t) asm("air.min.u.i32");
+	const_func metal_func int64_t floor_rt_min(int64_t x, int64_t y) { return x <= y ? x : y; }
+	const_func metal_func uint64_t floor_rt_min(uint64_t x, uint64_t y) { return x <= y ? x : y; }
+	const_func metal_func int16_t floor_rt_max(int16_t, int16_t) asm("air.max.s.i16");
+	const_func metal_func uint16_t floor_rt_max(uint16_t, uint16_t) asm("air.max.u.i16");
+	const_func metal_func int32_t floor_rt_max(int32_t, int32_t) asm("air.max.s.i32");
+	const_func metal_func uint32_t floor_rt_max(uint32_t, uint32_t) asm("air.max.u.i32");
+	const_func metal_func int64_t floor_rt_max(int64_t x, int64_t y) { return x >= y ? x : y; }
+	const_func metal_func uint64_t floor_rt_max(uint64_t x, uint64_t y) { return x >= y ? x : y; }
 	
 	const_func metal_func int32_t mulhi(int32_t x, int32_t y) asm("air.mul_hi.i32");
 	const_func metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");

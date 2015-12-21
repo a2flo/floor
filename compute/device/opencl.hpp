@@ -111,81 +111,89 @@ const_func double __cl_fmin(double, double);
 const_func double __cl_fmax(double, double);
 #endif
 
-#define CL_FWD(func, ...) { return func(__VA_ARGS__); }
+#define ACL_FWD(func, ...) { return func(__VA_ARGS__); }
+#define SPIR_FWD(func)
 #else // no need for this on opencl/spir
-#define CL_FWD(func, ...) ;
+#define ACL_FWD(func, ...) ;
+#define SPIR_FWD(func) asm(func)
 #endif
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
-const_func float fmod(float x, float y) CL_FWD(__cl_fmod, x, y)
-const_func float sqrt(float x) CL_FWD(__cl_sqrt, x);
+const_func float fmod(float x, float y) ACL_FWD(__cl_fmod, x, y)
+const_func float sqrt(float x) ACL_FWD(__cl_sqrt, x);
 const_func float rsqrt(float x);
-const_func float fabs(float x) CL_FWD(__cl_fabs, x)
-const_func float floor(float x) CL_FWD(__cl_floor, x)
-const_func float ceil(float x) CL_FWD(__cl_ceil, x)
-const_func float round(float x) CL_FWD(__cl_round, x)
-const_func float trunc(float x) CL_FWD(__cl_trunc, x)
-const_func float rint(float x) CL_FWD(__cl_rint, x)
-const_func float sin(float x) CL_FWD(__cl_sin, x)
-const_func float cos(float x) CL_FWD(__cl_cos, x)
-const_func float tan(float x) CL_FWD(__cl_tan, x)
-const_func float asin(float x) CL_FWD(__cl_asin, x)
-const_func float acos(float x) CL_FWD(__cl_acos, x)
-const_func float atan(float x) CL_FWD(__cl_atan, x)
-const_func float atan2(float x, float y) CL_FWD(__cl_atan2, x, y)
-const_func float fma(float a, float b, float c) CL_FWD(__cl_fma, a, b, c)
-const_func float exp(float x) CL_FWD(__cl_exp, x)
-const_func float exp2(float x) CL_FWD(__cl_exp2, x)
-const_func float log(float x) CL_FWD(__cl_log, x)
-const_func float log2(float x) CL_FWD(__cl_log2, x)
-const_func float pow(float x, float y) CL_FWD(__cl_pow, x, y)
-const_func float copysign(float x, float y) CL_FWD(__cl_copysign, x, y)
-const_func float fmin(float x, float y) CL_FWD(__cl_fmin, x, y)
-const_func float fmax(float x, float y) CL_FWD(__cl_fmax, x, y)
-const_func int16_t abs(int16_t x) CL_FWD(__cl_abs, x)
-const_func int32_t abs(int32_t x) CL_FWD(__cl_abs, x)
-const_func int64_t abs(int64_t x) CL_FWD(__cl_abs, x)
-const_func int16_t min(int16_t x, int16_t y) CL_FWD(__cl_min, x, y)
-const_func int32_t min(int32_t x, int32_t y) CL_FWD(__cl_min, x, y)
-const_func int64_t min(int64_t x, int64_t y) CL_FWD(__cl_min, x, y)
-const_func uint16_t min(uint16_t x, uint16_t y) CL_FWD(__cl_min, x, y)
-const_func uint32_t min(uint32_t x, uint32_t y) CL_FWD(__cl_min, x, y)
-const_func uint64_t min(uint64_t x, uint64_t y) CL_FWD(__cl_min, x, y)
-const_func int16_t max(int16_t x, int16_t y) CL_FWD(__cl_max, x, y)
-const_func int32_t max(int32_t x, int32_t y) CL_FWD(__cl_max, x, y)
-const_func int64_t max(int64_t x, int64_t y) CL_FWD(__cl_max, x, y)
-const_func uint16_t max(uint16_t x, uint16_t y) CL_FWD(__cl_max, x, y)
-const_func uint32_t max(uint32_t x, uint32_t y) CL_FWD(__cl_max, x, y)
-const_func uint64_t max(uint64_t x, uint64_t y) CL_FWD(__cl_max, x, y)
+const_func float fabs(float x) ACL_FWD(__cl_fabs, x)
+const_func float floor(float x) ACL_FWD(__cl_floor, x)
+const_func float ceil(float x) ACL_FWD(__cl_ceil, x)
+const_func float round(float x) ACL_FWD(__cl_round, x)
+const_func float trunc(float x) ACL_FWD(__cl_trunc, x)
+const_func float rint(float x) ACL_FWD(__cl_rint, x)
+const_func float sin(float x) ACL_FWD(__cl_sin, x)
+const_func float cos(float x) ACL_FWD(__cl_cos, x)
+const_func float tan(float x) ACL_FWD(__cl_tan, x)
+const_func float asin(float x) ACL_FWD(__cl_asin, x)
+const_func float acos(float x) ACL_FWD(__cl_acos, x)
+const_func float atan(float x) ACL_FWD(__cl_atan, x)
+const_func float atan2(float x, float y) ACL_FWD(__cl_atan2, x, y)
+const_func float fma(float a, float b, float c) ACL_FWD(__cl_fma, a, b, c)
+const_func float exp(float x) ACL_FWD(__cl_exp, x)
+const_func float exp2(float x) ACL_FWD(__cl_exp2, x)
+const_func float log(float x) ACL_FWD(__cl_log, x)
+const_func float log2(float x) ACL_FWD(__cl_log2, x)
+const_func float pow(float x, float y) ACL_FWD(__cl_pow, x, y)
+const_func float copysign(float x, float y) ACL_FWD(__cl_copysign, x, y)
+const_func float fmin(float x, float y) ACL_FWD(__cl_fmin, x, y)
+const_func float fmax(float x, float y) ACL_FWD(__cl_fmax, x, y)
+const_func int16_t abs(int16_t x) ACL_FWD(__cl_abs, x)
+const_func int32_t abs(int32_t x) ACL_FWD(__cl_abs, x)
+const_func int64_t abs(int64_t x) ACL_FWD(__cl_abs, x)
+
+// to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
+const_func int16_t floor_rt_min(int16_t x, int16_t y) SPIR_FWD("_Z3minss") ACL_FWD(__cl_min, x, y)
+const_func int32_t floor_rt_min(int32_t x, int32_t y) SPIR_FWD("_Z3minii") ACL_FWD(__cl_min, x, y)
+const_func int64_t floor_rt_min(int64_t x, int64_t y) SPIR_FWD("_Z3minll") ACL_FWD(__cl_min, x, y)
+const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) SPIR_FWD("_Z3mintt") ACL_FWD(__cl_min, x, y)
+const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) SPIR_FWD("_Z3minjj") ACL_FWD(__cl_min, x, y)
+const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) SPIR_FWD("_Z3minmm") ACL_FWD(__cl_min, x, y)
+const_func int16_t floor_rt_max(int16_t x, int16_t y) SPIR_FWD("_Z3maxss") ACL_FWD(__cl_max, x, y)
+const_func int32_t floor_rt_max(int32_t x, int32_t y) SPIR_FWD("_Z3maxii") ACL_FWD(__cl_max, x, y)
+const_func int64_t floor_rt_max(int64_t x, int64_t y) SPIR_FWD("_Z3maxll") ACL_FWD(__cl_max, x, y)
+const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) SPIR_FWD("_Z3maxtt") ACL_FWD(__cl_max, x, y)
+const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) SPIR_FWD("_Z3maxjj") ACL_FWD(__cl_max, x, y)
+const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) SPIR_FWD("_Z3maxmm") ACL_FWD(__cl_max, x, y)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-const_func double fmod(double x, double y) CL_FWD(__cl_fmod, x, y)
-const_func double sqrt(double x) CL_FWD(__cl_sqrt, x);
+const_func double fmod(double x, double y) ACL_FWD(__cl_fmod, x, y)
+const_func double sqrt(double x) ACL_FWD(__cl_sqrt, x);
 const_func double rsqrt(double x);
-const_func double fabs(double x) CL_FWD(__cl_fabs, x)
-const_func double floor(double x) CL_FWD(__cl_floor, x)
-const_func double ceil(double x) CL_FWD(__cl_ceil, x)
-const_func double round(double x) CL_FWD(__cl_round, x)
-const_func double trunc(double x) CL_FWD(__cl_trunc, x)
-const_func double rint(double x) CL_FWD(__cl_rint, x)
-const_func double sin(double x) CL_FWD(__cl_sin, x)
-const_func double cos(double x) CL_FWD(__cl_cos, x)
-const_func double tan(double x) CL_FWD(__cl_tan, x)
-const_func double asin(double x) CL_FWD(__cl_asin, x)
-const_func double acos(double x) CL_FWD(__cl_acos, x)
-const_func double atan(double x) CL_FWD(__cl_atan, x)
-const_func double atan2(double x, double y) CL_FWD(__cl_atan2, x, y)
-const_func double fma(double a, double b, double c) CL_FWD(__cl_fma, a, b, c)
-const_func double exp(double x) CL_FWD(__cl_exp, x)
-const_func double exp2(double x) CL_FWD(__cl_exp2, x)
-const_func double log(double x) CL_FWD(__cl_log, x)
-const_func double log2(double x) CL_FWD(__cl_log2, x)
-const_func double pow(double x, double y) CL_FWD(__cl_pow, x, y)
-const_func double copysign(double x, double y) CL_FWD(__cl_copysign, x, y)
-const_func double fmin(double x, double y) CL_FWD(__cl_fmin, x, y)
-const_func double fmax(double x, double y) CL_FWD(__cl_fmax, x, y)
+const_func double fabs(double x) ACL_FWD(__cl_fabs, x)
+const_func double floor(double x) ACL_FWD(__cl_floor, x)
+const_func double ceil(double x) ACL_FWD(__cl_ceil, x)
+const_func double round(double x) ACL_FWD(__cl_round, x)
+const_func double trunc(double x) ACL_FWD(__cl_trunc, x)
+const_func double rint(double x) ACL_FWD(__cl_rint, x)
+const_func double sin(double x) ACL_FWD(__cl_sin, x)
+const_func double cos(double x) ACL_FWD(__cl_cos, x)
+const_func double tan(double x) ACL_FWD(__cl_tan, x)
+const_func double asin(double x) ACL_FWD(__cl_asin, x)
+const_func double acos(double x) ACL_FWD(__cl_acos, x)
+const_func double atan(double x) ACL_FWD(__cl_atan, x)
+const_func double atan2(double x, double y) ACL_FWD(__cl_atan2, x, y)
+const_func double fma(double a, double b, double c) ACL_FWD(__cl_fma, a, b, c)
+const_func double exp(double x) ACL_FWD(__cl_exp, x)
+const_func double exp2(double x) ACL_FWD(__cl_exp2, x)
+const_func double log(double x) ACL_FWD(__cl_log, x)
+const_func double log2(double x) ACL_FWD(__cl_log2, x)
+const_func double pow(double x, double y) ACL_FWD(__cl_pow, x, y)
+const_func double copysign(double x, double y) ACL_FWD(__cl_copysign, x, y)
+const_func double fmin(double x, double y) ACL_FWD(__cl_fmin, x, y)
+const_func double fmax(double x, double y) ACL_FWD(__cl_fmax, x, y)
 #endif
+
+// cleanup
+#undef ACL_FWD
+#undef SPIR_FWD
 
 // add them to std::
 namespace std {
@@ -212,16 +220,10 @@ namespace std {
 	using ::log2;
 	using ::pow;
 	using ::copysign;
-	using ::min;
-	using ::max;
 	
 	const_func floor_inline_always float abs(float x) { return fabs(x); }
-	const_func floor_inline_always float min(float x, float y) { return fmin(x, y); }
-	const_func floor_inline_always float max(float x, float y) { return fmax(x, y); }
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	const_func floor_inline_always double abs(double x) { return fabs(x); }
-	const_func floor_inline_always double min(double x, double y) { return fmin(x, y); }
-	const_func floor_inline_always double max(double x, double y) { return fmax(x, y); }
 #endif
 	
 }
