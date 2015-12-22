@@ -77,6 +77,8 @@
 		5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
 		5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */; };
 		5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */; };
+		5C34F17E1C29BB9300C8F645 /* metal_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C34F17D1C29BB9300C8F645 /* metal_device.cpp */; };
+		5C34F17F1C29BB9300C8F645 /* metal_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C34F17D1C29BB9300C8F645 /* metal_device.cpp */; };
 		5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDA19A64FF2006D1D09 /* const_math.hpp */; };
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
@@ -136,7 +138,6 @@
 		5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
 		5C84614B1A914759004D4745 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
-		5C84614D1A914759004D4745 /* metal_device.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461471A914759004D4745 /* metal_device.mm */; };
 		5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8B4A6A1BE603C000987CAD /* flat_map.hpp */; };
 		5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
 		5C8FD0C31AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
@@ -233,7 +234,6 @@
 		5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6DF1A4F2EB5005239DA /* opencl_queue.hpp */; };
 		5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
 		5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
-		5CF040BB1A97CC1B00D93EE3 /* metal_device.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461471A914759004D4745 /* metal_device.mm */; };
 		5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
 		5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
@@ -316,6 +316,7 @@
 		5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_context.hpp; sourceTree = "<group>"; };
 		5C2F83681B63FF1000B27BE3 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = ../../../../System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/lib/clang/3.5/include/metal; sourceTree = "<group>"; };
 		5C34F17B1C2463DC00C8F645 /* compute_algorithm.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = compute_algorithm.hpp; path = device/compute_algorithm.hpp; sourceTree = "<group>"; };
+		5C34F17D1C29BB9300C8F645 /* metal_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = metal_device.cpp; path = metal/metal_device.cpp; sourceTree = "<group>"; };
 		5C366DDA19A64FF2006D1D09 /* const_math.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_math.hpp; sourceTree = "<group>"; };
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
@@ -375,7 +376,6 @@
 		5C8461441A914758004D4745 /* metal_buffer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_buffer.mm; path = metal/metal_buffer.mm; sourceTree = "<group>"; };
 		5C8461451A914758004D4745 /* metal_program.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_program.mm; path = metal/metal_program.mm; sourceTree = "<group>"; };
 		5C8461461A914758004D4745 /* metal_kernel.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_kernel.mm; path = metal/metal_kernel.mm; sourceTree = "<group>"; };
-		5C8461471A914759004D4745 /* metal_device.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_device.mm; path = metal/metal_device.mm; sourceTree = "<group>"; };
 		5C8B4A6A1BE603C000987CAD /* flat_map.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = flat_map.hpp; sourceTree = "<group>"; };
 		5C8FD0C01AD38F8B00215230 /* compute_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_image.cpp; sourceTree = "<group>"; };
 		5C8FD0C11AD38F8B00215230 /* compute_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_image.hpp; sourceTree = "<group>"; };
@@ -792,7 +792,7 @@
 				5C8461401A914758004D4745 /* metal_compute.hpp */,
 				5C8461441A914758004D4745 /* metal_buffer.mm */,
 				5C8461421A914758004D4745 /* metal_buffer.hpp */,
-				5C8461471A914759004D4745 /* metal_device.mm */,
+				5C34F17D1C29BB9300C8F645 /* metal_device.cpp */,
 				5C84613F1A914758004D4745 /* metal_device.hpp */,
 				5C8FD0D01AD3944F00215230 /* metal_image.mm */,
 				5C8FD0CA1AD38FA000215230 /* metal_image.hpp */,
@@ -1077,7 +1077,6 @@
 				5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */,
 				5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */,
 				5CF040BA1A97CC1B00D93EE3 /* metal_buffer.mm in Sources */,
-				5CF040BB1A97CC1B00D93EE3 /* metal_device.mm in Sources */,
 				5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */,
 				5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */,
 				5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */,
@@ -1115,6 +1114,7 @@
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C20C8C61B4139260005F5EA /* host_compute.cpp in Sources */,
 				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
+				5C34F17E1C29BB9300C8F645 /* metal_device.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */,
@@ -1145,6 +1145,7 @@
 				5C266C361B4E84C90055F511 /* host_buffer.cpp in Sources */,
 				5C266C371B4E84C90055F511 /* host_device.cpp in Sources */,
 				5C266C381B4E84C90055F511 /* host_image.cpp in Sources */,
+				5C34F17F1C29BB9300C8F645 /* metal_device.cpp in Sources */,
 				5C266C391B4E84C90055F511 /* host_kernel.cpp in Sources */,
 				5C266C3A1B4E84C90055F511 /* host_program.cpp in Sources */,
 				5C266C3B1B4E84C90055F511 /* host_queue.cpp in Sources */,
@@ -1195,7 +1196,6 @@
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */,
 				5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */,
-				5C84614D1A914759004D4745 /* metal_device.mm in Sources */,
 				5C8461481A914759004D4745 /* metal_queue.mm in Sources */,
 				5CE0BDCD19BA432C000B28B3 /* vector_lib.cpp in Sources */,
 			);
