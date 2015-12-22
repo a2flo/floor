@@ -34,6 +34,9 @@
     <Filter Include="net">
       <UniqueIdentifier>{716aded6-6967-492b-b98f-2aa0e2455111}</UniqueIdentifier>
     </Filter>
+    <Filter Include="compute\metal">
+      <UniqueIdentifier>{a35d6fa4-2f75-435e-9c13-f9fc67e6c885}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compute\compute_context.cpp">
@@ -194,6 +197,9 @@
     </ClCompile>
     <ClCompile Include="net\asio_error_handler.cpp">
       <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\metal\metal_device.cpp">
+      <Filter>compute\metal</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -461,5 +467,49 @@
     <ClInclude Include="net\net_tcp.hpp">
       <Filter>net</Filter>
     </ClInclude>
+    <ClInclude Include="compute\metal\metal_buffer.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_common.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_compute.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_device.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_image.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_kernel.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_program.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\metal\metal_queue.hpp">
+      <Filter>compute\metal</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="compute\metal\metal_buffer.mm">
+      <Filter>compute\metal</Filter>
+    </None>
+    <None Include="compute\metal\metal_compute.mm">
+      <Filter>compute\metal</Filter>
+    </None>
+    <None Include="compute\metal\metal_image.mm">
+      <Filter>compute\metal</Filter>
+    </None>
+    <None Include="compute\metal\metal_kernel.mm">
+      <Filter>compute\metal</Filter>
+    </None>
+    <None Include="compute\metal\metal_program.mm">
+      <Filter>compute\metal</Filter>
+    </None>
+    <None Include="compute\metal\metal_queue.mm">
+      <Filter>compute\metal</Filter>
+    </None>
   </ItemGroup>
 </Project>

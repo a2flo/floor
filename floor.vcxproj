@@ -256,6 +256,7 @@
     <ClCompile Include="compute\host\host_program.cpp" />
     <ClCompile Include="compute\host\host_queue.cpp" />
     <ClCompile Include="compute\llvm_compute.cpp" />
+    <ClCompile Include="compute\metal\metal_device.cpp" />
     <ClCompile Include="compute\opencl\opencl_buffer.cpp" />
     <ClCompile Include="compute\opencl\opencl_compute.cpp" />
     <ClCompile Include="compute\opencl\opencl_device.cpp" />
@@ -314,6 +315,14 @@
     <ClInclude Include="compute\host\host_program.hpp" />
     <ClInclude Include="compute\host\host_queue.hpp" />
     <ClInclude Include="compute\llvm_compute.hpp" />
+    <ClInclude Include="compute\metal\metal_buffer.hpp" />
+    <ClInclude Include="compute\metal\metal_common.hpp" />
+    <ClInclude Include="compute\metal\metal_compute.hpp" />
+    <ClInclude Include="compute\metal\metal_device.hpp" />
+    <ClInclude Include="compute\metal\metal_image.hpp" />
+    <ClInclude Include="compute\metal\metal_kernel.hpp" />
+    <ClInclude Include="compute\metal\metal_program.hpp" />
+    <ClInclude Include="compute\metal\metal_queue.hpp" />
     <ClInclude Include="compute\opencl\opencl_buffer.hpp" />
     <ClInclude Include="compute\opencl\opencl_common.hpp" />
     <ClInclude Include="compute\opencl\opencl_compute.hpp" />
@@ -375,6 +384,14 @@
     <ClInclude Include="threading\task.hpp" />
     <ClInclude Include="threading\thread_base.hpp" />
     <ClInclude Include="threading\thread_safety.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="compute\metal\metal_buffer.mm" />
+    <None Include="compute\metal\metal_compute.mm" />
+    <None Include="compute\metal\metal_image.mm" />
+    <None Include="compute\metal\metal_kernel.mm" />
+    <None Include="compute\metal\metal_program.mm" />
+    <None Include="compute\metal\metal_queue.mm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
