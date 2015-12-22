@@ -584,7 +584,7 @@ else
 fi
 CFLAGS="${CFLAGS} -std=gnu11"
 
-OBJCFLAGS="${OBJCFLAGS}"
+OBJCFLAGS="${OBJCFLAGS} -fno-objc-exceptions"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	OBJCFLAGS="${OBJCFLAGS} -fobjc-arc"
 fi
