@@ -3947,7 +3947,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..be3fbfc 100644
+index 5ca3a78..7622622 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -5044,10 +5044,15 @@ index 5ca3a78..be3fbfc 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,6 +1396,19 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,10 +1396,27 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
+-  if (getLangOpts().OpenCL) {
+-    // Add metadata for a kernel function.
+-    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+-      EmitOpenCLKernelMetadata(FD, Fn);
++  // emit compute metadata
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
 +    if(const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
 +      // add floor specific metadata for kernel functions
@@ -5060,11 +5065,18 @@ index 5ca3a78..be3fbfc 100644
 +        Fn->addFnAttr("compute_kernel");
 +      }
 +    }
-+  }
-   if (getLangOpts().OpenCL) {
-     // Add metadata for a kernel function.
-     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
-@@ -755,6 +1611,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
++    
++    // opencl/spir specific metadata
++    if (getLangOpts().OpenCL) {
++      // Add metadata for a kernel function.
++      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
++        EmitOpenCLKernelMetadata(FD, Fn);
++      }
++    }
+   }
+ 
+   // If we are checking function types, emit a function type signature as
+@@ -755,6 +1615,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -5156,7 +5168,7 @@ index 5ca3a78..be3fbfc 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -858,6 +1799,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1803,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -5473,7 +5485,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..b3db62b 100644
+index 8716227..775ef24 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,40 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -5537,7 +5549,28 @@ index 8716227..b3db62b 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -11941,7 +11968,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -9954,6 +9981,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+   CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
+                            /*CheckParameterNames=*/true);
+ 
++  // for kernel functions: plain function parameter types are already complete,
++  // but pointer types must always be complete as well, since their sizes and
++  // (possibly) structure need to be known later on
++  if(FD->hasAttr<OpenCLKernelAttr>() || FD->hasAttr<CUDAGlobalAttr>()) {
++    for (const auto& Param : FD->params()) {
++      const auto param_type = Param->getType();
++      if(param_type->isPointerType()) {
++        const auto pointee_type = param_type->getPointeeType();
++        RequireCompleteType(Param->getLocation(), pointee_type,
++                            diag::err_typecheck_decl_incomplete_type);
++      }
++    }
++  }
++
+   // Introduce our parameters into the function scope
+   for (auto Param : FD->params()) {
+     Param->setOwningFunction(FD);
+@@ -11941,7 +11982,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
