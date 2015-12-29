@@ -3733,6 +3733,28 @@ index 91f8041..977712e 100644
  
    StringRef ContextName;
    if (!CGF.CurFuncDecl) {
+diff --git a/tools/clang/lib/CodeGen/CGExpr.cpp b/tools/clang/lib/CodeGen/CGExpr.cpp
+index 512b323..05b04a8 100644
+--- a/tools/clang/lib/CodeGen/CGExpr.cpp
++++ b/tools/clang/lib/CodeGen/CGExpr.cpp
+@@ -2548,9 +2548,16 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+       // For structs, we GEP to the field that the record layout suggests.
+       Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
+     // Get the access type.
+-    llvm::Type *PtrTy = llvm::Type::getIntNPtrTy(
++    llvm::PointerType *PtrTy = llvm::Type::getIntNPtrTy(
+       getLLVMContext(), Info.StorageSize,
+       CGM.getContext().getTargetAddressSpace(base.getType()));
++    // target address space handling above is apparently insufficient,
++    // so fix up the address space manually
++    if(PtrTy->getPointerAddressSpace() != Addr->getType()->getPointerAddressSpace()) {
++      PtrTy = llvm::PointerType::get(PtrTy->getElementType(),
++                                     Addr->getType()->getPointerAddressSpace());
++    }
++
+     if (Addr->getType() != PtrTy)
+       Addr = Builder.CreateBitCast(Addr, PtrTy);
+ 
 diff --git a/tools/clang/lib/CodeGen/CGExprAgg.cpp b/tools/clang/lib/CodeGen/CGExprAgg.cpp
 index 4cf94c0..53f4bb5 100644
 --- a/tools/clang/lib/CodeGen/CGExprAgg.cpp
@@ -5485,10 +5507,10 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..775ef24 100644
+index 8716227..34f642c 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
-@@ -5994,17 +5994,40 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+@@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
    if (getLangOpts().OpenCL && NewVD->isFileVarDecl()
        && T.getAddressSpace() != LangAS::opencl_constant
        && !T->isSamplerT()){
@@ -5531,14 +5553,15 @@ index 8716227..775ef24 100644
 +        NewVD->setTypeSourceInfo(constant_Tinfo);
 +      }
 +    }
-+    else {
++    // CUDA shared/local decls are allowed to be static, so ignore them
++    else if(!(getLangOpts().CUDA && NewVD->hasAttr<CUDASharedAttr>())) {
 +      Diag(NewVD->getLocation(), diag::err_static_function_scope);
 +      NewVD->setInvalidDecl();
 +    }
      return;
    }
  
-@@ -6740,6 +6763,10 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6740,6 +6764,10 @@ static void checkIsValidOpenCLKernelParameter(
      // Add a null marker so we know when we've gone back up a level
      VisitStack.push_back(nullptr);
  
@@ -5549,7 +5572,7 @@ index 8716227..775ef24 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -9954,6 +9981,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +9982,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -5570,7 +5593,7 @@ index 8716227..775ef24 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +11982,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +11983,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
