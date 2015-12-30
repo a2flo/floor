@@ -76,6 +76,11 @@ public:
 	//! types of this device
 	TYPE type { TYPE::NONE };
 	
+	//! returns true if the device is a cpu
+	bool is_cpu() const { return (type & TYPE::CPU) != TYPE::NONE; }
+	//! returns true if the device is a gpu
+	bool is_gpu() const { return (type & TYPE::GPU) != TYPE::NONE; }
+	
 	//! type for internal use (OpenCL: stores cl_device_type)
 	uint32_t internal_type { 0u };
 	

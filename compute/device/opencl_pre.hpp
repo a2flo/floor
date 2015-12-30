@@ -51,10 +51,10 @@ typedef long int ssize_t;
 // NOTE: I purposefully didn't enable these as aliases in clang,
 // so that they can be properly redirected on any other target (cuda/metal/host)
 // -> need to add simple macro aliases here
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-#define kernel extern "C" __kernel
+#define global __attribute__((global_as))
+#define constant __attribute__((constant_as))
+#define local __attribute__((local_as))
+#define kernel extern "C" __attribute__((compute_kernel))
 
 // proper function mangling (default to c++ mangling on spir, c on applecl)
 #if defined(FLOOR_COMPUTE_APPLECL)

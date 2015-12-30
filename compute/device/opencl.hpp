@@ -231,10 +231,10 @@ namespace std {
 #if defined(FLOOR_COMPUTE_SPIR)
 // can't normally produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" keyword is missing in c++ mode
 // -> slay it with an asm label
-int printf(const char __constant* st, ...) asm("_Z6printfPrU3AS2cz");
+int printf(const char constant* st, ...) asm("_Z6printfPrU3AS2cz");
 #elif defined(FLOOR_COMPUTE_APPLECL)
 // apple uses __printf_cl internally, with c naming!
-extern "C" int __printf_cl(const char __constant* __restrict st, ...);
+extern "C" int __printf_cl(const char constant* __restrict st, ...);
 #define printf __printf_cl
 #endif
 

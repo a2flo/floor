@@ -22,12 +22,12 @@
 #if defined(FLOOR_COMPUTE_CUDA)
 
 //
-#define kernel extern "C" __attribute__((cuda_kernel))
+#define kernel extern "C" __attribute__((compute_kernel))
 
 // map address space keywords
 #define global
-#define local __attribute__((cuda_local))
-#define constant __attribute__((cuda_constant))
+#define local __attribute__((local_cuda))
+#define constant __attribute__((constant_cuda))
 
 // misc types
 typedef char int8_t;

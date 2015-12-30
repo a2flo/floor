@@ -23,10 +23,10 @@
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 
-#define global __attribute__((opencl_global))
-#define constant __attribute__((opencl_constant))
-#define local __attribute__((opencl_local))
-#define kernel extern "C" __kernel
+#define global __attribute__((global_as))
+#define constant __attribute__((constant_as))
+#define local __attribute__((local_as))
+#define kernel extern "C" __attribute__((compute_kernel))
 
 #define metal_func inline __attribute__((always_inline))
 
