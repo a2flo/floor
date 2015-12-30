@@ -2397,9 +2397,18 @@ index de724d4..6cbfb40 100644
    unwrap(PM)->add(createAggressiveDCEPass());
  }
 diff --git a/tools/clang/include/clang-c/Index.h b/tools/clang/include/clang-c/Index.h
-index f69f567..e01cb6d 100644
+index f69f567..4fffcdb 100644
 --- a/tools/clang/include/clang-c/Index.h
 +++ b/tools/clang/include/clang-c/Index.h
+@@ -2226,7 +2226,7 @@ enum CXCursorKind {
+   CXCursor_NoDuplicateAttr               = 411,
+   CXCursor_CUDAConstantAttr              = 412,
+   CXCursor_CUDADeviceAttr                = 413,
+-  CXCursor_CUDAGlobalAttr                = 414,
++  CXCursor_ComputeKernelAttr             = 414,
+   CXCursor_CUDAHostAttr                  = 415,
+   CXCursor_LastAttr                      = CXCursor_CUDAHostAttr,
+ 
 @@ -2822,6 +2822,9 @@ enum CXCallingConv {
    CXCallingConv_IntelOclBicc = 9,
    CXCallingConv_X86_64Win64 = 10,
@@ -2569,7 +2578,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..0f085f9 100644
+index 704a375..7b30716 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -2598,95 +2607,131 @@ index 704a375..0f085f9 100644
  def AlignMac68k : InheritableAttr {
    // This attribute has no spellings as it is only ever created implicitly.
    let Spellings = [];
-@@ -514,7 +533,7 @@ def Constructor : InheritableAttr {
+@@ -513,13 +532,6 @@ def Constructor : InheritableAttr {
+   let Documentation = [Undocumented];
  }
  
- def CUDAConstant : InheritableAttr {
+-def CUDAConstant : InheritableAttr {
 -  let Spellings = [GNU<"constant">];
-+  let Spellings = [GNU<"constant">, GNU<"cuda_constant">];
-   let Subjects = SubjectList<[Var]>;
-   let LangOpts = [CUDA];
+-  let Subjects = SubjectList<[Var]>;
+-  let LangOpts = [CUDA];
+-  let Documentation = [Undocumented];
+-}
+-
+ def CUDADevice : InheritableAttr {
+   let Spellings = [GNU<"device">];
+   let Subjects = SubjectList<[Function, Var]>;
+@@ -527,13 +539,6 @@ def CUDADevice : InheritableAttr {
    let Documentation = [Undocumented];
-@@ -528,7 +547,7 @@ def CUDADevice : InheritableAttr {
  }
  
- def CUDAGlobal : InheritableAttr {
+-def CUDAGlobal : InheritableAttr {
 -  let Spellings = [GNU<"global">];
-+  let Spellings = [GNU<"global">, GNU<"cuda_kernel">];
+-  let Subjects = SubjectList<[Function]>;
+-  let LangOpts = [CUDA];
+-  let Documentation = [Undocumented];
+-}
+-
+ def CUDAHost : InheritableAttr {
+   let Spellings = [GNU<"host">];
    let Subjects = SubjectList<[Function]>;
-   let LangOpts = [CUDA];
+@@ -553,13 +558,6 @@ def CUDALaunchBounds : InheritableAttr {
    let Documentation = [Undocumented];
-@@ -554,7 +573,7 @@ def CUDALaunchBounds : InheritableAttr {
  }
  
- def CUDAShared : InheritableAttr {
+-def CUDAShared : InheritableAttr {
 -  let Spellings = [GNU<"shared">];
-+  let Spellings = [GNU<"shared">, GNU<"cuda_local">];
-   let Subjects = SubjectList<[Var]>;
-   let LangOpts = [CUDA];
-   let Documentation = [Undocumented];
-@@ -574,7 +593,7 @@ def CXX11NoReturn : InheritableAttr {
+-  let Subjects = SubjectList<[Var]>;
+-  let LangOpts = [CUDA];
+-  let Documentation = [Undocumented];
+-}
+-
+ def C11NoReturn : InheritableAttr {
+   let Spellings = [Keyword<"_Noreturn">];
+   let Subjects = SubjectList<[Function], ErrorDiag>;
+@@ -573,45 +571,66 @@ def CXX11NoReturn : InheritableAttr {
+   let Documentation = [CXX11NoReturnDocs];
  }
  
- def OpenCLKernel : InheritableAttr {
+-def OpenCLKernel : InheritableAttr {
 -  let Spellings = [Keyword<"__kernel">, Keyword<"kernel">];
-+  let Spellings = [Keyword<"__kernel">, GNU<"opencl_kernel">];
++def ComputeKernel : InheritableAttr {
++  let Spellings = [GNU<"compute_kernel">, CXX11<"","compute_kernel">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
-@@ -582,36 +601,46 @@ def OpenCLKernel : InheritableAttr {
+ 
  // This attribute is both a type attribute, and a declaration attribute (for
  // parameter variables).
- def OpenCLImageAccess : Attr {
+-def OpenCLImageAccess : Attr {
 -  let Spellings = [Keyword<"__read_only">, Keyword<"read_only">,
 -                   Keyword<"__write_only">, Keyword<"write_only">,
 -                   Keyword<"__read_write">, Keyword<"read_write">];
 -  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
-+  let Spellings = [Keyword<"__read_only">, GNU<"image_read_only">, CXX11<"","image_read_only">,
-+                   Keyword<"__write_only">, GNU<"image_write_only">, CXX11<"","image_write_only">,
-+                   Keyword<"__read_write">, GNU<"image_read_write">, CXX11<"","image_read_write">];
-+  //let Subjects = SubjectList<[ParmVar], ErrorDiag>;
-   let Accessors = [Accessor<"isReadOnly", [Keyword<"__read_only">,
+-  let Accessors = [Accessor<"isReadOnly", [Keyword<"__read_only">,
 -                                           Keyword<"read_only">]>,
-+										   GNU<"image_read_only">,
-+										   CXX11<"","image_read_only">]>,
-                    Accessor<"isReadWrite", [Keyword<"__read_write">,
+-                   Accessor<"isReadWrite", [Keyword<"__read_write">,
 -                                            Keyword<"read_write">]>,
-+											GNU<"image_read_write">,
-+											CXX11<"","image_read_write">]>,
-                    Accessor<"isWriteOnly", [Keyword<"__write_only">,
+-                   Accessor<"isWriteOnly", [Keyword<"__write_only">,
 -                                            Keyword<"write_only">]>];
-+											GNU<"image_write_only">,
++def ImageAccess : Attr {
++  let Spellings = [GNU<"image_read_only">, CXX11<"","image_read_only">,
++                   GNU<"image_write_only">, CXX11<"","image_write_only">,
++                   GNU<"image_read_write">, CXX11<"","image_read_write">];
++  let Accessors = [Accessor<"isReadOnly", [GNU<"image_read_only">,
++										   CXX11<"","image_read_only">]>,
++                   Accessor<"isReadWrite", [GNU<"image_read_write">,
++											CXX11<"","image_read_write">]>,
++                   Accessor<"isWriteOnly", [GNU<"image_write_only">,
 +											CXX11<"","image_write_only">]>];
    let Documentation = [Undocumented];
  }
  
- def OpenCLPrivateAddressSpace : TypeAttr {
+-def OpenCLPrivateAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__private">, Keyword<"private">];
-+  let Spellings = [Keyword<"__private">, GNU<"opencl_private">];
++def PrivateAddressSpace : TypeAttr {
++  let Spellings = [GNU<"private_as">, CXX11<"","private_as">];
    let Documentation = [Undocumented];
  }
  
- def OpenCLGlobalAddressSpace : TypeAttr {
+-def OpenCLGlobalAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__global">, Keyword<"global">];
-+  let Spellings = [Keyword<"__global">, GNU<"opencl_global">];
++def GlobalAddressSpace : TypeAttr {
++  let Spellings = [GNU<"global_as">, CXX11<"","global_as">];
    let Documentation = [Undocumented];
  }
  
- def OpenCLLocalAddressSpace : TypeAttr {
+-def OpenCLLocalAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__local">, Keyword<"local">];
-+  let Spellings = [Keyword<"__local">, GNU<"opencl_local">];
++def LocalAddressSpace : TypeAttr {
++  let Spellings = [GNU<"local_as">, CXX11<"","local_as">];
    let Documentation = [Undocumented];
  }
  
- def OpenCLConstantAddressSpace : TypeAttr {
+-def OpenCLConstantAddressSpace : TypeAttr {
 -  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
-+  let Spellings = [Keyword<"__constant">, GNU<"opencl_constant">];
++def ConstantAddressSpace : TypeAttr {
++  let Spellings = [GNU<"constant_as">, CXX11<"","constant_as">];
++  let Documentation = [Undocumented];
++}
++
++// CUDA address space attrs are not type attrs, so they need to be handled specially
++def CUDAShared : InheritableAttr {
++  let Spellings = [GNU<"local_cuda">, CXX11<"","local_cuda">];
++  let Subjects = SubjectList<[Var]>;
++  let LangOpts = [CUDA];
++  let Documentation = [Undocumented];
++}
++
++def CUDAConstant : InheritableAttr {
++  let Spellings = [GNU<"constant_cuda">, CXX11<"","constant_cuda">];
++  let Subjects = SubjectList<[Var]>;
++  let LangOpts = [CUDA];
 +  let Documentation = [Undocumented];
 +}
 +
 +def FloorImageDataType : InheritableAttr {
-+  let Spellings = [GNU<"floor_image">];
++  let Spellings = [GNU<"floor_image">, CXX11<"","floor_image">];
 +  let Args = [TypeArgument<"ImageDataType">];
 +  let TemplateDependent = 1;
    let Documentation = [Undocumented];
@@ -2816,13 +2861,14 @@ index f895673..78084dc 100644
      default:
        return false;
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
-index 5d08833..52d3d3e 100644
+index 5d08833..c53d8b2 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
 +++ b/tools/clang/include/clang/Basic/TokenKinds.def
-@@ -461,27 +461,19 @@ KEYWORD(__forceinline               , KEYMS)
+@@ -460,28 +460,9 @@ KEYWORD(__thiscall                  , KEYALL)
+ KEYWORD(__forceinline               , KEYMS)
  KEYWORD(__unaligned                 , KEYMS)
  
- // OpenCL address space qualifiers
+-// OpenCL address space qualifiers
 -KEYWORD(__global                    , KEYOPENCL)
 -KEYWORD(__local                     , KEYOPENCL)
 -KEYWORD(__constant                  , KEYOPENCL)
@@ -2831,24 +2877,16 @@ index 5d08833..52d3d3e 100644
 -ALIAS("local", __local              , KEYOPENCL)
 -ALIAS("constant", __constant        , KEYOPENCL)
 -ALIAS("private", __private          , KEYOPENCL)
-+KEYWORD(__global                    , KEYCXX|KEYOPENCL)
-+KEYWORD(__local                     , KEYCXX|KEYOPENCL)
-+KEYWORD(__constant                  , KEYCXX|KEYOPENCL)
-+KEYWORD(__private                   , KEYCXX|KEYOPENCL)
- // OpenCL function qualifiers
+-// OpenCL function qualifiers
 -KEYWORD(__kernel                    , KEYOPENCL)
 -ALIAS("kernel", __kernel            , KEYOPENCL)
-+KEYWORD(__kernel                    , KEYCXX|KEYOPENCL)
- // OpenCL access qualifiers
+-// OpenCL access qualifiers
 -KEYWORD(__read_only                 , KEYOPENCL)
 -KEYWORD(__write_only                , KEYOPENCL)
 -KEYWORD(__read_write                , KEYOPENCL)
 -ALIAS("read_only", __read_only      , KEYOPENCL)
 -ALIAS("write_only", __write_only    , KEYOPENCL)
 -ALIAS("read_write", __read_write    , KEYOPENCL)
-+KEYWORD(__read_only                 , KEYCXX|KEYOPENCL)
-+KEYWORD(__write_only                , KEYCXX|KEYOPENCL)
-+KEYWORD(__read_write                , KEYCXX|KEYOPENCL)
  // OpenCL builtins
 -KEYWORD(__builtin_astype            , KEYOPENCL)
 -KEYWORD(vec_step                    , KEYOPENCL|KEYALTIVEC)
@@ -3969,7 +4007,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..7622622 100644
+index 5ca3a78..0f73d19 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4020,7 +4058,7 @@ index 5ca3a78..7622622 100644
 +
 +// will recurse through the specified class/struct decl and its base classes,
 +// returning the first image access attribute that it encounters (or nullptr if none)
-+static const OpenCLImageAccessAttr* get_aggregate_access_attr(const CXXRecordDecl* decl) {
++static const ImageAccessAttr* get_aggregate_access_attr(const CXXRecordDecl* decl) {
 +	if(decl == nullptr) return nullptr;
 +	
 +	// must have definition
@@ -4037,7 +4075,7 @@ index 5ca3a78..7622622 100644
 +	// iterate over all fields/members and return the first access attr
 +	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
 +		// try direct attr first
-+		const OpenCLImageAccessAttr* access_attr = iter->getAttr<OpenCLImageAccessAttr>();
++		const ImageAccessAttr* access_attr = iter->getAttr<ImageAccessAttr>();
 +		if(access_attr != nullptr) {
 +			return access_attr;
 +		}
@@ -4045,7 +4083,7 @@ index 5ca3a78..7622622 100644
 +		// then check if this is a c++ decl (struct/union/class) and check if it has the attr
 +		const auto as_decl = iter->getType()->getAsCXXRecordDecl();
 +		if(as_decl != nullptr) {
-+			access_attr = as_decl->getAttr<OpenCLImageAccessAttr>();
++			access_attr = as_decl->getAttr<ImageAccessAttr>();
 +			if(access_attr != nullptr) {
 +				return access_attr;
 +			}
@@ -4058,7 +4096,7 @@ index 5ca3a78..7622622 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,110 +412,793 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +412,832 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4245,7 +4283,7 @@ index 5ca3a78..7622622 100644
 +	const auto add_image_arg = [&Builder, &Context, &CGM,
 +								&addressQuals, &accessQuals, &argTypeNames, &argBaseTypeNames,
 +								&argNames, &argTypeQuals](const clang::QualType& type,
-+														  const OpenCLImageAccessAttr* access_attr,
++														  const ImageAccessAttr* access_attr,
 +														  const std::string& name) {
 +		// image is always in global address space
 +		addressQuals.push_back(Builder.getInt32(CGM.getContext().getTargetAddressSpace(LangAS::opencl_global)));
@@ -4325,7 +4363,7 @@ index 5ca3a78..7622622 100644
 +		}
 +		// normal image
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(),
++			add_image_arg(clang_type, parm->getAttr<ImageAccessAttr>(),
 +						  parm->getName().str());
 +		}
 +		// aggregate image
@@ -4338,7 +4376,7 @@ index 5ca3a78..7622622 100644
 +			for(const auto& img : agg_images) {
 +				const auto img_type = img->getType();
 +				
-+				add_image_arg(img_type, img->getAttr<OpenCLImageAccessAttr>(),
++				add_image_arg(img_type, img->getAttr<ImageAccessAttr>(),
 +							  base_name + std::to_string(img_idx));
 +				++img_idx;
 +			}
@@ -4414,7 +4452,7 @@ index 5ca3a78..7622622 100644
 +
 +		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx,
 +									&Context, &ASTCtx, &CGM](const clang::QualType& type,
-+															 const OpenCLImageAccessAttr* access_attr,
++															 const ImageAccessAttr* access_attr,
 +															 const FloorImageDataTypeAttr* data_type,
 +															 const std::string& name) {
 +			SmallVector<llvm::Value*, 16> arg_info;
@@ -4539,7 +4577,7 @@ index 5ca3a78..7622622 100644
 +		}
 +		// image
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(clang_type, parm->getAttr<OpenCLImageAccessAttr>(),
++			add_image_arg(clang_type, parm->getAttr<ImageAccessAttr>(),
 +						  parm->getAttr<FloorImageDataTypeAttr>(), parm->getName().str());
 +		}
 +		// aggregate image
@@ -4552,7 +4590,7 @@ index 5ca3a78..7622622 100644
 +			for(const auto& img : agg_images) {
 +				const auto img_type = img->getType();
 +				
-+				add_image_arg(img_type, img->getAttr<OpenCLImageAccessAttr>(),
++				add_image_arg(img_type, img->getAttr<ImageAccessAttr>(),
 +							  img->getAttr<FloorImageDataTypeAttr>(), base_name + std::to_string(img_idx));
 +				++img_idx;
 +				
@@ -4617,7 +4655,7 @@ index 5ca3a78..7622622 100644
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		
-+		const auto add_image_arg = [&arg_infos, &Context](const OpenCLImageAccessAttr* access_attr) {
++		const auto add_image_arg = [&arg_infos, &Context](const ImageAccessAttr* access_attr) {
 +			SmallVector<llvm::Value*, 2> arg_info;
 +			
 +			arg_info.push_back(llvm::MDString::get(Context, "image"));
@@ -4667,13 +4705,13 @@ index 5ca3a78..7622622 100644
 +			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		}
 +		else if(clang_type->isImageType()) {
-+			add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
++			add_image_arg(parm->getAttr<ImageAccessAttr>());
 +		}
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto decl = clang_type->getAsCXXRecordDecl();
 +			const auto agg_images = get_aggregate_image_fields(decl);
 +			for(const auto& img : agg_images) {
-+				add_image_arg(img->getAttr<OpenCLImageAccessAttr>());
++				add_image_arg(img->getAttr<ImageAccessAttr>());
 +			}
 +		}
 +		else {
@@ -4694,7 +4732,7 @@ index 5ca3a78..7622622 100644
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args) {
-+	if (!FD->hasAttr<OpenCLKernelAttr>() && !FD->hasAttr<CUDAGlobalAttr>()) {
++	if (!FD->hasAttr<ComputeKernelAttr>()) {
 +		return;
 +	}
 +	
@@ -4769,7 +4807,7 @@ index 5ca3a78..7622622 100644
 +			}
 +			return FLOOR_ARG_INFO::AS_NONE;
 +		};
-+		static const auto get_image_access = [](const OpenCLImageAccessAttr* access_attr) {
++		static const auto get_image_access = [](const ImageAccessAttr* access_attr) {
 +			if(access_attr != nullptr) {
 +				if(access_attr->isWriteOnly()) {
 +					return FLOOR_ARG_INFO::IMG_ACCESS_WRITE;
@@ -4826,7 +4864,7 @@ index 5ca3a78..7622622 100644
 +		// handle image types
 +		else if(clang_type->isImageType()) {
 +			add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
-+						  get_image_access(parm->getAttr<OpenCLImageAccessAttr>()));
++						  get_image_access(parm->getAttr<ImageAccessAttr>()));
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
@@ -4851,7 +4889,7 @@ index 5ca3a78..7622622 100644
 +			FLOOR_ARG_INFO floor_img_type = FLOOR_ARG_INFO::NONE;
 +			uint64_t floor_img_access = 0;
 +			for(const auto& img : agg_images) {
-+				const auto access_attr = img->getAttr<OpenCLImageAccessAttr>();
++				const auto access_attr = img->getAttr<ImageAccessAttr>();
 +				if(access_attr == nullptr) {
 +					CGM.Error(img->getSourceRange().getBegin(),
 +							  StringRef("image type in an aggregate-image must have an access qualifier"));
@@ -4899,7 +4937,7 @@ index 5ca3a78..7622622 100644
 +			
 +			// check if parameter has image access qualifiers,
 +			// if so, it must be an image
-+			const OpenCLImageAccessAttr* access_attr = parm->getAttr<OpenCLImageAccessAttr>();
++			const ImageAccessAttr* access_attr = parm->getAttr<ImageAccessAttr>();
 +			if(access_attr == nullptr) {
 +				// get access attr if this is an aggregate type
 +				access_attr = get_aggregate_access_attr(clang_type->getAsCXXRecordDecl());
@@ -4953,7 +4991,12 @@ index 5ca3a78..7622622 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-@@ -455,12 +1210,34 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+                                                llvm::Function *Fn)
+ {
+-  if (!FD->hasAttr<OpenCLKernelAttr>())
++  if (!FD->hasAttr<ComputeKernelAttr>())
+     return;
+ 
    llvm::LLVMContext &Context = getLLVMContext();
  
    SmallVector <llvm::Value*, 5> kernelMDArgs;
@@ -5083,7 +5126,7 @@ index 5ca3a78..7622622 100644
 +      }
 +
 +      // add "compute_kernel" llvm function attribute if this is a kernel function
-+      if (FD->hasAttr<OpenCLKernelAttr>() || FD->hasAttr<CUDAGlobalAttr>()) {
++      if (FD->hasAttr<ComputeKernelAttr>()) {
 +        Fn->addFnAttr("compute_kernel");
 +      }
 +    }
@@ -5107,7 +5150,7 @@ index 5ca3a78..7622622 100644
 +	
 +	if(const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(GD.getDecl())) {
 +		// Add global applecl kernel annotations.
-+		if(CGM.getCodeGenOpts().EmitAppleCLMetadata && FD->hasAttr<OpenCLKernelAttr>()) {
++		if(CGM.getCodeGenOpts().EmitAppleCLMetadata && FD->hasAttr<ComputeKernelAttr>()) {
 +			// go through all local decls and find the local memory decls
 +			std::vector<llvm::Constant*> lmem_refs;
 +			for(const auto& I : LocalDeclMap) {
@@ -5130,7 +5173,7 @@ index 5ca3a78..7622622 100644
 +			for(const auto& parm : FD->params()) {
 +				const auto clang_type = parm->getType();
 +				
-+				const auto add_image_arg = [&arg_info](const OpenCLImageAccessAttr* access_attr) {
++				const auto add_image_arg = [&arg_info](const ImageAccessAttr* access_attr) {
 +					// access qualifier
 +					if(access_attr && access_attr->isWriteOnly()) {
 +						arg_info += "6";
@@ -5167,13 +5210,13 @@ index 5ca3a78..7622622 100644
 +					}
 +				}
 +				else if(clang_type->isImageType()) {
-+					add_image_arg(parm->getAttr<OpenCLImageAccessAttr>());
++					add_image_arg(parm->getAttr<ImageAccessAttr>());
 +				}
 +				else if(clang_type->isAggregateImageType()) {
 +					const auto decl = clang_type->getAsCXXRecordDecl();
 +					const auto agg_images = get_aggregate_image_fields(decl);
 +					for(const auto& img : agg_images) {
-+						add_image_arg(img->getAttr<OpenCLImageAccessAttr>());
++						add_image_arg(img->getAttr<ImageAccessAttr>());
 +					}
 +				}
 +				else {
@@ -5190,6 +5233,15 @@ index 5ca3a78..7622622 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
+@@ -808,7 +1753,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+     EmitConstructorBody(Args);
+   else if (getLangOpts().CUDA &&
+            !CGM.getCodeGenOpts().CUDAIsDevice &&
+-           FD->hasAttr<CUDAGlobalAttr>())
++           FD->hasAttr<ComputeKernelAttr>())
+     CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
+   else if (isa<CXXConversionDecl>(FD) &&
+            cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
 @@ -858,6 +1803,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
@@ -5356,7 +5408,7 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
-index f75e59d..e2cc3d3 100644
+index f75e59d..faa530d 100644
 --- a/tools/clang/lib/CodeGen/TargetInfo.cpp
 +++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
 @@ -46,6 +46,10 @@ static bool isAggregateTypeForABI(QualType T) {
@@ -5380,6 +5432,33 @@ index f75e59d..e2cc3d3 100644
    if (isAggregateTypeForABI(Ty))
      return ABIArgInfo::getIndirect(0);
  
+@@ -4910,7 +4917,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+   if (M.getLangOpts().OpenCL) {
+     // Use OpenCL function attributes to check for kernel functions
+     // By default, all functions are device functions
+-    if (FD->hasAttr<OpenCLKernelAttr>()) {
++    if (FD->hasAttr<ComputeKernelAttr>()) {
+       // OpenCL __kernel functions get kernel metadata
+       // Create !{<func-ref>, metadata !"kernel", i32 1} node
+       addNVVMMetadata(F, "kernel", 1);
+@@ -4924,7 +4931,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+     // CUDA __global__ functions get a kernel metadata entry.  Since
+     // __global__ functions cannot be called from the device, we do not
+     // need to set the noinline attribute.
+-    if (FD->hasAttr<CUDAGlobalAttr>()) {
++    if (FD->hasAttr<ComputeKernelAttr>()) {
+       // Create !{<func-ref>, metadata !"kernel", i32 1} node
+       addNVVMMetadata(F, "kernel", 1);
+     }
+@@ -5657,7 +5664,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
+   llvm::Function *F = cast<llvm::Function>(GV);
+   
+   if (M.getLangOpts().OpenCL) {
+-    if (FD->hasAttr<OpenCLKernelAttr>()) {
++    if (FD->hasAttr<ComputeKernelAttr>()) {
+       // OpenCL C Kernel functions are not subject to inlining
+       F->addFnAttr(llvm::Attribute::NoInline);
+       const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
 diff --git a/tools/clang/lib/Driver/Tools.cpp b/tools/clang/lib/Driver/Tools.cpp
 index 198e82e..41a24da 100644
 --- a/tools/clang/lib/Driver/Tools.cpp
@@ -5485,6 +5564,134 @@ index 1741c30..2236e48 100644
          Diag(Tok, diag::err_pp_opencl_variadic_macros);
          return true;
        }
+diff --git a/tools/clang/lib/Parse/ParseDecl.cpp b/tools/clang/lib/Parse/ParseDecl.cpp
+index 62d4376..8aa86b0 100644
+--- a/tools/clang/lib/Parse/ParseDecl.cpp
++++ b/tools/clang/lib/Parse/ParseDecl.cpp
+@@ -610,23 +610,6 @@ void Parser::ParseBorlandTypeAttributes(ParsedAttributes &attrs) {
+   }
+ }
+ 
+-void Parser::ParseOpenCLAttributes(ParsedAttributes &attrs) {
+-  // Treat these like attributes
+-  while (Tok.is(tok::kw___kernel)) {
+-    IdentifierInfo *AttrName = Tok.getIdentifierInfo();
+-    SourceLocation AttrNameLoc = ConsumeToken();
+-    attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+-                 AttributeList::AS_Keyword);
+-  }
+-}
+-
+-void Parser::ParseOpenCLQualifiers(ParsedAttributes &Attrs) {
+-  IdentifierInfo *AttrName = Tok.getIdentifierInfo();
+-  SourceLocation AttrNameLoc = Tok.getLocation();
+-  Attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
+-               AttributeList::AS_Keyword);
+-}
+-
+ /// \brief Parse a version number.
+ ///
+ /// version:
+@@ -2438,7 +2421,6 @@ Parser::DiagnoseMissingSemiAfterTagDefinition(DeclSpec &DS, AccessSpecifier AS,
+ /// [C99]   'inline'
+ /// [C++]   'virtual'
+ /// [C++]   'explicit'
+-/// [OpenCL] '__kernel'
+ ///       'friend': [C++ dcl.friend]
+ ///       'constexpr': [C++0x dcl.constexpr]
+ 
+@@ -2871,11 +2853,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
+       ParseBorlandTypeAttributes(DS.getAttributes());
+       continue;
+ 
+-    // OpenCL single token adornments.
+-    case tok::kw___kernel:
+-      ParseOpenCLAttributes(DS.getAttributes());
+-      continue;
+-
+     // storage-class-specifier
+     case tok::kw_typedef:
+       isInvalid = DS.SetStorageClassSpec(Actions, DeclSpec::SCS_typedef, Loc,
+@@ -3168,17 +3145,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
+                                  getLangOpts());
+       break;
+ 
+-    // OpenCL qualifiers:
+-    case tok::kw___private:
+-    case tok::kw___global:
+-    case tok::kw___local:
+-    case tok::kw___constant:
+-    case tok::kw___read_only:
+-    case tok::kw___write_only:
+-    case tok::kw___read_write:
+-      ParseOpenCLQualifiers(DS.getAttributes());
+-      break;
+-
+     case tok::less:
+       // GCC ObjC supports types like "<SomeProtocol>" as a synonym for
+       // "id<SomeProtocol>".  This is hopelessly old fashioned and dangerous,
+@@ -3917,13 +3883,6 @@ bool Parser::isTypeQualifier() const {
+   case tok::kw_const:
+   case tok::kw_volatile:
+   case tok::kw_restrict:
+-  case tok::kw___private:
+-  case tok::kw___local:
+-  case tok::kw___global:
+-  case tok::kw___constant:
+-  case tok::kw___read_only:
+-  case tok::kw___read_write:
+-  case tok::kw___write_only:
+     return true;
+   }
+ }
+@@ -4065,14 +4024,6 @@ bool Parser::isTypeSpecifierQualifier() {
+   case tok::kw___pascal:
+   case tok::kw___unaligned:
+ 
+-  case tok::kw___private:
+-  case tok::kw___local:
+-  case tok::kw___global:
+-  case tok::kw___constant:
+-  case tok::kw___read_only:
+-  case tok::kw___read_write:
+-  case tok::kw___write_only:
+-
+     return true;
+ 
+   // C11 _Atomic
+@@ -4236,14 +4187,6 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
+   case tok::kw___pascal:
+   case tok::kw___unaligned:
+ 
+-  case tok::kw___private:
+-  case tok::kw___local:
+-  case tok::kw___global:
+-  case tok::kw___constant:
+-  case tok::kw___read_only:
+-  case tok::kw___read_write:
+-  case tok::kw___write_only:
+-
+     return true;
+   }
+ }
+@@ -4425,17 +4368,6 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
+                                  getLangOpts());
+       break;
+ 
+-    // OpenCL qualifiers:
+-    case tok::kw___private:
+-    case tok::kw___global:
+-    case tok::kw___local:
+-    case tok::kw___constant:
+-    case tok::kw___read_only:
+-    case tok::kw___write_only:
+-    case tok::kw___read_write:
+-      ParseOpenCLQualifiers(DS.getAttributes());
+-      break;
+-
+     case tok::kw___uptr:
+       // GNU libc headers in C mode use '__uptr' as an identifer which conflicts
+       // with the MS modifier keyword.
 diff --git a/tools/clang/lib/Sema/Sema.cpp b/tools/clang/lib/Sema/Sema.cpp
 index 2c65332..303fc49 100644
 --- a/tools/clang/lib/Sema/Sema.cpp
@@ -5507,7 +5714,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..34f642c 100644
+index 8716227..00651a4 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -5572,14 +5779,74 @@ index 8716227..34f642c 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -9954,6 +9982,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -7578,15 +7606,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+     }
+   }
+ 
+-  if (NewFD->hasAttr<OpenCLKernelAttr>()) {
+-    // OpenCL v1.2 s6.8 static is invalid for kernel functions.
+-    if ((getLangOpts().OpenCLVersion >= 120)
+-        && (SC == SC_Static)) {
++  if (NewFD->hasAttr<ComputeKernelAttr>()) {
++    // static is invalid for kernel functions.
++    if (SC == SC_Static) {
+       Diag(D.getIdentifierLoc(), diag::err_static_kernel);
+       D.setInvalidType();
+     }
+     
+-    // OpenCL v1.2, s6.9 -- Kernels can only have return type void.
++    // Kernels can only have return type void.
+     if (!NewFD->getReturnType()->isVoidType()) {
+       SourceRange RTRange = NewFD->getReturnTypeSourceRange();
+       Diag(D.getIdentifierLoc(), diag::err_expected_kernel_void_return_type)
+@@ -7595,9 +7622,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+       D.setInvalidType();
+     }
+ 
+-    llvm::SmallPtrSet<const Type *, 16> ValidTypes;
+-    for (auto Param : NewFD->params())
+-      checkIsValidOpenCLKernelParameter(*this, D, Param, ValidTypes);
++    // only check this for opencl/metal
++    if (getLangOpts().OpenCL) {
++      llvm::SmallPtrSet<const Type *, 16> ValidTypes;
++      for (auto Param : NewFD->params())
++        checkIsValidOpenCLKernelParameter(*this, D, Param, ValidTypes);
++    }
+   }
+ 
+   MarkUnusedFileScopedDecl(NewFD);
+@@ -7959,9 +7989,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
+     FD->setConstexpr(false);
+   }
+ 
+-  if (getLangOpts().OpenCL) {
++  // TODO: this doesn't seem necessary?
++  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
+     Diag(FD->getLocation(), diag::err_opencl_no_main)
+-        << FD->hasAttr<OpenCLKernelAttr>();
++        << FD->hasAttr<ComputeKernelAttr>();
+     FD->setInvalidDecl();
+     return;
+   }
+@@ -9781,8 +9812,8 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
+   if (FD->isFunctionTemplateSpecialization())
+     return false;
+ 
+-  // Don't warn for OpenCL kernels.
+-  if (FD->hasAttr<OpenCLKernelAttr>())
++  // Don't warn for compute kernels.
++  if (FD->hasAttr<ComputeKernelAttr>())
+     return false;
+ 
+   bool MissingPrototype = true;
+@@ -9954,6 +9985,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
 +  // for kernel functions: plain function parameter types are already complete,
 +  // but pointer types must always be complete as well, since their sizes and
 +  // (possibly) structure need to be known later on
-+  if(FD->hasAttr<OpenCLKernelAttr>() || FD->hasAttr<CUDAGlobalAttr>()) {
++  if(FD->hasAttr<ComputeKernelAttr>()) {
 +    for (const auto& Param : FD->params()) {
 +      const auto param_type = Param->getType();
 +      if(param_type->isPointerType()) {
@@ -5593,7 +5860,7 @@ index 8716227..34f642c 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +11983,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +11986,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
@@ -5603,7 +5870,7 @@ index 8716227..34f642c 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..4eea96d 100644
+index 61683cd..0771a1a 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
 @@ -1956,6 +1956,19 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
@@ -5685,7 +5952,30 @@ index 61683cd..4eea96d 100644
  static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    // check the attribute arguments.
    if (Attr.getNumArgs() > 1) {
-@@ -4102,6 +4167,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -3026,22 +3091,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
+                               Attr.getAttributeSpellingListIndex()));
+ }
+ 
+-static void handleGlobalAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+-  FunctionDecl *FD = cast<FunctionDecl>(D);
+-  if (!FD->getReturnType()->isVoidType()) {
+-    SourceRange RTRange = FD->getReturnTypeSourceRange();
+-    S.Diag(FD->getTypeSpecStartLoc(), diag::err_kern_type_not_void_return)
+-        << FD->getType()
+-        << (RTRange.isValid() ? FixItHint::CreateReplacement(RTRange, "void")
+-                              : FixItHint());
+-    return;
+-  }
+-
+-  D->addAttr(::new (S.Context)
+-              CUDAGlobalAttr(Attr.getRange(), S.Context,
+-                            Attr.getAttributeSpellingListIndex()));
+-}
+-
+ static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+   FunctionDecl *Fn = cast<FunctionDecl>(D);
+   if (!Fn->isInlineSpecified()) {
+@@ -4102,6 +4151,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -5695,18 +5985,46 @@ index 61683cd..4eea96d 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4405,6 +4473,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
-   case AttributeList::AT_OpenCLImageAccess:
-     handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
+@@ -4159,9 +4211,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+   case AttributeList::AT_FormatArg:
+     handleFormatArgAttr(S, D, Attr);
      break;
+-  case AttributeList::AT_CUDAGlobal:
+-    handleGlobalAttr(S, D, Attr);
+-    break;
+   case AttributeList::AT_CUDADevice:
+     handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
+     break;
+@@ -4399,11 +4448,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+   case AttributeList::AT_IntelOclBicc:
+     handleCallConvAttr(S, D, Attr);
+     break;
+-  case AttributeList::AT_OpenCLKernel:
+-    handleSimpleAttribute<OpenCLKernelAttr>(S, D, Attr);
++  case AttributeList::AT_ComputeKernel:
++    handleSimpleAttribute<ComputeKernelAttr>(S, D, Attr);
++    break;
++  case AttributeList::AT_ImageAccess:
++    handleSimpleAttribute<ImageAccessAttr>(S, D, Attr);
+     break;
+-  case AttributeList::AT_OpenCLImageAccess:
+-    handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
 +  case AttributeList::AT_FloorImageDataType:
 +    handleFloorImageDataTypeAttr(S, D, Attr);
-+    break;
+     break;
  
    // Microsoft attributes:
-   case AttributeList::AT_MsStruct:
+@@ -4553,7 +4605,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+     return;
+   }
+ 
+-  if (!D->hasAttr<OpenCLKernelAttr>()) {
++  if (!D->hasAttr<ComputeKernelAttr>()) {
+     // These attributes cannot be applied to a non-kernel function.
+     if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
+       Diag(D->getLocation(), diag::err_opencl_kernel_attr) << A;
 diff --git a/tools/clang/lib/Sema/SemaDeclCXX.cpp b/tools/clang/lib/Sema/SemaDeclCXX.cpp
-index c5cd83d..7084757 100644
+index c5cd83d..71aeb7e 100644
 --- a/tools/clang/lib/Sema/SemaDeclCXX.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclCXX.cpp
 @@ -13026,21 +13026,13 @@ Sema::checkExceptionSpecification(ExceptionSpecificationType EST,
@@ -5718,7 +6036,8 @@ index c5cd83d..7084757 100644
 -  if (D->isImplicit())
 -    return CFT_HostDevice;
 -
-   if (D->hasAttr<CUDAGlobalAttr>())
+-  if (D->hasAttr<CUDAGlobalAttr>())
++  if (D->hasAttr<ComputeKernelAttr>())
      return CFT_Global;
  
 -  if (D->hasAttr<CUDADeviceAttr>()) {
@@ -5736,7 +6055,7 @@ index c5cd83d..7084757 100644
  
  bool Sema::CheckCUDATarget(CUDAFunctionTarget CallerTarget,
 diff --git a/tools/clang/lib/Sema/SemaExpr.cpp b/tools/clang/lib/Sema/SemaExpr.cpp
-index 35dad82..bd249ab 100644
+index 35dad82..7eb8f69 100644
 --- a/tools/clang/lib/Sema/SemaExpr.cpp
 +++ b/tools/clang/lib/Sema/SemaExpr.cpp
 @@ -444,7 +444,7 @@ ExprResult Sema::DefaultFunctionArrayConversion(Expr *E) {
@@ -5747,6 +6066,24 @@ index 35dad82..bd249ab 100644
 +    if (getLangOpts().OpenCL && !LangOpts.CPlusPlus) {
        Diag(E->getExprLoc(), diag::err_opencl_taking_function_address);
        return ExprError();
+     }
+@@ -4712,7 +4712,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+   if (getLangOpts().CUDA) {
+     if (Config) {
+       // CUDA: Kernel calls must be to global functions
+-      if (FDecl && !FDecl->hasAttr<CUDAGlobalAttr>())
++      if (FDecl && !FDecl->hasAttr<ComputeKernelAttr>())
+         return ExprError(Diag(LParenLoc,diag::err_kern_call_not_global_function)
+             << FDecl->getName() << Fn->getSourceRange());
+ 
+@@ -4722,7 +4722,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+             << Fn->getType() << Fn->getSourceRange());
+     } else {
+       // CUDA: Calls to global functions must be configured
+-      if (FDecl && FDecl->hasAttr<CUDAGlobalAttr>())
++      if (FDecl && FDecl->hasAttr<ComputeKernelAttr>())
+         return ExprError(Diag(LParenLoc, diag::err_global_call_not_config)
+             << FDecl->getName() << Fn->getSourceRange());
      }
 @@ -8953,7 +8953,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    Expr *op = OrigOp.get()->IgnoreParens();
@@ -5943,7 +6280,7 @@ index accec95..cb2f01b 100644
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..54ecd6f 100644
+index be1191c..1c6b0e7 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
 @@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
@@ -5955,14 +6292,14 @@ index be1191c..54ecd6f 100644
 +  CallingConv CC = S.Context.getDefaultCallingConvention(FTI.isVariadic,
 +                                                         IsCXXInstanceMethod);
 +
-+  // Attribute AT_OpenCLKernel affects the calling convention only on
++  // Attribute AT_ComputeKernel affects the calling convention only on
 +  // the SPIR target, hence it cannot be treated as a calling
 +  // convention attribute. This is the simplest place to infer
 +  // "spir_kernel" for OpenCL kernels on SPIR.
 +  if (CC == CC_SpirFunction) {
 +    for (const AttributeList *Attr = D.getDeclSpec().getAttributes().getList();
 +         Attr; Attr = Attr->getNext()) {
-+      if (Attr->getKind() == AttributeList::AT_OpenCLKernel) {
++      if (Attr->getKind() == AttributeList::AT_ComputeKernel) {
 +        CC = CC_SpirKernel;
 +        break;
 +      }
@@ -5973,7 +6310,47 @@ index be1191c..54ecd6f 100644
  }
  
  static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
-@@ -4931,6 +4947,9 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -3969,14 +3985,14 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
+   } else {
+     // The keyword-based type attributes imply which address space to use.
+     switch (Attr.getKind()) {
+-    case AttributeList::AT_OpenCLGlobalAddressSpace:
++    case AttributeList::AT_GlobalAddressSpace:
+       ASIdx = LangAS::opencl_global; break;
+-    case AttributeList::AT_OpenCLLocalAddressSpace:
++    case AttributeList::AT_LocalAddressSpace:
+       ASIdx = LangAS::opencl_local; break;
+-    case AttributeList::AT_OpenCLConstantAddressSpace:
++    case AttributeList::AT_ConstantAddressSpace:
+       ASIdx = LangAS::opencl_constant; break;
+     default:
+-      assert(Attr.getKind() == AttributeList::AT_OpenCLPrivateAddressSpace);
++      assert(Attr.getKind() == AttributeList::AT_PrivateAddressSpace);
+       ASIdx = 0; break;
+     }
+   }
+@@ -4895,10 +4911,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+       // it it breaks large amounts of Linux software.
+       attr.setUsedAsTypeAttr();
+       break;
+-    case AttributeList::AT_OpenCLPrivateAddressSpace:
+-    case AttributeList::AT_OpenCLGlobalAddressSpace:
+-    case AttributeList::AT_OpenCLLocalAddressSpace:
+-    case AttributeList::AT_OpenCLConstantAddressSpace:
++    case AttributeList::AT_PrivateAddressSpace:
++    case AttributeList::AT_GlobalAddressSpace:
++    case AttributeList::AT_LocalAddressSpace:
++    case AttributeList::AT_ConstantAddressSpace:
+     case AttributeList::AT_AddressSpace:
+       HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
+       attr.setUsedAsTypeAttr();
+@@ -4926,11 +4942,14 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+                                VectorType::NeonPolyVector);
+       attr.setUsedAsTypeAttr();
+       break;
+-    case AttributeList::AT_OpenCLImageAccess:
++    case AttributeList::AT_ImageAccess:
+       // FIXME: there should be some type checking happening here, I would
        // imagine, but the original handler's checking was entirely superfluous.
        attr.setUsedAsTypeAttr();
        break;
@@ -6026,7 +6403,7 @@ index ae41654..098f631 100644
      case PREDEF_TYPE_SAMPLER_ID:    T = Context.OCLSamplerTy;       break;
      case PREDEF_TYPE_EVENT_ID:      T = Context.OCLEventTy;         break;
 diff --git a/tools/clang/tools/libclang/CIndex.cpp b/tools/clang/tools/libclang/CIndex.cpp
-index fc8703a..cb4d0bc 100644
+index fc8703a..adc680b 100644
 --- a/tools/clang/tools/libclang/CIndex.cpp
 +++ b/tools/clang/tools/libclang/CIndex.cpp
 @@ -1418,6 +1418,16 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
@@ -6046,6 +6423,34 @@ index fc8703a..cb4d0bc 100644
    case BuiltinType::OCLImage3d:
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
+@@ -3990,11 +4000,11 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
+   case CXCursor_NoDuplicateAttr:
+     return cxstring::createRef("attribute(noduplicate)");
+   case CXCursor_CUDAConstantAttr:
+-    return cxstring::createRef("attribute(constant)");
++    return cxstring::createRef("attribute(constant_cuda)");
+   case CXCursor_CUDADeviceAttr:
+     return cxstring::createRef("attribute(device)");
+-  case CXCursor_CUDAGlobalAttr:
+-    return cxstring::createRef("attribute(global)");
++  case CXCursor_ComputeKernelAttr:
++    return cxstring::createRef("attribute(compute_kernel)");
+   case CXCursor_CUDAHostAttr:
+     return cxstring::createRef("attribute(host)");
+   case CXCursor_PreprocessingDirective:
+diff --git a/tools/clang/tools/libclang/CXCursor.cpp b/tools/clang/tools/libclang/CXCursor.cpp
+index 4321903..08f0179 100644
+--- a/tools/clang/tools/libclang/CXCursor.cpp
++++ b/tools/clang/tools/libclang/CXCursor.cpp
+@@ -55,7 +55,7 @@ static CXCursorKind GetCursorKind(const Attr *A) {
+     case attr::NoDuplicate: return CXCursor_NoDuplicateAttr;
+     case attr::CUDAConstant: return CXCursor_CUDAConstantAttr;
+     case attr::CUDADevice: return CXCursor_CUDADeviceAttr;
+-    case attr::CUDAGlobal: return CXCursor_CUDAGlobalAttr;
++    case attr::ComputeKernel: return CXCursor_ComputeKernelAttr;
+     case attr::CUDAHost: return CXCursor_CUDAHostAttr;
+   }
+ 
 diff --git a/tools/clang/tools/libclang/CXType.cpp b/tools/clang/tools/libclang/CXType.cpp
 index fe45899..0f97dc0 100644
 --- a/tools/clang/tools/libclang/CXType.cpp
