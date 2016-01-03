@@ -565,7 +565,7 @@ index c1d0d3b..3d4303a 100644
          Changed = true;
        }
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
-index c970a1a..20d38ef 100644
+index c970a1a..62f3c6a 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
 +++ b/lib/Transforms/IPO/Internalize.cpp
 @@ -23,6 +23,7 @@
@@ -576,14 +576,17 @@ index c970a1a..20d38ef 100644
  #include "llvm/IR/Module.h"
  #include "llvm/Pass.h"
  #include "llvm/Support/CommandLine.h"
-@@ -127,6 +128,14 @@ static bool shouldInternalize(const GlobalValue &GV,
+@@ -127,6 +128,17 @@ static bool shouldInternalize(const GlobalValue &GV,
    if (ExternalNames.count(GV.getName()))
      return false;
  
-+  // is this a compute (opencl/cuda/metal) kernel function?
++  // is this a compute (opencl/cuda/metal) kernel or graphics function?
 +  if (isa<Function>(GV)) {
 +    const Function* F = dyn_cast<Function>(&GV);
-+    if (F && F->hasFnAttribute("compute_kernel")) {
++    if (F &&
++        (F->hasFnAttribute("compute_kernel") ||
++         F->hasFnAttribute("vertex_shader") ||
++         F->hasFnAttribute("fragment_shader"))) {
 +      return false;
 +    }
 +  }
@@ -1850,10 +1853,10 @@ index 0000000..89a8fee
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..e26b5af
+index 0000000..de01734
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,278 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1930,14 +1933,18 @@ index 0000000..e26b5af
 +		Instruction* alloca_insert { nullptr };
 +		bool was_modified { false };
 +		bool is_kernel_func { false };
++		bool is_vertex_func { false };
 +		
-+		// added function args
++		// added kernel function args
 +		Argument* global_id { nullptr };
 +		Argument* global_size { nullptr };
 +		Argument* local_id { nullptr };
 +		Argument* local_size { nullptr };
 +		Argument* group_id { nullptr };
 +		Argument* group_size { nullptr };
++		
++		// added vertex function args
++		Argument* vertex_id { nullptr };
 +		
 +		MetalFinal() : FunctionPass(ID) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
@@ -1963,7 +1970,19 @@ index 0000000..e26b5af
 +				local_size = new llvm::Argument(vec_type, "__metal__local_size__", &F);
 +				group_id = new llvm::Argument(vec_type, "__metal__group_id__", &F);
 +				group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
-+				
++			}
++			
++			// add args if this is a kernel function
++			is_vertex_func = F.hasFnAttribute("vertex_shader");
++			if(is_vertex_func) {
++				const auto uint_type = llvm::Type::getInt32Ty(*ctx);
++				vertex_id = new llvm::Argument(uint_type, "__metal__vertex_id__", &F);
++				// TODO: this should be optional / only happen on request
++				// TODO: handle instance id
++			}
++			
++			// update function signature / param list
++			if(is_kernel_func || is_vertex_func) {
 +				std::vector<Type*> param_types;
 +				for(const auto& arg : F.getArgumentList()) {
 +					param_types.push_back(arg.getType());
@@ -1978,7 +1997,7 @@ index 0000000..e26b5af
 +			visit(F);
 +			
 +			// always modified
-+			return was_modified || is_kernel_func;
++			return was_modified || is_kernel_func || is_vertex_func;
 +		}
 +		
 +		// InstVisitor overrides...
@@ -1990,7 +2009,7 @@ index 0000000..e26b5af
 +		//
 +		void visitCallInst(CallInst &I) {
 +			// if this isn't a kernel function we don't need to do anything here (yet)
-+			if(!is_kernel_func) return;
++			if(!is_kernel_func && !is_vertex_func) return;
 +			
 +			const auto func_name = I.getCalledFunction()->getName();
 +			if(!func_name.startswith("floor.")) return;
@@ -2028,6 +2047,11 @@ index 0000000..e26b5af
 +				const auto sel_x_or_y = builder->CreateSelect(cmp_y, builder->getInt32(1), builder->getInt32(2));
 +				const auto sel_xy_or_z = builder->CreateSelect(cmp_z, sel_x_or_y, builder->getInt32(3));
 +				I.replaceAllUsesWith(sel_xy_or_z);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_vertex_id.i32") {
++				I.replaceAllUsesWith(vertex_id);
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -2578,7 +2602,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..7b30716 100644
+index 704a375..51187bb 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -2649,7 +2673,7 @@ index 704a375..7b30716 100644
  def C11NoReturn : InheritableAttr {
    let Spellings = [Keyword<"_Noreturn">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
-@@ -573,45 +571,66 @@ def CXX11NoReturn : InheritableAttr {
+@@ -573,45 +571,121 @@ def CXX11NoReturn : InheritableAttr {
    let Documentation = [CXX11NoReturnDocs];
  }
  
@@ -2657,6 +2681,18 @@ index 704a375..7b30716 100644
 -  let Spellings = [Keyword<"__kernel">, Keyword<"kernel">];
 +def ComputeKernel : InheritableAttr {
 +  let Spellings = [GNU<"compute_kernel">, CXX11<"","compute_kernel">];
++  let Subjects = SubjectList<[Function], ErrorDiag>;
++  let Documentation = [Undocumented];
++}
++
++def GraphicsVertexShader : InheritableAttr {
++  let Spellings = [GNU<"vertex_shader">, CXX11<"","vertex_shader">];
++  let Subjects = SubjectList<[Function], ErrorDiag>;
++  let Documentation = [Undocumented];
++}
++
++def GraphicsFragmentShader : InheritableAttr {
++  let Spellings = [GNU<"fragment_shader">, CXX11<"","fragment_shader">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
    let Documentation = [Undocumented];
  }
@@ -2684,37 +2720,37 @@ index 704a375..7b30716 100644
 +											CXX11<"","image_read_write">]>,
 +                   Accessor<"isWriteOnly", [GNU<"image_write_only">,
 +											CXX11<"","image_write_only">]>];
-   let Documentation = [Undocumented];
- }
- 
--def OpenCLPrivateAddressSpace : TypeAttr {
--  let Spellings = [Keyword<"__private">, Keyword<"private">];
++  let Documentation = [Undocumented];
++}
++
 +def PrivateAddressSpace : TypeAttr {
 +  let Spellings = [GNU<"private_as">, CXX11<"","private_as">];
    let Documentation = [Undocumented];
  }
  
--def OpenCLGlobalAddressSpace : TypeAttr {
--  let Spellings = [Keyword<"__global">, Keyword<"global">];
+-def OpenCLPrivateAddressSpace : TypeAttr {
+-  let Spellings = [Keyword<"__private">, Keyword<"private">];
 +def GlobalAddressSpace : TypeAttr {
 +  let Spellings = [GNU<"global_as">, CXX11<"","global_as">];
    let Documentation = [Undocumented];
  }
  
--def OpenCLLocalAddressSpace : TypeAttr {
--  let Spellings = [Keyword<"__local">, Keyword<"local">];
+-def OpenCLGlobalAddressSpace : TypeAttr {
+-  let Spellings = [Keyword<"__global">, Keyword<"global">];
 +def LocalAddressSpace : TypeAttr {
 +  let Spellings = [GNU<"local_as">, CXX11<"","local_as">];
    let Documentation = [Undocumented];
  }
  
--def OpenCLConstantAddressSpace : TypeAttr {
--  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
+-def OpenCLLocalAddressSpace : TypeAttr {
+-  let Spellings = [Keyword<"__local">, Keyword<"local">];
 +def ConstantAddressSpace : TypeAttr {
 +  let Spellings = [GNU<"constant_as">, CXX11<"","constant_as">];
-+  let Documentation = [Undocumented];
-+}
-+
+   let Documentation = [Undocumented];
+ }
+ 
+-def OpenCLConstantAddressSpace : TypeAttr {
+-  let Spellings = [Keyword<"__constant">, Keyword<"constant">];
 +// CUDA address space attrs are not type attrs, so they need to be handled specially
 +def CUDAShared : InheritableAttr {
 +  let Spellings = [GNU<"local_cuda">, CXX11<"","local_cuda">];
@@ -2734,6 +2770,49 @@ index 704a375..7b30716 100644
 +  let Spellings = [GNU<"floor_image">, CXX11<"","floor_image">];
 +  let Args = [TypeArgument<"ImageDataType">];
 +  let TemplateDependent = 1;
++  let Documentation = [Undocumented];
++}
++
++// fbo color output location
++def GraphicsFBOColorLocation : InheritableAttr {
++  let Spellings = [GNU<"color">, CXX11<"","color">];
++  let Args = [ExprArgument<"ColorLocation">];
++  let TemplateDependent = 1;
++  let Documentation = [Undocumented];
++}
++
++// fbo explicit writable depth with depth type
++def GraphicsFBODepthType : InheritableAttr {
++  let Spellings = [GNU<"depth">, CXX11<"","depth">];
++  let Args = [EnumArgument<"DepthQualifier", "DepthQualifierType",
++                           ["any", "greater", "less"],
++                           ["FBODepthTypeAny", "FBODepthTypeGreater", "FBODepthTypeLess"]>];
++  let Documentation = [Undocumented];
++}
++
++// vertex output position (used in vertex output structs)
++def GraphicsVertexPosition : InheritableAttr {
++  let Spellings = [GNU<"position">, CXX11<"","position">];
++  let Documentation = [Undocumented];
++}
++
++// vertex/point output size (used in vertex output structs)
++def GraphicsPointSize : InheritableAttr {
++  let Spellings = [GNU<"point_size">, CXX11<"","point_size">];
++  let Documentation = [Undocumented];
++}
++
++// stage input (just fragment shader input right now)
++def GraphicsStageInput : Attr {
++  let Spellings = [GNU<"stage_input">, CXX11<"","stage_input">];
++  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
++  let Documentation = [Undocumented];
++}
++
++// normalized point coordinate of the fragment (just fragment shader input right now)
++def GraphicsPointCoord : Attr {
++  let Spellings = [GNU<"point_coord">, CXX11<"","point_coord">];
++  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
    let Documentation = [Undocumented];
  }
  
@@ -2975,10 +3054,10 @@ index c21c19f..a37f138 100644
    ExpectedVariableOrField,
    ExpectedVariableFieldOrTag,
 diff --git a/tools/clang/include/clang/Sema/Sema.h b/tools/clang/include/clang/Sema/Sema.h
-index e254afd..1f05b24 100644
+index e254afd..c34d2b3 100644
 --- a/tools/clang/include/clang/Sema/Sema.h
 +++ b/tools/clang/include/clang/Sema/Sema.h
-@@ -7283,6 +7283,11 @@ public:
+@@ -7283,6 +7283,15 @@ public:
    void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
                        unsigned SpellingListIndex, bool IsPackExpansion);
  
@@ -2986,6 +3065,10 @@ index e254afd..1f05b24 100644
 +  /// declaration.
 +  void AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
 +                         unsigned SpellingListIndex);
++
++  /// Adds a color(location) attribute to a particular declaration.
++  void AddGraphicsFBOColorLocationAttr(SourceRange AttrRange, Decl *D, Expr *E,
++                                       unsigned SpellingListIndex);
 +
    // OpenMP directives and clauses.
  private:
@@ -4007,7 +4090,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..0f73d19 100644
+index 5ca3a78..1bcd6f8 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4096,7 +4179,7 @@ index 5ca3a78..0f73d19 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +412,832 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +412,863 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4437,6 +4520,8 @@ index 5ca3a78..0f73d19 100644
 +						   CodeGenModule &CGM,llvm::LLVMContext &Context,
 +						   SmallVector <llvm::Value*, 5> &kernelMDArgs,
 +						   CGBuilderTy& Builder, ASTContext &ASTCtx) {
++	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
++	
 +	//
 +	SmallVector<llvm::Value*, 1> empty_set; // no idea why this is needed or used for
 +	SmallVector<llvm::Value*, 8> arg_infos;
@@ -4445,7 +4530,9 @@ index 5ca3a78..0f73d19 100644
 +	const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
 +	
 +	//
-+	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
++	unsigned int buffer_idx = 0, tex_idx = 0;
++	// start arg index: account for return type
++	unsigned int arg_idx = (is_kernel || FD->getReturnType()->isVoidType() ? 0 : 1);
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
@@ -4611,27 +4698,42 @@ index 5ca3a78..0f73d19 100644
 +		++arg_idx;
 +	}
 +	
-+	// add id handling arg metadata
-+	// NOTE: the actual args are later added by MetalFinal + the order in here must match the order in MetalFinal
-+	const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
++	if(is_kernel) {
++		// add id handling arg metadata
++		// NOTE: the actual args are later added by MetalFinal + the order in here must match the order in MetalFinal
++		const auto add_id_arg = [&arg_idx, &arg_infos, &Builder, &Context](const char* name, const char* air_name) {
++			SmallVector<llvm::Value*, 6> arg_info;
++			arg_info.push_back(Builder.getInt32(arg_idx));
++			arg_info.push_back(llvm::MDString::get(Context, air_name));
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++			arg_info.push_back(llvm::MDString::get(Context, "uint3"));
++			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			arg_info.push_back(llvm::MDString::get(Context, name));
++			arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++			
++			// next llvm arg
++			++arg_idx;
++		};
++		add_id_arg("__metal__global_id__", "air.thread_position_in_grid");
++		add_id_arg("__metal__global_size__", "air.threads_per_grid");
++		add_id_arg("__metal__local_id__", "air.thread_position_in_threadgroup");
++		add_id_arg("__metal__local_size__", "air.threads_per_threadgroup");
++		add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid");
++		add_id_arg("__metal__group_size__", "air.threadgroups_per_grid");
++	}
++	else if(FD->hasAttr<GraphicsVertexShaderAttr>()) {
++		// TODO: instance id
++		
 +		SmallVector<llvm::Value*, 6> arg_info;
 +		arg_info.push_back(Builder.getInt32(arg_idx));
-+		arg_info.push_back(llvm::MDString::get(Context, air_name));
++		arg_info.push_back(llvm::MDString::get(Context, "air.vertex_id"));
 +		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+		arg_info.push_back(llvm::MDString::get(Context, "uint3"));
++		arg_info.push_back(llvm::MDString::get(Context, "uint"));
 +		arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+		arg_info.push_back(llvm::MDString::get(Context, name));
++		arg_info.push_back(llvm::MDString::get(Context, "__metal__vertex_id__"));
 +		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
-+		
-+		// next llvm arg
-+		++arg_idx;
-+	};
-+	add_id_arg("__metal__global_id__", "air.thread_position_in_grid");
-+	add_id_arg("__metal__global_size__", "air.threads_per_grid");
-+	add_id_arg("__metal__local_id__", "air.thread_position_in_threadgroup");
-+	add_id_arg("__metal__local_size__", "air.threads_per_threadgroup");
-+	add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid");
-+	add_id_arg("__metal__group_size__", "air.threadgroups_per_grid");
++		++arg_idx; // next llvm arg
++	}
 +
 +	// insert into kernel metadata
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, empty_set));
@@ -4732,7 +4834,10 @@ index 5ca3a78..0f73d19 100644
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args) {
-+	if (!FD->hasAttr<ComputeKernelAttr>()) {
++	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
++	if (!is_kernel &&
++		!FD->hasAttr<GraphicsVertexShaderAttr>() &&
++		!FD->hasAttr<GraphicsFragmentShaderAttr>()) {
 +		return;
 +	}
 +	
@@ -4749,7 +4854,8 @@ index 5ca3a78..0f73d19 100644
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
 +	// (which is why it iterates over the original clang list!)
-+	unsigned int arg_idx = 0;
++	// start arg index: account for return type
++	unsigned int arg_idx = (is_kernel || FD->getReturnType()->isVoidType() ? 0 : 1);
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
@@ -4985,16 +5091,24 @@ index 5ca3a78..0f73d19 100644
 +	}
 +	
 +	//
-+	llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, arg_infos);
-+	llvm::NamedMDNode *FloorKernelMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.kernels");
-+	FloorKernelMetadata->addOperand(kernelMDNode);
++	llvm::MDNode *argsMDNode = llvm::MDNode::get(Context, arg_infos);
++	if(is_kernel) {
++		llvm::NamedMDNode *FloorKernelMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.kernels");
++		FloorKernelMetadata->addOperand(argsMDNode);
++	}
++	else {
++		llvm::NamedMDNode *FloorShaderMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.shaders");
++		FloorShaderMetadata->addOperand(argsMDNode);
++	}
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
                                                 llvm::Function *Fn)
  {
 -  if (!FD->hasAttr<OpenCLKernelAttr>())
-+  if (!FD->hasAttr<ComputeKernelAttr>())
++  if (!FD->hasAttr<ComputeKernelAttr>() &&
++	  !FD->hasAttr<GraphicsVertexShaderAttr>() &&
++	  !FD->hasAttr<GraphicsFragmentShaderAttr>())
      return;
  
    llvm::LLVMContext &Context = getLLVMContext();
@@ -5033,14 +5147,23 @@ index 5ca3a78..0f73d19 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -499,8 +1276,74 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1306,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+   }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
-   llvm::NamedMDNode *OpenCLKernelMetadata =
+-  llvm::NamedMDNode *OpenCLKernelMetadata =
 -    CGM.getModule().getOrInsertNamedMetadata("opencl.kernels");
-+	CGM.getModule().getOrInsertNamedMetadata(CGM.getCodeGenOpts().EmitAIRMetadata ?
-+											 "air.kernel" : "opencl.kernels");
-   OpenCLKernelMetadata->addOperand(kernelMDNode);
+-  OpenCLKernelMetadata->addOperand(kernelMDNode);
++  llvm::NamedMDNode *MainMetadataNode;
++  if(!CGM.getCodeGenOpts().EmitAIRMetadata) {
++	  MainMetadataNode = CGM.getModule().getOrInsertNamedMetadata("opencl.kernels");
++  }
++  else {
++    MainMetadataNode = CGM.getModule().getOrInsertNamedMetadata(
++      (FD->hasAttr<GraphicsVertexShaderAttr>() ? "air.vertex" :
++       (FD->hasAttr<GraphicsFragmentShaderAttr>() ? "air.fragment" : "air.kernel")));
++  }
++  MainMetadataNode->addOperand(kernelMDNode);
 +
 +  // additional air info
 +  if(CGM.getCodeGenOpts().EmitAIRMetadata) {
@@ -5109,7 +5232,7 @@ index 5ca3a78..0f73d19 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,10 +1396,27 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,10 +1433,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5129,9 +5252,17 @@ index 5ca3a78..0f73d19 100644
 +      if (FD->hasAttr<ComputeKernelAttr>()) {
 +        Fn->addFnAttr("compute_kernel");
 +      }
++      // add "vertex_shader" llvm function attribute if this is a vertex shader
++      if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
++        Fn->addFnAttr("vertex_shader");
++      }
++      // add "fragment_shader" llvm function attribute if this is a fragment shader
++      if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
++        Fn->addFnAttr("fragment_shader");
++      }
 +    }
 +    
-+    // opencl/spir specific metadata
++    // opencl/spir and metal specific metadata
 +    if (getLangOpts().OpenCL) {
 +      // Add metadata for a kernel function.
 +      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
@@ -5141,7 +5272,7 @@ index 5ca3a78..0f73d19 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -755,6 +1615,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1660,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -5233,7 +5364,7 @@ index 5ca3a78..0f73d19 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +1753,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +1798,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -5242,7 +5373,7 @@ index 5ca3a78..0f73d19 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +1803,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +1848,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -5714,7 +5845,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..00651a4 100644
+index 8716227..8244630 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -5779,7 +5910,7 @@ index 8716227..00651a4 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -7578,15 +7606,14 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -7578,15 +7606,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
      }
    }
  
@@ -5787,21 +5918,30 @@ index 8716227..00651a4 100644
 -    // OpenCL v1.2 s6.8 static is invalid for kernel functions.
 -    if ((getLangOpts().OpenCLVersion >= 120)
 -        && (SC == SC_Static)) {
-+  if (NewFD->hasAttr<ComputeKernelAttr>()) {
-+    // static is invalid for kernel functions.
-+    if (SC == SC_Static) {
-       Diag(D.getIdentifierLoc(), diag::err_static_kernel);
-       D.setInvalidType();
-     }
-     
+-      Diag(D.getIdentifierLoc(), diag::err_static_kernel);
+-      D.setInvalidType();
+-    }
+-    
 -    // OpenCL v1.2, s6.9 -- Kernels can only have return type void.
++  if (NewFD->hasAttr<ComputeKernelAttr>()) {
 +    // Kernels can only have return type void.
      if (!NewFD->getReturnType()->isVoidType()) {
        SourceRange RTRange = NewFD->getReturnTypeSourceRange();
        Diag(D.getIdentifierLoc(), diag::err_expected_kernel_void_return_type)
-@@ -7595,9 +7622,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -7594,10 +7615,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+                                 : FixItHint());
        D.setInvalidType();
      }
++  }
++
++  if(NewFD->hasAttr<ComputeKernelAttr>() ||
++     NewFD->hasAttr<GraphicsVertexShaderAttr>() ||
++     NewFD->hasAttr<GraphicsFragmentShaderAttr>()) {
++    // static is invalid for kernel/vertex/fragment functions.
++    if (SC == SC_Static) {
++      Diag(D.getIdentifierLoc(), diag::err_static_kernel);
++      D.setInvalidType();
++    }
  
 -    llvm::SmallPtrSet<const Type *, 16> ValidTypes;
 -    for (auto Param : NewFD->params())
@@ -5815,7 +5955,7 @@ index 8716227..00651a4 100644
    }
  
    MarkUnusedFileScopedDecl(NewFD);
-@@ -7959,9 +7989,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
+@@ -7959,9 +7993,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
      FD->setConstexpr(false);
    }
  
@@ -5828,25 +5968,29 @@ index 8716227..00651a4 100644
      FD->setInvalidDecl();
      return;
    }
-@@ -9781,8 +9812,8 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
+@@ -9781,8 +9816,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
    if (FD->isFunctionTemplateSpecialization())
      return false;
  
 -  // Don't warn for OpenCL kernels.
 -  if (FD->hasAttr<OpenCLKernelAttr>())
-+  // Don't warn for compute kernels.
-+  if (FD->hasAttr<ComputeKernelAttr>())
++  // Don't warn for compute kernels, or vertex/fragment shaders.
++  if (FD->hasAttr<ComputeKernelAttr>() ||
++      FD->hasAttr<GraphicsVertexShaderAttr>() ||
++      FD->hasAttr<GraphicsFragmentShaderAttr>())
      return false;
  
    bool MissingPrototype = true;
-@@ -9954,6 +9985,20 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +9991,22 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
-+  // for kernel functions: plain function parameter types are already complete,
-+  // but pointer types must always be complete as well, since their sizes and
-+  // (possibly) structure need to be known later on
-+  if(FD->hasAttr<ComputeKernelAttr>()) {
++  // for kernel and shader functions: plain function parameter types are already complete,
++  // but pointer types must always be complete as well, since their sizes and (possibly)
++  // structure need to be known later on
++  if(FD->hasAttr<ComputeKernelAttr>() ||
++     FD->hasAttr<GraphicsVertexShaderAttr>() ||
++     FD->hasAttr<GraphicsFragmentShaderAttr>()) {
 +    for (const auto& Param : FD->params()) {
 +      const auto param_type = Param->getType();
 +      if(param_type->isPointerType()) {
@@ -5860,7 +6004,7 @@ index 8716227..00651a4 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +11986,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +11994,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
@@ -5870,10 +6014,10 @@ index 8716227..00651a4 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..0771a1a 100644
+index 61683cd..2daaef5 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-@@ -1956,6 +1956,19 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
+@@ -1956,6 +1956,94 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
      D->addAttr(newAttr);
  }
  
@@ -5890,10 +6034,85 @@ index 61683cd..0771a1a 100644
 +                                                      Attr.getAttributeSpellingListIndex()));
 +}
 +
++static void handleGraphicsFBOColorLocationAttr(Sema &S, Decl *D, const AttributeList &Attr) {
++  if (!checkAttributeNumArgs(S, Attr, 1)) return;
++  S.AddGraphicsFBOColorLocationAttr(Attr.getRange(), D, Attr.getArgAsExpr(0),
++                                    Attr.getAttributeSpellingListIndex());
++}
++
++void Sema::AddGraphicsFBOColorLocationAttr(SourceRange AttrRange, Decl *D, Expr *E, unsigned SpellingListIndex) {
++  GraphicsFBOColorLocationAttr TmpAttr(AttrRange, Context, E, SpellingListIndex);
++  SourceLocation AttrLoc = AttrRange.getBegin();
++
++  QualType T;
++  if (ValueDecl *VD = dyn_cast<ValueDecl>(D))
++    T = VD->getType();
++  else {
++    Diag(AttrLoc, diag::err_attribute_argument_type) <<
++      &TmpAttr << AANT_ArgumentIntegerConstant;
++    return;
++  }
++
++  // TODO: handle this correctly/better (+proper error msg above)
++  if (!T->isDependentType() && !T->isAnyPointerType() &&
++      !T->isReferenceType() && !T->isMemberPointerType()) {
++    Diag(AttrLoc, diag::warn_attribute_pointer_or_reference_only)
++      << &TmpAttr /*TmpAttr.getName()*/ << T << D->getSourceRange();
++    return;
++  }
++
++  if (!E->isValueDependent()) {
++    // TODO: might want to use/check isPotentialConstantExprUnevaluated
++
++    llvm::APSInt ColorLoc(0);
++    ExprResult ICE
++      = VerifyIntegerConstantExpression(E, &ColorLoc,
++          diag::err_align_value_attribute_argument_not_int,
++            /*AllowFold*/ true);
++    if (ICE.isInvalid())
++      return;
++
++    // TODO: check for < 0 location
++    D->addAttr(::new (Context)
++               GraphicsFBOColorLocationAttr(AttrRange, Context, ICE.get(),
++               SpellingListIndex));
++    return;
++  }
++
++  // Save dependent expressions in the AST to be instantiated.
++  D->addAttr(::new (Context) GraphicsFBOColorLocationAttr(TmpAttr));
++  return;
++}
++
++static void handleGraphicsFBODepthTypeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
++  if (!checkAttributeNumArgs(S, Attr, 1)) return;
++
++  GraphicsFBODepthTypeAttr::DepthQualifierType type;
++  if (Attr.isArgIdent(0)) {
++    IdentifierLoc *Ident = Attr.getArgAsIdent(0);
++    StringRef TypeString = Ident->Ident->getName();
++
++    if (!GraphicsFBODepthTypeAttr::ConvertStrToDepthQualifierType(TypeString, type)) {
++      S.Diag(Ident->Loc, diag::warn_attribute_type_not_supported)
++        << Attr.getName() << TypeString;
++      return;
++    }
++  }
++  else {
++    S.Diag(Attr.getLoc(), diag::err_attribute_argument_type) <<
++      Attr.getName() << AANT_ArgumentIdentifier;
++    return;
++  }
++
++  D->addAttr(::new (S.Context)
++             GraphicsFBODepthTypeAttr(Attr.getRange(), S.Context, type,
++                                      Attr.getAttributeSpellingListIndex()));
++}
++
  static void handleObjCMethodFamilyAttr(Sema &S, Decl *decl,
                                         const AttributeList &Attr) {
    ObjCMethodDecl *method = cast<ObjCMethodDecl>(decl);
-@@ -2679,6 +2692,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+@@ -2679,6 +2767,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                            Attr.getAttributeSpellingListIndex()));
  }
  
@@ -5952,7 +6171,7 @@ index 61683cd..0771a1a 100644
  static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    // check the attribute arguments.
    if (Attr.getNumArgs() > 1) {
-@@ -3026,22 +3091,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
+@@ -3026,22 +3166,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
                                Attr.getAttributeSpellingListIndex()));
  }
  
@@ -5975,7 +6194,7 @@ index 61683cd..0771a1a 100644
  static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    FunctionDecl *Fn = cast<FunctionDecl>(D);
    if (!Fn->isInlineSpecified()) {
-@@ -4102,6 +4151,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4102,6 +4226,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -5985,7 +6204,7 @@ index 61683cd..0771a1a 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4159,9 +4211,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4159,9 +4286,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_FormatArg:
      handleFormatArgAttr(S, D, Attr);
      break;
@@ -5995,7 +6214,7 @@ index 61683cd..0771a1a 100644
    case AttributeList::AT_CUDADevice:
      handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
      break;
-@@ -4399,11 +4448,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4399,11 +4523,38 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_IntelOclBicc:
      handleCallConvAttr(S, D, Attr);
      break;
@@ -6004,17 +6223,41 @@ index 61683cd..0771a1a 100644
 +  case AttributeList::AT_ComputeKernel:
 +    handleSimpleAttribute<ComputeKernelAttr>(S, D, Attr);
 +    break;
++  case AttributeList::AT_GraphicsVertexShader:
++    handleSimpleAttribute<GraphicsVertexShaderAttr>(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsFragmentShader:
++    handleSimpleAttribute<GraphicsFragmentShaderAttr>(S, D, Attr);
++    break;
 +  case AttributeList::AT_ImageAccess:
 +    handleSimpleAttribute<ImageAccessAttr>(S, D, Attr);
++    break;
++  case AttributeList::AT_FloorImageDataType:
++    handleFloorImageDataTypeAttr(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsFBOColorLocation:
++    handleGraphicsFBOColorLocationAttr(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsFBODepthType:
++    handleGraphicsFBODepthTypeAttr(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsVertexPosition:
++    handleSimpleAttribute<GraphicsVertexPositionAttr>(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsPointSize:
++    handleSimpleAttribute<GraphicsPointSizeAttr>(S, D, Attr);
++    break;
++  case AttributeList::AT_GraphicsStageInput:
++    handleSimpleAttribute<GraphicsStageInputAttr>(S, D, Attr);
      break;
 -  case AttributeList::AT_OpenCLImageAccess:
 -    handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
-+  case AttributeList::AT_FloorImageDataType:
-+    handleFloorImageDataTypeAttr(S, D, Attr);
++  case AttributeList::AT_GraphicsPointCoord:
++    handleSimpleAttribute<GraphicsPointCoordAttr>(S, D, Attr);
      break;
  
    // Microsoft attributes:
-@@ -4553,7 +4605,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -4553,7 +4704,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      return;
    }
  
@@ -6212,7 +6455,7 @@ index 53a75d2..1e31cb8 100644
      } else {        
        // Qualifiers are compatible, so have the argument type adopt the
 diff --git a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
-index accec95..cb2f01b 100644
+index accec95..333f28b 100644
 --- a/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaTemplateInstantiateDecl.cpp
 @@ -129,6 +129,17 @@ static void instantiateDependentAlignedAttr(
@@ -6233,7 +6476,7 @@ index accec95..cb2f01b 100644
  static void instantiateDependentEnableIfAttr(
      Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
      const EnableIfAttr *A, const Decl *Tmpl, Decl *New) {
-@@ -164,6 +175,19 @@ static void instantiateDependentEnableIfAttr(
+@@ -164,6 +175,30 @@ static void instantiateDependentEnableIfAttr(
    New->addAttr(EIA);
  }
  
@@ -6250,10 +6493,21 @@ index accec95..cb2f01b 100644
 +  }
 +}
 +
++static void instantiateDependentGraphicsFBOColorLocationAttr(
++    Sema &S, const MultiLevelTemplateArgumentList &TemplateArgs,
++    const GraphicsFBOColorLocationAttr *A, const Decl *Tmpl, Decl *New) {
++  // TODO: check Tmpl with isPotentialConstantExprUnevaluated?
++  EnterExpressionEvaluationContext Unevaluated(S, Sema::ConstantEvaluated);
++  ExprResult Result = S.SubstExpr(A->getColorLocation(), TemplateArgs);
++  if (!Result.isInvalid())
++    S.AddGraphicsFBOColorLocationAttr(A->getLocation(), New, Result.getAs<Expr>(),
++                                      A->getSpellingListIndex());
++}
++
  void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
                              const Decl *Tmpl, Decl *New,
                              LateInstantiatedAttrVec *LateAttrs,
-@@ -176,6 +200,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+@@ -176,6 +211,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
        continue;
      }
  
@@ -6266,7 +6520,7 @@ index accec95..cb2f01b 100644
      const EnableIfAttr *EnableIf = dyn_cast<EnableIfAttr>(TmplAttr);
      if (EnableIf && EnableIf->getCond()->isValueDependent()) {
        instantiateDependentEnableIfAttr(*this, TemplateArgs, EnableIf, Tmpl,
-@@ -183,6 +213,12 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
+@@ -183,6 +224,18 @@ void Sema::InstantiateAttrs(const MultiLevelTemplateArgumentList &TemplateArgs,
        continue;
      }
  
@@ -6276,11 +6530,17 @@ index accec95..cb2f01b 100644
 +      continue;
 +    }
 +
++    const GraphicsFBOColorLocationAttr *ColorLoc = dyn_cast<GraphicsFBOColorLocationAttr>(TmplAttr);
++    if (ColorLoc) {
++      instantiateDependentGraphicsFBOColorLocationAttr(*this, TemplateArgs, ColorLoc, Tmpl, New);
++      continue;
++    }
++
      assert(!TmplAttr->isPackExpansion());
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..1c6b0e7 100644
+index be1191c..dfbd548 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
 @@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
@@ -6344,7 +6604,7 @@ index be1191c..1c6b0e7 100644
      case AttributeList::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
        attr.setUsedAsTypeAttr();
-@@ -4926,11 +4942,14 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -4926,11 +4942,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
@@ -6355,6 +6615,24 @@ index be1191c..1c6b0e7 100644
        attr.setUsedAsTypeAttr();
        break;
 +    case AttributeList::AT_FloorImageDataType:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsFBOColorLocation:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsFBODepthType:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsVertexPosition:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsPointSize:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsStageInput:
++      attr.setUsedAsTypeAttr();
++      break;
++    case AttributeList::AT_GraphicsPointCoord:
 +      attr.setUsedAsTypeAttr();
 +      break;
  
