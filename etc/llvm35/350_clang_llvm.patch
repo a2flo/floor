@@ -1853,10 +1853,10 @@ index 0000000..89a8fee
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..de01734
+index 0000000..beb3106
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,278 @@
+@@ -0,0 +1,469 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1918,6 +1918,154 @@ index 0000000..de01734
 +#define DBG(x) x
 +#endif
 +
++//////////////////////////////////////////
++// blatantly copied/transplanted from SROA
++namespace {
++/// \brief A custom IRBuilder inserter which prefixes all names if they are
++/// preserved.
++template <bool preserveNames = true>
++class IRBuilderPrefixedInserter :
++    public IRBuilderDefaultInserter<preserveNames> {
++  std::string Prefix;
++
++public:
++  void SetNamePrefix(const Twine &P) { Prefix = P.str(); }
++
++protected:
++  void InsertHelper(Instruction *I, const Twine &Name, BasicBlock *BB,
++                    BasicBlock::iterator InsertPt) const {
++    IRBuilderDefaultInserter<preserveNames>::InsertHelper(
++        I, Name.isTriviallyEmpty() ? Name : Prefix + Name, BB, InsertPt);
++  }
++};
++
++// Specialization for not preserving the name is trivial.
++template <>
++class IRBuilderPrefixedInserter<false> :
++    public IRBuilderDefaultInserter<false> {
++public:
++  void SetNamePrefix(const Twine &P) {}
++};
++
++#ifndef NDEBUG
++typedef llvm::IRBuilder<true, ConstantFolder,
++                        IRBuilderPrefixedInserter<true> > IRBuilderTy;
++#else
++typedef llvm::IRBuilder<false, ConstantFolder,
++                        IRBuilderPrefixedInserter<false> > IRBuilderTy;
++#endif
++}
++
++namespace {
++  /// \brief Generic recursive split emission class.
++  template <typename Derived>
++  class OpSplitter {
++  protected:
++    /// The builder used to form new instructions.
++    IRBuilderTy IRB;
++    /// The indices which to be used with insert- or extractvalue to select the
++    /// appropriate value within the aggregate.
++    SmallVector<unsigned, 4> Indices;
++    /// The indices to a GEP instruction which will move Ptr to the correct slot
++    /// within the aggregate.
++    SmallVector<Value *, 4> GEPIndices;
++    /// The base pointer of the original op, used as a base for GEPing the
++    /// split operations.
++    Value *Ptr;
++
++    /// Initialize the splitter with an insertion point, Ptr and start with a
++    /// single zero GEP index.
++    OpSplitter(Instruction *InsertionPoint, Value *Ptr)
++      : IRB(InsertionPoint), GEPIndices(1, IRB.getInt32(0)), Ptr(Ptr) {}
++
++  public:
++    /// \brief Generic recursive split emission routine.
++    ///
++    /// This method recursively splits an aggregate op (load or store) into
++    /// scalar or vector ops. It splits recursively until it hits a single value
++    /// and emits that single value operation via the template argument.
++    ///
++    /// The logic of this routine relies on GEPs and insertvalue and
++    /// extractvalue all operating with the same fundamental index list, merely
++    /// formatted differently (GEPs need actual values).
++    ///
++    /// \param Ty  The type being split recursively into smaller ops.
++    /// \param Agg The aggregate value being built up or stored, depending on
++    /// whether this is splitting a load or a store respectively.
++    void emitSplitOps(Type *Ty, Value *&Agg, const Twine &Name) {
++      if (Ty->isSingleValueType())
++        return static_cast<Derived *>(this)->emitFunc(Ty, Agg, Name);
++
++      if (ArrayType *ATy = dyn_cast<ArrayType>(Ty)) {
++        unsigned OldSize = Indices.size();
++        (void)OldSize;
++        for (unsigned Idx = 0, Size = ATy->getNumElements(); Idx != Size;
++             ++Idx) {
++          assert(Indices.size() == OldSize && "Did not return to the old size");
++          Indices.push_back(Idx);
++          GEPIndices.push_back(IRB.getInt32(Idx));
++          emitSplitOps(ATy->getElementType(), Agg, Name + "." + Twine(Idx));
++          GEPIndices.pop_back();
++          Indices.pop_back();
++        }
++        return;
++      }
++
++      if (StructType *STy = dyn_cast<StructType>(Ty)) {
++        unsigned OldSize = Indices.size();
++        (void)OldSize;
++        for (unsigned Idx = 0, Size = STy->getNumElements(); Idx != Size;
++             ++Idx) {
++          assert(Indices.size() == OldSize && "Did not return to the old size");
++          Indices.push_back(Idx);
++          GEPIndices.push_back(IRB.getInt32(Idx));
++          emitSplitOps(STy->getElementType(Idx), Agg, Name + "." + Twine(Idx));
++          GEPIndices.pop_back();
++          Indices.pop_back();
++        }
++        return;
++      }
++
++      llvm_unreachable("Only arrays and structs are aggregate loadable types");
++    }
++  };
++
++  struct LoadOpSplitter : public OpSplitter<LoadOpSplitter> {
++    LoadOpSplitter(Instruction *InsertionPoint, Value *Ptr)
++      : OpSplitter<LoadOpSplitter>(InsertionPoint, Ptr) {}
++
++    /// Emit a leaf load of a single value. This is called at the leaves of the
++    /// recursive emission to actually load values.
++    void emitFunc(Type *Ty, Value *&Agg, const Twine &Name) {
++      assert(Ty->isSingleValueType());
++      // Load the single value and insert it using the indices.
++      Value *GEP = IRB.CreateInBoundsGEP(Ptr, GEPIndices, Name + ".gep");
++      Value *Load = IRB.CreateLoad(GEP, Name + ".load");
++      Agg = IRB.CreateInsertValue(Agg, Load, Indices, Name + ".insert");
++      DEBUG(dbgs() << "          to: " << *Load << "\n");
++    }
++  };
++
++  struct StoreOpSplitter : public OpSplitter<StoreOpSplitter> {
++    StoreOpSplitter(Instruction *InsertionPoint, Value *Ptr)
++      : OpSplitter<StoreOpSplitter>(InsertionPoint, Ptr) {}
++
++    /// Emit a leaf store of a single value. This is called at the leaves of the
++    /// recursive emission to actually produce stores.
++    void emitFunc(Type *Ty, Value *&Agg, const Twine &Name) {
++      assert(Ty->isSingleValueType());
++      // Extract the single value and store it using the indices.
++      Value *Store = IRB.CreateStore(
++        IRB.CreateExtractValue(Agg, Indices, Name + ".extract"),
++        IRB.CreateInBoundsGEP(Ptr, GEPIndices, Name + ".gep"));
++      (void)Store;
++      DEBUG(dbgs() << "          to: " << *Store << "\n");
++    }
++  };
++
++}
++//////////////////////////////////////////
++
 +namespace {
 +	// MetalFinal
 +	struct MetalFinal : public FunctionPass, InstVisitor<MetalFinal> {
@@ -1934,6 +2082,7 @@ index 0000000..de01734
 +		bool was_modified { false };
 +		bool is_kernel_func { false };
 +		bool is_vertex_func { false };
++		bool is_fragment_func { false };
 +		
 +		// added kernel function args
 +		Argument* global_id { nullptr };
@@ -1945,6 +2094,9 @@ index 0000000..de01734
 +		
 +		// added vertex function args
 +		Argument* vertex_id { nullptr };
++		
++		// added fragment function args
++		Argument* point_coord { nullptr };
 +		
 +		MetalFinal() : FunctionPass(ID) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
@@ -1972,7 +2124,7 @@ index 0000000..de01734
 +				group_size = new llvm::Argument(vec_type, "__metal__group_size__", &F);
 +			}
 +			
-+			// add args if this is a kernel function
++			// add args if this is a vertex function
 +			is_vertex_func = F.hasFnAttribute("vertex_shader");
 +			if(is_vertex_func) {
 +				const auto uint_type = llvm::Type::getInt32Ty(*ctx);
@@ -1981,8 +2133,15 @@ index 0000000..de01734
 +				// TODO: handle instance id
 +			}
 +			
++			// add args if this is a fragment function
++			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			if(is_fragment_func) {
++				const auto vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 2);
++				point_coord = new llvm::Argument(vec_type, "__metal__point_coord__", &F);
++			}
++			
 +			// update function signature / param list
-+			if(is_kernel_func || is_vertex_func) {
++			if(is_kernel_func || is_vertex_func || is_fragment_func) {
 +				std::vector<Type*> param_types;
 +				for(const auto& arg : F.getArgumentList()) {
 +					param_types.push_back(arg.getType());
@@ -1997,7 +2156,7 @@ index 0000000..de01734
 +			visit(F);
 +			
 +			// always modified
-+			return was_modified || is_kernel_func || is_vertex_func;
++			return was_modified || is_kernel_func || is_vertex_func || is_fragment_func;
 +		}
 +		
 +		// InstVisitor overrides...
@@ -2009,7 +2168,7 @@ index 0000000..de01734
 +		//
 +		void visitCallInst(CallInst &I) {
 +			// if this isn't a kernel function we don't need to do anything here (yet)
-+			if(!is_kernel_func && !is_vertex_func) return;
++			if(!is_kernel_func && !is_vertex_func && !is_fragment_func) return;
 +			
 +			const auto func_name = I.getCalledFunction()->getName();
 +			if(!func_name.startswith("floor.")) return;
@@ -2052,6 +2211,11 @@ index 0000000..de01734
 +			}
 +			else if(func_name == "floor.get_vertex_id.i32") {
 +				I.replaceAllUsesWith(vertex_id);
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.get_point_coord.float2") {
++				I.replaceAllUsesWith(point_coord);
 +				I.eraseFromParent();
 +				return;
 +			}
@@ -2123,6 +2287,33 @@ index 0000000..de01734
 +		}
 +		void visitSIToFPInst(SIToFPInst &I) {
 +			vec_to_scalar_ops<Instruction::SIToFP>(I);
++		}
++		
++		void visitLoadInst(LoadInst &LI) {
++			// TODO: fs as well?
++			if(!is_vertex_func) return;
++			if(!LI.getType()->isAggregateType()) return;
++			
++			LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
++			Value *V = UndefValue::get(LI.getType());
++			Splitter.emitSplitOps(LI.getType(), V, LI.getName() + ".fca");
++			LI.replaceAllUsesWith(V);
++			LI.eraseFromParent();
++			
++			was_modified = true;
++		}
++		
++		void visitStoreInst(StoreInst &SI) {
++			// TODO: fs as well?
++			if(!is_vertex_func) return;
++			if(!SI.getType()->isAggregateType()) return;
++			
++			Value *V = SI.getValueOperand();
++			StoreOpSplitter Splitter(&SI, SI.getPointerOperand());
++			Splitter.emitSplitOps(V->getType(), V, V->getName() + ".fca");
++			SI.eraseFromParent();
++			
++			was_modified = true;
 +		}
 +		
 +	};
@@ -2478,6 +2669,19 @@ index 488cace..a815eae 100644
  BUILTIN_TYPE(OCLImage3d, OCLImage3dTy)
  
  // OpenCL sampler_t.
+diff --git a/tools/clang/include/clang/AST/Mangle.h b/tools/clang/include/clang/AST/Mangle.h
+index a8d1199..85bfd7d 100644
+--- a/tools/clang/include/clang/AST/Mangle.h
++++ b/tools/clang/include/clang/AST/Mangle.h
+@@ -138,6 +138,8 @@ public:
+   /// across translation units so it can be used with LTO.
+   virtual void mangleTypeName(QualType T, raw_ostream &) = 0;
+ 
++  virtual void mangleMetalFieldName(const FieldDecl *D, raw_ostream &) {}
++
+   /// @}
+ };
+ 
 diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
 index 09862e4..eed14f2 100644
 --- a/tools/clang/include/clang/AST/Type.h
@@ -2602,7 +2806,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..51187bb 100644
+index 704a375..6766c01 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -2673,7 +2877,7 @@ index 704a375..51187bb 100644
  def C11NoReturn : InheritableAttr {
    let Spellings = [Keyword<"_Noreturn">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
-@@ -573,45 +571,121 @@ def CXX11NoReturn : InheritableAttr {
+@@ -573,45 +571,114 @@ def CXX11NoReturn : InheritableAttr {
    let Documentation = [CXX11NoReturnDocs];
  }
  
@@ -2805,13 +3009,6 @@ index 704a375..51187bb 100644
 +// stage input (just fragment shader input right now)
 +def GraphicsStageInput : Attr {
 +  let Spellings = [GNU<"stage_input">, CXX11<"","stage_input">];
-+  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
-+  let Documentation = [Undocumented];
-+}
-+
-+// normalized point coordinate of the fragment (just fragment shader input right now)
-+def GraphicsPointCoord : Attr {
-+  let Spellings = [GNU<"point_coord">, CXX11<"","point_coord">];
 +  let Subjects = SubjectList<[ParmVar], ErrorDiag>;
    let Documentation = [Undocumented];
  }
@@ -3244,10 +3441,19 @@ index 7d7ca99..88f46dd 100644
        return false;
      // Bitcasts to cv void* are static_casts, not reinterpret_casts, so are
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
-index 977d6fc..30f70da 100644
+index 977d6fc..77c0df1 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
 +++ b/tools/clang/lib/AST/ItaniumMangle.cpp
-@@ -1920,6 +1920,14 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
+@@ -160,6 +160,8 @@ public:
+ 
+   void mangleStringLiteral(const StringLiteral *, raw_ostream &) override;
+ 
++  void mangleMetalFieldName(const FieldDecl *D, raw_ostream &) override;
++
+   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
+     // Lambda closure types are already numbered.
+     if (isLambda(ND))
+@@ -1920,6 +1922,14 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
  }
  
  void CXXNameMangler::mangleType(const BuiltinType *T) {
@@ -3262,7 +3468,7 @@ index 977d6fc..30f70da 100644
    //  <type>         ::= <builtin-type>
    //  <builtin-type> ::= v  # void
    //                 ::= w  # wchar_t
-@@ -1984,14 +1992,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+@@ -1984,14 +1994,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
    case BuiltinType::ObjCId: Out << "11objc_object"; break;
    case BuiltinType::ObjCClass: Out << "10objc_class"; break;
    case BuiltinType::ObjCSel: Out << "13objc_selector"; break;
@@ -3295,6 +3501,30 @@ index 977d6fc..30f70da 100644
    }
  }
  
+@@ -3847,6 +3867,23 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
+   llvm_unreachable("Can't mangle string literals");
+ }
+ 
++void ItaniumMangleContextImpl::mangleMetalFieldName(const FieldDecl *D, raw_ostream &Out) {
++	assert(isa<FieldDecl>(D) &&
++		   "Invalid mangleName() call, argument is not a field decl!");
++	
++	PrettyStackTraceDecl CrashInfo(D, SourceLocation(),
++								   getASTContext().getSourceManager(),
++								   "Mangling declaration");
++	
++	Out << "generated(";
++	if(const auto II = D->getIdentifier()) {
++		Out << II->getLength() << II->getName();
++	}
++	CXXNameMangler Mangler(*this, Out, D);
++	Mangler.mangleType(D->getType());
++	Out << ")";
++}
++
+ ItaniumMangleContext *
+ ItaniumMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
+   return new ItaniumMangleContextImpl(Context, Diags);
 diff --git a/tools/clang/lib/AST/MicrosoftMangle.cpp b/tools/clang/lib/AST/MicrosoftMangle.cpp
 index e6a6d09..267b1c0 100644
 --- a/tools/clang/lib/AST/MicrosoftMangle.cpp
@@ -4090,7 +4320,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..1bcd6f8 100644
+index 5ca3a78..ff9a79a 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4101,18 +4331,14 @@ index 5ca3a78..1bcd6f8 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +334,77 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +334,143 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
 +// will recurse through the specified class/struct decl and its base classes,
-+// returning a vector containing all iterators to all contained image types
-+// NOTE: will return an empty vector if not a proper aggregate image
-+static std::vector<RecordDecl::field_iterator> get_aggregate_image_fields(const CXXRecordDecl* decl) {
++// returning a vector containing all iterators to all contained fields
++static std::vector<RecordDecl::field_iterator> get_aggregate_fields(const CXXRecordDecl* decl) {
 +	if(decl == nullptr) return {};
-+	
-+	// union is not allowed
-+	if(decl->isUnion()) return {};
 +	
 +	// must have definition
 +	if(!decl->hasDefinition()) return {};
@@ -4122,20 +4348,64 @@ index 5ca3a78..1bcd6f8 100644
 +	
 +	// iterate over / recurse into all bases
 +	for(const auto& base : decl->bases()) {
-+		const auto base_ret = get_aggregate_image_fields(base.getType()->getAsCXXRecordDecl());
++		const auto base_ret = get_aggregate_fields(base.getType()->getAsCXXRecordDecl());
 +		if(!base_ret.empty()) {
 +			ret.insert(ret.end(), base_ret.begin(), base_ret.end());
 +		}
 +	}
 +	
-+	// iterate over all fields/members and extract image types
++	// iterate over all fields/members
 +	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
-+		if(!iter->getType()->isImageType()) {
-+			return {};
-+		}
 +		ret.push_back(iter);
 +	}
 +	
++	return ret;
++}
++
++// will recurse through the specified class/struct decl, its base classes, and all its contained class/struct decls,
++// returning a vector containing all iterators to all contained fields
++static std::vector<RecordDecl::field_iterator> get_aggregate_scalar_fields(const CXXRecordDecl* decl) {
++	if(decl == nullptr) return {};
++	
++	// must have definition
++	if(!decl->hasDefinition()) return {};
++	
++	//
++	std::vector<RecordDecl::field_iterator> ret;
++	
++	// iterate over / recurse into all bases
++	for(const auto& base : decl->bases()) {
++		const auto base_ret = get_aggregate_scalar_fields(base.getType()->getAsCXXRecordDecl());
++		if(!base_ret.empty()) {
++			ret.insert(ret.end(), base_ret.begin(), base_ret.end());
++		}
++	}
++	
++	// iterate over all fields/members
++	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
++		if(const auto rdecl = iter->getType()->getAsCXXRecordDecl()) {
++			const auto contained_ret = get_aggregate_scalar_fields(rdecl);
++			if(!contained_ret.empty()) {
++				ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++			}
++		}
++		else ret.push_back(iter);
++	}
++	
++	return ret;
++}
++
++// will recurse through the specified class/struct decl and its base classes,
++// returning a vector containing all iterators to all contained image types
++// NOTE: will return an empty vector if not a proper aggregate image
++static std::vector<RecordDecl::field_iterator> get_aggregate_image_fields(const CXXRecordDecl* decl) {
++	// extract all fields, then check if all are image types (if one isn't, fail)
++	const auto ret = get_aggregate_fields(decl);
++	for(const auto& iter : ret) {
++		if(!iter->getType()->isImageType()) {
++			return {};
++		}
++	}
 +	return ret;
 +}
 +
@@ -4176,10 +4446,36 @@ index 5ca3a78..1bcd6f8 100644
 +	return nullptr;
 +}
 +
++
++// Metadata values extractors.
++static std::string getScalarMetadataValue(const clang::Type *Ty) {
++	if (!Ty->isUnsignedIntegerType()) {
++		return QualType(Ty, 0).getAsString();
++	}
++	
++	std::string TyName = QualType(Ty, 0).getAsString();
++	if (llvm::StringRef(TyName).startswith("unsigned")) {
++		// Replace unsigned <ty> with u<ty>
++		TyName.erase(1, 8);
++	}
++	
++	return TyName;
++};
++static std::string getVectorMetadataValue(const clang::ExtVectorType *Ty) {
++	const clang::VectorType *VTy = llvm::dyn_cast<clang::VectorType>(Ty);
++	assert(VTy && "Cast to vector failed");
++	
++	std::stringstream Ret;
++	Ret << getScalarMetadataValue(VTy->getElementType().getTypePtr());
++	Ret << VTy->getNumElements();
++	
++	return Ret.str();
++};
++
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +412,863 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +478,1036 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4294,21 +4590,6 @@ index 5ca3a78..1bcd6f8 100644
 +	SmallVector<llvm::Value*, 8> argNames;
 +	argNames.push_back(llvm::MDString::get(Context, "kernel_arg_name"));
 +	
-+	// Metadata values extractors.
-+	static const auto getScalarMetadataValue = [](const clang::Type *Ty) {
-+		if (!Ty->isUnsignedIntegerType()) {
-+			return QualType(Ty, 0).getAsString();
-+		}
-+		
-+		std::string TyName = QualType(Ty, 0).getAsString();
-+		if (llvm::StringRef(TyName).startswith("unsigned")) {
-+			// Replace unsigned <ty> with u<ty>
-+			TyName.erase(1, 8);
-+		}
-+		
-+		return TyName;
-+	};
-+	
 +	// Creates a canonical name for complex types. In case of anonymous types, the
 +	// function appends the meta-type name as prefix: e.g., in case the type is
 +	// defined as: typedef struct {...} S, the method returns struct S.
@@ -4337,17 +4618,6 @@ index 5ca3a78..1bcd6f8 100644
 +		}
 +		
 +		return getScalarMetadataValue(Ty);
-+	};
-+	
-+	static const auto getVectorMetadataValue = [](const clang::ExtVectorType *Ty) {
-+		const clang::VectorType *VTy = llvm::dyn_cast<clang::VectorType>(Ty);
-+		assert(VTy && "Cast to vector failed");
-+		
-+		std::stringstream Ret;
-+		Ret << getScalarMetadataValue(VTy->getElementType().getTypePtr());
-+		Ret << VTy->getNumElements();
-+		
-+		return Ret.str();
 +	};
 +	
 +	static const auto getPointerOrRefMetadataValue = [](const clang::Type *PTy, bool CanTy) {
@@ -4521,21 +4791,36 @@ index 5ca3a78..1bcd6f8 100644
 +						   SmallVector <llvm::Value*, 5> &kernelMDArgs,
 +						   CGBuilderTy& Builder, ASTContext &ASTCtx) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
++	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
++	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
 +	
 +	//
-+	SmallVector<llvm::Value*, 1> empty_set; // no idea why this is needed or used for
++	SmallVector<llvm::Value*, 4> stage_infos;
 +	SmallVector<llvm::Value*, 8> arg_infos;
 +	
 +	//
 +	const PrintingPolicy &Policy = ASTCtx.getPrintingPolicy();
++	const auto make_type_name = [&Policy](const clang::QualType& type) {
++		// NOTE: air wants the type w/o qualifiers
++		const auto base_unq_type = type.getTypePtr()->getBaseElementTypeUnsafe();
++		const auto unqualified_type = base_unq_type->getCanonicalTypeInternal();
++		std::string type_name = "";
++		if(type->isVectorType()) {
++			type_name = getVectorMetadataValue(llvm::dyn_cast<clang::ExtVectorType>(unqualified_type.getTypePtr()));
++		}
++		else type_name = unqualified_type.getAsString(Policy);
++		// Turn "unsigned type" to "utype"
++		const auto pos = type_name.find("unsigned");
++		if(pos != std::string::npos) type_name.erase(pos + 1, 8);
++		return type_name;
++	};
 +	
 +	//
-+	unsigned int buffer_idx = 0, tex_idx = 0;
-+	// start arg index: account for return type
-+	unsigned int arg_idx = (is_kernel || FD->getReturnType()->isVoidType() ? 0 : 1);
++	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
++		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +
 +		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx,
 +									&Context, &ASTCtx, &CGM](const clang::QualType& type,
@@ -4616,7 +4901,6 @@ index 5ca3a78..1bcd6f8 100644
 +		// pointer / buffer
 +		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
 +			const auto pointee_type = llvm_type->getPointerElementType();
-+			const auto clang_unq_ty = clang_type->getPointeeType().getTypePtr()->getBaseElementTypeUnsafe();
 +			
 +			SmallVector<llvm::Value*, 16> arg_info;
 +			
@@ -4624,6 +4908,13 @@ index 5ca3a78..1bcd6f8 100644
 +			arg_info.push_back(Builder.getInt32(arg_idx));
 +			// #1: storage type
 +			arg_info.push_back(llvm::MDString::get(Context, "air.buffer"));
++			
++			// references / single-object parameters also store/require the buffer_size
++			if(clang_type->isReferenceType()) {
++				arg_info.push_back(llvm::MDString::get(Context, "air.buffer_size"));
++				arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type)));
++			}
++			
 +			// #2/#3: location_index (note: separate for buffers and textures)
 +			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
 +			arg_info.push_back(Builder.getInt32(buffer_idx));
@@ -4640,23 +4931,60 @@ index 5ca3a78..1bcd6f8 100644
 +				arg_info.push_back(llvm::MDString::get(Context, "air.read_write"));
 +			}
 +			
-+			// TODO: #6/#7: struct info
++			// #6/#7: struct info
++			if(const auto pointee_rdecl = clang_pointee_type->getAsCXXRecordDecl()) {
++				SmallVector<llvm::Value*, 16> struct_info;
++				// TODO: this is not ideal and doesn't handle properly handle unions
++				//const auto fields = get_aggregate_scalar_fields(pointee_rdecl);
++				const auto fields = get_aggregate_fields(pointee_rdecl);
++				bool ignore = false;
++				for(const auto& field : fields) {
++					if(field->isAnonymousStructOrUnion() ||
++					   field->isBitField()) {
++						ignore = true;
++						break;
++					}
++				}
++				
++				// TODO/NOTE: ignore anonymous structs/unions and bitfields for now
++				if(!ignore) {
++					SmallVector<llvm::Value*, 16> struct_info;
++					arg_info.push_back(llvm::MDString::get(Context, "air.struct_type_info"));
++					
++					uint32_t offset = 0;
++					for(const auto& field : fields) {
++						// #0: offset
++						struct_info.push_back(Builder.getInt32(offset));
++						// #1: sizeof
++						const auto llvm_mem_type = CGM.getTypes().ConvertTypeForMem(field->getType()); // TODO: should use this _everywhere_ instead of llvm type tracking/matching!
++						const auto size = (uint32_t)CGM.getDataLayout().getTypeStoreSize(llvm_mem_type);
++						offset += size;
++						struct_info.push_back(Builder.getInt32(size));
++						// #2: TODO? array or padding maybe?
++						struct_info.push_back(Builder.getInt32(0));
++						// #3: type name
++						struct_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++						// #4: name/identifier
++						struct_info.push_back(llvm::MDString::get(Context, field->getName()));
++					}
++					arg_info.push_back(llvm::MDNode::get(Context, struct_info));
++				}
++			}
 +			
 +			// #8/#9: type size
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_size"));
 +			arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeStoreSize(pointee_type)));
 +			// #10/#11: type alignment
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
-+			arg_info.push_back(Builder.getInt32(CGM.getDataLayout().getTypeAllocSize(pointee_type)));
++			// max out at 16, anything higher is unreasonable
++			// TODO: make sure this is POT
++			const auto align_size = std::min(CGM.getDataLayout().getTypeAllocSize(pointee_type), 16ull);
++			arg_info.push_back(Builder.getInt32(align_size));
 +			//getPrimitiveSizeInBits
-+			// #12/#13: type name, note: air wants the pointed-to/pointee type here, w/o qualifiers
-+			auto unqualified_type = clang_unq_ty->getCanonicalTypeInternal();
-+			auto type_name = unqualified_type.getAsString(Policy);
-+			// Turn "unsigned type" to "utype"
-+			const auto pos = type_name.find("unsigned");
-+			if(pos != std::string::npos) type_name.erase(pos + 1, 8);
++			// #12/#13: type name
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+			arg_info.push_back(llvm::MDString::get(Context, type_name));
++			// NOTE: air wants the pointed-to/pointee type here
++			arg_info.push_back(llvm::MDString::get(Context, make_type_name(clang_type->getPointeeType())));
 +			// #14/#15: arg name
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
 +			arg_info.push_back(llvm::MDString::get(Context, parm->getName()));
@@ -4669,8 +4997,7 @@ index 5ca3a78..1bcd6f8 100644
 +		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = clang_type->getAsCXXRecordDecl();
-+			const auto agg_images = get_aggregate_image_fields(decl);
++			const auto agg_images = get_aggregate_image_fields(cxx_rdecl);
 +			
 +			const std::string base_name = parm->getName().str() + ".";
 +			unsigned int img_idx = 0;
@@ -4686,6 +5013,52 @@ index 5ca3a78..1bcd6f8 100644
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
++		}
++		// stage input
++		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
++			if(cxx_rdecl) {
++				// must handle each field individually
++				const auto fields = get_aggregate_fields(cxx_rdecl);
++				for(const auto& field : fields) {
++					SmallVector<llvm::Value*, 16> arg_info;
++					
++					// #0: param index
++					arg_info.push_back(Builder.getInt32(arg_idx));
++					
++					// #1: type
++					// TODO: handle perspective/center correctly
++					if(field->hasAttr<GraphicsVertexPositionAttr>()) {
++						arg_info.push_back(llvm::MDString::get(Context, "air.position"));
++						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
++						arg_info.push_back(llvm::MDString::get(Context, "air.no_perspective"));
++					}
++					else {
++						arg_info.push_back(llvm::MDString::get(Context, "air.fragment_input"));
++						std::string gen_type_name = "";
++						llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
++						CGM.getCXXABI().getMangleContext().mangleMetalFieldName(*field, gen_type_name_stream);
++						arg_info.push_back(llvm::MDString::get(Context, StringRef(gen_type_name_stream.str())));
++						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
++						arg_info.push_back(llvm::MDString::get(Context, "air.perspective"));
++					}
++					
++					// type name
++					arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++					arg_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++					
++					// arg name
++					arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++					arg_info.push_back(llvm::MDString::get(Context, field->getName()));
++					arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++					
++					// next
++					++arg_idx;
++				}
++				--arg_idx; // fixup, b/c of inc later
++			}
++			else {
++				// TODO: add as-is
++			}
 +		}
 +		// unsupported simple kernel parameter
 +		else {
@@ -4721,7 +5094,7 @@ index 5ca3a78..1bcd6f8 100644
 +		add_id_arg("__metal__group_id__", "air.threadgroup_position_in_grid");
 +		add_id_arg("__metal__group_size__", "air.threadgroups_per_grid");
 +	}
-+	else if(FD->hasAttr<GraphicsVertexShaderAttr>()) {
++	else if(is_vertex) {
 +		// TODO: instance id
 +		
 +		SmallVector<llvm::Value*, 6> arg_info;
@@ -4733,10 +5106,65 @@ index 5ca3a78..1bcd6f8 100644
 +		arg_info.push_back(llvm::MDString::get(Context, "__metal__vertex_id__"));
 +		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		++arg_idx; // next llvm arg
++		
++		// vertex output (TODO: can ret type be void?)
++		const auto ret_type = FD->getReturnType();
++		if(const auto cxx_rdecl = ret_type->getAsCXXRecordDecl()) {
++			const auto fields = get_aggregate_fields(cxx_rdecl);
++			for(const auto& field : fields) {
++				SmallVector<llvm::Value*, 6> ret_info;
++				if(field->hasAttr<GraphicsVertexPositionAttr>()) {
++					ret_info.push_back(llvm::MDString::get(Context, "air.position"));
++				}
++				else if(field->hasAttr<GraphicsPointSizeAttr>()) {
++					ret_info.push_back(llvm::MDString::get(Context, "air.point_size"));
++				}
++				else {
++					ret_info.push_back(llvm::MDString::get(Context, "air.vertex_output"));
++					std::string gen_type_name = "";
++					llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
++					CGM.getCXXABI().getMangleContext().mangleMetalFieldName(*field, gen_type_name_stream);
++					ret_info.push_back(llvm::MDString::get(Context, StringRef(gen_type_name_stream.str())));
++				}
++				ret_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++				ret_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++				ret_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++				ret_info.push_back(llvm::MDString::get(Context, field->getName()));
++				stage_infos.push_back(llvm::MDNode::get(Context, ret_info));
++			}
++		}
++		else {
++			// TODO: handle this!
++		}
++	}
++	else if(is_fragment) {
++		// TODO: other stuff
++		
++		SmallVector<llvm::Value*, 6> arg_info;
++		arg_info.push_back(Builder.getInt32(arg_idx));
++		arg_info.push_back(llvm::MDString::get(Context, "air.point_coord"));
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++		arg_info.push_back(llvm::MDString::get(Context, "float2"));
++		arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++		arg_info.push_back(llvm::MDString::get(Context, "__metal__point_coord__"));
++		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
++		++arg_idx; // next llvm arg
++		
++		// render targets / return types (TODO: can ret/rt type be void?)
++		const auto ret_type = FD->getReturnType();
++		SmallVector<llvm::Value*, 6> rtt_info;
++		rtt_info.push_back(llvm::MDString::get(Context, "air.render_target"));
++		// render target index
++		rtt_info.push_back(Builder.getInt32(0)); // TODO: handle multiple render targets
++		rtt_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++		rtt_info.push_back(llvm::MDString::get(Context, make_type_name(ret_type)));
++		rtt_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++		rtt_info.push_back(llvm::MDString::get(Context, FD->getName())); // TODO: always func name or just if direct?
++		stage_infos.push_back(llvm::MDNode::get(Context, rtt_info));
 +	}
 +
 +	// insert into kernel metadata
-+	kernelMDArgs.push_back(llvm::MDNode::get(Context, empty_set));
++	kernelMDArgs.push_back(llvm::MDNode::get(Context, stage_infos));
 +	kernelMDArgs.push_back(llvm::MDNode::get(Context, arg_infos));
 +}
  
@@ -4835,9 +5263,9 @@ index 5ca3a78..1bcd6f8 100644
 +											  llvm::Function *Fn,
 +											  const FunctionArgList &Args) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
-+	if (!is_kernel &&
-+		!FD->hasAttr<GraphicsVertexShaderAttr>() &&
-+		!FD->hasAttr<GraphicsFragmentShaderAttr>()) {
++	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
++	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
++	if (!is_kernel && !is_vertex && !is_fragment) {
 +		return;
 +	}
 +	
@@ -4847,24 +5275,26 @@ index 5ca3a78..1bcd6f8 100644
 +	SmallVector<llvm::Value*, 16> arg_infos;
 +	
 +	// #0: info version
-+	arg_infos.push_back(Builder.getInt32(1));
-+	// #1: kernel name
++	arg_infos.push_back(Builder.getInt32(2));
++	// #1: function name
 +	arg_infos.push_back(llvm::MDString::get(Context, Fn->getName()));
++	// #2: function type
++	arg_infos.push_back(Builder.getInt32(is_kernel ? 1 : (is_vertex ? 2 : 3)));
 +	
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
 +	// (which is why it iterates over the original clang list!)
-+	// start arg index: account for return type
-+	unsigned int arg_idx = (is_kernel || FD->getReturnType()->isVoidType() ? 0 : 1);
++	unsigned int arg_idx = 0;
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
++		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +		
 +		enum class FLOOR_ARG_INFO : uint64_t {
 +			// 0 == invalid!
 +			NONE						= (0ull),
 +			
-+			// sets: 00000000 000000-- -------- 00000xxx 00000000 00000000 00000000 00000000
++			// sets: -------- 000000-- -------- 00000xxx 00000000 00000000 00000000 00000000
 +			__AS_SHIFT					= (32ull),
 +			__AS_MASK					= (0x0000000700000000ull),
 +			AS_NONE						= NONE,
@@ -4873,7 +5303,7 @@ index 5ca3a78..1bcd6f8 100644
 +			AS_CONSTANT					= (3ull << __AS_SHIFT),
 +			AS_IMAGE					= (4ull << __AS_SHIFT),
 +			
-+			// sets: 00000000 000000-- xxxxxxxx 00000--- 00000000 00000000 00000000 00000000
++			// sets: -------- 000000-- xxxxxxxx 00000--- 00000000 00000000 00000000 00000000
 +			__IMG_TYPE_SHIFT			= (40ull),
 +			__IMG_TYPE_MASK				= (0x0000FF0000000000ull),
 +			IMG_1D						= (1ull << __IMG_TYPE_SHIFT),
@@ -4893,12 +5323,17 @@ index 5ca3a78..1bcd6f8 100644
 +			IMG_CUBE_DEPTH				= (15ull << __IMG_TYPE_SHIFT),
 +			IMG_CUBE_ARRAY_DEPTH		= (16ull << __IMG_TYPE_SHIFT),
 +			
-+			// sets: 00000000 000000xx -------- 00000--- 00000000 00000000 00000000 00000000
++			// sets: -------- 000000xx -------- 00000--- 00000000 00000000 00000000 00000000
 +			__IMG_ACCESS_SHIFT			= (48ull),
 +			__IMG_ACCESS_MASK			= (0x0003000000000000ull),
 +			IMG_ACCESS_READ				= (1ull << __IMG_ACCESS_SHIFT),
 +			IMG_ACCESS_WRITE			= (2ull << __IMG_ACCESS_SHIFT),
 +			IMG_ACCESS_READ_WRITE		= (IMG_ACCESS_READ | IMG_ACCESS_WRITE),
++			
++			// sets: xxxxxxxx 000000-- -------- 00000--- 00000000 00000000 00000000 00000000
++			__SPECIAL_TYPE_SHIFT		= (56ull),
++			__SPECIAL_TYPE_MASK			= (0xFF00000000000000ull),
++			STAGE_INPUT					= (1ull << __SPECIAL_TYPE_SHIFT),
 +		};
 +		
 +		static const auto to_fas = [](const unsigned& addr_space) {
@@ -4950,6 +5385,22 @@ index 5ca3a78..1bcd6f8 100644
 +			arg_info |= uint64_t(access);
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		};
++		// anything that isn't a pointer or special type
++		const auto add_normal_arg = [this, &arg_infos](llvm::Type* llvm_type,
++													   const clang::QualType& clang_type,
++													   const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) {
++			// for now: just use the direct type size + no address space
++			uint64_t arg_info = (uint64_t)init_info;
++			// handle some llvm weirdness? why can this be a pointer still?
++			if(llvm_type->isPointerTy()) {
++				arg_info |= CGM.getDataLayout().getTypeStoreSize(llvm_type->getPointerElementType());
++			}
++			else {
++				arg_info |= CGM.getDataLayout().getTypeStoreSize(llvm_type);
++			}
++			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
++			arg_infos.push_back(Builder.getInt64(arg_info));
++		};
 +		
 +		// #2+: argument sizes + types
 +		if(clang_type->isPointerType() || clang_type->isReferenceType()) {
@@ -4974,18 +5425,17 @@ index 5ca3a78..1bcd6f8 100644
 +		}
 +		// aggregate of image types (used with opencl and metal)
 +		else if(clang_type->isAggregateImageType()) {
-+			const auto decl = clang_type->getAsCXXRecordDecl();
-+			const auto agg_images = get_aggregate_image_fields(decl);
++			const auto agg_images = get_aggregate_image_fields(cxx_rdecl);
 +			
 +			// image count must either be 1 (for single read or write images) or 2 (one read, one write image)
 +			const auto field_count = agg_images.size();
 +			if(field_count == 0) {
-+				CGM.Error(decl->getSourceRange().getBegin(),
++				CGM.Error(cxx_rdecl->getSourceRange().getBegin(),
 +						  StringRef("no images in aggregate-image (min: 1)"));
 +				return;
 +			}
 +			else if(field_count > 2) {
-+				CGM.Error(decl->getSourceRange().getBegin(),
++				CGM.Error(cxx_rdecl->getSourceRange().getBegin(),
 +						  StringRef("too many images in aggregate-image (max: 2)"));
 +				return;
 +			}
@@ -5025,7 +5475,7 @@ index 5ca3a78..1bcd6f8 100644
 +			
 +			// if the aggregate has two image objects, one must be read, one must be write -> read/write
 +			if(field_count == 2 && floor_img_access != uint64_t(FLOOR_ARG_INFO::IMG_ACCESS_READ_WRITE)) {
-+				CGM.Error(decl->getSourceRange().getBegin(),
++				CGM.Error(cxx_rdecl->getSourceRange().getBegin(),
 +						  StringRef("aggregate-image has 2 image fields, but joint access is not read-write"));
 +				return;
 +			}
@@ -5046,7 +5496,7 @@ index 5ca3a78..1bcd6f8 100644
 +			const ImageAccessAttr* access_attr = parm->getAttr<ImageAccessAttr>();
 +			if(access_attr == nullptr) {
 +				// get access attr if this is an aggregate type
-+				access_attr = get_aggregate_access_attr(clang_type->getAsCXXRecordDecl());
++				access_attr = get_aggregate_access_attr(cxx_rdecl);
 +			}
 +			
 +			if(access_attr != nullptr) {
@@ -5060,18 +5510,31 @@ index 5ca3a78..1bcd6f8 100644
 +			
 +			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
-+		else {
-+			// for now: just use the direct type size + no address space
-+			uint64_t arg_info = 0;
-+			// handle some llvm weirdness? why can this be a pointer still?
-+			if(llvm_type->isPointerTy()) {
-+				arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type->getPointerElementType());
++		// stage input
++		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
++			if(!is_vertex && !is_fragment) {
++				// TODO: should check this in sema
++				// TODO: should also make sure that only 1 exists
++				CGM.Error(FD->getSourceRange().getBegin(), "[[stage_input]] only allowed on vertex and fragment functions");
++			}
++			
++			if(cxx_rdecl) {
++				// must handle each field individually
++				const auto fields = get_aggregate_fields(cxx_rdecl);
++				for(const auto& field : fields) {
++					const auto field_llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
++					add_normal_arg(field_llvm_type, field->getType(), FLOOR_ARG_INFO::STAGE_INPUT);
++					++arg_idx;
++				}
++				--arg_idx; // fixup, b/c of inc later
 +			}
 +			else {
-+				arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type);
++				// add as-is
++				add_normal_arg(llvm_type, clang_type, FLOOR_ARG_INFO::STAGE_INPUT);
 +			}
-+			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
-+			arg_infos.push_back(Builder.getInt64(arg_info));
++		}
++		else {
++			add_normal_arg(llvm_type, clang_type);
 +		}
 +		
 +		// next llvm arg
@@ -5092,14 +5555,8 @@ index 5ca3a78..1bcd6f8 100644
 +	
 +	//
 +	llvm::MDNode *argsMDNode = llvm::MDNode::get(Context, arg_infos);
-+	if(is_kernel) {
-+		llvm::NamedMDNode *FloorKernelMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.kernels");
-+		FloorKernelMetadata->addOperand(argsMDNode);
-+	}
-+	else {
-+		llvm::NamedMDNode *FloorShaderMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.shaders");
-+		FloorShaderMetadata->addOperand(argsMDNode);
-+	}
++	llvm::NamedMDNode *FloorFunctionsMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.functions");
++	FloorFunctionsMetadata->addOperand(argsMDNode);
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -5124,9 +5581,21 @@ index 5ca3a78..1bcd6f8 100644
 +	  for(const auto& arg : Fn->args()) {
 +		  arg_types.push_back(arg.getType());
 +	  }
-+	  // add id types
-+	  const auto id_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(Context), 3);
-+	  for(int i = 0; i < 6; ++i) arg_types.push_back(id_vec_type);
++	  
++	  if(FD->hasAttr<ComputeKernelAttr>()) {
++		  // add id types
++		  const auto id_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(Context), 3);
++		  for(int i = 0; i < 6; ++i) arg_types.push_back(id_vec_type);
++	  }
++	  else if(FD->hasAttr<GraphicsVertexShaderAttr>()) {
++		  // only vertex id for now
++		  arg_types.push_back(llvm::Type::getInt32Ty(Context));
++	  }
++	  else if(FD->hasAttr<GraphicsFragmentShaderAttr>()) {
++		  // only point coord for now
++		  const auto pc_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(Context), 2);
++		  arg_types.push_back(pc_vec_type);
++	  }
 +	  
 +	  // create + add new function type
 +	  const auto func_type_with_ids = llvm::FunctionType::get(Fn->getReturnType(), arg_types, false);
@@ -5147,7 +5616,7 @@ index 5ca3a78..1bcd6f8 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1306,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1545,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -5232,7 +5701,7 @@ index 5ca3a78..1bcd6f8 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,10 +1433,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,10 +1672,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5272,7 +5741,7 @@ index 5ca3a78..1bcd6f8 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -755,6 +1660,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +1899,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -5364,7 +5833,7 @@ index 5ca3a78..1bcd6f8 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +1798,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2037,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -5373,7 +5842,7 @@ index 5ca3a78..1bcd6f8 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +1848,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2087,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -5539,7 +6008,7 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
-index f75e59d..faa530d 100644
+index f75e59d..eb977b0 100644
 --- a/tools/clang/lib/CodeGen/TargetInfo.cpp
 +++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
 @@ -46,6 +46,10 @@ static bool isAggregateTypeForABI(QualType T) {
@@ -5581,7 +6050,107 @@ index f75e59d..faa530d 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -5657,7 +5664,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
+@@ -4962,6 +4969,99 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+ }
+ 
+ //===----------------------------------------------------------------------===//
++// OpenCL/SPIR ABI Implementation
++//===----------------------------------------------------------------------===//
++
++namespace {
++
++class SPIRABIInfo : public DefaultABIInfo {
++public:
++  SPIRABIInfo(CodeGenTypes &CGT) : DefaultABIInfo(CGT) {}
++};
++
++class SPIRTargetCodeGenInfo : public TargetCodeGenInfo {
++public:
++  SPIRTargetCodeGenInfo(CodeGenTypes &CGT)
++    : TargetCodeGenInfo(new SPIRABIInfo(CGT)) {}
++};
++	
++}
++
++//===----------------------------------------------------------------------===//
++// Metal/AIR ABI Implementation
++//===----------------------------------------------------------------------===//
++
++namespace {
++
++class AIRABIInfo : public ABIInfo {
++public:
++  AIRABIInfo(CodeGenTypes &CGT) : ABIInfo(CGT) {}
++
++  ABIArgInfo classifyReturnType(QualType RetTy) const;
++  ABIArgInfo classifyArgumentType(QualType Ty) const;
++
++  void computeInfo(CGFunctionInfo &FI) const override;
++  llvm::Value *EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                         CodeGenFunction &CFG) const override;
++};
++
++class AIRTargetCodeGenInfo : public TargetCodeGenInfo {
++public:
++  AIRTargetCodeGenInfo(CodeGenTypes &CGT)
++    : TargetCodeGenInfo(new AIRABIInfo(CGT)) {}
++};
++
++ABIArgInfo AIRABIInfo::classifyReturnType(QualType RetTy) const {
++  if (RetTy->isVoidType())
++    return ABIArgInfo::getIgnore();
++
++  // note: this is different from default ABI
++  if (!RetTy->isScalarType())
++    return ABIArgInfo::getDirect();
++
++  // Treat an enum type as its underlying type.
++  if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
++    RetTy = EnumTy->getDecl()->getIntegerType();
++
++  return (RetTy->isPromotableIntegerType() ?
++          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
++}
++
++ABIArgInfo AIRABIInfo::classifyArgumentType(QualType Ty) const {
++  if (isAggregateImageType(Ty))
++    return ABIArgInfo::getExpand();
++
++  // Treat an enum type as its underlying type.
++  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
++    Ty = EnumTy->getDecl()->getIntegerType();
++
++  return (Ty->isPromotableIntegerType() ?
++          ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
++}
++
++void AIRABIInfo::computeInfo(CGFunctionInfo &FI) const {
++  // return type should never be indirect
++  // TODO: ... if the function is a kernel/vs/fs
++  FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
++
++  for (auto &I : FI.arguments())
++    I.info = classifyArgumentType(I.type);
++
++  // Always honor user-specified calling convention.
++  if (FI.getCallingConvention() != llvm::CallingConv::C)
++    return;
++
++  FI.setEffectiveCallingConvention(getRuntimeCC());
++}
++
++llvm::Value *AIRABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
++                                   CodeGenFunction &CFG) const {
++  llvm_unreachable("AIR does not support varargs");
++}
++
++}
++
++//===----------------------------------------------------------------------===//
+ // SystemZ ABI Implementation
+ //===----------------------------------------------------------------------===//
+ 
+@@ -5657,7 +5757,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
    llvm::Function *F = cast<llvm::Function>(GV);
    
    if (M.getLangOpts().OpenCL) {
@@ -5590,6 +6159,17 @@ index f75e59d..faa530d 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
+@@ -6877,5 +6977,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+     return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
+   case llvm::Triple::xcore:
+     return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));
++  case llvm::Triple::spir:
++  case llvm::Triple::spir64:
++    return *(TheTargetCodeGenInfo = new SPIRTargetCodeGenInfo(Types));
++  case llvm::Triple::air64:
++    return *(TheTargetCodeGenInfo = new AIRTargetCodeGenInfo(Types));
+   }
+ }
 diff --git a/tools/clang/lib/Driver/Tools.cpp b/tools/clang/lib/Driver/Tools.cpp
 index 198e82e..41a24da 100644
 --- a/tools/clang/lib/Driver/Tools.cpp
@@ -5845,7 +6425,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..8244630 100644
+index 8716227..34fd76a 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -5955,7 +6535,19 @@ index 8716227..8244630 100644
    }
  
    MarkUnusedFileScopedDecl(NewFD);
-@@ -7959,9 +7993,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
+@@ -7918,7 +7952,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
+     // the function returns a UDT (class, struct, or union type) that is not C
+     // compatible, and if it does, warn the user.
+     // But, issue any diagnostic on the first declaration only.
+-    if (NewFD->isExternC() && Previous.empty()) {
++    if (NewFD->isExternC() && Previous.empty() &&
++		// ignore this for vertex/fragment shaders
++		!NewFD->hasAttr<GraphicsVertexShaderAttr>() &&
++		!NewFD->hasAttr<GraphicsFragmentShaderAttr>()) {
+       QualType R = NewFD->getReturnType();
+       if (R->isIncompleteType() && !R->isVoidType())
+         Diag(NewFD->getLocation(), diag::warn_return_value_udt_incomplete)
+@@ -7959,9 +7996,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
      FD->setConstexpr(false);
    }
  
@@ -5968,7 +6560,7 @@ index 8716227..8244630 100644
      FD->setInvalidDecl();
      return;
    }
-@@ -9781,8 +9816,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
+@@ -9781,8 +9819,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
    if (FD->isFunctionTemplateSpecialization())
      return false;
  
@@ -5981,7 +6573,7 @@ index 8716227..8244630 100644
      return false;
  
    bool MissingPrototype = true;
-@@ -9954,6 +9991,22 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +9994,22 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -6004,7 +6596,7 @@ index 8716227..8244630 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +11994,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +11997,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
@@ -6014,7 +6606,7 @@ index 8716227..8244630 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..2daaef5 100644
+index 61683cd..e44d186 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
 @@ -1956,6 +1956,94 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
@@ -6214,7 +6806,7 @@ index 61683cd..2daaef5 100644
    case AttributeList::AT_CUDADevice:
      handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
      break;
-@@ -4399,11 +4523,38 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4399,11 +4523,35 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_IntelOclBicc:
      handleCallConvAttr(S, D, Attr);
      break;
@@ -6246,18 +6838,15 @@ index 61683cd..2daaef5 100644
 +    break;
 +  case AttributeList::AT_GraphicsPointSize:
 +    handleSimpleAttribute<GraphicsPointSizeAttr>(S, D, Attr);
-+    break;
-+  case AttributeList::AT_GraphicsStageInput:
-+    handleSimpleAttribute<GraphicsStageInputAttr>(S, D, Attr);
      break;
 -  case AttributeList::AT_OpenCLImageAccess:
 -    handleSimpleAttribute<OpenCLImageAccessAttr>(S, D, Attr);
-+  case AttributeList::AT_GraphicsPointCoord:
-+    handleSimpleAttribute<GraphicsPointCoordAttr>(S, D, Attr);
++  case AttributeList::AT_GraphicsStageInput:
++    handleSimpleAttribute<GraphicsStageInputAttr>(S, D, Attr);
      break;
  
    // Microsoft attributes:
-@@ -4553,7 +4704,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -4553,7 +4701,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      return;
    }
  
@@ -6540,7 +7129,7 @@ index accec95..333f28b 100644
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..dfbd548 100644
+index be1191c..b781b14 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
 @@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
@@ -6604,7 +7193,7 @@ index be1191c..dfbd548 100644
      case AttributeList::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
        attr.setUsedAsTypeAttr();
-@@ -4926,11 +4942,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -4926,11 +4942,29 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
@@ -6630,9 +7219,6 @@ index be1191c..dfbd548 100644
 +      attr.setUsedAsTypeAttr();
 +      break;
 +    case AttributeList::AT_GraphicsStageInput:
-+      attr.setUsedAsTypeAttr();
-+      break;
-+    case AttributeList::AT_GraphicsPointCoord:
 +      attr.setUsedAsTypeAttr();
 +      break;
  
