@@ -107,38 +107,37 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_ctx_set_current(ctx));
 		
 		//
-		devices.emplace_back(make_shared<cuda_device>());
-		auto device_sptr = devices.back();
-		auto& device = *(cuda_device*)device_sptr.get();
+		auto device = make_shared<cuda_device>();
+		devices.emplace_back(device);
 		
 		// set initial/fixed attributes
-		device.ctx = ctx;
-		device.device_id = cuda_dev;
-		device.sm = uint2(cc);
-		device.type = (compute_device::TYPE)gpu_counter++;
-		device.name = dev_name;
-		device.version_str = to_string(cc.x) + "." + to_string(cc.y);
-		device.driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
+		device->ctx = ctx;
+		device->device_id = cuda_dev;
+		device->sm = uint2(cc);
+		device->type = (compute_device::TYPE)gpu_counter++;
+		device->name = dev_name;
+		device->version_str = to_string(cc.x) + "." + to_string(cc.y);
+		device->driver_version_str = to_string(to_driver_major(driver_version)) + "." + to_string(to_driver_minor(driver_version));
 
 		// get all the attributes!
 		size_t global_mem_size = 0;
 		CU_CALL_IGNORE(cu_device_total_mem(&global_mem_size, cuda_dev));
-		device.global_mem_size = (uint64_t)global_mem_size;
+		device->global_mem_size = (uint64_t)global_mem_size;
 		
 		int const_mem, local_mem, l2_cache_size;
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.vendor_id, CU_DEVICE_ATTRIBUTE::PCI_DEVICE_ID, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.units, CU_DEVICE_ATTRIBUTE::MULTIPROCESSOR_COUNT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->vendor_id, CU_DEVICE_ATTRIBUTE::PCI_DEVICE_ID, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->units, CU_DEVICE_ATTRIBUTE::MULTIPROCESSOR_COUNT, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&const_mem, CU_DEVICE_ATTRIBUTE::TOTAL_CONSTANT_MEMORY, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&local_mem, CU_DEVICE_ATTRIBUTE::MAX_SHARED_MEMORY_PER_BLOCK, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.max_registers_per_block, CU_DEVICE_ATTRIBUTE::MAX_REGISTERS_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->max_registers_per_block, CU_DEVICE_ATTRIBUTE::MAX_REGISTERS_PER_BLOCK, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&l2_cache_size, CU_DEVICE_ATTRIBUTE::L2_CACHE_SIZE, cuda_dev));
-		device.constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
-		device.local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
-		device.l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
+		device->constant_mem_size = (const_mem < 0 ? 0ull : uint64_t(const_mem));
+		device->local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
+		device->l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
 		int max_work_group_size;
 		int3 max_block_dim, max_grid_dim;
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_work_group_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.y, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Y, cuda_dev));
@@ -146,9 +145,9 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev));
-		device.max_work_group_size = uint32_t(max_work_group_size);
-		device.max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
-		device.max_work_group_item_sizes = uint3(max_block_dim);
+		device->max_work_group_size = uint32_t(max_work_group_size);
+		device->max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
+		device->max_work_group_item_sizes = uint3(max_block_dim);
 		
 		int max_image_1d, max_image_1d_buffer;
 		int2 max_image_2d;
@@ -160,17 +159,17 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_HEIGHT, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.z, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_DEPTH, cuda_dev));
-		device.max_image_1d_dim = size_t(max_image_1d);
-		device.max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
-		device.max_image_2d_dim = size2(max_image_2d);
-		device.max_image_3d_dim = size3(max_image_3d);
+		device->max_image_1d_dim = size_t(max_image_1d);
+		device->max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
+		device->max_image_2d_dim = size2(max_image_2d);
+		device->max_image_3d_dim = size3(max_image_3d);
 		
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.mem_bus_width, CU_DEVICE_ATTRIBUTE::GLOBAL_MEMORY_BUS_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device.async_engine_count, CU_DEVICE_ATTRIBUTE::ASYNC_ENGINE_COUNT, cuda_dev));
-		device.clock /= 1000; // to MHz
-		device.mem_clock /= 1000;
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->mem_bus_width, CU_DEVICE_ATTRIBUTE::GLOBAL_MEMORY_BUS_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->async_engine_count, CU_DEVICE_ATTRIBUTE::ASYNC_ENGINE_COUNT, cuda_dev));
+		device->clock /= 1000; // to MHz
+		device->mem_clock /= 1000;
 		
 		int exec_timeout, overlap, map_host_memory, integrated, concurrent, ecc, tcc, unified_memory;
 		CU_CALL_IGNORE(cu_device_get_attribute(&exec_timeout, CU_DEVICE_ATTRIBUTE::KERNEL_EXEC_TIMEOUT, cuda_dev));
@@ -181,16 +180,16 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		CU_CALL_IGNORE(cu_device_get_attribute(&ecc, CU_DEVICE_ATTRIBUTE::ECC_ENABLED, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&tcc, CU_DEVICE_ATTRIBUTE::TCC_DRIVER, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&unified_memory, CU_DEVICE_ATTRIBUTE::UNIFIED_ADDRESSING, cuda_dev));
-		device.unified_memory = (unified_memory != 0);
+		device->unified_memory = (unified_memory != 0);
 		
-		device.extended_64_bit_atomics_support = (device.sm.x > 3 || (device.sm.x == 3 && device.sm.y >= 2)); // supported since sm_32
+		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
 		
 		// compute score and try to figure out which device is the fastest
-		const auto compute_gpu_score = [](const cuda_device& dev) -> unsigned int {
+		const auto compute_gpu_score = [](shared_ptr<cuda_device> dev) -> unsigned int {
 			unsigned int multiplier = 1;
-			switch(dev.sm.x) {
+			switch(dev->sm.x) {
 				case 2:
-					multiplier = (dev.sm.y == 0 ? 32 : 48);
+					multiplier = (dev->sm.y == 0 ? 32 : 48);
 					break;
 				case 3:
 					multiplier = 192;
@@ -200,31 +199,31 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 					multiplier = 128;
 					break;
 			}
-			return multiplier * (dev.units * dev.clock);
+			return multiplier * (dev->units * dev->clock);
 		};
 		
 		if(fastest_gpu_device == nullptr) {
-			fastest_gpu_device = device_sptr;
+			fastest_gpu_device = device;
 			fastest_gpu_score = compute_gpu_score(device);
 		}
 		else {
 			const auto gpu_score = compute_gpu_score(device);
 			if(gpu_score > fastest_gpu_score) {
-				fastest_gpu_device = device_sptr;
+				fastest_gpu_device = device;
 				fastest_gpu_score = gpu_score;
 			}
 		}
 		
 		// additional info
 		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
-				device.global_mem_size / 1024ULL / 1024ULL,
-				device.local_mem_size / 1024ULL,
-				device.constant_mem_size / 1024ULL);
-		log_msg("host unified memory: %u", device.unified_memory);
-		log_msg("max work-group size: %u", device.max_work_group_size);
-		log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
+				device->global_mem_size / 1024ULL / 1024ULL,
+				device->local_mem_size / 1024ULL,
+				device->constant_mem_size / 1024ULL);
+		log_msg("host unified memory: %u", device->unified_memory);
+		log_msg("max work-group size: %u", device->max_work_group_size);
+		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
 		log_msg("max cuda grid-dim: %u", max_grid_dim);
-		log_msg("max work-item sizes: %v", device.max_work_item_sizes);
+		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
 		
 		size_t printf_buffer_size = 0;
 		cu_ctx_get_limit(&printf_buffer_size, CU_LIMIT::PRINTF_FIFO_SIZE);
@@ -234,13 +233,13 @@ cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_cont
 		
 		//
 		log_debug("GPU (Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, SM %s / CUDA %s",
-				  device.units,
-				  device.clock,
-				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
-				  device.vendor_name,
-				  device.name,
-				  device.version_str,
-				  device.driver_version_str);
+				  device->units,
+				  device->clock,
+				  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
+				  device->vendor_name,
+				  device->name,
+				  device->version_str,
+				  device->driver_version_str);
 	}
 	
 	// if absolutely no devices are supported, return (supported is still false)

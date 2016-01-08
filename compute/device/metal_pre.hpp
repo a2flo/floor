@@ -27,6 +27,8 @@
 #define constant __attribute__((constant_as))
 #define local __attribute__((local_as))
 #define kernel extern "C" __attribute__((compute_kernel))
+#define vertex extern "C" __attribute__((vertex_shader))
+#define fragment extern "C" __attribute__((fragment_shader))
 
 #define metal_func inline __attribute__((always_inline))
 

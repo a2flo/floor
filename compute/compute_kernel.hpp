@@ -41,6 +41,8 @@ public:
 		size_t max_local_work_size { 0u };
 		uint3 max_work_group_item_sizes;
 	};
+	//! returns the internal kernel entry for the specified device
+	virtual const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const = 0;
 	
 	//! don't call this directly, call the execute function in a compute_queue object instead!
 	template <typename... Args, class work_size_type_global, class work_size_type_local>

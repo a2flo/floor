@@ -271,108 +271,107 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		for(size_t j = 0; j < ctx_devices.size(); ++j) {
 			auto& cl_dev = ctx_devices[j];
 			
-			devices.emplace_back(make_shared<opencl_device>());
-			auto device_sptr = devices.back();
-			auto& device = *(opencl_device*)device_sptr.get();
+			auto device = make_shared<opencl_device>();
+			devices.emplace_back(device);
 			dev_type_str = "";
 			
-			device.ctx = ctx;
-			device.compute_ctx = this;
-			device.device_id = cl_dev;
-			device.internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
-			device.units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
-			device.clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
-			device.global_mem_size = cl_get_info<CL_DEVICE_GLOBAL_MEM_SIZE>(cl_dev);
-			device.local_mem_size = cl_get_info<CL_DEVICE_LOCAL_MEM_SIZE>(cl_dev);
-			device.local_mem_dedicated = (cl_get_info<CL_DEVICE_LOCAL_MEM_TYPE>(cl_dev) == CL_LOCAL);
-			device.constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
-			device.name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
-			device.vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
-			device.version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
-			device.cl_version = extract_cl_version(device.version_str, "OpenCL ").second;
-			device.driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
-			device.extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
+			device->ctx = ctx;
+			device->compute_ctx = this;
+			device->device_id = cl_dev;
+			device->internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
+			device->units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
+			device->clock = cl_get_info<CL_DEVICE_MAX_CLOCK_FREQUENCY>(cl_dev);
+			device->global_mem_size = cl_get_info<CL_DEVICE_GLOBAL_MEM_SIZE>(cl_dev);
+			device->local_mem_size = cl_get_info<CL_DEVICE_LOCAL_MEM_SIZE>(cl_dev);
+			device->local_mem_dedicated = (cl_get_info<CL_DEVICE_LOCAL_MEM_TYPE>(cl_dev) == CL_LOCAL);
+			device->constant_mem_size = cl_get_info<CL_DEVICE_MAX_CONSTANT_BUFFER_SIZE>(cl_dev);
+			device->name = cl_get_info<CL_DEVICE_NAME>(cl_dev);
+			device->vendor_name = cl_get_info<CL_DEVICE_VENDOR>(cl_dev);
+			device->version_str = cl_get_info<CL_DEVICE_VERSION>(cl_dev);
+			device->cl_version = extract_cl_version(device->version_str, "OpenCL ").second;
+			device->driver_version_str = cl_get_info<CL_DRIVER_VERSION>(cl_dev);
+			device->extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
-			device.max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
-			device.max_work_group_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
+			device->max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
+			device->max_work_group_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
 			const auto max_work_group_item_sizes = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
 			if(max_work_group_item_sizes.size() != 3) {
 				log_warn("max workgroup sizes dim != 3: %u", max_work_group_item_sizes.size());
 			}
-			if(max_work_group_item_sizes.size() >= 1) device.max_work_group_item_sizes.x = (uint32_t)max_work_group_item_sizes[0];
-			if(max_work_group_item_sizes.size() >= 2) device.max_work_group_item_sizes.y = (uint32_t)max_work_group_item_sizes[1];
-			if(max_work_group_item_sizes.size() >= 3) device.max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
+			if(max_work_group_item_sizes.size() >= 1) device->max_work_group_item_sizes.x = (uint32_t)max_work_group_item_sizes[0];
+			if(max_work_group_item_sizes.size() >= 2) device->max_work_group_item_sizes.y = (uint32_t)max_work_group_item_sizes[1];
+			if(max_work_group_item_sizes.size() >= 3) device->max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
 			
 			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
-			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
 				// always at least 4 (SSE, newer NEON), 8-wide if avx/avx2, 16-wide if avx-512
-				device.simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
+				device->simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 			}
 			
-			if(device.internal_type == CL_DEVICE_TYPE_CPU) {
+			if(device->internal_type == CL_DEVICE_TYPE_CPU) {
 #if defined(__APPLE__)
 				// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by (at least) 8
-				const auto size_div = std::max(8u, device.units); // might be cpu/unit count, don't have the h/w to test this -> assume at least 8
-				if(device.max_work_group_size > size_div) device.max_work_group_size /= size_div;
-				if(device.max_work_group_item_sizes.x > size_div) device.max_work_group_item_sizes.x /= size_div;
-				if(device.max_work_group_item_sizes.y > size_div) device.max_work_group_item_sizes.y /= size_div;
-				if(device.max_work_group_item_sizes.z > size_div) device.max_work_group_item_sizes.z /= size_div;
+				const auto size_div = std::max(8u, device->units); // might be cpu/unit count, don't have the h/w to test this -> assume at least 8
+				if(device->max_work_group_size > size_div) device->max_work_group_size /= size_div;
+				if(device->max_work_group_item_sizes.x > size_div) device->max_work_group_item_sizes.x /= size_div;
+				if(device->max_work_group_item_sizes.y > size_div) device->max_work_group_item_sizes.y /= size_div;
+				if(device->max_work_group_item_sizes.z > size_div) device->max_work_group_item_sizes.z /= size_div;
 #else
 				// intel cpu is reporting 8192, but this isn't actually working on SSE cpus (unsure about avx, so leaving it for now)
 				// -> set it to 4096 as it is actually working
 				if(platform_vendor == COMPUTE_VENDOR::INTEL &&
-				   device.simd_width == 4 &&
-				   device.max_work_group_size >= 8192) {
-					device.max_work_group_size = 4096;
-					device.max_work_group_item_sizes.min(device.max_work_group_size);
+				   device->simd_width == 4 &&
+				   device->max_work_group_size >= 8192) {
+					device->max_work_group_size = 4096;
+					device->max_work_group_item_sizes.min(device->max_work_group_size);
 				}
 #endif
 			}
 			
-			device.image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
-			device.max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
-			device.max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
-			device.max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
-										cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
-			device.max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
-										cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
-										cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
+			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
+			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
+			device->max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
+			device->max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
+										 cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
+			device->max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
+										 cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
+										 cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
 #if !defined(__APPLE__)
-			device.double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
+			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
 #else
 			// not properly supported on os x (defined in the headers, but no backend implementation)
-			device.double_support = false;
+			device->double_support = false;
 #endif
-			device.bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
-			device.max_work_item_sizes = (device.bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
-										  0xFFFF'FFFFull :
-										  (device.bitness == 64 ?
-										   0xFFFF'FFFF'FFFF'FFFFull :
-										   (1ull << uint64_t(device.bitness)) - 1ull)); // just in case "address bits" is something weird
-			device.unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
-			device.basic_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_base_atomics");
-			device.extended_64_bit_atomics_support = core::contains(device.extensions, "cl_khr_int64_extended_atomics");
-			device.sub_group_support = (core::contains(device.extensions, "cl_khr_subgroups") ||
-										core::contains(device.extensions, "cl_intel_subgroups") ||
-										(device.cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
+			device->bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
+			device->max_work_item_sizes = (device->bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
+										   0xFFFF'FFFFull :
+										   (device->bitness == 64 ?
+											0xFFFF'FFFF'FFFF'FFFFull :
+											(1ull << uint64_t(device->bitness)) - 1ull)); // just in case "address bits" is something weird
+			device->unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
+			device->basic_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_base_atomics");
+			device->extended_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_extended_atomics");
+			device->sub_group_support = (core::contains(device->extensions, "cl_khr_subgroups") ||
+										 core::contains(device->extensions, "cl_intel_subgroups") ||
+										 (device->cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
 			
-			log_msg("address space size: %u", device.bitness);
+			log_msg("address space size: %u", device->bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",
-					device.max_mem_alloc,
-					device.max_mem_alloc / 1024ULL / 1024ULL);
+					device->max_mem_alloc,
+					device->max_mem_alloc / 1024ULL / 1024ULL);
 			log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
-					device.global_mem_size / 1024ULL / 1024ULL,
-					device.local_mem_size / 1024ULL,
-					device.constant_mem_size / 1024ULL);
+					device->global_mem_size / 1024ULL / 1024ULL,
+					device->local_mem_size / 1024ULL,
+					device->constant_mem_size / 1024ULL);
 			log_msg("mem base address alignment: %u", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
 			log_msg("min data type alignment size: %u", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
-			log_msg("host unified memory: %u", device.unified_memory);
-			log_msg("max work-group size: %u", device.max_work_group_size);
-			log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
-			log_msg("max work-item sizes: %v", device.max_work_item_sizes);
+			log_msg("host unified memory: %u", device->unified_memory);
+			log_msg("max work-group size: %u", device->max_work_group_size);
+			log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
+			log_msg("max work-item sizes: %v", device->max_work_item_sizes);
 			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
-			log_msg("double support: %b", device.double_support);
-			log_msg("image support: %b", device.image_support);
+			log_msg("double support: %b", device->double_support);
+			log_msg("image support: %b", device->image_support);
 			if(// pocl has no support for this yet
 			   platform_vendor != COMPUTE_VENDOR::POCL) {
 				const unsigned long long int printf_buffer_size = cl_get_info<CL_DEVICE_PRINTF_BUFFER_SIZE>(cl_dev);
@@ -384,58 +383,58 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			log_msg("extensions: \"%s\"", core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)));
 			
-			device.platform_vendor = platform_vendor;
-			device.vendor = COMPUTE_VENDOR::UNKNOWN;
-			string vendor_str = core::str_to_lower(device.vendor_name);
+			device->platform_vendor = platform_vendor;
+			device->vendor = COMPUTE_VENDOR::UNKNOWN;
+			string vendor_str = core::str_to_lower(device->vendor_name);
 			if(strstr(vendor_str.c_str(), "nvidia") != nullptr) {
-				device.vendor = COMPUTE_VENDOR::NVIDIA;
-				device.simd_width = 32;
-				device.simd_range = { device.simd_width, device.simd_width };
+				device->vendor = COMPUTE_VENDOR::NVIDIA;
+				device->simd_width = 32;
+				device->simd_range = { device->simd_width, device->simd_width };
 			}
 			else if(strstr(vendor_str.c_str(), "intel") != nullptr) {
-				device.vendor = COMPUTE_VENDOR::INTEL;
-				device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
-				device.simd_range = { 8, 32 };
+				device->vendor = COMPUTE_VENDOR::INTEL;
+				device->simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
+				device->simd_range = { 8, 32 };
 				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "apple") != nullptr) {
-				device.vendor = COMPUTE_VENDOR::APPLE;
+				device->vendor = COMPUTE_VENDOR::APPLE;
 				// -> cpu simd width later
 			}
 			else if(strstr(vendor_str.c_str(), "amd") != nullptr ||
 					strstr(vendor_str.c_str(), "advanced micro devices") != nullptr ||
 					// "ati" should be tested last, since it also matches "corporation"
 					strstr(vendor_str.c_str(), "ati") != nullptr) {
-				device.vendor = COMPUTE_VENDOR::AMD;
-				device.simd_width = 64;
-				device.simd_range = { device.simd_width, device.simd_width };
+				device->vendor = COMPUTE_VENDOR::AMD;
+				device->simd_width = 64;
+				device->simd_range = { device->simd_width, device->simd_width };
 				// -> cpu simd width later
 			}
 			
 			// older pocl versions used an empty device name, but "pocl" is also contained in the device version
-			if(device.version_str.find("pocl") != string::npos) {
-				device.vendor = COMPUTE_VENDOR::POCL;
+			if(device->version_str.find("pocl") != string::npos) {
+				device->vendor = COMPUTE_VENDOR::POCL;
 				
 				// device unit count on pocl is 0 -> figure out how many logical cpus actually exist
-				if(device.units == 0) {
-					device.units = core::get_hw_thread_count();
+				if(device->units == 0) {
+					device->units = core::get_hw_thread_count();
 				}
 			}
 			
-			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
-				device.type = (compute_device::TYPE)cpu_counter;
+			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
+				device->type = (compute_device::TYPE)cpu_counter;
 				cpu_counter++;
 				dev_type_str += "CPU ";
 			}
-			if(device.internal_type & CL_DEVICE_TYPE_GPU) {
-				device.type = (compute_device::TYPE)gpu_counter;
+			if(device->internal_type & CL_DEVICE_TYPE_GPU) {
+				device->type = (compute_device::TYPE)gpu_counter;
 				gpu_counter++;
 				dev_type_str += "GPU ";
 			}
-			if(device.internal_type & CL_DEVICE_TYPE_ACCELERATOR) {
+			if(device->internal_type & CL_DEVICE_TYPE_ACCELERATOR) {
 				dev_type_str += "Accelerator ";
 			}
-			if(device.internal_type & CL_DEVICE_TYPE_DEFAULT) {
+			if(device->internal_type & CL_DEVICE_TYPE_DEFAULT) {
 				dev_type_str += "Default ";
 			}
 			
@@ -444,14 +443,14 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			if(!extracted_cl_c_version.first) {
 				log_error("invalid opencl c version string: %s", cl_c_version_str);
 			}
-			device.c_version = extracted_cl_c_version.second;
-
+			device->c_version = extracted_cl_c_version.second;
+			
 			// there is no spir support on apple platforms, so don't even try this
 			// also, pocl doesn't support, but can apparently handle llvm bitcode files
 #if !defined(__APPLE__)
-			if(!core::contains(device.extensions, "cl_khr_spir") &&
-			   device.vendor != COMPUTE_VENDOR::POCL) {
-				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device.name);
+			if(!core::contains(device->extensions, "cl_khr_spir") &&
+			   device->vendor != COMPUTE_VENDOR::POCL) {
+				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device->name);
 				devices.pop_back();
 				continue;
 			}
@@ -461,36 +460,36 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			//
 			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
 					  dev_type_str,
-					  device.units,
-					  device.clock,
-					  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
-					  device.vendor_name,
-					  device.name,
-					  device.version_str,
-					  device.driver_version_str,
+					  device->units,
+					  device->clock,
+					  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
+					  device->vendor_name,
+					  device->name,
+					  device->version_str,
+					  device->driver_version_str,
 					  cl_c_version_str);
 			
 			// compute score and try to figure out which device is the fastest
-			if(device.internal_type & CL_DEVICE_TYPE_CPU) {
+			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
 				if(fastest_cpu_device == nullptr) {
-					fastest_cpu_device = device_sptr;
-					fastest_cpu_score = device.units * device.clock;
+					fastest_cpu_device = device;
+					fastest_cpu_score = device->units * device->clock;
 				}
 				else {
-					cpu_score = device.units * device.clock;
+					cpu_score = device->units * device->clock;
 					if(cpu_score > fastest_cpu_score) {
-						fastest_cpu_device = device_sptr;
+						fastest_cpu_device = device;
 						fastest_cpu_score = cpu_score;
 					}
 				}
 			}
-			else if(device.internal_type & CL_DEVICE_TYPE_GPU) {
-				const auto compute_gpu_score = [](const compute_device& dev) -> unsigned int {
+			else if(device->internal_type & CL_DEVICE_TYPE_GPU) {
+				const auto compute_gpu_score = [](shared_ptr<compute_device> dev) -> unsigned int {
 					unsigned int multiplier = 1;
-					switch(dev.vendor) {
+					switch(dev->vendor) {
 						case COMPUTE_VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024
-							multiplier = (dev.max_work_group_size >= 1024 ? 32 : 8);
+							multiplier = (dev->max_work_group_size >= 1024 ? 32 : 8);
 							break;
 						case COMPUTE_VENDOR::AMD:
 							multiplier = 16;
@@ -498,17 +497,17 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 							// none for INTEL
 						default: break;
 					}
-					return multiplier * (dev.units * dev.clock);
+					return multiplier * (dev->units * dev->clock);
 				};
 				
 				if(fastest_gpu_device == nullptr) {
-					fastest_gpu_device = device_sptr;
+					fastest_gpu_device = device;
 					fastest_gpu_score = compute_gpu_score(device);
 				}
 				else {
 					gpu_score = compute_gpu_score(device);
 					if(gpu_score > fastest_gpu_score) {
-						fastest_gpu_device = device_sptr;
+						fastest_gpu_device = device;
 						fastest_gpu_score = gpu_score;
 					}
 				}

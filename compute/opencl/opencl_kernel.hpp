@@ -69,6 +69,11 @@ public:
 		execute_internal(queue, kernel_iter->second, work_dim, global_work_size, local_work_size);
 	}
 	
+	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
+		const auto ret = kernels.get((opencl_device*)dev.get());
+		return !ret.first ? nullptr : &ret.second->second;
+	}
+	
 protected:
 	const kernel_map_type kernels;
 	flat_map<const kernel_entry*, bool> warn_map;

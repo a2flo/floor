@@ -85,6 +85,11 @@ public:
 		execute_internal(encoder, grid_dim, block_dim);
 	}
 	
+	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
+		const auto ret = kernels.get((metal_device*)dev.get());
+		return !ret.first ? nullptr : &ret.second->second;
+	}
+	
 protected:
 	const kernel_map_type kernels;
 	

@@ -105,9 +105,9 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 				const auto mid = stoull(metadata_type);
 				metadata_refs.emplace(mid, &line);
 			}
-			else if(metadata_type == "floor.kernels") {
-				// contains all references to kernels metadata
-				// format: !floor.kernels = !{!N, !M, !I, !J, ...}
+			else if(metadata_type == "floor.functions") {
+				// contains all references to functions metadata
+				// format: !floor.functions = !{!N, !M, !I, !J, ...}
 				parse_metadata_line(line, [&kernel_refs](const string& elem) {
 					if(elem[0] == '!') {
 						const auto kernel_ref_idx = stoull(elem.substr(1));
@@ -129,15 +129,19 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 		parse_metadata_line(metadata, [&elem_idx, &kernel](const string& elem) {
 			if(elem_idx == 0) {
 				// version check
-				static constexpr const int floor_kernels_version { 1 };
-				if(stoi(elem) != floor_kernels_version) {
-					log_warn("invalid floor.kernels version, expected %u, got %u!",
-							 floor_kernels_version, elem);
+				static constexpr const int floor_functions_version { 2 };
+				if(stoi(elem) != floor_functions_version) {
+					log_warn("invalid floor.functions version, expected %u, got %u!",
+							 floor_functions_version, elem);
 				}
 			}
 			else if(elem_idx == 1) {
-				// kernel function name
+				// function name
 				kernel.name = elem;
+			}
+			else if(elem_idx == 2) {
+				// function type
+				kernel.type = (llvm_compute::kernel_info::FUNCTION_TYPE)stou(elem);
 			}
 			else {
 				// kernel arg info: #elem_idx size, address space, image type, image access
@@ -155,6 +159,9 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 					.image_access	= (llvm_compute::kernel_info::ARG_IMAGE_ACCESS)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
+					.special_type	= (llvm_compute::kernel_info::SPECIAL_TYPE)
+						((data & uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
+						 uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
 				});
 			}
 			++elem_idx;

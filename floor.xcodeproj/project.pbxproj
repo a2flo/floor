@@ -179,6 +179,7 @@
 		5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */; };
+		5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCF37951C3D208D006D355B /* metal_post.hpp */; };
 		5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
 		5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
 		5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2175419E985D80049D6AE /* cuda_compute.hpp */; };
@@ -410,6 +411,7 @@
 		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
 		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
+		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
 		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
 		5CD2175619E985D80049D6AE /* opencl_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_compute.cpp; sourceTree = "<group>"; };
@@ -708,6 +710,7 @@
 				5C4E30E71B428B120034E536 /* host_image.hpp */,
 				5C13A3EB1AC1BE590002FF87 /* metal_pre.hpp */,
 				5C6008AD1AB6D6D200BC7012 /* metal.hpp */,
+				5CCF37951C3D208D006D355B /* metal_post.hpp */,
 				5CDB02671B0B1774005FCEDE /* metal_atomic.hpp */,
 				5CD5AEAF1AE0107A00E1891C /* metal_image.hpp */,
 				5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */,
@@ -920,6 +923,7 @@
 				5C4E30EB1B428B120034E536 /* host_image.hpp in Headers */,
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
 				5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */,
+				5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */,
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,

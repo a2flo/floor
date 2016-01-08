@@ -45,30 +45,35 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
 					//
-					id <MTLFunction> kernel = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
-					if(!kernel) {
+					id <MTLFunction> func = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
+					if(!func) {
 						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first->name);
 						continue;
 					}
 					
 					NSError* err = nullptr;
-					id <MTLComputePipelineState> kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:kernel error:&err];
-					if(!kernel_state) {
-						log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first->name,
-								  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
-						continue;
-					}
+					id <MTLComputePipelineState> kernel_state = nil;
+					if([func functionType] == MTLFunctionTypeKernel) {
+						kernel_state = [[prog.second.program device] newComputePipelineStateWithFunction:func error:&err];
+						if(!kernel_state) {
+							log_error("failed to create kernel state \"%s\" for device \"%s\": %s", info.name, prog.first->name,
+									  (err != nullptr ? [[err localizedDescription] UTF8String] : "unknown error"));
+							continue;
+						}
 #if defined(FLOOR_DEBUG)
-					log_debug("%s (%s): max work-items: %u, simd width: %u",
-							  info.name, prog.first->name,
-							  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
+						log_debug("%s (%s): max work-items: %u, simd width: %u",
+								  info.name, prog.first->name,
+								  [kernel_state maxTotalThreadsPerThreadgroup], [kernel_state threadExecutionWidth]);
 #endif
+					}
 					
 					// success, insert necessary info/data everywhere
-					prog.second.metal_kernels.emplace_back(metal_program_entry::metal_kernel_data { kernel, kernel_state });
-					entry.kernel = (__bridge void*)kernel;
+					prog.second.metal_kernels.emplace_back(metal_program_entry::metal_kernel_data { func, kernel_state });
+					entry.kernel = (__bridge void*)func;
 					entry.kernel_state = (__bridge void*)kernel_state;
-					entry.max_local_work_size = [kernel_state maxTotalThreadsPerThreadgroup];
+					if(kernel_state != nil) {
+						entry.max_local_work_size = [kernel_state maxTotalThreadsPerThreadgroup];
+					}
 					kernel_map.insert_or_assign(prog.first, entry);
 					break;
 				}

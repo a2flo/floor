@@ -370,6 +370,11 @@ template <typename T> using param = const T&;
 // compute algorithms
 #include <floor/compute/device/compute_algorithm.hpp>
 
+// late function declarations that require any of the prior functionality
+#if defined(FLOOR_COMPUTE_METAL)
+#include <floor/compute/device/metal_post.hpp>
+#endif
+
 #endif
 
 #endif

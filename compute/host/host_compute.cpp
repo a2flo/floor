@@ -46,9 +46,8 @@ host_compute::host_compute() : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::HOST;
 	
 	//
-	devices.emplace_back(make_shared<host_device>());
-	auto device_sptr = devices.back();
-	auto& device = *(host_device*)device_sptr.get();
+	auto device = make_shared<host_device>();
+	devices.emplace_back(device);
 	
 	// gather "device"/cpu information, this is very platform dependent
 	string cpu_name = "";
@@ -144,45 +143,45 @@ host_compute::host_compute() : compute_context() {
 #endif
 	if(cpu_name == "") cpu_name = "UNKNOWN CPU";
 	
-	device.name = cpu_name;
-	device.units = core::get_hw_thread_count();
-	device.clock = uint32_t(cpu_clock);
-	device.global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
-	device.max_mem_alloc = device.global_mem_size;
-	device.constant_mem_size = device.global_mem_size; // not different from normal ram
+	device->name = cpu_name;
+	device->units = core::get_hw_thread_count();
+	device->clock = uint32_t(cpu_clock);
+	device->global_mem_size = uint64_t(SDL_GetSystemRAM()) * 1024ull * 1024ull;
+	device->max_mem_alloc = device->global_mem_size;
+	device->constant_mem_size = device->global_mem_size; // not different from normal ram
 	
-	const auto lc_cpu_name = core::str_to_lower(device.name);
+	const auto lc_cpu_name = core::str_to_lower(device->name);
 	if(lc_cpu_name.find("intel") != string::npos) {
-		device.vendor = COMPUTE_VENDOR::INTEL;
-		device.vendor_name = "Intel";
+		device->vendor = COMPUTE_VENDOR::INTEL;
+		device->vendor_name = "Intel";
 	}
 	else if(lc_cpu_name.find("amd") != string::npos) {
-		device.vendor = COMPUTE_VENDOR::AMD;
-		device.vendor_name = "AMD";
+		device->vendor = COMPUTE_VENDOR::AMD;
+		device->vendor_name = "AMD";
 	}
 	else if(lc_cpu_name.find("apple") != string::npos) {
-		device.vendor = COMPUTE_VENDOR::APPLE;
-		device.vendor_name = "Apple";
+		device->vendor = COMPUTE_VENDOR::APPLE;
+		device->vendor_name = "Apple";
 	}
 	// TODO: ARM cpu names?
 	else {
-		device.vendor = COMPUTE_VENDOR::HOST;
-		device.vendor_name = "Host";
+		device->vendor = COMPUTE_VENDOR::HOST;
+		device->vendor_name = "Host";
 	}
 	
 #if 0 // mt-item
-	device.max_work_group_size = device.units;
-	device.max_work_group_item_sizes = { device.units, device.units, device.units };
+	device->max_work_group_size = device->units;
+	device->max_work_group_item_sizes = { device->units, device->units, device->units };
 #else // mt-group
 #if !defined(__WINDOWS__)
-	device.max_work_group_size = 1024;
-	device.max_work_group_item_sizes = { 1024, 1024, 1024 };
+	device->max_work_group_size = 1024;
+	device->max_work_group_item_sizes = { 1024, 1024, 1024 };
 #else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
-	device.max_work_group_size = 64;
-	device.max_work_group_item_sizes = { 64, 64, 64 };
+	device->max_work_group_size = 64;
+	device->max_work_group_item_sizes = { 64, 64, 64 };
 #endif
 #endif
-	device.max_image_1d_buffer_dim = { device.max_mem_alloc };
+	device->max_image_1d_buffer_dim = { device->max_mem_alloc };
 	
 	//
 	supported = true;

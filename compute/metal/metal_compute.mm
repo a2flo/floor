@@ -161,20 +161,18 @@ typedef struct {
 metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_context() {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
-	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
+	typedef id<MTLDevice> mtl_device_type;
+	mtl_device_type mtl_device = MTLCreateSystemDefaultDevice();
 	if(!mtl_device) return;
-	vector<id <MTLDevice>> mtl_devices { mtl_device };
+	NSArray <mtl_device_type>* mtl_devices = [NSArray arrayWithObjects:mtl_device, nil];
 #else
-	auto mtl_devices_arr = MTLCopyAllDevices();
-	vector<id<MTLDeviceSPI>> mtl_devices;
-	for(id<MTLDevice> dev : mtl_devices_arr) {
-		mtl_devices.emplace_back(dev);
-	}
+	typedef id<MTLDeviceSPI> mtl_device_type;
+	auto mtl_devices = (NSArray <mtl_device_type>*)MTLCopyAllDevices();
 #endif
 	
 	// go through all found devices (for ios, this should be one)
 	uint32_t device_num = 0;
-	for(auto& dev : mtl_devices) {
+	for(mtl_device_type dev : mtl_devices) {
 		// check whitelist
 		if(!whitelist.empty()) {
 			const auto lc_dev_name = core::str_to_lower([[dev name] UTF8String]);
@@ -189,147 +187,146 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		}
 		
 		// add device
-		devices.emplace_back(make_shared<metal_device>());
-		auto device_sptr = devices.back();
-		auto& device = *(metal_device*)device_sptr.get();
-		device.device = dev;
-		device.name = [[dev name] UTF8String];
-		device.type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
+		auto device = make_shared<metal_device>();
+		devices.emplace_back(device);
+		device->device = dev;
+		device->name = [[dev name] UTF8String];
+		device->type = (compute_device::TYPE)(uint32_t(compute_device::TYPE::GPU0) + device_num);
 		++device_num;
 		
 #if defined(FLOOR_IOS)
 		// on ios, most of the device properties can't be querried, but are statically known (-> doc)
-		device.vendor_name = "Apple";
-		device.vendor = COMPUTE_VENDOR::APPLE;
-		device.clock = 450; // actually unknown, and won't matter for now
-		device.global_mem_size = (uint64_t)darwin_helper::get_memory_size();
-		device.constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
+		device->vendor_name = "Apple";
+		device->vendor = COMPUTE_VENDOR::APPLE;
+		device->clock = 450; // actually unknown, and won't matter for now
+		device->global_mem_size = (uint64_t)darwin_helper::get_memory_size();
+		device->constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		
 		// hard to make this forward compatible, there is no direct "get family" call
 		// -> just try the first 32 types, good enough for now
 		for(uint32_t i = 32; i > 0; --i) {
 			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
-				device.family = i;
+				device->family = i;
 				break;
 			}
 		}
-		device.family_version = 1;
-		device.version_str = to_string(device.family);
+		device->family_version = 1;
+		device->version_str = to_string(device->family);
 		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
-		switch(device.family) {
+		switch(device->family) {
 			case 0:
 				log_error("unsupported hardware - family is 0!");
 				return;
 				
 			// A7/A7X
 			case 3:
-				device.family_version = 2;
+				device->family_version = 2;
 				floor_fallthrough;
 			case 1:
-				device.family = 1;
-				device.units = 4; // G6430
-				device.mem_clock = 1600; // ram clock
-				device.max_image_1d_dim = { 8192 };
-				device.max_image_2d_dim = { 8192, 8192 };
+				device->family = 1;
+				device->units = 4; // G6430
+				device->mem_clock = 1600; // ram clock
+				device->max_image_1d_dim = { 8192 };
+				device->max_image_2d_dim = { 8192, 8192 };
 				break;
 			
 			// A8/A8X
 			case 4:
-				device.family_version = 2;
+				device->family_version = 2;
 				floor_fallthrough;
 			case 2:
-				device.family = 2;
-				if(device.name.find("A8X") != string::npos) {
-					device.units = 8; // GXA6850
+				device->family = 2;
+				if(device->name.find("A8X") != string::npos) {
+					device->units = 8; // GXA6850
 				}
 				else {
-					device.units = 4; // GX6450
+					device->units = 4; // GX6450
 				}
-				device.mem_clock = 1600; // ram clock
-				device.max_image_1d_dim = { 8192 };
-				device.max_image_2d_dim = { 8192, 8192 };
+				device->mem_clock = 1600; // ram clock
+				device->max_image_1d_dim = { 8192 };
+				device->max_image_2d_dim = { 8192, 8192 };
 				break;
 			
 			// A9/A9X
 			default:
-				log_warn("unknown device family (%u), defaulting to family 3 (A9)", device.family);
+				log_warn("unknown device family (%u), defaulting to family 3 (A9)", device->family);
 				floor_fallthrough;
 			case 5:
-				device.family = 3;
-				if(device.name.find("A9X") != string::npos) {
-					device.units = 12; // GT7800/7900?
+				device->family = 3;
+				if(device->name.find("A9X") != string::npos) {
+					device->units = 12; // GT7800/7900?
 				}
 				else {
-					device.units = 6; // GT7600
+					device->units = 6; // GT7600
 				}
-				device.mem_clock = 1600; // TODO: ram clock
-				device.max_image_1d_dim = { 16384 };
-				device.max_image_2d_dim = { 16384, 16384 };
+				device->mem_clock = 1600; // TODO: ram clock
+				device->max_image_1d_dim = { 16384 };
+				device->max_image_2d_dim = { 16384, 16384 };
 				break;
 		}
-		device.local_mem_size = 16384;
-		device.max_work_group_size = 512;
-		device.max_work_item_sizes = { 0xFFFFFFFFu };
-		device.double_support = false; // double config is 0
-		device.unified_memory = true;
-		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
-		device.max_image_3d_dim = { 2048, 2048, 2048 };
-		device.simd_width = 32; // always 32 for powervr 6 and 7 series
-		device.simd_range = { device.simd_width, device.simd_width };
+		device->local_mem_size = 16384;
+		device->max_work_group_size = 512;
+		device->max_work_item_sizes = { 0xFFFFFFFFu };
+		device->double_support = false; // double config is 0
+		device->unified_memory = true;
+		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
+		device->max_image_3d_dim = { 2048, 2048, 2048 };
+		device->simd_width = 32; // always 32 for powervr 6 and 7 series
+		device->simd_range = { device->simd_width, device->simd_width };
 #else
 		// on os x, we can get to the device properties through MTLDeviceSPI
-		device.vendor_name = [[dev vendorName] UTF8String];
-		const auto lc_vendor_name = core::str_to_lower(device.vendor_name);
+		device->vendor_name = [[dev vendorName] UTF8String];
+		const auto lc_vendor_name = core::str_to_lower(device->vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
-			device.vendor = COMPUTE_VENDOR::NVIDIA;
-			device.simd_width = 32;
-			device.simd_range = { device.simd_width, device.simd_width };
+			device->vendor = COMPUTE_VENDOR::NVIDIA;
+			device->simd_width = 32;
+			device->simd_range = { device->simd_width, device->simd_width };
 		}
 		else if(lc_vendor_name.find("intel") != string::npos) {
-			device.vendor = COMPUTE_VENDOR::INTEL;
-			device.simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
-			device.simd_range = { 8, 32 };
+			device->vendor = COMPUTE_VENDOR::INTEL;
+			device->simd_width = 16; // variable (8, 16 or 32), but 16 is a good estimate
+			device->simd_range = { 8, 32 };
 		}
 		else if(lc_vendor_name.find("amd") != string::npos) {
-			device.vendor = COMPUTE_VENDOR::AMD;
-			device.simd_width = 64;
-			device.simd_range = { device.simd_width, device.simd_width };
+			device->vendor = COMPUTE_VENDOR::AMD;
+			device->simd_width = 64;
+			device->simd_range = { device->simd_width, device->simd_width };
 		}
-		else device.vendor = COMPUTE_VENDOR::UNKNOWN;
-		device.global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
-		device.constant_mem_size = 65536; // can't query this, so assume opencl minimum
-		device.family = (uint32_t)[dev featureProfile];
-		device.family_version = device.family - 10000 + 1;
-		device.local_mem_size = [dev maxComputeThreadgroupMemory];
-		device.max_work_group_size = (uint32_t)[dev maxTotalComputeThreadsPerThreadgroup];
-		device.units = 0; // sadly unknown and impossible to query
-		device.clock = 0;
-		device.mem_clock = 0;
-		device.max_work_item_sizes = { 0xFFFFFFFFu };
-		device.double_support = ([dev doubleFPConfig] > 0);
-		device.unified_memory = true; // TODO: not sure about this?
-		device.max_image_1d_buffer_dim = { 0 }; // N/A on metal
-		device.max_image_1d_dim = { [dev maxTextureWidth1D] };
-		device.max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
-		device.max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
+		else device->vendor = COMPUTE_VENDOR::UNKNOWN;
+		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
+		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
+		device->family = (uint32_t)[dev featureProfile];
+		device->family_version = device->family - 10000 + 1;
+		device->local_mem_size = [dev maxComputeThreadgroupMemory];
+		device->max_work_group_size = (uint32_t)[dev maxTotalComputeThreadsPerThreadgroup];
+		device->units = 0; // sadly unknown and impossible to query
+		device->clock = 0;
+		device->mem_clock = 0;
+		device->max_work_item_sizes = { 0xFFFFFFFFu };
+		device->double_support = ([dev doubleFPConfig] > 0);
+		device->unified_memory = true; // TODO: not sure about this?
+		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
+		device->max_image_1d_dim = { [dev maxTextureWidth1D] };
+		device->max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
+		device->max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
 #endif
-		device.max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
-		device.max_work_group_item_sizes = {
+		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
+		device->max_work_group_item_sizes = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
 			(uint32_t)[dev maxThreadsPerThreadgroup].height,
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
-		log_msg("max work-group item sizes: %v", device.max_work_group_item_sizes);
+		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
 		
 		// done
 		supported = true;
 		platform_vendor = COMPUTE_VENDOR::APPLE;
 		log_debug("GPU (Memory: %u MB): %s, family %u, family version %u",
-				  (unsigned int)(device.global_mem_size / 1024ull / 1024ull),
-				  device.name,
-				  device.family,
-				  device.family_version);
+				  (unsigned int)(device->global_mem_size / 1024ull / 1024ull),
+				  device->name,
+				  device->family,
+				  device->family_version);
 	}
 	
 	// check if there is any supported / whitelisted device

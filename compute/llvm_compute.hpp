@@ -40,6 +40,14 @@ public:
 	struct kernel_info {
 		string name;
 		
+		enum class FUNCTION_TYPE : uint32_t {
+			NONE							= (0u),
+			KERNEL							= (1u),
+			VERTEX							= (2u),
+			FRAGMENT						= (3u),
+		};
+		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
+		
 		enum class ARG_ADDRESS_SPACE : uint32_t {
 			UNKNOWN							= (0u),
 			GLOBAL							= (1u),
@@ -75,6 +83,11 @@ public:
 			READ_WRITE						= (READ | WRITE),
 		};
 		
+		enum class SPECIAL_TYPE : uint32_t {
+			NONE							= (0u),
+			STAGE_INPUT						= (1u),
+		};
+		
 		struct kernel_arg_info {
 			uint32_t size;
 			
@@ -85,6 +98,8 @@ public:
 			ARG_IMAGE_TYPE image_type { ARG_IMAGE_TYPE::NONE };
 			
 			ARG_IMAGE_ACCESS image_access { ARG_IMAGE_ACCESS::NONE };
+			
+			SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
 		};
 		vector<kernel_arg_info> args;
 	};
@@ -99,6 +114,8 @@ public:
 		IMAGE_TYPE_SHIFT		= (40ull),
 		IMAGE_ACCESS_MASK		= (0x0003000000000000ull),
 		IMAGE_ACCESS_SHIFT		= (48ull),
+		SPECIAL_TYPE_MASK		= (0xFF00000000000000ull),
+		SPECIAL_TYPE_SHIFT		= (56ull),
 	};
 	
 	//!

@@ -89,6 +89,11 @@ public:
 		execute_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
 	}
 	
+	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
+		const auto ret = kernels.get((cuda_device*)dev.get());
+		return !ret.first ? nullptr : &ret.second->second;
+	}
+	
 protected:
 	const kernel_map_type kernels;
 	

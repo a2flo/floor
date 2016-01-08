@@ -74,6 +74,10 @@ public:
 						 [this, args...] { (*kernel)(handle_kernel_arg(args)...); });
 	}
 	
+	const kernel_entry* get_kernel_entry(shared_ptr<compute_device>) const override {
+		return &entry; // can't really check if the device is correct here
+	}
+	
 protected:
 	typedef void (*kernel_func_type)(...);
 	const kernel_func_type kernel;
