@@ -287,12 +287,6 @@ public:
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
-#if FLOOR_VECTOR_WIDTH >= 2 // ambiguous for scalars / 1D vectors
-	//! construction from the corresponding clang vector type
-	explicit constexpr FLOOR_VECNAME(const clang_vector_type& vec) noexcept :
-	FLOOR_VEC_EXPAND_DUAL(vec., FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT FLOOR_COMMA, FLOOR_PAREN_RIGHT) {}
-#endif
-	
 	// assignments (note: these also work if scalar_type is a reference)
 	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);

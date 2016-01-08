@@ -36,7 +36,7 @@ const_func uint32_t get_instance_id() asm("floor.get_instance_id.i32");
 //! returns the normalized (in [0, 1]) point coordinate (clang_float2 version)
 const_func clang_float2 get_point_coord_cf2() asm("floor.get_point_coord.float2");
 //! returns the normalized (in [0, 1]) point coordinate
-const_func float2 get_point_coord() { return float2(get_point_coord_cf2()); }
+const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
 
 #endif
 
