@@ -4320,7 +4320,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..ff9a79a 100644
+index 5ca3a78..aff8bed 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4978,7 +4978,7 @@ index 5ca3a78..ff9a79a 100644
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_align_size"));
 +			// max out at 16, anything higher is unreasonable
 +			// TODO: make sure this is POT
-+			const auto align_size = std::min(CGM.getDataLayout().getTypeAllocSize(pointee_type), 16ull);
++			const auto align_size = std::min(CGM.getDataLayout().getTypeAllocSize(pointee_type), uint64_t(16));
 +			arg_info.push_back(Builder.getInt32(align_size));
 +			//getPrimitiveSizeInBits
 +			// #12/#13: type name
