@@ -1499,7 +1499,7 @@ index d24c227..03eb1ed 100644
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
 diff --git a/include/limits b/include/limits
-index 2216966..a568476 100644
+index 2216966..ebe5575 100644
 --- a/include/limits
 +++ b/include/limits
 @@ -327,8 +327,8 @@ protected:
@@ -1535,7 +1535,62 @@ index 2216966..a568476 100644
      _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {return __LDBL_DENORM_MIN__;}
  
  #if (defined(__ppc__) || defined(__ppc64__))
-@@ -482,6 +482,7 @@ public:
+@@ -436,6 +436,54 @@ protected:
+     static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
+ };
+ 
++#if defined(FLOOR_COMPUTE)
++template <>
++class __libcpp_numeric_limits<__fp16, true>
++{
++protected:
++    typedef __fp16 type;
++
++    static _LIBCPP_CONSTEXPR const bool is_specialized = true;
++
++    static _LIBCPP_CONSTEXPR const bool is_signed = true;
++    static _LIBCPP_CONSTEXPR const int  digits = __HALF_MANT_DIG__;
++    static _LIBCPP_CONSTEXPR const int  digits10 = __HALF_DIG__;
++    static _LIBCPP_CONSTEXPR const int  max_digits10 = 2+(digits * 30103)/100000;
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type min() _NOEXCEPT {return __HALF_MIN__;}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type max() _NOEXCEPT {return __HALF_MAX__;}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type lowest() _NOEXCEPT {return -max();}
++
++    static _LIBCPP_CONSTEXPR const bool is_integer = false;
++    static _LIBCPP_CONSTEXPR const bool is_exact = false;
++    static _LIBCPP_CONSTEXPR const int  radix = __FLT_RADIX__;
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type epsilon() _NOEXCEPT {return __HALF_EPSILON__;}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type round_error() _NOEXCEPT {return 0.5h;}
++
++    static _LIBCPP_CONSTEXPR const int  min_exponent = __HALF_MIN_EXP__;
++    static _LIBCPP_CONSTEXPR const int  min_exponent10 = __HALF_MIN_10_EXP__;
++    static _LIBCPP_CONSTEXPR const int  max_exponent = __HALF_MAX_EXP__;
++    static _LIBCPP_CONSTEXPR const int  max_exponent10 = __HALF_MAX_10_EXP__;
++
++    static _LIBCPP_CONSTEXPR const bool has_infinity = true;
++    static _LIBCPP_CONSTEXPR const bool has_quiet_NaN = true;
++    static _LIBCPP_CONSTEXPR const bool has_signaling_NaN = true;
++    static _LIBCPP_CONSTEXPR const float_denorm_style has_denorm = denorm_present;
++    static _LIBCPP_CONSTEXPR const bool has_denorm_loss = false;
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type infinity() _NOEXCEPT {return __builtin_huge_valh();}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type quiet_NaN() _NOEXCEPT {return __builtin_nanh((const char*)"");}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type signaling_NaN() _NOEXCEPT {return __builtin_nansh((const char*)"");}
++    _LIBCPP_INLINE_VISIBILITY static _LIBCPP_CONSTEXPR type denorm_min() _NOEXCEPT {return __HALF_DENORM_MIN__;}
++
++    static _LIBCPP_CONSTEXPR const bool is_iec559 = true;
++    static _LIBCPP_CONSTEXPR const bool is_bounded = true;
++    static _LIBCPP_CONSTEXPR const bool is_modulo = false;
++
++    static _LIBCPP_CONSTEXPR const bool traps = false;
++    static _LIBCPP_CONSTEXPR const bool tinyness_before = false;
++    static _LIBCPP_CONSTEXPR const float_round_style round_style = round_to_nearest;
++};
++#endif
++
+ template <class _Tp>
+ class _LIBCPP_TYPE_VIS_ONLY numeric_limits
+     : private __libcpp_numeric_limits<typename remove_cv<_Tp>::type>
+@@ -482,6 +530,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -1543,7 +1598,7 @@ index 2216966..a568476 100644
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::is_specialized;
  template <class _Tp>
-@@ -528,6 +529,7 @@ template <class _Tp>
+@@ -528,6 +577,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<_Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<_Tp>::round_style;
@@ -1551,7 +1606,7 @@ index 2216966..a568476 100644
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const _Tp>
-@@ -575,6 +577,7 @@ public:
+@@ -575,6 +625,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -1559,7 +1614,7 @@ index 2216966..a568476 100644
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::is_specialized;
  template <class _Tp>
-@@ -621,6 +624,7 @@ template <class _Tp>
+@@ -621,6 +672,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const _Tp>::round_style;
@@ -1567,7 +1622,7 @@ index 2216966..a568476 100644
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<volatile _Tp>
-@@ -668,6 +672,7 @@ public:
+@@ -668,6 +720,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -1575,7 +1630,7 @@ index 2216966..a568476 100644
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -714,6 +719,7 @@ template <class _Tp>
+@@ -714,6 +767,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<volatile _Tp>::round_style;
@@ -1583,7 +1638,7 @@ index 2216966..a568476 100644
  
  template <class _Tp>
  class _LIBCPP_TYPE_VIS_ONLY numeric_limits<const volatile _Tp>
-@@ -761,6 +767,7 @@ public:
+@@ -761,6 +815,7 @@ public:
      static _LIBCPP_CONSTEXPR const float_round_style round_style = __base::round_style;
  };
  
@@ -1591,7 +1646,7 @@ index 2216966..a568476 100644
  template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::is_specialized;
  template <class _Tp>
-@@ -807,6 +814,7 @@ template <class _Tp>
+@@ -807,6 +862,7 @@ template <class _Tp>
      _LIBCPP_CONSTEXPR const bool numeric_limits<const volatile _Tp>::tinyness_before;
  template <class _Tp>
      _LIBCPP_CONSTEXPR const float_round_style numeric_limits<const volatile _Tp>::round_style;
@@ -1674,7 +1729,7 @@ index dc9aeba..889e751 100644
  }
  
 diff --git a/include/type_traits b/include/type_traits
-index 371a15e..2322727 100644
+index 371a15e..6f30679 100644
 --- a/include/type_traits
 +++ b/include/type_traits
 @@ -244,8 +244,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant
@@ -1688,3 +1743,13 @@ index 371a15e..2322727 100644
  
  typedef integral_constant<bool, true>  true_type;
  typedef integral_constant<bool, false> false_type;
+@@ -339,6 +339,9 @@ template <class _Tp> struct __libcpp_is_floating_point              : public fal
+ template <>          struct __libcpp_is_floating_point<float>       : public true_type {};
+ template <>          struct __libcpp_is_floating_point<double>      : public true_type {};
+ template <>          struct __libcpp_is_floating_point<long double> : public true_type {};
++#if defined(FLOOR_COMPUTE)
++template <>          struct __libcpp_is_floating_point<__fp16>      : public true_type {};
++#endif
+ 
+ template <class _Tp> struct _LIBCPP_TYPE_VIS_ONLY is_floating_point
+     : public __libcpp_is_floating_point<typename remove_cv<_Tp>::type> {};
