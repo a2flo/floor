@@ -22,6 +22,7 @@
 #if defined(FLOOR_COMPUTE_METAL)
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
 #define global __attribute__((global_as))
 #define constant __attribute__((constant_as))

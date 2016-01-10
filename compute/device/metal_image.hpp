@@ -49,7 +49,7 @@ namespace metal_image {
 			NORMALIZED		= 0,
 			PIXEL			= 1
 		};
-		enum COMPARE_FUNC {
+		enum COMPARE_FUNCTION {
 			NONE			= 0,
 			LESS			= 1,
 			LESS_EQUAL		= 2,
@@ -77,7 +77,7 @@ namespace metal_image {
 				uint64_t coord_mode : 1;
 				
 				// compare function
-				uint64_t compare_func : 4;
+				uint64_t compare_function : 4;
 				
 				// currently unused/reserved
 				uint64_t _unused : 43;
@@ -93,19 +93,19 @@ namespace metal_image {
 						  const COORD_MODE coord_mode_ = PIXEL,
 						  const FILTER_MODE filter_mode = NEAREST,
 						  const MIP_FILTER_MODE mip_filter_mode = MIP_NONE,
-						  const COMPARE_FUNC compare_func_ = NONE) :
+						  const COMPARE_FUNCTION compare_function_ = NONE) :
 		s_address(address_mode), t_address(address_mode), r_address(address_mode),
 		coord_mode(coord_mode_),
 		mag_filter(filter_mode), min_filter(filter_mode),
 		mip_filter(mip_filter_mode),
-		compare_func(compare_func_),
+		compare_function(compare_function_),
 		_unused(0u), is_constant(1u) {}
 		
 		constexpr sampler(const sampler& s) :
 		s_address(s.s_address), t_address(s.t_address), r_address(s.r_address),
 		mag_filter(s.mag_filter), min_filter(s.min_filter), mip_filter(s.mip_filter),
 		coord_mode(s.coord_mode),
-		compare_func(s.compare_func),
+		compare_function(s.compare_function),
 		_unused(0u), is_constant(1u) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
@@ -264,6 +264,12 @@ namespace metal_image {
 	floor_inline_always const_func clang_float4 read_float(imagecube_array_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, coord, layer); }
 	floor_inline_always const_func float read_float(imagecube_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, uint32_t) { return read_imagef(image, smplr, 1, coord); }
 	floor_inline_always const_func float read_float(imagecube_array_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, uint32_t) { return read_imagef(image, smplr, 1, coord, layer); }
+	
+	// read compare float with float coords + sampler
+	floor_inline_always const_func float read_compare_float(image2d_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t, float compare) { return read_imagef(image, smplr, 1, coord, compare); }
+	floor_inline_always const_func float read_compare_float(image2d_array_depth_t image, metal_sampler_t smplr, clang_float2 coord, uint32_t layer, float compare) { return read_imagef(image, smplr, 1, coord, layer, compare); }
+	floor_inline_always const_func float read_compare_float(imagecube_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t, float compare) { return read_imagef(image, smplr, 1, coord, compare); }
+	floor_inline_always const_func float read_compare_float(imagecube_array_depth_t image, metal_sampler_t smplr, clang_float3 coord, uint32_t layer, float compare) { return read_imagef(image, smplr, 1, coord, compare); }
 	
 	// read int with int coords
 	floor_inline_always const_func clang_int4 read_int(image1d_t image, metal_sampler_t, int32_t coord, uint32_t, uint32_t) { return read_imagei(image, coord); }

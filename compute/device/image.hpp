@@ -24,6 +24,24 @@
 #include <floor/compute/device/opaque_image_map.hpp>
 #endif
 
+//! depth compare functions
+enum class COMPARE_FUNCTION : uint32_t {
+	NONE				= 0u,
+	LESS_OR_EQUAL		= 1u,
+	GREATER_OR_EQUAL	= 2u,
+	LESS				= 3u,
+	GREATER				= 4u,
+	EQUAL				= 5u,
+	NOT_EQUAL			= 6u,
+	ALWAYS				= 7u,
+	NEVER				= 8u,
+};
+
+//! preliminary/wip sampler type
+struct sampler {
+	COMPARE_FUNCTION compare_function;
+};
+
 namespace floor_image {
 	//! is image type sampling return type a float?
 	static constexpr bool is_sample_float(COMPUTE_IMAGE_TYPE image_type) {
@@ -52,22 +70,48 @@ namespace floor_image {
 	}
 	
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_METAL)
+	constexpr metal_image::sampler::COMPARE_FUNCTION compare_function_floor_to_metal(const COMPARE_FUNCTION& func) {
+		switch(func) {
+			case COMPARE_FUNCTION::NONE: return metal_image::sampler::COMPARE_FUNCTION::NONE;
+			case COMPARE_FUNCTION::LESS: return metal_image::sampler::COMPARE_FUNCTION::LESS;
+			case COMPARE_FUNCTION::LESS_OR_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::LESS_EQUAL;
+			case COMPARE_FUNCTION::GREATER: return metal_image::sampler::COMPARE_FUNCTION::GREATER;
+			case COMPARE_FUNCTION::GREATER_OR_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::GREATER_EQUAL;
+			case COMPARE_FUNCTION::EQUAL: return metal_image::sampler::COMPARE_FUNCTION::EQUAL;
+			case COMPARE_FUNCTION::NOT_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::NOT_EQUAL;
+			case COMPARE_FUNCTION::ALWAYS: return metal_image::sampler::COMPARE_FUNCTION::ALWAYS;
+			case COMPARE_FUNCTION::NEVER: return metal_image::sampler::COMPARE_FUNCTION::NEVER;
+		}
+		floor_unreachable();
+	}
+#endif
+	
 	//! backend specific default sampler (for integral and floating point coordinates)
-	template <typename coord_type, bool sample_linear, typename = void> struct default_sampler {};
-	template <typename coord_type, bool sample_linear>
-	struct default_sampler<coord_type, sample_linear, enable_if_t<is_int_coord<coord_type>() && !sample_linear>> { // int (nearest)
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION = COMPARE_FUNCTION::NONE, typename = void>
+	struct default_sampler {};
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION compare_function>
+	struct default_sampler<coord_type, sample_linear, compare_function,
+						   enable_if_t<is_int_coord<coord_type>() && !sample_linear>> { // int (nearest)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
-			return metal_image::sampler { /* use default params in sampler constructor */ };
+			return metal_image::sampler {
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+				metal_image::sampler::COORD_MODE::PIXEL,
+				metal_image::sampler::FILTER_MODE::NEAREST,
+				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
+				compare_function_floor_to_metal(compare_function)
+			};
 #endif
 		}
 	};
-	template <typename coord_type, bool sample_linear>
-	struct default_sampler<coord_type, sample_linear, enable_if_t<!is_int_coord<coord_type>() && !sample_linear>> { // float (nearest)
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION compare_function>
+	struct default_sampler<coord_type, sample_linear, compare_function,
+						   enable_if_t<!is_int_coord<coord_type>() && !sample_linear>> { // float (nearest)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
@@ -76,14 +120,17 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
-				metal_image::sampler::COORD_MODE::NORMALIZED
-				// rest: use defaults
+				metal_image::sampler::COORD_MODE::NORMALIZED,
+				metal_image::sampler::FILTER_MODE::NEAREST,
+				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
+				compare_function_floor_to_metal(compare_function)
 			};
 #endif
 		}
 	};
-	template <typename coord_type, bool sample_linear>
-	struct default_sampler<coord_type, sample_linear, enable_if_t<is_int_coord<coord_type>() && sample_linear>> { // int (linear)
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION compare_function>
+	struct default_sampler<coord_type, sample_linear, compare_function,
+						   enable_if_t<is_int_coord<coord_type>() && sample_linear>> { // int (linear)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
@@ -94,13 +141,15 @@ namespace floor_image {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::LINEAR,
-				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR
+				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
+				compare_function_floor_to_metal(compare_function)
 			};
 #endif
 		}
 	};
-	template <typename coord_type, bool sample_linear>
-	struct default_sampler<coord_type, sample_linear, enable_if_t<!is_int_coord<coord_type>() && sample_linear>> { // float (linear)
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION compare_function>
+	struct default_sampler<coord_type, sample_linear, compare_function,
+						   enable_if_t<!is_int_coord<coord_type>() && sample_linear>> { // float (linear)
 		static constexpr auto value() {
 #if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
@@ -111,8 +160,8 @@ namespace floor_image {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::LINEAR,
-				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR
-				// rest: use defaults
+				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
+				compare_function_floor_to_metal(compare_function)
 			};
 #endif
 		}
@@ -459,6 +508,53 @@ namespace floor_image {
 		auto read_linear(const coord_type& coord, const uint32_t layer, const uint32_t sample) const {
 			return read_internal<true>(coord, layer, sample);
 		}
+		
+		// depth compare read functions are currently only available for metal,
+		// host-compute will follow at some point,
+		// cuda technically supports depth compare ptx instructions, but no way to set the compare function?!,
+		// opencl/spir doesn't support this at all right now
+#if defined(FLOOR_COMPUTE_METAL)
+		//! internal depth compare read function, handling all kinds of depth compare reads
+		template <bool sample_linear, COMPARE_FUNCTION compare_function, typename coord_type,
+				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type)>* = nullptr>
+		floor_inline_always auto compare_internal(const coord_type& coord,
+												  const float& compare_value,
+												  const uint32_t layer
+		) const {
+			// backend specific coordinate conversion (also: any input -> float or int)
+			const auto converted_coord = convert_coord(coord);
+			const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
+			return metal_image::read_compare_float(r_img, smplr, converted_coord, layer, compare_value);
+		}
+		
+		//! image depth compare read with nearest/point sampling (non-array)
+		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		auto compare(const coord_type& coord, const float& compare_value) const {
+			return compare_internal<false, compare_function>(coord, compare_value, 0);
+		}
+		
+		//! image depth compare read with nearest/point sampling (array)
+		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		auto compare(const coord_type& coord, const uint32_t layer, const float& compare_value) const {
+			return compare_internal<false, compare_function>(coord, compare_value, layer);
+		}
+		
+		//! image depth compare read with linear sampling (non-array)
+		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		auto compare_linear(const coord_type& coord, const float& compare_value) const {
+			return compare_internal<true, compare_function>(coord, compare_value, 0);
+		}
+		
+		//! image depth compare read with linear sampling (array)
+		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		auto compare_linear(const coord_type& coord, const uint32_t layer, const float& compare_value) const {
+			return compare_internal<true, compare_function>(coord, compare_value, layer);
+		}
+#endif
 		
 	};
 	

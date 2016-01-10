@@ -31,12 +31,17 @@ const_func uint32_t get_vertex_id() asm("floor.get_vertex_id.i32");
 // returns the instance id inside a vertex shader
 const_func uint32_t get_instance_id() asm("floor.get_instance_id.i32");
 
+#define vertex_id get_vertex_id()
+#define instance_id get_instance_id()
+
 //////////////////////////////////////////
 // fragment shader
 //! returns the normalized (in [0, 1]) point coordinate (clang_float2 version)
 const_func clang_float2 get_point_coord_cf2() asm("floor.get_point_coord.float2");
 //! returns the normalized (in [0, 1]) point coordinate
 const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
+//! discards the current fragment
+void discard_fragment() asm("air.discard_fragment");
 
 #endif
 

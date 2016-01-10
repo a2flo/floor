@@ -324,6 +324,38 @@ F1(unary_not, constexpr, (val == 0.0L ? 0.0L : 1.0L)) \
 F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (numeric_limits<long double>::max() - const_select::abs(val))) \
 )
 
+#define FLOOR_VH_IMPL_DEF_HALF(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(half, \
+F2(modulo, constexpr, const_select::fmod(lhs, rhs)) \
+F1(sqrt, constexpr, const_select::sqrt(val)) \
+F1(rsqrt, constexpr, const_select::rsqrt(val)) \
+F1(abs, constexpr, const_select::abs(val)) \
+F1(floor, constexpr, const_select::floor(val)) \
+F1(ceil, constexpr, const_select::ceil(val)) \
+F1(round, constexpr, const_select::round(val)) \
+F1(trunc, constexpr, const_select::trunc(val)) \
+F1(rint, constexpr, const_select::rint(val)) \
+F1(sin, constexpr, const_select::sin(val)) \
+F1(cos, constexpr, const_select::cos(val)) \
+F1(tan, constexpr, const_select::tan(val)) \
+F1(asin, constexpr, const_select::asin(val)) \
+F1(acos, constexpr, const_select::acos(val)) \
+F1(atan, constexpr, const_select::atan(val)) \
+F2(atan2, constexpr, const_select::atan2(lhs, rhs)) \
+F1(exp, constexpr, const_select::exp(val)) \
+F1(exp2, constexpr, const_select::exp2(val)) \
+F1(log, constexpr, const_select::log(val)) \
+F1(log2, constexpr, const_select::log2(val)) \
+F2(pow, constexpr, const_select::pow(lhs, rhs)) \
+F3(fma, constexpr, const_select::fma(a, b, c)) \
+F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
+F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
+F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs ^ rhs) \
+F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs << rhs) \
+F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs >> rhs) \
+F1(unary_not, constexpr, (val == 0.0f ? 0.0f : 1.0f)) \
+F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - const_select::abs(val))) \
+)
+
 #define FLOOR_VH_IMPL_DEF_INT32(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(int32_t, \
 F2(modulo, constexpr, lhs % rhs) \
 F1(sqrt, constexpr, (scalar_type)const_select::sqrt((const_math::max_rt_fp_type)val)) \
@@ -746,6 +778,9 @@ FLOOR_VH_IMPL_DEF_DOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FU
 #endif
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 FLOOR_VH_IMPL_DEF_LDOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
+#endif
+#if defined(FLOOR_COMPUTE_METAL)
+FLOOR_VH_IMPL_DEF_HALF(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 #endif
 FLOOR_VH_IMPL_DEF_INT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 FLOOR_VH_IMPL_DEF_UINT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)

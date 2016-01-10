@@ -21,9 +21,8 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 
-//#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
-//#endif
+#pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
 // misc types
 typedef char int8_t;
