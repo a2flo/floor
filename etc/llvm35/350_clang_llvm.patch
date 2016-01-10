@@ -3044,6 +3044,34 @@ index e6d6a33..3e7bdc1 100644
  def MSInheritanceDocs : Documentation {
    let Category = DocCatType;
    let Heading = "__single_inhertiance, __multiple_inheritance, __virtual_inheritance";
+diff --git a/tools/clang/include/clang/Basic/Builtins.def b/tools/clang/include/clang/Basic/Builtins.def
+index e705382..1137d0c 100644
+--- a/tools/clang/include/clang/Basic/Builtins.def
++++ b/tools/clang/include/clang/Basic/Builtins.def
+@@ -117,9 +117,11 @@ BUILTIN(__builtin_frexpl, "LdLdi*", "Fn")
+ BUILTIN(__builtin_huge_val, "d", "nc")
+ BUILTIN(__builtin_huge_valf, "f", "nc")
+ BUILTIN(__builtin_huge_vall, "Ld", "nc")
++BUILTIN(__builtin_huge_valh, "h", "nc")
+ BUILTIN(__builtin_inf  , "d"   , "nc")
+ BUILTIN(__builtin_inff , "f"   , "nc")
+ BUILTIN(__builtin_infl , "Ld"  , "nc")
++BUILTIN(__builtin_infh , "h"   , "nc")
+ BUILTIN(__builtin_labs , "LiLi"  , "Fnc")
+ BUILTIN(__builtin_llabs, "LLiLLi", "Fnc")
+ BUILTIN(__builtin_ldexp , "ddi"  , "Fnc")
+@@ -131,9 +133,11 @@ BUILTIN(__builtin_modfl, "LdLdLd*", "Fn")
+ BUILTIN(__builtin_nan,  "dcC*" , "ncF")
+ BUILTIN(__builtin_nanf, "fcC*" , "ncF")
+ BUILTIN(__builtin_nanl, "LdcC*", "ncF")
++BUILTIN(__builtin_nanh, "hcC*" , "ncF")
+ BUILTIN(__builtin_nans,  "dcC*" , "ncF")
+ BUILTIN(__builtin_nansf, "fcC*" , "ncF")
+ BUILTIN(__builtin_nansl, "LdcC*", "ncF")
++BUILTIN(__builtin_nansh, "hcC*" , "ncF")
+ BUILTIN(__builtin_powi , "ddi"  , "Fnc")
+ BUILTIN(__builtin_powif, "ffi"  , "Fnc")
+ BUILTIN(__builtin_powil, "LdLdi", "Fnc")
 diff --git a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td b/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
 index 1665a45..3778e80 100644
 --- a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
@@ -3359,7 +3387,7 @@ index bccdae9..80a9618 100644
  
  bool ASTContext::isNearlyEmpty(const CXXRecordDecl *RD) const {
 diff --git a/tools/clang/lib/AST/ExprConstant.cpp b/tools/clang/lib/AST/ExprConstant.cpp
-index 7d7ca99..88f46dd 100644
+index 7d7ca99..4f4b1a0 100644
 --- a/tools/clang/lib/AST/ExprConstant.cpp
 +++ b/tools/clang/lib/AST/ExprConstant.cpp
 @@ -835,7 +835,8 @@ CallStackFrame::~CallStackFrame() {
@@ -3440,6 +3468,35 @@ index 7d7ca99..88f46dd 100644
      if (!Visit(SubExpr))
        return false;
      // Bitcasts to cv void* are static_casts, not reinterpret_casts, so are
+@@ -7372,9 +7400,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+   case Builtin::BI__builtin_huge_val:
+   case Builtin::BI__builtin_huge_valf:
+   case Builtin::BI__builtin_huge_vall:
++  case Builtin::BI__builtin_huge_valh:
+   case Builtin::BI__builtin_inf:
+   case Builtin::BI__builtin_inff:
+-  case Builtin::BI__builtin_infl: {
++  case Builtin::BI__builtin_infl:
++  case Builtin::BI__builtin_infh: {
+     const llvm::fltSemantics &Sem =
+       Info.Ctx.getFloatTypeSemantics(E->getType());
+     Result = llvm::APFloat::getInf(Sem);
+@@ -7384,6 +7414,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+   case Builtin::BI__builtin_nans:
+   case Builtin::BI__builtin_nansf:
+   case Builtin::BI__builtin_nansl:
++  case Builtin::BI__builtin_nansh:
+     if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
+                                true, Result))
+       return Error(E);
+@@ -7392,6 +7423,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+   case Builtin::BI__builtin_nan:
+   case Builtin::BI__builtin_nanf:
+   case Builtin::BI__builtin_nanl:
++  case Builtin::BI__builtin_nanh:
+     // If this is __builtin_nan() turn this into a nan, otherwise we
+     // can't constant fold it.
+     if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
 index 977d6fc..77c0df1 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
@@ -6241,6 +6298,82 @@ index ce61a46..e4da1c9 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
+diff --git a/tools/clang/lib/Frontend/InitPreprocessor.cpp b/tools/clang/lib/Frontend/InitPreprocessor.cpp
+index 7a9d09a..17c60f6 100644
+--- a/tools/clang/lib/Frontend/InitPreprocessor.cpp
++++ b/tools/clang/lib/Frontend/InitPreprocessor.cpp
+@@ -113,11 +113,14 @@ static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
+ /// PickFP - This is used to pick a value based on the FP semantics of the
+ /// specified FP model.
+ template <typename T>
+-static T PickFP(const llvm::fltSemantics *Sem, T IEEESingleVal,
++static T PickFP(const llvm::fltSemantics *Sem,
++				T IEEEHalfVal, T IEEESingleVal,
+                 T IEEEDoubleVal, T X87DoubleExtendedVal, T PPCDoubleDoubleVal,
+                 T IEEEQuadVal) {
+   if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEsingle)
+     return IEEESingleVal;
++  if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEhalf)
++    return IEEEHalfVal;
+   if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::IEEEdouble)
+     return IEEEDoubleVal;
+   if (Sem == (const llvm::fltSemantics*)&llvm::APFloat::x87DoubleExtended)
+@@ -131,25 +134,25 @@ static T PickFP(const llvm::fltSemantics *Sem, T IEEESingleVal,
+ static void DefineFloatMacros(MacroBuilder &Builder, StringRef Prefix,
+                               const llvm::fltSemantics *Sem, StringRef Ext) {
+   const char *DenormMin, *Epsilon, *Max, *Min;
+-  DenormMin = PickFP(Sem, "1.40129846e-45", "4.9406564584124654e-324",
++  DenormMin = PickFP(Sem, "6.10352e-5", "1.40129846e-45", "4.9406564584124654e-324",
+                      "3.64519953188247460253e-4951",
+                      "4.94065645841246544176568792868221e-324",
+                      "6.47517511943802511092443895822764655e-4966");
+-  int Digits = PickFP(Sem, 6, 15, 18, 31, 33);
+-  Epsilon = PickFP(Sem, "1.19209290e-7", "2.2204460492503131e-16",
++  int Digits = PickFP(Sem, 3, 6, 15, 18, 31, 33);
++  Epsilon = PickFP(Sem, "0x1.0p-10", "1.19209290e-7", "2.2204460492503131e-16",
+                    "1.08420217248550443401e-19",
+                    "4.94065645841246544176568792868221e-324",
+                    "1.92592994438723585305597794258492732e-34");
+-  int MantissaDigits = PickFP(Sem, 24, 53, 64, 106, 113);
+-  int Min10Exp = PickFP(Sem, -37, -307, -4931, -291, -4931);
+-  int Max10Exp = PickFP(Sem, 38, 308, 4932, 308, 4932);
+-  int MinExp = PickFP(Sem, -125, -1021, -16381, -968, -16381);
+-  int MaxExp = PickFP(Sem, 128, 1024, 16384, 1024, 16384);
+-  Min = PickFP(Sem, "1.17549435e-38", "2.2250738585072014e-308",
++  int MantissaDigits = PickFP(Sem, 11, 24, 53, 64, 106, 113);
++  int Min10Exp = PickFP(Sem, -4, -37, -307, -4931, -291, -4931);
++  int Max10Exp = PickFP(Sem, 4, 38, 308, 4932, 308, 4932);
++  int MinExp = PickFP(Sem, -13, -125, -1021, -16381, -968, -16381);
++  int MaxExp = PickFP(Sem, 16, 128, 1024, 16384, 1024, 16384);
++  Min = PickFP(Sem, "0x1.0p-14", "1.17549435e-38", "2.2250738585072014e-308",
+                "3.36210314311209350626e-4932",
+                "2.00416836000897277799610805135016e-292",
+                "3.36210314311209350626267781732175260e-4932");
+-  Max = PickFP(Sem, "3.40282347e+38", "1.7976931348623157e+308",
++  Max = PickFP(Sem, "0x1.ffcp15", "3.40282347e+38", "1.7976931348623157e+308",
+                "1.18973149535723176502e+4932",
+                "1.79769313486231580793728971405301e+308",
+                "1.18973149535723176508575932662800702e+4932");
+@@ -685,7 +688,8 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
+     DefineFmt("__UINTPTR", TI.getUIntPtrType(), TI, Builder);
+     DefineTypeWidth("__UINTPTR_WIDTH__", TI.getUIntPtrType(), TI, Builder);
+   }
+-
++	
++  DefineFloatMacros(Builder, "HALF", &TI.getHalfFormat(), "H");
+   DefineFloatMacros(Builder, "FLT", &TI.getFloatFormat(), "F");
+   DefineFloatMacros(Builder, "DBL", &TI.getDoubleFormat(), "");
+   DefineFloatMacros(Builder, "LDBL", &TI.getLongDoubleFormat(), "L");
+@@ -822,8 +826,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
+   // Macros to control C99 numerics and <float.h>
+   Builder.defineMacro("__FLT_EVAL_METHOD__", Twine(TI.getFloatEvalMethod()));
+   Builder.defineMacro("__FLT_RADIX__", "2");
+-  int Dig = PickFP(&TI.getLongDoubleFormat(), -1/*FIXME*/, 17, 21, 33, 36);
+-  Builder.defineMacro("__DECIMAL_DIG__", Twine(Dig));
++  Builder.defineMacro("__DECIMAL_DIG__", "__LDBL_DECIMAL_DIG__");
+ 
+   if (LangOpts.getStackProtector() == LangOptions::SSPOn)
+     Builder.defineMacro("__SSP__");
 diff --git a/tools/clang/lib/Index/USRGeneration.cpp b/tools/clang/lib/Index/USRGeneration.cpp
 index e08b85e..f64c535 100644
 --- a/tools/clang/lib/Index/USRGeneration.cpp
@@ -6262,6 +6395,23 @@ index e08b85e..f64c535 100644
          case BuiltinType::OCLImage3d:
          case BuiltinType::OCLEvent:
          case BuiltinType::OCLSampler:
+diff --git a/tools/clang/lib/Lex/LiteralSupport.cpp b/tools/clang/lib/Lex/LiteralSupport.cpp
+index 6417d0f..a022b44 100644
+--- a/tools/clang/lib/Lex/LiteralSupport.cpp
++++ b/tools/clang/lib/Lex/LiteralSupport.cpp
+@@ -583,6 +583,12 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
+       if (isFloat || isLong) break; // FF, LF invalid.
+       isFloat = true;
+       continue;  // Success.
++    case 'h':      // FP Suffix for "float"
++    case 'H':
++      if (!isFPConstant) break;  // Error for integer constant.
++      if (isFloat || isLong) break; // FF, LF invalid.
++      isFloat = true;
++      continue;  // Success.
+     case 'u':
+     case 'U':
+       if (isFPConstant) break;  // Error for floating constant.
 diff --git a/tools/clang/lib/Lex/PPDirectives.cpp b/tools/clang/lib/Lex/PPDirectives.cpp
 index 1741c30..2236e48 100644
 --- a/tools/clang/lib/Lex/PPDirectives.cpp
@@ -6606,10 +6756,10 @@ index 8716227..34fd76a 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..e44d186 100644
+index 61683cd..90e604b 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-@@ -1956,6 +1956,94 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
+@@ -1956,6 +1956,88 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
      D->addAttr(newAttr);
  }
  
@@ -6645,18 +6795,12 @@ index 61683cd..e44d186 100644
 +    return;
 +  }
 +
-+  // TODO: handle this correctly/better (+proper error msg above)
-+  if (!T->isDependentType() && !T->isAnyPointerType() &&
-+      !T->isReferenceType() && !T->isMemberPointerType()) {
-+    Diag(AttrLoc, diag::warn_attribute_pointer_or_reference_only)
-+      << &TmpAttr /*TmpAttr.getName()*/ << T << D->getSourceRange();
-+    return;
-+  }
++  // TODO: check usage
 +
 +  if (!E->isValueDependent()) {
 +    // TODO: might want to use/check isPotentialConstantExprUnevaluated
 +
-+    llvm::APSInt ColorLoc(0);
++    llvm::APSInt ColorLoc(32);
 +    ExprResult ICE
 +      = VerifyIntegerConstantExpression(E, &ColorLoc,
 +          diag::err_align_value_attribute_argument_not_int,
@@ -6704,7 +6848,7 @@ index 61683cd..e44d186 100644
  static void handleObjCMethodFamilyAttr(Sema &S, Decl *decl,
                                         const AttributeList &Attr) {
    ObjCMethodDecl *method = cast<ObjCMethodDecl>(decl);
-@@ -2679,6 +2767,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+@@ -2679,6 +2761,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                            Attr.getAttributeSpellingListIndex()));
  }
  
@@ -6763,7 +6907,7 @@ index 61683cd..e44d186 100644
  static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    // check the attribute arguments.
    if (Attr.getNumArgs() > 1) {
-@@ -3026,22 +3166,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
+@@ -3026,22 +3160,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
                                Attr.getAttributeSpellingListIndex()));
  }
  
@@ -6786,7 +6930,7 @@ index 61683cd..e44d186 100644
  static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    FunctionDecl *Fn = cast<FunctionDecl>(D);
    if (!Fn->isInlineSpecified()) {
-@@ -4102,6 +4226,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4102,6 +4220,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -6796,7 +6940,7 @@ index 61683cd..e44d186 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4159,9 +4286,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4159,9 +4280,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_FormatArg:
      handleFormatArgAttr(S, D, Attr);
      break;
@@ -6806,7 +6950,7 @@ index 61683cd..e44d186 100644
    case AttributeList::AT_CUDADevice:
      handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
      break;
-@@ -4399,11 +4523,35 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4399,11 +4517,35 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_IntelOclBicc:
      handleCallConvAttr(S, D, Attr);
      break;
@@ -6846,7 +6990,7 @@ index 61683cd..e44d186 100644
      break;
  
    // Microsoft attributes:
-@@ -4553,7 +4701,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -4553,7 +4695,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      return;
    }
  
@@ -7129,9 +7273,27 @@ index accec95..333f28b 100644
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..b781b14 100644
+index be1191c..e07d73f 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
+@@ -1746,7 +1746,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
+   }
+ 
+   // Functions cannot return half FP.
+-  if (T->isHalfType()) {
++  if (T->isHalfType() && !LangOpts.OpenCL && !LangOpts.CUDA) {
+     Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 1 <<
+       FixItHint::CreateInsertion(Loc, "*");
+     return true;
+@@ -1776,7 +1776,7 @@ QualType Sema::BuildFunctionType(QualType T,
+     if (ParamType->isVoidType()) {
+       Diag(Loc, diag::err_param_with_void_type);
+       Invalid = true;
+-    } else if (ParamType->isHalfType()) {
++    } else if (ParamType->isHalfType() && !LangOpts.OpenCL && !LangOpts.CUDA) {
+       // Disallow half FP arguments.
+       Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 0 <<
+         FixItHint::CreateInsertion(Loc, "*");
 @@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
      }
    }
@@ -7159,6 +7321,24 @@ index be1191c..b781b14 100644
  }
  
  static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -2751,7 +2767,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+             S.Diag(D.getIdentifierLoc(), diag::err_opencl_half_return) << T;
+             D.setInvalidType(true);
+           } 
+-        } else {
++        } else if (!S.getLangOpts().CUDA) {
+           S.Diag(D.getIdentifierLoc(),
+             diag::err_parameters_retval_cannot_have_fp16_type) << 1;
+           D.setInvalidType(true);
+@@ -2941,7 +2957,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+                 D.setInvalidType();
+                 Param->setInvalidDecl();
+               }
+-            } else {
++            } else if (S.getLangOpts().CUDA) {
+               S.Diag(Param->getLocation(),
+                 diag::err_parameters_retval_cannot_have_fp16_type) << 0;
+               D.setInvalidType();
 @@ -3969,14 +3985,14 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
    } else {
      // The keyword-based type attributes imply which address space to use.
