@@ -87,7 +87,7 @@ typedef UIWindow* wnd_type_ptr;
 }
 
 - (CGFloat)get_scale_factor {
-	return {
+	return (
 		self.is_hidpi ?
 #if !defined(FLOOR_IOS)
 		[self.wnd backingScaleFactor]
@@ -95,7 +95,7 @@ typedef UIWindow* wnd_type_ptr;
 		[[self.wnd screen] scale]
 #endif
 		: 1.0
-	};
+	);
 }
 
 - (instancetype)initWithWindow:(wnd_type_ptr)wnd withDevice:(id <MTLDevice>)device withHiDPI:(bool)hidpi {

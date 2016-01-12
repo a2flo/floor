@@ -287,6 +287,20 @@ public:
 	x(val_x), y(vec.x), z(vec.y), w(vec.z) {}
 #endif
 	
+	//! construction from an equally sized array
+	constexpr FLOOR_VECNAME(const scalar_type (&arr)[FLOOR_VECTOR_WIDTH]) noexcept :
+	x(arr[0])
+#if FLOOR_VECTOR_WIDTH >= 2
+	, y(arr[1])
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+	, z(arr[2])
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+	, w(arr[3])
+#endif
+	{}
+	
 	// assignments (note: these also work if scalar_type is a reference)
 	floor_inline_always constexpr vector_type& operator=(const FLOOR_VECNAME<decayed_scalar_type>& vec) noexcept {
 		FLOOR_VEC_EXPAND_DUAL(vec., =, FLOOR_SEMICOLON, FLOOR_SEMICOLON);
