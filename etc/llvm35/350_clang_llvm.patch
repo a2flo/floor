@@ -2670,14 +2670,15 @@ index 488cace..a815eae 100644
  
  // OpenCL sampler_t.
 diff --git a/tools/clang/include/clang/AST/Mangle.h b/tools/clang/include/clang/AST/Mangle.h
-index a8d1199..85bfd7d 100644
+index a8d1199..41139fc 100644
 --- a/tools/clang/include/clang/AST/Mangle.h
 +++ b/tools/clang/include/clang/AST/Mangle.h
-@@ -138,6 +138,8 @@ public:
+@@ -138,6 +138,9 @@ public:
    /// across translation units so it can be used with LTO.
    virtual void mangleTypeName(QualType T, raw_ostream &) = 0;
  
-+  virtual void mangleMetalFieldName(const FieldDecl *D, raw_ostream &) {}
++  virtual void mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD, raw_ostream &) {}
++  virtual void mangleMetalGeneric(const std::string& name, QualType Ty, const CXXRecordDecl* RD, raw_ostream &) {}
 +
    /// @}
  };
@@ -3498,21 +3499,38 @@ index 7d7ca99..4f4b1a0 100644
      // can't constant fold it.
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
-index 977d6fc..77c0df1 100644
+index 977d6fc..5dcdbe9 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
 +++ b/tools/clang/lib/AST/ItaniumMangle.cpp
-@@ -160,6 +160,8 @@ public:
+@@ -160,6 +160,9 @@ public:
  
    void mangleStringLiteral(const StringLiteral *, raw_ostream &) override;
  
-+  void mangleMetalFieldName(const FieldDecl *D, raw_ostream &) override;
++  void mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD, raw_ostream &) override;
++  void mangleMetalGeneric(const std::string& name, QualType Ty, const CXXRecordDecl* RD, raw_ostream &) override;
 +
    bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
      // Lambda closure types are already numbered.
      if (isLambda(ND))
-@@ -1920,6 +1922,14 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
+@@ -292,6 +295,7 @@ public:
+   void mangleName(const NamedDecl *ND);
+   void mangleType(QualType T);
+   void mangleNameOrStandardSubstitution(const NamedDecl *ND);
++  void mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD);
+   
+ private:
+ 
+@@ -1919,7 +1923,22 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
+     mangleName(ND);
  }
  
++void CXXNameMangler::mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD) {
++	if(const auto II = D->getIdentifier()) {
++		mangleSourceName(II);
++	}
++	mangleType(D->getType());
++}
++
  void CXXNameMangler::mangleType(const BuiltinType *T) {
 +  // helper function to discern between spir and applecl name mangling depending on the triple vendor
 +  static const auto mangle_opencl_name = [](const ASTContext& ast_ctx, const char* spir_name, const char* applecl_name) {
@@ -3525,7 +3543,7 @@ index 977d6fc..77c0df1 100644
    //  <type>         ::= <builtin-type>
    //  <builtin-type> ::= v  # void
    //                 ::= w  # wchar_t
-@@ -1984,14 +1994,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+@@ -1984,14 +2003,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
    case BuiltinType::ObjCId: Out << "11objc_object"; break;
    case BuiltinType::ObjCClass: Out << "10objc_class"; break;
    case BuiltinType::ObjCSel: Out << "13objc_selector"; break;
@@ -3558,11 +3576,11 @@ index 977d6fc..77c0df1 100644
    }
  }
  
-@@ -3847,6 +3867,23 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
+@@ -3847,6 +3876,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
    llvm_unreachable("Can't mangle string literals");
  }
  
-+void ItaniumMangleContextImpl::mangleMetalFieldName(const FieldDecl *D, raw_ostream &Out) {
++void ItaniumMangleContextImpl::mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD, raw_ostream &Out) {
 +	assert(isa<FieldDecl>(D) &&
 +		   "Invalid mangleName() call, argument is not a field decl!");
 +	
@@ -3570,13 +3588,16 @@ index 977d6fc..77c0df1 100644
 +								   getASTContext().getSourceManager(),
 +								   "Mangling declaration");
 +	
-+	Out << "generated(";
-+	if(const auto II = D->getIdentifier()) {
-+		Out << II->getLength() << II->getName();
-+	}
 +	CXXNameMangler Mangler(*this, Out, D);
-+	Mangler.mangleType(D->getType());
-+	Out << ")";
++	Mangler.mangleMetalFieldName(D, RD);
++}
++
++void ItaniumMangleContextImpl::mangleMetalGeneric(const std::string& name, QualType Ty,
++												  const CXXRecordDecl* RD, raw_ostream &Out) {
++	CXXNameMangler Mangler(*this, Out, nullptr);
++	Out << name.size();
++	Out << name;
++	Mangler.mangleType(Ty);
 +}
 +
  ItaniumMangleContext *
@@ -3909,7 +3930,7 @@ index cec48f3..a676bd3 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..de27860 100644
+index 17c3354..11c3c8b 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
 @@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3921,28 +3942,38 @@ index 17c3354..de27860 100644
    // TODO: add support for CC_X86Pascal to llvm
    }
  }
-@@ -579,6 +581,15 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+@@ -579,6 +581,26 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
        }
        if (LargestFD)
          GetExpandedTypes(LargestFD->getType(), expandedTypes);
-+    }
-+    else if(type->isAggregateImageType()) {
++    } else if (type->isAggregateImageType() ||
++               // TODO: only do this if metal (also, in all similar functions)
++               CGM.getLangOpts().OpenCL) {
 +      const auto cxx_decl = type->getAsCXXRecordDecl();
 +      for (const auto& base : cxx_decl->bases()) {
 +        GetExpandedTypes(base.getType(), expandedTypes);
 +      }
 +      for (const auto *I : RD->fields()) {
-+        GetExpandedTypes(I->getType(), expandedTypes);
++        const auto ITy = I->getType();
++        // replace any type that has a position attribute to a clang/llvm float4 (and isn't already so)
++        if (I->hasAttr<GraphicsVertexPositionAttr>() &&
++            (!ITy->isExtVectorType() ||
++             !(ITy->isExtVectorType() &&
++               ITy->getAs<ExtVectorType>()->getElementType()->isFloatingType() &&
++               ITy->getAs<ExtVectorType>()->getNumElements() == 4))) {
++          GetExpandedTypes(getContext().getExtVectorType(getContext().FloatTy, 4), expandedTypes);
++        } else {
++          GetExpandedTypes(I->getType(), expandedTypes);
++        }
 +      }
      } else {
        for (const auto *I : RD->fields()) {
          assert(!I->isBitField() &&
-@@ -630,6 +641,22 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -630,6 +652,34 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
          LValue SubLV = EmitLValueForField(LV, LargestFD);
          AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
        }
-+    }
-+    else if(Ty->isAggregateImageType()) {
++    } else if(Ty->isAggregateImageType() || CGM.getLangOpts().OpenCL) {
 +      const auto cxx_decl = Ty->getAsCXXRecordDecl();
 +      for (const auto& base : cxx_decl->bases()) {
 +        // TODO: should use the base offset:
@@ -3952,15 +3983,28 @@ index 17c3354..de27860 100644
 +        AI = ExpandTypeFromArgs(base.getType(), BaseLV, AI);
 +      }
 +      for (const auto *FD : RD->fields()) {
-+        QualType FT = FD->getType();
-+        // FIXME: What are the right qualifiers here?
-+        LValue SubLV = EmitLValueForField(LV, FD);
-+        AI = ExpandTypeFromArgs(FT, SubLV, AI);
++        const auto FDTy = FD->getType();
++        // replace any type that has a position attribute to a clang/llvm float4 (and isn't already so)
++        if (FD->hasAttr<GraphicsVertexPositionAttr>() &&
++            (!FDTy->isExtVectorType() ||
++             !(FDTy->isExtVectorType() &&
++               FDTy->getAs<ExtVectorType>()->getElementType()->isFloatingType() &&
++               FDTy->getAs<ExtVectorType>()->getNumElements() == 4))) {
++          const auto vec_type = getContext().getExtVectorType(getContext().FloatTy, 4);
++          LValue FieldSubLV = EmitLValueForField(LV, FD);
++          LValue VecLV = MakeAddrLValue(FieldSubLV.getAddress(), vec_type);
++          AI = ExpandTypeFromArgs(vec_type, VecLV, AI);
++        } else {
++          QualType FT = FD->getType();
++          // FIXME: What are the right qualifiers here?
++          LValue SubLV = EmitLValueForField(LV, FD);
++          AI = ExpandTypeFromArgs(FT, SubLV, AI);
++        }
 +      }
      } else {
        for (const auto *FD : RD->fields()) {
          QualType FT = FD->getType();
-@@ -1527,6 +1554,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -1527,6 +1577,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                                                    AI->getArgNo() + 1,
                                                    llvm::Attribute::NonNull));
            }
@@ -3986,7 +4030,7 @@ index 17c3354..de27860 100644
          }
  
          if (Arg->getType().isRestrictQualified())
-@@ -2573,9 +2619,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
+@@ -2573,9 +2642,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
  }
  
  static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
@@ -4002,24 +4046,36 @@ index 17c3354..de27860 100644
    else
      assert(FTy->isVarArg());
    ++ArgNo;
-@@ -2615,6 +2664,16 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+@@ -2615,6 +2687,28 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
          RValue FldRV = EmitRValueForField(LV, LargestFD, SourceLocation());
          ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy);
        }
-+    }
-+    else if(Ty->isAggregateImageType()) {
++    } else if(Ty->isAggregateImageType() || CGM.getLangOpts().OpenCL) {
 +      const auto cxx_decl = Ty->getAsCXXRecordDecl();
 +      for (const auto& base : cxx_decl->bases()) {
 +        ExpandTypeToArgs(base.getType(), RV, Args, IRFuncTy);
 +      }
 +      for (const auto *FD : RD->fields()) {
-+        RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
-+        ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy);
++        const auto FDT = FD->getType();
++        // replace any type that has a position attribute to a clang/llvm float4 (and isn't already so)
++        if (FD->hasAttr<GraphicsVertexPositionAttr>() &&
++            (!FDT->isExtVectorType() ||
++             !(FDT->isExtVectorType() &&
++               FDT->getAs<ExtVectorType>()->getElementType()->isFloatingType() &&
++               FDT->getAs<ExtVectorType>()->getNumElements() == 4))) {
++          const auto vec_type = getContext().getExtVectorType(getContext().FloatTy, 4);
++          LValue FieldSubLV = EmitLValueForField(LV, FD);
++          LValue VecLV = MakeAddrLValue(FieldSubLV.getAddress(), vec_type);
++          ExpandTypeToArgs(vec_type, EmitLoadOfLValue(VecLV, SourceLocation()), Args, IRFuncTy);
++        } else {
++          RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
++          ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy);
++        }
 +      }
      } else {
        for (const auto *FD : RD->fields()) {
          RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
-@@ -2832,12 +2891,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2832,12 +2926,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
@@ -4377,7 +4433,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..aff8bed 100644
+index 5ca3a78..9dc8081 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,7 @@
@@ -4388,7 +4444,7 @@ index 5ca3a78..aff8bed 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +334,143 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +334,266 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4419,34 +4475,157 @@ index 5ca3a78..aff8bed 100644
 +	return ret;
 +}
 +
-+// will recurse through the specified class/struct decl, its base classes, and all its contained class/struct decls,
-+// returning a vector containing all iterators to all contained fields
-+static std::vector<RecordDecl::field_iterator> get_aggregate_scalar_fields(const CXXRecordDecl* decl) {
++struct aggregate_scalar_entry {
++	clang::QualType type;
++	std::string name;
++	std::string mangled_name;
++	const AttrVec* attrs;
++	
++	template <typename SpecificAttr>
++	bool hasAttr() const {
++		if(attrs == nullptr) return false;
++		return hasSpecificAttr<SpecificAttr>(*attrs);
++	}
++};
++
++// will recurse through the specified class/struct decl, its base classes,
++// all its contained class/struct/union decls, all its contained arrays,
++// returning a vector of all contained/scalarized fields + info
++// NOTE: for unions, only the first field will be considered!
++static std::vector<aggregate_scalar_entry> get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
++																	   const CXXRecordDecl* decl,
++																	   ASTContext& ASTCtx,
++																	   MangleContext& MC);
++
++//
++std::string aggregate_scalar_fields_mangle(const CXXRecordDecl* root_decl,
++										   MangleContext& MC,
++										   RecordDecl::field_iterator field_iter) {
++	std::string gen_type_name = "";
++	llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
++	MC.mangleMetalFieldName(*field_iter, root_decl, gen_type_name_stream);
++	return "generated(" + gen_type_name_stream.str() + ")";
++}
++std::string aggregate_scalar_fields_mangle(const CXXRecordDecl* root_decl,
++										   MangleContext& MC,
++										   const std::string& name,
++										   const clang::QualType& type) {
++	std::string gen_type_name = "";
++	llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
++	MC.mangleMetalGeneric(name, type, root_decl, gen_type_name_stream);
++	return "generated(" + gen_type_name_stream.str() + ")";
++}
++
++// helper function for get_aggregate_scalar_fields
++void aggregate_scalar_fields_add_array(const CXXRecordDecl* root_decl,
++									   ASTContext& ASTCtx,
++									   MangleContext& MC,
++									   const ConstantArrayType* CAT,
++									   const AttrVec* attrs,
++									   const std::string& name,
++									   std::vector<aggregate_scalar_entry>& ret) {
++	const auto count = CAT->getSize().getZExtValue();
++	const auto ET = CAT->getElementType();
++	if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
++		const auto contained_ret = get_aggregate_scalar_fields(root_decl, arr_rdecl, ASTCtx, MC);
++		for(uint64_t i = 0; i < count; ++i) {
++			ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++		}
++	}
++	else if(ET->isArrayType()) {
++		const auto aoa_decl = dyn_cast<ConstantArrayType>(ET->getAsArrayTypeUnsafe());
++		if(aoa_decl) {
++			for(uint64_t i = 0; i < count; ++i) {
++				const auto idx_str = "_" + std::to_string(i);
++				aggregate_scalar_fields_add_array(root_decl, ASTCtx, MC, aoa_decl, attrs, name + idx_str, ret);
++			}
++		}
++		else {
++			// TODO: error
++		}
++	}
++	else {
++		for(uint64_t i = 0; i < count; ++i) {
++			const auto idx_str = "_" + std::to_string(i);
++			ret.push_back(aggregate_scalar_entry {
++				ET,
++				name + idx_str,
++				aggregate_scalar_fields_mangle(root_decl, MC, name + idx_str, ET),
++				attrs
++			});
++		}
++	}
++};
++
++static std::vector<aggregate_scalar_entry> get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
++																	   const CXXRecordDecl* decl,
++																	   ASTContext& ASTCtx,
++																	   MangleContext& MC) {
 +	if(decl == nullptr) return {};
 +	
 +	// must have definition
 +	if(!decl->hasDefinition()) return {};
 +	
 +	//
-+	std::vector<RecordDecl::field_iterator> ret;
++	std::vector<aggregate_scalar_entry> ret;
 +	
 +	// iterate over / recurse into all bases
 +	for(const auto& base : decl->bases()) {
-+		const auto base_ret = get_aggregate_scalar_fields(base.getType()->getAsCXXRecordDecl());
++		const auto base_ret = get_aggregate_scalar_fields(root_decl, base.getType()->getAsCXXRecordDecl(), ASTCtx, MC);
 +		if(!base_ret.empty()) {
 +			ret.insert(ret.end(), base_ret.begin(), base_ret.end());
 +		}
 +	}
 +	
-+	// iterate over all fields/members
-+	for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
-+		if(const auto rdecl = iter->getType()->getAsCXXRecordDecl()) {
-+			const auto contained_ret = get_aggregate_scalar_fields(rdecl);
-+			if(!contained_ret.empty()) {
-+				ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++	// TODO/NOTE: make sure attrs are correctly forwarded/inherited/passed-through
++	const auto add_field = [&root_decl, &ASTCtx, &MC, &ret](RecordDecl::field_iterator field_iter) {
++		if(const auto rdecl = field_iter->getType()->getAsCXXRecordDecl()) {
++			if(field_iter->hasAttr<GraphicsVertexPositionAttr>()) {
++				auto vec_type = ASTCtx.getExtVectorType(ASTCtx.FloatTy, 4);
++				ret.push_back(aggregate_scalar_entry {
++					vec_type,
++					field_iter->getName().str(),
++					aggregate_scalar_fields_mangle(root_decl, MC, field_iter->getName().str(), vec_type),
++					field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr
++				});
++			}
++			else {
++				const auto contained_ret = get_aggregate_scalar_fields(root_decl, rdecl, ASTCtx, MC);
++				if(!contained_ret.empty()) {
++					ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++				}
 +			}
 +		}
-+		else ret.push_back(iter);
++		else if(field_iter->getType()->isArrayType()) {
++			const auto arr_decl = dyn_cast<ConstantArrayType>(field_iter->getType()->getAsArrayTypeUnsafe());
++			if(arr_decl) {
++				aggregate_scalar_fields_add_array(root_decl, ASTCtx, MC, arr_decl,
++												  field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
++												  field_iter->getName().str(), ret);
++			}
++			else {
++				// TODO: error
++			}
++		}
++		else {
++			ret.push_back(aggregate_scalar_entry {
++				field_iter->getType(),
++				field_iter->getName().str(),
++				aggregate_scalar_fields_mangle(root_decl, MC, field_iter),
++				field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr
++			});
++		}
++	};
++	
++	if(!decl->isUnion()) {
++		// iterate over all fields/members
++		for(auto iter = decl->field_begin(); iter != decl->field_end(); ++iter) {
++			add_field(iter);
++		}
++	}
++	else {
++		// for unions: only use the first field
++		add_field(decl->field_begin());
 +	}
 +	
 +	return ret;
@@ -4532,7 +4711,7 @@ index 5ca3a78..aff8bed 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +478,1036 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +601,1034 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4850,6 +5029,7 @@ index 5ca3a78..aff8bed 100644
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
 +	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
++	auto& MC = CGM.getCXXABI().getMangleContext();
 +	
 +	//
 +	SmallVector<llvm::Value*, 4> stage_infos;
@@ -4992,7 +5172,6 @@ index 5ca3a78..aff8bed 100644
 +			if(const auto pointee_rdecl = clang_pointee_type->getAsCXXRecordDecl()) {
 +				SmallVector<llvm::Value*, 16> struct_info;
 +				// TODO: this is not ideal and doesn't handle properly handle unions
-+				//const auto fields = get_aggregate_scalar_fields(pointee_rdecl);
 +				const auto fields = get_aggregate_fields(pointee_rdecl);
 +				bool ignore = false;
 +				for(const auto& field : fields) {
@@ -5075,7 +5254,7 @@ index 5ca3a78..aff8bed 100644
 +		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
 +			if(cxx_rdecl) {
 +				// must handle each field individually
-+				const auto fields = get_aggregate_fields(cxx_rdecl);
++				const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, ASTCtx, MC);
 +				for(const auto& field : fields) {
 +					SmallVector<llvm::Value*, 16> arg_info;
 +					
@@ -5084,28 +5263,25 @@ index 5ca3a78..aff8bed 100644
 +					
 +					// #1: type
 +					// TODO: handle perspective/center correctly
-+					if(field->hasAttr<GraphicsVertexPositionAttr>()) {
++					if(field.hasAttr<GraphicsVertexPositionAttr>()) {
 +						arg_info.push_back(llvm::MDString::get(Context, "air.position"));
 +						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
 +						arg_info.push_back(llvm::MDString::get(Context, "air.no_perspective"));
 +					}
 +					else {
 +						arg_info.push_back(llvm::MDString::get(Context, "air.fragment_input"));
-+						std::string gen_type_name = "";
-+						llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
-+						CGM.getCXXABI().getMangleContext().mangleMetalFieldName(*field, gen_type_name_stream);
-+						arg_info.push_back(llvm::MDString::get(Context, StringRef(gen_type_name_stream.str())));
++						arg_info.push_back(llvm::MDString::get(Context, StringRef(field.mangled_name)));
 +						arg_info.push_back(llvm::MDString::get(Context, "air.center"));
 +						arg_info.push_back(llvm::MDString::get(Context, "air.perspective"));
 +					}
 +					
 +					// type name
 +					arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+					arg_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++					arg_info.push_back(llvm::MDString::get(Context, make_type_name(field.type)));
 +					
 +					// arg name
 +					arg_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+					arg_info.push_back(llvm::MDString::get(Context, field->getName()));
++					arg_info.push_back(llvm::MDString::get(Context, field.name));
 +					arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +					
 +					// next
@@ -5167,26 +5343,23 @@ index 5ca3a78..aff8bed 100644
 +		// vertex output (TODO: can ret type be void?)
 +		const auto ret_type = FD->getReturnType();
 +		if(const auto cxx_rdecl = ret_type->getAsCXXRecordDecl()) {
-+			const auto fields = get_aggregate_fields(cxx_rdecl);
++			const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, ASTCtx, MC);
 +			for(const auto& field : fields) {
 +				SmallVector<llvm::Value*, 6> ret_info;
-+				if(field->hasAttr<GraphicsVertexPositionAttr>()) {
++				if(field.hasAttr<GraphicsVertexPositionAttr>()) {
 +					ret_info.push_back(llvm::MDString::get(Context, "air.position"));
 +				}
-+				else if(field->hasAttr<GraphicsPointSizeAttr>()) {
++				else if(field.hasAttr<GraphicsPointSizeAttr>()) {
 +					ret_info.push_back(llvm::MDString::get(Context, "air.point_size"));
 +				}
 +				else {
 +					ret_info.push_back(llvm::MDString::get(Context, "air.vertex_output"));
-+					std::string gen_type_name = "";
-+					llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
-+					CGM.getCXXABI().getMangleContext().mangleMetalFieldName(*field, gen_type_name_stream);
-+					ret_info.push_back(llvm::MDString::get(Context, StringRef(gen_type_name_stream.str())));
++					ret_info.push_back(llvm::MDString::get(Context, StringRef(field.mangled_name)));
 +				}
 +				ret_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+				ret_info.push_back(llvm::MDString::get(Context, make_type_name(field->getType())));
++				ret_info.push_back(llvm::MDString::get(Context, make_type_name(field.type)));
 +				ret_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+				ret_info.push_back(llvm::MDString::get(Context, field->getName()));
++				ret_info.push_back(llvm::MDString::get(Context, field.name));
 +				stage_infos.push_back(llvm::MDNode::get(Context, ret_info));
 +			}
 +		}
@@ -5327,6 +5500,8 @@ index 5ca3a78..aff8bed 100644
 +	}
 +	
 +	llvm::LLVMContext &Context = getLLVMContext();
++	auto& ASTCtx = getContext();
++	auto& MC = CGM.getCXXABI().getMangleContext();
 +	
 +	//
 +	SmallVector<llvm::Value*, 16> arg_infos;
@@ -5577,16 +5752,18 @@ index 5ca3a78..aff8bed 100644
 +			
 +			if(cxx_rdecl) {
 +				// must handle each field individually
-+				const auto fields = get_aggregate_fields(cxx_rdecl);
++				const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, ASTCtx, MC);
 +				for(const auto& field : fields) {
++					// TODO: check if field type is int or float!
 +					const auto field_llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
-+					add_normal_arg(field_llvm_type, field->getType(), FLOOR_ARG_INFO::STAGE_INPUT);
++					add_normal_arg(field_llvm_type, field.type, FLOOR_ARG_INFO::STAGE_INPUT);
 +					++arg_idx;
 +				}
 +				--arg_idx; // fixup, b/c of inc later
 +			}
 +			else {
 +				// add as-is
++				// TODO: check if type is int or float!
 +				add_normal_arg(llvm_type, clang_type, FLOOR_ARG_INFO::STAGE_INPUT);
 +			}
 +		}
@@ -5673,7 +5850,7 @@ index 5ca3a78..aff8bed 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1545,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1666,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -5758,7 +5935,7 @@ index 5ca3a78..aff8bed 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,10 +1672,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,10 +1793,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5798,7 +5975,7 @@ index 5ca3a78..aff8bed 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -755,6 +1899,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2020,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -5890,7 +6067,7 @@ index 5ca3a78..aff8bed 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2037,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2158,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -5899,7 +6076,7 @@ index 5ca3a78..aff8bed 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2087,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2208,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -5929,7 +6106,7 @@ index 59cc30d..11cf78e 100644
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..cdf2647 100644
+index 48823be..448cbfc 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -359,7 +359,10 @@ void CodeGenModule::Release() {
@@ -6008,6 +6185,106 @@ index 48823be..cdf2647 100644
    // Ignore declarations, they will be emitted on their first use.
    if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
      // Forward declarations are emitted lazily on first use.
+@@ -2241,12 +2260,99 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+   EmitTopLevelDecl(VD);
+ }
+ 
++static void MetalExpandReturnType(const llvm::StructType* ST,
++								  const CXXRecordDecl* cxx_rdecl,
++								  std::vector<llvm::Type*>& fields,
++								  CodeGenTypes& CGT);
++
++static void MetalExpandReturnType(const llvm::ArrayType* AT,
++								  const CXXRecordDecl* cxx_rdecl,
++								  std::vector<llvm::Type*>& fields,
++								  CodeGenTypes& CGT) {
++	const auto ET = AT->getArrayElementType();
++	if(ET->isStructTy()) {
++		const auto EST = dyn_cast<llvm::StructType>(ET);
++		for(uint64_t i = 0; i < AT->getArrayNumElements(); ++i) {
++			MetalExpandReturnType(EST, nullptr, fields, CGT);
++		}
++	}
++	else if(ET->isArrayTy()) {
++		const auto EAT = dyn_cast<llvm::ArrayType>(ET);
++		for(uint64_t i = 0; i < AT->getArrayNumElements(); ++i) {
++			MetalExpandReturnType(EAT, nullptr, fields, CGT);
++		}
++	}
++	else {
++		for(uint64_t i = 0; i < AT->getArrayNumElements(); ++i) {
++			fields.push_back(ET);
++		}
++	}
++}
++
++static void MetalExpandReturnType(const llvm::StructType* ST,
++								  const CXXRecordDecl* cxx_rdecl,
++								  std::vector<llvm::Type*>& fields,
++								  CodeGenTypes& CGT) {
++	RecordDecl::field_iterator clang_iter;
++	if(cxx_rdecl != nullptr) clang_iter = cxx_rdecl->field_begin();
++	
++	for(auto iter = ST->element_begin(); iter != ST->element_end(); ++iter) {
++		if((*iter)->isStructTy()) {
++			if(cxx_rdecl != nullptr && clang_iter != cxx_rdecl->field_end()) {
++				const auto elem_rdecl = clang_iter->getType()->getAsCXXRecordDecl();
++				if(clang_iter->hasAttr<GraphicsVertexPositionAttr>()) {
++					// TODO: check if valid/possible
++					fields.push_back(llvm::VectorType::get(llvm::Type::getFloatTy(CGT.getLLVMContext()), 4));
++				}
++				else {
++					MetalExpandReturnType(dyn_cast<llvm::StructType>(*iter), elem_rdecl, fields, CGT);
++				}
++			}
++			else {
++				MetalExpandReturnType(dyn_cast<llvm::StructType>(*iter), nullptr, fields, CGT);
++			}
++		}
++		else if((*iter)->isArrayTy()) {
++			MetalExpandReturnType(dyn_cast<llvm::ArrayType>(*iter), nullptr, fields, CGT);
++		}
++		else fields.push_back(*iter);
++		
++		if(cxx_rdecl != nullptr && clang_iter != cxx_rdecl->field_end()) {
++			++clang_iter;
++		}
++	}
++}
++
++static llvm::Type* MetalExpandReturnType(const CanQualType& type,
++										 llvm::Type* llvm_type,
++										 CodeGenTypes& CGT) {
++	const llvm::StructType* ST = dyn_cast<llvm::StructType>(llvm_type);
++	if(!ST) return llvm_type;
++	
++	const auto cxx_rdecl = type->getAsCXXRecordDecl();
++	std::vector<llvm::Type*> fields;
++	MetalExpandReturnType(ST, cxx_rdecl, fields, CGT);
++	
++	// TODO: only create once?
++	const std::string name = "__floor_" + cxx_rdecl->getName().str() + "_flat";
++	return llvm::StructType::create(fields, name, ST->isPacked());
++}
++
+ void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
+                                                  llvm::GlobalValue *GV) {
+   const auto *D = cast<FunctionDecl>(GD.getDecl());
+ 
+   // Compute the function info and LLVM type.
+   const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(GD);
++  if(getLangOpts().OpenCL) {
++    if(D && D->hasAttr<GraphicsVertexShaderAttr>() &&
++       FI.getReturnType()->isStructureOrClassType()) {
++      // if this is a metal vertex shader function and the return type is a struct/aggregate,
++      // fully expand/flatten all types within (i.e. structs and arrays to scalars, keep existing scalars)
++      auto& retInfo = (ABIArgInfo&)FI.getReturnInfo();
++      retInfo.setCoerceToType(MetalExpandReturnType(FI.getReturnType(), retInfo.getCoerceToType(), getTypes()));
++    }
++  }
+   llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
+ 
+   // Get or create the prototype for the function.
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.h b/tools/clang/lib/CodeGen/CodeGenModule.h
 index 9533a8d..d53d4e3 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.h
@@ -6065,7 +6342,7 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
-index f75e59d..eb977b0 100644
+index f75e59d..8dd0243 100644
 --- a/tools/clang/lib/CodeGen/TargetInfo.cpp
 +++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
 @@ -46,6 +46,10 @@ static bool isAggregateTypeForABI(QualType T) {
@@ -6107,7 +6384,7 @@ index f75e59d..eb977b0 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -4962,6 +4969,99 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -4962,6 +4969,101 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -6170,8 +6447,10 @@ index f75e59d..eb977b0 100644
 +}
 +
 +ABIArgInfo AIRABIInfo::classifyArgumentType(QualType Ty) const {
-+  if (isAggregateImageType(Ty))
++  if (CodeGenFunction::hasAggregateEvaluationKind(Ty) &&
++      Ty->isStructureOrClassType()) {
 +    return ABIArgInfo::getExpand();
++  }
 +
 +  // Treat an enum type as its underlying type.
 +  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
@@ -6207,7 +6486,7 @@ index f75e59d..eb977b0 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5657,7 +5757,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
+@@ -5657,7 +5759,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
    llvm::Function *F = cast<llvm::Function>(GV);
    
    if (M.getLangOpts().OpenCL) {
@@ -6216,7 +6495,7 @@ index f75e59d..eb977b0 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -6877,5 +6977,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -6877,5 +6979,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
    case llvm::Triple::xcore:
      return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));
