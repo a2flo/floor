@@ -320,7 +320,7 @@ else
 	LDFLAGS="${LDFLAGS} -stdlib=libc++"
 fi
 LIBS="${LIBS}"
-INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1"
+INCLUDES="${INCLUDES} -isystem /usr/local/include/c++/v1 -isystem /usr/include/c++/v1"
 COMMON_FLAGS="${COMMON_FLAGS}"
 
 # if no AR is specified, set it to the default ar (used when creating a static lib)
