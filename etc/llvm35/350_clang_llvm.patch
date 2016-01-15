@@ -2807,7 +2807,7 @@ index 09862e4..eed14f2 100644
  
  inline bool Type::isTemplateTypeParmType() const {
 diff --git a/tools/clang/include/clang/Basic/Attr.td b/tools/clang/include/clang/Basic/Attr.td
-index 704a375..6766c01 100644
+index 704a375..84fa594 100644
 --- a/tools/clang/include/clang/Basic/Attr.td
 +++ b/tools/clang/include/clang/Basic/Attr.td
 @@ -354,6 +354,25 @@ def Aligned : InheritableAttr {
@@ -2878,7 +2878,7 @@ index 704a375..6766c01 100644
  def C11NoReturn : InheritableAttr {
    let Spellings = [Keyword<"_Noreturn">];
    let Subjects = SubjectList<[Function], ErrorDiag>;
-@@ -573,45 +571,114 @@ def CXX11NoReturn : InheritableAttr {
+@@ -573,45 +571,123 @@ def CXX11NoReturn : InheritableAttr {
    let Documentation = [CXX11NoReturnDocs];
  }
  
@@ -2983,6 +2983,15 @@ index 704a375..6766c01 100644
 +  let Spellings = [GNU<"color">, CXX11<"","color">];
 +  let Args = [ExprArgument<"ColorLocation">];
 +  let TemplateDependent = 1;
++  let AdditionalMembers = [{
++  unsigned int eval_location = 0;
++  unsigned int getEvalLocation() const {
++    return eval_location;
++  }
++  void setEvalLocation(unsigned int loc) {
++    eval_location = loc;
++  }
++  }];
 +  let Documentation = [Undocumented];
 +}
 +
@@ -3499,7 +3508,7 @@ index 7d7ca99..4f4b1a0 100644
      // can't constant fold it.
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
 diff --git a/tools/clang/lib/AST/ItaniumMangle.cpp b/tools/clang/lib/AST/ItaniumMangle.cpp
-index 977d6fc..5dcdbe9 100644
+index 977d6fc..a21fbe5 100644
 --- a/tools/clang/lib/AST/ItaniumMangle.cpp
 +++ b/tools/clang/lib/AST/ItaniumMangle.cpp
 @@ -160,6 +160,9 @@ public:
@@ -3520,13 +3529,30 @@ index 977d6fc..5dcdbe9 100644
    
  private:
  
-@@ -1919,7 +1923,22 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
+@@ -1919,7 +1923,39 @@ void CXXNameMangler::mangleNameOrStandardSubstitution(const NamedDecl *ND) {
      mangleName(ND);
  }
  
 +void CXXNameMangler::mangleMetalFieldName(const FieldDecl *D, const CXXRecordDecl* RD) {
++	const DeclContext *DC = IgnoreLinkageSpecDecls(getEffectiveDeclContext(D));
++	const DeclContext *PDC = IgnoreLinkageSpecDecls(getEffectiveDeclContext(RD));
++	
 +	if(const auto II = D->getIdentifier()) {
-+		mangleSourceName(II);
++		// TODO: need actual parent field entry for all nested types
++		if(DC->getParent()->Equals(PDC)) {
++			mangleSourceName(II);
++		}
++	}
++	
++	// top level: mangle directly (without enclosing record decl / PDC)
++	// all else: mangle nested type as well
++	if(!DC->getParent()->Equals(PDC)) {
++		if (GetLocalClassDecl(D)) {
++			mangleLocalName(D);
++		}
++		else {
++			mangleNestedName(D, DC);
++		}
 +	}
 +	mangleType(D->getType());
 +}
@@ -3543,7 +3569,7 @@ index 977d6fc..5dcdbe9 100644
    //  <type>         ::= <builtin-type>
    //  <builtin-type> ::= v  # void
    //                 ::= w  # wchar_t
-@@ -1984,14 +2003,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+@@ -1984,14 +2020,24 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
    case BuiltinType::ObjCId: Out << "11objc_object"; break;
    case BuiltinType::ObjCClass: Out << "10objc_class"; break;
    case BuiltinType::ObjCSel: Out << "13objc_selector"; break;
@@ -3576,7 +3602,7 @@ index 977d6fc..5dcdbe9 100644
    }
  }
  
-@@ -3847,6 +3876,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
+@@ -3847,6 +3893,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
    llvm_unreachable("Can't mangle string literals");
  }
  
@@ -4433,18 +4459,19 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..9dc8081 100644
+index 5ca3a78..a9a1bed 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -30,6 +30,7 @@
+@@ -30,6 +30,8 @@
  #include "llvm/IR/Intrinsics.h"
  #include "llvm/IR/MDBuilder.h"
  #include "llvm/IR/Operator.h"
 +#include <sstream>
++#include <unordered_set>
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +334,266 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +335,272 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4485,6 +4512,12 @@ index 5ca3a78..9dc8081 100644
 +	bool hasAttr() const {
 +		if(attrs == nullptr) return false;
 +		return hasSpecificAttr<SpecificAttr>(*attrs);
++	}
++	
++	template <typename SpecificAttr>
++	SpecificAttr* getAttr() const {
++		if(attrs == nullptr) return nullptr;
++		return getSpecificAttr<SpecificAttr>(*attrs);
 +	}
 +};
 +
@@ -4711,7 +4744,7 @@ index 5ca3a78..9dc8081 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +601,1034 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +608,1124 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -5365,6 +5398,8 @@ index 5ca3a78..9dc8081 100644
 +		}
 +		else {
 +			// TODO: handle this!
++			//ret_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			//ret_info.push_back(llvm::MDString::get(Context, FD->getName())); // func name if direct
 +		}
 +	}
 +	else if(is_fragment) {
@@ -5380,17 +5415,105 @@ index 5ca3a78..9dc8081 100644
 +		arg_infos.push_back(llvm::MDNode::get(Context, arg_info));
 +		++arg_idx; // next llvm arg
 +		
-+		// render targets / return types (TODO: can ret/rt type be void?)
++		const auto add_fs_output = [&Context, &Builder, &ASTCtx, &CGM,
++									&stage_infos, &make_type_name](const aggregate_scalar_entry& entry,
++																   const unsigned int& location) {
++			SmallVector<llvm::Value*, 6> rtt_info;
++			
++			// #0/1: render target location index
++			rtt_info.push_back(llvm::MDString::get(Context, "air.render_target"));
++			rtt_info.push_back(Builder.getInt32(location));
++			
++			// #2/3: type name
++			rtt_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++			rtt_info.push_back(llvm::MDString::get(Context, make_type_name(entry.type)));
++			
++			// #4/#5: name/identifier
++			rtt_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++			rtt_info.push_back(llvm::MDString::get(Context, entry.name));
++			
++			stage_infos.push_back(llvm::MDNode::get(Context, rtt_info));
++		};
++		
++		// render targets / return types
 +		const auto ret_type = FD->getReturnType();
-+		SmallVector<llvm::Value*, 6> rtt_info;
-+		rtt_info.push_back(llvm::MDString::get(Context, "air.render_target"));
-+		// render target index
-+		rtt_info.push_back(Builder.getInt32(0)); // TODO: handle multiple render targets
-+		rtt_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
-+		rtt_info.push_back(llvm::MDString::get(Context, make_type_name(ret_type)));
-+		rtt_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
-+		rtt_info.push_back(llvm::MDString::get(Context, FD->getName())); // TODO: always func name or just if direct?
-+		stage_infos.push_back(llvm::MDNode::get(Context, rtt_info));
++		if(const auto cxx_rdecl = ret_type->getAsCXXRecordDecl()) {
++			const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, ASTCtx, MC);
++			
++			// fbo output location resolve/computation needs to happen in two passes:
++			// * gather all fixed/attr locations, make sure none conflict
++			// * used fixed locations + generate automatic location for non-fixed outputs
++			std::unordered_set<unsigned int> fbo_locations;
++			for(const auto& field : fields) {
++				if(field.hasAttr<GraphicsFBOColorLocationAttr>()) {
++					const auto loc_attr = field.getAttr<GraphicsFBOColorLocationAttr>();
++					if(!fbo_locations.insert(loc_attr->getEvalLocation()).second) {
++						// TODO: should have been detected earlier ...
++						CGM.Error(loc_attr->getLocation(), StringRef("location already in use"));
++						// TODO: add note of prev location?
++						return;
++					}
++				}
++			}
++			
++			unsigned int location = 0;
++			for(const auto& field : fields) {
++				if(field.hasAttr<GraphicsFBOColorLocationAttr>()) {
++					add_fs_output(field, field.getAttr<GraphicsFBOColorLocationAttr>()->getEvalLocation());
++				}
++				else if(field.hasAttr<GraphicsFBODepthTypeAttr>()) {
++					const auto depth_attr = field.getAttr<GraphicsFBODepthTypeAttr>();
++					if(!field.type->isFloatingType()) {
++						// TODO: should have been detected earlier ...
++						CGM.Error(depth_attr->getLocation(),
++								  StringRef("depth attribute can only be applied to floating point types"));
++						return;
++					}
++					
++					SmallVector<llvm::Value*, 7> depth_info;
++					
++					depth_info.push_back(llvm::MDString::get(Context, "air.depth"));
++					
++					// #1/2: depth qualifier
++					depth_info.push_back(llvm::MDString::get(Context, "air.depth_qualifier"));
++					std::string depth_qual = "air.";
++					switch(depth_attr->getDepthQualifier()) {
++						case clang::GraphicsFBODepthTypeAttr::FBODepthTypeAny: depth_qual += "any"; break;
++						case clang::GraphicsFBODepthTypeAttr::FBODepthTypeLess: depth_qual += "less"; break;
++						case clang::GraphicsFBODepthTypeAttr::FBODepthTypeGreater: depth_qual += "greater"; break;
++					}
++					depth_info.push_back(llvm::MDString::get(Context, depth_qual));
++					
++					// #3/4: type name
++					depth_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
++					depth_info.push_back(llvm::MDString::get(Context, make_type_name(field.type)));
++					
++					// #5/#6: name/identifier
++					depth_info.push_back(llvm::MDString::get(Context, "air.arg_name"));
++					depth_info.push_back(llvm::MDString::get(Context, field.name));
++					
++					stage_infos.push_back(llvm::MDNode::get(Context, depth_info));
++				}
++				else {
++					for(;;) {
++						if(fbo_locations.count(location) > 0) {
++							++location;
++						}
++						else break;
++					}
++					add_fs_output(field, location);
++					++location;
++				}
++			}
++		}
++		else if(!ret_type->isVoidType()) {
++			add_fs_output(aggregate_scalar_entry {
++				ret_type,
++				FD->getName().str(), // func name if direct
++				"",
++				nullptr
++			}, 0);
++		}
 +	}
 +
 +	// insert into kernel metadata
@@ -5850,7 +5973,7 @@ index 5ca3a78..9dc8081 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1666,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1763,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -5935,7 +6058,7 @@ index 5ca3a78..9dc8081 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -553,10 +1793,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,10 +1890,35 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5975,7 +6098,7 @@ index 5ca3a78..9dc8081 100644
    }
  
    // If we are checking function types, emit a function type signature as
-@@ -755,6 +2020,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2117,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -6067,7 +6190,7 @@ index 5ca3a78..9dc8081 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2158,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2255,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -6076,7 +6199,7 @@ index 5ca3a78..9dc8081 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2208,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2305,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -7035,10 +7158,10 @@ index 8716227..34fd76a 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..90e604b 100644
+index 61683cd..2ea2601 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-@@ -1956,6 +1956,88 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
+@@ -1956,6 +1956,94 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
      D->addAttr(newAttr);
  }
  
@@ -7087,10 +7210,16 @@ index 61683cd..90e604b 100644
 +    if (ICE.isInvalid())
 +      return;
 +
-+    // TODO: check for < 0 location
-+    D->addAttr(::new (Context)
-+               GraphicsFBOColorLocationAttr(AttrRange, Context, ICE.get(),
-+               SpellingListIndex));
++    // check for < 0 location
++    if (ColorLoc.isNegative()) {
++      unsigned diagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "%0");
++      Diags.Report(AttrRange.getBegin(), diagID) << "location must not be negative!";
++      return;
++    }
++
++    auto loc_attr = ::new (Context) GraphicsFBOColorLocationAttr(AttrRange, Context, ICE.get(), SpellingListIndex);
++    loc_attr->setEvalLocation((unsigned int)ColorLoc.getZExtValue());
++    D->addAttr(loc_attr);
 +    return;
 +  }
 +
@@ -7127,7 +7256,7 @@ index 61683cd..90e604b 100644
  static void handleObjCMethodFamilyAttr(Sema &S, Decl *decl,
                                         const AttributeList &Attr) {
    ObjCMethodDecl *method = cast<ObjCMethodDecl>(decl);
-@@ -2679,6 +2761,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+@@ -2679,6 +2767,58 @@ static void handleAnnotateAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                            Attr.getAttributeSpellingListIndex()));
  }
  
@@ -7186,7 +7315,7 @@ index 61683cd..90e604b 100644
  static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    // check the attribute arguments.
    if (Attr.getNumArgs() > 1) {
-@@ -3026,22 +3160,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
+@@ -3026,22 +3166,6 @@ static void handleOptimizeNoneAttr(Sema &S, Decl *D,
                                Attr.getAttributeSpellingListIndex()));
  }
  
@@ -7209,7 +7338,7 @@ index 61683cd..90e604b 100644
  static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    FunctionDecl *Fn = cast<FunctionDecl>(D);
    if (!Fn->isInlineSpecified()) {
-@@ -4102,6 +4220,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4102,6 +4226,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -7219,7 +7348,7 @@ index 61683cd..90e604b 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4159,9 +4280,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4159,9 +4286,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_FormatArg:
      handleFormatArgAttr(S, D, Attr);
      break;
@@ -7229,7 +7358,7 @@ index 61683cd..90e604b 100644
    case AttributeList::AT_CUDADevice:
      handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
      break;
-@@ -4399,11 +4517,35 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4399,11 +4523,35 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_IntelOclBicc:
      handleCallConvAttr(S, D, Attr);
      break;
@@ -7269,7 +7398,7 @@ index 61683cd..90e604b 100644
      break;
  
    // Microsoft attributes:
-@@ -4553,7 +4695,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -4553,7 +4701,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      return;
    }
  
