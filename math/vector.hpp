@@ -62,6 +62,13 @@ struct floor_vector_rand {
 #define FLOOR_VECTOR_PACK
 #endif
 
+// for compute and graphics: signal that this vector type can be converted to the corresponding clang/llvm vector type
+#if defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)
+#define FLOOR_CLANG_VECTOR_COMPAT __attribute__((vector_compat))
+#else
+#define FLOOR_CLANG_VECTOR_COMPAT
+#endif
+
 //! this is the general vector class that is backed by N scalar variables, with N = { 1, 2, 3, 4 },
 //! and is instantiated for all float types (float, double, long double), all unsigned types from
 //! 8-bit to 64-bit and all signed types from 8-bit to 64-bit.
@@ -72,7 +79,7 @@ struct floor_vector_rand {
 //! assume that this class is the fastest at runtime and it should generally be used
 //! over the other one, except for the cases where the other one is absolutely necessary.
 //! -- "one vector class to rule them all, ... and in the darkness bind them."
-template <typename scalar_type> class FLOOR_VECTOR_ALIGN_AND_PACK FLOOR_VECNAME {
+template <typename scalar_type> class FLOOR_VECTOR_ALIGN_AND_PACK FLOOR_CLANG_VECTOR_COMPAT FLOOR_VECNAME {
 public:
 	// the underlying type of the vector
 	// NOTE: only .xyzw are usable with constexpr
@@ -2056,6 +2063,7 @@ public:
 
 #undef FLOOR_VECTOR_ALIGN_AND_PACK
 #undef FLOOR_VECTOR_PACK
+#undef FLOOR_CLANG_VECTOR_COMPAT
 
 #undef FLOOR_VECNAME_CONCAT
 #undef FLOOR_VECNAME_EVAL
