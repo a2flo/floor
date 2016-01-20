@@ -158,21 +158,20 @@ typedef struct {
 @property(readonly, retain, nonatomic) NSMutableDictionary *functionDictionary;
 @end
 
-metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_context() {
+metal_compute::metal_compute(const vector<string> whitelist) : compute_context() {
 #if defined(FLOOR_IOS)
 	// create the default device, exit if it fails
-	typedef id<MTLDevice> mtl_device_type;
-	mtl_device_type mtl_device = MTLCreateSystemDefaultDevice();
+	id <MTLDevice> mtl_device = MTLCreateSystemDefaultDevice();
 	if(!mtl_device) return;
-	NSArray <mtl_device_type>* mtl_devices = [NSArray arrayWithObjects:mtl_device, nil];
+	NSArray <id<MTLDevice>>* mtl_devices = (NSArray <id<MTLDevice>>*)[NSArray arrayWithObjects:mtl_device, nil];
 #else
-	typedef id<MTLDeviceSPI> mtl_device_type;
-	auto mtl_devices = (NSArray <mtl_device_type>*)MTLCopyAllDevices();
+	NSArray <id<MTLDevice>>* mtl_devices = MTLCopyAllDevices();
 #endif
+	if(!mtl_devices) return;
 	
 	// go through all found devices (for ios, this should be one)
 	uint32_t device_num = 0;
-	for(mtl_device_type dev : mtl_devices) {
+	for(id <MTLDevice> dev in mtl_devices) {
 		// check whitelist
 		if(!whitelist.empty()) {
 			const auto lc_dev_name = core::str_to_lower([[dev name] UTF8String]);
@@ -275,8 +274,10 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		device->simd_width = 32; // always 32 for powervr 6 and 7 series
 		device->simd_range = { device->simd_width, device->simd_width };
 #else
+		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
+		
 		// on os x, we can get to the device properties through MTLDeviceSPI
-		device->vendor_name = [[dev vendorName] UTF8String];
+		device->vendor_name = [[dev_spi vendorName] UTF8String];
 		const auto lc_vendor_name = core::str_to_lower(device->vendor_name);
 		if(lc_vendor_name.find("nvidia") != string::npos) {
 			device->vendor = COMPUTE_VENDOR::NVIDIA;
@@ -296,20 +297,20 @@ metal_compute::metal_compute(const unordered_set<string> whitelist) : compute_co
 		else device->vendor = COMPUTE_VENDOR::UNKNOWN;
 		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
 		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
-		device->family = (uint32_t)[dev featureProfile];
+		device->family = (uint32_t)[dev_spi featureProfile];
 		device->family_version = device->family - 10000 + 1;
-		device->local_mem_size = [dev maxComputeThreadgroupMemory];
-		device->max_work_group_size = (uint32_t)[dev maxTotalComputeThreadsPerThreadgroup];
+		device->local_mem_size = [dev_spi maxComputeThreadgroupMemory];
+		device->max_work_group_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		device->units = 0; // sadly unknown and impossible to query
 		device->clock = 0;
 		device->mem_clock = 0;
 		device->max_work_item_sizes = { 0xFFFFFFFFu };
-		device->double_support = ([dev doubleFPConfig] > 0);
+		device->double_support = ([dev_spi doubleFPConfig] > 0);
 		device->unified_memory = true; // TODO: not sure about this?
 		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
-		device->max_image_1d_dim = { [dev maxTextureWidth1D] };
-		device->max_image_2d_dim = { [dev maxTextureWidth2D], [dev maxTextureHeight2D] };
-		device->max_image_3d_dim = { [dev maxTextureWidth3D], [dev maxTextureHeight3D], [dev maxTextureDepth3D] };
+		device->max_image_1d_dim = { [dev_spi maxTextureWidth1D] };
+		device->max_image_2d_dim = { [dev_spi maxTextureWidth2D], [dev_spi maxTextureHeight2D] };
+		device->max_image_3d_dim = { [dev_spi maxTextureWidth3D], [dev_spi maxTextureHeight3D], [dev_spi maxTextureDepth3D] };
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
 		device->max_work_group_item_sizes = {

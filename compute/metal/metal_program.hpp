@@ -33,11 +33,11 @@ class metal_program final : public compute_program {
 public:
 	//! stores a metal program + kernel infos for an individual device
 	struct metal_program_entry : program_entry {
-		id <MTLLibrary> program;
+		id <MTLLibrary> program { nil };
 		
 		struct metal_kernel_data {
-			id <MTLFunction> kernel;
-			id <MTLComputePipelineState> state;
+			id <MTLFunction> kernel { nil };
+			id <MTLComputePipelineState> state { nil };
 		};
 		//! internal state, automatically created in metal_program
 		vector<metal_kernel_data> metal_kernels {};

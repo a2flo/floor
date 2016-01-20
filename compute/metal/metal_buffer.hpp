@@ -115,7 +115,7 @@ public:
 	static void sync_metal_resource(shared_ptr<compute_queue> cqueue, id <MTLResource> rsrc);
 	
 protected:
-	id <MTLBuffer> buffer { nullptr };
+	id <MTLBuffer> buffer { nil };
 	bool is_external { false };
 	
 	MTLResourceOptions options { MTLCPUCacheModeDefaultCache };

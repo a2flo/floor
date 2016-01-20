@@ -225,7 +225,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		case TARGET::SPIR:
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
+				" -x cl -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -242,23 +242,20 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			break;
 		case TARGET::AIR: {
 			const auto mtl_dev = (metal_device*)device.get();
-			string metal_target, os_target;
+			string os_target;
 			if(mtl_dev->family < 10000) {
-				// -> iOS 9.0+, always build ios-metal1.1
-				metal_target = "1,8,0,1,1,0";
+				// -> iOS 9.0+
 				os_target = "ios9.0.0 -miphoneos-version-min=9.0";
 			}
 			else {
-				// -> OS X, always build osx-metal1.1
-				metal_target = "1,8,0,1,1,0";
+				// -> OS X 10.11+
 				os_target = "macosx10.11.0 -mmacosx-version-min=10.11";
 			}
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
-				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2 -target air64-apple-" + os_target +
-				" -Xclang -metal-air=" + metal_target +
+				" -x metal -std=metal1.1 -target air64-apple-" + os_target +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
@@ -285,7 +282,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		case TARGET::APPLECL:
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -std=gnu++14 -Xclang -cl-std=CL1.2" \
+				" -x cl -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-applecl-unknown" : "spir64-applecl-unknown") +
 				" -Xclang -applecl-kernel-info" \
 				" -Xclang -cl-mad-enable" \

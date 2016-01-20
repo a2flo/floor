@@ -48,6 +48,12 @@ public:
 	
 	//! the opencl device id
 	cl_device_id device_id { nullptr };
+#else
+	void* _ctx { nullptr };
+	void* _compute_ctx { nullptr };
+	uint32_t _cl_version { 0 };
+	uint32_t _c_version { 0 };
+	void* _device_id { nullptr };
 #endif
 	
 };

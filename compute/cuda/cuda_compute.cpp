@@ -23,7 +23,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-cuda_compute::cuda_compute(const unordered_set<string> whitelist) : compute_context() {
+cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
 	// init cuda api functions

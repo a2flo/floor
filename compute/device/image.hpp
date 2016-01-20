@@ -516,7 +516,7 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_METAL)
 		//! internal depth compare read function, handling all kinds of depth compare reads
 		template <bool sample_linear, COMPARE_FUNCTION compare_function, typename coord_type,
-				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type)>* = nullptr>
+				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type_)>* = nullptr>
 		floor_inline_always auto compare_internal(const coord_type& coord,
 												  const float& compare_value,
 												  const uint32_t layer

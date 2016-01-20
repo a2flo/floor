@@ -38,7 +38,7 @@ public:
 	
 	opencl_compute(const uint64_t platform_index = ~0ull,
 				   const bool gl_sharing = false,
-				   const unordered_set<string> whitelist = {});
+				   const vector<string> whitelist = {});
 	
 	~opencl_compute() override {}
 	

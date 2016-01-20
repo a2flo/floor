@@ -33,9 +33,6 @@ public:
 	host_device();
 	~host_device() override {}
 	
-#if !defined(FLOOR_NO_HOST_COMPUTE)
-#endif
-	
 };
 
 FLOOR_POP_WARNINGS()

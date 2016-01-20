@@ -36,7 +36,7 @@
 
 opencl_compute::opencl_compute(const uint64_t platform_index_,
 							   const bool gl_sharing,
-							   const unordered_set<string> whitelist) : compute_context() {
+							   const vector<string> whitelist) : compute_context() {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
 	
@@ -85,19 +85,19 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				const auto dev_type = cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 				switch(dev_type) {
 					case CL_DEVICE_TYPE_CPU:
-						if(whitelist.count("cpu") > 0) {
+						if(find(begin(whitelist), end(whitelist), "cpu") != end(whitelist)) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}
 						break;
 					case CL_DEVICE_TYPE_GPU:
-						if(whitelist.count("gpu") > 0) {
+						if(find(begin(whitelist), end(whitelist), "gpu") != end(whitelist)) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}
 						break;
 					case CL_DEVICE_TYPE_ACCELERATOR:
-						if(whitelist.count("accelerator") > 0) {
+						if(find(begin(whitelist), end(whitelist), "accelerator") != end(whitelist)) {
 							ctx_cl_devices.emplace_back(cl_dev);
 							continue;
 						}

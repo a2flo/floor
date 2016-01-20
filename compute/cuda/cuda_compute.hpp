@@ -36,7 +36,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	cuda_compute(const unordered_set<string> whitelist = {});
+	cuda_compute(const vector<string> whitelist = {});
 	
 	~cuda_compute() override {}
 	

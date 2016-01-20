@@ -241,7 +241,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.log_commands = config_doc.get<bool>("compute.log_commands", false);
 		
 		//
-		const auto extract_whitelist = [](unordered_set<string>& whitelist, const string& config_entry_name) {
+		const auto extract_whitelist = [](vector<string>& ret, const string& config_entry_name) {
+			unordered_set<string> whitelist;
 			const auto whitelist_elems = config_doc.get<json::json_array>(config_entry_name);
 			for(const auto& elem : whitelist_elems) {
 				if(elem.type != json::json_value::VALUE_TYPE::STRING) {
@@ -250,6 +251,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 				}
 				if(elem.str == "") continue;
 				whitelist.emplace(core::str_to_lower(elem.str));
+			}
+			
+			for(const auto& elem : whitelist) {
+				ret.push_back(elem);
 			}
 		};
 		
@@ -1304,7 +1309,7 @@ const string& floor::get_compute_default_dis() {
 const string& floor::get_opencl_base_path() {
 	return config.opencl_base_path;
 }
-const unordered_set<string>& floor::get_opencl_whitelist() {
+const vector<string>& floor::get_opencl_whitelist() {
 	return config.opencl_whitelist;
 }
 const uint64_t& floor::get_opencl_platform() {
@@ -1338,7 +1343,7 @@ const string& floor::get_opencl_applecl_encoder() {
 const string& floor::get_cuda_base_path() {
 	return config.cuda_base_path;
 }
-const unordered_set<string>& floor::get_cuda_whitelist() {
+const vector<string>& floor::get_cuda_whitelist() {
 	return config.cuda_whitelist;
 }
 const string& floor::get_cuda_compiler() {
@@ -1372,7 +1377,7 @@ const uint32_t& floor::get_cuda_jit_opt_level() {
 const string& floor::get_metal_base_path() {
 	return config.metal_base_path;
 }
-const unordered_set<string>& floor::get_metal_whitelist() {
+const vector<string>& floor::get_metal_whitelist() {
 	return config.metal_whitelist;
 }
 const string& floor::get_metal_compiler() {

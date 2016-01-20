@@ -57,6 +57,9 @@ public:
 	
 	//!
 	cu_device device_id { 0u };
+#else
+	void* _ctx { nullptr };
+	int32_t _device_id { 0u };
 #endif
 	
 };

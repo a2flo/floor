@@ -25,8 +25,8 @@
 #include <floor/compute/metal/metal_image.hpp>
 
 struct metal_kernel::metal_encoder {
-	id <MTLCommandBuffer> cmd_buffer;
-	id <MTLComputeCommandEncoder> encoder;
+	id <MTLCommandBuffer> cmd_buffer { nil };
+	id <MTLComputeCommandEncoder> encoder { nil };
 	unordered_set<metal_buffer*> buffers;
 	unordered_set<metal_image*> images;
 };

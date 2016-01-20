@@ -166,7 +166,7 @@ public:
 	
 	// opencl
 	static const string& get_opencl_base_path();
-	static const unordered_set<string>& get_opencl_whitelist();
+	static const vector<string>& get_opencl_whitelist();
 	static const uint64_t& get_opencl_platform();
 	static bool get_opencl_verify_spir();
 	static const string& get_opencl_compiler();
@@ -179,7 +179,7 @@ public:
 	
 	// cuda
 	static const string& get_cuda_base_path();
-	static const unordered_set<string>& get_cuda_whitelist();
+	static const vector<string>& get_cuda_whitelist();
 	static const string& get_cuda_compiler();
 	static const string& get_cuda_llc();
 	static const string& get_cuda_as();
@@ -192,7 +192,7 @@ public:
 	
 	// metal
 	static const string& get_metal_base_path();
-	static const unordered_set<string>& get_metal_whitelist();
+	static const vector<string>& get_metal_whitelist();
 	static const string& get_metal_compiler();
 	static const string& get_metal_llc();
 	static const string& get_metal_as();
@@ -269,7 +269,7 @@ protected:
 		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
-		unordered_set<string> opencl_whitelist;
+		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
 		string opencl_llc = default_llc;
 		string opencl_as = default_as;
@@ -281,7 +281,7 @@ protected:
 		// cuda
 		bool cuda_toolchain_exists = false;
 		string cuda_base_path = "";
-		unordered_set<string> cuda_whitelist;
+		vector<string> cuda_whitelist;
 		string cuda_compiler = default_compiler;
 		string cuda_llc = default_llc;
 		string cuda_as = default_as;
@@ -295,7 +295,7 @@ protected:
 		// metal
 		bool metal_toolchain_exists = false;
 		string metal_base_path = "";
-		unordered_set<string> metal_whitelist;
+		vector<string> metal_whitelist;
 		string metal_compiler = default_compiler;
 		string metal_llc = default_llc;
 		string metal_as = default_as;

@@ -47,7 +47,9 @@ public:
 	
 #if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
 	// actual metal device object
-	id <MTLDevice> device;
+	id <MTLDevice> device { nil };
+#else
+	void* _device { nullptr };
 #endif
 	
 };

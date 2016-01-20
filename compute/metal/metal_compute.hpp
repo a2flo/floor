@@ -31,7 +31,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	metal_compute(const unordered_set<string> whitelist = {});
+	metal_compute(const vector<string> whitelist = {});
 	
 	~metal_compute() override {}
 	

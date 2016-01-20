@@ -40,7 +40,7 @@ public:
 	id <MTLCommandBuffer> make_command_buffer() REQUIRES(!cmd_buffers_lock);
 	
 protected:
-	id <MTLCommandQueue> queue;
+	id <MTLCommandQueue> queue { nil };
 	
 	mutable safe_recursive_mutex cmd_buffers_lock;
 	vector<id <MTLCommandBuffer>> cmd_buffers GUARDED_BY(cmd_buffers_lock);
