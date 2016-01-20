@@ -652,10 +652,10 @@ index 701fb46..8e06212 100644
  void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..437368f
+index 0000000..a0485af
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,239 @@
+@@ -0,0 +1,258 @@
 +//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -823,15 +823,34 @@ index 0000000..437368f
 +						}
 +					})
 +					
-+					// abort if arg is a bitcast or addrspacecast and pretend everything is fine ("someone else" is already making it fit)
-+					if(isa<BitCastInst>(arg) || isa<AddrSpaceCastInst>(arg)) continue;
++					// abort if arg is an addrspacecast and pretend everything is fine ("someone else" is already making it fit)
++					if(isa<AddrSpaceCastInst>(arg)) {
++						DBG(errs() << "\tabort due to existing addrspacecast: " << *arg << "\n";)
++						continue;
++					}
++					
++					// the same goes for bitcasts, unless src and dst have the same address space
++					if(const auto BCI = dyn_cast_or_null<BitCastInst>(arg)) {
++						if(BCI->getSrcTy()->getPointerAddressSpace() != BCI->getDestTy()->getPointerAddressSpace()) {
++							DBG(errs() << "\tabort due to existing bitcast: " << *arg << "\n";)
++							continue;
++						}
++						// else: perform address space fix, b/c this is a simple pointer/type cast
++						DBG(errs() << "\tkeeping bitcast: " << *arg << "\n";)
++					}
 +					
 +					// abort if expected param address space is not 0, this is not supported (or would end in a good way ...)
 +					// TODO: figure out if it would be a good idea to allow things like loading from e.g. local AS and calling a global AS function
-+					if(expected_arg_type->getPointerAddressSpace() != 0) continue;
++					if(expected_arg_type->getPointerAddressSpace() != 0) {
++						DBG(errs() << "\tabort due to expected AS not being 0\n";)
++						continue;
++					}
 +					
 +					// abort if current argument is in address space 0 (can't be moved to an address space)
-+					if(called_arg_type->getPointerAddressSpace() == 0) continue;
++					if(called_arg_type->getPointerAddressSpace() == 0) {
++						DBG(errs() << "\tabort due to arg already being in AS 0\n";)
++						continue;
++					}
 +					
 +					// fix it:
 +					//  * create a temporary object (of the element/pointee type of the address space pointer)
@@ -1853,10 +1872,10 @@ index 0000000..89a8fee
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..beb3106
+index 0000000..9646466
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,469 @@
+@@ -0,0 +1,503 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2289,9 +2308,43 @@ index 0000000..beb3106
 +			vec_to_scalar_ops<Instruction::SIToFP>(I);
 +		}
 +		
++		// metal can only handle i32 indices
++		void visitExtractElement(ExtractElementInst& EEI) {
++			const auto idx_op = EEI.getIndexOperand();
++			const auto idx_type = idx_op->getType();
++			if(!idx_type->isIntegerTy(32)) {
++				if(const auto const_idx_op = dyn_cast_or_null<ConstantInt>(idx_op)) {
++					EEI.setOperand(1 /* idx op */, builder->getInt32((int32_t)const_idx_op->getValue().getZExtValue()));
++				}
++				else {
++					builder->SetInsertPoint(&EEI);
++					const auto i32_index = builder->CreateIntCast(idx_op, builder->getInt32Ty(), false);
++					EEI.setOperand(1 /* idx op */, i32_index);
++				}
++				was_modified = true;
++			}
++		}
++		
++		// metal can only handle i32 indices
++		void visitInsertElement(InsertElementInst& IEI) {
++			const auto idx_op = IEI.llvm::User::getOperand(2);
++			const auto idx_type = idx_op->getType();
++			if(!idx_type->isIntegerTy(32)) {
++				if(const auto const_idx_op = dyn_cast_or_null<ConstantInt>(idx_op)) {
++					IEI.setOperand(2 /* idx op */, builder->getInt32((int32_t)const_idx_op->getValue().getZExtValue()));
++				}
++				else {
++					builder->SetInsertPoint(&IEI);
++					const auto i32_index = builder->CreateIntCast(idx_op, builder->getInt32Ty(), false);
++					IEI.setOperand(2 /* idx op */, i32_index);
++				}
++				was_modified = true;
++			}
++		}
++		
 +		void visitLoadInst(LoadInst &LI) {
 +			// TODO: fs as well?
-+			if(!is_vertex_func) return;
++			if(!is_vertex_func && !is_fragment_func) return;
 +			if(!LI.getType()->isAggregateType()) return;
 +			
 +			LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
@@ -2305,7 +2358,7 @@ index 0000000..beb3106
 +		
 +		void visitStoreInst(StoreInst &SI) {
 +			// TODO: fs as well?
-+			if(!is_vertex_func) return;
++			if(!is_vertex_func && !is_fragment_func) return;
 +			if(!SI.getType()->isAggregateType()) return;
 +			
 +			Value *V = SI.getValueOperand();
@@ -3134,8 +3187,20 @@ index 1665a45..3778e80 100644
    "variables and fields|variables, data members and tag types|"
    "types and namespaces|Objective-C interfaces|methods and properties|"
    "struct or union|struct, union or class|types|"
+diff --git a/tools/clang/include/clang/Basic/LangOptions.def b/tools/clang/include/clang/Basic/LangOptions.def
+index a297a4c..5085091 100644
+--- a/tools/clang/include/clang/Basic/LangOptions.def
++++ b/tools/clang/include/clang/Basic/LangOptions.def
+@@ -124,6 +124,7 @@ ENUM_LANGOPT(MSPointerToMemberRepresentationMethod, PragmaMSPointersToMembersKin
+ LANGOPT(ShortEnums        , 1, 0, "short enum types")
+ 
+ LANGOPT(OpenCL            , 1, 0, "OpenCL")
++LANGOPT(Metal             , 1, 0, "Metal")
+ LANGOPT(OpenCLVersion     , 32, 0, "OpenCL version")
+ LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
+ LANGOPT(CUDA              , 1, 0, "CUDA")
 diff --git a/tools/clang/include/clang/Basic/LangOptions.h b/tools/clang/include/clang/Basic/LangOptions.h
-index 9bffc7c..8fbc316 100644
+index 9bffc7c..da123b8 100644
 --- a/tools/clang/include/clang/Basic/LangOptions.h
 +++ b/tools/clang/include/clang/Basic/LangOptions.h
 @@ -20,6 +20,7 @@
@@ -3145,16 +3210,6 @@ index 9bffc7c..8fbc316 100644
 +#include <array>
  
  namespace clang {
- 
-@@ -74,6 +75,9 @@ public:
- 
-   enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
- 
-+  std::array<uint32_t, 3> metal_version {{ 1, 6, 0 }};
-+  std::array<uint32_t, 3> metal_language_version {{ 1, 0, 0 }};
-+
- public:
-   clang::ObjCRuntime ObjCRuntime;
  
 diff --git a/tools/clang/include/clang/Basic/Specifiers.h b/tools/clang/include/clang/Basic/Specifiers.h
 index f895673..78084dc 100644
@@ -3216,21 +3271,20 @@ index 5d08833..c53d8b2 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..2e7317e 100644
+index d25560c..2544dd1 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
-@@ -577,6 +577,18 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -577,6 +577,17 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
 +//===----------------------------------------------------------------------===//
 +// AIR/Metal Options
 +//===----------------------------------------------------------------------===//
-+def metal_air : Joined<["-"], "metal-air=">,
-+  HelpText<"AIR/Metal only. Generate general air/metal and kernel argument metadata.">;
++// -- none
 +
 +//===----------------------------------------------------------------------===//
-+// AIR/Metal Options
++// AppleCL/OpenCL Options
 +//===----------------------------------------------------------------------===//
 +def applecl_kernel_info : Flag<["-"], "applecl-kernel-info">,
 +  HelpText<"AppleCL/OpenCL only. Generate general AppleCL and kernel argument metadata.">;
@@ -3238,24 +3292,55 @@ index d25560c..2e7317e 100644
  } // let Flags = [CC1Option]
  
  
+diff --git a/tools/clang/include/clang/Driver/Types.def b/tools/clang/include/clang/Driver/Types.def
+index 3209679..2df0e4b 100644
+--- a/tools/clang/include/clang/Driver/Types.def
++++ b/tools/clang/include/clang/Driver/Types.def
+@@ -42,6 +42,7 @@
+ TYPE("cpp-output",               PP_C,         INVALID,         "i",     "u")
+ TYPE("c",                        C,            PP_C,            "c",     "u")
+ TYPE("cl",                       CL,           PP_C,            "cl",    "u")
++TYPE("metal",                    METAL,        PP_CXX,          "cpp",   "u")
+ TYPE("cuda",                     CUDA,         PP_CXX,          "cpp",   "u")
+ TYPE("objective-c-cpp-output",   PP_ObjC,      INVALID,         "mi",    "u")
+ TYPE("objc-cpp-output",          PP_ObjC_Alias, INVALID,        "mi",    "u")
+@@ -56,6 +57,7 @@ TYPE("objective-c++",            ObjCXX,       PP_ObjCXX,       "mm",    "u")
+ TYPE("c-header-cpp-output",      PP_CHeader,   INVALID,         "i",     "p")
+ TYPE("c-header",                 CHeader,      PP_CHeader,      nullptr, "pu")
+ TYPE("cl-header",                CLHeader,     PP_CHeader,      nullptr, "pu")
++TYPE("metal-header",             MetalHeader,  PP_CXXHeader,    nullptr, "pu")
+ TYPE("objective-c-header-cpp-output", PP_ObjCHeader, INVALID,   "mi",    "p")
+ TYPE("objective-c-header",       ObjCHeader,   PP_ObjCHeader,   nullptr, "pu")
+ TYPE("c++-header-cpp-output",    PP_CXXHeader, INVALID,         "ii",    "p")
 diff --git a/tools/clang/include/clang/Frontend/CodeGenOptions.def b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-index 1d92efe..d66c494 100644
+index 1d92efe..64ae30b 100644
 --- a/tools/clang/include/clang/Frontend/CodeGenOptions.def
 +++ b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-@@ -56,6 +56,8 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -56,6 +56,7 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
-+CODEGENOPT(EmitAIRMetadata , 1, 0) ///< Emit AIR/Metal kernel info and arg metadata.
 +CODEGENOPT(EmitAppleCLMetadata , 1, 0) ///< Emit AppleCL kernel info and arg metadata.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
  CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
+diff --git a/tools/clang/include/clang/Frontend/FrontendOptions.h b/tools/clang/include/clang/Frontend/FrontendOptions.h
+index e87da8d..2efddfb 100644
+--- a/tools/clang/include/clang/Frontend/FrontendOptions.h
++++ b/tools/clang/include/clang/Frontend/FrontendOptions.h
+@@ -70,6 +70,7 @@ enum InputKind {
+   IK_PreprocessedObjC,
+   IK_PreprocessedObjCXX,
+   IK_OpenCL,
++  IK_Metal,
+   IK_CUDA,
+   IK_AST,
+   IK_LLVM_IR
 diff --git a/tools/clang/include/clang/Frontend/LangStandards.def b/tools/clang/include/clang/Frontend/LangStandards.def
-index 90a27b5..f014a08 100644
+index 90a27b5..ef31cc5 100644
 --- a/tools/clang/include/clang/Frontend/LangStandards.def
 +++ b/tools/clang/include/clang/Frontend/LangStandards.def
-@@ -134,17 +134,21 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
+@@ -134,17 +134,27 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
  // OpenCL
  LANGSTANDARD(opencl, "cl",
               "OpenCL 1.0",
@@ -3270,6 +3355,12 @@ index 90a27b5..f014a08 100644
  LANGSTANDARD(opencl12, "CL1.2",
               "OpenCL 1.2",
 -             LineComment | C99 | Digraphs | HexFloat)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
++             Digraphs | GNUMode)
++
++// Metal
++LANGSTANDARD(metal11, "metal1.1",
++             "Metal 1.1",
 +             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus1y |
 +             Digraphs | GNUMode)
  
@@ -3921,7 +4012,7 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..a676bd3 100644
+index cec48f3..289b161 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -240,6 +240,25 @@ void EmitAssemblyHelper::CreatePasses() {
@@ -3940,9 +4031,9 @@ index cec48f3..a676bd3 100644
 +  PMBuilder.EnableCUDAPasses = LangOpts.CUDA;
 +
 +  // only enable this for Metal/AIR
-+  PMBuilder.EnableMetalPasses = LangOpts.OpenCL && (Triple(TheModule->getTargetTriple()).getArch() == Triple::air64);
++  PMBuilder.EnableMetalPasses = LangOpts.Metal;
 +
-+  // only enable this for OpenCL/SPIR
++  // only enable this for OpenCL/SPIR (don't want this for AppleCL or Metal)
 +  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
 +                                (Triple(TheModule->getTargetTriple()).getArch() == Triple::spir64) &&
 +                                (Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown"));
@@ -3962,7 +4053,7 @@ index cec48f3..a676bd3 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..dc0e389 100644
+index 17c3354..343826a 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
 @@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3987,13 +4078,12 @@ index 17c3354..dc0e389 100644
        // Unions can be here only in degenerative cases - all the fields are same
        // after flattening. Thus we have to use the "largest" field.
        const FieldDecl *LargestFD = nullptr;
-@@ -579,6 +585,13 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+@@ -579,6 +585,12 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
        }
        if (LargestFD)
          GetExpandedTypes(LargestFD->getType(), expandedTypes);
 +    } else if (type->isAggregateImageType() ||
-+               // TODO: only do this if metal (also, in all similar functions)
-+               CGM.getLangOpts().OpenCL) {
++               CGM.getLangOpts().Metal) {
 +      const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl);
 +      for(const auto& field : fields) {
 +        expandedTypes.push_back(ConvertType(field.type));
@@ -4001,7 +4091,7 @@ index 17c3354..dc0e389 100644
      } else {
        for (const auto *I : RD->fields()) {
          assert(!I->isBitField() &&
-@@ -610,7 +623,12 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -610,7 +622,12 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
      }
    } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
      RecordDecl *RD = RT->getDecl();
@@ -4015,11 +4105,12 @@ index 17c3354..dc0e389 100644
        // Unions can be here only in degenerative cases - all the fields are same
        // after flattening. Thus we have to use the "largest" field.
        const FieldDecl *LargestFD = nullptr;
-@@ -630,6 +648,21 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -630,6 +647,22 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
          LValue SubLV = EmitLValueForField(LV, LargestFD);
          AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
        }
-+    } else if(Ty->isAggregateImageType() || CGM.getLangOpts().OpenCL) {
++    } else if(Ty->isAggregateImageType() ||
++              CGM.getLangOpts().Metal) {
 +      for (const auto& base : cxx_rdecl->bases()) {
 +        // TODO: should use the base offset:
 +        // getContext().getASTRecordLayout(cxx_decl).getBaseClassOffset(base.getType()->getAsCXXRecordDecl());
@@ -4095,11 +4186,12 @@ index 17c3354..dc0e389 100644
        const FieldDecl *LargestFD = nullptr;
        CharUnits UnionSize = CharUnits::Zero();
  
-@@ -2615,6 +2677,17 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+@@ -2615,6 +2677,18 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
          RValue FldRV = EmitRValueForField(LV, LargestFD, SourceLocation());
          ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy);
        }
-+    } else if(Ty->isAggregateImageType() || CGM.getLangOpts().OpenCL) {
++    } else if(Ty->isAggregateImageType() ||
++              CGM.getLangOpts().Metal) {
 +      for (const auto& base : cxx_rdecl->bases()) {
 +        ExpandTypeToArgs(base.getType(), RV, Args, IRFuncTy);
 +      }
@@ -4113,7 +4205,7 @@ index 17c3354..dc0e389 100644
      } else {
        for (const auto *FD : RD->fields()) {
          RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
-@@ -2832,12 +2905,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2832,12 +2906,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
@@ -4137,7 +4229,7 @@ index 17c3354..dc0e389 100644
          break;
        }
  
-@@ -3078,6 +3159,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3078,6 +3160,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
            DestPtr = CreateMemTemp(RetTy, "agg.tmp");
            DestIsVolatile = false;
          }
@@ -4231,10 +4323,10 @@ index fc3f434..217f1d4 100644
    llvm::DIType OCLEventDITy;
    llvm::DIType BlockLiteralGeneric;
 diff --git a/tools/clang/lib/CodeGen/CGDecl.cpp b/tools/clang/lib/CodeGen/CGDecl.cpp
-index 91f8041..977712e 100644
+index 91f8041..2c68378 100644
 --- a/tools/clang/lib/CodeGen/CGDecl.cpp
 +++ b/tools/clang/lib/CodeGen/CGDecl.cpp
-@@ -150,8 +150,13 @@ static std::string GetStaticDeclName(CodeGenFunction &CGF, const VarDecl &D,
+@@ -150,8 +150,12 @@ static std::string GetStaticDeclName(CodeGenFunction &CGF, const VarDecl &D,
                                       const char *Separator) {
    CodeGenModule &CGM = CGF.CGM;
  
@@ -4242,8 +4334,7 @@ index 91f8041..977712e 100644
 +  // don't cxx mangle OpenCL "local" variables (affects SPIR and AppleCL - Metal/AIR use cxx mangling)
 +  if (CGF.getLangOpts().CPlusPlus &&
 +      !(D.getStorageClass() == SC_OpenCLWorkGroupLocal &&
-+        CGM.getContext().getLangOpts().OpenCL &&
-+		CGM.getContext().getTargetInfo().getTriple().getArch() != llvm::Triple::air64)) {
++        CGM.getContext().getLangOpts().OpenCL && !CGM.getContext().getLangOpts().Metal)) {
      return CGM.getMangledName(&D).str();
 +  }
  
@@ -4315,7 +4406,7 @@ index 7aacee4..5c002e0 100644
    // If there is an implicit parameter (e.g. VTT), emit it.
    if (ImplicitParam) {
 diff --git a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
-index 079ef72..b3276b8 100644
+index 079ef72..ba16e2c 100644
 --- a/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 +++ b/tools/clang/lib/CodeGen/CGOpenCLRuntime.cpp
 @@ -36,32 +36,138 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
@@ -4350,7 +4441,7 @@ index 079ef72..b3276b8 100644
 -    return llvm::PointerType::get(llvm::StructType::create(
 -                           Ctx, "opencl.event_t"), 0);
 +
-+  if(!CGM.getCodeGenOpts().EmitAppleCLMetadata && !CGM.getCodeGenOpts().EmitAIRMetadata) {
++  if(!CGM.getCodeGenOpts().EmitAppleCLMetadata && !CGM.getLangOpts().Metal) {
 +    switch (cast<BuiltinType>(T)->getKind()) {
 +      default:
 +        llvm_unreachable("Unexpected opencl builtin type!");
@@ -4434,7 +4525,7 @@ index 079ef72..b3276b8 100644
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._event_t"), 0);
 +    }
 +  }
-+  else if(CGM.getCodeGenOpts().EmitAIRMetadata) {
++  else if(CGM.getLangOpts().Metal) {
 +    switch (cast<BuiltinType>(T)->getKind()) {
 +      default:
 +        llvm_unreachable("Unexpected metal builtin type!");
@@ -4485,7 +4576,7 @@ index 079ef72..b3276b8 100644
 +  return nullptr;
  }
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..fbcaa71 100644
+index 5ca3a78..6bea303 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,8 @@
@@ -4497,7 +4588,7 @@ index 5ca3a78..fbcaa71 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +335,110 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +335,112 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4582,6 +4673,8 @@ index 5ca3a78..fbcaa71 100644
 +
 +// Metadata values extractors.
 +static std::string getScalarMetadataValue(const clang::Type *Ty) {
++	if (Ty->isHalfType()) return "half";
++	
 +	if (!Ty->isUnsignedIntegerType()) {
 +		return QualType(Ty, 0).getAsString();
 +	}
@@ -4608,7 +4701,7 @@ index 5ca3a78..fbcaa71 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +446,1160 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +448,1161 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -4941,6 +5034,7 @@ index 5ca3a78..fbcaa71 100644
 +		if(type->isVectorType()) {
 +			type_name = getVectorMetadataValue(llvm::dyn_cast<clang::ExtVectorType>(unqualified_type.getTypePtr()));
 +		}
++		else if(type->isHalfType()) type_name = "half";
 +		else type_name = unqualified_type.getAsString(Policy);
 +		// Turn "unsigned type" to "utype"
 +		const auto pos = type_name.find("unsigned");
@@ -5829,7 +5923,7 @@ index 5ca3a78..fbcaa71 100644
  
    SmallVector <llvm::Value*, 5> kernelMDArgs;
 -  kernelMDArgs.push_back(Fn);
-+  if (!CGM.getCodeGenOpts().EmitAIRMetadata) {
++  if (!CGM.getLangOpts().Metal) {
 +    kernelMDArgs.push_back(Fn);
 +  }
 +  else { // -> need to id/size handling args to the kernel function type
@@ -5864,7 +5958,7 @@ index 5ca3a78..fbcaa71 100644
      GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs,
                           Builder, getContext());
  
-+  if (CGM.getCodeGenOpts().EmitAIRMetadata)
++  if (CGM.getLangOpts().Metal)
 +    GenAIRMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
 +
 +  if (CGM.getCodeGenOpts().EmitAppleCLMetadata)
@@ -5873,7 +5967,7 @@ index 5ca3a78..fbcaa71 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1637,81 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1640,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -5881,7 +5975,7 @@ index 5ca3a78..fbcaa71 100644
 -    CGM.getModule().getOrInsertNamedMetadata("opencl.kernels");
 -  OpenCLKernelMetadata->addOperand(kernelMDNode);
 +  llvm::NamedMDNode *MainMetadataNode;
-+  if(!CGM.getCodeGenOpts().EmitAIRMetadata) {
++  if(!CGM.getLangOpts().Metal) {
 +	  MainMetadataNode = CGM.getModule().getOrInsertNamedMetadata("opencl.kernels");
 +  }
 +  else {
@@ -5892,23 +5986,27 @@ index 5ca3a78..fbcaa71 100644
 +  MainMetadataNode->addOperand(kernelMDNode);
 +
 +  // additional air info
-+  if(CGM.getCodeGenOpts().EmitAIRMetadata) {
++  if(CGM.getLangOpts().Metal) {
 +	  // only do this once
 +	  llvm::NamedMDNode *AIRVersion = CGM.getModule().getOrInsertNamedMetadata("air.version");
 +	  if(AIRVersion->getNumOperands() > 0) return;
 +	  
++	  // NOTE: this is fixed for now as only compiling in metal1.1 mode is possible
++	  const uint32_t metal_version[] = { 1, 8, 0 };
++	  const uint32_t metal_language_version[] = { 1, 1, 0 };
++	  
 +	  SmallVector <llvm::Value*, 3> air_version;
-+	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[0]));
-+	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[1]));
-+	  air_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_version[2]));
++	  air_version.push_back(Builder.getInt32(metal_version[0]));
++	  air_version.push_back(Builder.getInt32(metal_version[1]));
++	  air_version.push_back(Builder.getInt32(metal_version[2]));
 +	  AIRVersion->addOperand(llvm::MDNode::get(Context, air_version));
 +	  
 +	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
 +	  SmallVector <llvm::Value*, 4> air_lang_version;
 +	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
-+	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[0]));
-+	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[1]));
-+	  air_lang_version.push_back(Builder.getInt32(CGM.getLangOpts().metal_language_version[2]));
++	  air_lang_version.push_back(Builder.getInt32(metal_language_version[0]));
++	  air_lang_version.push_back(Builder.getInt32(metal_language_version[1]));
++	  air_lang_version.push_back(Builder.getInt32(metal_language_version[2]));
 +	  AIRLangVersion->addOperand(llvm::MDNode::get(Context, air_lang_version));
 +	  
 +	  llvm::NamedMDNode *AIRCompOpts = CGM.getModule().getOrInsertNamedMetadata("air.compile_options");
@@ -5958,7 +6056,7 @@ index 5ca3a78..fbcaa71 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1738,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1745,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -5966,7 +6064,7 @@ index 5ca3a78..fbcaa71 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1754,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1761,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -5975,7 +6073,7 @@ index 5ca3a78..fbcaa71 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1765,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1772,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -6017,7 +6115,7 @@ index 5ca3a78..fbcaa71 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1866,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1873,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -6035,7 +6133,7 @@ index 5ca3a78..fbcaa71 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +1997,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2004,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -6127,7 +6225,7 @@ index 5ca3a78..fbcaa71 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2135,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2142,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -6136,7 +6234,7 @@ index 5ca3a78..fbcaa71 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2185,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2192,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -6779,16 +6877,37 @@ index 198e82e..41a24da 100644
      .Default(llvm::Triple::UnknownArch);
  }
  
+diff --git a/tools/clang/lib/Frontend/CompilerInstance.cpp b/tools/clang/lib/Frontend/CompilerInstance.cpp
+index 6af920d..a83d536 100644
+--- a/tools/clang/lib/Frontend/CompilerInstance.cpp
++++ b/tools/clang/lib/Frontend/CompilerInstance.cpp
+@@ -842,6 +842,8 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
+ /// \brief Determine the appropriate source input kind based on language
+ /// options.
+ static InputKind getSourceInputKindFromOptions(const LangOptions &LangOpts) {
++  if (LangOpts.Metal)
++    return IK_Metal;
+   if (LangOpts.OpenCL)
+     return IK_OpenCL;
+   if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..e4da1c9 100644
+index ce61a46..7096fa3 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -474,6 +474,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -73,7 +73,7 @@ using namespace llvm::opt;
+ static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
+                                      DiagnosticsEngine &Diags) {
+   unsigned DefaultOpt = 0;
+-  if (IK == IK_OpenCL && !Args.hasArg(OPT_cl_opt_disable))
++  if ((IK == IK_OpenCL || IK == IK_Metal) && !Args.hasArg(OPT_cl_opt_disable))
+     DefaultOpt = 2;
+ 
+   if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
+@@ -474,6 +474,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
-+  Opts.EmitAIRMetadata = Args.hasArg(OPT_metal_air);
-+  if (Opts.EmitAIRMetadata) {
++  if (IK == IK_Metal) {
 +    // dwarf version must always be 2 for metal/air
 +    Opts.DwarfVersion = 2;
 +  }
@@ -6796,7 +6915,49 @@ index ce61a46..e4da1c9 100644
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -1276,7 +1282,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -904,6 +909,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+     DashX = llvm::StringSwitch<InputKind>(A->getValue())
+       .Case("c", IK_C)
+       .Case("cl", IK_OpenCL)
++      .Case("metal", IK_Metal)
+       .Case("cuda", IK_CUDA)
+       .Case("c++", IK_CXX)
+       .Case("objective-c", IK_ObjC)
+@@ -917,6 +923,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+       .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
+       .Case("c-header", IK_C)
+       .Case("cl-header", IK_OpenCL)
++      .Case("metal-header", IK_Metal)
+       .Case("objective-c-header", IK_ObjC)
+       .Case("c++-header", IK_CXX)
+       .Case("objective-c++-header", IK_ObjCXX)
+@@ -1110,6 +1117,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+     case IK_OpenCL:
+       LangStd = LangStandard::lang_opencl;
+       break;
++    case IK_Metal:
++      LangStd = LangStandard::lang_metal11;
++      break;
+     case IK_CUDA:
+       LangStd = LangStandard::lang_cuda;
+       break;
+@@ -1151,7 +1161,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+       Opts.OpenCLVersion = 110;
+   else if (LangStd == LangStandard::lang_opencl12)
+     Opts.OpenCLVersion = 120;
+-  
++
++  // as Metal is largely compiled as OpenCL, also enable + init opencl
++  if (LangStd == LangStandard::lang_metal11 || IK == IK_Metal) {
++    Opts.Metal = 1;
++    Opts.OpenCL = 1;
++    Opts.OpenCLVersion = 120;
++  }
++
+   // OpenCL has some additional defaults.
+   if (Opts.OpenCL) {
+     Opts.AltiVec = 0;
+@@ -1276,10 +1293,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -6805,39 +6966,26 @@ index ce61a46..e4da1c9 100644
            Diags.Report(diag::err_drv_argument_not_allowed_with)
              << A->getAsString(Args) << "OpenCL";
          break;
-@@ -1311,6 +1317,32 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
-   
-   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
- 
-+  // extract the metal version and metal language version from the cli option
-+  if (const Arg *A = Args.getLastArg(OPT_metal_air)) {
-+    StringRef metal_versions = A->getValue();
-+    // expecting "major,minor,rev,major,minor,rev" -> 5 commas
-+    if(metal_versions.count(',') != 5) {
-+      Diags.Report(diag::err_drv_invalid_value)
-+      << A->getAsString(Args) << A->getValue();
-+    }
-+    else {
-+      std::vector<std::string> versions;
-+      size_t pos = 0, old_pos = 0;
-+      while((pos = metal_versions.find(',', old_pos)) != std::string::npos) {
-+        versions.emplace_back(metal_versions.substr(old_pos, pos - old_pos));
-+        old_pos = pos + 1;
-+      }
-+      versions.emplace_back(metal_versions.substr(old_pos, pos - old_pos));
-+      
-+      Opts.metal_version[0] = std::stoul(versions[0]);
-+      Opts.metal_version[1] = std::stoul(versions[1]);
-+      Opts.metal_version[2] = std::stoul(versions[2]);
-+      Opts.metal_language_version[0] = std::stoul(versions[3]);
-+      Opts.metal_language_version[1] = std::stoul(versions[4]);
-+      Opts.metal_language_version[2] = std::stoul(versions[5]);
-+    }
-+  }
-+
-   // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
-   // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
-   // while a subset (the non-C++ GNU keywords) is provided by GCC's
++      case IK_Metal:
++        if (!Std.isCPlusPlus())
++          Diags.Report(diag::err_drv_argument_not_allowed_with)
++            << A->getAsString(Args) << "Metal";
++        break;
+       case IK_CUDA:
+         if (!Std.isCPlusPlus())
+           Diags.Report(diag::err_drv_argument_not_allowed_with)
+diff --git a/tools/clang/lib/Frontend/FrontendActions.cpp b/tools/clang/lib/Frontend/FrontendActions.cpp
+index 6dcaf38..8f18343 100644
+--- a/tools/clang/lib/Frontend/FrontendActions.cpp
++++ b/tools/clang/lib/Frontend/FrontendActions.cpp
+@@ -661,6 +661,7 @@ void PrintPreambleAction::ExecuteAction() {
+   case IK_ObjC:
+   case IK_ObjCXX:
+   case IK_OpenCL:
++  case IK_Metal:
+   case IK_CUDA:
+     break;
+       
 diff --git a/tools/clang/lib/Frontend/InitPreprocessor.cpp b/tools/clang/lib/Frontend/InitPreprocessor.cpp
 index 7a9d09a..17c60f6 100644
 --- a/tools/clang/lib/Frontend/InitPreprocessor.cpp
@@ -7115,7 +7263,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..7d52a47 100644
+index 8716227..a58f4ab 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -7169,7 +7317,53 @@ index 8716227..7d52a47 100644
      return;
    }
  
-@@ -6740,6 +6764,10 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6621,7 +6645,7 @@ enum OpenCLParamType {
+   RecordKernelParam
+ };
+ 
+-static OpenCLParamType getOpenCLKernelParameterType(QualType PT) {
++static OpenCLParamType getOpenCLKernelParameterType(QualType PT, const bool is_metal) {
+   if (PT->isPointerType()) {
+     QualType PointeeType = PT->getPointeeType();
+     if (PointeeType->isPointerType())
+@@ -6642,7 +6666,7 @@ static OpenCLParamType getOpenCLKernelParameterType(QualType PT) {
+   if (PT->isEventT())
+     return InvalidKernelParam;
+ 
+-  if (PT->isHalfType())
++  if (PT->isHalfType() && !is_metal)
+     return InvalidKernelParam;
+ 
+   if (PT->isRecordType())
+@@ -6655,7 +6679,8 @@ static void checkIsValidOpenCLKernelParameter(
+   Sema &S,
+   Declarator &D,
+   ParmVarDecl *Param,
+-  llvm::SmallPtrSet<const Type *, 16> &ValidTypes) {
++  llvm::SmallPtrSet<const Type *, 16> &ValidTypes,
++  const bool is_metal) {
+   QualType PT = Param->getType();
+ 
+   // Cache the valid types we encounter to avoid rechecking structs that are
+@@ -6663,7 +6688,7 @@ static void checkIsValidOpenCLKernelParameter(
+   if (ValidTypes.count(PT.getTypePtr()))
+     return;
+ 
+-  switch (getOpenCLKernelParameterType(PT)) {
++  switch (getOpenCLKernelParameterType(PT, is_metal)) {
+   case PtrPtrKernelParam:
+     // OpenCL v1.2 s6.9.a:
+     // A kernel function argument cannot be declared as a
+@@ -6727,6 +6752,8 @@ static void checkIsValidOpenCLKernelParameter(
+       continue;
+     }
+ 
++    // TODO: this should also check base classes
++
+     // Adds everything except the original parameter declaration (which is not a
+     // field itself) to the history stack.
+     const RecordDecl *RD;
+@@ -6740,13 +6767,17 @@ static void checkIsValidOpenCLKernelParameter(
      // Add a null marker so we know when we've gone back up a level
      VisitStack.push_back(nullptr);
  
@@ -7180,7 +7374,15 @@ index 8716227..7d52a47 100644
      for (const auto *FD : RD->fields()) {
        QualType QT = FD->getType();
  
-@@ -7578,15 +7606,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+       if (ValidTypes.count(QT.getTypePtr()))
+         continue;
+ 
+-      OpenCLParamType ParamType = getOpenCLKernelParameterType(QT);
++      OpenCLParamType ParamType = getOpenCLKernelParameterType(QT, is_metal);
+       if (ParamType == ValidKernelParam)
+         continue;
+ 
+@@ -7578,15 +7609,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
      }
    }
  
@@ -7198,7 +7400,7 @@ index 8716227..7d52a47 100644
      if (!NewFD->getReturnType()->isVoidType()) {
        SourceRange RTRange = NewFD->getReturnTypeSourceRange();
        Diag(D.getIdentifierLoc(), diag::err_expected_kernel_void_return_type)
-@@ -7594,10 +7615,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -7594,10 +7618,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                  : FixItHint());
        D.setInvalidType();
      }
@@ -7220,12 +7422,12 @@ index 8716227..7d52a47 100644
 +    if (getLangOpts().OpenCL) {
 +      llvm::SmallPtrSet<const Type *, 16> ValidTypes;
 +      for (auto Param : NewFD->params())
-+        checkIsValidOpenCLKernelParameter(*this, D, Param, ValidTypes);
++        checkIsValidOpenCLKernelParameter(*this, D, Param, ValidTypes, getLangOpts().Metal);
 +    }
    }
  
    MarkUnusedFileScopedDecl(NewFD);
-@@ -7918,7 +7952,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
+@@ -7918,7 +7955,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
      // the function returns a UDT (class, struct, or union type) that is not C
      // compatible, and if it does, warn the user.
      // But, issue any diagnostic on the first declaration only.
@@ -7237,7 +7439,7 @@ index 8716227..7d52a47 100644
        QualType R = NewFD->getReturnType();
        if (R->isIncompleteType() && !R->isVoidType())
          Diag(NewFD->getLocation(), diag::warn_return_value_udt_incomplete)
-@@ -7959,9 +7996,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
+@@ -7959,9 +7999,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
      FD->setConstexpr(false);
    }
  
@@ -7250,7 +7452,7 @@ index 8716227..7d52a47 100644
      FD->setInvalidDecl();
      return;
    }
-@@ -9781,8 +9819,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
+@@ -9781,8 +9822,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
    if (FD->isFunctionTemplateSpecialization())
      return false;
  
@@ -7263,7 +7465,7 @@ index 8716227..7d52a47 100644
      return false;
  
    bool MissingPrototype = true;
-@@ -9954,6 +9994,27 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +9997,27 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -7291,7 +7493,7 @@ index 8716227..7d52a47 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +12002,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +12005,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
