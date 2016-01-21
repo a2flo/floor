@@ -333,37 +333,56 @@ namespace const_math {
 		return fp_type(exp(max_fp_type(val) * const_math::LN2<>));
 	}
 	
+	//! makes use of log(x * y) = log(x) + log(y) by decomposing val into a value in [1, 2) and its 2^x exponent,
+	//! then easily computing log(val in [1, 2)) which converges quickly, and log2(2^x) == x for its exponent
+	//! NOTE: returns { false, error ret value, ... } if val is an invalid value, { true, ..., log(val in [1, 2)), exponent } if valid
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr tuple<bool, fp_type, max_fp_type, max_fp_type> partial_ln_and_log2(fp_type val) {
+		if(val == (fp_type)0 || val == -(fp_type)0) return { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(val == (fp_type)1) return { false, (fp_type)0, 0.0_fp, 0.0_fp };
+		if(val < (fp_type)0) return { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		if(__builtin_isinf(val)) return { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(__builtin_isnan(val)) return { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		
+		// decompose into [1, 2) part and 2^x part
+		const auto decomp = const_math::decompose_fp(val);
+		
+		// this converges quickly for [1, 2)
+		// ref: https://en.wikipedia.org/wiki/Logarithm#Power_series (more efficient series)
+		typedef long double max_fp_type;
+		const auto ldbl_val = (max_fp_type)decomp.first;
+		const auto frac = (ldbl_val - 1.0_fp) / (ldbl_val + 1.0_fp);
+		const auto frac_sq = frac * frac;
+		auto frac_exp = frac;
+		auto res = frac;
+		for(uint32_t i = 1; i < 32; ++i) {
+			frac_exp *= frac_sq;
+			res += frac_exp / max_fp_type(i * 2 + 1);
+		}
+		const auto decomp_res = res * 2.0_fp;
+		
+		// compute log2(decomp exponent), which is == exponent in this case
+		const auto exp_log2_val = (max_fp_type)decomp.second;
+		
+		return { true, (fp_type)0, decomp_res, exp_log2_val };
+	}
+	
 	//! computes ln(val), the natural logarithm of val
-	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type log(fp_type val) {
-		// ref: https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
-		// compute a first estimate
-		const max_fp_type ldbl_val = (max_fp_type)val;
-		max_fp_type estimate = 0.0_fp;
-		const max_fp_type x_inv = (ldbl_val - 1.0_fp) / ldbl_val;
-		max_fp_type x_pow = x_inv;
-		estimate = x_inv;
-		for(int i = 2; i < 16; ++i) {
-			x_pow *= x_inv;
-			estimate += (1.0_fp / (max_fp_type)i) * x_pow;
-		}
-		
-		// compute a more accurate ln(x) with newton
-		max_fp_type x = estimate;
-		for(int i = 0; i < 32; ++i) {
-			const max_fp_type exp_x = const_math::exp(x);
-			x = x + 2.0_fp * ((ldbl_val - exp_x) / (ldbl_val + exp_x));
-		}
-		return (fp_type)x;
+		const auto ret = partial_ln_and_log2(val);
+		if(!get<0>(ret)) return get<1>(ret);
+		// "log_e(x) = log_2(x) / log_2(e)" for the exponent value, log(val in [1, 2)) is already correct
+		return fp_type(get<2>(ret) + (get<3>(ret) * const_math::_1_DIV_LD2_E<max_fp_type>));
 	}
 	
 	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
-	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type log2(fp_type val) {
-		// log_2(x) = ln(x) / ln(2)
-		return fp_type(log((max_fp_type)val) * const_math::_1_DIV_LN2<>);
+		const auto ret = partial_ln_and_log2(val);
+		if(!get<0>(ret)) return get<1>(ret);
+		// "log_2(x) = ln(x) / ln(2)" for the decomposed value, log2(2^x) == x is already correct
+		return fp_type((get<2>(ret) * const_math::_1_DIV_LN2<max_fp_type>) + get<3>(ret));
 	}
 	
 	//! computes base^exponent, base to the power of exponent
