@@ -32,6 +32,36 @@ index de14c1a..80fc6bc 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/IR/DerivedTypes.h b/include/llvm/IR/DerivedTypes.h
+index ff15087..0e9430c 100644
+--- a/include/llvm/IR/DerivedTypes.h
++++ b/include/llvm/IR/DerivedTypes.h
+@@ -194,7 +194,8 @@ class StructType : public CompositeType {
+     SCDB_HasBody = 1,
+     SCDB_Packed = 2,
+     SCDB_IsLiteral = 4,
+-    SCDB_IsSized = 8
++    SCDB_IsSized = 8,
++    SCDB_IsMetalReturnType = 16
+   };
+ 
+   /// SymbolTableEntry - For a named struct that actually has a name, this is a
+@@ -248,6 +249,15 @@ public:
+   /// specified yet.  These prints as 'opaque' in .ll files.
+   bool isOpaque() const { return (getSubclassData() & SCDB_HasBody) == 0; }
+ 
++  /// isMetalReturnType - Return true if this type is used as a metal vertex/fragment
++  /// shader return type.
++  bool isMetalReturnType() const { return (getSubclassData() & SCDB_IsMetalReturnType) != 0; }
++
++  /// setMetalReturnType - Flags this type as a metal return type.
++  void setMetalReturnType() {
++    setSubclassData(getSubclassData() | SCDB_IsMetalReturnType);
++  }
++
+   /// isSized - Return true if this is a sized type.
+   bool isSized(SmallPtrSet<const Type*, 4> *Visited = nullptr) const;
+   
 diff --git a/include/llvm/IR/Metadata.h b/include/llvm/IR/Metadata.h
 index 7a0ca88..4b27374 100644
 --- a/include/llvm/IR/Metadata.h
@@ -47,42 +77,73 @@ index 7a0ca88..4b27374 100644
  
  //===----------------------------------------------------------------------===//
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..744e850 100644
+index 02f4259..ed133af 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -64,6 +64,11 @@ void initializeTarget(PassRegistry&);
+@@ -64,6 +64,12 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
 +void initializeAddressSpaceFixPass(PassRegistry&);
 +void initializeCUDAFirstPass(PassRegistry&);
 +void initializeCUDAFinalPass(PassRegistry&);
++void initializeMetalFirstPass(PassRegistry&);
 +void initializeMetalFinalPass(PassRegistry&);
 +void initializeSPIRFinalPass(PassRegistry&);
  void initializeADCEPass(PassRegistry&);
  void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
  void initializeAliasAnalysisCounterPass(PassRegistry&);
+@@ -117,6 +123,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
+ void initializeDominatorTreeWrapperPassPass(PassRegistry&);
+ void initializeEarlyIfConverterPass(PassRegistry&);
+ void initializeEdgeBundlesPass(PassRegistry&);
++void initializeEverythingInlinerPass(PassRegistry&);
+ void initializeExpandPostRAPass(PassRegistry&);
+ void initializeGCOVProfilerPass(PassRegistry&);
+ void initializeAddressSanitizerPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..ccab99a 100644
+index e06560c..b53d580 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
-@@ -48,6 +48,11 @@ namespace {
+@@ -48,6 +48,12 @@ namespace {
          return;
  
        (void) llvm::createAAEvalPass();
 +      (void) llvm::createAddressSpaceFixPass();
 +      (void) llvm::createCUDAFirstPass();
 +      (void) llvm::createCUDAFinalPass();
++      (void) llvm::createMetalFirstPass();
 +      (void) llvm::createMetalFinalPass();
 +      (void) llvm::createSPIRFinalPass();
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
        (void) llvm::createAliasDebugger();
+@@ -77,6 +83,7 @@ namespace {
+       (void) llvm::createGCOVProfilerPass();
+       (void) llvm::createFunctionInliningPass();
+       (void) llvm::createAlwaysInlinerPass();
++      (void) llvm::createEverythingInlinerPass();
+       (void) llvm::createGlobalDCEPass();
+       (void) llvm::createGlobalOptimizerPass();
+       (void) llvm::createGlobalsModRefPass();
 diff --git a/include/llvm/Transforms/IPO.h b/include/llvm/Transforms/IPO.h
-index ce1a7d6..8042a55 100644
+index ce1a7d6..0511a23 100644
 --- a/include/llvm/Transforms/IPO.h
 +++ b/include/llvm/Transforms/IPO.h
-@@ -177,6 +177,7 @@ ModulePass *createStripDeadPrototypesPass();
+@@ -98,6 +98,12 @@ Pass *createAlwaysInlinerPass();
+ Pass *createAlwaysInlinerPass(bool InsertLifetime);
+ 
+ //===----------------------------------------------------------------------===//
++/// createEverythingInlinerPass - Return a new pass object that inlines
++/// everything, unless it was marked "noinline".
++Pass *createEverythingInlinerPass();
++Pass *createEverythingInlinerPass(bool InsertLifetime);
++
++//===----------------------------------------------------------------------===//
+ /// createPruneEHPass - Return a new pass object which transforms invoke
+ /// instructions into calls, if the callee can _not_ unwind the stack.
+ ///
+@@ -177,6 +183,7 @@ ModulePass *createStripDeadPrototypesPass();
  /// and marks them with the nocapture attribute.
  ///
  Pass *createFunctionAttrsPass();
@@ -106,10 +167,10 @@ index 50877d0..0e9dd02 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..ea0d968 100644
+index 413134e..64712b3 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -30,6 +30,37 @@ class TargetMachine;
+@@ -30,6 +30,43 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -129,6 +190,12 @@ index 413134e..ea0d968 100644
 +// CUDAFinal - final pass, making CUDA related IR changes.
 +//
 +FunctionPass *createCUDAFinalPass();
++
++//===----------------------------------------------------------------------===//
++//
++// MetalFirst - This pass fixes Metal/AIR issues.
++//
++FunctionPass *createMetalFirstPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -219,6 +286,30 @@ index 7557886..a9f4def 100644
  
    // It is common to ask for a bitcast of a value to its own type, handle this
    // speedily.
+diff --git a/lib/IR/DataLayout.cpp b/lib/IR/DataLayout.cpp
+index dea05fb..e343af4 100644
+--- a/lib/IR/DataLayout.cpp
++++ b/lib/IR/DataLayout.cpp
+@@ -71,6 +71,19 @@ StructLayout::StructLayout(StructType *ST, const DataLayout &DL) {
+   // and all array elements would be aligned correctly.
+   if ((StructSize & (StructAlignment-1)) != 0)
+     StructSize = DataLayout::RoundUpAlignment(StructSize, StructAlignment);
++
++  // fix up metal return types (densely pack vector types)
++  if (ST->isMetalReturnType()) {
++    uint64_t offset_fix = 0;
++    for (uint32_t i = 0; i < NumElements; ++i) {
++      MemberOffsets[i] -= offset_fix;
++
++      const auto type = ST->getElementType(i);
++      if (type->isVectorTy()) {
++        offset_fix += DL.getABITypeAlignment(type) - DL.getTypeStoreSize(type);
++      }
++    }
++  }
+ }
+ 
+ 
 diff --git a/lib/IR/Instructions.cpp b/lib/IR/Instructions.cpp
 index 9553252..5047ab2 100644
 --- a/lib/IR/Instructions.cpp
@@ -494,6 +585,18 @@ index d5cded2..2e0ca79 100644
    }
  
    return *this;
+diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
+index 90c1c33..3c64ad0 100644
+--- a/lib/Transforms/IPO/CMakeLists.txt
++++ b/lib/Transforms/IPO/CMakeLists.txt
+@@ -10,6 +10,7 @@ add_llvm_library(LLVMipo
+   IPConstantPropagation.cpp
+   IPO.cpp
+   InlineAlways.cpp
++  InlineEverything.cpp
+   InlineSimple.cpp
+   Inliner.cpp
+   Internalize.cpp
 diff --git a/lib/Transforms/IPO/FunctionAttrs.cpp b/lib/Transforms/IPO/FunctionAttrs.cpp
 index 8174df9..21a73ba 100644
 --- a/lib/Transforms/IPO/FunctionAttrs.cpp
@@ -564,6 +667,135 @@ index c1d0d3b..3d4303a 100644
          ++NumFastCallFns;
          Changed = true;
        }
+diff --git a/lib/Transforms/IPO/IPO.cpp b/lib/Transforms/IPO/IPO.cpp
+index b4d31d8..ffef3ba 100644
+--- a/lib/Transforms/IPO/IPO.cpp
++++ b/lib/Transforms/IPO/IPO.cpp
+@@ -31,6 +31,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
+   initializeGlobalOptPass(Registry);
+   initializeIPCPPass(Registry);
+   initializeAlwaysInlinerPass(Registry);
++  initializeEverythingInlinerPass(Registry);
+   initializeSimpleInlinerPass(Registry);
+   initializeInternalizePassPass(Registry);
+   initializeLoopExtractorPass(Registry);
+@@ -75,6 +76,10 @@ void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(llvm::createAlwaysInlinerPass());
+ }
+ 
++void LLVMAddEverythingInlinerPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(llvm::createEverythingInlinerPass());
++}
++
+ void LLVMAddGlobalDCEPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(createGlobalDCEPass());
+ }
+diff --git a/lib/Transforms/IPO/InlineEverything.cpp b/lib/Transforms/IPO/InlineEverything.cpp
+new file mode 100644
+index 0000000..4284c6d
+--- /dev/null
++++ b/lib/Transforms/IPO/InlineEverything.cpp
+@@ -0,0 +1,100 @@
++//===- InlineEverything.cpp - Code to inline all functions ----------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This file implements a custom inliner that inlines everything, unless it was
++// marked "noinline".
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/Transforms/IPO.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/Analysis/CallGraph.h"
++#include "llvm/Analysis/InlineCost.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Type.h"
++#include "llvm/Transforms/IPO/InlinerPass.h"
++
++using namespace llvm;
++
++#define DEBUG_TYPE "inline"
++
++namespace {
++
++/// \brief Inliner pass which inlines everything unless it was marked "noinline".
++class EverythingInliner : public Inliner {
++  InlineCostAnalysis *ICA;
++
++public:
++  // Use extremely high threshold (one lower then noinline).
++  EverythingInliner() : Inliner(ID, INT_MAX - 1, /*InsertLifetime*/ true),
++                        ICA(nullptr) {
++    initializeEverythingInlinerPass(*PassRegistry::getPassRegistry());
++  }
++
++  EverythingInliner(bool InsertLifetime)
++      : Inliner(ID, INT_MAX - 1, InsertLifetime), ICA(nullptr) {
++    initializeEverythingInlinerPass(*PassRegistry::getPassRegistry());
++  }
++
++  static char ID; // Pass identification, replacement for typeid
++
++  InlineCost getInlineCost(CallSite CS) override;
++
++  void getAnalysisUsage(AnalysisUsage &AU) const override;
++  bool runOnSCC(CallGraphSCC &SCC) override;
++
++  using llvm::Pass::doFinalization;
++  bool doFinalization(CallGraph &CG) override {
++    return removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ false);
++  }
++};
++
++}
++
++char EverythingInliner::ID = 0;
++INITIALIZE_PASS_BEGIN(EverythingInliner, "everything-inline",
++                      "everything inliner", false, false)
++INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(InlineCostAnalysis)
++INITIALIZE_PASS_END(EverythingInliner, "everything-inline",
++                    "everything inliner", false, false)
++
++Pass *llvm::createEverythingInlinerPass() { return new EverythingInliner(); }
++
++Pass *llvm::createEverythingInlinerPass(bool InsertLifetime) {
++  return new EverythingInliner(InsertLifetime);
++}
++
++InlineCost EverythingInliner::getInlineCost(CallSite CS) {
++  Function *Callee = CS.getCalledFunction();
++
++  if (Callee && !Callee->isDeclaration() &&
++      (CS.hasFnAttr(Attribute::NoInline) ||
++	   Callee->hasFnAttribute(Attribute::NoInline) ||
++	   !ICA->isInlineViable(*Callee))) {
++    return InlineCost::getNever();
++  }
++
++  return InlineCost::getAlways();
++}
++
++bool EverythingInliner::runOnSCC(CallGraphSCC &SCC) {
++  ICA = &getAnalysis<InlineCostAnalysis>();
++  return Inliner::runOnSCC(SCC);
++}
++
++void EverythingInliner::getAnalysisUsage(AnalysisUsage &AU) const {
++  AU.addRequired<InlineCostAnalysis>();
++  Inliner::getAnalysisUsage(AU);
++}
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
 index c970a1a..62f3c6a 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
@@ -595,7 +827,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..8e06212 100644
+index 701fb46..204cd9b 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,10 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -609,17 +841,18 @@ index 701fb46..8e06212 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +134,9 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +134,10 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 +  // run "first" passes that should run before all else
 +  if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
++  else if(EnableMetalPasses) MPM.add(createMetalFirstPass());
 +
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -153,6 +160,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -153,6 +161,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -638,7 +871,7 @@ index 701fb46..8e06212 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +299,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +300,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -1872,10 +2105,10 @@ index 0000000..89a8fee
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..9646466
+index 0000000..774dc4a
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,503 @@
+@@ -0,0 +1,680 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1926,6 +2159,8 @@ index 0000000..9646466
 +#include <algorithm>
 +#include <cstdarg>
 +#include <memory>
++#include <unordered_map>
++#include <array>
 +#include <cxxabi.h>
 +using namespace llvm;
 +
@@ -2086,6 +2321,95 @@ index 0000000..9646466
 +//////////////////////////////////////////
 +
 +namespace {
++	static bool metal_load_splitter(LoadInst& LI, const bool is_vs) {
++#if 1
++		if(!is_vs) return false;
++		if(!LI.getType()->isAggregateType()) return false;
++		
++		/*printf(">> replacing load: "); fflush(stdout);
++		LI.dump(); fflush(stdout); fflush(stderr);
++		printf("\n"); fflush(stdout);*/
++		
++		LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
++		Value *V = UndefValue::get(LI.getType());
++		Splitter.emitSplitOps(LI.getType(), V, LI.getName() + ".mtlld");
++		LI.replaceAllUsesWith(V);
++		LI.eraseFromParent();
++		return true;
++#else
++		return false;
++#endif
++	}
++	
++	static bool metal_store_splitter(StoreInst& SI, const bool is_vs) {
++#if 1
++		if(!is_vs) return false;
++		if(!SI.getType()->isAggregateType()) return false;
++		
++		/*printf(">> replacing store: "); fflush(stdout);
++		SI.dump(); fflush(stdout); fflush(stderr);
++		printf("\n"); fflush(stdout);*/
++		
++		Value *V = SI.getValueOperand();
++		StoreOpSplitter Splitter(&SI, SI.getPointerOperand());
++		Splitter.emitSplitOps(V->getType(), V, V->getName() + ".mtlst");
++		SI.eraseFromParent();
++		return true;
++#else
++		return false;
++#endif
++	}
++	
++	// MetalFirst
++	struct MetalFirst : public FunctionPass, InstVisitor<MetalFirst> {
++		friend class InstVisitor<MetalFirst>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		
++		bool was_modified { false };
++		bool is_vertex_func { false };
++		bool is_fragment_func { false };
++		
++		MetalFirst() : FunctionPass(ID) {
++			initializeMetalFirstPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			
++			is_vertex_func = F.hasFnAttribute("vertex_shader");
++			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			
++			//
++			was_modified = false;
++			//visit(F); // NOTE/TODO: disabled for now
++			
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<MetalFirst>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<MetalFirst>::visit(I);
++		}
++		
++		void visitLoadInst(LoadInst &LI) {
++			was_modified = metal_load_splitter(LI, is_vertex_func);
++		}
++		
++		void visitStoreInst(StoreInst &SI) {
++			was_modified = metal_store_splitter(SI, is_vertex_func);
++		}
++	};
++	
 +	// MetalFinal
 +	struct MetalFinal : public FunctionPass, InstVisitor<MetalFinal> {
 +		friend class InstVisitor<MetalFinal>;
@@ -2119,6 +2443,58 @@ index 0000000..9646466
 +		
 +		MetalFinal() : FunctionPass(ID) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
++		}
++		
++		llvm::Constant* get_conversion_func(llvm::Type* from, const bool from_signed,
++											llvm::Type* to, const bool to_signed) {
++			static const std::unordered_map<llvm::Type*, const char*> type_map {
++				{ llvm::Type::getInt1Ty(*ctx), ".i1" }, // not sure about signed/unsigned conversion here
++				{ llvm::Type::getInt8Ty(*ctx), ".i8" },
++				{ llvm::Type::getInt16Ty(*ctx), ".i16" },
++				{ llvm::Type::getInt32Ty(*ctx), ".i32" },
++				{ llvm::Type::getInt64Ty(*ctx), ".i64" },
++				{ llvm::Type::getHalfTy(*ctx), "f.f16" },
++				{ llvm::Type::getFloatTy(*ctx), "f.f32" },
++				{ llvm::Type::getDoubleTy(*ctx), "f.f64" },
++			};
++			const auto from_iter = type_map.find(from);
++			if(from_iter == end(type_map)) {
++				return nullptr;
++			}
++			const auto to_iter = type_map.find(to);
++			if(to_iter == end(type_map)) {
++				return nullptr;
++			}
++			
++			// air.convert.<to_type>.<from_type>
++			std::string func_name = "air.convert.";
++			
++			if(to_iter->second[0] == '.') {
++				func_name += (to_signed ? 's' : 'u');
++			}
++			func_name += to_iter->second;
++			
++			func_name += '.';
++			if(from_iter->second[0] == '.') {
++				func_name += (from_signed ? 's' : 'u');
++			}
++			func_name += from_iter->second;
++			
++			SmallVector<llvm::Type*, 1> params(1, from);
++			const auto func_type = llvm::FunctionType::get(to, params, false);
++			return M->getOrInsertFunction(func_name, func_type);
++		}
++		
++		template <Instruction::CastOps cast_op>
++		__attribute__((always_inline))
++		llvm::Constant* get_conversion_func(llvm::Type* from, llvm::Type* to) {
++			switch(cast_op) {
++				case llvm::Instruction::FPToSI: return get_conversion_func(from, true, to, true);
++				case llvm::Instruction::FPToUI: return get_conversion_func(from, true, to, false);
++				case llvm::Instruction::SIToFP: return get_conversion_func(from, true, to, true);
++				case llvm::Instruction::UIToFP: return get_conversion_func(from, false, to, true);
++				default: return nullptr;
++			}
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -2253,29 +2629,66 @@ index 0000000..9646466
 +		// * replace all uses of the original vector
 +		template <Instruction::CastOps cast_op>
 +		__attribute__((always_inline))
-+		void vec_to_scalar_ops(CastInst& I) {
-+			if(!I.getType()->isVectorTy()) return;
++		bool vec_to_scalar_ops(CastInst& I) {
++			if(!I.getType()->isVectorTy()) return false;
 +			
 +			// start insertion before instruction
 +			builder->SetInsertPoint(&I);
 +			
 +			// setup
-+			auto* src_vec = I.getOperand(0);
-+			const auto dim = src_vec->getType()->getVectorNumElements();
++			auto src_vec = I.getOperand(0);
++			const auto src_vec_type = src_vec->getType();
++			const auto src_scalar_type = src_vec_type->getVectorElementType();
++			const auto dim = src_vec_type->getVectorNumElements();
++			
 +			const auto si_type = I.getDestTy();
 +			const auto si_scalar_type = si_type->getScalarType();
 +			llvm::Value* dst_vec = UndefValue::get(si_type);
 +			
++			llvm::Constant* conv_func = get_conversion_func<cast_op>(src_scalar_type, si_scalar_type);
++			// TODO: error if conv func == nullptr && should not be so
++			
 +			// iterate over all vector components, emit a scalar instruction and insert into a new vector
 +			for(uint32_t i = 0; i < dim; ++i) {
 +				auto scalar = builder->CreateExtractElement(src_vec, builder->getInt32(i));
-+				dst_vec = builder->CreateInsertElement(dst_vec,
-+													   builder->CreateCast(cast_op, scalar, si_scalar_type),
-+													   builder->getInt32(i));
++				llvm::Value* cast;
++				switch(cast_op) {
++					case llvm::Instruction::FPToSI:
++					case llvm::Instruction::FPToUI:
++					case llvm::Instruction::SIToFP:
++					case llvm::Instruction::UIToFP:
++						cast = builder->CreateCall(conv_func, scalar);
++						break;
++					default:
++						cast = builder->CreateCast(cast_op, scalar, si_scalar_type);
++						break;
++				}
++				dst_vec = builder->CreateInsertElement(dst_vec, cast, builder->getInt32(i));
 +			}
 +			
 +			// finally, replace all uses with the new vector and remove the old vec instruction
 +			I.replaceAllUsesWith(dst_vec);
++			I.eraseFromParent();
++			was_modified = true;
++			return true;
++		}
++		
++		// si/ui/fp -> si/ui/fp conversions require a call to an intrinsic air function (air.convert.*)
++		template <Instruction::CastOps cast_op>
++		__attribute__((always_inline))
++		void scalar_conversion(CastInst& I) {
++			builder->SetInsertPoint(&I);
++			
++			auto src = I.getOperand(0);
++			const auto src_type = I.getSrcTy();
++			const auto dst_type = I.getDestTy();
++			
++			llvm::Constant* conv_func = get_conversion_func<cast_op>(src_type, dst_type);
++			// TODO: error if conv func == nullptr
++			
++			// replace original conversion
++			auto new_conv = builder->CreateCall(conv_func, src);
++			I.replaceAllUsesWith(new_conv);
 +			I.eraseFromParent();
 +			was_modified = true;
 +		}
@@ -2296,16 +2709,24 @@ index 0000000..9646466
 +			vec_to_scalar_ops<Instruction::FPExt>(I);
 +		}
 +		void visitFPToUIInst(FPToUIInst &I) {
-+			vec_to_scalar_ops<Instruction::FPToUI>(I);
++			if(!vec_to_scalar_ops<Instruction::FPToUI>(I)) {
++				scalar_conversion<Instruction::FPToUI>(I);
++			}
 +		}
 +		void visitFPToSIInst(FPToSIInst &I) {
-+			vec_to_scalar_ops<Instruction::FPToSI>(I);
++			if(!vec_to_scalar_ops<Instruction::FPToSI>(I)) {
++				scalar_conversion<Instruction::FPToSI>(I);
++			}
 +		}
 +		void visitUIToFPInst(UIToFPInst &I) {
-+			vec_to_scalar_ops<Instruction::UIToFP>(I);
++			if(!vec_to_scalar_ops<Instruction::UIToFP>(I)) {
++				scalar_conversion<Instruction::UIToFP>(I);
++			}
 +		}
 +		void visitSIToFPInst(SIToFPInst &I) {
-+			vec_to_scalar_ops<Instruction::SIToFP>(I);
++			if(!vec_to_scalar_ops<Instruction::SIToFP>(I)) {
++				scalar_conversion<Instruction::SIToFP>(I);
++			}
 +		}
 +		
 +		// metal can only handle i32 indices
@@ -2343,33 +2764,22 @@ index 0000000..9646466
 +		}
 +		
 +		void visitLoadInst(LoadInst &LI) {
-+			// TODO: fs as well?
-+			if(!is_vertex_func && !is_fragment_func) return;
-+			if(!LI.getType()->isAggregateType()) return;
-+			
-+			LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
-+			Value *V = UndefValue::get(LI.getType());
-+			Splitter.emitSplitOps(LI.getType(), V, LI.getName() + ".fca");
-+			LI.replaceAllUsesWith(V);
-+			LI.eraseFromParent();
-+			
-+			was_modified = true;
++			was_modified = metal_load_splitter(LI, is_vertex_func);
 +		}
 +		
 +		void visitStoreInst(StoreInst &SI) {
-+			// TODO: fs as well?
-+			if(!is_vertex_func && !is_fragment_func) return;
-+			if(!SI.getType()->isAggregateType()) return;
-+			
-+			Value *V = SI.getValueOperand();
-+			StoreOpSplitter Splitter(&SI, SI.getPointerOperand());
-+			Splitter.emitSplitOps(V->getType(), V, V->getName() + ".fca");
-+			SI.eraseFromParent();
-+			
-+			was_modified = true;
++			was_modified = metal_store_splitter(SI, is_vertex_func);
 +		}
 +		
 +	};
++}
++
++char MetalFirst::ID = 0;
++INITIALIZE_PASS_BEGIN(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
++INITIALIZE_PASS_END(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
++
++FunctionPass *llvm::createMetalFirstPass() {
++	return new MetalFirst();
 +}
 +
 +char MetalFinal::ID = 0;
@@ -2634,10 +3044,10 @@ index 0000000..c1c8108
 +	return new SPIRFinal();
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..6cbfb40 100644
+index de724d4..1006d97 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,26 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -73,6 +73,30 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -2651,6 +3061,10 @@ index de724d4..6cbfb40 100644
 +
 +void LLVMAddCUDAFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createCUDAFinalPass());
++}
++
++void LLVMAddMetalFirstPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalFirstPass());
 +}
 +
 +void LLVMAddMetalFinalPass(LLVMPassManagerRef PM) {
@@ -4012,7 +4426,7 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..289b161 100644
+index cec48f3..4978235 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -240,6 +240,25 @@ void EmitAssemblyHelper::CreatePasses() {
@@ -4041,7 +4455,23 @@ index cec48f3..289b161 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -326,6 +345,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -301,8 +320,13 @@ void EmitAssemblyHelper::CreatePasses() {
+   switch (Inlining) {
+   case CodeGenOptions::NoInlining: break;
+   case CodeGenOptions::NormalInlining: {
+-    PMBuilder.Inliner =
+-        createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
++    // always inline everything for metal, otherwise we run into trouble when fixing the IR
++    if (LangOpts.Metal) {
++      PMBuilder.Inliner = createEverythingInlinerPass();
++    }
++    else {
++      PMBuilder.Inliner = createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
++    }
+     break;
+   }
+   case CodeGenOptions::OnlyAlwaysInlining:
+@@ -326,6 +350,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -4341,27 +4771,83 @@ index 91f8041..2c68378 100644
    StringRef ContextName;
    if (!CGF.CurFuncDecl) {
 diff --git a/tools/clang/lib/CodeGen/CGExpr.cpp b/tools/clang/lib/CodeGen/CGExpr.cpp
-index 512b323..05b04a8 100644
+index 512b323..0bacf88 100644
 --- a/tools/clang/lib/CodeGen/CGExpr.cpp
 +++ b/tools/clang/lib/CodeGen/CGExpr.cpp
-@@ -2548,9 +2548,16 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -2538,28 +2538,36 @@ LValue CodeGenFunction::EmitLValueForLambdaField(const FieldDecl *Field) {
+ 
+ LValue CodeGenFunction::EmitLValueForField(LValue base,
+                                            const FieldDecl *field) {
++  llvm::Value *addr = base.getAddress();
++  llvm::Type* elem_type = addr->getType()->getPointerElementType();
++  const RecordDecl *rec = field->getParent();
++  const CGRecordLayout &RL = CGM.getTypes().getCGRecordLayout(rec, elem_type);
++
+   if (field->isBitField()) {
+-    const CGRecordLayout &RL =
+-      CGM.getTypes().getCGRecordLayout(field->getParent());
+     const CGBitFieldInfo &Info = RL.getBitFieldInfo(field);
+-    llvm::Value *Addr = base.getAddress();
+     unsigned Idx = RL.getLLVMFieldNo(field);
+     if (Idx != 0)
        // For structs, we GEP to the field that the record layout suggests.
-       Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
+-      Addr = Builder.CreateStructGEP(Addr, Idx, field->getName());
++      addr = Builder.CreateStructGEP(addr, Idx, field->getName());
      // Get the access type.
 -    llvm::Type *PtrTy = llvm::Type::getIntNPtrTy(
 +    llvm::PointerType *PtrTy = llvm::Type::getIntNPtrTy(
        getLLVMContext(), Info.StorageSize,
        CGM.getContext().getTargetAddressSpace(base.getType()));
+-    if (Addr->getType() != PtrTy)
+-      Addr = Builder.CreateBitCast(Addr, PtrTy);
 +    // target address space handling above is apparently insufficient,
 +    // so fix up the address space manually
-+    if(PtrTy->getPointerAddressSpace() != Addr->getType()->getPointerAddressSpace()) {
++    if(PtrTy->getPointerAddressSpace() != addr->getType()->getPointerAddressSpace()) {
 +      PtrTy = llvm::PointerType::get(PtrTy->getElementType(),
-+                                     Addr->getType()->getPointerAddressSpace());
++                                     addr->getType()->getPointerAddressSpace());
 +    }
 +
-     if (Addr->getType() != PtrTy)
-       Addr = Builder.CreateBitCast(Addr, PtrTy);
++    if (addr->getType() != PtrTy)
++      addr = Builder.CreateBitCast(addr, PtrTy);
  
+     QualType fieldType =
+       field->getType().withCVRQualifiers(base.getVRQualifiers());
+-    return LValue::MakeBitfield(Addr, Info, fieldType, base.getAlignment());
++    return LValue::MakeBitfield(addr, Info, fieldType, base.getAlignment());
+   }
+ 
+-  const RecordDecl *rec = field->getParent();
+   QualType type = field->getType();
+   CharUnits alignment = getContext().getDeclAlign(field);
+ 
+@@ -2570,7 +2578,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+ 
+   bool mayAlias = rec->hasAttr<MayAliasAttr>();
+ 
+-  llvm::Value *addr = base.getAddress();
+   unsigned cvr = base.getVRQualifiers();
+   bool TBAAPath = CGM.getCodeGenOpts().StructPathTBAA;
+   if (rec->isUnion()) {
+@@ -2580,7 +2587,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+     TBAAPath = false;
+   } else {
+     // For structs, we GEP to the field that the record layout suggests.
+-    unsigned idx = CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field);
++    unsigned idx = RL.getLLVMFieldNo(field);
+     addr = Builder.CreateStructGEP(addr, idx, field->getName());
+ 
+     // If this is a reference field, load the reference right now.
+@@ -2657,8 +2664,9 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
+   if (!FieldType->isReferenceType())
+     return EmitLValueForField(Base, Field);
+ 
++  llvm::Type* elem_type = Base.getAddress()->getType()->getPointerElementType();
+   const CGRecordLayout &RL =
+-    CGM.getTypes().getCGRecordLayout(Field->getParent());
++    CGM.getTypes().getCGRecordLayout(Field->getParent(), elem_type);
+   unsigned idx = RL.getLLVMFieldNo(Field);
+   llvm::Value *V = Builder.CreateStructGEP(Base.getAddress(), idx);
+   assert(!FieldType.getObjCGCAttr() && "fields cannot have GC attrs");
 diff --git a/tools/clang/lib/CodeGen/CGExprAgg.cpp b/tools/clang/lib/CodeGen/CGExprAgg.cpp
 index 4cf94c0..53f4bb5 100644
 --- a/tools/clang/lib/CodeGen/CGExprAgg.cpp
@@ -4575,8 +5061,56 @@ index 079ef72..ba16e2c 100644
 +  llvm_unreachable("Unexpected builtin type!");
 +  return nullptr;
  }
+diff --git a/tools/clang/lib/CodeGen/CGRecordLayoutBuilder.cpp b/tools/clang/lib/CodeGen/CGRecordLayoutBuilder.cpp
+index a10d8e7..852a803 100644
+--- a/tools/clang/lib/CodeGen/CGRecordLayoutBuilder.cpp
++++ b/tools/clang/lib/CodeGen/CGRecordLayoutBuilder.cpp
+@@ -765,6 +765,43 @@ CGRecordLayout *CodeGenTypes::ComputeRecordLayout(const RecordDecl *D,
+   return RL;
+ }
+ 
++
++void CodeGenTypes::create_flattened_cg_layout(const CXXRecordDecl* D, llvm::StructType* Ty,
++											  const std::vector<CodeGenTypes::aggregate_scalar_entry>& fields) {
++	bool zero_init = true;
++	for(const auto& field : fields) {
++		// vector types (or replaced vector types) are always zero initializable
++		if(field.type->isExtVectorType() ||
++		   field.type->isVectorType()) {
++			continue;
++		}
++		
++		// else: need to make some calls based on the field decl type
++		const Type *Type = field.field_decl->getType()->getBaseElementTypeUnsafe();
++		if (const MemberPointerType *MPT = Type->getAs<MemberPointerType>()) {
++			if(!TheCXXABI.isZeroInitializable(MPT)) {
++				zero_init = false;
++				break;
++			}
++		}
++		else if (const CXXRecordDecl* cxx_rdecl = Type->getAsCXXRecordDecl()) {
++			if(!isZeroInitializable(cxx_rdecl)) {
++				zero_init = false;
++				break;
++			}
++		}
++		// else: it is zero initializable
++	}
++	
++	CGRecordLayout *RL = new CGRecordLayout(Ty, Ty, zero_init, zero_init);
++	uint32_t field_idx = 0;
++	for(const auto& field : fields) {
++		RL->FieldInfo.insert({ field.field_decl, field_idx++ });
++	}
++	
++	FlattenedCGRecordLayouts.insert({ Ty, RL });
++}
++
+ void CGRecordLayout::print(raw_ostream &OS) const {
+   OS << "<CGRecordLayout\n";
+   OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..6bea303 100644
+index 5ca3a78..75d42ba 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,8 @@
@@ -4701,7 +5235,7 @@ index 5ca3a78..6bea303 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +448,1161 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +448,1163 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -5373,7 +5907,8 @@ index 5ca3a78..6bea303 100644
 +				"",
 +				nullptr,
 +				nullptr,
-+				{}
++				{},
++				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>())
 +			}, true);
 +		}
 +	}
@@ -5490,7 +6025,8 @@ index 5ca3a78..6bea303 100644
 +				"",
 +				nullptr,
 +				nullptr,
-+				{}
++				{},
++				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>())
 +			}, 0);
 +		}
 +	}
@@ -5967,7 +6503,7 @@ index 5ca3a78..6bea303 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1640,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1642,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -6056,7 +6592,7 @@ index 5ca3a78..6bea303 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1745,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1747,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -6064,7 +6600,7 @@ index 5ca3a78..6bea303 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1761,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1763,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -6073,7 +6609,7 @@ index 5ca3a78..6bea303 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1772,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1774,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -6115,7 +6651,7 @@ index 5ca3a78..6bea303 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1873,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1875,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -6133,7 +6669,7 @@ index 5ca3a78..6bea303 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +2004,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2006,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -6225,7 +6761,7 @@ index 5ca3a78..6bea303 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2142,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2144,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -6234,7 +6770,7 @@ index 5ca3a78..6bea303 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2192,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2194,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -6264,7 +6800,7 @@ index 59cc30d..11cf78e 100644
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..02a5815 100644
+index 48823be..779fbe0 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -359,7 +359,10 @@ void CodeGenModule::Release() {
@@ -6343,7 +6879,7 @@ index 48823be..02a5815 100644
    // Ignore declarations, they will be emitted on their first use.
    if (const auto *FD = dyn_cast<FunctionDecl>(Global)) {
      // Forward declarations are emitted lazily on first use.
-@@ -2241,12 +2260,46 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -2241,12 +2260,49 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -6368,8 +6904,11 @@ index 48823be..02a5815 100644
 +	}
 +	
 +	// TODO: only create once?
-+	const std::string name = "__floor_" + cxx_rdecl->getName().str() + "_flat";
-+	return llvm::StructType::create(llvm_fields, name, ST->isPacked());
++	const std::string name = "__floor.flat." + cxx_rdecl->getName().str();
++	auto ret = llvm::StructType::create(llvm_fields, name, true); // always make this packed
++	ret->setMetalReturnType(); // fix up alignment/sizes/offsets
++	CGT.create_flattened_cg_layout(cxx_rdecl, ret, fields); // create corresponding flattend CGRecordLayout
++	return ret;
 +}
 +
  void CodeGenModule::EmitGlobalFunctionDefinition(GlobalDecl GD,
@@ -6405,7 +6944,7 @@ index 9533a8d..d53d4e3 100644
      return SanitizerBL;
    }
 diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.cpp b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
-index d4e2262..d9c55ed 100644
+index d4e2262..4a25895 100644
 --- a/tools/clang/lib/CodeGen/CodeGenTypes.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
 @@ -380,6 +380,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
@@ -6425,7 +6964,23 @@ index d4e2262..d9c55ed 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
-@@ -726,3 +736,196 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -685,7 +695,14 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+ 
+ /// getCGRecordLayout - Return record layout info for the given record decl.
+ const CGRecordLayout &
+-CodeGenTypes::getCGRecordLayout(const RecordDecl *RD) {
++CodeGenTypes::getCGRecordLayout(const RecordDecl *RD, llvm::Type* struct_type) {
++  // check if there is a flattened layout for this llvm struct type,
++  // return it if so, otherwise continue as usual
++  if (struct_type != nullptr) {
++    const auto flat_layout = FlattenedCGRecordLayouts.lookup(struct_type);
++    if(flat_layout) return *flat_layout;
++  }
++
+   const Type *Key = Context.getTagDeclType(RD).getTypePtr();
+ 
+   const CGRecordLayout *Layout = CGRecordLayouts.lookup(Key);
+@@ -726,3 +743,200 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const CXXRecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -6507,7 +7062,8 @@ index d4e2262..d9c55ed 100644
 +				aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name + idx_str, ET),
 +				attrs,
 +				nullptr,
-+				{ parent_decl }
++				{ parent_decl },
++				false
 +			});
 +		}
 +	}
@@ -6533,7 +7089,8 @@ index d4e2262..d9c55ed 100644
 +				"",
 +				&decl->getAttrs(),
 +				nullptr,
-+				{}
++				{},
++				true
 +			}
 +		};
 +	}
@@ -6573,7 +7130,8 @@ index d4e2262..d9c55ed 100644
 +												   field_iter->getName().str(), vec_type),
 +					field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
 +					*field_iter,
-+					{ decl }
++					{ decl },
++					true
 +				});
 +			}
 +			else {
@@ -6604,7 +7162,8 @@ index d4e2262..d9c55ed 100644
 +				aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), field_iter),
 +				field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
 +				*field_iter,
-+				{ decl }
++				{ decl },
++				false
 +			});
 +		}
 +	};
@@ -6623,10 +7182,31 @@ index d4e2262..d9c55ed 100644
 +	return ret;
 +}
 diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.h b/tools/clang/lib/CodeGen/CodeGenTypes.h
-index fe155b5..50bf04e 100644
+index fe155b5..16777d5 100644
 --- a/tools/clang/lib/CodeGen/CodeGenTypes.h
 +++ b/tools/clang/lib/CodeGen/CodeGenTypes.h
-@@ -233,7 +233,51 @@ public:
+@@ -81,6 +81,10 @@ class CodeGenTypes {
+   /// record layout info.
+   llvm::DenseMap<const Type*, CGRecordLayout *> CGRecordLayouts;
+ 
++  /// FlattenedCGRecordLayouts - This maps special flattened llvm struct types
++  /// with the corresponding record layout info.
++  llvm::DenseMap<const llvm::Type*, CGRecordLayout *> FlattenedCGRecordLayouts;
++
+   /// RecordDeclTypes - This contains the LLVM IR type for any converted
+   /// RecordDecl.
+   llvm::DenseMap<const Type*, llvm::StructType *> RecordDeclTypes;
+@@ -143,7 +147,8 @@ public:
+   /// and/or incomplete argument types, this will return the opaque type.
+   llvm::Type *GetFunctionTypeForVTable(GlobalDecl GD);
+ 
+-  const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
++  const CGRecordLayout &getCGRecordLayout(const RecordDecl*,
++										  llvm::Type* struct_type = nullptr);
+ 
+   /// UpdateCompletedType - When we find the full definition for a TagDecl,
+   /// replace the 'opaque' type we previously made for it if applicable.
+@@ -233,7 +238,56 @@ public:
    /// optional suffix and name the given LLVM type using it.
    void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
                           StringRef suffix);
@@ -6641,6 +7221,7 @@ index fe155b5..50bf04e 100644
 +	// NOTE: this is nullptr for non-fields!
 +    const FieldDecl* field_decl;
 +    std::vector<const CXXRecordDecl*> parents;
++    bool compat_vector;
 +	
 +	template <typename SpecificAttr>
 +	bool hasAttr() const {
@@ -6667,6 +7248,10 @@ index fe155b5..50bf04e 100644
 +
 +  // returns the corresponding clang vector type for a [[vector_compat]] aggregate
 +  clang::QualType get_compat_vector_type(const CXXRecordDecl* decl);
++
++  //
++  void create_flattened_cg_layout(const CXXRecordDecl* decl, llvm::StructType* type,
++								  const std::vector<aggregate_scalar_entry>& fields);
 +
 +private:
 +  // helper function for get_aggregate_scalar_fields
