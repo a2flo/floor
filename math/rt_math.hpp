@@ -30,6 +30,7 @@
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #if !defined(_MSC_VER)
 #include <unistd.h>
 #endif
@@ -41,32 +42,35 @@ using namespace std;
 
 namespace rt_math {
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
-	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& min_, const arithmetic_type& max_) {
+	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
+	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
+															   const arithmetic_type& min_,
+															   const arithmetic_type& max_) {
 		return min(max(val, min_), max_);
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
-	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& max_) {
+	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
+	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
+															   const arithmetic_type& max_) {
 		return min(max(val, (arithmetic_type)0), max_);
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
-	constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	static floor_inline_always constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ? (max - fmod(abs(val), max)) : fmod(val, max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, typename enable_if<is_integral<int_type>::value && is_signed<int_type>::value, int>::type = 0>
-	constexpr int_type wrap(const int_type& val, const int_type& max) {
-		return (val < (int_type)0 ? (max - (abs(val) % max)) : (val % max));
+	template <typename int_type, enable_if_t<is_integral<int_type>::value && is_signed<int_type>::value>* = nullptr>
+	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
+		return (val < (int_type)0 ? (max - (std::abs(val) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, typename enable_if<is_integral<uint_type>::value && is_unsigned<uint_type>::value, int>::type = 0>
-	constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
+	template <typename uint_type, enable_if_t<is_integral<uint_type>::value && is_unsigned<uint_type>::value>* = nullptr>
+	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
 	
