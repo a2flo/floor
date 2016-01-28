@@ -119,7 +119,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::NEAREST,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
@@ -138,7 +138,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
@@ -157,7 +157,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_ZERO,
+				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,

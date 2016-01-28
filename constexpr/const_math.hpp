@@ -849,13 +849,16 @@ namespace const_math {
 	
 }
 
+// runtime equivalents for certain non-standard math functions
+#include <floor/math/rt_math.hpp>
+
 // reenable -Wfloat-equal warnings, disable -Wunused-function
 FLOOR_POP_WARNINGS()
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(unused-function)
 
-namespace const_select {
-	// dear reader of this code,
+namespace math {
+	// Dear reader of this code,
 	// the following compiler extension and macroo voodoo insanity is sadly necessary
 	// to obtain the ability to select a function depending on if it's truly constexpr
 	// or an actual runtime call. this is not possible in plain iso c++14 (a constexpr
@@ -866,168 +869,208 @@ namespace const_select {
 	// trumps syntax or sane language design:
 	//  -- "People will suffer atrocious syntax to get valuable functionality"
 	//
-	// now, onto the gory details (note that this only works with clang 3.5+):
+	// Now, onto the gory details (note that this only works with clang 3.5+):
 	// as mentioned, constexpr functions must be callable at runtime and compile-time,
 	// thus they don't know (1) whether they're being called at runtime or compile-time
 	// and (2) if their function parameters are actually constexpr or not; all "by design".
-	// so the goal is to break (1). (2) won't matter in that case.
+	// so the goal is to break either.
+	//
 	// clang recently added the ability to use enable_if attributes on functions (not to
 	// be confused with the c++ stl enable_if) that enables or disables a function based
-	// on a constant expression result.
+	// on a constant expression result, potentially using the function parameters.
+	// this lets us determine if a function parameter is constexpr or not - but only
+	// for direct function calls.
 	// ref: http://clang.llvm.org/docs/AttributeReference.html#enable-if
-	// using this, in combination with __builtin_constant_p(expr) (a gnu extension that
-	// returns true if expr is a compile-time constant) as the enable_if test expression
-	// allows to enable a function only if a function parameter is a compile-time constant.
-	// this works to some degree with constexpr functions, but only if the function is
-	// _directly_ called with a constexpr variable. this is obviously not the case for
-	// member variables of an otherwise constexpr-class (var life-time began outside the
-	// function). this also won't work with nested constexpr functions as their function
-	// parameters are not constexpr.
-	// however, clang has a weird quirk/feature when using constexpr + enable_if in that
-	// it will select a non-constexpr function over a constexpr function with the same
-	// name	for non-constexpr calls and vice versa for constexpr calls.
-	// => exactly what we wanted for (1)
-	// note that this also slightly abuses __builtin_constant_p, which always returns
-	// false for constexpr function parameters, !-ing the result thus enables the
-	// constexpr function (this is of course also true for non-constexpr vars/calls).
-	// the last remaining problem: using enable_if on a function will usually result in a
-	// different mangled name, making the previous trick not work at all. to solve this,
-	// asm labels are carefully applied so that both functions have the same symbol name.
-	// note that the constexpr one won't be emitted (ignored by the linker) in that case.
 	//
-	// => create two forwarder functions with the same (symbol) name,
-	//    one non-constexpr that calls a runtime function and
-	//    one constexpr that calls a constexpr/compile-time function.
+	// the gnu extension __builtin_constant_p(expr) is also present in clang (returns true
+	// if expr is a compile-time constant), but won't work with constexpr function parameters
+	// (will always return false). however, the evaluation and result of __builtin_constant_p
+	// is always considered to be constexpr.
 	//
-	// there is one additional drawback to this: it doesn't work with templates (or at
-	// least I haven't figured out a workaround yet), thus support for different types
-	// has to be handled/added manually.
+	// asm("label") on a function changes the linkage name of the function to "label".
+	//
+	//
+	// There are now two different ways of how and where this can be exploited:
+	//  * for direct calls of functions in here, it is only necessary to provide a run-time
+	//    and a constexpr variant of a function, the latter only being callable if all
+	//    arguments are constexpr. this is done through the use of enable_if(val == val),
+	//    where the comparison will only succeed and return true if "val" is constexpr.
+	//    Note also that with the appropriate optimization setting even calls that aren't
+	//    expressly forced to be constexpr evaluated _can_ still be constexpr evaluated
+	//    by the compiler (clang).
+	// The downside here is that constexpr function chaining with this will not work
+	// (and luckily produce a hard error if constexpr evaluation is forced).
+	//
+	// For this, the second way has to be used, which is however incompatible to the first
+	// one and should thus only be used inside other constexpr functions that need to call
+	// this with parameters that aren't expressly always constexpr.
+	//  * for forwarded/chained calls (another constexpr function calling a function in here),
+	//    a combination of enable_if, __builtin_constant_p and asm labels is used to make
+	//    chained constexpr calls still constexpr evaluable if forced.
+	//    a run-time and a constexpr variant is still provided, but this time, the enable_if
+	//    on the constexpr function makes it only callable if "!__builtin_constant_p(val)"
+	//    evaluates to true. as mentioned before, __builtin_constant_p(val) will always
+	//    evaluate to false if called with a constexpr function parameter (hence the negate).
+	//    as-is, clang would now always call/select the constexpr function, even for run-time
+	//    calls. therefore, an asm label with the exact same function name is applied to
+	//    both the run-time and the constexpr function. with the run-time function defined
+	//    after the constexpr function, clang will only emit the run-time function and just
+	//    drop/ignore the constexpr one. however, for forced constexpr evaluation (which
+	//    happens prior to codegen / function emission), the constexpr function is still
+	//    the "active" one that will be considered for constexpr evaluation. thus, we
+	//    achieved what we wanted.
+	// The downside to the second approach is that it won't work for things that are
+	// potentially constexpr, but aren't forced to be evaluated as such. This is why both
+	// ways are implemented here and why the first one should be used for direct calls.
+	// an additional drawback here is that this won't work with templates (or at least I
+	// haven't figured out a workaround yet), thus support for different types has to be
+	// handled/added manually.
 	
-#define FLOOR_CONST_MATH_SELECT(func_name, rt_func, type_name, type_suffix) \
-	static __attribute__((always_inline)) type_name func_name (type_name val) asm("floor__const_math_" #func_name type_suffix ); \
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
-	__attribute__((enable_if(!__builtin_constant_p(val), ""))) asm("floor__const_math_" #func_name type_suffix ); \
-	\
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name val) \
-	__attribute__((enable_if(!__builtin_constant_p(val), ""))) { \
-		return const_math:: func_name (val); \
+#define FLOOR_CONST_SELECT_ARG_EXP_1(prefix, sep) prefix arg_0
+#define FLOOR_CONST_SELECT_ARG_EXP_2(prefix, sep) prefix arg_0 sep prefix arg_1
+#define FLOOR_CONST_SELECT_ARG_EXP_3(prefix, sep) prefix arg_0 sep prefix arg_1 sep prefix arg_2
+#define FLOOR_CONST_SELECT_EIF_EXP_1() arg_0 == arg_0
+#define FLOOR_CONST_SELECT_EIF_EXP_2() arg_0 == arg_0 && arg_1 == arg_1
+#define FLOOR_CONST_SELECT_EIF_EXP_3() arg_0 == arg_0 && arg_1 == arg_1 && arg_2 == arg_2
+#define FLOOR_PAREN_LEFT (
+#define FLOOR_PAREN_RIGHT )
+#define FLOOR_COMMA ,
+	
+#define FLOOR_CONST_SELECT(ARG_EXPANDER, ENABLE_IF_EXPANDER, func_name, ce_func, rt_func, type, overload_suffix) \
+	/* direct call - run-time */ \
+	static __attribute__((always_inline, flatten)) type func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
-	static __attribute__((always_inline)) type_name func_name (type_name val) { \
-		return rt_func ; \
-	}
-
-#define FLOOR_CONST_MATH_SELECT_2(func_name, rt_func, type_name, type_suffix) \
-	static __attribute__((always_inline)) type_name func_name (type_name y, type_name x) asm("floor__const_math_" #func_name type_suffix ); \
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
-	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(x), ""))) asm("floor__const_math_" #func_name type_suffix ); \
-	\
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name y, type_name x) \
-	__attribute__((enable_if(!__builtin_constant_p(y), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(x), ""))) { \
-		return const_math:: func_name (y, x); \
+	/* direct call - constexpr */ \
+	static __attribute__((always_inline, flatten)) constexpr type func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	__attribute__((enable_if(ENABLE_IF_EXPANDER(), ""))) { \
+		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
-	static __attribute__((always_inline)) type_name func_name (type_name y, type_name x) { \
-		return rt_func ; \
-	}
-
-#define FLOOR_CONST_MATH_SELECT_3(func_name, rt_func, type_name, type_suffix) \
-	static __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) \
-	asm("floor__const_math_" #func_name type_suffix ); \
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
-	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(c), ""))) asm("floor__const_math_" #func_name type_suffix ); \
 	\
-	static __attribute__((always_inline)) constexpr type_name func_name (type_name a, type_name b, type_name c) \
-	__attribute__((enable_if(!__builtin_constant_p(a), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(b), ""))) \
-	__attribute__((enable_if(!__builtin_constant_p(c), ""))) { \
-		return const_math:: func_name (a, b, c); \
+	/* forwarded call prototype - run-time */ \
+	static __attribute__((always_inline, flatten)) type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
+	/* forwarded call prototype - constexpr */ \
+	static __attribute__((always_inline, flatten)) constexpr type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) \
+	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
+	\
+	/* forwarded call prototype - constexpr */ \
+	static __attribute__((always_inline, flatten)) constexpr type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) { \
+		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
-	static __attribute__((always_inline)) type_name func_name (type_name a, type_name b, type_name c) { \
-		return rt_func ; \
+	/* forwarded call prototype - run-time */ \
+	static __attribute__((always_inline, flatten)) type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	}
 	
-	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), float, "f")
-	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(abs, std::fabs(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(floor, std::floor(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(ceil, std::ceil(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(round, std::round(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(trunc, std::trunc(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(rint, std::rint(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(sin, std::sin(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(cos, std::cos(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(tan, std::tan(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(asin, std::asin(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(acos, std::acos(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(atan, std::atan(val), float, "f")
-	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), float, "f")
-	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), float, "f")
-	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(log, std::log(val), float, "f")
-	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), float, "f")
-	FLOOR_CONST_MATH_SELECT_2(pow, std::pow(y, x), float, "f")
-	FLOOR_CONST_MATH_SELECT_2(copysign, std::copysign(y, x), float, "f")
+#define FLOOR_CONST_SELECT_1(func_name, ce_func, rt_func, type, ...) \
+	FLOOR_CONST_SELECT(FLOOR_CONST_SELECT_ARG_EXP_1, FLOOR_CONST_SELECT_EIF_EXP_1, func_name, ce_func, rt_func, type, "_1" __VA_ARGS__)
+#define FLOOR_CONST_SELECT_2(func_name, ce_func, rt_func, type, ...) \
+	FLOOR_CONST_SELECT(FLOOR_CONST_SELECT_ARG_EXP_2, FLOOR_CONST_SELECT_EIF_EXP_2, func_name, ce_func, rt_func, type, "_2" __VA_ARGS__)
+#define FLOOR_CONST_SELECT_3(func_name, ce_func, rt_func, type, ...) \
+	FLOOR_CONST_SELECT(FLOOR_CONST_SELECT_ARG_EXP_3, FLOOR_CONST_SELECT_EIF_EXP_3, func_name, ce_func, rt_func, type, "_3" __VA_ARGS__)
+	
+	// standard functions:
+	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, float)
+	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, float)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, float)
+	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, float)
+	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, float)
+	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, float)
+	FLOOR_CONST_SELECT_1(round, const_math::round, std::round, float)
+	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, std::trunc, float)
+	FLOOR_CONST_SELECT_1(rint, const_math::rint, std::rint, float)
+	FLOOR_CONST_SELECT_1(sin, const_math::sin, std::sin, float)
+	FLOOR_CONST_SELECT_1(cos, const_math::cos, std::cos, float)
+	FLOOR_CONST_SELECT_1(tan, const_math::tan, std::tan, float)
+	FLOOR_CONST_SELECT_1(asin, const_math::asin, std::asin, float)
+	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, float)
+	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, float)
+	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, float)
+	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, float)
+	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, float)
+	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, float)
+	FLOOR_CONST_SELECT_1(log, const_math::log, std::log, float)
+	FLOOR_CONST_SELECT_1(log2, const_math::log2, std::log2, float)
+	FLOOR_CONST_SELECT_2(pow, const_math::pow, std::pow, float)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, std::copysign, float)
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	FLOOR_CONST_MATH_SELECT_2(fmod, std::fmod(y, x), double, "d")
-	FLOOR_CONST_MATH_SELECT(sqrt, std::sqrt(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(abs, std::fabs(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(floor, std::floor(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(ceil, std::ceil(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(round, std::round(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(trunc, std::trunc(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(rint, std::rint(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(sin, std::sin(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(cos, std::cos(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(tan, std::tan(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(asin, std::asin(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(acos, std::acos(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(atan, std::atan(val), double, "d")
-	FLOOR_CONST_MATH_SELECT_2(atan2, std::atan2(y, x), double, "d")
-	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), double, "d")
-	FLOOR_CONST_MATH_SELECT(exp, std::exp(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(log, std::log(val), double, "d")
-	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), double, "d")
-	FLOOR_CONST_MATH_SELECT_2(pow, std::pow(y, x), double, "d")
-	FLOOR_CONST_MATH_SELECT_2(copysign, std::copysign(y, x), double, "d")
+	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, double)
+	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, double)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, double)
+	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, double)
+	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, double)
+	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, double)
+	FLOOR_CONST_SELECT_1(round, const_math::round, std::round, double)
+	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, std::trunc, double)
+	FLOOR_CONST_SELECT_1(rint, const_math::rint, std::rint, double)
+	FLOOR_CONST_SELECT_1(sin, const_math::sin, std::sin, double)
+	FLOOR_CONST_SELECT_1(cos, const_math::cos, std::cos, double)
+	FLOOR_CONST_SELECT_1(tan, const_math::tan, std::tan, double)
+	FLOOR_CONST_SELECT_1(asin, const_math::asin, std::asin, double)
+	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, double)
+	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, double)
+	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, double)
+	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, double)
+	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, double)
+	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, double)
+	FLOOR_CONST_SELECT_1(log, const_math::log, std::log, double)
+	FLOOR_CONST_SELECT_1(log2, const_math::log2, std::log2, double)
+	FLOOR_CONST_SELECT_2(pow, const_math::pow, std::pow, double)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, std::copysign, double)
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-	FLOOR_CONST_MATH_SELECT_2(fmod, ::fmodl(y, x), long double, "l")
-	FLOOR_CONST_MATH_SELECT(sqrt, ::sqrtl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(rsqrt, const_math::native_rsqrt(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(abs, ::fabsl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(floor, ::floorl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(ceil, ::ceill(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(round, ::roundl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(trunc, ::truncl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(rint, ::rintl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(sin, ::sinl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(cos, ::cosl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(tan, ::tanl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(asin, ::asinl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(acos, ::acosl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(atan, ::atanl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT_2(atan2, ::atan2l(y, x), long double, "l")
-	FLOOR_CONST_MATH_SELECT_3(fma, const_math::native_fma(a, b, c), long double, "l")
-	FLOOR_CONST_MATH_SELECT(exp, ::expl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(exp2, std::exp2(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(log, ::logl(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT(log2, std::log2(val), long double, "l")
-	FLOOR_CONST_MATH_SELECT_2(pow, ::powl(y, x), long double, "l")
-	FLOOR_CONST_MATH_SELECT_2(copysign, ::copysignl(y, x), long double, "l")
+	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmodl, long double)
+	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, ::sqrtl, long double)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, long double)
+	FLOOR_CONST_SELECT_1(abs, const_math::abs, ::fabsl, long double)
+	FLOOR_CONST_SELECT_1(floor, const_math::floor, ::floorl, long double)
+	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, ::ceill, long double)
+	FLOOR_CONST_SELECT_1(round, const_math::round, ::roundl, long double)
+	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, ::truncl, long double)
+	FLOOR_CONST_SELECT_1(rint, const_math::rint, ::rintl, long double)
+	FLOOR_CONST_SELECT_1(sin, const_math::sin, ::sinl, long double)
+	FLOOR_CONST_SELECT_1(cos, const_math::cos, ::cosl, long double)
+	FLOOR_CONST_SELECT_1(tan, const_math::tan, ::tanl, long double)
+	FLOOR_CONST_SELECT_1(asin, const_math::asin, ::asinl, long double)
+	FLOOR_CONST_SELECT_1(acos, const_math::acos, ::acosl, long double)
+	FLOOR_CONST_SELECT_1(atan, const_math::atan, ::atanl, long double)
+	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, ::atan2l, long double)
+	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, long double)
+	FLOOR_CONST_SELECT_1(exp, const_math::exp, ::expl, long double)
+	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, long double)
+	FLOOR_CONST_SELECT_1(log, const_math::log, ::logl, long double)
+	FLOOR_CONST_SELECT_1(log2, const_math::log2, std::log2, long double)
+	FLOOR_CONST_SELECT_2(pow, const_math::pow, ::powl, long double)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, ::copysignl, long double)
 #endif
+	
+	// non-standard functions:
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, float)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int32_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint32_t)
 
-#undef FLOOR_CONST_MATH_SELECT
-#undef FLOOR_CONST_MATH_SELECT_2
-#undef FLOOR_CONST_MATH_SELECT_3
+	// cleanup
+#undef FLOOR_CONST_SELECT_ARG_EXP_1
+#undef FLOOR_CONST_SELECT_ARG_EXP_2
+#undef FLOOR_CONST_SELECT_ARG_EXP_3
+#undef FLOOR_CONST_SELECT_EIF_EXP_1
+#undef FLOOR_CONST_SELECT_EIF_EXP_2
+#undef FLOOR_CONST_SELECT_EIF_EXP_3
+#undef FLOOR_PAREN_LEFT
+#undef FLOOR_PAREN_RIGHT
+#undef FLOOR_COMMA
+
+#undef FLOOR_CONST_SELECT
+#undef FLOOR_CONST_SELECT_1
+#undef FLOOR_CONST_SELECT_2
+#undef FLOOR_CONST_SELECT_3
 	
 }
 
