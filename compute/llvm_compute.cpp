@@ -256,6 +256,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
 				" -x metal -std=metal1.1 -target air64-apple-" + os_target +
+				(device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
