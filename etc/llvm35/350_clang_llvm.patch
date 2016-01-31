@@ -102,7 +102,7 @@ index 02f4259..ed133af 100644
  void initializeGCOVProfilerPass(PassRegistry&);
  void initializeAddressSanitizerPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..b53d580 100644
+index e06560c..50b54c5 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -48,6 +48,12 @@ namespace {
@@ -112,8 +112,8 @@ index e06560c..b53d580 100644
 +      (void) llvm::createAddressSpaceFixPass();
 +      (void) llvm::createCUDAFirstPass();
 +      (void) llvm::createCUDAFinalPass();
-+      (void) llvm::createMetalFirstPass();
-+      (void) llvm::createMetalFinalPass();
++      (void) llvm::createMetalFirstPass(false);
++      (void) llvm::createMetalFinalPass(false);
 +      (void) llvm::createSPIRFinalPass();
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
@@ -152,22 +152,23 @@ index ce1a7d6..0511a23 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..0e9dd02 100644
+index 50877d0..a1fe4dc 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -118,6 +118,10 @@ public:
+@@ -118,6 +118,11 @@ public:
    bool LoopVectorize;
    bool RerollLoops;
    bool LoadCombine;
 +  bool EnableAddressSpaceFix;
 +  bool EnableCUDAPasses;
 +  bool EnableMetalPasses;
++  bool EnableMetalIntelWorkarounds;
 +  bool EnableSPIRPasses;
  
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..64712b3 100644
+index 413134e..71229f3 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
 @@ -30,6 +30,43 @@ class TargetMachine;
@@ -195,13 +196,13 @@ index 413134e..64712b3 100644
 +//
 +// MetalFirst - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFirstPass();
++FunctionPass *createMetalFirstPass(const bool enable_intel_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
 +// MetalFinal - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFinalPass();
++FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -827,32 +828,33 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..204cd9b 100644
+index 701fb46..531df21 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -70,6 +70,10 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
      LoopVectorize = RunLoopVectorization;
      RerollLoops = RunLoopRerolling;
      LoadCombine = RunLoadCombine;
 +    EnableAddressSpaceFix = false;
 +    EnableCUDAPasses = false;
 +    EnableMetalPasses = false;
++    EnableMetalIntelWorkarounds = false;
 +    EnableSPIRPasses = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +134,10 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +135,10 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 +  // run "first" passes that should run before all else
 +  if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
-+  else if(EnableMetalPasses) MPM.add(createMetalFirstPass());
++  else if(EnableMetalPasses) MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
 +
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -153,6 +161,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -153,6 +162,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -871,14 +873,14 @@ index 701fb46..204cd9b 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +300,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +301,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
 +
 +  // run CUDAFinal/MetalFinal/SPIRFinal pass at the very end, no IR should change after this point!
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
-+  else if(EnableMetalPasses) MPM.add(createMetalFinalPass());
++  else if(EnableMetalPasses) MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds));
 +  else if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
  }
  
@@ -2105,10 +2107,10 @@ index 0000000..89a8fee
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..774dc4a
+index 0000000..80a6855
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,680 @@
+@@ -0,0 +1,727 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2365,6 +2367,7 @@ index 0000000..774dc4a
 +		friend class InstVisitor<MetalFirst>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
++		const bool enable_intel_workarounds;
 +		
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
@@ -2373,7 +2376,8 @@ index 0000000..774dc4a
 +		bool is_vertex_func { false };
 +		bool is_fragment_func { false };
 +		
-+		MetalFirst() : FunctionPass(ID) {
++		MetalFirst(const bool enable_intel_workarounds_ = false) :
++		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
 +			initializeMetalFirstPass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -2415,6 +2419,7 @@ index 0000000..774dc4a
 +		friend class InstVisitor<MetalFinal>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
++		const bool enable_intel_workarounds;
 +		
 +		std::shared_ptr<llvm::IRBuilder<>> builder;
 +		
@@ -2441,12 +2446,19 @@ index 0000000..774dc4a
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		
-+		MetalFinal() : FunctionPass(ID) {
++		MetalFinal(const bool enable_intel_workarounds_ = false) :
++		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
 +		}
 +		
-+		llvm::Constant* get_conversion_func(llvm::Type* from, const bool from_signed,
-+											llvm::Type* to, const bool to_signed) {
++		template <Instruction::CastOps cast_op, typename std::enable_if<(cast_op == llvm::Instruction::FPToSI ||
++																		 cast_op == llvm::Instruction::FPToUI ||
++																		 cast_op == llvm::Instruction::SIToFP ||
++																		 cast_op == llvm::Instruction::UIToFP), int>::type = 0>
++		llvm::Value* call_conversion_func(llvm::Value* from, llvm::Type* to_type) {
++			// metal only supports conversion of a specific set of integer and float types
++			// -> find and check them
++			const auto from_type = from->getType();
 +			static const std::unordered_map<llvm::Type*, const char*> type_map {
 +				{ llvm::Type::getInt1Ty(*ctx), ".i1" }, // not sure about signed/unsigned conversion here
 +				{ llvm::Type::getInt8Ty(*ctx), ".i8" },
@@ -2457,13 +2469,47 @@ index 0000000..774dc4a
 +				{ llvm::Type::getFloatTy(*ctx), "f.f32" },
 +				{ llvm::Type::getDoubleTy(*ctx), "f.f64" },
 +			};
-+			const auto from_iter = type_map.find(from);
++			const auto from_iter = type_map.find(from_type);
 +			if(from_iter == end(type_map)) {
-+				return nullptr;
++				DBG(errs() << "failed to find conversion function for: " << *from_type << " -> " << *to_type << "\n";)
++				return from;
 +			}
-+			const auto to_iter = type_map.find(to);
++			const auto to_iter = type_map.find(to_type);
 +			if(to_iter == end(type_map)) {
-+				return nullptr;
++				DBG(errs() << "failed to find conversion function for: " << *from_type << " -> " << *to_type << "\n";)
++				return from;
++			}
++			
++			// figure out if from/to type is signed/unsigned
++			bool from_signed = false, to_signed = false;
++			switch(cast_op) {
++				case llvm::Instruction::FPToSI: from_signed = true; to_signed = true; break;
++				case llvm::Instruction::FPToUI: from_signed = true; to_signed = false; break;
++				case llvm::Instruction::SIToFP: from_signed = true; to_signed = true; break;
++				case llvm::Instruction::UIToFP: from_signed = false; to_signed = true; break;
++				default: __builtin_unreachable();
++			}
++			
++			DBG(errs() << "converting: " << *from_type << " (" << (from_signed ? "signed" : "unsigned") << ") -> " << *to_type << "(" << (to_signed ? "signed" : "unsigned") << ")\n";)
++			
++			// for intel gpus any conversion from/to float from/to i8 or i16 needs to go through a i32 first
++			if(enable_intel_workarounds &&
++			   (to_iter->second[0] == 'f' || from_iter->second[0] == 'f')) {
++				if(from_iter->first == llvm::Type::getInt8Ty(*ctx) ||
++				   from_iter->first == llvm::Type::getInt16Ty(*ctx)) {
++					// ext to i32 first, then convert from i32 to to_type
++					const auto to_i32_cast = builder->CreateCast(from_signed ? Instruction::SExt : Instruction::ZExt,
++																 from, llvm::Type::getInt32Ty(*ctx));
++					return call_conversion_func<cast_op>(to_i32_cast, to_type);
++				}
++				// NOTE: ignoring any identity conversion here as llvm should have already taken care of these
++				// NOTE: i8 <-> i16 should probably work (TODO)
++				else if(to_iter->first == llvm::Type::getInt8Ty(*ctx) ||
++						to_iter->first == llvm::Type::getInt16Ty(*ctx)) {
++					// convert to i32 first, then trunc from i32 to i8/i16
++					const auto to_i32_cast = call_conversion_func<cast_op>(from, llvm::Type::getInt32Ty(*ctx));
++					return builder->CreateTrunc(to_i32_cast, to_iter->first);
++				}
 +			}
 +			
 +			// air.convert.<to_type>.<from_type>
@@ -2480,21 +2526,18 @@ index 0000000..774dc4a
 +			}
 +			func_name += from_iter->second;
 +			
-+			SmallVector<llvm::Type*, 1> params(1, from);
-+			const auto func_type = llvm::FunctionType::get(to, params, false);
-+			return M->getOrInsertFunction(func_name, func_type);
++			SmallVector<llvm::Type*, 1> params(1, from_type);
++			const auto func_type = llvm::FunctionType::get(to_type, params, false);
++			return builder->CreateCall(M->getOrInsertFunction(func_name, func_type), from);
 +		}
 +		
-+		template <Instruction::CastOps cast_op>
-+		__attribute__((always_inline))
-+		llvm::Constant* get_conversion_func(llvm::Type* from, llvm::Type* to) {
-+			switch(cast_op) {
-+				case llvm::Instruction::FPToSI: return get_conversion_func(from, true, to, true);
-+				case llvm::Instruction::FPToUI: return get_conversion_func(from, true, to, false);
-+				case llvm::Instruction::SIToFP: return get_conversion_func(from, true, to, true);
-+				case llvm::Instruction::UIToFP: return get_conversion_func(from, false, to, true);
-+				default: return nullptr;
-+			}
++		// dummy
++		template <Instruction::CastOps cast_op, typename std::enable_if<!(cast_op == llvm::Instruction::FPToSI ||
++																		  cast_op == llvm::Instruction::FPToUI ||
++																		  cast_op == llvm::Instruction::SIToFP ||
++																		  cast_op == llvm::Instruction::UIToFP), int>::type = 0>
++		llvm::Value* call_conversion_func(llvm::Value* from, llvm::Type*) {
++			return from;
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -2592,6 +2635,11 @@ index 0000000..774dc4a
 +				id = group_size;
 +			}
 +			else if(func_name == "floor.get_work_dim.i32") {
++				if(group_size == nullptr) {
++					DBG(printf("failed to get group_size arg, probably not in a kernel function?\n"); fflush(stdout);)
++					return;
++				}
++				
 +				// special case
 +				// => group_size.z == 1 ? (group_size.y == 1 ? 1 : 2) : 3
 +				const auto size_z = builder->CreateExtractElement(group_size, builder->getInt32(2));
@@ -2605,17 +2653,32 @@ index 0000000..774dc4a
 +				return;
 +			}
 +			else if(func_name == "floor.get_vertex_id.i32") {
++				if(vertex_id == nullptr) {
++					DBG(printf("failed to get vertex_id arg, probably not in a vertex function?\n"); fflush(stdout);)
++					return;
++				}
++				
 +				I.replaceAllUsesWith(vertex_id);
 +				I.eraseFromParent();
 +				return;
 +			}
 +			else if(func_name == "floor.get_point_coord.float2") {
++				if(point_coord == nullptr) {
++					DBG(printf("failed to get point_coord arg, probably not in a fragment function?\n"); fflush(stdout);)
++					return;
++				}
++			
 +				I.replaceAllUsesWith(point_coord);
 +				I.eraseFromParent();
 +				return;
 +			}
 +			// unknown -> ignore for now
 +			else return;
++			
++			if(id == nullptr) {
++				DBG(printf("failed to get id arg, probably not in a kernel function?\n"); fflush(stdout);)
++				return;
++			}
 +			
 +			// replace call with vector load / elem extraction from the appropriate vector
 +			I.replaceAllUsesWith(builder->CreateExtractElement(id, CS.getArgument(0)));
@@ -2638,15 +2701,11 @@ index 0000000..774dc4a
 +			// setup
 +			auto src_vec = I.getOperand(0);
 +			const auto src_vec_type = src_vec->getType();
-+			const auto src_scalar_type = src_vec_type->getVectorElementType();
 +			const auto dim = src_vec_type->getVectorNumElements();
 +			
 +			const auto si_type = I.getDestTy();
-+			const auto si_scalar_type = si_type->getScalarType();
++			const auto dst_scalar_type = si_type->getScalarType();
 +			llvm::Value* dst_vec = UndefValue::get(si_type);
-+			
-+			llvm::Constant* conv_func = get_conversion_func<cast_op>(src_scalar_type, si_scalar_type);
-+			// TODO: error if conv func == nullptr && should not be so
 +			
 +			// iterate over all vector components, emit a scalar instruction and insert into a new vector
 +			for(uint32_t i = 0; i < dim; ++i) {
@@ -2657,10 +2716,10 @@ index 0000000..774dc4a
 +					case llvm::Instruction::FPToUI:
 +					case llvm::Instruction::SIToFP:
 +					case llvm::Instruction::UIToFP:
-+						cast = builder->CreateCall(conv_func, scalar);
++						cast = call_conversion_func<cast_op>(scalar, dst_scalar_type);
 +						break;
 +					default:
-+						cast = builder->CreateCast(cast_op, scalar, si_scalar_type);
++						cast = builder->CreateCast(cast_op, scalar, dst_scalar_type);
 +						break;
 +				}
 +				dst_vec = builder->CreateInsertElement(dst_vec, cast, builder->getInt32(i));
@@ -2679,16 +2738,8 @@ index 0000000..774dc4a
 +		void scalar_conversion(CastInst& I) {
 +			builder->SetInsertPoint(&I);
 +			
-+			auto src = I.getOperand(0);
-+			const auto src_type = I.getSrcTy();
-+			const auto dst_type = I.getDestTy();
-+			
-+			llvm::Constant* conv_func = get_conversion_func<cast_op>(src_type, dst_type);
-+			// TODO: error if conv func == nullptr
-+			
 +			// replace original conversion
-+			auto new_conv = builder->CreateCall(conv_func, src);
-+			I.replaceAllUsesWith(new_conv);
++			I.replaceAllUsesWith(call_conversion_func<cast_op>(I.getOperand(0), I.getDestTy()));
 +			I.eraseFromParent();
 +			was_modified = true;
 +		}
@@ -2775,20 +2826,18 @@ index 0000000..774dc4a
 +}
 +
 +char MetalFirst::ID = 0;
++FunctionPass *llvm::createMetalFirstPass(const bool enable_intel_workarounds) {
++	return new MetalFirst(enable_intel_workarounds);
++}
 +INITIALIZE_PASS_BEGIN(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +INITIALIZE_PASS_END(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +
-+FunctionPass *llvm::createMetalFirstPass() {
-+	return new MetalFirst();
-+}
-+
 +char MetalFinal::ID = 0;
++FunctionPass *llvm::createMetalFinalPass(const bool enable_intel_workarounds) {
++	return new MetalFinal(enable_intel_workarounds);
++}
 +INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
-+
-+FunctionPass *llvm::createMetalFinalPass() {
-+	return new MetalFinal();
-+}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
 index 0000000..c1c8108
@@ -3685,17 +3734,19 @@ index 5d08833..c53d8b2 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..2544dd1 100644
+index d25560c..2a45ef7 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
-@@ -577,6 +577,17 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -577,6 +577,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
 +//===----------------------------------------------------------------------===//
 +// AIR/Metal Options
 +//===----------------------------------------------------------------------===//
-+// -- none
++
++def metal_intel_workarounds : Flag<["-"], "metal-intel-workarounds">,
++  HelpText<"Enable Intel GPU specific fixes and workarounds">;
 +
 +//===----------------------------------------------------------------------===//
 +// AppleCL/OpenCL Options
@@ -3727,14 +3778,15 @@ index 3209679..2df0e4b 100644
  TYPE("objective-c-header",       ObjCHeader,   PP_ObjCHeader,   nullptr, "pu")
  TYPE("c++-header-cpp-output",    PP_CXXHeader, INVALID,         "ii",    "p")
 diff --git a/tools/clang/include/clang/Frontend/CodeGenOptions.def b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-index 1d92efe..64ae30b 100644
+index 1d92efe..3db3307 100644
 --- a/tools/clang/include/clang/Frontend/CodeGenOptions.def
 +++ b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-@@ -56,6 +56,7 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -56,6 +56,8 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 +CODEGENOPT(EmitAppleCLMetadata , 1, 0) ///< Emit AppleCL kernel info and arg metadata.
++CODEGENOPT(MetalIntelWorkarounds , 1, 0) ///< Enable Intel GPU specific fixes and workarounds.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
  CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
@@ -4426,10 +4478,10 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..4978235 100644
+index cec48f3..36845e0 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,25 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,26 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
@@ -4446,6 +4498,7 @@ index cec48f3..4978235 100644
 +
 +  // only enable this for Metal/AIR
 +  PMBuilder.EnableMetalPasses = LangOpts.Metal;
++  PMBuilder.EnableMetalIntelWorkarounds = CodeGenOpts.MetalIntelWorkarounds;
 +
 +  // only enable this for OpenCL/SPIR (don't want this for AppleCL or Metal)
 +  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
@@ -4455,7 +4508,7 @@ index cec48f3..4978235 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -301,8 +320,13 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -301,8 +321,13 @@ void EmitAssemblyHelper::CreatePasses() {
    switch (Inlining) {
    case CodeGenOptions::NoInlining: break;
    case CodeGenOptions::NormalInlining: {
@@ -4471,7 +4524,7 @@ index cec48f3..4978235 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -326,6 +350,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +351,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -7476,7 +7529,7 @@ index 6af920d..a83d536 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..7096fa3 100644
+index ce61a46..4343913 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -73,7 +73,7 @@ using namespace llvm::opt;
@@ -7488,7 +7541,7 @@ index ce61a46..7096fa3 100644
      DefaultOpt = 2;
  
    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-@@ -474,6 +474,11 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -474,6 +474,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
@@ -7497,10 +7550,11 @@ index ce61a46..7096fa3 100644
 +    Opts.DwarfVersion = 2;
 +  }
 +  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
++  Opts.MetalIntelWorkarounds = Args.hasArg(OPT_metal_intel_workarounds);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -904,6 +909,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -904,6 +910,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -7508,7 +7562,7 @@ index ce61a46..7096fa3 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -917,6 +923,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -917,6 +924,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -7516,7 +7570,7 @@ index ce61a46..7096fa3 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1110,6 +1117,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1110,6 +1118,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -7526,7 +7580,7 @@ index ce61a46..7096fa3 100644
      case IK_CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -1151,7 +1161,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1151,7 +1162,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
        Opts.OpenCLVersion = 110;
    else if (LangStd == LangStandard::lang_opencl12)
      Opts.OpenCLVersion = 120;
@@ -7542,7 +7596,7 @@ index ce61a46..7096fa3 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -1276,10 +1293,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1276,10 +1294,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
