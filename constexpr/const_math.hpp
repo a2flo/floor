@@ -654,19 +654,19 @@ namespace const_math {
 	}
 	
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
+	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& min, const arithmetic_type& max) {
 		return (val > max ? max : (val < min ? min : val));
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, class = typename enable_if<is_arithmetic<arithmetic_type>::value>::type>
+	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& max) {
 		return (val > max ? max : (val < (arithmetic_type)0 ? (arithmetic_type)0 : val));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ?
 				(max - const_math::fmod(const_math::abs(val), max)) :
@@ -674,19 +674,21 @@ namespace const_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, typename enable_if<is_integral<int_type>::value && is_signed<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<((is_integral<int_type>::value && is_signed<int_type>::value) ||
+											  is_same<int_type, __int128_t>::value)>* = nullptr>
 	constexpr int_type wrap(const int_type& val, const int_type& max) {
 		return (val < (int_type)0 ? (max - (const_math::abs(val) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, typename enable_if<is_integral<uint_type>::value && is_unsigned<uint_type>::value, int>::type = 0>
+	template <typename uint_type, enable_if_t<((is_integral<uint_type>::value && is_unsigned<uint_type>::value) ||
+											   is_same<uint_type, __uint128_t>::value)>* = nullptr>
 	constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
 	
 	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
 		return ((b - a) * t + a);
@@ -1053,8 +1055,106 @@ namespace math {
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int8_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int8_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int8_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int16_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int16_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int16_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int32_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int32_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int64_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int64_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int64_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint8_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint8_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint8_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint16_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint16_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint16_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint32_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint32_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint64_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint64_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint64_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, bool)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, bool)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, bool)
+	
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __uint128_t)
+#endif
+	
+#if defined(__APPLE__)
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, ssize_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, ssize_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, ssize_t)
+#endif
+#if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && !(__clang_major__ == 3 && __clang_minor__ < 7))
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, size_t)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, size_t)
+#endif
+	
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, double)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, double)
+#endif
+	
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, long double)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, long double)
+#endif
+	
+	// non-standard and metal-only for now
+#if defined(FLOOR_COMPUTE_METAL)
+	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, half)
+	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, half)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, half)
+	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, half)
+	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, half)
+	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, half)
+	FLOOR_CONST_SELECT_1(round, const_math::round, std::round, half)
+	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, std::trunc, half)
+	FLOOR_CONST_SELECT_1(rint, const_math::rint, std::rint, half)
+	FLOOR_CONST_SELECT_1(sin, const_math::sin, std::sin, half)
+	FLOOR_CONST_SELECT_1(cos, const_math::cos, std::cos, half)
+	FLOOR_CONST_SELECT_1(tan, const_math::tan, std::tan, half)
+	FLOOR_CONST_SELECT_1(asin, const_math::asin, std::asin, half)
+	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, half)
+	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, half)
+	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, half)
+	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, half)
+	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, half)
+	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, half)
+	FLOOR_CONST_SELECT_1(log, const_math::log, std::log, half)
+	FLOOR_CONST_SELECT_1(log2, const_math::log2, std::log2, half)
+	FLOOR_CONST_SELECT_2(pow, const_math::pow, std::pow, half)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, std::copysign, half)
+	
+	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, half)
+	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, half)
+	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, half)
+#endif
 
 	// cleanup
 #undef FLOOR_CONST_SELECT_ARG_EXP_1

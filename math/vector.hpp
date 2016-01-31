@@ -779,25 +779,25 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::rint, rint, rinted)
 	
 	//! clamps all components of this vector to [min, max]
-	FLOOR_VEC_FUNC_ARGS(const_math::clamp, clamp, clamped,
+	FLOOR_VEC_FUNC_ARGS(math::clamp, clamp, clamped,
 						(const scalar_type& min, const scalar_type& max),
 						min, max)
 	//! clamps all components of this vector to [0, max]
-	FLOOR_VEC_FUNC_ARGS(const_math::clamp, clamp, clamped,
+	FLOOR_VEC_FUNC_ARGS(math::clamp, clamp, clamped,
 						(const scalar_type& max),
 						max)
 	
 	//! clamps all components of this vector to [min, max]
 	constexpr vector_type& clamp(const vector_type& min, const vector_type& max) {
-		x = const_math::clamp(x, min.x, max.x);
+		x = math::clamp(x, min.x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
-		y = const_math::clamp(y, min.y, max.y);
+		y = math::clamp(y, min.y, max.y);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		z = const_math::clamp(z, min.z, max.z);
+		z = math::clamp(z, min.z, max.z);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-		w = const_math::clamp(w, min.w, max.w);
+		w = math::clamp(w, min.w, max.w);
 #endif
 		return *this;
 	}
@@ -807,15 +807,15 @@ public:
 	}
 	//! clamps all components of this vector to [0, max]
 	constexpr vector_type& clamp(const vector_type& max) {
-		x = const_math::clamp(x, max.x);
+		x = math::clamp(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
-		y = const_math::clamp(y, max.y);
+		y = math::clamp(y, max.y);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		z = const_math::clamp(z, max.z);
+		z = math::clamp(z, max.z);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-		w = const_math::clamp(w, max.w);
+		w = math::clamp(w, max.w);
 #endif
 		return *this;
 	}
@@ -825,21 +825,21 @@ public:
 	}
 	
 	//! wraps all components of this vector around/to [0, max]
-	FLOOR_VEC_FUNC_ARGS(const_math::wrap, wrap, wrapped,
+	FLOOR_VEC_FUNC_ARGS(math::wrap, wrap, wrapped,
 						(const scalar_type& max),
 						max)
 	
 	//! wraps all components of this vector around/to [0, max]
 	constexpr vector_type& wrap(const vector_type& max) {
-		x = const_math::wrap(x, max.x);
+		x = math::wrap(x, max.x);
 #if FLOOR_VECTOR_WIDTH >= 2
-		y = const_math::wrap(y, max.y);
+		y = math::wrap(y, max.y);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		z = const_math::wrap(z, max.z);
+		z = math::wrap(z, max.z);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-		w = const_math::wrap(w, max.w);
+		w = math::wrap(w, max.w);
 #endif
 		return *this;
 	}

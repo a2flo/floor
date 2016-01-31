@@ -103,6 +103,9 @@ namespace std {
 	}
 	
 	// int math functions
+	const_func floor_inline_always int8_t abs(int8_t a) {
+		return a < int8_t(0) ? -a : a;
+	}
 	const_func floor_inline_always int16_t abs(int16_t a) {
 		int16_t ret;
 		asm("abs.s16 %0, %1;" : "=h"(ret) : "h"(a));
@@ -118,6 +121,10 @@ namespace std {
 		asm("abs.s64 %0, %1;" : "=l"(ret) : "l"(a));
 		return ret;
 	}
+	const_func floor_inline_always uint8_t abs(uint8_t a) { return a; }
+	const_func floor_inline_always uint16_t abs(uint16_t a) { return a; }
+	const_func floor_inline_always uint32_t abs(uint32_t a) { return a; }
+	const_func floor_inline_always uint64_t abs(uint64_t a) { return a; }
 	
 	const_func floor_inline_always int16_t min(int16_t a) {
 		int16_t ret;

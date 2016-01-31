@@ -63,7 +63,8 @@ namespace rt_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<is_integral<int_type>::value && is_signed<int_type>::value>* = nullptr>
+	template <typename int_type, enable_if_t<((is_integral<int_type>::value && is_signed<int_type>::value) &&
+											  !is_same<int_type, __int128_t>::value)>* = nullptr>
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 		return (val < (int_type)0 ? (max - (std::abs(val) % max)) : (val % max));
 	}
@@ -72,6 +73,13 @@ namespace rt_math {
 	template <typename uint_type, enable_if_t<is_integral<uint_type>::value && is_unsigned<uint_type>::value>* = nullptr>
 	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
+	}
+	
+	//! wraps val to the range [0, max]
+	template <typename int_type, enable_if_t<is_same<int_type, __int128_t>::value>* = nullptr>
+	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
+		// no std::abs or __builtin_abs for __int128_t
+		return (val < (int_type)0 ? (max - ((val < (int_type)0 ? -val : val) % max)) : (val % max));
 	}
 	
 }

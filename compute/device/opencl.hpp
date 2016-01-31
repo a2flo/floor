@@ -145,9 +145,15 @@ const_func float pow(float x, float y) ACL_FWD(__cl_pow, x, y)
 const_func float copysign(float x, float y) ACL_FWD(__cl_copysign, x, y)
 const_func float fmin(float x, float y) ACL_FWD(__cl_fmin, x, y)
 const_func float fmax(float x, float y) ACL_FWD(__cl_fmax, x, y)
+
+const_func int8_t abs(int8_t x) ACL_FWD(__cl_abs, x)
 const_func int16_t abs(int16_t x) ACL_FWD(__cl_abs, x)
 const_func int32_t abs(int32_t x) ACL_FWD(__cl_abs, x)
 const_func int64_t abs(int64_t x) ACL_FWD(__cl_abs, x)
+const_func uint8_t abs(uint8_t x) ACL_FWD(__cl_abs, x)
+const_func uint16_t abs(uint16_t x) ACL_FWD(__cl_abs, x)
+const_func uint32_t abs(uint32_t x) ACL_FWD(__cl_abs, x)
+const_func uint64_t abs(uint64_t x) ACL_FWD(__cl_abs, x)
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
 const_func int16_t floor_rt_min(int16_t x, int16_t y) SPIR_FWD("_Z3minss") ACL_FWD(__cl_min, x, y)
@@ -220,6 +226,7 @@ namespace std {
 	using ::log2;
 	using ::pow;
 	using ::copysign;
+	using ::abs;
 	
 	const_func floor_inline_always float abs(float x) { return fabs(x); }
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)

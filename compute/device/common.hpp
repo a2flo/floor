@@ -255,7 +255,7 @@ floor_inline_always static uint32_t get_sub_group_size() __attribute__((unavaila
 floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavailable("sub-group functionality not available")));
 #endif
 
-// always include const_math (and const_select) functionality
+// always include const_math, rt_math and math constexpr-select functionality
 #include <floor/constexpr/const_math.hpp>
 
 // always include vector lib/types

@@ -62,8 +62,16 @@ namespace std {
 		return *(float*)&ret;
 	}
 	
+	const_func metal_func half abs(half) asm("air.fabs.f16");
+	
+	const_func metal_func int8_t abs(int8_t) asm("air.abs.s.i8");
 	const_func metal_func int16_t abs(int16_t) asm("air.abs.s.i16");
 	const_func metal_func int32_t abs(int32_t) asm("air.abs.s.i32");
+	const_func metal_func int64_t abs(int64_t val) { return val < int64_t(0) ? -val : val; }
+	const_func metal_func uint8_t abs(uint8_t) asm("air.abs.u.i8");
+	const_func metal_func uint16_t abs(uint16_t) asm("air.abs.u.i16");
+	const_func metal_func uint32_t abs(uint32_t) asm("air.abs.u.i32");
+	const_func metal_func uint64_t abs(uint64_t val) { return val; }
 	
 	const_func metal_func int16_t floor_rt_min(int16_t, int16_t) asm("air.min.s.i16");
 	const_func metal_func uint16_t floor_rt_min(uint16_t, uint16_t) asm("air.min.u.i16");
