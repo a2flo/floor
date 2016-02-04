@@ -77,10 +77,10 @@ index 7a0ca88..4b27374 100644
  
  //===----------------------------------------------------------------------===//
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..ed133af 100644
+index 02f4259..9aec106 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -64,6 +64,12 @@ void initializeTarget(PassRegistry&);
+@@ -64,6 +64,14 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
@@ -89,11 +89,13 @@ index 02f4259..ed133af 100644
 +void initializeCUDAFinalPass(PassRegistry&);
 +void initializeMetalFirstPass(PassRegistry&);
 +void initializeMetalFinalPass(PassRegistry&);
++void initializeMetalImagePass(PassRegistry&);
 +void initializeSPIRFinalPass(PassRegistry&);
++void initializeSPIRImagePass(PassRegistry&);
  void initializeADCEPass(PassRegistry&);
  void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
  void initializeAliasAnalysisCounterPass(PassRegistry&);
-@@ -117,6 +123,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
+@@ -117,6 +125,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
  void initializeDominatorTreeWrapperPassPass(PassRegistry&);
  void initializeEarlyIfConverterPass(PassRegistry&);
  void initializeEdgeBundlesPass(PassRegistry&);
@@ -102,10 +104,10 @@ index 02f4259..ed133af 100644
  void initializeGCOVProfilerPass(PassRegistry&);
  void initializeAddressSanitizerPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..50b54c5 100644
+index e06560c..5445f11 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
-@@ -48,6 +48,12 @@ namespace {
+@@ -48,6 +48,14 @@ namespace {
          return;
  
        (void) llvm::createAAEvalPass();
@@ -114,11 +116,13 @@ index e06560c..50b54c5 100644
 +      (void) llvm::createCUDAFinalPass();
 +      (void) llvm::createMetalFirstPass(false);
 +      (void) llvm::createMetalFinalPass(false);
++      (void) llvm::createMetalImagePass();
 +      (void) llvm::createSPIRFinalPass();
++      (void) llvm::createSPIRImagePass();
        (void) llvm::createAggressiveDCEPass();
        (void) llvm::createAliasAnalysisCounterPass();
        (void) llvm::createAliasDebugger();
-@@ -77,6 +83,7 @@ namespace {
+@@ -77,6 +85,7 @@ namespace {
        (void) llvm::createGCOVProfilerPass();
        (void) llvm::createFunctionInliningPass();
        (void) llvm::createAlwaysInlinerPass();
@@ -168,10 +172,10 @@ index 50877d0..a1fe4dc 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..71229f3 100644
+index 413134e..16954c5 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -30,6 +30,43 @@ class TargetMachine;
+@@ -30,6 +30,55 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -206,15 +210,366 @@ index 413134e..71229f3 100644
 +
 +//===----------------------------------------------------------------------===//
 +//
++// MetalImage - This pass applies Metal-specific floor image transformations.
++//
++FunctionPass *createMetalImagePass();
++
++//===----------------------------------------------------------------------===//
++//
 +// SPIRFinal - This pass fixes LLVM IR to be SPIR-compliant.
 +//
 +FunctionPass *createSPIRFinalPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
++// SPIRImage - This pass applies SPIR-specific floor image transformations.
++//
++FunctionPass *createSPIRImagePass();
++
++//===----------------------------------------------------------------------===//
++//
  // ConstantPropagation - A worklist driven constant propagation pass
  //
  FunctionPass *createConstantPropagationPass();
+diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
+new file mode 100644
+index 0000000..44e1eac
+--- /dev/null
++++ b/include/llvm/Transforms/Scalar/FloorImage.h
+@@ -0,0 +1,333 @@
++//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This header file and class define and implement the base class for all
++// image transformations (CUDA and opaque, as used for Metal and OpenCL).
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_TRANSFORMS_SCALAR_FLOORIMAGE_H
++#define LLVM_TRANSFORMS_SCALAR_FLOORIMAGE_H
++
++#include <algorithm>
++#include <cstdarg>
++#include <cstdint>
++#include <memory>
++#include <string>
++#include <array>
++
++#include "llvm/Pass.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++
++// condensed version of the COMPUTE_IMAGE_TYPE defined by floor
++enum class COMPUTE_IMAGE_TYPE : uint32_t {
++	//! invalid/uninitialized
++	NONE					= (0u),
++	
++	//////////////////////////////////////////
++	// -> image flags and types
++	//! upper 14-bit (18-31): type flags
++	__FLAG_MASK				= (0xFFFC0000u),
++	__FLAG_SHIFT			= (18u),
++	//! base type: image is an array (aka has layers)
++	FLAG_ARRAY				= (1u << (__FLAG_SHIFT + 0u)),
++	//! base type: image is a buffer object
++	FLAG_BUFFER				= (1u << (__FLAG_SHIFT + 1u)),
++	//! base type: image uses mutli-sampling (consists of multiple samples)
++	FLAG_MSAA				= (1u << (__FLAG_SHIFT + 2u)),
++	//! base type: image is a cube map
++	FLAG_CUBE				= (1u << (__FLAG_SHIFT + 3u)),
++	//! base type: image is a depth image
++	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
++	//! base type: image is a stencil image
++	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
++	//! base type: image is a renderbuffer
++	//! NOTE: only applicable when using opengl sharing or metal
++	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
++	//! optional type: image uses mip-mapping, i.e. has multiple LODs
++	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
++	//! optional type: image uses a fixed channel count
++	//! NOTE: only used internally, serves no purpose on the user-side
++	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
++	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
++	//! NOTE: on some platforms this might provide better performance and/or less overhead
++	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
++	//! optional type: image uses gather sampling (aka tld4/fetch4)
++	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
++	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
++	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
++	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
++	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
++	//! optional type: image data contains sRGB data
++	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 13u)),
++	
++	//! bits 16-17: dimensionality
++	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
++	//!       -> 2D for cube maps, 2D for 2D arrays, 1D for 1D arrays
++	__DIM_MASK				= (0x00030000u),
++	__DIM_SHIFT				= (16u),
++	DIM_1D					= (1u << __DIM_SHIFT),
++	DIM_2D					= (2u << __DIM_SHIFT),
++	DIM_3D					= (3u << __DIM_SHIFT),
++	
++	//! bits 14-15: channel count
++	__CHANNELS_MASK			= (0x0000C000u),
++	__CHANNELS_SHIFT		= (14u),
++	CHANNELS_1				= (0u << __CHANNELS_SHIFT),
++	CHANNELS_2				= (1u << __CHANNELS_SHIFT),
++	CHANNELS_3				= (2u << __CHANNELS_SHIFT),
++	CHANNELS_4				= (3u << __CHANNELS_SHIFT),
++	//! channel convenience aliases
++	R 						= CHANNELS_1,
++	RG 						= CHANNELS_2,
++	RGB 					= CHANNELS_3,
++	RGBA					= CHANNELS_4,
++	
++	//! bits 12-13: storage data type
++	__DATA_TYPE_MASK		= (0x00003000u),
++	__DATA_TYPE_SHIFT		= (12u),
++	INT						= (1u << __DATA_TYPE_SHIFT),
++	UINT					= (2u << __DATA_TYPE_SHIFT),
++	FLOAT					= (3u << __DATA_TYPE_SHIFT),
++	
++	//! bits 10-11: access qualifier
++	__ACCESS_MASK			= (0x00000C00u),
++	__ACCESS_SHIFT			= (10u),
++	//! image is read-only (exluding host operations)
++	READ					= (1u << __ACCESS_SHIFT),
++	//! image is write-only (exluding host operations)
++	WRITE					= (2u << __ACCESS_SHIFT),
++	//! image is read-write
++	//! NOTE: also applies if neither is set
++	READ_WRITE				= (READ | WRITE),
++	
++	//! bits 6-9: compressed formats
++	__COMPRESSION_MASK		= (0x000003C0),
++	__COMPRESSION_SHIFT		= (6u),
++	//! image data is not compressed
++	UNCOMPRESSED			= (0u << __COMPRESSION_SHIFT),
++	//! S3TC/DXTn
++	BC1						= (1u << __COMPRESSION_SHIFT),
++	BC2						= (2u << __COMPRESSION_SHIFT),
++	BC3						= (3u << __COMPRESSION_SHIFT),
++	//! RGTC1/RGTC2
++	RGTC					= (4u << __COMPRESSION_SHIFT),
++	BC4						= RGTC,
++	BC5						= RGTC,
++	//! BPTC/BPTC_FLOAT
++	BPTC					= (5u << __COMPRESSION_SHIFT),
++	BC6H					= BPTC,
++	BC7						= BPTC,
++	//! PVRTC
++	PVRTC					= (6u << __COMPRESSION_SHIFT),
++	//! PVRTC2
++	PVRTC2					= (7u << __COMPRESSION_SHIFT),
++	//! EAC/ETC1
++	EAC						= (8u << __COMPRESSION_SHIFT),
++	ETC1					= EAC,
++	//! ETC2
++	ETC2					= (9u << __COMPRESSION_SHIFT),
++	//! ASTC
++	ASTC					= (10u << __COMPRESSION_SHIFT),
++	
++	//! bits 0-5: formats
++	//! NOTE: unless specified otherwise, a format is usable with any channel count
++	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
++	__FORMAT_MASK			= (0x0000003Fu),
++	//! 1 bit per channel
++	FORMAT_1				= (1u),
++	//! 2 bits per channel
++	FORMAT_2				= (2u),
++	//! 3 channel format: 3-bit/3-bit/2-bit
++	FORMAT_3_3_2			= (3u),
++	//! 4 bits per channel or YUV444
++	FORMAT_4				= (4u),
++	//! YUV420
++	FORMAT_4_2_0			= (5u),
++	//! YUV411
++	FORMAT_4_1_1			= (6u),
++	//! YUV422
++	FORMAT_4_2_2			= (7u),
++	//! 3 channel format: 5-bit/5-bit/5-bit
++	FORMAT_5_5_5			= (8u),
++	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
++	FORMAT_5_5_5_1			= (9u),
++	//! 3 channel format: 5-bit/6-bit/5-bit
++	FORMAT_5_6_5			= (10u),
++	//! 8 bits per channel
++	FORMAT_8				= (11u),
++	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
++	FORMAT_9_9_9_5			= (12u),
++	//! 3 channel format: 10-bit/10-bit/10-bit
++	FORMAT_10				= (13u),
++	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
++	FORMAT_10_10_10_2		= (14u),
++	//! 3 channel format: 11-bit/11-bit/10-bit
++	FORMAT_11_11_10			= (15u),
++	//! 3 channel format: 12-bit/12-bit/12-bit
++	FORMAT_12_12_12			= (16u),
++	//! 4 channel format: 12-bit/12-bit/12-bit/12-bit
++	FORMAT_12_12_12_12		= (17u),
++	//! 16 bits per channel
++	FORMAT_16				= (18u),
++	//! 1 channel format: 24-bit
++	FORMAT_24				= (19u),
++	//! 2 channel format: 24-bit/8-bit
++	FORMAT_24_8				= (20u),
++	//! 32 bits per channel
++	FORMAT_32				= (21u),
++	//! 2 channel format: 32-bit/8-bit
++	FORMAT_32_8				= (22u),
++	//! 64 bits per channel
++	FORMAT_64				= (23u),
++	__FORMAT_MAX			= FORMAT_64,
++	
++	//////////////////////////////////////////
++	// -> base image types
++	//! 1D image
++	IMAGE_1D				= DIM_1D,
++	//! array of 1D images
++	IMAGE_1D_ARRAY			= DIM_1D | FLAG_ARRAY,
++	//! 1D image buffer (special format on some platforms)
++	IMAGE_1D_BUFFER			= DIM_1D | FLAG_BUFFER,
++	
++	//! 2D image
++	IMAGE_2D				= DIM_2D,
++	//! array of 2D images
++	IMAGE_2D_ARRAY			= DIM_2D | FLAG_ARRAY,
++	//! multi-sampled 2D image
++	IMAGE_2D_MSAA			= DIM_2D | FLAG_MSAA,
++	//! array of multi-sampled 2D images
++	IMAGE_2D_MSAA_ARRAY		= DIM_2D | FLAG_MSAA | FLAG_ARRAY,
++	
++	//! cube map image
++	IMAGE_CUBE				= DIM_2D | FLAG_CUBE,
++	//! array of cube map images
++	IMAGE_CUBE_ARRAY		= DIM_2D | FLAG_CUBE | FLAG_ARRAY,
++	
++	//! 2D depth image
++	IMAGE_DEPTH				= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D,
++	//! combined 2D depth + stencil image
++	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | CHANNELS_2 | IMAGE_2D | FLAG_STENCIL,
++	//! array of 2D depth images
++	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_ARRAY,
++	//! depth cube map image
++	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE,
++	//! array of depth cube map images
++	IMAGE_DEPTH_CUBE_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE | FLAG_ARRAY,
++	//! multi-sampled 2D depth image
++	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA,
++	//! array of multi-sampled 2D depth images
++	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA_ARRAY,
++	
++	//! 3D image
++	IMAGE_3D				= DIM_3D,
++	
++	//
++	BASE_TYPE_MASK			= (__DIM_MASK |
++							   FLAG_ARRAY | FLAG_BUFFER | FLAG_CUBE | FLAG_DEPTH | FLAG_MSAA | FLAG_STENCIL),
++	
++};
++__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator|(const COMPUTE_IMAGE_TYPE& e0,
++																				   const COMPUTE_IMAGE_TYPE& e1) {
++	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 |
++								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
++}
++__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator&(const COMPUTE_IMAGE_TYPE& e0,
++																			 const COMPUTE_IMAGE_TYPE& e1) {
++	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 &
++								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
++}
++template <COMPUTE_IMAGE_TYPE flag, typename int_type = typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type>
++__attribute__((always_inline, used)) static constexpr bool has_flag(const COMPUTE_IMAGE_TYPE& enum_object) {
++	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
++}
++
++// compare function used by depth compare reads
++enum class COMPARE_FUNCTION : uint32_t {
++	NONE				= 0u,
++	LESS_OR_EQUAL		= 1u,
++	GREATER_OR_EQUAL	= 2u,
++	LESS				= 3u,
++	GREATER				= 4u,
++	EQUAL				= 5u,
++	NOT_EQUAL			= 6u,
++	ALWAYS				= 7u,
++	NEVER				= 8u,
++	__MAX_COMPARE_FUNCTION
++};
++
++namespace llvm {
++	struct FloorImageBasePass : public FunctionPass, InstVisitor<FloorImageBasePass> {
++		friend class InstVisitor<FloorImageBasePass>;
++		
++		enum class IMAGE_TYPE_ID {
++			CUDA,
++			OPAQUE
++		};
++		
++		explicit FloorImageBasePass(char &ID, const IMAGE_TYPE_ID& image_type_id);
++		
++		bool runOnFunction(Function &F) override;
++		
++		using InstVisitor<FloorImageBasePass>::visit;
++		void visit(Instruction& I);
++		void visitCallSite(CallSite CS);
++		
++		void handle_image(CallSite& CS, const StringRef& func_name);
++		
++		virtual void handle_read_image(Instruction& I,
++									   const StringRef& func_name,
++									   llvm::Value* img_handle_arg,
++									   const COMPUTE_IMAGE_TYPE& image_type,
++									   llvm::Value* sampler_arg,
++									   llvm::Value* coord_arg,
++									   llvm::Value* layer_arg,
++									   llvm::Value* sample_arg,
++									   llvm::Value* offset_arg,
++									   llvm::Value* lod_or_bias_arg,
++									   const bool is_lod_or_bias, // true: lod, false: bias
++									   llvm::Value* dpdx_arg,
++									   llvm::Value* dpdy_arg,
++									   const bool is_gradient,
++									   const COMPARE_FUNCTION& compare_function,
++									   llvm::Value* compare_value_arg,
++									   const bool is_compare) = 0;
++		
++		virtual void handle_write_image(Instruction& I,
++										const StringRef& func_name,
++										llvm::Value* img_handle_arg,
++										const COMPUTE_IMAGE_TYPE& image_type,
++										const COMPUTE_IMAGE_TYPE& format_type,
++										const COMPUTE_IMAGE_TYPE& data_type,
++										const bool& is_normalized,
++										const uint32_t& image_channel_count,
++										llvm::Value* coord_arg,
++										llvm::Value* layer_arg,
++										llvm::Value* data_arg) = 0;
++		
++	protected:
++		const IMAGE_TYPE_ID image_type_id;
++		const char* image_read_prefix;
++		const char* image_write_prefix;
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		Instruction* alloca_insert { nullptr };
++		std::shared_ptr<IRBuilder<>> builder;
++		bool was_modified { false };
++		
++	};
++}
++
++#endif
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
 index ac6e0e5..9e922f8 100644
 --- a/lib/AsmParser/LLParser.cpp
@@ -828,7 +1183,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..531df21 100644
+index 701fb46..a2a7fb0 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -843,18 +1198,26 @@ index 701fb46..531df21 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +135,10 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +135,18 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 +  // run "first" passes that should run before all else
-+  if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
-+  else if(EnableMetalPasses) MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
++  if(EnableCUDAPasses) {
++    MPM.add(createCUDAFirstPass());
++  }
++  else if(EnableMetalPasses) {
++    MPM.add(createMetalImagePass());
++    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
++  }
++  else if(EnableSPIRPasses) {
++    MPM.add(createSPIRImagePass());
++  }
 +
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -153,6 +162,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -153,6 +170,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -873,7 +1236,7 @@ index 701fb46..531df21 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +301,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +309,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -1150,16 +1513,19 @@ index 0000000..a0485af
 +	return new AddressSpaceFix();
 +}
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 261ddda..bc96e84 100644
+index 261ddda..4e749f6 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,9 @@
+@@ -1,4 +1,12 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
 +  CUDAFirst.cpp
 +  CUDAFinal.cpp
 +  MetalFinal.cpp
 +  SPIRFinal.cpp
++  FloorImage.cpp
++  MetalImage.cpp
++  SPIRImage.cpp
    ADCE.cpp
    ConstantHoisting.cpp
    ConstantProp.cpp
@@ -1287,10 +1653,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..89a8fee
+index 0000000..d816ceb
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,814 @@
+@@ -0,0 +1,511 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1301,7 +1667,7 @@ index 0000000..89a8fee
 +//===----------------------------------------------------------------------===//
 +//
 +// This pass currently builds PTX texture/surface instructions (inline asm) from
-+// floor.read_image.* and floor.write_image.* intrinsics.
++// floor.cuda.read_image.* and floor.cuda.write_image.* intrinsics.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -1339,6 +1705,7 @@ index 0000000..89a8fee
 +#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Scalar/FloorImage.h"
 +#include <algorithm>
 +#include <cstdarg>
 +#include <memory>
@@ -1354,399 +1721,32 @@ index 0000000..89a8fee
 +#define DBG(x) x
 +#endif
 +
-+// condensed version of the COMPUTE_IMAGE_TYPE defined by floor
-+enum class COMPUTE_IMAGE_TYPE : uint32_t {
-+	//! invalid/uninitialized
-+	NONE					= (0u),
-+	
-+	//////////////////////////////////////////
-+	// -> image flags and types
-+	//! upper 14-bit (18-31): type flags
-+	__FLAG_MASK				= (0xFFFC0000u),
-+	__FLAG_SHIFT			= (18u),
-+	//! base type: image is an array (aka has layers)
-+	FLAG_ARRAY				= (1u << (__FLAG_SHIFT + 0u)),
-+	//! base type: image is a buffer object
-+	FLAG_BUFFER				= (1u << (__FLAG_SHIFT + 1u)),
-+	//! base type: image uses mutli-sampling (consists of multiple samples)
-+	FLAG_MSAA				= (1u << (__FLAG_SHIFT + 2u)),
-+	//! base type: image is a cube map
-+	FLAG_CUBE				= (1u << (__FLAG_SHIFT + 3u)),
-+	//! base type: image is a depth image
-+	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
-+	//! base type: image is a stencil image
-+	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
-+	//! base type: image is a renderbuffer
-+	//! NOTE: only applicable when using opengl sharing or metal
-+	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
-+	//! optional type: image uses mip-mapping, i.e. has multiple LODs
-+	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
-+	//! optional type: image uses a fixed channel count
-+	//! NOTE: only used internally, serves no purpose on the user-side
-+	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
-+	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
-+	//! NOTE: on some platforms this might provide better performance and/or less overhead
-+	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
-+	//! optional type: image uses gather sampling (aka tld4/fetch4)
-+	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
-+	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
-+	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
-+	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
-+	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
-+	//! optional type: image data contains sRGB data
-+	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 13u)),
-+	
-+	//! bits 16-17: dimensionality
-+	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
-+	//!       -> 2D for cube maps, 2D for 2D arrays, 1D for 1D arrays
-+	__DIM_MASK				= (0x00030000u),
-+	__DIM_SHIFT				= (16u),
-+	DIM_1D					= (1u << __DIM_SHIFT),
-+	DIM_2D					= (2u << __DIM_SHIFT),
-+	DIM_3D					= (3u << __DIM_SHIFT),
-+	
-+	//! bits 14-15: channel count
-+	__CHANNELS_MASK			= (0x0000C000u),
-+	__CHANNELS_SHIFT		= (14u),
-+	CHANNELS_1				= (0u << __CHANNELS_SHIFT),
-+	CHANNELS_2				= (1u << __CHANNELS_SHIFT),
-+	CHANNELS_3				= (2u << __CHANNELS_SHIFT),
-+	CHANNELS_4				= (3u << __CHANNELS_SHIFT),
-+	//! channel convenience aliases
-+	R 						= CHANNELS_1,
-+	RG 						= CHANNELS_2,
-+	RGB 					= CHANNELS_3,
-+	RGBA					= CHANNELS_4,
-+	
-+	//! bits 12-13: storage data type
-+	__DATA_TYPE_MASK		= (0x00003000u),
-+	__DATA_TYPE_SHIFT		= (12u),
-+	INT						= (1u << __DATA_TYPE_SHIFT),
-+	UINT					= (2u << __DATA_TYPE_SHIFT),
-+	FLOAT					= (3u << __DATA_TYPE_SHIFT),
-+	
-+	//! bits 10-11: access qualifier
-+	__ACCESS_MASK			= (0x00000C00u),
-+	__ACCESS_SHIFT			= (10u),
-+	//! image is read-only (exluding host operations)
-+	READ					= (1u << __ACCESS_SHIFT),
-+	//! image is write-only (exluding host operations)
-+	WRITE					= (2u << __ACCESS_SHIFT),
-+	//! image is read-write
-+	//! NOTE: also applies if neither is set
-+	READ_WRITE				= (READ | WRITE),
-+	
-+	//! bits 6-9: compressed formats
-+	__COMPRESSION_MASK		= (0x000003C0),
-+	__COMPRESSION_SHIFT		= (6u),
-+	//! image data is not compressed
-+	UNCOMPRESSED			= (0u << __COMPRESSION_SHIFT),
-+	//! S3TC/DXTn
-+	BC1						= (1u << __COMPRESSION_SHIFT),
-+	BC2						= (2u << __COMPRESSION_SHIFT),
-+	BC3						= (3u << __COMPRESSION_SHIFT),
-+	//! RGTC1/RGTC2
-+	RGTC					= (4u << __COMPRESSION_SHIFT),
-+	BC4						= RGTC,
-+	BC5						= RGTC,
-+	//! BPTC/BPTC_FLOAT
-+	BPTC					= (5u << __COMPRESSION_SHIFT),
-+	BC6H					= BPTC,
-+	BC7						= BPTC,
-+	//! PVRTC
-+	PVRTC					= (6u << __COMPRESSION_SHIFT),
-+	//! PVRTC2
-+	PVRTC2					= (7u << __COMPRESSION_SHIFT),
-+	//! EAC/ETC1
-+	EAC						= (8u << __COMPRESSION_SHIFT),
-+	ETC1					= EAC,
-+	//! ETC2
-+	ETC2					= (9u << __COMPRESSION_SHIFT),
-+	//! ASTC
-+	ASTC					= (10u << __COMPRESSION_SHIFT),
-+	
-+	//! bits 0-5: formats
-+	//! NOTE: unless specified otherwise, a format is usable with any channel count
-+	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
-+	__FORMAT_MASK			= (0x0000003Fu),
-+	//! 1 bit per channel
-+	FORMAT_1				= (1u),
-+	//! 2 bits per channel
-+	FORMAT_2				= (2u),
-+	//! 3 channel format: 3-bit/3-bit/2-bit
-+	FORMAT_3_3_2			= (3u),
-+	//! 4 bits per channel or YUV444
-+	FORMAT_4				= (4u),
-+	//! YUV420
-+	FORMAT_4_2_0			= (5u),
-+	//! YUV411
-+	FORMAT_4_1_1			= (6u),
-+	//! YUV422
-+	FORMAT_4_2_2			= (7u),
-+	//! 3 channel format: 5-bit/5-bit/5-bit
-+	FORMAT_5_5_5			= (8u),
-+	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
-+	FORMAT_5_5_5_1			= (9u),
-+	//! 3 channel format: 5-bit/6-bit/5-bit
-+	FORMAT_5_6_5			= (10u),
-+	//! 8 bits per channel
-+	FORMAT_8				= (11u),
-+	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
-+	FORMAT_9_9_9_5			= (12u),
-+	//! 3 channel format: 10-bit/10-bit/10-bit
-+	FORMAT_10				= (13u),
-+	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
-+	FORMAT_10_10_10_2		= (14u),
-+	//! 3 channel format: 11-bit/11-bit/10-bit
-+	FORMAT_11_11_10			= (15u),
-+	//! 3 channel format: 12-bit/12-bit/12-bit
-+	FORMAT_12_12_12			= (16u),
-+	//! 4 channel format: 12-bit/12-bit/12-bit/12-bit
-+	FORMAT_12_12_12_12		= (17u),
-+	//! 16 bits per channel
-+	FORMAT_16				= (18u),
-+	//! 1 channel format: 24-bit
-+	FORMAT_24				= (19u),
-+	//! 2 channel format: 24-bit/8-bit
-+	FORMAT_24_8				= (20u),
-+	//! 32 bits per channel
-+	FORMAT_32				= (21u),
-+	//! 2 channel format: 32-bit/8-bit
-+	FORMAT_32_8				= (22u),
-+	//! 64 bits per channel
-+	FORMAT_64				= (23u),
-+	__FORMAT_MAX			= FORMAT_64,
-+	
-+	//////////////////////////////////////////
-+	// -> base image types
-+	//! 1D image
-+	IMAGE_1D				= DIM_1D,
-+	//! array of 1D images
-+	IMAGE_1D_ARRAY			= DIM_1D | FLAG_ARRAY,
-+	//! 1D image buffer (special format on some platforms)
-+	IMAGE_1D_BUFFER			= DIM_1D | FLAG_BUFFER,
-+	
-+	//! 2D image
-+	IMAGE_2D				= DIM_2D,
-+	//! array of 2D images
-+	IMAGE_2D_ARRAY			= DIM_2D | FLAG_ARRAY,
-+	//! multi-sampled 2D image
-+	IMAGE_2D_MSAA			= DIM_2D | FLAG_MSAA,
-+	//! array of multi-sampled 2D images
-+	IMAGE_2D_MSAA_ARRAY		= DIM_2D | FLAG_MSAA | FLAG_ARRAY,
-+	
-+	//! cube map image
-+	IMAGE_CUBE				= DIM_2D | FLAG_CUBE,
-+	//! array of cube map images
-+	IMAGE_CUBE_ARRAY		= DIM_2D | FLAG_CUBE | FLAG_ARRAY,
-+	
-+	//! 2D depth image
-+	IMAGE_DEPTH				= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D,
-+	//! combined 2D depth + stencil image
-+	IMAGE_DEPTH_STENCIL		= FLAG_DEPTH | CHANNELS_2 | IMAGE_2D | FLAG_STENCIL,
-+	//! array of 2D depth images
-+	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_ARRAY,
-+	//! depth cube map image
-+	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE,
-+	//! multi-sampled 2D depth image
-+	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA,
-+	//! array of multi-sampled 2D depth images
-+	IMAGE_DEPTH_MSAA_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA_ARRAY,
-+	
-+	//! 3D image
-+	IMAGE_3D				= DIM_3D,
-+	
-+	//
-+	BASE_TYPE_MASK			= (__DIM_MASK |
-+							   FLAG_ARRAY | FLAG_BUFFER | FLAG_CUBE | FLAG_DEPTH | FLAG_MSAA | FLAG_STENCIL),
-+	
-+};
-+__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator|(const COMPUTE_IMAGE_TYPE& e0,
-+																				   const COMPUTE_IMAGE_TYPE& e1) {
-+	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 |
-+								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
-+}
-+__attribute__((always_inline, used)) static constexpr COMPUTE_IMAGE_TYPE operator&(const COMPUTE_IMAGE_TYPE& e0,
-+																			 const COMPUTE_IMAGE_TYPE& e1) {
-+	return (COMPUTE_IMAGE_TYPE)((typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e0 &
-+								(typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type)e1);
-+}
-+template <COMPUTE_IMAGE_TYPE flag, typename int_type = typename std::underlying_type<COMPUTE_IMAGE_TYPE>::type>
-+__attribute__((always_inline, used)) static constexpr bool has_flag(const COMPUTE_IMAGE_TYPE& enum_object) {
-+	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
-+}
-+
 +namespace {
 +	// CUDAFirst
-+	struct CUDAFirst : public FunctionPass, InstVisitor<CUDAFirst> {
-+		friend class InstVisitor<CUDAFirst>;
-+		
++	struct CUDAFirst : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
 +		
-+		std::shared_ptr<llvm::IRBuilder<>> builder;
-+		
-+		Module* M { nullptr };
-+		LLVMContext* ctx { nullptr };
-+		Function* func { nullptr };
-+		Instruction* alloca_insert { nullptr };
-+		bool was_modified { false };
-+		
-+		CUDAFirst() : FunctionPass(ID) {
++		CUDAFirst() : FloorImageBasePass(ID, IMAGE_TYPE_ID::CUDA) {
 +			initializeCUDAFirstPass(*PassRegistry::getPassRegistry());
 +		}
 +		
-+		bool runOnFunction(Function &F) override {
-+			// exit if empty function
-+			if(F.empty()) return false;
-+			
-+			// reset
-+			M = F.getParent();
-+			ctx = &M->getContext();
-+			func = &F;
-+			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
-+			was_modified = false;
-+			
-+			// visit everything in this function
-+			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
-+			visit(F);
-+			
-+			return was_modified;
-+		}
-+		
-+		// InstVisitor overrides...
-+		using InstVisitor<CUDAFirst>::visit;
-+		void visit(Instruction& I) {
-+			InstVisitor<CUDAFirst>::visit(I);
-+		}
-+		
-+		//
-+		void visitCallSite(CallSite CS) {
-+			const auto func = CS.getCalledFunction();
-+			if(!func) return;
-+			
-+			const auto full_func_name = func->getName();
-+			if(full_func_name.startswith("floor.read_image.float.") ||
-+			   full_func_name.startswith("floor.write_image.float.") ||
-+			   full_func_name.startswith("floor.read_image.int.") ||
-+			   full_func_name.startswith("floor.write_image.int.") ||
-+			   full_func_name.startswith("floor.read_image.uint.") ||
-+			   full_func_name.startswith("floor.write_image.uint.")) {
-+				// strip off .(i|f)(1|2|3) from the end of the func name
-+				const auto func_name = full_func_name.rsplit('.').first;
-+				handle_image(CS, func_name);
-+			}
-+		}
-+		
-+		void handle_image(CallSite& CS, const StringRef& func_name) {
-+			Instruction* I = CS.getInstruction();
-+			builder->SetInsertPoint(I);
-+			const bool is_image_read = func_name.startswith("floor.read_image.");
-+			
-+			// check + get arguments
-+			if(CS.arg_size() != 5) {
-+				ctx->emitError(I, func_name + ": invalid argument count (expected 5)");
-+				return;
-+			}
-+			
-+			// -> tex/surf handle
-+			const auto img_handle_arg = CS.getArgument(0);
-+			if(!img_handle_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(I, "invalid image handle type (must be integer)");
-+				return;
-+			}
-+			
-+			// -> type enum
-+			const auto image_type_arg = cast<ConstantInt>(CS.getArgument(1));
-+			if(!image_type_arg) {
-+				ctx->emitError(I, "image type argument must be a constant value");
-+				return;
-+			}
-+			if(!image_type_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(I, "invalid image-type type (must be enum/integer)");
-+				return;
-+			}
-+			const uint32_t image_channel_count = ((uint32_t(image_type_arg->getZExtValue()) &
-+												   uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) >>
-+												  uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) + 1u;
-+			const auto full_image_type = COMPUTE_IMAGE_TYPE(image_type_arg->getZExtValue());
-+			const COMPUTE_IMAGE_TYPE image_type = full_image_type & COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK;
-+			const COMPUTE_IMAGE_TYPE format_type = full_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
-+			const COMPUTE_IMAGE_TYPE image_data_type = full_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK;
-+			const bool is_normalized = has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(full_image_type);
-+			
-+			// check if format is supported (only for image write now)
-+			if(!is_image_read) {
-+				switch(format_type) {
-+					case COMPUTE_IMAGE_TYPE::FORMAT_8:
-+					case COMPUTE_IMAGE_TYPE::FORMAT_16:
-+					case COMPUTE_IMAGE_TYPE::FORMAT_24: // as 32-bit
-+					case COMPUTE_IMAGE_TYPE::FORMAT_32:
-+					case COMPUTE_IMAGE_TYPE::FORMAT_32_8: // for depth+stencil
-+						break;
-+					default:
-+						// all else: nope
-+						ctx->emitError(I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
-+						return;
-+				}
-+			}
-+			
-+			// -> coord
-+			const auto coord_arg = CS.getArgument(2);
-+			const auto coord_arg_type = coord_arg->getType();
-+			if(!(coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
-+												  coord_arg_type->getVectorElementType()->isIntegerTy()))) {
-+				ctx->emitError(I, "invalid image coordinate type");
-+				return;
-+			}
-+			
-+			// -> layer
-+			const auto layer_arg = CS.getArgument(3);
-+			if(!layer_arg->getType()->isIntegerTy()) {
-+				ctx->emitError(I, "invalid image layer index type (must be integer)");
-+				return;
-+			}
-+			
-+			if(is_image_read) {
-+				// -> sample
-+				const auto sample_arg = CS.getArgument(4);
-+				if(!sample_arg->getType()->isIntegerTy()) {
-+					ctx->emitError(I, "invalid image sample index type (must be integer)");
-+					return;
-+				}
-+				handle_read_image(*I, func_name,
-+								  img_handle_arg, image_type, coord_arg, coord_arg_type,
-+								  layer_arg, sample_arg);
-+			}
-+			else {
-+				// -> data
-+				const auto data_arg = CS.getArgument(4);
-+				const auto data_type = data_arg->getType();
-+				if(!data_type->isVectorTy() ||
-+				   data_type->getVectorNumElements() != 4) {
-+					ctx->emitError(I, "invalid image data type (must be 4-component vector)");
-+					return;
-+				}
-+				if(!data_type->getVectorElementType()->isFloatTy() &&
-+				   !data_type->getVectorElementType()->isIntegerTy()) {
-+					ctx->emitError(I, "invalid image data type (must be a float or integer vector)");
-+					return;
-+				}
-+				handle_write_image(*I, func_name,
-+								   img_handle_arg,
-+								   image_type, format_type, image_data_type,
-+								   is_normalized, image_channel_count,
-+								   coord_arg, coord_arg_type,
-+								   layer_arg, data_arg);
-+			}
-+		}
-+		
-+		void handle_read_image(Instruction& I, const StringRef& func_name,
++		void handle_read_image(Instruction& I,
++							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
++							   llvm::Value* sampler_arg,
 +							   llvm::Value* coord_arg,
-+							   llvm::Type* coord_arg_type,
 +							   llvm::Value* layer_arg,
-+							   llvm::Value* sample_arg) {
++							   llvm::Value* sample_arg,
++							   llvm::Value* offset_arg,
++							   llvm::Value* lod_or_bias_arg,
++							   const bool is_lod_or_bias, // true: lod, false: bias
++							   llvm::Value* dpdx_arg,
++							   llvm::Value* dpdy_arg,
++							   const bool is_gradient,
++							   const COMPARE_FUNCTION& compare_function,
++							   llvm::Value* compare_value_arg,
++							   const bool is_compare) override {
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
 +			SmallVector<llvm::Value*, 16> asm_args;
 +			std::string constraints_str = "";
@@ -1754,7 +1754,7 @@ index 0000000..89a8fee
 +			// -> return data
 +			std::string dtype;
 +			llvm::Type* ret_type, *ret_vec_type;
-+			if(func_name == "floor.read_image.float") {
++			if(func_name == "floor.cuda.read_image.float") {
 +				dtype = "f32";
 +				constraints_str = "=f,=f,=f,=f";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -1765,7 +1765,7 @@ index 0000000..89a8fee
 +				}});
 +				ret_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
 +			}
-+			else if(func_name == "floor.read_image.int") {
++			else if(func_name == "floor.cuda.read_image.int") {
 +				dtype = "s32";
 +				constraints_str = "=r,=r,=r,=r";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -1776,7 +1776,7 @@ index 0000000..89a8fee
 +				}});
 +				ret_vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name == "floor.read_image.uint") {
++			else if(func_name == "floor.cuda.read_image.uint") {
 +				dtype = "u32";
 +				constraints_str = "=r,=r,=r,=r";
 +				ret_type = llvm::StructType::get(*ctx, std::vector<llvm::Type*> {{
@@ -1796,7 +1796,7 @@ index 0000000..89a8fee
 +			
 +			// -> geom
 +			std::string geom; // .1d, .2d, .3d, .a1d, .a2d, .cube, .acube, .2dms, .a2dms
-+			bool is_array = false, is_msaa = false;
++			bool is_array = false, is_msaa = false, is_cube = false;
 +			switch(image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "a1d"; is_array = true; break;
@@ -1812,33 +1812,53 @@ index 0000000..89a8fee
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "a2dms"; is_array = true; is_msaa = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "3d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "cube"; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "cube"; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "acube"; is_cube = true; is_array = true; break;
 +				default:
 +					ctx->emitError(&I, "unknown or incorrect image type");
 +					return;
 +			}
 +			
 +			// -> coords
-+			auto coord_vec_type = cast<VectorType>(coord_arg_type);
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
 +			if(!coord_vec_type) {
 +				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
 +				return;
 +			}
++			const auto vec_elems = coord_vec_type->getVectorNumElements();
 +			
 +			const auto coord_type = coord_vec_type->getElementType();
 +			if(is_msaa && !coord_type->isIntegerTy()) {
 +				ctx->emitError(&I, "coordinate type must be integer for msaa images");
 +				return;
 +			}
-+			if((image_type == COMPUTE_IMAGE_TYPE::IMAGE_CUBE ||
-+				image_type == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY ||
-+				image_type == COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE) && !coord_type->isFloatTy()) {
++			
++			// TODO: add s/w support for reading cube maps with integer coords (u, v, face, *layer)
++			if(is_cube && !coord_type->isFloatTy()) {
 +				ctx->emitError(&I, "coordinate type must be float for cube images");
 +				return;
 +			}
 +			
-+			const auto vec_elems = coord_vec_type->getVectorNumElements();
++			// handle offset
++			if(vec_elems != offset_arg->getType()->getVectorNumElements()) {
++				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(vec_elems));
++				return;
++			}
++			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
++			bool null_offset = false;
++			if(const_offset_arg) {
++				const auto splat = const_offset_arg->getSplatValue();
++				if(splat && splat->isZeroValue()) {
++					null_offset = true;
++				}
++			}
++			
++			llvm::Value* offset_coord_arg = coord_arg;
++			if(!null_offset) {
++				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
++			}
++			
 +			std::string ctype = (coord_type->isFloatTy() ? "f32" : "s32");
 +			std::string coords_placeholders;
 +			const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
@@ -1872,14 +1892,41 @@ index 0000000..89a8fee
 +				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0");
 +			}
 +			
++			// offset arg
++			const uint32_t offset_start_idx = coord_start_idx + vec_elems;
++			std::string offset_str = "";
++			if(!null_offset) {
++				for(uint32_t i = 0; i < vec_elems; ++i) {
++					asm_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++					asm_args.push_back(builder->CreateExtractElement(offset_arg, builder->getInt32(i)));
++					if(i != 0) offset_str += ", ";
++					offset_str += "$" + std::to_string(offset_start_idx + i);
++				}
++				
++				// append ignored 0 offset
++				if(vec_elems == 3) {
++					offset_str += ", 0";
++				}
++				
++				if(vec_elems == 1) constraints_str += ",r";
++				else if(vec_elems == 2) constraints_str += ",r,r";
++				else if(vec_elems == 3) constraints_str += ",r,r,r";
++				else constraints_str += ",r,r,r,r";
++			}
++			
 +			// -> build asm string
 +			std::string asm_str = "tex." + geom + ".v4." + dtype + "." + ctype;
 +			asm_str += " { $0, $1, $2, $3 },";
-+			asm_str += " [$4, {" + coords_placeholders + " }];";
++			asm_str += " [$4, {" + coords_placeholders + " }]";
++			if(!null_offset) {
++				asm_str += ", { " + offset_str + " }";
++			}
++			asm_str += ";";
 +			
 +			const auto asm_func_type = FunctionType::get(ret_type, asm_arg_types, false);
 +			auto asm_func = InlineAsm::get(asm_func_type, asm_str, constraints_str, false /* non-volatile */);
 +			auto asm_call = builder->CreateCall(asm_func, asm_args);
++			asm_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			asm_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
 +			//
@@ -1895,7 +1942,8 @@ index 0000000..89a8fee
 +			I.eraseFromParent();
 +		}
 +		
-+		void handle_write_image(Instruction& I, const StringRef& func_name,
++		void handle_write_image(Instruction& I,
++								const StringRef& func_name,
 +								llvm::Value* img_handle_arg,
 +								const COMPUTE_IMAGE_TYPE& image_type,
 +								const COMPUTE_IMAGE_TYPE& format_type,
@@ -1903,14 +1951,28 @@ index 0000000..89a8fee
 +								const bool& is_normalized,
 +								const uint32_t& image_channel_count,
 +								llvm::Value* coord_arg,
-+								llvm::Type* coord_arg_type,
 +								llvm::Value* layer_arg,
-+								llvm::Value* data_arg) {
++								llvm::Value* data_arg) override {
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
 +			SmallVector<llvm::Value*, 16> asm_args;
 +			
-+			// more arg checking
-+			auto coord_vec_type = cast<VectorType>(coord_arg_type);
++			//// more arg checking
++			
++			// check if format is supported (only for cuda image write)
++			switch(format_type) {
++				case COMPUTE_IMAGE_TYPE::FORMAT_8:
++				case COMPUTE_IMAGE_TYPE::FORMAT_16:
++				case COMPUTE_IMAGE_TYPE::FORMAT_24: // as 32-bit
++				case COMPUTE_IMAGE_TYPE::FORMAT_32:
++				case COMPUTE_IMAGE_TYPE::FORMAT_32_8: // for depth+stencil
++					break;
++				default:
++					// all else: nope
++					ctx->emitError(&I, "unsupported image format (must be 8-bit, 16-bit, 24-bit or 32-bit per channel)");
++					return;
++			}
++			
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
 +			if(!coord_vec_type) {
 +				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
 +				return;
@@ -1922,13 +1984,13 @@ index 0000000..89a8fee
 +				return;
 +			}
 +			
-+			if(func_name != "floor.write_image.float" &&
-+			   func_name != "floor.write_image.int" &&
-+			   func_name != "floor.write_image.uint") {
++			if(func_name != "floor.cuda.write_image.float" &&
++			   func_name != "floor.cuda.write_image.int" &&
++			   func_name != "floor.cuda.write_image.uint") {
 +				return; // unknown -> ignore
 +			}
 +			
-+			//
++			//// func replacement
 +			std::string constraints_str = "l"; // u64 surf handle
 +			asm_arg_types.push_back(llvm::Type::getInt64Ty(*ctx));
 +			asm_args.push_back(img_handle_arg);
@@ -1952,6 +2014,7 @@ index 0000000..89a8fee
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
 +				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
 +					ctx->emitError(&I, "invalid image type - type is not writable");
@@ -2104,6 +2167,307 @@ index 0000000..89a8fee
 +
 +FunctionPass *llvm::createCUDAFirstPass() {
 +	return new CUDAFirst();
++}
+diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
+new file mode 100644
+index 0000000..44a569a
+--- /dev/null
++++ b/lib/Transforms/Scalar/FloorImage.cpp
+@@ -0,0 +1,295 @@
++//===- FloorImage.cpp - base class for image transformations --------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This class defines and implements the base class for all
++// image transformations (CUDA and opaque, as used for Metal and OpenCL).
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/Transforms/Scalar/FloorImage.h"
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include <cxxabi.h>
++using namespace llvm;
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++FloorImageBasePass::FloorImageBasePass(char &ID, const IMAGE_TYPE_ID& image_type_id_)
++: FunctionPass(ID), image_type_id(image_type_id_),
++image_read_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.read_image." : "floor.opaque.read_image."),
++image_write_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.write_image." : "floor.opaque.write_image.") {
++}
++
++bool FloorImageBasePass::runOnFunction(Function &F) {
++	// exit if empty function
++	if(F.empty()) return false;
++	
++	// reset
++	M = F.getParent();
++	ctx = &M->getContext();
++	func = &F;
++	builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++	was_modified = false;
++	
++	// visit everything in this function
++	DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++	visit(F);
++	
++	return was_modified;
++}
++
++void FloorImageBasePass::visit(Instruction& I) {
++	InstVisitor<FloorImageBasePass>::visit(I);
++}
++
++void FloorImageBasePass::visitCallSite(CallSite CS) {
++	const auto func = CS.getCalledFunction();
++	if(!func) return;
++	
++	const auto full_func_name = func->getName();
++	if(full_func_name.startswith(image_read_prefix) ||
++	   full_func_name.startswith(image_write_prefix)) {
++		// strip off .(i|f)(1|2|3) from the end of the func name
++		const auto func_name = full_func_name.rsplit('.').first;
++		handle_image(CS, func_name);
++	}
++}
++
++void FloorImageBasePass::handle_image(CallSite& CS, const StringRef& func_name) {
++	Instruction* I = CS.getInstruction();
++	builder->SetInsertPoint(I);
++	const bool is_image_read = func_name.startswith(image_read_prefix);
++	
++	/* args for cuda and opaque read/write functions:
++	 
++	 cuda read:
++	 uint64_t tex, COMPUTE_IMAGE_TYPE type,
++	 coord_vec_type coord, uint32_t layer, uint32_t sample, offset_vec_type offset,
++	 int32_t lod_i, float lod_or_bias_f, bool is_lod, bool is_lod_float, bool is_bias,
++	 gradient_vec_type dpdx, gradient_vec_type dpdy, bool is_gradient,
++	 COMPARE_FUNCTION compare_function, float compare_value, bool is_compare
++	 
++	 cuda write:
++	 uint64_t surf, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, data_vec_type data
++	 
++	 opaque read:
++	 image_t img, sampler_type smplr, COMPUTE_IMAGE_TYPE type,
++	 coord_vec_type coord, uint32_t layer, uint32_t sample, offset_vec_type offset,
++	 int32_t lod_i, float lod_or_bias_f, bool is_lod, bool is_lod_float, bool is_bias,
++	 gradient_vec_type dpdx, gradient_vec_type dpdy, bool is_gradient,
++	 COMPARE_FUNCTION compare_function, float compare_value, bool is_compare
++	 
++	 opaque write:
++	 image_t img, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, data_vec_type data
++	 
++	 */
++	
++	const uint32_t read_arg_count = (image_type_id == IMAGE_TYPE_ID::CUDA ? 17 : 18);
++	const uint32_t write_arg_count = (image_type_id == IMAGE_TYPE_ID::CUDA ? 5 : 5);
++	
++	// as args are largely the same for cuda and opaque, just offset the arg num by 1 for opaque,
++	// instead of doing this individually for each arg.
++	// also: only offset for image reads, as image writes are identical.
++	const uint32_t read_args_offset = (image_type_id == IMAGE_TYPE_ID::CUDA ? 0 : 1);
++	const uint32_t write_args_offset = 0;
++	const uint32_t args_offset = (is_image_read ? read_args_offset : write_args_offset);
++	
++	// check + get arguments
++	if(is_image_read && CS.arg_size() != read_arg_count) {
++		ctx->emitError(I, func_name + ": invalid argument count (expected " + std::to_string(read_arg_count) + ")");
++		return;
++	}
++	if(!is_image_read && CS.arg_size() != write_arg_count) {
++		ctx->emitError(I, func_name + ": invalid argument count (expected " + std::to_string(write_arg_count) + ")");
++		return;
++	}
++	
++	// -> tex/surf/img handle
++	const auto img_handle_arg = CS.getArgument(0);
++	if(image_type_id == IMAGE_TYPE_ID::CUDA &&
++	   !img_handle_arg->getType()->isIntegerTy()) {
++		ctx->emitError(I, "invalid image handle type (must be integer)");
++		return;
++	}
++	else if(image_type_id == IMAGE_TYPE_ID::OPAQUE) {
++		if(!img_handle_arg->getType()->isPointerTy()) {
++			ctx->emitError(I, "invalid image handle type (must be an image pointer)");
++			return;
++		}
++		// TODO: check opaque? check opencl image type?
++	}
++	
++	// -> type enum
++	const auto image_type_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(1 + args_offset));
++	if(!image_type_arg) {
++		ctx->emitError(I, "image type argument must be a constant value");
++		return;
++	}
++	if(!image_type_arg->getType()->isIntegerTy()) {
++		ctx->emitError(I, "invalid image-type type (must be enum/integer)");
++		return;
++	}
++	const uint32_t image_channel_count = ((uint32_t(image_type_arg->getZExtValue()) &
++										   uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)) >>
++										  uint32_t(COMPUTE_IMAGE_TYPE::__CHANNELS_SHIFT)) + 1u;
++	const auto full_image_type = COMPUTE_IMAGE_TYPE(image_type_arg->getZExtValue());
++	const COMPUTE_IMAGE_TYPE image_type = full_image_type & COMPUTE_IMAGE_TYPE::BASE_TYPE_MASK;
++	const COMPUTE_IMAGE_TYPE format_type = full_image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK;
++	const COMPUTE_IMAGE_TYPE image_data_type = full_image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK;
++	const bool is_normalized = has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(full_image_type);
++	
++	// -> coord
++	const auto coord_arg = CS.getArgument(2 + args_offset);
++	const auto coord_arg_type = coord_arg->getType();
++	if(!(coord_arg_type->isVectorTy() && (coord_arg_type->getVectorElementType()->isFloatTy() ||
++										  coord_arg_type->getVectorElementType()->isIntegerTy()))) {
++		ctx->emitError(I, "invalid image coordinate type");
++		return;
++	}
++	
++	// -> layer
++	const auto layer_arg = CS.getArgument(3 + args_offset);
++	if(!layer_arg->getType()->isIntegerTy()) {
++		ctx->emitError(I, "invalid image layer index type (must be integer)");
++		return;
++	}
++	
++	if(is_image_read) {
++		// -> sampler
++		const auto sampler_arg = (image_type_id == IMAGE_TYPE_ID::CUDA ? nullptr : CS.getArgument(1));
++		
++		// -> sample
++		const auto sample_arg = CS.getArgument(4 + args_offset);
++		if(!sample_arg->getType()->isIntegerTy()) {
++			ctx->emitError(I, "invalid image sample index type (must be integer)");
++			return;
++		}
++		
++		// -> offset
++		const auto offset_arg = CS.getArgument(5 + args_offset);
++		if(!offset_arg->getType()->isVectorTy() ||
++		   !offset_arg->getType()->getVectorElementType()->isIntegerTy()) {
++			ctx->emitError(I, "invalid offset type (must be an int vector)");
++			return;
++		}
++		
++		// -> misc flags
++		const auto is_lod_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(8 + args_offset));
++		const auto is_lod_float_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(9 + args_offset));
++		const auto is_bias_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(10 + args_offset));
++		const auto is_gradient_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(13 + args_offset));
++		const auto is_compare_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(16 + args_offset));
++		if(!is_lod_arg) {
++			ctx->emitError(I, "is_lod is not constant");
++			return;
++		}
++		if(!is_lod_float_arg) {
++			ctx->emitError(I, "is_lod_float is not constant");
++			return;
++		}
++		if(!is_bias_arg) {
++			ctx->emitError(I, "is_bias is not constant");
++			return;
++		}
++		if(!is_gradient_arg) {
++			ctx->emitError(I, "is_gradient is not constant");
++			return;
++		}
++		if(!is_compare_arg) {
++			ctx->emitError(I, "is_compare_arg is not constant");
++			return;
++		}
++		
++		const bool is_lod = is_lod_arg->isOne();
++		const bool is_lod_float = is_lod_float_arg->isOne();
++		const bool is_bias = is_bias_arg->isOne();
++		const bool is_gradient = is_gradient_arg->isOne();
++		const bool is_compare = is_compare_arg->isOne();
++		
++		// -> lod and bias
++		const auto lod_or_bias_arg = CS.getArgument(args_offset + (!is_bias && !is_lod_float ? 6 : 7));
++		
++		// -> gradient
++		const auto dpdx_arg = CS.getArgument(11 + args_offset);
++		const auto dpdy_arg = CS.getArgument(12 + args_offset);
++		
++		// -> compare
++		const auto compare_function_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(14 + args_offset));
++		if(!compare_function_arg) {
++			ctx->emitError(I, "compare function arg is not constant");
++			return;
++		}
++		const COMPARE_FUNCTION compare_function = (COMPARE_FUNCTION)compare_function_arg->getZExtValue();
++		if(compare_function >= COMPARE_FUNCTION::__MAX_COMPARE_FUNCTION) {
++			ctx->emitError(I, "invalid compare function");
++			return;
++		}
++		
++		const auto compare_value_arg = CS.getArgument(15 + args_offset);
++		
++		handle_read_image(*I, func_name,
++						  img_handle_arg, image_type,
++						  sampler_arg,
++						  coord_arg, layer_arg, sample_arg, offset_arg,
++						  lod_or_bias_arg, is_lod /* if false, then it's always bias */,
++						  dpdx_arg, dpdy_arg, is_gradient,
++						  compare_function, compare_value_arg, is_compare);
++	}
++	else {
++		// -> data
++		const auto data_arg = CS.getArgument(4 + args_offset);
++		const auto data_type = data_arg->getType();
++		if(!data_type->isVectorTy() ||
++		   data_type->getVectorNumElements() != 4) {
++			ctx->emitError(I, "invalid image data type (must be 4-component vector)");
++			return;
++		}
++		if(!data_type->getVectorElementType()->isFloatTy() &&
++		   !data_type->getVectorElementType()->isIntegerTy()) {
++			ctx->emitError(I, "invalid image data type (must be a float or integer vector)");
++			return;
++		}
++		
++		handle_write_image(*I, func_name,
++						   img_handle_arg,
++						   image_type, format_type, image_data_type,
++						   is_normalized, image_channel_count,
++						   coord_arg, layer_arg, data_arg);
++	}
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
@@ -2838,9 +3202,534 @@ index 0000000..80a6855
 +}
 +INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
+diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
+new file mode 100644
+index 0000000..919b340
+--- /dev/null
++++ b/lib/Transforms/Scalar/MetalImage.cpp
+@@ -0,0 +1,519 @@
++//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This pass implements the Metal-specific floor image transformations, i.e.
++// floor.opaque.<read/write function>.* -> air.<read/write function>.*
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Scalar/FloorImage.h"
++using namespace llvm;
++
++#define DEBUG_TYPE "MetalImage"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	struct MetalImage : public FloorImageBasePass {
++		static char ID; // Pass identification, replacement for typeid
++		
++		MetalImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE) {
++			initializeMetalImagePass(*PassRegistry::getPassRegistry());
++		}
++		
++		void handle_read_image(Instruction& I,
++							   const StringRef& func_name,
++							   llvm::Value* img_handle_arg,
++							   const COMPUTE_IMAGE_TYPE& image_type,
++							   llvm::Value* sampler_arg,
++							   llvm::Value* coord_arg,
++							   llvm::Value* layer_arg,
++							   llvm::Value* sample_arg,
++							   llvm::Value* offset_arg,
++							   llvm::Value* lod_or_bias_arg,
++							   const bool is_lod_or_bias, // true: lod, false: bias
++							   llvm::Value* dpdx_arg,
++							   llvm::Value* dpdy_arg,
++							   const bool is_gradient,
++							   const COMPARE_FUNCTION& compare_function,
++							   llvm::Value* compare_value_arg,
++							   const bool is_compare) override {
++			SmallVector<llvm::Type*, 16> func_arg_types;
++			SmallVector<llvm::Value*, 16> func_args;
++			
++			// -> return data
++			std::string dtype;
++			llvm::Type* ret_type;
++			if(func_name.endswith("float")) {
++				dtype = "v4f32";
++				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
++			}
++			else if(func_name.endswith("int")) {
++				dtype = "s.v4i32";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("uint")) {
++				dtype = "u.v4i32";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("half")) {
++				dtype = "v4f16";
++				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
++			}
++			else if(func_name.endswith("short")) {
++				dtype = "s.v4i16";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt16Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("ushort")) {
++				dtype = "u.v4i16";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt16Ty(*ctx), 4);
++			}
++			// unknown -> ignore
++			else return;
++			
++			// -> geom
++			std::string geom;
++			bool is_array = false, is_msaa = false, is_cube = false, is_depth = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "texture_1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "texture_1d_array"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "texture_1d_buffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "depth_2d"; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "texture_2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "depth_2d_array"; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "texture_2d_array"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "depth_2d_ms"; is_msaa = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "texture_2d_ms"; is_msaa = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "texture_3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "depth_cube"; is_cube = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "depth_cube_array"; is_cube = true; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "texture_cube"; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "texture_cube_array"; is_cube = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					ctx->emitError(&I, "unsupported image type");
++					return;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			
++			// -> coord type
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			const auto coord_dim = coord_vec_type->getNumElements();
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(is_msaa && !coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer for msaa images");
++				return;
++			}
++			if(is_cube && !coord_type->isFloatTy()) {
++				ctx->emitError(&I, "coordinate type must be float for cube images");
++				return;
++			}
++			
++			// air.read_* or air.sample_*?
++			// for msaa: always read
++			// for all else: read if int coords, sample if float coords
++			const bool is_sample_call = (!is_msaa && !coord_type->isIntegerTy());
++			
++			// img handle and sampler
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			if(is_sample_call) {
++				// only add the sampler arg if this is a sample call
++				func_arg_types.push_back(sampler_arg->getType());
++				func_args.push_back(sampler_arg);
++			}
++			
++			if(is_depth) {
++				// must always add the depth type 1 (== float)
++				func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++				func_args.push_back(builder->getInt32(1));
++				
++				// depth return type is always a float
++				ret_type = llvm::Type::getFloatTy(*ctx);
++				dtype = "f32";
++				
++				if(is_compare) {
++					if(!is_sample_call) {
++						ctx->emitError(&I, "compare must be a sample call");
++						return;
++					}
++				}
++			}
++			else {
++				if(is_compare) {
++					ctx->emitError(&I, "compare is only allowed with depth types");
++					return;
++				}
++			}
++			
++			// handle offset
++			if(coord_dim != offset_arg->getType()->getVectorNumElements()) {
++				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(coord_dim));
++				return;
++			}
++			
++			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
++			bool null_offset = false;
++			if(const_offset_arg) {
++				const auto splat = const_offset_arg->getSplatValue();
++				if(splat && splat->isZeroValue()) {
++					null_offset = true;
++				}
++			}
++			
++			llvm::Value* offset_coord_arg = coord_arg;
++			if(!is_sample_call && !null_offset) {
++				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
++			}
++			
++			// -> coords: coords, sample, face, layer
++			if(coord_vec_type->getNumElements() == 1) {
++				// 1D coord, make it scalar
++				func_arg_types.push_back(coord_type);
++				func_args.push_back(builder->CreateExtractElement(offset_coord_arg, builder->getInt32(0)));
++			}
++			else {
++				// normal coord arg
++				if(!is_cube || coord_type->isFloatTy()) {
++					func_arg_types.push_back(offset_coord_arg->getType());
++					func_args.push_back(offset_coord_arg);
++				}
++				// cube with int coords
++				else {
++					// extract the face integer from the coords
++					const auto face_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(2));
++					
++					// create new int2 arg
++					llvm::Value* coord_i2_arg = UndefValue::get(llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 2));
++					coord_i2_arg = builder->CreateInsertElement(coord_i2_arg, builder->CreateExtractElement(offset_coord_arg, builder->getInt32(0)), builder->getInt32(0));
++					coord_i2_arg = builder->CreateInsertElement(coord_i2_arg, builder->CreateExtractElement(offset_coord_arg, builder->getInt32(1)), builder->getInt32(1));
++					
++					func_arg_types.push_back(coord_i2_arg->getType());
++					func_args.push_back(coord_i2_arg);
++					
++					func_arg_types.push_back(face_arg->getType());
++					func_args.push_back(face_arg);
++				}
++			}
++			
++			if(is_msaa) {
++				func_arg_types.push_back(sample_arg->getType());
++				func_args.push_back(sample_arg);
++			}
++			
++			if(is_array) {
++				func_arg_types.push_back(layer_arg->getType());
++				func_args.push_back(layer_arg);
++			}
++			
++			if(is_compare) {
++				func_arg_types.push_back(compare_value_arg->getType());
++				func_args.push_back(compare_value_arg);
++			}
++			
++			// -> additional args: lod, bias, gradient, offset
++			if(!is_sample_call) {
++				// -> read
++				if(!is_msaa) { // msaa is always lod 0, hence needs no arg
++					// -> lod
++					if(is_lod_or_bias) {
++						// for read, only int lods are allowed
++						if(!lod_or_bias_arg->getType()->isIntegerTy()) {
++							// convert to int
++							const auto int_lod = builder->CreateFPToUI(lod_or_bias_arg, llvm::Type::getInt32Ty(*ctx));
++							func_arg_types.push_back(int_lod->getType());
++							func_args.push_back(int_lod);
++						}
++						else {
++							func_arg_types.push_back(lod_or_bias_arg->getType());
++							func_args.push_back(lod_or_bias_arg);
++						}
++					}
++					else {
++						// if no lod is specified (bias is not allowed here), add a 0 lod
++						func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++						func_args.push_back(builder->getInt32(0));
++					}
++				}
++			}
++			else {
++				// -> sample
++				
++				// -> gradient
++				if(is_gradient) {
++					func_arg_types.push_back(dpdx_arg->getType());
++					func_args.push_back(dpdx_arg);
++					func_arg_types.push_back(dpdy_arg->getType());
++					func_args.push_back(dpdy_arg);
++				}
++				
++				// -> offset
++				if(!is_cube) { // cube allows no offset (TODO: support this through s/w?)
++					func_arg_types.push_back(llvm::Type::getInt1Ty(*ctx));
++					func_args.push_back(builder->getInt1(!null_offset));
++					
++					func_arg_types.push_back(offset_arg->getType());
++					func_args.push_back(offset_arg);
++				}
++				// else: TODO
++				
++				// -> lod / bias
++				if(!is_gradient) {
++					// lod or bias?
++					func_arg_types.push_back(llvm::Type::getInt1Ty(*ctx));
++					func_args.push_back(builder->getInt1(is_lod_or_bias));
++					
++					// for sample, only float lods are allowed
++					if(!lod_or_bias_arg->getType()->isFloatTy()) {
++						// convert to float
++						const auto float_lod = builder->CreateUIToFP(lod_or_bias_arg, llvm::Type::getFloatTy(*ctx));
++						func_arg_types.push_back(float_lod->getType());
++						func_args.push_back(float_lod);
++					}
++					else {
++						func_arg_types.push_back(lod_or_bias_arg->getType());
++						func_args.push_back(lod_or_bias_arg);
++					}
++				}
++				
++			}
++			
++			// -> build read func name
++			std::string read_func_name = "air.";
++			
++			read_func_name += (is_sample_call ? "sample_" : "read_");
++			if(is_compare) read_func_name += "compare_";
++			read_func_name += geom;
++			if(is_gradient) read_func_name += "_grad";
++			
++			read_func_name += '.' + dtype;
++			
++			// create the air call
++			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
++			llvm::CallInst* read_call = builder->CreateCall(M->getOrInsertFunction(read_func_name, func_type), func_args);
++			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			
++			// if this is a depth read/sample, the return type is a float -> create a float4
++			llvm::Value* read_call_result = read_call;
++			if(is_depth) {
++				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
++				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
++				// rest is undef/zero (and will be stripped away again anyways)
++			}
++			
++			//
++			was_modified = true;
++			I.replaceAllUsesWith(read_call_result);
++			I.eraseFromParent();
++		}
++		
++		void handle_write_image(Instruction& I,
++								const StringRef& func_name,
++								llvm::Value* img_handle_arg,
++								const COMPUTE_IMAGE_TYPE& image_type,
++								const COMPUTE_IMAGE_TYPE& format_type,
++								const COMPUTE_IMAGE_TYPE& data_type,
++								const bool& is_normalized,
++								const uint32_t& image_channel_count,
++								llvm::Value* coord_arg,
++								llvm::Value* layer_arg,
++								llvm::Value* data_arg) override {
++			SmallVector<llvm::Type*, 16> func_arg_types;
++			SmallVector<llvm::Value*, 16> func_args;
++			
++			//// more arg checking
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(!coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			std::string dtype;
++			if(func_name.endswith("float")) {
++				dtype = "v4f32";
++			}
++			else if(func_name.endswith("int")) {
++				dtype = "s.v4i32";
++			}
++			else if(func_name.endswith("uint")) {
++				dtype = "u.v4i32";
++			}
++			else if(func_name.endswith("half")) {
++				dtype = "v4f16";
++			}
++			else if(func_name.endswith("short")) {
++				dtype = "s.v4i16";
++			}
++			else if(func_name.endswith("ushort")) {
++				dtype = "u.v4i16";
++			}
++			// unknown -> ignore
++			else return;
++			
++			//// func replacement
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			// -> geom
++			std::string geom;
++			bool is_array = false, is_cube = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "texture_1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "texture_1d_array"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "texture_1d_buffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "texture_2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "texture_2d_array"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "texture_3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "texture_cube"; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "texture_cube_array"; is_cube = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++					ctx->emitError(&I, "invalid image type - type is not writable");
++					return;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					ctx->emitError(&I, "unsupported image type");
++					return;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			
++			// -> coords: coords, face, layer
++			if(coord_vec_type->getNumElements() == 1) {
++				// 1D coord, make it scalar
++				func_arg_types.push_back(coord_type);
++				func_args.push_back(builder->CreateExtractElement(coord_arg, builder->getInt32(0)));
++			}
++			else {
++				// normal coord arg
++				if(!is_cube) {
++					func_arg_types.push_back(coord_vec_type);
++					func_args.push_back(coord_arg);
++				}
++				// cube with int coords
++				else {
++					if(coord_type->isFloatTy()) {
++						// TODO: support float as well through s/w
++						ctx->emitError(&I, "cube write coordinate must be integer");
++						return;
++					}
++					
++					// extract the face integer from the coords
++					const auto face_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(2));
++					
++					// create new int2 arg
++					llvm::Value* coord_i2_arg = UndefValue::get(llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 2));
++					coord_i2_arg = builder->CreateInsertElement(coord_i2_arg, builder->CreateExtractElement(coord_arg, builder->getInt32(0)), builder->getInt32(0));
++					coord_i2_arg = builder->CreateInsertElement(coord_i2_arg, builder->CreateExtractElement(coord_arg, builder->getInt32(1)), builder->getInt32(1));
++					
++					func_arg_types.push_back(coord_i2_arg->getType());
++					func_args.push_back(coord_i2_arg);
++					
++					func_arg_types.push_back(face_arg->getType());
++					func_args.push_back(face_arg);
++				}
++			}
++			
++			if(is_array) {
++				func_arg_types.push_back(layer_arg->getType());
++				func_args.push_back(layer_arg);
++			}
++			
++			// -> data (also a 4-component vector)
++			func_arg_types.push_back(data_arg->getType());
++			func_args.push_back(data_arg);
++			
++			// -> lod (always 0 for now, TODO: support write lod)
++			func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++			func_args.push_back(builder->getInt32(0));
++			
++			// -> build write func name
++			const std::string write_func_name = "air.write_" + geom + '.' + dtype;
++			
++			// create the air call
++			const auto func_type = llvm::FunctionType::get(builder->getVoidTy(), func_arg_types, false);
++			llvm::CallInst* write_call = builder->CreateCall(M->getOrInsertFunction(write_func_name, func_type), func_args);
++			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			
++			//
++			was_modified = true;
++			I.replaceAllUsesWith(write_call);
++			I.eraseFromParent();
++		}
++		
++	};
++}
++
++char MetalImage::ID = 0;
++INITIALIZE_PASS_BEGIN(MetalImage, "MetalImage", "MetalImage Pass", false, false)
++INITIALIZE_PASS_END(MetalImage, "MetalImage", "MetalImage Pass", false, false)
++
++FunctionPass *llvm::createMetalImagePass() {
++	return new MetalImage();
++}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..c1c8108
+index 0000000..7ce000e
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
 @@ -0,0 +1,248 @@
@@ -3026,7 +3915,7 @@ index 0000000..c1c8108
 +		
 +		// "ashr" instructions may not be "exact"
 +		void visitAShr(BinaryOperator& O) {
-+			auto* ashr = cast<PossiblyExactOperator>(&O);
++			auto* ashr = dyn_cast_or_null<PossiblyExactOperator>(&O);
 +			if(ashr && ashr->isExact()) {
 +				// -> replace with a non-exact version
 +				builder->SetInsertPoint(&O);
@@ -3092,11 +3981,128 @@ index 0000000..c1c8108
 +FunctionPass *llvm::createSPIRFinalPass() {
 +	return new SPIRFinal();
 +}
+diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
+new file mode 100644
+index 0000000..7142220
+--- /dev/null
++++ b/lib/Transforms/Scalar/SPIRImage.cpp
+@@ -0,0 +1,111 @@
++//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This pass implements the SPIR-specific floor image transformations, i.e.
++// floor.opaque.<read/write function>.* -> spir image function call
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Scalar/FloorImage.h"
++using namespace llvm;
++
++#define DEBUG_TYPE "SPIRImage"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	struct SPIRImage : public FloorImageBasePass {
++		static char ID; // Pass identification, replacement for typeid
++		
++		SPIRImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE) {
++			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
++		}
++		
++		void handle_read_image(Instruction& I,
++							   const StringRef& func_name,
++							   llvm::Value* img_handle_arg,
++							   const COMPUTE_IMAGE_TYPE& image_type,
++							   llvm::Value* sampler_arg,
++							   llvm::Value* coord_arg,
++							   llvm::Value* layer_arg,
++							   llvm::Value* sample_arg,
++							   llvm::Value* offset_arg,
++							   llvm::Value* lod_or_bias_arg,
++							   const bool is_lod_or_bias, // true: lod, false: bias
++							   llvm::Value* dpdx_arg,
++							   llvm::Value* dpdy_arg,
++							   const bool is_gradient,
++							   const COMPARE_FUNCTION& compare_function,
++							   llvm::Value* compare_value_arg,
++							   const bool is_compare) override {
++			// TODO
++		}
++		
++		void handle_write_image(Instruction& I,
++								const StringRef& func_name,
++								llvm::Value* img_handle_arg,
++								const COMPUTE_IMAGE_TYPE& image_type,
++								const COMPUTE_IMAGE_TYPE& format_type,
++								const COMPUTE_IMAGE_TYPE& data_type,
++								const bool& is_normalized,
++								const uint32_t& image_channel_count,
++								llvm::Value* coord_arg,
++								llvm::Value* layer_arg,
++								llvm::Value* data_arg) override {
++			// TODO
++		}
++		
++	};
++}
++
++char SPIRImage::ID = 0;
++INITIALIZE_PASS_BEGIN(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
++INITIALIZE_PASS_END(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
++
++FunctionPass *llvm::createSPIRImagePass() {
++	return new SPIRImage();
++}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..1006d97 100644
+index de724d4..6b6f6d9 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,30 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -73,6 +73,38 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -3120,8 +4126,16 @@ index de724d4..1006d97 100644
 +  unwrap(PM)->add(createMetalFinalPass());
 +}
 +
++void LLVMAddMetalImagePass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalImagePass());
++}
++
 +void LLVMAddSPIRFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createSPIRFinalPass());
++}
++
++void LLVMAddSPIRImagePass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createSPIRImagePass());
 +}
 +
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
@@ -4751,7 +5765,7 @@ index 9427de1..cd0626d 100644
    // If the static offset is zero and we don't have a virtual step,
    // just do a bitcast; null checks are unnecessary.
 diff --git a/tools/clang/lib/CodeGen/CGDebugInfo.cpp b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
-index 048c8f8..0766a28 100644
+index 048c8f8..71783c8 100644
 --- a/tools/clang/lib/CodeGen/CGDebugInfo.cpp
 +++ b/tools/clang/lib/CodeGen/CGDebugInfo.cpp
 @@ -452,6 +452,36 @@ llvm::DIType CGDebugInfo::CreateType(const BuiltinType *BT) {
@@ -4786,7 +5800,7 @@ index 048c8f8..0766a28 100644
 +    return getOrCreateStructPtrType("opencl_imagecube_depth_t",
 +                                    OCLImageCubeDITy);
 +  case BuiltinType::OCLImageCubeArrayDepth:
-+    return getOrCreateStructPtrType("opencl_imagecube_array_deptht",
++    return getOrCreateStructPtrType("opencl_imagecube_array_depth_t",
 +                                    OCLImageCubeDITy);
    case BuiltinType::OCLImage3d:
      return getOrCreateStructPtrType("opencl_image3d_t",
