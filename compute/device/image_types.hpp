@@ -213,6 +213,8 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	IMAGE_DEPTH_ARRAY		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_ARRAY,
 	//! depth cube map image
 	IMAGE_DEPTH_CUBE		= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE,
+	//! array of depth cube map images
+	IMAGE_DEPTH_CUBE_ARRAY	= FLAG_DEPTH | CHANNELS_1 | IMAGE_CUBE | FLAG_ARRAY,
 	//! multi-sampled 2D depth image
 	IMAGE_DEPTH_MSAA		= FLAG_DEPTH | CHANNELS_1 | IMAGE_2D_MSAA,
 	//! array of multi-sampled 2D depth images

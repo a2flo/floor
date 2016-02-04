@@ -356,6 +356,7 @@ template <typename T> using param = const T&;
 #endif
 
 // implementation specific image headers
+#include <floor/compute/device/sampler.hpp>
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_image.hpp>
 #elif defined(FLOOR_COMPUTE_OPENCL)

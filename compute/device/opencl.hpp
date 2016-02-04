@@ -246,6 +246,7 @@ extern "C" int __printf_cl(const char constant* __restrict st, ...);
 #endif
 
 // barrier and mem_fence functionality
+// NOTE: local = 1, global = 2, image = 4
 #if !defined(FLOOR_COMPUTE_APPLECL)
 void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("_Z7barrierj");
 void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z9mem_fencej");
@@ -286,6 +287,23 @@ floor_inline_always static void local_write_mem_fence() {
 
 floor_inline_always static void barrier() {
 	cl_barrier(3u);
+}
+
+//! NOTE: not guaranteed to be available everywhere
+floor_inline_always static void image_barrier() {
+	cl_barrier(4u);
+}
+//! NOTE: not guaranteed to be available everywhere
+floor_inline_always static void image_mem_fence() {
+	cl_mem_fence(4u);
+}
+//! NOTE: not guaranteed to be available everywhere
+floor_inline_always static void image_read_mem_fence() {
+	cl_read_mem_fence(4u);
+}
+//! NOTE: not guaranteed to be available everywhere
+floor_inline_always static void image_write_mem_fence() {
+	cl_write_mem_fence(4u);
 }
 
 // sub-group functionality (opencl 2.1+, cl_khr_subgroups, cl_intel_subgroups)

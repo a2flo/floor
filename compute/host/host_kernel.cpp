@@ -774,6 +774,18 @@ void local_write_mem_fence() {
 void barrier() {
 	global_barrier();
 }
+void image_barrier() {
+	global_barrier();
+}
+void image_mem_fence() {
+	global_barrier();
+}
+void image_read_mem_fence() {
+	global_barrier();
+}
+void image_write_mem_fence() {
+	global_barrier();
+}
 
 // local memory management
 // NOTE: this is called when allocating storage for local buffers when using mt-group

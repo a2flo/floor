@@ -342,6 +342,19 @@ floor_inline_always static void barrier() {
 	__syncthreads();
 }
 
+floor_inline_always static void image_barrier() {
+	__syncthreads();
+}
+floor_inline_always static void image_mem_fence() {
+	__nvvm_membar_cta();
+}
+floor_inline_always static void image_read_mem_fence() {
+	__nvvm_membar_cta();
+}
+floor_inline_always static void image_write_mem_fence() {
+	__nvvm_membar_cta();
+}
+
 // done
 #undef FLOOR_CUDA_DIM0
 #undef FLOOR_CUDA_DIM1

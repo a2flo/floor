@@ -41,7 +41,25 @@ const_func clang_float2 get_point_coord_cf2() asm("floor.get_point_coord.float2"
 //! returns the normalized (in [0, 1]) point coordinate
 const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
 //! discards the current fragment
-void discard_fragment() asm("air.discard_fragment");
+void discard_fragment() __attribute__((noreturn)) asm("air.discard_fragment");
+//! partial derivative of p with respect to the screen-space x coordinate
+const_func float dfdx(float p) asm("air.dfdx.f32");
+//! partial derivative of p with respect to the screen-space y coordinate
+const_func float dfdy(float p) asm("air.dfdy.f32");
+//! returns "abs(dfdx(p)) + abs(dfdy(p))"
+const_func float fwidth(float p) asm("air.fwidth.f32");
+//! computes the partial deriviate of p with respect to the screen-space (x, y) coordinate
+floor_inline_always const_func pair<float, float> dfdx_dfdy_gradient(const float& p) {
+	return { { dfdx(p) }, { dfdy(p) } };
+}
+//! computes the partial deriviate of p with respect to the screen-space (x, y) coordinate
+floor_inline_always const_func pair<float2, float2> dfdx_dfdy_gradient(const float2& p) {
+	return { { dfdx(p.x), dfdx(p.y) }, { dfdy(p.x), dfdy(p.y) } };
+}
+//! computes the partial deriviate of p with respect to the screen-space (x, y) coordinate
+floor_inline_always const_func pair<float3, float3> dfdx_dfdy_gradient(const float3& p) {
+	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdx(p.z) } };
+}
 
 #endif
 

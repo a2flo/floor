@@ -83,6 +83,8 @@
 		5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C366DDB19A64FF2006D1D09 /* const_string.hpp */; };
 		5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F11AD921FA00AB2F13 /* image_types.hpp */; };
 		5C3A73F41AD9228C00AB2F13 /* enum_helpers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */; };
+		5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61D91C60FD4400358DAB /* opaque_image.hpp */; };
+		5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3B61DB1C61647600358DAB /* sampler.hpp */; };
 		5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
 		5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
 		5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */; };
@@ -323,6 +325,8 @@
 		5C366DDB19A64FF2006D1D09 /* const_string.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_string.hpp; sourceTree = "<group>"; };
 		5C3A73F11AD921FA00AB2F13 /* image_types.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image_types.hpp; path = device/image_types.hpp; sourceTree = "<group>"; };
 		5C3A73F31AD9228C00AB2F13 /* enum_helpers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = enum_helpers.hpp; sourceTree = "<group>"; };
+		5C3B61D91C60FD4400358DAB /* opaque_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opaque_image.hpp; path = device/opaque_image.hpp; sourceTree = "<group>"; };
+		5C3B61DB1C61647600358DAB /* sampler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = sampler.hpp; path = device/sampler.hpp; sourceTree = "<group>"; };
 		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
 		5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = asio_error_handler.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
@@ -720,7 +724,9 @@
 				5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */,
 				5C0E18C81B0946B900E63235 /* opencl_atomic.hpp */,
 				5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */,
+				5C3B61D91C60FD4400358DAB /* opaque_image.hpp */,
 				5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */,
+				5C3B61DB1C61647600358DAB /* sampler.hpp */,
 			);
 			name = device;
 			sourceTree = "<group>";
@@ -899,6 +905,7 @@
 				5CD6448E1A51BF5B00716FE8 /* compute_common.hpp in Headers */,
 				5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */,
 				5C0686B919C9285200CF63C8 /* essentials.hpp in Headers */,
+				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
 				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
@@ -916,6 +923,7 @@
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */,
+				5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */,
 				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
 				5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */,
 				5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */,

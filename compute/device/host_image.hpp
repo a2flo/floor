@@ -143,7 +143,7 @@ namespace host_image_impl {
 			return coord_to_offset(image_dim, coord.xy, coord.z);
 		}
 		
-		//! cube array
+		//! cube array, depth cube array
 		floor_inline_always static size_t coord_to_offset(const uint4& image_dim, uint3 coord, uint32_t layer) {
 			return coord_to_offset(image_dim, coord.xy, layer * 6u + coord.z);
 		}

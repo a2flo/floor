@@ -16,34 +16,25 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
-#define __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
+#ifndef __FLOOR_COMPUTE_DEVICE_SAMPLER_HPP__
+#define __FLOOR_COMPUTE_DEVICE_SAMPLER_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL)
+//! depth compare functions
+enum class COMPARE_FUNCTION : uint32_t {
+	NONE				= 0u,
+	LESS_OR_EQUAL		= 1u,
+	GREATER_OR_EQUAL	= 2u,
+	LESS				= 3u,
+	GREATER				= 4u,
+	EQUAL				= 5u,
+	NOT_EQUAL			= 6u,
+	ALWAYS				= 7u,
+	NEVER				= 8u,
+};
 
-namespace opencl_image {
-	//////////////////////////////////////////
-	// opencl sampler types/modes
-	namespace sampler {
-		enum ADDRESS_MODE : uint32_t {
-			NONE			= 0,
-			CLAMP_TO_ZERO	= 4,
-			CLAMP_TO_EDGE	= 2,
-			REPEAT			= 6,
-			MIRRORED_REPEAT	= 8
-		};
-		enum FILTER_MODE : uint32_t {
-			NEAREST			= 0x10,
-			LINEAR			= 0x20
-		};
-		enum COORD_MODE : uint32_t {
-			NORMALIZED		= 0,
-			PIXEL			= 1
-		};
-	};
-	
-}
-
-#endif
+//! preliminary/wip sampler type
+struct sampler {
+	COMPARE_FUNCTION compare_function;
+};
 
 #endif

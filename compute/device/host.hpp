@@ -82,6 +82,11 @@ void local_read_mem_fence();
 void local_write_mem_fence();
 void barrier();
 
+void image_barrier();
+void image_mem_fence();
+void image_read_mem_fence();
+void image_write_mem_fence();
+
 // local memory management (NOTE: implemented in host_kernel.cpp)
 uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const size_t size, uint32_t& offset);
 

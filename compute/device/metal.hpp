@@ -142,6 +142,19 @@ floor_inline_always static void barrier() {
 	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_ALL, FLOOR_METAL_SYNC_SCOPE_LOCAL);
 }
 
+floor_inline_always static void image_barrier() {
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+floor_inline_always static void image_mem_fence() {
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+floor_inline_always static void image_read_mem_fence() {
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+floor_inline_always static void image_write_mem_fence() {
+	air_wg_barrier(FLOOR_METAL_MEM_SCOPE_TEXTURE, FLOOR_METAL_SYNC_SCOPE_LOCAL);
+}
+
 // not supported (neither __printf_cl nor __builtin_printf work)
 #define printf(...)
 
