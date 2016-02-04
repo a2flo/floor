@@ -82,7 +82,7 @@ typedef UIWindow* wnd_type_ptr;
 		[self.wnd frame]
 #endif
 	};
-	CGRect frame { { 0.0f, 0.0f }, { wnd_frame.size.width, wnd_frame.size.height } };
+	CGRect frame { { 0.0, 0.0 }, { wnd_frame.size.width, wnd_frame.size.height } };
 	return frame;
 }
 

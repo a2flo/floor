@@ -271,7 +271,7 @@ namespace const_math {
 		// if n is small enough, long doubles are safe to use
 		if(n <= 63) {
 			k = const_math::min(k, n - k);
-			long double ret = 1.0;
+			long double ret = 1.0L;
 			for(uint64_t i = 1u; i <= k; ++i) {
 				// sadly have to use fp math because of this
 				ret *= ((long double)((n + 1u) - i)) / ((long double)(i));
@@ -473,7 +473,7 @@ namespace const_math {
 		
 		// compute first estimate
 		const auto decomp = decompose_fp(val);
-		max_fp_type ldbl_val = decomp.first; // cast to more precise type, b/c we need the precision
+		auto ldbl_val = (max_fp_type)decomp.first; // cast to more precise type, b/c we need the precision
 		const bool is_neg_exp = (decomp.second < 0);
 		int32_t abs_exp = (is_neg_exp ? -decomp.second : decomp.second);
 		if(abs_exp % 2 == 1) {
@@ -600,11 +600,11 @@ namespace const_math {
 		const max_fp_type x_2 = ldbl_val * ldbl_val; // x^2 (needed in the iteration)
 		max_fp_type pow_4_k = 1.0_fp; // 4^k in the iteration
 		for(int k = 1; k <= 9; ++k) {
-			const auto dbl_k = double(k);
-			binom_2k_k *= 4.0_fp - 2.0_fp / dbl_k; // (2*k over k)
+			const auto fp_k = max_fp_type(k);
+			binom_2k_k *= 4.0_fp - 2.0_fp / fp_k; // (2*k over k)
 			pow_x_1_2k *= x_2; // x^(1 + 2*k)
 			pow_4_k *= 4.0_fp; // 4^k
-			asin_x += (binom_2k_k * pow_x_1_2k) / (pow_4_k * (1.0_fp + 2.0_fp * dbl_k));
+			asin_x += (binom_2k_k * pow_x_1_2k) / (pow_4_k * (1.0_fp + 2.0_fp * fp_k));
 		}
 		
 		return (fp_type)asin_x;
@@ -791,7 +791,7 @@ namespace const_math {
 	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
 	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr fp_type copysign(const fp_type& a, const fp_type& b) {
-		return (b < 0.0f ? -1.0f : 1.0f) * const_math::abs(a);
+		return (b < fp_type(0) ? fp_type(-1) : fp_type(1)) * const_math::abs(a);
 	}
 	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"

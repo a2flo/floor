@@ -143,7 +143,7 @@ public:
 		// init as unsigned integer
 		json_value(const uint64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = *(int64_t*)&val; }
 		// init as single precision floating point
-		json_value(const float& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
+		json_value(const float& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = (double)val; }
 		// init as double precision floating point
 		json_value(const double& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = val; }
 		~json_value();

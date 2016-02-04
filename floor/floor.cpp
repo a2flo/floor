@@ -933,7 +933,7 @@ string floor::get_caption() {
 void floor::init_gl() {
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	
-	glClearDepth(1.0f);
+	glClearDepth(1.0);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	

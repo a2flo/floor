@@ -287,7 +287,7 @@ public:
 	
 	//! creates a quaternion from the specified radian angle 'rad_angle' and axis vector 'vec'
 	static constexpr quaternion rotation(const scalar_type& rad_angle, const vector3<scalar_type>& vec) {
-		const auto rad_angle_2 = rad_angle * 0.5f;
+		const auto rad_angle_2 = rad_angle * scalar_type(0.5);
 		return {
 			vec.normalized() * vector_helper<scalar_type>::sin(rad_angle_2),
 			vector_helper<scalar_type>::cos(rad_angle_2)

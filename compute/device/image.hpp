@@ -432,7 +432,7 @@ namespace floor_image {
 			
 			// explicit lod or gradient read is not possible with msaa images
 			static_assert((!is_lod && !is_gradient) ||
-						  ((is_lod || is_gradient) && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)),
+						  ((is_lod || is_gradient) && !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)),
 						  "image type does not support mip-maps");
 			
 			// if not explicit lod or gradient, then always use bias (neither lod nor gradient have a bias option)

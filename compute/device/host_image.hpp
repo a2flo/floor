@@ -286,10 +286,10 @@ namespace host_image_impl {
 #pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 			for(uint32_t i = 0; i < channel_count; ++i) {
 				// scale with 2^(bpc (- 1 if signed)) - 1 (e.g. 255 for unsigned 8-bit, 127 for signed 8-bit)
-				scaled_color[i] = channel_type(color[i] * fp_scale_type((uchannel_type(1)
-																		 << uchannel_type(max(bpc[i], 1u)
-																						  - (data_type == COMPUTE_IMAGE_TYPE::UINT ? 0u : 1u)))
-																		- uchannel_type(1)));
+				scaled_color[i] = channel_type(fp_scale_type(color[i]) * fp_scale_type((uchannel_type(1)
+																						<< uchannel_type(max(bpc[i], 1u)
+																										 - (data_type == COMPUTE_IMAGE_TYPE::UINT ? 0u : 1u)))
+																					   - uchannel_type(1)));
 			}
 			
 			constexpr const bool is_signed_format = (data_type == COMPUTE_IMAGE_TYPE::INT);
@@ -384,7 +384,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
-						ret[i] = *(__fp16*)(raw_data + i * 2);
+						ret[i] = (float)*(__fp16*)(raw_data + i * 2);
 					}
 				}
 #endif
