@@ -425,6 +425,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	
 	// add generic flags/options that are always used
 	clang_cmd += {
+#if defined(FLOOR_DEBUG)
+		" -DFLOOR_DEBUG"
+#endif
 		" -DFLOOR_COMPUTE"
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +

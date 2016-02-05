@@ -26,10 +26,7 @@
 #include <string>
 #endif
 
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(packed)
-
-template <typename scalar_type> class __attribute__((aligned(16))) quaternion {
+template <typename scalar_type> class quaternion {
 public:
 	//! "this" quaternion type
 	typedef quaternion<scalar_type> quaternion_type;
@@ -320,7 +317,5 @@ extern template class quaternion<float>;
 extern template class quaternion<double>;
 extern template class quaternion<long double>;
 #endif
-		
-FLOOR_POP_WARNINGS()
 
 #endif
