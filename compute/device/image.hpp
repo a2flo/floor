@@ -674,7 +674,7 @@ namespace floor_image {
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		auto compare_linear(const coord_type& coord, const float& compare_value, const offset_vec_type offset = {}, const float bias = 0.0f) const {
-			return read_internal<true, false, false, true, compare_function>(coord, 0, 0, bias, offset, 0, {}, compare_value);
+			return read_internal<true, false, false, true, compare_function>(coord, 0, 0, offset, bias, 0, {}, compare_value);
 		}
 		
 		//! image depth compare read with linear sampling (array)
