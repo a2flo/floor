@@ -602,6 +602,41 @@ index ac6e0e5..9e922f8 100644
    Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
    return false;
  }
+diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
+index a7499bc..90ec2a3 100644
+--- a/lib/IR/AsmWriter.cpp
++++ b/lib/IR/AsmWriter.cpp
+@@ -19,6 +19,7 @@
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/SmallString.h"
+ #include "llvm/ADT/StringExtras.h"
++#include "llvm/ADT/Triple.h"
+ #include "llvm/IR/AssemblyAnnotationWriter.h"
+ #include "llvm/IR/CFG.h"
+ #include "llvm/IR/CallingConv.h"
+@@ -1469,12 +1470,21 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
+   PrintVisibility(GV->getVisibility(), Out);
+   PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
+   PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
+-  if (GV->hasUnnamedAddr())
++
++  // metal/air requires unnamed_addr to come after addrspace
++  // -> only add it here for anyone else
++  const bool is_air64 = (llvm::Triple(TheModule->getTargetTriple()).getArch() == Triple::air64);
++  if (GV->hasUnnamedAddr() && !is_air64)
+     Out << "unnamed_addr ";
+ 
+   if (unsigned AddressSpace = GV->getType()->getAddressSpace())
+     Out << "addrspace(" << AddressSpace << ") ";
+   if (GV->isExternallyInitialized()) Out << "externally_initialized ";
++
++  // insert after the addrspace for metal/air
++  if (GV->hasUnnamedAddr() && is_air64)
++    Out << "unnamed_addr ";
++
+   Out << (GV->isConstant() ? "constant " : "global ");
+   TypePrinter.print(GV->getType()->getElementType(), Out);
+ 
 diff --git a/lib/IR/AutoUpgrade.cpp b/lib/IR/AutoUpgrade.cpp
 index 459bd88..ac77437 100644
 --- a/lib/IR/AutoUpgrade.cpp
@@ -2471,10 +2506,10 @@ index 0000000..44a569a
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..80a6855
+index 0000000..ff5cb3f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,727 @@
+@@ -0,0 +1,728 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2857,19 +2892,9 @@ index 0000000..80a6855
 +			DBG(errs() << "converting: " << *from_type << " (" << (from_signed ? "signed" : "unsigned") << ") -> " << *to_type << "(" << (to_signed ? "signed" : "unsigned") << ")\n";)
 +			
 +			// for intel gpus any conversion from/to float from/to i8 or i16 needs to go through a i32 first
-+			if(enable_intel_workarounds &&
-+			   (to_iter->second[0] == 'f' || from_iter->second[0] == 'f')) {
-+				if(from_iter->first == llvm::Type::getInt8Ty(*ctx) ||
-+				   from_iter->first == llvm::Type::getInt16Ty(*ctx)) {
-+					// ext to i32 first, then convert from i32 to to_type
-+					const auto to_i32_cast = builder->CreateCast(from_signed ? Instruction::SExt : Instruction::ZExt,
-+																 from, llvm::Type::getInt32Ty(*ctx));
-+					return call_conversion_func<cast_op>(to_i32_cast, to_type);
-+				}
-+				// NOTE: ignoring any identity conversion here as llvm should have already taken care of these
-+				// NOTE: i8 <-> i16 should probably work (TODO)
-+				else if(to_iter->first == llvm::Type::getInt8Ty(*ctx) ||
-+						to_iter->first == llvm::Type::getInt16Ty(*ctx)) {
++			if(enable_intel_workarounds && from_iter->second[0] == 'f') {
++				if(to_iter->first == llvm::Type::getInt8Ty(*ctx) ||
++				   to_iter->first == llvm::Type::getInt16Ty(*ctx)) {
 +					// convert to i32 first, then trunc from i32 to i8/i16
 +					const auto to_i32_cast = call_conversion_func<cast_op>(from, llvm::Type::getInt32Ty(*ctx));
 +					return builder->CreateTrunc(to_i32_cast, to_iter->first);
@@ -2945,7 +2970,18 @@ index 0000000..80a6855
 +			// update function signature / param list
 +			if(is_kernel_func || is_vertex_func || is_fragment_func) {
 +				std::vector<Type*> param_types;
-+				for(const auto& arg : F.getArgumentList()) {
++				for(auto& arg : F.args()) {
++					// also kill "dereferenceable" arg attributes while we're at it (this is not supported by metal)
++					// NOTE: this only needs to be done here, b/c everything else will be inlined
++					if(F.getAttributes().hasAttribute(arg.getArgNo() + 1, Attribute::Dereferenceable)) {
++						// this is a bit complicated, we can't just remove any deref attribute, but it needs to be
++						// specific to the amount of bytes that are specified + attributes are actually stored in the
++						// function, so we need to set the correct arg number
++						AttrBuilder B;
++						B.addDereferenceableAttr(F.getAttributes().getDereferenceableBytes(arg.getArgNo() + 1));
++						arg.removeAttr(AttributeSet::get(*ctx, arg.getArgNo() + 1,  B));
++					}
++					
 +					param_types.push_back(arg.getType());
 +				}
 +				auto new_func_type = PointerType::get(FunctionType::get(F.getReturnType(), param_types, false), 0);
@@ -5492,7 +5528,7 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..36845e0 100644
+index cec48f3..c5c3b6e 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -240,6 +240,26 @@ void EmitAssemblyHelper::CreatePasses() {
@@ -5528,8 +5564,8 @@ index cec48f3..36845e0 100644
    case CodeGenOptions::NormalInlining: {
 -    PMBuilder.Inliner =
 -        createFunctionInliningPass(OptLevel, CodeGenOpts.OptimizeSize);
-+    // always inline everything for metal, otherwise we run into trouble when fixing the IR
-+    if (LangOpts.Metal) {
++    // always inline everything for metal/cuda/opencl, otherwise we run into trouble when fixing the IR
++    if (LangOpts.Metal || LangOpts.CUDA || LangOpts.OpenCL) {
 +      PMBuilder.Inliner = createEverythingInlinerPass();
 +    }
 +    else {
@@ -5550,7 +5586,7 @@ index cec48f3..36845e0 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..343826a 100644
+index 17c3354..cc2c088 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
 @@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -5569,7 +5605,7 @@ index 17c3354..343826a 100644
 -    if (RD->isUnion()) {
 +
 +    const auto cxx_rdecl = RT->getAsCXXRecordDecl();
-+    if (cxx_rdecl && RD->hasAttr<VectorCompatAttr>()) {
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
 +      GetExpandedTypes(get_compat_vector_type(cxx_rdecl), expandedTypes);
 +    } else if (RD->isUnion()) {
        // Unions can be here only in degenerative cases - all the fields are same
@@ -5594,7 +5630,7 @@ index 17c3354..343826a 100644
      RecordDecl *RD = RT->getDecl();
 -    if (RD->isUnion()) {
 +    const auto cxx_rdecl = RT->getAsCXXRecordDecl();
-+    if (cxx_rdecl && RD->hasAttr<VectorCompatAttr>()) {
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
 +      const auto vec_type = getTypes().get_compat_vector_type(cxx_rdecl);
 +      LValue VecLV = MakeAddrLValue(LV.getAddress(), vec_type);
 +      AI = ExpandTypeFromArgs(vec_type, VecLV, AI);
@@ -5673,7 +5709,7 @@ index 17c3354..343826a 100644
  
 -    if (RD->isUnion()) {
 +    const auto cxx_rdecl = Ty->getAsCXXRecordDecl();
-+    if (cxx_rdecl && RD->hasAttr<VectorCompatAttr>()) {
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
 +      const auto vec_type = getTypes().get_compat_vector_type(cxx_rdecl);
 +      const auto llvm_vec_type = getTypes().ConvertType(vec_type);
 +      auto vec_ptr = Builder.CreateBitCast(RV.getAggregateAddr(),
@@ -5710,7 +5746,7 @@ index 17c3354..343826a 100644
          if (IRArgNo < IRFuncTy->getNumParams() &&
 -            V->getType() != IRFuncTy->getParamType(IRArgNo))
 -          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(IRArgNo));
-+          V->getType() != IRFuncTy->getParamType(IRArgNo)) {
++            V->getType() != IRFuncTy->getParamType(IRArgNo)) {
 +          const auto src_as = V->getType()->getPointerAddressSpace();
 +          auto param_type = IRFuncTy->getParamType(IRArgNo);
 +          if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
@@ -6177,7 +6213,7 @@ index a10d8e7..852a803 100644
    OS << "<CGRecordLayout\n";
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..75d42ba 100644
+index 5ca3a78..bf699ac 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,8 @@
@@ -6302,7 +6338,7 @@ index 5ca3a78..75d42ba 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +448,1163 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +448,1180 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -7196,7 +7232,8 @@ index 5ca3a78..75d42ba 100644
 -  kernelMDArgs.push_back(llvm::MDNode::get(Context, argNames));
 +void CodeGenFunction::EmitFloorKernelMetadata(const FunctionDecl *FD,
 +											  llvm::Function *Fn,
-+											  const FunctionArgList &Args) {
++											  const FunctionArgList &Args,
++											  const CGFunctionInfo &FnInfo) {
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
 +	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
@@ -7220,6 +7257,7 @@ index 5ca3a78..75d42ba 100644
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
 +	// (which is why it iterates over the original clang list!)
 +	unsigned int arg_idx = 0;
++	auto abi_arg_info_iter = FnInfo.arg_begin();
 +	for(const auto& parm : FD->params()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
@@ -7440,27 +7478,41 @@ index 5ca3a78..75d42ba 100644
 +		}
 +		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
-+			// store the parameter size
-+			uint64_t arg_info = CGM.getDataLayout().getTypeStoreSize(llvm_type);
-+			
-+			// check if parameter has image access qualifiers,
-+			// if so, it must be an image
-+			const ImageAccessAttr* access_attr = parm->getAttr<ImageAccessAttr>();
-+			if(access_attr == nullptr) {
-+				// get access attr if this is an aggregate type
-+				access_attr = get_aggregate_access_attr(cxx_rdecl);
++			// is this an aggregate that is expanded into multiple llvm arguments?
++			if(cxx_rdecl &&
++			   abi_arg_info_iter->info.isDirect() &&
++			   TargetCodeGenInfo::isAggregateTypeForABI(abi_arg_info_iter->type)) {
++				// check if this is an aggregate image (must have image access qualifiers)
++				const ImageAccessAttr* access_attr = get_aggregate_access_attr(cxx_rdecl);
++				if(access_attr != nullptr) {
++					uint64_t arg_info = compute_type_size(llvm_type);
++					arg_info |= uint64_t(get_image_access(access_attr));
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
++					arg_infos.push_back(Builder.getInt64(arg_info));
++				}
++				else {
++					// simple aggregate, all constant -> must handle each field individually
++					// note that we're only interested in the first expanded layer, not multiple expansion
++					// (i.e. fully scalarized), as this is identical to what cuda / nvptx / the abi do
++					uint64_t arg_info = 0; // sizes will be accumulated
++					const auto fields = get_aggregate_fields(cxx_rdecl);
++					for(size_t i = 0; i < fields.size(); ++i) {
++						const auto field_llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
++						arg_info += compute_type_size(field_llvm_type);
++						++arg_idx;
++					}
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
++					arg_infos.push_back(Builder.getInt64(arg_info));
++					--arg_idx; // fixup, b/c of inc later
++				}
 +			}
-+			
-+			if(access_attr != nullptr) {
-+				arg_info |= uint64_t(get_image_access(access_attr));
-+				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+			}
-+			// if not, pretend it is constant
 +			else {
++				// -> this is a simple constant (scalar or aggregate with scalar eval)
++				// store the parameter size
++				uint64_t arg_info = compute_type_size(llvm_type);
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
++				arg_infos.push_back(Builder.getInt64(arg_info));
 +			}
-+			
-+			arg_infos.push_back(Builder.getInt64(arg_info));
 +		}
 +		// stage input
 +		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
@@ -7491,8 +7543,9 @@ index 5ca3a78..75d42ba 100644
 +			add_normal_arg(llvm_type, clang_type);
 +		}
 +		
-+		// next llvm arg
++		// next arg
 +		++arg_idx;
++		++abi_arg_info_iter;
 +	}
 +	
 +	// if this is wrong, the kernel will almost certainly not be usable
@@ -7570,7 +7623,7 @@ index 5ca3a78..75d42ba 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1642,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1659,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -7659,7 +7712,7 @@ index 5ca3a78..75d42ba 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1747,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1764,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -7667,7 +7720,7 @@ index 5ca3a78..75d42ba 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1763,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1780,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -7676,7 +7729,7 @@ index 5ca3a78..75d42ba 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1774,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1791,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -7687,7 +7740,7 @@ index 5ca3a78..75d42ba 100644
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
 +    if(FD) {
 +      // add floor specific metadata for kernel functions
-+      EmitFloorKernelMetadata(FD, Fn, Args);
++      EmitFloorKernelMetadata(FD, Fn, Args, FnInfo);
 +
 +      // add "compute_kernel" llvm function attribute if this is a kernel function
 +      if (FD->hasAttr<ComputeKernelAttr>()) {
@@ -7718,7 +7771,7 @@ index 5ca3a78..75d42ba 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1875,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1892,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -7736,7 +7789,7 @@ index 5ca3a78..75d42ba 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +2006,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2023,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -7828,7 +7881,7 @@ index 5ca3a78..75d42ba 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2144,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2161,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -7837,7 +7890,7 @@ index 5ca3a78..75d42ba 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2194,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2211,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -7849,25 +7902,27 @@ index 5ca3a78..75d42ba 100644
    // a quick pass now to see if we can.
    if (!CurFn->doesNotThrow())
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.h b/tools/clang/lib/CodeGen/CodeGenFunction.h
-index 59cc30d..11cf78e 100644
+index 59cc30d..bc9e3e1 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.h
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.h
-@@ -989,7 +989,13 @@ private:
+@@ -989,7 +989,14 @@ private:
    ///   "reqd_work_group_size", and three 32-bit integers X, Y and Z.
    void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
                                  llvm::Function *Fn);
+-
 +	
 +  void EmitFloorKernelMetadata(const FunctionDecl *FD,
 +                               llvm::Function *Fn,
-+                               const FunctionArgList &Args);
- 
++                               const FunctionArgList &Args,
++                               const CGFunctionInfo &FnInfo);
++
 +  void EmitAppleCLKernelAnnotation(GlobalDecl& GD, llvm::Function* Fn);
 +	
  public:
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..779fbe0 100644
+index 48823be..894bf42 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -359,7 +359,10 @@ void CodeGenModule::Release() {
@@ -7984,7 +8039,7 @@ index 48823be..779fbe0 100644
  
    // Compute the function info and LLVM type.
    const CGFunctionInfo &FI = getTypes().arrangeGlobalDeclaration(GD);
-+  if(getLangOpts().OpenCL && D &&
++  if(getLangOpts().Metal && D &&
 +     FI.getReturnType()->isStructureOrClassType() &&
 +     (D->hasAttr<GraphicsVertexShaderAttr>() ||
 +      D->hasAttr<GraphicsFragmentShaderAttr>())) {
@@ -8353,10 +8408,16 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
-index f75e59d..8dd0243 100644
+index f75e59d..b702b94 100644
 --- a/tools/clang/lib/CodeGen/TargetInfo.cpp
 +++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
-@@ -46,6 +46,10 @@ static bool isAggregateTypeForABI(QualType T) {
+@@ -41,11 +41,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
+   }
+ }
+ 
+-static bool isAggregateTypeForABI(QualType T) {
++bool TargetCodeGenInfo::isAggregateTypeForABI(QualType T) {
+   return !CodeGenFunction::hasScalarEvaluationKind(T) ||
           T->isMemberFunctionPointerType();
  }
  
@@ -8367,16 +8428,189 @@ index f75e59d..8dd0243 100644
  ABIInfo::~ABIInfo() {}
  
  static CGCXXABI::RecordArgABI getRecordArgABI(const RecordType *RT,
-@@ -376,6 +380,9 @@ llvm::Value *DefaultABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+@@ -264,7 +268,7 @@ static const Type *isSingleElementStruct(QualType T, ASTContext &Context) {
+       FT = AT->getElementType();
+     }
+ 
+-    if (!isAggregateTypeForABI(FT)) {
++    if (!TargetCodeGenInfo::isAggregateTypeForABI(FT)) {
+       Found = FT.getTypePtr();
+     } else {
+       Found = isSingleElementStruct(FT, Context);
+@@ -376,7 +380,10 @@ llvm::Value *DefaultABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
  }
  
  ABIArgInfo DefaultABIInfo::classifyArgumentType(QualType Ty) const {
+-  if (isAggregateTypeForABI(Ty))
 +  if (isAggregateImageType(Ty))
 +    return ABIArgInfo::getExpand();
 +
-   if (isAggregateTypeForABI(Ty))
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty))
      return ABIArgInfo::getIndirect(0);
  
+   // Treat an enum type as its underlying type.
+@@ -391,7 +398,7 @@ ABIArgInfo DefaultABIInfo::classifyReturnType(QualType RetTy) const {
+   if (RetTy->isVoidType())
+     return ABIArgInfo::getIgnore();
+ 
+-  if (isAggregateTypeForABI(RetTy))
++  if (TargetCodeGenInfo::isAggregateTypeForABI(RetTy))
+     return ABIArgInfo::getIndirect(0);
+ 
+   // Treat an enum type as its underlying type.
+@@ -442,7 +449,7 @@ llvm::Value *PNaClABIInfo::EmitVAArg(llvm::Value *VAListAddr, QualType Ty,
+ 
+ /// \brief Classify argument of given type \p Ty.
+ ABIArgInfo PNaClABIInfo::classifyArgumentType(QualType Ty) const {
+-  if (isAggregateTypeForABI(Ty)) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI()))
+       return ABIArgInfo::getIndirect(0, RAA == CGCXXABI::RAA_DirectInMemory);
+     return ABIArgInfo::getIndirect(0);
+@@ -463,7 +470,7 @@ ABIArgInfo PNaClABIInfo::classifyReturnType(QualType RetTy) const {
+     return ABIArgInfo::getIgnore();
+ 
+   // In the PNaCl ABI we always return records/structures on the stack.
+-  if (isAggregateTypeForABI(RetTy))
++  if (TargetCodeGenInfo::isAggregateTypeForABI(RetTy))
+     return ABIArgInfo::getIndirect(0);
+ 
+   // Treat an enum type as its underlying type.
+@@ -695,7 +702,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy, CCState &State) con
+     return ABIArgInfo::getDirect();
+   }
+ 
+-  if (isAggregateTypeForABI(RetTy)) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(RetTy)) {
+     if (const RecordType *RT = RetTy->getAs<RecordType>()) {
+       // Structures with flexible arrays are always indirect.
+       if (RT->getDecl()->hasFlexibleArrayMember())
+@@ -867,7 +874,7 @@ bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
+ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
+                                                CCState &State) const {
+   // FIXME: Set alignment on indirect arguments.
+-  if (isAggregateTypeForABI(Ty)) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     if (const RecordType *RT = Ty->getAs<RecordType>()) {
+       // Check with the C++ ABI first.
+       CGCXXABI::RecordArgABI RAA = getRecordArgABI(RT, getCXXABI());
+@@ -1831,7 +1838,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
+ ABIArgInfo X86_64ABIInfo::getIndirectReturnResult(QualType Ty) const {
+   // If this is a scalar LLVM value then assume LLVM will pass it in the right
+   // place naturally.
+-  if (!isAggregateTypeForABI(Ty)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+       Ty = EnumTy->getDecl()->getIntegerType();
+@@ -1864,7 +1871,7 @@ ABIArgInfo X86_64ABIInfo::getIndirectResult(QualType Ty,
+   // the argument in the free register. This does not seem to happen currently,
+   // but this code would be much safer if we could mark the argument with
+   // 'onstack'. See PR12193.
+-  if (!isAggregateTypeForABI(Ty) && !IsIllegalVectorType(Ty)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty) && !IsIllegalVectorType(Ty)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+       Ty = EnumTy->getDecl()->getIntegerType();
+@@ -3036,7 +3043,7 @@ PPC64_SVR4_ABIInfo::isAlignedParamType(QualType Ty) const {
+   const Type *Base = nullptr;
+   uint64_t Members = 0;
+   if (!AlignAsType && Kind == ELFv2 &&
+-      isAggregateTypeForABI(Ty) && isHomogeneousAggregate(Ty, Base, Members))
++      TargetCodeGenInfo::isAggregateTypeForABI(Ty) && isHomogeneousAggregate(Ty, Base, Members))
+     AlignAsType = Base;
+ 
+   // With special case aggregates, only vector base types need alignment.
+@@ -3045,7 +3052,7 @@ PPC64_SVR4_ABIInfo::isAlignedParamType(QualType Ty) const {
+ 
+   // Otherwise, we only need alignment for any aggregate type that
+   // has an alignment requirement of >= 16 bytes.
+-  if (isAggregateTypeForABI(Ty) && getContext().getTypeAlign(Ty) >= 128)
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty) && getContext().getTypeAlign(Ty) >= 128)
+     return true;
+ 
+   return false;
+@@ -3161,7 +3168,7 @@ PPC64_SVR4_ABIInfo::classifyArgumentType(QualType Ty) const {
+     }
+   }
+ 
+-  if (isAggregateTypeForABI(Ty)) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI()))
+       return ABIArgInfo::getIndirect(0, RAA == CGCXXABI::RAA_DirectInMemory);
+ 
+@@ -3232,7 +3239,7 @@ PPC64_SVR4_ABIInfo::classifyReturnType(QualType RetTy) const {
+     }
+   }
+ 
+-  if (isAggregateTypeForABI(RetTy)) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(RetTy)) {
+     // ELFv2 homogeneous aggregates are returned as array types.
+     const Type *Base = nullptr;
+     uint64_t Members = 0;
+@@ -3573,7 +3580,7 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty,
+       AllocatedVFP++;
+   }
+ 
+-  if (!isAggregateTypeForABI(Ty)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+       Ty = EnumTy->getDecl()->getIntegerType();
+@@ -3656,7 +3663,7 @@ ABIArgInfo AArch64ABIInfo::classifyReturnType(QualType RetTy) const {
+   if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 128)
+     return ABIArgInfo::getIndirect(0);
+ 
+-  if (!isAggregateTypeForABI(RetTy)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(RetTy)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+       RetTy = EnumTy->getDecl()->getIntegerType();
+@@ -3838,7 +3845,7 @@ static llvm::Value *EmitAArch64VAArg(llvm::Value *VAListAddr, QualType Ty,
+     // Otherwise the object is contiguous in memory
+     unsigned BeAlign = reg_top_index == 2 ? 16 : 8;
+     if (CGF.CGM.getDataLayout().isBigEndian() &&
+-        (IsHFA || !isAggregateTypeForABI(Ty)) &&
++        (IsHFA || !TargetCodeGenInfo::isAggregateTypeForABI(Ty)) &&
+         Ctx.getTypeSize(Ty) < (BeAlign * 8)) {
+       int Offset = BeAlign - Ctx.getTypeSize(Ty) / 8;
+       BaseAddr = CGF.Builder.CreatePtrToInt(BaseAddr, CGF.Int64Ty);
+@@ -3896,7 +3903,7 @@ static llvm::Value *EmitAArch64VAArg(llvm::Value *VAListAddr, QualType Ty,
+   // Write the new value of __stack for the next call to va_arg
+   CGF.Builder.CreateStore(NewStack, stack_p);
+ 
+-  if (CGF.CGM.getDataLayout().isBigEndian() && !isAggregateTypeForABI(Ty) &&
++  if (CGF.CGM.getDataLayout().isBigEndian() && !TargetCodeGenInfo::isAggregateTypeForABI(Ty) &&
+       Ctx.getTypeSize(Ty) < 64) {
+     int Offset = 8 - Ctx.getTypeSize(Ty) / 8;
+     OnStackAddr = CGF.Builder.CreatePtrToInt(OnStackAddr, CGF.Int64Ty);
+@@ -3943,7 +3950,7 @@ llvm::Value *AArch64ABIInfo::EmitDarwinVAArg(llvm::Value *VAListAddr, QualType T
+   // We do not support va_arg for aggregates or illegal vector types.
+   // Lower VAArg here for these cases and use the LLVM va_arg instruction for
+   // other cases.
+-  if (!isAggregateTypeForABI(Ty) && !isIllegalVectorType(Ty))
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty) && !isIllegalVectorType(Ty))
+     return nullptr;
+ 
+   uint64_t Size = CGF.getContext().getTypeSize(Ty) / 8;
+@@ -4442,7 +4449,7 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty, bool isVariadic,
+     }
+   }
+ 
+-  if (!isAggregateTypeForABI(Ty)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = Ty->getAs<EnumType>()) {
+       Ty = EnumTy->getDecl()->getIntegerType();
+@@ -4624,7 +4631,7 @@ ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
+     return ABIArgInfo::getIndirect(0);
+   }
+ 
+-  if (!isAggregateTypeForABI(RetTy)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(RetTy)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+       RetTy = EnumTy->getDecl()->getIntegerType();
 @@ -4910,7 +4917,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
    if (M.getLangOpts().OpenCL) {
      // Use OpenCL function attributes to check for kernel functions
@@ -8497,6 +8731,33 @@ index f75e59d..8dd0243 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
+@@ -5019,7 +5121,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+ }
+ 
+ bool SystemZABIInfo::isCompoundType(QualType Ty) const {
+-  return Ty->isAnyComplexType() || isAggregateTypeForABI(Ty);
++  return Ty->isAnyComplexType() || TargetCodeGenInfo::isAggregateTypeForABI(Ty);
+ }
+ 
+ bool SystemZABIInfo::isFPArgumentType(QualType Ty) const {
+@@ -5433,7 +5535,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+   unsigned CurrOffset = llvm::RoundUpToAlignment(Offset, Align);
+   Offset = CurrOffset + llvm::RoundUpToAlignment(TySize, Align * 8) / 8;
+ 
+-  if (isAggregateTypeForABI(Ty) || Ty->isVectorType()) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty) || Ty->isVectorType()) {
+     // Ignore empty aggregates.
+     if (TySize == 0)
+       return ABIArgInfo::getIgnore();
+@@ -5518,7 +5620,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+   if (!IsO32 && Size == 0)
+     return ABIArgInfo::getIgnore();
+ 
+-  if (isAggregateTypeForABI(RetTy) || RetTy->isVectorType()) {
++  if (TargetCodeGenInfo::isAggregateTypeForABI(RetTy) || RetTy->isVectorType()) {
+     if (Size <= 128) {
+       if (RetTy->isAnyComplexType())
+         return ABIArgInfo::getDirect();
 @@ -5657,7 +5759,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
    llvm::Function *F = cast<llvm::Function>(GV);
    
@@ -8506,6 +8767,33 @@ index f75e59d..8dd0243 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
+@@ -5732,7 +5834,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+ }
+ 
+ ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
+-  if (!isAggregateTypeForABI(Ty)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+       Ty = EnumTy->getDecl()->getIntegerType();
+@@ -5770,7 +5872,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+   if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
+     return ABIArgInfo::getIndirect(0);
+ 
+-  if (!isAggregateTypeForABI(RetTy)) {
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(RetTy)) {
+     // Treat an enum type as its underlying type.
+     if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
+       RetTy = EnumTy->getDecl()->getIntegerType();
+@@ -5994,7 +6096,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+     return ABIArgInfo::getExtend();
+ 
+   // Other non-aggregates go in registers.
+-  if (!isAggregateTypeForABI(Ty))
++  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty))
+     return ABIArgInfo::getDirect();
+ 
+   // If a C++ object has either a non-trivial copy constructor or a non-trivial
 @@ -6877,5 +6979,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
    case llvm::Triple::xcore:
@@ -8517,6 +8805,20 @@ index f75e59d..8dd0243 100644
 +    return *(TheTargetCodeGenInfo = new AIRTargetCodeGenInfo(Types));
    }
  }
+diff --git a/tools/clang/lib/CodeGen/TargetInfo.h b/tools/clang/lib/CodeGen/TargetInfo.h
+index 2616820..6cac0cd 100644
+--- a/tools/clang/lib/CodeGen/TargetInfo.h
++++ b/tools/clang/lib/CodeGen/TargetInfo.h
+@@ -209,6 +209,9 @@ public:
+   virtual void getDetectMismatchOption(llvm::StringRef Name,
+                                        llvm::StringRef Value,
+                                        llvm::SmallString<32> &Opt) const {}
++
++  static bool isAggregateTypeForABI(QualType T);
++
+ };
+ }
+ 
 diff --git a/tools/clang/lib/Driver/Tools.cpp b/tools/clang/lib/Driver/Tools.cpp
 index 198e82e..41a24da 100644
 --- a/tools/clang/lib/Driver/Tools.cpp
@@ -8916,7 +9218,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..a58f4ab 100644
+index 8716227..72387a8 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -9118,7 +9420,36 @@ index 8716227..a58f4ab 100644
      return false;
  
    bool MissingPrototype = true;
-@@ -9954,6 +9997,27 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9870,6 +9913,28 @@ static void RebuildLambdaScopeInfo(CXXMethodDecl *CallOperator,
+   }
+ }
+ 
++static void AggregateTypeCompleter(Sema& S, const CXXRecordDecl* decl) {
++	if(decl == nullptr) return;
++	
++	// make sure decl is complete
++	S.RequireCompleteType(decl->getLocStart(), QualType(decl->getTypeForDecl(), 0),
++						  diag::err_typecheck_decl_incomplete_type);
++	
++	// must have definition
++	if(!decl->hasDefinition()) return;
++	
++	// iterate over / recurse into all bases, and complete all their fields
++	for(const auto& base : decl->bases()) {
++		AggregateTypeCompleter(S, base.getType()->getAsCXXRecordDecl());
++	}
++	
++	// iterate over and complete all fields
++	for(const auto& field : decl->fields()) {
++		S.RequireCompleteType(field->getLocStart(), field->getType(),
++							  diag::err_typecheck_decl_incomplete_type);
++	}
++}
++
+ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+   // Clear the last template instantiation error context.
+   LastTemplateInstantiationErrorContext = ActiveTemplateInstantiation();
+@@ -9954,6 +10019,33 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -9130,23 +9461,29 @@ index 8716227..a58f4ab 100644
 +     FD->hasAttr<GraphicsFragmentShaderAttr>()) {
 +    for (const auto& Param : FD->params()) {
 +      const auto param_type = Param->getType();
++
++		const CXXRecordDecl* cxx_rdecl = nullptr;
 +      if(param_type->isPointerType()) {
 +        const auto pointee_type = param_type->getPointeeType();
 +        RequireCompleteType(Param->getLocation(), pointee_type,
 +                            diag::err_typecheck_decl_incomplete_type);
++        cxx_rdecl = pointee_type->getAsCXXRecordDecl();
 +      }
-+      // NOTE: this would usually not be necessary, but is helpful in erroneous situations
 +      else {
 +        RequireCompleteType(Param->getLocation(), param_type,
 +                            diag::err_typecheck_decl_incomplete_type);
-+      }
++        cxx_rdecl = param_type->getAsCXXRecordDecl();
++	  }
++
++      // if this is an aggregate, ensure that all contained types are also complete
++      AggregateTypeCompleter(*this, cxx_rdecl);
 +    }
 +  }
 +
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +12005,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +12033,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
