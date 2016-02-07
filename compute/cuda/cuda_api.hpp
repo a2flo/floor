@@ -358,6 +358,10 @@ enum class CU_TEXTURE_FLAGS : uint32_t {
 };
 floor_global_enum_ext(CU_TEXTURE_FLAGS)
 
+#define CU_LAUNCH_PARAM_BUFFER_POINTER ((void*)1)
+#define CU_LAUNCH_PARAM_BUFFER_SIZE ((void*)2)
+#define CU_LAUNCH_PARAM_END nullptr
+
 // these are all external opaque types
 typedef struct _cu_array* cu_array;
 typedef struct _cu_mip_mapped_array* cu_mip_mapped_array;

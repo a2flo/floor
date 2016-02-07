@@ -61,11 +61,17 @@ public:
 		// check work size (NOTE: will set elements to at least 1)
 		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size);
 		
-		// set and handle kernel arguments (all alloc'ed on stack)
-		array<void*, sizeof...(Args)> kernel_params;
-		vector<uint8_t> kernel_params_data(kernel_iter->second.kernel_args_size);
-		uint8_t* data_ptr = &kernel_params_data[0];
-		set_kernel_arguments(0, kernel_iter->second, &kernel_params[0], data_ptr, forward<Args>(args)...);
+		// set and handle kernel arguments
+		static constexpr const size_t heap_protect {
+#if defined(FLOOR_DEBUG)
+			4096
+#else
+			0
+#endif
+		};
+		auto kernel_params_data = make_unique<uint8_t[]>(kernel_iter->second.kernel_args_size + heap_protect);
+		uint8_t* data_ptr = kernel_params_data.get();
+		set_kernel_arguments(0, kernel_iter->second, data_ptr, forward<Args>(args)...);
 		
 #if defined(FLOOR_DEBUG) // internal sanity check, this should never happen in user code
 		const auto written_args_size = distance(&kernel_params_data[0], data_ptr);
@@ -86,7 +92,13 @@ public:
 		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 		grid_dim.max(1u);
 		
-		execute_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		void* param_config[] {
+			CU_LAUNCH_PARAM_BUFFER_POINTER, kernel_params_data.get(),
+			CU_LAUNCH_PARAM_BUFFER_SIZE, (void*)&kernel_iter->second.kernel_args_size,
+			CU_LAUNCH_PARAM_END
+		};
+		
+		execute_internal(queue, kernel_iter->second, grid_dim, block_dim, param_config);
 	}
 	
 	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
@@ -105,34 +117,28 @@ protected:
 						  const cuda_kernel_entry& entry,
 						  const uint3& grid_dim,
 						  const uint3& block_dim,
-						  void** kernel_params);
+						  void** param_config);
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(const uint8_t num, const kernel_entry& entry,
-												  void** params, uint8_t*& data,
+	floor_inline_always void set_kernel_arguments(const uint8_t num, const kernel_entry& entry, uint8_t*& data,
 												  T&& arg, Args&&... args) const {
-		set_kernel_argument(num, entry, params, data, forward<T>(arg));
-		set_kernel_arguments(num + 1, entry, ++params, data, forward<Args>(args)...);
+		set_kernel_argument(num, entry, data, forward<T>(arg));
+		set_kernel_arguments(num + 1, entry, data, forward<Args>(args)...);
 	}
 	
 	//! handle kernel call terminator
-	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&,
-												  void**, uint8_t*&) const {}
+	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&, uint8_t*&) const {}
 	
 	//! actual kernel argument setter
 	template <typename T>
-	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
-												 void** param, uint8_t*& data, T&& arg) const {
-		*param = data;
+	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&, uint8_t*& data, T&& arg) const {
 		memcpy(data, &arg, sizeof(T));
 		data += sizeof(T);
 	}
 	
-	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
-												 void** param, uint8_t*& data,
+	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&, uint8_t*& data,
 												 shared_ptr<compute_buffer> arg) const {
-		*param = data;
 		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(cu_device_ptr));
 		data += sizeof(cu_device_ptr);
 	}
@@ -143,8 +149,7 @@ protected:
 #else
 												 const uint8_t, const kernel_entry&,
 #endif
-												 void** param, uint8_t*& data,
-												 shared_ptr<compute_image> arg) const {
+												 uint8_t*& data, shared_ptr<compute_image> arg) const {
 		cuda_image* cu_img = (cuda_image*)arg.get();
 		
 #if defined(FLOOR_DEBUG)
@@ -169,9 +174,6 @@ protected:
 		}
 #endif
 		
-		// set this to the start
-		*param = data;
-		
 		// set texture+sampler objects
 		const auto& textures = cu_img->get_cuda_textures();
 		for(const auto& texture : textures) {
@@ -185,7 +187,7 @@ protected:
 		
 		// set run-time image type
 		memcpy(data, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
-		data += sizeof(COMPUTE_IMAGE_TYPE);
+		data += sizeof(COMPUTE_IMAGE_TYPE) + 4 /* padding */;
 	}
 	
 };

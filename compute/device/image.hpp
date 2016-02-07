@@ -248,18 +248,9 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is used
-		union __attribute__((image_read_only)) {
-			struct {
-				struct {
-					const uint64_t tex[__MAX_CUDA_SAMPLER_TYPE];
-				} r_img;
-				struct {
-					const uint64_t surf;
-				} w_img;
-				const COMPUTE_IMAGE_TYPE runtime_image_type;
-			};
-		};
+		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint64_t w_img;
+		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* r_img;
 #endif
@@ -274,18 +265,9 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is used
-		union __attribute__((image_write_only)) {
-			struct {
-				struct {
-					const uint64_t tex[__MAX_CUDA_SAMPLER_TYPE];
-				} r_img;
-				struct {
-					const uint64_t surf;
-				} w_img;
-				const COMPUTE_IMAGE_TYPE runtime_image_type;
-			};
-		};
+		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint64_t w_img;
+		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* w_img;
 #endif
@@ -301,18 +283,9 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		// NOTE: this needs to packed like this, so that clang/llvm don't do struct expansion when only one is used
-		union __attribute__((image_read_write)) {
-			struct {
-				struct {
-					const uint64_t tex[__MAX_CUDA_SAMPLER_TYPE];
-				} r_img;
-				struct {
-					const uint64_t surf;
-				} w_img;
-				const COMPUTE_IMAGE_TYPE runtime_image_type;
-			};
-		};
+		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint64_t w_img;
+		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		// all the same, just different names
 		union {
@@ -464,16 +437,16 @@ namespace floor_image {
 												 (!is_int_coord<coord_type>() ?
 												  CUDA_CLAMP_LINEAR_NORMALIZED_COORDS : CUDA_CLAMP_LINEAR_NON_NORMALIZED_COORDS));
 			const auto read_color = __builtin_choose_expr(is_float,
-														  cuda_image::read_image_float(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
+														  cuda_image::read_image_float(r_img[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 																					   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 																					   gradient.first, gradient.second, is_gradient,
 																					   compare_function, compare_value, is_compare),
 														  __builtin_choose_expr(is_int,
-														  cuda_image::read_image_int(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
+														  cuda_image::read_image_int(r_img[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 																					 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 																					 gradient.first, gradient.second, is_gradient,
 																					 compare_function, compare_value, is_compare),
-														  cuda_image::read_image_uint(r_img.tex[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
+														  cuda_image::read_image_uint(r_img[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 																					  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
 																					  gradient.first, gradient.second, is_gradient,
 																					  compare_function, compare_value, is_compare)));
@@ -787,7 +760,7 @@ namespace floor_image {
 			opaque_image::write_image_float(w_img, image_type, convert_coord(coord), layer,
 											image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_float<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
+			cuda_image::write_float<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 												image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
 			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
@@ -802,7 +775,7 @@ namespace floor_image {
 			opaque_image::write_image_int(w_img, image_type, convert_coord(coord), layer,
 										  image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_int<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
+			cuda_image::write_int<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 											  image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
 			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
@@ -817,7 +790,7 @@ namespace floor_image {
 			opaque_image::write_image_uint(w_img, image_type, convert_coord(coord), layer,
 										   image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_uint<image_type>(w_img.surf, runtime_image_type, convert_coord(coord), layer,
+			cuda_image::write_uint<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 											   image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
 			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));

@@ -35,14 +35,14 @@ void cuda_kernel::execute_internal(compute_queue* queue,
 								   const cuda_kernel_entry& entry,
 								   const uint3& grid_dim,
 								   const uint3& block_dim,
-								   void** kernel_params) {
+								   void** param_config) {
 	CU_CALL_NO_ACTION(cu_launch_kernel(entry.kernel,
 									   grid_dim.x, grid_dim.y, grid_dim.z,
 									   block_dim.x, block_dim.y, block_dim.z,
 									   0,
 									   (cu_stream)queue->get_queue_ptr(),
-									   kernel_params,
-									   nullptr),
+									   nullptr,
+									   param_config),
 					  "failed to execute kernel");
 }
 

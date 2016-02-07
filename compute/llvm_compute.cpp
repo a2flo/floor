@@ -467,8 +467,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	// final target specific processing/compilation
 	string compiled_code = "";
 	if(target == TARGET::SPIR) {
-		// NOTE: temporary fixes to get this to compile with the intel compiler (readonly fail) and
-		// the amd compiler (spir_kernel fail; clang/llvm currently don't emit this)
+		// NOTE: temporary fixes to get this to compile with the intel compiler (readonly fail)
 		core::find_and_replace(ir_output, "readonly", "");
 		core::find_and_replace(ir_output, "nocapture readnone", "");
 		
@@ -527,30 +526,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 	}
 	else if(target == TARGET::AIR) {
-		// this exchanges the module header/target to the one apple expects
-		static const regex rx_datalayout("target datalayout = \"(.*)\"");
-		
-		// iOS is 1 or 2 (+), os x is 10000+
-		const auto mtl_dev = (metal_device*)device.get();
-		if(mtl_dev->family < 10000) {
-			// -> iOS
-			ir_output = regex_replace(ir_output, rx_datalayout,
-									  "target datalayout = \"e-i64:64-f80:128-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024-n8:16:32\"");
-		}
-		else {
-			// -> OS X
-			ir_output = regex_replace(ir_output, rx_datalayout,
-									  "target datalayout = \"e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v16:16:16-v24:32:32-v32:32:32-v48:64:64-v64:64:64-v96:128:128-v128:128:128-v192:256:256-v256:256:256-v512:512:512-v1024:1024:1024-f80:128:128-n8:16:32\"");
-		}
-		
-		// kill "unnamed_addr" in local and constant mem global vars
-		core::find_and_replace(ir_output, "internal unnamed_addr", "internal");
-		core::find_and_replace(ir_output, "private unnamed_addr", "private");
-		
-		// remove "dereferenceable(*)", this is not supported by air
-		static const regex rx_deref("dereferenceable\\(\\d+\\)");
-		ir_output = regex_replace(ir_output, rx_deref, "");
-		
 		// output final processed ir if this was specified in the config
 		// NOTE: explicitly create this in the working directory (not in tmp)
 		if(floor::get_compute_keep_temp()) {
