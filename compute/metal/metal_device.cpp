@@ -24,7 +24,16 @@ metal_device::metal_device() : compute_device() {
 	platform_vendor = COMPUTE_VENDOR::APPLE;
 	
 	local_mem_dedicated = true;
+	
 	image_support = true;
+	image_depth_support = true;
+	image_depth_write_support = false;
+	image_msaa_support = true;
+	image_msaa_write_support = false;
+	image_cube_support = true;
+	// image_cube_write_support decided later
+	image_mipmap_support = true;
+	image_mipmap_write_support = true;
 	
 	// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
 	bitness = 64;

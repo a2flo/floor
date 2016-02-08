@@ -127,8 +127,6 @@ public:
 	//! bitness of the device (32 or 64)
 	uint32_t bitness { 32u };
 	
-	//! true if images are supported by the device
-	bool image_support { false };
 	//! true if the device supports double precision floating point computation
 	bool double_support { false };
 	//! true if the device supports host unified memory/unified addressing
@@ -139,6 +137,25 @@ public:
 	bool extended_64_bit_atomics_support { false };
 	//! true if the device supports sub-groups (opencl with extension; aka warp in cuda)
 	bool sub_group_support { false };
+	
+	//! true if images are supported by the device
+	bool image_support { false };
+	//! true if depth images are supported
+	bool image_depth_support { false };
+	//! true if writing depth images is supported
+	bool image_depth_write_support { false };
+	//! true if msaa images are supported
+	bool image_msaa_support { false };
+	//! true if writing msaa images is supported
+	bool image_msaa_write_support { false };
+	//! true if cube map images are supported
+	bool image_cube_support { false };
+	//! true if writing cube map images is supported
+	bool image_cube_write_support { false };
+	//! true if mip-map images are supported
+	bool image_mipmap_support { false };
+	//! true if writing mip-map images is supported
+	bool image_mipmap_write_support { false };
 	
 	//! device name in string form
 	string name { "unknown" };

@@ -329,6 +329,15 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			
 			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
+			device->image_depth_support = core::contains(device->extensions, "cl_khr_depth_images");
+			device->image_depth_write_support = device->image_depth_support;
+			device->image_msaa_support = core::contains(device->extensions, "cl_khr_gl_msaa_sharing");
+			device->image_msaa_write_support = false; // always false
+			device->image_cube_support = false; // nope
+			device->image_cube_write_support = false;
+			device->image_mipmap_support = core::contains(device->extensions, "cl_khr_mipmap_image");
+			device->image_mipmap_write_support = core::contains(device->extensions, "cl_khr_mipmap_image_writes");
+			
 			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
 			device->max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
 			device->max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),

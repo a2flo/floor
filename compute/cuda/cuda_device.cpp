@@ -29,10 +29,19 @@ cuda_device::cuda_device() : compute_device() {
 	simd_width = 32;
 	simd_range = { simd_width, simd_width };
 	local_mem_dedicated = true;
-	image_support = true;
 	double_support = true; // true for all gpus since fermi/sm_20
 	basic_64_bit_atomics_support = true; // always true since fermi/sm_20
 	sub_group_support = true;
+	
+	image_support = true;
+	image_depth_support = true;
+	image_depth_write_support = true;
+	image_msaa_support = true; // at least sm_30, which is required for images anyways
+	image_msaa_write_support = false;
+	image_cube_support = true;
+	image_cube_write_support = false;
+	image_mipmap_support = true;
+	image_mipmap_write_support = true;
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;

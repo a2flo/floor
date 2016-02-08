@@ -273,6 +273,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->max_image_3d_dim = { 2048, 2048, 2048 };
 		device->simd_width = 32; // always 32 for powervr 6 and 7 series
 		device->simd_range = { device->simd_width, device->simd_width };
+		device->image_cube_write_support = false;
 #else
 		__unsafe_unretained id <MTLDeviceSPI> dev_spi = (id <MTLDeviceSPI>)dev;
 		
@@ -311,6 +312,7 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->max_image_1d_dim = { [dev_spi maxTextureWidth1D] };
 		device->max_image_2d_dim = { [dev_spi maxTextureWidth2D], [dev_spi maxTextureHeight2D] };
 		device->max_image_3d_dim = { [dev_spi maxTextureWidth3D], [dev_spi maxTextureHeight3D], [dev_spi maxTextureDepth3D] };
+		device->image_cube_write_support = true;
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
 		device->max_work_group_item_sizes = {

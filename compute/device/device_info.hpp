@@ -163,6 +163,52 @@ namespace device_info {
 #endif
 	}
 	
+	//! returns true if images are supported by the device
+	constexpr bool has_image_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT != 0);
+	}
+	
+	//! returns true if depth images are supported
+	constexpr bool has_image_depth_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT != 0);
+	}
+	
+	//! returns true if writing depth images is supported
+	constexpr bool has_image_depth_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT != 0);
+	}
+	
+	//! returns true if msaa images are supported
+	constexpr bool has_image_msaa_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MSAA_SUPPORT != 0);
+	}
+	
+	//! returns true if writing msaa images is supported
+	constexpr bool has_image_msaa_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MSAA_WRITE_SUPPORT != 0);
+	}
+	
+	//! returns true if cube map images are supported
+	constexpr bool has_image_cube_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_SUPPORT != 0);
+	}
+	
+	//! returns true if writing cube map images is supported
+	constexpr bool has_image_cube_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_WRITE_SUPPORT != 0);
+	}
+	
+	//! returns true if mip-map images are supported
+	constexpr bool has_image_mipmap_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_SUPPORT != 0);
+	}
+	
+	//! returns true if writing mip-map images is supported
+	constexpr bool has_image_mipmap_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_WRITE_SUPPORT != 0);
+	}
+	
+	
 }
 
 #endif

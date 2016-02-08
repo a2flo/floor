@@ -39,11 +39,20 @@ host_device::host_device() : compute_device() {
 	max_image_2d_dim = { 65536, 65536 };
 	max_image_3d_dim = { 65536, 65536, 65536 };
 	
-	image_support = true;
 	double_support = true;
 	unified_memory = true;
 	basic_64_bit_atomics_support = true;
 	extended_64_bit_atomics_support = true;
+	
+	image_support = true;
+	image_depth_support = true;
+	image_depth_write_support = true;
+	image_msaa_support = false; // not implementable with opengl
+	image_msaa_write_support = false;
+	image_cube_support = true;
+	image_cube_write_support = true;
+	image_mipmap_support = false; // for now
+	image_mipmap_write_support = false;
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;
