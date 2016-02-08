@@ -2,8 +2,30 @@
 
 RELEASE=3.5.2
 
+##########################################
+# helper functions
+error() {
+	printf "\033[1;31m>> $@ \033[m\n"
+	exit 1
+}
+warning() {
+	printf "\033[1;33m>> $@ \033[m\n"
+}
+info() {
+	printf "\033[1;32m>> $@ \033[m\n"
+}
+verbose() {
+	if [ ${BUILD_VERBOSE} -gt 0 ]; then
+		printf "$@\n"
+	fi
+}
+
+##########################################
+# build
+
 # handle args
 BUILD_JOB_COUNT=0
+ENABLE_LTO=0
 for arg in "$@"; do
 	case $arg in
 		# NOTE: this overwrites the detected job/cpu count
@@ -12,6 +34,9 @@ for arg in "$@"; do
 			if [ -z ${BUILD_JOB_COUNT} ]; then
 				BUILD_JOB_COUNT=0
 			fi
+			;;
+		"-lto")
+			ENABLE_LTO=1
 			;;
 		*)
 			warning "unknown argument: ${arg}"
@@ -131,7 +156,7 @@ case ${BUILD_PLATFORM} in
 		export CC=gcc
 		;;
 	*)
-		echo "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
+		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
 		;;
 esac
 
@@ -139,19 +164,23 @@ esac
 if [ ${BUILD_JOB_COUNT} -eq 0 ]; then
 	BUILD_JOB_COUNT=${BUILD_CPU_COUNT}
 fi
+info "using ${BUILD_JOB_COUNT} build jobs"
 
 EXTRA_OPTIONS=""
 if [ $BUILD_OS == "osx" ]; then
 	EXTRA_OPTIONS="-mmacosx-version-min=10.9"
 elif [ $BUILD_OS == "ios" ]; then
-	EXTRA_OPTIONS="-miphoneos-version-min=8.0"
+	EXTRA_OPTIONS="-miphoneos-version-min=9.0"
 fi
 
 CONFIG_OPTIONS=
 CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
 	CONFIG_OPTIONS="--enable-libcpp"
-	CLANG_OPTIONS="-fvectorize -flto"
+	CLANG_OPTIONS="-fvectorize"
+	if [ $ENABLE_LTO -gt 0 ]; then
+		CLANG_OPTIONS="${CLANG_OPTIONS} -flto"
+	fi
 fi
 if [ $BUILD_OS == "linux" ]; then
 	CONFIG_OPTIONS="${CONFIG_OPTIONS} --prefix=/usr --sysconfdir=/etc --with-binutils-include=/usr/include --with-python=/usr/bin/python2"
@@ -164,12 +193,11 @@ make_ret_code=$?
 # get out of the "build" folder
 cd ..
 if [ ${make_ret_code} -ne 0 ]; then
-	echo "toolchain compilation failed!"
-	exit 1
+	error "toolchain compilation failed!"
 else
-	echo ""
-	echo "#########################"
-	echo "# clang/llvm build done #"
-	echo "#########################"
-	echo ""
+	info ""
+	info "#########################"
+	info "# clang/llvm build done #"
+	info "#########################"
+	info ""
 fi
