@@ -233,10 +233,10 @@ index 413134e..16954c5 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..44e1eac
+index 0000000..eeca757
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,333 @@
+@@ -0,0 +1,336 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -565,6 +565,9 @@ index 0000000..44e1eac
 +		Instruction* alloca_insert { nullptr };
 +		std::shared_ptr<IRBuilder<>> builder;
 +		bool was_modified { false };
++		
++		llvm::AttributeSet nounwind_readnone_attr;
++		llvm::AttributeSet nounwind_attr;
 +		
 +	};
 +}
@@ -1688,10 +1691,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..d816ceb
+index 0000000..bc1327b
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,511 @@
+@@ -0,0 +1,504 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1889,11 +1892,6 @@ index 0000000..d816ceb
 +				}
 +			}
 +			
-+			llvm::Value* offset_coord_arg = coord_arg;
-+			if(!null_offset) {
-+				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
-+			}
-+			
 +			std::string ctype = (coord_type->isFloatTy() ? "f32" : "s32");
 +			std::string coords_placeholders;
 +			const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
@@ -1972,7 +1970,6 @@ index 0000000..d816ceb
 +			}
 +			
 +			//
-+			was_modified = true;
 +			I.replaceAllUsesWith(dst_vec);
 +			I.eraseFromParent();
 +		}
@@ -2188,7 +2185,6 @@ index 0000000..d816ceb
 +			asm_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
 +			//
-+			was_modified = true;
 +			I.replaceAllUsesWith(asm_call);
 +			I.eraseFromParent();
 +		}
@@ -2205,10 +2201,10 @@ index 0000000..d816ceb
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..44a569a
+index 0000000..a8ba154
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,295 @@
+@@ -0,0 +1,308 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2278,6 +2274,18 @@ index 0000000..44a569a
 +	builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
 +	was_modified = false;
 +	
++	{
++		AttrBuilder attr_builder;
++		attr_builder.addAttribute(llvm::Attribute::NoUnwind);
++		attr_builder.addAttribute(llvm::Attribute::ReadNone);
++		nounwind_readnone_attr = AttributeSet::get(*ctx, ~0, attr_builder);
++	}
++	{
++		AttrBuilder attr_builder;
++		attr_builder.addAttribute(llvm::Attribute::NoUnwind);
++		nounwind_attr = AttributeSet::get(*ctx, ~0, attr_builder);
++	}
++	
 +	// visit everything in this function
 +	DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
 +	visit(F);
@@ -2299,6 +2307,7 @@ index 0000000..44a569a
 +		// strip off .(i|f)(1|2|3) from the end of the func name
 +		const auto func_name = full_func_name.rsplit('.').first;
 +		handle_image(CS, func_name);
++		was_modified = true;
 +	}
 +}
 +
@@ -3240,10 +3249,10 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..919b340
+index 0000000..68ed7bf
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,519 @@
+@@ -0,0 +1,517 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3589,7 +3598,7 @@ index 0000000..919b340
 +			
 +			// create the air call
 +			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
-+			llvm::CallInst* read_call = builder->CreateCall(M->getOrInsertFunction(read_func_name, func_type), func_args);
++			llvm::CallInst* read_call = builder->CreateCall(M->getOrInsertFunction(read_func_name, func_type, nounwind_readnone_attr), func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
@@ -3602,7 +3611,6 @@ index 0000000..919b340
 +			}
 +			
 +			//
-+			was_modified = true;
 +			I.replaceAllUsesWith(read_call_result);
 +			I.eraseFromParent();
 +		}
@@ -3744,11 +3752,10 @@ index 0000000..919b340
 +			
 +			// create the air call
 +			const auto func_type = llvm::FunctionType::get(builder->getVoidTy(), func_arg_types, false);
-+			llvm::CallInst* write_call = builder->CreateCall(M->getOrInsertFunction(write_func_name, func_type), func_args);
++			llvm::CallInst* write_call = builder->CreateCall(M->getOrInsertFunction(write_func_name, func_type, nounwind_attr), func_args);
 +			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			
 +			//
-+			was_modified = true;
 +			I.replaceAllUsesWith(write_call);
 +			I.eraseFromParent();
 +		}
@@ -4019,10 +4026,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..7142220
+index 0000000..3b3526d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,461 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4090,6 +4097,80 @@ index 0000000..7142220
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
++		void handle_cl_coord(Instruction& I,
++							 llvm::Value* coord_arg,
++							 llvm::Value* layer_arg,
++							 const bool is_array,
++							 const bool is_msaa,
++							 const bool must_have_int_args,
++							 std::string& cl_func_name,
++							 SmallVector<llvm::Type*, 8>& func_arg_types,
++							 SmallVector<llvm::Value*, 8>& func_args) {
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			const auto coord_dim = coord_vec_type->getNumElements();
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			const auto is_int_coord = coord_type->isIntegerTy();
++			if(is_msaa && !is_int_coord) {
++				ctx->emitError(&I, "coordinate type must be integer for msaa images");
++				return;
++			}
++			
++			if(must_have_int_args && !is_int_coord) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			// opencl only knows scalar, vector2 and vector4 coordinates -> need to create them if necessary
++			auto cl_coord_dim = coord_dim + (is_array ? 1 : 0);
++			if(cl_coord_dim == 3) cl_coord_dim = 4;
++			const auto cl_coord_scalar_type = (is_int_coord ? llvm::Type::getInt32Ty(*ctx) : llvm::Type::getFloatTy(*ctx));
++			const auto cl_coord_type = (cl_coord_dim == 1 ?
++										cl_coord_scalar_type :
++										llvm::VectorType::get(cl_coord_scalar_type, cl_coord_dim));
++			
++			// start with the specified coord arg, there are some cases where we can just use it without rebuilding
++			auto cl_coord_arg = coord_arg;
++			if(cl_coord_type != coord_vec_type) {
++				if(cl_coord_dim == 1) {
++					// just a scalar
++					cl_coord_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(0));
++				}
++				else {
++					// create a new tmp coord, then copy coord elements (keep unused undef)
++					cl_coord_arg = UndefValue::get(cl_coord_type);
++					uint32_t coord_idx = 0;
++					for(; coord_idx < coord_dim; ++coord_idx) {
++						cl_coord_arg = builder->CreateInsertElement(cl_coord_arg,
++																	builder->CreateExtractElement(coord_arg,
++																								  builder->getInt32(coord_idx)),
++																	builder->getInt32(coord_idx));
++					}
++					
++					// need to pull the layer index into the coordinate, including possible int -> float conversion
++					if(is_array) {
++						auto layer = layer_arg;
++						if(!is_int_coord) {
++							// need to convert
++							layer = builder->CreateUIToFP(layer_arg, cl_coord_scalar_type);
++						}
++						cl_coord_arg = builder->CreateInsertElement(cl_coord_arg, layer, builder->getInt32(coord_idx++));
++					}
++				}
++			}
++			func_arg_types.push_back(cl_coord_arg->getType());
++			func_args.push_back(cl_coord_arg);
++			
++			if(cl_coord_dim > 1) {
++				cl_func_name += "Dv" + std::to_string(cl_coord_dim) + "_";
++			}
++			cl_func_name += (is_int_coord ? "i" : "f");
++		}
++		
 +		void handle_read_image(Instruction& I,
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
@@ -4107,7 +4188,170 @@ index 0000000..7142220
 +							   const COMPARE_FUNCTION& compare_function,
 +							   llvm::Value* compare_value_arg,
 +							   const bool is_compare) override {
-+			// TODO
++			SmallVector<llvm::Type*, 8> func_arg_types;
++			SmallVector<llvm::Value*, 8> func_args;
++			
++			// NOTE: opencl is rather limited when it comes to image functionality, hence not all types of image reads
++			//       are supported, though some can simply be ignored or emulated in s/w
++			
++			// TODO: add an option to disable advanced image functions and silently fallback to simple ones (at the loss of functionality)
++			// TODO: only enable advanced functions if extensions are supported (need to get this info somehow)
++			
++			// -> return data and cl function name
++			// NOTE: we don't have a c++ mangling support in here, so do it manually
++			// (this is actually easy enough, since everything is very static)
++			std::string cl_func_name;
++			llvm::Type* ret_type;
++			if(func_name.endswith("float")) {
++				cl_func_name = "_Z11read_imagef";
++				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
++			}
++			else if(func_name.endswith("int")) {
++				cl_func_name = "_Z11read_imagei";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("uint")) {
++				cl_func_name = "_Z12read_imageui";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("half")) {
++				cl_func_name = "_Z11read_imageh";
++				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
++			}
++			// unknown -> ignore
++			else return;
++			
++			// -> geom
++			std::string geom;
++			bool is_array = false, is_msaa = false, is_depth = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					ctx->emitError(&I, "unsupported image type");
++					return;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			cl_func_name += geom;
++			
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			if(is_depth) {
++				// depth return type is always a float
++				ret_type = llvm::Type::getFloatTy(*ctx);
++			}
++			
++			// except for msaa, we always have a sampler
++			if(!is_msaa) {
++				cl_func_name += "11ocl_sampler";
++				func_arg_types.push_back(sampler_arg->getType());
++				func_args.push_back(sampler_arg);
++			}
++			
++			// -> offset
++			// opencl has no offset support, so always add it
++			const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++			if(coord_dim != offset_arg->getType()->getVectorNumElements()) {
++				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(coord_dim));
++				return;
++			}
++			
++			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
++			bool null_offset = false;
++			if(const_offset_arg) {
++				const auto splat = const_offset_arg->getSplatValue();
++				if(splat && splat->isZeroValue()) {
++					null_offset = true;
++				}
++			}
++			
++			llvm::Value* offset_coord_arg = coord_arg;
++			if(!null_offset &&
++			   // TODO: implement a s/w fallback for fp coords
++			   coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
++			}
++			
++			// -> coord
++			handle_cl_coord(I,
++							offset_coord_arg,
++							layer_arg,
++							is_array,
++							is_msaa,
++							false, // can have either int or float coords
++							cl_func_name,
++							func_arg_types,
++							func_args);
++			
++			// -> sample
++			if(is_msaa) {
++				if(!sample_arg->getType()->isIntegerTy()) {
++					ctx->emitError(&I, "msaa sample index must be integer");
++					return;
++				}
++				
++				cl_func_name += "i";
++				func_arg_types.push_back(sample_arg->getType());
++				func_args.push_back(sample_arg);
++			}
++			
++			// -> gradient
++			if(is_gradient) {
++				// TODO
++			}
++			
++			// -> lod
++			// NOTE: bias is never supported
++			if(is_lod_or_bias) {
++				// TODO
++			}
++			
++			// -> compare
++			if(is_compare) {
++				// TODO
++			}
++			
++			// create the opencl call
++			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
++			auto read_func = M->getFunction(cl_func_name);
++			if(read_func == nullptr) { // only do this once
++				read_func = dyn_cast<Function>(M->getOrInsertFunction(cl_func_name, func_type, nounwind_readnone_attr));
++				read_func->setCallingConv(CallingConv::SPIR_FUNC);
++			}
++			
++			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
++			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			read_call->setCallingConv(CallingConv::SPIR_FUNC);
++			
++			// if this is a depth read/sample, the return type is a float -> create a float4
++			llvm::Value* read_call_result = read_call;
++			if(is_depth) {
++				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
++				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
++				// rest is undef/zero (and will be stripped away again anyways)
++			}
++			
++			//
++			I.replaceAllUsesWith(read_call_result);
++			I.eraseFromParent();
 +		}
 +		
 +		void handle_write_image(Instruction& I,
@@ -4121,7 +4365,120 @@ index 0000000..7142220
 +								llvm::Value* coord_arg,
 +								llvm::Value* layer_arg,
 +								llvm::Value* data_arg) override {
++			SmallVector<llvm::Type*, 8> func_arg_types;
++			SmallVector<llvm::Value*, 8> func_args;
++			
++			//// more arg checking
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(!coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			std::string cl_func_name, dtype;
++			if(func_name.endswith("float")) {
++				cl_func_name = "_Z12write_imagef";
++				dtype = "f";
++			}
++			else if(func_name.endswith("int")) {
++				cl_func_name = "_Z12write_imagei";
++				dtype = "i";
++			}
++			else if(func_name.endswith("uint")) {
++				cl_func_name = "_Z13write_imageui";
++				dtype = "j";
++			}
++			else if(func_name.endswith("half")) {
++				cl_func_name = "_Z12write_imageh";
++				dtype = "h";
++			}
++			// unknown -> ignore
++			else return;
++			
++			//// func replacement
++			// -> geom
++			std::string geom;
++			bool is_array = false, is_depth = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					ctx->emitError(&I, "unsupported image type");
++					return;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			cl_func_name += geom;
++			
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			// -> coord
++			handle_cl_coord(I,
++							coord_arg,
++							layer_arg,
++							is_array,
++							false, // no msaa
++							true, // must always have int coords for writes
++							cl_func_name,
++							func_arg_types,
++							func_args);
++			
++			// -> data
++			// data is always a vector4, unless we're writing depth
++			if(!is_depth) {
++				cl_func_name += "Dv4_";
++				func_arg_types.push_back(data_arg->getType());
++				func_args.push_back(data_arg);
++			}
++			else {
++				// extract and use depth elem
++				auto depth_arg = builder->CreateExtractElement(data_arg, builder->getInt32(0));
++				func_arg_types.push_back(depth_arg->getType());
++				func_args.push_back(depth_arg);
++			}
++			cl_func_name += dtype;
++			
++			// -> lod
 +			// TODO
++			
++			// create the opencl call
++			const auto func_type = llvm::FunctionType::get(builder->getVoidTy(), func_arg_types, false);
++			auto write_func = M->getFunction(cl_func_name);
++			if(write_func == nullptr) { // only do this once
++				write_func = dyn_cast<Function>(M->getOrInsertFunction(cl_func_name, func_type, nounwind_attr));
++				write_func->setCallingConv(CallingConv::SPIR_FUNC);
++			}
++			
++			llvm::CallInst* write_call = builder->CreateCall(write_func, func_args);
++			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			write_call->setCallingConv(CallingConv::SPIR_FUNC);
++			
++			//
++			I.replaceAllUsesWith(write_call);
++			I.eraseFromParent();
++			
 +		}
 +		
 +	};
@@ -6213,7 +6570,7 @@ index a10d8e7..852a803 100644
    OS << "<CGRecordLayout\n";
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..bf699ac 100644
+index 5ca3a78..bb30aa2 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,8 @@
@@ -6323,7 +6680,7 @@ index 5ca3a78..bf699ac 100644
 +	}
 +	
 +	return TyName;
-+};
++}
 +static std::string getVectorMetadataValue(const clang::ExtVectorType *Ty) {
 +	const clang::VectorType *VTy = llvm::dyn_cast<clang::VectorType>(Ty);
 +	assert(VTy && "Cast to vector failed");
@@ -6333,7 +6690,7 @@ index 5ca3a78..bf699ac 100644
 +	Ret << VTy->getNumElements();
 +	
 +	return Ret.str();
-+};
++}
 +
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
@@ -8066,7 +8423,7 @@ index 9533a8d..d53d4e3 100644
      return SanitizerBL;
    }
 diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.cpp b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
-index d4e2262..4a25895 100644
+index d4e2262..47454ca 100644
 --- a/tools/clang/lib/CodeGen/CodeGenTypes.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenTypes.cpp
 @@ -380,6 +380,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
@@ -8189,7 +8546,7 @@ index d4e2262..4a25895 100644
 +			});
 +		}
 +	}
-+};
++}
 +
 +std::vector<CodeGenTypes::aggregate_scalar_entry>
 +CodeGenTypes::get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
@@ -9218,7 +9575,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..72387a8 100644
+index 8716227..2de4683 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -9449,7 +9806,7 @@ index 8716227..72387a8 100644
  Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    // Clear the last template instantiation error context.
    LastTemplateInstantiationErrorContext = ActiveTemplateInstantiation();
-@@ -9954,6 +10019,33 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +10019,32 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -9461,8 +9818,7 @@ index 8716227..72387a8 100644
 +     FD->hasAttr<GraphicsFragmentShaderAttr>()) {
 +    for (const auto& Param : FD->params()) {
 +      const auto param_type = Param->getType();
-+
-+		const CXXRecordDecl* cxx_rdecl = nullptr;
++      const CXXRecordDecl* cxx_rdecl = nullptr;
 +      if(param_type->isPointerType()) {
 +        const auto pointee_type = param_type->getPointeeType();
 +        RequireCompleteType(Param->getLocation(), pointee_type,
@@ -9483,7 +9839,7 @@ index 8716227..72387a8 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +12033,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +12032,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
