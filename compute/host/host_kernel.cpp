@@ -64,28 +64,46 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
-	"movq %rbp, 0x0(%rdi);"
-	"movq %rbx, 0x8(%rdi);"
-	"movq %r12, 0x10(%rdi);"
-	"movq %r13, 0x18(%rdi);"
-	"movq %r14, 0x20(%rdi);"
-	"movq %r15, 0x28(%rdi);"
+	"prefetchw (%rdi);"
+	"movq %rbp, %xmm0;"
+	"pinsrq $1, %rbx, %xmm0;"
+	"vmovdqa %xmm0, (%rdi);"
+	
+	"movq %r12, %xmm1;"
+	"pinsrq $1, %r13, %xmm1;"
+	"vmovdqa %xmm1, 0x10(%rdi);"
+	
+	"movq %r14, %xmm2;"
+	"pinsrq $1, %r15, %xmm2;"
+	"vmovdqa %xmm2, 0x20(%rdi);"
+	
 	"movq %rsp, %rcx;"
 	"addq $0x8, %rcx;"
-	"movq %rcx, 0x30(%rdi);" // rsp
-	"movq (%rsp), %rcx;"
-	"movq %rcx, 0x38(%rdi);" // rip
+	"movq %rcx, %xmm3;" // rsp
+	"pinsrq $1, (%rsp), %xmm3;"
+	"vmovdqa %xmm3, 0x30(%rdi);" // rip
+	
 	"retq;");
 asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
-	"movq 0x0(%rdi), %rbp;"
-	"movq 0x8(%rdi), %rbx;"
-	"movq 0x10(%rdi), %r12;"
-	"movq 0x18(%rdi), %r13;"
-	"movq 0x20(%rdi), %r14;"
-	"movq 0x28(%rdi), %r15;"
-	"movq 0x30(%rdi), %rsp;"
-	"movq 0x38(%rdi), %rcx;"
+	"prefetchnta (%rdi);"
+	
+	"vmovdqa (%rdi), %xmm0;"
+	"vmovq %xmm0, %rbp;"
+	"vpextrq $1, %xmm0, %rbx;"
+	
+	"vmovdqa 0x10(%rdi), %xmm1;"
+	"vmovq %xmm1, %r12;"
+	"vpextrq $1, %xmm1, %r13;"
+	
+	"vmovdqa 0x20(%rdi), %xmm2;"
+	"vmovq %xmm2, %r14;"
+	"vpextrq $1, %xmm2, %r15;"
+	
+	"vmovdqa 0x30(%rdi), %xmm3;"
+	"vmovq %xmm3, %rsp;"
+	"vpextrq $1, %xmm3, %rcx;" // rip
+	
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
 asm(".extern exit;"
@@ -107,7 +125,7 @@ asm(".extern exit;"
 	// set_context(exit_context)
 	"callq floor_set_context_sysv_x86_64;"
 	// it's a trap!
-	"ud2");
+	"ud2;");
 extern "C" void floor_get_context(void* ctx) asm("floor_get_context_sysv_x86_64");
 extern "C" void floor_set_context(void* ctx) asm("floor_set_context_sysv_x86_64");
 extern "C" void floor_enter_context() asm("floor_enter_context_sysv_x86_64");
@@ -151,9 +169,11 @@ struct fiber_context {
 			//  b) if the user kernel code does overwrite this (stack overflow), this will certainly crash (as it should!)
 			auto stack_addr = (uint64_t*)stack_ptr + stack_size / 8ull;
 			*(stack_addr - 1u) = (uint64_t)this;
+#if defined(FLOOR_DEBUG)
 			// for stack protection (well, corruption detection ...) purposes
 			// TODO: check this on exit (in debug mode or when manually enabled)
 			*(stack_addr - 2u) = 0x0123456789ABCDEFull;
+#endif
 		}
 	}
 
@@ -171,7 +191,9 @@ struct fiber_context {
 		rsp = ((size_t)stack_ptr) + stack_size - 16u;
 		rip = (uint64_t)floor_enter_context;
 		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
+#if defined(FLOOR_DEBUG)
 		*(uint64_t*)(rsp) = 0x0123456789ABCDEF;
+#endif
 	}
 
 	void get_context() {
@@ -345,6 +367,7 @@ struct fiber_context {
 	uint32_t init_arg { 0 };
 	
 };
+const size_t fiber_context::min_stack_size; // need linkage
 
 // thread affinity handling
 static void floor_set_thread_affinity(const uint32_t& affinity) {
@@ -404,9 +427,27 @@ static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr
 _Thread_local uint32_t floor_thread_idx { 0 };
 _Thread_local uint32_t floor_thread_local_memory_offset { 0 };
 
-static void floor_alloc_local_memory() {
-	if(floor_local_memory_data != nullptr) return;
-	floor_local_memory_data = new uint8_t[floor_local_memory_max_size * floor_max_thread_count] alignas(1024);
+// stack memory management
+// 4k - 8k stack should be enough, considering this runs on gpus (min 32k with ucontext)
+// TODO: stack protection?
+static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
+#if !defined(__WINDOWS__)
+static constexpr const size_t max_items { 1024 }; // TODO: should match up with host_compute/host_device
+#else
+static constexpr const size_t max_items { 64 };
+#endif
+static uint8_t* __attribute__((aligned(1024))) floor_stack_memory_data { nullptr };
+
+static void floor_alloc_host_memory() {
+	if(floor_local_memory_data == nullptr) {
+		floor_local_memory_data = new uint8_t[floor_max_thread_count * floor_local_memory_max_size] alignas(1024);
+	}
+	
+#if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
+	if(floor_stack_memory_data == nullptr) {
+		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * max_items] alignas(1024);
+	}
+#endif
 }
 
 //
@@ -474,8 +515,8 @@ void host_kernel::execute_internal(compute_queue* queue,
 	// -> reset vars
 	local_memory_alloc_offset = 0;
 	local_memory_exceeded = false;
-	// alloc local memory (for all threads) if it hasn't been allocated yet
-	floor_alloc_local_memory();
+	// alloc local and stack memory (for all threads) if it hasn't been allocated yet
+	floor_alloc_host_memory();
 	
 #if defined(FLOOR_HOST_COMPUTE_ST) // single-threaded
 	// it's usually best to go from largest to smallest loop count (usually: X > Y > Z)
@@ -627,15 +668,10 @@ void host_kernel::execute_internal(compute_queue* queue,
 			auto items = make_unique<fiber_context[]>(local_size);
 			item_contexts = items.get();
 			
-			// 8k stack should be enough, considering this runs on gpus
-			// TODO: stack protection?
-			static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
-			auto item_stacks_alloc = make_unique<uint8_t[]>(item_stack_size * local_size);
-			uint8_t* item_stacks = item_stacks_alloc.get();
-			
 			// init fibers
 			for(uint32_t i = 0; i < local_size; ++i) {
-				items[i].init(&item_stacks[i * item_stack_size], item_stack_size,
+				items[i].init(&floor_stack_memory_data[(i + local_size * cpu_idx) * fiber_context::min_stack_size],
+							  fiber_context::min_stack_size,
 							  run_mt_group_item, i,
 							  // continue with next on return, or return to main ctx when the last item returns
 							  // TODO: add option to use randomized order?

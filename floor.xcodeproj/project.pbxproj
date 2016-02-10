@@ -1475,7 +1475,7 @@
 		5C10916317D114BC007F536E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = avx;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
@@ -1506,7 +1506,7 @@
 		5C10916417D114BC007F536E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
+				CLANG_X86_VECTOR_INSTRUCTIONS = avx;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(LOCAL_LIBRARY_DIR)/Frameworks",
