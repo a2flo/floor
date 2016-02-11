@@ -461,7 +461,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +
 		" -include floor/compute/device/common.hpp"
-		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast -ffp-contract=fast " +
+		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast -ffp-contract=fast"
+		// increase limit from 16 to 64, this "fixes" some forced unrolling
+		" -mllvm -rotation-max-header-size=64 " +
 		warning_flags +
 		additional_options +
 		// compile to the right device bitness
