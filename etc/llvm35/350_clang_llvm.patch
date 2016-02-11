@@ -233,10 +233,10 @@ index 413134e..16954c5 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..eeca757
+index 0000000..1ac7731
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,336 @@
+@@ -0,0 +1,338 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -534,6 +534,8 @@ index 0000000..eeca757
 +									   llvm::Value* layer_arg,
 +									   llvm::Value* sample_arg,
 +									   llvm::Value* offset_arg,
++									   const SmallVector<llvm::Value*, 3>& offset_elems,
++									   const bool is_offset,
 +									   llvm::Value* lod_or_bias_arg,
 +									   const bool is_lod_or_bias, // true: lod, false: bias
 +									   llvm::Value* dpdx_arg,
@@ -1221,7 +1223,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..a2a7fb0 100644
+index 701fb46..b6bebda 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -1236,26 +1238,21 @@ index 701fb46..a2a7fb0 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +135,18 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +135,13 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
 +  // run "first" passes that should run before all else
-+  if(EnableCUDAPasses) {
-+    MPM.add(createCUDAFirstPass());
-+  }
-+  else if(EnableMetalPasses) {
-+    MPM.add(createMetalImagePass());
++  // if(EnableCUDAPasses) --none
++  if(EnableMetalPasses) {
 +    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
 +  }
-+  else if(EnableSPIRPasses) {
-+    MPM.add(createSPIRImagePass());
-+  }
++  // if(EnableSPIRPasses) --none
 +
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -153,6 +170,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -153,6 +165,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
  
    addInitialAliasAnalysisPasses(MPM);
  
@@ -1274,15 +1271,54 @@ index 701fb46..a2a7fb0 100644
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
  
-@@ -280,6 +309,11 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -255,6 +279,29 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+   // pass manager that we are specifically trying to avoid. To prevent this
+   // we must insert a no-op module pass to reset the pass manager.
+   MPM.add(createBarrierNoopPass());
++
++  // run image read/write function passes after inling everything,
++  // this way we can actually check each use of these functions and their arguments,
++  // with constants potentially changing/improving the behavior and allowing
++  // additional checking (like oob offsets).
++  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
++    if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
++    if(EnableMetalPasses) MPM.add(createMetalImagePass());
++    if(EnableSPIRPasses) MPM.add(createSPIRImagePass());
++
++    // and cleanup afterwards, including loop and unrolling related things
++    MPM.add(createTailCallEliminationPass());
++    MPM.add(createLoopRotatePass());
++    MPM.add(createLICMPass());
++    MPM.add(createSimpleLoopUnrollPass());
++
++    MPM.add(createGVNPass());
++    MPM.add(createAggressiveDCEPass());
++    MPM.add(createCFGSimplificationPass());
++    MPM.add(createInstructionCombiningPass());
++    addExtensionsToPM(EP_Peephole, MPM);
++  }
++
+   MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
+   // FIXME: Because of #pragma vectorize enable, the passes below are always
+   // inserted in the pipeline, even when the vectorizer doesn't run (ex. when
+@@ -280,6 +327,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
 +
 +  // run CUDAFinal/MetalFinal/SPIRFinal pass at the very end, no IR should change after this point!
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
-+  else if(EnableMetalPasses) MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds));
-+  else if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
++  if(EnableMetalPasses) {
++    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds));
++
++    // cleanup
++    MPM.add(createTailCallEliminationPass());
++    MPM.add(createCFGSimplificationPass());
++    MPM.add(createInstructionCombiningPass());
++    MPM.add(createGVNPass());
++    MPM.add(createAggressiveDCEPass());
++  }
++  if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
  }
  
  void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
@@ -1691,10 +1727,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
 new file mode 100644
-index 0000000..bc1327b
+index 0000000..1cdcb54
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,504 @@
+@@ -0,0 +1,493 @@
 +//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1777,6 +1813,8 @@ index 0000000..bc1327b
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
 +							   llvm::Value* offset_arg,
++							   const SmallVector<llvm::Value*, 3>& offset_elems,
++							   const bool is_offset,
 +							   llvm::Value* lod_or_bias_arg,
 +							   const bool is_lod_or_bias, // true: lod, false: bias
 +							   llvm::Value* dpdx_arg,
@@ -1878,20 +1916,6 @@ index 0000000..bc1327b
 +				return;
 +			}
 +			
-+			// handle offset
-+			if(vec_elems != offset_arg->getType()->getVectorNumElements()) {
-+				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(vec_elems));
-+				return;
-+			}
-+			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
-+			bool null_offset = false;
-+			if(const_offset_arg) {
-+				const auto splat = const_offset_arg->getSplatValue();
-+				if(splat && splat->isZeroValue()) {
-+					null_offset = true;
-+				}
-+			}
-+			
 +			std::string ctype = (coord_type->isFloatTy() ? "f32" : "s32");
 +			std::string coords_placeholders;
 +			const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
@@ -1925,33 +1949,34 @@ index 0000000..bc1327b
 +				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0");
 +			}
 +			
-+			// offset arg
++			// -> offset
 +			const uint32_t offset_start_idx = coord_start_idx + vec_elems;
 +			std::string offset_str = "";
-+			if(!null_offset) {
++			if(is_offset) {
 +				for(uint32_t i = 0; i < vec_elems; ++i) {
-+					asm_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
-+					asm_args.push_back(builder->CreateExtractElement(offset_arg, builder->getInt32(i)));
 +					if(i != 0) offset_str += ", ";
-+					offset_str += "$" + std::to_string(offset_start_idx + i);
++					if(const auto const_offset_elem = dyn_cast_or_null<ConstantInt>(offset_elems[i])) {
++						offset_str += std::to_string(const_offset_elem->getSExtValue());
++					}
++					else {
++						asm_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
++						asm_args.push_back(offset_elems[i]);
++						offset_str += "$" + std::to_string(offset_start_idx + i);
++						constraints_str += ",r";
++					}
 +				}
 +				
 +				// append ignored 0 offset
 +				if(vec_elems == 3) {
 +					offset_str += ", 0";
 +				}
-+				
-+				if(vec_elems == 1) constraints_str += ",r";
-+				else if(vec_elems == 2) constraints_str += ",r,r";
-+				else if(vec_elems == 3) constraints_str += ",r,r,r";
-+				else constraints_str += ",r,r,r,r";
 +			}
 +			
 +			// -> build asm string
 +			std::string asm_str = "tex." + geom + ".v4." + dtype + "." + ctype;
 +			asm_str += " { $0, $1, $2, $3 },";
 +			asm_str += " [$4, {" + coords_placeholders + " }]";
-+			if(!null_offset) {
++			if(is_offset) {
 +				asm_str += ", { " + offset_str + " }";
 +			}
 +			asm_str += ";";
@@ -2201,10 +2226,10 @@ index 0000000..bc1327b
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..a8ba154
+index 0000000..d610ba9
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,339 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2402,6 +2427,7 @@ index 0000000..a8ba154
 +		ctx->emitError(I, "invalid image coordinate type");
 +		return;
 +	}
++	const auto coord_dim = coord_arg_type->getVectorNumElements();
 +	
 +	// -> layer
 +	const auto layer_arg = CS.getArgument(3 + args_offset);
@@ -2427,6 +2453,35 @@ index 0000000..a8ba154
 +		   !offset_arg->getType()->getVectorElementType()->isIntegerTy()) {
 +			ctx->emitError(I, "invalid offset type (must be an int vector)");
 +			return;
++		}
++		if(coord_dim != offset_arg->getType()->getVectorNumElements()) {
++			ctx->emitError(I, "invalid offset vector dimension: should be " + std::to_string(coord_dim));
++			return;
++		}
++		
++		SmallVector<llvm::Value*, 3> offset_elems;
++		bool is_offset = true;
++		if(const auto const_offset_arg = dyn_cast_or_null<Constant>(offset_arg)) {
++			// const 0 or undef -> no offset
++			if(const_offset_arg->isZeroValue() ||
++			   dyn_cast_or_null<UndefValue>(const_offset_arg)) {
++				is_offset = false;
++			}
++		}
++		
++		if(is_offset) {
++			for(uint32_t i = 0; i < coord_dim; ++i) {
++				auto offset_elem = builder->CreateExtractElement(offset_arg, builder->getInt32(i));
++				offset_elems.push_back(offset_elem);
++				
++				if(const auto const_offset_elem = dyn_cast_or_null<ConstantInt>(offset_elem)) {
++					// can check if within required [-8, 7]
++					const auto val = const_offset_elem->getSExtValue();
++					if(val < -8 || val > 7) {
++						ctx->emitError(I, "offset out of range (must be in [-8, 7]): " + std::to_string(val));
++					}
++				}
++			}
 +		}
 +		
 +		// -> misc flags
@@ -2486,7 +2541,8 @@ index 0000000..a8ba154
 +		handle_read_image(*I, func_name,
 +						  img_handle_arg, image_type,
 +						  sampler_arg,
-+						  coord_arg, layer_arg, sample_arg, offset_arg,
++						  coord_arg, layer_arg, sample_arg,
++						  offset_arg, offset_elems, is_offset,
 +						  lod_or_bias_arg, is_lod /* if false, then it's always bias */,
 +						  dpdx_arg, dpdy_arg, is_gradient,
 +						  compare_function, compare_value_arg, is_compare);
@@ -3249,10 +3305,10 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..68ed7bf
+index 0000000..fb5a53c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,517 @@
+@@ -0,0 +1,504 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3329,6 +3385,8 @@ index 0000000..68ed7bf
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
 +							   llvm::Value* offset_arg,
++							   const SmallVector<llvm::Value*, 3>& offset_elems,
++							   const bool is_offset,
 +							   llvm::Value* lod_or_bias_arg,
 +							   const bool is_lod_or_bias, // true: lod, false: bias
 +							   llvm::Value* dpdx_arg,
@@ -3400,7 +3458,6 @@ index 0000000..68ed7bf
 +			
 +			// -> coord type
 +			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
-+			const auto coord_dim = coord_vec_type->getNumElements();
 +			if(!coord_vec_type) {
 +				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
 +				return;
@@ -3455,22 +3512,8 @@ index 0000000..68ed7bf
 +			}
 +			
 +			// handle offset
-+			if(coord_dim != offset_arg->getType()->getVectorNumElements()) {
-+				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(coord_dim));
-+				return;
-+			}
-+			
-+			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
-+			bool null_offset = false;
-+			if(const_offset_arg) {
-+				const auto splat = const_offset_arg->getSplatValue();
-+				if(splat && splat->isZeroValue()) {
-+					null_offset = true;
-+				}
-+			}
-+			
 +			llvm::Value* offset_coord_arg = coord_arg;
-+			if(!is_sample_call && !null_offset) {
++			if(!is_sample_call && is_offset) {
 +				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
 +			}
 +			
@@ -3558,7 +3601,7 @@ index 0000000..68ed7bf
 +				// -> offset
 +				if(!is_cube) { // cube allows no offset (TODO: support this through s/w?)
 +					func_arg_types.push_back(llvm::Type::getInt1Ty(*ctx));
-+					func_args.push_back(builder->getInt1(!null_offset));
++					func_args.push_back(builder->getInt1(is_offset));
 +					
 +					func_arg_types.push_back(offset_arg->getType());
 +					func_args.push_back(offset_arg);
@@ -4026,10 +4069,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..3b3526d
+index 0000000..14bba4f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,461 @@
+@@ -0,0 +1,448 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4180,6 +4223,8 @@ index 0000000..3b3526d
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
 +							   llvm::Value* offset_arg,
++							   const SmallVector<llvm::Value*, 3>& offset_elems,
++							   const bool is_offset,
 +							   llvm::Value* lod_or_bias_arg,
 +							   const bool is_lod_or_bias, // true: lod, false: bias
 +							   llvm::Value* dpdx_arg,
@@ -4267,23 +4312,8 @@ index 0000000..3b3526d
 +			
 +			// -> offset
 +			// opencl has no offset support, so always add it
-+			const auto coord_dim = coord_arg->getType()->getVectorNumElements();
-+			if(coord_dim != offset_arg->getType()->getVectorNumElements()) {
-+				ctx->emitError(&I, "invalid offset vector dimension: should be " + std::to_string(coord_dim));
-+				return;
-+			}
-+			
-+			const auto const_offset_arg = dyn_cast_or_null<ConstantVector>(offset_arg);
-+			bool null_offset = false;
-+			if(const_offset_arg) {
-+				const auto splat = const_offset_arg->getSplatValue();
-+				if(splat && splat->isZeroValue()) {
-+					null_offset = true;
-+				}
-+			}
-+			
 +			llvm::Value* offset_coord_arg = coord_arg;
-+			if(!null_offset &&
++			if(is_offset &&
 +			   // TODO: implement a s/w fallback for fp coords
 +			   coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
 +				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
