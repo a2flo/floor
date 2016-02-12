@@ -476,10 +476,10 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			}
 			
 			// no variable anisotropy yet
-			tex_desc.max_anisotropy = 1;
+			tex_desc.max_anisotropy = 16;
 			tex_desc.mip_map_level_bias = 0.0f;
-			tex_desc.min_mip_map_level_clamp = 0;
-			tex_desc.max_mip_map_level_clamp = 0;
+			tex_desc.min_mip_map_level_clamp = -1000; // as per opengl spec
+			tex_desc.max_mip_map_level_clamp = 1000;
 			
 			CU_CALL_RET(cu_tex_object_create(&textures[i], &rsrc_desc, &tex_desc, &rsrc_view_desc),
 						"failed to create texture object #" + to_string(i), false);
