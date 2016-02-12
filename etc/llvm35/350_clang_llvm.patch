@@ -77,7 +77,7 @@ index 7a0ca88..4b27374 100644
  
  //===----------------------------------------------------------------------===//
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..9aec106 100644
+index 02f4259..37570c8 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
 @@ -64,6 +64,14 @@ void initializeTarget(PassRegistry&);
@@ -85,7 +85,7 @@ index 02f4259..9aec106 100644
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
 +void initializeAddressSpaceFixPass(PassRegistry&);
-+void initializeCUDAFirstPass(PassRegistry&);
++void initializeCUDAImagePass(PassRegistry&);
 +void initializeCUDAFinalPass(PassRegistry&);
 +void initializeMetalFirstPass(PassRegistry&);
 +void initializeMetalFinalPass(PassRegistry&);
@@ -104,7 +104,7 @@ index 02f4259..9aec106 100644
  void initializeGCOVProfilerPass(PassRegistry&);
  void initializeAddressSanitizerPass(PassRegistry&);
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index e06560c..5445f11 100644
+index e06560c..19d9e6c 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -48,6 +48,14 @@ namespace {
@@ -112,7 +112,7 @@ index e06560c..5445f11 100644
  
        (void) llvm::createAAEvalPass();
 +      (void) llvm::createAddressSpaceFixPass();
-+      (void) llvm::createCUDAFirstPass();
++      (void) llvm::createCUDAImagePass();
 +      (void) llvm::createCUDAFinalPass();
 +      (void) llvm::createMetalFirstPass(false);
 +      (void) llvm::createMetalFinalPass(false);
@@ -172,7 +172,7 @@ index 50877d0..a1fe4dc 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..16954c5 100644
+index 413134e..6aacf37 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
 @@ -30,6 +30,55 @@ class TargetMachine;
@@ -186,9 +186,9 @@ index 413134e..16954c5 100644
 +
 +//===----------------------------------------------------------------------===//
 +//
-+// CUDAFirst - first pass, making CUDA related IR changes.
++// CUDAImage - This pass applies CUDA-specific floor image transformations.
 +//
-+FunctionPass *createCUDAFirstPass();
++FunctionPass *createCUDAImagePass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -1223,7 +1223,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..b6bebda 100644
+index 701fb46..c55586f 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -1281,7 +1281,7 @@ index 701fb46..b6bebda 100644
 +  // with constants potentially changing/improving the behavior and allowing
 +  // additional checking (like oob offsets).
 +  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
-+    if(EnableCUDAPasses) MPM.add(createCUDAFirstPass());
++    if(EnableCUDAPasses) MPM.add(createCUDAImagePass());
 +    if(EnableMetalPasses) MPM.add(createMetalImagePass());
 +    if(EnableSPIRPasses) MPM.add(createSPIRImagePass());
 +
@@ -1587,13 +1587,13 @@ index 0000000..a0485af
 +	return new AddressSpaceFix();
 +}
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 261ddda..4e749f6 100644
+index 261ddda..88976b0 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
 @@ -1,4 +1,12 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
-+  CUDAFirst.cpp
++  CUDAImage.cpp
 +  CUDAFinal.cpp
 +  MetalFinal.cpp
 +  SPIRFinal.cpp
@@ -1725,13 +1725,13 @@ index 0000000..b77f9fa
 +FunctionPass *llvm::createCUDAFinalPass() {
 +	return new CUDAFinal();
 +}
-diff --git a/lib/Transforms/Scalar/CUDAFirst.cpp b/lib/Transforms/Scalar/CUDAFirst.cpp
+diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..1cdcb54
+index 0000000..75d9a77
 --- /dev/null
-+++ b/lib/Transforms/Scalar/CUDAFirst.cpp
-@@ -0,0 +1,493 @@
-+//===- CUDAFirst.cpp - CUDA first pass ------------------------------------===//
++++ b/lib/Transforms/Scalar/CUDAImage.cpp
+@@ -0,0 +1,565 @@
++//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
 +//
@@ -1740,8 +1740,9 @@ index 0000000..1cdcb54
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// This pass currently builds PTX texture/surface instructions (inline asm) from
-+// floor.cuda.read_image.* and floor.cuda.write_image.* intrinsics.
++// This pass implements the CUDA-specific floor image transformations, i.e.
++// floor.cuda.<read/write function>.*
++//   -> PTX texture/surface instructions (inline asm)
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -1787,7 +1788,7 @@ index 0000000..1cdcb54
 +#include <cxxabi.h>
 +using namespace llvm;
 +
-+#define DEBUG_TYPE "CUDAFirst"
++#define DEBUG_TYPE "CUDAImage"
 +
 +#if 1
 +#define DBG(x)
@@ -1796,12 +1797,12 @@ index 0000000..1cdcb54
 +#endif
 +
 +namespace {
-+	// CUDAFirst
-+	struct CUDAFirst : public FloorImageBasePass {
++	// CUDAImage
++	struct CUDAImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
 +		
-+		CUDAFirst() : FloorImageBasePass(ID, IMAGE_TYPE_ID::CUDA) {
-+			initializeCUDAFirstPass(*PassRegistry::getPassRegistry());
++		CUDAImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::CUDA) {
++			initializeCUDAImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
 +		void handle_read_image(Instruction& I,
@@ -1902,7 +1903,7 @@ index 0000000..1cdcb54
 +				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
 +				return;
 +			}
-+			const auto vec_elems = coord_vec_type->getVectorNumElements();
++			const auto coord_dim = coord_vec_type->getVectorNumElements();
 +			
 +			const auto coord_type = coord_vec_type->getElementType();
 +			if(is_msaa && !coord_type->isIntegerTy()) {
@@ -1919,41 +1920,106 @@ index 0000000..1cdcb54
 +			std::string ctype = (coord_type->isFloatTy() ? "f32" : "s32");
 +			std::string coords_placeholders;
 +			const std::string coord_type_str = (coord_type->isFloatTy() ? "f" : "r");
-+			uint32_t coord_start_idx = 5;
++			uint32_t asm_arg_idx = 5;
 +			if(is_msaa) {
 +				asm_arg_types.push_back(sample_arg->getType());
 +				asm_args.push_back(sample_arg);
 +				constraints_str += ",r";
 +				coords_placeholders += " $";
-+				coords_placeholders += std::to_string(coord_start_idx);
-+				++coord_start_idx;
++				coords_placeholders += std::to_string(asm_arg_idx++);
 +			}
 +			if(is_array) {
 +				asm_arg_types.push_back(layer_arg->getType());
 +				asm_args.push_back(layer_arg);
 +				constraints_str += ",r";
 +				coords_placeholders += (!is_msaa ? " $" : ", $");
-+				coords_placeholders += std::to_string(coord_start_idx);
-+				++coord_start_idx;
++				coords_placeholders += std::to_string(asm_arg_idx++);
 +			}
-+			for(uint32_t i = 0; i < vec_elems; ++i) {
++			for(uint32_t i = 0; i < coord_dim; ++i) {
 +				asm_arg_types.push_back(coord_type);
 +				asm_args.push_back(builder->CreateExtractElement(coord_arg, builder->getInt32(i)));
 +				constraints_str += "," + coord_type_str;
-+				coords_placeholders += (i == 0 && coord_start_idx == 5 ? " $" : ", $");
-+				coords_placeholders += std::to_string(coord_start_idx + i);
++				coords_placeholders += (i == 0 && asm_arg_idx == 5 ? " $" : ", $");
++				coords_placeholders += std::to_string(asm_arg_idx++);
 +			}
 +			
 +			// append (ignored) 0 coordinate if #coordinates == 3
-+			if((vec_elems + (is_msaa ? 1 : 0) + (is_array ? 1 : 0)) == 3) {
++			if((coord_dim + (is_msaa ? 1 : 0) + (is_array ? 1 : 0)) == 3) {
 +				coords_placeholders += (coord_type->isFloatTy() ? ", 0.0" : ", 0");
 +			}
 +			
++			// -> lod
++			std::string mipmap_prefix = "";
++			std::string lod_str = "";
++			if(is_lod_or_bias) {
++				mipmap_prefix = "level.";
++				lod_str = ", ";
++				// NOTE: lod type must match coord elem type, cast if necessary
++				if(const auto const_lod = dyn_cast_or_null<ConstantInt>(lod_or_bias_arg)) {
++					if(coord_type->isIntegerTy()) {
++						lod_str += std::to_string(const_lod->getSExtValue());
++					}
++					else {
++						// convert to float
++						lod_str += std::to_string((float)const_lod->getSExtValue());
++					}
++				}
++				else if(const auto const_lod = dyn_cast_or_null<ConstantFP>(lod_or_bias_arg)) {
++					if(coord_type->isFloatTy()) {
++						lod_str += std::to_string(const_lod->getValueAPF().convertToFloat());
++					}
++					else {
++						// convert to int
++						lod_str += std::to_string((int32_t)round(const_lod->getValueAPF().convertToFloat()));
++					}
++				}
++				else {
++					asm_arg_types.push_back(coord_type);
++					if(coord_type == lod_or_bias_arg->getType()) {
++						asm_args.push_back(lod_or_bias_arg);
++					}
++					else {
++						// convert to appropriate type
++						asm_args.push_back(coord_type->isIntegerTy() ?
++										   builder->CreateFPToSI(lod_or_bias_arg, coord_type) :
++										   builder->CreateSIToFP(lod_or_bias_arg, coord_type));
++					}
++					lod_str += "$" + std::to_string(asm_arg_idx++);
++					constraints_str += (coord_type->isIntegerTy() ? ",r" : ",f");
++				}
++			}
++			
++			// -> gradient
++			std::string gradient_str = "";
++			if(is_gradient) {
++				mipmap_prefix = "grad.";
++				
++				// dpdx
++				gradient_str += ", { ";
++				for(uint32_t i = 0; i < coord_dim; ++i) {
++					asm_arg_types.push_back(builder->getFloatTy());
++					asm_args.push_back(builder->CreateExtractElement(dpdx_arg, builder->getInt32(i)));
++					gradient_str += (i == 0 ? "$" : ", $") + std::to_string(asm_arg_idx++);
++					constraints_str += ",f";
++				}
++				if(coord_dim == 3) gradient_str += ", 0.0";
++				
++				// dpdy
++				gradient_str += " }, { ";
++				for(uint32_t i = 0; i < coord_dim; ++i) {
++					asm_arg_types.push_back(builder->getFloatTy());
++					asm_args.push_back(builder->CreateExtractElement(dpdy_arg, builder->getInt32(i)));
++					gradient_str += (i == 0 ? "$" : ", $") + std::to_string(asm_arg_idx++);
++					constraints_str += ",f";
++				}
++				if(coord_dim == 3) gradient_str += ", 0.0";
++				gradient_str += " }";
++			}
++			
 +			// -> offset
-+			const uint32_t offset_start_idx = coord_start_idx + vec_elems;
 +			std::string offset_str = "";
 +			if(is_offset) {
-+				for(uint32_t i = 0; i < vec_elems; ++i) {
++				for(uint32_t i = 0; i < coord_dim; ++i) {
 +					if(i != 0) offset_str += ", ";
 +					if(const auto const_offset_elem = dyn_cast_or_null<ConstantInt>(offset_elems[i])) {
 +						offset_str += std::to_string(const_offset_elem->getSExtValue());
@@ -1961,21 +2027,27 @@ index 0000000..1cdcb54
 +					else {
 +						asm_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
 +						asm_args.push_back(offset_elems[i]);
-+						offset_str += "$" + std::to_string(offset_start_idx + i);
++						offset_str += "$" + std::to_string(asm_arg_idx++);
 +						constraints_str += ",r";
 +					}
 +				}
 +				
 +				// append ignored 0 offset
-+				if(vec_elems == 3) {
++				if(coord_dim == 3) {
 +					offset_str += ", 0";
 +				}
 +			}
 +			
 +			// -> build asm string
-+			std::string asm_str = "tex." + geom + ".v4." + dtype + "." + ctype;
++			std::string asm_str = "tex." + mipmap_prefix + geom + ".v4." + dtype + "." + ctype;
 +			asm_str += " { $0, $1, $2, $3 },";
 +			asm_str += " [$4, {" + coords_placeholders + " }]";
++			if(is_lod_or_bias) {
++				asm_str += lod_str;
++			}
++			if(is_gradient) {
++				asm_str += gradient_str;
++			}
 +			if(is_offset) {
 +				asm_str += ", { " + offset_str + " }";
 +			}
@@ -2082,7 +2154,7 @@ index 0000000..1cdcb54
 +			}
 +			
 +			// -> coords
-+			const auto vec_elems = coord_vec_type->getVectorNumElements();
++			const auto coord_dim = coord_vec_type->getVectorNumElements();
 +			std::string coords_placeholders;
 +			static const uint32_t coord_start_idx = 1;
 +			uint32_t coord_idx = 0;
@@ -2094,7 +2166,7 @@ index 0000000..1cdcb54
 +				coords_placeholders += " $";
 +				coords_placeholders += std::to_string(coord_idx++);
 +			}
-+			for(uint32_t i = 0; i < vec_elems; ++i) {
++			for(uint32_t i = 0; i < coord_dim; ++i) {
 +				asm_arg_types.push_back(coord_type);
 +				auto coord_elem = builder->CreateExtractElement(coord_arg, builder->getInt32(i));
 +				if(i == 0) {
@@ -2107,7 +2179,7 @@ index 0000000..1cdcb54
 +			}
 +			
 +			// append (ignored) 0 coordinate if #coordinates == 3
-+			if((vec_elems + (is_array ? 1 : 0)) == 3) {
++			if((coord_dim + (is_array ? 1 : 0)) == 3) {
 +				coords_placeholders += ", 0";
 +			}
 +			
@@ -2217,19 +2289,19 @@ index 0000000..1cdcb54
 +	};
 +}
 +
-+char CUDAFirst::ID = 0;
-+INITIALIZE_PASS_BEGIN(CUDAFirst, "CUDAFirst", "CUDAFirst Pass", false, false)
-+INITIALIZE_PASS_END(CUDAFirst, "CUDAFirst", "CUDAFirst Pass", false, false)
++char CUDAImage::ID = 0;
++INITIALIZE_PASS_BEGIN(CUDAImage, "CUDAImage", "CUDAImage Pass", false, false)
++INITIALIZE_PASS_END(CUDAImage, "CUDAImage", "CUDAImage Pass", false, false)
 +
-+FunctionPass *llvm::createCUDAFirstPass() {
-+	return new CUDAFirst();
++FunctionPass *llvm::createCUDAImagePass() {
++	return new CUDAImage();
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..d610ba9
+index 0000000..62d193f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,339 @@
+@@ -0,0 +1,369 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2517,12 +2589,42 @@ index 0000000..d610ba9
 +		const bool is_gradient = is_gradient_arg->isOne();
 +		const bool is_compare = is_compare_arg->isOne();
 +		
++		if(is_lod && is_gradient) {
++			ctx->emitError(I, "lod and gradient are mutually exclusive");
++			return;
++		}
++		
 +		// -> lod and bias
 +		const auto lod_or_bias_arg = CS.getArgument(args_offset + (!is_bias && !is_lod_float ? 6 : 7));
++		
++		if(!lod_or_bias_arg->getType()->isIntegerTy() &&
++		   !lod_or_bias_arg->getType()->isFloatTy()) {
++			ctx->emitError(I, "lod must either be an integer or a float");
++			return;
++		}
 +		
 +		// -> gradient
 +		const auto dpdx_arg = CS.getArgument(11 + args_offset);
 +		const auto dpdy_arg = CS.getArgument(12 + args_offset);
++		
++		if(!dpdx_arg->getType()->isVectorTy() ||
++		   !dpdy_arg->getType()->isVectorTy()) {
++			ctx->emitError(I, "dpdx and dpdy must be vector types");
++			return;
++		}
++		if(!dpdx_arg->getType()->getVectorElementType()->isFloatTy() ||
++		   !dpdy_arg->getType()->getVectorElementType()->isFloatTy()) {
++			ctx->emitError(I, "dpdx and dpdy element type must be float");
++			return;
++		}
++		
++		const auto dpdx_dim = dpdx_arg->getType()->getVectorNumElements();
++		const auto dpdy_dim = dpdy_arg->getType()->getVectorNumElements();
++		
++		if(dpdx_dim != coord_dim || dpdy_dim != coord_dim) {
++			ctx->emitError(I, "dpdx and dpdy vector dim must correspond to the coordinate dim");
++			return;
++		}
 +		
 +		// -> compare
 +		const auto compare_function_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(14 + args_offset));
@@ -3305,7 +3407,7 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..fb5a53c
+index 0000000..31b795f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
 @@ -0,0 +1,504 @@
@@ -3571,7 +3673,7 @@ index 0000000..fb5a53c
 +						// for read, only int lods are allowed
 +						if(!lod_or_bias_arg->getType()->isIntegerTy()) {
 +							// convert to int
-+							const auto int_lod = builder->CreateFPToUI(lod_or_bias_arg, llvm::Type::getInt32Ty(*ctx));
++							const auto int_lod = builder->CreateFPToSI(lod_or_bias_arg, llvm::Type::getInt32Ty(*ctx));
 +							func_arg_types.push_back(int_lod->getType());
 +							func_args.push_back(int_lod);
 +						}
@@ -3617,7 +3719,7 @@ index 0000000..fb5a53c
 +					// for sample, only float lods are allowed
 +					if(!lod_or_bias_arg->getType()->isFloatTy()) {
 +						// convert to float
-+						const auto float_lod = builder->CreateUIToFP(lod_or_bias_arg, llvm::Type::getFloatTy(*ctx));
++						const auto float_lod = builder->CreateSIToFP(lod_or_bias_arg, llvm::Type::getFloatTy(*ctx));
 +						func_arg_types.push_back(float_lod->getType());
 +						func_args.push_back(float_lod);
 +					}
@@ -4522,7 +4624,7 @@ index 0000000..14bba4f
 +	return new SPIRImage();
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..6b6f6d9 100644
+index de724d4..e119f54 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
 @@ -73,6 +73,38 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
@@ -4533,8 +4635,8 @@ index de724d4..6b6f6d9 100644
 +  unwrap(PM)->add(createAddressSpaceFixPass());
 +}
 +
-+void LLVMAddCUDAFirstPass(LLVMPassManagerRef PM) {
-+  unwrap(PM)->add(createCUDAFirstPass());
++void LLVMAddCUDAImagePass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createCUDAImagePass());
 +}
 +
 +void LLVMAddCUDAFinalPass(LLVMPassManagerRef PM) {
