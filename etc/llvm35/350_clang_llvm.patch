@@ -156,10 +156,10 @@ index ce1a7d6..0511a23 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..a1fe4dc 100644
+index 50877d0..addb748 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -118,6 +118,11 @@ public:
+@@ -118,6 +118,14 @@ public:
    bool LoopVectorize;
    bool RerollLoops;
    bool LoadCombine;
@@ -168,11 +168,14 @@ index 50877d0..a1fe4dc 100644
 +  bool EnableMetalPasses;
 +  bool EnableMetalIntelWorkarounds;
 +  bool EnableSPIRPasses;
++
++  // can't rely on clang header here, so just use a uint32_t
++  uint32_t floor_image_capabilities { 0 };
  
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..6aacf37 100644
+index 413134e..9221f55 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
 @@ -30,6 +30,55 @@ class TargetMachine;
@@ -188,7 +191,7 @@ index 413134e..6aacf37 100644
 +//
 +// CUDAImage - This pass applies CUDA-specific floor image transformations.
 +//
-+FunctionPass *createCUDAImagePass();
++FunctionPass *createCUDAImagePass(const uint32_t image_capabilities = 0);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -212,7 +215,7 @@ index 413134e..6aacf37 100644
 +//
 +// MetalImage - This pass applies Metal-specific floor image transformations.
 +//
-+FunctionPass *createMetalImagePass();
++FunctionPass *createMetalImagePass(const uint32_t image_capabilities = 0);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -224,7 +227,7 @@ index 413134e..6aacf37 100644
 +//
 +// SPIRImage - This pass applies SPIR-specific floor image transformations.
 +//
-+FunctionPass *createSPIRImagePass();
++FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -233,10 +236,10 @@ index 413134e..6aacf37 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..1ac7731
+index 0000000..d96d438
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,338 @@
+@@ -0,0 +1,355 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -506,6 +509,20 @@ index 0000000..1ac7731
 +	__MAX_COMPARE_FUNCTION
 +};
 +
++// device image capabilities
++enum class IMAGE_CAPABILITY : uint32_t {
++	NONE					= (0u),
++	BASIC					= (1u << 0u),
++	DEPTH_READ				= (1u << 1u),
++	DEPTH_WRITE				= (1u << 2u),
++	MSAA_READ				= (1u << 3u),
++	MSAA_WRITE				= (1u << 4u),
++	CUBE_READ				= (1u << 5u),
++	CUBE_WRITE				= (1u << 6u),
++	MIPMAP_READ				= (1u << 7u),
++	MIPMAP_WRITE			= (1u << 8u),
++};
++
 +namespace llvm {
 +	struct FloorImageBasePass : public FunctionPass, InstVisitor<FloorImageBasePass> {
 +		friend class InstVisitor<FloorImageBasePass>;
@@ -515,7 +532,9 @@ index 0000000..1ac7731
 +			OPAQUE
 +		};
 +		
-+		explicit FloorImageBasePass(char &ID, const IMAGE_TYPE_ID& image_type_id);
++		explicit FloorImageBasePass(char &ID,
++									const IMAGE_TYPE_ID& image_type_id,
++									const uint32_t& image_capabilities);
 +		
 +		bool runOnFunction(Function &F) override;
 +		
@@ -567,6 +586,7 @@ index 0000000..1ac7731
 +		Instruction* alloca_insert { nullptr };
 +		std::shared_ptr<IRBuilder<>> builder;
 +		bool was_modified { false };
++		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
 +		
 +		llvm::AttributeSet nounwind_readnone_attr;
 +		llvm::AttributeSet nounwind_attr;
@@ -1223,7 +1243,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..c55586f 100644
+index 701fb46..8c056f8 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -1281,9 +1301,9 @@ index 701fb46..c55586f 100644
 +  // with constants potentially changing/improving the behavior and allowing
 +  // additional checking (like oob offsets).
 +  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
-+    if(EnableCUDAPasses) MPM.add(createCUDAImagePass());
-+    if(EnableMetalPasses) MPM.add(createMetalImagePass());
-+    if(EnableSPIRPasses) MPM.add(createSPIRImagePass());
++    if(EnableCUDAPasses) MPM.add(createCUDAImagePass(floor_image_capabilities));
++    if(EnableMetalPasses) MPM.add(createMetalImagePass(floor_image_capabilities));
++    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities));
 +
 +    // and cleanup afterwards, including loop and unrolling related things
 +    MPM.add(createTailCallEliminationPass());
@@ -1727,10 +1747,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..75d9a77
+index 0000000..f568658
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,565 @@
+@@ -0,0 +1,566 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1801,7 +1821,8 @@ index 0000000..75d9a77
 +	struct CUDAImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
 +		
-+		CUDAImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::CUDA) {
++		CUDAImage(const uint32_t image_capabilities_ = 0) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::CUDA, image_capabilities_) {
 +			initializeCUDAImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -2293,15 +2314,15 @@ index 0000000..75d9a77
 +INITIALIZE_PASS_BEGIN(CUDAImage, "CUDAImage", "CUDAImage Pass", false, false)
 +INITIALIZE_PASS_END(CUDAImage, "CUDAImage", "CUDAImage Pass", false, false)
 +
-+FunctionPass *llvm::createCUDAImagePass() {
-+	return new CUDAImage();
++FunctionPass *llvm::createCUDAImagePass(const uint32_t image_capabilities) {
++	return new CUDAImage(image_capabilities);
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..62d193f
+index 0000000..e95ceea
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,369 @@
+@@ -0,0 +1,372 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2354,10 +2375,13 @@ index 0000000..62d193f
 +#define DBG(x) x
 +#endif
 +
-+FloorImageBasePass::FloorImageBasePass(char &ID, const IMAGE_TYPE_ID& image_type_id_)
++FloorImageBasePass::FloorImageBasePass(char &ID,
++									   const IMAGE_TYPE_ID& image_type_id_,
++									   const uint32_t& image_capabilities_)
 +: FunctionPass(ID), image_type_id(image_type_id_),
 +image_read_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.read_image." : "floor.opaque.read_image."),
-+image_write_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.write_image." : "floor.opaque.write_image.") {
++image_write_prefix(image_type_id == IMAGE_TYPE_ID::CUDA ? "floor.cuda.write_image." : "floor.opaque.write_image."),
++image_capabilities((IMAGE_CAPABILITY)image_capabilities_) {
 +}
 +
 +bool FloorImageBasePass::runOnFunction(Function &F) {
@@ -3407,10 +3431,10 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..31b795f
+index 0000000..d7bad7d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,504 @@
+@@ -0,0 +1,505 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3474,7 +3498,8 @@ index 0000000..31b795f
 +	struct MetalImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
 +		
-+		MetalImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE) {
++		MetalImage(const uint32_t image_capabilities_ = 0) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
 +			initializeMetalImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -3912,8 +3937,8 @@ index 0000000..31b795f
 +INITIALIZE_PASS_BEGIN(MetalImage, "MetalImage", "MetalImage Pass", false, false)
 +INITIALIZE_PASS_END(MetalImage, "MetalImage", "MetalImage Pass", false, false)
 +
-+FunctionPass *llvm::createMetalImagePass() {
-+	return new MetalImage();
++FunctionPass *llvm::createMetalImagePass(const uint32_t image_capabilities) {
++	return new MetalImage(image_capabilities);
 +}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
@@ -4171,10 +4196,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..14bba4f
+index 0000000..f06a9d0
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,448 @@
+@@ -0,0 +1,449 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4238,7 +4263,8 @@ index 0000000..14bba4f
 +	struct SPIRImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
 +		
-+		SPIRImage() : FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE) {
++		SPIRImage(const uint32_t image_capabilities_ = 0) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -4620,8 +4646,8 @@ index 0000000..14bba4f
 +INITIALIZE_PASS_BEGIN(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +INITIALIZE_PASS_END(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +
-+FunctionPass *llvm::createSPIRImagePass() {
-+	return new SPIRImage();
++FunctionPass *llvm::createSPIRImagePass(const uint32_t image_capabilities) {
++	return new SPIRImage(image_capabilities);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
 index de724d4..e119f54 100644
@@ -5202,7 +5228,7 @@ index a297a4c..5085091 100644
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
  LANGOPT(CUDA              , 1, 0, "CUDA")
 diff --git a/tools/clang/include/clang/Basic/LangOptions.h b/tools/clang/include/clang/Basic/LangOptions.h
-index 9bffc7c..da123b8 100644
+index 9bffc7c..cf9e082 100644
 --- a/tools/clang/include/clang/Basic/LangOptions.h
 +++ b/tools/clang/include/clang/Basic/LangOptions.h
 @@ -20,6 +20,7 @@
@@ -5212,6 +5238,27 @@ index 9bffc7c..da123b8 100644
 +#include <array>
  
  namespace clang {
+ 
+@@ -74,6 +75,20 @@ public:
+ 
+   enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
+ 
++  enum class FLOOR_IMAGE_CAPABILITY : uint32_t {
++    NONE					= (0u),
++    BASIC					= (1u << 0u),
++    DEPTH_READ				= (1u << 1u),
++    DEPTH_WRITE				= (1u << 2u),
++    MSAA_READ				= (1u << 3u),
++    MSAA_WRITE				= (1u << 4u),
++    CUBE_READ				= (1u << 5u),
++    CUBE_WRITE				= (1u << 6u),
++    MIPMAP_READ				= (1u << 7u),
++    MIPMAP_WRITE			= (1u << 8u),
++  };
++  FLOOR_IMAGE_CAPABILITY floor_image_capabilities { FLOOR_IMAGE_CAPABILITY::NONE };
++
+ public:
+   clang::ObjCRuntime ObjCRuntime;
  
 diff --git a/tools/clang/include/clang/Basic/Specifiers.h b/tools/clang/include/clang/Basic/Specifiers.h
 index f895673..78084dc 100644
@@ -5273,10 +5320,24 @@ index 5d08833..c53d8b2 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..2a45ef7 100644
+index d25560c..17d9a7a 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
-@@ -577,6 +577,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -550,6 +550,13 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
+   HelpText<"include a detailed record of preprocessing actions">;
+ 
+ //===----------------------------------------------------------------------===//
++// libfloor Options (applying to OpenCL, CUDA and Metal)
++//===----------------------------------------------------------------------===//
++
++def floor_image_capabilities : Joined<["-"], "floor-image-capabilities=">,
++  HelpText<"image read and write capabilities">;
++
++//===----------------------------------------------------------------------===//
+ // OpenCL Options
+ //===----------------------------------------------------------------------===//
+ 
+@@ -577,6 +584,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
@@ -6017,13 +6078,15 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..c5c3b6e 100644
+index cec48f3..ee05dd0 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,26 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +240,28 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
++  PMBuilder.floor_image_capabilities = (uint32_t)LangOpts.floor_image_capabilities;
++
 +  PMBuilder.EnableAddressSpaceFix = LangOpts.OpenCL;
 +  if(PMBuilder.EnableAddressSpaceFix && OptLevel == 0) {
 +    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error, "compiling OpenCL or Metal with"
@@ -6047,7 +6110,7 @@ index cec48f3..c5c3b6e 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -301,8 +321,13 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -301,8 +323,13 @@ void EmitAssemblyHelper::CreatePasses() {
    switch (Inlining) {
    case CodeGenOptions::NoInlining: break;
    case CodeGenOptions::NormalInlining: {
@@ -6063,7 +6126,7 @@ index cec48f3..c5c3b6e 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -326,6 +351,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +353,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -9334,7 +9397,7 @@ index 6af920d..a83d536 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..4343913 100644
+index ce61a46..96d1c6b 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -73,7 +73,7 @@ using namespace llvm::opt;
@@ -9418,6 +9481,19 @@ index ce61a46..4343913 100644
        case IK_CUDA:
          if (!Std.isCPlusPlus())
            Diags.Report(diag::err_drv_argument_not_allowed_with)
+@@ -1311,6 +1334,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+   
+   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
+ 
++  // extract libfloor image capabilities
++  if (const Arg *A = Args.getLastArg(OPT_floor_image_capabilities)) {
++    StringRef image_caps = A->getValue();
++    Opts.floor_image_capabilities = (LangOptions::FLOOR_IMAGE_CAPABILITY)std::stoul(image_caps);
++  }
++
+   // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
+   // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
+   // while a subset (the non-C++ GNU keywords) is provided by GCC's
 diff --git a/tools/clang/lib/Frontend/FrontendActions.cpp b/tools/clang/lib/Frontend/FrontendActions.cpp
 index 6dcaf38..8f18343 100644
 --- a/tools/clang/lib/Frontend/FrontendActions.cpp
