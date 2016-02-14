@@ -415,6 +415,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	const auto has_image_cube_write_support = to_string(device->image_cube_write_support);
 	const auto has_image_mipmap_support = to_string(device->image_mipmap_support);
 	const auto has_image_mipmap_write_support = to_string(device->image_mipmap_write_support);
+	const auto has_image_offset_read_support = to_string(device->image_offset_read_support);
+	const auto has_image_offset_write_support = to_string(device->image_offset_write_support);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT="s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT_"s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT="s + has_image_depth_support;
@@ -433,6 +435,24 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_SUPPORT_"s + has_image_mipmap_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_WRITE_SUPPORT="s + has_image_mipmap_write_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_WRITE_SUPPORT_"s + has_image_mipmap_write_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_READ_SUPPORT="s + has_image_mipmap_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_READ_SUPPORT_"s + has_image_mipmap_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT="s + has_image_mipmap_write_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT_"s + has_image_mipmap_write_support;
+	
+	IMAGE_CAPABILITY img_caps { IMAGE_CAPABILITY::NONE };
+	if(device->image_support) img_caps |= IMAGE_CAPABILITY::BASIC;
+	if(device->image_depth_support) img_caps |= IMAGE_CAPABILITY::DEPTH_READ;
+	if(device->image_depth_write_support) img_caps |= IMAGE_CAPABILITY::DEPTH_WRITE;
+	if(device->image_msaa_support) img_caps |= IMAGE_CAPABILITY::MSAA_READ;
+	if(device->image_msaa_write_support) img_caps |= IMAGE_CAPABILITY::MSAA_WRITE;
+	if(device->image_cube_support) img_caps |= IMAGE_CAPABILITY::CUBE_READ;
+	if(device->image_cube_write_support) img_caps |= IMAGE_CAPABILITY::CUBE_WRITE;
+	if(device->image_mipmap_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_READ;
+	if(device->image_mipmap_write_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_WRITE;
+	if(device->image_offset_read_support) img_caps |= IMAGE_CAPABILITY::OFFSET_READ;
+	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
+	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
 	// handle cuda sm version
 	string sm_version = "20"; // default to fermi/sm_20

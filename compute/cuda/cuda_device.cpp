@@ -42,6 +42,8 @@ cuda_device::cuda_device() : compute_device() {
 	image_cube_write_support = false;
 	image_mipmap_support = true;
 	image_mipmap_write_support = true;
+	image_offset_read_support = true;
+	image_offset_write_support = false;
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;

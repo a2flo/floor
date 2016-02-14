@@ -156,6 +156,10 @@ public:
 	bool image_mipmap_support { false };
 	//! true if writing mip-map images is supported
 	bool image_mipmap_write_support { false };
+	//! true if reading with an offset is supported in h/w
+	bool image_offset_read_support { false };
+	//! true if writing with an offset is supported in h/w
+	bool image_offset_write_support { false };
 	
 	//! device name in string form
 	string name { "unknown" };

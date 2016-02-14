@@ -337,6 +337,8 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device->image_cube_write_support = false;
 			device->image_mipmap_support = core::contains(device->extensions, "cl_khr_mipmap_image");
 			device->image_mipmap_write_support = core::contains(device->extensions, "cl_khr_mipmap_image_writes");
+			device->image_offset_read_support = false; // never
+			device->image_offset_write_support = false;
 			
 			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
 			device->max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);

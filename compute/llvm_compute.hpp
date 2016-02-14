@@ -118,6 +118,23 @@ public:
 		SPECIAL_TYPE_SHIFT		= (56ull),
 	};
 	
+	// packed version of the image support flags
+	enum class IMAGE_CAPABILITY : uint32_t {
+		NONE					= (0u),
+		BASIC					= (1u << 0u),
+		DEPTH_READ				= (1u << 1u),
+		DEPTH_WRITE				= (1u << 2u),
+		MSAA_READ				= (1u << 3u),
+		MSAA_WRITE				= (1u << 4u),
+		CUBE_READ				= (1u << 5u),
+		CUBE_WRITE				= (1u << 6u),
+		MIPMAP_READ				= (1u << 7u),
+		MIPMAP_WRITE			= (1u << 8u),
+		OFFSET_READ				= (1u << 9u),
+		OFFSET_WRITE			= (1u << 10u),
+	};
+	floor_enum_ext(IMAGE_CAPABILITY)
+	
 	//!
 	static pair<string, vector<kernel_info>> compile_program(shared_ptr<compute_device> device,
 															 const string& code,

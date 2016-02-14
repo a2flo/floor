@@ -208,6 +208,15 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_WRITE_SUPPORT != 0);
 	}
 	
+	//! returns true if reading with an offset is supported in h/w
+	constexpr bool has_image_offset_read_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_READ_SUPPORT != 0);
+	}
+	
+	//! returns true if writing with an offset is supported in h/w
+	constexpr bool has_image_offset_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT != 0);
+	}
 	
 }
 
