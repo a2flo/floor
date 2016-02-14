@@ -156,7 +156,7 @@ index ce1a7d6..0511a23 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..addb748 100644
+index 50877d0..4af3890 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
 @@ -118,6 +118,14 @@ public:
@@ -170,7 +170,7 @@ index 50877d0..addb748 100644
 +  bool EnableSPIRPasses;
 +
 +  // can't rely on clang header here, so just use a uint32_t
-+  uint32_t floor_image_capabilities { 0 };
++  unsigned int floor_image_capabilities { 0 };
  
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
@@ -236,10 +236,10 @@ index 413134e..9221f55 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..d96d438
+index 0000000..c1649e3
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,355 @@
+@@ -0,0 +1,361 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -521,7 +521,13 @@ index 0000000..d96d438
 +	CUBE_WRITE				= (1u << 6u),
 +	MIPMAP_READ				= (1u << 7u),
 +	MIPMAP_WRITE			= (1u << 8u),
++	OFFSET_READ				= (1u << 9u),
++	OFFSET_WRITE			= (1u << 10u),
 +};
++template <IMAGE_CAPABILITY flag, typename int_type = typename std::underlying_type<IMAGE_CAPABILITY>::type>
++__attribute__((always_inline, used)) static constexpr bool has_flag(const IMAGE_CAPABILITY& enum_object) {
++	return ((int_type(flag) & int_type(enum_object)) == int_type(flag));
++}
 +
 +namespace llvm {
 +	struct FloorImageBasePass : public FunctionPass, InstVisitor<FloorImageBasePass> {
@@ -4196,10 +4202,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..f06a9d0
+index 0000000..953c3fc
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,449 @@
+@@ -0,0 +1,516 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4368,7 +4374,31 @@ index 0000000..f06a9d0
 +			//       are supported, though some can simply be ignored or emulated in s/w
 +			
 +			// TODO: add an option to disable advanced image functions and silently fallback to simple ones (at the loss of functionality)
-+			// TODO: only enable advanced functions if extensions are supported (need to get this info somehow)
++			
++			// -> caps check
++			if(is_lod_or_bias) {
++				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
++					ctx->emitError(&I, "lod read not supported by device");
++					return;
++				}
++				// *sigh* will be supported with opencl 2.1 though
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					ctx->emitError(&I, "lod read not supported with integer coordinates");
++					return;
++				}
++			}
++			if(is_gradient) {
++				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
++					ctx->emitError(&I, "gradient read not supported by device");
++					return;
++				}
++				// again, not supported
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					ctx->emitError(&I, "gradient read not supported with integer coordinates");
++					return;
++				}
++			}
++			// TODO: emulate lod/gradient with int coords with float coords?
 +			
 +			// -> return data and cl function name
 +			// NOTE: we don't have a c++ mangling support in here, so do it manually
@@ -4472,18 +4502,61 @@ index 0000000..f06a9d0
 +			
 +			// -> gradient
 +			if(is_gradient) {
-+				// TODO
++				const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++				if(coord_dim == 1) {
++					// extract scalar
++					cl_func_name += "ff";
++					func_arg_types.push_back(builder->getFloatTy());
++					func_args.push_back(builder->CreateExtractElement(dpdx_arg, builder->getInt32(0)));
++					func_arg_types.push_back(builder->getFloatTy());
++					func_args.push_back(builder->CreateExtractElement(dpdy_arg, builder->getInt32(0)));
++				}
++				else if(coord_dim == 2) {
++					// just pass-through
++					cl_func_name += "Dv2_fDv2_f";
++					func_arg_types.push_back(dpdx_arg->getType());
++					func_args.push_back(dpdx_arg);
++					func_arg_types.push_back(dpdy_arg->getType());
++					func_args.push_back(dpdy_arg);
++				}
++				else if(coord_dim == 3) {
++					// need to create a vector4
++					cl_func_name += "Dv4_fDv4_f";
++					
++					const auto grad_type = llvm::VectorType::get(builder->getFloatTy(), 4);
++					func_arg_types.push_back(grad_type);
++					func_arg_types.push_back(grad_type);
++					
++					llvm::Value* dpdx4 = UndefValue::get(grad_type);
++					llvm::Value* dpdy4 = UndefValue::get(grad_type);
++					for(uint32_t i = 0; i < 3; ++i) {
++						auto idx = builder->getInt32(i);
++						dpdx4 = builder->CreateInsertElement(dpdx4, builder->CreateExtractElement(dpdx_arg, idx), idx);
++						dpdy4 = builder->CreateInsertElement(dpdy4, builder->CreateExtractElement(dpdy_arg, idx), idx);
++					}
++					func_args.push_back(dpdx4);
++					func_args.push_back(dpdy4);
++				}
++				else llvm_unreachable("invalid coord dim");
 +			}
 +			
 +			// -> lod
 +			// NOTE: bias is never supported
 +			if(is_lod_or_bias) {
-+				// TODO
++				cl_func_name += "f";
++				
++				auto lod = lod_or_bias_arg;
++				if(lod_or_bias_arg->getType()->isIntegerTy()) {
++					// only float is supported, convert it
++					lod = builder->CreateSIToFP(lod_or_bias_arg, builder->getFloatTy());
++				}
++				func_arg_types.push_back(lod->getType());
++				func_args.push_back(lod);
 +			}
 +			
 +			// -> compare
 +			if(is_compare) {
-+				// TODO
++				// TODO: emulate in s/w
 +			}
 +			
 +			// create the opencl call
@@ -5228,7 +5301,7 @@ index a297a4c..5085091 100644
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
  LANGOPT(CUDA              , 1, 0, "CUDA")
 diff --git a/tools/clang/include/clang/Basic/LangOptions.h b/tools/clang/include/clang/Basic/LangOptions.h
-index 9bffc7c..cf9e082 100644
+index 9bffc7c..470cf81 100644
 --- a/tools/clang/include/clang/Basic/LangOptions.h
 +++ b/tools/clang/include/clang/Basic/LangOptions.h
 @@ -20,6 +20,7 @@
@@ -5239,23 +5312,11 @@ index 9bffc7c..cf9e082 100644
  
  namespace clang {
  
-@@ -74,6 +75,20 @@ public:
+@@ -74,6 +75,8 @@ public:
  
    enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
  
-+  enum class FLOOR_IMAGE_CAPABILITY : uint32_t {
-+    NONE					= (0u),
-+    BASIC					= (1u << 0u),
-+    DEPTH_READ				= (1u << 1u),
-+    DEPTH_WRITE				= (1u << 2u),
-+    MSAA_READ				= (1u << 3u),
-+    MSAA_WRITE				= (1u << 4u),
-+    CUBE_READ				= (1u << 5u),
-+    CUBE_WRITE				= (1u << 6u),
-+    MIPMAP_READ				= (1u << 7u),
-+    MIPMAP_WRITE			= (1u << 8u),
-+  };
-+  FLOOR_IMAGE_CAPABILITY floor_image_capabilities { FLOOR_IMAGE_CAPABILITY::NONE };
++  unsigned int floor_image_capabilities { 0 };
 +
  public:
    clang::ObjCRuntime ObjCRuntime;
@@ -6078,14 +6139,14 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..ee05dd0 100644
+index cec48f3..b50e897 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -240,6 +240,28 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
-+  PMBuilder.floor_image_capabilities = (uint32_t)LangOpts.floor_image_capabilities;
++  PMBuilder.floor_image_capabilities = LangOpts.floor_image_capabilities;
 +
 +  PMBuilder.EnableAddressSpaceFix = LangOpts.OpenCL;
 +  if(PMBuilder.EnableAddressSpaceFix && OptLevel == 0) {
@@ -9397,7 +9458,7 @@ index 6af920d..a83d536 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..96d1c6b 100644
+index ce61a46..813b9c9 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -73,7 +73,7 @@ using namespace llvm::opt;
@@ -9488,7 +9549,7 @@ index ce61a46..96d1c6b 100644
 +  // extract libfloor image capabilities
 +  if (const Arg *A = Args.getLastArg(OPT_floor_image_capabilities)) {
 +    StringRef image_caps = A->getValue();
-+    Opts.floor_image_capabilities = (LangOptions::FLOOR_IMAGE_CAPABILITY)std::stoul(image_caps);
++    Opts.floor_image_capabilities = (unsigned int)std::stoul(image_caps);
 +  }
 +
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
