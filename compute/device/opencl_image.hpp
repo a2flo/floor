@@ -37,8 +37,8 @@ namespace opencl_image {
 			LINEAR			= 0x20
 		};
 		enum COORD_MODE : uint32_t {
-			NORMALIZED		= 0,
-			PIXEL			= 1
+			PIXEL		= 0,
+			NORMALIZED	= 1
 		};
 	};
 	
