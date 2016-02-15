@@ -236,7 +236,7 @@ index 413134e..9221f55 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..c1649e3
+index 0000000..eadf6d5
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
 @@ -0,0 +1,361 @@
@@ -554,7 +554,7 @@ index 0000000..c1649e3
 +									   const StringRef& func_name,
 +									   llvm::Value* img_handle_arg,
 +									   const COMPUTE_IMAGE_TYPE& image_type,
-+									   llvm::Value* sampler_arg,
++									   llvm::ConstantInt* sampler_arg,
 +									   llvm::Value* coord_arg,
 +									   llvm::Value* layer_arg,
 +									   llvm::Value* sample_arg,
@@ -1753,7 +1753,7 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..f568658
+index 0000000..f03cc68
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
 @@ -0,0 +1,566 @@
@@ -1836,7 +1836,7 @@ index 0000000..f568658
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::Value* sampler_arg,
++							   llvm::ConstantInt* sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -2325,10 +2325,10 @@ index 0000000..f568658
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..e95ceea
+index 0000000..6831922
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,379 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2540,7 +2540,14 @@ index 0000000..e95ceea
 +	
 +	if(is_image_read) {
 +		// -> sampler
-+		const auto sampler_arg = (image_type_id == IMAGE_TYPE_ID::CUDA ? nullptr : CS.getArgument(1));
++		llvm::ConstantInt* sampler_arg = nullptr;
++		if(image_type_id != IMAGE_TYPE_ID::CUDA) {
++			sampler_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(1));
++			if(sampler_arg == nullptr) {
++				ctx->emitError(I, "sampler must be a constant");
++				return;
++			}
++		}
 +		
 +		// -> sample
 +		const auto sample_arg = CS.getArgument(4 + args_offset);
@@ -3437,7 +3444,7 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..d7bad7d
+index 0000000..b4bd6ba
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
 @@ -0,0 +1,505 @@
@@ -3513,7 +3520,7 @@ index 0000000..d7bad7d
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::Value* sampler_arg,
++							   llvm::ConstantInt* sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -4202,10 +4209,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..953c3fc
+index 0000000..e7a457d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,516 @@
+@@ -0,0 +1,614 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4272,6 +4279,51 @@ index 0000000..953c3fc
 +		SPIRImage(const uint32_t image_capabilities_ = 0) :
 +		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
++		}
++		
++		llvm::Value* get_or_create_spir_function(const std::string& func_name,
++												 llvm::Type* ret_type,
++												 const SmallVector<llvm::Type*, 8>& func_arg_types,
++												 const bool is_readnone = false) {
++			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
++			auto func = M->getFunction(func_name);
++			if(func == nullptr) { // only do this once
++				func = dyn_cast<Function>(M->getOrInsertFunction(func_name, func_type,
++																 is_readnone ?
++																 nounwind_readnone_attr :
++																 nounwind_attr));
++				func->setCallingConv(CallingConv::SPIR_FUNC);
++			}
++			return func;
++		}
++		
++		SmallVector<llvm::Value*, 3> get_image_dim(llvm::Value* img_handle_arg,
++												   llvm::Type* coord_type,
++												   const std::string& geom) {
++			SmallVector<llvm::Value*, 3> ret;
++			
++			static const char* img_dim_funcs[] {
++				"_Z15get_image_width",
++				"_Z15get_image_height",
++				"_Z15get_image_depth"
++			};
++			
++			const auto dim = coord_type->getVectorNumElements();
++			SmallVector<llvm::Type*, 8> get_dim_arg_types;
++			SmallVector<llvm::Value*, 8> get_dim_func_args;
++			get_dim_arg_types.push_back(img_handle_arg->getType());
++			get_dim_func_args.push_back(img_handle_arg);
++			for(uint32_t i = 0; i < dim; ++i) {
++				auto get_dim_func = get_or_create_spir_function(img_dim_funcs[i] + geom,
++																builder->getInt32Ty(),
++																get_dim_arg_types);
++				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
++				get_dim_call->setDoesNotAccessMemory();
++				get_dim_call->setCallingConv(CallingConv::SPIR_FUNC);
++				ret.push_back(get_dim_call);
++			}
++			
++			return ret;
 +		}
 +		
 +		void handle_cl_coord(Instruction& I,
@@ -4352,7 +4404,7 @@ index 0000000..953c3fc
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::Value* sampler_arg,
++							   llvm::ConstantInt* sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -4363,7 +4415,7 @@ index 0000000..953c3fc
 +							   const bool is_lod_or_bias, // true: lod, false: bias
 +							   llvm::Value* dpdx_arg,
 +							   llvm::Value* dpdy_arg,
-+							   const bool is_gradient,
++							   const bool is_gradient_,
 +							   const COMPARE_FUNCTION& compare_function,
 +							   llvm::Value* compare_value_arg,
 +							   const bool is_compare) override {
@@ -4375,56 +4427,7 @@ index 0000000..953c3fc
 +			
 +			// TODO: add an option to disable advanced image functions and silently fallback to simple ones (at the loss of functionality)
 +			
-+			// -> caps check
-+			if(is_lod_or_bias) {
-+				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
-+					ctx->emitError(&I, "lod read not supported by device");
-+					return;
-+				}
-+				// *sigh* will be supported with opencl 2.1 though
-+				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
-+					ctx->emitError(&I, "lod read not supported with integer coordinates");
-+					return;
-+				}
-+			}
-+			if(is_gradient) {
-+				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
-+					ctx->emitError(&I, "gradient read not supported by device");
-+					return;
-+				}
-+				// again, not supported
-+				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
-+					ctx->emitError(&I, "gradient read not supported with integer coordinates");
-+					return;
-+				}
-+			}
-+			// TODO: emulate lod/gradient with int coords with float coords?
-+			
-+			// -> return data and cl function name
-+			// NOTE: we don't have a c++ mangling support in here, so do it manually
-+			// (this is actually easy enough, since everything is very static)
-+			std::string cl_func_name;
-+			llvm::Type* ret_type;
-+			if(func_name.endswith("float")) {
-+				cl_func_name = "_Z11read_imagef";
-+				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
-+			}
-+			else if(func_name.endswith("int")) {
-+				cl_func_name = "_Z11read_imagei";
-+				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
-+			}
-+			else if(func_name.endswith("uint")) {
-+				cl_func_name = "_Z12read_imageui";
-+				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
-+			}
-+			else if(func_name.endswith("half")) {
-+				cl_func_name = "_Z11read_imageh";
-+				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
-+			}
-+			// unknown -> ignore
-+			else return;
-+			
-+			// -> geom
++			// get geom string / mangled name + flags
 +			std::string geom;
 +			bool is_array = false, is_msaa = false, is_depth = false;
 +			switch(image_type) {
@@ -4451,6 +4454,88 @@ index 0000000..953c3fc
 +					ctx->emitError(&I, "unknown or incorrect image type");
 +					return;
 +			}
++			
++			// -> caps check
++			if(is_lod_or_bias) {
++				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
++					ctx->emitError(&I, "lod read not supported by device");
++					return;
++				}
++				
++				// *sigh* will be supported with opencl 2.1 though
++				// -> convert int coords to float coords and swap out sampler
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					const auto coord_type = coord_arg->getType();
++					const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++					const auto fp_coord_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), coord_dim);
++					
++					auto img_dims = get_image_dim(img_handle_arg, coord_type, geom);
++					
++					llvm::Value* fp_coord = UndefValue::get(fp_coord_type);
++					for(uint32_t i = 0; i < coord_dim; ++i) {
++						// fp_coord_i = float(int_coord_i) / float(img_dim_i - 1)
++						auto elem = builder->CreateExtractElement(coord_arg, builder->getInt32(i));
++						auto fp_elem = builder->CreateSIToFP(elem, builder->getFloatTy());
++						auto dim_i = builder->CreateSub(img_dims[i], builder->getInt32(1));
++						auto fp_dim_i = builder->CreateSIToFP(dim_i, builder->getFloatTy());
++						auto div = builder->CreateFDiv(fp_elem, fp_dim_i);
++						fp_coord = builder->CreateInsertElement(fp_coord, div, builder->getInt32(i));
++					}
++					coord_arg = fp_coord;
++					
++					// sampler: set NORMALIZED/CLK_NORMALIZED_COORDS_TRUE flag
++					// NOTE: PIXEL/CLK_NORMALIZED_COORDS_FALSE is 0, so we don't need to clear anything
++					sampler_arg = ConstantInt::get(sampler_arg->getType(), sampler_arg->getZExtValue() | 0x1);
++				}
++			}
++			
++			bool is_gradient = is_gradient_;
++			if(is_gradient_) {
++				if(!has_flag<IMAGE_CAPABILITY::MIPMAP_READ>(image_capabilities)) {
++					ctx->emitError(&I, "gradient read not supported by device");
++					return;
++				}
++				
++				// again, not supported (also: doesn't make much sense?)
++				// -> not going to s/w emulate this for now
++				// -> silently ignore for now
++#if 0
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					ctx->emitError(&I, "gradient read not supported with integer coordinates");
++					return;
++				}
++#else
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					is_gradient = false;
++				}
++#endif
++			}
++			
++			// -> return data and cl function name
++			// NOTE: we don't have a c++ mangling support in here, so do it manually
++			// (this is actually easy enough, since everything is very static)
++			std::string cl_func_name;
++			llvm::Type* ret_type;
++			if(func_name.endswith("float")) {
++				cl_func_name = "_Z11read_imagef";
++				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
++			}
++			else if(func_name.endswith("int")) {
++				cl_func_name = "_Z11read_imagei";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("uint")) {
++				cl_func_name = "_Z12read_imageui";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("half")) {
++				cl_func_name = "_Z11read_imageh";
++				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
++			}
++			// unknown -> ignore
++			else return;
++			
++			// -> geom
 +			cl_func_name += geom;
 +			
 +			func_arg_types.push_back(img_handle_arg->getType());
@@ -4471,10 +4556,42 @@ index 0000000..953c3fc
 +			// -> offset
 +			// opencl has no offset support, so always add it
 +			llvm::Value* offset_coord_arg = coord_arg;
-+			if(is_offset &&
-+			   // TODO: implement a s/w fallback for fp coords
-+			   coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
-+				offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
++			if(is_offset) {
++				if(coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++					offset_coord_arg = builder->CreateAdd(coord_arg, offset_arg);
++				}
++				else {
++					// need to fallback to s/w for fp coords
++					auto coord_type = coord_arg->getType();
++					auto offset_dim = coord_type->getVectorNumElements();
++					auto img_dims = get_image_dim(img_handle_arg, coord_type, geom);
++					
++					// float_offset_i = float(offset_i) / float(dim_i)
++					llvm::Value* fp_offset = UndefValue::get(coord_type);
++					for(uint32_t i = 0; i < offset_dim; ++i) {
++						auto offset_i = builder->CreateExtractElement(offset_arg, builder->getInt32(i));
++						
++						// one offset elem is often 0
++						// -> add some special handling since the si->fp conversion and fdiv are unnecessary here
++						// (this might later also get rid of unnecessary get_image_* calls)
++						if(const auto const_offset_i = dyn_cast_or_null<ConstantInt>(offset_i)) {
++							if(const_offset_i->getSExtValue() == 0) {
++								builder->CreateInsertElement(fp_offset, ConstantFP::get(builder->getFloatTy(), 0.0),
++															 builder->getInt32(i));
++								continue;
++							}
++						}
++						
++						auto offset_i_fp = builder->CreateSIToFP(offset_i, builder->getFloatTy());
++						auto dim_i = builder->CreateSIToFP(img_dims[i], builder->getFloatTy());
++						fp_offset = builder->CreateInsertElement(fp_offset,
++																 builder->CreateFDiv(offset_i_fp, dim_i),
++																 builder->getInt32(i));
++					}
++					
++					// finally: add the compute fp offset
++					offset_coord_arg = builder->CreateFAdd(coord_arg, fp_offset);
++				}
 +			}
 +			
 +			// -> coord
@@ -4560,13 +4677,7 @@ index 0000000..953c3fc
 +			}
 +			
 +			// create the opencl call
-+			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
-+			auto read_func = M->getFunction(cl_func_name);
-+			if(read_func == nullptr) { // only do this once
-+				read_func = dyn_cast<Function>(M->getOrInsertFunction(cl_func_name, func_type, nounwind_readnone_attr));
-+				read_func->setCallingConv(CallingConv::SPIR_FUNC);
-+			}
-+			
++			auto read_func = get_or_create_spir_function(cl_func_name, ret_type, func_arg_types, true);
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
@@ -4695,13 +4806,7 @@ index 0000000..953c3fc
 +			// TODO
 +			
 +			// create the opencl call
-+			const auto func_type = llvm::FunctionType::get(builder->getVoidTy(), func_arg_types, false);
-+			auto write_func = M->getFunction(cl_func_name);
-+			if(write_func == nullptr) { // only do this once
-+				write_func = dyn_cast<Function>(M->getOrInsertFunction(cl_func_name, func_type, nounwind_attr));
-+				write_func->setCallingConv(CallingConv::SPIR_FUNC);
-+			}
-+			
++			auto write_func = get_or_create_spir_function(cl_func_name, builder->getVoidTy(), func_arg_types, false);
 +			llvm::CallInst* write_call = builder->CreateCall(write_func, func_args);
 +			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			write_call->setCallingConv(CallingConv::SPIR_FUNC);
