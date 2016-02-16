@@ -21,6 +21,7 @@
 
 // when building on windows, always disable these for now
 #if defined(_MSC_VER)
+#define FLOOR_NO_VULKAN 1
 #define FLOOR_NO_OPENAL 1
 #define FLOOR_NO_XML 1
 #define FLOOR_NO_EXCEPTIONS 1
@@ -35,23 +36,26 @@
 // if defined, this disables host compute support
 //#define FLOOR_NO_HOST_COMPUTE 1
 
-// if defined, this disable opencl support
+// if defined, this disables opencl support
 //#define FLOOR_NO_OPENCL 1
 
-// if defined, this disable metal support
+// if defined, this disables vulkan support
+//#define FLOOR_NO_VULKAN 1
+
+// if defined, this disables metal support
 #if defined(__APPLE__)
 //#define FLOOR_NO_METAL 1
 #else
 #define FLOOR_NO_METAL 1
 #endif
 
-// if defined, this disabled openal support
+// if defined, this disables openal support
 //#define FLOOR_NO_OPENAL 1
 
-// if defined, this disabled network support
+// if defined, this disables network support
 //#define FLOOR_NO_NET 1
 
-// if defined, this disabled xml support
+// if defined, this disables xml support
 //#define FLOOR_NO_XML 1
 
 // if defined, this disables c++ exception support

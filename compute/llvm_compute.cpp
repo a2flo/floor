@@ -671,6 +671,11 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			core::system("rm " + applecl_32_bc);
 		}
 	}
+	else if(target == TARGET::SPIRV) {
+		// TODO: spirv
+		log_error("not implemented yet");
+		return {};
+	}
 	
 	return { compiled_code, kernels };
 }

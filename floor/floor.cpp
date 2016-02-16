@@ -25,6 +25,7 @@
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/compute/metal/metal_compute.hpp>
 #include <floor/compute/host/host_compute.hpp>
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -197,7 +198,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		json::json_value("%ProgramW6432%/floor/compute"),
 		json::json_value("%ProgramFiles%/floor/compute")
 	};
-	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths;
+	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths, vulkan_toolchain_paths;
 	if(config_doc.valid) {
 		config.width = config_doc.get<uint64_t>("screen.width", 1280);
 		config.height = config_doc.get<uint64_t>("screen.height", 720);
@@ -297,6 +298,14 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
 		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
 		
+		vulkan_toolchain_paths = config_doc.get<json::json_array>("compute.vulkan.paths", default_toolchain_paths);
+		config.vulkan_platform = config_doc.get<uint64_t>("compute.vulkan.platform", 0);
+		extract_whitelist(config.vulkan_whitelist, "compute.vulkan.whitelist");
+		config.vulkan_compiler = config_doc.get<string>("compute.vulkan.compiler", config.default_compiler);
+		config.vulkan_llc = config_doc.get<string>("compute.vulkan.llc", config.default_llc);
+		config.vulkan_as = config_doc.get<string>("compute.vulkan.as", config.default_as);
+		config.vulkan_dis = config_doc.get<string>("compute.vulkan.dis", config.default_dis);
+		
 		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
 	}
 	
@@ -304,6 +313,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	if(opencl_toolchain_paths.empty()) opencl_toolchain_paths = default_toolchain_paths;
 	if(cuda_toolchain_paths.empty()) cuda_toolchain_paths = default_toolchain_paths;
 	if(metal_toolchain_paths.empty()) metal_toolchain_paths = default_toolchain_paths;
+	if(vulkan_toolchain_paths.empty()) vulkan_toolchain_paths = default_toolchain_paths;
 	
 	const auto get_viable_toolchain_path = [](const json::json_array& paths,
 											  string& compiler,
@@ -414,6 +424,23 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.metal_llc.insert(0, config.metal_base_path + "bin/");
 			config.metal_as.insert(0, config.metal_base_path + "bin/");
 			config.metal_dis.insert(0, config.metal_base_path + "bin/");
+		}
+		
+		// -> vulkan toolchain
+		config.vulkan_base_path = get_viable_toolchain_path(vulkan_toolchain_paths,
+															config.vulkan_compiler, config.vulkan_llc,
+															config.vulkan_as, config.vulkan_dis);
+		if(config.vulkan_base_path == "") {
+#if defined(FLOOR_IOS)
+			log_error("vulkan toolchain is unavailable - could not find a complete toolchain in any specified toolchain path!");
+#endif
+		}
+		else {
+			config.vulkan_toolchain_exists = true;
+			config.vulkan_compiler.insert(0, config.vulkan_base_path + "bin/");
+			config.vulkan_llc.insert(0, config.vulkan_base_path + "bin/");
+			config.vulkan_as.insert(0, config.vulkan_base_path + "bin/");
+			config.vulkan_dis.insert(0, config.vulkan_base_path + "bin/");
 		}
 	}
 	
@@ -732,6 +759,7 @@ void floor::init_internal(const bool use_gl33
 		else if(config.backend == "cuda") config_compute_type = COMPUTE_TYPE::CUDA;
 		else if(config.backend == "metal") config_compute_type = COMPUTE_TYPE::METAL;
 		else if(config.backend == "host") config_compute_type = COMPUTE_TYPE::HOST;
+		else if(config.backend == "vulkan") config_compute_type = COMPUTE_TYPE::VULKAN;
 		
 		// default compute backends (will try these in order, using the first working one)
 #if defined(__APPLE__)
@@ -741,7 +769,7 @@ void floor::init_internal(const bool use_gl33
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
 #endif
 #else // linux, windows, ...
-		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::CUDA };
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::OPENCL, COMPUTE_TYPE::CUDA, COMPUTE_TYPE::VULKAN };
 #endif
 		// always start with the configured one (if one has been set)
 		if(config_compute_type != COMPUTE_TYPE::NONE) {
@@ -785,6 +813,13 @@ void floor::init_internal(const bool use_gl33
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 					log_debug("initializing Host Compute ...");
 					compute_ctx = make_shared<host_compute>();
+#endif
+					break;
+				case COMPUTE_TYPE::VULKAN:
+#if !defined(FLOOR_NO_VULKAN)
+					log_debug("initializing Vulkan ...");
+					compute_ctx = make_shared<vulkan_compute>(config.vulkan_platform,
+															  config.vulkan_whitelist);
 #endif
 					break;
 				default: break;
@@ -1392,6 +1427,29 @@ const string& floor::get_metal_as() {
 const string& floor::get_metal_dis() {
 	return config.metal_dis;
 }
+
+const string& floor::get_vulkan_base_path() {
+	return config.vulkan_base_path;
+}
+const vector<string>& floor::get_vulkan_whitelist() {
+	return config.vulkan_whitelist;
+}
+const uint64_t& floor::get_vulkan_platform() {
+	return config.vulkan_platform;
+}
+const string& floor::get_vulkan_compiler() {
+	return config.vulkan_compiler;
+}
+const string& floor::get_vulkan_llc() {
+	return config.vulkan_llc;
+}
+const string& floor::get_vulkan_as() {
+	return config.vulkan_as;
+}
+const string& floor::get_vulkan_dis() {
+	return config.vulkan_dis;
+}
+
 
 const string& floor::get_execution_model() {
 	return config.execution_model;

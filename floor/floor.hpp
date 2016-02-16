@@ -198,6 +198,15 @@ public:
 	static const string& get_metal_as();
 	static const string& get_metal_dis();
 	
+	// vulkan
+	static const string& get_vulkan_base_path();
+	static const vector<string>& get_vulkan_whitelist();
+	static const uint64_t& get_vulkan_platform();
+	static const string& get_vulkan_compiler();
+	static const string& get_vulkan_llc();
+	static const string& get_vulkan_as();
+	static const string& get_vulkan_dis();
+	
 	// host
 	static const string& get_execution_model();
 	
@@ -304,6 +313,16 @@ protected:
 		// host
 		string host_base_path = "";
 		string execution_model = "mt-group";
+		
+		// vulkan
+		bool vulkan_toolchain_exists = false;
+		string vulkan_base_path = "";
+		uint64_t vulkan_platform = 0;
+		vector<string> vulkan_whitelist;
+		string vulkan_compiler = default_compiler;
+		string vulkan_llc = default_llc;
+		string vulkan_as = default_as;
+		string vulkan_dis = default_dis;
 
 		// sdl
 		SDL_Window* wnd = nullptr;

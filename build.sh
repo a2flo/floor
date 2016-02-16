@@ -59,6 +59,7 @@ BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
 BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
+BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
 BUILD_CONF_XML=1
 BUILD_CONF_EXCEPTIONS=1
@@ -101,6 +102,7 @@ for arg in "$@"; do
 			echo "	no-cuda            disables cuda support"
 			echo "	no-host-compute    disables host compute support"
 			echo "	no-metal           disables metal support (default for non-iOS and non-OS X targets)"
+			echo "  no-vulkan          disables vulkan support"
 			echo "	no-openal          disables openal support"
 			echo "	no-net             disables network support"
 			echo "	no-xml             disables xml support"
@@ -159,6 +161,9 @@ for arg in "$@"; do
 			;;
 		"no-metal")
 			BUILD_CONF_METAL=0
+			;;
+		"no-vulkan")
+			BUILD_CONF_VULKAN=0
 			;;
 		"no-openal")
 			BUILD_CONF_OPENAL=0
@@ -301,7 +306,7 @@ TARGET_STATIC_BIN=${BIN_DIR}/${TARGET_STATIC_BIN_NAME}
 SRC_DIR=.
 
 # all source code sub-directories, relative to SRC_DIR
-SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl constexpr core floor lang math net threading"
+SRC_SUB_DIRS="audio compute compute/cuda compute/host compute/metal compute/opencl compute/vulkan constexpr core floor lang math net threading"
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	SRC_SUB_DIRS="${SRC_SUB_DIRS} darwin"
 fi
@@ -381,6 +386,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_POCL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} pocl"
 	fi
+	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
+		PACKAGES_OPT="${PACKAGES_OPT} vulkan"
+	fi
 
 	# TODO: error checking + check if libs exist
 	for pkg in ${PACKAGES}; do
@@ -447,6 +455,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel or AMD OpenCL SDK!"
 			fi
 		fi
+		# TODO: vulkan?
 	fi
 
 	for lib in ${UNCHECKED_LIBS}; do
@@ -545,6 +554,7 @@ set_conf_val() {
 set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
 set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
 set_conf_val "###FLOOR_HOST_COMPUTE###" "FLOOR_NO_HOST_COMPUTE" ${BUILD_CONF_HOST_COMPUTE}
+set_conf_val "###FLOOR_VULKAN###" "FLOOR_NO_VULKAN" ${BUILD_CONF_VULKAN}
 # NOTE: metal is disabled on non-ios platforms anyways and this would overwrite the ios flag that is already ifdef'ed
 if [ $BUILD_OS != "ios" ]; then
 	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" 1

@@ -73,6 +73,21 @@
 		5C266C391B4E84C90055F511 /* host_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BD1B4139260005F5EA /* host_kernel.cpp */; };
 		5C266C3A1B4E84C90055F511 /* host_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8BF1B4139260005F5EA /* host_program.cpp */; };
 		5C266C3B1B4E84C90055F511 /* host_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C20C8C11B4139260005F5EA /* host_queue.cpp */; };
+		5C2B87D21C73893E00F11EA5 /* vulkan_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */; };
+		5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */; };
+		5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87C51C73893E00F11EA5 /* vulkan_device.hpp */; };
+		5C2B87D51C73893E00F11EA5 /* vulkan_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87C61C73893E00F11EA5 /* vulkan_compute.hpp */; };
+		5C2B87D61C73893E00F11EA5 /* vulkan_kernel.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87C71C73893E00F11EA5 /* vulkan_kernel.hpp */; };
+		5C2B87D71C73893E00F11EA5 /* vulkan_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87C81C73893E00F11EA5 /* vulkan_buffer.hpp */; };
+		5C2B87D81C73893E00F11EA5 /* vulkan_kernel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */; };
+		5C2B87D91C73893E00F11EA5 /* vulkan_program.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */; };
+		5C2B87DA1C73893E00F11EA5 /* vulkan_program.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87CB1C73893E00F11EA5 /* vulkan_program.hpp */; };
+		5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */; };
+		5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */; };
+		5C2B87DD1C73893E00F11EA5 /* vulkan_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87CE1C73893E00F11EA5 /* vulkan_queue.hpp */; };
+		5C2B87DE1C73893E00F11EA5 /* vulkan_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87CF1C73893E00F11EA5 /* vulkan_common.hpp */; };
+		5C2B87DF1C73893E00F11EA5 /* vulkan_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */; };
+		5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2B87D11C73893E00F11EA5 /* vulkan_image.hpp */; };
 		5C2DA5BB1B9ECAA200FA6F23 /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
 		5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */; };
 		5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */; };
@@ -316,6 +331,21 @@
 		5C20C8C11B4139260005F5EA /* host_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_queue.cpp; path = host/host_queue.cpp; sourceTree = "<group>"; };
 		5C20C8C21B4139260005F5EA /* host_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_queue.hpp; path = host/host_queue.hpp; sourceTree = "<group>"; };
 		5C225FC71AAA190700FE42F3 /* llvm35 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = llvm35; path = etc/llvm35; sourceTree = "<group>"; };
+		5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_compute.cpp; path = vulkan/vulkan_compute.cpp; sourceTree = "<group>"; };
+		5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_device.cpp; path = vulkan/vulkan_device.cpp; sourceTree = "<group>"; };
+		5C2B87C51C73893E00F11EA5 /* vulkan_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_device.hpp; path = vulkan/vulkan_device.hpp; sourceTree = "<group>"; };
+		5C2B87C61C73893E00F11EA5 /* vulkan_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_compute.hpp; path = vulkan/vulkan_compute.hpp; sourceTree = "<group>"; };
+		5C2B87C71C73893E00F11EA5 /* vulkan_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_kernel.hpp; path = vulkan/vulkan_kernel.hpp; sourceTree = "<group>"; };
+		5C2B87C81C73893E00F11EA5 /* vulkan_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_buffer.hpp; path = vulkan/vulkan_buffer.hpp; sourceTree = "<group>"; };
+		5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_kernel.cpp; path = vulkan/vulkan_kernel.cpp; sourceTree = "<group>"; };
+		5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_program.cpp; path = vulkan/vulkan_program.cpp; sourceTree = "<group>"; };
+		5C2B87CB1C73893E00F11EA5 /* vulkan_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_program.hpp; path = vulkan/vulkan_program.hpp; sourceTree = "<group>"; };
+		5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_buffer.cpp; path = vulkan/vulkan_buffer.cpp; sourceTree = "<group>"; };
+		5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_queue.cpp; path = vulkan/vulkan_queue.cpp; sourceTree = "<group>"; };
+		5C2B87CE1C73893E00F11EA5 /* vulkan_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_queue.hpp; path = vulkan/vulkan_queue.hpp; sourceTree = "<group>"; };
+		5C2B87CF1C73893E00F11EA5 /* vulkan_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_common.hpp; path = vulkan/vulkan_common.hpp; sourceTree = "<group>"; };
+		5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_image.cpp; path = vulkan/vulkan_image.cpp; sourceTree = "<group>"; };
+		5C2B87D11C73893E00F11EA5 /* vulkan_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_image.hpp; path = vulkan/vulkan_image.hpp; sourceTree = "<group>"; };
 		5C2DA5B91B9ECAA200FA6F23 /* compute_context.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_context.cpp; sourceTree = "<group>"; };
 		5C2DA5BA1B9ECAA200FA6F23 /* compute_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_context.hpp; sourceTree = "<group>"; };
 		5C2F83681B63FF1000B27BE3 /* metal */ = {isa = PBXFileReference; lastKnownFileType = folder; name = metal; path = ../../../../System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/lib/clang/3.5/include/metal; sourceTree = "<group>"; };
@@ -670,6 +700,28 @@
 			name = host;
 			sourceTree = "<group>";
 		};
+		5C2B87C21C73893300F11EA5 /* vulkan */ = {
+			isa = PBXGroup;
+			children = (
+				5C2B87CF1C73893E00F11EA5 /* vulkan_common.hpp */,
+				5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */,
+				5C2B87C61C73893E00F11EA5 /* vulkan_compute.hpp */,
+				5C2B87CC1C73893E00F11EA5 /* vulkan_buffer.cpp */,
+				5C2B87C81C73893E00F11EA5 /* vulkan_buffer.hpp */,
+				5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */,
+				5C2B87C51C73893E00F11EA5 /* vulkan_device.hpp */,
+				5C2B87D01C73893E00F11EA5 /* vulkan_image.cpp */,
+				5C2B87D11C73893E00F11EA5 /* vulkan_image.hpp */,
+				5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */,
+				5C2B87C71C73893E00F11EA5 /* vulkan_kernel.hpp */,
+				5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */,
+				5C2B87CB1C73893E00F11EA5 /* vulkan_program.hpp */,
+				5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */,
+				5C2B87CE1C73893E00F11EA5 /* vulkan_queue.hpp */,
+			);
+			name = vulkan;
+			sourceTree = "<group>";
+		};
 		5C366DD919A64FF2006D1D09 /* constexpr */ = {
 			isa = PBXGroup;
 			children = (
@@ -773,6 +825,7 @@
 				5C20C8B31B4139140005F5EA /* host */,
 				5C84613A1A91474A004D4745 /* metal */,
 				5CD2175519E985D80049D6AE /* opencl */,
+				5C2B87C21C73893300F11EA5 /* vulkan */,
 			);
 			path = compute;
 			sourceTree = "<group>";
@@ -908,6 +961,7 @@
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
+				5C2B87D61C73893E00F11EA5 /* vulkan_kernel.hpp in Headers */,
 				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */,
@@ -920,11 +974,13 @@
 				5C8FD0D31AD3947200215230 /* compute_memory.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
 				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
+				5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */,
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */,
 				5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */,
 				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
+				5C2B87D51C73893E00F11EA5 /* vulkan_compute.hpp in Headers */,
 				5C5383E71A641B1E007AEDD7 /* cuda_buffer.hpp in Headers */,
 				5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */,
 				5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */,
@@ -935,6 +991,7 @@
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
 				5C34F17C1C2463DC00C8F645 /* compute_algorithm.hpp in Headers */,
 				5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */,
+				5C2B87D71C73893E00F11EA5 /* vulkan_buffer.hpp in Headers */,
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,
@@ -949,7 +1006,9 @@
 				5CE797D01C5338D0005AB753 /* rt_math.hpp in Headers */,
 				5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */,
 				5C0686BB19C92E1400CF63C8 /* floor_conf.hpp in Headers */,
+				5C2B87DA1C73893E00F11EA5 /* vulkan_program.hpp in Headers */,
 				5CEEA6E21A4F2EB5005239DA /* opencl_queue.hpp in Headers */,
+				5C2B87DD1C73893E00F11EA5 /* vulkan_queue.hpp in Headers */,
 				5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */,
 				5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */,
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
@@ -967,6 +1026,7 @@
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,
+				5C2B87D41C73893E00F11EA5 /* vulkan_device.hpp in Headers */,
 				5CBBFF581BC2B786001813E0 /* image.hpp in Headers */,
 				5C20C8CF1B4139260005F5EA /* host_program.hpp in Headers */,
 				5C1CC88D1B3CE21100A36096 /* atomic_compat.hpp in Headers */,
@@ -980,6 +1040,7 @@
 				5C4E30EC1B428B120034E536 /* host_pre.hpp in Headers */,
 				5CBE41DA1B31B48600AE0E5F /* darwin_helper.hpp in Headers */,
 				5C5383EB1A641B1E007AEDD7 /* cuda_kernel.hpp in Headers */,
+				5C2B87DE1C73893E00F11EA5 /* vulkan_common.hpp in Headers */,
 				5CEB9F691A4BF91B00EC3543 /* compute_buffer.hpp in Headers */,
 				5CE0BDDF19BB2A75000B28B3 /* quaternion.hpp in Headers */,
 				5C1091A817D1153E007F536E /* cpp_headers.hpp in Headers */,
@@ -1089,6 +1150,7 @@
 				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */,
 				5CBE41DB1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
+				5C2B87DF1C73893E00F11EA5 /* vulkan_image.cpp in Sources */,
 				5C20C8C81B4139260005F5EA /* host_device.cpp in Sources */,
 				5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */,
 				5CE55CE01B2757F4006C38E6 /* metal_image.mm in Sources */,
@@ -1096,10 +1158,13 @@
 				5CF040BC1A97CC1B00D93EE3 /* metal_kernel.mm in Sources */,
 				5CF040BD1A97CC1B00D93EE3 /* metal_program.mm in Sources */,
 				5CF040BE1A97CC1B00D93EE3 /* metal_queue.mm in Sources */,
+				5C2B87D91C73893E00F11EA5 /* vulkan_program.cpp in Sources */,
 				5CC063BA1B85A06600F5979A /* cuda_api.cpp in Sources */,
 				5CD2175B19E985D80049D6AE /* opencl_compute.cpp in Sources */,
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
+				5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */,
+				5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */,
 				5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5C20C8D01B4139260005F5EA /* host_queue.cpp in Sources */,
@@ -1107,6 +1172,7 @@
 				5C2DA5BB1B9ECAA200FA6F23 /* compute_context.cpp in Sources */,
 				5C5383E61A641B1E007AEDD7 /* cuda_buffer.cpp in Sources */,
 				5CD2176519EAA8800049D6AE /* opencl_device.cpp in Sources */,
+				5C2B87D81C73893E00F11EA5 /* vulkan_kernel.cpp in Sources */,
 				5C1091CF17D1153E007F536E /* task.cpp in Sources */,
 				5C20C8CE1B4139260005F5EA /* host_program.cpp in Sources */,
 				5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */,
@@ -1123,6 +1189,8 @@
 				5C1091A917D1153E007F536E /* event.cpp in Sources */,
 				5C20C8CA1B4139260005F5EA /* host_image.cpp in Sources */,
 				5CE0BDDD19BB2A75000B28B3 /* quaternion.cpp in Sources */,
+				5C2B87D21C73893E00F11EA5 /* vulkan_compute.cpp in Sources */,
+				5C2B87DB1C73893E00F11EA5 /* vulkan_buffer.cpp in Sources */,
 				5C5383EA1A641B1E007AEDD7 /* cuda_kernel.cpp in Sources */,
 				5C1091AF17D1153E007F536E /* logger.cpp in Sources */,
 				5C10920317D1F80E007F536E /* gl_support.cpp in Sources */,

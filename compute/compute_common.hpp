@@ -28,6 +28,7 @@ enum class COMPUTE_TYPE : uint32_t {
 	CUDA,
 	METAL,
 	HOST,
+	VULKAN,
 };
 
 //! returns the string representation of the enum COMPUTE_TYPE
@@ -37,6 +38,7 @@ floor_inline_always static constexpr const char* compute_type_to_string(const CO
 		case COMPUTE_TYPE::CUDA: return "CUDA";
 		case COMPUTE_TYPE::METAL: return "Metal";
 		case COMPUTE_TYPE::HOST: return "Host Compute";
+		case COMPUTE_TYPE::VULKAN: return "Vulkan";
 		default: return "NONE";
 	}
 }

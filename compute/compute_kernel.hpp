@@ -71,11 +71,13 @@ protected:
 #include <floor/compute/host/host_kernel.hpp>
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/opencl/opencl_kernel.hpp>
+#include <floor/compute/vulkan/vulkan_kernel.hpp>
 
 #if (!defined(FLOOR_CUDA_KERNEL_IMPL) && \
 	 !defined(FLOOR_HOST_KERNEL_IMPL) && \
 	 !defined(FLOOR_OPENCL_KERNEL_IMPL) && \
-	 !defined(FLOOR_METAL_KERNEL_IMPL))
+	 !defined(FLOOR_METAL_KERNEL_IMPL) && \
+	 !defined(FLOOR_VULKAN_KERNEL_IMPL))
 // forwarder to the actual kernel classes (disabled when included by them)
 template <typename... Args, class work_size_type_global, class work_size_type_local>
 void compute_kernel::execute(compute_queue* queue_ptr,
@@ -114,6 +116,15 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
 			static_cast<opencl_kernel*>(this)->execute(queue_ptr,
+													   decay_t<work_size_type_global>::dim,
+													   uint3 { global_work_size },
+													   uint3 { local_work_size },
+													   forward<Args>(args)...);
+#endif // else: nop
+			break;
+		case COMPUTE_TYPE::VULKAN:
+#if !defined(FLOOR_NO_VULKAN)
+			static_cast<vulkan_kernel*>(this)->execute(queue_ptr,
 													   decay_t<work_size_type_global>::dim,
 													   uint3 { global_work_size },
 													   uint3 { local_work_size },
