@@ -30,6 +30,11 @@
 #endif
 #endif
 
+// when building on osx/ios, always disable vulkan for now
+#if defined(__APPLE__)
+#define FLOOR_NO_VULKAN 1
+#endif
+
 // if defined, this disables cuda support
 ###FLOOR_CUDA###
 

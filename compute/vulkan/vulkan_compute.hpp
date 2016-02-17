@@ -36,8 +36,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	vulkan_compute(const uint64_t platform_index = ~0ull,
-				   const vector<string> whitelist = {});
+	vulkan_compute(const vector<string> whitelist = {});
 	
 	~vulkan_compute() override {}
 	
@@ -150,7 +149,8 @@ public:
 	
 protected:
 	VkInstance ctx { nullptr };
-	vector<VkDevice> ctx_devices;
+	vector<VkPhysicalDevice> physical_devices;
+	vector<VkDevice> vulkan_devices;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_0 };
 	

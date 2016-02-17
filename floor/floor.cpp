@@ -299,7 +299,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
 		
 		vulkan_toolchain_paths = config_doc.get<json::json_array>("compute.vulkan.paths", default_toolchain_paths);
-		config.vulkan_platform = config_doc.get<uint64_t>("compute.vulkan.platform", 0);
 		extract_whitelist(config.vulkan_whitelist, "compute.vulkan.whitelist");
 		config.vulkan_compiler = config_doc.get<string>("compute.vulkan.compiler", config.default_compiler);
 		config.vulkan_llc = config_doc.get<string>("compute.vulkan.llc", config.default_llc);
@@ -818,8 +817,7 @@ void floor::init_internal(const bool use_gl33
 				case COMPUTE_TYPE::VULKAN:
 #if !defined(FLOOR_NO_VULKAN)
 					log_debug("initializing Vulkan ...");
-					compute_ctx = make_shared<vulkan_compute>(config.vulkan_platform,
-															  config.vulkan_whitelist);
+					compute_ctx = make_shared<vulkan_compute>(config.vulkan_whitelist);
 #endif
 					break;
 				default: break;
@@ -1433,9 +1431,6 @@ const string& floor::get_vulkan_base_path() {
 }
 const vector<string>& floor::get_vulkan_whitelist() {
 	return config.vulkan_whitelist;
-}
-const uint64_t& floor::get_vulkan_platform() {
-	return config.vulkan_platform;
 }
 const string& floor::get_vulkan_compiler() {
 	return config.vulkan_compiler;

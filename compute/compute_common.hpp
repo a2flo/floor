@@ -45,13 +45,14 @@ floor_inline_always static constexpr const char* compute_type_to_string(const CO
 
 //! used to identify the platform and device vendor
 enum class COMPUTE_VENDOR : uint32_t {
+	UNKNOWN,
 	NVIDIA,
 	INTEL,
 	AMD,
 	APPLE,
 	POCL,
 	HOST,
-	UNKNOWN
+	KHRONOS,
 };
 
 //! returns the string representation of the enum COMPUTE_VENDOR
@@ -63,6 +64,7 @@ floor_inline_always static constexpr const char* compute_vendor_to_string(const 
 		case COMPUTE_VENDOR::APPLE: return "APPLE";
 		case COMPUTE_VENDOR::POCL: return "POCL";
 		case COMPUTE_VENDOR::HOST: return "HOST";
+		case COMPUTE_VENDOR::KHRONOS: return "KHRONOS";
 		default: return "UNKNOWN";
 	}
 }

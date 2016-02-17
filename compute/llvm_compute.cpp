@@ -298,6 +298,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
 			break;
+		case TARGET::SPIRV:
+			log_error("SPIR-V not supported yet!");
+			return {};
 	}
 	libcxx_path += "\"";
 	clang_path += "\"";

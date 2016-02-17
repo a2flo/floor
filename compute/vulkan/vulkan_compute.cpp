@@ -27,13 +27,211 @@
 #include <floor/core/file_io.hpp>
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
+#include <floor/floor/floor_version.hpp>
 
-vulkan_compute::vulkan_compute(const uint64_t platform_index_,
-							   const vector<string> whitelist) : compute_context() {
-	// if no platform was specified, use the one in the config (or default one, which is 0)
-	const auto platform_index = (platform_index_ == ~0u ? floor::get_vulkan_platform() : platform_index_);
+vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context() {
+	// create a vulkan instance (context)
+	const VkApplicationInfo app_info {
+		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+		.pNext = nullptr,
+		.pApplicationName = "floor app", // TODO: add setter/getter to floor::
+		.applicationVersion = 1, // TODO: add setter/getter to floor::
+		.pEngineName = "floor",
+		.engineVersion = FLOOR_VERSION_U32,
+		// TODO/NOTE: even though the spec allows setting this to 0, nvidias current driver requires VK_API_VERSION / VK_MAKE_VERSION(1, 0, 3)
+		.apiVersion = VK_MAKE_VERSION(1, 0, 3),
+	};
+	// TODO: query exts
+	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
+	static constexpr const char* extensions[] {
+		"VK_KHR_surface",
+#if defined(__WINDOWS__)
+		"VK_KHR_win32_surface",
+#else
+		"VK_KHR_xlib_surface",
+#endif
+	};
+	const VkInstanceCreateInfo instance_info {
+		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.pApplicationInfo = &app_info,
+		.enabledLayerCount = 0,
+		.ppEnabledLayerNames = nullptr,
+		.enabledExtensionCount = size(extensions),
+		.ppEnabledExtensionNames = extensions,
+	};
+	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance");
+	
+	// get layers
+	uint32_t layer_count = 0;
+	VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, nullptr), "failed to retrieve instance layer properties count");
+	vector<VkLayerProperties> layers(layer_count);
+	if(layer_count > 0) {
+		VK_CALL_RET(vkEnumerateInstanceLayerProperties(&layer_count, layers.data()), "failed to retrieve instance layer properties");
+	}
+	log_debug("found %u vulkan layer%s", layer_count, (layer_count == 1 ? "" : "s"));
+	
+	// get devices
+	uint32_t device_count = 0;
+	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, nullptr), "failed to retrieve device count");
+	physical_devices.resize(device_count);
+	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, physical_devices.data()), "failed to retrieve devices");
+	log_debug("found %u vulkan device%s", device_count, (device_count == 1 ? "" : "s"));
 
-	// TODO: implement this
+	auto gpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::GPU0;
+	auto cpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::CPU0;
+	for(const auto& phys_dev : physical_devices) {
+		// get device props
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(phys_dev, &props);
+		
+		// check whitelist
+		if(!whitelist.empty()) {
+			const auto lc_dev_name = core::str_to_lower(props.deviceName);
+			bool found = false;
+			for(const auto& entry : whitelist) {
+				if(lc_dev_name.find(entry) != string::npos) {
+					found = true;
+					break;
+				}
+			}
+			if(!found) continue;
+		}
+		
+		// add device
+		auto device = make_shared<vulkan_device>();
+		devices.emplace_back(device);
+		device->physical_device = phys_dev;
+		device->name = props.deviceName;
+		device->platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
+		device->version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
+							   to_string(VK_VERSION_MINOR(props.apiVersion)) + "." +
+							   to_string(VK_VERSION_PATCH(props.apiVersion)));
+		device->driver_version_str = to_string(props.driverVersion);
+		
+		if(props.vendorID < 0x10000) {
+			switch(props.vendorID) {
+				case 0x1002:
+					device->vendor = COMPUTE_VENDOR::AMD;
+					device->vendor_name = "AMD";
+					break;
+				case 0x10DE:
+					device->vendor = COMPUTE_VENDOR::NVIDIA;
+					device->vendor_name = "NVIDIA";
+					device->driver_version_str = to_string((props.driverVersion >> 22u) & 0x3FF) + ".";
+					device->driver_version_str += to_string((props.driverVersion >> 14u) & 0xFF) + ".";
+					device->driver_version_str += to_string((props.driverVersion >> 6u) & 0xFF);
+					break;
+				case 0x8086:
+					device->vendor = COMPUTE_VENDOR::INTEL;
+					device->vendor_name = "INTEL";
+					break;
+				default:
+					device->vendor = COMPUTE_VENDOR::UNKNOWN;
+					device->vendor_name = "UNKNOWN";
+					break;
+			}
+		}
+		else {
+			// khronos assigned vendor id (not handling this for now)
+			device->vendor = COMPUTE_VENDOR::UNKNOWN;
+			device->vendor_name = "Khronos assigned vendor";
+		}
+		
+		device->internal_type = props.deviceType;
+		switch(props.deviceType) {
+			// TODO: differentiate these?
+			case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+			case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+			case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+				device->type = (compute_device::TYPE)gpu_counter;
+				++gpu_counter;
+				if(fastest_gpu_device == nullptr) {
+					fastest_gpu_device = device;
+				}
+				break;
+			case VK_PHYSICAL_DEVICE_TYPE_CPU:
+				device->type = (compute_device::TYPE)cpu_counter;
+				++cpu_counter;
+				if(fastest_cpu_device == nullptr) {
+					fastest_cpu_device = device;
+				}
+				break;
+			case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+			default:
+				// not handled
+				break;
+		}
+		
+		// limits
+		const auto& limits = props.limits;
+		device->constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
+		device->local_mem_size = limits.maxComputeSharedMemorySize;
+		device->max_work_group_size = limits.maxComputeWorkGroupInvocations;
+		device->max_work_item_sizes = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
+		device->max_work_group_item_sizes = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
+		device->max_image_1d_dim = limits.maxImageDimension1D;
+		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
+		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
+		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
+		device->bitness = (limits.sparseAddressSpaceSize > 0xFFFFFFFF ? 64 : 32); // TODO: this is a hack, but there is no other way of doing this
+
+		// retrieve memory info
+		VkPhysicalDeviceMemoryProperties mem_props;
+		vkGetPhysicalDeviceMemoryProperties(phys_dev, &mem_props);
+		
+		// global memory (heap with local bit)
+		// TODO: should probably use this to figure out memory sizes for integrated gpus (and unified_memory)
+		/*for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
+				device->global_mem_size = mem_props.memoryHeaps[mem_props.memoryTypes[i].heapIndex].size;
+				break;
+			}
+		}*/
+		// for now, just assume the correct data is stored in the heap flags
+		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+			if(mem_props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+				device->global_mem_size = mem_props.memoryHeaps[i].size;
+				device->max_mem_alloc = mem_props.memoryHeaps[i].size; // TODO: min(gpu heap, host heap)?
+				break;
+			}
+		}
+		log_msg("max mem alloc: %u bytes / %u MB",
+				device->max_mem_alloc,
+				device->max_mem_alloc / 1024ULL / 1024ULL);
+		log_msg("mem size: %u MB (global), %u KB (local), %u KB (constant)",
+				device->global_mem_size / 1024ULL / 1024ULL,
+				device->local_mem_size / 1024ULL,
+				device->constant_mem_size / 1024ULL);
+		
+		log_msg("max work-group size: %u", device->max_work_group_size);
+		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
+		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
+		
+		// TODO: other device flags
+		// TODO: fastest device selection, tricky to do without a unit count
+		
+		// done
+		log_debug("%s (Memory: %u MB): %s %s, API: %s, driver: %s",
+				  (device->is_gpu() ? "GPU" : (device->is_cpu() ? "CPU" : "UNKNOWN")),
+				  (uint32_t)(device->global_mem_size / 1024ull / 1024ull),
+				  device->vendor_name,
+				  device->name,
+				  device->version_str,
+				  device->driver_version_str);
+	}
+	
+	// if there are no devices left, init has failed
+	if(devices.empty()) {
+		if(!physical_devices.empty()) log_warn("no devices left after applying whitelist!");
+		return;
+	}
+	// else: success, we have at least one device
+	supported = true;
+	
+	// workaround non-existent fastest device selection
+	fastest_device = devices[0];
 }
 
 shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device> dev) {
