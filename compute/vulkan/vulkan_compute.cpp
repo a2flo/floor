@@ -45,10 +45,15 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
 	static constexpr const char* extensions[] {
 		"VK_KHR_surface",
+#if 0 // don't use either yet
 #if defined(__WINDOWS__)
 		"VK_KHR_win32_surface",
 #else
+		// nvidia only supports this:
 		"VK_KHR_xlib_surface",
+		// intel only supports this:
+		"VK_KHR_xcb_surface",
+#endif
 #endif
 	};
 	const VkInstanceCreateInfo instance_info {
@@ -75,16 +80,18 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	// get devices
 	uint32_t device_count = 0;
 	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, nullptr), "failed to retrieve device count");
-	physical_devices.resize(device_count);
-	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, physical_devices.data()), "failed to retrieve devices");
+	vector<VkPhysicalDevice> queried_devices(device_count);
+	VK_CALL_RET(vkEnumeratePhysicalDevices(ctx, &device_count, queried_devices.data()), "failed to retrieve devices");
 	log_debug("found %u vulkan device%s", device_count, (device_count == 1 ? "" : "s"));
 
 	auto gpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::GPU0;
 	auto cpu_counter = (underlying_type_t<compute_device::TYPE>)compute_device::TYPE::CPU0;
-	for(const auto& phys_dev : physical_devices) {
-		// get device props
+	for(const auto& phys_dev : queried_devices) {
+		// get device props and features
 		VkPhysicalDeviceProperties props;
 		vkGetPhysicalDeviceProperties(phys_dev, &props);
+		VkPhysicalDeviceFeatures features;
+		vkGetPhysicalDeviceFeatures(phys_dev, &features);
 		
 		// check whitelist
 		if(!whitelist.empty()) {
@@ -99,10 +106,63 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			if(!found) continue;
 		}
 		
+		// handle device queue info + create queue info, we're going to create as many queues as are allowed by the device
+		uint32_t queue_family_count = 0;
+		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, nullptr);
+		if(queue_family_count == 0) {
+			log_error("device supports no queue families");
+			continue;
+		}
+		
+		vector<VkQueueFamilyProperties> dev_queue_family_props(queue_family_count);
+		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, dev_queue_family_props.data());
+		
+		// create priorities array once (all set to 0 for now)
+		uint32_t max_queue_count = 0;
+		for(uint32_t i = 0; i < queue_family_count; ++i) {
+			max_queue_count = max(max_queue_count, dev_queue_family_props[i].queueCount);
+		}
+		if(max_queue_count == 0) {
+			log_error("device supports no queues");
+			continue;
+		}
+		const vector<float> priorities(max_queue_count, 0.0f);
+		
+		vector<VkDeviceQueueCreateInfo> queue_create_info(queue_family_count);
+		for(uint32_t i = 0; i < queue_family_count; ++i) {
+			auto& queue_info = queue_create_info[i];
+			queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queue_info.pNext = nullptr;
+			queue_info.flags = 0;
+			queue_info.queueFamilyIndex = i;
+			queue_info.queueCount = dev_queue_family_props[i].queueCount;
+			queue_info.pQueuePriorities = priorities.data();
+		}
+		
+		// create device
+		const VkDeviceCreateInfo dev_info {
+			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.queueCreateInfoCount = queue_family_count,
+			.pQueueCreateInfos = queue_create_info.data(),
+			.enabledLayerCount = 0,
+			.ppEnabledLayerNames = nullptr,
+			.enabledExtensionCount = 0,
+			.ppEnabledExtensionNames = nullptr,
+			.pEnabledFeatures = &features // enable all that is supported
+		};
+		
+		VkDevice dev;
+		VK_CALL_CONT(vkCreateDevice(phys_dev, &dev_info, nullptr, &dev), "failed to create device \""s + props.deviceName + "\"");
+		
 		// add device
 		auto device = make_shared<vulkan_device>();
 		devices.emplace_back(device);
+		physical_devices.emplace_back(phys_dev);
+		logical_devices.emplace_back(dev);
 		device->physical_device = phys_dev;
+		device->device = dev;
 		device->name = props.deviceName;
 		device->platform_vendor = COMPUTE_VENDOR::KHRONOS; // not sure what to set here
 		device->version_str = (to_string(VK_VERSION_MAJOR(props.apiVersion)) + "." +
@@ -135,7 +195,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		}
 		else {
 			// khronos assigned vendor id (not handling this for now)
-			device->vendor = COMPUTE_VENDOR::UNKNOWN;
+			device->vendor = COMPUTE_VENDOR::KHRONOS;
 			device->vendor_name = "Khronos assigned vendor";
 		}
 		
@@ -162,6 +222,12 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			default:
 				// not handled
 				break;
+		}
+		
+		// queue count info
+		device->queue_counts.resize(queue_family_count);
+		for(uint32_t i = 0; i < queue_family_count; ++i) {
+			device->queue_counts[i] = dev_queue_family_props[i].queueCount;
 		}
 		
 		// limits
@@ -208,6 +274,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		log_msg("max work-group size: %u", device->max_work_group_size);
 		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
 		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
+		log_msg("queue families: %u", queue_family_count);
+		log_msg("max queus (family #0): %u", device->queue_counts[0]);
 		
 		// TODO: other device flags
 		// TODO: fastest device selection, tricky to do without a unit count
@@ -224,7 +292,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	
 	// if there are no devices left, init has failed
 	if(devices.empty()) {
-		if(!physical_devices.empty()) log_warn("no devices left after applying whitelist!");
+		if(!queried_devices.empty()) log_warn("no devices left after applying whitelist!");
 		return;
 	}
 	// else: success, we have at least one device
@@ -235,15 +303,35 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 }
 
 shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device> dev) {
-	if(dev == nullptr) return {};
+	if(dev == nullptr) {
+		log_error("nullptr is not a valid device!");
+		return {};
+	}
+	auto vulkan_dev = (vulkan_device*)dev.get();
 	
-	// TODO: implement this
-	return {};
+	// can only create a certain amount of queues per device with vulkan, so handle this + handle the queue index
+	if(vulkan_dev->cur_queue_idx >= vulkan_dev->queue_counts[0]) {
+		log_warn("too many queues were created (max: %u), wrapping around to #0 again", vulkan_dev->queue_counts[0]);
+		vulkan_dev->cur_queue_idx = 0;
+	}
+	const auto next_queue_index = vulkan_dev->cur_queue_idx++;
+	
+	VkQueue queue_obj;
+	const uint32_t family_index = 0; // always family #0 for now
+	vkGetDeviceQueue(vulkan_dev->device, family_index, next_queue_index, &queue_obj);
+	if(queue_obj == nullptr) {
+		log_error("failed to retrieve vulkan device queue");
+		return {};
+	}
+	
+	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index);
+	queues.push_back(ret);
+	return ret;
 }
 
+// TODO: should probably remove non-device create_buffer/create_image calls ...
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) {
-	// TODO: does device matter?
 	return make_shared<vulkan_buffer>((vulkan_device*)fastest_device.get(), size, flags, opengl_type);
 }
 

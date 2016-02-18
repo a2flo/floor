@@ -28,7 +28,7 @@
 
 class vulkan_queue final : public compute_queue {
 public:
-	vulkan_queue(shared_ptr<compute_device> device, VkQueue queue);
+	vulkan_queue(shared_ptr<compute_device> device, VkQueue queue, const uint32_t family_index);
 	
 	void finish() const override;
 	void flush() const override;
@@ -37,6 +37,8 @@ public:
 	
 protected:
 	const VkQueue queue;
+	const uint32_t family_index;
+	VkCommandPool cmd_pool;
 	
 };
 

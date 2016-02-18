@@ -34,15 +34,22 @@ public:
 	~vulkan_device() override {}
 	
 #if !defined(FLOOR_NO_VULKAN)
-	//!
+	//! physical vulkan device
 	VkPhysicalDevice physical_device { nullptr };
 	
-	//!
+	//! logical vulkan device
 	VkDevice device { nullptr };
 #else
 	void* _physical_device { nullptr };
 	void* _device { nullptr };
 #endif
+	
+	//! queue count per queue family
+	//! (obviously also stores the queue family count)
+	vector<uint32_t> queue_counts {};
+	
+	//! for internal purposes, do not change this
+	uint32_t cur_queue_idx { 0 };
 	
 };
 

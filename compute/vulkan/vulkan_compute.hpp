@@ -149,8 +149,10 @@ public:
 	
 protected:
 	VkInstance ctx { nullptr };
+	
+	// NOTE: these match up 1:1
 	vector<VkPhysicalDevice> physical_devices;
-	vector<VkDevice> vulkan_devices;
+	vector<VkDevice> logical_devices;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_0 };
 	

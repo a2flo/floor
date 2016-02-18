@@ -19,18 +19,27 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
+#include <floor/compute/vulkan/vulkan_device.hpp>
 
-vulkan_queue::vulkan_queue(shared_ptr<compute_device> device_, const VkQueue queue_) : compute_queue(device_), queue(queue_) {
+vulkan_queue::vulkan_queue(shared_ptr<compute_device> device_, const VkQueue queue_, const uint32_t family_index_) :
+compute_queue(device_), queue(queue_), family_index(family_index_) {
+	const VkCommandPoolCreateInfo cmd_pool_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.pNext = nullptr,
+		// always short-lived + need individual reset
+		.flags = (VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT),
+		.queueFamilyIndex = family_index,
+	};
+	VK_CALL_RET(vkCreateCommandPool(((vulkan_device*)device_.get())->device, &cmd_pool_info, nullptr, &cmd_pool), "failed to create command pool");
+	// TODO: vkDestroyCommandPool necessary in destructor? this will live as long as the context/instance does
 }
 
 void vulkan_queue::finish() const {
-	// TODO: error handling
-	// TODO: implement this
+	VK_CALL_RET(vkQueueWaitIdle(queue), "queue finish failed");
 }
 
 void vulkan_queue::flush() const {
-	// TODO: error handling
-	// TODO: implement this
+	// nop
 }
 
 const void* vulkan_queue::get_queue_ptr() const {

@@ -100,18 +100,18 @@ protected:
 	
 	//! actual kernel argument setter
 	template <typename T>
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry,
-												 const uint32_t num, T&& arg) const {
+	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
+												 const uint32_t num floor_unused, T&& arg floor_unused) const {
 		// TODO: implement this
 	}
 	
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry,
-												 const uint32_t num, shared_ptr<compute_buffer> arg) const {
+	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
+												 const uint32_t num floor_unused, shared_ptr<compute_buffer> arg floor_unused) const {
 		// TODO: implement this
 	}
 	
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry,
-												 const uint32_t num, shared_ptr<compute_image> arg) const {
+	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
+												 const uint32_t num floor_unused, shared_ptr<compute_image> arg floor_unused) const {
 		// TODO: implement this
 	}
 	
