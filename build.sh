@@ -386,9 +386,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ ${BUILD_CONF_POCL} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} pocl"
 	fi
-	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
-		PACKAGES_OPT="${PACKAGES_OPT} vulkan"
-	fi
 
 	# TODO: error checking + check if libs exist
 	for pkg in ${PACKAGES}; do
@@ -411,6 +408,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	fi
 	if [ ${BUILD_CONF_OPENCL} -gt 0 -a ${BUILD_CONF_POCL} -eq 0 ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
+	fi
+	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan"
 	fi
 
 	# add os specific libs
