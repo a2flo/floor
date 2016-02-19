@@ -236,10 +236,10 @@ index 413134e..9221f55 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..eadf6d5
+index 0000000..46943c0
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,362 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -554,7 +554,8 @@ index 0000000..eadf6d5
 +									   const StringRef& func_name,
 +									   llvm::Value* img_handle_arg,
 +									   const COMPUTE_IMAGE_TYPE& image_type,
-+									   llvm::ConstantInt* sampler_arg,
++									   llvm::ConstantInt* const_sampler_arg,
++									   llvm::Value* dyn_sampler_arg,
 +									   llvm::Value* coord_arg,
 +									   llvm::Value* layer_arg,
 +									   llvm::Value* sample_arg,
@@ -843,7 +844,7 @@ index 714d9e8..18e01ff 100644
    case Triple::mips64el:
    case Triple::nvptx64:
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 93fabf6..e12ada6 100644
+index 93fabf6..b1c087d 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,16 +26,37 @@ include "NVPTXInstrInfo.td"
@@ -864,7 +865,7 @@ index 93fabf6..e12ada6 100644
                              "Target SM 3.5">;
 +def SM37 : SubtargetFeature<"sm_37", "SmVersion", "37",
 +                            "Target SM 3.7">;
-+// Kepler
++// Maxwell
  def SM50 : SubtargetFeature<"sm_50", "SmVersion", "50",
                              "Target SM 5.0">;
 +def SM52 : SubtargetFeature<"sm_52", "SmVersion", "52",
@@ -992,7 +993,7 @@ index 9900b8c..4879b84 100644
  defm FSetNAN : FSET_FORMAT<setuo, CmpNAN, CmpNAN_FTZ>;
  
 diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
-index d5cded2..2e0ca79 100644
+index d5cded2..ddc554e 100644
 --- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
 +++ b/lib/Target/NVPTX/NVPTXSubtarget.cpp
 @@ -45,9 +45,9 @@ NVPTXSubtarget &NVPTXSubtarget::initializeSubtargetDependencies(StringRef CPU,
@@ -1000,10 +1001,10 @@ index d5cded2..2e0ca79 100644
    ParseSubtargetFeatures(TargetName, FS);
  
 -  // Set default to PTX 3.2 (CUDA 5.5)
-+  // Set default to PTX 4.0
++  // Set default to PTX 4.3
    if (PTXVersion == 0) {
 -    PTXVersion = 32;
-+    PTXVersion = 40;
++    PTXVersion = 43;
    }
  
    return *this;
@@ -1753,10 +1754,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..f03cc68
+index 0000000..5c87d34
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,566 @@
+@@ -0,0 +1,572 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1836,7 +1837,8 @@ index 0000000..f03cc68
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::ConstantInt* sampler_arg,
++							   llvm::ConstantInt* const_sampler_arg,
++							   llvm::Value* dyn_sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -2063,6 +2065,11 @@ index 0000000..f03cc68
 +				if(coord_dim == 3) {
 +					offset_str += ", 0";
 +				}
++			}
++			
++			// -> compare
++			if(is_compare) {
++				// TODO
 +			}
 +			
 +			// -> build asm string
@@ -2325,10 +2332,10 @@ index 0000000..f03cc68
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..6831922
+index 0000000..0d30ec5
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,379 @@
+@@ -0,0 +1,393 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2540,12 +2547,13 @@ index 0000000..6831922
 +	
 +	if(is_image_read) {
 +		// -> sampler
-+		llvm::ConstantInt* sampler_arg = nullptr;
++		// prefer const sampler / either const or dyn will be nullptr
++		llvm::ConstantInt* const_sampler_arg = nullptr;
++		llvm::Value* dyn_sampler_arg = nullptr;
 +		if(image_type_id != IMAGE_TYPE_ID::CUDA) {
-+			sampler_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(1));
-+			if(sampler_arg == nullptr) {
-+				ctx->emitError(I, "sampler must be a constant");
-+				return;
++			const_sampler_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(1));
++			if(const_sampler_arg == nullptr) {
++				dyn_sampler_arg = CS.getArgument(1);
 +			}
 +		}
 +		
@@ -2579,6 +2587,13 @@ index 0000000..6831922
 +		}
 +		
 +		if(is_offset) {
++			// nobody supports this
++			if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
++				ctx->emitError(I, "image offset is not supported with cube maps");
++				return;
++			}
++			
++			// extract offset elems and check constant offset values
 +			for(uint32_t i = 0; i < coord_dim; ++i) {
 +				auto offset_elem = builder->CreateExtractElement(offset_arg, builder->getInt32(i));
 +				offset_elems.push_back(offset_elem);
@@ -2679,7 +2694,7 @@ index 0000000..6831922
 +		
 +		handle_read_image(*I, func_name,
 +						  img_handle_arg, image_type,
-+						  sampler_arg,
++						  const_sampler_arg, dyn_sampler_arg,
 +						  coord_arg, layer_arg, sample_arg,
 +						  offset_arg, offset_elems, is_offset,
 +						  lod_or_bias_arg, is_lod /* if false, then it's always bias */,
@@ -2698,6 +2713,12 @@ index 0000000..6831922
 +		if(!data_type->getVectorElementType()->isFloatTy() &&
 +		   !data_type->getVectorElementType()->isIntegerTy()) {
 +			ctx->emitError(I, "invalid image data type (must be a float or integer vector)");
++			return;
++		}
++		
++		// only writes with integer coordinates are allowed
++		if(!coord_arg->getType()->getVectorElementType()->isIntegerTy()) {
++			ctx->emitError(I, "invalid coordinate type (must be integer)");
 +			return;
 +		}
 +		
@@ -3444,10 +3465,10 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..b4bd6ba
+index 0000000..b7b2c0d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,505 @@
+@@ -0,0 +1,500 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3520,7 +3541,8 @@ index 0000000..b4bd6ba
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::ConstantInt* sampler_arg,
++							   llvm::ConstantInt* const_sampler_arg,
++							   llvm::Value* dyn_sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -3624,6 +3646,7 @@ index 0000000..b4bd6ba
 +			
 +			if(is_sample_call) {
 +				// only add the sampler arg if this is a sample call
++				const auto sampler_arg = (const_sampler_arg == nullptr ? dyn_sampler_arg : const_sampler_arg);
 +				func_arg_types.push_back(sampler_arg->getType());
 +				func_args.push_back(sampler_arg);
 +			}
@@ -3739,14 +3762,13 @@ index 0000000..b4bd6ba
 +				}
 +				
 +				// -> offset
-+				if(!is_cube) { // cube allows no offset (TODO: support this through s/w?)
++				if(!is_cube) { // cube allows no offset
 +					func_arg_types.push_back(llvm::Type::getInt1Ty(*ctx));
 +					func_args.push_back(builder->getInt1(is_offset));
 +					
 +					func_arg_types.push_back(offset_arg->getType());
 +					func_args.push_back(offset_arg);
 +				}
-+				// else: TODO
 +				
 +				// -> lod / bias
 +				if(!is_gradient) {
@@ -3895,12 +3917,6 @@ index 0000000..b4bd6ba
 +				}
 +				// cube with int coords
 +				else {
-+					if(coord_type->isFloatTy()) {
-+						// TODO: support float as well through s/w
-+						ctx->emitError(&I, "cube write coordinate must be integer");
-+						return;
-+					}
-+					
 +					// extract the face integer from the coords
 +					const auto face_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(2));
 +					
@@ -4209,10 +4225,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..e7a457d
+index 0000000..4f80c24
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,614 @@
+@@ -0,0 +1,622 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4404,7 +4420,8 @@ index 0000000..e7a457d
 +							   const StringRef& func_name,
 +							   llvm::Value* img_handle_arg,
 +							   const COMPUTE_IMAGE_TYPE& image_type,
-+							   llvm::ConstantInt* sampler_arg,
++							   llvm::ConstantInt* const_sampler_arg,
++							   llvm::Value* dyn_sampler_arg,
 +							   llvm::Value* coord_arg,
 +							   llvm::Value* layer_arg,
 +							   llvm::Value* sample_arg,
@@ -4421,6 +4438,13 @@ index 0000000..e7a457d
 +							   const bool is_compare) override {
 +			SmallVector<llvm::Type*, 8> func_arg_types;
 +			SmallVector<llvm::Value*, 8> func_args;
++			
++			// must be constant/constexpr for now
++			if(const_sampler_arg == nullptr) {
++				ctx->emitError(&I, "sampler must be a constant");
++				return;
++			}
++			auto sampler_arg = const_sampler_arg;
 +			
 +			// NOTE: opencl is rather limited when it comes to image functionality, hence not all types of image reads
 +			//       are supported, though some can simply be ignored or emulated in s/w
@@ -4485,7 +4509,7 @@ index 0000000..e7a457d
 +					
 +					// sampler: set NORMALIZED/CLK_NORMALIZED_COORDS_TRUE flag
 +					// NOTE: PIXEL/CLK_NORMALIZED_COORDS_FALSE is 0, so we don't need to clear anything
-+					sampler_arg = ConstantInt::get(sampler_arg->getType(), sampler_arg->getZExtValue() | 0x1);
++					sampler_arg = ConstantInt::get(const_sampler_arg->getType(), const_sampler_arg->getZExtValue() | 0x1);
 +				}
 +			}
 +			
@@ -9949,7 +9973,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..2de4683 100644
+index 8716227..f012fe5 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -10003,7 +10027,16 @@ index 8716227..2de4683 100644
      return;
    }
  
-@@ -6621,7 +6645,7 @@ enum OpenCLParamType {
+@@ -6087,6 +6111,8 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+   }
+ 
+   if (NewVD->isConstexpr() && !T->isDependentType() &&
++      // TODO: how to catch+ignore this earlier?
++      !T->isSamplerT() &&
+       RequireLiteralType(NewVD->getLocation(), T,
+                          diag::err_constexpr_var_non_literal)) {
+     NewVD->setInvalidDecl();
+@@ -6621,7 +6647,7 @@ enum OpenCLParamType {
    RecordKernelParam
  };
  
@@ -10012,7 +10045,7 @@ index 8716227..2de4683 100644
    if (PT->isPointerType()) {
      QualType PointeeType = PT->getPointeeType();
      if (PointeeType->isPointerType())
-@@ -6642,7 +6666,7 @@ static OpenCLParamType getOpenCLKernelParameterType(QualType PT) {
+@@ -6642,7 +6668,7 @@ static OpenCLParamType getOpenCLKernelParameterType(QualType PT) {
    if (PT->isEventT())
      return InvalidKernelParam;
  
@@ -10021,7 +10054,7 @@ index 8716227..2de4683 100644
      return InvalidKernelParam;
  
    if (PT->isRecordType())
-@@ -6655,7 +6679,8 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6655,7 +6681,8 @@ static void checkIsValidOpenCLKernelParameter(
    Sema &S,
    Declarator &D,
    ParmVarDecl *Param,
@@ -10031,7 +10064,7 @@ index 8716227..2de4683 100644
    QualType PT = Param->getType();
  
    // Cache the valid types we encounter to avoid rechecking structs that are
-@@ -6663,7 +6688,7 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6663,7 +6690,7 @@ static void checkIsValidOpenCLKernelParameter(
    if (ValidTypes.count(PT.getTypePtr()))
      return;
  
@@ -10040,7 +10073,7 @@ index 8716227..2de4683 100644
    case PtrPtrKernelParam:
      // OpenCL v1.2 s6.9.a:
      // A kernel function argument cannot be declared as a
-@@ -6727,6 +6752,8 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6727,6 +6754,8 @@ static void checkIsValidOpenCLKernelParameter(
        continue;
      }
  
@@ -10049,7 +10082,7 @@ index 8716227..2de4683 100644
      // Adds everything except the original parameter declaration (which is not a
      // field itself) to the history stack.
      const RecordDecl *RD;
-@@ -6740,13 +6767,17 @@ static void checkIsValidOpenCLKernelParameter(
+@@ -6740,13 +6769,17 @@ static void checkIsValidOpenCLKernelParameter(
      // Add a null marker so we know when we've gone back up a level
      VisitStack.push_back(nullptr);
  
@@ -10068,7 +10101,7 @@ index 8716227..2de4683 100644
        if (ParamType == ValidKernelParam)
          continue;
  
-@@ -7578,15 +7609,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -7578,15 +7611,8 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
      }
    }
  
@@ -10086,7 +10119,7 @@ index 8716227..2de4683 100644
      if (!NewFD->getReturnType()->isVoidType()) {
        SourceRange RTRange = NewFD->getReturnTypeSourceRange();
        Diag(D.getIdentifierLoc(), diag::err_expected_kernel_void_return_type)
-@@ -7594,10 +7618,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -7594,10 +7620,23 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
                                  : FixItHint());
        D.setInvalidType();
      }
@@ -10113,7 +10146,7 @@ index 8716227..2de4683 100644
    }
  
    MarkUnusedFileScopedDecl(NewFD);
-@@ -7918,7 +7955,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
+@@ -7918,7 +7957,10 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
      // the function returns a UDT (class, struct, or union type) that is not C
      // compatible, and if it does, warn the user.
      // But, issue any diagnostic on the first declaration only.
@@ -10125,7 +10158,7 @@ index 8716227..2de4683 100644
        QualType R = NewFD->getReturnType();
        if (R->isIncompleteType() && !R->isVoidType())
          Diag(NewFD->getLocation(), diag::warn_return_value_udt_incomplete)
-@@ -7959,9 +7999,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
+@@ -7959,9 +8001,10 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
      FD->setConstexpr(false);
    }
  
@@ -10138,7 +10171,7 @@ index 8716227..2de4683 100644
      FD->setInvalidDecl();
      return;
    }
-@@ -9781,8 +9822,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
+@@ -9781,8 +9824,10 @@ static bool ShouldWarnAboutMissingPrototype(const FunctionDecl *FD,
    if (FD->isFunctionTemplateSpecialization())
      return false;
  
@@ -10151,7 +10184,7 @@ index 8716227..2de4683 100644
      return false;
  
    bool MissingPrototype = true;
-@@ -9870,6 +9913,28 @@ static void RebuildLambdaScopeInfo(CXXMethodDecl *CallOperator,
+@@ -9870,6 +9915,28 @@ static void RebuildLambdaScopeInfo(CXXMethodDecl *CallOperator,
    }
  }
  
@@ -10180,7 +10213,7 @@ index 8716227..2de4683 100644
  Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    // Clear the last template instantiation error context.
    LastTemplateInstantiationErrorContext = ActiveTemplateInstantiation();
-@@ -9954,6 +10019,32 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
+@@ -9954,6 +10021,32 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D) {
    CheckParmsForFunctionDef(FD->param_begin(), FD->param_end(),
                             /*CheckParameterNames=*/true);
  
@@ -10213,7 +10246,7 @@ index 8716227..2de4683 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +12032,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -11941,7 +12034,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
