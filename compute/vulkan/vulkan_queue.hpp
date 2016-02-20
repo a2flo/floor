@@ -30,15 +30,36 @@ class vulkan_queue final : public compute_queue {
 public:
 	vulkan_queue(shared_ptr<compute_device> device, VkQueue queue, const uint32_t family_index);
 	
-	void finish() const override;
+	void finish() const override REQUIRES(!queue_lock);
 	void flush() const override;
 	
-	const void* get_queue_ptr() const override;
+	// this is synchronized elsewhere
+	const void* get_queue_ptr() const override NO_THREAD_SAFETY_ANALYSIS;
+	
+	struct command_buffer {
+		VkCommandBuffer cmd_buffer;
+		const uint32_t index;
+	};
+	command_buffer make_command_buffer() REQUIRES(!cmd_buffers_lock);
+	void submit_command_buffer(command_buffer cmd_buffer) REQUIRES(!cmd_buffers_lock, !queue_lock);
 	
 protected:
-	const VkQueue queue;
+	const VkQueue queue GUARDED_BY(queue_lock);
+	mutable safe_recursive_mutex queue_lock;
 	const uint32_t family_index;
 	VkCommandPool cmd_pool;
+
+	mutable safe_recursive_mutex cmd_buffers_lock;
+	static constexpr const uint32_t cmd_buffer_count {
+		// make use of optimized bitset
+#if defined(PLATFORM_X64)
+		64
+#else
+		32
+#endif
+	};
+	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
+	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);
 	
 };
 

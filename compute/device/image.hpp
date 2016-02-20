@@ -415,7 +415,7 @@ namespace floor_image {
 			const auto converted_coord = convert_coord(coord);
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
-			const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
+			constexpr const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
 			const auto read_color = __builtin_choose_expr(is_float,
 														  opaque_image::read_image_float(r_img, smplr, image_type, converted_coord, layer, sample, offset,
 																						 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,

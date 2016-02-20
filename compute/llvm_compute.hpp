@@ -87,7 +87,10 @@ public:
 		
 		enum class SPECIAL_TYPE : uint32_t {
 			NONE							= (0u),
+			//! graphics-only: vertex/fragment shader stage input
 			STAGE_INPUT						= (1u),
+			//! vulkan-only: constant parameter fast path
+			PUSH_CONSTANT					= (2u),
 		};
 		
 		struct kernel_arg_info {

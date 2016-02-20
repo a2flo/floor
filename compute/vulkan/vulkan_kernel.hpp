@@ -35,10 +35,17 @@
 
 class vulkan_device;
 class vulkan_kernel final : public compute_kernel {
+protected:
+	// don't want to include vulkan_queue here
+	struct vulkan_encoder;
+	
 public:
 	struct vulkan_kernel_entry : kernel_entry {
-		// TODO: object / full compute pipeline probably?
-		void* kernel { nullptr };
+		VkPipeline pipeline { nullptr };
+		VkDescriptorSetLayout desc_set_layout { nullptr };
+		VkPipelineLayout pipeline_layout { nullptr };
+		VkDescriptorPool desc_pool { nullptr };
+		VkDescriptorSet desc_set { nullptr };
 	};
 	typedef flat_map<vulkan_device*, vulkan_kernel_entry> kernel_map_type;
 	
@@ -58,13 +65,29 @@ public:
 		}
 		
 		// check work size
-		const uint3 local_work_size = check_local_work_size(kernel_iter->second, local_work_size_);
+		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
+		
+		// create command buffer ("encoder") for this kernel execution
+		bool encoder_success = false;
+		auto encoder = create_encoder(queue, kernel_iter->second, encoder_success);
+		if(!encoder_success) {
+			log_error("failed to create vulkan encoder / command buffer for kernel \"%s\"", kernel_iter->second.info->name);
+			return;
+		}
 		
 		// set and handle kernel arguments
-		set_kernel_arguments<0>(kernel_iter->second, forward<Args>(args)...);
+		set_kernel_arguments<0>(encoder.get(), kernel_iter->second, forward<Args>(args)...);
 		
 		// run
-		execute_internal(queue, kernel_iter->second, work_dim, global_work_size, local_work_size);
+		const uint3 grid_dim_overflow {
+			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
+			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
+			global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
+		};
+		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
+		grid_dim.max(1u);
+		
+		execute_internal(encoder.get(), queue, kernel_iter->second, work_dim, grid_dim, block_dim);
 	}
 	
 	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
@@ -79,41 +102,43 @@ protected:
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
+
+	unique_ptr<vulkan_encoder> create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success);
 	
-	void execute_internal(compute_queue* queue,
+	void execute_internal(vulkan_encoder* encoder,
+						  compute_queue* queue,
 						  const vulkan_kernel_entry& entry,
 						  const uint32_t& work_dim,
-						  const uint3& global_work_size,
-						  const uint3& local_work_size) const;
+						  const uint3& grid_dim,
+						  const uint3& block_dim) const;
 	
 	//! handle kernel call terminator
 	template <uint32_t num>
-	floor_inline_always void set_kernel_arguments(const vulkan_kernel_entry&) const {}
+	floor_inline_always void set_kernel_arguments(vulkan_encoder*, const vulkan_kernel_entry&) const {}
 	
 	//! set kernel argument and recurse
 	template <uint32_t num, typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(const vulkan_kernel_entry& entry,
+	floor_inline_always void set_kernel_arguments(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
 												  T&& arg, Args&&... args) const {
-		set_kernel_argument(entry, num, forward<T>(arg));
-		set_kernel_arguments<num + 1>(entry, forward<Args>(args)...);
+		set_kernel_argument(encoder, entry, num, forward<T>(arg));
+		set_kernel_arguments<num + 1>(encoder, entry, forward<Args>(args)...);
 	}
 	
 	//! actual kernel argument setter
 	template <typename T>
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
-												 const uint32_t num floor_unused, T&& arg floor_unused) const {
-		// TODO: implement this
+	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+												 const uint32_t num, T&& arg) const {
+		set_kernel_argument(encoder, entry, num, &arg, sizeof(T));
 	}
 	
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
-												 const uint32_t num floor_unused, shared_ptr<compute_buffer> arg floor_unused) const {
-		// TODO: implement this
-	}
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, const void* ptr, const size_t& size) const;
 	
-	floor_inline_always void set_kernel_argument(const vulkan_kernel_entry& entry floor_unused,
-												 const uint32_t num floor_unused, shared_ptr<compute_image> arg floor_unused) const {
-		// TODO: implement this
-	}
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, shared_ptr<compute_buffer> arg) const;
+	
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, shared_ptr<compute_image> arg) const;
 	
 };
 

@@ -242,6 +242,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
 		device->bitness = (limits.sparseAddressSpaceSize > 0xFFFFFFFF ? 64 : 32); // TODO: this is a hack, but there is no other way of doing this
+		device->max_push_constants_size = limits.maxPushConstantsSize;
 
 		// retrieve memory info
 		VkPhysicalDeviceMemoryProperties mem_props;

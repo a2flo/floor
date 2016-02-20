@@ -96,9 +96,11 @@ public:
 	
 	//! returns the vulkan specific buffer object/pointer
 	const VkBuffer& get_vulkan_buffer() const { return buffer; }
+	const VkDescriptorBufferInfo* get_vulkan_buffer_info() const { return &buffer_info; }
 	
 protected:
 	VkBuffer buffer { nullptr };
+	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

@@ -51,6 +51,9 @@ public:
 	//! for internal purposes, do not change this
 	uint32_t cur_queue_idx { 0 };
 	
+	//! max push constants size
+	uint32_t max_push_constants_size { 0u };
+	
 };
 
 FLOOR_POP_WARNINGS()
