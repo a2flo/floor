@@ -245,25 +245,59 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		device->max_push_constants_size = limits.maxPushConstantsSize;
 
 		// retrieve memory info
-		VkPhysicalDeviceMemoryProperties mem_props;
-		vkGetPhysicalDeviceMemoryProperties(phys_dev, &mem_props);
+		device->mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
+		vkGetPhysicalDeviceMemoryProperties(phys_dev, device->mem_props.get());
 		
 		// global memory (heap with local bit)
-		// TODO: should probably use this to figure out memory sizes for integrated gpus (and unified_memory)
-		/*for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
-			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) {
-				device->global_mem_size = mem_props.memoryHeaps[mem_props.memoryTypes[i].heapIndex].size;
-				break;
-			}
-		}*/
 		// for now, just assume the correct data is stored in the heap flags
-		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+		auto& mem_props = *device->mem_props.get();
+		for(uint32_t i = 0; i < mem_props.memoryHeapCount; ++i) {
 			if(mem_props.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
 				device->global_mem_size = mem_props.memoryHeaps[i].size;
 				device->max_mem_alloc = mem_props.memoryHeaps[i].size; // TODO: min(gpu heap, host heap)?
 				break;
 			}
 		}
+		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+			if(device->device_mem_index == ~0u &&
+			   mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+				device->device_mem_index = i;
+				log_msg("using memory type #%u for device allocations", device->device_mem_index);
+			}
+			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+				// we preferably want to allocate both cached and uncached host visible memory,
+				// but if this isn't possible, just stick with the one that works at all
+				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+					device->host_mem_cached_index = i;
+				}
+				else {
+					device->host_mem_uncached_index = i;
+				}
+			}
+		}
+		if(device->device_mem_index == ~0u) {
+			log_error("no device memory found");
+		}
+		if(device->host_mem_cached_index == ~0u &&
+		   device->host_mem_uncached_index == ~0u) {
+			log_error("no host-visible memory found");
+		}
+		else {
+			// fallback if either isn't available (see above)
+			if(device->host_mem_cached_index == ~0u) {
+				device->host_mem_cached_index = device->host_mem_uncached_index;
+			}
+			else if(device->host_mem_uncached_index == ~0u) {
+				device->host_mem_uncached_index = device->host_mem_cached_index;
+			}
+			log_msg("using memory type #%u for cached host-visible allocations", device->host_mem_cached_index);
+			log_msg("using memory type #%u for uncached host-visible allocations", device->host_mem_uncached_index);
+		}
+		if(device->device_mem_index == device->host_mem_cached_index ||
+		   device->device_mem_index == device->host_mem_uncached_index) {
+			device->unified_memory = true;
+		}
+		
 		log_msg("max mem alloc: %u bytes / %u MB",
 				device->max_mem_alloc,
 				device->max_mem_alloc / 1024ULL / 1024ULL);
@@ -432,18 +466,61 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	return add_program(move(prog_map));
 }
 
-vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device floor_unused,
+																		   pair<string, vector<llvm_compute::kernel_info>> program_data floor_unused) {
 	// TODO: implement this
 	log_error("not yet supported by vulkan_compute!");
 	return {};
 }
 
-shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																		 const vector<llvm_compute::kernel_info>& kernel_infos floor_unused) {
-	// TODO: !
-	log_error("not yet supported by vulkan_compute!");
-	return {};
+shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
+																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
+	unique_ptr<uint32_t[]> code;
+	size_t code_size = 0;
+	{
+		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
+		if(!binary.is_open()) {
+			log_error("failed to load spir-v binary (\"%s\")", file_name);
+			return {};
+		}
+		
+		code_size = (size_t)binary.get_filesize();
+		if(code_size % 4u != 0u) {
+			log_error("invalid spir-v binary size %u (\"%s\"): must be a multiple of 4!", code_size, file_name);
+			return {};
+		}
+		
+		code = make_unique<uint32_t[]>(code_size / 4u);
+		binary.get_block((char*)code.get(), (streamsize)code_size);
+		const auto read_size = binary.get_filestream()->gcount();
+		if(read_size != (decltype(read_size))code_size) {
+			log_error("failed to read spir-v binary (\"%s\"): expected %u bytes, but only read %u bytes", file_name, code_size, read_size);
+			return {};
+		}
+	}
+	
+	const VkShaderModuleCreateInfo module_info {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.codeSize = code_size,
+		.pCode = code.get(),
+	};
+	
+	// assume pre-compiled program is the same for all devices
+	vulkan_program::program_map_type prog_map;
+	prog_map.reserve(devices.size());
+	for(const auto& dev : devices) {
+		vulkan_program::vulkan_program_entry entry;
+		entry.kernels_info = kernel_infos;
+		
+		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &entry.program),
+					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"");
+		entry.valid = true;
+		
+		prog_map.insert_or_assign((vulkan_device*)dev.get(), entry);
+	}
+	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,

@@ -37,9 +37,9 @@ typename vulkan_kernel::kernel_map_type::const_iterator vulkan_kernel::get_kerne
 	return kernels.find((vulkan_device*)queue->get_device().get());
 }
 
-unique_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success) {
+shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success) {
 	success = false;
-	auto encoder = make_unique<vulkan_encoder>(vulkan_encoder {
+	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer(),
 	});
 	

@@ -100,7 +100,18 @@ public:
 	
 protected:
 	VkBuffer buffer { nullptr };
+	VkDeviceMemory mem { nullptr };
 	VkDescriptorBufferInfo buffer_info { nullptr, 0, 0 };
+	
+	struct vulkan_mapping {
+		VkBuffer buffer;
+		VkDeviceMemory mem;
+		const size_t size;
+		const size_t offset;
+		const COMPUTE_MEMORY_MAP_FLAG flags;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, vulkan_mapping> mappings;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

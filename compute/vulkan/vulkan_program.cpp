@@ -104,7 +104,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								//            into push constants (will require compiler support of course + device specific binary)
 								// NOTE: min push constants size is at least 128 bytes
 								// alternatively: put it into a ubo
-								bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 								++buffer_desc;
 								break;
 							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::LOCAL:

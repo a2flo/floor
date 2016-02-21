@@ -103,7 +103,7 @@ protected:
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 
-	unique_ptr<vulkan_encoder> create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success);
+	shared_ptr<vulkan_encoder> create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success);
 	
 	void execute_internal(vulkan_encoder* encoder,
 						  compute_queue* queue,

@@ -48,7 +48,7 @@ public:
 		return image_type;
 	}
 	
-	compute_image(const void* device,
+	compute_image(const compute_device* device,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
 				  void* host_ptr_ = nullptr,

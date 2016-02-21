@@ -36,6 +36,12 @@ vulkan_buffer::vulkan_buffer(const vulkan_device* device,
 compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
+	// TODO: really need to make memory directly associated with devices now (opencl is the only backend that doesn't do this)
+	if(device == nullptr) {
+		log_error("no device has been specified");
+		return;
+	}
+	
 	// TODO: handle the remaining flags + host ptr
 	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// TODO: flag?
@@ -47,13 +53,54 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 }
 
-bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	// TODO: implement this
-	return false;
+bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue floor_unused) {
+	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+	
+	// create the buffer
+	const VkBufferCreateInfo buffer_create_info {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0, // no sparse backing
+		.size = size,
+		// TODO: will want to use other things here as well, later on (ubo, vbo, ...)
+		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		// TODO: probably want a concurrent option later on
+		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.queueFamilyIndexCount = 0,
+		.pQueueFamilyIndices = nullptr,
+	};
+	VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &buffer), "buffer creation failed", false);
+	
+	// allocate / back it up
+	VkMemoryRequirements mem_req;
+	vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
+	
+	// TODO: handle host-memory backing
+	const VkMemoryAllocateInfo alloc_info {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.pNext = nullptr,
+		.allocationSize = mem_req.size,
+		// TODO/NOTE: always use device memory for now
+		.memoryTypeIndex = ((const vulkan_device*)dev)->device_mem_index,
+	};
+	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "buffer allocation failed", false);
+	VK_CALL_RET(vkBindBufferMemory(vulkan_dev, buffer, mem, 0), "buffer allocation binding failed", false);
+	
+	// update buffer desc info
+	buffer_info.buffer = buffer;
+	buffer_info.offset = 0;
+	buffer_info.range = size;
+	
+	// TODO: buffer init from host data pointer
+	
+	return true;
 }
 
 vulkan_buffer::~vulkan_buffer() {
-	// TODO: implement this
+	if(buffer != nullptr) {
+		vkDestroyBuffer(((const vulkan_device*)dev)->device, buffer, nullptr);
+	}
+	// TODO: destroy all the rest
 }
 
 void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -110,15 +157,131 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 													   const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return nullptr;
 	
-	// TODO: implement this
-	return nullptr;
+	const size_t map_size = (size_ == 0 ? size : size_);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
+	if(!map_check(size, map_size, flags, flags_, offset)) return nullptr;
+	
+	bool write_only = false;
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(flags_)) {
+		write_only = true;
+	}
+	else {
+		switch(flags_ & COMPUTE_MEMORY_MAP_FLAG::READ_WRITE) {
+			case COMPUTE_MEMORY_MAP_FLAG::READ:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::WRITE:
+				write_only = true;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::READ_WRITE:
+				write_only = false;
+				break;
+			case COMPUTE_MEMORY_MAP_FLAG::NONE:
+			default:
+				log_error("neither read nor write flag set for buffer mapping!");
+				return nullptr;
+		}
+	}
+	
+	// here is the deal with vulkan device memory:
+	//  * we always allocate device local memory, regardless of any host-visibility
+	//  * if the device local memory is not host-visible, we need to allocate an appropriately sized
+	//    host-visible buffer, then: a) for read: create a device -> host buffer copy (in here)
+	//                               b) for write: create a host buffer -> device buffer copy (in unmap)
+	//  * if the device local memory is host-visible, we can just call vulkan map/unmap functions
+	
+	// create the host-visible buffer if necessary
+	vulkan_mapping mapping {
+		.buffer = buffer,
+		.mem = mem,
+		.size = map_size,
+		.offset = offset,
+		.flags = flags_,
+	};
+	size_t host_buffer_offset = offset;
+	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+	// TODO: make sure this is cleaned up properly on failure
+	if(!dev->unified_memory) { // TODO: or already created host-visible (-> create_internal)
+		// we're only creating a buffer that is large enough + start from the offset
+		host_buffer_offset = 0;
+		
+		// create the host-visible buffer
+		const VkBufferCreateInfo buffer_create_info {
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.size = size,
+			.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.queueFamilyIndexCount = 0,
+			.pQueueFamilyIndices = nullptr,
+		};
+		VK_CALL_RET(vkCreateBuffer(vulkan_dev, &buffer_create_info, nullptr, &mapping.buffer), "map buffer creation failed", nullptr);
+	
+		// allocate / back it up
+		VkMemoryRequirements mem_req;
+		vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
+	
+		const VkMemoryAllocateInfo alloc_info {
+			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			.pNext = nullptr,
+			.allocationSize = mem_req.size,
+			.memoryTypeIndex = ((const vulkan_device*)dev)->host_mem_cached_index,
+		};
+		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr);
+		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr);
+	}
+	
+	// check if we need to copy the buffer from the device (in case READ was specified)
+	if(!write_only) {
+		if(blocking_map) {
+			// must finish up all current work before we can properly read from the current buffer
+			cqueue->finish();
+		}
+		
+		// TODO: device -> host buffer copy
+	}
+	
+	// TODO: use vkFlushMappedMemoryRanges/vkInvalidateMappedMemoryRanges if possible
+	
+	// map the host buffer
+	void* __attribute__((aligned(128))) host_ptr { nullptr };
+	VK_CALL_RET(vkMapMemory(vulkan_dev, mapping.mem, host_buffer_offset, map_size, 0, &host_ptr), "failed to map host buffer", nullptr);
+	
+	// need to remember how much we mapped and where (so the host -> device write-back copies the right amount of bytes)
+	mappings.emplace(host_ptr, mapping);
+	
+	return host_ptr;
 }
 
 void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
 	if(buffer == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	// TODO: implement this
+	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+	
+	// check if this is actually a mapped pointer (+get the mapped size)
+	const auto iter = mappings.find(mapped_ptr);
+	if(iter == mappings.end()) {
+		log_error("invalid mapped pointer: %X", mapped_ptr);
+		return;
+	}
+	
+	// check if we need to actually copy data back to the device (not the case if read-only mapping)
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		// TODO: host -> device copy
+	}
+	
+	// unmap
+	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ... -> can only unmap if this is the last mapping (if unified_memory, if the buffer was just created/allocated for this, then it doesn't matter)
+	// also: TODO: SYNC!
+	vkUnmapMemory(vulkan_dev, iter->second.mem);
+	
+	// TODO: delete host buffer
+	
+	// remove the mapping
+	mappings.erase(mapped_ptr);
 }
 
 bool vulkan_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {

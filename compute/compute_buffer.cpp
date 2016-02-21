@@ -19,7 +19,7 @@
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/core/logger.hpp>
 
-compute_buffer::compute_buffer(const void* device,
+compute_buffer::compute_buffer(const compute_device* device,
 							   const size_t& size_,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,

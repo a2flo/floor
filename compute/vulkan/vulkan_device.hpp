@@ -39,9 +39,13 @@ public:
 	
 	//! logical vulkan device
 	VkDevice device { nullptr };
+	
+	//! memory properties of the device/implementation/host
+	shared_ptr<VkPhysicalDeviceMemoryProperties> mem_props;
 #else
 	void* _physical_device { nullptr };
 	void* _device { nullptr };
+	shared_ptr<void*> _mem_props;
 #endif
 	
 	//! queue count per queue family
@@ -53,6 +57,15 @@ public:
 	
 	//! max push constants size
 	uint32_t max_push_constants_size { 0u };
+	
+	//! memory type index for device memory allocation
+	uint32_t device_mem_index { ~0u };
+	
+	//! memory type index for (potentially cached) host + device-visible memory allocation
+	uint32_t host_mem_cached_index { ~0u };
+	
+	//! memory type index for (potentially uncached) host + device-visible memory allocation
+	uint32_t host_mem_uncached_index { ~0u };
 	
 };
 
