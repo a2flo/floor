@@ -25,7 +25,10 @@
 
 struct vulkan_kernel::vulkan_encoder {
 	vulkan_queue::command_buffer cmd_buffer;
+	vulkan_device* device;
 	vector<VkWriteDescriptorSet> write_descs;
+	vector<shared_ptr<compute_buffer>> constant_buffers;
+	vector<uint32_t> dyn_offsets;
 };
 
 vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
@@ -41,6 +44,7 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 	success = false;
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer(),
+		.device = (vulkan_device*)(queue->get_device().get()),
 	});
 	
 	if(encoder->cmd_buffer.cmd_buffer == nullptr) {
@@ -66,7 +70,7 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 	return encoder;
 }
 
-void vulkan_kernel::execute_internal(vulkan_encoder* encoder,
+void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 									 compute_queue* queue,
 									 const vulkan_kernel_entry& entry,
 									 const uint32_t& work_dim floor_unused,
@@ -87,8 +91,8 @@ void vulkan_kernel::execute_internal(vulkan_encoder* encoder,
 							0,
 							1,
 							&entry.desc_set,
-							0,
-							nullptr);
+							(uint32_t)encoder->dyn_offsets.size(),
+							encoder->dyn_offsets.data());
 	
 	// set dims + pipeline
 	// TODO: check if grid_dim matches compute shader defintion
@@ -96,12 +100,24 @@ void vulkan_kernel::execute_internal(vulkan_encoder* encoder,
 	
 	// all done here, end + submit
 	VK_CALL_RET(vkEndCommandBuffer(encoder->cmd_buffer.cmd_buffer), "failed to end command buffer");
-	((vulkan_queue*)queue)->submit_command_buffer(encoder->cmd_buffer);
+	((vulkan_queue*)queue)->submit_command_buffer(encoder->cmd_buffer,
+												  [encoder](const vulkan_queue::command_buffer&) {
+		// -> completion handler
+		
+		// kill constant buffers after the kernel has finished execution
+		encoder->constant_buffers.clear();
+	});
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder floor_unused, const vulkan_kernel_entry& entry floor_unused,
-										const uint32_t num floor_unused, const void* ptr floor_unused, const size_t& size floor_unused) const {
-	// TODO: implement this (need to allocate a tmp buffer for this unless it's a push constant ...)
+void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+										const uint32_t num, const void* ptr, const size_t& size) const {
+	// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
+	// TODO: current limitation of this is that size must be a multiple of 4
+	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->device, size, (void*)ptr,
+																			COMPUTE_MEMORY_FLAG::READ |
+																			COMPUTE_MEMORY_FLAG::HOST_WRITE);
+	encoder->constant_buffers.push_back(constant_buffer);
+	set_kernel_argument(encoder, entry, num, constant_buffer);
 }
 
 void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
@@ -118,6 +134,9 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 	write_desc.pImageInfo = nullptr;
 	write_desc.pBufferInfo = ((vulkan_buffer*)arg.get())->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
+	
+	// always offset 0 for now
+	encoder->dyn_offsets.emplace_back(0);
 }
 
 void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder floor_unused,

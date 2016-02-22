@@ -53,7 +53,7 @@ compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_objec
 	}
 }
 
-bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue floor_unused) {
+bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	auto vulkan_dev = ((const vulkan_device*)dev)->device;
 	
 	// create the buffer
@@ -91,7 +91,22 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	buffer_info.offset = 0;
 	buffer_info.range = size;
 	
-	// TODO: buffer init from host data pointer
+	// buffer init from host data pointer
+	if(copy_host_data &&
+	   host_ptr != nullptr &&
+	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+		// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
+		auto map_queue = (cqueue != nullptr ? cqueue : ((const vulkan_device*)dev)->compute_ctx->get_device_default_queue(dev));
+		auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, 0);
+		if(mapped_ptr != nullptr) {
+			memcpy(mapped_ptr, host_ptr, size);
+			unmap(map_queue, mapped_ptr);
+		}
+		else {
+			log_error("failed to initialize buffer with host data (map failed)");
+			return false;
+		}
+	}
 	
 	return true;
 }
@@ -267,10 +282,37 @@ void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 		return;
 	}
 	
+	// TODO: again, make sure this is cleaned up properly on failure
+	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
-		// TODO: host -> device copy
+		if(!dev->unified_memory) {
+			// host -> device copy
+			// TODO: sync ...
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer(); // TODO: should probably abstract this a little
+			const VkCommandBufferBeginInfo begin_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+				.pNext = nullptr,
+				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+				.pInheritanceInfo = nullptr,
+			};
+			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+						"failed to begin command buffer");
+		
+			const VkBufferCopy region {
+				.srcOffset = 0,
+				.dstOffset = iter->second.offset,
+				.size = iter->second.size,
+			};
+			vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, buffer, 1, &region);
+		
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+		}
+		else {
+			// TODO: flush?
+		}
 	}
 	
 	// unmap

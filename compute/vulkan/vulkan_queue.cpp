@@ -20,6 +20,7 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/compute/vulkan/vulkan_device.hpp>
+#include <floor/threading/task.hpp>
 
 vulkan_queue::vulkan_queue(shared_ptr<compute_device> device_, const VkQueue queue_, const uint32_t family_index_) :
 compute_queue(device_), queue(queue_), family_index(family_index_) {
@@ -67,19 +68,36 @@ vulkan_queue::command_buffer vulkan_queue::make_command_buffer() {
 		for(uint32_t i = 0; i < cmd_buffer_count; ++i) {
 			if(!cmd_buffers_in_use[i]) {
 				VK_CALL_RET(vkResetCommandBuffer(cmd_buffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT),
-							"failed to reset command buffer", { nullptr, ~0u });
+							"failed to reset command buffer", { nullptr, nullptr, ~0u });
+
+				// create a fence for later
+				static constexpr const VkFenceCreateInfo fence_info {
+					.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+					.pNext = nullptr,
+					.flags = 0,
+				};
+				VkFence fence;
+				VK_CALL_RET(vkCreateFence(((vulkan_device*)device.get())->device, &fence_info, nullptr, &fence),
+							"failed to create fence", {});
+				
 				cmd_buffers_in_use.set(i);
-				return { cmd_buffers[i], i };
+				return { cmd_buffers[i], fence, i };
 			}
 		}
 		// shouldn't get here if .all() check fails
 		floor_unreachable();
 	}
 	log_error("all command buffers are currently in use (implementation limitation right now)");
-	return { nullptr, ~0u };
+	return { nullptr, nullptr, ~0u };
 }
 
-void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer) {
+void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer, const bool blocking) {
+	submit_command_buffer(cmd_buffer, [](const command_buffer&){}, blocking);
+}
+
+void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer,
+										 function<void(const command_buffer&)> completion_handler,
+										 const bool blocking) {
 	// must sync/lock queue
 	{
 		GUARD(queue_lock);
@@ -94,18 +112,48 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 			.signalSemaphoreCount = 0,
 			.pSignalSemaphores = nullptr,
 		};
-		const auto submit_err = vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE);
+		const auto submit_err = vkQueueSubmit(queue, 1, &submit_info, cmd_buffer.fence);
 		if(submit_err != VK_SUCCESS) {
 			log_error("failed to submit queue: %u: %s", submit_err, vulkan_error_to_string(submit_err));
 			// still continue here to free the cmd buffer
 		}
 	}
 	
-	// mark cmd buffer as free again
-	// TODO: this needs to be handled _after_ the cmd buffer has been executed, not here
-	{
-		GUARD(cmd_buffers_lock);
-		cmd_buffers_in_use.reset(cmd_buffer.index);
+	const auto completion_func = [this, cmd_buffer, completion_handler, dev = ((vulkan_device*)device.get())->device]() {
+		// TODO: it might make sense to sleep+wait+vkGetFenceStatus instead of vkWaitForFences
+		// TODO: connect a fence to a cmd buffer allocation, this way they don't need to be created + destroyed every time
+		// TODO: instead of creating a completion handler thread every time, it's probably better to have just one (or two) threads to handle this (+vkGetFenceStatus)
+		
+		// 30s should be enough
+		const auto err = vkWaitForFences(dev, 1, &cmd_buffer.fence, VK_TRUE, 30'000'000'000ull);
+		if(err != VK_SUCCESS && err != VK_TIMEOUT) {
+			log_error("fence wait failed: %u: %s", err, vulkan_error_to_string(err));
+		}
+		else if(err == VK_TIMEOUT) {
+			log_error("fence wait timeout: execution took longer than 30s!");
+		}
+		// -> still continuing here on error
+		
+		// free fence
+		vkDestroyFence(dev, cmd_buffer.fence, nullptr);
+		
+		// call user-specified handler
+		completion_handler(cmd_buffer);
+		
+		// mark cmd buffer as free again
+		{
+			GUARD(cmd_buffers_lock);
+			cmd_buffers_in_use.reset(cmd_buffer.index);
+		}
+	};
+	
+	if(!blocking) {
+		// spawn completion handler thread
+		task::spawn(completion_func, "q_cmpl_hndlr");
+	}
+	else {
+		// block until done or timeout
+		completion_func();
 	}
 }
 

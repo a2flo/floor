@@ -147,12 +147,17 @@ public:
 		return ctx;
 	}
 	
+	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
+	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
+	
 protected:
 	VkInstance ctx { nullptr };
 	
 	// NOTE: these match up 1:1
 	vector<VkPhysicalDevice> physical_devices;
 	vector<VkDevice> logical_devices;
+	
+	vector<pair<shared_ptr<compute_device>, shared_ptr<compute_queue>>> default_queues;
 	
 	VULKAN_VERSION platform_version { VULKAN_VERSION::VULKAN_1_0 };
 	

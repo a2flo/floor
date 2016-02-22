@@ -161,6 +161,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		devices.emplace_back(device);
 		physical_devices.emplace_back(phys_dev);
 		logical_devices.emplace_back(dev);
+		device->compute_ctx = this;
 		device->physical_device = phys_dev;
 		device->device = dev;
 		device->name = props.deviceName;
@@ -333,6 +334,15 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	// else: success, we have at least one device
 	supported = true;
 	
+	// already create command queues for all devices, these will serve as the default queues and the ones returned
+	// when first calling create_queue for a device (a second call will then create an actual new one)
+	for(const auto& dev : devices) {
+		default_queues.emplace_back(dev, create_queue(dev));
+		
+		// reset idx to 0 so that the first user request gets the same queue
+		((vulkan_device*)dev.get())->cur_queue_idx = 0;
+	}
+	
 	// workaround non-existent fastest device selection
 	fastest_device = devices[0];
 }
@@ -362,6 +372,21 @@ shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device
 	auto ret = make_shared<vulkan_queue>(dev, queue_obj, family_index);
 	queues.push_back(ret);
 	return ret;
+}
+
+shared_ptr<compute_queue> vulkan_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
+	return get_device_default_queue(dev.get());
+}
+
+shared_ptr<compute_queue> vulkan_compute::get_device_default_queue(const compute_device* dev) const {
+	for(const auto& default_queue : default_queues) {
+		if(default_queue.first.get() == dev) {
+			return default_queue.second;
+		}
+	}
+	// only happens if the context is invalid (the default queues haven't been created)
+	log_error("no default queue for this device exists yet!");
+	return {};
 }
 
 // TODO: should probably remove non-device create_buffer/create_image calls ...

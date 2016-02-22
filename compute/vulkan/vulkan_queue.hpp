@@ -38,18 +38,23 @@ public:
 	
 	struct command_buffer {
 		VkCommandBuffer cmd_buffer;
+		VkFence fence;
 		const uint32_t index;
 	};
 	command_buffer make_command_buffer() REQUIRES(!cmd_buffers_lock);
-	void submit_command_buffer(command_buffer cmd_buffer) REQUIRES(!cmd_buffers_lock, !queue_lock);
+	
+	void submit_command_buffer(command_buffer cmd_buffer, const bool blocking = false) REQUIRES(!cmd_buffers_lock, !queue_lock);
+	void submit_command_buffer(command_buffer cmd_buffer,
+							   function<void(const command_buffer&)> completion_handler,
+							   const bool blocking = false) REQUIRES(!cmd_buffers_lock, !queue_lock);
 	
 protected:
 	const VkQueue queue GUARDED_BY(queue_lock);
-	mutable safe_recursive_mutex queue_lock;
+	mutable safe_mutex queue_lock;
 	const uint32_t family_index;
 	VkCommandPool cmd_pool;
 
-	mutable safe_recursive_mutex cmd_buffers_lock;
+	mutable safe_mutex cmd_buffers_lock;
 	static constexpr const uint32_t cmd_buffer_count {
 		// make use of optimized bitset
 #if defined(PLATFORM_X64)

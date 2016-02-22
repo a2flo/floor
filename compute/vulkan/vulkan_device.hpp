@@ -34,6 +34,9 @@ public:
 	~vulkan_device() override {}
 	
 #if !defined(FLOOR_NO_VULKAN)
+	//! associated vulkan_compute context
+	vulkan_compute* compute_ctx { nullptr };
+	
 	//! physical vulkan device
 	VkPhysicalDevice physical_device { nullptr };
 	
@@ -43,6 +46,7 @@ public:
 	//! memory properties of the device/implementation/host
 	shared_ptr<VkPhysicalDeviceMemoryProperties> mem_props;
 #else
+	void* _compute_ctx { nullptr };
 	void* _physical_device { nullptr };
 	void* _device { nullptr };
 	shared_ptr<void*> _mem_props;

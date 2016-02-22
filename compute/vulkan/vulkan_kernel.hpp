@@ -87,7 +87,7 @@ public:
 		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 		grid_dim.max(1u);
 		
-		execute_internal(encoder.get(), queue, kernel_iter->second, work_dim, grid_dim, block_dim);
+		execute_internal(encoder, queue, kernel_iter->second, work_dim, grid_dim, block_dim);
 	}
 	
 	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
@@ -105,7 +105,7 @@ protected:
 
 	shared_ptr<vulkan_encoder> create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success);
 	
-	void execute_internal(vulkan_encoder* encoder,
+	void execute_internal(shared_ptr<vulkan_encoder> encoder,
 						  compute_queue* queue,
 						  const vulkan_kernel_entry& entry,
 						  const uint32_t& work_dim,
