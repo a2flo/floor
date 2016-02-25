@@ -28,9 +28,10 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels) {
+bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels,
+									  const uint32_t toolchain_version) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
-	const auto parse_metadata_line = [](const string& line, const auto& per_elem_func) {
+	const auto parse_metadata_line = [toolchain_version](const string& line, const auto& per_elem_func) {
 		const auto set_start = line.find('{');
 		const auto set_end = line.rfind('}');
 		if(set_start != string::npos && set_end != string::npos &&
@@ -39,52 +40,55 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 			for(const auto& elem_ws : set_str) {
 				auto elem = core::trim(elem_ws); // trim whitespace, just in case
 				
-#if 1 // llvm 3.5
-				if(elem[0] == '!') {
-					// ref, just forward
-					per_elem_func(elem);
-					continue;
-				}
-				
-				const auto ws_pos = elem.find(' ');
-				if(ws_pos != string::npos) {
-					const auto elem_front = elem.substr(0, ws_pos);
-					const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
-					if(elem_front == "i32" || elem_front == "i64") {
-						// int, forward back
-						per_elem_func(elem_back);
+				// llvm 3.5
+				if(toolchain_version < 360) {
+					if(elem[0] == '!') {
+						// ref, just forward
+						per_elem_func(elem);
 						continue;
 					}
-					else if(elem_front == "metadata") {
+					
+					const auto ws_pos = elem.find(' ');
+					if(ws_pos != string::npos) {
+						const auto elem_front = elem.substr(0, ws_pos);
+						const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
+						if(elem_front == "i32" || elem_front == "i64") {
+							// int, forward back
+							per_elem_func(elem_back);
+							continue;
+						}
+						else if(elem_front == "metadata") {
+							// string
+							const auto str_front = elem_back.find('\"'), str_back = elem_back.rfind('\"');
+							if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
+								per_elem_func(elem_back.substr(str_front + 1, str_back - str_front - 1));
+								continue;
+							}
+						}
+					}
+				}
+				// llvm 3.6/3.7/3.8+
+				else {
+					const auto ws_pos = elem.find(' ');
+					if(ws_pos != string::npos) {
+						const auto elem_front = elem.substr(0, ws_pos);
+						const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
+						if(elem_front == "i32" || elem_front == "i64") {
+							// int, forward back
+							per_elem_func(elem_back);
+							continue;
+						}
+						// else: something else
+					}
+					else if(elem[0] == '!' && elem.find('\"') != string::npos) {
 						// string
-						const auto str_front = elem_back.find('\"'), str_back = elem_back.rfind('\"');
+						const auto str_front = elem.find('\"'), str_back = elem.rfind('\"');
 						if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
-							per_elem_func(elem_back.substr(str_front + 1, str_back - str_front - 1));
+							per_elem_func(elem.substr(str_front + 1, str_back - str_front - 1));
 							continue;
 						}
 					}
 				}
-#else // llvm 3.6/3.7+
-				const auto ws_pos = elem.find(' ');
-				if(ws_pos != string::npos) {
-					const auto elem_front = elem.substr(0, ws_pos);
-					const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
-					if(elem_front == "i32" || elem_front == "i64") {
-						// int, forward back
-						per_elem_func(elem_back);
-						continue;
-					}
-					// else: something else
-				}
-				else if(elem[0] == '!' && elem.find('\"') != string::npos) {
-					// string
-					const auto str_front = elem.find('\"'), str_back = elem.rfind('\"');
-					if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
-						per_elem_func(elem.substr(str_front + 1, str_back - str_front - 1));
-						continue;
-					}
-				}
-#endif
 				
 				// no idea what this is, just forward
 				per_elem_func(elem);
@@ -221,6 +225,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
+	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
+	uint32_t toolchain_version = 0;
 	switch(target) {
 		case TARGET::SPIR:
 			clang_cmd += {
@@ -239,6 +245,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
+			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
 		case TARGET::AIR: {
 			const auto mtl_dev = (metal_device*)device.get();
@@ -267,19 +274,30 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
 			floor_path += floor::get_metal_base_path() + "floor";
+			toolchain_version = floor::get_metal_toolchain_version();
 		} break;
-		case TARGET::PTX:
+		case TARGET::PTX: {
+			const auto& force_sm = floor::get_cuda_force_compile_sm();
+#if !defined(FLOOR_NO_CUDA)
+			const auto& sm = ((cuda_device*)device.get())->sm;
+			sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
+#else
+			if(!force_sm.empty()) sm_version = force_sm;
+#endif
+			
+			toolchain_version = floor::get_cuda_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
 				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
+				(toolchain_version >= 380 ? " --cuda-device-only --cuda-gpu-arch=sm_" + sm_version : "") +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
 			libcxx_path += floor::get_cuda_base_path() + "libcxx";
 			clang_path += floor::get_cuda_base_path() + "clang";
 			floor_path += floor::get_cuda_base_path() + "floor";
-			break;
+		} break;
 		case TARGET::APPLECL:
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
@@ -297,14 +315,19 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
+			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
 		case TARGET::SPIRV:
 			log_error("SPIR-V not supported yet!");
+			toolchain_version = floor::get_vulkan_toolchain_version();
 			return {};
 	}
 	libcxx_path += "\"";
 	clang_path += "\"";
 	floor_path += "\"";
+	
+	// set toolchain version define
+	clang_cmd += " -DFLOOR_COMPUTE_TOOLCHAIN_VERSION=" + to_string(toolchain_version) + "u";
 	
 	// add device information
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
@@ -457,16 +480,8 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
-	// handle cuda sm version
-	string sm_version = "20"; // default to fermi/sm_20
+	// set cuda sm version
 	if(target == TARGET::PTX) {
-		const auto& force_sm = floor::get_cuda_force_compile_sm();
-#if !defined(FLOOR_NO_CUDA)
-		const auto& sm = ((cuda_device*)device.get())->sm;
-		sm_version = (force_sm.empty() ? to_string(sm.x * 10 + sm.y) : force_sm);
-#else
-		if(!force_sm.empty()) sm_version = force_sm;
-#endif
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
 	}
 	
@@ -516,7 +531,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 	
 	// grab floor metadata from compiled ir and create per-kernel info
 	vector<kernel_info> kernels;
-	get_floor_metadata(ir_output, kernels);
+	get_floor_metadata(ir_output, kernels, toolchain_version);
 	
 	// final target specific processing/compilation
 	string compiled_code = "";

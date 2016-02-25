@@ -315,6 +315,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	if(vulkan_toolchain_paths.empty()) vulkan_toolchain_paths = default_toolchain_paths;
 	
 	const auto get_viable_toolchain_path = [](const json::json_array& paths,
+											  uint32_t& toolchain_version,
 											  string& compiler,
 											  string& llc,
 											  string& as,
@@ -354,6 +355,25 @@ void floor::init(const char* callpath_, const char* datapath_,
 				}
 			}
 			if(!found_additional_bins) continue;
+			
+			// get the toolchain (clang) version
+			// NOTE: this also checks if clang is actually callable (-> non-viable if not)
+			string version_output = "";
+			core::system(path_str + "/bin/" + compiler + " --version", version_output);
+			
+			// e.g. "clang version 3.5.2 (...)" -> want 3.5.2
+			static constexpr const char clang_version_str[] { "clang version " };
+			const auto clang_version_pos = version_output.find(clang_version_str);
+			if(clang_version_pos == string::npos) continue;
+			const auto version_start_pos = clang_version_pos + size(clang_version_str) - 1 /* \0 */;
+			const auto next_space_pos = version_output.find(' ', version_start_pos);
+			if(next_space_pos == string::npos) continue;
+			if(next_space_pos - version_start_pos != 5 /* len(3.5.2) */) continue;
+			
+			toolchain_version = 100u * uint32_t(version_output[version_start_pos] - '0');
+			toolchain_version += 10u * uint32_t(version_output[version_start_pos + 2] - '0');
+			toolchain_version += uint32_t(version_output[version_start_pos + 4] - '0');
+			
 			return path_str + "/";
 		}
 		return ""s;
@@ -362,6 +382,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	{
 		// -> opencl toolchain
 		config.opencl_base_path = get_viable_toolchain_path(opencl_toolchain_paths,
+															config.opencl_toolchain_version,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
 															vector<string*> {
@@ -387,6 +408,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		// -> cuda toolchain
 		config.cuda_base_path = get_viable_toolchain_path(cuda_toolchain_paths,
+														  config.cuda_toolchain_version,
 														  config.cuda_compiler, config.cuda_llc,
 														  config.cuda_as, config.cuda_dis);
 		if(config.cuda_base_path == "") {
@@ -404,6 +426,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		// -> metal toolchain
 		config.metal_base_path = get_viable_toolchain_path(metal_toolchain_paths,
+														   config.metal_toolchain_version,
 														   config.metal_compiler, config.metal_llc,
 														   config.metal_as, config.metal_dis);
 #if defined(FLOOR_IOS)
@@ -427,6 +450,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		
 		// -> vulkan toolchain
 		config.vulkan_base_path = get_viable_toolchain_path(vulkan_toolchain_paths,
+															config.vulkan_toolchain_version,
 															config.vulkan_compiler, config.vulkan_llc,
 															config.vulkan_as, config.vulkan_dis);
 		if(config.vulkan_base_path == "") {
@@ -1342,6 +1366,9 @@ const string& floor::get_compute_default_dis() {
 const string& floor::get_opencl_base_path() {
 	return config.opencl_base_path;
 }
+const uint32_t& floor::get_opencl_toolchain_version() {
+	return config.opencl_toolchain_version;
+}
 const vector<string>& floor::get_opencl_whitelist() {
 	return config.opencl_whitelist;
 }
@@ -1375,6 +1402,9 @@ const string& floor::get_opencl_applecl_encoder() {
 
 const string& floor::get_cuda_base_path() {
 	return config.cuda_base_path;
+}
+const uint32_t& floor::get_cuda_toolchain_version() {
+	return config.cuda_toolchain_version;
 }
 const vector<string>& floor::get_cuda_whitelist() {
 	return config.cuda_whitelist;
@@ -1410,6 +1440,9 @@ const uint32_t& floor::get_cuda_jit_opt_level() {
 const string& floor::get_metal_base_path() {
 	return config.metal_base_path;
 }
+const uint32_t& floor::get_metal_toolchain_version() {
+	return config.metal_toolchain_version;
+}
 const vector<string>& floor::get_metal_whitelist() {
 	return config.metal_whitelist;
 }
@@ -1428,6 +1461,9 @@ const string& floor::get_metal_dis() {
 
 const string& floor::get_vulkan_base_path() {
 	return config.vulkan_base_path;
+}
+const uint32_t& floor::get_vulkan_toolchain_version() {
+	return config.vulkan_toolchain_version;
 }
 const vector<string>& floor::get_vulkan_whitelist() {
 	return config.vulkan_whitelist;

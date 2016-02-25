@@ -166,6 +166,7 @@ public:
 	
 	// opencl
 	static const string& get_opencl_base_path();
+	static const uint32_t& get_opencl_toolchain_version();
 	static const vector<string>& get_opencl_whitelist();
 	static const uint64_t& get_opencl_platform();
 	static bool get_opencl_verify_spir();
@@ -179,6 +180,7 @@ public:
 	
 	// cuda
 	static const string& get_cuda_base_path();
+	static const uint32_t& get_cuda_toolchain_version();
 	static const vector<string>& get_cuda_whitelist();
 	static const string& get_cuda_compiler();
 	static const string& get_cuda_llc();
@@ -192,6 +194,7 @@ public:
 	
 	// metal
 	static const string& get_metal_base_path();
+	static const uint32_t& get_metal_toolchain_version();
 	static const vector<string>& get_metal_whitelist();
 	static const string& get_metal_compiler();
 	static const string& get_metal_llc();
@@ -200,6 +203,7 @@ public:
 	
 	// vulkan
 	static const string& get_vulkan_base_path();
+	static const uint32_t& get_vulkan_toolchain_version();
 	static const vector<string>& get_vulkan_whitelist();
 	static const string& get_vulkan_compiler();
 	static const string& get_vulkan_llc();
@@ -274,6 +278,7 @@ protected:
 		
 		// opencl
 		bool opencl_toolchain_exists = false;
+		uint32_t opencl_toolchain_version = 0;
 		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
@@ -288,6 +293,7 @@ protected:
 		
 		// cuda
 		bool cuda_toolchain_exists = false;
+		uint32_t cuda_toolchain_version = 0;
 		string cuda_base_path = "";
 		vector<string> cuda_whitelist;
 		string cuda_compiler = default_compiler;
@@ -302,6 +308,7 @@ protected:
 		
 		// metal
 		bool metal_toolchain_exists = false;
+		uint32_t metal_toolchain_version = 0;
 		string metal_base_path = "";
 		vector<string> metal_whitelist;
 		string metal_compiler = default_compiler;
@@ -315,6 +322,7 @@ protected:
 		
 		// vulkan
 		bool vulkan_toolchain_exists = false;
+		uint32_t vulkan_toolchain_version = 0;
 		string vulkan_base_path = "";
 		vector<string> vulkan_whitelist;
 		string vulkan_compiler = default_compiler;

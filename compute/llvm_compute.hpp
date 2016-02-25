@@ -158,7 +158,8 @@ public:
 														   const TARGET target = TARGET::SPIR);
 	
 	//! extracts the floor metadata (kernel_info) from the specified llvm ir, returns true on success
-	static bool get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels);
+	static bool get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels,
+								   const uint32_t toolchain_version);
 	
 protected:
 	// static class
