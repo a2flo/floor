@@ -24,6 +24,10 @@
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
 
+#if defined(FLOOR_COMPUTE_TOOLCHAIN_VERSION) && (FLOOR_COMPUTE_TOOLCHAIN_VERSION >= 380u)
+#pragma OPENCL EXTENSION cl_khr_gl_msaa_sharing : enable
+#endif
+
 // misc types
 typedef char int8_t;
 typedef short int int16_t;
