@@ -170,6 +170,7 @@ public:
 	static const vector<string>& get_opencl_whitelist();
 	static const uint64_t& get_opencl_platform();
 	static bool get_opencl_verify_spir();
+	static bool get_opencl_validate_spirv();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
@@ -177,6 +178,10 @@ public:
 	static const string& get_opencl_spir_encoder();
 	static const string& get_opencl_spir_verifier();
 	static const string& get_opencl_applecl_encoder();
+	static const string& get_opencl_spirv_encoder();
+	static const string& get_opencl_spirv_as();
+	static const string& get_opencl_spirv_dis();
+	static const string& get_opencl_spirv_validator();
 	
 	// cuda
 	static const string& get_cuda_base_path();
@@ -205,10 +210,15 @@ public:
 	static const string& get_vulkan_base_path();
 	static const uint32_t& get_vulkan_toolchain_version();
 	static const vector<string>& get_vulkan_whitelist();
+	static bool get_vulkan_validate_spirv();
 	static const string& get_vulkan_compiler();
 	static const string& get_vulkan_llc();
 	static const string& get_vulkan_as();
 	static const string& get_vulkan_dis();
+	static const string& get_vulkan_spirv_encoder();
+	static const string& get_vulkan_spirv_as();
+	static const string& get_vulkan_spirv_dis();
+	static const string& get_vulkan_spirv_validator();
 	
 	// host
 	static const string& get_execution_model();
@@ -282,6 +292,7 @@ protected:
 		string opencl_base_path = "";
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
+		bool opencl_validate_spirv = false;
 		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
 		string opencl_llc = default_llc;
@@ -290,6 +301,10 @@ protected:
 		string opencl_spir_encoder = "spir-encoder";
 		string opencl_spir_verifier = "spir-verifier";
 		string opencl_applecl_encoder = "applecl-encoder";
+		string opencl_spirv_encoder = "llvm-spirv";
+		string opencl_spirv_as = "spirv-as";
+		string opencl_spirv_dis = "spirv-dis";
+		string opencl_spirv_validator = "spirv-val";
 		
 		// cuda
 		bool cuda_toolchain_exists = false;
@@ -324,11 +339,16 @@ protected:
 		bool vulkan_toolchain_exists = false;
 		uint32_t vulkan_toolchain_version = 0;
 		string vulkan_base_path = "";
+		bool vulkan_validate_spirv = false;
 		vector<string> vulkan_whitelist;
 		string vulkan_compiler = default_compiler;
 		string vulkan_llc = default_llc;
 		string vulkan_as = default_as;
 		string vulkan_dis = default_dis;
+		string vulkan_spirv_encoder = "llvm-spirv";
+		string vulkan_spirv_as = "spirv-as";
+		string vulkan_spirv_dis = "spirv-dis";
+		string vulkan_spirv_validator = "spirv-val";
 
 		// sdl
 		SDL_Window* wnd = nullptr;

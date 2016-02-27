@@ -33,39 +33,39 @@ extern _Thread_local uint3 floor_global_idx;
 extern _Thread_local uint3 floor_local_idx;
 extern _Thread_local uint3 floor_group_idx;
 
-floor_inline_always static uint32_t get_global_id(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_global_id(uint32_t dim) {
 	if(dim >= floor_work_dim) return 0;
 	return floor_global_idx[dim];
 }
-floor_inline_always static uint32_t get_global_size(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_global_size(uint32_t dim) {
 	if(dim >= floor_work_dim) return 1;
 	return floor_global_work_size[dim];
 }
-floor_inline_always static uint32_t get_local_id(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_local_id(uint32_t dim) {
 	if(dim >= floor_work_dim) return 0;
 	return floor_local_idx[dim];
 }
-floor_inline_always static uint32_t get_local_size(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_local_size(uint32_t dim) {
 	if(dim >= floor_work_dim) return 1;
 	return floor_local_work_size[dim];
 }
-floor_inline_always static uint32_t get_group_id(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_group_id(uint32_t dim) {
 	if(dim >= floor_work_dim) return 0;
 	return floor_group_idx[dim];
 }
-floor_inline_always static uint32_t get_num_groups(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_num_groups(uint32_t dim) {
 	if(dim >= floor_work_dim) return 1;
 	return floor_group_size[dim];
 }
-floor_inline_always static uint32_t get_work_dim() {
+floor_inline_always __attribute__((const)) static uint32_t get_work_dim() {
 	return floor_work_dim;
 }
 
 // math functions
 #include <cmath>
 namespace std {
-	floor_inline_always static float rsqrt(float x) { return 1.0f / sqrt(x); }
-	floor_inline_always static double rsqrt(double x) { return 1.0 / sqrt(x); }
+	floor_inline_always __attribute__((const)) static float rsqrt(float x) { return 1.0f / sqrt(x); }
+	floor_inline_always __attribute__((const)) static double rsqrt(double x) { return 1.0 / sqrt(x); }
 }
 
 // printf

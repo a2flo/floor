@@ -721,11 +721,10 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		const auto spirv_38_bc = core::create_tmp_file_name("spirv_3_8", ".bc");
 		core::system("\"" + floor::get_vulkan_as() + "\" -o " + spirv_38_bc + " " + spirv_38_ll);
 		
-		// run spir-encoder for 3.5 -> 3.2 conversion
+		// run llvm-spirv for llvm 3.8 bc -> spir-v binary conversion
 		const auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
 		const string spirv_encoder_cmd {
-			// TODO: get_vulkan_spirv_encoder or sth like that
-			"\"llvm-spirv\" -o=" + spirv_bin + " " + spirv_38_bc
+			"\"" + floor::get_vulkan_spirv_encoder() + "\" -o " + spirv_bin + " " + spirv_38_bc
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -734,24 +733,21 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		core::system(spirv_encoder_cmd, spirv_encoder_output);
 		log_msg("spir-v encoder: %s", spirv_encoder_output);
 		
-#if 0 // TODO: implement this
 		// run spirv-val if specified
-		if(floor::get_vulkan_verify_spirv()) {
-			const string spirv_verifier_cmd {
-				// TODO: spirv-val
-				"\"" + floor::get_vulkan_spirv_verifier() + "\" " + spirv_bin
+		if(floor::get_vulkan_validate_spirv()) {
+			const string spirv_validator_cmd {
+				"\"" + floor::get_vulkan_spirv_validator() + "\" " + spirv_bin
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif
 			};
-			string spirv_verifier_output = "";
-			core::system(spirv_verifier_cmd, spirv_verifier_output);
-			if(!spirv_verifier_output.empty() && spirv_verifier_output[spirv_verifier_output.size() - 1] == '\n') {
-				spirv_verifier_output.pop_back(); // trim last newline
+			string spirv_validator_output = "";
+			core::system(spirv_validator_cmd, spirv_validator_output);
+			if(!spirv_validator_output.empty() && spirv_validator_output[spirv_validator_output.size() - 1] == '\n') {
+				spirv_validator_output.pop_back(); // trim last newline
 			}
-			log_msg("spir-v verifier: %s", spirv_verifier_output);
+			log_msg("spir-v validator: %s", spirv_validator_output);
 		}
-#endif
 		
 		// finally, read spir-v binary data back, this is the code that will be compiled by the opencl/vulkan implementation
 		if(!file_io::file_to_string(spirv_bin, compiled_code)) {
