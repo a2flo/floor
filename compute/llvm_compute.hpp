@@ -34,8 +34,10 @@ public:
 		AIR,
 		//! Apple OpenCL (3.2)
 		APPLECL,
-		//! Vulkan/OpenCL SPIRV
-		SPIRV,
+		//! Vulkan SPIR-V
+		SPIRV_VULKAN,
+		//! OpenCL SPIR-V
+		SPIRV_OPENCL,
 	};
 	
 	//

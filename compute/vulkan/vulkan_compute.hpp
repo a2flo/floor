@@ -164,6 +164,8 @@ protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
 	
+	unique_ptr<uint32_t[]> load_spirv_binary(const string& file_name) const;
+	
 };
 
 #endif

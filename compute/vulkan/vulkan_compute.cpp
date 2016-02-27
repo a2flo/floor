@@ -473,7 +473,7 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
 								  create_vulkan_program(dev, llvm_compute::compile_program_file(dev, file_name, additional_options,
-																								llvm_compute::TARGET::SPIRV)));
+																								llvm_compute::TARGET::SPIRV_VULKAN)));
 	}
 	return add_program(move(prog_map));
 }
@@ -486,20 +486,12 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
 								  create_vulkan_program(dev, llvm_compute::compile_program(dev, source_code, additional_options,
-																						   llvm_compute::TARGET::SPIRV)));
+																						   llvm_compute::TARGET::SPIRV_VULKAN)));
 	}
 	return add_program(move(prog_map));
 }
 
-vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device floor_unused,
-																		   pair<string, vector<llvm_compute::kernel_info>> program_data floor_unused) {
-	// TODO: implement this
-	log_error("not yet supported by vulkan_compute!");
-	return {};
-}
-
-shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
-																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
+unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name) const {
 	unique_ptr<uint32_t[]> code;
 	size_t code_size = 0;
 	{
@@ -523,6 +515,47 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 			return {};
 		}
 	}
+	return code;
+}
+
+vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
+																		   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+	vulkan_program::vulkan_program_entry ret;
+	ret.kernels_info = program_data.second;
+	const auto dev = (const vulkan_device*)device.get();
+	
+	if(program_data.first.empty()) {
+		log_error("compilation failed");
+		return ret;
+	}
+	
+	auto code = load_spirv_binary(program_data.first);
+	if(code == nullptr) return ret; // already prints an error
+	
+	// create module
+	const VkShaderModuleCreateInfo module_info {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.codeSize = code_size,
+		.pCode = code.get(),
+	};
+	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &entry.program),
+				"failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"", ret);
+	
+	// cleanup
+	if(!floor::get_compute_keep_temp()) {
+		core::system("rm " + program_data.first);
+	}
+	
+	entry.valid = true;
+	return ret;
+}
+
+shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
+																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
+	auto code = load_spirv_binary(file_name);
+	if(code == nullptr) return {};
 	
 	const VkShaderModuleCreateInfo module_info {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,

@@ -317,14 +317,14 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			floor_path += floor::get_opencl_base_path() + "floor";
 			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
-		case TARGET::SPIRV:
+		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
 			if(toolchain_version < 380) {
 				log_error("SPIR-V is not supported by this toolchain!");
 				return {};
 			}
 			
-			// still compiling this as opencl for now (TODO: use CL2.0?)
+			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
@@ -334,14 +334,38 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
-				// TODO: need to be able to select between opencl/spirv and vulkan/spirv
-				" -DFLOOR_COMPUTE_OPENCL" \
+				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
 			floor_path += floor::get_vulkan_base_path() + "floor";
+			break;
+		case TARGET::SPIRV_OPENCL:
+			toolchain_version = floor::get_opencl_toolchain_version();
+			if(toolchain_version < 380) {
+				log_error("SPIR-V is not supported by this toolchain!");
+				return {};
+			}
+			
+			// TODO: use CL2.0 or add select option for CL1.2 or CL2.0?
+			clang_cmd += {
+				"\"" + floor::get_opencl_compiler() + "\"" +
+				" -x cl -Xclang -cl-std=CL1.2" \
+				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -Xclang -cl-kernel-arg-info" \
+				" -Xclang -cl-mad-enable" \
+				" -Xclang -cl-fast-relaxed-math" \
+				" -Xclang -cl-unsafe-math-optimizations" \
+				" -Xclang -cl-finite-math-only" \
+				" -DFLOOR_COMPUTE_OPENCL" \
+				" -DFLOOR_COMPUTE_SPIRV" +
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+			};
+			libcxx_path += floor::get_opencl_base_path() + "libcxx";
+			clang_path += floor::get_opencl_base_path() + "clang";
+			floor_path += floor::get_opencl_base_path() + "floor";
 			break;
 	}
 	libcxx_path += "\"";
@@ -711,7 +735,13 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			core::system("rm " + applecl_32_bc);
 		}
 	}
-	else if(target == TARGET::SPIRV) {
+	else if(target == TARGET::SPIRV_VULKAN ||
+			target == TARGET::SPIRV_OPENCL) {
+		const auto encoder = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_spirv_encoder() : floor::get_opencl_spirv_encoder());
+		const auto as = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_as() : floor::get_opencl_as());
+		const auto validate = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
+		const auto validator = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
+		
 		// output modified ir back to a file and create a bc file so llvm-spirv can consume it
 		const auto spirv_38_ll = core::create_tmp_file_name("spirv_3_8", ".ll");
 		if(!file_io::string_to_file(spirv_38_ll, ir_output)) {
@@ -719,12 +749,12 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			return {};
 		}
 		const auto spirv_38_bc = core::create_tmp_file_name("spirv_3_8", ".bc");
-		core::system("\"" + floor::get_vulkan_as() + "\" -o " + spirv_38_bc + " " + spirv_38_ll);
+		core::system("\"" + as + "\" -o " + spirv_38_bc + " " + spirv_38_ll);
 		
 		// run llvm-spirv for llvm 3.8 bc -> spir-v binary conversion
 		const auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
 		const string spirv_encoder_cmd {
-			"\"" + floor::get_vulkan_spirv_encoder() + "\" -o " + spirv_bin + " " + spirv_38_bc
+			"\"" + encoder + "\" -o " + spirv_bin + " " + spirv_38_bc
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -734,9 +764,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		log_msg("spir-v encoder: %s", spirv_encoder_output);
 		
 		// run spirv-val if specified
-		if(floor::get_vulkan_validate_spirv()) {
+		if(validate) {
 			const string spirv_validator_cmd {
-				"\"" + floor::get_vulkan_spirv_validator() + "\" " + spirv_bin
+				"\"" + validator + "\" " + spirv_bin
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif
@@ -749,17 +779,13 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			log_msg("spir-v validator: %s", spirv_validator_output);
 		}
 		
-		// finally, read spir-v binary data back, this is the code that will be compiled by the opencl/vulkan implementation
-		if(!file_io::file_to_string(spirv_bin, compiled_code)) {
-			log_error("failed to read back SPIR-V binary file");
-			return {};
-		}
+		// always directly use the encoded spir-v binary (no read back + write again)
+		compiled_code = spirv_bin;
 		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
 			core::system("rm " + spirv_38_ll);
 			core::system("rm " + spirv_38_bc);
-			core::system("rm " + spirv_bin);
 		}
 	}
 	
