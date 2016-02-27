@@ -491,9 +491,8 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	return add_program(move(prog_map));
 }
 
-unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name, uint32_t& code_size) const {
+unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name, size_t& code_size) const {
 	unique_ptr<uint32_t[]> code;
-	size_t code_size = 0;
 	{
 		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
 		if(!binary.is_open()) {
@@ -529,7 +528,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		return ret;
 	}
 	
-	uint32_t code_size = 0;
+	size_t code_size = 0;
 	auto code = load_spirv_binary(program_data.first, code_size);
 	if(code == nullptr) return ret; // already prints an error
 	
@@ -555,7 +554,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
 																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
-	uint32_t code_size = 0;
+	size_t code_size = 0;
 	auto code = load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
 	
@@ -563,7 +562,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-		.codeSize = code.size(),
+		.codeSize = code_size,
 		.pCode = code.get(),
 	};
 	
