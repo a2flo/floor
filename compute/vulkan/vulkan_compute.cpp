@@ -491,7 +491,7 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	return add_program(move(prog_map));
 }
 
-unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name) const {
+unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name, uint32_t& code_size) const {
 	unique_ptr<uint32_t[]> code;
 	size_t code_size = 0;
 	{
@@ -529,7 +529,8 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		return ret;
 	}
 	
-	auto code = load_spirv_binary(program_data.first);
+	uint32_t code_size = 0;
+	auto code = load_spirv_binary(program_data.first, code_size);
 	if(code == nullptr) return ret; // already prints an error
 	
 	// create module
@@ -554,14 +555,15 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
 																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
-	auto code = load_spirv_binary(file_name);
+	uint32_t code_size = 0;
+	auto code = load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
 	
 	const VkShaderModuleCreateInfo module_info {
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
-		.codeSize = code_size,
+		.codeSize = code.size(),
 		.pCode = code.get(),
 	};
 	
