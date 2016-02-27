@@ -540,15 +540,15 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		.codeSize = code_size,
 		.pCode = code.get(),
 	};
-	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &entry.program),
-				"failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"", ret);
+	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &ret.program),
+				"failed to create shader module (\"" + program_data.first + "\") for device \"" + dev->name + "\"", ret);
 	
 	// cleanup
-	if(!floor::get_compute_keep_temp()) {
+	if(!floor::get_compute_keep_binaries()) {
 		core::system("rm " + program_data.first);
 	}
 	
-	entry.valid = true;
+	ret.valid = true;
 	return ret;
 }
 
