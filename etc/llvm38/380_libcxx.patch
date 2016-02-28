@@ -1780,6 +1780,109 @@ index abec2a0..da1441b 100644
  
  _LIBCPP_END_NAMESPACE_STD
  
+diff --git a/include/cstddef b/include/cstddef
+index edd106c..2a6df0c 100644
+--- a/include/cstddef
++++ b/include/cstddef
+@@ -39,8 +39,7 @@ Types:
+ #pragma GCC system_header
+ #endif
+ 
+-// Don't include our own <stddef.h>; we don't want to declare ::nullptr_t.
+-#include_next <stddef.h>
++#include <stddef.h>
+ #include <__nullptr>
+ 
+ _LIBCPP_BEGIN_NAMESPACE_STD
+diff --git a/include/float.h b/include/float.h
+deleted file mode 100644
+index 1acfdc6..0000000
+--- a/include/float.h
++++ /dev/null
+@@ -1,83 +0,0 @@
+-// -*- C++ -*-
+-//===--------------------------- float.h ----------------------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is dual licensed under the MIT and the University of Illinois Open
+-// Source Licenses. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef _LIBCPP_FLOAT_H
+-#define _LIBCPP_FLOAT_H
+-
+-/*
+-    float.h synopsis
+-
+-Macros:
+-
+-    FLT_ROUNDS
+-    FLT_EVAL_METHOD     // C99
+-    FLT_RADIX
+-
+-    FLT_MANT_DIG
+-    DBL_MANT_DIG
+-    LDBL_MANT_DIG
+-
+-    DECIMAL_DIG         // C99
+-
+-    FLT_DIG
+-    DBL_DIG
+-    LDBL_DIG
+-
+-    FLT_MIN_EXP
+-    DBL_MIN_EXP
+-    LDBL_MIN_EXP
+-
+-    FLT_MIN_10_EXP
+-    DBL_MIN_10_EXP
+-    LDBL_MIN_10_EXP
+-
+-    FLT_MAX_EXP
+-    DBL_MAX_EXP
+-    LDBL_MAX_EXP
+-
+-    FLT_MAX_10_EXP
+-    DBL_MAX_10_EXP
+-    LDBL_MAX_10_EXP
+-
+-    FLT_MAX
+-    DBL_MAX
+-    LDBL_MAX
+-
+-    FLT_EPSILON
+-    DBL_EPSILON
+-    LDBL_EPSILON
+-
+-    FLT_MIN
+-    DBL_MIN
+-    LDBL_MIN
+-
+-*/
+-
+-#include <__config>
+-
+-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#pragma GCC system_header
+-#endif
+-
+-#include_next <float.h>
+-
+-#ifdef __cplusplus
+-
+-#ifndef FLT_EVAL_METHOD
+-#define FLT_EVAL_METHOD __FLT_EVAL_METHOD__
+-#endif
+-
+-#ifndef DECIMAL_DIG
+-#define DECIMAL_DIG __DECIMAL_DIG__
+-#endif
+-
+-#endif // __cplusplus
+-
+-#endif  // _LIBCPP_FLOAT_H
 diff --git a/include/functional b/include/functional
 index dbe9b01..08631bb 100644
 --- a/include/functional
@@ -1822,6 +1925,263 @@ index dbe9b01..08631bb 100644
  
  }  // placeholders
  
+diff --git a/include/inttypes.h b/include/inttypes.h
+deleted file mode 100644
+index 5c5618b..0000000
+--- a/include/inttypes.h
++++ /dev/null
+@@ -1,251 +0,0 @@
+-// -*- C++ -*-
+-//===--------------------------- inttypes.h -------------------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is distributed under the University of Illinois Open Source
+-// License. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#ifndef _LIBCPP_INTTYPES_H
+-#define _LIBCPP_INTTYPES_H
+-
+-/*
+-    inttypes.h synopsis
+-
+-This entire header is C99 / C++0X
+-
+-#include <stdint.h>  // <cinttypes> includes <cstdint>
+-
+-Macros:
+-
+-    PRId8
+-    PRId16
+-    PRId32
+-    PRId64
+-
+-    PRIdLEAST8
+-    PRIdLEAST16
+-    PRIdLEAST32
+-    PRIdLEAST64
+-
+-    PRIdFAST8
+-    PRIdFAST16
+-    PRIdFAST32
+-    PRIdFAST64
+-
+-    PRIdMAX
+-    PRIdPTR
+-
+-    PRIi8
+-    PRIi16
+-    PRIi32
+-    PRIi64
+-
+-    PRIiLEAST8
+-    PRIiLEAST16
+-    PRIiLEAST32
+-    PRIiLEAST64
+-
+-    PRIiFAST8
+-    PRIiFAST16
+-    PRIiFAST32
+-    PRIiFAST64
+-
+-    PRIiMAX
+-    PRIiPTR
+-
+-    PRIo8
+-    PRIo16
+-    PRIo32
+-    PRIo64
+-
+-    PRIoLEAST8
+-    PRIoLEAST16
+-    PRIoLEAST32
+-    PRIoLEAST64
+-
+-    PRIoFAST8
+-    PRIoFAST16
+-    PRIoFAST32
+-    PRIoFAST64
+-
+-    PRIoMAX
+-    PRIoPTR
+-
+-    PRIu8
+-    PRIu16
+-    PRIu32
+-    PRIu64
+-
+-    PRIuLEAST8
+-    PRIuLEAST16
+-    PRIuLEAST32
+-    PRIuLEAST64
+-
+-    PRIuFAST8
+-    PRIuFAST16
+-    PRIuFAST32
+-    PRIuFAST64
+-
+-    PRIuMAX
+-    PRIuPTR
+-
+-    PRIx8
+-    PRIx16
+-    PRIx32
+-    PRIx64
+-
+-    PRIxLEAST8
+-    PRIxLEAST16
+-    PRIxLEAST32
+-    PRIxLEAST64
+-
+-    PRIxFAST8
+-    PRIxFAST16
+-    PRIxFAST32
+-    PRIxFAST64
+-
+-    PRIxMAX
+-    PRIxPTR
+-
+-    PRIX8
+-    PRIX16
+-    PRIX32
+-    PRIX64
+-
+-    PRIXLEAST8
+-    PRIXLEAST16
+-    PRIXLEAST32
+-    PRIXLEAST64
+-
+-    PRIXFAST8
+-    PRIXFAST16
+-    PRIXFAST32
+-    PRIXFAST64
+-
+-    PRIXMAX
+-    PRIXPTR
+-
+-    SCNd8
+-    SCNd16
+-    SCNd32
+-    SCNd64
+-
+-    SCNdLEAST8
+-    SCNdLEAST16
+-    SCNdLEAST32
+-    SCNdLEAST64
+-
+-    SCNdFAST8
+-    SCNdFAST16
+-    SCNdFAST32
+-    SCNdFAST64
+-
+-    SCNdMAX
+-    SCNdPTR
+-
+-    SCNi8
+-    SCNi16
+-    SCNi32
+-    SCNi64
+-
+-    SCNiLEAST8
+-    SCNiLEAST16
+-    SCNiLEAST32
+-    SCNiLEAST64
+-
+-    SCNiFAST8
+-    SCNiFAST16
+-    SCNiFAST32
+-    SCNiFAST64
+-
+-    SCNiMAX
+-    SCNiPTR
+-
+-    SCNo8
+-    SCNo16
+-    SCNo32
+-    SCNo64
+-
+-    SCNoLEAST8
+-    SCNoLEAST16
+-    SCNoLEAST32
+-    SCNoLEAST64
+-
+-    SCNoFAST8
+-    SCNoFAST16
+-    SCNoFAST32
+-    SCNoFAST64
+-
+-    SCNoMAX
+-    SCNoPTR
+-
+-    SCNu8
+-    SCNu16
+-    SCNu32
+-    SCNu64
+-
+-    SCNuLEAST8
+-    SCNuLEAST16
+-    SCNuLEAST32
+-    SCNuLEAST64
+-
+-    SCNuFAST8
+-    SCNuFAST16
+-    SCNuFAST32
+-    SCNuFAST64
+-
+-    SCNuMAX
+-    SCNuPTR
+-
+-    SCNx8
+-    SCNx16
+-    SCNx32
+-    SCNx64
+-
+-    SCNxLEAST8
+-    SCNxLEAST16
+-    SCNxLEAST32
+-    SCNxLEAST64
+-
+-    SCNxFAST8
+-    SCNxFAST16
+-    SCNxFAST32
+-    SCNxFAST64
+-
+-    SCNxMAX
+-    SCNxPTR
+-
+-Types:
+-
+-    imaxdiv_t
+-
+-intmax_t  imaxabs(intmax_t j);
+-imaxdiv_t imaxdiv(intmax_t numer, intmax_t denom);
+-intmax_t  strtoimax(const char* restrict nptr, char** restrict endptr, int base);
+-uintmax_t strtoumax(const char* restrict nptr, char** restrict endptr, int base);
+-intmax_t  wcstoimax(const wchar_t* restrict nptr, wchar_t** restrict endptr, int base);
+-uintmax_t wcstoumax(const wchar_t* restrict nptr, wchar_t** restrict endptr, int base);
+-
+-*/
+-
+-#include <__config>
+-
+-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#pragma GCC system_header
+-#endif
+-
+-#include_next <inttypes.h>
+-
+-#ifdef __cplusplus
+-
+-#include <stdint.h>
+-
+-#undef imaxabs
+-#undef imaxdiv
+-
+-#endif // __cplusplus
+-
+-#endif  // _LIBCPP_INTTYPES_H
 diff --git a/include/iosfwd b/include/iosfwd
 index eccfd34..a012c79 100644
 --- a/include/iosfwd
@@ -2078,6 +2438,74 @@ index 3ef687c..23cef71 100644
      return __r;
  }
  
+diff --git a/include/stddef.h b/include/stddef.h
+deleted file mode 100644
+index 8841bbe..0000000
+--- a/include/stddef.h
++++ /dev/null
+@@ -1,62 +0,0 @@
+-// -*- C++ -*-
+-//===--------------------------- stddef.h ---------------------------------===//
+-//
+-//                     The LLVM Compiler Infrastructure
+-//
+-// This file is dual licensed under the MIT and the University of Illinois Open
+-// Source Licenses. See LICENSE.TXT for details.
+-//
+-//===----------------------------------------------------------------------===//
+-
+-#if defined(__need_ptrdiff_t) || defined(__need_size_t) || \
+-    defined(__need_wchar_t) || defined(__need_NULL) || defined(__need_wint_t)
+-
+-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#pragma GCC system_header
+-#endif
+-
+-#include_next <stddef.h>
+-
+-#elif !defined(_LIBCPP_STDDEF_H)
+-#define _LIBCPP_STDDEF_H
+-
+-/*
+-    stddef.h synopsis
+-
+-Macros:
+-
+-    offsetof(type,member-designator)
+-    NULL
+-
+-Types:
+-
+-    ptrdiff_t
+-    size_t
+-    max_align_t
+-    nullptr_t
+-
+-*/
+-
+-#include <__config>
+-
+-#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+-#pragma GCC system_header
+-#endif
+-
+-#include_next <stddef.h>
+-
+-#ifdef __cplusplus
+-
+-extern "C++" {
+-#include <__nullptr>
+-using std::nullptr_t;
+-}
+-
+-// Re-use the compiler's <stddef.h> max_align_t where possible.
+-#if !defined(__CLANG_MAX_ALIGN_T_DEFINED) && !defined(_GCC_MAX_ALIGN_T)
+-typedef long double max_align_t;
+-#endif
+-
+-#endif
+-
+-#endif  // _LIBCPP_STDDEF_H
 diff --git a/include/type_traits b/include/type_traits
 index b7adfeb..0ad5df6 100644
 --- a/include/type_traits
