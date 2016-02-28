@@ -1,10 +1,12 @@
 #!/bin/sh
 
 RELEASE=3.5.2
+RELEASE_VERSION_NAME=352
 
 VERSION=$(date +%Y%m%d_%H%M)
-mkdir compute_toolchain_${VERSION}
-cd compute_toolchain_${VERSION}
+TOOLCHAIN_NAME="compute_toolchain_${RELEASE_VERSION_NAME}_${VERSION}"
+mkdir ${TOOLCHAIN_NAME}
+cd ${TOOLCHAIN_NAME}
 
 mkdir bin
 cp ../build/Release/bin/clang bin/
@@ -36,11 +38,11 @@ esac
 cd ..
 
 
-zip -qr compute_toolchain_${VERSION}.zip compute_toolchain_${VERSION}
+zip -qr ${TOOLCHAIN_NAME}.zip ${TOOLCHAIN_NAME}
 zip_ret_code=$?
 if [ ${zip_ret_code} -ne 0 ]; then
 	echo "failed to create toolchain archive!"
 	exit 1
 else
-	echo "sucessfully created toolchain archive: compute_toolchain_${VERSION}.zip"
+	echo "sucessfully created toolchain archive: ${TOOLCHAIN_NAME}.zip"
 fi
