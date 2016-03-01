@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_IMAGE_HPP__
 #define __FLOOR_COMPUTE_DEVICE_IMAGE_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 // COMPUTE_IMAGE_TYPE -> opencl/metal image type map
 #include <floor/compute/device/opaque_image_map.hpp>
 // opencl/metal image read/write functions
@@ -83,7 +83,7 @@ namespace floor_image {
 		typedef int1 type;
 	};
 	
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 #if defined(FLOOR_COMPUTE_METAL)
 	constexpr metal_image::sampler::COMPARE_FUNCTION compare_function_floor_to_metal(const COMPARE_FUNCTION& func) {
 		switch(func) {
@@ -108,7 +108,7 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<is_int_coord<coord_type>() && !sample_linear>> { // int (nearest)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
@@ -127,7 +127,7 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<!is_int_coord<coord_type>() && !sample_linear>> { // float (nearest)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
@@ -146,7 +146,7 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<is_int_coord<coord_type>() && sample_linear>> { // int (linear)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
@@ -165,7 +165,7 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<!is_int_coord<coord_type>() && sample_linear>> { // float (linear)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
@@ -183,7 +183,7 @@ namespace floor_image {
 #endif
 	
 	//! backend specific sampler type
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef sampler_t sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
 	typedef metal_image::sampler sampler_type;
@@ -244,7 +244,7 @@ namespace floor_image {
 												  !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
@@ -261,7 +261,7 @@ namespace floor_image {
 												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
@@ -278,7 +278,7 @@ namespace floor_image {
 												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
@@ -414,7 +414,7 @@ namespace floor_image {
 			// backend specific coordinate conversion (also: any input -> float or int)
 			const auto converted_coord = convert_coord(coord);
 			
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 			constexpr const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
 			const auto read_color = __builtin_choose_expr(is_float,
 														  opaque_image::read_image_float(r_img, smplr, image_type, converted_coord, layer, sample, offset,
@@ -455,7 +455,7 @@ namespace floor_image {
 			const auto color = r_img->read(converted_coord, layer);
 #endif
 			
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
 			const auto color = __builtin_choose_expr(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type),
 													 vector_n<sample_type, 4>::from_clang_vector(read_color),
 													 read_color.x);
@@ -756,7 +756,7 @@ namespace floor_image {
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type_)>* = nullptr>
 		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 			opaque_image::write_image_float(w_img, image_type, convert_coord(coord), layer,
 											image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
@@ -771,7 +771,7 @@ namespace floor_image {
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_int(image_type_)>* = nullptr>
 		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 			opaque_image::write_image_int(w_img, image_type, convert_coord(coord), layer,
 										  image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)
@@ -786,7 +786,7 @@ namespace floor_image {
 		template <typename coord_type,
 				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_uint(image_type_)>* = nullptr>
 		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 			opaque_image::write_image_uint(w_img, image_type, convert_coord(coord), layer,
 										   image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_CUDA)

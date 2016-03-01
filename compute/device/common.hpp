@@ -22,12 +22,12 @@
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
 
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_VULKAN)
 
 // compute implementation specific headers (pre-std headers)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_pre.hpp>
-#elif defined(FLOOR_COMPUTE_OPENCL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/opencl_pre.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_pre.hpp>
@@ -101,7 +101,7 @@ typedef float clang_float1 __attribute__((ext_vector_type(1)));
 typedef float clang_float2 __attribute__((ext_vector_type(2)));
 typedef float clang_float3 __attribute__((ext_vector_type(3)));
 typedef float clang_float4 __attribute__((ext_vector_type(4)));
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 typedef half clang_half1 __attribute__((ext_vector_type(1)));
 typedef half clang_half2 __attribute__((ext_vector_type(2)));
 typedef half clang_half3 __attribute__((ext_vector_type(3)));
@@ -125,7 +125,7 @@ using namespace std;
 #define max(x, y) (x >= y ? x : y)
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_atomic.hpp>
-#elif defined(FLOOR_COMPUTE_OPENCL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/opencl_atomic.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_atomic.hpp>
@@ -173,7 +173,7 @@ _LIBCPP_END_NAMESPACE_STD
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda.hpp>
-#elif defined(FLOOR_COMPUTE_OPENCL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/opencl.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal.hpp>
@@ -351,7 +351,7 @@ template <typename T> using compute_constant_buffer = const T* const;
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
 //! generic parameter object/buffer
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 template <typename T> using param = const T;
 #elif defined(FLOOR_COMPUTE_METAL)
 template <typename T> using param = const constant T&;
@@ -363,7 +363,7 @@ template <typename T> using param = const T&;
 #include <floor/compute/device/sampler.hpp>
 #if defined(FLOOR_COMPUTE_CUDA)
 #include <floor/compute/device/cuda_image.hpp>
-#elif defined(FLOOR_COMPUTE_OPENCL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/opencl_image.hpp>
 #elif defined(FLOOR_COMPUTE_METAL)
 #include <floor/compute/device/metal_image.hpp>

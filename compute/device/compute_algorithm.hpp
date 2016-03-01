@@ -51,7 +51,7 @@ namespace compute_algorithm {
 		return sub_group_reduce(lane_var, [](const auto& lhs, const auto& rhs) { return ::max(lhs, rhs); });
 	}
 	
-#elif defined(FLOOR_COMPUTE_OPENCL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 #if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
 	// just forward to global functions for opencl
 	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {

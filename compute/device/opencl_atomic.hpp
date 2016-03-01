@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_ATOMIC_HPP__
 #define __FLOOR_COMPUTE_DEVICE_OPENCL_ATOMIC_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
 // atomic_* -> atom_* macro aliases
 // certain implementations don't have proper atomic_* function implementations and the standard isn't sure about this either

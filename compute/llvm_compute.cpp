@@ -248,15 +248,18 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
 		case TARGET::AIR: {
+			toolchain_version = floor::get_metal_toolchain_version();
 			const auto mtl_dev = (metal_device*)device.get();
 			string os_target;
 			if(mtl_dev->family < 10000) {
 				// -> iOS 9.0+
-				os_target = "ios9.0.0 -miphoneos-version-min=9.0";
+				os_target = "ios9.0.0";
+				if(toolchain_version < 380) os_target += " -miphoneos-version-min=9.0";
 			}
 			else {
 				// -> OS X 10.11+
-				os_target = "macosx10.11.0 -mmacosx-version-min=10.11";
+				os_target = "macosx10.11.0";
+				if(toolchain_version < 380) os_target += " -mmacosx-version-min=10.11";
 			}
 			
 			clang_cmd += {
@@ -274,7 +277,6 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
 			floor_path += floor::get_metal_base_path() + "floor";
-			toolchain_version = floor::get_metal_toolchain_version();
 		} break;
 		case TARGET::PTX: {
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
@@ -327,7 +329,7 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL1.2" \
+				" -x cl -Xclang -cl-std=CL2.0" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -349,10 +351,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				return {};
 			}
 			
-			// TODO: use CL2.0 or add select option for CL1.2 or CL2.0?
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL1.2" \
+				" -x cl -Xclang -cl-std=CL2.0" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \

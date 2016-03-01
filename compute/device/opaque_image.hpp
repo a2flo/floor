@@ -19,13 +19,13 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_OPAQUE_IMAGE_HPP__
 #define __FLOOR_COMPUTE_DEVICE_OPAQUE_IMAGE_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 
 namespace opaque_image {
 	//////////////////////////////////////////
 	// opaque image function wrappers/forwarders (opencl/metal)
 	
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef sampler_t sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
 	typedef metal_sampler_t sampler_type;

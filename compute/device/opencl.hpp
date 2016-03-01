@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
 #define __FLOOR_COMPUTE_DEVICE_OPENCL_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
 const_func opencl_c_func size_t get_global_id(uint32_t dim);
 const_func opencl_c_func size_t get_global_size(uint32_t dim);
@@ -235,6 +235,7 @@ namespace std {
 	
 }
 
+// NOTE: not supported with vulkan
 #if defined(FLOOR_COMPUTE_SPIR)
 // can't normally produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" keyword is missing in c++ mode
 // -> slay it with an asm label

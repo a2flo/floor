@@ -29,7 +29,7 @@ COMPUTE_IMAGE_TYPE::FLAG_CUBE | \
 COMPUTE_IMAGE_TYPE::FLAG_MSAA)
 
 // nicer error message than "incomplete type" or "type does not exist"
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 struct unavailable_opencl_image_type;
 #endif
 #if defined(FLOOR_COMPUTE_METAL)
@@ -113,7 +113,7 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 
 template <COMPUTE_IMAGE_TYPE image_type>
 struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE>> {
-#if !defined(FLOOR_COMPUTE_OPENCL)
+#if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_t type;
 #else
 	typedef unavailable_opencl_image_type type;
@@ -122,7 +122,7 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 
 template <COMPUTE_IMAGE_TYPE image_type>
 struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY>> {
-#if !defined(FLOOR_COMPUTE_OPENCL)
+#if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_array_t type;
 #else
 	typedef unavailable_opencl_image_type type;
@@ -131,7 +131,7 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 
 template <COMPUTE_IMAGE_TYPE image_type>
 struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-#if !defined(FLOOR_COMPUTE_OPENCL)
+#if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_depth_t type;
 #else
 	typedef unavailable_opencl_image_type type;
@@ -140,7 +140,7 @@ struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK
 
 template <COMPUTE_IMAGE_TYPE image_type>
 struct opaque_image_type<image_type, enable_if_t<(image_type & OPAQUE_IMAGE_MASK) == (COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY | COMPUTE_IMAGE_TYPE::FLAG_DEPTH)>> {
-#if !defined(FLOOR_COMPUTE_OPENCL)
+#if !defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef imagecube_array_depth_t type;
 #else
 	typedef unavailable_opencl_image_type type;

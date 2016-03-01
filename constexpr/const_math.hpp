@@ -834,7 +834,7 @@ namespace const_math {
 	floor_inline_always static fp_type native_rsqrt(fp_type a) {
 		return fp_type(1.0L) / std::sqrt(a);
 	}
-#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL)
+#elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	floor_inline_always static fp_type native_fma(fp_type a, fp_type b, fp_type c) {

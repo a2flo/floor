@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
 #define __FLOOR_COMPUTE_DEVICE_OPENCL_PRE_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable

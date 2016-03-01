@@ -430,7 +430,7 @@ public:
 	}
 	
 	// final call: forward to printf
-#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL)
+#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
 		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
@@ -452,7 +452,7 @@ public:
 	static void log(const constant char* format, Args&&... args) {
 		_log_fwd(tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
-#elif defined(FLOOR_COMPUTE_METAL)
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 	template <typename... Args>
 	static void log(const constant char*, Args&&...) {}
 #endif
