@@ -236,7 +236,7 @@ namespace std {
 }
 
 // NOTE: not supported with vulkan
-#if defined(FLOOR_COMPUTE_SPIR)
+#if !defined(FLOOR_COMPUTE_APPLECL) && !defined(FLOOR_COMPUTE_VULKAN)
 // can't normally produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" keyword is missing in c++ mode
 // -> slay it with an asm label
 int printf(const char constant* st, ...) asm("_Z6printfPrU3AS2cz");
