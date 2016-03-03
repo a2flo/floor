@@ -1364,19 +1364,17 @@ index 0dfb8cf..76b9e22 100644
        PREDEF_TYPE_IMAGE3D_ID    = 48,
        /// \brief OpenCL event type.
 diff --git a/lib/AST/ASTContext.cpp b/lib/AST/ASTContext.cpp
-index 6438696..c729e1f 100644
+index 6438696..ad4ca54 100644
 --- a/lib/AST/ASTContext.cpp
 +++ b/lib/AST/ASTContext.cpp
-@@ -749,7 +749,8 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
+@@ -744,6 +744,7 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
+       BlockDescriptorExtendedType(nullptr), cudaConfigureCallDecl(nullptr),
+       FirstLocalImport(), LastLocalImport(), ExternCContext(nullptr),
+       MakeIntegerSeqDecl(nullptr), SourceMgr(SM), LangOpts(LOpts),
++      disabledFPContract(false),
+       SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
+       AddrSpaceMap(nullptr), Target(nullptr), AuxTarget(nullptr),
        PrintingPolicy(LOpts), Idents(idents), Selectors(sels),
-       BuiltinInfo(builtins), DeclarationNames(*this), ExternalSource(nullptr),
-       Listener(nullptr), Comments(SM), CommentsLoaded(false),
--      CommentCommandTraits(BumpAlloc, LOpts.CommentOpts), LastSDM(nullptr, 0) {
-+      CommentCommandTraits(BumpAlloc, LOpts.CommentOpts), LastSDM(nullptr, 0),
-+      disabledFPContract(false) {
-   TUDecl = TranslationUnitDecl::Create(*this);
- }
- 
 @@ -1102,6 +1103,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
      InitBuiltinType(OCLImage2dMSAADepthTy, BuiltinType::OCLImage2dMSAADepth);
      InitBuiltinType(OCLImage2dArrayMSAADepthTy,
@@ -1524,19 +1522,30 @@ index 5c6002d..3fff99f 100644
      }
  
 diff --git a/lib/AST/Expr.cpp b/lib/AST/Expr.cpp
-index 52f34df..e80895a 100644
+index 52f34df..98eceb9 100644
 --- a/lib/AST/Expr.cpp
 +++ b/lib/AST/Expr.cpp
-@@ -1707,6 +1707,8 @@ const char *CastExpr::getCastKindName() const {
+@@ -1571,6 +1571,8 @@ bool CastExpr::CastConsistency() const {
+   case CK_ARCReclaimReturnedObject:
+   case CK_ARCExtendBlockObject:
+   case CK_ZeroToOCLEvent:
++  case CK_ZeroToOCLQueue:
++  case CK_IntToOCLSampler:
+     assert(!getType()->isBooleanType() && "unheralded conversion to bool");
+     goto CheckNoBasePath;
+ 
+@@ -1707,6 +1709,10 @@ const char *CastExpr::getCastKindName() const {
      return "BuiltinFnToFnPtr";
    case CK_ZeroToOCLEvent:
      return "ZeroToOCLEvent";
 +  case CK_ZeroToOCLQueue:
 +    return "ZeroToOCLQueue";
++  case CK_IntToOCLSampler:
++    return "IntToOCLSampler";
    case CK_AddressSpaceConversion:
      return "AddressSpaceConversion";
    }
-@@ -2886,6 +2888,7 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
+@@ -2886,6 +2892,7 @@ bool Expr::isConstantInitializer(ASTContext &Ctx, bool IsForRef,
          CE->getCastKind() == CK_ToUnion ||
          CE->getCastKind() == CK_ConstructorConversion ||
          CE->getCastKind() == CK_NonAtomicToAtomic ||
@@ -1545,7 +1554,7 @@ index 52f34df..e80895a 100644
        return CE->getSubExpr()->isConstantInitializer(Ctx, false, Culprit);
  
 diff --git a/lib/AST/ExprConstant.cpp b/lib/AST/ExprConstant.cpp
-index fa652ba..a8d2186 100644
+index fa652ba..821f4af 100644
 --- a/lib/AST/ExprConstant.cpp
 +++ b/lib/AST/ExprConstant.cpp
 @@ -911,7 +911,8 @@ CallStackFrame::~CallStackFrame() {
@@ -1558,7 +1567,37 @@ index fa652ba..a8d2186 100644
    Info.CleanupStack.push_back(Cleanup(&Result, IsLifetimeExtended));
    return Result;
  }
-@@ -7757,6 +7758,7 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
+@@ -6005,7 +6006,8 @@ public:
+     : ExprEvaluatorBaseTy(info), Result(result) {}
+ 
+   bool Success(const llvm::APSInt &SI, const Expr *E, APValue &Result) {
+-    assert(E->getType()->isIntegralOrEnumerationType() &&
++    assert((E->getType()->isIntegralOrEnumerationType() ||
++            E->getType()->isSamplerT()) &&
+            "Invalid evaluation result.");
+     assert(SI.isSigned() == E->getType()->isSignedIntegerOrEnumerationType() &&
+            "Invalid evaluation result.");
+@@ -6019,7 +6021,8 @@ public:
+   }
+ 
+   bool Success(const llvm::APInt &I, const Expr *E, APValue &Result) {
+-    assert(E->getType()->isIntegralOrEnumerationType() && 
++    assert((E->getType()->isIntegralOrEnumerationType() ||
++            E->getType()->isSamplerT()) &&
+            "Invalid evaluation result.");
+     assert(I.getBitWidth() == Info.Ctx.getIntWidth(E->getType()) &&
+            "Invalid evaluation result.");
+@@ -6033,7 +6036,8 @@ public:
+   }
+ 
+   bool Success(uint64_t Value, const Expr *E, APValue &Result) {
+-    assert(E->getType()->isIntegralOrEnumerationType() && 
++    assert((E->getType()->isIntegralOrEnumerationType() ||
++            E->getType()->isSamplerT()) &&
+            "Invalid evaluation result.");
+     Result = APValue(Info.Ctx.MakeIntValue(Value, E->getType()));
+     return true;
+@@ -7757,10 +7761,19 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
    case CK_IntegralComplexToFloatingComplex:
    case CK_BuiltinFnToFnPtr:
    case CK_ZeroToOCLEvent:
@@ -1566,7 +1605,19 @@ index fa652ba..a8d2186 100644
    case CK_NonAtomicToAtomic:
    case CK_AddressSpaceConversion:
      llvm_unreachable("invalid cast kind for integral value");
-@@ -7982,9 +7984,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+ 
++  case CK_IntToOCLSampler: {
++    llvm::APSInt result;
++    if(!SubExpr->EvaluateAsInt(result, Info.Ctx)) {
++      return false;
++    }
++    return Success(result, E);
++  }
++
+   case CK_BitCast:
+   case CK_Dependent:
+   case CK_LValueBitCast:
+@@ -7982,9 +7995,11 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_huge_val:
    case Builtin::BI__builtin_huge_valf:
    case Builtin::BI__builtin_huge_vall:
@@ -1579,7 +1630,7 @@ index fa652ba..a8d2186 100644
      const llvm::fltSemantics &Sem =
        Info.Ctx.getFloatTypeSemantics(E->getType());
      Result = llvm::APFloat::getInf(Sem);
-@@ -7994,6 +7998,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -7994,6 +8009,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_nans:
    case Builtin::BI__builtin_nansf:
    case Builtin::BI__builtin_nansl:
@@ -1587,7 +1638,7 @@ index fa652ba..a8d2186 100644
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
                                 true, Result))
        return Error(E);
-@@ -8002,6 +8007,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
+@@ -8002,6 +8018,7 @@ bool FloatExprEvaluator::VisitCallExpr(const CallExpr *E) {
    case Builtin::BI__builtin_nan:
    case Builtin::BI__builtin_nanf:
    case Builtin::BI__builtin_nanl:
@@ -1595,14 +1646,27 @@ index fa652ba..a8d2186 100644
      // If this is __builtin_nan() turn this into a nan, otherwise we
      // can't constant fold it.
      if (!TryEvaluateBuiltinNaN(Info.Ctx, E->getType(), E->getArg(0),
-@@ -8248,6 +8254,7 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
+@@ -8248,8 +8265,10 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
    case CK_CopyAndAutoreleaseBlockObject:
    case CK_BuiltinFnToFnPtr:
    case CK_ZeroToOCLEvent:
 +  case CK_ZeroToOCLQueue:
    case CK_NonAtomicToAtomic:
    case CK_AddressSpaceConversion:
++  case CK_IntToOCLSampler:
      llvm_unreachable("invalid cast kind for complex value");
+ 
+   case CK_LValueToRValue:
+@@ -8757,6 +8776,9 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
+   } else if (T->isAtomicType()) {
+     if (!EvaluateAtomic(E, Result, Info))
+       return false;
++  } else if (T->isSamplerT()) {
++    if (!IntExprEvaluator(Info, Result).Visit(E))
++      return false;
+   } else if (Info.getLangOpts().CPlusPlus11) {
+     Info.Diag(E, diag::note_constexpr_nonliteral) << E->getType();
+     return false;
 diff --git a/lib/AST/ItaniumMangle.cpp b/lib/AST/ItaniumMangle.cpp
 index 3f6b682..dff50ee 100644
 --- a/lib/AST/ItaniumMangle.cpp
@@ -1836,7 +1900,7 @@ index c562dae..004aeb5 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index b467dac..dddc277 100644
+index b467dac..ec28e26 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1783,6 +1783,13 @@ bool Type::isFloatingType() const {
@@ -1884,7 +1948,17 @@ index b467dac..dddc277 100644
  bool Type::isArithmeticType() const {
    if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
      return BT->getKind() >= BuiltinType::Bool &&
-@@ -2603,6 +2634,14 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
+@@ -2150,6 +2181,9 @@ bool Type::isLiteralType(const ASTContext &Ctx) const {
+   if (isDependentType())
+     return false;
+ 
++  if (Ctx.getLangOpts().OpenCL && isSamplerT())
++    return true;
++
+   // C++1y [basic.types]p10:
+   //   A type is a literal type if it is:
+   //   -- cv void; or
+@@ -2603,6 +2637,14 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
      return "image2d_msaa_depth_t";
    case OCLImage2dArrayMSAADepth:
      return "image2d_array_msaa_depth_t";
@@ -1899,7 +1973,7 @@ index b467dac..dddc277 100644
    case OCLImage3d:
      return "image3d_t";
    case OCLSampler:
-@@ -3572,6 +3611,10 @@ bool Type::canHaveNullability() const {
+@@ -3572,6 +3614,10 @@ bool Type::canHaveNullability() const {
      case BuiltinType::OCLImage2dArrayMSAA:
      case BuiltinType::OCLImage2dMSAADepth:
      case BuiltinType::OCLImage2dArrayMSAADepth:
@@ -1910,7 +1984,7 @@ index b467dac..dddc277 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
-@@ -3787,3 +3830,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -3787,3 +3833,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -2263,7 +2337,7 @@ index 6d746c2..e1bf9d9 100644
      getPerModulePasses()->add(
          createPrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
 diff --git a/lib/CodeGen/CGBlocks.cpp b/lib/CodeGen/CGBlocks.cpp
-index ba2941e..8cd5ef5 100644
+index ba2941e..a4190c4 100644
 --- a/lib/CodeGen/CGBlocks.cpp
 +++ b/lib/CodeGen/CGBlocks.cpp
 @@ -14,6 +14,7 @@
@@ -2415,10 +2489,10 @@ index ba2941e..8cd5ef5 100644
 -    addHeaderField(descriptor, getPointerSize(), "block.descriptor");
 +  if (CGM.getLangOpts().OpenCL) {
 +    // TODO: unused?
-+    llvm::Type *ArgTys[] = {VoidPtrTy, IntTy, IntTy, VoidPtrTy};
-+    llvm::FunctionType *FTy =
-+        llvm::FunctionType::get(CGM.getOpenCLRuntime().getBlockType(),
-+                                llvm::ArrayRef<llvm::Type *>(ArgTys), false);
++    //llvm::Type *ArgTys[] = {VoidPtrTy, IntTy, IntTy, VoidPtrTy};
++    //llvm::FunctionType *FTy =
++    //    llvm::FunctionType::get(CGM.getOpenCLRuntime().getBlockType(),
++    //                            llvm::ArrayRef<llvm::Type *>(ArgTys), false);
 +
 +    if (blockInfo.CanBeGlobal)
 +      return GenerateOCLBlockBind(blockFn, blockInfo.BlockSize.getQuantity(),
@@ -2780,10 +2854,305 @@ index 787ac53..b60c61d 100644
  
    // If this is an alias for a lib function (e.g. __builtin_sin), emit
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 9359850..13a93d1 100644
+index 9359850..a7f0169 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
-@@ -3342,8 +3342,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -606,6 +606,10 @@ struct TypeExpansion {
+     TEK_Record,
+     // For complex types, real and imaginary parts are expanded recursively.
+     TEK_Complex,
++    // Special libfloor vector compat expansion (aggregate -> clang/llvm vector).
++    TEK_FloorVectorCompat,
++    // Special libfloor aggregate/record expansion.
++    TEK_FloorAggregate,
+     // All other types are not expandable.
+     TEK_None
+   };
+@@ -649,6 +653,31 @@ struct ComplexExpansion : TypeExpansion {
+   }
+ };
+ 
++struct FloorVectorCompatExpansion : TypeExpansion {
++  QualType orig_type;
++  QualType vector_type;
++
++  FloorVectorCompatExpansion(QualType orig_type_, QualType vector_type_)
++      : TypeExpansion(TEK_FloorVectorCompat), orig_type(orig_type_), vector_type(vector_type_) {}
++  static bool classof(const TypeExpansion *TE) {
++    return TE->Kind == TEK_FloorVectorCompat;
++  }
++};
++
++struct FloorAggregateExpansion : TypeExpansion {
++  SmallVector<const CXXBaseSpecifier *, 1> bases;
++  SmallVector<const FieldDecl *, 1> field_decls;
++  std::vector<CodeGenTypes::aggregate_scalar_entry> fields;
++
++  FloorAggregateExpansion(SmallVector<const CXXBaseSpecifier *, 1> &&bases_,
++                          SmallVector<const FieldDecl *, 1> &&field_decls_,
++                          std::vector<CodeGenTypes::aggregate_scalar_entry> &&fields_)
++      : TypeExpansion(TEK_FloorAggregate), bases(bases_), field_decls(field_decls_), fields(fields_) {}
++  static bool classof(const TypeExpansion *TE) {
++    return TE->Kind == TEK_FloorAggregate;
++  }
++};
++
+ struct NoExpansion : TypeExpansion {
+   NoExpansion() : TypeExpansion(TEK_None) {}
+   static bool classof(const TypeExpansion *TE) {
+@@ -658,12 +687,45 @@ struct NoExpansion : TypeExpansion {
+ }  // namespace
+ 
+ static std::unique_ptr<TypeExpansion>
+-getTypeExpansion(QualType Ty, const ASTContext &Context) {
++getTypeExpansion(QualType Ty, const ASTContext &Context, const CodeGenTypes& CGT) {
+   if (const ConstantArrayType *AT = Context.getAsConstantArrayType(Ty)) {
+     return llvm::make_unique<ConstantArrayExpansion>(
+         AT->getElementType(), AT->getSize().getZExtValue());
+   }
+-  if (const RecordType *RT = Ty->getAs<RecordType>()) {
++  const RecordType *RT = Ty->getAs<RecordType>();
++  const CXXRecordDecl* cxx_rdecl = (RT != nullptr ? RT->getAsCXXRecordDecl() : nullptr);
++  if (Context.getLangOpts().Metal && cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
++    // libfloor vector compat expansion
++    const auto vec_type = CGT.get_compat_vector_type(cxx_rdecl);
++    return llvm::make_unique<FloorVectorCompatExpansion>(Ty, vec_type);
++  }
++  if (cxx_rdecl &&
++      (Ty->isAggregateImageType() || Context.getLangOpts().Metal) &&
++      !cxx_rdecl->isUnion()) {
++    // libfloor aggregate expansion (image or metal)
++    // similar to (non-union) record expansion below, but also stores some additional information
++    SmallVector<const CXXBaseSpecifier *, 1> bases;
++    SmallVector<const FieldDecl *, 1> field_decls;
++
++    assert(!cxx_rdecl->isDynamicClass() &&
++           "cannot expand vtable pointers in dynamic classes");
++    for (const CXXBaseSpecifier &BS : cxx_rdecl->bases()) {
++      bases.push_back(&BS);
++    }
++
++    for (const auto *FD : cxx_rdecl->fields()) {
++      // Skip zero length bitfields.
++      if (FD->isBitField() && FD->getBitWidthValue(Context) == 0)
++        continue;
++      assert(!FD->isBitField() &&
++             "Cannot expand structure with bit-field members.");
++      field_decls.push_back(FD);
++    }
++
++    auto fields = CGT.get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, false, false);
++    return llvm::make_unique<FloorAggregateExpansion>(std::move(bases), std::move(field_decls), std::move(fields));
++  }
++  if (RT) {
+     SmallVector<const CXXBaseSpecifier *, 1> Bases;
+     SmallVector<const FieldDecl *, 1> Fields;
+     const RecordDecl *RD = RT->getDecl();
+@@ -715,17 +777,23 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
+   return llvm::make_unique<NoExpansion>();
+ }
+ 
+-static int getExpansionSize(QualType Ty, const ASTContext &Context) {
+-  auto Exp = getTypeExpansion(Ty, Context);
++static int getExpansionSize(QualType Ty, const ASTContext &Context, const CodeGenTypes& CGT) {
++  auto Exp = getTypeExpansion(Ty, Context, CGT);
+   if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
+-    return CAExp->NumElts * getExpansionSize(CAExp->EltTy, Context);
++    return CAExp->NumElts * getExpansionSize(CAExp->EltTy, Context, CGT);
++  }
++  if (isa<FloorVectorCompatExpansion>(Exp.get())) {
++    return 1;
++  }
++  if (auto FAExp = dyn_cast<FloorAggregateExpansion>(Exp.get())) {
++    return FAExp->fields.size();
+   }
+   if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
+     int Res = 0;
+     for (auto BS : RExp->Bases)
+-      Res += getExpansionSize(BS->getType(), Context);
++      Res += getExpansionSize(BS->getType(), Context, CGT);
+     for (auto FD : RExp->Fields)
+-      Res += getExpansionSize(FD->getType(), Context);
++      Res += getExpansionSize(FD->getType(), Context, CGT);
+     return Res;
+   }
+   if (isa<ComplexExpansion>(Exp.get()))
+@@ -737,11 +805,17 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
+ void
+ CodeGenTypes::getExpandedTypes(QualType Ty,
+                                SmallVectorImpl<llvm::Type *>::iterator &TI) {
+-  auto Exp = getTypeExpansion(Ty, Context);
++  auto Exp = getTypeExpansion(Ty, Context, *this);
+   if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
+     for (int i = 0, n = CAExp->NumElts; i < n; i++) {
+       getExpandedTypes(CAExp->EltTy, TI);
+     }
++  } else if (auto FVCExp = dyn_cast<FloorVectorCompatExpansion>(Exp.get())) {
++    *TI++ = ConvertType(FVCExp->vector_type);
++  } else if (auto FAExp = dyn_cast<FloorAggregateExpansion>(Exp.get())) {
++    for(const auto& field : FAExp->fields) {
++      *TI++ = ConvertType(field.type);
++    }
+   } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
+     for (auto BS : RExp->Bases)
+       getExpandedTypes(BS->getType(), TI);
+@@ -777,13 +851,36 @@ void CodeGenFunction::ExpandTypeFromArgs(
+   assert(LV.isSimple() &&
+          "Unexpected non-simple lvalue during struct expansion.");
+ 
+-  auto Exp = getTypeExpansion(Ty, getContext());
++  auto Exp = getTypeExpansion(Ty, getContext(), getTypes());
+   if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
+     forConstantArrayExpansion(*this, CAExp, LV.getAddress(),
+                               [&](Address EltAddr) {
+       LValue LV = MakeAddrLValue(EltAddr, CAExp->EltTy);
+       ExpandTypeFromArgs(CAExp->EltTy, LV, AI);
+     });
++  } else if (auto FVCExp = dyn_cast<FloorVectorCompatExpansion>(Exp.get())) {
++    LValue VecLV = MakeAddrLValue(LV.getAddress(), FVCExp->vector_type);
++    ExpandTypeFromArgs(FVCExp->vector_type, VecLV, AI);
++  } else if (auto FAExp = dyn_cast<FloorAggregateExpansion>(Exp.get())) {
++    // TODO: should this recurse into bases with ExpandTypeFromArgs or do this manually?
++    Address This = LV.getAddress();
++    for (const CXXBaseSpecifier *BS : FAExp->bases) {
++      // Perform a single step derived-to-base conversion.
++      Address Base =
++          GetAddressOfBaseClass(This, Ty->getAsCXXRecordDecl(), &BS, &BS + 1,
++                                /*NullCheckValue=*/false, SourceLocation());
++      LValue SubLV = MakeAddrLValue(Base, BS->getType());
++
++      // Recurse onto bases.
++      ExpandTypeFromArgs(BS->getType(), SubLV, AI);
++    }
++
++    for(const auto& field : FAExp->fields) {
++      if(field.is_in_base) continue; // already handled
++      // TODO: arrays -> these have no FD
++      LValue SubLV = EmitLValueForField(LV, field.field_decl);
++      ExpandTypeFromArgs(SubLV.getType(), SubLV, AI);
++    }
+   } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
+     Address This = LV.getAddress();
+     for (const CXXBaseSpecifier *BS : RExp->Bases) {
+@@ -814,7 +911,7 @@ void CodeGenFunction::ExpandTypeFromArgs(
+ void CodeGenFunction::ExpandTypeToArgs(
+     QualType Ty, RValue RV, llvm::FunctionType *IRFuncTy,
+     SmallVectorImpl<llvm::Value *> &IRCallArgs, unsigned &IRCallArgPos) {
+-  auto Exp = getTypeExpansion(Ty, getContext());
++  auto Exp = getTypeExpansion(Ty, getContext(), getTypes());
+   if (auto CAExp = dyn_cast<ConstantArrayExpansion>(Exp.get())) {
+     forConstantArrayExpansion(*this, CAExp, RV.getAggregateAddress(),
+                               [&](Address EltAddr) {
+@@ -822,6 +919,34 @@ void CodeGenFunction::ExpandTypeToArgs(
+           convertTempToRValue(EltAddr, CAExp->EltTy, SourceLocation());
+       ExpandTypeToArgs(CAExp->EltTy, EltRV, IRFuncTy, IRCallArgs, IRCallArgPos);
+     });
++  } else if (auto FVCExp = dyn_cast<FloorVectorCompatExpansion>(Exp.get())) {
++    const auto llvm_vec_type = getTypes().ConvertType(FVCExp->vector_type);
++    auto vec_ptr = Builder.CreateBitCast(RV.getAggregateAddress().getPointer(),
++                                         llvm::PointerType::get(llvm_vec_type, Ty.getAddressSpace()));
++    Address vec_ptr_addr(vec_ptr, RV.getAggregateAddress().getAlignment());
++    IRCallArgs[IRCallArgPos++] = Builder.CreateLoad(vec_ptr_addr);
++  } else if (auto FAExp = dyn_cast<FloorAggregateExpansion>(Exp.get())) {
++    // TODO: should this recurse into bases with ExpandTypeToArgs or do this manually?
++    Address This = RV.getAggregateAddress();
++    for (const CXXBaseSpecifier *BS : FAExp->bases) {
++      // Perform a single step derived-to-base conversion.
++      Address Base =
++          GetAddressOfBaseClass(This, Ty->getAsCXXRecordDecl(), &BS, &BS + 1,
++                                /*NullCheckValue=*/false, SourceLocation());
++      RValue BaseRV = RValue::getAggregate(Base);
++
++      // Recurse onto bases.
++      ExpandTypeToArgs(BS->getType(), BaseRV, IRFuncTy, IRCallArgs,
++                       IRCallArgPos);
++    }
++
++    LValue LV = MakeAddrLValue(This, Ty);
++    for(const auto& field : FAExp->fields) {
++      if(field.is_in_base) continue; // already handled
++      // TODO: arrays -> these have no FD
++      RValue FldRV = EmitRValueForField(LV, field.field_decl, SourceLocation());
++      ExpandTypeToArgs(field.field_decl->getType(), FldRV, IRFuncTy, IRCallArgs, IRCallArgPos);
++    }
+   } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
+     Address This = RV.getAggregateAddress();
+     for (const CXXBaseSpecifier *BS : RExp->Bases) {
+@@ -1132,11 +1257,11 @@ class ClangToLLVMArgMapping {
+   SmallVector<IRArgs, 8> ArgInfo;
+ 
+ public:
+-  ClangToLLVMArgMapping(const ASTContext &Context, const CGFunctionInfo &FI,
++  ClangToLLVMArgMapping(const ASTContext &Context, const CGFunctionInfo &FI, const CodeGenTypes& CGT,
+                         bool OnlyRequiredArgs = false)
+       : InallocaArgNo(InvalidIndex), SRetArgNo(InvalidIndex), TotalIRArgs(0),
+         ArgInfo(OnlyRequiredArgs ? FI.getNumRequiredArgs() : FI.arg_size()) {
+-    construct(Context, FI, OnlyRequiredArgs);
++    construct(Context, FI, CGT, OnlyRequiredArgs);
+   }
+ 
+   bool hasInallocaArg() const { return InallocaArgNo != InvalidIndex; }
+@@ -1171,12 +1296,13 @@ public:
+   }
+ 
+ private:
+-  void construct(const ASTContext &Context, const CGFunctionInfo &FI,
++  void construct(const ASTContext &Context, const CGFunctionInfo &FI, const CodeGenTypes& CGT,
+                  bool OnlyRequiredArgs);
+ };
+ 
+ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+                                       const CGFunctionInfo &FI,
++                                      const CodeGenTypes& CGT,
+                                       bool OnlyRequiredArgs) {
+   unsigned IRArgNo = 0;
+   bool SwapThisWithSRet = false;
+@@ -1221,7 +1347,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+       IRArgs.NumberOfArgs = 0;
+       break;
+     case ABIArgInfo::Expand: {
+-      IRArgs.NumberOfArgs = getExpansionSize(ArgType, Context);
++      IRArgs.NumberOfArgs = getExpansionSize(ArgType, Context, CGT);
+       break;
+     }
+     }
+@@ -1325,7 +1451,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+     break;
+   }
+ 
+-  ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, true);
++  ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, *this, true);
+   SmallVector<llvm::Type*, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
+ 
+   // Add type for sret argument.
+@@ -1594,7 +1720,7 @@ void CodeGenModule::ConstructAttributeList(
+     }
+   }
+ 
+-  ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI);
++  ClangToLLVMArgMapping IRFunctionArgs(getContext(), FI, getTypes());
+ 
+   QualType RetTy = FI.getReturnType();
+   const ABIArgInfo &RetAI = FI.getReturnInfo();
+@@ -1833,7 +1959,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+   // FIXME: We no longer need the types from FunctionArgList; lift up and
+   // simplify.
+ 
+-  ClangToLLVMArgMapping IRFunctionArgs(CGM.getContext(), FI);
++  ClangToLLVMArgMapping IRFunctionArgs(CGM.getContext(), FI, getTypes());
+   // Flattened function arguments.
+   SmallVector<llvm::Argument *, 16> FnArgs;
+   FnArgs.reserve(IRFunctionArgs.totalIRArgs());
+@@ -3201,7 +3327,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+     return Builder.CreateStructGEP(ArgMemory, FieldIndex, FieldOffset);
+   };
+ 
+-  ClangToLLVMArgMapping IRFunctionArgs(CGM.getContext(), CallInfo);
++  ClangToLLVMArgMapping IRFunctionArgs(CGM.getContext(), CallInfo, getTypes());
+   SmallVector<llvm::Value *, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
+ 
+   // If the call returns a temporary with struct return, create a temporary
+@@ -3342,8 +3468,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
          if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -2791,7 +3160,7 @@ index 9359850..13a93d1 100644
 -          V = Builder.CreateBitCast(V, IRFuncTy->getParamType(FirstIRArg));
 +            V->getType() != IRFuncTy->getParamType(FirstIRArg)) {
 +          const auto src_as = V->getType()->getPointerAddressSpace();
-+          auto param_type = IRFuncTy->getParamType(ArgNo);
++          auto param_type = IRFuncTy->getParamType(FirstIRArg);
 +          if(src_as > 0 && src_as != param_type->getPointerAddressSpace()) {
 +            param_type = llvm::PointerType::get(cast<llvm::PointerType>(param_type->getScalarType())->getElementType(), src_as);
 +          }
@@ -2800,7 +3169,26 @@ index 9359850..13a93d1 100644
          IRCallArgs[FirstIRArg] = V;
          break;
        }
-@@ -3619,6 +3625,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3483,8 +3615,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+     if (IRFunctionArgs.hasInallocaArg() &&
+         i == IRFunctionArgs.getInallocaArgNo())
+       continue;
+-    if (i < IRFuncTy->getNumParams())
++    if (i < IRFuncTy->getNumParams()) {
++      if (getLangOpts().OpenCL &&
++          IRFuncTy->getParamType(i)->isPointerTy() &&
++          IRCallArgs[i]->getType()->isPointerTy() &&
++          llvm::PointerType::get(IRFuncTy->getParamType(i)->getPointerElementType(), 0) ==
++          llvm::PointerType::get(IRCallArgs[i]->getType()->getPointerElementType(), 0)) {
++        // ignore address space mismatches for opencl/metal
++        continue;
++      }
+       assert(IRCallArgs[i]->getType() == IRFuncTy->getParamType(i));
++    }
+   }
+ 
+   unsigned CallingConv;
+@@ -3619,6 +3760,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
              DestPtr = CreateMemTemp(RetTy, "agg.tmp");
              DestIsVolatile = false;
            }
@@ -2936,7 +3324,7 @@ index b78e80d..71895a6 100644
    // If this isn't C++, we don't need a mangled name, just a pretty one.
    assert(!D.isExternallyVisible() && "name shouldn't matter");
 diff --git a/lib/CodeGen/CGExpr.cpp b/lib/CodeGen/CGExpr.cpp
-index 507ce3d..2e6d644 100644
+index 507ce3d..cd7d6ba 100644
 --- a/lib/CodeGen/CGExpr.cpp
 +++ b/lib/CodeGen/CGExpr.cpp
 @@ -2102,8 +2102,19 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
@@ -3040,10 +3428,12 @@ index 507ce3d..2e6d644 100644
  
    // Make sure that the address is pointing to the right type.
    llvm::Type *llvmType = ConvertTypeForMem(FieldType);
-@@ -3487,6 +3500,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -3487,6 +3500,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    }
    case CK_ZeroToOCLEvent:
      llvm_unreachable("NULL to OpenCL event lvalue cast is not valid");
++  case CK_ZeroToOCLQueue:
++    llvm_unreachable("NULL to OpenCL queue lvalue cast is not valid");
 +  case CK_IntToOCLSampler:
 +    llvm_unreachable("int to OpenCL sampler lvalue cast is not valid");
    }
@@ -3118,7 +3508,7 @@ index 22910d9..73d5a68 100644
      llvm_unreachable("invalid cast kind for complex value");
  
 diff --git a/lib/CodeGen/CGExprConstant.cpp b/lib/CodeGen/CGExprConstant.cpp
-index ee049f1..9ad2397 100644
+index ee049f1..200b46c 100644
 --- a/lib/CodeGen/CGExprConstant.cpp
 +++ b/lib/CodeGen/CGExprConstant.cpp
 @@ -682,6 +682,7 @@ public:
@@ -3129,11 +3519,36 @@ index ee049f1..9ad2397 100644
        return C;
  
      case CK_Dependent: llvm_unreachable("saw dependent cast!");
+@@ -743,6 +744,7 @@ public:
+     case CK_FloatingToBoolean:
+     case CK_FloatingCast:
+     case CK_ZeroToOCLEvent:
++    case CK_ZeroToOCLQueue:
+       return nullptr;
+     }
+     llvm_unreachable("Invalid CastKind");
 diff --git a/lib/CodeGen/CGExprScalar.cpp b/lib/CodeGen/CGExprScalar.cpp
-index 268e796..4c7d4a4 100644
+index 268e796..41eb6d4 100644
 --- a/lib/CodeGen/CGExprScalar.cpp
 +++ b/lib/CodeGen/CGExprScalar.cpp
-@@ -1588,6 +1588,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+@@ -1394,8 +1394,14 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+     llvm::Type *DstTy = ConvertType(DestTy);
+     if (SrcTy->isPtrOrPtrVectorTy() && DstTy->isPtrOrPtrVectorTy() &&
+         SrcTy->getPointerAddressSpace() != DstTy->getPointerAddressSpace()) {
+-      llvm_unreachable("wrong cast for pointers in different address spaces"
+-                       "(must be an address space cast)!");
++      // allow this with opencl/metal
++      if (CGF.getLangOpts().OpenCL) {
++        llvm::Type *MidTy = CGF.CGM.getDataLayout().getIntPtrType(SrcTy);
++        return Builder.CreateIntToPtr(Builder.CreatePtrToInt(Src, MidTy), DstTy);
++      } else {
++        llvm_unreachable("wrong cast for pointers in different address spaces"
++                         "(must be an address space cast)!");
++      }
+     }
+ 
+     if (CGF.SanOpts.has(SanitizerKind::CFIUnrelatedCast)) {
+@@ -1588,6 +1594,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
      return llvm::Constant::getNullValue(ConvertType(DestTy));
    }
  
@@ -3150,7 +3565,7 @@ index 268e796..4c7d4a4 100644
    }
  
    llvm_unreachable("unknown scalar cast");
-@@ -2495,9 +2505,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
+@@ -2495,9 +2511,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
    // GNU void* casts amount to no-ops since our void* type is i8*, but this is
    // future proof.
    if (elementType->isVoidType() || elementType->isFunctionType()) {
@@ -3162,8 +3577,13 @@ index 268e796..4c7d4a4 100644
    }
  
    if (CGF.getLangOpts().isSignedOverflowDefined())
-@@ -3269,30 +3279,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
+@@ -3264,35 +3280,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
+     llvm::Type *condType = ConvertType(condExpr->getType());
+     llvm::VectorType *vecTy = cast<llvm::VectorType>(condType);
  
+-    unsigned numElem = vecTy->getNumElements();
+-    llvm::Type *elemType = vecTy->getElementType();
+-
      llvm::Value *zeroVec = llvm::Constant::getNullValue(vecTy);
      llvm::Value *TestMSB = Builder.CreateICmpSLT(CondV, zeroVec);
 -    llvm::Value *tmp = Builder.CreateSExt(TestMSB,
@@ -3182,19 +3602,19 @@ index 268e796..4c7d4a4 100644
 -      LHSTmp = Builder.CreateBitCast(LHS, tmp->getType());
 -      wasCast = true;
 -    }
-+    return Builder.CreateSelect(TestMSB, LHS, RHS);
- 
+-
 -    llvm::Value *tmp3 = Builder.CreateAnd(RHSTmp, tmp2);
 -    llvm::Value *tmp4 = Builder.CreateAnd(LHSTmp, tmp);
 -    llvm::Value *tmp5 = Builder.CreateOr(tmp3, tmp4, "cond");
 -    if (wasCast)
 -      tmp5 = Builder.CreateBitCast(tmp5, RHS->getType());
- 
+-
 -    return tmp5;
++    return Builder.CreateSelect(TestMSB, LHS, RHS);
    }
  
    // If this is a really simple expression (like x ? 4 : 5), emit this as a
-@@ -3392,30 +3381,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3392,30 +3382,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
    Value *Src  = CGF.EmitScalarExpr(E->getSrcExpr());
    llvm::Type *DstTy = ConvertType(E->getType());
  
@@ -3252,7 +3672,7 @@ index 268e796..4c7d4a4 100644
        }
  
        llvm::Value *UnV = llvm::UndefValue::get(Src->getType());
-@@ -3425,15 +3419,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3425,15 +3420,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
        Args.push_back(Builder.getInt32(1));
        Args.push_back(Builder.getInt32(2));
  
@@ -3727,10 +4147,10 @@ index 375b59c..80fd250 100644
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/lib/CodeGen/CGSPIRMetadataAdder.cpp b/lib/CodeGen/CGSPIRMetadataAdder.cpp
 new file mode 100644
-index 0000000..622528c
+index 0000000..49b7f3e
 --- /dev/null
 +++ b/lib/CodeGen/CGSPIRMetadataAdder.cpp
-@@ -0,0 +1,305 @@
+@@ -0,0 +1,317 @@
 +//===- SPIRMetadataAdder.cpp - Add SPIR related module scope metadata -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3941,6 +4361,12 @@ index 0000000..622528c
 +    FunctionAddSPIRMetadata(*FI, bUseDoubles, sUsedExts);
 +  }
 +
++  // always enable these (required by opencl 1.2 anyways, so easier to just set them instead of looking for uses of them)
++  sUsedExts._cl_khr_global_int32_base_atomics = true;
++  sUsedExts._cl_khr_global_int32_extended_atomics = true;
++  sUsedExts._cl_khr_local_int32_base_atomics = true;
++  sUsedExts._cl_khr_local_int32_extended_atomics = true;
++
 +  // Add SPIR version (1.2)
 +  llvm::Metadata *SPIRVerElts[] = {
 +    llvm::ConstantAsMetadata::get(ConstantInt::get(Type::getInt32Ty(M.getContext()), 1)),
@@ -3974,6 +4400,7 @@ index 0000000..622528c
 +  // Add used optional core features
 +  llvm::SmallVector<llvm::Metadata*, 5> OCLOptCoreElts;
 +
++  // TODO: flag for this?
 +  if (bUseDoubles)
 +    OCLOptCoreElts.push_back(llvm::MDString::get(M.getContext(), "cl_doubles"));
 +
@@ -3988,9 +4415,14 @@ index 0000000..622528c
 +  llvm::NamedMDNode *OCLCompOptsMD =
 +    M.getOrInsertNamedMetadata("opencl.compiler.options");
 +      llvm::SmallVector<llvm::Metadata*,5> OCLBuildOptions;
++  // TODO: should probably parse clang args, -cl-spir-compile-options doesn't seem to work?
++  sBuildOptions.push_back("-cl-kernel-arg-info");
++  sBuildOptions.push_back("-cl-mad-enable");
++  sBuildOptions.push_back("-cl-denorms-are-zero");
++  sBuildOptions.push_back("-cl-unsafe-math-optimizations");
 +  for (std::list<std::string>::const_iterator it = sBuildOptions.begin(),
-+       e = sBuildOptions.end(); it != e ; ++it){
-+        OCLBuildOptions.push_back(llvm::MDString::get(M.getContext(), *it));
++       e = sBuildOptions.end(); it != e ; ++it) {
++    OCLBuildOptions.push_back(llvm::MDString::get(M.getContext(), *it));
 +  }
 +  OCLCompOptsMD->addOperand(llvm::MDNode::get(M.getContext(), OCLBuildOptions));
 +}
@@ -4115,7 +4547,7 @@ index 0a670ab..cfac90e 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index e38ff0a..fd4cb42 100644
+index e38ff0a..647bf62 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,8 @@
@@ -4127,7 +4559,7 @@ index e38ff0a..fd4cb42 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -429,6 +431,148 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -429,6 +431,149 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4260,7 +4692,8 @@ index e38ff0a..fd4cb42 100644
 +  return getScalarMetadataValue(ElemTy.getTypePtr(), Policy);
 +}
 +
-+static llvm::MDString *getAccessAttribute(const ParmVarDecl *PDecl,
++// NOTE/TODO: unused for now, until pipe metadata generation works correctly
++/*static llvm::MDString *getAccessAttribute(const ParmVarDecl *PDecl,
 +                                          llvm::LLVMContext &Context) {
 +  if (PDecl->hasAttr<ImageAccessAttr>() &&
 +    PDecl->getAttr<ImageAccessAttr>()->isWriteOnly())
@@ -4271,12 +4704,12 @@ index e38ff0a..fd4cb42 100644
 +    return llvm::MDString::get(Context, "read_write");
 +
 +  return llvm::MDString::get(Context, "read_only");
-+}
++}*/
 +
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -436,183 +580,1254 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -436,183 +581,1265 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM, llvm::LLVMContext &Context,
                                   SmallVector<llvm::Metadata *, 5> &kernelMDArgs,
                                   CGBuilderTy &Builder, ASTContext &ASTCtx) {
@@ -5050,7 +5483,8 @@ index e38ff0a..fd4cb42 100644
 +				nullptr,
 +				nullptr,
 +				{},
-+				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>())
++				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()),
++				false
 +			}, true);
 +		}
 +	}
@@ -5168,7 +5602,8 @@ index e38ff0a..fd4cb42 100644
 +				nullptr,
 +				nullptr,
 +				{},
-+				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>())
++				(cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()),
++				false
 +			}, 0);
 +		}
 +	}
@@ -5283,6 +5718,7 @@ index e38ff0a..fd4cb42 100644
 +	}
 +	
 +	llvm::LLVMContext &Context = getLLVMContext();
++	const PrintingPolicy &Policy = getContext().getPrintingPolicy();
 +	
 +	//
 +	SmallVector<llvm::Metadata*, 16> arg_infos;
@@ -5592,12 +6028,20 @@ index e38ff0a..fd4cb42 100644
 +	// if this is wrong, the kernel will almost certainly not be usable
 +	if(arg_idx != Fn->arg_size()) {
 +		// signal that this is _very_ bad
-+		const std::string err_str {
-+			"kernel function parameter count mismatch: " +
-+			std::to_string(arg_idx) + " (clang), " +
-+			std::to_string(Fn->arg_size()) + " (llvm)"
-+		};
-+		CGM.Error(FD->getSourceRange().getBegin(), StringRef(err_str));
++		auto err_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Fatal, "kernel function parameter count mismatch: %0 (clang), %1 (llvm)");
++		CGM.getDiags().Report(FD->getSourceRange().getBegin(), err_diagID) << std::to_string(arg_idx) << std::to_string(Fn->arg_size());
++		
++		auto llvm_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM function type: %0");
++		std::string llvm_fun_type = "";
++		llvm::raw_string_ostream llvm_fun_type_stream(llvm_fun_type);
++		Fn->getFunctionType()->print(llvm_fun_type_stream);
++		CGM.getDiags().Report(FD->getSourceRange().getBegin(), llvm_note_diagID) << llvm_fun_type_stream.str();
++		
++		auto clang_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "clang function type: %0");
++		std::string clang_fun_type = "";
++		llvm::raw_string_ostream clang_fun_type_stream(clang_fun_type);
++		FD->getType().print(clang_fun_type_stream, Policy);
++		CGM.getDiags().Report(FD->getSourceRange().getBegin(), clang_note_diagID) << clang_fun_type_stream.str();
 +		return;
 +	}
 +	
@@ -5683,7 +6127,7 @@ index e38ff0a..fd4cb42 100644
      kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
    }
  
-@@ -635,9 +1850,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -635,9 +1862,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -5735,44 +6179,11 @@ index e38ff0a..fd4cb42 100644
 +	  AIRCompOpts->addOperand(llvm::MDNode::get(Context,
 +												llvm::MDString::get(Context, "air.compile.native_double_disable")));
 +  }
-+  // additional opencl info
-+  else if(CGM.getCodeGenOpts().EmitOpenCLArgMetadata && !CGM.getCodeGenOpts().EmitAppleCLMetadata) {
-+	  // only do this once
-+	  llvm::NamedMDNode *CLVersion = CGM.getModule().getOrInsertNamedMetadata("opencl.ocl.version");
-+	  if(CLVersion->getNumOperands() > 0) return;
-+	  
-+	  llvm::NamedMDNode *SPIRVersion = CGM.getModule().getOrInsertNamedMetadata("opencl.spir.version");
-+	  SmallVector <llvm::Metadata*, 3> cl_spir_version; // set both to 1.2
-+	  cl_spir_version.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
-+	  cl_spir_version.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(2)));
-+	  CLVersion->addOperand(llvm::MDNode::get(Context, cl_spir_version));
-+	  SPIRVersion->addOperand(llvm::MDNode::get(Context, cl_spir_version));
-+	  
-+	  llvm::NamedMDNode *CLCompOpts = CGM.getModule().getOrInsertNamedMetadata("opencl.compiler.options");
-+	  SmallVector <llvm::Metadata*, 4> cl_comp_options;
-+	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-kernel-arg-info"));
-+	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-mad-enable"));
-+	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-denorms-are-zero"));
-+	  cl_comp_options.push_back(llvm::MDString::get(Context, "-cl-unsafe-math-optimizations"));
-+	  CLCompOpts->addOperand(llvm::MDNode::get(Context, cl_comp_options));
-+	  
-+	  llvm::NamedMDNode *CLOptFeatures = CGM.getModule().getOrInsertNamedMetadata("opencl.used.optional.core.features");
-+	  SmallVector <llvm::Metadata*, 2> cl_opt_features;
-+	  cl_opt_features.push_back(llvm::MDString::get(Context, "cl_images")); // always use images
-+	  //cl_opt_features.push_back(llvm::MDString::get(Context, "cl_doubles")); // TODO: flag for this?
-+	  CLOptFeatures->addOperand(llvm::MDNode::get(Context, cl_opt_features));
-+	  
-+	  // TODO: proper command line option for this
-+	  llvm::NamedMDNode *CLExts = CGM.getModule().getOrInsertNamedMetadata("opencl.used.extensions");
-+	  SmallVector <llvm::Metadata*, 8> cl_exts;
-+	  cl_exts.push_back(llvm::MDString::get(Context, "cl_khr_global_int32_base_atomics"));
-+	  cl_exts.push_back(llvm::MDString::get(Context, "cl_khr_local_int32_base_atomics"));
-+	  CLExts->addOperand(llvm::MDNode::get(Context, cl_exts));
-+  }
++  // NOTE: additional/global opencl metadata is handled in CGSPIRMetadataAdder
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -667,6 +1958,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -667,6 +1937,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -5780,7 +6191,7 @@ index e38ff0a..fd4cb42 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -698,7 +1990,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -698,7 +1969,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -5789,7 +6200,7 @@ index e38ff0a..fd4cb42 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -709,16 +2001,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -709,16 +1980,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -5831,7 +6242,7 @@ index e38ff0a..fd4cb42 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -735,7 +2048,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -735,7 +2027,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -5840,7 +6251,7 @@ index e38ff0a..fd4cb42 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -798,7 +2111,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -798,7 +2090,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -5858,7 +6269,7 @@ index e38ff0a..fd4cb42 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -828,11 +2150,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -828,11 +2129,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
          CXXThisValue = EmitLoadOfLValue(ThisLValue,
                                          SourceLocation()).getScalarVal();
        }
@@ -5874,7 +6285,7 @@ index e38ff0a..fd4cb42 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -914,6 +2236,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
+@@ -914,6 +2215,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
    F->setDoesNotThrow();
  }
  
@@ -5966,7 +6377,7 @@ index e38ff0a..fd4cb42 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -979,7 +2386,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -979,7 +2365,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -5975,7 +6386,7 @@ index e38ff0a..fd4cb42 100644
      CGM.getCUDARuntime().emitDeviceStub(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -1026,6 +2433,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1026,6 +2412,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -5987,15 +6398,13 @@ index e38ff0a..fd4cb42 100644
    // a quick pass now to see if we can.
    if (!CurFn->doesNotThrow())
 diff --git a/lib/CodeGen/CodeGenFunction.h b/lib/CodeGen/CodeGenFunction.h
-index 4803b13..2bf60a4 100644
+index 4803b13..0e2c0f2 100644
 --- a/lib/CodeGen/CodeGenFunction.h
 +++ b/lib/CodeGen/CodeGenFunction.h
-@@ -1103,7 +1103,14 @@ private:
-   ///   "reqd_work_group_size", and three 32-bit integers X, Y and Z.
+@@ -1104,6 +1104,13 @@ private:
    void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
                                  llvm::Function *Fn);
--
-+	
+ 
 +  void EmitFloorKernelMetadata(const FunctionDecl *FD,
 +                               llvm::Function *Fn,
 +                               const FunctionArgList &Args,
@@ -6019,7 +6428,7 @@ index 4803b13..2bf60a4 100644
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
 diff --git a/lib/CodeGen/CodeGenModule.cpp b/lib/CodeGen/CodeGenModule.cpp
-index 97b1662..35d2983 100644
+index 97b1662..8a1a876 100644
 --- a/lib/CodeGen/CodeGenModule.cpp
 +++ b/lib/CodeGen/CodeGenModule.cpp
 @@ -19,6 +19,7 @@
@@ -6052,16 +6461,17 @@ index 97b1662..35d2983 100644
    if (getCodeGenOpts().EmitDeclMetadata)
      EmitDeclMetadata();
  
-@@ -475,6 +482,31 @@ void CodeGenModule::Release() {
+@@ -475,6 +482,32 @@ void CodeGenModule::Release() {
    if (DebugInfo)
      DebugInfo->finalize();
  
-+  if (llvm::StringRef(TheModule.getTargetTriple()).startswith("spir")) {
++  if (TheModule.getTargetTriple() == "spir-unknown-unknown" ||
++      TheModule.getTargetTriple() == "spir64-unknown-unknown") {
 +    std::list<std::string> sBuildOptions;
 +    std::string tmp = getCodeGenOpts().SPIRCompileOptions;
 +    while (!tmp.empty()) {
-+      int first = tmp.find_first_not_of(' ');
-+      int last = tmp.find_first_of(' ', first);
++      auto first = tmp.find_first_not_of(' ');
++      auto last = tmp.find_first_of(' ', first);
 +
 +      std::string s;
 +      if (last != std::string::npos)
@@ -6084,7 +6494,7 @@ index 97b1662..35d2983 100644
    EmitVersionIdentMetadata();
  
    EmitTargetMetadata();
-@@ -1293,6 +1325,100 @@ void CodeGenModule::EmitGlobalAnnotations() {
+@@ -1293,6 +1326,100 @@ void CodeGenModule::EmitGlobalAnnotations() {
    gv->setSection(AnnotationSection);
  }
  
@@ -6185,7 +6595,7 @@ index 97b1662..35d2983 100644
  llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
    llvm::Constant *&AStr = AnnotationStrings[Str];
    if (AStr)
-@@ -1351,6 +1477,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
+@@ -1351,6 +1478,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
      Annotations.push_back(EmitAnnotateAttr(GV, I, D->getLocation()));
  }
  
@@ -6225,7 +6635,7 @@ index 97b1662..35d2983 100644
  bool CodeGenModule::isInSanitizerBlacklist(llvm::Function *Fn,
                                             SourceLocation Loc) const {
    const auto &SanitizerBL = getContext().getSanitizerBlacklist();
-@@ -1491,23 +1650,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -1491,23 +1651,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<AliasAttr>())
      return EmitAliasDefinition(GD);
  
@@ -6249,7 +6659,7 @@ index 97b1662..35d2983 100644
    // If this is OpenMP device, check if it is legal to emit this global
    // normally.
    if (OpenMPRuntime && OpenMPRuntime->emitTargetGlobal(GD))
-@@ -2377,7 +2519,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
+@@ -2377,7 +2520,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
        (D->hasAttr<CUDAConstantAttr>() || D->hasAttr<CUDADeviceAttr>())) {
      GV->setExternallyInitialized(true);
    }
@@ -6263,7 +6673,7 @@ index 97b1662..35d2983 100644
  
    // If it is safe to mark the global 'constant', do so now.
    GV->setConstant(!NeedsGlobalCtor && !NeedsGlobalDtor &&
-@@ -2703,12 +2850,49 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -2703,12 +2851,49 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -6313,7 +6723,7 @@ index 97b1662..35d2983 100644
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -2803,7 +2987,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -2803,7 +2988,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -6382,7 +6792,7 @@ index fdb4d78..28d047a 100644
  }  // end namespace CodeGen
  }  // end namespace clang
 diff --git a/lib/CodeGen/CodeGenTypes.cpp b/lib/CodeGen/CodeGenTypes.cpp
-index 09d9bf1..6633b66 100644
+index 09d9bf1..bb59182 100644
 --- a/lib/CodeGen/CodeGenTypes.cpp
 +++ b/lib/CodeGen/CodeGenTypes.cpp
 @@ -464,6 +464,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
@@ -6423,7 +6833,7 @@ index 09d9bf1..6633b66 100644
    const Type *Key = Context.getTagDeclType(RD).getTypePtr();
  
    const CGRecordLayout *Layout = CGRecordLayouts.lookup(Key);
-@@ -762,3 +777,200 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -762,3 +777,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -6447,7 +6857,7 @@ index 09d9bf1..6633b66 100644
 +	return "generated(" + gen_type_name_stream.str() + ")";
 +}
 +
-+clang::QualType CodeGenTypes::get_compat_vector_type(const CXXRecordDecl* decl) {
++clang::QualType CodeGenTypes::get_compat_vector_type(const CXXRecordDecl* decl) const {
 +	const auto fields = get_aggregate_scalar_fields(decl, decl, true, false);
 +	
 +	const auto vec_size = fields.size();
@@ -6472,7 +6882,7 @@ index 09d9bf1..6633b66 100644
 +													 const ConstantArrayType* CAT,
 +													 const AttrVec* attrs,
 +													 const std::string& name,
-+													 std::vector<CodeGenTypes::aggregate_scalar_entry>& ret) {
++													 std::vector<CodeGenTypes::aggregate_scalar_entry>& ret) const {
 +	const auto count = CAT->getSize().getZExtValue();
 +	const auto ET = CAT->getElementType();
 +	if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
@@ -6506,6 +6916,7 @@ index 09d9bf1..6633b66 100644
 +				attrs,
 +				nullptr,
 +				{ parent_decl },
++				false,
 +				false
 +			});
 +		}
@@ -6516,7 +6927,7 @@ index 09d9bf1..6633b66 100644
 +CodeGenTypes::get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
 +										  const CXXRecordDecl* decl,
 +										  const bool ignore_root_vec_compat,
-+										  const bool ignore_bases) {
++										  const bool ignore_bases) const {
 +	if(decl == nullptr) return {};
 +	
 +	// must have definition
@@ -6533,7 +6944,8 @@ index 09d9bf1..6633b66 100644
 +				&decl->getAttrs(),
 +				nullptr,
 +				{},
-+				true
++				true,
++				false
 +			}
 +		};
 +	}
@@ -6544,7 +6956,10 @@ index 09d9bf1..6633b66 100644
 +	// iterate over / recurse into all bases
 +	if(!ignore_bases) {
 +		for(const auto& base : decl->bases()) {
-+			const auto base_ret = get_aggregate_scalar_fields(root_decl, base.getType()->getAsCXXRecordDecl());
++			auto base_ret = get_aggregate_scalar_fields(root_decl, base.getType()->getAsCXXRecordDecl());
++			for(auto& elem : base_ret) {
++				elem.is_in_base = true;
++			}
 +			if(!base_ret.empty()) {
 +				ret.insert(ret.end(), base_ret.begin(), base_ret.end());
 +			}
@@ -6574,7 +6989,8 @@ index 09d9bf1..6633b66 100644
 +					field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
 +					*field_iter,
 +					{ decl },
-+					true
++					true,
++					false
 +				});
 +			}
 +			else {
@@ -6606,6 +7022,7 @@ index 09d9bf1..6633b66 100644
 +				field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
 +				*field_iter,
 +				{ decl },
++				false,
 +				false
 +			});
 +		}
@@ -6625,7 +7042,7 @@ index 09d9bf1..6633b66 100644
 +	return ret;
 +}
 diff --git a/lib/CodeGen/CodeGenTypes.h b/lib/CodeGen/CodeGenTypes.h
-index a96f23c..93dced5 100644
+index a96f23c..7a451dc 100644
 --- a/lib/CodeGen/CodeGenTypes.h
 +++ b/lib/CodeGen/CodeGenTypes.h
 @@ -138,6 +138,10 @@ class CodeGenTypes {
@@ -6649,7 +7066,7 @@ index a96f23c..93dced5 100644
  
    /// UpdateCompletedType - When we find the full definition for a TagDecl,
    /// replace the 'opaque' type we previously made for it if applicable.
-@@ -300,7 +305,56 @@ public:
+@@ -300,7 +305,57 @@ public:
    /// optional suffix and name the given LLVM type using it.
    void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
                           StringRef suffix);
@@ -6665,6 +7082,7 @@ index a96f23c..93dced5 100644
 +    const FieldDecl* field_decl;
 +    std::vector<const CXXRecordDecl*> parents;
 +    bool compat_vector;
++    bool is_in_base;
 +	
 +	template <typename SpecificAttr>
 +	bool hasAttr() const {
@@ -6687,10 +7105,10 @@ index a96f23c..93dced5 100644
 +  std::vector<aggregate_scalar_entry> get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
 +                                                                  const CXXRecordDecl* decl,
 +																  const bool ignore_root_vec_compat = false,
-+																  const bool ignore_bases = false);
++																  const bool ignore_bases = false) const;
 +
 +  // returns the corresponding clang vector type for a [[vector_compat]] aggregate
-+  clang::QualType get_compat_vector_type(const CXXRecordDecl* decl);
++  clang::QualType get_compat_vector_type(const CXXRecordDecl* decl) const;
 +
 +  //
 +  void create_flattened_cg_layout(const CXXRecordDecl* decl, llvm::StructType* type,
@@ -6703,7 +7121,7 @@ index a96f23c..93dced5 100644
 +                                         const ConstantArrayType* CAT,
 +                                         const AttrVec* attrs,
 +                                         const std::string& name,
-+                                         std::vector<CodeGenTypes::aggregate_scalar_entry>& ret);
++                                         std::vector<CodeGenTypes::aggregate_scalar_entry>& ret) const;
  
  public:  // These are internal details of CGT that shouldn't be used externally.
    /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
@@ -6732,7 +7150,7 @@ index 6032dff..054094d 100644
  include $(CLANG_LEVEL)/Makefile
 -
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 3d1ddef..4c2771c 100644
+index 3d1ddef..c481312 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -43,11 +43,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -6764,7 +7182,7 @@ index 3d1ddef..4c2771c 100644
 +  if (const EnumType *EnumTy = Ty->getAs<EnumType>())
 +    Ty = EnumTy->getDecl()->getIntegerType();
 +
-+  if (const RecordType *RT = Ty->getAs<RecordType>())
++  if (Ty->isRecordType())
 +	  return ABIArgInfo::getIndirect(CharUnits::Zero(), /*ByVal=*/false);
 +
 +  if (Ty->isPromotableIntegerType())
@@ -7258,6 +7676,81 @@ index 87b4704..1eecb63 100644
  };
  } // namespace clang
  
+diff --git a/lib/Driver/Action.cpp b/lib/Driver/Action.cpp
+index e9490e9..8a38f0d 100644
+--- a/lib/Driver/Action.cpp
++++ b/lib/Driver/Action.cpp
+@@ -66,6 +66,10 @@ static const char* GpuArchToComputeName(const char *ArchName) {
+       .Case("sm_50", "compute_50")
+       .Case("sm_52", "compute_52")
+       .Case("sm_53", "compute_53")
++      .Case("sm_60", "compute_60")
++      .Case("sm_61", "compute_61")
++      .Case("sm_62", "compute_62")
++      .Case("sm_70", "compute_70")
+       .Default(nullptr);
+ }
+ 
+diff --git a/lib/Driver/ToolChains.cpp b/lib/Driver/ToolChains.cpp
+index 99c7b8e..205f21b 100644
+--- a/lib/Driver/ToolChains.cpp
++++ b/lib/Driver/ToolChains.cpp
+@@ -67,6 +67,8 @@ bool MachO::HasNativeLLVMSupport() const { return true; }
+ 
+ /// Darwin provides an ARC runtime starting in MacOS X 10.7 and iOS 5.0.
+ ObjCRuntime Darwin::getDefaultObjCRuntime(bool isNonFragile) const {
++  if (getTriple().getArch() == llvm::Triple::ArchType::air64)
++    return ObjCRuntime(ObjCRuntime::FragileMacOSX, TargetVersion);
+   if (isTargetWatchOSBased())
+     return ObjCRuntime(ObjCRuntime::WatchOS, TargetVersion);
+   if (isTargetIOSBased())
+@@ -78,6 +80,8 @@ ObjCRuntime Darwin::getDefaultObjCRuntime(bool isNonFragile) const {
+ 
+ /// Darwin provides a blocks runtime starting in MacOS X 10.6 and iOS 3.2.
+ bool Darwin::hasBlocksRuntime() const {
++  if (getTriple().getArch() == llvm::Triple::ArchType::air64)
++    return false;
+   if (isTargetWatchOSBased())
+     return true;
+   else if (isTargetIOSBased())
+@@ -228,6 +232,10 @@ DarwinClang::DarwinClang(const Driver &D, const llvm::Triple &Triple,
+     : Darwin(D, Triple, Args) {}
+ 
+ void DarwinClang::addClangWarningOptions(ArgStringList &CC1Args) const {
++  // nothing of interest in here for air/metal
++  if (getTriple().getArch() == llvm::Triple::ArchType::air64)
++    return;
++
+   // For modern targets, promote certain warnings to errors.
+   if (isTargetWatchOSBased() || getTriple().isArch64Bit()) {
+     // Always enable -Wdeprecated-objc-isa-usage and promote it
+@@ -1213,6 +1221,11 @@ void Darwin::CheckObjCARC() const {
+ 
+ SanitizerMask Darwin::getSupportedSanitizers() const {
+   SanitizerMask Res = ToolChain::getSupportedSanitizers();
++
++  // no additional ones
++  if (getTriple().getArch() == llvm::Triple::ArchType::air64)
++    return Res;
++
+   if (isTargetMacOS() || isTargetIOSSimulator())
+     Res |= SanitizerKind::Address;
+   if (isTargetMacOS()) {
+diff --git a/lib/Driver/ToolChains.h b/lib/Driver/ToolChains.h
+index f940e58..ac06236 100644
+--- a/lib/Driver/ToolChains.h
++++ b/lib/Driver/ToolChains.h
+@@ -518,6 +518,10 @@ public:
+   }
+ 
+   unsigned GetDefaultStackProtectorLevel(bool KernelOrKext) const override {
++    // not supported on air/metal
++    if (getTriple().getArch() == llvm::Triple::ArchType::air64)
++      return 0;
++
+     // Stack protectors default to on for user code on 10.5,
+     // and for everything in 10.6 and beyond
+     if (isTargetIOSBased() || isTargetWatchOSBased())
 diff --git a/lib/Driver/Tools.cpp b/lib/Driver/Tools.cpp
 index b7ac24f..6295b4d 100644
 --- a/lib/Driver/Tools.cpp
@@ -7272,13 +7765,14 @@ index b7ac24f..6295b4d 100644
  }
  
 diff --git a/lib/Edit/RewriteObjCFoundationAPI.cpp b/lib/Edit/RewriteObjCFoundationAPI.cpp
-index 482c0f6..0ae1ec7 100644
+index 482c0f6..2148316 100644
 --- a/lib/Edit/RewriteObjCFoundationAPI.cpp
 +++ b/lib/Edit/RewriteObjCFoundationAPI.cpp
-@@ -1076,6 +1076,7 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
+@@ -1076,6 +1076,8 @@ static bool rewriteToNumericBoxedExpression(const ObjCMessageExpr *Msg,
      case CK_CopyAndAutoreleaseBlockObject:
      case CK_BuiltinFnToFnPtr:
      case CK_ZeroToOCLEvent:
++    case CK_ZeroToOCLQueue:
 +    case CK_IntToOCLSampler:
        return false;
  
@@ -8084,18 +8578,21 @@ index 6f6c4ca..5defb13 100644
    }
    llvm_unreachable("Unknown typespec!");
 diff --git a/lib/Sema/Sema.cpp b/lib/Sema/Sema.cpp
-index 39b8cc9..387b08c 100644
+index 39b8cc9..78d80c7 100644
 --- a/lib/Sema/Sema.cpp
 +++ b/lib/Sema/Sema.cpp
-@@ -80,6 +80,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
+@@ -74,7 +74,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
+            TranslationUnitKind TUKind,
+            CodeCompleteConsumer *CodeCompleter)
+   : ExternalSource(nullptr),
+-    isMultiplexExternalSource(false), FPFeatures(pp.getLangOpts()),
++    isMultiplexExternalSource(false),
++    OpenCLFeatures(pp.getLangOpts(), pp.getSupportedPragmas()),
++    FPFeatures(pp.getLangOpts()),
+     LangOpts(pp.getLangOpts()), PP(pp), Context(ctxt), Consumer(consumer),
+     Diags(PP.getDiagnostics()), SourceMgr(PP.getSourceManager()),
      CollectStats(false), CodeCompleter(CodeCompleter),
-     CurContext(nullptr), OriginalLexicalContext(nullptr),
-     PackContext(nullptr), MSStructPragmaOn(false),
-+	OpenCLFeatures(pp.getLangOpts(), pp.getSupportedPragmas()),
-     MSPointerToMemberRepresentationMethod(
-         LangOpts.getMSPointerToMemberRepresentationMethod()),
-     VtorDispModeStack(1, MSVtorDispAttr::Mode(LangOpts.VtorDispMode)),
-@@ -208,18 +209,20 @@ void Sema::Initialize() {
+@@ -208,18 +210,20 @@ void Sema::Initialize() {
      addImplicitTypedef("image1d_buffer_t", Context.OCLImage1dBufferTy);
      addImplicitTypedef("image2d_t", Context.OCLImage2dTy);
      addImplicitTypedef("image2d_array_t", Context.OCLImage2dArrayTy);
@@ -8669,7 +9166,7 @@ index 6c2834b..1c61fee 100644
    if (CMId == 0)
      return false;
 diff --git a/lib/Sema/SemaDecl.cpp b/lib/Sema/SemaDecl.cpp
-index f95d106..c5ee1b4 100644
+index f95d106..d24b12c 100644
 --- a/lib/Sema/SemaDecl.cpp
 +++ b/lib/Sema/SemaDecl.cpp
 @@ -3884,6 +3884,10 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
@@ -8753,7 +9250,16 @@ index f95d106..c5ee1b4 100644
        if (R.getAddressSpace()) {
          Diag(D.getLocStart(), diag::err_event_t_addr_space_qual);
          D.setInvalidType();
-@@ -6119,6 +6162,8 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+@@ -5826,6 +5869,8 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
+       // This is an out-of-line definition of a static data member.
+       switch (SC) {
+       case SC_None:
++      case SC_OpenCLConstant:
++      case SC_OpenCLConstantExtern:
+         break;
+       case SC_Static:
+         Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+@@ -6119,6 +6164,8 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
        case SC_Static:
        case SC_Extern:
        case SC_PrivateExtern:
@@ -8762,7 +9268,7 @@ index f95d106..c5ee1b4 100644
          break;
        }
      } else if (SC == SC_Register) {
-@@ -6532,11 +6577,27 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+@@ -6532,11 +6579,27 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
  
    // OpenCL v1.2 s6.8 -- The static qualifier is valid only in program
    // scope.
@@ -8774,7 +9280,7 @@ index f95d106..c5ee1b4 100644
 +  // (same for Metal, enabled for CUDA as well for compatibility)
 +  if (NewVD->isStaticLocal() &&
 +      ((getLangOpts().OpenCL &&
-+        getLangOpts().OpenCLVersion == 120 &&
++        getLangOpts().OpenCLVersion >= 120 &&
 +        !getOpenCLOptions().cl_clang_storage_class_specifiers) ||
 +       getLangOpts().CUDA)) {
 +    // however, if it is constexpr, this can be safely put into the constant address space
@@ -8795,7 +9301,7 @@ index f95d106..c5ee1b4 100644
      return;
    }
  
-@@ -6547,20 +6608,35 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+@@ -6547,28 +6610,43 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
    // address space.
    if (getLangOpts().OpenCL) {
      if (NewVD->isFileVarDecl()) {
@@ -8825,8 +9331,8 @@ index f95d106..c5ee1b4 100644
 +        else {
 +          if (!(T.getAddressSpace() == LangAS::opencl_constant ||
 +                (T.getAddressSpace() == LangAS::opencl_global &&
-+                 getLangOpts().OpenCLVersion == 200))) {
-+            if (getLangOpts().OpenCLVersion == 200)
++                 getLangOpts().OpenCLVersion >= 200))) {
++            if (getLangOpts().OpenCLVersion >= 200)
 +              Diag(NewVD->getLocation(), diag::err_opencl_global_invalid_addr_space)
 +                  << "global or constant";
 +            else
@@ -8843,7 +9349,17 @@ index f95d106..c5ee1b4 100644
        // OpenCL v2.0 s6.5.1 - Variables defined at program scope and static
        // variables inside a function can also be declared in the global
        // address space.
-@@ -6582,7 +6658,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
+       if (NewVD->isStaticLocal() &&
+           !(T.getAddressSpace() == LangAS::opencl_constant ||
+             (T.getAddressSpace() == LangAS::opencl_global &&
+-             getLangOpts().OpenCLVersion == 200))) {
+-        if (getLangOpts().OpenCLVersion == 200)
++             getLangOpts().OpenCLVersion >= 200))) {
++        if (getLangOpts().OpenCLVersion >= 200)
+           Diag(NewVD->getLocation(), diag::err_opencl_global_invalid_addr_space)
+               << "global or constant";
+         else
+@@ -6582,7 +6660,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
        if (T.getAddressSpace() == LangAS::opencl_constant ||
            T.getAddressSpace() == LangAS::opencl_local) {
          FunctionDecl *FD = getCurFunctionDecl();
@@ -8852,14 +9368,7 @@ index f95d106..c5ee1b4 100644
            if (T.getAddressSpace() == LangAS::opencl_constant)
              Diag(NewVD->getLocation(), diag::err_opencl_non_kernel_variable)
                  << "constant";
-@@ -6675,11 +6751,31 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
-   }
- 
-   if (NewVD->isConstexpr() && !T->isDependentType() &&
-+      // TODO: how to catch+ignore this earlier?
-+      !T->isSamplerT() &&
-       RequireLiteralType(NewVD->getLocation(), T,
-                          diag::err_constexpr_var_non_literal)) {
+@@ -6680,6 +6758,24 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
      NewVD->setInvalidDecl();
      return;
    }
@@ -9425,7 +9934,7 @@ index f94c822..b8ff0c4 100644
      if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
        // FIXME: This emits a different error message than
 diff --git a/lib/Sema/SemaExpr.cpp b/lib/Sema/SemaExpr.cpp
-index ebf7981..0486282 100644
+index ebf7981..e8f2ccf 100644
 --- a/lib/Sema/SemaExpr.cpp
 +++ b/lib/Sema/SemaExpr.cpp
 @@ -44,6 +44,7 @@
@@ -9542,14 +10051,15 @@ index ebf7981..0486282 100644
        if (Diagnose)
          Diag(E->getExprLoc(), diag::err_opencl_taking_function_address);
        return ExprError();
-@@ -791,6 +882,34 @@ ExprResult Sema::UsualUnaryConversions(Expr *E) {
+@@ -791,6 +882,35 @@ ExprResult Sema::UsualUnaryConversions(Expr *E) {
    return E;
  }
  
 +// Find out which conversion function to call for a vector with the given
 +// element type.
 +//
-+static std::string vec_conversion_function_for_type(BuiltinType::Kind elem_type)
++// TODO: unused?
++/*static std::string vec_conversion_function_for_type(BuiltinType::Kind elem_type)
 +{
 +    switch (elem_type)
 +    {
@@ -9572,12 +10082,12 @@ index ebf7981..0486282 100644
 +            assert(0 && "Invalid vector type in conversion");
 +            return "";
 +    }
-+}
++}*/
 +
  /// DefaultArgumentPromotion (C99 6.5.2.2p6). Used for function calls that
  /// do not have a prototype. Arguments that have type float or __fp16
  /// are promoted to double. All other argument types are converted by
-@@ -804,12 +923,15 @@ ExprResult Sema::DefaultArgumentPromotion(Expr *E) {
+@@ -804,12 +924,15 @@ ExprResult Sema::DefaultArgumentPromotion(Expr *E) {
      return ExprError();
    E = Res.get();
  
@@ -9599,7 +10109,7 @@ index ebf7981..0486282 100644
  
    // C++ performs lvalue-to-rvalue conversion as a default argument
    // promotion, even on class types, but note:
-@@ -3294,7 +3416,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
+@@ -3294,7 +3417,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
  
    if (Literal.isFloatingLiteral()) {
      QualType Ty;
@@ -9610,7 +10120,7 @@ index ebf7981..0486282 100644
        Ty = Context.FloatTy;
      else if (!Literal.isLong)
        Ty = Context.DoubleTy;
-@@ -4260,6 +4384,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4260,6 +4385,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                        Expr *Idx, SourceLocation RLoc) {
    Expr *LHSExp = Base;
    Expr *RHSExp = Idx;
@@ -9618,7 +10128,7 @@ index ebf7981..0486282 100644
  
    // Perform default conversions.
    if (!LHSExp->getType()->getAs<VectorType>()) {
-@@ -4291,6 +4416,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4291,6 +4417,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
      BaseExpr = LHSExp;
      IndexExpr = RHSExp;
      ResultType = PTy->getPointeeType();
@@ -9626,7 +10136,7 @@ index ebf7981..0486282 100644
    } else if (const ObjCObjectPointerType *PTy =
                 LHSTy->getAs<ObjCObjectPointerType>()) {
      BaseExpr = LHSExp;
-@@ -4391,6 +4517,13 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4391,6 +4518,13 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                            diag::err_subscript_incomplete_type, BaseExpr))
      return ExprError();
  
@@ -9640,7 +10150,7 @@ index ebf7981..0486282 100644
    assert(VK == VK_RValue || LangOpts.CPlusPlus ||
           !ResultType.isCForbiddenLValueType());
  
-@@ -5261,7 +5394,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -5261,7 +5395,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
    if (getLangOpts().CUDA) {
      if (Config) {
        // CUDA: Kernel calls must be to global functions
@@ -9649,7 +10159,7 @@ index ebf7981..0486282 100644
          return ExprError(Diag(LParenLoc,diag::err_kern_call_not_global_function)
              << FDecl->getName() << Fn->getSourceRange());
  
-@@ -5271,12 +5404,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -5271,12 +5405,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
              << Fn->getType() << Fn->getSourceRange());
      } else {
        // CUDA: Calls to global functions must be configured
@@ -9668,14 +10178,6 @@ index ebf7981..0486282 100644
    // Check for a valid return type
    if (CheckCallReturnType(FuncT->getReturnType(), Fn->getLocStart(), TheCall,
                            FDecl))
-@@ -6121,6 +6259,7 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
- 
-   QualType CompositeTy = S.Context.mergeTypes(lhptee, rhptee);
- 
-+  unsigned asLeft = 0, asRight = 0;
-   if (CompositeTy.isNull()) {
-     S.Diag(Loc, diag::ext_typecheck_cond_incompatible_pointers)
-       << LHSTy << RHSTy << LHS.get()->getSourceRange()
 @@ -6128,9 +6267,25 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
      // In this situation, we assume void* type. No especially good
      // reason, but this is what gcc does, and we do have to pick
@@ -9958,7 +10460,7 @@ index 9c345f8..519a41a 100644
        if (!vecType->isAccessorWithinNumElements(*compStr++)) {
          S.Diag(OpLoc, diag::err_ext_vector_component_exceeds_length)
 diff --git a/lib/Sema/SemaInit.cpp b/lib/Sema/SemaInit.cpp
-index c3a8946..90f7cd4 100644
+index c3a8946..0bcdea6 100644
 --- a/lib/Sema/SemaInit.cpp
 +++ b/lib/Sema/SemaInit.cpp
 @@ -1108,7 +1108,8 @@ void InitListChecker::CheckSubElementType(const InitializedEntity &Entity,
@@ -10055,7 +10557,7 @@ index c3a8946..90f7cd4 100644
      }
 +  }
  
-+  // need to try these two when using C++ with OpenCL
++  // need to try these when using C++ with OpenCL
 +  if (!S.getLangOpts().CPlusPlus || S.getLangOpts().OpenCL) {
      if (TryOCLSamplerInitialization(S, *this, DestType, Initializer))
        return;
@@ -10414,7 +10916,7 @@ index cb67d71..a3cab6f 100644
      break;
    }
 diff --git a/lib/Sema/SemaType.cpp b/lib/Sema/SemaType.cpp
-index f6ad132..e515ed8 100644
+index f6ad132..e64be68 100644
 --- a/lib/Sema/SemaType.cpp
 +++ b/lib/Sema/SemaType.cpp
 @@ -20,6 +20,7 @@
@@ -10757,6 +11259,25 @@ index f6ad132..e515ed8 100644
  
      MS_TYPE_ATTRS_CASELIST:
        if (!handleMSPointerTypeQualifierAttr(state, attr, type))
+@@ -6393,7 +6499,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+   // (...)
+   // Pointers that are declared without pointing to a named address space point
+   // to the generic address space.
+-  if (state.getSema().getLangOpts().OpenCLVersion >= 200 &&
++  // NOTE: disabled due to it being _very_ incompatible to other backends right now
++  /*if (state.getSema().getLangOpts().OpenCLVersion >= 200 &&
+       !hasOpenCLAddressSpace && type.getAddressSpace() == 0 &&
+       (TAL == TAL_DeclSpec || TAL == TAL_DeclChunk)) {
+     Declarator &D = state.getDeclarator();
+@@ -6414,7 +6521,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+              D.getDeclSpec().getStorageClassSpec() == DeclSpec::SCS_static)
+       type = state.getSema().Context.getAddrSpaceQualType(
+           type, LangAS::opencl_global);
+-  }
++  }*/
+ }
+ 
+ void Sema::completeExprArrayBound(Expr *E) {
 diff --git a/lib/Serialization/ASTCommon.cpp b/lib/Serialization/ASTCommon.cpp
 index 2b78d74..3a46e19 100644
 --- a/lib/Serialization/ASTCommon.cpp
@@ -10803,6 +11324,19 @@ index 833ff57..734a899 100644
      case PREDEF_TYPE_IMAGE3D_ID:
        T = Context.OCLImage3dTy;
        break;
+diff --git a/lib/StaticAnalyzer/Core/ExprEngineC.cpp b/lib/StaticAnalyzer/Core/ExprEngineC.cpp
+index 175225b..367c242 100644
+--- a/lib/StaticAnalyzer/Core/ExprEngineC.cpp
++++ b/lib/StaticAnalyzer/Core/ExprEngineC.cpp
+@@ -341,6 +341,8 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
+       case CK_AnyPointerToBlockPointerCast:
+       case CK_ObjCObjectLValueCast:
+       case CK_ZeroToOCLEvent:
++      case CK_ZeroToOCLQueue:
++      case CK_IntToOCLSampler:
+       case CK_LValueBitCast: {
+         // Delegate to SValBuilder to process.
+         SVal V = state->getSVal(Ex, LCtx);
 diff --git a/tools/driver/Makefile b/tools/driver/Makefile
 index 347702e..91087ad 100644
 --- a/tools/driver/Makefile
@@ -10850,7 +11384,7 @@ index 8240561..3d69794 100644
    llvm::InitializeAllTargets();
    llvm::InitializeAllTargetMCs();
 diff --git a/tools/libclang/CIndex.cpp b/tools/libclang/CIndex.cpp
-index 9086c60..e154bd3 100644
+index 9086c60..50dc8ea 100644
 --- a/tools/libclang/CIndex.cpp
 +++ b/tools/libclang/CIndex.cpp
 @@ -1467,6 +1467,10 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
@@ -10879,6 +11413,15 @@ index 9086c60..e154bd3 100644
    case CXCursor_CUDAHostAttr:
      return cxstring::createRef("attribute(host)");
    case CXCursor_CUDASharedAttr:
+@@ -6782,6 +6786,8 @@ enum CX_StorageClass clang_Cursor_getStorageClass(CXCursor C) {
+   }
+   switch (sc) {
+   case SC_None:
++  case SC_OpenCLConstant: // unsupported in here
++  case SC_OpenCLConstantExtern: // unsupported in here
+     return CX_SC_None;
+   case SC_Extern:
+     return CX_SC_Extern;
 diff --git a/tools/libclang/CXCursor.cpp b/tools/libclang/CXCursor.cpp
 index c766d2d..b4fed25 100644
 --- a/tools/libclang/CXCursor.cpp

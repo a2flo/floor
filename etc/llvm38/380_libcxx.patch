@@ -2438,6 +2438,19 @@ index 3ef687c..23cef71 100644
      return __r;
  }
  
+diff --git a/include/new b/include/new
+index d2b2ae6..6e59f21 100644
+--- a/include/new
++++ b/include/new
+@@ -115,7 +115,7 @@ public:
+ _LIBCPP_FUNC_VIS void __throw_bad_alloc();  // not in C++ spec
+ 
+ struct _LIBCPP_TYPE_VIS nothrow_t {};
+-extern _LIBCPP_FUNC_VIS const nothrow_t nothrow;
++_LIBCPP_FUNC_VIS const nothrow_t nothrow {};
+ typedef void (*new_handler)();
+ _LIBCPP_FUNC_VIS new_handler set_new_handler(new_handler) _NOEXCEPT;
+ _LIBCPP_FUNC_VIS new_handler get_new_handler() _NOEXCEPT;
 diff --git a/include/stddef.h b/include/stddef.h
 deleted file mode 100644
 index 8841bbe..0000000

@@ -186,6 +186,20 @@ index e01db0a..76abc26 100644
      kalimba,    // Kalimba: generic kalimba
      shave,      // SHAVE: Movidius vector VLIW processors
      wasm32,     // WebAssembly with 32-bit pointers
+diff --git a/include/llvm/Analysis/CodeMetrics.h b/include/llvm/Analysis/CodeMetrics.h
+index 2f59691..5cd507e 100644
+--- a/include/llvm/Analysis/CodeMetrics.h
++++ b/include/llvm/Analysis/CodeMetrics.h
+@@ -89,7 +89,8 @@ struct CodeMetrics {
+ 
+   /// \brief Add information about a block to the current state.
+   void analyzeBasicBlock(const BasicBlock *BB, const TargetTransformInfo &TTI,
+-                         SmallPtrSetImpl<const Value*> &EphValues);
++                         SmallPtrSetImpl<const Value*> &EphValues,
++                         const bool allow_duplicate = false);
+ 
+   /// \brief Collect a loop's ephemeral values (those used only by an assume
+   /// or similar intrinsics in the loop).
 diff --git a/include/llvm/CodeGen/AsmPrinter.h b/include/llvm/CodeGen/AsmPrinter.h
 index cf29fc9..0dd0dec 100644
 --- a/include/llvm/CodeGen/AsmPrinter.h
@@ -961,6 +975,110 @@ index 0000000..46943c0
 +}
 +
 +#endif
+diff --git a/lib/Analysis/CodeMetrics.cpp b/lib/Analysis/CodeMetrics.cpp
+index 4090b4c..6820036 100644
+--- a/lib/Analysis/CodeMetrics.cpp
++++ b/lib/Analysis/CodeMetrics.cpp
+@@ -104,7 +104,8 @@ void CodeMetrics::collectEphemeralValues(
+ /// from the specified block.
+ void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
+                                     const TargetTransformInfo &TTI,
+-                                    SmallPtrSetImpl<const Value*> &EphValues) {
++                                    SmallPtrSetImpl<const Value*> &EphValues,
++                                    const bool allow_duplicate) {
+   ++NumBlocks;
+   unsigned NumInstsBeforeThisBB = NumInsts;
+   for (BasicBlock::const_iterator II = BB->begin(), E = BB->end();
+@@ -149,16 +150,18 @@ void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
+     if (isa<ExtractElementInst>(II) || II->getType()->isVectorTy())
+       ++NumVectorInsts;
+ 
+-    if (II->getType()->isTokenTy() && II->isUsedOutsideOfBlock(BB))
++    if (!allow_duplicate && II->getType()->isTokenTy() && II->isUsedOutsideOfBlock(BB))
+       notDuplicatable = true;
+ 
+-    if (const CallInst *CI = dyn_cast<CallInst>(II))
+-      if (CI->cannotDuplicate())
+-        notDuplicatable = true;
++    if (!allow_duplicate)
++      if (const CallInst *CI = dyn_cast<CallInst>(II))
++        if (CI->cannotDuplicate())
++          notDuplicatable = true;
+ 
+-    if (const InvokeInst *InvI = dyn_cast<InvokeInst>(II))
+-      if (InvI->cannotDuplicate())
+-        notDuplicatable = true;
++    if (!allow_duplicate)
++      if (const InvokeInst *InvI = dyn_cast<InvokeInst>(II))
++        if (InvI->cannotDuplicate())
++          notDuplicatable = true;
+ 
+     NumInsts += TTI.getUserCost(&*II);
+   }
+diff --git a/lib/Analysis/LoopInfo.cpp b/lib/Analysis/LoopInfo.cpp
+index 0c725fc..ac26ec9 100644
+--- a/lib/Analysis/LoopInfo.cpp
++++ b/lib/Analysis/LoopInfo.cpp
+@@ -235,8 +235,9 @@ bool Loop::isSafeToClone() const {
+       return false;
+ 
+     if (const InvokeInst *II = dyn_cast<InvokeInst>((*I)->getTerminator())) {
+-      if (II->cannotDuplicate())
+-        return false;
++      // TODO/NOTE: ignoring this for now, duplicates can very well exist in the same scope
++      //if (II->cannotDuplicate())
++      //  return false;
+       // Return false if any loop blocks contain invokes to EH-pads other than
+       // landingpads;  we don't know how to split those edges yet.
+       auto *FirstNonPHI = II->getUnwindDest()->getFirstNonPHI();
+@@ -245,10 +246,11 @@ bool Loop::isSafeToClone() const {
+     }
+ 
+     for (BasicBlock::iterator BI = (*I)->begin(), BE = (*I)->end(); BI != BE; ++BI) {
+-      if (const CallInst *CI = dyn_cast<CallInst>(BI)) {
++      // TODO/NOTE: ignoring this for now, duplicates can very well exist in the same scope
++      /*if (const CallInst *CI = dyn_cast<CallInst>(BI)) {
+         if (CI->cannotDuplicate())
+           return false;
+-      }
++      }*/
+       if (BI->getType()->isTokenTy() && BI->isUsedOutsideOfBlock(*I))
+         return false;
+     }
+diff --git a/lib/Analysis/ScalarEvolution.cpp b/lib/Analysis/ScalarEvolution.cpp
+index ef1bb3a..09aa3eb 100644
+--- a/lib/Analysis/ScalarEvolution.cpp
++++ b/lib/Analysis/ScalarEvolution.cpp
+@@ -5460,11 +5460,6 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
+         return ItCnt;
+     }
+ 
+-  ExitLimit ShiftEL = computeShiftCompareExitLimit(
+-      ExitCond->getOperand(0), ExitCond->getOperand(1), L, Cond);
+-  if (ShiftEL.hasAnyInfo())
+-    return ShiftEL;
+-
+   const SCEV *LHS = getSCEV(ExitCond->getOperand(0));
+   const SCEV *RHS = getSCEV(ExitCond->getOperand(1));
+ 
+@@ -5526,7 +5521,16 @@ ScalarEvolution::computeExitLimitFromICmp(const Loop *L,
+   default:
+     break;
+   }
+-  return computeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
++  auto EL = computeExitCountExhaustively(L, ExitCond, !L->contains(TBB));
++  if (EL != getCouldNotCompute())
++    return EL;
++
++  // don't trust computeShiftCompareExitLimit before computing the exhaustive exit count,
++  // since computeShiftCompareExitLimit doesn't handle constant expressions/conditions
++  // and would always return the upper limit instead of an exact limit
++  ExitLimit ShiftEL = computeShiftCompareExitLimit(
++      ExitCond->getOperand(0), ExitCond->getOperand(1), L, Cond);
++  return ShiftEL;
+ }
+ 
+ ScalarEvolution::ExitLimit
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
 index 3471a2d..037e3be 100644
 --- a/lib/AsmParser/LLParser.cpp
@@ -2961,10 +3079,10 @@ index 0000000..5c3ec22
 +}
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 0000000..1b723ce
+index 0000000..2c6eee3
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
-@@ -0,0 +1,1264 @@
+@@ -0,0 +1,1283 @@
 +//===- OCL20ToSPIRV.cpp - Transform OCL20 to SPIR-V builtins -----*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -3790,6 +3908,7 @@ index 0000000..1b723ce
 +  auto F = CI->getCalledFunction();
 +  std::vector<int> PreOps;
 +  std::string DemangledName = OrigDemangledName;
++
 +  if (DemangledName == kOCLBuiltinName::WorkGroupBarrier)
 +    return;
 +  if (DemangledName == kOCLBuiltinName::WaitGroupEvent) {
@@ -3834,13 +3953,24 @@ index 0000000..1b723ce
 +      return false; // break out of loop
 +    });
 +  }
++
++  bool IsGroupAllAny = (DemangledName.find("_all") != std::string::npos ||
++                        DemangledName.find("_any") != std::string::npos);
++
 +  auto Consts = getInt32(M, PreOps);
 +  OCLBuiltinTransInfo Info;
++  if (IsGroupAllAny)
++    Info.RetTy = Type::getInt1Ty(*Ctx);
 +  Info.UniqName = DemangledName;
-+  Info.PostProc = [=](std::vector<Value *> &Ops){
++  Info.PostProc = [=](std::vector<Value *> &Ops) {
++    if (IsGroupAllAny) {
++      IRBuilder<> IRB(CI);
++      Ops[0] =
++          IRB.CreateICmpNE(Ops[0], ConstantInt::get(Type::getInt32Ty(*Ctx), 0));
++    }
 +    size_t E = Ops.size();
 +    if (DemangledName == "group_broadcast" && E > 2) {
-+      assert (E == 3 || E == 4);
++      assert(E == 3 || E == 4);
 +      makeVector(CI, Ops, std::make_pair(Ops.begin() + 1, Ops.end()));
 +    }
 +    Ops.insert(Ops.begin(), Consts.begin(), Consts.end());
@@ -3861,22 +3991,29 @@ index 0000000..1b723ce
 +  else
 +    return;
 +  if (!Info.RetTy)
-+    mutateCallInstSPIRV(M, CI, [=](CallInst *, std::vector<Value *> &Args){
-+      Info.PostProc(Args);
-+      return Info.UniqName + Info.Postfix;
-+    }, &Attrs);
-+  else
 +    mutateCallInstSPIRV(M, CI,
-+      [=](CallInst *, std::vector<Value *> &Args, Type *&RetTy){
-+        Info.PostProc(Args);
-+        RetTy = Info.RetTy;
-+        return Info.UniqName + Info.Postfix;
-+      },
-+      [=](CallInst *NewCI) -> Instruction * {
-+        return CastInst::CreatePointerBitCastOrAddrSpaceCast(NewCI,
-+            CI->getType(), "", CI);
-+      },
-+    &Attrs);
++                        [=](CallInst *, std::vector<Value *> &Args) {
++                          Info.PostProc(Args);
++                          return Info.UniqName + Info.Postfix;
++                        },
++                        &Attrs);
++  else
++    mutateCallInstSPIRV(
++        M, CI,
++        [=](CallInst *, std::vector<Value *> &Args, Type *&RetTy) {
++          Info.PostProc(Args);
++          RetTy = Info.RetTy;
++          return Info.UniqName + Info.Postfix;
++        },
++        [=](CallInst *NewCI) -> Instruction * {
++          if (NewCI->getType()->isIntegerTy() && CI->getType()->isIntegerTy())
++            return CastInst::CreateIntegerCast(NewCI, CI->getType(),
++                                               Info.isRetSigned, "", CI);
++          else
++            return CastInst::CreatePointerBitCastOrAddrSpaceCast(
++                NewCI, CI->getType(), "", CI);
++        },
++        &Attrs);
 +}
 +
 +void
@@ -4846,10 +4983,10 @@ index 0000000..41460c8
 +
 diff --git a/lib/SPIRV/OCLUtil.cpp b/lib/SPIRV/OCLUtil.cpp
 new file mode 100644
-index 0000000..5b430b6
+index 0000000..4adb3aa
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.cpp
-@@ -0,0 +1,439 @@
+@@ -0,0 +1,454 @@
 +//===- OCLUtil.cpp - OCL Utilities ----------------------------------------===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -4978,7 +5115,20 @@ index 0000000..5b430b6
 +  OCLExtOpKind EOC;
 +  bool Found = OCLExtOpMap::rfind(DemangledName, &EOC);
 +  if (!Found) {
-+    std::string Prefix = isLastFuncParamSigned(OrigName) ? "s_" : "u_";
++    std::string Prefix;
++    switch (LastFuncParamType(OrigName)) {
++    case ParamType::UNSIGNED:
++      Prefix = "u_";
++      break;
++    case ParamType::SIGNED:
++      Prefix = "s_";
++      break;
++    case ParamType::FLOAT:
++      Prefix = "f";
++      break;
++    default:
++      llvm_unreachable("unknown mangling!");
++    }
 +    Found = OCLExtOpMap::rfind(Prefix + DemangledName, &EOC);
 +  }
 +  if (Found)
@@ -5223,6 +5373,8 @@ index 0000000..5b430b6
 +  } else if (UnmangledName.find("u_") == 0) {
 +    addUnsignedArg(-1);
 +    UnmangledName.erase(0, 2);
++  } else if (UnmangledName == "fclamp") {
++    UnmangledName.erase(0, 1);
 +  } else if (UnmangledName == "capture_event_profiling_info") {
 +    addVoidPtrArg(2);
 +    setEnumArg(1, SPIR::PRIMITIVE_CLK_PROFILING_INFO);
@@ -5291,10 +5443,10 @@ index 0000000..5b430b6
 +}
 diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
 new file mode 100644
-index 0000000..eef89f7
+index 0000000..1bb2c6e
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.h
-@@ -0,0 +1,581 @@
+@@ -0,0 +1,587 @@
 +//===- OCLUtil.h - OCL Utilities declarations -------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -5418,7 +5570,9 @@ index 0000000..eef89f7
 +  /// Postprocessor of operands
 +  std::function<void(std::vector<Value *>&)> PostProc;
 +  Type* RetTy;              // Return type of the translated function
-+  OCLBuiltinTransInfo():RetTy(nullptr){
++  bool isRetSigned;         // When RetTy is int, determines if extensions
++                            // on it should be a sext or zet.
++  OCLBuiltinTransInfo() : RetTy(nullptr), isRetSigned(false) {
 +    PostProc = [](std::vector<Value *>&){};
 +  }
 +};
@@ -5478,6 +5632,10 @@ index 0000000..eef89f7
 +  const static char WorkGroupBarrier[]   = "work_group_barrier";
 +  const static char WritePipe[]          = "write_pipe";
 +  const static char WorkGroupPrefix[]    = "work_group_";
++  const static char WorkGroupAll[]       = "work_group_all";
++  const static char WorkGroupAny[]       = "work_group_any";
++  const static char SubGroupAll[]        = "sub_group_all";
++  const static char SubGroupAny[]        = "sub_group_any";
 +  const static char WorkPrefix[]         = "work_";
 +}
 +
@@ -5878,10 +6036,10 @@ index 0000000..eef89f7
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..16ce96d
+index 0000000..07c3c5b
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,829 @@
+@@ -0,0 +1,851 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -5945,7 +6103,7 @@ index 0000000..16ce96d
 +  /// The LLVM/SPIR-V translator version used to fill the lower 16 bits of the
 +  /// generator's magic number in the generated SPIR-V module.
 +  /// This number should be bumped up whenever the generated SPIR-V changes.
-+  const static unsigned short kTranslatorVer = 10;
++  const static unsigned short kTranslatorVer = 11;
 +
 +#define SPCV_TARGET_LLVM_IMAGE_TYPE_ENCODE_ACCESS_QUAL 0
 +// Workaround for SPIR 2 producer bug about kernel function calling convention.
@@ -6674,9 +6832,31 @@ index 0000000..16ce96d
 +bool
 +isMangledTypeUnsigned(char Mangled);
 +
++// Check if a mangled type name is signed
++bool
++isMangledTypeSigned(char Mangled);
++
++// Check if a mangled type name is floating point (except half)
++bool
++isMangledTypeFP(char Mangled);
++
++// Check if a mangled type name is half
++bool
++isMangledTypeHalf(std::string Mangled);
++
 +// Check if \param I is valid vector size: 2, 3, 4, 8, 16.
 +bool
 +isValidVectorSize(unsigned I);
++
++enum class ParamType
++{
++    FLOAT    = 0,
++    SIGNED   = 1,
++    UNSIGNED = 2,
++    UNKNOWN  = 3
++};
++
++ParamType LastFuncParamType(const std::string& MangledName);
 +
 +// Check if the last function parameter is signed
 +bool
@@ -6853,7 +7033,7 @@ index 0000000..08cd848
 +}
 diff --git a/lib/SPIRV/SPIRVLowerConstExpr.cpp b/lib/SPIRV/SPIRVLowerConstExpr.cpp
 new file mode 100644
-index 0000000..e7791c3
+index 0000000..d950665
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerConstExpr.cpp
 @@ -0,0 +1,164 @@
@@ -6991,7 +7171,7 @@ index 0000000..e7791c3
 +          if (auto CE = dyn_cast<ConstantExpr>(Op)) {
 +            SPIRVDBG(dbgs() << "[lowerConstantExpressions] " << *CE;)
 +            auto ReplInst = CE->getAsInstruction();
-+            ReplInst->insertBefore(&*FBegin->begin());
++            ReplInst->insertBefore(&*(I->getEntryBlock().getFirstInsertionPt()));
 +            SPIRVDBG(dbgs() << " -> " << *ReplInst << '\n';)
 +            WorkList.push_front(ReplInst);
 +            std::vector<Instruction *> Users;
@@ -7023,10 +7203,10 @@ index 0000000..e7791c3
 +}
 diff --git a/lib/SPIRV/SPIRVLowerOCLBlocks.cpp b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
 new file mode 100644
-index 0000000..aa99cd2
+index 0000000..453f2a3
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
-@@ -0,0 +1,464 @@
+@@ -0,0 +1,465 @@
 +//===- SPIRVLowerOCLBlocks.cpp – Lower OpenCL blocks -------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -7135,8 +7315,9 @@ index 0000000..aa99cd2
 +    AU.addRequired<CallGraphWrapperPass>();
 +    AU.addRequired<AAResultsWrapperPass>();
 +    AU.addRequired<AssumptionCacheTracker>();
-+    AU.addPreserved<GlobalsAAWrapperPass>();
-+    AU.setPreservesCFG(); // TODO: correct?
++    // TODO: not sure about these
++    //AU.addPreserved<GlobalsAAWrapperPass>();
++    //AU.setPreservesCFG();
 +  }
 +
 +  virtual bool runOnModule(Module &Module) {
@@ -7818,10 +7999,10 @@ index 0000000..28f72b8
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..c985f0c
+index 0000000..553213c
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
-@@ -0,0 +1,2402 @@
+@@ -0,0 +1,2441 @@
 +//===- SPIRVReader.cpp – Converts SPIR-V to LLVM -----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -8187,6 +8368,14 @@ index 0000000..c985f0c
 +  /// \return transformed call instruction.
 +  CallInst *expandOCLBuiltinWithScalarArg(CallInst* CI,
 +      const std::string &FuncName);
++
++  /// \brief Post-process OpGroupAll and OpGroupAny instructions translation.
++  /// i1 func (<n x i1> arg)
++  /// =>
++  /// i32 func (<n x i32> arg)
++  /// \return transformed call instruction.
++  Instruction *postProcessGroupAllAny(CallInst *CI,
++                                      const std::string &DemangledName);
 +
 +  typedef DenseMap<SPIRVType *, Type *> SPIRVToLLVMTypeMap;
 +  typedef DenseMap<SPIRVValue *, Value *> SPIRVToLLVMValueMap;
@@ -8856,10 +9045,10 @@ index 0000000..c985f0c
 +      if (!T->isArrayTy())
 +        continue;
 +      auto Alloca = new AllocaInst(T, "", &*FBegin);
-+      //auto Store = new StoreInst(I, Alloca, false, CI); // unused
++      auto Store = new StoreInst(I, Alloca, false, CI);
 +      auto Zero = ConstantInt::getNullValue(Type::getInt32Ty(T->getContext()));
 +      Value *Index[] = {Zero, Zero};
-+      I = GetElementPtrInst::CreateInBounds(Alloca, Index, "", CI);
++      I = GetElementPtrInst::CreateInBounds(Store, Index, "", CI); // TODO/NOTE: assuming this should be store?
 +    }
 +    return Name;
 +  }, nullptr, &Attrs);
@@ -8924,6 +9113,26 @@ index 0000000..c985f0c
 +  CI->setArgOperand(1, GWS);
 +  CI->setArgOperand(2, LWS);
 +  return CI;
++}
++
++Instruction *
++SPIRVToLLVM::postProcessGroupAllAny(CallInst *CI,
++                                    const std::string &DemangledName) {
++  AttributeSet Attrs = CI->getCalledFunction()->getAttributes();
++  return mutateCallInstSPIRV(
++      M, CI,
++      [=](CallInst *, std::vector<Value *> &Args, llvm::Type *&RetTy) {
++        Type *Int32Ty = Type::getInt32Ty(*Context);
++        RetTy = Int32Ty;
++        Args[1] = CastInst::CreateZExtOrBitCast(Args[1], Int32Ty, "", CI);
++        return DemangledName;
++      },
++      [=](CallInst *NewCI) -> Instruction * {
++        Type *RetTy = Type::getInt1Ty(*Context);
++        return CastInst::CreateTruncOrBitCast(NewCI, RetTy, "",
++                                              NewCI->getNextNode());
++      },
++      &Attrs);
 +}
 +
 +CallInst *
@@ -9076,20 +9285,24 @@ index 0000000..c985f0c
 +
 +  case OpVariable: {
 +    auto BVar = static_cast<SPIRVVariable *>(BV);
-+    auto Initializer = BVar->getInitializer();
-+    SPIRVStorageClassKind BS = BVar->getStorageClass();
 +    auto Ty = transType(BVar->getType()->getPointerElementType());
++    bool IsConst = BVar->isConstant();
++    llvm::GlobalValue::LinkageTypes LinkageTy = transLinkageType(BVar);
++    Constant *Initializer = nullptr;
++    SPIRVValue *Init = BVar->getInitializer();
++    if (Init)
++        Initializer = dyn_cast<Constant>(transValue(Init, F, BB, false));
++    else if (LinkageTy == GlobalValue::CommonLinkage)
++        // In LLVM variables with common linkage type must be initilized by 0
++        Initializer = Constant::getNullValue(Ty);
 +
-+    if (BS == StorageClassFunction && !Initializer) {
++    SPIRVStorageClassKind BS = BVar->getStorageClass();
++    if (BS == StorageClassFunction && !Init) {
 +        assert (BB && "Invalid BB");
 +        return mapValue(BV, new AllocaInst(Ty, BV->getName(), BB));
 +    }
 +    auto AddrSpace = SPIRSPIRVAddrSpaceMap::rmap(BS);
-+    bool IsConst = BVar->isConstant();
-+    auto LVar = new GlobalVariable(*M, Ty, IsConst,
-+        transLinkageType(BVar),
-+        Initializer?dyn_cast<Constant>(transValue(Initializer, F, BB, false)):
-+            nullptr,
++    auto LVar = new GlobalVariable(*M, Ty, IsConst, LinkageTy, Initializer,
 +        BV->getName(), 0, GlobalVariable::NotThreadLocal, AddrSpace);
 +    LVar->setUnnamedAddr(IsConst && Ty->isArrayTy() &&
 +        Ty->getArrayElementType()->isIntegerTy(8));
@@ -9540,6 +9753,8 @@ index 0000000..c985f0c
 +    return BinaryOperator::CreateShl(CI, getInt32(M, 8), "", BB);
 +  if (OC == OpBuildNDRange)
 +    return postProcessOCLBuildNDRange(BI, CI, DemangledName);
++  if (OC == OpGroupAll || OC == OpGroupAny)
++    return postProcessGroupAllAny(CI, DemangledName);
 +  if (SPIRVEnableStepExpansion &&
 +      (DemangledName == "smoothstep" ||
 +       DemangledName == "step"))
@@ -10141,6 +10356,11 @@ index 0000000..c985f0c
 +    return GlobalValue::AvailableExternallyLinkage;
 +  }
 +  else {// LinkageTypeExport
++    if (V->getOpCode() == OpVariable) {
++      if (static_cast<const SPIRVVariable*>(V)->getInitializer() == 0 )
++        // Tentative definition
++        return GlobalValue::CommonLinkage;
++    }
 +    return GlobalValue::ExternalLinkage;
 +  }
 +}
@@ -11005,10 +11225,10 @@ index 0000000..5711216
 +}
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..7a7c9b3
+index 0000000..bb3d503
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1220 @@
+@@ -0,0 +1,1253 @@
 +//===- SPIRVUtil.cpp –  SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -11509,12 +11729,31 @@ index 0000000..7a7c9b3
 +}
 +
 +// Check if a mangled type name is unsigned
-+bool
-+isMangledTypeUnsigned(char Mangled) {
-+  return Mangled == 'h' /* uchar */
-+      || Mangled == 't' /* ushort */
-+      || Mangled == 'j' /* uint */
-+      || Mangled == 'm' /* ulong */;
++bool isMangledTypeUnsigned(char Mangled) {
++  return Mangled == 'h'    /* uchar */
++         || Mangled == 't' /* ushort */
++         || Mangled == 'j' /* uint */
++         || Mangled == 'm' /* ulong */;
++}
++
++// Check if a mangled type name is signed
++bool isMangledTypeSigned(char Mangled) {
++  return Mangled == 'c'    /* char */
++         || Mangled == 'a' /* signed char */
++         || Mangled == 's' /* short */
++         || Mangled == 'i' /* int */
++         || Mangled == 'l' /* long */;
++}
++
++// Check if a mangled type name is floating point (excludes half)
++bool isMangledTypeFP(char Mangled) {
++  return Mangled == 'f'     /* float */
++         || Mangled == 'd'; /* double */
++}
++
++// Check if a mangled type name is half
++bool isMangledTypeHalf(std::string Mangled) {
++  return Mangled == "Dh"; /* half */
 +}
 +
 +void
@@ -11526,16 +11765,27 @@ index 0000000..7a7c9b3
 +  }
 +}
 +
-+// Check if the last argument is signed
-+bool
-+isLastFuncParamSigned(const std::string& MangledName) {
++ParamType LastFuncParamType(const std::string &MangledName) {
 +  auto Copy = MangledName;
 +  eraseSubstitutionFromMangledName(Copy);
 +  char Mangled = Copy.back();
-+  bool Signed = true;
-+  if (isMangledTypeUnsigned(Mangled))
-+    Signed = false;
-+  return Signed;
++  std::string Mangled2 = Copy.substr(Copy.size() - 2);
++
++  if (isMangledTypeFP(Mangled) || isMangledTypeHalf(Mangled2)) {
++    return ParamType::FLOAT;
++  } else if (isMangledTypeUnsigned(Mangled)) {
++    return ParamType::UNSIGNED;
++  } else if (isMangledTypeSigned(Mangled)) {
++    return ParamType::SIGNED;
++  }
++
++  return ParamType::UNKNOWN;
++}
++
++// Check if the last argument is signed
++bool
++isLastFuncParamSigned(const std::string& MangledName) {
++  return LastFuncParamType(MangledName) == ParamType::SIGNED;
 +}
 +
 +
@@ -12185,7 +12435,10 @@ index 0000000..7a7c9b3
 +eraseUselessFunctions(Module *M) {
 +  bool changed = false;
 +  for (auto I = M->begin(), E = M->end(); I != E;) {
-+    changed |= eraseIfNoUse(&*I); ++I;
++    // iterator will be invalidated if the function is erased
++    // -> need to increment before calling eraseIfNoUse
++    Function* func_ptr = &*I; ++I;
++    changed |= eraseIfNoUse(func_ptr);
 +  }
 +  return changed;
 +}
@@ -12231,10 +12484,10 @@ index 0000000..7a7c9b3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..f7ca03e
+index 0000000..1adf452
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,1540 @@
+@@ -0,0 +1,1542 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -12543,7 +12796,7 @@ index 0000000..f7ca03e
 +
 +  /// Add a 32 bit integer constant.
 +  /// \return Id of the constant.
-+  SPIRVId addInt32(int);
++  //SPIRVId addInt32(int);
 +  void transFunction(Function *I);
 +  SPIRV::SPIRVLinkageTypeKind transLinkageType(const GlobalValue* GV);
 +};
@@ -12818,10 +13071,8 @@ index 0000000..f7ca03e
 +  if (auto CAZero = dyn_cast<ConstantAggregateZero>(V))
 +    return BM->addNullConstant(transType(CAZero->getType()));
 +
-+  if (auto ConstI = dyn_cast<ConstantInt>(V)) {
-+    SPIRVTypeInt *BT = static_cast<SPIRVTypeInt *>(transType(V->getType()));
-+    return BM->addIntegerConstant(BT, ConstI->getZExtValue());
-+  }
++  if (auto ConstI = dyn_cast<ConstantInt>(V))
++    return BM->addConstant(transType(V->getType()), ConstI->getZExtValue());
 +
 +  if (auto ConstFP = dyn_cast<ConstantFP>(V)) {
 +    auto BT = static_cast<SPIRVType *>(transType(V->getType()));
@@ -12963,7 +13214,11 @@ index 0000000..f7ca03e
 +    auto BVar = static_cast<SPIRVVariable *>(BM->addVariable(
 +        transType(GV->getType()), GV->isConstant(),
 +        transLinkageType(GV),
-+        GV->hasInitializer()?transValue(GV->getInitializer(), nullptr):nullptr,
++        // Though variables with common linkage type are initialized by 0,
++        // they can be represented in SPIR-V as uninitialized variables with
++        // 'Export' linkage type, just as tentative definitions look in C
++        (GV->hasInitializer() && !GV->hasCommonLinkage()) ?
++            transValue(GV->getInitializer(), nullptr) : nullptr,
 +        GV->getName(),
 +        SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
 +            GV->getType()->getAddressSpace())),
@@ -13713,14 +13968,14 @@ index 0000000..f7ca03e
 +}
 +
 +
-+SPIRVId
++/*SPIRVId
 +LLVMToSPIRV::addInt32(int I) {
 +  return transValue(getInt32(M, I), nullptr, false)->getId();
-+}
++}*/
 +
 +SPIRV::SPIRVLinkageTypeKind
 +LLVMToSPIRV::transLinkageType(const GlobalValue* GV) {
-+  if(GV->isDeclarationForLinker() || GV->hasCommonLinkage())
++  if(GV->isDeclarationForLinker())
 +    return SPIRVLinkageTypeKind::LinkageTypeImport;
 +  if(GV->hasInternalLinkage() || GV->hasPrivateLinkage())
 +    return SPIRVLinkageTypeKind::LinkageTypeInternal;
@@ -18164,10 +18419,10 @@ index 0000000..774a444
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..9217655
+index 0000000..4a090ac
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,1844 @@
+@@ -0,0 +1,1853 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -18484,7 +18739,7 @@ index 0000000..9217655
 +  // Get operands which are values.
 +  // Drop execution scope and group operation literals.
 +  // Return other literals as uint32 constants.
-+  virtual std::vector<SPIRVValue *> getOperands() {
++  std::vector<SPIRVValue *> getOperands() override {
 +    std::vector<SPIRVValue*> VOps;
 +    auto Offset = getOperandOffset();
 +    for (size_t I = 0, E = Ops.size() - Offset; I != E; ++I)
@@ -19762,9 +20017,15 @@ index 0000000..9217655
 +  // Complete constructor
 +  SPIRVControlBarrier(Scope TheScope,
 +      Scope TheMemScope, SPIRVWord TheMemSema,
++      SPIRVConstant* ExecScopeVar_,
++      SPIRVConstant* MemScopeVar_,
++      SPIRVConstant* MemSemaVar_,
 +      SPIRVBasicBlock *TheBB)
 +    :SPIRVInstruction(4, OC, TheBB),ExecScope(TheScope),
-+     MemScope(TheMemScope), MemSema(TheMemSema){
++     MemScope(TheMemScope), MemSema(TheMemSema),
++     ExecScopeVar(ExecScopeVar_),
++     MemScopeVar(MemScopeVar_),
++     MemSemaVar(MemSemaVar_) {
 +    validate();
 +    assert(TheBB && "Invalid BB");
 +  }
@@ -19789,7 +20050,7 @@ index 0000000..9217655
 +    return MemSema;
 +  }
 +protected:
-+  _SPIRV_DEF_ENCDEC3(ExecScope, MemScope, MemSema)
++  _SPIRV_DEF_ENCDEC3(ExecScopeVar, MemScopeVar, MemSemaVar)
 +  void validate()const {
 +    assert(OpCode == OC);
 +    assert(WordCount == 4);
@@ -19800,6 +20061,9 @@ index 0000000..9217655
 +  Scope ExecScope;
 +  Scope MemScope;
 +  SPIRVWord MemSema;
++  SPIRVConstant* ExecScopeVar { nullptr };
++  SPIRVConstant* MemScopeVar { nullptr };
++  SPIRVConstant* MemSemaVar { nullptr };
 +};
 +
 +class SPIRVGroupAsyncCopy:public SPIRVInstruction {
@@ -19829,7 +20093,7 @@ index 0000000..9217655
 +  SPIRVValue *getNumElements()const { return getValue(NumElements);}
 +  SPIRVValue *getStride()const { return getValue(Stride);}
 +  SPIRVValue *getEvent()const { return getValue(Event);}
-+  std::vector<SPIRVValue *> getOperands() {
++  std::vector<SPIRVValue *> getOperands() override {
 +    std::vector<SPIRVId> Operands;
 +    Operands.push_back(Destination);
 +    Operands.push_back(Source);
@@ -20014,10 +20278,10 @@ index 0000000..9217655
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..383257e
+index 0000000..76093dd
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1390 @@
+@@ -0,0 +1,1424 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -20805,10 +21069,12 @@ index 0000000..383257e
 +SPIRVModuleImpl::addConstant(SPIRVType *Ty, uint64_t V) {
 +  if (Ty->isTypeBool()) {
 +    if (V)
-+      return new SPIRVConstantTrue(this, Ty, getId());
++      return addConstant(new SPIRVConstantTrue(this, Ty, getId()));
 +    else
-+      return new SPIRVConstantFalse(this, Ty, getId());
++      return addConstant(new SPIRVConstantFalse(this, Ty, getId()));
 +  }
++  if (Ty->isTypeInt())
++    return addIntegerConstant(static_cast<SPIRVTypeInt*>(Ty), V);
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
 +
@@ -20988,7 +21254,10 @@ index 0000000..383257e
 +SPIRVModuleImpl::addControlBarrierInst(Scope ExecKind,
 +    Scope MemKind, SPIRVWord MemSema, SPIRVBasicBlock *BB) {
 +  return addInstruction(
-+      new SPIRVControlBarrier(ExecKind, MemKind, MemSema, BB), BB);
++      new SPIRVControlBarrier(ExecKind, MemKind, MemSema,
++                              getLiteralAsConstant(ExecKind),
++                              getLiteralAsConstant(MemKind),
++                              getLiteralAsConstant(MemSema), BB), BB);
 +}
 +
 +SPIRVInstruction *
@@ -21152,11 +21421,40 @@ index 0000000..383257e
 +    << MI.LineVec
 +    << MI.DecGroupVec
 +    << MI.DecorateSet
-+    << MI.GroupDecVec
-+    << MI.TypeVec
-+    << MI.ConstVec
-+    << MI.VariableVec
-+    << SPIRVNL()
++    << MI.GroupDecVec;
++
++  // SPIR-V spec 2.4.9: "All type declarations (OpTypeXXX instructions), all constant instructions, and all
++  // global variable declarations (all OpVariable instructions whose Storage Class is not Function).
++  // All operands in all these instructions must be declared before being used. Otherwise, they can be in
++  // any order. This section is also the first section to allow use of OpLine debug information."
++  // -> can't just simply output TypeVec, then ConstVec, then VariableVec, but must order this correctly
++  auto type_iter = MI.TypeVec.cbegin();
++  auto const_iter = MI.ConstVec.cbegin();
++  auto var_iter = MI.VariableVec.cbegin();
++  for(bool type_end = false, const_end = false, var_end = false; !type_end || !const_end || !var_end;) {
++    // NOTE: all vars must have an id, so we don't need to check hasId() (should error sooner if that were the case)
++    // -> output the one with the lowest id:
++    // 1st: if type id lower than const id and var id, then it's the lowest
++    if(!type_end &&
++       (const_end || (*type_iter)->getId() < (*const_iter)->getId()) &&
++       (var_end || (*type_iter)->getId() < (*var_iter)->getId())) {
++      O << **type_iter++;
++      type_end = (type_iter == MI.TypeVec.cend());
++      continue;
++    }
++    // 2nd: we know type id is higher, only need to check if const id is lower than var id
++    else if(!const_end &&
++            (var_end || (*const_iter)->getId() < (*var_iter)->getId())) {
++      O << **const_iter++;
++      const_end = (const_iter == MI.ConstVec.cend());
++      continue;
++    }
++    // 3rd/final: var must have the lowest id
++    O << **var_iter++;
++    var_end = (var_iter == MI.VariableVec.cend());
++  }
++
++  O << SPIRVNL()
 +    << MI.FuncVec;
 +  return O;
 +}
@@ -27326,6 +27624,53 @@ index 0000000..0d30ec5
 +						   coord_arg, layer_arg, data_arg);
 +	}
 +}
+diff --git a/lib/Transforms/Scalar/LoopRotation.cpp b/lib/Transforms/Scalar/LoopRotation.cpp
+index 5e6c2da..824f264 100644
+--- a/lib/Transforms/Scalar/LoopRotation.cpp
++++ b/lib/Transforms/Scalar/LoopRotation.cpp
+@@ -160,11 +160,12 @@ static bool rotateLoop(Loop *L, unsigned MaxHeaderSize, LoopInfo *LI,
+ 
+     CodeMetrics Metrics;
+     Metrics.analyzeBasicBlock(OrigHeader, *TTI, EphValues);
+-    if (Metrics.notDuplicatable) {
++    // TODO/NOTE: ignoring this for now, duplicates can very well exist in the same scope
++    /*if (Metrics.notDuplicatable) {
+       DEBUG(dbgs() << "LoopRotation: NOT rotating - contains non-duplicatable"
+             << " instructions: "; L->dump());
+       return false;
+-    }
++    }*/
+     if (Metrics.NumInsts > MaxHeaderSize)
+       return false;
+   }
+diff --git a/lib/Transforms/Scalar/LoopUnrollPass.cpp b/lib/Transforms/Scalar/LoopUnrollPass.cpp
+index ecef6db..bbfa7c5 100644
+--- a/lib/Transforms/Scalar/LoopUnrollPass.cpp
++++ b/lib/Transforms/Scalar/LoopUnrollPass.cpp
+@@ -608,7 +608,7 @@ static unsigned ApproximateLoopSize(const Loop *L, unsigned &NumCalls,
+   CodeMetrics Metrics;
+   for (Loop::block_iterator I = L->block_begin(), E = L->block_end();
+        I != E; ++I)
+-    Metrics.analyzeBasicBlock(*I, TTI, EphValues);
++    Metrics.analyzeBasicBlock(*I, TTI, EphValues, true /* allow duplicates */);
+   NumCalls = Metrics.NumInlineCandidates;
+   NotDuplicatable = Metrics.notDuplicatable;
+ 
+@@ -814,11 +814,12 @@ static bool tryToUnrollLoop(Loop *L, DominatorTree &DT, LoopInfo *LI,
+   // backedge and the comparison feeding it are not replicated like the rest of
+   // the loop body (which is why 2 is subtracted).
+   uint64_t UnrolledSize = (uint64_t)(LoopSize-2) * Count + 2;
+-  if (notDuplicatable) {
++  // TODO/NOTE: ignoring this for now, duplicates can very well exist in the same scope
++  /*if (notDuplicatable) {
+     DEBUG(dbgs() << "  Not unrolling loop which contains non-duplicatable"
+                  << " instructions.\n");
+     return false;
+-  }
++  }*/
+   if (NumInlineCandidates != 0) {
+     DEBUG(dbgs() << "  Not unrolling loop with inlinable calls.\n");
+     return false;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
 index 0000000..ff5cb3f
