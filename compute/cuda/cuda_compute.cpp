@@ -544,7 +544,8 @@ shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const str
 }
 
 shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
-																			  pair<string, vector<llvm_compute::kernel_info>> program_data) {
+																			  pair<string, vector<llvm_compute::kernel_info>> program_data,
+																			  const llvm_compute::TARGET) {
 	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program(program_data));
 }
 

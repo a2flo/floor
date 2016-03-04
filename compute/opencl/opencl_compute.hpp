@@ -134,13 +134,15 @@ public:
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	opencl_program::opencl_program_entry create_opencl_program(shared_ptr<compute_device> device,
-															   pair<string, vector<llvm_compute::kernel_info>> program_data);
+															   pair<string, vector<llvm_compute::kernel_info>> program_data,
+															   const llvm_compute::TARGET& target);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<opencl_program> add_program(opencl_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																	pair<string, vector<llvm_compute::kernel_info>> program_data) override REQUIRES(!programs_lock);
+																	pair<string, vector<llvm_compute::kernel_info>> program_data,
+																	const llvm_compute::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
 	// opencl specific functions
@@ -159,7 +161,7 @@ protected:
 	vector<pair<shared_ptr<compute_device>, shared_ptr<opencl_queue>>> default_queues;
 	unordered_map<shared_ptr<compute_device>, bool> default_queues_user_accessed;
 	
-	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::OPENCL_1_0 };
+	OPENCL_VERSION platform_cl_version { OPENCL_VERSION::NONE };
 	
 	vector<cl_image_format> image_formats;
 	

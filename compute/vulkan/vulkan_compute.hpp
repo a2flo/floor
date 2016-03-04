@@ -138,7 +138,8 @@ public:
 	shared_ptr<vulkan_program> add_program(vulkan_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																	pair<string, vector<llvm_compute::kernel_info>> program_data) override REQUIRES(!programs_lock);
+																	pair<string, vector<llvm_compute::kernel_info>> program_data,
+																	const llvm_compute::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
 	// vulkan specific functions

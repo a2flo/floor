@@ -21,6 +21,40 @@
 
 #include <floor/core/essentials.hpp>
 
+//! opencl version of the platform/driver/device
+enum class OPENCL_VERSION : uint32_t {
+	NONE,
+	OPENCL_1_0,
+	OPENCL_1_1,
+	OPENCL_1_2,
+	OPENCL_2_0,
+	OPENCL_2_1,
+};
+
+constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
+	switch(version) {
+		case OPENCL_VERSION::NONE: return "";
+		case OPENCL_VERSION::OPENCL_1_0: return "1.0";
+		case OPENCL_VERSION::OPENCL_1_1: return "1.1";
+		case OPENCL_VERSION::OPENCL_1_2: return "1.2";
+		case OPENCL_VERSION::OPENCL_2_0: return "2.0";
+		case OPENCL_VERSION::OPENCL_2_1: return "2.1";
+	}
+}
+
+//! spir-v version that is supported by a device
+enum class SPIRV_VERSION : uint32_t {
+	NONE,
+	SPIRV_1_0,
+};
+
+constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
+	switch(version) {
+		case SPIRV_VERSION::NONE: return "";
+		case SPIRV_VERSION::SPIRV_1_0: return "1.0";
+	}
+}
+
 #if !defined(FLOOR_NO_OPENCL)
 
 #if defined(__APPLE__)
@@ -50,17 +84,12 @@
 #define CL_DEVICE_SPIR_VERSIONS 0x40E0
 #endif
 
+#if !defined(CL_DEVICE_IL_VERSION)
+#define CL_DEVICE_IL_VERSION 0x105B
+#endif
+
 #include <cstdint>
 #include <iterator>
-
-//! opencl version of the platform/driver/device
-enum class OPENCL_VERSION : uint32_t {
-	OPENCL_1_0,
-	OPENCL_1_1,
-	OPENCL_1_2,
-	OPENCL_2_0,
-	OPENCL_2_1,
-};
 
 constexpr const char* cl_error_to_string(const int& error_code) {
 	// NOTE: don't use actual enums here so this doesn't have to rely on opencl version or vendor specific headers
@@ -290,6 +319,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_PRINTF_BUFFER_SIZE, size_t) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_PITCH_ALIGNMENT, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SPIR_VERSIONS, string) \
+F(cl_device_id, cl_device_info, CL_DEVICE_IL_VERSION, string) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \

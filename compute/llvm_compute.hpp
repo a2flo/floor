@@ -28,15 +28,15 @@ public:
 	enum class TARGET {
 		//! OpenCL SPIR 1.2
 		SPIR,
-		//! Nvidia CUDA PTX
+		//! Nvidia CUDA PTX 4.3+
 		PTX,
-		//! Metal Apple-IR
+		//! Metal Apple-IR 1.1
 		AIR,
-		//! Apple OpenCL (3.2)
+		//! Apple OpenCL 3.2
 		APPLECL,
-		//! Vulkan SPIR-V
+		//! Vulkan SPIR-V 1.0
 		SPIRV_VULKAN,
-		//! OpenCL SPIR-V
+		//! OpenCL SPIR-V 1.0
 		SPIRV_OPENCL,
 	};
 	

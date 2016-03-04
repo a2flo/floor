@@ -228,7 +228,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 					}
 				}
 			}
-			return { false, OPENCL_VERSION::OPENCL_1_0 };
+			return { false, OPENCL_VERSION::NONE };
 		};
 		
 		// get platform cl version
@@ -467,6 +467,41 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 #endif
+			
+			// check spir-v support
+			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+				const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
+				log_msg("IL versions: %s", il_versions);
+				
+				// find the max supported spir-v opencl version
+				const auto il_version_tokens = core::tokenize(core::trim(il_versions), ' ');
+				for(const auto& il_token : il_version_tokens) {
+					static constexpr const char spirv_id[] { "SPIR-V_" };
+					if(il_token.find(spirv_id) == 0) {
+						const auto dot_pos = il_token.rfind('.');
+						if(dot_pos == string::npos) continue;
+						const auto spirv_major = stou(il_token.substr(size(spirv_id) - 1,
+																	  dot_pos - size(spirv_id) - 1));
+						const auto spirv_minor = stou(il_token.substr(dot_pos + 1,
+																	  il_token.size() - dot_pos - 1));
+						auto spirv_version = SPIRV_VERSION::NONE;
+						switch(spirv_major) {
+							default:
+							case 1:
+								switch(spirv_minor) {
+									default:
+									case 0:
+										spirv_version = SPIRV_VERSION::SPIRV_1_0;
+										break;
+								}
+								break;
+						}
+						if(spirv_version > device->spirv_version) {
+							device->spirv_version = spirv_version;
+						}
+					}
+				}
+			}
 			
 			//
 			log_debug("%s(Units: %u, Clock: %u MHz, Memory: %u MB): %s %s, %s / %s / %s",
@@ -844,14 +879,19 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name, additional_options,
-#if !defined(__APPLE__)
-																								llvm_compute::TARGET::SPIR
+		const auto device_target {
+#if defined(__APPLE__)
+			llvm_compute::TARGET::APPLECL
 #else
-																								llvm_compute::TARGET::APPLECL
+			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
-																								)));
+		};
+		prog_map.insert_or_assign((opencl_device*)dev.get(),
+								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name,
+																								additional_options,
+																								device_target),
+														device_target));
 	}
 	return add_program(move(prog_map));
 }
@@ -862,20 +902,41 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program(dev, source_code, additional_options,
-#if !defined(__APPLE__)
-																						   llvm_compute::TARGET::SPIR
+		const auto device_target {
+#if defined(__APPLE__)
+			llvm_compute::TARGET::APPLECL
 #else
-																						   llvm_compute::TARGET::APPLECL
+			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
-																						   )));
+		};
+		prog_map.insert_or_assign((opencl_device*)dev.get(),
+								  create_opencl_program(dev,
+														llvm_compute::compile_program(dev, source_code,
+																					  additional_options,
+																					  device_target),
+														device_target));
 	}
 	return add_program(move(prog_map));
 }
 
+#if !defined(CL_VERSION_2_1)
+// create a dummy symbol if opencl 2.1 is not supported at the source level
+// TODO: should probably retrieve a function pointer to this when compiling with < 2.1 headers, but platform actually supports 2.1
+static cl_program clCreateProgramWithIL(cl_context     /* context */,
+										const void*    /* il */,
+										size_t         /* length */,
+										cl_int*        errcode_ret) {
+	if(errcode_ret != nullptr) {
+		*errcode_ret = CL_INVALID_CONTEXT;
+	}
+	return nullptr;
+}
+#endif
+
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+																		   pair<string, vector<llvm_compute::kernel_info>> program_data,
+																		   const llvm_compute::TARGET& target) {
 	opencl_program::opencl_program_entry ret;
 	ret.kernels_info = program_data.second;
 	const auto cl_dev = (const opencl_device*)device.get();
@@ -892,20 +953,28 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
-	ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
-											&length, &binary_ptr, &binary_status, &create_err);
-	if(create_err != CL_SUCCESS) {
-		log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
-		log_error("devices binary status: %s", to_string(binary_status));
-		return ret;
+	if(target != llvm_compute::TARGET::SPIRV_OPENCL) {
+		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
+												&length, &binary_ptr, &binary_status, &create_err);
+		if(create_err != CL_SUCCESS) {
+			log_error("failed to create opencl program: %u: %s", create_err, cl_error_to_string(create_err));
+			log_error("devices binary status: %s", to_string(binary_status));
+			return ret;
+		}
+		else log_debug("successfully created opencl program!");
 	}
-	else log_debug("successfully created opencl program!");
+	else {
+		ret.program = clCreateProgramWithIL(ctx, (const void*)binary_ptr, length, &create_err);
+		if(create_err != CL_SUCCESS) {
+			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
+			return ret;
+		}
+		else log_debug("successfully created opencl program (from IL/SPIR-V)!");
+	}
 	
 	// ... and build it
 	const string build_options {
-#if !defined(__APPLE__)
-		+ " -x spir -spir-std=1.2"
-#endif
+		(target == llvm_compute::TARGET::SPIR ? " -x spir -spir-std=1.2" : "")
 	};
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
 										 1, &cl_dev->device_id,
@@ -934,8 +1003,9 @@ shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::kernel_info>> program_data) {
-	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program_data));
+																				pair<string, vector<llvm_compute::kernel_info>> program_data,
+																				const llvm_compute::TARGET target) {
+	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program_data, target));
 }
 
 #endif

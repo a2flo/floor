@@ -583,7 +583,8 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::kernel_info>> program_data) {
+																				pair<string, vector<llvm_compute::kernel_info>> program_data,
+																				const llvm_compute::TARGET) {
 	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program_data));
 }
 

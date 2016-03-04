@@ -33,6 +33,15 @@ class opencl_device final : public compute_device {
 public:
 	~opencl_device() override {}
 	
+	//! opencl version of the device
+	OPENCL_VERSION cl_version { OPENCL_VERSION::NONE };
+	
+	//! opencl c version of the device
+	OPENCL_VERSION c_version { OPENCL_VERSION::NONE };
+	
+	//! max supported spir-v version of the device
+	SPIRV_VERSION spirv_version { SPIRV_VERSION::NONE };
+	
 #if !defined(FLOOR_NO_OPENCL)
 	//! associated opencl context
 	cl_context ctx { nullptr };
@@ -40,19 +49,11 @@ public:
 	//! associated opencl_compute context
 	opencl_compute* compute_ctx { nullptr };
 	
-	//! opencl version of the device
-	OPENCL_VERSION cl_version { OPENCL_VERSION::OPENCL_1_0 };
-	
-	//! opencl c version of the device
-	OPENCL_VERSION c_version { OPENCL_VERSION::OPENCL_1_0 };
-	
 	//! the opencl device id
 	cl_device_id device_id { nullptr };
 #else
 	void* _ctx { nullptr };
 	void* _compute_ctx { nullptr };
-	uint32_t _cl_version { 0 };
-	uint32_t _c_version { 0 };
 	void* _device_id { nullptr };
 #endif
 	

@@ -229,7 +229,8 @@ public:
 	//! NOTE: this is intended for rolling custom or semi-custom compilation, for normal code use the add_program_* functions
 	//! NOTE: this usually leads to final program compilation on most compute platforms (but not all!)
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																			pair<string, vector<llvm_compute::kernel_info>> program_data) = 0;
+																			pair<string, vector<llvm_compute::kernel_info>> program_data,
+																			const llvm_compute::TARGET target) = 0;
 	
 protected:
 	//! platform vendor enum (set after initialization)

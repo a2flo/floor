@@ -350,10 +350,16 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 				log_error("SPIR-V is not supported by this toolchain!");
 				return {};
 			}
+			const auto cl_device = (const opencl_device*)device.get();
+			if(cl_device->spirv_version == SPIRV_VERSION::NONE) {
+				log_error("SPIR-V is not supported by this device!");
+				return {};
+			}
 			
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL2.0" \
+				// compile to the max opencl standard that is supported by the device
+				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \

@@ -627,7 +627,8 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 }
 
 shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(shared_ptr<compute_device> device,
-																			   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+																			   pair<string, vector<llvm_compute::kernel_info>> program_data,
+																			   const llvm_compute::TARGET) {
 	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program_data));
 }
 
