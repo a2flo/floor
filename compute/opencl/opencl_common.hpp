@@ -20,6 +20,7 @@
 #define __FLOOR_OPENCL_COMMON_HPP__
 
 #include <floor/core/essentials.hpp>
+#include <cstdint>
 
 //! opencl version of the platform/driver/device
 enum class OPENCL_VERSION : uint32_t {

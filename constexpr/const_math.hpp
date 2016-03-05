@@ -337,12 +337,18 @@ namespace const_math {
 	//! then easily computing log(val in [1, 2)) which converges quickly, and log2(2^x) == x for its exponent
 	//! NOTE: returns { false, error ret value, ... } if val is an invalid value, { true, ..., log(val in [1, 2)), exponent } if valid
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr tuple<bool, fp_type, max_fp_type, max_fp_type> partial_ln_and_log2(fp_type val) {
-		if(val == (fp_type)0 || val == -(fp_type)0) return { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
-		if(val == (fp_type)1) return { false, (fp_type)0, 0.0_fp, 0.0_fp };
-		if(val < (fp_type)0) return { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
-		if(__builtin_isinf(val)) return { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
-		if(__builtin_isnan(val)) return { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+	constexpr auto partial_ln_and_log2(fp_type val) {
+		struct ln_ret {
+			bool valid;
+			fp_type invalid_ret;
+			max_fp_type decomp_base;
+			max_fp_type decomp_exp;
+		};
+		if(val == (fp_type)0 || val == -(fp_type)0) return ln_ret { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(val == (fp_type)1) return ln_ret { false, (fp_type)0, 0.0_fp, 0.0_fp };
+		if(val < (fp_type)0) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		if(__builtin_isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(__builtin_isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
 		
 		// decompose into [1, 2) part and 2^x part
 		const auto decomp = const_math::decompose_fp(val);
@@ -364,25 +370,25 @@ namespace const_math {
 		// compute log2(decomp exponent), which is == exponent in this case
 		const auto exp_log2_val = (max_fp_type)decomp.second;
 		
-		return { true, (fp_type)0, decomp_res, exp_log2_val };
+		return ln_ret { true, (fp_type)0, decomp_res, exp_log2_val };
 	}
 	
 	//! computes ln(val), the natural logarithm of val
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type log(fp_type val) {
 		const auto ret = partial_ln_and_log2(val);
-		if(!get<0>(ret)) return get<1>(ret);
+		if(!ret.valid) return ret.invalid_ret;
 		// "log_e(x) = log_2(x) / log_2(e)" for the exponent value, log(val in [1, 2)) is already correct
-		return fp_type(get<2>(ret) + (get<3>(ret) * const_math::_1_DIV_LD2_E<max_fp_type>));
+		return fp_type(ret.decomp_base + (ret.decomp_exp * const_math::_1_DIV_LD2_E<max_fp_type>));
 	}
 	
 	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type log2(fp_type val) {
 		const auto ret = partial_ln_and_log2(val);
-		if(!get<0>(ret)) return get<1>(ret);
+		if(!ret.valid) return ret.invalid_ret;
 		// "log_2(x) = ln(x) / ln(2)" for the decomposed value, log2(2^x) == x is already correct
-		return fp_type((get<2>(ret) * const_math::_1_DIV_LN2<max_fp_type>) + get<3>(ret));
+		return fp_type((ret.decomp_base * const_math::_1_DIV_LN2<max_fp_type>) + ret.decomp_exp);
 	}
 	
 	//! computes base^exponent, base to the power of exponent
@@ -1092,7 +1098,7 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, bool)
 	
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)

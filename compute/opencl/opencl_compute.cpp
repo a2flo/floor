@@ -879,14 +879,14 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		const auto device_target {
+		const auto device_target = (
 #if defined(__APPLE__)
 			llvm_compute::TARGET::APPLECL
 #else
 			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
 			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
-		};
+		);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
 								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name,
 																								additional_options,
@@ -902,14 +902,14 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		const auto device_target {
+		const auto device_target = (
 #if defined(__APPLE__)
 			llvm_compute::TARGET::APPLECL
 #else
 			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
 			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
-		};
+		);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
 								  create_opencl_program(dev,
 														llvm_compute::compile_program(dev, source_code,

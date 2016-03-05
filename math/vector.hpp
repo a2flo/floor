@@ -163,8 +163,10 @@ public:
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
 	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
+#if !defined(_MSC_VER)
 	//! corresponding clang vector type
 	typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
+#endif
 	
 	//////////////////////////////////////////
 	// constructors and assignment operators

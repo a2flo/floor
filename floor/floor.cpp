@@ -339,7 +339,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		as = core::expand_path_with_env(as + ".exe");
 		dis = core::expand_path_with_env(dis + ".exe");
 		for(auto& bin : additional_bins) {
-			*bin = core::expand_path_with_env(*bin + ".exe");
+			*bin.second = core::expand_path_with_env(*bin.second + ".exe");
 		}
 #endif
 		
@@ -362,7 +362,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 			// get the toolchain (clang) version
 			// NOTE: this also checks if clang is actually callable (-> non-viable if not)
 			string version_output = "";
-			core::system(path_str + "/bin/" + compiler + " --version", version_output);
+			core::system("\"" + path_str + "/bin/" + compiler + "\" --version", version_output);
 			
 			// e.g. "clang version 3.5.2 (...)" -> want 3.5.2
 			static constexpr const char clang_version_str[] { "clang version " };
