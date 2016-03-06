@@ -146,8 +146,14 @@ info "using ${BUILD_JOB_COUNT} build jobs"
 cd SPIRV-Tools
 mkdir build
 cd build
-cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release ../
+cmake -G "Unix Makefiles" -DUNIX=1 -DCMAKE_BUILD_TYPE=Release ../
 make -j ${BUILD_JOB_COUNT}
+make_ret_code=$?
+
+if [ ${make_ret_code} -ne 0 ]; then
+	error "toolchain compilation failed!"
+fi
+
 cd ../../
 
 # build clang/llvm
