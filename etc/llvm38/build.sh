@@ -62,9 +62,12 @@ fi
 if [ ! -f libcxx-${RELEASE}.src.tar.xz ]; then
 	curl -o libcxx-${RELEASE}.src.tar.xz http://llvm.org/${BASE_URL}/libcxx-${RELEASE}.src.tar.xz
 fi
-if [ ! -d SPIRV-Tools ]; then
-	git clone git://github.com/a2flo/SPIRV-Tools.git
+
+# always clone anew
+if [ -d SPIRV-Tools ]; then
+	rm -Rf SPIRV-Tools
 fi
+git clone git://github.com/a2flo/SPIRV-Tools.git
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null
