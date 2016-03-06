@@ -93,7 +93,8 @@
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
 * compile the toolchain:
-** cd floor/etc/llvm35/ && ./build.sh
+** 3.5.2 toolchain: cd floor/etc/llvm35/ && ./build.sh
+** (experimental) 3.8.0 toolchain: cd floor/etc/llvm38/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
