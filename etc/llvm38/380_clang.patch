@@ -11463,3 +11463,16 @@ index 84914e0..def21df 100644
  USEDLIBS = clangIndex.a clangARCMigrate.a \
  	   clangRewriteFrontend.a \
  	   clangFormat.a \
+diff --git a/unittests/ASTMatchers/ASTMatchersTest.cpp b/unittests/ASTMatchers/ASTMatchersTest.cpp
+index cd18df8..3627010 100644
+--- a/unittests/ASTMatchers/ASTMatchersTest.cpp
++++ b/unittests/ASTMatchers/ASTMatchersTest.cpp
+@@ -724,7 +724,7 @@ TEST(DeclarationMatcher, MatchCudaDecl) {
+   EXPECT_TRUE(notMatchesWithCuda("void f() {}",
+                                  cudaKernelCallExpr()));
+   EXPECT_FALSE(notMatchesWithCuda("__attribute__((global)) void f() {}",
+-                                  hasAttr(clang::attr::CUDAGlobal)));
++                                  hasAttr(clang::attr::ComputeKernel)));
+ }
+ 
+ // Implements a run method that returns whether BoundNodes contains a
