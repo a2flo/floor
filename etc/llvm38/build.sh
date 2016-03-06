@@ -64,9 +64,7 @@ if [ ! -f libcxx-${RELEASE}.src.tar.xz ]; then
 fi
 
 # always clone anew
-if [ -d SPIRV-Tools ]; then
-	rm -Rf SPIRV-Tools
-fi
+rm -Rf SPIRV-Tools 2>/dev/null
 git clone git://github.com/a2flo/SPIRV-Tools.git
 
 # clean up prior source and build folders
