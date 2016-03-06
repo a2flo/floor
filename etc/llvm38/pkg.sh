@@ -18,10 +18,9 @@ cp ../build/Release/bin/llvm-as bin/
 #cp ../build/Release/bin/spir-verifier bin/
 #cp ../build/Release/bin/applecl-encoder bin/
 cp ../build/Release/bin/llvm-spirv bin/
-# TODO
-#cp ../build/Release/bin/spirv-as bin/
-#cp ../build/Release/bin/spirv-dis bin/
-#cp ../build/Release/bin/spirv-val bin/
+cp ../SPIRV-Tools/build/spirv-as bin/
+cp ../SPIRV-Tools/build/spirv-dis bin/
+cp ../SPIRV-Tools/build/spirv-val bin/
 
 cp -R ../build/Release/lib/clang/${RELEASE}/include clang
 
