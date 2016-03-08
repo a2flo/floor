@@ -175,17 +175,25 @@ index 50877d0..4af3890 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..9221f55 100644
+index 413134e..e781ea3 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -30,6 +30,55 @@ class TargetMachine;
+@@ -21,6 +21,7 @@ namespace llvm {
+ 
+ class BasicBlockPass;
+ class FunctionPass;
++class ModulePass;
+ class Pass;
+ class GetElementPtrInst;
+ class PassInfo;
+@@ -30,6 +31,55 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
 +// AddressSpaceFix - This pass fixes (intentionally) broken uses of addrspace
 +// pointers that should be non-addrspace pointers.
 +//
-+FunctionPass *createAddressSpaceFixPass();
++ModulePass *createAddressSpaceFixPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -1250,7 +1258,7 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..8c056f8 100644
+index 701fb46..f7568f2 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
@@ -1265,10 +1273,27 @@ index 701fb46..8c056f8 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +135,13 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +135,30 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
++  // Add LibraryInfo if we have some.
++  if (LibraryInfo) MPM.add(new TargetLibraryInfo(*LibraryInfo));
++
++  if (EnableAddressSpaceFix) {
++    // address space fixing should be run as early as possible, but it also
++    // requires readonly/nocapture/etc function and argument attributes,
++    // which in turn requires certain alias analysis to be run first
++    // NOTE: the original FunctionAttrs pass should still be run later on,
++    // because the code will have changed significantly due to optimizations
++    // and other pass changes
++    addInitialAliasAnalysisPasses(MPM);
++    MPM.add(createFunctionAttrsPass());
++    MPM.add(createAddressSpaceFixPass());
++    MPM.add(createInternalizePass()); // kill cloned functions
++    //MPM.add(createBarrierNoopPass());
++  }
++
 +  // run "first" passes that should run before all else
 +  // if(EnableCUDAPasses) --none
 +  if(EnableMetalPasses) {
@@ -1279,26 +1304,21 @@ index 701fb46..8c056f8 100644
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -153,6 +165,18 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -148,10 +177,9 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+     return;
+   }
  
-   addInitialAliasAnalysisPasses(MPM);
- 
-+  if (EnableAddressSpaceFix) {
-+    // address space fixing should be run as early as possible, but it also
-+    // requires readonly/nocapture/etc function and argument attributes,
-+    // which in turn requires certain alias analysis to be run first
-+    // -> this is the earliest point to do this
-+    // NOTE: the original FunctionAttrs pass should still be run later on,
-+    // because the code will have changed significantly due to optimizations
-+    // and other pass changes
-+    MPM.add(createFunctionAttrsPass());
-+    MPM.add(createAddressSpaceFixPass());
+-  // Add LibraryInfo if we have some.
+-  if (LibraryInfo) MPM.add(new TargetLibraryInfo(*LibraryInfo));
+-
+-  addInitialAliasAnalysisPasses(MPM);
++  if (!EnableAddressSpaceFix) {
++    addInitialAliasAnalysisPasses(MPM);
 +  }
-+
+ 
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
- 
-@@ -255,6 +279,29 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -255,6 +283,29 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
    // pass manager that we are specifically trying to avoid. To prevent this
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
@@ -1328,7 +1348,7 @@ index 701fb46..8c056f8 100644
    MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
    // FIXME: Because of #pragma vectorize enable, the passes below are always
    // inserted in the pipeline, even when the vectorizer doesn't run (ex. when
-@@ -280,6 +327,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +331,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -1351,10 +1371,10 @@ index 701fb46..8c056f8 100644
  void PassManagerBuilder::populateLTOPassManager(PassManagerBase &PM,
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..a0485af
+index 0000000..de984f9
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
-@@ -0,0 +1,258 @@
+@@ -0,0 +1,539 @@
 +//===- AddressSpaceFix.cpp - OpenCL/SPIR and related addrspace fixes ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -1364,7 +1384,15 @@ index 0000000..a0485af
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// This file implements an address space fixer for OpenCL/SPIR (and related).
++// This file implements an address space fixer for OpenCL/Metal/Vulkan.
++//
++// This is implemented as a module pass that iterates over all functions, then
++// over all call instructions in there, fixing all calls that require a
++// different address space then what is provided by the called function.
++// Since this requires the address space information "from the top",
++// this can't be implemented as a bottom-up SCC pass.
++// Note that this will duplicate any functions that don't have matching address
++// space parameters and thus heavily depends on proper inlining later on.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -1402,7 +1430,9 @@ index 0000000..a0485af
 +#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Utils/Cloning.h"
 +#include <algorithm>
++#include <unordered_set>
 +#include <cstdarg>
 +#include <memory>
 +#include <cxxabi.h>
@@ -1418,7 +1448,7 @@ index 0000000..a0485af
 +
 +namespace {
 +	// AddressSpaceFix
-+	struct AddressSpaceFix : public FunctionPass, InstVisitor<AddressSpaceFix> {
++	struct AddressSpaceFix : public ModulePass, InstVisitor<AddressSpaceFix> {
 +		friend class InstVisitor<AddressSpaceFix>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
@@ -1427,37 +1457,35 @@ index 0000000..a0485af
 +		
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
-+		Function* func { nullptr };
-+		Instruction* alloca_insert { nullptr };
++		AliasAnalysis* AA { nullptr };
 +		bool was_modified { false };
 +		
-+		AddressSpaceFix() : FunctionPass(ID) {
++		AddressSpaceFix() : ModulePass(ID) {
 +			initializeAddressSpaceFixPass(*PassRegistry::getPassRegistry());
 +		}
 +		
 +		void getAnalysisUsage(AnalysisUsage &AU) const override {
-+			AU.addRequiredID(FunctionAttrsID);
++			AU.addRequired<AliasAnalysis>();
 +		}
 +		
-+		bool runOnFunction(Function &F) override {
-+			// exit if empty function
-+			if (F.empty()) return false;
-+			
-+			//
-+			M = F.getParent();
++		bool runOnModule(Module& Mod) override {
++			M = &Mod;
 +			ctx = &M->getContext();
-+			func = &F;
++			AA = &getAnalysis<AliasAnalysis>();
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
 +			
-+			// find first non-alloca instruction in the entry block of the function
-+			// -> this will be the insert position for new alloca instructions
-+			for(auto& instr : *F.begin()) {
-+				if(!isa<AllocaInst>(instr)) {
-+					alloca_insert = &instr;
-+					break;
-+				}
-+			}
++			DBG(errs() << Mod << "\n");
 +			
++			bool module_modified = false;
++			for(auto& func : Mod) {
++				// ignore non-c++ functions (e.g. ones that were created in here)
++				if(func.getName().count('.') > 0) continue;
++				module_modified |= runOnFunction(func);
++			}
++			return module_modified;
++		}
++		
++		bool runOnFunction(Function& F) {
 +			// visit everything in this function
 +			was_modified = false; // reset every time
 +			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
@@ -1475,11 +1503,280 @@ index 0000000..a0485af
 +			InstVisitor<AddressSpaceFix>::visit(I);
 +		}
 +		
++		void fix_users(Instruction* instr, Value* parent, const uint32_t address_space, std::vector<ReturnInst*>& returns) {
++			// fix instruction
++			switch(instr->getOpcode()) {
++				case Instruction::GetElementPtr: {
++					auto GEP = cast<GetElementPtrInst>(instr);
++					if(GEP->getType()->isPointerTy()) {
++						auto new_ptr_type = PointerType::get(GEP->getType()->getPointerElementType(), address_space);
++						DBG(errs() << ">> GEP: " << *GEP->getType();)
++						GEP->mutateType(new_ptr_type);
++						DBG(errs() << " -> " << *GEP->getType() << "\n";)
++					}
++					// else: can't happen?
++					break;
++				}
++				case Instruction::BitCast: {
++					auto BC = cast<BitCastInst>(instr);
++					if(BC->getDestTy()->isPointerTy()) {
++						auto new_ptr_type = PointerType::get(BC->getDestTy()->getPointerElementType(), address_space);
++						DBG(errs() << ">> BC: " << *BC->getType() << " -> ";)
++						BC->mutateType(new_ptr_type);
++						DBG(errs() << " -> " << *BC->getType() << "\n";)
++					}
++					// else: can't do anything (TODO: warn/error?)
++					break;
++				}
++				case Instruction::Call: {
++					// TODO: should accumulate all users to *this* call instruction (there can be multiple), might want to delay this until done with the function?
++					auto CI = cast<CallInst>(instr);
++					DBG(errs() << ">> call: " << *CI << "\n";)
++					// -> recurse (note that the argument will already have the correct address space)
++					fix_call_instr(*CI, false);
++					break;
++				}
++				case Instruction::Ret: {
++					// the function return type will be changed once all returns (and return types) have been accumulated
++					returns.push_back(cast<ReturnInst>(instr));
++					return;
++				}
++
++				case Instruction::AddrSpaceCast:
++				case Instruction::Invoke:
++					// bad, should never happen
++					ctx->emitError(instr, "encountered unsupported instruction");
++					return;
++
++				// uninteresting instructions:
++				default:
++					// nothing has changed, bail out
++					return;
++			}
++			
++			// recursively fix all users
++			for(auto user : instr->users()) {
++				DBG(errs() << ">> replacing rec use: " << *user << "\n";)
++				if(auto user_instr = dyn_cast<Instruction>(user)) {
++					switch(user_instr->getOpcode()) {
++						case Instruction::GetElementPtr:
++						case Instruction::BitCast:
++						case Instruction::Call:
++						case Instruction::Ret:
++							fix_users(user_instr, instr, address_space, returns);
++							break;
++						case Instruction::AddrSpaceCast:
++						case Instruction::Invoke:
++							// bad, should never happen
++							ctx->emitError(user_instr, "encountered unsupported instruction");
++							break;
++						default: break;
++					}
++				}
++			}
++		}
++		
++		struct as_fix_arg_info {
++			uint32_t index;
++			uint32_t address_space;
++			bool read_only_fix;
++		};
++		
++		// returns true if the return type changed
++		void fix_function(llvm::Function* func, const std::vector<as_fix_arg_info>& args, const bool is_top_call) {
++			std::vector<ReturnInst*> returns; // returns to fix
++			for(const auto& arg : args) {
++				if(arg.read_only_fix) continue;
++				
++				Argument& func_arg = *(next(func->arg_begin(), arg.index));
++				for(auto user : func_arg.users()) {
++					DBG(errs() << ">> replacing use: " << *user << "\n";)
++					if(auto instr = dyn_cast<Instruction>(user)) {
++						fix_users(instr, &func_arg, arg.address_space, returns);
++					}
++					else {
++						DBG(errs() << "   not an instruction\n";)
++					}
++				}
++				DBG(errs() << "<< fixed arg: " << arg.index << "\n";)
++			}
++			
++			if(!returns.empty()) {
++				DBG(errs() << ">> fixing returns: " << returns.size() << "\n";)
++				std::unordered_set<Type*> ret_types;
++				for(const auto& ret : returns) {
++					// shouldn't occur (there'd be no initial user for this)
++					if(!ret->getReturnValue()) continue;
++					ret_types.emplace(ret->getReturnValue()->getType());
++				}
++				
++				// again, shouldn't occur, but still better to check
++				if(!ret_types.empty()) {
++					// if there is more than one expected return type we have a problem
++					if(ret_types.size() > 1) {
++						// TODO: should try and fix this properly (create alloca in caller + store result in there?)
++						// TODO: for targets with a generic address space, might want to use that instead
++						ctx->emitError("more than one return type in function " + func->getName().str());
++					}
++					else if((*ret_types.begin())->getPointerAddressSpace() !=
++							func->getReturnType()->getPointerAddressSpace()) {
++						// fix func return type
++						std::vector<Type*> param_types;
++						for(const auto& arg : func->args()) {
++							param_types.push_back(arg.getType());
++						}
++						auto new_func_type = FunctionType::get(*ret_types.begin(), param_types, false);
++						DBG({
++							auto old_func_type = func->getFunctionType();
++							errs() << ">> fixing return type: " << func->getName() << ": " << *old_func_type << " -> " << *new_func_type << "\n";
++						})
++						func->mutateType(PointerType::get(new_func_type, 0));
++					}
++				}
++			}
++			
++			DBG(errs() << "<< fixed func\n";)
++		}
++		
++		void fix_call(CallInst& CI, const std::vector<as_fix_arg_info>& args, const bool is_top_call) {
++			bool need_clone = false, need_read_only_fix = false;
++			for(const auto& arg : args) {
++				if(!arg.read_only_fix) need_clone = true;
++				else need_read_only_fix = true;
++			}
++			
++			CallSite CS { &CI };
++			
++			// find first non-alloca instruction in the entry block of the function
++			// -> this will be the insert position for new alloca instructions
++			Instruction* alloca_insert { nullptr };
++			if(need_read_only_fix) {
++				for(auto& instr : *CI.getParent()->getParent()->begin()) {
++					if(!isa<AllocaInst>(instr)) {
++						alloca_insert = &instr;
++						break;
++					}
++				}
++			}
++			
++			// first: fix all read-only args
++			if(need_read_only_fix) {
++				for(const auto& arg : args) {
++					if(!arg.read_only_fix) continue;
++					
++					//  * create a temporary object (of the element/pointee type of the address space pointer)
++					//  * load data from the address space pointer to the temp object
++					//  * replace the respective call operand/argument with a pointer to the temp object
++					DBG(errs() << "\tread-only fix: arg #" << arg.index << "\n";)
++					
++					// TODO: handle alignment?
++					
++					auto call_arg = CS.getArgument(arg.index);
++					
++					builder->SetInsertPoint(alloca_insert); // insert alloca at function entry
++					auto tmp = builder->CreateAlloca(call_arg->getType()->getPointerElementType(),
++													 // what about arrays?
++													 nullptr,
++													 // give it a nice name
++													 "asfixtmp");
++					
++					builder->SetInsertPoint(&CI); // insert load before call
++					builder->CreateStore(builder->CreateLoad(call_arg), tmp);
++					
++					CS.setArgument(arg.index, tmp);
++				}
++			}
++			
++			// second: create cloned function if this is necessary
++			if(need_clone) {
++				// fix it:
++				//  * clone the called function and modify the appropriate argument so that it uses the correct address space
++				//  * recursively go through the cloned called function and appropriately change all uses of our modified argument
++				//    NOTE: this can very well recursively clone and fix called functions in there (and so on ...)
++				//  * modify this call so that it calls the fixed/cloned function
++				
++				auto called_func = CI.getCalledFunction();
++				DBG(errs() << "\tclone fix: " << called_func->getName() << "\n";)
++				
++				std::vector<Type*> param_types;
++				std::string func_name = called_func->getName().str();
++				uint32_t arg_num = 0;
++				for(const auto& func_arg : called_func->args()) {
++					auto call_arg = CS.getArgument(arg_num);
++					
++					bool arg_clone_fix = false;
++					for(const auto& arg : args) {
++						if(arg.index != arg_num ||
++						   arg.read_only_fix) {
++							continue;
++						}
++						
++						arg_clone_fix = true;
++						func_name += "." + std::to_string(arg.index) + "_" + std::to_string(arg.address_space);
++						break;
++					}
++					
++					if(!arg_clone_fix) {
++						// use original type
++						param_types.push_back(func_arg.getType());
++					}
++					else {
++						// use "called with" type
++						param_types.push_back(call_arg->getType());
++					}
++					
++					++arg_num;
++				}
++				
++				// check if cloned function already exists
++				auto cloned_func = M->getFunction(func_name);
++				if(cloned_func == nullptr) {
++					// only do this once
++					auto cloned_func_type = FunctionType::get(called_func->getReturnType(), param_types, false);
++					cloned_func = dyn_cast<Function>(M->getOrInsertFunction(func_name, cloned_func_type));
++					
++					ValueToValueMapTy VMap;
++					Function::arg_iterator DestI = cloned_func->arg_begin();
++					for (Function::const_arg_iterator I = called_func->arg_begin(), E = called_func->arg_end(); I != E; ++I) {
++						DestI->setName(I->getName());
++						VMap[I] = DestI++;
++					}
++					
++					SmallVector<llvm::ReturnInst*, 8> returns;
++					llvm::CloneFunctionInto(cloned_func, called_func, VMap, false, returns);
++					
++#if 0 // for debugging purposes
++					cloned_func->addFnAttr(Attribute::NoInline);
++					cloned_func->removeFnAttr(Attribute::AlwaysInline);
++#endif
++					
++					DBG(errs() << "\n>> before <<\n" << cloned_func);
++					
++					//
++					fix_function(cloned_func, args, is_top_call);
++					CS.setCalledFunction(cloned_func);
++					CI.mutateType(cloned_func->getReturnType());
++					
++					DBG(errs() << "\n>> after <<\n" << cloned_func);
++				}
++				else {
++					DBG(errs() << "\t" << func_name << " already cloned\n";)
++					CS.setCalledFunction(cloned_func);
++					CI.mutateType(cloned_func->getReturnType());
++				}
++			}
++		}
++		
 +		void visitCallInst(CallInst& CI) {
++			fix_call_instr(CI, true);
++		}
++		
++		void fix_call_instr(CallInst& CI, const bool is_top_call) {
 +			CallSite CS { &CI };
 +			PointerType* FPTy = cast<PointerType>(CS.getCalledValue()->getType());
 +			FunctionType* FTy = cast<FunctionType>(FPTy->getElementType());
 +			
++			std::vector<as_fix_arg_info> fix_args;
 +			for (unsigned i = 0, e = FTy->getNumParams(); i != e; ++i) {
 +				// check if there is a type mismatch
 +				if(CS.getArgument(i)->getType() != FTy->getParamType(i)) {
@@ -1506,12 +1803,12 @@ index 0000000..a0485af
 +					// else: yup, only addrspace mismatch
 +					DBG(errs() << "#####################################################\n";)
 +					DBG(errs() << "\t>> call to: "; CS.getCalledFunction()->llvm::Value::getType()->dump();)
-+					DBG(errs() << "\n\t>> full: " << CS.getCalledFunction()->getName() << "\n";)
-+					DBG(errs() << "\tonly addrspace mismatch!\n";)
++					DBG(errs() << "\n\t>> call: " << CI << "\n";)
++					DBG(errs() << "\t>> full: " << CS.getCalledFunction()->getName() << "\n";)
 +					DBG(errs() << "\treplacing arg #" << i << "!\n";)
-+					DBG(errs() << called_arg_type->getPointerAddressSpace() << ", ";)
++					DBG(errs() << "\t" << called_arg_type->getPointerAddressSpace() << ", ";)
 +					DBG(errs() << expected_arg_type->getPointerAddressSpace() << "\n";)
-+					DBG(called_arg_type->dump(); errs() << ", ";)
++					DBG(errs() << "\t"; called_arg_type->dump(); errs() << ", ";)
 +					DBG(expected_arg_type->dump(); errs() << "\n";)
 +					DBG({
 +						int err = 0;
@@ -1551,55 +1848,58 @@ index 0000000..a0485af
 +						continue;
 +					}
 +					
-+					// fix it:
-+					//  * create a temporary object (of the element/pointee type of the address space pointer)
-+					//  * load data from the address space pointer to the temp object
-+					//  * replace the respective call operand/argument with a pointer to the temp object
-+					//  * after the call, store data back to the address space pointer from the temp object,
-+					//    unless the temp object can not or has not been written to
-+					
-+					// TODO: handle alignment?
-+					
-+					// query information that decides if a store is necessary later on
++					// query information that decides if a store would be necessary later on,
++					// i.e. the arg is not read-only and access to it must happen using the actual arg
 +					const bool is_constant_as = (as_ptr->getPointerAddressSpace() == 2);
 +					const bool is_readonly = CS.onlyReadsMemory(i);
 +					const bool is_load = isa<LoadInst>(arg);
 +					
-+					builder->SetInsertPoint(alloca_insert); // insert alloca at function entry
-+					auto tmp = builder->CreateAlloca(as_ptr->getElementType(),
-+													 // what about arrays?
-+													 nullptr,
-+													 // give it a nice name
-+													 "asfixtmp");
-+					
-+					builder->SetInsertPoint(&CI); // insert load before call
-+					builder->CreateStore(builder->CreateLoad(arg), tmp);
-+					
-+					CS.setArgument(i, tmp);
-+					
-+					// don't emit stores for const pointers or constant address space pointers
-+					if(!is_constant_as && !is_readonly && !is_load) {
-+						builder->SetInsertPoint(CI.getNextNode()); // insert store after call
-+						builder->CreateStore(builder->CreateLoad(tmp), arg);
-+						DBG(errs() << "<< emitted write-back\n";)
-+					}
-+					else {
-+						DBG(errs() << "<< discarded write-back";)
-+						if(is_constant_as) {
-+							DBG(errs() << ": constant address space";)
-+						}
-+						else if(is_readonly) {
-+							DBG(errs() << ": readonly arg";)
-+						}
-+						else if(is_load) {
-+							DBG(errs() << ": load instruction";)
-+						}
-+						DBG(errs() << ", " << is_constant_as << ", " << is_readonly << ", " << is_load << "\n";)
-+					}
-+
-+					// done, signal that the function was modified
-+					was_modified = true;
++					fix_args.push_back(as_fix_arg_info {
++						i,
++						as_ptr->getPointerAddressSpace(),
++						is_constant_as || is_readonly || is_load,
++					});
 +				}
++			}
++			
++			if(!fix_args.empty()) {
++				// check if we have both clone and read-only fixes
++				bool has_ro_fix = false, has_clone_fix = false;
++				for(const auto& arg : fix_args) {
++					if(arg.read_only_fix) has_ro_fix = true;
++					else has_clone_fix = true;
++				}
++				if(has_ro_fix && has_clone_fix) {
++					// if so, check AA for all read-only fix args and check if these alias with any clone fix arg
++					for(auto& ro_arg : fix_args) {
++						if(!ro_arg.read_only_fix) continue;
++						for(const auto& clone_arg : fix_args) {
++							if(clone_arg.read_only_fix) continue;
++							const auto aa_res = AA->alias(CS.getArgument(ro_arg.index), CS.getArgument(clone_arg.index));
++							if(aa_res != AliasAnalysis::NoAlias) {
++								// -> might or must alias
++								// disable the read-only fix for this arg and use clone instead
++								ro_arg.read_only_fix = false;
++								DBG(errs() << "\tdisabling read-only fix for arg #" << ro_arg.index << " due to aliasing with clone arg #" << clone_arg.index << "\n";)
++								break;
++							}
++						}
++					}
++				}
++				
++				// fix the call (+detect return type change)
++				auto orig_ret_type = CI.getCalledFunction()->getReturnType();
++				fix_call(CI, fix_args, is_top_call);
++				auto fixed_ret_type = CI.getCalledFunction()->getReturnType();
++				
++				if(is_top_call &&
++				   orig_ret_type != fixed_ret_type) {
++					// if this is a top call and the return type changed
++					DBG(errs() << "\ttop call return type changed: " << *orig_ret_type << " -> " << *fixed_ret_type << " (in: " << CI.getParent()->getParent()->getName() << ")\n");
++				}
++				
++				// done, signal that the function was modified
++				was_modified = true;
 +			}
 +		}
 +	};
@@ -1607,10 +1907,11 @@ index 0000000..a0485af
 +
 +char AddressSpaceFix::ID = 0;
 +INITIALIZE_PASS_BEGIN(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
-+INITIALIZE_PASS_DEPENDENCY(FunctionAttrs)
++INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
++// NOTE: also depends on FunctionAttrs, but can't depend on it here (it will be run before this though)
 +INITIALIZE_PASS_END(AddressSpaceFix, "AddressSpaceFix", "AddressSpaceFix Pass", false, false)
 +
-+FunctionPass *llvm::createAddressSpaceFixPass() {
++ModulePass *llvm::createAddressSpaceFixPass() {
 +	return new AddressSpaceFix();
 +}
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
