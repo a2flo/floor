@@ -1126,10 +1126,10 @@ index c800a51..b62ac89 100644
    IK_PreprocessedCuda,
    IK_AST,
 diff --git a/include/clang/Frontend/LangStandards.def b/include/clang/Frontend/LangStandards.def
-index cac9c3c..79c3460 100644
+index cac9c3c..2e6fdb3 100644
 --- a/include/clang/Frontend/LangStandards.def
 +++ b/include/clang/Frontend/LangStandards.def
-@@ -134,20 +134,25 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
+@@ -134,20 +134,28 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
  // OpenCL
  LANGSTANDARD(opencl, "cl",
               "OpenCL 1.0",
@@ -1146,6 +1146,9 @@ index cac9c3c..79c3460 100644
  LANGSTANDARD(opencl20, "CL2.0",
               "OpenCL 2.0",
 -             LineComment | C99 | Digraphs | HexFloat)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++LANGSTANDARD(opencl21, "CL2.1",
++             "OpenCL 2.1",
 +             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
 +
 +// Metal
@@ -6428,7 +6431,7 @@ index 4803b13..0e2c0f2 100644
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
 diff --git a/lib/CodeGen/CodeGenModule.cpp b/lib/CodeGen/CodeGenModule.cpp
-index 97b1662..8a1a876 100644
+index 97b1662..782ca6c 100644
 --- a/lib/CodeGen/CodeGenModule.cpp
 +++ b/lib/CodeGen/CodeGenModule.cpp
 @@ -19,6 +19,7 @@
@@ -6494,7 +6497,7 @@ index 97b1662..8a1a876 100644
    EmitVersionIdentMetadata();
  
    EmitTargetMetadata();
-@@ -1293,6 +1326,100 @@ void CodeGenModule::EmitGlobalAnnotations() {
+@@ -1293,6 +1326,104 @@ void CodeGenModule::EmitGlobalAnnotations() {
    gv->setSection(AnnotationSection);
  }
  
@@ -6571,6 +6574,10 @@ index 97b1662..8a1a876 100644
 +    BuildOption.push_back(llvm::MDString::get(
 +    VMContext, llvm::StringRef("-cl-std=CL2.0")));
 +
++  if(210 == getLangOpts().OpenCLVersion)
++    BuildOption.push_back(llvm::MDString::get(
++    VMContext, llvm::StringRef("-cl-std=CL2.1")));
++
 +  // Options for Querying Kernel Argument Information
 +  if(getCodeGenOpts().EmitOpenCLArgMetadata)
 +    BuildOption.push_back(llvm::MDString::get(
@@ -6595,7 +6602,7 @@ index 97b1662..8a1a876 100644
  llvm::Constant *CodeGenModule::EmitAnnotationString(StringRef Str) {
    llvm::Constant *&AStr = AnnotationStrings[Str];
    if (AStr)
-@@ -1351,6 +1478,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
+@@ -1351,6 +1482,39 @@ void CodeGenModule::AddGlobalAnnotations(const ValueDecl *D,
      Annotations.push_back(EmitAnnotateAttr(GV, I, D->getLocation()));
  }
  
@@ -6635,7 +6642,7 @@ index 97b1662..8a1a876 100644
  bool CodeGenModule::isInSanitizerBlacklist(llvm::Function *Fn,
                                             SourceLocation Loc) const {
    const auto &SanitizerBL = getContext().getSanitizerBlacklist();
-@@ -1491,23 +1651,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
+@@ -1491,23 +1655,6 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
    if (Global->hasAttr<AliasAttr>())
      return EmitAliasDefinition(GD);
  
@@ -6659,7 +6666,7 @@ index 97b1662..8a1a876 100644
    // If this is OpenMP device, check if it is legal to emit this global
    // normally.
    if (OpenMPRuntime && OpenMPRuntime->emitTargetGlobal(GD))
-@@ -2377,7 +2520,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
+@@ -2377,7 +2524,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
        (D->hasAttr<CUDAConstantAttr>() || D->hasAttr<CUDADeviceAttr>())) {
      GV->setExternallyInitialized(true);
    }
@@ -6673,7 +6680,7 @@ index 97b1662..8a1a876 100644
  
    // If it is safe to mark the global 'constant', do so now.
    GV->setConstant(!NeedsGlobalCtor && !NeedsGlobalDtor &&
-@@ -2703,12 +2851,49 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
+@@ -2703,12 +2855,49 @@ void CodeGenModule::HandleCXXStaticMemberVarInstantiation(VarDecl *VD) {
    EmitTopLevelDecl(VD);
  }
  
@@ -6723,7 +6730,7 @@ index 97b1662..8a1a876 100644
    llvm::FunctionType *Ty = getTypes().GetFunctionType(FI);
  
    // Get or create the prototype for the function.
-@@ -2803,7 +2988,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
+@@ -2803,7 +2992,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
      // Remove it and replace uses of it with the alias.
      GA->takeName(Entry);
  
@@ -7791,7 +7798,7 @@ index 3edcf5d..fdc26d2 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 237a447..50d8ffc 100644
+index 237a447..bbcfc81 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -79,7 +79,7 @@ using namespace llvm::opt;
@@ -7886,21 +7893,23 @@ index 237a447..50d8ffc 100644
      case IK_CUDA:
      case IK_PreprocessedCuda:
        LangStd = LangStandard::lang_cuda;
-@@ -1378,6 +1401,13 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1377,6 +1400,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+     Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
- 
++  else if (LangStd == LangStandard::lang_opencl21)
++    Opts.OpenCLVersion = 210;
++
 +  // as Metal is largely compiled as OpenCL, also enable + init opencl
 +  if (LangStd == LangStandard::lang_metal11 || IK == IK_Metal) {
 +    Opts.Metal = 1;
 +    Opts.OpenCL = 1;
 +    Opts.OpenCLVersion = 120;
 +  }
-+
+ 
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
-     Opts.AltiVec = 0;
-@@ -1459,10 +1489,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1459,10 +1491,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -7917,7 +7926,15 @@ index 237a447..50d8ffc 100644
        case IK_CUDA:
        case IK_PreprocessedCuda:
          if (!Std.isCPlusPlus())
-@@ -1496,6 +1531,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1484,6 +1521,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+     .Case("CL1.1", LangStandard::lang_opencl11)
+     .Case("CL1.2", LangStandard::lang_opencl12)
+     .Case("CL2.0", LangStandard::lang_opencl20)
++    .Case("CL2.1", LangStandard::lang_opencl21)
+     .Default(LangStandard::lang_unspecified);
+ 
+     if (OpenCLLangStd == LangStandard::lang_unspecified) {
+@@ -1496,6 +1534,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
  
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
@@ -7930,7 +7947,7 @@ index 237a447..50d8ffc 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -1667,6 +1708,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1667,6 +1711,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks);
@@ -7942,7 +7959,7 @@ index 237a447..50d8ffc 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
    Opts.Modules = Args.hasArg(OPT_fmodules);
-@@ -1867,6 +1913,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1867,6 +1916,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -7951,7 +7968,7 @@ index 237a447..50d8ffc 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -1980,6 +2028,7 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -1980,6 +2031,7 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
