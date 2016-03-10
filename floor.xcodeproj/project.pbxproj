@@ -330,7 +330,6 @@
 		5C20C8C01B4139260005F5EA /* host_program.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_program.hpp; path = host/host_program.hpp; sourceTree = "<group>"; };
 		5C20C8C11B4139260005F5EA /* host_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = host_queue.cpp; path = host/host_queue.cpp; sourceTree = "<group>"; };
 		5C20C8C21B4139260005F5EA /* host_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = host_queue.hpp; path = host/host_queue.hpp; sourceTree = "<group>"; };
-		5C225FC71AAA190700FE42F3 /* llvm35 */ = {isa = PBXFileReference; lastKnownFileType = folder; name = llvm35; path = etc/llvm35; sourceTree = "<group>"; };
 		5C2B87C31C73893E00F11EA5 /* vulkan_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_compute.cpp; path = vulkan/vulkan_compute.cpp; sourceTree = "<group>"; };
 		5C2B87C41C73893E00F11EA5 /* vulkan_device.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_device.cpp; path = vulkan/vulkan_device.cpp; sourceTree = "<group>"; };
 		5C2B87C51C73893E00F11EA5 /* vulkan_device.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_device.hpp; path = vulkan/vulkan_device.hpp; sourceTree = "<group>"; };
@@ -447,6 +446,16 @@
 		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
+		5CD187271C8F5A5600DBAECC /* 380_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_libcxx.patch; path = etc/llvm38/380_libcxx.patch; sourceTree = "<group>"; };
+		5CD187281C8F5A5600DBAECC /* 380_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_llvm.patch; path = etc/llvm38/380_llvm.patch; sourceTree = "<group>"; };
+		5CD187291C8F5A5600DBAECC /* 380_clang.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_clang.patch; path = etc/llvm38/380_clang.patch; sourceTree = "<group>"; };
+		5CD1872A1C8F5A5600DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm38/build.sh; sourceTree = "<group>"; };
+		5CD1872B1C8F5A5600DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm38/pkg.sh; sourceTree = "<group>"; };
+		5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 350_clang_llvm.patch; path = etc/llvm35/350_clang_llvm.patch; sourceTree = "<group>"; };
+		5CD1872E1C8F5A7400DBAECC /* 350_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 350_libcxx.patch; path = etc/llvm35/350_libcxx.patch; sourceTree = "<group>"; };
+		5CD1872F1C8F5A7400DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm35/build.sh; sourceTree = "<group>"; };
+		5CD187311C8F5A7400DBAECC /* llvm_tools_spir_applecl_encoder.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = llvm_tools_spir_applecl_encoder.patch; path = etc/llvm35/llvm_tools_spir_applecl_encoder.patch; sourceTree = "<group>"; };
+		5CD187321C8F5A7400DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm35/pkg.sh; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
 		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
 		5CD2175619E985D80049D6AE /* opencl_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_compute.cpp; sourceTree = "<group>"; };
@@ -834,7 +843,8 @@
 			isa = PBXGroup;
 			children = (
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
-				5C225FC71AAA190700FE42F3 /* llvm35 */,
+				5CD1872C1C8F5A6700DBAECC /* llvm35 */,
+				5CD187261C8F5A4100DBAECC /* llvm38 */,
 			);
 			name = etc;
 			sourceTree = "<group>";
@@ -878,6 +888,30 @@
 				5CBE41D81B31B48600AE0E5F /* darwin_helper.hpp */,
 			);
 			name = darwin;
+			sourceTree = "<group>";
+		};
+		5CD187261C8F5A4100DBAECC /* llvm38 */ = {
+			isa = PBXGroup;
+			children = (
+				5CD187271C8F5A5600DBAECC /* 380_libcxx.patch */,
+				5CD187281C8F5A5600DBAECC /* 380_llvm.patch */,
+				5CD187291C8F5A5600DBAECC /* 380_clang.patch */,
+				5CD1872A1C8F5A5600DBAECC /* build.sh */,
+				5CD1872B1C8F5A5600DBAECC /* pkg.sh */,
+			);
+			name = llvm38;
+			sourceTree = "<group>";
+		};
+		5CD1872C1C8F5A6700DBAECC /* llvm35 */ = {
+			isa = PBXGroup;
+			children = (
+				5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */,
+				5CD1872E1C8F5A7400DBAECC /* 350_libcxx.patch */,
+				5CD1872F1C8F5A7400DBAECC /* build.sh */,
+				5CD187311C8F5A7400DBAECC /* llvm_tools_spir_applecl_encoder.patch */,
+				5CD187321C8F5A7400DBAECC /* pkg.sh */,
+			);
+			name = llvm35;
 			sourceTree = "<group>";
 		};
 		5CD2175219E985D80049D6AE /* cuda */ = {
