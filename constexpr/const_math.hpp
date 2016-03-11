@@ -1113,7 +1113,9 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, ssize_t)
 #endif
-#if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && !(__clang_major__ == 3 && __clang_minor__ < 7))
+#if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && \
+						   defined(PLATFORM_X64) && \
+						   !(__clang_major__ == 3 && __clang_minor__ < 7))
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, size_t)
