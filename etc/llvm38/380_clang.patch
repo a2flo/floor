@@ -3531,7 +3531,7 @@ index ee049f1..200b46c 100644
      }
      llvm_unreachable("Invalid CastKind");
 diff --git a/lib/CodeGen/CGExprScalar.cpp b/lib/CodeGen/CGExprScalar.cpp
-index 268e796..41eb6d4 100644
+index 268e7967..41eb6d4 100644
 --- a/lib/CodeGen/CGExprScalar.cpp
 +++ b/lib/CodeGen/CGExprScalar.cpp
 @@ -1394,8 +1394,14 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
@@ -9951,7 +9951,7 @@ index f94c822..b8ff0c4 100644
      if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
        // FIXME: This emits a different error message than
 diff --git a/lib/Sema/SemaExpr.cpp b/lib/Sema/SemaExpr.cpp
-index ebf7981..e8f2ccf 100644
+index 5a2eb60..f4f5f2d 100644
 --- a/lib/Sema/SemaExpr.cpp
 +++ b/lib/Sema/SemaExpr.cpp
 @@ -44,6 +44,7 @@
@@ -10126,7 +10126,7 @@ index ebf7981..e8f2ccf 100644
  
    // C++ performs lvalue-to-rvalue conversion as a default argument
    // promotion, even on class types, but note:
-@@ -3294,7 +3417,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
+@@ -3297,7 +3420,9 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
  
    if (Literal.isFloatingLiteral()) {
      QualType Ty;
@@ -10137,7 +10137,7 @@ index ebf7981..e8f2ccf 100644
        Ty = Context.FloatTy;
      else if (!Literal.isLong)
        Ty = Context.DoubleTy;
-@@ -4260,6 +4385,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4263,6 +4388,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                        Expr *Idx, SourceLocation RLoc) {
    Expr *LHSExp = Base;
    Expr *RHSExp = Idx;
@@ -10145,7 +10145,7 @@ index ebf7981..e8f2ccf 100644
  
    // Perform default conversions.
    if (!LHSExp->getType()->getAs<VectorType>()) {
-@@ -4291,6 +4417,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4294,6 +4420,7 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
      BaseExpr = LHSExp;
      IndexExpr = RHSExp;
      ResultType = PTy->getPointeeType();
@@ -10153,7 +10153,7 @@ index ebf7981..e8f2ccf 100644
    } else if (const ObjCObjectPointerType *PTy =
                 LHSTy->getAs<ObjCObjectPointerType>()) {
      BaseExpr = LHSExp;
-@@ -4391,6 +4518,13 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
+@@ -4394,6 +4521,13 @@ Sema::CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                            diag::err_subscript_incomplete_type, BaseExpr))
      return ExprError();
  
@@ -10167,7 +10167,7 @@ index ebf7981..e8f2ccf 100644
    assert(VK == VK_RValue || LangOpts.CPlusPlus ||
           !ResultType.isCForbiddenLValueType());
  
-@@ -5261,7 +5395,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -5264,7 +5398,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
    if (getLangOpts().CUDA) {
      if (Config) {
        // CUDA: Kernel calls must be to global functions
@@ -10176,7 +10176,7 @@ index ebf7981..e8f2ccf 100644
          return ExprError(Diag(LParenLoc,diag::err_kern_call_not_global_function)
              << FDecl->getName() << Fn->getSourceRange());
  
-@@ -5271,12 +5405,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -5274,12 +5408,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
              << Fn->getType() << Fn->getSourceRange());
      } else {
        // CUDA: Calls to global functions must be configured
@@ -10195,7 +10195,7 @@ index ebf7981..e8f2ccf 100644
    // Check for a valid return type
    if (CheckCallReturnType(FuncT->getReturnType(), Fn->getLocStart(), TheCall,
                            FDecl))
-@@ -6128,9 +6267,25 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
+@@ -6131,9 +6270,25 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
      // In this situation, we assume void* type. No especially good
      // reason, but this is what gcc does, and we do have to pick
      // to get a consistent AST.
@@ -10224,7 +10224,7 @@ index ebf7981..e8f2ccf 100644
      return incompatTy;
    }
  
-@@ -6230,6 +6385,18 @@ static bool checkPointerIntegerMismatch(Sema &S, ExprResult &Int,
+@@ -6233,6 +6388,18 @@ static bool checkPointerIntegerMismatch(Sema &S, ExprResult &Int,
    return true;
  }
  
@@ -10243,7 +10243,7 @@ index ebf7981..e8f2ccf 100644
  /// \brief Simple conversion between integer and floating point types.
  ///
  /// Used when handling the OpenCL conditional operator where the
-@@ -6459,6 +6626,12 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
+@@ -6462,6 +6629,12 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
    QualType LHSTy = LHS.get()->getType();
    QualType RHSTy = RHS.get()->getType();
  
@@ -10256,7 +10256,7 @@ index ebf7981..e8f2ccf 100644
    // If both operands have arithmetic type, do the usual arithmetic conversions
    // to find a common type: C99 6.5.15p3,5.
    if (LHSTy->isArithmeticType() && RHSTy->isArithmeticType()) {
-@@ -7572,7 +7745,8 @@ QualType Sema::InvalidOperands(SourceLocation Loc, ExprResult &LHS,
+@@ -7575,7 +7748,8 @@ QualType Sema::InvalidOperands(SourceLocation Loc, ExprResult &LHS,
  static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
                                       QualType scalarTy,
                                       QualType vectorEltTy,
@@ -10266,7 +10266,7 @@ index ebf7981..e8f2ccf 100644
    // The conversion to apply to the scalar before splatting it,
    // if necessary.
    CastKind scalarCast = CK_Invalid;
-@@ -7587,8 +7761,14 @@ static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
+@@ -7590,8 +7764,14 @@ static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
    } else if (vectorEltTy->isRealFloatingType()) {
      if (scalarTy->isRealFloatingType()) {
        if (S.getLangOpts().OpenCL &&
@@ -10283,7 +10283,7 @@ index ebf7981..e8f2ccf 100644
        scalarCast = CK_FloatingCast;
      }
      else if (scalarTy->isIntegralType(S.Context))
-@@ -7680,13 +7860,13 @@ QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
+@@ -7683,13 +7863,13 @@ QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
    // the vector element type and splat.
    if (!RHSVecType && isa<ExtVectorType>(LHSVecType)) {
      if (!tryVectorConvertAndSplat(*this, &RHS, RHSType,
@@ -10299,7 +10299,7 @@ index ebf7981..e8f2ccf 100644
        return RHSType;
    }
  
-@@ -9171,6 +9351,18 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
+@@ -9174,6 +9354,18 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
      return ResultTy;
    }
  
@@ -10318,7 +10318,7 @@ index ebf7981..e8f2ccf 100644
    return InvalidOperands(Loc, LHS, RHS);
  }
  
-@@ -10038,7 +10230,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
+@@ -10041,7 +10233,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    Expr *op = OrigOp.get()->IgnoreParens();
  
    // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
@@ -10327,7 +10327,7 @@ index ebf7981..e8f2ccf 100644
      Diag(op->getExprLoc(), diag::err_opencl_taking_function_address);
      return QualType();
    }
-@@ -10196,6 +10388,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
+@@ -10199,6 +10391,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    // If the operand has type "type", the result has type "pointer to type".
    if (op->getType()->isObjCObjectType())
      return Context.getObjCObjectPointerType(op->getType());
@@ -10343,7 +10343,7 @@ index ebf7981..e8f2ccf 100644
    return Context.getPointerType(op->getType());
  }
  
-@@ -10236,8 +10437,18 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
+@@ -10239,8 +10440,18 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
                                       Op->getSourceRange());
    }
  
@@ -10363,7 +10363,7 @@ index ebf7981..e8f2ccf 100644
    else if (const ObjCObjectPointerType *OPT =
               OpTy->getAs<ObjCObjectPointerType>())
      Result = OPT->getPointeeType();
-@@ -10450,6 +10661,22 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
+@@ -10453,6 +10664,22 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
      RHSExpr = Init.get();
    }
  
@@ -10386,7 +10386,7 @@ index ebf7981..e8f2ccf 100644
    ExprResult LHS = LHSExpr, RHS = RHSExpr;
    QualType ResultTy;     // Result type of the binary operator.
    // The following two variables are used for compound assignment operators
-@@ -10951,6 +11178,18 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
+@@ -10954,6 +11181,18 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
  ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
                                        UnaryOperatorKind Opc,
                                        Expr *InputExpr) {
@@ -10405,7 +10405,7 @@ index ebf7981..e8f2ccf 100644
    ExprResult Input = InputExpr;
    ExprValueKind VK = VK_RValue;
    ExprObjectKind OK = OK_Ordinary;
-@@ -12922,13 +13161,16 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
+@@ -12925,13 +13164,16 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
    bool ByRef = false;
        
    // Blocks are not allowed to capture arrays.
@@ -10428,7 +10428,7 @@ index ebf7981..e8f2ccf 100644
    }
  
    // Forbid the block-capture of autoreleasing variables.
-@@ -12942,7 +13184,11 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
+@@ -12945,7 +13187,11 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
      return false;
    }
    const bool HasBlocksAttr = Var->hasAttr<BlocksAttr>();
