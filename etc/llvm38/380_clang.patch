@@ -7699,7 +7699,7 @@ index e9490e9..8a38f0d 100644
  }
  
 diff --git a/lib/Driver/ToolChains.cpp b/lib/Driver/ToolChains.cpp
-index 99c7b8e..205f21b 100644
+index 99c7b8e..80e4ce4 100644
 --- a/lib/Driver/ToolChains.cpp
 +++ b/lib/Driver/ToolChains.cpp
 @@ -67,6 +67,8 @@ bool MachO::HasNativeLLVMSupport() const { return true; }
@@ -7743,6 +7743,15 @@ index 99c7b8e..205f21b 100644
    if (isTargetMacOS() || isTargetIOSSimulator())
      Res |= SanitizerKind::Address;
    if (isTargetMacOS()) {
+@@ -4129,8 +4142,6 @@ void Linux::AddCudaIncludeArgs(const ArgList &DriverArgs,
+ 
+   if (CudaInstallation.isValid()) {
+     addSystemInclude(DriverArgs, CC1Args, CudaInstallation.getIncludePath());
+-    CC1Args.push_back("-include");
+-    CC1Args.push_back("__clang_cuda_runtime_wrapper.h");
+   }
+ }
+ 
 diff --git a/lib/Driver/ToolChains.h b/lib/Driver/ToolChains.h
 index f940e58..ac06236 100644
 --- a/lib/Driver/ToolChains.h
@@ -8076,8 +8085,20 @@ index 79cf004..40bd439 100644
    case EmitHTML:               return new HTMLPrintAction();
    case EmitLLVM:               return new EmitLLVMAction();
    case EmitLLVMOnly:           return new EmitLLVMOnlyAction();
+diff --git a/lib/Headers/CMakeLists.txt b/lib/Headers/CMakeLists.txt
+index bbe0688..189d737 100644
+--- a/lib/Headers/CMakeLists.txt
++++ b/lib/Headers/CMakeLists.txt
+@@ -16,7 +16,6 @@ set(files
+   avxintrin.h
+   bmi2intrin.h
+   bmiintrin.h
+-  __clang_cuda_runtime_wrapper.h
+   cpuid.h
+   cuda_builtin_vars.h
+   emmintrin.h
 diff --git a/lib/Headers/Makefile b/lib/Headers/Makefile
-index 903acac..e258dd3 100644
+index 903acac..dc8bfb8 100644
 --- a/lib/Headers/Makefile
 +++ b/lib/Headers/Makefile
 @@ -19,7 +19,8 @@ CLANG_VERSION := $(word 3,$(shell grep "CLANG_VERSION " \
@@ -8085,8 +8106,8 @@ index 903acac..e258dd3 100644
  HeaderDir := $(PROJ_OBJ_ROOT)/$(BuildMode)/lib/clang/$(CLANG_VERSION)/include
  
 -HEADERS := $(notdir $(wildcard $(PROJ_SRC_DIR)/*.h))
-+CL_HEADERS := opencl-12.h opencl-20.h
-+HEADERS := $(filter-out $(CL_HEADERS),$(notdir $(wildcard $(PROJ_SRC_DIR)/*.h)))
++UNWANTED_HEADERS := opencl-12.h opencl-20.h __clang_cuda_runtime_wrapper.h
++HEADERS := $(filter-out $(UNWANTED_HEADERS),$(notdir $(wildcard $(PROJ_SRC_DIR)/*.h)))
  
  OBJHEADERS := $(addprefix $(HeaderDir)/, $(HEADERS))
  
