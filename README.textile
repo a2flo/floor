@@ -88,7 +88,7 @@
 ** export SDL_VIDEO_X11_NODIRECTCOLOR=yes
 * depending on how your Linux distribution handles OpenCL headers and library, you might need to manually install OpenCL 1.2+ compatible ones
 
-*Compute Toolchain:*
+*Compute/Graphics Toolchain:*
 * automated builds for Linux, OS X and Windows can be found at: https://libfloor.org/builds/toolchain
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
@@ -98,12 +98,12 @@
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
-*** copy the "compute_clang_*_*" folder as "compute" to /opt/floor/ (should then be /opt/floor/compute/{bin,clang,libcxx})
+*** copy the toolchain folder as "compute" to /opt/floor/ (should then be /opt/floor/compute/{bin,clang,libcxx})
 *** inside /opt/floor/compute, add a symlink to the floor include folder: sudo ln -sf ../include/floor floor
 ** Windows:
-*** copy the "compute_clang_*_*" folder as "compute" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/compute/{bin,clang,libcxx}")
+*** copy the toolchain folder as "compute" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/compute/{bin,clang,libcxx}")
 *** inside "%%ProgramFiles%%/floor/compute", copy the "floor" folder from the "include" folder above it into this folder
-* NOTE: this is the expected default setup - paths can be changed inside the config.json (compute.toolchain.paths)
+* NOTE: this is the expected default setup - paths can be changed inside config.json (compute.toolchain.paths)
 
 *Projects and Examples using floor*:
 * "floor_examples":https://github.com/a2flo/floor_examples
