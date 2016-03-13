@@ -81,7 +81,7 @@ void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t&
 						 atIndex:texture_idx++];
 	
 	// if this is a read/write image, add it again (one is read-only, the other is write-only)
-	if(entry.info->args[total_idx].image_access == llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+	if(entry.info->args[total_idx].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
 							 atIndex:texture_idx++];
 	}

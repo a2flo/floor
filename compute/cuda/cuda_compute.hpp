@@ -128,16 +128,16 @@ public:
 												   const string additional_options = "") override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-															 const vector<llvm_compute::kernel_info>& kernel_infos) override REQUIRES(!programs_lock);
+															 const vector<llvm_compute::function_info>& kernel_infos) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
-	cuda_program::cuda_program_entry create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data);
+	cuda_program::cuda_program_entry create_cuda_program(pair<string, vector<llvm_compute::function_info>> program_data);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<cuda_program> add_program(cuda_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																	pair<string, vector<llvm_compute::kernel_info>> program_data,
+																	pair<string, vector<llvm_compute::function_info>> program_data,
 																	const llvm_compute::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////

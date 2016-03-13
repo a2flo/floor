@@ -61,22 +61,22 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						
 						switch(info.args[i].address_space) {
 							// buffer
-							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::GLOBAL:
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::GLOBAL:
 								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 								++buffer_desc;
 								break;
 							// image
-							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::IMAGE:
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::IMAGE:
 								switch(info.args[i].image_access) {
-									case llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ:
+									case llvm_compute::function_info::ARG_IMAGE_ACCESS::READ:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 										++read_image_desc;
 										break;
-									case llvm_compute::kernel_info::ARG_IMAGE_ACCESS::WRITE:
+									case llvm_compute::function_info::ARG_IMAGE_ACCESS::WRITE:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 										++write_image_desc;
 										break;
-									case llvm_compute::kernel_info::ARG_IMAGE_ACCESS::READ_WRITE: {
+									case llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
 										// need to add both a sampled one and a storage one
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 										++binding_idx;
@@ -92,14 +92,14 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										++write_image_desc;
 										break;
 									}
-									case llvm_compute::kernel_info::ARG_IMAGE_ACCESS::NONE:
+									case llvm_compute::function_info::ARG_IMAGE_ACCESS::NONE:
 										log_error("unknown image access type");
 										valid_desc = false;
 										break;
 								}
 								break;
 							// param
-							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::CONSTANT:
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::CONSTANT:
 								// TODO/NOTE: for now, this is always a buffer, later on it might make sense to fit as much as possible
 								//            into push constants (will require compiler support of course + device specific binary)
 								// NOTE: min push constants size is at least 128 bytes
@@ -107,11 +107,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 								++buffer_desc;
 								break;
-							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::LOCAL:
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::LOCAL:
 								log_error("arg with a local address space is not supported");
 								valid_desc = false;
 								break;
-							case llvm_compute::kernel_info::ARG_ADDRESS_SPACE::UNKNOWN:
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::UNKNOWN:
 								log_error("arg with an unknown address space");
 								valid_desc = false;
 								break;

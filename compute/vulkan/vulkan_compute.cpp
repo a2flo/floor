@@ -518,7 +518,7 @@ unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name
 }
 
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+																		   pair<string, vector<llvm_compute::function_info>> program_data) {
 	vulkan_program::vulkan_program_entry ret;
 	ret.kernels_info = program_data.second;
 	const auto dev = (const vulkan_device*)device.get();
@@ -553,7 +553,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 }
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
-																		 const vector<llvm_compute::kernel_info>& kernel_infos) {
+																		 const vector<llvm_compute::function_info>& kernel_infos) {
 	size_t code_size = 0;
 	auto code = load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
@@ -583,7 +583,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::kernel_info>> program_data,
+																				pair<string, vector<llvm_compute::function_info>> program_data,
 																				const llvm_compute::TARGET) {
 	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program_data));
 }

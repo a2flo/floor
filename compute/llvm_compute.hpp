@@ -41,7 +41,7 @@ public:
 	};
 	
 	//
-	struct kernel_info {
+	struct function_info {
 		string name;
 		
 		enum class FUNCTION_TYPE : uint32_t {
@@ -95,7 +95,7 @@ public:
 			PUSH_CONSTANT					= (2u),
 		};
 		
-		struct kernel_arg_info {
+		struct arg_info {
 			uint32_t size;
 			
 			//! NOTE: this will only be correct for OpenCL and Metal, CUDA uses a different approach,
@@ -108,7 +108,7 @@ public:
 			
 			SPECIAL_TYPE special_type { SPECIAL_TYPE::NONE };
 		};
-		vector<kernel_arg_info> args;
+		vector<arg_info> args;
 	};
 	
 	// for internal use
@@ -143,24 +143,24 @@ public:
 	floor_enum_ext(IMAGE_CAPABILITY)
 	
 	//!
-	static pair<string, vector<kernel_info>> compile_program(shared_ptr<compute_device> device,
-															 const string& code,
+	static pair<string, vector<function_info>> compile_program(shared_ptr<compute_device> device,
+															   const string& code,
+															   const string additional_options = "",
+															   const TARGET target = TARGET::SPIR);
+	//!
+	static pair<string, vector<function_info>> compile_program_file(shared_ptr<compute_device> device,
+																	const string& filename,
+																	const string additional_options = "",
+																	const TARGET target = TARGET::SPIR);
+	//!
+	static pair<string, vector<function_info>> compile_input(const string& input,
+															 const string& cmd_prefix,
+															 shared_ptr<compute_device> device,
 															 const string additional_options = "",
 															 const TARGET target = TARGET::SPIR);
-	//!
-	static pair<string, vector<kernel_info>> compile_program_file(shared_ptr<compute_device> device,
-																  const string& filename,
-																  const string additional_options = "",
-																  const TARGET target = TARGET::SPIR);
-	//!
-	static pair<string, vector<kernel_info>> compile_input(const string& input,
-														   const string& cmd_prefix,
-														   shared_ptr<compute_device> device,
-														   const string additional_options = "",
-														   const TARGET target = TARGET::SPIR);
 	
-	//! extracts the floor metadata (kernel_info) from the specified llvm ir, returns true on success
-	static bool get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels,
+	//! extracts the floor metadata (function_info) from the specified llvm ir, returns true on success
+	static bool get_floor_metadata(const string& llvm_ir, vector<llvm_compute::function_info>& functions,
 								   const uint32_t toolchain_version);
 	
 protected:

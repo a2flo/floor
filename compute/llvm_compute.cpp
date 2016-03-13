@@ -28,7 +28,7 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::kernel_info>& kernels,
+bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::function_info>& functions,
 									  const uint32_t toolchain_version) {
 	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
 	const auto parse_metadata_line = [toolchain_version](const string& line, const auto& per_elem_func) {
@@ -99,7 +99,7 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 	// go through all lines and process the found metadata lines
 	auto lines = core::tokenize(llvm_ir, '\n');
 	unordered_map<uint64_t, const string*> metadata_refs;
-	vector<uint64_t> kernel_refs;
+	vector<uint64_t> function_refs;
 	for(const auto& line : lines) {
 		// check if it's a metadata line
 		if(line[0] == '!') {
@@ -112,25 +112,25 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 			else if(metadata_type == "floor.functions") {
 				// contains all references to functions metadata
 				// format: !floor.functions = !{!N, !M, !I, !J, ...}
-				parse_metadata_line(line, [&kernel_refs](const string& elem) {
+				parse_metadata_line(line, [&function_refs](const string& elem) {
 					if(elem[0] == '!') {
-						const auto kernel_ref_idx = stoull(elem.substr(1));
-						kernel_refs.emplace_back(kernel_ref_idx);
+						const auto func_ref_idx = stoull(elem.substr(1));
+						function_refs.emplace_back(func_ref_idx);
 					}
 				});
 				
-				// now that we know the kernel count, alloc enough memory
-				kernels.resize(kernel_refs.size());
+				// now that we know the function count, alloc enough memory
+				functions.resize(function_refs.size());
 			}
 		}
 	}
 	
-	// parse the individual kernel metadata lines and put the info into the "kernels" vector
-	for(size_t i = 0, count = kernel_refs.size(); i < count; ++i) {
-		const auto& metadata = *metadata_refs[kernel_refs[i]];
-		auto& kernel = kernels[i];
+	// parse the individual function metadata lines and put the info into the "functions" vector
+	for(size_t i = 0, count = function_refs.size(); i < count; ++i) {
+		const auto& metadata = *metadata_refs[function_refs[i]];
+		auto& func = functions[i];
 		uint32_t elem_idx = 0;
-		parse_metadata_line(metadata, [&elem_idx, &kernel](const string& elem) {
+		parse_metadata_line(metadata, [&elem_idx, &func](const string& elem) {
 			if(elem_idx == 0) {
 				// version check
 				static constexpr const int floor_functions_version { 2 };
@@ -141,29 +141,29 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 			}
 			else if(elem_idx == 1) {
 				// function name
-				kernel.name = elem;
+				func.name = elem;
 			}
 			else if(elem_idx == 2) {
 				// function type
-				kernel.type = (llvm_compute::kernel_info::FUNCTION_TYPE)stou(elem);
+				func.type = (llvm_compute::function_info::FUNCTION_TYPE)stou(elem);
 			}
 			else {
-				// kernel arg info: #elem_idx size, address space, image type, image access
+				// function arg info: #elem_idx size, address space, image type, image access
 				const auto data = stoull(elem);
-				kernel.args.emplace_back(llvm_compute::kernel_info::kernel_arg_info {
+				func.args.emplace_back(llvm_compute::function_info::arg_info {
 					.size			= (uint32_t)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_SHIFT)),
-					.address_space	= (llvm_compute::kernel_info::ARG_ADDRESS_SPACE)
+					.address_space	= (llvm_compute::function_info::ARG_ADDRESS_SPACE)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-					.image_type		= (llvm_compute::kernel_info::ARG_IMAGE_TYPE)
+					.image_type		= (llvm_compute::function_info::ARG_IMAGE_TYPE)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-					.image_access	= (llvm_compute::kernel_info::ARG_IMAGE_ACCESS)
+					.image_access	= (llvm_compute::function_info::ARG_IMAGE_ACCESS)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-					.special_type	= (llvm_compute::kernel_info::SPECIAL_TYPE)
+					.special_type	= (llvm_compute::function_info::SPECIAL_TYPE)
 						((data & uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
 						 uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
 				});
@@ -175,7 +175,7 @@ bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute
 	return true;
 }
 
-pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
+pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
 																			  const string& code,
 																			  const string additional_options,
 																			  const TARGET target) {
@@ -183,18 +183,18 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program(sh
 	return compile_input("-", printable_code, device, additional_options, target);
 }
 
-pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
+pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
 																				   const string& filename,
 																				   const string additional_options,
 																				   const TARGET target) {
 	return compile_input("\"" + filename + "\"", "", device, additional_options, target);
 }
 
-pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(const string& input,
-																			const string& cmd_prefix,
-																			shared_ptr<compute_device> device,
-																			const string additional_options,
-																			const TARGET target) {
+pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(const string& input,
+																			  const string& cmd_prefix,
+																			  shared_ptr<compute_device> device,
+																			  const string additional_options,
+																			  const TARGET target) {
 	// TODO/NOTE: additional clang flags:
 	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
 	//  -menable-unsafe-fp-math
@@ -582,9 +582,9 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		log_debug("clang cmd: %s", clang_cmd);
 	}
 	
-	// grab floor metadata from compiled ir and create per-kernel info
-	vector<kernel_info> kernels;
-	get_floor_metadata(ir_output, kernels, toolchain_version);
+	// grab floor metadata from compiled ir and create per-function info
+	vector<function_info> functions;
+	get_floor_metadata(ir_output, functions, toolchain_version);
 	
 	// final target specific processing/compilation
 	string compiled_code = "";
@@ -796,5 +796,5 @@ pair<string, vector<llvm_compute::kernel_info>> llvm_compute::compile_input(cons
 		}
 	}
 	
-	return { compiled_code, kernels };
+	return { compiled_code, functions };
 }

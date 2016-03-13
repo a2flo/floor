@@ -44,7 +44,7 @@ public:
 	
 	//! stores a program + kernel infos for an individual device
 	struct program_entry {
-		vector<llvm_compute::kernel_info> kernels_info;
+		vector<llvm_compute::function_info> kernels_info;
 		bool valid { false };
 	};
 	

@@ -935,7 +935,7 @@ static cl_program clCreateProgramWithIL(cl_context     /* context */,
 #endif
 
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::kernel_info>> program_data,
+																		   pair<string, vector<llvm_compute::function_info>> program_data,
 																		   const llvm_compute::TARGET& target) {
 	opencl_program::opencl_program_entry ret;
 	ret.kernels_info = program_data.second;
@@ -996,14 +996,14 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 }
 
 shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																		 const vector<llvm_compute::kernel_info>& kernel_infos floor_unused) {
+																		 const vector<llvm_compute::function_info>& kernel_infos floor_unused) {
 	// TODO: !
 	log_error("not yet supported by opencl_compute!");
 	return {};
 }
 
 shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::kernel_info>> program_data,
+																				pair<string, vector<llvm_compute::function_info>> program_data,
 																				const llvm_compute::TARGET target) {
 	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program_data, target));
 }

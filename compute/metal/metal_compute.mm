@@ -490,7 +490,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,
-															   pair<string, vector<llvm_compute::kernel_info>> program_data) {
+															   pair<string, vector<llvm_compute::function_info>> program_data) {
 	metal_program::metal_program_entry ret;
 	ret.kernels_info = program_data.second;
 	
@@ -601,7 +601,7 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
-																		const vector<llvm_compute::kernel_info>& kernel_infos) {
+																		const vector<llvm_compute::function_info>& kernel_infos) {
 	log_debug("loading mtllib: %s", file_name);
 	
 	// assume pre-compiled program is the same for all devices
@@ -627,7 +627,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 }
 
 shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(shared_ptr<compute_device> device,
-																			   pair<string, vector<llvm_compute::kernel_info>> program_data,
+																			   pair<string, vector<llvm_compute::function_info>> program_data,
 																			   const llvm_compute::TARGET) {
 	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program_data));
 }

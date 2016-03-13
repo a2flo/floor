@@ -404,7 +404,7 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	return add_program(move(prog_map));
 }
 
-cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::kernel_info>> program_data) {
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::function_info>> program_data) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
@@ -537,14 +537,14 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, 
 }
 
 shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																	   const vector<llvm_compute::kernel_info>& kernel_infos floor_unused) {
+																	   const vector<llvm_compute::function_info>& kernel_infos floor_unused) {
 	// TODO: !
 	log_error("not yet supported by cuda_compute!");
 	return {};
 }
 
 shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
-																			  pair<string, vector<llvm_compute::kernel_info>> program_data,
+																			  pair<string, vector<llvm_compute::function_info>> program_data,
 																			  const llvm_compute::TARGET) {
 	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program(program_data));
 }
