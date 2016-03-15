@@ -67,42 +67,42 @@ asm("floor_get_context_sysv_x86_64:"
 	"prefetchw (%rdi);"
 	"movq %rbp, %xmm0;"
 	"pinsrq $1, %rbx, %xmm0;"
-	"vmovdqa %xmm0, (%rdi);"
+	"movdqa %xmm0, (%rdi);"
 	
 	"movq %r12, %xmm1;"
 	"pinsrq $1, %r13, %xmm1;"
-	"vmovdqa %xmm1, 0x10(%rdi);"
+	"movdqa %xmm1, 0x10(%rdi);"
 	
 	"movq %r14, %xmm2;"
 	"pinsrq $1, %r15, %xmm2;"
-	"vmovdqa %xmm2, 0x20(%rdi);"
+	"movdqa %xmm2, 0x20(%rdi);"
 	
 	"movq %rsp, %rcx;"
 	"addq $0x8, %rcx;"
 	"movq %rcx, %xmm3;" // rsp
 	"pinsrq $1, (%rsp), %xmm3;"
-	"vmovdqa %xmm3, 0x30(%rdi);" // rip
+	"movdqa %xmm3, 0x30(%rdi);" // rip
 	
 	"retq;");
 asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
 	"prefetchnta (%rdi);"
 	
-	"vmovdqa (%rdi), %xmm0;"
-	"vmovq %xmm0, %rbp;"
-	"vpextrq $1, %xmm0, %rbx;"
+	"movdqa (%rdi), %xmm0;"
+	"movq %xmm0, %rbp;"
+	"pextrq $1, %xmm0, %rbx;"
 	
-	"vmovdqa 0x10(%rdi), %xmm1;"
-	"vmovq %xmm1, %r12;"
-	"vpextrq $1, %xmm1, %r13;"
+	"movdqa 0x10(%rdi), %xmm1;"
+	"movq %xmm1, %r12;"
+	"pextrq $1, %xmm1, %r13;"
 	
-	"vmovdqa 0x20(%rdi), %xmm2;"
-	"vmovq %xmm2, %r14;"
-	"vpextrq $1, %xmm2, %r15;"
+	"movdqa 0x20(%rdi), %xmm2;"
+	"movq %xmm2, %r14;"
+	"pextrq $1, %xmm2, %r15;"
 	
-	"vmovdqa 0x30(%rdi), %xmm3;"
-	"vmovq %xmm3, %rsp;"
-	"vpextrq $1, %xmm3, %rcx;" // rip
+	"movdqa 0x30(%rdi), %xmm3;"
+	"movq %xmm3, %rsp;"
+	"pextrq $1, %xmm3, %rcx;" // rip
 	
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
