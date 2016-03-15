@@ -660,19 +660,23 @@ namespace const_math {
 	}
 	
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
+													 is_same<arithmetic_type, __int128_t>() ||
+													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& min, const arithmetic_type& max) {
 		return (val > max ? max : (val < min ? min : val));
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, enable_if_t<is_arithmetic<arithmetic_type>::value>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
+													 is_same<arithmetic_type, __int128_t>() ||
+													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& max) {
 		return (val > max ? max : (val < (arithmetic_type)0 ? (arithmetic_type)0 : val));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
 	constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ?
 				(max - const_math::fmod(const_math::abs(val), max)) :
@@ -680,15 +684,17 @@ namespace const_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<((is_integral<int_type>::value && is_signed<int_type>::value) ||
-											  is_same<int_type, __int128_t>::value)>* = nullptr>
+	template <typename int_type, enable_if_t<((is_integral<int_type>() &&
+											   is_signed<int_type>()) ||
+											  is_same<int_type, __int128_t>())>* = nullptr>
 	constexpr int_type wrap(const int_type& val, const int_type& max) {
 		return (val < (int_type)0 ? (max - (const_math::abs(val) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, enable_if_t<((is_integral<uint_type>::value && is_unsigned<uint_type>::value) ||
-											   is_same<uint_type, __uint128_t>::value)>* = nullptr>
+	template <typename uint_type, enable_if_t<((is_integral<uint_type>() &&
+												is_unsigned<uint_type>()) ||
+											   is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
