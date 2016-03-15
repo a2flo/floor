@@ -62,50 +62,79 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx);
 
 // NOTE: due to rather fragile stack handling (rsp), this is completely done in asm, so that the compiler can't do anything wrong
 #if defined(PLATFORM_X64) && !defined(FLOOR_IOS) && !defined(__WINDOWS__)
+#if defined(__AVX__)
 asm("floor_get_context_sysv_x86_64:"
 	// store all registers in fiber_context*
 	"prefetchw (%rdi);"
 	"movq %rbp, %xmm0;"
 	"pinsrq $1, %rbx, %xmm0;"
-	"movdqa %xmm0, (%rdi);"
+	"vmovdqa %xmm0, (%rdi);"
 	
 	"movq %r12, %xmm1;"
 	"pinsrq $1, %r13, %xmm1;"
-	"movdqa %xmm1, 0x10(%rdi);"
+	"vmovdqa %xmm1, 0x10(%rdi);"
 	
 	"movq %r14, %xmm2;"
 	"pinsrq $1, %r15, %xmm2;"
-	"movdqa %xmm2, 0x20(%rdi);"
+	"vmovdqa %xmm2, 0x20(%rdi);"
 	
 	"movq %rsp, %rcx;"
 	"addq $0x8, %rcx;"
 	"movq %rcx, %xmm3;" // rsp
 	"pinsrq $1, (%rsp), %xmm3;"
-	"movdqa %xmm3, 0x30(%rdi);" // rip
+	"vmovdqa %xmm3, 0x30(%rdi);" // rip
 	
 	"retq;");
 asm("floor_set_context_sysv_x86_64:"
 	// restore all registers from fiber_context*
 	"prefetchnta (%rdi);"
 	
-	"movdqa (%rdi), %xmm0;"
-	"movq %xmm0, %rbp;"
-	"pextrq $1, %xmm0, %rbx;"
+	"vmovdqa (%rdi), %xmm0;"
+	"vmovq %xmm0, %rbp;"
+	"vpextrq $1, %xmm0, %rbx;"
 	
-	"movdqa 0x10(%rdi), %xmm1;"
-	"movq %xmm1, %r12;"
-	"pextrq $1, %xmm1, %r13;"
+	"vmovdqa 0x10(%rdi), %xmm1;"
+	"vmovq %xmm1, %r12;"
+	"vpextrq $1, %xmm1, %r13;"
 	
-	"movdqa 0x20(%rdi), %xmm2;"
-	"movq %xmm2, %r14;"
-	"pextrq $1, %xmm2, %r15;"
+	"vmovdqa 0x20(%rdi), %xmm2;"
+	"vmovq %xmm2, %r14;"
+	"vpextrq $1, %xmm2, %r15;"
 	
-	"movdqa 0x30(%rdi), %xmm3;"
-	"movq %xmm3, %rsp;"
-	"pextrq $1, %xmm3, %rcx;" // rip
+	"vmovdqa 0x30(%rdi), %xmm3;"
+	"vmovq %xmm3, %rsp;"
+	"vpextrq $1, %xmm3, %rcx;" // rip
 	
 	// and jump to rip (rcx)
 	"jmp *%rcx;");
+#else
+asm("floor_get_context_sysv_x86_64:"
+	// store all registers in fiber_context*
+	"movq %rbp, 0x0(%rdi);"
+	"movq %rbx, 0x8(%rdi);"
+	"movq %r12, 0x10(%rdi);"
+	"movq %r13, 0x18(%rdi);"
+	"movq %r14, 0x20(%rdi);"
+	"movq %r15, 0x28(%rdi);"
+	"movq %rsp, %rcx;"
+	"addq $0x8, %rcx;"
+	"movq %rcx, 0x30(%rdi);" // rsp
+	"movq (%rsp), %rcx;"
+	"movq %rcx, 0x38(%rdi);" // rip
+	"retq;");
+asm("floor_set_context_sysv_x86_64:"
+	// restore all registers from fiber_context*
+	"movq 0x0(%rdi), %rbp;"
+	"movq 0x8(%rdi), %rbx;"
+	"movq 0x10(%rdi), %r12;"
+	"movq 0x18(%rdi), %r13;"
+	"movq 0x20(%rdi), %r14;"
+	"movq 0x28(%rdi), %r15;"
+	"movq 0x30(%rdi), %rsp;"
+	"movq 0x38(%rdi), %rcx;"
+	// and jump to rip (rcx)
+	"jmp *%rcx;");
+#endif
 asm(".extern exit;"
 	"floor_enter_context_sysv_x86_64:"
 	// retrieve fiber_context*
