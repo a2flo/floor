@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##########################################
 # helper functions
@@ -25,9 +25,12 @@ verbose() {
 if [ -z "${CXX}" ]; then
 	CXX=clang++
 fi
+command -v ${CXX} >/dev/null 2>&1 || error "clang++ binary not found, please set CXX to a valid clang++ binary"
+
 if [ -z "${CC}" ]; then
 	CC=clang
 fi
+command -v ${CC} >/dev/null 2>&1 || error "clang binary not found, please set CC to a valid clang binary"
 
 # check if clang is the compiler, fail if not
 CXX_VERSION=$(${CXX} -v 2>&1)
