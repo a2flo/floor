@@ -5672,6 +5672,19 @@ index e705382..1137d0c 100644
  BUILTIN(__builtin_powi , "ddi"  , "Fnc")
  BUILTIN(__builtin_powif, "ffi"  , "Fnc")
  BUILTIN(__builtin_powil, "LdLdi", "Fnc")
+diff --git a/tools/clang/include/clang/Basic/DiagnosticDriverKinds.td b/tools/clang/include/clang/Basic/DiagnosticDriverKinds.td
+index cd26a6a..47bd9b7 100644
+--- a/tools/clang/include/clang/Basic/DiagnosticDriverKinds.td
++++ b/tools/clang/include/clang/Basic/DiagnosticDriverKinds.td
+@@ -83,6 +83,8 @@ def err_drv_invalid_libcxx_deployment : Error<
+   "invalid deployment target for -stdlib=libc++ (requires %0 or later)">;
+ def err_drv_malformed_sanitizer_blacklist : Error<
+   "malformed sanitizer blacklist: '%0'">;
++def err_drv_floor_function_info : Error<
++  "unable to open floor function info file">, DefaultFatal;
+ 
+ def err_target_unsupported_arch
+   : Error<"the target architecture '%0' is not supported by the target '%1'">;
 diff --git a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td b/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
 index 1665a45..3778e80 100644
 --- a/tools/clang/include/clang/Basic/DiagnosticSemaKinds.td
