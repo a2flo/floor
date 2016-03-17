@@ -5731,7 +5731,7 @@ index a297a4c..5085091 100644
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
  LANGOPT(CUDA              , 1, 0, "CUDA")
 diff --git a/tools/clang/include/clang/Basic/LangOptions.h b/tools/clang/include/clang/Basic/LangOptions.h
-index 9bffc7c..470cf81 100644
+index 9bffc7c..e7ec23d 100644
 --- a/tools/clang/include/clang/Basic/LangOptions.h
 +++ b/tools/clang/include/clang/Basic/LangOptions.h
 @@ -20,6 +20,7 @@
@@ -5742,10 +5742,11 @@ index 9bffc7c..470cf81 100644
  
  namespace clang {
  
-@@ -74,6 +75,8 @@ public:
+@@ -74,6 +75,9 @@ public:
  
    enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
  
++  std::fstream* floor_function_info { nullptr };
 +  unsigned int floor_image_capabilities { 0 };
 +
  public:
@@ -5811,16 +5812,18 @@ index 5d08833..c53d8b2 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..17d9a7a 100644
+index d25560c..d83db99 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
-@@ -550,6 +550,13 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
+@@ -550,6 +550,15 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
    HelpText<"include a detailed record of preprocessing actions">;
  
  //===----------------------------------------------------------------------===//
 +// libfloor Options (applying to OpenCL, CUDA and Metal)
 +//===----------------------------------------------------------------------===//
 +
++def floor_function_info : Joined<["-"], "floor-function-info=">,
++  HelpText<"floor function info output file">;
 +def floor_image_capabilities : Joined<["-"], "floor-image-capabilities=">,
 +  HelpText<"image read and write capabilities">;
 +
@@ -5828,7 +5831,7 @@ index d25560c..17d9a7a 100644
  // OpenCL Options
  //===----------------------------------------------------------------------===//
  
-@@ -577,6 +584,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -577,6 +586,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
@@ -6569,13 +6572,28 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..b50e897 100644
+index cec48f3..56854b4 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
-@@ -240,6 +240,28 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -39,6 +39,7 @@
+ #include "llvm/Transforms/ObjCARC.h"
+ #include "llvm/Transforms/Scalar.h"
+ #include <memory>
++#include <fstream>
+ using namespace clang;
+ using namespace llvm;
+ 
+@@ -240,6 +241,35 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
++  // close floor function info file, this is no longer needed
++  if ((LangOpts.Metal || LangOpts.CUDA || LangOpts.OpenCL) &&
++      LangOpts.floor_function_info != nullptr) {
++    LangOpts.floor_function_info->close();
++    delete LangOpts.floor_function_info;
++  }
++
 +  PMBuilder.floor_image_capabilities = LangOpts.floor_image_capabilities;
 +
 +  PMBuilder.EnableAddressSpaceFix = LangOpts.OpenCL;
@@ -6601,7 +6619,7 @@ index cec48f3..b50e897 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -301,8 +323,13 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -301,8 +331,13 @@ void EmitAssemblyHelper::CreatePasses() {
    switch (Inlining) {
    case CodeGenOptions::NoInlining: break;
    case CodeGenOptions::NormalInlining: {
@@ -6617,7 +6635,7 @@ index cec48f3..b50e897 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -326,6 +353,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +361,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -7256,19 +7274,20 @@ index a10d8e7..852a803 100644
    OS << "<CGRecordLayout\n";
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..bb30aa2 100644
+index 5ca3a78..c541daf 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-@@ -30,6 +30,8 @@
+@@ -30,6 +30,9 @@
  #include "llvm/IR/Intrinsics.h"
  #include "llvm/IR/MDBuilder.h"
  #include "llvm/IR/Operator.h"
 +#include <sstream>
 +#include <unordered_set>
++#include <fstream>
  using namespace clang;
  using namespace CodeGen;
  
-@@ -333,6 +335,112 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -333,6 +336,112 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -7381,7 +7400,7 @@ index 5ca3a78..bb30aa2 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +448,1180 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +449,1177 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -8280,21 +8299,21 @@ index 5ca3a78..bb30aa2 100644
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
 +	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
-+	if (!is_kernel && !is_vertex && !is_fragment) {
++	if(!is_kernel && !is_vertex && !is_fragment) {
 +		return;
 +	}
 +	
-+	llvm::LLVMContext &Context = getLLVMContext();
-+	
-+	//
-+	SmallVector<llvm::Value*, 16> arg_infos;
++	if(getLangOpts().floor_function_info == nullptr) {
++		return;
++	}
++	std::fstream& file = *getLangOpts().floor_function_info;
 +	
 +	// #0: info version
-+	arg_infos.push_back(Builder.getInt32(2));
++	file << "2,";
 +	// #1: function name
-+	arg_infos.push_back(llvm::MDString::get(Context, Fn->getName()));
++	file << Fn->getName().str() << ",";
 +	// #2: function type
-+	arg_infos.push_back(Builder.getInt32(is_kernel ? 1 : (is_vertex ? 2 : 3)));
++	file << (is_kernel ? "1" : (is_vertex ? "2" : "3")) << ",";
 +	
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
@@ -8410,15 +8429,15 @@ index 5ca3a78..bb30aa2 100644
 +			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+		const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
-+													  const FLOOR_ARG_INFO& access) {
++		const auto add_image_arg = [this, &file](const FLOOR_ARG_INFO& floor_img_type,
++												 const FLOOR_ARG_INFO& access) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
-+			arg_infos.push_back(Builder.getInt64(arg_info));
++			file << arg_info << ",";
 +		};
 +		// anything that isn't a pointer or special type
-+		const auto add_normal_arg = [this, &arg_infos,
++		const auto add_normal_arg = [this, &file,
 +									 &compute_type_size](llvm::Type* llvm_type,
 +														 const clang::QualType& clang_type,
 +														 const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) {
@@ -8432,7 +8451,7 @@ index 5ca3a78..bb30aa2 100644
 +				arg_info |= compute_type_size(llvm_type);
 +			}
 +			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
-+			arg_infos.push_back(Builder.getInt64(arg_info));
++			file << arg_info << ",";
 +		};
 +		
 +		// #2+: argument sizes + types
@@ -8449,7 +8468,7 @@ index 5ca3a78..bb30aa2 100644
 +				// always pretend this is global
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
-+			arg_infos.push_back(Builder.getInt64(arg_info));
++			file << arg_info << ",";
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
@@ -8531,7 +8550,7 @@ index 5ca3a78..bb30aa2 100644
 +					uint64_t arg_info = compute_type_size(llvm_type);
 +					arg_info |= uint64_t(get_image_access(access_attr));
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+					arg_infos.push_back(Builder.getInt64(arg_info));
++					file << arg_info << ",";
 +				}
 +				else {
 +					// simple aggregate, all constant -> must handle each field individually
@@ -8545,7 +8564,7 @@ index 5ca3a78..bb30aa2 100644
 +						++arg_idx;
 +					}
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+					arg_infos.push_back(Builder.getInt64(arg_info));
++					file << arg_info << ",";
 +					--arg_idx; // fixup, b/c of inc later
 +				}
 +			}
@@ -8554,7 +8573,7 @@ index 5ca3a78..bb30aa2 100644
 +				// store the parameter size
 +				uint64_t arg_info = compute_type_size(llvm_type);
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+				arg_infos.push_back(Builder.getInt64(arg_info));
++				file << arg_info << ",";
 +			}
 +		}
 +		// stage input
@@ -8591,6 +8610,8 @@ index 5ca3a78..bb30aa2 100644
 +		++abi_arg_info_iter;
 +	}
 +	
++	file << "\n";
++	
 +	// if this is wrong, the kernel will almost certainly not be usable
 +	if(arg_idx != Fn->arg_size()) {
 +		// signal that this is _very_ bad
@@ -8602,11 +8623,6 @@ index 5ca3a78..bb30aa2 100644
 +		CGM.Error(FD->getSourceRange().getBegin(), StringRef(err_str));
 +		return;
 +	}
-+	
-+	//
-+	llvm::MDNode *argsMDNode = llvm::MDNode::get(Context, arg_infos);
-+	llvm::NamedMDNode *FloorFunctionsMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.functions");
-+	FloorFunctionsMetadata->addOperand(argsMDNode);
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -8666,7 +8682,7 @@ index 5ca3a78..bb30aa2 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1659,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1657,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -8755,7 +8771,7 @@ index 5ca3a78..bb30aa2 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1764,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1762,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -8763,7 +8779,7 @@ index 5ca3a78..bb30aa2 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1780,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1778,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -8772,7 +8788,7 @@ index 5ca3a78..bb30aa2 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1791,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1789,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -8814,7 +8830,7 @@ index 5ca3a78..bb30aa2 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1892,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1890,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -8832,7 +8848,7 @@ index 5ca3a78..bb30aa2 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +2023,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2021,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -8924,7 +8940,7 @@ index 5ca3a78..bb30aa2 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2161,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2159,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -8933,7 +8949,7 @@ index 5ca3a78..bb30aa2 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2211,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2209,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -9888,10 +9904,18 @@ index 6af920d..a83d536 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..813b9c9 100644
+index ce61a46..bdc7109 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-@@ -73,7 +73,7 @@ using namespace llvm::opt;
+@@ -36,6 +36,7 @@
+ #include "llvm/Support/Process.h"
+ #include <atomic>
+ #include <memory>
++#include <fstream>
+ #include <sys/stat.h>
+ #include <system_error>
+ using namespace clang;
+@@ -73,7 +74,7 @@ using namespace llvm::opt;
  static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                       DiagnosticsEngine &Diags) {
    unsigned DefaultOpt = 0;
@@ -9900,7 +9924,7 @@ index ce61a46..813b9c9 100644
      DefaultOpt = 2;
  
    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-@@ -474,6 +474,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -474,6 +475,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
@@ -9913,7 +9937,7 @@ index ce61a46..813b9c9 100644
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -904,6 +910,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -904,6 +911,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -9921,7 +9945,7 @@ index ce61a46..813b9c9 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -917,6 +924,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -917,6 +925,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -9929,7 +9953,7 @@ index ce61a46..813b9c9 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1110,6 +1118,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1110,6 +1119,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -9939,7 +9963,7 @@ index ce61a46..813b9c9 100644
      case IK_CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -1151,7 +1162,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1151,7 +1163,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
        Opts.OpenCLVersion = 110;
    else if (LangStd == LangStandard::lang_opencl12)
      Opts.OpenCLVersion = 120;
@@ -9955,7 +9979,7 @@ index ce61a46..813b9c9 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -1276,10 +1294,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1276,10 +1295,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -9972,10 +9996,21 @@ index ce61a46..813b9c9 100644
        case IK_CUDA:
          if (!Std.isCPlusPlus())
            Diags.Report(diag::err_drv_argument_not_allowed_with)
-@@ -1311,6 +1334,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1311,6 +1335,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
++  // open libfloor function info file
++  if (const Arg *A = Args.getLastArg(OPT_floor_function_info)) {
++    if (A->getValue() != nullptr && strlen(A->getValue()) > 0) {
++      Opts.floor_function_info = new std::fstream(A->getValue(), std::ios::out | std::ios::binary);
++      if (Opts.floor_function_info == nullptr ||
++          !Opts.floor_function_info->is_open()) {
++        Diags.Report(diag::err_drv_floor_function_info);
++      }
++    }
++  }
++
 +  // extract libfloor image capabilities
 +  if (const Arg *A = Args.getLastArg(OPT_floor_image_capabilities)) {
 +    StringRef image_caps = A->getValue();
