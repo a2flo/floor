@@ -160,7 +160,7 @@ public:
 															 const TARGET target = TARGET::SPIR);
 	
 	//! extracts the floor metadata (function_info) from the specified llvm ir, returns true on success
-	static bool get_floor_metadata(const string& llvm_ir, vector<llvm_compute::function_info>& functions,
+	static bool get_floor_metadata(const string& ffi, vector<llvm_compute::function_info>& functions,
 								   const uint32_t toolchain_version);
 	
 protected:

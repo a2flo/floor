@@ -28,165 +28,76 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_compute::get_floor_metadata(const string& llvm_ir, vector<llvm_compute::function_info>& functions,
-									  const uint32_t toolchain_version) {
-	// parses metadata lines of the format: !... = !{!N, !M, !I, !J, ...}
-	const auto parse_metadata_line = [toolchain_version](const string& line, const auto& per_elem_func) {
-		const auto set_start = line.find('{');
-		const auto set_end = line.rfind('}');
-		if(set_start != string::npos && set_end != string::npos &&
-		   set_start + 1 < set_end) { // not interested in empty sets!
-			const auto set_str = core::tokenize(line.substr(set_start + 1, set_end - set_start - 1), ',');
-			for(const auto& elem_ws : set_str) {
-				auto elem = core::trim(elem_ws); // trim whitespace, just in case
-				
-				// llvm 3.5
-				if(toolchain_version < 360) {
-					if(elem[0] == '!') {
-						// ref, just forward
-						per_elem_func(elem);
-						continue;
-					}
-					
-					const auto ws_pos = elem.find(' ');
-					if(ws_pos != string::npos) {
-						const auto elem_front = elem.substr(0, ws_pos);
-						const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
-						if(elem_front == "i32" || elem_front == "i64") {
-							// int, forward back
-							per_elem_func(elem_back);
-							continue;
-						}
-						else if(elem_front == "metadata") {
-							// string
-							const auto str_front = elem_back.find('\"'), str_back = elem_back.rfind('\"');
-							if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
-								per_elem_func(elem_back.substr(str_front + 1, str_back - str_front - 1));
-								continue;
-							}
-						}
-					}
-				}
-				// llvm 3.6/3.7/3.8+
-				else {
-					const auto ws_pos = elem.find(' ');
-					if(ws_pos != string::npos) {
-						const auto elem_front = elem.substr(0, ws_pos);
-						const auto elem_back = elem.substr(ws_pos + 1, elem.size() - ws_pos - 1);
-						if(elem_front == "i32" || elem_front == "i64") {
-							// int, forward back
-							per_elem_func(elem_back);
-							continue;
-						}
-						// else: something else
-					}
-					else if(elem[0] == '!' && elem.find('\"') != string::npos) {
-						// string
-						const auto str_front = elem.find('\"'), str_back = elem.rfind('\"');
-						if(str_front != string::npos && str_back != string::npos && str_back > str_front) {
-							per_elem_func(elem.substr(str_front + 1, str_back - str_front - 1));
-							continue;
-						}
-					}
-				}
-				
-				// no idea what this is, just forward
-				per_elem_func(elem);
-			}
-		}
-	};
-	
-	// go through all lines and process the found metadata lines
-	auto lines = core::tokenize(llvm_ir, '\n');
-	unordered_map<uint64_t, const string*> metadata_refs;
-	vector<uint64_t> function_refs;
+bool llvm_compute::get_floor_metadata(const string& ffi, vector<llvm_compute::function_info>& functions,
+									  const uint32_t toolchain_version floor_unused) {
+	const auto lines = core::tokenize(ffi, '\n');
+	functions.reserve(lines.size() - 1);
 	for(const auto& line : lines) {
-		// check if it's a metadata line
-		if(line[0] == '!') {
-			const string metadata_type = line.substr(1, line.find(' ') - 1);
-			if(metadata_type[0] >= '0' && metadata_type[0] <= '9') {
-				// !N metadata
-				const auto mid = stoull(metadata_type);
-				metadata_refs.emplace(mid, &line);
-			}
-			else if(metadata_type == "floor.functions") {
-				// contains all references to functions metadata
-				// format: !floor.functions = !{!N, !M, !I, !J, ...}
-				parse_metadata_line(line, [&function_refs](const string& elem) {
-					if(elem[0] == '!') {
-						const auto func_ref_idx = stoull(elem.substr(1));
-						function_refs.emplace_back(func_ref_idx);
-					}
-				});
-				
-				// now that we know the function count, alloc enough memory
-				functions.resize(function_refs.size());
-			}
+		if(line.empty()) continue;
+		const auto tokens = core::tokenize(line, ',');
+		
+		// at least 4 w/o any args: <version>,<func_name>,<type>,<args...>
+		if(tokens.size() < 4) {
+			log_error("invalid function info entry: %s", line);
+			return false;
 		}
+		
+		static constexpr const char floor_functions_version[] { "2" };
+		if(tokens[0] != floor_functions_version) {
+			log_error("invalid floor function info version, expected %u, got %u!",
+					  floor_functions_version, tokens[0]);
+			return false;
+		}
+		
+		function_info info {
+			.name = tokens[1],
+			.type = (tokens[2] == "1" ? function_info::FUNCTION_TYPE::KERNEL :
+					 (tokens[2] == "2" ? function_info::FUNCTION_TYPE::VERTEX :
+					  (tokens[2] == "3" ? function_info::FUNCTION_TYPE::FRAGMENT :
+					   function_info::FUNCTION_TYPE::NONE))),
+		};
+		
+		for(size_t i = 3, count = tokens.size(); i < count; ++i) {
+			if(tokens[i].empty()) continue;
+			// function arg info: #elem_idx size, address space, image type, image access
+			const auto data = stoull(tokens[3]);
+			info.args.emplace_back(llvm_compute::function_info::arg_info {
+				.size			= (uint32_t)
+				((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>
+				 uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_SHIFT)),
+				.address_space	= (llvm_compute::function_info::ARG_ADDRESS_SPACE)
+				((data & uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
+				 uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
+				.image_type		= (llvm_compute::function_info::ARG_IMAGE_TYPE)
+				((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
+				 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
+				.image_access	= (llvm_compute::function_info::ARG_IMAGE_ACCESS)
+				((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
+				 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
+				.special_type	= (llvm_compute::function_info::SPECIAL_TYPE)
+				((data & uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
+				 uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
+			});
+		}
+		
+		functions.emplace_back(info);
 	}
-	
-	// parse the individual function metadata lines and put the info into the "functions" vector
-	for(size_t i = 0, count = function_refs.size(); i < count; ++i) {
-		const auto& metadata = *metadata_refs[function_refs[i]];
-		auto& func = functions[i];
-		uint32_t elem_idx = 0;
-		parse_metadata_line(metadata, [&elem_idx, &func](const string& elem) {
-			if(elem_idx == 0) {
-				// version check
-				static constexpr const int floor_functions_version { 2 };
-				if(stoi(elem) != floor_functions_version) {
-					log_warn("invalid floor.functions version, expected %u, got %u!",
-							 floor_functions_version, elem);
-				}
-			}
-			else if(elem_idx == 1) {
-				// function name
-				func.name = elem;
-			}
-			else if(elem_idx == 2) {
-				// function type
-				func.type = (llvm_compute::function_info::FUNCTION_TYPE)stou(elem);
-			}
-			else {
-				// function arg info: #elem_idx size, address space, image type, image access
-				const auto data = stoull(elem);
-				func.args.emplace_back(llvm_compute::function_info::arg_info {
-					.size			= (uint32_t)
-						((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>
-						 uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_SHIFT)),
-					.address_space	= (llvm_compute::function_info::ARG_ADDRESS_SPACE)
-						((data & uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
-						 uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-					.image_type		= (llvm_compute::function_info::ARG_IMAGE_TYPE)
-						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
-						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-					.image_access	= (llvm_compute::function_info::ARG_IMAGE_ACCESS)
-						((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
-						 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-					.special_type	= (llvm_compute::function_info::SPECIAL_TYPE)
-						((data & uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
-						 uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
-				});
-			}
-			++elem_idx;
-		});
-	}
-	
+
 	return true;
 }
 
 pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
-																			  const string& code,
-																			  const string additional_options,
-																			  const TARGET target) {
+																				const string& code,
+																				const string additional_options,
+																				const TARGET target) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	return compile_input("-", printable_code, device, additional_options, target);
 }
 
 pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
-																				   const string& filename,
-																				   const string additional_options,
-																				   const TARGET target) {
+																					 const string& filename,
+																					 const string additional_options,
+																					 const TARGET target) {
 	return compile_input("\"" + filename + "\"", "", device, additional_options, target);
 }
 
@@ -533,6 +444,10 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
+	// floor function info
+	const auto function_info_file_name = core::create_tmp_file_name("ffi", ".txt");
+	clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;
+	
 	// set cuda sm version
 	if(target == TARGET::PTX) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
@@ -582,9 +497,17 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		log_debug("clang cmd: %s", clang_cmd);
 	}
 	
-	// grab floor metadata from compiled ir and create per-function info
+	// grab floor function info and create the internal per-function info
 	vector<function_info> functions;
-	get_floor_metadata(ir_output, functions, toolchain_version);
+	string ffi = "";
+	if(!file_io::file_to_string(function_info_file_name, ffi)) {
+		log_error("failed to retrieve floor function info");
+		return {};
+	}
+	if(!floor::get_compute_keep_temp()) {
+		core::system("rm " + function_info_file_name);
+	}
+	get_floor_metadata(ffi, functions, toolchain_version);
 	
 	// final target specific processing/compilation
 	string compiled_code = "";
