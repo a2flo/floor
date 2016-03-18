@@ -501,52 +501,39 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	
 #if !defined(FLOOR_IOS) // can only do this on os x
 #define FLOOR_METAL_TOOLS_PATH "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
-	static constexpr const char* metal_as { FLOOR_METAL_TOOLS_PATH "metal-as" };
 	static constexpr const char* metal_ar { FLOOR_METAL_TOOLS_PATH "metal-ar" };
 	static constexpr const char* metal_opt { FLOOR_METAL_TOOLS_PATH "metal-opt" };
 	static constexpr const char* metallib { FLOOR_METAL_TOOLS_PATH "metallib" };
 	enum : uint32_t {
-		METAL_LL_FILE = 0,
-		METAL_UNOPT_AIR_FILE,
-		METAL_OPT_AIR_FILE,
+		METAL_OPT_AIR_FILE = 0,
 		METAL_ARCHIVE_FILE,
 		METAL_LIB_FILE,
 		__MAX_METAL_FILE
 	};
-	const auto tmp_files = core::create_tmp_file_names(array<const char*, __MAX_METAL_FILE> {{
-		"metal_ll_",
-		"metal_unopt_air_",
+	auto tmp_files = core::create_tmp_file_names(array<const char*, __MAX_METAL_FILE> {{
 		"metal_opt_air_",
 		"metal_ar_",
 		"metal_lib_",
 	}}, array<const char*, __MAX_METAL_FILE> {{
-		".ll",
-		".air",
 		".air",
 		".a",
 		".metallib",
 	}});
 	
 	//
-	if(!file_io::string_to_file(tmp_files[METAL_LL_FILE], program_data.first)) {
-		log_error("failed to write tmp metal ll file");
-		return ret;
-	}
 	if(!floor::get_compute_debug()) {
-		core::system(metal_as + " -o="s + tmp_files[METAL_UNOPT_AIR_FILE] + " " + tmp_files[METAL_LL_FILE]);
-		core::system(metal_opt + " -Oz "s + tmp_files[METAL_UNOPT_AIR_FILE] + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
+		core::system(metal_opt + " -Oz "s + program_data.first + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {
-		core::system(metal_as + " -o="s + tmp_files[METAL_OPT_AIR_FILE] + " " + tmp_files[METAL_LL_FILE]);
+		tmp_files[METAL_OPT_AIR_FILE] = program_data.first;
 	}
 	core::system(metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
 	core::system(metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
 	
-	const auto cleanup = [&tmp_files]() {
-		core::system("rm "s + tmp_files[METAL_LL_FILE]);
+	const auto cleanup = [&tmp_files, unopt_file = program_data.first]() {
 		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);
 		if(!floor::get_compute_debug()) {
-			core::system("rm "s + tmp_files[METAL_UNOPT_AIR_FILE]);
+			core::system("rm "s + unopt_file);
 		}
 		core::system("rm "s + tmp_files[METAL_ARCHIVE_FILE]);
 		core::system("rm "s + tmp_files[METAL_LIB_FILE]);

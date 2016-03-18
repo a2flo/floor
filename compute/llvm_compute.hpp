@@ -159,9 +159,11 @@ public:
 															 const string additional_options = "",
 															 const TARGET target = TARGET::SPIR);
 	
-	//! extracts the floor metadata (function_info) from the specified llvm ir, returns true on success
-	static bool get_floor_metadata(const string& ffi, vector<llvm_compute::function_info>& functions,
-								   const uint32_t toolchain_version);
+	//! creates the internal floor function info representation from the specified floor function info,
+	//! returns true on success
+	static bool create_floor_function_info(const string& ffi_file_name,
+										   vector<llvm_compute::function_info>& functions,
+										   const uint32_t toolchain_version);
 	
 protected:
 	// static class

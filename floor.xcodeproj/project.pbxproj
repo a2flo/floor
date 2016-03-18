@@ -428,6 +428,7 @@
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
+		5CB382791C9C2E2400B3633F /* gcc_5_1.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = gcc_5_1.patch; path = etc/llvm35/gcc_5_1.patch; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
 		5CBBFF571BC2B786001813E0 /* image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image.hpp; path = device/image.hpp; sourceTree = "<group>"; };
 		5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = thread_safety.hpp; sourceTree = "<group>"; };
@@ -908,6 +909,7 @@
 				5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */,
 				5CD1872E1C8F5A7400DBAECC /* 350_libcxx.patch */,
 				5CD1872F1C8F5A7400DBAECC /* build.sh */,
+				5CB382791C9C2E2400B3633F /* gcc_5_1.patch */,
 				5CD187311C8F5A7400DBAECC /* llvm_tools_spir_applecl_encoder.patch */,
 				5CD187321C8F5A7400DBAECC /* pkg.sh */,
 			);

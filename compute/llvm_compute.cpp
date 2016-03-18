@@ -28,8 +28,15 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_compute::get_floor_metadata(const string& ffi, vector<llvm_compute::function_info>& functions,
-									  const uint32_t toolchain_version floor_unused) {
+bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
+											  vector<llvm_compute::function_info>& functions,
+											  const uint32_t toolchain_version floor_unused) {
+	string ffi = "";
+	if(!file_io::file_to_string(ffi_file_name, ffi)) {
+		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
+		return false;
+	}
+	
 	const auto lines = core::tokenize(ffi, '\n');
 	functions.reserve(lines.size() - 1);
 	for(const auto& line : lines) {
@@ -459,6 +466,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	}
 	
 	// add generic flags/options that are always used
+	auto compiled_file_or_code = core::create_tmp_file_name("", ".bc");
 	clang_cmd += {
 #if defined(FLOOR_DEBUG)
 		" -DFLOOR_DEBUG"
@@ -467,14 +475,14 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +
 		" -include floor/compute/device/common.hpp"
-		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -flto -Ofast -ffp-contract=fast"
+		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64 " +
 		warning_flags +
 		additional_options +
 		// compile to the right device bitness
 		(device->bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
-		" -emit-llvm -S -o - " + input
+		" -emit-llvm -c -o " + compiled_file_or_code + " " + input
 	};
 	
 	// on sane systems, redirect errors to stdout so that we can grab them
@@ -482,15 +490,13 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	clang_cmd += " 2>&1";
 #endif
 	
-	// compile and store the llvm ir in a string (stdout output)
-	string ir_output = "";
-	core::system(clang_cmd, ir_output);
-	// if the output is empty or doesn't start with the llvm "ModuleID", something is probably wrong
-	if(ir_output == "" || ir_output.size() < 10 || ir_output.substr(0, 10) != "; ModuleID") {
+	// compile
+	string compilation_output = "";
+	core::system(clang_cmd, compilation_output);
+	// if the output is non-empty, something is probably wrong
+	if(compilation_output != "") {
 		log_error("compilation failed! failed cmd was:\n%s", clang_cmd);
-		if(ir_output != "") {
-			log_error("compilation errors:\n%s", ir_output);
-		}
+		log_error("compilation errors:\n%s", compilation_output);
 		return {};
 	}
 	if(floor::get_compute_log_commands()) {
@@ -499,40 +505,20 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	
 	// grab floor function info and create the internal per-function info
 	vector<function_info> functions;
-	string ffi = "";
-	if(!file_io::file_to_string(function_info_file_name, ffi)) {
-		log_error("failed to retrieve floor function info");
+	if(!create_floor_function_info(function_info_file_name, functions, toolchain_version)) {
+		log_error("failed to create internal floor function info");
 		return {};
 	}
 	if(!floor::get_compute_keep_temp()) {
 		core::system("rm " + function_info_file_name);
 	}
-	get_floor_metadata(ffi, functions, toolchain_version);
 	
 	// final target specific processing/compilation
-	string compiled_code = "";
 	if(target == TARGET::SPIR) {
-		// NOTE: temporary fixes to get this to compile with the intel compiler (readonly fail)
-		core::find_and_replace(ir_output, "readonly", "");
-		core::find_and_replace(ir_output, "nocapture readnone", "");
-		
-		// remove "dereferenceable(*)", this is not supported by spir
-		static const regex rx_deref("dereferenceable\\(\\d+\\)");
-		ir_output = regex_replace(ir_output, rx_deref, "");
-		
-		// output modified ir back to a file and create a bc file so spir-encoder can consume it
-		const auto spir_35_ll = core::create_tmp_file_name("spir_3_5", ".ll");
-		if(!file_io::string_to_file(spir_35_ll, ir_output)) {
-			log_error("failed to output LLVM IR for SPIR consumption");
-			return {};
-		}
-		const auto spir_35_bc = core::create_tmp_file_name("spir_3_5", ".bc");
-		core::system("\"" + floor::get_opencl_as() + "\" -o " + spir_35_bc + " " + spir_35_ll);
-		
 		// run spir-encoder for 3.5 -> 3.2 conversion
 		const auto spir_32_bc = core::create_tmp_file_name("spir_3_2", ".bc");
 		const string spir_3_2_encoder_cmd {
-			"\"" + floor::get_opencl_spir_encoder() + "\" " + spir_35_bc + " " + spir_32_bc
+			"\"" + floor::get_opencl_spir_encoder() + "\" " + compiled_file_or_code + " " + spir_32_bc
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -558,42 +544,31 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		}
 		
 		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
-		if(!file_io::file_to_string(spir_32_bc, compiled_code)) {
+		string spir_bc_data = "";
+		if(!file_io::file_to_string(spir_32_bc, spir_bc_data)) {
 			log_error("failed to read back SPIR 1.2 .bc file");
 			return {};
 		}
 		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
-			core::system("rm " + spir_35_ll);
-			core::system("rm " + spir_35_bc);
+			core::system("rm " + compiled_file_or_code);
 			core::system("rm " + spir_32_bc);
 		}
+		
+		// move spir data
+		compiled_file_or_code.swap(spir_bc_data);
 	}
 	else if(target == TARGET::AIR) {
-		// output final processed ir if this was specified in the config
-		// NOTE: explicitly create this in the working directory (not in tmp)
-		if(floor::get_compute_keep_temp()) {
-			file_io::string_to_file("air_processed.ll", ir_output);
-		}
-		
-		// llvm ir is the final output format
-		compiled_code.swap(ir_output);
+		// nop, final processing will be done in metal_compute
 	}
 	else if(target == TARGET::PTX) {
-		// llc expects an input file (or stdin, but we can't write there reliably)
-		const auto cuda_ll = core::create_tmp_file_name("cuda", ".ll");
-		if(!file_io::string_to_file(cuda_ll, ir_output)) {
-			log_error("failed to output LLVM IR for llc consumption");
-			return {};
-		}
-		
 		// compile llvm ir to ptx
 		const string llc_cmd {
 			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
 			" -mcpu=sm_" + sm_version + " -mattr=ptx43" +
-			" -o - " + cuda_ll
+			" -o - " + compiled_file_or_code
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -601,49 +576,36 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		if(floor::get_compute_log_commands()) {
 			log_debug("llc cmd: %s", llc_cmd);
 		}
-		core::system(llc_cmd, compiled_code);
+		string ptx_code = "";
+		core::system(llc_cmd, ptx_code);
 		
 		// only output the compiled ptx code if this was specified in the config
 		// NOTE: explicitly create this in the working directory (not in tmp)
 		if(floor::get_compute_keep_temp()) {
-			file_io::string_to_file("cuda.ptx", compiled_code);
+			file_io::string_to_file("cuda.ptx", ptx_code);
 		}
 		
 		// check if we have sane output
-		if(compiled_code == "" || compiled_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
-			log_error("llc/ptx compilation failed!\n%s", compiled_code);
+		if(ptx_code == "" || ptx_code.find("Generated by LLVM NVPTX Back-End") == string::npos) {
+			log_error("llc/ptx compilation failed!\n%s", ptx_code);
 			return {};
 		}
 		
 		// cleanup
-		if(floor::get_compute_keep_temp()) {
-			core::system("rm " + cuda_ll);
+		if(!floor::get_compute_keep_temp()) {
+			core::system("rm " + compiled_file_or_code);
 		}
+		
+		// move ptx code
+		compiled_file_or_code.swap(ptx_code);
 	}
 	else if(target == TARGET::APPLECL) {
-		// apparently this needs the same fixes as the intel/amd spir compilers
-		core::find_and_replace(ir_output, "readonly", "");
-		core::find_and_replace(ir_output, "nocapture readnone", "");
-		
-		// remove "dereferenceable(*)", this is not supported by applecl
-		static const regex rx_deref("dereferenceable\\(\\d+\\)");
-		ir_output = regex_replace(ir_output, rx_deref, "");
-		
-		// output (modified) ir back to a file and create a bc file so applecl-encoder can consume it
-		const auto applecl_35_ll = core::create_tmp_file_name("applecl_3_5", ".ll");
-		if(!file_io::string_to_file(applecl_35_ll, ir_output)) {
-			log_error("failed to output LLVM IR for AppleCL consumption");
-			return {};
-		}
-		const auto applecl_35_bc = core::create_tmp_file_name("applecl_3_5", ".bc");
-		core::system("\"" + floor::get_opencl_as() + "\" -o " + applecl_35_bc + " " + applecl_35_ll);
-		
 		// run applecl-encoder for 3.5 -> 3.2 conversion
 		const auto applecl_32_bc = core::create_tmp_file_name("applecl_3_2", ".bc");
 		const string applecl_3_2_encoder_cmd {
 			"\"" + floor::get_opencl_applecl_encoder() + "\"" +
 			(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
-			" " + applecl_35_bc + " " + applecl_32_bc
+			" " + compiled_file_or_code + " " + applecl_32_bc
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -653,17 +615,20 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		log_msg("applecl encoder: %s", applecl_encoder_output);
 		
 		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
-		if(!file_io::file_to_string(applecl_32_bc, compiled_code)) {
+		string applecl_bc_data = "";
+		if(!file_io::file_to_string(applecl_32_bc, applecl_bc_data)) {
 			log_error("failed to read back AppleCL .bc file");
 			return {};
 		}
 		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
-			core::system("rm " + applecl_35_ll);
-			core::system("rm " + applecl_35_bc);
+			core::system("rm " + compiled_file_or_code);
 			core::system("rm " + applecl_32_bc);
 		}
+		
+		// move applecl data
+		compiled_file_or_code.swap(applecl_bc_data);
 	}
 	else if(target == TARGET::SPIRV_VULKAN ||
 			target == TARGET::SPIRV_OPENCL) {
@@ -672,19 +637,10 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		const auto validate = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
 		const auto validator = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
-		// output modified ir back to a file and create a bc file so llvm-spirv can consume it
-		const auto spirv_38_ll = core::create_tmp_file_name("spirv_3_8", ".ll");
-		if(!file_io::string_to_file(spirv_38_ll, ir_output)) {
-			log_error("failed to output LLVM IR for SPIR-V consumption");
-			return {};
-		}
-		const auto spirv_38_bc = core::create_tmp_file_name("spirv_3_8", ".bc");
-		core::system("\"" + as + "\" -o " + spirv_38_bc + " " + spirv_38_ll);
-		
 		// run llvm-spirv for llvm 3.8 bc -> spir-v binary conversion
-		const auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
+		auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
 		const string spirv_encoder_cmd {
-			"\"" + encoder + "\" -o " + spirv_bin + " " + spirv_38_bc
+			"\"" + encoder + "\" -o " + spirv_bin + " " + compiled_file_or_code
 #if !defined(_MSC_VER)
 			+ " 2>&1"
 #endif
@@ -709,15 +665,14 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 			log_msg("spir-v validator: %s", spirv_validator_output);
 		}
 		
-		// always directly use the encoded spir-v binary (no read back + write again)
-		compiled_code = spirv_bin;
-		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
-			core::system("rm " + spirv_38_ll);
-			core::system("rm " + spirv_38_bc);
+			core::system("rm " + compiled_file_or_code);
 		}
+		
+		// always directly use the encoded spir-v binary (no read back + write again)
+		compiled_file_or_code.swap(spirv_bin);
 	}
 	
-	return { compiled_code, functions };
+	return { compiled_file_or_code, functions };
 }
