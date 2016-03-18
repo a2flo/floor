@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 RELEASE=3.5.2
 RELEASE_VERSION_NAME=352

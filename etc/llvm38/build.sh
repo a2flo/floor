@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 PRERELEASE=
 BASE_RELEASE=3.8.0

@@ -1,0 +1,12 @@
+--- llvm/trunk/include/llvm/ADT/IntrusiveRefCntPtr.h	2014/07/05 22:20:59	212382
++++ llvm/trunk/include/llvm/ADT/IntrusiveRefCntPtr.h	2014/09/23 06:06:43	218295
+@@ -197,6 +197,9 @@
+   private:
+     void retain() { if (Obj) IntrusiveRefCntPtrInfo<T>::retain(Obj); }
+     void release() { if (Obj) IntrusiveRefCntPtrInfo<T>::release(Obj); }
++
++    template <typename X>
++    friend class IntrusiveRefCntPtr;
+   };
+ 
+   template<class T, class U>

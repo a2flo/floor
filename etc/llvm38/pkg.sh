@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 RELEASE=3.8.0
 RELEASE_VERSION_NAME=380
