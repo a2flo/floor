@@ -54,12 +54,13 @@ fi
 if [ ! -f libcxx-${RELEASE}.src.tar.xz ]; then
 	curl -o libcxx-${RELEASE}.src.tar.xz http://llvm.org/releases/${RELEASE}/libcxx-${RELEASE}.src.tar.xz
 fi
-if [ ! -d SPIR-Tools ]; then
-	git clone git://github.com/KhronosGroup/SPIR-Tools.git
-fi
-if [ ! -d applecl-encoder ]; then
-	git clone git://github.com/a2flo/applecl-encoder
-fi
+
+# always clone anew
+rm -Rf SPIR-Tools 2>/dev/null
+git clone git://github.com/KhronosGroup/SPIR-Tools.git
+
+rm -Rf applecl-encoder 2>/dev/null
+git clone git://github.com/a2flo/applecl-encoder
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null

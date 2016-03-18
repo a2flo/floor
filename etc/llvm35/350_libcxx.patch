@@ -1,3 +1,51 @@
+diff --git a/include/__bit_reference b/include/__bit_reference
+index d9ebfbe..d389f29 100644
+--- a/include/__bit_reference
++++ b/include/__bit_reference
+@@ -337,7 +337,7 @@ __fill_n_false(__bit_iterator<_Cp, false> __first, typename _Cp::size_type __n)
+     }
+     // do middle whole words
+     __storage_type __nw = __n / __bits_per_word;
+-    _VSTD::memset(_VSTD::__to_raw_pointer(__first.__seg_), 0, __nw * sizeof(__storage_type));
++    __builtin_memset(_VSTD::__to_raw_pointer(__first.__seg_), 0, __nw * sizeof(__storage_type));
+     __n -= __nw * __bits_per_word;
+     // do last partial word
+     if (__n > 0)
+@@ -367,7 +367,7 @@ __fill_n_true(__bit_iterator<_Cp, false> __first, typename _Cp::size_type __n)
+     }
+     // do middle whole words
+     __storage_type __nw = __n / __bits_per_word;
+-    _VSTD::memset(_VSTD::__to_raw_pointer(__first.__seg_), -1, __nw * sizeof(__storage_type));
++    __builtin_memset(_VSTD::__to_raw_pointer(__first.__seg_), -1, __nw * sizeof(__storage_type));
+     __n -= __nw * __bits_per_word;
+     // do last partial word
+     if (__n > 0)
+@@ -434,9 +434,9 @@ __copy_aligned(__bit_iterator<_Cp, _IsConst> __first, __bit_iterator<_Cp, _IsCon
+         // __first.__ctz_ == 0;
+         // do middle words
+         __storage_type __nw = __n / __bits_per_word;
+-        _VSTD::memmove(_VSTD::__to_raw_pointer(__result.__seg_),
+-                       _VSTD::__to_raw_pointer(__first.__seg_),
+-                       __nw * sizeof(__storage_type));
++        __builtin_memmove(_VSTD::__to_raw_pointer(__result.__seg_),
++                          _VSTD::__to_raw_pointer(__first.__seg_),
++                          __nw * sizeof(__storage_type));
+         __n -= __nw * __bits_per_word;
+         __result.__seg_ += __nw;
+         // do last word
+@@ -575,9 +575,9 @@ __copy_backward_aligned(__bit_iterator<_Cp, _IsConst> __first, __bit_iterator<_C
+         __storage_type __nw = __n / __bits_per_word;
+         __result.__seg_ -= __nw;
+         __last.__seg_ -= __nw;
+-        _VSTD::memmove(_VSTD::__to_raw_pointer(__result.__seg_),
+-                       _VSTD::__to_raw_pointer(__last.__seg_),
+-                       __nw * sizeof(__storage_type));
++        __builtin_memmove(_VSTD::__to_raw_pointer(__result.__seg_),
++                          _VSTD::__to_raw_pointer(__last.__seg_),
++                          __nw * sizeof(__storage_type));
+         __n -= __nw * __bits_per_word;
+         // do last word
+         if (__n > 0)
 diff --git a/include/__functional_base b/include/__functional_base
 index 6766793..6dfb843 100644
 --- a/include/__functional_base

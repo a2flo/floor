@@ -1,3 +1,23 @@
+diff --git llvm351_rel/tools/spir-encoder/SpirBitcodeWriter.cpp llvm/tools/spir-encoder/SpirBitcodeWriter.cpp
+--- llvm351_rel/tools/spir-encoder/SpirBitcodeWriter.cpp
++++ llvm/tools/spir-encoder/SpirBitcodeWriter.cpp
+@@ -190,11 +190,14 @@
+     for (unsigned i = 0, e = A.getNumSlots(); i != e; ++i) {
+       unsigned Slot = A.getSlotIndex(i);
+ 
++      // drop readnone, readonly, nocapture attrs
++      const auto raw_attrs = A.Raw(Slot) & ~(uint64_t(1 << 9) | uint64_t(1 << 10) | uint64_t(1 << 21));
++
+       // Taken from LLVM 3.2 Attributes::encodeLLVMAttributesForBitcode
+-      uint64_t EncodedAttrs = A.Raw(Slot) & 0xffff;
++      uint64_t EncodedAttrs = raw_attrs & 0xffff;
+       if (A.hasAttribute(Slot, Attribute::Alignment))
+         EncodedAttrs |= A.getAttribute(Slot, Attribute::Alignment).getAlignment() << 16;
+-      EncodedAttrs |= (A.Raw(Slot) & (0xffffULL << 21)) << 11;
++      EncodedAttrs |= (raw_attrs & (0xffffULL << 21)) << 11;
+ 
+       Record.push_back(Slot);
+       Record.push_back(EncodedAttrs);
 diff -rduBE llvm351_rel/tools/LLVMBuild.txt llvm/tools/LLVMBuild.txt
 --- llvm351_rel/tools/LLVMBuild.txt
 +++ llvm/tools/LLVMBuild.txt
