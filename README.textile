@@ -99,7 +99,7 @@
 * install the toolchain:
 ** Unix:
 *** copy the toolchain folder as "compute" to /opt/floor/ (should then be /opt/floor/compute/{bin,clang,libcxx})
-*** inside /opt/floor/compute, add a symlink to the floor include folder: sudo ln -sf ../include/floor floor
+*** inside /opt/floor/compute, add a symlink to the floor include folder: sudo ln -sf ../include floor
 ** Windows:
 *** copy the toolchain folder as "compute" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/compute/{bin,clang,libcxx}")
 *** inside "%%ProgramFiles%%/floor/compute", copy the "floor" folder from the "include" folder above it into this folder
