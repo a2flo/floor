@@ -67,7 +67,12 @@ bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
 		for(size_t i = 3, count = tokens.size(); i < count; ++i) {
 			if(tokens[i].empty()) continue;
 			// function arg info: #elem_idx size, address space, image type, image access
-			const auto data = stoull(tokens[3]);
+			const auto data = strtoull(tokens[i].c_str(), nullptr, 10);
+			
+			if(data == ULLONG_MAX || data == 0) {
+				log_error("invalid arg info (in %s): %s", ffi_file_name, tokens[i]);
+			}
+			
 			info.args.emplace_back(llvm_compute::function_info::arg_info {
 				.size			= (uint32_t)
 				((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>

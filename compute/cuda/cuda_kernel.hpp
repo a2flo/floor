@@ -73,7 +73,6 @@ public:
 		uint8_t* data_ptr = kernel_params_data.get();
 		set_kernel_arguments(0, kernel_iter->second, data_ptr, forward<Args>(args)...);
 		
-#if defined(FLOOR_DEBUG) // internal sanity check, this should never happen in user code
 		const auto written_args_size = distance(&kernel_params_data[0], data_ptr);
 		if((size_t)written_args_size != kernel_iter->second.kernel_args_size) {
 			log_error("invalid kernel parameters size (in %s): got %u, expected %u",
@@ -81,7 +80,6 @@ public:
 					  written_args_size, kernel_iter->second.kernel_args_size);
 			return;
 		}
-#endif
 		
 		// run
 		const uint3 grid_dim_overflow {
