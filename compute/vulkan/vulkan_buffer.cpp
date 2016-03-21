@@ -254,7 +254,31 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 			cqueue->finish();
 		}
 		
-		// TODO: device -> host buffer copy
+		// device -> host buffer copy
+		if(!dev->unified_memory) {
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer(); // TODO: should probably abstract this a little
+			const VkCommandBufferBeginInfo begin_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+				.pNext = nullptr,
+				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+				.pInheritanceInfo = nullptr,
+			};
+			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+						"failed to begin command buffer", nullptr);
+	
+			const VkBufferCopy region {
+				.srcOffset = mapping.offset,
+				.dstOffset = 0,
+				.size = mapping.size,
+			};
+			vkCmdCopyBuffer(cmd_buffer.cmd_buffer, buffer, mapping.buffer, 1, &region);
+	
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr);
+			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
+		}
+		else {
+			// TODO
+		}
 	}
 	
 	// TODO: use vkFlushMappedMemoryRanges/vkInvalidateMappedMemoryRanges if possible

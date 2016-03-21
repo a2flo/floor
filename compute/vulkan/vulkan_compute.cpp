@@ -176,6 +176,9 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 				case 0x1002:
 					device->vendor = COMPUTE_VENDOR::AMD;
 					device->vendor_name = "AMD";
+					device->driver_version_str = to_string(VK_VERSION_MAJOR(props.driverVersion)) + ".";
+					device->driver_version_str += to_string(VK_VERSION_MINOR(props.driverVersion)) + ".";
+					device->driver_version_str += to_string(VK_VERSION_PATCH(props.driverVersion));
 					break;
 				case 0x10DE:
 					device->vendor = COMPUTE_VENDOR::NVIDIA;

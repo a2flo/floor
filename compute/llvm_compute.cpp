@@ -38,7 +38,7 @@ bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
 	}
 	
 	const auto lines = core::tokenize(ffi, '\n');
-	functions.reserve(lines.size() - 1);
+	functions.reserve(max(lines.size(), size_t(1)) - 1);
 	for(const auto& line : lines) {
 		if(line.empty()) continue;
 		const auto tokens = core::tokenize(line, ',');
