@@ -171,6 +171,7 @@ public:
 	static const uint64_t& get_opencl_platform();
 	static bool get_opencl_verify_spir();
 	static bool get_opencl_validate_spirv();
+	static bool get_opencl_force_spirv_check();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
@@ -293,6 +294,7 @@ protected:
 		uint64_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
 		bool opencl_validate_spirv = false;
+		bool opencl_force_spirv_check = false;
 		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
 		string opencl_llc = default_llc;

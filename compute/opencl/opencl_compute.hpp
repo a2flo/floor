@@ -168,6 +168,12 @@ protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<opencl_program>> programs GUARDED_BY(programs_lock);
 	
+	// either core clCreateProgramWithIL or extension clCreateProgramWithILKHR
+	CL_API_CALL cl_program (*create_program_with_il)(cl_context context,
+													 const void* il,
+													 size_t length,
+													 cl_int* errcode_ret) = nullptr;
+	
 };
 
 #endif

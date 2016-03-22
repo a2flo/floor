@@ -238,6 +238,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			log_error("invalid opencl platform version string: %s", cl_version_str);
 		}
 		platform_cl_version = extracted_cl_version.second;
+		bool check_spirv_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		
 		// pocl only identifies itself in the platform version string, not the vendor string
 		if(cl_version_str.find("pocl") != string::npos) {
@@ -468,8 +469,12 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
 #endif
 			
-			// check spir-v support
-			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+			// check spir-v support (core, extension, or forced for testing purposes)
+			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
+			   core::contains(device->extensions, "cl_khr_il_program") ||
+			   floor::get_opencl_force_spirv_check()) {
+				check_spirv_support = true;
+				
 				const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
 				log_msg("IL versions: %s", il_versions);
 				
@@ -501,6 +506,11 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 						}
 					}
 				}
+			}
+			
+			if(floor::get_opencl_force_spirv_check() &&
+			   device->spirv_version == SPIRV_VERSION::NONE) {
+				device->spirv_version = SPIRV_VERSION::SPIRV_1_0;
 			}
 			
 			//
@@ -564,6 +574,38 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		if(devices.empty()) {
 			log_error("no supported device found on this platform!");
 			continue;
+		}
+		
+		// handle SPIR-V support (this is platform-specific)
+		if(check_spirv_support) {
+			// check for core function first
+			bool check_extension_ptr = false;
+			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+#if !defined(CL_VERSION_2_1)
+				// not compiling with opencl 2.1+ headers, which pretty much always means that the icd loader won't have
+				// the core clCreateProgramWithIL symbol, and since I don't want to dlsym vendor libraries, fallback to
+				// the extension method
+				check_extension_ptr = true;
+#else
+				// we're compiling with opencl 2.1+ headers and this function *should* exist, but check for it just in case
+				create_program_with_il = &clCreateProgramWithIL;
+				check_extension_ptr = (create_program_with_il == nullptr);
+#endif
+			}
+			
+			// if the platform is not 2.1+, but the extension is supported, get the function pointer to it
+			if(platform_cl_version < OPENCL_VERSION::OPENCL_2_1 || check_extension_ptr) {
+				create_program_with_il = (decltype(create_program_with_il))clGetExtensionFunctionAddressForPlatform(platform, "clCreateProgramWithILKHR");
+			}
+			
+			if(create_program_with_il == nullptr) {
+				log_error("no valid clCreateProgramWithIL function has been found, disabling SPIR-V support");
+				
+				// disable spir-v on all devices
+				for(auto& dev : devices) {
+					((opencl_device*)dev.get())->spirv_version = SPIRV_VERSION::NONE;
+				}
+			}
 		}
 		
 		// determine the fastest overall device
@@ -920,20 +962,6 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	return add_program(move(prog_map));
 }
 
-#if !defined(CL_VERSION_2_1)
-// create a dummy symbol if opencl 2.1 is not supported at the source level
-// TODO: should probably retrieve a function pointer to this when compiling with < 2.1 headers, but platform actually supports 2.1
-static cl_program clCreateProgramWithIL(cl_context     /* context */,
-										const void*    /* il */,
-										size_t         /* length */,
-										cl_int*        errcode_ret) {
-	if(errcode_ret != nullptr) {
-		*errcode_ret = CL_INVALID_CONTEXT;
-	}
-	return nullptr;
-}
-#endif
-
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
 																		   pair<string, vector<llvm_compute::function_info>> program_data,
 																		   const llvm_compute::TARGET& target) {
@@ -964,7 +992,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 		else log_debug("successfully created opencl program!");
 	}
 	else {
-		ret.program = clCreateProgramWithIL(ctx, (const void*)binary_ptr, length, &create_err);
+		ret.program = create_program_with_il(ctx, (const void*)binary_ptr, length, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
 			return ret;
@@ -986,9 +1014,14 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
-	if(floor::get_compute_keep_binaries()) {
+	if(floor::get_compute_log_binaries()) {
 		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(ret.program);
-		file_io::string_to_file("binary_" + core::to_file_name(device->name) + ".bin", binaries[0]);
+		if(binaries.size() > 0 && !binaries[0].empty()) {
+			file_io::string_to_file("binary_" + core::to_file_name(device->name) + ".bin", binaries[0]);
+		}
+		else {
+			log_error("failed to retrieve compiled binary");
+		}
 	}
 	
 	ret.valid = true;
