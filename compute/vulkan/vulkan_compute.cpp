@@ -494,32 +494,6 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	return add_program(move(prog_map));
 }
 
-unique_ptr<uint32_t[]> vulkan_compute::load_spirv_binary(const string& file_name, size_t& code_size) const {
-	unique_ptr<uint32_t[]> code;
-	{
-		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
-		if(!binary.is_open()) {
-			log_error("failed to load spir-v binary (\"%s\")", file_name);
-			return {};
-		}
-		
-		code_size = (size_t)binary.get_filesize();
-		if(code_size % 4u != 0u) {
-			log_error("invalid spir-v binary size %u (\"%s\"): must be a multiple of 4!", code_size, file_name);
-			return {};
-		}
-		
-		code = make_unique<uint32_t[]>(code_size / 4u);
-		binary.get_block((char*)code.get(), (streamsize)code_size);
-		const auto read_size = binary.get_filestream()->gcount();
-		if(read_size != (decltype(read_size))code_size) {
-			log_error("failed to read spir-v binary (\"%s\"): expected %u bytes, but only read %u bytes", file_name, code_size, read_size);
-			return {};
-		}
-	}
-	return code;
-}
-
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
 																		   pair<string, vector<llvm_compute::function_info>> program_data) {
 	vulkan_program::vulkan_program_entry ret;
@@ -532,7 +506,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	}
 	
 	size_t code_size = 0;
-	auto code = load_spirv_binary(program_data.first, code_size);
+	auto code = llvm_compute::load_spirv_binary(program_data.first, code_size);
 	if(code == nullptr) return ret; // already prints an error
 	
 	// create module
@@ -558,7 +532,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
 																		 const vector<llvm_compute::function_info>& kernel_infos) {
 	size_t code_size = 0;
-	auto code = load_spirv_binary(file_name, code_size);
+	auto code = llvm_compute::load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
 	
 	const VkShaderModuleCreateInfo module_info {

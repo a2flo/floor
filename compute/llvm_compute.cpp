@@ -681,3 +681,29 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	
 	return { compiled_file_or_code, functions };
 }
+
+unique_ptr<uint32_t[]> llvm_compute::load_spirv_binary(const string& file_name, size_t& code_size) {
+	unique_ptr<uint32_t[]> code;
+	{
+		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
+		if(!binary.is_open()) {
+			log_error("failed to load spir-v binary (\"%s\")", file_name);
+			return {};
+		}
+		
+		code_size = (size_t)binary.get_filesize();
+		if(code_size % 4u != 0u) {
+			log_error("invalid spir-v binary size %u (\"%s\"): must be a multiple of 4!", code_size, file_name);
+			return {};
+		}
+		
+		code = make_unique<uint32_t[]>(code_size / 4u);
+		binary.get_block((char*)code.get(), (streamsize)code_size);
+		const auto read_size = binary.get_filestream()->gcount();
+		if(read_size != (decltype(read_size))code_size) {
+			log_error("failed to read spir-v binary (\"%s\"): expected %u bytes, but only read %u bytes", file_name, code_size, read_size);
+			return {};
+		}
+	}
+	return code;
+}

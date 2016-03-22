@@ -973,15 +973,15 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 		log_error("compilation failed");
 		return ret;
 	}
-
-	// opencl api handling
-	const size_t length = program_data.first.size();
-	const unsigned char* binary_ptr = (const unsigned char*)program_data.first.data();
-	cl_int binary_status = CL_SUCCESS;
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
 	if(target != llvm_compute::TARGET::SPIRV_OPENCL) {
+		// opencl api handling
+		const size_t length = program_data.first.size();
+		const unsigned char* binary_ptr = (const unsigned char*)program_data.first.data();
+		cl_int binary_status = CL_SUCCESS;
+		
 		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
 												&length, &binary_ptr, &binary_status, &create_err);
 		if(create_err != CL_SUCCESS) {
@@ -992,7 +992,11 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 		else log_debug("successfully created opencl program!");
 	}
 	else {
-		ret.program = create_program_with_il(ctx, (const void*)binary_ptr, length, &create_err);
+		size_t code_size = 0;
+		auto code = llvm_compute::load_spirv_binary(program_data.first, code_size);
+		if(code == nullptr) return ret; // already prints an error
+		
+		ret.program = create_program_with_il(ctx, code.get(), code_size, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
 			return ret;
@@ -1007,7 +1011,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
 										 1, &cl_dev->device_id,
 										 build_options.c_str(), nullptr, nullptr),
-						  build_err, "failed to build opencl program", {});
+						  build_err, "failed to build opencl program", ret);
 	
 	
 	// print out build log
