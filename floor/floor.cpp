@@ -331,8 +331,8 @@ void floor::init(const char* callpath_, const char* datapath_,
 											  string& llc,
 											  string& as,
 											  string& dis,
-											  // <required toolchain version, bin name>
-											  vector<pair<uint32_t, string*>> additional_bins = {}) {
+											  // <min/max required toolchain version, bin name>
+											  vector<pair<uint2, string*>> additional_bins = {}) {
 #if defined(__WINDOWS__)
 		// on windows: always add .exe to all binaries + expand paths (handles "%Something%/path/to/sth")
 		compiler = core::expand_path_with_env(compiler + ".exe");
@@ -382,7 +382,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 			bool found_additional_bins = true;
 			for(const auto& bin : additional_bins) {
 				// ignore all additional binaries which are only required by a later toolchain version
-				if(toolchain_version < bin.first) continue;
+				if(toolchain_version < bin.first.x ||
+				   toolchain_version > bin.first.y) {
+					continue;
+				}
 				if(!file_io::is_file(path_str + "/bin/" + *bin.second)) {
 					found_additional_bins = false;
 					break;
@@ -401,14 +404,14 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.opencl_toolchain_version,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
-															vector<pair<uint32_t, string*>> {
-																{ 350u, &config.opencl_spir_encoder },
-																{ 350u, &config.opencl_spir_verifier },
-																{ 350u, &config.opencl_applecl_encoder },
-																{ 380u, &config.opencl_spirv_encoder },
-																{ 380u, &config.opencl_spirv_as },
-																{ 380u, &config.opencl_spirv_dis },
-																{ 380u, &config.opencl_spirv_validator },
+															vector<pair<uint2, string*>> {
+																{ { 350u, 352u }, &config.opencl_spir_encoder },
+																{ { 350u, 352u }, &config.opencl_spir_verifier },
+																{ { 350u, 352u }, &config.opencl_applecl_encoder },
+																{ { 380u, ~0u }, &config.opencl_spirv_encoder },
+																{ { 380u, ~0u }, &config.opencl_spirv_as },
+																{ { 380u, ~0u }, &config.opencl_spirv_dis },
+																{ { 380u, ~0u }, &config.opencl_spirv_validator },
 															});
 		if(config.opencl_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
@@ -477,11 +480,11 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.vulkan_toolchain_version,
 															config.vulkan_compiler, config.vulkan_llc,
 															config.vulkan_as, config.vulkan_dis,
-															vector<pair<uint32_t, string*>> {
-																{ 380u, &config.vulkan_spirv_encoder },
-																{ 380u, &config.vulkan_spirv_as },
-																{ 380u, &config.vulkan_spirv_dis },
-																{ 380u, &config.vulkan_spirv_validator },
+															vector<pair<uint2, string*>> {
+																{ { 380u, ~0u }, &config.vulkan_spirv_encoder },
+																{ { 380u, ~0u }, &config.vulkan_spirv_as },
+																{ { 380u, ~0u }, &config.vulkan_spirv_dis },
+																{ { 380u, ~0u }, &config.vulkan_spirv_validator },
 															});
 		if(config.vulkan_base_path == "") {
 #if defined(FLOOR_IOS)
