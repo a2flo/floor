@@ -230,7 +230,8 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
-				" -target " + (device->bitness == 32 ? "spir-applecl-unknown" : "spir64-applecl-unknown") +
+				" -target " + (device->bitness == 32 ? "spir-applecl-" : "spir64-applecl-") +
+				(compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "gpu" : "cpu") +
 				" -Xclang -applecl-kernel-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
@@ -527,45 +528,59 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	
 	// final target specific processing/compilation
 	if(target == TARGET::SPIR) {
-		// run spir-encoder for 3.5 -> 3.2 conversion
-		const auto spir_32_bc = core::create_tmp_file_name("spir_3_2", ".bc");
-		const string spir_3_2_encoder_cmd {
-			"\"" + floor::get_opencl_spir_encoder() + "\" " + compiled_file_or_code + " " + spir_32_bc
-#if !defined(_MSC_VER)
-			+ " 2>&1"
-#endif
-		};
-		string spir_encoder_output = "";
-		core::system(spir_3_2_encoder_cmd, spir_encoder_output);
-		log_msg("spir encoder: %s", spir_encoder_output);
-		
-		// run spir-verifier if specified
-		if(floor::get_opencl_verify_spir()) {
-			const string spir_verifier_cmd {
-				"\"" + floor::get_opencl_spir_verifier() + "\" " + spir_32_bc
+		string spir_bc_data = "";
+		if(toolchain_version < 380) {
+			// run spir-encoder for 3.5 -> 3.2 conversion
+			const auto spir_32_bc = core::create_tmp_file_name("spir_3_2", ".bc");
+			const string spir_3_2_encoder_cmd {
+				"\"" + floor::get_opencl_spir_encoder() + "\" " + compiled_file_or_code + " " + spir_32_bc
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif
 			};
-			string spir_verifier_output = "";
-			core::system(spir_verifier_cmd, spir_verifier_output);
-			if(!spir_verifier_output.empty() && spir_verifier_output[spir_verifier_output.size() - 1] == '\n') {
-				spir_verifier_output.pop_back(); // trim last newline
+			string spir_encoder_output = "";
+			core::system(spir_3_2_encoder_cmd, spir_encoder_output);
+			log_msg("spir encoder: %s", spir_encoder_output);
+			
+			// run spir-verifier if specified
+			if(floor::get_opencl_verify_spir()) {
+				const string spir_verifier_cmd {
+					"\"" + floor::get_opencl_spir_verifier() + "\" " + spir_32_bc
+#if !defined(_MSC_VER)
+					+ " 2>&1"
+#endif
+				};
+				string spir_verifier_output = "";
+				core::system(spir_verifier_cmd, spir_verifier_output);
+				if(!spir_verifier_output.empty() && spir_verifier_output[spir_verifier_output.size() - 1] == '\n') {
+					spir_verifier_output.pop_back(); // trim last newline
+				}
+				log_msg("spir verifier: %s", spir_verifier_output);
 			}
-			log_msg("spir verifier: %s", spir_verifier_output);
+			
+			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
+			if(!file_io::file_to_string(spir_32_bc, spir_bc_data)) {
+				log_error("failed to read back SPIR 1.2 .bc file");
+				return {};
+			}
+			
+			// cleanup
+			if(!floor::get_compute_keep_temp()) {
+				core::system("rm " + spir_32_bc);
+			}
 		}
-		
-		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
-		string spir_bc_data = "";
-		if(!file_io::file_to_string(spir_32_bc, spir_bc_data)) {
-			log_error("failed to read back SPIR 1.2 .bc file");
-			return {};
+		else {
+			// TODO: run verifier (add this as a pass)
+			
+			if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
+				log_error("failed to read SPIR 1.2 .bc file");
+				return {};
+			}
 		}
 		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
 			core::system("rm " + compiled_file_or_code);
-			core::system("rm " + spir_32_bc);
 		}
 		
 		// move spir data
@@ -612,31 +627,43 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		compiled_file_or_code.swap(ptx_code);
 	}
 	else if(target == TARGET::APPLECL) {
-		// run applecl-encoder for 3.5 -> 3.2 conversion
-		const auto applecl_32_bc = core::create_tmp_file_name("applecl_3_2", ".bc");
-		const string applecl_3_2_encoder_cmd {
-			"\"" + floor::get_opencl_applecl_encoder() + "\"" +
-			(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
-			" " + compiled_file_or_code + " " + applecl_32_bc
-#if !defined(_MSC_VER)
-			+ " 2>&1"
-#endif
-		};
-		string applecl_encoder_output = "";
-		core::system(applecl_3_2_encoder_cmd, applecl_encoder_output);
-		log_msg("applecl encoder: %s", applecl_encoder_output);
-		
-		// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
 		string applecl_bc_data = "";
-		if(!file_io::file_to_string(applecl_32_bc, applecl_bc_data)) {
-			log_error("failed to read back AppleCL .bc file");
-			return {};
+		if(toolchain_version < 380) {
+			// run applecl-encoder for 3.5 -> 3.2 conversion
+			const auto applecl_32_bc = core::create_tmp_file_name("applecl_3_2", ".bc");
+			const string applecl_3_2_encoder_cmd {
+				"\"" + floor::get_opencl_applecl_encoder() + "\"" +
+				(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
+				" " + compiled_file_or_code + " " + applecl_32_bc
+#if !defined(_MSC_VER)
+				+ " 2>&1"
+#endif
+			};
+			string applecl_encoder_output = "";
+			core::system(applecl_3_2_encoder_cmd, applecl_encoder_output);
+			log_msg("applecl encoder: %s", applecl_encoder_output);
+			
+			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
+			if(!file_io::file_to_string(applecl_32_bc, applecl_bc_data)) {
+				log_error("failed to read back AppleCL .bc file");
+				return {};
+			}
+			
+			// cleanup
+			if(!floor::get_compute_keep_temp()) {
+				core::system("rm " + applecl_32_bc);
+			}
+		}
+		else {
+			if(!file_io::file_to_string(compiled_file_or_code, applecl_bc_data)) {
+				log_error("failed to read AppleCL .bc file");
+				return {};
+			}
 		}
 		
 		// cleanup
 		if(!floor::get_compute_keep_temp()) {
 			core::system("rm " + compiled_file_or_code);
-			core::system("rm " + applecl_32_bc);
 		}
 		
 		// move applecl data
