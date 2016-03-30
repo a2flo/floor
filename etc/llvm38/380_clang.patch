@@ -563,6 +563,19 @@ index 4f474eb..020434b 100644
  #undef BUILTIN
  #undef LIBBUILTIN
  #undef LANGBUILTIN
+diff --git a/include/clang/Basic/DiagnosticDriverKinds.td b/include/clang/Basic/DiagnosticDriverKinds.td
+index b04498f..6f60318 100644
+--- a/include/clang/Basic/DiagnosticDriverKinds.td
++++ b/include/clang/Basic/DiagnosticDriverKinds.td
+@@ -86,6 +86,8 @@ def err_drv_invalid_argument_to_fdebug_prefix_map : Error<
+   "invalid argument '%0' to -fdebug-prefix-map">;
+ def err_drv_malformed_sanitizer_blacklist : Error<
+   "malformed sanitizer blacklist: '%0'">;
++def err_drv_floor_function_info : Error<
++  "unable to open floor function info file">, DefaultFatal;
+ 
+ def err_target_unsupported_arch
+   : Error<"the target architecture '%0' is not supported by the target '%1'">;
 diff --git a/include/clang/Basic/DiagnosticParseKinds.td b/include/clang/Basic/DiagnosticParseKinds.td
 index f8dee2f..e0d4bb0 100644
 --- a/include/clang/Basic/DiagnosticParseKinds.td
@@ -774,19 +787,20 @@ index cc70d62..fd5e1ac 100644
  #undef COMPATIBLE_LANGOPT
  #undef BENIGN_LANGOPT
 diff --git a/include/clang/Basic/LangOptions.h b/include/clang/Basic/LangOptions.h
-index 736d4e0..1375b77 100644
+index 736d4e0..5e9dcf8 100644
 --- a/include/clang/Basic/LangOptions.h
 +++ b/include/clang/Basic/LangOptions.h
-@@ -74,6 +74,8 @@ public:
+@@ -74,6 +74,9 @@ public:
      MSVC2015 = 19
    };
  
++  std::fstream* floor_function_info { nullptr };
 +  unsigned int floor_image_capabilities { 0 };
 +
  public:
    /// \brief Set of enabled sanitizers.
    SanitizerSet Sanitize;
-@@ -168,8 +170,36 @@ public:
+@@ -168,8 +171,36 @@ public:
  #define OPENCLEXT(nm)  unsigned nm : 1;
  #include "clang/Basic/OpenCLExtensions.def"
  
@@ -955,25 +969,39 @@ index 0269451..89730a0 100644
  KEYWORD(__pascal                    , KEYALL)
  
 diff --git a/include/clang/CodeGen/BackendUtil.h b/include/clang/CodeGen/BackendUtil.h
-index d375a78..0bc57f3 100644
+index d375a78..423a296 100644
 --- a/include/clang/CodeGen/BackendUtil.h
 +++ b/include/clang/CodeGen/BackendUtil.h
-@@ -27,6 +27,7 @@ namespace clang {
+@@ -27,6 +27,9 @@ namespace clang {
    enum BackendAction {
      Backend_EmitAssembly,  ///< Emit native assembly files
      Backend_EmitBC,        ///< Emit LLVM bitcode files
++    Backend_EmitBC32,      ///< Emit LLVM 3.2 bitcode files
++    Backend_EmitBC35,      ///< Emit LLVM 3.5 bitcode files
 +    Backend_EmitSPIRV,     ///< Emit SPIR-V bitcode files
      Backend_EmitLL,        ///< Emit human-readable LLVM assembly
      Backend_EmitNothing,   ///< Don't emit anything (benchmarking mode)
      Backend_EmitMCNull,    ///< Run CodeGen, but don't emit anything
 diff --git a/include/clang/CodeGen/CodeGenAction.h b/include/clang/CodeGen/CodeGenAction.h
-index cc38e24..4f4bbec 100644
+index cc38e24..9efc991 100644
 --- a/include/clang/CodeGen/CodeGenAction.h
 +++ b/include/clang/CodeGen/CodeGenAction.h
-@@ -78,6 +78,12 @@ public:
+@@ -78,6 +78,24 @@ public:
    EmitBCAction(llvm::LLVMContext *_VMContext = nullptr);
  };
  
++class EmitBC32Action : public CodeGenAction {
++  virtual void anchor();
++public:
++  EmitBC32Action(llvm::LLVMContext *_VMContext = nullptr);
++};
++
++class EmitBC35Action : public CodeGenAction {
++  virtual void anchor();
++public:
++  EmitBC35Action(llvm::LLVMContext *_VMContext = nullptr);
++};
++
 +class EmitSPIRVAction : public CodeGenAction {
 +  virtual void anchor();
 +public:
@@ -984,7 +1012,7 @@ index cc38e24..4f4bbec 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index 051f903..617e3c4 100644
+index 051f903..b7b7259 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -440,6 +440,8 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -996,13 +1024,15 @@ index 051f903..617e3c4 100644
  def emit_llvm_only : Flag<["-"], "emit-llvm-only">,
    HelpText<"Build ASTs and convert to LLVM, discarding output">;
  def emit_codegen_only : Flag<["-"], "emit-codegen-only">,
-@@ -636,6 +638,13 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
+@@ -636,6 +638,15 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
    HelpText<"include a detailed record of preprocessing actions">;
  
  //===----------------------------------------------------------------------===//
 +// libfloor Options (applying to OpenCL, CUDA and Metal)
 +//===----------------------------------------------------------------------===//
 +
++def floor_function_info : Joined<["-"], "floor-function-info=">,
++  HelpText<"floor function info output file">;
 +def floor_image_capabilities : Joined<["-"], "floor-image-capabilities=">,
 +  HelpText<"image read and write capabilities">;
 +
@@ -1010,7 +1040,7 @@ index 051f903..617e3c4 100644
  // OpenCL Options
  //===----------------------------------------------------------------------===//
  
-@@ -660,6 +669,15 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -660,6 +671,15 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">,
    HelpText<"OpenCL only. Allow denormals to be flushed to zero">;
  
@@ -1026,7 +1056,7 @@ index 051f903..617e3c4 100644
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -678,6 +696,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
+@@ -678,6 +698,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
    HelpText<"Enable function overloads based on CUDA target attributes.">;
  
  //===----------------------------------------------------------------------===//
@@ -1046,8 +1076,23 @@ index 051f903..617e3c4 100644
  // OpenMP Options
  //===----------------------------------------------------------------------===//
  
+diff --git a/include/clang/Driver/Options.td b/include/clang/Driver/Options.td
+index e4279e8..2627408 100644
+--- a/include/clang/Driver/Options.td
++++ b/include/clang/Driver/Options.td
+@@ -402,6 +402,10 @@ def emit_ast : Flag<["-"], "emit-ast">,
+   HelpText<"Emit Clang AST files for source inputs">;
+ def emit_llvm : Flag<["-"], "emit-llvm">, Flags<[CC1Option]>, Group<Action_Group>,
+   HelpText<"Use the LLVM representation for assembler and object files">;
++def llvm_bc_32 : Flag<["-"], "llvm-bc-32">, Flags<[CC1Option]>, Group<Action_Group>,
++  HelpText<"Output LLVM 3.2 compatible bitcode">;
++def llvm_bc_35 : Flag<["-"], "llvm-bc-35">, Flags<[CC1Option]>, Group<Action_Group>,
++  HelpText<"Output LLVM 3.5 compatible bitcode">;
+ def exported__symbols__list : Separate<["-"], "exported_symbols_list">;
+ def e : JoinedOrSeparate<["-"], "e">;
+ def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 diff --git a/include/clang/Driver/Types.def b/include/clang/Driver/Types.def
-index d1b6915..2314ee8 100644
+index d1b6915..08ae248 100644
 --- a/include/clang/Driver/Types.def
 +++ b/include/clang/Driver/Types.def
 @@ -42,6 +42,7 @@
@@ -1066,6 +1111,15 @@ index d1b6915..2314ee8 100644
  TYPE("objective-c-header-cpp-output", PP_ObjCHeader, INVALID,   "mi",    "p")
  TYPE("objective-c-header",       ObjCHeader,   PP_ObjCHeader,   "h",     "pu")
  TYPE("c++-header-cpp-output",    PP_CXXHeader, INVALID,         "ii",    "p")
+@@ -77,6 +79,8 @@ TYPE("java",                     Java,         INVALID,         nullptr, "u")
+ // outputs should use the standard suffixes.
+ TYPE("ir",                       LLVM_IR,      INVALID,         "ll",    "u")
+ TYPE("ir",                       LLVM_BC,      INVALID,         "bc",    "u")
++TYPE("ir",                       LLVM_BC_32,   INVALID,         "bc",    "u")
++TYPE("ir",                       LLVM_BC_35,   INVALID,         "bc",    "u")
+ TYPE("lto-ir",                   LTO_IR,       INVALID,         "s",     "")
+ TYPE("lto-bc",                   LTO_BC,       INVALID,         "o",     "")
+ 
 diff --git a/include/clang/Frontend/CodeGenOptions.def b/include/clang/Frontend/CodeGenOptions.def
 index d9f6ab7..0e11206 100644
 --- a/include/clang/Frontend/CodeGenOptions.def
@@ -1106,18 +1160,20 @@ index 7550e6f..f41e859 100644
    std::vector<std::string> DependentLibraries;
  
 diff --git a/include/clang/Frontend/FrontendOptions.h b/include/clang/Frontend/FrontendOptions.h
-index c800a51..b62ac89 100644
+index c800a51..8e265ee 100644
 --- a/include/clang/Frontend/FrontendOptions.h
 +++ b/include/clang/Frontend/FrontendOptions.h
-@@ -33,6 +33,7 @@ namespace frontend {
+@@ -33,6 +33,9 @@ namespace frontend {
      DumpTokens,             ///< Dump out preprocessed tokens.
      EmitAssembly,           ///< Emit a .s file.
      EmitBC,                 ///< Emit a .bc file.
++    EmitBC32,               ///< Emit a LLVM 3.2 .bc file.
++    EmitBC35,               ///< Emit a LLVM 3.5 .bc file.
 +    EmitSPIRV,              ///< Emit a .spv file.
      EmitHTML,               ///< Translate input source into HTML.
      EmitLLVM,               ///< Emit a .ll file.
      EmitLLVMOnly,           ///< Generate LLVM IR, but do not emit anything.
-@@ -71,6 +72,7 @@ enum InputKind {
+@@ -71,6 +74,7 @@ enum InputKind {
    IK_PreprocessedObjC,
    IK_PreprocessedObjCXX,
    IK_OpenCL,
@@ -2253,7 +2309,7 @@ index af8aea0..5a9e0e5 100644
      if (!(Triple == llvm::Triple("wasm32-unknown-unknown")))
        return nullptr;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 6d746c2..e1bf9d9 100644
+index 6d746c2..977a29c 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -31,6 +31,7 @@
@@ -2264,7 +2320,15 @@ index 6d746c2..e1bf9d9 100644
  #include "llvm/Support/TargetRegistry.h"
  #include "llvm/Support/Timer.h"
  #include "llvm/Support/raw_ostream.h"
-@@ -301,8 +302,13 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -44,6 +45,7 @@
+ #include "llvm/Transforms/Scalar.h"
+ #include "llvm/Transforms/Utils/SymbolRewriter.h"
+ #include <memory>
++#include <fstream>
+ using namespace clang;
+ using namespace llvm;
+ 
+@@ -301,8 +303,13 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
    case CodeGenOptions::NoInlining:
      break;
    case CodeGenOptions::NormalInlining: {
@@ -2280,10 +2344,17 @@ index 6d746c2..e1bf9d9 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -337,6 +343,28 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -337,6 +344,35 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
      return;
    }
  
++  // close floor function info file, this is no longer needed
++  if ((LangOpts.Metal || LangOpts.CUDA || LangOpts.OpenCL) &&
++      LangOpts.floor_function_info != nullptr) {
++    LangOpts.floor_function_info->close();
++    delete LangOpts.floor_function_info;
++  }
++
 +  PMBuilder.floor_image_capabilities = LangOpts.floor_image_capabilities;
 +
 +  PMBuilder.EnableAddressSpaceFix = LangOpts.OpenCL;
@@ -2309,7 +2380,7 @@ index 6d746c2..e1bf9d9 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -411,6 +439,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -411,6 +447,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
    if (!CodeGenOpts.RewriteMapFiles.empty())
      addSymbolRewriterPass(CodeGenOpts, MPM);
  
@@ -2320,18 +2391,29 @@ index 6d746c2..e1bf9d9 100644
    if (!CodeGenOpts.DisableGCov &&
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
-@@ -632,6 +664,7 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -632,6 +672,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
  
    bool UsesCodeGen = (Action != Backend_EmitNothing &&
                        Action != Backend_EmitBC &&
++                      Action != Backend_EmitBC32 &&
++                      Action != Backend_EmitBC35 &&
 +                      Action != Backend_EmitSPIRV &&
                        Action != Backend_EmitLL);
    if (!TM)
      TM.reset(CreateTargetMachine(UsesCodeGen));
-@@ -672,6 +705,10 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -672,6 +715,19 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
          *OS, CodeGenOpts.EmitLLVMUseLists, CodeGenOpts.EmitFunctionSummary));
      break;
  
++  case Backend_EmitBC32:
++    // TODO/NOTE: not implemented yet
++    //getPerModulePasses()->add(createBitcode32WriterPass(*OS));
++    break;
++
++  case Backend_EmitBC35:
++    getPerModulePasses()->add(createBitcode35WriterPass(*OS));
++    break;
++
 +  case Backend_EmitSPIRV:
 +    getPerModulePasses()->add(createSPIRVWriterPass(*OS));
 +    break;
@@ -4506,10 +4588,19 @@ index 0000000..69aa865
 +} // end namespace clang
 +#endif
 diff --git a/lib/CodeGen/CMakeLists.txt b/lib/CodeGen/CMakeLists.txt
-index 10bda76..1c770e9 100644
+index 10bda76..d2992e2 100644
 --- a/lib/CodeGen/CMakeLists.txt
 +++ b/lib/CodeGen/CMakeLists.txt
-@@ -13,6 +13,7 @@ set(LLVM_LINK_COMPONENTS
+@@ -2,6 +2,8 @@ set(LLVM_LINK_COMPONENTS
+   Analysis
+   BitReader
+   BitWriter
++  BitWriter32
++  BitWriter35
+   Core
+   IPO
+   IRReader
+@@ -13,6 +15,7 @@ set(LLVM_LINK_COMPONENTS
    Object
    ProfileData
    ScalarOpts
@@ -4517,7 +4608,7 @@ index 10bda76..1c770e9 100644
    Support
    Target
    TransformUtils
-@@ -57,6 +58,7 @@ add_clang_library(clangCodeGen
+@@ -57,6 +60,7 @@ add_clang_library(clangCodeGen
    CGOpenCLRuntime.cpp
    CGOpenMPRuntime.cpp
    CGRecordLayoutBuilder.cpp
@@ -4526,22 +4617,33 @@ index 10bda76..1c770e9 100644
    CGStmtOpenMP.cpp
    CGVTT.cpp
 diff --git a/lib/CodeGen/CodeGenAction.cpp b/lib/CodeGen/CodeGenAction.cpp
-index 0a670ab..cfac90e 100644
+index 0a670ab..2f18243 100644
 --- a/lib/CodeGen/CodeGenAction.cpp
 +++ b/lib/CodeGen/CodeGenAction.cpp
-@@ -666,6 +666,8 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
+@@ -665,7 +665,11 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
+   case Backend_EmitLL:
      return CI.createDefaultOutputFile(false, InFile, "ll");
    case Backend_EmitBC:
++  case Backend_EmitBC32:
++  case Backend_EmitBC35:
      return CI.createDefaultOutputFile(true, InFile, "bc");
 +  case Backend_EmitSPIRV:
 +    return CI.createDefaultOutputFile(true, InFile, "spv");
    case Backend_EmitNothing:
      return nullptr;
    case Backend_EmitMCNull:
-@@ -801,6 +803,10 @@ void EmitBCAction::anchor() { }
+@@ -801,6 +805,18 @@ void EmitBCAction::anchor() { }
  EmitBCAction::EmitBCAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitBC, _VMContext) {}
  
++void EmitBC32Action::anchor() { }
++EmitBC32Action::EmitBC32Action(llvm::LLVMContext *_VMContext)
++  : CodeGenAction(Backend_EmitBC32, _VMContext) {}
++
++void EmitBC35Action::anchor() { }
++EmitBC35Action::EmitBC35Action(llvm::LLVMContext *_VMContext)
++  : CodeGenAction(Backend_EmitBC35, _VMContext) {}
++
 +void EmitSPIRVAction::anchor() { }
 +EmitSPIRVAction::EmitSPIRVAction(llvm::LLVMContext *_VMContext)
 +  : CodeGenAction(Backend_EmitSPIRV, _VMContext) {}
@@ -4550,19 +4652,20 @@ index 0a670ab..cfac90e 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index e38ff0a..647bf62 100644
+index e38ff0a..cb2550c 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
-@@ -34,6 +34,8 @@
+@@ -34,6 +34,9 @@
  #include "llvm/IR/Intrinsics.h"
  #include "llvm/IR/MDBuilder.h"
  #include "llvm/IR/Operator.h"
 +#include <sstream>
 +#include <unordered_set>
++#include <fstream>
  using namespace clang;
  using namespace CodeGen;
  
-@@ -429,6 +431,149 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -429,6 +432,149 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4712,7 +4815,7 @@ index e38ff0a..647bf62 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -436,183 +581,1265 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -436,183 +582,1265 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM, llvm::LLVMContext &Context,
                                   SmallVector<llvm::Metadata *, 5> &kernelMDArgs,
                                   CGBuilderTy &Builder, ASTContext &ASTCtx) {
@@ -5716,22 +5819,23 @@ index e38ff0a..647bf62 100644
 +	const bool is_kernel = FD->hasAttr<ComputeKernelAttr>();
 +	const bool is_vertex = FD->hasAttr<GraphicsVertexShaderAttr>();
 +	const bool is_fragment = FD->hasAttr<GraphicsFragmentShaderAttr>();
-+	if (!is_kernel && !is_vertex && !is_fragment) {
++	if(!is_kernel && !is_vertex && !is_fragment) {
 +		return;
 +	}
++
++ 	if(getLangOpts().floor_function_info == nullptr) {
++ 		return;
++ 	}
++ 	std::fstream& file = *getLangOpts().floor_function_info;
 +	
-+	llvm::LLVMContext &Context = getLLVMContext();
 +	const PrintingPolicy &Policy = getContext().getPrintingPolicy();
 +	
-+	//
-+	SmallVector<llvm::Metadata*, 16> arg_infos;
-+	
 +	// #0: info version
-+	arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(2)));
++	file << "2,";
 +	// #1: function name
-+	arg_infos.push_back(llvm::MDString::get(Context, Fn->getName()));
++	file << Fn->getName().str() << ",";
 +	// #2: function type
-+	arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(is_kernel ? 1 : (is_vertex ? 2 : 3))));
++	file << (is_kernel ? "1" : (is_vertex ? "2" : "3")) << ",";
 +	
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
@@ -5847,15 +5951,15 @@ index e38ff0a..647bf62 100644
 +			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+		const auto add_image_arg = [this, &arg_infos](const FLOOR_ARG_INFO& floor_img_type,
-+													  const FLOOR_ARG_INFO& access) {
++ 		const auto add_image_arg = [this, &file](const FLOOR_ARG_INFO& floor_img_type,
++ 												 const FLOOR_ARG_INFO& access) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
-+			arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++			file << arg_info << ",";
 +		};
 +		// anything that isn't a pointer or special type
-+		const auto add_normal_arg = [this, &arg_infos,
++		const auto add_normal_arg = [this, &file,
 +									 &compute_type_size](llvm::Type* llvm_type,
 +														 const clang::QualType& clang_type,
 +														 const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) {
@@ -5869,7 +5973,7 @@ index e38ff0a..647bf62 100644
 +				arg_info |= compute_type_size(llvm_type);
 +			}
 +			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
-+			arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++			file << arg_info << ",";
 +		};
 +		
 +		// #2+: argument sizes + types
@@ -5886,7 +5990,7 @@ index e38ff0a..647bf62 100644
 +				// always pretend this is global
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
-+			arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++			file << arg_info << ",";
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
@@ -5968,7 +6072,7 @@ index e38ff0a..647bf62 100644
 +					uint64_t arg_info = compute_type_size(llvm_type);
 +					arg_info |= uint64_t(get_image_access(access_attr));
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+					arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++					file << arg_info << ",";
 +				}
 +				else {
 +					// simple aggregate, all constant -> must handle each field individually
@@ -5982,7 +6086,7 @@ index e38ff0a..647bf62 100644
 +						++arg_idx;
 +					}
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+					arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++					file << arg_info << ",";
 +					--arg_idx; // fixup, b/c of inc later
 +				}
 +			}
@@ -5991,7 +6095,7 @@ index e38ff0a..647bf62 100644
 +				// store the parameter size
 +				uint64_t arg_info = compute_type_size(llvm_type);
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+				arg_infos.push_back(llvm::ConstantAsMetadata::get(Builder.getInt64(arg_info)));
++				file << arg_info << ",";
 +			}
 +		}
 +		// stage input
@@ -6028,6 +6132,8 @@ index e38ff0a..647bf62 100644
 +		++abi_arg_info_iter;
 +	}
 +	
++	file << "\n";
++	
 +	// if this is wrong, the kernel will almost certainly not be usable
 +	if(arg_idx != Fn->arg_size()) {
 +		// signal that this is _very_ bad
@@ -6047,11 +6153,6 @@ index e38ff0a..647bf62 100644
 +		CGM.getDiags().Report(FD->getSourceRange().getBegin(), clang_note_diagID) << clang_fun_type_stream.str();
 +		return;
 +	}
-+	
-+	//
-+	llvm::MDNode *argsMDNode = llvm::MDNode::get(Context, arg_infos);
-+	llvm::NamedMDNode *FloorFunctionsMetadata = CGM.getModule().getOrInsertNamedMetadata("floor.functions");
-+	FloorFunctionsMetadata->addOperand(argsMDNode);
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
@@ -6094,7 +6195,9 @@ index e38ff0a..647bf62 100644
 +	  
 +	  // create + add new function type
 +	  const auto func_type_with_ids = llvm::FunctionType::get(Fn->getReturnType(), arg_types, false);
-+	  kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(llvm::Function::Create(func_type_with_ids, Fn->getLinkage(), Fn->getName())));
++	  Fn->mutateType(llvm::PointerType::get(func_type_with_ids, 0));
++	  Fn->mutateFunctionType(func_type_with_ids);
++	  kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(Fn));
 +  }
  
 -  GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder,
@@ -6130,7 +6233,7 @@ index e38ff0a..647bf62 100644
      kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
    }
  
-@@ -635,9 +1862,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -635,9 +1863,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -6186,7 +6289,7 @@ index e38ff0a..647bf62 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -667,6 +1937,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -667,6 +1938,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6194,7 +6297,7 @@ index e38ff0a..647bf62 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -698,7 +1969,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -698,7 +1970,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -6203,7 +6306,7 @@ index e38ff0a..647bf62 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -709,16 +1980,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -709,16 +1981,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -6245,7 +6348,7 @@ index e38ff0a..647bf62 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -735,7 +2027,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -735,7 +2028,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6254,7 +6357,7 @@ index e38ff0a..647bf62 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -798,7 +2090,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -798,7 +2091,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6272,7 +6375,7 @@ index e38ff0a..647bf62 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -828,11 +2129,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -828,11 +2130,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
          CXXThisValue = EmitLoadOfLValue(ThisLValue,
                                          SourceLocation()).getScalarVal();
        }
@@ -6288,7 +6391,7 @@ index e38ff0a..647bf62 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -914,6 +2215,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
+@@ -914,6 +2216,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
    F->setDoesNotThrow();
  }
  
@@ -6380,7 +6483,7 @@ index e38ff0a..647bf62 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -979,7 +2365,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -979,7 +2366,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -6389,7 +6492,7 @@ index e38ff0a..647bf62 100644
      CGM.getCUDARuntime().emitDeviceStub(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -1026,6 +2412,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1026,6 +2413,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -7698,6 +7801,51 @@ index e9490e9..8a38f0d 100644
        .Default(nullptr);
  }
  
+diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
+index 1e0a48d..e1ab7e4 100644
+--- a/lib/Driver/Driver.cpp
++++ b/lib/Driver/Driver.cpp
+@@ -1584,6 +1584,10 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ToolChain &TC,
+       return C.MakeAction<CompileJobAction>(Input, types::TY_ModuleFile);
+     if (Args.hasArg(options::OPT_verify_pch))
+       return C.MakeAction<VerifyPCHJobAction>(Input, types::TY_Nothing);
++    if (Args.hasArg(options::OPT_llvm_bc_32))
++      return C.MakeAction<CompileJobAction>(Input, types::TY_LLVM_BC_32);
++    if (Args.hasArg(options::OPT_llvm_bc_35))
++      return C.MakeAction<CompileJobAction>(Input, types::TY_LLVM_BC_35);
+     return C.MakeAction<CompileJobAction>(Input, types::TY_LLVM_BC);
+   }
+   case phases::Backend: {
+@@ -1593,8 +1597,14 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ToolChain &TC,
+       return C.MakeAction<BackendJobAction>(Input, Output);
+     }
+     if (Args.hasArg(options::OPT_emit_llvm)) {
+-      types::ID Output =
+-          Args.hasArg(options::OPT_S) ? types::TY_LLVM_IR : types::TY_LLVM_BC;
++      types::ID Output = types::TY_LLVM_BC;
++      if (Args.hasArg(options::OPT_S)) {
++        Output = types::TY_LLVM_IR;
++      }
++      else {
++        if (Args.hasArg(options::OPT_llvm_bc_32)) Output = types::TY_LLVM_BC_32;
++        if (Args.hasArg(options::OPT_llvm_bc_35)) Output = types::TY_LLVM_BC_35;
++      }
+       return C.MakeAction<BackendJobAction>(Input, Output);
+     }
+     return C.MakeAction<BackendJobAction>(Input, types::TY_PP_Asm);
+@@ -2051,8 +2061,11 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
+     // the unoptimized bitcode so that it does not get overwritten by the ".bc"
+     // optimized bitcode output.
+     if (!AtTopLevel && C.getArgs().hasArg(options::OPT_emit_llvm) &&
+-        JA.getType() == types::TY_LLVM_BC)
++        (JA.getType() == types::TY_LLVM_BC ||
++         JA.getType() == types::TY_LLVM_BC_32 ||
++         JA.getType() == types::TY_LLVM_BC_35)) {
+       Suffixed += ".tmp";
++    }
+     Suffixed += '.';
+     Suffixed += Suffix;
+     NamedOutput = C.getArgs().MakeArgString(Suffixed.c_str());
 diff --git a/lib/Driver/ToolChains.cpp b/lib/Driver/ToolChains.cpp
 index 99c7b8e..80e4ce4 100644
 --- a/lib/Driver/ToolChains.cpp
@@ -7768,10 +7916,41 @@ index f940e58..ac06236 100644
      // and for everything in 10.6 and beyond
      if (isTargetIOSBased() || isTargetWatchOSBased())
 diff --git a/lib/Driver/Tools.cpp b/lib/Driver/Tools.cpp
-index b7ac24f..6295b4d 100644
+index b7ac24f..3acef1d 100644
 --- a/lib/Driver/Tools.cpp
 +++ b/lib/Driver/Tools.cpp
-@@ -6770,6 +6770,8 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
+@@ -3532,6 +3532,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+     } else if (JA.getType() == types::TY_LLVM_BC ||
+                JA.getType() == types::TY_LTO_BC) {
+       CmdArgs.push_back("-emit-llvm-bc");
++    } else if (JA.getType() == types::TY_LLVM_BC_32) {
++      CmdArgs.push_back("-emit-llvm-bc"); // order matters
++      CmdArgs.push_back("-llvm-bc-32");
++    } else if (JA.getType() == types::TY_LLVM_BC_35) {
++      CmdArgs.push_back("-emit-llvm-bc"); // order matters
++      CmdArgs.push_back("-llvm-bc-35");
+     } else if (JA.getType() == types::TY_PP_Asm) {
+       CmdArgs.push_back("-S");
+     } else if (JA.getType() == types::TY_AST) {
+@@ -3552,7 +3558,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+     // loading the bitcode up in 'opt' or 'llc' and running passes gives the
+     // same result as running passes here.  For LTO, we don't need to preserve
+     // the use-list order, since serialization to bitcode is part of the flow.
+-    if (JA.getType() == types::TY_LLVM_BC)
++    if (JA.getType() == types::TY_LLVM_BC) // NOTE: don't do this for 3.2/3.5
+       CmdArgs.push_back("-emit-llvm-uselists");
+ 
+     if (D.isUsingLTO())
+@@ -6224,6 +6230,8 @@ void gcc::Compiler::RenderExtraToolArgs(const JobAction &JA,
+   case types::TY_LLVM_IR:
+   case types::TY_LTO_IR:
+   case types::TY_LLVM_BC:
++  case types::TY_LLVM_BC_32:
++  case types::TY_LLVM_BC_35:
+   case types::TY_LTO_BC:
+     CmdArgs.push_back("-c");
+     break;
+@@ -6770,6 +6778,8 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
        .Case("nvptx64", llvm::Triple::nvptx64)
        .Case("amdil", llvm::Triple::amdil)
        .Case("spir", llvm::Triple::spir)
@@ -7780,6 +7959,36 @@ index b7ac24f..6295b4d 100644
        .Default(llvm::Triple::UnknownArch);
  }
  
+diff --git a/lib/Driver/Types.cpp b/lib/Driver/Types.cpp
+index c29ce94..95e10ee 100644
+--- a/lib/Driver/Types.cpp
++++ b/lib/Driver/Types.cpp
+@@ -97,6 +97,7 @@ bool types::isAcceptedByClang(ID Id) {
+   case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
+   case TY_AST: case TY_ModuleFile:
+   case TY_LLVM_IR: case TY_LLVM_BC:
++  case TY_LLVM_BC_32: case TY_LLVM_BC_35:
+     return true;
+   }
+ }
+@@ -135,6 +136,8 @@ bool types::isLLVMIR(ID Id) {
+ 
+   case TY_LLVM_IR:
+   case TY_LLVM_BC:
++  case TY_LLVM_BC_32:
++  case TY_LLVM_BC_35:
+   case TY_LTO_IR:
+   case TY_LTO_BC:
+     return true;
+@@ -174,6 +177,8 @@ types::ID types::lookupTypeForExtension(const char *Ext) {
+            .Case("mi", TY_PP_ObjC)
+            .Case("mm", TY_ObjCXX)
+            .Case("bc", TY_LLVM_BC)
++           .Case("bc32", TY_LLVM_BC_32) // not ideal
++           .Case("bc35", TY_LLVM_BC_35) // not ideal
+            .Case("cc", TY_CXX)
+            .Case("CC", TY_CXX)
+            .Case("cl", TY_CL)
 diff --git a/lib/Edit/RewriteObjCFoundationAPI.cpp b/lib/Edit/RewriteObjCFoundationAPI.cpp
 index 482c0f6..2148316 100644
 --- a/lib/Edit/RewriteObjCFoundationAPI.cpp
@@ -7807,10 +8016,18 @@ index 3edcf5d..fdc26d2 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 237a447..bbcfc81 100644
+index 237a447..185b0cc 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
-@@ -79,7 +79,7 @@ using namespace llvm::opt;
+@@ -42,6 +42,7 @@
+ #include "llvm/Target/TargetOptions.h"
+ #include <atomic>
+ #include <memory>
++#include <fstream>
+ #include <sys/stat.h>
+ #include <system_error>
+ using namespace clang;
+@@ -79,7 +80,7 @@ using namespace llvm::opt;
  static unsigned getOptimizationLevel(ArgList &Args, InputKind IK,
                                       DiagnosticsEngine &Diags) {
    unsigned DefaultOpt = 0;
@@ -7819,7 +8036,7 @@ index 237a447..bbcfc81 100644
      DefaultOpt = 2;
  
    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-@@ -509,7 +509,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -509,7 +510,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      else
        Opts.EABIVersion = Value;
    }
@@ -7830,7 +8047,7 @@ index 237a447..bbcfc81 100644
    Opts.LimitFloatPrecision = Args.getLastArgValue(OPT_mlimit_float_precision);
    Opts.NoInfsFPMath = (Args.hasArg(OPT_menable_no_infinities) ||
                         Args.hasArg(OPT_cl_finite_math_only) ||
-@@ -576,6 +578,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -576,6 +579,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.MainFileName = Args.getLastArgValue(OPT_main_file_name);
    Opts.VerifyModule = !Args.hasArg(OPT_disable_llvm_verifier);
  
@@ -7844,7 +8061,7 @@ index 237a447..bbcfc81 100644
    Opts.DisableGCov = Args.hasArg(OPT_test_coverage);
    Opts.EmitGcovArcs = Args.hasArg(OPT_femit_coverage_data);
    Opts.EmitGcovNotes = Args.hasArg(OPT_femit_coverage_notes);
-@@ -600,7 +609,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -600,7 +610,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
  
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
@@ -7859,7 +8076,7 @@ index 237a447..bbcfc81 100644
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    for (auto A : Args.filtered(OPT_mlink_bitcode_file, OPT_mlink_cuda_bitcode)) {
-@@ -675,6 +690,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -675,6 +691,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      }
    }
  
@@ -7867,16 +8084,20 @@ index 237a447..bbcfc81 100644
    if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
      StringRef Val = A->getValue();
      if (Val == "fast")
-@@ -945,6 +961,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -945,6 +962,12 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        Opts.ProgramAction = frontend::EmitAssembly; break;
      case OPT_emit_llvm_bc:
        Opts.ProgramAction = frontend::EmitBC; break;
++    case OPT_llvm_bc_32:
++      Opts.ProgramAction = frontend::EmitBC32; break;
++    case OPT_llvm_bc_35:
++      Opts.ProgramAction = frontend::EmitBC35; break;
 +    case OPT_emit_spirv:
 +      Opts.ProgramAction = frontend::EmitSPIRV; break;
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1145,6 +1163,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1145,6 +1168,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -7884,7 +8105,7 @@ index 237a447..bbcfc81 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -1159,6 +1178,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1159,6 +1183,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -7892,7 +8113,7 @@ index 237a447..bbcfc81 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1333,6 +1353,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1333,6 +1358,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -7902,7 +8123,7 @@ index 237a447..bbcfc81 100644
      case IK_CUDA:
      case IK_PreprocessedCuda:
        LangStd = LangStandard::lang_cuda;
-@@ -1377,6 +1400,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1377,6 +1405,15 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -7918,7 +8139,7 @@ index 237a447..bbcfc81 100644
  
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
-@@ -1459,10 +1491,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1459,10 +1496,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -7935,7 +8156,7 @@ index 237a447..bbcfc81 100644
        case IK_CUDA:
        case IK_PreprocessedCuda:
          if (!Std.isCPlusPlus())
-@@ -1484,6 +1521,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1484,6 +1526,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
      .Case("CL1.1", LangStandard::lang_opencl11)
      .Case("CL1.2", LangStandard::lang_opencl12)
      .Case("CL2.0", LangStandard::lang_opencl20)
@@ -7943,10 +8164,21 @@ index 237a447..bbcfc81 100644
      .Default(LangStandard::lang_unspecified);
  
      if (OpenCLLangStd == LangStandard::lang_unspecified) {
-@@ -1496,6 +1534,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1496,6 +1539,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
  
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
++  // open libfloor function info file
++  if (const Arg *A = Args.getLastArg(OPT_floor_function_info)) {
++    if (A->getValue() != nullptr && strlen(A->getValue()) > 0) {
++      Opts.floor_function_info = new std::fstream(A->getValue(), std::ios::out | std::ios::binary);
++      if (Opts.floor_function_info == nullptr ||
++          !Opts.floor_function_info->is_open()) {
++        Diags.Report(diag::err_drv_floor_function_info);
++      }
++    }
++  }
++
 +  // extract libfloor image capabilities
 +  if (const Arg *A = Args.getLastArg(OPT_floor_image_capabilities)) {
 +    StringRef image_caps = A->getValue();
@@ -7956,7 +8188,7 @@ index 237a447..bbcfc81 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -1667,6 +1711,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1667,6 +1727,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks);
@@ -7968,7 +8200,7 @@ index 237a447..bbcfc81 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
    Opts.Modules = Args.hasArg(OPT_fmodules);
-@@ -1867,6 +1916,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1867,6 +1932,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -7977,10 +8209,12 @@ index 237a447..bbcfc81 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -1980,6 +2031,7 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -1980,6 +2047,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
++  case frontend::EmitBC32:
++  case frontend::EmitBC35:
 +  case frontend::EmitSPIRV:
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
@@ -8074,13 +8308,15 @@ index 15aa546..d4eed2b 100644
    // this in asm preprocessor mode, because "# 4" is not a line marker directive
    // in this mode.
 diff --git a/lib/FrontendTool/ExecuteCompilerInvocation.cpp b/lib/FrontendTool/ExecuteCompilerInvocation.cpp
-index 79cf004..40bd439 100644
+index 79cf004..0135c50 100644
 --- a/lib/FrontendTool/ExecuteCompilerInvocation.cpp
 +++ b/lib/FrontendTool/ExecuteCompilerInvocation.cpp
-@@ -45,6 +45,7 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI) {
+@@ -45,6 +45,9 @@ static FrontendAction *CreateFrontendBaseAction(CompilerInstance &CI) {
    case DumpTokens:             return new DumpTokensAction();
    case EmitAssembly:           return new EmitAssemblyAction();
    case EmitBC:                 return new EmitBCAction();
++  case EmitBC32:               return new EmitBC32Action();
++  case EmitBC35:               return new EmitBC35Action();
 +  case EmitSPIRV:              return new EmitSPIRVAction();
    case EmitHTML:               return new HTMLPrintAction();
    case EmitLLVM:               return new EmitLLVMAction();
@@ -11376,7 +11612,7 @@ index 175225b..367c242 100644
          // Delegate to SValBuilder to process.
          SVal V = state->getSVal(Ex, LCtx);
 diff --git a/tools/driver/Makefile b/tools/driver/Makefile
-index 347702e..91087ad 100644
+index 347702e..ce4c6bf 100644
 --- a/tools/driver/Makefile
 +++ b/tools/driver/Makefile
 @@ -33,7 +33,7 @@ endif
@@ -11384,7 +11620,7 @@ index 347702e..91087ad 100644
  LINK_COMPONENTS := $(TARGETS_TO_BUILD) asmparser bitreader bitwriter codegen \
                     instrumentation ipo irreader linker objcarcopts option \
 -                   profiledata selectiondag
-+                   profiledata selectiondag spirvlib
++                   profiledata selectiondag spirvlib bitwriter35
  USEDLIBS = clangFrontendTool.a clangFrontend.a clangDriver.a \
             clangSerialization.a clangCodeGen.a clangParse.a clangSema.a \
             clangRewriteFrontend.a clangRewrite.a
@@ -11489,7 +11725,7 @@ index 44bb631..63b8ff3 100644
      }
  #undef TCALLINGCONV
 diff --git a/tools/libclang/Makefile b/tools/libclang/Makefile
-index 84914e0..def21df 100644
+index 84914e0..9331850 100644
 --- a/tools/libclang/Makefile
 +++ b/tools/libclang/Makefile
 @@ -18,7 +18,7 @@ SHARED_LIBRARY = 1
@@ -11497,7 +11733,7 @@ index 84914e0..def21df 100644
  LINK_COMPONENTS := $(TARGETS_TO_BUILD) asmparser bitreader bitwriter core \
                     instrumentation ipo mc mcparser objcarcopts option support \
 -                   object
-+                   object spirvlib
++                   object spirvlib bitwriter35
  USEDLIBS = clangIndex.a clangARCMigrate.a \
  	   clangRewriteFrontend.a \
  	   clangFormat.a \
