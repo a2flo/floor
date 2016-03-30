@@ -152,6 +152,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	uint32_t toolchain_version = 0;
 	switch(target) {
 		case TARGET::SPIR:
+			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
@@ -163,12 +164,12 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIR" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				(toolchain_version < 380 ? "" : " -llvm-bc-32")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
-			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
 		case TARGET::AIR: {
 			toolchain_version = floor::get_metal_toolchain_version();
@@ -195,7 +196,8 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
-				" -DFLOOR_COMPUTE_METAL"
+				" -DFLOOR_COMPUTE_METAL" +
+				(toolchain_version < 380 ? "" : " -llvm-bc-35")
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
@@ -224,6 +226,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 			floor_path += floor::get_cuda_base_path() + "floor";
 		} break;
 		case TARGET::APPLECL:
+			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
@@ -235,12 +238,12 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_APPLECL" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				(toolchain_version < 380 ? "" : " -llvm-bc-32")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
 			floor_path += floor::get_opencl_base_path() + "floor";
-			toolchain_version = floor::get_opencl_toolchain_version();
 			break;
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
@@ -261,7 +264,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -291,7 +294,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE " : " ")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -498,11 +501,15 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	// compile
 	string compilation_output = "";
 	core::system(clang_cmd, compilation_output);
-	// if the output is non-empty, something is probably wrong
-	if(compilation_output != "") {
+	// check if the output contains an error string (yes, a bit ugly, but it works for now - can't actually check the return code)
+	if(compilation_output.find(" error: ") != string::npos) {
 		log_error("compilation failed! failed cmd was:\n%s", clang_cmd);
 		log_error("compilation errors:\n%s", compilation_output);
 		return {};
+	}
+	// also print the output if it is non-empty
+	if(compilation_output != "") {
+		log_debug("compilation output:\n%s", compilation_output);
 	}
 	if(floor::get_compute_log_commands()) {
 		log_debug("clang cmd: %s", clang_cmd);
