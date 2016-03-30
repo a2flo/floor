@@ -65,24 +65,18 @@ const_func float __cl_exp2(float);
 const_func float __cl_log(float);
 const_func float __cl_log2(float);
 const_func float __cl_pow(float, float);
+const_func float __cl_pown(float, int);
 const_func float __cl_copysign(float, float);
 const_func float __cl_fmin(float, float);
 const_func float __cl_fmax(float, float);
+const_func int8_t __cl_abs(int8_t);
 const_func int16_t __cl_abs(int16_t);
 const_func int32_t __cl_abs(int32_t);
 const_func int64_t __cl_abs(int64_t);
-const_func int16_t __cl_min(int16_t, int16_t);
-const_func int32_t __cl_min(int32_t, int32_t);
-const_func int64_t __cl_min(int64_t, int64_t);
-const_func uint16_t __cl_min(uint16_t, uint16_t);
-const_func uint32_t __cl_min(uint32_t, uint32_t);
-const_func uint64_t __cl_min(uint64_t, uint64_t);
-const_func int16_t __cl_max(int16_t, int16_t);
-const_func int32_t __cl_max(int32_t, int32_t);
-const_func int64_t __cl_max(int64_t, int64_t);
-const_func uint16_t __cl_max(uint16_t, uint16_t);
-const_func uint32_t __cl_max(uint32_t, uint32_t);
-const_func uint64_t __cl_max(uint64_t, uint64_t);
+const_func uint8_t __cl_abs(uint8_t);
+const_func uint16_t __cl_abs(uint16_t);
+const_func uint32_t __cl_abs(uint32_t);
+const_func uint64_t __cl_abs(uint64_t);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double __cl_fmod(double, double);
@@ -106,6 +100,7 @@ const_func double __cl_exp2(double);
 const_func double __cl_log(double);
 const_func double __cl_log2(double);
 const_func double __cl_pow(double, double);
+const_func double __cl_pown(double, int);
 const_func double __cl_copysign(double, double);
 const_func double __cl_fmin(double, double);
 const_func double __cl_fmax(double, double);
@@ -157,18 +152,18 @@ const_func uint32_t abs(uint32_t x) ACL_FWD(__cl_abs, x)
 const_func uint64_t abs(uint64_t x) ACL_FWD(__cl_abs, x)
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
-const_func int16_t floor_rt_min(int16_t x, int16_t y) SPIR_FWD("_Z3minss") ACL_FWD(__cl_min, x, y)
-const_func int32_t floor_rt_min(int32_t x, int32_t y) SPIR_FWD("_Z3minii") ACL_FWD(__cl_min, x, y)
-const_func int64_t floor_rt_min(int64_t x, int64_t y) SPIR_FWD("_Z3minll") ACL_FWD(__cl_min, x, y)
-const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) SPIR_FWD("_Z3mintt") ACL_FWD(__cl_min, x, y)
-const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) SPIR_FWD("_Z3minjj") ACL_FWD(__cl_min, x, y)
-const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) SPIR_FWD("_Z3minmm") ACL_FWD(__cl_min, x, y)
-const_func int16_t floor_rt_max(int16_t x, int16_t y) SPIR_FWD("_Z3maxss") ACL_FWD(__cl_max, x, y)
-const_func int32_t floor_rt_max(int32_t x, int32_t y) SPIR_FWD("_Z3maxii") ACL_FWD(__cl_max, x, y)
-const_func int64_t floor_rt_max(int64_t x, int64_t y) SPIR_FWD("_Z3maxll") ACL_FWD(__cl_max, x, y)
-const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) SPIR_FWD("_Z3maxtt") ACL_FWD(__cl_max, x, y)
-const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) SPIR_FWD("_Z3maxjj") ACL_FWD(__cl_max, x, y)
-const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) SPIR_FWD("_Z3maxmm") ACL_FWD(__cl_max, x, y)
+const_func int16_t floor_rt_min(int16_t x, int16_t y) asm("_Z3minss");
+const_func int32_t floor_rt_min(int32_t x, int32_t y) asm("_Z3minii");
+const_func int64_t floor_rt_min(int64_t x, int64_t y) asm("_Z3minll");
+const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3mintt");
+const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) asm("_Z3minjj");
+const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) asm("_Z3minmm");
+const_func int16_t floor_rt_max(int16_t x, int16_t y) asm("_Z3maxss");
+const_func int32_t floor_rt_max(int32_t x, int32_t y) asm("_Z3maxii");
+const_func int64_t floor_rt_max(int64_t x, int64_t y) asm("_Z3maxll");
+const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) asm("_Z3maxtt");
+const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) asm("_Z3maxjj");
+const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) asm("_Z3maxmm");
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double fmod(double x, double y) ACL_FWD(__cl_fmod, x, y)
