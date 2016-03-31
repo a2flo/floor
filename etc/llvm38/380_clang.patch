@@ -2309,7 +2309,7 @@ index af8aea0..5a9e0e5 100644
      if (!(Triple == llvm::Triple("wasm32-unknown-unknown")))
        return nullptr;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 6d746c2..977a29c 100644
+index 6d746c2..68b6f58 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -31,6 +31,7 @@
@@ -2401,13 +2401,12 @@ index 6d746c2..977a29c 100644
                        Action != Backend_EmitLL);
    if (!TM)
      TM.reset(CreateTargetMachine(UsesCodeGen));
-@@ -672,6 +715,19 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -672,6 +715,18 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
          *OS, CodeGenOpts.EmitLLVMUseLists, CodeGenOpts.EmitFunctionSummary));
      break;
  
 +  case Backend_EmitBC32:
-+    // TODO/NOTE: not implemented yet
-+    //getPerModulePasses()->add(createBitcode32WriterPass(*OS));
++    getPerModulePasses()->add(createBitcode32WriterPass(*OS));
 +    break;
 +
 +  case Backend_EmitBC35:
@@ -11612,7 +11611,7 @@ index 175225b..367c242 100644
          // Delegate to SValBuilder to process.
          SVal V = state->getSVal(Ex, LCtx);
 diff --git a/tools/driver/Makefile b/tools/driver/Makefile
-index 347702e..ce4c6bf 100644
+index 347702e..5a29f62 100644
 --- a/tools/driver/Makefile
 +++ b/tools/driver/Makefile
 @@ -33,7 +33,7 @@ endif
@@ -11620,7 +11619,7 @@ index 347702e..ce4c6bf 100644
  LINK_COMPONENTS := $(TARGETS_TO_BUILD) asmparser bitreader bitwriter codegen \
                     instrumentation ipo irreader linker objcarcopts option \
 -                   profiledata selectiondag
-+                   profiledata selectiondag spirvlib bitwriter35
++                   profiledata selectiondag spirvlib bitwriter32 bitwriter35
  USEDLIBS = clangFrontendTool.a clangFrontend.a clangDriver.a \
             clangSerialization.a clangCodeGen.a clangParse.a clangSema.a \
             clangRewriteFrontend.a clangRewrite.a
@@ -11725,7 +11724,7 @@ index 44bb631..63b8ff3 100644
      }
  #undef TCALLINGCONV
 diff --git a/tools/libclang/Makefile b/tools/libclang/Makefile
-index 84914e0..9331850 100644
+index 84914e0..7f72558 100644
 --- a/tools/libclang/Makefile
 +++ b/tools/libclang/Makefile
 @@ -18,7 +18,7 @@ SHARED_LIBRARY = 1
@@ -11733,7 +11732,7 @@ index 84914e0..9331850 100644
  LINK_COMPONENTS := $(TARGETS_TO_BUILD) asmparser bitreader bitwriter core \
                     instrumentation ipo mc mcparser objcarcopts option support \
 -                   object
-+                   object spirvlib bitwriter35
++                   object spirvlib bitwriter32 bitwriter35
  USEDLIBS = clangIndex.a clangARCMigrate.a \
  	   clangRewriteFrontend.a \
  	   clangFormat.a \
