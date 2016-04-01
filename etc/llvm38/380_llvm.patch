@@ -905,6 +905,867 @@ index 327faac..de6a495 100644
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
+diff --git a/include/llvm/SPIRVerifier/SpirErrors.h b/include/llvm/SPIRVerifier/SpirErrors.h
+new file mode 100644
+index 0000000..88bd695
+--- /dev/null
++++ b/include/llvm/SPIRVerifier/SpirErrors.h
+@@ -0,0 +1,146 @@
++//===--------------------------- SpirErrors.h ----------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#ifndef __SPIR_ERRORS_H__
++#define __SPIR_ERRORS_H__
++
++#include <list>
++
++namespace llvm {
++  class Type;
++  class Value;
++  class Metadata;
++  class MDNode;
++  class NamedMDNode;
++  class StringRef;
++  class raw_ostream;
++}
++
++using namespace llvm;
++namespace SPIR {
++//
++// Validation Errors
++//
++
++typedef enum {
++  // Module (general) errors
++  // Type errors
++  ERR_INVALID_OCL_TYPE,
++  ERR_INVALID_LLVM_TYPE,
++  ERR_INVALID_KERNEL_RETURN_TYPE,
++  ERR_KERNEL_ARG_PTRPTR,
++  ERR_KERNEL_ARG_AS0,
++  ERR_MISMATCH_OCL_AND_LLVM_TYPES,
++  ERR_INVALID_GLOBAL_AS3_VAR,
++  ERR_INVALID_GLOBAL_VAR_ADDRESS_SPACE,
++  // Instruction errors
++  ERR_INVALID_INTRINSIC,
++  ERR_INVALID_ADDR_SPACE,
++  ERR_INVALID_ADDR_SPACE_CAST,
++  ERR_INVALID_INDIRECT_CALL,
++  ERR_INVALID_MEM_FENCE,
++  // Function errors
++  ERR_INVALID_CALLING_CONVENTION,
++  ERR_INVALID_LINKAGE_TYPE,
++  // Metadata errors
++  ERR_INVALID_CORE_FEATURE,
++  ERR_INVALID_KHR_EXT,
++  ERR_INVALID_COMPILER_OPTION,
++  ERR_MISSING_NAMED_METADATA,
++  ERR_INVALID_METADATA_KERNEL,
++  ERR_INVALID_METADATA_KERNEL_INFO,
++  ERR_MISSING_METADATA_KERNEL_INFO,
++  ERR_INVALID_METADATA_VERSION,
++  ERR_MISMATCH_METADATA_ADDR_SPACE,
++
++  SPIR_ERROR_NUM
++} SPIR_ERROR_TYPE;
++
++struct ErrorPrinter {
++  virtual ~ErrorPrinter() {};
++
++  /// @brief prints all errors to given output stream.
++  /// @param S output stream.
++  /// @param LITMode prints error names only in when set to true
++  virtual void print(llvm::raw_ostream &S, bool LITMode) const = 0;
++
++  /// @brief Checks if the module has errors.
++  /// @returns true if errors list is not emtpy.
++  virtual bool hasErrors() const = 0;
++};
++
++struct ErrorCreator {
++  virtual ~ErrorCreator() {};
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param S llvm string that leaded to the error.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::StringRef S) = 0;
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param V llvm value that leaded to the error.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Value *V) = 0;
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param MD llvm metadata that leaded to the error.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Metadata *MD) = 0;
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param NMD llvm named metadata node that leaded to the error.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::NamedMDNode *NMD) = 0;
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param T llvm type that leaded to the error.
++  /// @param S name of the function that T in its prototype.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                             const llvm::StringRef S) = 0;
++
++  /// @brief Creates and adds new error to the error list.
++  /// @param Err error type to be added.
++  /// @param T llvm type that leaded to the error.
++  /// @param V value that T is its type.
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                             const llvm::Value *V) = 0;
++
++};
++
++struct ValidationError;
++typedef std::list<const ValidationError*> ErrorList;
++
++
++struct ErrorHolder : ErrorCreator, ErrorPrinter {
++  ErrorHolder();
++  virtual ~ErrorHolder();
++
++  /// Implementation of the pure virtual methods of ErrorCreator interface
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::StringRef S);
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Value *V);
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Metadata *MD);
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::NamedMDNode *NMD);
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                             const llvm::StringRef S);
++  virtual void addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                             const llvm::Value *V);
++
++  /// Implementation of the pure virtual methods of ErrorPrinter interface
++  virtual void print(llvm::raw_ostream &S, bool LITMode) const;
++  virtual bool hasErrors() const;
++
++private:
++  /// @brief List of errors found in the module
++  ErrorList EL;
++};
++
++
++} // End SPIR namespace
++#endif // __SPIR_ERRORS_H__
+diff --git a/include/llvm/SPIRVerifier/SpirIterators.h b/include/llvm/SPIRVerifier/SpirIterators.h
+new file mode 100644
+index 0000000..33a660a
+--- /dev/null
++++ b/include/llvm/SPIRVerifier/SpirIterators.h
+@@ -0,0 +1,461 @@
++//===------------------------- SpirIterators.h ---------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#ifndef __SPIR_ITERATORS_H__
++#define __SPIR_ITERATORS_H__
++
++#include <list>
++#include <map>
++
++namespace llvm {
++class Value;
++class Instruction;
++class BasicBlock;
++class Function;
++class Module;
++class MDNode;
++class GlobalVariable;
++}
++
++using namespace llvm;
++
++namespace SPIR {
++
++struct ErrorCreator;
++
++//
++// Executor interfaces.
++//
++
++/// @brief Interface for executor on llvm value.
++struct ValueExecutor {
++  virtual void execute(const Value*) = 0;
++};
++
++/// @brief Interface for executor on llvm instruction.
++struct InstructionExecutor {
++  virtual void execute(const Instruction*) = 0;
++};
++
++/// @brief Interface for executor on llvm function.
++struct FunctionExecutor {
++  virtual void execute(const Function*) = 0;
++};
++
++/// @brief Interface for executor on llvm global variables.
++struct GlobalVariableExecutor {
++  virtual void execute(const GlobalVariable*) = 0;
++};
++
++/// @brief Interface for executor on llvm module.
++struct ModuleExecutor {
++  virtual void execute(const Module*) = 0;
++};
++
++/// @brief Interface for executor on llvm metadata node.
++struct MDNodeExecutor {
++  virtual void execute(const MDNode*) = 0;
++};
++
++typedef std::list<ValueExecutor*> ValueExecutorList;
++typedef std::list<InstructionExecutor*> InstructionExecutorList;
++typedef std::list<FunctionExecutor*> FunctionExecutorList;
++typedef std::list<GlobalVariableExecutor*> GlobalVariableExecutorList;
++typedef std::list<ModuleExecutor*> ModuleExecutorList;
++typedef std::list<MDNodeExecutor*> MDNodeExecutorList;
++
++//
++// Iterator classes.
++//
++
++struct BasicBlockIterator {
++  /// @brief Constructor.
++  /// @param IEL list of instruction executors.
++  BasicBlockIterator(InstructionExecutorList& IEL) : m_iel(IEL) {
++  }
++
++  /// @brief Iterates over the instructions in a basic block
++  ///        and execute all executors from the list on each instruction.
++  /// @param Basic block to iterate over.
++  void execute(const BasicBlock& BB);
++
++private:
++  /// @brief List of instruction executors.
++  InstructionExecutorList& m_iel;
++};
++
++struct FunctionIterator {
++  /// @brief Constructor.
++  /// @param FEL list of function executors.
++  /// @param BBI basic block iterator (optional).
++  FunctionIterator(FunctionExecutorList& FEL, BasicBlockIterator *BBI = 0) :
++    m_fel(FEL), m_bbi(BBI) {
++  }
++
++  /// @brief Iterates over the basic blocks in a function.
++  /// @param F function to iterate over.
++  void execute(const Function& F);
++
++private:
++  /// @brief List of function executors.
++  FunctionExecutorList& m_fel;
++  /// @brief Basic block iterator.
++  BasicBlockIterator *m_bbi;
++};
++
++struct GlobalVariableIterator {
++  /// @hbrief Constructor.
++  /// @param GVEL list of global variable executors
++  GlobalVariableIterator(GlobalVariableExecutorList& GVEL) : m_gvel(GVEL) {
++  }
++
++  /// @brief Execute all the executors from the list on GlobalVariable.
++  /// @param GV Global variable to process.
++  void execute(const GlobalVariable& GV);
++
++private:
++  /// @brief List of GlobalVAriable executors.
++  GlobalVariableExecutorList& m_gvel;
++};
++
++struct ModuleIterator {
++  /// @brief Constructor.
++  /// @param MEL list of module executors.
++  /// @param FI function iterator (optional).
++  ModuleIterator(ModuleExecutorList& MEL, FunctionIterator *FI = 0,
++         GlobalVariableIterator *GI = 0) :
++    m_mel(MEL), m_fi(FI), m_gi(GI) {
++  }
++
++  /// @brief Iterates over the functions in a module.
++  /// @param M module to iterate over.
++  void execute(const Module& M);
++
++private:
++  /// @brief List of module executors.
++  ModuleExecutorList& m_mel;
++  /// @brief Function iterator.
++  FunctionIterator *m_fi;
++  /// @brief Global value iterator.
++  GlobalVariableIterator *m_gi;
++};
++
++/// @brief Iterates over the metadata nodes.
++struct MetaDataIterator {
++  /// @brief Constructor.
++  /// @param NEL list of metadata node executors.
++  MetaDataIterator(MDNodeExecutorList& NEL) : m_nel(NEL) {
++  }
++  /// @brief Iterates over the operands of a metadata node.
++  /// @param M module to iterate over.
++  void execute(const MDNode& Node);
++
++private:
++  /// @brief List of Metadata node executors.
++  MDNodeExecutorList& m_nel;
++};
++
++
++//
++// Module data holder class.
++//
++
++struct DataHolder {
++  DataHolder() :
++    Is32Bit(true),
++    HasDoubleFeature(false), HasImageFeature(false),
++    HASFp16Extension(false) {
++  }
++
++  /// @brief Sizeof pointer indectaor
++  bool Is32Bit;
++
++  // Core Features
++
++  /// @brief indicator for presence of cl_double core feature
++  bool HasDoubleFeature;
++
++  /// @brief indicator for presence of cl_images core feature
++  bool HasImageFeature;
++
++  // KHR Extensions
++
++  /// @brief indicator for presence of cl_khr_fp16 KHR extension
++  bool HASFp16Extension;
++};
++
++//
++// Verify Executor classes.
++//
++
++struct VerifyCall : public InstructionExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  VerifyCall(ErrorCreator *EH) : ErrCreator(EH) {
++  }
++
++  /// @brief Verify that given instruction is not invalid call instruction.
++  /// @param I instruction to verify.
++  void execute(const Instruction *I) override;
++
++private:
++  ErrorCreator *ErrCreator;
++};
++
++struct VerifyBitcast : public InstructionExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  VerifyBitcast(ErrorCreator *EH) : ErrCreator(EH) {
++  }
++
++  /// @brief Verify that given instruction is not invalid bitcast instruction
++  ///        and that it has no invalid bitcast constant expression operands.
++  /// @param I instruction to verify.
++  void execute(const Instruction *I) override;
++
++private:
++  ErrorCreator *ErrCreator;
++};
++
++struct VerifyInstructionType : public InstructionExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyInstructionType(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  /// @brief Verify that given instruction has a valid type.
++  /// @param I instruction to verify.
++  void execute(const Instruction *I) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++};
++
++struct VerifyFunctionPrototype : public FunctionExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyFunctionPrototype(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  /// @brief Verify that given function has valid prototype.
++  /// @param F function to verify.
++  void execute(const Function *F) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++};
++
++struct VerifyKernelPrototype : public FunctionExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyKernelPrototype(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  /// @brief Verify that given OpenCL kernel has valid prototype.
++  /// @param F function to verify.
++  void execute(const Function *F) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  __attribute__((unused)) DataHolder *Data;
++};
++
++struct VerifyGlobalVariable : public GlobalVariableExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyGlobalVariable(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  /// @brief Verify varoius properties of given global variable
++  /// @param F function to verify.
++  void execute(const GlobalVariable *GV) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  __attribute__((unused)) DataHolder *Data;
++};
++
++struct VerifyMetadataArgAddrSpace : public MDNodeExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param F the function metadata arg base type is describing.
++  VerifyMetadataArgAddrSpace(ErrorCreator *EH, Function *F) :
++    ErrCreator(EH), Func(F), WasFound(false) {
++  }
++
++  /// @brief Verify that given metadata node is valid arg type metadata.
++  /// @param Node metadata node to verify.
++  void execute(const MDNode *Node) override;
++
++  bool found() {
++    return WasFound;
++  }
++
++private:
++  ErrorCreator *ErrCreator;
++  Function *Func;
++  bool WasFound;
++};
++
++struct VerifyMetadataArgType : public MDNodeExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  VerifyMetadataArgType(ErrorCreator *EH) : ErrCreator(EH), WasFound(false) {
++  }
++
++  /// @brief Verify that given metadata node is valid arg type metadata.
++  /// @param Node metadata node to verify.
++  void execute(const MDNode *Node) override;
++
++  bool found() {
++    return WasFound;
++  }
++
++private:
++  __attribute__((unused)) ErrorCreator *ErrCreator;
++  bool WasFound;
++};
++
++struct VerifyMetadataArgBaseType : public MDNodeExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param F the function metadata arg base type is describing.
++  VerifyMetadataArgBaseType(ErrorCreator *EH, Function *F, DataHolder *D) :
++    ErrCreator(EH), Func(F), Data(D), WasFound(false) {
++  }
++
++  /// @brief Verify that given metadata node is valid arg base type metadata.
++  /// @param Node metadata node to verify.
++  void execute(const MDNode *Node) override;
++
++  bool found() {
++    return WasFound;
++  }
++
++private:
++  ErrorCreator *ErrCreator;
++  Function *Func;
++  DataHolder *Data;
++  bool WasFound;
++};
++
++typedef std::map<const Function*, const MDNode*> FunctionToMDNodeMap;
++struct VerifyMetadataKernel : public MDNodeExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  VerifyMetadataKernel(ErrorCreator *EH,
++    DataHolder *D, FunctionToMDNodeMap& Map) :
++    ErrCreator(EH), Data(D), FoundMap(Map) {
++  }
++
++  /// @brief Verify that given metadata node is valid arg type metadata.
++  /// @param Node metadata node to verify.
++  void execute(const MDNode *Node) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++  FunctionToMDNodeMap& FoundMap;
++};
++
++struct VerifyMetadataKernels : public ModuleExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyMetadataKernels(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  void execute(const Module *M) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++};
++
++struct VerifyMetadataVersions : public ModuleExecutor {
++
++  typedef enum {
++    VERSION_OCL,
++    VERSION_SPIR,
++
++    OPENCL_VERISON_NUM
++  } OPENCL_VERSION_TYPE;
++
++  /// @brief Constructor.
++  /// @param EH error holder.
++  VerifyMetadataVersions(ErrorCreator *EH, OPENCL_VERSION_TYPE VTy) :
++    ErrCreator(EH), VType(VTy) {
++  }
++
++  void execute(const Module *M) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  OPENCL_VERSION_TYPE VType;
++};
++
++struct VerifyMetadataCoreFeatures : public ModuleExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.s
++  VerifyMetadataCoreFeatures(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  void execute(const Module *M) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++};
++
++struct VerifyMetadataKHRExtensions : public ModuleExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyMetadataKHRExtensions(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  void execute(const Module *M) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  DataHolder *Data;
++};
++
++struct VerifyMetadataCompilerOptions : public ModuleExecutor {
++  /// @brief Constructor.
++  /// @param EH error holder.
++  /// @param D data holder.
++  VerifyMetadataCompilerOptions(ErrorCreator *EH, DataHolder *D) :
++    ErrCreator(EH), Data(D) {
++  }
++
++  void execute(const Module *M) override;
++
++private:
++  ErrorCreator *ErrCreator;
++  __attribute__((unused)) DataHolder *Data;
++};
++
++} // End SPIR namespace
++
++#endif // __SPIR_ITERATORS_H__
+diff --git a/include/llvm/SPIRVerifier/SpirTables.h b/include/llvm/SPIRVerifier/SpirTables.h
+new file mode 100644
+index 0000000..e14e306
+--- /dev/null
++++ b/include/llvm/SPIRVerifier/SpirTables.h
+@@ -0,0 +1,171 @@
++//===--------------------------- SpirTable.h -----------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#ifndef __SPIR_TABLES_H__
++#define __SPIR_TABLES_H__
++
++#include <string>
++
++namespace SPIR {
++
++//
++// Constant definitions.
++//
++
++enum AddrSpace {
++  PRIVATE_ADDR_SPACE = 0,
++  GLOBAL_ADDR_SPACE = 1,
++  CONSTANT_ADDR_SPACE = 2,
++  LOCAL_ADDR_SPACE = 3
++};
++
++#define EXTREN_DCL_ARRAY_LENGTH(arr) extern const unsigned arr##_len
++
++extern const char *CORE_FEATURE_CL_DOUBLES;
++extern const char *CORE_FEATURE_CL_IMAGES;
++extern const char *g_valid_core_feature[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_core_feature);
++
++extern const char *EXTENSION_CL_KHR_FP16;
++extern const char *g_valid_khr_ext[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_khr_ext);
++
++extern const char *g_valid_compiler_options[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_compiler_options);
++
++///
++/// OpenCL C Type tables
++///
++extern const char *g_valid_ocl_primitives[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_ocl_primitives);
++
++extern const char *g_valid_ocl_vector_element_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_ocl_vector_element_types);
++
++extern const char *g_valid_ocl_opaque_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_ocl_opaque_types);
++
++extern const char *g_opencl_opaque_sufix;
++
++extern const char *g_ignored_ocl_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_ignored_ocl_types);
++
++///
++/// OpenCL C Type tables
++///
++extern const char *g_valid_llvm_primitives[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_llvm_primitives);
++
++extern const char *g_valid_llvm_vector_element_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_llvm_vector_element_types);
++
++extern const char *g_valid_llvm_image_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_llvm_image_types);
++
++extern const char *g_valid_llvm_opaque_types[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_llvm_opaque_types);
++
++extern const char *g_llvm_opaque_prefix;
++
++///
++/// Other OpenCL Tables
++///
++extern const char *g_valid_vector_type_lengths[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_vector_type_lengths);
++
++extern const char *g_valid_instrinsic[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_instrinsic);
++
++extern const char *g_ignored_instrinsic[];
++EXTREN_DCL_ARRAY_LENGTH(g_ignored_instrinsic);
++
++extern const char *g_valid_sync_bi[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_sync_bi);
++
++extern const char *g_valid_address_space[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_address_space);
++
++extern const char *g_valid_calling_convention[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_calling_convention);
++
++extern const char *g_valid_linkage_type[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_linkage_type);
++
++extern const char *OPENCL_KERNELS;
++extern const char *OPENCL_SPIR_VERSION;
++extern const char *OPENCL_OCL_VERSION;
++extern const char *OPENCL_KHR_EXTENSIONS;
++extern const char *OPENCL_CORE_FEATURES;
++extern const char *OPENCL_COMPILER_OPTIONS;
++extern const char *g_valid_named_metadata[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_named_metadata);
++
++extern const char *KERNEL_ARG_ADDR_SPACE;
++extern const char *KERNEL_ARG_TY;
++extern const char *KERNEL_ARG_BASE_TY;
++extern const char *g_valid_kernel_arg_info[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_kernel_arg_info);
++
++extern const char *g_valid_version_names[];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_version_names);
++
++extern const char *g_valid_spir_versions[][2];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_spir_versions);
++
++extern const char *g_valid_ocl_versions[][2];
++EXTREN_DCL_ARRAY_LENGTH(g_valid_ocl_versions);
++
++
++
++
++///
++/// get error info message functions
++///
++
++extern std::string getValidOpenCLTypeMsg();
++
++extern std::string getValidLLVMTypeMsg();
++
++extern std::string getValidKernelReturnTypeMsg();
++
++extern std::string getValidIntrinsicMsg();
++
++extern std::string getValidAddressSpaceMsg();
++
++extern std::string getValidCallingConventionMsg();
++
++extern std::string getValidLinkageTypeMsg();
++
++extern std::string getValidGlobalAS3VariableMsg();
++
++extern std::string getValidGlobalVarAddressSpacesMsg();
++
++extern std::string getValidIndirectCallMsg();
++
++extern std::string getValidKernelArgInfoMsg();
++
++extern std::string getValidKernelArgAddressSpaceMsg();
++
++extern std::string getValidVersionMsg();
++
++extern std::string getValidMemFenceMsg();
++
++extern std::string getMapOpenCLToLLVMMsg();
++
++extern std::string getValidNamedMetadataMsg();
++
++extern std::string getValidCoreFeaturesMsg();
++
++extern std::string getValidKHRExtensionsMsg();
++
++extern std::string getValidCompilerOptionsMsg();
++
++} // End SPIR namespace
++
++#endif // __SPIR_TABLES_H__
+diff --git a/include/llvm/SPIRVerifier/SpirValidation.h b/include/llvm/SPIRVerifier/SpirValidation.h
+new file mode 100644
+index 0000000..3a51e3a
+--- /dev/null
++++ b/include/llvm/SPIRVerifier/SpirValidation.h
+@@ -0,0 +1,59 @@
++//===------------------------ SpirValidation.h ---------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#ifndef __SPIR_VALIDATION_H__
++#define __SPIR_VALIDATION_H__
++
++#include "llvm/SPIRVerifier/SpirErrors.h"
++#include "llvm/Pass.h"
++
++namespace SPIR {
++
++/// @brief Indicates whether a given module is a valid SPIR module
++///        according to SPIR 1.2 spec.
++class SpirValidation : public llvm::ModulePass {
++public:
++
++  /// @brief Pass identification, replacement for typeid.
++  static char ID;
++
++  /// @brief Constructor.
++  SpirValidation();
++
++  /// @brief Distructor.
++  virtual ~SpirValidation();
++
++  /// @brief Provides name of pass.
++  virtual const char *getPassName() const;
++
++  /// @brief LLVM Module pass entry.
++  /// @param M Module to transform.
++  /// @returns true if changed.
++  bool runOnModule(llvm::Module&);
++
++  /// @brief returns instance of ErrorPrinter implementation.
++  /// @returns error printer instance.
++  const ErrorPrinter *getErrorPrinter() const {
++    return &ErrHolder;
++  }
++
++private:
++
++  /// @brief Holder for errors found in the module
++  ErrorHolder ErrHolder;
++};
++
++} // End SPIR namespace
++
++
++namespace llvm {
++  ModulePass *createSpirValidationPass();
++}
++
++#endif // __SPIR_VALIDATION_H__
 diff --git a/include/llvm/Support/SPIRV.h b/include/llvm/Support/SPIRV.h
 new file mode 100644
 index 0000000..5828970
@@ -1094,10 +1955,10 @@ index 78d2fad..551559e 100644
  //===----------------------------------------------------------------------===//
  /// createReversePostOrderFunctionAttrsPass - This pass walks SCCs of the call
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index a4e7bce..4180a8b 100644
+index a4e7bce..796fe48 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -132,6 +132,14 @@ public:
+@@ -132,6 +132,15 @@ public:
    bool VerifyOutput;
    bool MergeFunctions;
    bool PrepareForLTO;
@@ -1106,6 +1967,7 @@ index a4e7bce..4180a8b 100644
 +  bool EnableMetalPasses;
 +  bool EnableMetalIntelWorkarounds;
 +  bool EnableSPIRPasses;
++  bool EnableVerifySPIR;
 +
 +  // can't rely on clang header here, so just use a uint32_t
 +  unsigned int floor_image_capabilities { 0 };
@@ -8851,14 +9713,15 @@ index 0000000..d2a1cca
 +
 +#endif
 diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
-index d00c10f..a7b9516 100644
+index d00c10f..5f71d23 100644
 --- a/lib/CMakeLists.txt
 +++ b/lib/CMakeLists.txt
-@@ -20,3 +20,4 @@ add_subdirectory(ProfileData)
+@@ -20,3 +20,5 @@ add_subdirectory(ProfileData)
  add_subdirectory(Fuzzer)
  add_subdirectory(Passes)
  add_subdirectory(LibDriver)
 +add_subdirectory(SPIRV)
++add_subdirectory(SPIRVerifier)
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
 index 0ce44e1..7b3c26b 100644
 --- a/lib/IR/AsmWriter.cpp
@@ -9041,19 +9904,20 @@ index 9198b0e..c2af3ab 100644
    AttributeSet Attrs = CS.getAttributes();
  
 diff --git a/lib/LLVMBuild.txt b/lib/LLVMBuild.txt
-index 2edb66a..51020e0 100644
+index 2edb66a..5811bd3 100644
 --- a/lib/LLVMBuild.txt
 +++ b/lib/LLVMBuild.txt
-@@ -34,6 +34,7 @@ subdirectories =
+@@ -34,6 +34,8 @@ subdirectories =
   Option
   Passes
   ProfileData
 + SPIRV
++ SPIRVerifier
   Support
   TableGen
   Target
 diff --git a/lib/Makefile b/lib/Makefile
-index 9b76126..7724f3b 100644
+index 9b76126..d084ccf 100644
 --- a/lib/Makefile
 +++ b/lib/Makefile
 @@ -12,6 +12,6 @@ include $(LEVEL)/Makefile.config
@@ -9061,7 +9925,7 @@ index 9b76126..7724f3b 100644
  PARALLEL_DIRS := IR AsmParser Bitcode Analysis Transforms CodeGen Target      \
                   ExecutionEngine Linker LTO MC Object Option DebugInfo        \
 -                 IRReader LineEditor ProfileData Passes LibDriver
-+                 IRReader LineEditor ProfileData Passes LibDriver SPIRV
++                 IRReader LineEditor ProfileData Passes LibDriver SPIRV SPIRVerifier
  
  include $(LEVEL)/Makefile.common
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
@@ -33514,6 +34378,2187 @@ index 0000000..bd7988b
 +
 +#endif  // #ifndef spirv_H
 +
+diff --git a/lib/SPIRVerifier/LLVMBuild.txt b/lib/SPIRVerifier/LLVMBuild.txt
+new file mode 100644
+index 0000000..7203f96
+--- /dev/null
++++ b/lib/SPIRVerifier/LLVMBuild.txt
+@@ -0,0 +1,23 @@
++;===- ./lib/SPIRVerifier/LLVMBuild.txt -------------------------*- Conf -*--===;
++;
++;                     The LLVM Compiler Infrastructure
++;
++; This file is distributed under the University of Illinois Open Source
++; License. See LICENSE.TXT for details.
++;
++;===------------------------------------------------------------------------===;
++;
++; This is an LLVMBuild description file for the components in this subdirectory.
++;
++; For more information on the LLVMBuild system, please see:
++;
++;   http://llvm.org/docs/LLVMBuild.html
++;
++;===------------------------------------------------------------------------===;
++
++
++[component_0]
++type = Library
++name = SPIRVerifier
++parent = Libraries
++required_libraries = Core Support Analysis
+diff --git a/lib/SPIRVerifier/Makefile b/lib/SPIRVerifier/Makefile
+new file mode 100644
+index 0000000..5885e2b
+--- /dev/null
++++ b/lib/SPIRVerifier/Makefile
+@@ -0,0 +1,14 @@
++##===- lib/SPIRVerifier/Makefile ---------------------------*- Makefile -*-===##
++#
++#                     The LLVM Compiler Infrastructure
++#
++# This file is distributed under the University of Illinois Open Source
++# License. See LICENSE.TXT for details.
++#
++##===----------------------------------------------------------------------===##
++
++LEVEL := ../..
++LIBRARYNAME := LLVMSPIRVerifier
++BUILD_ARCHIVE := 1
++
++include $(LEVEL)/Makefile.common
+diff --git a/lib/SPIRVerifier/README.md b/lib/SPIRVerifier/README.md
+new file mode 100644
+index 0000000..d845066
+--- /dev/null
++++ b/lib/SPIRVerifier/README.md
+@@ -0,0 +1,8 @@
++SPIR Verifier
++=============
++
++The SPIR verifier tool checks if a given file is valid according to SPIR 1.2 Specification for OpenCL document.
++The verifier is a work in progress, the current implementation is partial and does not check
++all restrictions in the Specification document.
++
++SPIR 1.2 Specification can be found under: http://www.khronos.org/files/opencl-spir-12-provisional.pdf
+diff --git a/lib/SPIRVerifier/SpirErrors.cpp b/lib/SPIRVerifier/SpirErrors.cpp
+new file mode 100644
+index 0000000..1256e5d
+--- /dev/null
++++ b/lib/SPIRVerifier/SpirErrors.cpp
+@@ -0,0 +1,376 @@
++//===-------------------------- SpirErrors.cpp ---------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#include "llvm/SPIRVerifier/SpirErrors.h"
++#include "llvm/SPIRVerifier/SpirTables.h"
++#include "llvm/IR/Type.h"
++#include "llvm/IR/Value.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/Support/raw_ostream.h"
++
++#include <string>
++#include <sstream>
++#include <map>
++
++using namespace llvm;
++
++namespace SPIR {
++
++ typedef enum {
++  INFO_NONE = 0,
++  // Information types
++  INFO_OCL_TYPE,
++  INFO_LLVM_TYPE,
++  INFO_KERNEL_RETURN_TYPE,
++  INFO_KERNEL_ARG_ADDRESS_SPACE,
++  INFO_GLOBAL_AS3_VAR,
++  INFO_GLOBAL_VAR_ADDRES_SPACES,
++  INFO_OCL_TO_LLVM_TYPE,
++  INFO_CORE_FEATURE_METADATA,
++  INFO_KHR_EXT_METADATA,
++  INFO_COMPILER_OPTION_METADATA,
++  INFO_INTRINSIC,
++  INFO_ADDRESS_SPACE,
++  INFO_CALLING_CONVENTION,
++  INFO_LINKAGE_TYPE,
++  INFO_INDIRECT_CALL,
++  INFO_NAMED_METADATA,
++  INFO_METADATA_KERNEL_ARG_INFO,
++  INFO_METADATA_VERSION,
++  INFO_MEM_FENCE,
++
++  SPIR_INFO_NUM
++} SPIR_INFO_TYPE;
++
++
++/// @brief Base error class, all error types inherit from it.
++struct ValidationError {
++public:
++  /// @brief Constructor.
++  /// @param T error type
++  /// @param S error message
++  ValidationError(SPIR_ERROR_TYPE T, llvm::StringRef S) :
++    ErrType(T), ErrMSG(S) {
++  }
++
++  /// @brief Get error type.
++  /// @returns error type
++  virtual SPIR_ERROR_TYPE getErrorType() const {
++    return ErrType;
++  }
++
++  /// @brief Get error message.
++  /// @returns error message
++  virtual llvm::StringRef toString() const {
++    return StringRef(ErrMSG);
++  }
++
++  /// @brief Destructor.
++  virtual ~ValidationError() {}
++
++protected:
++  SPIR_ERROR_TYPE ErrType;
++  std::string ErrMSG;
++};
++
++struct ErrorComperator {
++  const ValidationError * LHS;
++
++  ErrorComperator(const ValidationError *Err) : LHS(Err) {}
++
++  bool operator() (const ValidationError *RHS) {
++    if (LHS == RHS)
++      return true;
++
++    return
++      (LHS->getErrorType() == RHS->getErrorType()) &&
++      (LHS->toString() == RHS->toString());
++  }
++};
++
++#define MAX_ERROR_INFO_PER_ERROR (4)
++struct SPIR_ERROR_DATA {
++  SPIR_ERROR_TYPE T;
++  std::string MSG;
++  SPIR_INFO_TYPE InfoList[MAX_ERROR_INFO_PER_ERROR];
++  std::string ErrTypeStr;
++};
++
++typedef std::string (GetInfoMsgFunc)();
++struct SPIR_INFO_DATA {
++  SPIR_INFO_TYPE T;
++  GetInfoMsgFunc *GetMsg;
++};
++
++typedef std::map<SPIR_INFO_TYPE, unsigned> SPIRInfoTypeNumMap;
++
++const SPIR_ERROR_DATA g_ErrorData[SPIR_ERROR_NUM] = {
++  // Module (general) errors
++  // Type errors
++  {ERR_INVALID_OCL_TYPE, "Invalid OpenCL C type",
++      {INFO_OCL_TYPE, INFO_CORE_FEATURE_METADATA, INFO_KHR_EXT_METADATA}, "ERR_INVALID_OCL_TYPE"},
++  {ERR_INVALID_LLVM_TYPE, "Invalid LLVM type",
++      {INFO_LLVM_TYPE, INFO_CORE_FEATURE_METADATA, INFO_KHR_EXT_METADATA}, "ERR_INVALID_LLVM_TYPE"},
++  {ERR_INVALID_KERNEL_RETURN_TYPE, "Invalid SPIR kernel return type",
++      {INFO_KERNEL_RETURN_TYPE}, "ERR_INVALID_KERNEL_RETURN_TYPE"},
++  {ERR_KERNEL_ARG_PTRPTR, "SPIR kernel argument is a pointer to pointer",
++      {}, "ERR_KERNEL_ARG_PTRPTR"},
++  {ERR_KERNEL_ARG_AS0, "SPIR kernel argument is a pointer to private address space",
++      {INFO_KERNEL_ARG_ADDRESS_SPACE}, "ERR_KERNEL_ARG_AS0"},
++  {ERR_MISMATCH_OCL_AND_LLVM_TYPES, "Mismatch between OpenCL C and LLVM types",
++      {INFO_OCL_TO_LLVM_TYPE}, "ERR_MISMATCH_OCL_AND_LLVM_TYPES"},
++  {ERR_INVALID_GLOBAL_AS3_VAR, "Invalid program scope __local variable",
++    {INFO_GLOBAL_AS3_VAR}, "ERR_INVALID_GLOBAL_AS3_VAR"},
++  {ERR_INVALID_GLOBAL_VAR_ADDRESS_SPACE, "program scope variable in a wrong address space",
++    {INFO_GLOBAL_VAR_ADDRES_SPACES}, "ERR_INVALID_GLOBAL_VAR_ADDRESS_SPACE"},
++  // Instruction errors
++  {ERR_INVALID_INTRINSIC, "Invalid intrinsic",
++      {INFO_INTRINSIC},"ERR_INVALID_INTRINSIC"},
++  {ERR_INVALID_ADDR_SPACE, "Invalid address space",
++      {INFO_ADDRESS_SPACE}, "ERR_INVALID_ADDR_SPACE"},
++  {ERR_INVALID_ADDR_SPACE_CAST, "Invalid address space cast",
++      {INFO_ADDRESS_SPACE}, "ERR_INVALID_ADDR_SPACE_CAST"},
++  {ERR_INVALID_INDIRECT_CALL, "Invalid indirect call",
++      {INFO_INDIRECT_CALL}, "ERR_INVALID_INDIRECT_CALL"},
++  {ERR_INVALID_MEM_FENCE, "Invalid cl_mem_fence value",
++      {INFO_MEM_FENCE}, "ERR_INVALID_MEM_FENCE"},
++  // Function errors
++  {ERR_INVALID_CALLING_CONVENTION, "Invalid calling convention",
++      {INFO_CALLING_CONVENTION}, "ERR_INVALID_CALLING_CONVENTION"},
++  {ERR_INVALID_LINKAGE_TYPE, "Invalid linkage type",
++      {INFO_LINKAGE_TYPE}, "ERR_INVALID_LINKAGE_TYPE"},
++  // Metadata errors
++  {ERR_INVALID_CORE_FEATURE, "Invalid core features",
++      {INFO_CORE_FEATURE_METADATA}, "ERR_INVALID_CORE_FEATURE"},
++  {ERR_INVALID_KHR_EXT, "Invalid KHR extensions",
++      {INFO_KHR_EXT_METADATA}, "ERR_INVALID_KHR_EXT"},
++  {ERR_INVALID_COMPILER_OPTION, "Invalid compiler options",
++      {INFO_COMPILER_OPTION_METADATA},"ERR_INVALID_COMPILER_OPTION"},
++  {ERR_MISSING_NAMED_METADATA, "Named Metadata is missing",
++      {INFO_NAMED_METADATA}, "ERR_MISSING_NAMED_METADATA"},
++  {ERR_INVALID_METADATA_KERNEL, "Invalid kernel metatdata",
++      {}, "ERR_INVALID_METADATA_KERNEL"},
++  {ERR_INVALID_METADATA_KERNEL_INFO, "Invalid kernel metadata ARG Info",
++      {INFO_METADATA_KERNEL_ARG_INFO}, "ERR_INVALID_METADATA_KERNEL_INFO"},
++  {ERR_MISSING_METADATA_KERNEL_INFO, "Kernel metadata is missing ARG Info",
++      {INFO_METADATA_KERNEL_ARG_INFO}, "ERR_MISSING_METADATA_KERNEL_INFO"},
++  {ERR_INVALID_METADATA_VERSION, "Invalid OpenCL (OCL/SPIR) version",
++      {INFO_METADATA_VERSION}, "ERR_INVALID_METADATA_VERSION"},
++  {ERR_MISMATCH_METADATA_ADDR_SPACE, "Address space mismatch between kernel prototype and metadata",
++      {}, "ERR_MISMATCH_METADATA_ADDR_SPACE"}
++};
++
++const SPIR_INFO_DATA g_InfoData[SPIR_INFO_NUM] = {
++  {INFO_NONE, nullptr},
++  {INFO_OCL_TYPE, getValidOpenCLTypeMsg},
++  {INFO_LLVM_TYPE, getValidLLVMTypeMsg},
++  {INFO_KERNEL_RETURN_TYPE, getValidKernelReturnTypeMsg},
++  {INFO_KERNEL_ARG_ADDRESS_SPACE, getValidKernelArgAddressSpaceMsg},
++  {INFO_GLOBAL_AS3_VAR, getValidGlobalAS3VariableMsg},
++  {INFO_GLOBAL_VAR_ADDRES_SPACES, getValidGlobalVarAddressSpacesMsg},
++  {INFO_OCL_TO_LLVM_TYPE, getMapOpenCLToLLVMMsg},
++  {INFO_CORE_FEATURE_METADATA, getValidCoreFeaturesMsg},
++  {INFO_KHR_EXT_METADATA, getValidKHRExtensionsMsg},
++  {INFO_COMPILER_OPTION_METADATA, getValidCompilerOptionsMsg},
++  {INFO_INTRINSIC, getValidIntrinsicMsg},
++  {INFO_ADDRESS_SPACE, getValidAddressSpaceMsg},
++  {INFO_CALLING_CONVENTION, getValidCallingConventionMsg},
++  {INFO_LINKAGE_TYPE, getValidLinkageTypeMsg},
++  {INFO_INDIRECT_CALL, getValidIndirectCallMsg},
++  {INFO_NAMED_METADATA, getValidNamedMetadataMsg},
++  {INFO_METADATA_KERNEL_ARG_INFO, getValidKernelArgInfoMsg},
++  {INFO_METADATA_VERSION, getValidVersionMsg},
++  {INFO_MEM_FENCE, getValidMemFenceMsg}
++};
++
++static bool isValidTables() {
++  for (unsigned i=0; i<SPIR_ERROR_NUM; i++) {
++    if (g_ErrorData[i].T != (SPIR_ERROR_TYPE)i)
++      return false;
++  }
++
++  for (unsigned i=0; i<SPIR_INFO_NUM; i++) {
++    if (g_InfoData[i].T != (SPIR_INFO_TYPE)i)
++      return false;
++  }
++
++  return true;
++}
++
++//
++// Validation Errors
++//
++
++/// @brief Returns type's name.
++/// @param Ty type
++/// @returns type's name as std::string.
++static std::string getObjectAsString(const Type *Ty) {
++  std::string type_str;
++  llvm::raw_string_ostream rso(type_str);
++  Ty->print(rso);
++  return rso.str();
++}
++
++/// @brief Returns Value as string.
++/// @param V value
++/// @returns value as std::string.
++static std::string getObjectAsString(const llvm::Value *V) {
++  std::string type_str;
++  llvm::raw_string_ostream rso(type_str);
++  V->print(rso);
++  return rso.str();
++}
++
++/// @brief Returns Metadata as string.
++/// @param V value
++/// @returns value as std::string.
++static std::string getObjectAsString(const llvm::Metadata *MD) {
++  std::string type_str;
++  llvm::raw_string_ostream rso(type_str);
++  MD->print(rso);
++  return rso.str();
++}
++
++/// @brief Returns NamedMDNode as string.
++/// @param NMD named metadata node
++/// @returns named metadata node as std::string.
++static std::string getObjectAsString(const llvm::NamedMDNode *NMD) {
++  std::string type_str;
++  llvm::raw_string_ostream rso(type_str);
++  NMD->print(rso);
++  return rso.str();
++}
++
++ErrorHolder::ErrorHolder() {
++  assert(isValidTables() && "SPIR Error/Info data tables are invalid!");
++}
++
++ErrorHolder::~ErrorHolder() {
++  for (ErrorList::iterator ei=EL.begin(), ee=EL.end(); ei!=ee; ei++) {
++    const ValidationError *Err = *ei;
++    delete Err;
++  }
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::StringRef S) {
++  std::string ErrMsg;
++  ErrMsg += S.str() + "\n";
++  ValidationError *VE = new ValidationError(Err, ErrMsg);
++  EL.push_back(VE);
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::Value *V) {
++  ValidationError *VE = new ValidationError(Err, getObjectAsString(V));
++  EL.push_back(VE);
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::Metadata *MD) {
++  ValidationError *VE = new ValidationError(Err, getObjectAsString(MD));
++  EL.push_back(VE);
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::NamedMDNode *NMD) {
++  ValidationError *VE = new ValidationError(Err, getObjectAsString(NMD));
++  EL.push_back(VE);
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                                const llvm::StringRef S) {
++  std::string ErrMsg;
++  ErrMsg += "Type: " + getObjectAsString(T) + "\n";
++  ErrMsg += "Found in prototype of Function: " + S.str() + "\n";
++  ValidationError *VE = new ValidationError(Err, ErrMsg);
++  EL.push_back(VE);
++}
++
++void ErrorHolder::addError(SPIR_ERROR_TYPE Err, const llvm::Type *T,
++                                                const llvm::Value *V) {
++  std::string ErrMsg;
++  ErrMsg += "Type: " + getObjectAsString(T) + "\n";
++  ErrMsg += "Found in: " + getObjectAsString(V) + "\n";
++  ValidationError *VE = new ValidationError(Err, ErrMsg);
++  EL.push_back(VE);
++}
++
++void ErrorHolder::print(llvm::raw_ostream &S, bool LITMode) const {
++  ErrorList UEL;
++  SPIRInfoTypeNumMap ITmap;
++  // Calculate unique error list
++  // Collect relevant info types
++  for (ErrorList::const_iterator ei=EL.begin(), ee=EL.end(); ei!=ee; ei++) {
++    const ValidationError *Err = *ei;
++    ErrorComperator Dup(Err);
++    if (std::find_if(UEL.begin(), UEL.end(), Dup) == UEL.end()) {
++      // Add to unique error list
++      UEL.push_back(Err);
++      // Add to info type map, initialize number to zero
++      SPIR_ERROR_TYPE ErrType = Err->getErrorType();
++      for (unsigned i=0; i<MAX_ERROR_INFO_PER_ERROR; i++) {
++        SPIR_INFO_TYPE InfoType = g_ErrorData[ErrType].InfoList[i];
++        if (InfoType != INFO_NONE) {
++          ITmap[InfoType] = 0;
++        }
++      }
++    }
++  }
++
++  // Assign error info number for each relevant info type
++  // Create SPIR Info message
++  std::string InfoMsg;
++  if (!LITMode) {
++    unsigned ErrInfoNum = 0;
++    InfoMsg += "---------------------------------------------";
++    InfoMsg += "---------------------------------------------\n";
++    for (unsigned i=0; i<SPIR_INFO_NUM; i++) {
++      SPIR_INFO_TYPE InfoType = g_InfoData[i].T;
++      if (ITmap.count(InfoType) != 0) {
++        // Set error info number
++        ITmap[InfoType] = ++ErrInfoNum;
++        // Append error info message
++        std::stringstream SS;
++        SS << "[" << ErrInfoNum << "] " << g_InfoData[i].GetMsg() << "\n";
++        InfoMsg += SS.str();
++      }
++    }
++  }
++
++  // Create error message
++  std::string ErrMsg;
++  unsigned ErrNum = 0;
++
++  for (ErrorList::const_iterator ei=UEL.begin(), ee=UEL.end(); ei!=ee; ei++) {
++    const ValidationError *Err = *ei;
++    std::stringstream SS;
++    SPIR_ERROR_TYPE ErrType = Err->getErrorType();
++    SS << "(" << ++ErrNum << ") Error";
++    if(!LITMode) {
++      for (unsigned i=0; i<MAX_ERROR_INFO_PER_ERROR; i++) {
++        SPIR_INFO_TYPE InfoType = g_ErrorData[ErrType].InfoList[i];
++        if (InfoType != INFO_NONE) {
++          SS << "[" << ITmap[InfoType] << "]";
++        }
++      }
++      SS << " " << g_ErrorData[ErrType].MSG.c_str() << ":\n";
++    } else {
++      SS << " " << g_ErrorData[ErrType].ErrTypeStr << ":\n";
++    }
++    SS << Err->toString().str().c_str() << "\n";
++    ErrMsg += SS.str();
++  }
++
++  // Print error message and SPIR info message to output stream
++  S << ErrMsg;
++  S << InfoMsg;
++}
++
++bool ErrorHolder::hasErrors() const {
++  return !EL.empty();
++}
++
++} // End SPIR namespace
+diff --git a/lib/SPIRVerifier/SpirIterators.cpp b/lib/SPIRVerifier/SpirIterators.cpp
+new file mode 100644
+index 0000000..9d2cb89
+--- /dev/null
++++ b/lib/SPIRVerifier/SpirIterators.cpp
+@@ -0,0 +1,1029 @@
++//===------------------------ SpirValidation.h ---------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#include "llvm/SPIRVerifier/SpirIterators.h"
++#include "llvm/SPIRVerifier/SpirErrors.h"
++#include "llvm/SPIRVerifier/SpirTables.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/Instruction.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/Value.h"
++#include <sstream>
++#include <algorithm>
++
++namespace SPIR {
++
++//
++// Iterator classes (impl).
++//
++
++void BasicBlockIterator::execute(const llvm::BasicBlock& BB) {
++  // Run over all instructions in basic block.
++  BasicBlock::const_iterator ii = BB.begin(), ie = BB.end();
++  for (; ii != ie; ii++) {
++    // For each instruction apply all executors from the list.
++    const Instruction *I = &*ii;
++    InstructionExecutorList::iterator iei = m_iel.begin(), iee = m_iel.end();
++    for (; iei != iee; iei++) {
++      (*iei)->execute(I);
++    }
++  }
++}
++
++void FunctionIterator::execute(const llvm::Function& F) {
++  // Apply all executors from the list on the given function.
++  FunctionExecutorList::iterator fei = m_fel.begin(), fee = m_fel.end();
++  for (; fei != fee; fei++) {
++    (*fei)->execute(&F);
++  }
++  // If basic block iterator available
++  // Apply it for each basic block in the given function.
++  if (m_bbi) {
++    Function::const_iterator bi = F.begin(), be = F.end();
++    for (; bi != be; bi++) {
++      const BasicBlock *BB = &*bi;
++      m_bbi->execute(*BB);
++    }
++  }
++}
++
++void GlobalVariableIterator::execute(const llvm::GlobalVariable& GV) {
++  // Apply all executors from the list on the given global variable.
++  GlobalVariableExecutorList::iterator gei = m_gvel.begin(),
++                                       gee = m_gvel.end();
++  for (; gei != gee; gei++) {
++    (*gei)->execute(&GV);
++  }
++}
++
++void ModuleIterator::execute(const llvm::Module& M) {
++  // Apply all executors from the list on the given module.
++  ModuleExecutorList::iterator mei = m_mel.begin(), mee = m_mel.end();
++  for (; mei != mee; mei++) {
++    (*mei)->execute(&M);
++  }
++  // If function iterator available
++  // Apply it for each function in the given module.
++  if (m_fi) {
++    Module::const_iterator fi = M.begin(), fe = M.end();
++    for (; fi != fe; fi++) {
++      const Function *F = &*fi;
++      m_fi->execute(*F);
++    }
++  }
++  // If global variable iterator available
++  // Apply it for each global variable in the given module.
++  if (m_gi) {
++    Module::const_global_iterator gi = M.global_begin(), ge = M.global_end();
++    for (; gi != ge; gi++) {
++      const GlobalVariable *GV = &*gi;
++      m_gi->execute(*GV);
++    }
++  }
++}
++
++void MetaDataIterator::execute(const llvm::MDNode& Node) {
++  // Apply all executors from the list on the given Metadata node.
++  for (unsigned int i=0; i<Node.getNumOperands(); ++i) {
++    const llvm::MDNode *Op = dyn_cast<llvm::MDNode>(Node.getOperand(i));
++    if (Op) {
++      MDNodeExecutorList::iterator nei = m_nel.begin(), nee = m_nel.end();
++      for (; nei != nee; nei++) {
++        (*nei)->execute(Op);
++      }
++    }
++  }
++}
++
++//
++// Utility functions.
++//
++
++/// @brief Check if given name is valid according to given valid list.
++/// @param Name given name to validate.
++/// @param ValidList given valid list to validate against.
++/// @returns true if name is valid, false otherwise.
++static bool isValidNameOf(StringRef Name, const char *ValidList[], unsigned len) {
++  for (unsigned i=0; i<len; i++) {
++    StringRef candidate(ValidList[i]);
++    if (Name == candidate)
++      return true;
++  }
++  return false;
++}
++
++/// @brief Check if given name start with valid prefix according to given valid list.
++/// @param Name given name to validate.
++/// @param ValidList given valid list to validate against.
++/// @returns size of valid prefix, 0 if no valid prefix.
++static int hasPrefixValidNameOf(StringRef Name, const char *ValidList[], unsigned len) {
++  for (unsigned i=0; i<len; i++) {
++    StringRef candidate(ValidList[i]);
++    if (Name.startswith(candidate))
++      return candidate.size();
++  }
++  return 0;
++}
++
++// Returns true if the string is a legal name.
++static bool isValidTypeName(StringRef TyName) {
++  // Check if type start with a prefix of ignored type
++  if (hasPrefixValidNameOf(TyName, g_ignored_ocl_types,
++                                   g_ignored_ocl_types_len)) {
++    return true;
++  }
++  // Check if type is a valid OCL type.
++  if( isValidNameOf(TyName, g_valid_ocl_opaque_types,
++                            g_valid_ocl_opaque_types_len) ) {
++    return true;
++  }
++  // Check if type is a valid vector element type.
++  int prefixLen = hasPrefixValidNameOf(TyName,
++    g_valid_ocl_vector_element_types, g_valid_ocl_vector_element_types_len);
++  if (prefixLen) {
++    TyName = TyName.substr(prefixLen);
++    // Check for vector length suffix.
++    prefixLen = hasPrefixValidNameOf(TyName,
++      g_valid_vector_type_lengths, g_valid_vector_type_lengths_len);
++    TyName = TyName.substr(prefixLen);
++  } else {
++    // Check if type is a valid scalar primitive type.
++    prefixLen = hasPrefixValidNameOf(TyName,
++      g_valid_ocl_primitives, g_valid_ocl_primitives_len);
++    TyName = TyName.substr(prefixLen);
++  }
++  // '*' is the only possible suffix now (spaces are ignored).
++    for (unsigned int pos = 0; pos < TyName.size(); ++pos) {
++      if (TyName[pos] == ' ')
++        continue;
++      if (TyName[pos] == '[') {
++        // Array types are ignored. TODO: are they allowed?
++        return true;
++      }
++      if (TyName[pos] != '*')
++        return false;
++    }
++    return true;
++}
++
++/// @brief Check if given Value is an MDNode of given Type name.
++/// @param V given value to validate.
++/// @param type given type name validate against.
++/// @returns true if match, false otherwise.
++static bool isMDNodeTypeOf(const Metadata *V, StringRef type) {
++  if (!isa<MDNode>(V))
++    return false;
++
++  const MDNode *N = cast<MDNode>(V);
++  const MDString *StringVal = dyn_cast<MDString>(N->getOperand(0));
++  return StringVal && StringVal->getString() == type;
++}
++
++static bool isAllowedIntrinsic(StringRef FName) {
++  bool IsValidIntrinsic = hasPrefixValidNameOf(FName,
++    g_valid_instrinsic, g_valid_instrinsic_len) != 0;
++  bool IsIgnoredIntrinsic = hasPrefixValidNameOf(FName,
++    g_ignored_instrinsic, g_ignored_instrinsic_len) != 0;
++  return IsValidIntrinsic || IsIgnoredIntrinsic;
++}
++
++//
++// LLVM types validaiton
++//
++static bool isValidPrimitiveType(Type *Ty, DataHolder *D, bool isPointer) {
++  return
++    (Ty->isDoubleTy() && D->HasDoubleFeature) ||
++    (Ty->isHalfTy() && (D->HASFp16Extension || isPointer)) ||
++    Ty->isFloatTy() ||
++    Ty->isIntegerTy(1) || Ty->isIntegerTy(8) || Ty->isIntegerTy(16) ||
++    Ty->isIntegerTy(32) || Ty->isIntegerTy(64) || Ty->isVoidTy();
++}
++
++static bool isIgnoredPrimitiveType(Type *Ty) {
++  return Ty->isMetadataTy();
++}
++
++static bool isValidVectorElementType(Type *Ty, DataHolder *D, bool isPointer) {
++  return
++    (Ty->isDoubleTy() && D->HasDoubleFeature) ||
++    (Ty->isHalfTy() && (D->HASFp16Extension || isPointer)) ||
++    Ty->isFloatTy() ||
++    Ty->isIntegerTy(8) || Ty->isIntegerTy(16) || Ty->isIntegerTy(32) ||
++    Ty->isIntegerTy(64);
++}
++
++static bool isValidVectorElementsNum(unsigned ElementsNum) {
++  return ElementsNum == 2 || ElementsNum == 3 || ElementsNum == 4 ||
++    ElementsNum == 8 || ElementsNum == 16;
++}
++
++static bool isValidOCLOpaqueType(const StructType *Ty, DataHolder *D) {
++  return
++    isValidNameOf(Ty->getName(), g_valid_llvm_opaque_types,
++                                 g_valid_llvm_opaque_types_len) ||
++    (isValidNameOf(Ty->getName(), g_valid_llvm_image_types,
++                                  g_valid_llvm_image_types_len) &&
++     (!D || D->HasImageFeature));
++}
++
++static bool isValidType(Type *Ty, DataHolder *D,
++                        bool isBoolAllowed, bool isOpaqueAllowed,
++                        bool isBoolVecAllowed, bool isPointer) {
++  // Check if it is a pointer
++  if (Ty->isPointerTy()) {
++    return isValidType(Ty->getContainedType(0), D,
++      true, true, isBoolVecAllowed, true);
++  }
++
++  // Check if it is an Array
++  if (Ty->isArrayTy()) {
++    return isValidType(Ty->getContainedType(0), D,
++      false, false, isBoolVecAllowed, isPointer);
++  }
++
++  // Check if it is a Structure
++  if (const StructType *STy = dyn_cast<StructType>(Ty)) {
++    if (STy->isOpaque()) {
++      if (!isOpaqueAllowed) {
++        return false;
++      }
++      // Check of it is allowed OpenCL opaque types
++      if (isValidOCLOpaqueType(STy, D)) {
++        return true;
++      }
++      // Ignor other opaque type
++      // TODO: check if it is supported by SPIR
++      return true;
++    }
++    for (unsigned i=0; i<STy->getStructNumElements(); i++) {
++      if (!isValidType(STy->getStructElementType(i), D,
++          false, false, isBoolVecAllowed, isPointer)) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  // Check if it is a vector
++  if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
++    if (!isValidVectorElementsNum(VTy->getNumElements())) {
++      return false;
++    }
++    if (isBoolVecAllowed) {
++      return isValidType(VTy->getElementType(), D,
++        isBoolAllowed, false, isBoolVecAllowed, isPointer);
++    }
++    return isValidType(VTy->getElementType(), D,
++      false, false, isBoolVecAllowed, isPointer);
++  }
++
++  // Check if it is a valid primitive type
++  if (!isBoolAllowed) {
++    return isValidVectorElementType(Ty, D, isPointer);
++  }
++  return isValidPrimitiveType(Ty, D, isPointer) || isIgnoredPrimitiveType(Ty);
++
++}
++
++static std::string MapLLVMToOCL(Type *Ty, bool &Ignore) {
++  // Check if it is a pointer
++  if (Ty->isPointerTy()) {
++    return MapLLVMToOCL(Ty->getContainedType(0), Ignore) + "*";
++  }
++
++  // Check if it is an Array
++  if (Ty->isArrayTy()) {
++    // Do not know how to handle Array, mark this check as ignored
++    Ignore = true;
++    return "";
++  }
++
++  // Check if it is a Structure
++  if (const StructType *STy = dyn_cast<StructType>(Ty)) {
++    if (STy->isOpaque() && isValidOCLOpaqueType(STy, nullptr)) {
++      std::string TypeName = STy->getStructName();
++      TypeName = TypeName.substr(StringRef(g_llvm_opaque_prefix).size());
++      return TypeName;
++    }
++    std::string TypeName = STy->getStructName();
++    TypeName = "struct " + TypeName.substr(StringRef("struct.").size());
++    // TODO: maybe it is better to just Ignore this check
++    Ignore = true;
++    return TypeName;
++  }
++
++  // Check if it is a vector
++  if (const VectorType *VTy = dyn_cast<VectorType>(Ty)) {
++    std::stringstream SS;
++    SS << MapLLVMToOCL(VTy->getElementType(), Ignore) << VTy->getNumElements();
++    return SS.str();
++  }
++
++  // Check if it is a valid primitive type
++  if (Ty->isFloatTy()) {
++    return "float";
++  }
++  if (Ty->isDoubleTy()) {
++    return "double";
++  }
++  if (Ty->isHalfTy()) {
++    return "half";
++  }
++  if (Ty->isIntegerTy(1)) {
++    return "bool";
++  }
++  if (Ty->isIntegerTy(8)) {
++    return "char";
++  }
++  if (Ty->isIntegerTy(16)) {
++    return "short";
++  }
++  if (Ty->isIntegerTy(32)) {
++    return "int";
++  }
++  if (Ty->isIntegerTy(64)) {
++    return "long";
++  }
++  // Any other type is not allowed, return empty string
++  return "";
++}
++
++static bool isValidMapOCLToLLVM(StringRef TyName, Type *Ty, DataHolder *D) {
++  // Check if type start with a prefix of ignored type
++  if (hasPrefixValidNameOf(TyName, g_ignored_ocl_types,
++                                   g_ignored_ocl_types_len)) {
++    return true;
++  }
++
++  bool Ignore = false;
++  std::string ConvertedName = MapLLVMToOCL(Ty, Ignore);
++
++  if (Ignore) {
++    // Do not know how to convert, ignore this check.
++    return true;
++  }
++
++  if (TyName.find("void") != std::string::npos) {
++    // TODO: Can 'void' be verified?
++    return true;
++  }
++
++  std::string StrName = TyName;
++  // Handle special type conversions
++  if( isValidNameOf(TyName, g_valid_ocl_opaque_types,
++                            g_valid_ocl_opaque_types_len) ) {
++    if (TyName == "sampler_t") {
++      StrName = "int"; //"i32"
++    }
++    else if (TyName == "size_t" || TyName == "ptrdiff_t" ||
++        TyName == "uintptr_t" || TyName == "intptr_t") {
++      if (D->Is32Bit) {
++        StrName = "int"; //"i32"
++      }
++      else {
++        StrName = "long";
++      }
++    }
++    else {
++      StrName += "*";
++    }
++  }
++  else if (TyName.startswith("unsigned")) {
++    StrName = TyName.substr(StringRef("unsigned").size());
++  }
++  else if (TyName.startswith("u")) {
++    StrName = TyName.substr(StringRef("u").size());
++  }
++
++  return (StrName == ConvertedName);
++}
++
++static bool isValidAddrSpaceCast(const BitCastInst *BI) {
++  const PointerType *LHS = dyn_cast<PointerType>(BI->getDestTy()),
++                    *RHS = dyn_cast<PointerType>(BI->getSrcTy());
++  if (!LHS || !RHS)
++    return true;
++
++  const unsigned int DstAddress = LHS->getAddressSpace();
++  const unsigned int SrcAddress = RHS->getAddressSpace();
++  return (SrcAddress == DstAddress);
++}
++
++static bool isValidAddrSpaceCast(const User *V) {
++
++  for (unsigned i = 0; i < V->getNumOperands(); i++) {
++    // If the operand is not a constant expression, we will (or already did),
++    // visit it as a command from the main block iteration.
++    if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(V->getOperand(i)))
++      isValidAddrSpaceCast(CE);
++  }
++
++  const ConstantExpr *CE = dyn_cast<ConstantExpr>(V);
++  if (!CE)
++    return true;
++
++  const PointerType *PTy  = dyn_cast<PointerType>(CE->getType());
++  if (!PTy)
++    return true;
++
++  const unsigned int DstAddress = PTy->getAddressSpace();
++  if (Instruction::BitCast == CE->getOpcode()) {
++    const PointerType *STy = dyn_cast<PointerType>(CE->getOperand(0)->getType());
++    if (STy) {
++      const unsigned int SrcAddress = STy->getAddressSpace();
++      return (SrcAddress == DstAddress);
++    }
++  }
++
++  return true;
++}
++
++static bool isValidAddrSpace(unsigned AddSpace) {
++  assert(g_valid_address_space_len == 4 &&
++    "In SPIR 1.2 we have only 4 address spaces");
++  return AddSpace < g_valid_address_space_len;
++}
++
++static bool isValidOCLVersion(unsigned Major, unsigned Minor) {
++  return (Major == 1 && Minor == 2);
++}
++
++static bool isValidSPIRVersion(unsigned Major, unsigned Minor) {
++  return (Major == 1 && Minor == 2);
++}
++
++static bool isValidMemfence(unsigned Val) {
++  return (Val == 1 || Val == 2 || Val == 3);
++}
++
++static bool isValidLinkageType(llvm::GlobalValue::LinkageTypes LT) {
++  return LT == llvm::GlobalValue::ExternalLinkage
++      || LT == llvm::GlobalValue::PrivateLinkage
++      || LT == llvm::GlobalValue::InternalLinkage
++      || LT == llvm::GlobalValue::AvailableExternallyLinkage;
++}
++
++//
++// Verify Executor classes (impl).
++//
++void VerifyCall::execute(const Instruction *I) {
++  const CallInst *CI = dyn_cast<CallInst>(I);
++  if (!CI)
++    return;
++
++  // Verify that this call is not indirect.
++  const Function *F = CI->getCalledFunction();
++  if (!F) {
++    ErrCreator->addError(ERR_INVALID_INDIRECT_CALL, I);
++    return;
++  }
++
++  if (!F->isDeclaration()) {
++    // Verify that this call has valid calling convention.
++    if (CI->getCallingConv() != CallingConv::SPIR_KERNEL &&
++        CI->getCallingConv() != CallingConv::SPIR_FUNC) {
++        ErrCreator->addError(ERR_INVALID_CALLING_CONVENTION, I);
++    }
++  }
++
++  // Verify valid memfence for synchronize functions
++  if (hasPrefixValidNameOf(F->getName(), g_valid_sync_bi, g_valid_sync_bi_len)) {
++    if (CI->getNumArgOperands() != 1) {
++      ErrCreator->addError(ERR_INVALID_MEM_FENCE, I);
++    }
++    ConstantInt *MemfenceVal = dyn_cast<ConstantInt>(CI->getOperand(0));
++    if (!MemfenceVal ||
++      !isValidMemfence((unsigned)MemfenceVal->getZExtValue())) {
++      ErrCreator->addError(ERR_INVALID_MEM_FENCE, I);
++    }
++  }
++
++  // Verify that this call is valid intrinsic.
++  if (F->isIntrinsic() && !isAllowedIntrinsic(F->getName())) {
++    ErrCreator->addError(ERR_INVALID_INTRINSIC, I);
++  }
++}
++
++void VerifyBitcast::execute(const Instruction *I) {
++  if (const BitCastInst *BI = dyn_cast<BitCastInst>(I)) {
++    // Verify that this bitcast is not adress space cast.
++    if (!isValidAddrSpaceCast(BI))
++      ErrCreator->addError(ERR_INVALID_ADDR_SPACE_CAST, I);
++  }
++
++  for (unsigned i = 0; i < I->getNumOperands(); i++) {
++    // Verify that each opernad is not const expression adress space cast.
++    if (const User *Usr = dyn_cast<User>(I->getOperand(i)))
++      if (!isValidAddrSpaceCast(Usr) )
++        ErrCreator->addError(ERR_INVALID_ADDR_SPACE_CAST, I);
++  }
++}
++
++void VerifyInstructionType::execute(const Instruction *I) {
++  Type *Ty = I->getType();
++  bool isValid = true;
++  switch(I->getOpcode()) {
++  case Instruction::ICmp:
++  case Instruction::FCmp:
++    isValid = isValidType(Ty, Data, true, true, true, false);
++    break;
++  default:
++    isValid = isValidType(Ty, Data, true, true, false, false);
++    break;
++  }
++  if (!isValid)
++    ErrCreator->addError(ERR_INVALID_LLVM_TYPE, Ty, I);
++}
++
++void VerifyFunctionPrototype::execute(const Function *F) {
++  if (!F->isDeclaration()) {
++    // Verify calling convention for user defined functions
++    if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
++        F->getCallingConv() != CallingConv::SPIR_FUNC)
++          ErrCreator->addError(ERR_INVALID_CALLING_CONVENTION, F->getName());
++  }
++  Function::const_arg_iterator ai = F->arg_begin(), ae = F->arg_end();
++  for (; ai != ae; ai++) {
++    Type *Ty = ai->getType();
++    if (!isValidType(Ty, Data, true, true, false, false)) {
++      ErrCreator->addError(ERR_INVALID_LLVM_TYPE, Ty, F->getName());
++    }
++  }
++  // Verify function linkage
++  if (!isValidLinkageType(F->getLinkage())) {
++    ErrCreator->addError(ERR_INVALID_LINKAGE_TYPE, F->getName());
++  }
++  // Verify function return type.
++  if (!isValidType(F->getReturnType(), Data, true, true, false, false)) {
++    ErrCreator->addError(
++      ERR_INVALID_LLVM_TYPE, F->getReturnType(), F->getName());
++  }
++}
++
++void VerifyKernelPrototype::execute(const Function *F) {
++  // detect kernel by looking at the calling convention
++  if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
++    return;
++
++  // check arguments
++  Function::const_arg_iterator ai = F->arg_begin(), ae = F->arg_end();
++  for (; ai != ae; ai++) {
++    Type *Ty = ai->getType();
++
++    // kernel arguments shall not be pointers to pointers
++    if (Ty->isPointerTy() && Ty->getPointerElementType()->isPointerTy()) {
++      ErrCreator->addError(ERR_KERNEL_ARG_PTRPTR, Ty, F->getName());
++    }
++
++    // kernel arguments shall not be pointers to a private addrspace
++	// except for aggregate types which are always pointer types
++    if (Ty->isPointerTy() &&
++        !Ty->getPointerElementType()->isStructTy() &&
++        Ty->getPointerAddressSpace() == PRIVATE_ADDR_SPACE) {
++      ErrCreator->addError(ERR_KERNEL_ARG_AS0, Ty, F->getName());
++    }
++  }
++
++  // the return type shall be void
++  if (!F->getReturnType()->isVoidTy()) {
++    ErrCreator->addError(
++      ERR_INVALID_KERNEL_RETURN_TYPE, F->getReturnType(), F->getName());
++  }
++}
++
++void VerifyGlobalVariable::execute(const GlobalVariable *GV) {
++  // Verify variable linkage
++  if (!isValidLinkageType(GV->getLinkage())) {
++    ErrCreator->addError(ERR_INVALID_LINKAGE_TYPE, GV->getName());
++  }
++
++  // check the global variable address space
++  switch (GV->getType()->getPointerAddressSpace()) {
++  case CONSTANT_ADDR_SPACE:
++    // constant address space: everything OK
++    break;
++  case LOCAL_ADDR_SPACE: {
++    // local address space:
++    // it is a function-scope variable,
++    // must contain a prefix that is equal to the name of a function
++    // and should be used only in it
++    for (Value::const_use_iterator ib = GV->use_begin(), ie = GV->use_end(); ib != ie; ++ib) {
++      if (const Instruction *Inst = dyn_cast<Instruction>(*ib)) {
++        const Function * func = Inst->getParent()->getParent();
++        if (!(GV->getName().startswith(func->getName().str() + "."))) {
++           ErrCreator->addError(ERR_INVALID_GLOBAL_AS3_VAR, GV);
++           break;
++        }
++      }
++    }
++    break;
++  }
++  default:
++    ErrCreator->addError(ERR_INVALID_GLOBAL_VAR_ADDRESS_SPACE, GV);
++    break;
++  }
++}
++
++void VerifyMetadataArgAddrSpace::execute(const llvm::MDNode *Node) {
++  if (!isMDNodeTypeOf(Node, KERNEL_ARG_ADDR_SPACE))
++    return;
++
++  WasFound = true;
++  // Verify that kernel arg base type metadata list is valid.
++  for (unsigned i=1; i<Node->getNumOperands(); i++) {
++    auto *AddrSpaceMD = dyn_cast<ConstantAsMetadata>(Node->getOperand(i));
++    if (!AddrSpaceMD) {
++      ErrCreator->addError(ERR_INVALID_METADATA_KERNEL_INFO, Node);
++      continue;
++    }
++    ConstantInt *AddrSpace = dyn_cast<ConstantInt>(AddrSpaceMD->getValue());
++    if (!AddrSpace) {
++      ErrCreator->addError(ERR_INVALID_METADATA_KERNEL_INFO, Node);
++      continue;
++    }
++    unsigned AddrSpaceVal = (unsigned)AddrSpace->getZExtValue();
++    if (!isValidAddrSpace(AddrSpaceVal)) {
++      ErrCreator->addError(ERR_INVALID_ADDR_SPACE, Node);
++    }
++    // Verify that LLVM Type of relevant function prototype argument
++    // has same address space.
++    const unsigned ArgIndex = i-1;
++    Type *Ty = Func->getFunctionType()->getParamType(ArgIndex);
++    unsigned ArgAddrSpace = 0;
++    if (PointerType *PTy = dyn_cast<PointerType>(Ty)) {
++      ArgAddrSpace = PTy->getAddressSpace();
++    }
++    if (ArgAddrSpace != AddrSpaceVal) {
++      ErrCreator->addError(ERR_INVALID_METADATA_KERNEL_INFO, Node);
++      ErrCreator->addError(ERR_MISMATCH_METADATA_ADDR_SPACE, Ty,
++                                                            Func->getName());
++    }
++  }
++}
++
++void VerifyMetadataArgType::execute(const llvm::MDNode *Node) {
++  if (isMDNodeTypeOf(Node, KERNEL_ARG_TY)) {
++    WasFound = true;
++  }
++}
++
++void VerifyMetadataArgBaseType::execute(const llvm::MDNode *Node) {
++  if (!isMDNodeTypeOf(Node, KERNEL_ARG_BASE_TY))
++    return;
++
++  WasFound = true;
++  // Verify that kernel arg base type metadata list is valid.
++  for (unsigned i=1; i<Node->getNumOperands(); i++) {
++    MDString *StringValue = dyn_cast<MDString>(Node->getOperand(i));
++    if (!StringValue) {
++      ErrCreator->addError(ERR_INVALID_METADATA_KERNEL_INFO, Node);
++      continue;
++    }
++    StringRef S = StringValue->getString();
++    if (!isValidTypeName(S)) {
++      ErrCreator->addError(ERR_INVALID_OCL_TYPE, Node);
++      continue;
++    }
++    // Verify that LLVM Type of relevant function prototype argument
++    // has same address space.
++    const unsigned ArgIndex = i-1;
++    Type *Ty = Func->getFunctionType()->getParamType(ArgIndex);
++    if (!isValidMapOCLToLLVM(S, Ty, Data)) {
++      ErrCreator->addError(ERR_MISMATCH_OCL_AND_LLVM_TYPES, Node);
++      ErrCreator->addError(ERR_MISMATCH_OCL_AND_LLVM_TYPES, Ty,
++                                                            Func->getName());
++    }
++  }
++}
++
++void VerifyMetadataKernel::execute(const llvm::MDNode *Node) {
++  // Verify that first operand is a valid function type.
++  if (Node->getNumOperands() < 1) {
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
++    return;
++  }
++  ValueAsMetadata* FMD = dyn_cast<ValueAsMetadata>(Node->getOperand(0));
++  if (!FMD) {
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
++    return;
++  }
++  Function *F = dyn_cast<Function>(FMD->getValue());
++  if (!F) {
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
++    return;
++  }
++  if (F->getCallingConv() != CallingConv::SPIR_KERNEL) {
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
++  }
++  if (FoundMap.count(F)) {
++    // Function has two kernel metadata nodes
++    // Mark both of them as invalid metadata kernel
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, FoundMap[F]);
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
++  }
++  // Insert <F, Node> pair to the found map.
++  FoundMap[F] = Node;
++
++  // Initialize second level executors.
++  MDNodeExecutorList nel;
++  // kernel arg address space metadata verifier.
++  VerifyMetadataArgAddrSpace vmdaas(ErrCreator, F);
++  nel.push_back(&vmdaas);
++  // kernel arg type metadata verifier.
++  VerifyMetadataArgType vmdat(ErrCreator);
++  nel.push_back(&vmdat);
++  // kernel arg base type metadata verifier.
++  VerifyMetadataArgBaseType vmdabt(ErrCreator, F, Data);
++  nel.push_back(&vmdabt);
++
++  MetaDataIterator mdi(nel);
++  mdi.execute(*Node);
++
++  // Varify that metadata arg address space exists.
++  if (!vmdaas.found()) {
++    ErrCreator->addError(ERR_MISSING_METADATA_KERNEL_INFO, Node);
++  }
++
++  // Varify that metadata arg type exists.
++  if (!vmdat.found()) {
++    ErrCreator->addError(ERR_MISSING_METADATA_KERNEL_INFO, Node);
++  }
++
++  // Varify that metadata arg base type exists.
++  if (!vmdabt.found()) {
++    ErrCreator->addError(ERR_MISSING_METADATA_KERNEL_INFO, Node);
++  }
++}
++
++void VerifyMetadataKernels::execute(const llvm::Module *M) {
++  // Counting the number of kernels in the module.
++  unsigned int NumKernels = 0;
++  Module::const_iterator fi = M->begin(), fe = M->end();
++  for (; fi != fe; fi++) {
++    const Function *F = &*fi;
++    if (F->getCallingConv() == CallingConv::SPIR_KERNEL) {
++      NumKernels++;
++    }
++  }
++
++  // Acquiring kernels node.
++  NamedMDNode *MDKernels = M->getNamedMetadata(OPENCL_KERNELS);
++  if (!MDKernels) {
++    ErrCreator->addError(ERR_MISSING_NAMED_METADATA, OPENCL_KERNELS);
++    return;
++  }
++
++  // Verify that number of function kernels mach number of metadata kernels.
++  const unsigned int NumMDKernels = MDKernels->getNumOperands();
++
++  if (NumKernels != NumMDKernels) {
++    std::stringstream Msg;
++    Msg << "inconsistency in kernels nodes. ";
++    Msg << "The module has " << NumMDKernels << " metadata nodes, but ";
++    Msg << NumKernels << " kernels";
++    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Msg.str());
++  }
++
++  // If there are no kernels, we have no more tests to do.
++  if (!NumKernels)
++    return;
++
++  //Kernel MetaData structure:
++  // !opencl.kernels = {!0, !1, ...}
++  // !0 = {llvm::Function*, !10, !11, ...}
++  // ...
++  // !10 = {metadata !"kernel_arg_base_type", metadata !"<TY1>", ...}
++  // !11 = {metadata !"kernel_arg_type", metadata !"<TY1>", ...}
++
++  FunctionToMDNodeMap FoundMap;
++  VerifyMetadataKernel vmk(ErrCreator, Data, FoundMap);
++  for (unsigned i = 0; i < NumMDKernels; i++) {
++    MDNode *N = dyn_cast<MDNode>(MDKernels->getOperand(i));
++    if (!N) {
++      // Is this possible for LLVM valid IR?
++      ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, MDKernels);
++    }
++    // Apply Metadata kernel executor.
++    vmk.execute(N);
++  }
++}
++
++void VerifyMetadataVersions::execute(const llvm::Module *M) {
++  const char *VersionName = nullptr;
++  switch (VType) {
++  case VERSION_OCL:
++    VersionName = OPENCL_OCL_VERSION;
++    break;
++  case VERSION_SPIR:
++    VersionName = OPENCL_SPIR_VERSION;
++    break;
++  default:
++    assert(false && "Unknown OpenCL version type");
++  }
++
++  // Verify version exists.
++  NamedMDNode *NMDVersion = M->getNamedMetadata(VersionName);
++  if (!NMDVersion) {
++    ErrCreator->addError(ERR_MISSING_NAMED_METADATA, VersionName);
++    return;
++  }
++
++  // version MetaData structure:
++  // !opencl.ocl.version  = {!6}
++  // !opencl.spir.version = {!7}
++  // ...
++  // !6 = metadata !{i32 1, i32 2}
++  // !7 = metadata !{i32 1, i32 2}
++
++  // Verify that there is exactly one version.
++  if (NMDVersion->getNumOperands() != 1) {
++    ErrCreator->addError(ERR_INVALID_METADATA_VERSION, NMDVersion);
++    return;
++  }
++
++  MDNode *VersionNode = NMDVersion->getOperand(0);
++
++  // Verify valid version node
++  if (VersionNode->getNumOperands() != 2) {
++    ErrCreator->addError(ERR_INVALID_METADATA_VERSION, VersionNode);
++    return;
++  }
++
++  ConstantAsMetadata *VersionMajorMD = dyn_cast<ConstantAsMetadata>(VersionNode->getOperand(0));
++  ConstantAsMetadata *VersionMinorMD = dyn_cast<ConstantAsMetadata>(VersionNode->getOperand(1));
++
++  if (!VersionMajorMD || !VersionMinorMD) {
++    ErrCreator->addError(ERR_INVALID_METADATA_VERSION, VersionNode);
++    return;
++  }
++
++  ConstantInt *VersionMajor = dyn_cast<ConstantInt>(VersionMajorMD->getValue());
++  ConstantInt *VersionMinor = dyn_cast<ConstantInt>(VersionMinorMD->getValue());
++
++  if (!VersionMajor || !VersionMinor) {
++    ErrCreator->addError(ERR_INVALID_METADATA_VERSION, VersionNode);
++    return;
++  }
++
++  unsigned Major = (unsigned)VersionMajor->getZExtValue();
++  unsigned Minor = (unsigned)VersionMinor->getZExtValue();
++
++  bool IsValidVersion = false;
++  switch (VType) {
++  case VERSION_OCL:
++    IsValidVersion = isValidOCLVersion(Major, Minor);
++    break;
++  case VERSION_SPIR:
++    IsValidVersion = isValidSPIRVersion(Major, Minor);
++    break;
++  default:
++    assert(false && "Unknown OpenCL version type");
++  }
++
++  if (!IsValidVersion) {
++    ErrCreator->addError(ERR_INVALID_METADATA_VERSION, VersionNode);
++    return;
++  }
++}
++
++void VerifyMetadataCoreFeatures::execute(const llvm::Module *M) {
++  // Verify OpenCL optional core features metadata exists.
++  NamedMDNode *NMDCoreFeatures = M->getNamedMetadata(OPENCL_CORE_FEATURES);
++  if (!NMDCoreFeatures) {
++    ErrCreator->addError(ERR_MISSING_NAMED_METADATA, OPENCL_CORE_FEATURES);
++    return;
++  }
++
++  // Optional core features MetaData structure:
++  // !opencl.used.optional.core.features  = {!8}
++  // ...
++  // !8 = metadata !{metadata !"cl_doubles", metadata !"cl_images"}
++
++  // Verify that there is exactly one entry.
++  if (NMDCoreFeatures->getNumOperands() != 1) {
++    ErrCreator->addError(ERR_INVALID_CORE_FEATURE, NMDCoreFeatures);
++    return;
++  }
++
++  MDNode *Node = NMDCoreFeatures->getOperand(0);
++
++  // Verify valid optional core feature nodes
++  for (unsigned i=0; i<Node->getNumOperands(); i++) {
++    MDString *StringValue = dyn_cast<MDString>(Node->getOperand(i));
++    if (!StringValue || !isValidNameOf(StringValue->getString(),
++                                       g_valid_core_feature,
++                                       g_valid_core_feature_len)) {
++      ErrCreator->addError(ERR_INVALID_CORE_FEATURE, Node);
++      continue;
++    }
++    if (StringValue->getString() == CORE_FEATURE_CL_DOUBLES) {
++      if (Data->HasDoubleFeature) {
++        // Core feature appears twice
++        ErrCreator->addError(ERR_INVALID_CORE_FEATURE, Node);
++        continue;
++      }
++      Data->HasDoubleFeature = true;
++    }
++    else if(StringValue->getString() == CORE_FEATURE_CL_IMAGES) {
++      if (Data->HasImageFeature) {
++        // Core feature appears twice
++        ErrCreator->addError(ERR_INVALID_CORE_FEATURE, Node);
++        continue;
++      }
++      Data->HasImageFeature = true;
++    }
++    else {
++      assert(false && "Unhandled core feature");
++    }
++  }
++}
++
++
++void VerifyMetadataKHRExtensions::execute(const llvm::Module *M) {
++  // Verify OpenCL optional KHR extensions metadata exists.
++  NamedMDNode *NMDExts = M->getNamedMetadata(OPENCL_KHR_EXTENSIONS);
++  if (!NMDExts) {
++    ErrCreator->addError(ERR_MISSING_NAMED_METADATA, OPENCL_KHR_EXTENSIONS);
++    return;
++  }
++
++  // KHR extensions MetaData structure:
++  // !opencl.used.extensions = !{!6}
++  // ...
++  // !6 = metadata !{metadata !"cl_khr_fp16", metadata !"cl_khr_int64_base_atomics"}
++
++  // Verify that there is exactly one entry.
++  if (NMDExts->getNumOperands() != 1) {
++    ErrCreator->addError(ERR_INVALID_CORE_FEATURE, NMDExts);
++    return;
++  }
++
++  MDNode *Node = NMDExts->getOperand(0);
++
++  // Verify valid optional core feature nodes
++  for (unsigned i=0; i<Node->getNumOperands(); i++) {
++    MDString *StringValue = dyn_cast<MDString>(Node->getOperand(i));
++    if (!StringValue || !isValidNameOf(StringValue->getString(),
++                                       g_valid_khr_ext,
++                                       g_valid_khr_ext_len)) {
++      ErrCreator->addError(ERR_INVALID_KHR_EXT, Node);
++      continue;
++    }
++    if (StringValue->getString() == EXTENSION_CL_KHR_FP16) {
++      if (Data->HASFp16Extension) {
++        // KHR extension appears twice
++        ErrCreator->addError(ERR_INVALID_KHR_EXT, Node);
++        continue;
++      }
++      Data->HasDoubleFeature = true;
++    }
++    else {
++      // TODO enable the following assertion once all extensions are handled.
++      //assert(false && "Unhandled KHR extension");
++    }
++  }
++}
++
++void VerifyMetadataCompilerOptions::execute(const llvm::Module *M) {
++  // Verify OpenCL compiler options metadata exists.
++  NamedMDNode *NMDOptions = M->getNamedMetadata(OPENCL_COMPILER_OPTIONS);
++  if (!NMDOptions) {
++    ErrCreator->addError(ERR_MISSING_NAMED_METADATA, OPENCL_COMPILER_OPTIONS);
++    return;
++  }
++
++  // Compiler options MetaData structure:
++  // !opencl.compiler.options = !{!9}
++  // ...
++  // !9 = metadata !{metadata !"-cl-mad-enable", metadata !"-cl-denorms-are-zero"}
++
++  // Verify that there is exactly one entry.
++  if (NMDOptions->getNumOperands() != 1) {
++    ErrCreator->addError(ERR_INVALID_COMPILER_OPTION, NMDOptions);
++    return;
++  }
++
++  MDNode *Node = NMDOptions->getOperand(0);
++
++  // Verify valid optional core feature nodes
++  for (unsigned i=0; i<Node->getNumOperands(); i++) {
++    MDString *StringValue = dyn_cast<MDString>(Node->getOperand(i));
++    if (!StringValue || !isValidNameOf(StringValue->getString(),
++                                       g_valid_compiler_options,
++                                       g_valid_compiler_options_len)) {
++      ErrCreator->addError(ERR_INVALID_COMPILER_OPTION, Node);
++      continue;
++    }
++  }
++}
++
++} // End SPIR namespace
++
+diff --git a/lib/SPIRVerifier/SpirTables.cpp b/lib/SPIRVerifier/SpirTables.cpp
+new file mode 100644
+index 0000000..999ae3a
+--- /dev/null
++++ b/lib/SPIRVerifier/SpirTables.cpp
+@@ -0,0 +1,564 @@
++//===-------------------------- SpirTables.cpp ---------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#include "llvm/SPIRVerifier/SpirTables.h"
++#include <string>
++#include <sstream>
++
++namespace SPIR {
++
++//
++// Constant definitions.
++//
++
++#define DCL_ARRAY_LENGTH(arr) \
++  const unsigned arr##_len = (sizeof(arr)/sizeof(char*))
++
++#define STR_IND1 std::string("  ")
++#define STR_IND2 std::string("    ")
++#define STR_SPIR std::string("SPIR")
++#define STR_NOTE std::string("Note: ")
++
++
++const char *CORE_FEATURE_CL_DOUBLES = "cl_doubles";
++const char *CORE_FEATURE_CL_IMAGES = "cl_images";
++const char *g_valid_core_feature[] = {
++  CORE_FEATURE_CL_DOUBLES,
++  CORE_FEATURE_CL_IMAGES
++};
++DCL_ARRAY_LENGTH(g_valid_core_feature);
++const char *g_valid_core_feature_prefix = "cl_";
++
++
++const char *EXTENSION_CL_KHR_FP16 = "cl_khr_fp16";
++const char *g_valid_khr_ext[] = {
++  "cl_khr_int64_base_atomics",
++  "cl_khr_int64_extended_atomics",
++  EXTENSION_CL_KHR_FP16,
++  "cl_khr_gl_sharing",
++  "cl_khr_gl_event",
++  "cl_khr_d3d10_sharing",
++  "cl_khr_media_sharing",
++  "cl_khr_d3d11_sharing",
++  "cl_khr_global_int32_base_atomics",
++  "cl_khr_global_int32_extended_atomics",
++  "cl_khr_local_int32_base_atomics",
++  "cl_khr_local_int32_extended_atomics",
++  "cl_khr_byte_addressable_store",
++  "cl_khr_3d_image_writes",
++  "cl_khr_gl_msaa_sharing",
++  "cl_khr_depth_images",
++  "cl_khr_gl_depth_images"
++};
++DCL_ARRAY_LENGTH(g_valid_khr_ext);
++const char *g_valid_khr_ext_prefix = "cl_khr_";
++
++
++const char *g_valid_compiler_options[] = {
++  "-cl-single-precision-constant",
++  "-cl-denorms-are-zero",
++  "-cl-fp32-correctly-rounded-divide-sqrt",
++  "-cl-opt-disable",
++  "-cl-mad-enable",
++  "-cl-no-signed-zeros",
++  "-cl-unsafe-math-optimizations",
++  "-cl-finite-math-only",
++  "-cl-fast-relaxed-math",
++  "-w",
++  "-Werror",
++  "-cl-kernel-arg-info"
++};
++DCL_ARRAY_LENGTH(g_valid_compiler_options);
++
++///
++/// OpenCL C Type tables
++///
++const char *g_valid_ocl_primitives[] = {
++  "bool"  ,
++  "char"  , "uchar" , "unsigned char" ,
++  "short" , "ushort", "unsigned short",
++  "int"   , "uint"  , "unsigned int"  ,
++  "long"  , "ulong" , "unsigned long" ,
++  "half"  ,
++  "float" ,
++  "double",
++  "void"
++};
++DCL_ARRAY_LENGTH(g_valid_ocl_primitives);
++
++const char *g_valid_ocl_vector_element_types[] = {
++  "char"  , "uchar" , "unsigned char" ,
++  "short" , "ushort", "unsigned short",
++  "int"   , "uint"  , "unsigned int"  ,
++  "long"  , "ulong" , "unsigned long" ,
++  "half"  ,
++  "float" ,
++  "double"
++};
++DCL_ARRAY_LENGTH(g_valid_ocl_vector_element_types);
++
++const char *g_valid_ocl_opaque_types[] = {
++  "image1d_t",
++  "image1d_array_t",
++  "image1d_buffer_t",
++  "image2d_t",
++  "image2d_depth_t",
++  "image2d_msaa_t",
++  "image2d_msaa_depth_t",
++  "image2d_array_t",
++  "image2d_array_depth_t",
++  "image2d_array_msaa_t",
++  "image2d_array_msaa_depth_t",
++  "image3d_t",
++  "event_t",
++  "sampler_t",
++  // TODO: The following are not part of 'kernel_arg_base_type' metadata -
++  // according to SPIR generator. Should they still be allowed (ignored)?
++  "size_t",
++  "ptrdiff_t",
++  "uintptr_t",
++  "intptr_t"
++};
++DCL_ARRAY_LENGTH(g_valid_ocl_opaque_types);
++
++const char *g_opencl_opaque_sufix = "_t";
++
++const char *g_ignored_ocl_types[] = {
++  "struct ", "union ", "enum "
++};
++DCL_ARRAY_LENGTH(g_ignored_ocl_types);
++
++///
++/// OpenCL C Type tables
++///
++const char *g_valid_llvm_primitives[] = {
++  "i1", "i8", "i16", "i32", "i64", "half", "float", "double", "void"
++};
++DCL_ARRAY_LENGTH(g_valid_llvm_primitives);
++
++const char *g_valid_llvm_vector_element_types[] = {
++  "i8", "i16", "i32", "i64", "half", "float", "double"
++};
++DCL_ARRAY_LENGTH(g_valid_llvm_vector_element_types);
++
++const char *g_valid_llvm_image_types[] = {
++  "opencl.image1d_t",
++  "opencl.image1d_array_t",
++  "opencl.image1d_buffer_t",
++  "opencl.image2d_t",
++  "opencl.image2d_depth_t",
++  "opencl.image2d_msaa_t",
++  "opencl.image2d_msaa_depth_t",
++  "opencl.image2d_array_t",
++  "opencl.image2d_array_msaa_t",
++  "opencl.image2d_array_msaa_depth_t",
++  "opencl.image2d_array_depth_t",
++  "opencl.image3d_t",
++};
++DCL_ARRAY_LENGTH(g_valid_llvm_image_types);
++
++const char *g_valid_llvm_opaque_types[] = {
++  "opencl.event_t"
++};
++DCL_ARRAY_LENGTH(g_valid_llvm_opaque_types);
++
++const char *g_llvm_opaque_prefix = "opencl.";
++
++const char *g_valid_vector_type_lengths[] = {
++  "2" , "3" , "4" , "8" , "16"
++};
++DCL_ARRAY_LENGTH(g_valid_vector_type_lengths);
++
++
++const char *g_valid_instrinsic[] = {
++  "llvm.memcpy."
++};
++DCL_ARRAY_LENGTH(g_valid_instrinsic);
++
++const char *g_ignored_instrinsic[] = {
++  "llvm.dbg."
++};
++DCL_ARRAY_LENGTH(g_ignored_instrinsic);
++
++
++const char *g_valid_sync_bi[] = {
++  "_Z7barrier"
++};
++DCL_ARRAY_LENGTH(g_valid_sync_bi);
++
++const char *g_valid_address_space[] = {
++  "private",
++  "global",
++  "constant",
++  "local"
++};
++DCL_ARRAY_LENGTH(g_valid_address_space);
++
++const char *g_valid_calling_convention[] = {
++  "SPIR_FUNC",
++  "SPIR_KERNEL"
++};
++DCL_ARRAY_LENGTH(g_valid_calling_convention);
++
++const char *g_valid_linkage_type[] = {
++  "private",
++  "internal",
++  "available_externally",
++  "external"
++};
++DCL_ARRAY_LENGTH(g_valid_linkage_type);
++
++
++const char *OPENCL_KERNELS = "opencl.kernels";
++const char *OPENCL_SPIR_VERSION = "opencl.spir.version";
++const char *OPENCL_OCL_VERSION = "opencl.ocl.version";
++const char *OPENCL_KHR_EXTENSIONS = "opencl.used.extensions";
++const char *OPENCL_CORE_FEATURES = "opencl.used.optional.core.features";
++const char *OPENCL_COMPILER_OPTIONS = "opencl.compiler.options";
++const char *g_valid_named_metadata[] = {
++  "opencl.kernels",
++  "opencl.enable.FP_CONTRACT",
++  OPENCL_SPIR_VERSION,
++  OPENCL_OCL_VERSION,
++  OPENCL_KHR_EXTENSIONS,
++  OPENCL_CORE_FEATURES,
++  OPENCL_COMPILER_OPTIONS
++};
++DCL_ARRAY_LENGTH(g_valid_named_metadata);
++
++const char *KERNEL_ARG_ADDR_SPACE = "kernel_arg_addr_space";
++const char *KERNEL_ARG_TY = "kernel_arg_type";
++const char *KERNEL_ARG_BASE_TY = "kernel_arg_base_type";
++const char *g_valid_kernel_arg_info[] = {
++  KERNEL_ARG_ADDR_SPACE,
++  "kernel_arg_access_qual",
++  KERNEL_ARG_TY,
++  KERNEL_ARG_BASE_TY,
++  "kernel_arg_type_qual",
++  "kernel_arg_name",
++};
++DCL_ARRAY_LENGTH(g_valid_kernel_arg_info);
++
++const char *g_valid_version_names[] = {
++  "opencl.ocl.version",
++  "opencl.spir.version"
++};
++DCL_ARRAY_LENGTH(g_valid_version_names);
++
++const char *g_valid_spir_versions[][2] = {
++  {"1", "2"}
++};
++DCL_ARRAY_LENGTH(g_valid_spir_versions)/2;
++
++const char *g_valid_ocl_versions[][2] = {
++  {"1", "2"}
++};
++DCL_ARRAY_LENGTH(g_valid_ocl_versions)/2;
++
++
++///
++/// get error info message functions
++///
++
++std::string getValidOpenCLTypeMsg() {
++  std::string Msg;
++  Msg += "Valid OpenCL C Types in " + STR_SPIR + "\n";
++  Msg += STR_IND1 + "Primitive types: ";
++  for (unsigned i=0; i<g_valid_ocl_primitives_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_ocl_primitives[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Opaque types:";
++  for (unsigned i=0; i<g_valid_ocl_opaque_types_len; i++) {
++    Msg += "\n" + STR_IND2;
++    Msg += g_valid_ocl_opaque_types[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Vector element types: ";
++  for (unsigned i=0; i<g_valid_ocl_vector_element_types_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_ocl_vector_element_types[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Vector type lengthes: ";
++  for (unsigned i=0; i<g_valid_vector_type_lengths_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_vector_type_lengths[i];
++  }
++  Msg += "\n";
++  return Msg;
++}
++
++std::string getValidLLVMTypeMsg() {
++  std::string Msg;
++  Msg += "Valid LLVM Types in " + STR_SPIR + "\n";
++  Msg += STR_IND1 + "Primitive types: ";
++  for (unsigned i=0; i<g_valid_llvm_primitives_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_llvm_primitives[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Image opaque types:";
++  for (unsigned i=0; i<g_valid_llvm_image_types_len; i++) {
++    Msg += "\n" + STR_IND2;
++    Msg += g_valid_llvm_image_types[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Other opaque types:";
++  for (unsigned i=0; i<g_valid_llvm_opaque_types_len; i++) {
++    Msg += "\n" + STR_IND2;
++    Msg += g_valid_llvm_opaque_types[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Vector element types: ";
++  for (unsigned i=0; i<g_valid_llvm_vector_element_types_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_llvm_vector_element_types[i];
++  }
++  Msg += "\n\n";
++  Msg += STR_IND1 + "Vector type lengthes: ";
++  for (unsigned i=0; i<g_valid_vector_type_lengths_len; i++) {
++    Msg += ((i==0) ? "" : ", ");
++    Msg += g_valid_vector_type_lengths[i];
++  }
++  Msg += "\n";
++  Msg += "\n" + STR_IND1 + STR_NOTE +
++    "In addition, arrays and structures of the above types are allowed.\n";
++  return Msg;
++}
++
++std::string getValidKernelReturnTypeMsg() {
++  return "SPIR kernel has to return void";
++}
++
++std::string getValidIntrinsicMsg() {
++  std::string Msg;
++  Msg += "Valid intrinsic in " + STR_SPIR + " are:\n";
++  for (unsigned i=0; i<g_valid_instrinsic_len; i++) {
++    std::stringstream SS;
++    SS << STR_IND1 << g_valid_instrinsic[i] << "\n";
++    Msg += SS.str();
++  }
++  return Msg;
++}
++
++std::string getValidAddressSpaceMsg() {
++  std::string Msg;
++  Msg += "Valid address space in " + STR_SPIR + " are:\n";
++  for (unsigned i=0; i<g_valid_address_space_len; i++) {
++    std::stringstream SS;
++    SS << STR_IND1 << i << " - " << g_valid_address_space[i] << "\n";
++    Msg += SS.str();
++  }
++  Msg += "\n" + STR_IND1 + STR_NOTE +
++    "Casts between address spaces is disallowed in " + STR_SPIR + "\n";
++
++  return Msg;
++}
++
++std::string getValidKernelArgAddressSpaceMsg() {
++  std::string Msg;
++  Msg += "Valid address spaces for kernel arguments in " + STR_SPIR + " are:\n";
++  std::stringstream SS;
++  SS << STR_IND1 << GLOBAL_ADDR_SPACE << " - " << g_valid_address_space[GLOBAL_ADDR_SPACE] << "\n";
++  SS << STR_IND1 << CONSTANT_ADDR_SPACE << " - " << g_valid_address_space[CONSTANT_ADDR_SPACE] << "\n";
++  SS << STR_IND1 << LOCAL_ADDR_SPACE << " - " << g_valid_address_space[LOCAL_ADDR_SPACE] << "\n";
++  Msg += SS.str();
++  return Msg;
++}
++
++extern std::string getValidGlobalAS3VariableMsg() {
++  std::string Msg = "Function-scope variables in the local address space\n";
++  Msg += STR_IND1 + "are represented by module-scope variables with addrspace(3).\n";
++  Msg += STR_IND1 + "The name of the variables has to have the following format:\n";
++  Msg += STR_IND1 + "@<function_name>.<variable_name>\n";
++  return Msg;
++}
++
++extern std::string getValidGlobalVarAddressSpacesMsg() {
++  std::string Msg;
++  Msg += "Valid address spaces for module-scope variables " + STR_SPIR + " are:\n";
++  std::stringstream SS;
++  SS << STR_IND1 << CONSTANT_ADDR_SPACE << " - " << g_valid_address_space[CONSTANT_ADDR_SPACE] << "\n";
++  SS << STR_IND1 << LOCAL_ADDR_SPACE << " - " << g_valid_address_space[LOCAL_ADDR_SPACE] << "\n";
++  Msg += SS.str();
++  return Msg;
++}
++
++std::string getValidCallingConventionMsg() {
++  std::string Msg;
++  Msg += "Valid user defined functions calling convention in ";
++  Msg += STR_SPIR + " are:\n";
++  for (unsigned i=0; i<g_valid_calling_convention_len; i++) {
++    Msg += STR_IND1 + g_valid_calling_convention[i] + "\n";
++  }
++  return Msg;
++}
++
++std::string getValidLinkageTypeMsg() {
++  std::string Msg;
++  Msg += "Valid linkage types in " + STR_SPIR + " are:\n";
++  for (unsigned i = 0; i < g_valid_linkage_type_len; i++) {
++    Msg += STR_IND1 + g_valid_linkage_type[i] + "\n";
++  }
++  return Msg;
++}
++
++std::string getValidIndirectCallMsg() {
++  std::string Msg;
++  Msg += "Indirect Calls are not allowed in " + STR_SPIR +"\n";
++  return Msg;
++}
++
++std::string getValidKernelArgInfoMsg() {
++  std::string Msg;
++  Msg += "Valid kernel arg info in " + STR_SPIR + " are:\n";
++  for (unsigned i=0; i<g_valid_kernel_arg_info_len; i++) {
++    Msg += STR_IND1 + g_valid_kernel_arg_info[i] + "\n";
++  }
++  Msg += "\n" + STR_IND1 + STR_NOTE +
++    "All above are mandatory for each metadata kernel,"
++    "except 'kernel_arg_name' which is optional.\n";
++  return Msg;
++}
++
++std::string getValidVersionMsg() {
++  std::string Msg;
++  Msg += "Module in " + STR_SPIR + " must have these metadata versions:\n";
++  for (unsigned i=0; i<g_valid_version_names_len; i++) {
++    Msg += STR_IND1 + g_valid_version_names[i] + "\n";
++  }
++  Msg += "\n";
++  Msg += STR_IND1 + "Valid versions for '" + OPENCL_OCL_VERSION + "'\n";
++  for (unsigned i=0; i<g_valid_ocl_versions_len; i++) {
++    const char *Major = g_valid_ocl_versions[i][0];
++    const char *Minor = g_valid_ocl_versions[i][1];
++    Msg += STR_IND2 + "{" + Major + "," + Minor + "}" + "\n";
++  }
++  Msg += "\n";
++  Msg += STR_IND1 + "Valid versions for '" + OPENCL_SPIR_VERSION + "'\n";
++  for (unsigned i=0; i<g_valid_spir_versions_len; i++) {
++    const char *Major = g_valid_spir_versions[i][0];
++    const char *Minor = g_valid_spir_versions[i][1];
++    Msg += STR_IND2 + "{" + Major + "," + Minor + "}" + "\n";
++  }
++
++  return Msg;
++}
++
++std::string getValidMemFenceMsg() {
++  std::string Msg;
++  Msg += "Synchronization functions accept 'cl_mem_fence_flags' enumeration "
++         "as an argument. This argument is i32 bitmap value.\n";
++  Msg += STR_IND1 + "Valid values for 'cl_mem_fence_flags' are:\n";
++  Msg += STR_IND2 + "1 - CLK_LOCAL_MEM_FENCE\n";
++  Msg += STR_IND2 + "2 - CLK_GLOBAL_MEM_FENCE\n";
++  Msg += STR_IND2 + "3 - CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE\n";
++  return Msg;
++}
++
++std::string getMapOpenCLToLLVMMsg() {
++  std::string Msg;
++  Msg += "OpenCL C mapping to SPIR\n";
++  Msg += STR_IND1 + "Built-in Scalar Data Types:\n";
++  Msg += STR_IND2 + "bool                          -> i1\n";
++  Msg += STR_IND2 + "char, unsigned char, uchar    -> i8\n";
++  Msg += STR_IND2 + "short, unsigned short, ushort -> i16\n";
++  Msg += STR_IND2 + "int, unsigned int, uint       -> i32\n";
++  Msg += STR_IND2 + "long, unsigned long, ulong    -> i64\n";
++  Msg += STR_IND2 + "float                         -> float\n";
++  Msg += STR_IND2 + "double                        -> double\n";
++  Msg += STR_IND2 + "half                          -> half\n";
++  Msg += STR_IND2 + "void                          -> void\n";
++  Msg += "\n";
++  Msg += STR_IND1 + "Built-in Vector Data Types (n = 2, 3, 4, 8, and 16):\n";
++  Msg += STR_IND2 + "charn    -> < n x i8 >\n";
++  Msg += STR_IND2 + "ucharn   -> < n x i8 >\n";
++  Msg += STR_IND2 + "shortn   -> < n x i16 >\n";
++  Msg += STR_IND2 + "ushortn  -> < n x i16 >\n";
++  Msg += STR_IND2 + "intn     -> < n x i32 >\n";
++  Msg += STR_IND2 + "uintn    -> < n x i32 >\n";
++  Msg += STR_IND2 + "longn    -> < n x i64 >\n";
++  Msg += STR_IND2 + "ulongn   -> < n x i64 >\n";
++  Msg += STR_IND2 + "halfn    -> < n x half >\n";
++  Msg += STR_IND2 + "floatn   -> < n x float >\n";
++  Msg += STR_IND2 + "doublen  -> < n x double >\n";
++  Msg += "\n";
++  Msg += STR_IND1 + "Other Built-in Data Types:\n";
++  Msg += STR_IND2 + "image1d_t                  -> opencl.image1d_t\n";
++  Msg += STR_IND2 + "image1d_array_t            -> opencl.image1d_array_t\n";
++  Msg += STR_IND2 + "image1d_buffer_t           -> opencl.image1d_buffer_t\n";
++  Msg += STR_IND2 + "image2d_t                  -> opencl.image2d_t\n";
++  Msg += STR_IND2 + "image2d_depth_t            -> opencl.image2d_depth_t\n";
++  Msg += STR_IND2 + "image2d_msaa_t             -> opencl.image2d_msaa_t\n";
++  Msg += STR_IND2 + "image2d_msaa_depth_t       -> opencl.image2d_msaa_depth_t\n";
++  Msg += STR_IND2 + "image2d_array_t            -> opencl.image2d_array_t\n";
++  Msg += STR_IND2 + "image2d_array_depth_t      -> opencl.image2d_array_depth_t\n";
++  Msg += STR_IND2 + "image2d_array_msaa_t       -> opencl.image2d_array_msaa_t\n";
++  Msg += STR_IND2 + "image2d_array_msaa_depth_t -> opencl.image2d_array_msaa_depth_t\n";
++  Msg += STR_IND2 + "image3d_t                  -> opencl.image3d_t\n";
++  Msg += STR_IND2 + "event_t                    -> opencl.event_t\n";
++  Msg += STR_IND2 + "sampler_t                  -> i32\n";
++  Msg += STR_IND2 + "size_t                     -> i32 or i64\n";
++  Msg += STR_IND2 + "ptrdiff_t                  -> i32 or i64\n";
++  Msg += STR_IND2 + "uintptr_t                  -> i32 or i64\n";
++  Msg += STR_IND2 + "intptr_t                   -> i32 or i64\n";
++  return Msg;
++}
++
++std::string getValidNamedMetadataMsg() {
++  std::string Msg;
++  Msg += "Valid named metadata in " + STR_SPIR + " are:\n";
++  for (unsigned i=0; i<g_valid_named_metadata_len; i++) {
++    Msg += STR_IND1 + g_valid_named_metadata[i] + "\n";
++  }
++  Msg += "\n" + STR_IND1 + STR_NOTE +
++    "Except 'opencl.enable.FP_CONTRACT' all the others are mandatory.\n";
++  return Msg;
++}
++
++std::string getValidCoreFeaturesMsg() {
++  std::string Msg;
++  Msg += "Valid optional core features:\n";
++  for (unsigned i=0; i<g_valid_core_feature_len; i++) {
++    std::string Str = g_valid_core_feature[i];
++    Str = Str.substr(std::string(g_valid_core_feature_prefix).size());
++    Msg += STR_IND2 + g_valid_core_feature[i];
++    Msg += " - must be declared to indicate that " + Str + " types are used";
++    Msg += "\n";
++  }
++  return Msg;
++}
++
++std::string getValidKHRExtensionsMsg() {
++  std::string Msg;
++  Msg += "Valid KHR extensions:\n";
++  for (unsigned i=0; i<g_valid_khr_ext_len; i++) {
++    std::string Str = g_valid_khr_ext[i];
++    Str = Str.substr(std::string(g_valid_khr_ext_prefix).size());
++    Msg += STR_IND2 + g_valid_khr_ext[i];
++    //Msg += " - must be declared to indicate that " + Str + " extension is used";
++    Msg += "\n";
++  }
++  return Msg;
++}
++
++std::string getValidCompilerOptionsMsg() {
++  std::string Msg;
++  Msg += "Valid compiler options:\n";
++  for (unsigned i=0; i<g_valid_compiler_options_len; i++) {
++    Msg += STR_IND2 + g_valid_compiler_options[i];
++    Msg += "\n";
++  }
++  return Msg;
++}
++
++} // End SPIR namespace
++
+diff --git a/lib/SPIRVerifier/SpirValidation.cpp b/lib/SPIRVerifier/SpirValidation.cpp
+new file mode 100644
+index 0000000..38053e5
+--- /dev/null
++++ b/lib/SPIRVerifier/SpirValidation.cpp
+@@ -0,0 +1,125 @@
++//===------------------------ SpirValidation.cpp -------------------------===//
++//
++//                              SPIR Tools
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===---------------------------------------------------------------------===//
++
++#include "llvm/SPIRVerifier/SpirValidation.h"
++#include "llvm/SPIRVerifier/SpirErrors.h"
++#include "llvm/SPIRVerifier/SpirIterators.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/Support/raw_ostream.h"
++
++using namespace llvm;
++
++namespace SPIR {
++
++//
++// SpirValidation class public methods.
++//
++
++char SpirValidation::ID = 0;
++
++SpirValidation::SpirValidation() : ModulePass(ID) {
++}
++
++SpirValidation::~SpirValidation() {
++}
++
++const char* SpirValidation::getPassName() const {
++  return "Spir validation";
++}
++
++bool SpirValidation::runOnModule(Module& M) {
++  // Holder for initialized data in the module
++  DataHolder Data;
++
++  // Initialize instruction verifiers.
++  InstructionExecutorList iel;
++  // Bitcast instruction verifier.
++  VerifyBitcast vb(&ErrHolder);
++  iel.push_back(&vb);
++  // Call instruction verifier.
++  VerifyCall vc(&ErrHolder);
++  iel.push_back(&vc);
++  // Instruction type verifier.
++  VerifyInstructionType vit(&ErrHolder, &Data);
++  iel.push_back(&vit);
++
++  // Initialize function verifiers.
++  FunctionExecutorList fel;
++  // Function prototype verifier.
++  VerifyFunctionPrototype vfp(&ErrHolder, &Data);
++  fel.push_back(&vfp);
++  // Kernel prototype verifier
++  VerifyKernelPrototype vkp(&ErrHolder, &Data);
++  fel.push_back(&vkp);
++
++  // Initialize global variable verifiers
++  GlobalVariableExecutorList gel;
++  // Global variable verifier
++  VerifyGlobalVariable vgv(&ErrHolder, &Data);
++  gel.push_back(&vgv);
++
++  // Initialize module verifiers.
++  ModuleExecutorList mel;
++  // Module metadata kernels verifier.
++  VerifyMetadataKernels vkmd(&ErrHolder, &Data);
++  mel.push_back(&vkmd);
++  // Module OCL version verifier.
++  VerifyMetadataVersions voclv(
++    &ErrHolder, VerifyMetadataVersions::VERSION_OCL);
++  mel.push_back(&voclv);
++  // Module SPIR version verifier.
++  VerifyMetadataVersions vspirv(
++    &ErrHolder, VerifyMetadataVersions::VERSION_SPIR);
++  mel.push_back(&vspirv);
++  // Module metadata optional core features verifier.
++  VerifyMetadataCoreFeatures vmdcf(&ErrHolder, &Data);
++  mel.push_back(&vmdcf);
++  // Module metadata KHR extensions verifier.
++  VerifyMetadataKHRExtensions vmdext(&ErrHolder, &Data);
++  mel.push_back(&vmdext);
++  // Module metadata compiler options verifier.
++  VerifyMetadataCompilerOptions vmdco(&ErrHolder, &Data);
++  mel.push_back(&vmdco);
++
++  // Initialize basic block iterator.
++  BasicBlockIterator BBI(iel);
++
++  // Initialize function iterator.
++  FunctionIterator FI(fel, &BBI);
++
++  // Initialize global variable iterator.
++  GlobalVariableIterator GI(gel);
++
++  // Initialize module iterator.
++  ModuleIterator MI(mel, &FI, &GI);
++
++  // Run validation.
++  MI.execute(M);
++
++  // always print any errors that occured
++  const SPIR::ErrorPrinter *EP = getErrorPrinter();
++  if (EP->hasErrors()) {
++    errs() << "According to this SPIR Verifier, this is an invalid SPIR module.\n";
++    errs() << "The module contains the following errors:\n\n";
++    EP->print(errs(), false);
++  }
++
++  return false;
++}
++
++
++} // End SPIR namespace
++
++namespace llvm {
++  ModulePass *createSpirValidationPass() {
++    return new SPIR::SpirValidation();
++  }
++}
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
 index 11afcf7..6e73dc7 100644
 --- a/lib/Support/Triple.cpp
@@ -33924,11 +36969,29 @@ index 21bb5d0..c52d406 100644
    return false;
  }
  
+diff --git a/lib/Transforms/IPO/LLVMBuild.txt b/lib/Transforms/IPO/LLVMBuild.txt
+index b5410f5..563fa24 100644
+--- a/lib/Transforms/IPO/LLVMBuild.txt
++++ b/lib/Transforms/IPO/LLVMBuild.txt
+@@ -20,4 +20,4 @@ type = Library
+ name = IPO
+ parent = Transforms
+ library_name = ipo
+-required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize
++required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index faada9c..9e915d5 100644
+index faada9c..76708a0 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -123,6 +123,11 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -34,6 +34,7 @@
+ #include "llvm/Transforms/IPO/InferFunctionAttrs.h"
+ #include "llvm/Transforms/Scalar.h"
+ #include "llvm/Transforms/Vectorize.h"
++#include "llvm/SPIRVerifier/SpirValidation.h"
+ 
+ using namespace llvm;
+ 
+@@ -123,6 +124,12 @@ PassManagerBuilder::PassManagerBuilder() {
      VerifyOutput = false;
      MergeFunctions = false;
      PrepareForLTO = false;
@@ -33937,10 +37000,11 @@ index faada9c..9e915d5 100644
 +    EnableMetalPasses = false;
 +    EnableMetalIntelWorkarounds = false;
 +    EnableSPIRPasses = false;
++    EnableVerifySPIR = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -188,9 +193,38 @@ void PassManagerBuilder::populateFunctionPassManager(
+@@ -188,9 +195,38 @@ void PassManagerBuilder::populateFunctionPassManager(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -33979,7 +37043,7 @@ index faada9c..9e915d5 100644
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -213,11 +247,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -213,11 +249,9 @@ void PassManagerBuilder::populateModulePassManager(
      return;
    }
  
@@ -33994,7 +37058,7 @@ index faada9c..9e915d5 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -346,6 +378,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -346,6 +380,28 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -34023,7 +37087,7 @@ index faada9c..9e915d5 100644
    if (!DisableUnitAtATime)
      MPM.add(createReversePostOrderFunctionAttrsPass());
  
-@@ -484,6 +538,20 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -484,6 +540,21 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -34041,6 +37105,7 @@ index faada9c..9e915d5 100644
 +    MPM.add(createAggressiveDCEPass());
 +  }
 +  if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
++  if(EnableVerifySPIR) MPM.add(createSpirValidationPass());
  }
  
  void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {

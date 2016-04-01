@@ -766,7 +766,7 @@ index 6ba482c..575918a 100644
  }
  
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
-index cc70d62..fd5e1ac 100644
+index cc70d62..ebad515 100644
 --- a/include/clang/Basic/LangOptions.def
 +++ b/include/clang/Basic/LangOptions.def
 @@ -159,6 +159,7 @@ ENUM_LANGOPT(MSPointerToMemberRepresentationMethod, PragmaMSPointersToMembersKin
@@ -777,11 +777,12 @@ index cc70d62..fd5e1ac 100644
  LANGOPT(OpenCLVersion     , 32, 0, "OpenCL version")
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
  LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")
-@@ -236,6 +237,8 @@ LANGOPT(SanitizeAddressFieldPadding, 2, 0, "controls how aggressive is ASan "
+@@ -236,6 +237,9 @@ LANGOPT(SanitizeAddressFieldPadding, 2, 0, "controls how aggressive is ASan "
                                             "field padding (0: none, 1:least "
                                             "aggressive, 2: more aggressive)")
  
 +LANGOPT(CLEnableHalf            , 1, 0, "cl-enable-half flag used")
++LANGOPT(CLVerifySPIR            , 1, 0, "cl-verify-spir flag used")
 +
  #undef LANGOPT
  #undef COMPATIBLE_LANGOPT
@@ -1012,7 +1013,7 @@ index cc38e24..9efc991 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index 051f903..b7b7259 100644
+index 051f903..6db38c4 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -440,6 +440,8 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -1040,7 +1041,7 @@ index 051f903..b7b7259 100644
  // OpenCL Options
  //===----------------------------------------------------------------------===//
  
-@@ -660,6 +671,15 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -660,6 +671,18 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">,
    HelpText<"OpenCL only. Allow denormals to be flushed to zero">;
  
@@ -1053,10 +1054,13 @@ index 051f903..b7b7259 100644
 +def cl_spir_compile_options : Separate<["-"], "cl-spir-compile-options">,
 +  HelpText<"SPIR compilation options to record in metadata">;
 +
++def cl_verify_spir : Flag<["-"], "cl-verify-spir">,
++  HelpText<"OpenCL/SPIR only. Runs the Khronos SPIR verifier on the final LLVM IR.">;
++
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -678,6 +698,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
+@@ -678,6 +701,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
    HelpText<"Enable function overloads based on CUDA target attributes.">;
  
  //===----------------------------------------------------------------------===//
@@ -2309,7 +2313,7 @@ index af8aea0..5a9e0e5 100644
      if (!(Triple == llvm::Triple("wasm32-unknown-unknown")))
        return nullptr;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 6d746c2..68b6f58 100644
+index 6d746c2..3614f90 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -31,6 +31,7 @@
@@ -2344,7 +2348,7 @@ index 6d746c2..68b6f58 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -337,6 +344,35 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -337,6 +344,36 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
      return;
    }
  
@@ -2376,11 +2380,12 @@ index 6d746c2..68b6f58 100644
 +  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
 +                                (Triple(TheModule->getTargetTriple()).getArch() == Triple::spir64) &&
 +                                (Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown"));
++  PMBuilder.EnableVerifySPIR = PMBuilder.EnableSPIRPasses && LangOpts.CLVerifySPIR;
 +
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -411,6 +447,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -411,6 +448,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
    if (!CodeGenOpts.RewriteMapFiles.empty())
      addSymbolRewriterPass(CodeGenOpts, MPM);
  
@@ -2391,7 +2396,7 @@ index 6d746c2..68b6f58 100644
    if (!CodeGenOpts.DisableGCov &&
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
-@@ -632,6 +672,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -632,6 +673,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
  
    bool UsesCodeGen = (Action != Backend_EmitNothing &&
                        Action != Backend_EmitBC &&
@@ -2401,7 +2406,7 @@ index 6d746c2..68b6f58 100644
                        Action != Backend_EmitLL);
    if (!TM)
      TM.reset(CreateTargetMachine(UsesCodeGen));
-@@ -672,6 +715,18 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -672,6 +716,18 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
          *OS, CodeGenOpts.EmitLLVMUseLists, CodeGenOpts.EmitFunctionSummary));
      break;
  
@@ -8015,7 +8020,7 @@ index 3edcf5d..fdc26d2 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 237a447..185b0cc 100644
+index 237a447..cef6976 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -42,6 +42,7 @@
@@ -8199,16 +8204,17 @@ index 237a447..185b0cc 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
    Opts.Modules = Args.hasArg(OPT_fmodules);
-@@ -1867,6 +1932,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1867,6 +1932,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
 +  Opts.CLEnableHalf = Args.hasArg(OPT_cl_enable_half);
++  Opts.CLVerifySPIR = Args.hasArg(OPT_cl_verify_spir);
 +
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -1980,6 +2047,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -1980,6 +2048,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
