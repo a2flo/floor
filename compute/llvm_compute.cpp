@@ -165,7 +165,8 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 380 ? "" : " -llvm-bc-32")
+				(toolchain_version < 380 ? "" : " -llvm-bc-32") +
+				(floor::get_opencl_verify_spir() && toolchain_version >= 380 ? " -Xclang -cl-verify-spir" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -503,7 +504,8 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	string compilation_output = "";
 	core::system(clang_cmd, compilation_output);
 	// check if the output contains an error string (yes, a bit ugly, but it works for now - can't actually check the return code)
-	if(compilation_output.find(" error: ") != string::npos) {
+	if(compilation_output.find(" error: ") != string::npos ||
+	   compilation_output.find(" errors:") != string::npos) {
 		log_error("compilation failed! failed cmd was:\n%s", clang_cmd);
 		log_error("compilation errors:\n%s", compilation_output);
 		return {};
@@ -543,7 +545,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 			log_msg("spir encoder: %s", spir_encoder_output);
 			
 			// run spir-verifier if specified
-			if(floor::get_opencl_verify_spir()) {
+			if(floor::get_opencl_verify_spir() && toolchain_version < 380) {
 				const string spir_verifier_cmd {
 					"\"" + floor::get_opencl_spir_verifier() + "\" " + spir_32_bc
 #if !defined(_MSC_VER)
@@ -570,8 +572,6 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 			}
 		}
 		else {
-			// TODO: run verifier (add this as a pass)
-			
 			if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
 				log_error("failed to read SPIR 1.2 .bc file");
 				return {};
