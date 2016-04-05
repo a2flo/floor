@@ -590,11 +590,20 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		// nop, final processing will be done in metal_compute
 	}
 	else if(target == TARGET::PTX) {
+		// handle ptx version (note that 4.3 is the minimum requirement for floor, and 5.0 for sm_60+)
+		uint32_t ptx_version = (((cuda_device*)device.get())->sm.x >= 6 ? 50 : 43);
+		if(!floor::get_cuda_force_ptx().empty()) {
+			const auto forced_version = stou(floor::get_cuda_force_ptx());
+			if(forced_version >= 43 && forced_version < numeric_limits<uint32_t>::max()) {
+				ptx_version = forced_version;
+			}
+		}
+		
 		// compile llvm ir to ptx
 		const string llc_cmd {
 			"\"" + floor::get_cuda_llc() + "\"" +
 			" -nvptx-fma-level=2 -nvptx-sched4reg -enable-unsafe-fp-math" \
-			" -mcpu=sm_" + sm_version + " -mattr=ptx43" +
+			" -mcpu=sm_" + sm_version + " -mattr=ptx" + to_string(ptx_version) +
 			" -o - " + compiled_file_or_code
 #if !defined(_MSC_VER)
 			+ " 2>&1"

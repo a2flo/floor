@@ -194,6 +194,7 @@ public:
 	static const string& get_cuda_dis();
 	static const string& get_cuda_force_driver_sm();
 	static const string& get_cuda_force_compile_sm();
+	static const string& get_cuda_force_ptx();
 	static const uint32_t& get_cuda_max_registers();
 	static const bool& get_cuda_jit_verbose();
 	static const uint32_t& get_cuda_jit_opt_level();
@@ -319,6 +320,7 @@ protected:
 		string cuda_dis = default_dis;
 		string cuda_force_driver_sm = "";
 		string cuda_force_compile_sm = "";
+		string cuda_force_ptx = "";
 		uint32_t cuda_max_registers = 32;
 		bool cuda_jit_verbose = false;
 		uint32_t cuda_jit_opt_level = 4;
