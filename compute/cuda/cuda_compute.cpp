@@ -195,8 +195,11 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					multiplier = 192;
 					break;
 				case 5:
-				default:
 					multiplier = 128;
+					break;
+				case 6:
+				default:
+					multiplier = 64;
 					break;
 			}
 			return multiplier * (dev->units * dev->clock);
