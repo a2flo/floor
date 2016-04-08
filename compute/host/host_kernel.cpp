@@ -235,10 +235,22 @@ struct fiber_context {
 	}
 
 	void swap_context(fiber_context* next_ctx) {
+		// NOTE: order of operation in here:
+		// * fiber #1 enters
+		// * set swapped to false
+		// * get_context() saves the current point of execution for later resume ("store pc", etc.)
+		// * swapped is still false here -> execute the if block
+		// * set swapped to true
+		// * switch to fiber #2 (next_ctx)
+		// * some other fiber -> resume fiber #1 after "get_context()"
+		// * swapped is now true -> don't execute the if block -> return
 		volatile bool swapped = false;
 		get_context();
 		if(!swapped) {
 			swapped = true;
+#if defined(__clang_analyzer__)
+			(void)swapped; // -> mark as used (will be read again)
+#endif
 			next_ctx->set_context();
 		}
 	}

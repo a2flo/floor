@@ -539,6 +539,9 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		// clean up shim data
 		if(image_type != shim_image_type) {
 			delete [] data_ptr;
+#if defined(__clang_analyzer__) // suppress false positive about use after free
+			assert(!is_compressed);
+#endif
 		}
 		
 		// also create mip-map chain when initializing from a host pointer and mip-map flag is set
@@ -714,6 +717,9 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 			rgba_to_rgb(shim_image_type, image_type, data_ptr, host_buffer);
 			delete [] data_ptr;
 		}
+#if defined(__clang_analyzer__) // suppress false positive about leaking memory
+		else { assert(data_ptr == host_buffer); }
+#endif
 	}
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
@@ -764,6 +770,9 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		
 		// cleanup
 		if(image_type != shim_image_type) {
+#if defined(__clang_analyzer__) // suppress false positive about freeing released memory
+			assert(data_ptr != mapped_ptr);
+#endif
 			delete [] data_ptr;
 		}
 	}
