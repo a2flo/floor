@@ -9840,14 +9840,14 @@ index 7c64ca7b..c64f2f5 100644
    std::copy(Args.begin(), Args.end(), op_begin());
  
 diff --git a/lib/IR/Metadata.cpp b/lib/IR/Metadata.cpp
-index 9a9a501..5c8d332 100644
+index 9a9a501..5f953ef 100644
 --- a/lib/IR/Metadata.cpp
 +++ b/lib/IR/Metadata.cpp
 @@ -1309,12 +1309,15 @@ void Function::dropUnknownMetadata(ArrayRef<unsigned> KnownIDs) {
  void Function::clearMetadata() {
    if (!hasMetadata())
      return;
-+  if(getSubprogram())
++  if (getSubprogram())
 +    getSubprogram()->associated_function = nullptr;
    getContext().pImpl->FunctionMetadata.erase(this);
    setHasMetadataHashEntry(false);
@@ -37109,6 +37109,36 @@ index faada9c..76708a0 100644
  }
  
  void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
+diff --git a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
+index dd2889d..89c6e59 100644
+--- a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
++++ b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
+@@ -464,13 +464,16 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
+   if (LI.use_empty())
+     return nullptr;
+ 
+-  Type *Ty = LI.getType();
+   const DataLayout &DL = IC.getDataLayout();
+ 
++  // disable this as it introduces unnecessary/unwanted additional instructions and actual bitcasts
++  // (e.g. load from int* (instead of float*), then int to float cast + this is generally a bad idea on GPUs)
++#if 0
+   // Try to canonicalize loads which are only ever stored to operate over
+   // integers instead of any other type. We only do this when the loaded type
+   // is sized and has a size exactly the same as its store size and the store
+   // size is a legal integer type.
++  Type *Ty = LI.getType();
+   if (!Ty->isIntegerTy() && Ty->isSized() &&
+       DL.isLegalInteger(DL.getTypeStoreSizeInBits(Ty)) &&
+       DL.getTypeStoreSizeInBits(Ty) == DL.getTypeSizeInBits(Ty)) {
+@@ -493,6 +496,7 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
+       return &LI;
+     }
+   }
++#endif
+ 
+   // Fold away bit casts of the loaded value by loading the desired type.
+   // We can do this for BitCastInsts as well as casts from and to pointer types,
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
 index 0000000..32011ba
