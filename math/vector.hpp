@@ -163,9 +163,30 @@ public:
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
 	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
+	
+	//! returns true if the vector type has a corresponding clang vector type
+	static constexpr bool has_clang_vector_type() {
 #if !defined(_MSC_VER)
+		return !is_same<decayed_scalar_type, bool>();
+#else
+		// msvc/llvm can't mangle clang vector types yet
+		return false;
+#endif
+	}
+#if !defined(_MSC_VER)
+	template <typename vec_type, typename = void> struct clang_vector_type_spec {};
+	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<vec_type::has_clang_vector_type()>> {
+		typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
+	};
+	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<!vec_type::has_clang_vector_type()>> {
+		// would usually use void here, but this makes certain use cases impossible (no void&), even if it is disabled
+		typedef int clang_vector_type;
+	};
+	
 	//! corresponding clang vector type
-	typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
+	typedef typename clang_vector_type_spec<vector_type>::clang_vector_type clang_vector_type;
+#else
+	typedef int clang_vector_type;
 #endif
 	
 	//////////////////////////////////////////
@@ -2012,24 +2033,25 @@ public:
 	}
 #endif
 	
-#if !defined(_MSC_VER) // msvc/llvm can't mangle clang vector types yet
 	//! converts this vector to the corresponding clang vector type,
 	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
+	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
 	constexpr operator clang_vector_type() const {
 		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
 	//! explicitly converts this vector to the corresponding clang vector type,
 	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
+	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
 	constexpr clang_vector_type to_clang_vector() const {
 		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
 	//! converts the corresponding clang vector type to this vector type
+	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
 	static constexpr vector_type from_clang_vector(const clang_vector_type& vec) {
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };
 	}
-#endif
 	
 	//! returns this vector as a tuple
 	constexpr auto as_tuple() const {

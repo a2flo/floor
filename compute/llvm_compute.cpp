@@ -137,6 +137,8 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		" -Wno-nested-anon-types -Wno-global-constructors -Wno-exit-time-destructors"
 		// usually conflicting with the other switch/case warning, so disable it
 		" -Wno-switch-enum"
+		// not intended to be compatible
+		" -Wno-gcc-compat"
 		// TODO: also add -Wno-padded -Wno-packed? or make these optional? there are situations were these are useful
 		// end
 		" "

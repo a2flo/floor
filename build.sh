@@ -707,7 +707,7 @@ fi
 
 # hard-mode c++ ;) TODO: clean this up + explanations
 WARNINGS="${WARNINGS} -Weverything -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
-WARNINGS="${WARNINGS} -Wno-gnu -Wno-c++98-compat"
+WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat -Wno-c++98-compat"
 WARNINGS="${WARNINGS} -Wno-c++98-compat-pedantic -Wno-c99-extensions"
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation"
 WARNINGS="${WARNINGS} -Wno-system-headers -Wno-global-constructors -Wno-padded"

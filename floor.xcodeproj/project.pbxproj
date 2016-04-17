@@ -1449,6 +1449,7 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
+					"-Wno-gcc-compat",
 				);
 			};
 			name = Debug;
@@ -1572,6 +1573,7 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
+					"-Wno-gcc-compat",
 				);
 			};
 			name = Release;
