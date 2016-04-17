@@ -180,13 +180,14 @@ public:
 	};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<!vec_type::has_clang_vector_type()>> {
 		// would usually use void here, but this makes certain use cases impossible (no void&), even if it is disabled
-		typedef int clang_vector_type;
+		// + redirect to a floor vector for better compat (i.e. not having to deal with sema ...)
+		typedef FLOOR_VECNAME<int> clang_vector_type;
 	};
 	
 	//! corresponding clang vector type
 	typedef typename clang_vector_type_spec<vector_type>::clang_vector_type clang_vector_type;
 #else
-	typedef int clang_vector_type;
+	typedef FLOOR_VECNAME<int> clang_vector_type;
 #endif
 	
 	//////////////////////////////////////////
@@ -2035,20 +2036,20 @@ public:
 	
 	//! converts this vector to the corresponding clang vector type,
 	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
-	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
+	template <typename vec_type = vector_type, enable_if_t<vec_type::has_clang_vector_type()>* = nullptr>
 	constexpr operator clang_vector_type() const {
 		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
 	//! explicitly converts this vector to the corresponding clang vector type,
 	//! e.g. float4 to "float __attribute__((ext_vector_type(4)))"
-	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
+	template <typename vec_type = vector_type, enable_if_t<vec_type::has_clang_vector_type()>* = nullptr>
 	constexpr clang_vector_type to_clang_vector() const {
 		return (clang_vector_type){ FLOOR_VEC_EXPAND(FLOOR_COMMA) };
 	}
 	
 	//! converts the corresponding clang vector type to this vector type
-	template <typename vec_tpye = vector_type, enable_if_t<vec_tpye::has_clang_vector_type()>* = nullptr>
+	template <typename vec_type = vector_type, enable_if_t<vec_type::has_clang_vector_type()>* = nullptr>
 	static constexpr vector_type from_clang_vector(const clang_vector_type& vec) {
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vec., ) };
 	}
