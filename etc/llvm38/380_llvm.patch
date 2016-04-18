@@ -2630,10 +2630,10 @@ index 0000000..31f7de4
 +}
 diff --git a/lib/Bitcode/Writer32/BitcodeWriter32.cpp b/lib/Bitcode/Writer32/BitcodeWriter32.cpp
 new file mode 100644
-index 0000000..69d0722
+index 0000000..51da940
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/BitcodeWriter32.cpp
-@@ -0,0 +1,2471 @@
+@@ -0,0 +1,2523 @@
 +//===--- Bitcode/Writer32/BitcodeWriter32.cpp - Bitcode 3.2 Writer --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2830,6 +2830,45 @@ index 0000000..69d0722
 +  Stream.EmitRecord(Code, Vals, AbbrevToUse);
 +}
 +
++static uint64_t getAttrKindEncoding(Attribute::AttrKind Kind) {
++  // NOTE: these are the attributes supported by LLVM 3.2
++  // NOTE: readnone, readonly and nocapture are dropped even though they are supported by 3.2 (but they cause issues with intel/amd)
++  switch (Kind) {
++  case Attribute::None:            return 0;
++  case Attribute::ZExt:            return 1 << 0;
++  case Attribute::SExt:            return 1 << 1;
++  case Attribute::NoReturn:        return 1 << 2;
++  case Attribute::InReg:           return 1 << 3;
++  case Attribute::StructRet:       return 1 << 4;
++  case Attribute::NoUnwind:        return 1 << 5;
++  case Attribute::NoAlias:         return 1 << 6;
++  case Attribute::ByVal:           return 1 << 7;
++  case Attribute::Nest:            return 1 << 8;
++  //case Attribute::ReadNone:        return 1 << 9;
++  //case Attribute::ReadOnly:        return 1 << 10;
++  case Attribute::NoInline:        return 1 << 11;
++  case Attribute::AlwaysInline:    return 1 << 12;
++  case Attribute::OptimizeForSize: return 1 << 13;
++  case Attribute::StackProtect:    return 1 << 14;
++  case Attribute::StackProtectReq: return 1 << 15;
++
++  // NOTE: anything beyond this point will be dropped later
++  case Attribute::Alignment:       return 31 << 16;
++  //case Attribute::NoCapture:       return 1 << 21;
++  case Attribute::NoRedZone:       return 1 << 22;
++  case Attribute::NoImplicitFloat: return 1 << 23;
++  case Attribute::Naked:           return 1 << 24;
++  case Attribute::InlineHint:      return 1 << 25;
++  case Attribute::StackAlignment:  return 7 << 26;
++  case Attribute::ReturnsTwice:    return 1 << 29;
++  case Attribute::UWTable:         return 1 << 30;
++  case Attribute::NonLazyBind:     return 1U << 31;
++  case Attribute::SanitizeAddress: return 1ULL << 32; // aka "AddressSafety"
++  case Attribute::MinSize:         return 1ULL << 33;
++  default: return 0; // just drop the attr
++  }
++}
++
 +static void WriteAttributeTable(const ValueEnumerator32 &VE,
 +                                BitstreamWriter &Stream) {
 +  const std::vector<AttributeSet> &Attrs = VE.getAttributes();
@@ -2843,8 +2882,21 @@ index 0000000..69d0722
 +    for (unsigned i = 0, e = A.getNumSlots(); i != e; ++i) {
 +      unsigned Slot = A.getSlotIndex(i);
 +
-+      // drop readnone, readonly, nocapture attrs
-+      const auto raw_attrs = A.Raw(Slot) & ~(uint64_t(1 << 9) | uint64_t(1 << 10) | uint64_t(1 << 21));
++      // manual A.raw(Slot) so that we don't hit any asserts or unreachables (for attrs that have no raw representation)
++      // also: ignore 3.5+ style alignment, 3.2 style alignment is handled after this
++      uint64_t raw_attrs = 0;
++      AttributeSet attrs = A.getSlotAttributes(i);
++      for (auto attr_iter = attrs.begin(0), E = attrs.end(0); attr_iter != E; ++attr_iter) {
++        Attribute Attr = *attr_iter;
++        // can't handle non enum/int attrs
++        if (!Attr.isEnumAttribute() && !Attr.isIntAttribute()) continue;
++
++        Attribute::AttrKind Kind = Attr.getKindAsEnum();
++        if (Kind == Attribute::Alignment) { /* drop it */ }
++        else if (Kind == Attribute::StackAlignment) { /* drop it */ }
++        else if (Kind == Attribute::Dereferenceable) { /* drop it */ }
++        else raw_attrs |= getAttrKindEncoding(Kind);
++      }
 +
 +      // Taken from LLVM 3.2 Attributes::encodeLLVMAttributesForBitcode
 +      uint64_t EncodedAttrs = raw_attrs & 0xffff;
@@ -3093,13 +3145,13 @@ index 0000000..69d0722
 +  }
 +  else { // spir
 +    WriteStringRecord(bitc::MODULE_CODE_TRIPLE,
-+					  is_64_bit ? SPIR64_TRIPLE : SPIR32_TRIPLE,
++                      is_64_bit ? SPIR64_TRIPLE : SPIR32_TRIPLE,
 +                      0, Stream);
 +    WriteStringRecord(bitc::MODULE_CODE_DATALAYOUT,
-+					  is_64_bit ? SPIR64_DATALAYOUT : SPIR32_DATALAYOUT,
++                      is_64_bit ? SPIR64_DATALAYOUT : SPIR32_DATALAYOUT,
 +                      0, Stream);
 +  }
-+	
++
 +  if (!M->getModuleInlineAsm().empty())
 +    WriteStringRecord(bitc::MODULE_CODE_ASM, M->getModuleInlineAsm(),
 +                      0/*TODO*/, Stream);
@@ -4377,7 +4429,7 @@ index 0000000..69d0722
 +
 +      Vals64.push_back(VE.getTypeID(SI.getCondition()->getType()));
 +      if (!is_applecl) pushValue64(SI.getCondition(), InstID, Vals64, VE);
-+	  else Vals64.push_back(VE.getValueID(SI.getCondition()));
++      else Vals64.push_back(VE.getValueID(SI.getCondition()));
 +      Vals64.push_back(VE.getValueID(SI.getDefaultDest()));
 +      Vals64.push_back(SI.getNumCases());
 +      for (SwitchInst::ConstCaseIt i = SI.case_begin(), e = SI.case_end();
@@ -4467,7 +4519,7 @@ index 0000000..69d0722
 +      return;
 +    }
 +    else {
-+	  // uncertain about this one, just copy/paste from llvmCore
++      // uncertain about this one, just copy/paste from llvmCore
 +      Vals.push_back(VE.getTypeID(PN.getType()));
 +       for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
 +         Vals.push_back(VE.getValueID(PN.getIncomingValue(i)));
