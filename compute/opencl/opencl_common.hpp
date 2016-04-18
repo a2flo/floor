@@ -30,6 +30,7 @@ enum class OPENCL_VERSION : uint32_t {
 	OPENCL_1_2,
 	OPENCL_2_0,
 	OPENCL_2_1,
+	OPENCL_2_2,
 };
 
 constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
@@ -40,6 +41,7 @@ constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
 		case OPENCL_VERSION::OPENCL_1_2: return "1.2";
 		case OPENCL_VERSION::OPENCL_2_0: return "2.0";
 		case OPENCL_VERSION::OPENCL_2_1: return "2.1";
+		case OPENCL_VERSION::OPENCL_2_2: return "2.2";
 	}
 }
 
@@ -47,12 +49,14 @@ constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
 enum class SPIRV_VERSION : uint32_t {
 	NONE,
 	SPIRV_1_0,
+	SPIRV_1_1,
 };
 
 constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 	switch(version) {
 		case SPIRV_VERSION::NONE: return "";
 		case SPIRV_VERSION::SPIRV_1_0: return "1.0";
+		case SPIRV_VERSION::SPIRV_1_1: return "1.1";
 	}
 }
 

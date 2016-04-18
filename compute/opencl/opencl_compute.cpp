@@ -207,15 +207,16 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				const auto major_version = stosize(version_str.substr(0, dot_pos));
 				const auto minor_version = stosize(version_str.substr(dot_pos+1, version_str.length()-dot_pos-1));
 				if(major_version > 2) {
-					// major version is higher than 2 -> pretend we're running on CL 2.1
-					return { true, OPENCL_VERSION::OPENCL_2_1 };
+					// major version is higher than 2 -> pretend we're running on CL 2.2
+					return { true, OPENCL_VERSION::OPENCL_2_2 };
 				}
 				else if(major_version == 2) {
 					switch(minor_version) {
 						case 0: return { true, OPENCL_VERSION::OPENCL_2_0 };
-						case 1:
-						default: // default to CL 2.1
-							return { true, OPENCL_VERSION::OPENCL_2_1 };
+						case 1: return { true, OPENCL_VERSION::OPENCL_2_1 };
+						case 2:
+						default: // default to CL 2.2
+							return { true, OPENCL_VERSION::OPENCL_2_2 };
 					}
 				}
 				else {
@@ -494,9 +495,12 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 							default:
 							case 1:
 								switch(spirv_minor) {
-									default:
 									case 0:
 										spirv_version = SPIRV_VERSION::SPIRV_1_0;
+										break;
+									default:
+									case 1:
+										spirv_version = SPIRV_VERSION::SPIRV_1_1;
 										break;
 								}
 								break;
