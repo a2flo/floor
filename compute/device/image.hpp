@@ -113,13 +113,13 @@ namespace floor_image {
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
-			return metal_image::sampler {
+			return (metal_sampler_t)(metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::NEAREST,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
 				compare_function_floor_to_metal(compare_function)
-			};
+			});
 #endif
 		}
 	};
@@ -132,13 +132,13 @@ namespace floor_image {
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
-			return metal_image::sampler {
+			return (metal_sampler_t)(metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::NEAREST,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
 				compare_function_floor_to_metal(compare_function)
-			};
+			});
 #endif
 		}
 	};
@@ -151,13 +151,13 @@ namespace floor_image {
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
-			return metal_image::sampler {
+			return (metal_sampler_t)(metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
 				compare_function_floor_to_metal(compare_function)
-			};
+			});
 #endif
 		}
 	};
@@ -170,13 +170,13 @@ namespace floor_image {
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
-			return metal_image::sampler {
+			return (metal_sampler_t)(metal_image::sampler {
 				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
 				compare_function_floor_to_metal(compare_function)
-			};
+			});
 #endif
 		}
 	};
@@ -186,7 +186,7 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 	typedef sampler_t sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
-	typedef metal_image::sampler sampler_type;
+	typedef metal_sampler_t sampler_type;
 #elif defined(FLOOR_COMPUTE_CUDA)
 	enum CUDA_SAMPLER_TYPE : uint32_t {
 		CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS = 0,
@@ -415,7 +415,10 @@ namespace floor_image {
 			const auto converted_coord = convert_coord(coord);
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			constexpr const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
+#if !defined(FLOOR_COMPUTE_METAL) // only constexpr with opencl/vulkan
+			constexpr
+#endif
+			const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
 			const auto read_color = __builtin_choose_expr(is_float,
 														  opaque_image::read_image_float(r_img, smplr, image_type, converted_coord, layer, sample, offset,
 																						 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
