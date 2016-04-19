@@ -487,7 +487,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		" -DFLOOR_NO_MATH_STR" +
 		clang_path + libcxx_path + floor_path +
 		" -include floor/compute/device/common.hpp"
-		" -fno-exceptions -fno-rtti -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
+		" -fno-exceptions -fno-rtti -fno-pic -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
 		" -mllvm -rotation-max-header-size=64 " +
 		warning_flags +
