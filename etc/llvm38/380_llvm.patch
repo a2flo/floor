@@ -381,7 +381,7 @@ index a1272cf..9dc5cfc 100644
  
  #endif
 diff --git a/include/llvm/Bitcode/LLVMBitCodes.h b/include/llvm/Bitcode/LLVMBitCodes.h
-index bcc84be..15c5550 100644
+index bcc84be..fca0575 100644
 --- a/include/llvm/Bitcode/LLVMBitCodes.h
 +++ b/include/llvm/Bitcode/LLVMBitCodes.h
 @@ -20,6 +20,21 @@
@@ -670,10 +670,13 @@ index bcc84be..15c5550 100644
      ATTR_KIND_ALIGNMENT = 1,
      ATTR_KIND_ALWAYS_INLINE = 2,
      ATTR_KIND_BY_VAL = 3,
-@@ -476,24 +491,25 @@ enum { BITCODE_CURRENT_EPOCH = 0 };
-     ATTR_KIND_IN_ALLOCA = 38,
-     ATTR_KIND_NON_NULL = 39,
-     ATTR_KIND_JUMP_TABLE = 40,
+@@ -473,27 +488,28 @@ enum { BITCODE_CURRENT_EPOCH = 0 };
+     ATTR_KIND_BUILTIN = 35,
+     ATTR_KIND_COLD = 36,
+     ATTR_KIND_OPTIMIZE_NONE = 37,
+-    ATTR_KIND_IN_ALLOCA = 38,
+-    ATTR_KIND_NON_NULL = 39,
+-    ATTR_KIND_JUMP_TABLE = 40,
 -    ATTR_KIND_DEREFERENCEABLE = 41,
 -    ATTR_KIND_DEREFERENCEABLE_OR_NULL = 42,
 -    ATTR_KIND_CONVERGENT = 43,
@@ -684,7 +687,10 @@ index bcc84be..15c5550 100644
 -    ATTR_KIND_NO_RECURSE = 48,
 -    ATTR_KIND_INACCESSIBLEMEM_ONLY = 49,
 -    ATTR_KIND_INACCESSIBLEMEM_OR_ARGMEMONLY = 50
-+    //! NOTE: technically 3.5, but not supported by Metal/SPIR
++    //! NOTE: 38 - 41 are technically 3.5, but not supported by Metal
++    ATTR_KIND_IN_ALLOCA DONT_USE = 38,
++    ATTR_KIND_NON_NULL DONT_USE = 39,
++    ATTR_KIND_JUMP_TABLE DONT_USE = 40,
 +    ATTR_KIND_DEREFERENCEABLE DONT_USE = 41,
 +    ATTR_KIND_DEREFERENCEABLE_OR_NULL BC38 = 42,
 +    ATTR_KIND_CONVERGENT BC38 = 43,
@@ -6191,10 +6197,10 @@ index 0000000..7b330f7
 +}
 diff --git a/lib/Bitcode/Writer35/BitcodeWriter35.cpp b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
 new file mode 100644
-index 0000000..5c3f7e4
+index 0000000..55c5aef
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
-@@ -0,0 +1,2592 @@
+@@ -0,0 +1,2618 @@
 +//===--- Bitcode/Writer35/BitcodeWriter35.cpp - Bitcode 3.5 Writer --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -6376,7 +6382,7 @@ index 0000000..5c3f7e4
 +  case Attribute::Convergent:
 +    return bitc::ATTR_KIND_INVALID; // not in 3.5
 +  case Attribute::InAlloca:
-+    return bitc::ATTR_KIND_IN_ALLOCA;
++    return bitc::ATTR_KIND_INVALID; // technically in 3.5, but not supported by Metal
 +  case Attribute::Cold:
 +    return bitc::ATTR_KIND_COLD;
 +  case Attribute::InaccessibleMemOnly:
@@ -6388,7 +6394,7 @@ index 0000000..5c3f7e4
 +  case Attribute::InReg:
 +    return bitc::ATTR_KIND_IN_REG;
 +  case Attribute::JumpTable:
-+    return bitc::ATTR_KIND_JUMP_TABLE;
++    return bitc::ATTR_KIND_INVALID; // technically in 3.5, but not supported by Metal
 +  case Attribute::MinSize:
 +    return bitc::ATTR_KIND_MIN_SIZE;
 +  case Attribute::Naked:
@@ -6412,9 +6418,9 @@ index 0000000..5c3f7e4
 +  case Attribute::NonLazyBind:
 +    return bitc::ATTR_KIND_NON_LAZY_BIND;
 +  case Attribute::NonNull:
-+    return bitc::ATTR_KIND_NON_NULL;
++    return bitc::ATTR_KIND_INVALID; // technically in 3.5, but not supported by Metal
 +  case Attribute::Dereferenceable:
-+    return bitc::ATTR_KIND_INVALID; // technically in 3.5, but not supported by Metal (or SPIR 1.2/2.0)
++    return bitc::ATTR_KIND_INVALID; // technically in 3.5, but not supported by Metal
 +  case Attribute::DereferenceableOrNull:
 +    return bitc::ATTR_KIND_INVALID; // not in 3.5
 +  case Attribute::NoRedZone:
@@ -6468,6 +6474,25 @@ index 0000000..5c3f7e4
 +  llvm_unreachable("Trying to encode unknown attribute");
 +}
 +
++// due to the necessity to drop attributes that aren't supported by earlier llvm versions (3.5),
++// attribute sets can become empty, which is invalid under certain circumstances
++// -> provide an easy method to count the attributes that will actually be accepted by the earlier llvm version
++static uint32_t compute_valid_attribute_count(const AttributeSet& AS) {
++  uint32_t count = 0;
++  for (AttributeSet::iterator I = AS.begin(0), E = AS.end(0); I != E; ++I) {
++    Attribute Attr = *I;
++    if (Attr.isEnumAttribute() || Attr.isIntAttribute()) {
++      // ignore dropped/invalid attrs
++      if (getAttrKindEncoding(Attr.getKindAsEnum()) != bitc::ATTR_KIND_INVALID) {
++        ++count;
++      }
++    }
++    // string
++    else ++count;
++  }
++  return count;
++}
++
 +static void WriteAttributeGroupTable(const ValueEnumerator35 &VE,
 +                                     BitstreamWriter &Stream) {
 +  const std::vector<AttributeSet> &AttrGrps = VE.getAttributeGroups();
@@ -6480,6 +6505,9 @@ index 0000000..5c3f7e4
 +    AttributeSet AS = AttrGrps[i];
 +    for (unsigned i = 0, e = AS.getNumSlots(); i != e; ++i) {
 +      AttributeSet A = AS.getSlotAttributes(i);
++
++      // if the valid/emitted attribute set is empty, it's invalid to emit anything here at all
++      if (compute_valid_attribute_count(A) == 0) continue;
 +
 +      Record.push_back(VE.getAttributeGroupID(A));
 +      Record.push_back(AS.getSlotIndex(i));
@@ -6532,8 +6560,12 @@ index 0000000..5c3f7e4
 +  SmallVector<uint64_t, 64> Record;
 +  for (unsigned i = 0, e = Attrs.size(); i != e; ++i) {
 +    const AttributeSet &A = Attrs[i];
-+    for (unsigned i = 0, e = A.getNumSlots(); i != e; ++i)
-+      Record.push_back(VE.getAttributeGroupID(A.getSlotAttributes(i)));
++    for (unsigned i = 0, e = A.getNumSlots(); i != e; ++i) {
++      AttributeSet AS = A.getSlotAttributes(i);
++      // while not technically necessary, ignore/drop this attribute group if it has no valid/emitted attributes
++      if (compute_valid_attribute_count(AS) == 0) continue;
++      Record.push_back(VE.getAttributeGroupID(AS));
++    }
 +
 +    Stream.EmitRecord(bitc::PARAMATTR_CODE_ENTRY, Record);
 +    Record.clear();
