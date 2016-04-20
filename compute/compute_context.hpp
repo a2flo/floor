@@ -213,13 +213,24 @@ public:
 	//////////////////////////////////////////
 	// program/kernel functionality
 	
+	//! alias the llvm_compute compile_options (for now)
+	using compile_options = llvm_compute::compile_options;
+	
 	//! adds and compiles a program and its kernels from a file
 	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
-														 const string additional_options = "") = 0;
+														 const string additional_options) = 0;
+	
+	//! adds and compiles a program and its kernels from a file
+	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
+														 compile_options options = {}) = 0;
 	
 	//! adds and compiles a program and its kernels from the provided source code
 	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
 														   const string additional_options = "") = 0;
+	
+	//! adds and compiles a program and its kernels from the provided source code
+	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
+														   compile_options options = {}) = 0;
 	
 	//! adds a precompiled program and its kernels, using the provided file name and kernel infos
 	virtual shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
@@ -229,7 +240,7 @@ public:
 	//! NOTE: this is intended for rolling custom or semi-custom compilation, for normal code use the add_program_* functions
 	//! NOTE: this usually leads to final program compilation on most compute platforms (but not all!)
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																			pair<string, vector<llvm_compute::function_info>> program_data,
+																			llvm_compute::program_data program,
 																			const llvm_compute::TARGET target) = 0;
 	
 protected:

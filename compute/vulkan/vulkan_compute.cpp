@@ -470,43 +470,52 @@ shared_ptr<vulkan_program> vulkan_compute::add_program(vulkan_program::program_m
 
 shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_name,
 															 const string additional_options) {
+	return add_program_file(file_name, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_name,
+															 compile_options options) {
 	// compile the source file for all devices in the context
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_compute::compile_program_file(dev, file_name, additional_options,
-																								llvm_compute::TARGET::SPIRV_VULKAN)));
+								  create_vulkan_program(dev, llvm_compute::compile_program_file(dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program> vulkan_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
+	return add_program_source(source_code, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> vulkan_compute::add_program_source(const string& source_code,
+															   compile_options options) {
 	// compile the source code for all devices in the context
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_compute::compile_program(dev, source_code, additional_options,
-																						   llvm_compute::TARGET::SPIRV_VULKAN)));
+								  create_vulkan_program(dev, llvm_compute::compile_program(dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::function_info>> program_data) {
+																		   llvm_compute::program_data program) {
 	vulkan_program::vulkan_program_entry ret;
-	ret.kernels_info = program_data.second;
+	ret.kernels_info = program.functions;
 	const auto dev = (const vulkan_device*)device.get();
 	
-	if(program_data.first.empty()) {
-		log_error("compilation failed");
+	if(!program.valid) {
 		return ret;
 	}
 	
 	size_t code_size = 0;
-	auto code = llvm_compute::load_spirv_binary(program_data.first, code_size);
+	auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
 	if(code == nullptr) return ret; // already prints an error
 	
 	// create module
@@ -518,11 +527,11 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		.pCode = code.get(),
 	};
 	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &ret.program),
-				"failed to create shader module (\"" + program_data.first + "\") for device \"" + dev->name + "\"", ret);
+				"failed to create shader module (\"" + program.data_or_filename + "\") for device \"" + dev->name + "\"", ret);
 	
 	// cleanup
 	if(!floor::get_compute_keep_binaries()) {
-		core::system("rm " + program_data.first);
+		core::system("rm " + program.data_or_filename);
 	}
 	
 	ret.valid = true;
@@ -560,9 +569,9 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::function_info>> program_data,
+																				llvm_compute::program_data program,
 																				const llvm_compute::TARGET) {
-	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program_data));
+	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program));
 }
 
 #endif

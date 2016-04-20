@@ -98,61 +98,33 @@ bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
 	return true;
 }
 
-pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program(shared_ptr<compute_device> device,
-																				const string& code,
-																				const string additional_options,
-																				const TARGET target) {
+llvm_compute::program_data llvm_compute::compile_program(shared_ptr<compute_device> device,
+														 const string& code,
+														 const compile_options options) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
-	return compile_input("-", printable_code, device, additional_options, target);
+	return compile_input("-", printable_code, device, options);
 }
 
-pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_program_file(shared_ptr<compute_device> device,
-																					 const string& filename,
-																					 const string additional_options,
-																					 const TARGET target) {
-	return compile_input("\"" + filename + "\"", "", device, additional_options, target);
+llvm_compute::program_data llvm_compute::compile_program_file(shared_ptr<compute_device> device,
+															  const string& filename,
+															  const compile_options options) {
+	return compile_input("\"" + filename + "\"", "", device, options);
 }
 
-pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(const string& input,
-																			  const string& cmd_prefix,
-																			  shared_ptr<compute_device> device,
-																			  const string additional_options,
-																			  const TARGET target) {
+llvm_compute::program_data llvm_compute::compile_input(const string& input,
+													   const string& cmd_prefix,
+													   shared_ptr<compute_device> device,
+													   const compile_options options) {
 	// TODO/NOTE: additional clang flags:
 	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
 	//  -menable-unsafe-fp-math
-	
-	// for now, only enable these in debug mode (note that these cost a not insignificant amount of compilation time)
-#if defined(FLOOR_DEBUG) && 0
-	const char* warning_flags {
-		// let's start with everything
-		" -Weverything"
-		// remove compat warnings
-		" -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c99-extensions -Wno-c11-extensions -Wno-gnu"
-		// in case we're using warning options that aren't supported by other clang versions
-		" -Wno-unknown-warning-option"
-		// really don't want to be too pedantic
-		" -Wno-old-style-cast -Wno-date-time -Wno-system-headers -Wno-header-hygiene -Wno-documentation"
-		// again: not too pedantic, also useful language features
-		" -Wno-nested-anon-types -Wno-global-constructors -Wno-exit-time-destructors"
-		// usually conflicting with the other switch/case warning, so disable it
-		" -Wno-switch-enum"
-		// not intended to be compatible
-		" -Wno-gcc-compat"
-		// TODO: also add -Wno-padded -Wno-packed? or make these optional? there are situations were these are useful
-		// end
-		" "
-	};
-#else
-	const char* warning_flags { "" };
-#endif
 	
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
 	uint32_t toolchain_version = 0;
-	switch(target) {
+	switch(options.target) {
 		case TARGET::SPIR:
 			toolchain_version = floor::get_opencl_toolchain_version();
 			clang_cmd += {
@@ -318,7 +290,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	const auto platform_vendor_str = compute_vendor_to_string(device->platform_vendor);
 	const auto type_str = (compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "GPU" :
 						   compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? "CPU" : "UNKNOWN");
-	const auto os_str = (target != TARGET::AIR ?
+	const auto os_str = (options.target != TARGET::AIR ?
 						 // non metal/air targets (aka the usual/proper handling)
 #if defined(__APPLE__)
 #if defined(FLOOR_IOS)
@@ -468,14 +440,37 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;
 	
 	// set cuda sm version
-	if(target == TARGET::PTX) {
+	if(options.target == TARGET::PTX) {
 		clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
 	}
 	
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
-	if(floor::get_compute_debug() && target != TARGET::SPIR) {
+	if(floor::get_compute_debug() && options.target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
 	}
+	
+	// default warning flags (note that these cost a significant amount of compilation time)
+	const char* warning_flags {
+		// let's start with everything
+		" -Weverything"
+		// remove compat warnings
+		" -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c99-extensions -Wno-c11-extensions -Wno-gnu"
+		// in case we're using warning options that aren't supported by other clang versions
+		" -Wno-unknown-warning-option"
+		// really don't want to be too pedantic
+		" -Wno-old-style-cast -Wno-date-time -Wno-system-headers -Wno-header-hygiene -Wno-documentation"
+		// again: not too pedantic, also useful language features
+		" -Wno-nested-anon-types -Wno-global-constructors -Wno-exit-time-destructors"
+		// usually conflicting with the other switch/case warning, so disable it
+		" -Wno-switch-enum"
+		// don't warn when using macros prefixed with "__" or "_"
+		" -Wno-reserved-id-macro"
+		// not intended to be compatible
+		" -Wno-gcc-compat"
+		// TODO: also add -Wno-padded -Wno-packed? or make these optional? there are situations were these are useful
+		// end
+		" "
+	};
 	
 	// add generic flags/options that are always used
 	auto compiled_file_or_code = core::create_tmp_file_name("", ".bc");
@@ -489,9 +484,9 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		" -include floor/compute/device/common.hpp"
 		" -fno-exceptions -fno-rtti -fno-pic -fstrict-aliasing -ffast-math -funroll-loops -Ofast -ffp-contract=fast"
 		// increase limit from 16 to 64, this "fixes" some forced unrolling
-		" -mllvm -rotation-max-header-size=64 " +
-		warning_flags +
-		additional_options +
+		" -mllvm -rotation-max-header-size=64" +
+		(options.enable_warnings ? warning_flags : " ") +
+		options.cli +
 		// compile to the right device bitness
 		(device->bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
 		" -emit-llvm -c -o " + compiled_file_or_code + " " + input
@@ -531,7 +526,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 	}
 	
 	// final target specific processing/compilation
-	if(target == TARGET::SPIR) {
+	if(options.target == TARGET::SPIR) {
 		string spir_bc_data = "";
 		if(toolchain_version < 380) {
 			// run spir-encoder for 3.5 -> 3.2 conversion
@@ -588,10 +583,10 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		// move spir data
 		compiled_file_or_code.swap(spir_bc_data);
 	}
-	else if(target == TARGET::AIR) {
+	else if(options.target == TARGET::AIR) {
 		// nop, final processing will be done in metal_compute
 	}
-	else if(target == TARGET::PTX) {
+	else if(options.target == TARGET::PTX) {
 		// handle ptx version (note that 4.3 is the minimum requirement for floor, and 5.0 for sm_60+)
 		uint32_t ptx_version = (((cuda_device*)device.get())->sm.x >= 6 ? 50 : 43);
 		if(!floor::get_cuda_force_ptx().empty()) {
@@ -637,7 +632,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		// move ptx code
 		compiled_file_or_code.swap(ptx_code);
 	}
-	else if(target == TARGET::APPLECL) {
+	else if(options.target == TARGET::APPLECL) {
 		string applecl_bc_data = "";
 		if(toolchain_version < 380) {
 			// run applecl-encoder for 3.5 -> 3.2 conversion
@@ -680,12 +675,16 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		// move applecl data
 		compiled_file_or_code.swap(applecl_bc_data);
 	}
-	else if(target == TARGET::SPIRV_VULKAN ||
-			target == TARGET::SPIRV_OPENCL) {
-		const auto encoder = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_spirv_encoder() : floor::get_opencl_spirv_encoder());
-		const auto as = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_as() : floor::get_opencl_as());
-		const auto validate = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
-		const auto validator = (target == TARGET::SPIRV_VULKAN ? floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
+	else if(options.target == TARGET::SPIRV_VULKAN ||
+			options.target == TARGET::SPIRV_OPENCL) {
+		const auto encoder = (options.target == TARGET::SPIRV_VULKAN ?
+							  floor::get_vulkan_spirv_encoder() : floor::get_opencl_spirv_encoder());
+		const auto as = (options.target == TARGET::SPIRV_VULKAN ?
+						 floor::get_vulkan_as() : floor::get_opencl_as());
+		const auto validate = (options.target == TARGET::SPIRV_VULKAN ?
+							   floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
+		const auto validator = (options.target == TARGET::SPIRV_VULKAN ?
+								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
 		// run llvm-spirv for llvm 3.8 bc -> spir-v binary conversion
 		auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
@@ -724,7 +723,7 @@ pair<string, vector<llvm_compute::function_info>> llvm_compute::compile_input(co
 		compiled_file_or_code.swap(spirv_bin);
 	}
 	
-	return { compiled_file_or_code, functions };
+	return { true, compiled_file_or_code, functions, options };
 }
 
 unique_ptr<uint32_t[]> llvm_compute::load_spirv_binary(const string& file_name, size_t& code_size) {

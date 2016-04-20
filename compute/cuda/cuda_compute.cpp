@@ -383,36 +383,50 @@ shared_ptr<cuda_program> cuda_compute::add_program(cuda_program::program_map_typ
 
 shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
 														   const string additional_options) {
+	return add_program_file(file_name, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_name,
+														   compile_options options) {
 	// compile the source file for all devices in the context
 	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::PTX;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((cuda_device*)dev.get(),
-								  create_cuda_program(llvm_compute::compile_program_file(dev, file_name, additional_options,
-																						 llvm_compute::TARGET::PTX)));
+								  create_cuda_program(llvm_compute::compile_program_file(dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
 															 const string additional_options) {
+	return add_program_source(source_code, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> cuda_compute::add_program_source(const string& source_code,
+															 compile_options options) {
 	// compile the source code for all devices in the context
 	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::PTX;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((cuda_device*)dev.get(),
-								  create_cuda_program(llvm_compute::compile_program(dev, source_code, additional_options,
-																					llvm_compute::TARGET::PTX)));
+								  create_cuda_program(llvm_compute::compile_program(dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
-cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, vector<llvm_compute::function_info>> program_data) {
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program(llvm_compute::program_data program) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cuda_program::cuda_program_entry ret;
-	ret.kernels_info = program_data.second;
+	ret.kernels_info = program.functions;
+	
+	if(!program.valid) {
+		return ret;
+	}
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
 		const CU_JIT_OPTION jit_options[] {
@@ -431,13 +445,13 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, 
 			{ .ui = sm_version },
 			{ .ui = floor::get_compute_profiling() ? 1u : 0u },
 			{ .ui = 0u },
-			{ .ui = floor::get_cuda_max_registers() },
+			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
 			{ .ui = floor::get_cuda_jit_opt_level() },
 		};
 		static_assert(option_count == size(jit_option_values), "mismatching option count");
 		
 		CU_CALL_RET(cu_module_load_data_ex(&ret.program,
-										   program_data.first.c_str(),
+										   program.data_or_filename.c_str(),
 										   option_count,
 										   (CU_JIT_OPTION*)&jit_options[0],
 										   (void**)&jit_option_values[0]),
@@ -476,7 +490,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, 
 			{ .ui = sm_version },
 			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
 			{ .ui = floor::get_compute_debug() ? 1u : 0u },
-			{ .ui = floor::get_cuda_max_registers() },
+			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
 			// opt level must be 0 when debug info is generated
 			{ .ui = (floor::get_compute_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },
@@ -497,7 +511,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(pair<string, 
 								   &link_state),
 					"failed to create link state", {});
 		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,
-											(void*)program_data.first.c_str(), program_data.first.size(),
+											(void*)program.data_or_filename.c_str(), program.data_or_filename.size(),
 											nullptr, 0, nullptr, nullptr),
 						   "failed to add ptx data to link state", {
 							   print_error_log();
@@ -547,9 +561,9 @@ shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const str
 }
 
 shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
-																			  pair<string, vector<llvm_compute::function_info>> program_data,
+																			  llvm_compute::program_data program,
 																			  const llvm_compute::TARGET) {
-	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program(program_data));
+	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program(program));
 }
 
 #endif

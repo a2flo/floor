@@ -297,8 +297,18 @@ shared_ptr<compute_program> host_compute::add_program_file(const string& file_na
 	return make_shared<host_program>(fastest_device);
 }
 
+shared_ptr<compute_program> host_compute::add_program_file(const string& file_name floor_unused,
+														   compile_options options floor_unused) {
+	return make_shared<host_program>(fastest_device);
+}
+
 shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
 															 const string additional_options floor_unused) {
+	return make_shared<host_program>(fastest_device);
+}
+
+shared_ptr<compute_program> host_compute::add_program_source(const string& source_code floor_unused,
+															 compile_options options floor_unused) {
 	return make_shared<host_program>(fastest_device);
 }
 
@@ -309,9 +319,9 @@ shared_ptr<compute_program> host_compute::add_precompiled_program_file(const str
 }
 
 shared_ptr<compute_program::program_entry> host_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
-																			  pair<string, vector<llvm_compute::function_info>> program_data,
+																			  llvm_compute::program_data program,
 																			  const llvm_compute::TARGET) {
-	return make_shared<compute_program::program_entry>(compute_program::program_entry { program_data.second, true });
+	return make_shared<compute_program::program_entry>(compute_program::program_entry { program.functions, true });
 }
 
 #endif

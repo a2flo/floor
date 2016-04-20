@@ -921,60 +921,64 @@ shared_ptr<opencl_program> opencl_compute::add_program(opencl_program::program_m
 
 shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
 															 const string additional_options) {
+	return add_program_file(file_name, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_name,
+															 compile_options options) {
 	// compile the source file for all devices in the context
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		const auto device_target = (
+		options.target = (
 #if defined(__APPLE__)
-			llvm_compute::TARGET::APPLECL
+						  llvm_compute::TARGET::APPLECL
 #else
-			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
+						  ((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
 		);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name,
-																								additional_options,
-																								device_target),
-														device_target));
+								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name, options),
+														options.target));
 	}
 	return add_program(move(prog_map));
 }
 
 shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
+	return add_program_source(source_code, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> opencl_compute::add_program_source(const string& source_code,
+															   compile_options options) {
 	// compile the source code for all devices in the context
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		const auto device_target = (
+		options.target = (
 #if defined(__APPLE__)
-			llvm_compute::TARGET::APPLECL
+						  llvm_compute::TARGET::APPLECL
 #else
-			((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-			llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
+						  ((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
 #endif
 		);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev,
-														llvm_compute::compile_program(dev, source_code,
-																					  additional_options,
-																					  device_target),
-														device_target));
+								  create_opencl_program(dev, llvm_compute::compile_program(dev, source_code, options),
+														options.target));
 	}
 	return add_program(move(prog_map));
 }
 
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
-																		   pair<string, vector<llvm_compute::function_info>> program_data,
+																		   llvm_compute::program_data program,
 																		   const llvm_compute::TARGET& target) {
 	opencl_program::opencl_program_entry ret;
-	ret.kernels_info = program_data.second;
+	ret.kernels_info = program.functions;
 	const auto cl_dev = (const opencl_device*)device.get();
 	
-	if(program_data.first.empty()) {
-		log_error("compilation failed");
+	if(!program.valid) {
 		return ret;
 	}
 	
@@ -982,8 +986,8 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	cl_int create_err = CL_SUCCESS;
 	if(target != llvm_compute::TARGET::SPIRV_OPENCL) {
 		// opencl api handling
-		const size_t length = program_data.first.size();
-		const unsigned char* binary_ptr = (const unsigned char*)program_data.first.data();
+		const size_t length = program.data_or_filename.size();
+		const unsigned char* binary_ptr = (const unsigned char*)program.data_or_filename.data();
 		cl_int binary_status = CL_SUCCESS;
 		
 		ret.program = clCreateProgramWithBinary(ctx, 1, &cl_dev->device_id,
@@ -997,7 +1001,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	}
 	else {
 		size_t code_size = 0;
-		auto code = llvm_compute::load_spirv_binary(program_data.first, code_size);
+		auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
 		if(code == nullptr) return ret; // already prints an error
 		
 		ret.program = create_program_with_il(ctx, code.get(), code_size, &create_err);
@@ -1044,9 +1048,9 @@ shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
-																				pair<string, vector<llvm_compute::function_info>> program_data,
+																				llvm_compute::program_data program,
 																				const llvm_compute::TARGET target) {
-	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program_data, target));
+	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program, target));
 }
 
 #endif

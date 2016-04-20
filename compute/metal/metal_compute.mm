@@ -490,12 +490,11 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,
-															   pair<string, vector<llvm_compute::function_info>> program_data) {
+															   llvm_compute::program_data program) {
 	metal_program::metal_program_entry ret;
-	ret.kernels_info = program_data.second;
+	ret.kernels_info = program.functions;
 	
-	if(program_data.first.empty()) {
-		log_error("compilation failed");
+	if(!program.valid) {
 		return ret;
 	}
 	
@@ -522,15 +521,15 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	
 	//
 	if(!floor::get_compute_debug()) {
-		core::system(metal_opt + " -Oz "s + program_data.first + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
+		core::system(metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {
-		tmp_files[METAL_OPT_AIR_FILE] = program_data.first;
+		tmp_files[METAL_OPT_AIR_FILE] = program.data_or_filename;
 	}
 	core::system(metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
 	core::system(metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
 	
-	const auto cleanup = [&tmp_files, unopt_file = program_data.first]() {
+	const auto cleanup = [&tmp_files, unopt_file = program.data_or_filename]() {
 		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);
 		if(!floor::get_compute_debug()) {
 			core::system("rm "s + unopt_file);
@@ -561,28 +560,38 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 
 shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
 															const string additional_options) {
+	return add_program_file(file_name, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> metal_compute::add_program_file(const string& file_name,
+															compile_options options) {
 	// compile the source file for all devices in the context
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::AIR;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((metal_device*)dev.get(),
 								  create_metal_program((metal_device*)dev.get(),
-													   llvm_compute::compile_program_file(dev, file_name, additional_options,
-																						  llvm_compute::TARGET::AIR)));
+													   llvm_compute::compile_program_file(dev, file_name, options)));
 	}
 	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
 															  const string additional_options) {
+	return add_program_source(source_code, compile_options { .cli = additional_options });
+}
+
+shared_ptr<compute_program> metal_compute::add_program_source(const string& source_code,
+															  compile_options options) {
 	// compile the source code for all devices in the context
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
+	options.target = llvm_compute::TARGET::AIR;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((metal_device*)dev.get(),
 								  create_metal_program((metal_device*)dev.get(),
-													   llvm_compute::compile_program(dev, source_code, additional_options,
-																					 llvm_compute::TARGET::AIR)));
+													   llvm_compute::compile_program(dev, source_code, options)));
 	}
 	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
@@ -614,9 +623,9 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 }
 
 shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(shared_ptr<compute_device> device,
-																			   pair<string, vector<llvm_compute::function_info>> program_data,
+																			   llvm_compute::program_data program,
 																			   const llvm_compute::TARGET) {
-	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program_data));
+	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program));
 }
 
 #endif

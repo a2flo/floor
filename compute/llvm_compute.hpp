@@ -25,6 +25,7 @@
 
 class llvm_compute {
 public:
+	//! compilation target platform
 	enum class TARGET {
 		//! OpenCL SPIR 1.2
 		SPIR,
@@ -40,7 +41,7 @@ public:
 		SPIRV_OPENCL,
 	};
 	
-	//
+	//! this contains all necessary information of a function (types, args, arg types, sizes, ...)
 	struct function_info {
 		string name;
 		
@@ -111,7 +112,7 @@ public:
 		vector<arg_info> args;
 	};
 	
-	// for internal use
+	//! internal: encoded floor metadata layout
 	enum class FLOOR_METADATA : uint64_t {
 		ARG_SIZE_MASK			= (0x00000000FFFFFFFFull),
 		ARG_SIZE_SHIFT			= (0ull),
@@ -125,7 +126,7 @@ public:
 		SPECIAL_TYPE_SHIFT		= (56ull),
 	};
 	
-	// packed version of the image support flags
+	//! internal: packed version of the image support flags
 	enum class IMAGE_CAPABILITY : uint32_t {
 		NONE					= (0u),
 		BASIC					= (1u << 0u),
@@ -142,22 +143,53 @@ public:
 	};
 	floor_enum_ext(IMAGE_CAPABILITY)
 	
-	//!
-	static pair<string, vector<function_info>> compile_program(shared_ptr<compute_device> device,
-															   const string& code,
-															   const string additional_options = "",
-															   const TARGET target = TARGET::SPIR);
-	//!
-	static pair<string, vector<function_info>> compile_program_file(shared_ptr<compute_device> device,
-																	const string& filename,
-																	const string additional_options = "",
-																	const TARGET target = TARGET::SPIR);
-	//!
-	static pair<string, vector<function_info>> compile_input(const string& input,
-															 const string& cmd_prefix,
-															 shared_ptr<compute_device> device,
-															 const string additional_options = "",
-															 const TARGET target = TARGET::SPIR);
+	//! compilation options that will either be passed through to the compiler or enable/disable internal behavior
+	struct compile_options {
+		//! the compilation target platform
+		//! NOTE: unless calling llvm_compute directly, this does not have to be set (i.e. this is handled by each backend)
+		TARGET target { TARGET::SPIR };
+		
+		//! options that are directly passed through to the compiler
+		string cli { "" };
+		
+		//! if true, sets the default set of warning flags
+		bool enable_warnings { false };
+		
+		//! cuda: sets the maximum amount of registers that may be used
+		//!       if 0, the global config setting is used
+		uint32_t cuda_max_registers { 0u };
+	};
+	
+	//! contains all information about a compiled compute/graphics program
+	struct program_data {
+		//! true if compilation was successful and this contains valid program data, false otherwise
+		bool valid { false };
+		
+		//! this either contains the compiled binary data (for PTX, SPIR, APPLECL),
+		//! or the filename to the compiled binary (SPIR-V, AIR)
+		string data_or_filename;
+		
+		//! contains the function-specific information for all functions in the program
+		vector<function_info> functions;
+		
+		//! the options that were used to compile this program
+		compile_options options;
+	};
+	
+	//! compiles a program from a source code string
+	static program_data compile_program(shared_ptr<compute_device> device,
+										const string& code,
+										const compile_options options);
+	//! compiles a program from a source file
+	static program_data compile_program_file(shared_ptr<compute_device> device,
+											 const string& filename,
+											 const compile_options options);
+	
+	//! compiles a program from the specified input file/handle and prefixes the compiler call with "cmd_prefix"
+	static program_data compile_input(const string& input,
+									  const string& cmd_prefix,
+									  shared_ptr<compute_device> device,
+									  const compile_options options);
 	
 	//! creates the internal floor function info representation from the specified floor function info,
 	//! returns true on success
