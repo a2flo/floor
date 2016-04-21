@@ -152,8 +152,11 @@ public:
 		//! options that are directly passed through to the compiler
 		string cli { "" };
 		
-		//! if true, sets the default set of warning flags
+		//! if true, enables the default set of warning flags
 		bool enable_warnings { false };
+		
+		//! if true, explicitly enables the emission of debug line info (-gline-tables-only)
+		bool emit_debug_line_info { false };
 		
 		//! cuda: sets the maximum amount of registers that may be used
 		//!       if 0, the global config setting is used

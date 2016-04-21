@@ -115,10 +115,6 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 													   const string& cmd_prefix,
 													   shared_ptr<compute_device> device,
 													   const compile_options options) {
-	// TODO/NOTE: additional clang flags:
-	//  -vectorize-loops -vectorize-slp -vectorize-slp-aggressive
-	//  -menable-unsafe-fp-math
-	
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
@@ -445,7 +441,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	}
 	
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
-	if(floor::get_compute_debug() && options.target != TARGET::SPIR) {
+	if((floor::get_compute_debug() || options.emit_debug_line_info) &&
+		options.target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
 	}
 	
