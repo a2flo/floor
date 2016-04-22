@@ -492,7 +492,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,
 															   llvm_compute::program_data program) {
 	metal_program::metal_program_entry ret;
-	ret.kernels_info = program.functions;
+	ret.functions = program.functions;
 	
 	if(!program.valid) {
 		return ret;
@@ -597,7 +597,7 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
-																		const vector<llvm_compute::function_info>& kernel_infos) {
+																		const vector<llvm_compute::function_info>& functions) {
 	log_debug("loading mtllib: %s", file_name);
 	
 	// assume pre-compiled program is the same for all devices
@@ -605,7 +605,7 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		metal_program::metal_program_entry entry;
-		entry.kernels_info = kernel_infos;
+		entry.functions = functions;
 		
 		NSError* err { nil };
 		entry.program = [((metal_device*)dev.get())->device newLibraryWithFile:[NSString stringWithUTF8String:file_name.c_str()]

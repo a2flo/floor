@@ -507,7 +507,7 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
 																		   llvm_compute::program_data program) {
 	vulkan_program::vulkan_program_entry ret;
-	ret.kernels_info = program.functions;
+	ret.functions = program.functions;
 	const auto dev = (const vulkan_device*)device.get();
 	
 	if(!program.valid) {
@@ -539,7 +539,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 }
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
-																		 const vector<llvm_compute::function_info>& kernel_infos) {
+																		 const vector<llvm_compute::function_info>& functions) {
 	size_t code_size = 0;
 	auto code = llvm_compute::load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
@@ -557,7 +557,7 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		vulkan_program::vulkan_program_entry entry;
-		entry.kernels_info = kernel_infos;
+		entry.functions = functions;
 		
 		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &entry.program),
 					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"");

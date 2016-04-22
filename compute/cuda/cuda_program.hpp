@@ -33,7 +33,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class cuda_device;
 class cuda_program final : public compute_program {
 public:
-	//! stores a cuda program + kernel infos for an individual device
+	//! stores a cuda program + function infos for an individual device
 	struct cuda_program_entry : program_entry {
 		cu_module program { nullptr };
 	};

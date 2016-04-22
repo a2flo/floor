@@ -422,7 +422,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(llvm_compute:
 	const auto& sm = ((cuda_device*)devices[0].get())->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cuda_program::cuda_program_entry ret;
-	ret.kernels_info = program.functions;
+	ret.functions = program.functions;
 	
 	if(!program.valid) {
 		return ret;
@@ -554,7 +554,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(llvm_compute:
 }
 
 shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																	   const vector<llvm_compute::function_info>& kernel_infos floor_unused) {
+																	   const vector<llvm_compute::function_info>& functions floor_unused) {
 	// TODO: !
 	log_error("not yet supported by cuda_compute!");
 	return {};

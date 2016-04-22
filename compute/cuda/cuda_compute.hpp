@@ -134,7 +134,7 @@ public:
 												   compile_options options = {}) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-															 const vector<llvm_compute::function_info>& kernel_infos) override REQUIRES(!programs_lock);
+															 const vector<llvm_compute::function_info>& functions) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	cuda_program::cuda_program_entry create_cuda_program(llvm_compute::program_data program);

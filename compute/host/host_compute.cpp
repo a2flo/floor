@@ -313,7 +313,7 @@ shared_ptr<compute_program> host_compute::add_program_source(const string& sourc
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																	   const vector<llvm_compute::function_info>& kernel_infos floor_unused) {
+																	   const vector<llvm_compute::function_info>& functions floor_unused) {
 	log_error("not supported by host_compute!");
 	return {};
 }

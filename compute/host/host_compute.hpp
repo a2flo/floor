@@ -134,7 +134,7 @@ public:
 												   compile_options options = {}) override;
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-															 const vector<llvm_compute::function_info>& kernel_infos) override;
+															 const vector<llvm_compute::function_info>& functions) override;
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
 																	llvm_compute::program_data program,

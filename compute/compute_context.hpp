@@ -211,32 +211,32 @@ public:
 	// TODO: add is_image_format_supported(...) function
 	
 	//////////////////////////////////////////
-	// program/kernel functionality
+	// program/function functionality
 	
 	//! alias the llvm_compute compile_options (for now)
 	using compile_options = llvm_compute::compile_options;
 	
-	//! adds and compiles a program and its kernels from a file
+	//! adds and compiles a program and its functions from a file
 	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
 														 const string additional_options) = 0;
 	
-	//! adds and compiles a program and its kernels from a file
+	//! adds and compiles a program and its functions from a file
 	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
 														 compile_options options = {}) = 0;
 	
-	//! adds and compiles a program and its kernels from the provided source code
+	//! adds and compiles a program and its functions from the provided source code
 	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
 														   const string additional_options = "") = 0;
 	
-	//! adds and compiles a program and its kernels from the provided source code
+	//! adds and compiles a program and its functions from the provided source code
 	virtual shared_ptr<compute_program> add_program_source(const string& source_code,
 														   compile_options options = {}) = 0;
 	
-	//! adds a precompiled program and its kernels, using the provided file name and kernel infos
+	//! adds a precompiled program and its functions, using the provided file name and function infos
 	virtual shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-																	 const vector<llvm_compute::function_info>& kernel_infos) = 0;
+																	 const vector<llvm_compute::function_info>& functions) = 0;
 	
-	//! creates a program entry from pre-existing program data and kernel(s) information on the specified device
+	//! creates a program entry from pre-existing program data and function information on the specified device
 	//! NOTE: this is intended for rolling custom or semi-custom compilation, for normal code use the add_program_* functions
 	//! NOTE: this usually leads to final program compilation on most compute platforms (but not all!)
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,

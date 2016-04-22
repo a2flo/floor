@@ -42,9 +42,9 @@ public:
 		return kernel_names;
 	}
 	
-	//! stores a program + kernel infos for an individual device
+	//! stores a program + function infos for an individual device
 	struct program_entry {
-		vector<llvm_compute::function_info> kernels_info;
+		vector<llvm_compute::function_info> functions;
 		bool valid { false };
 	};
 	
@@ -58,7 +58,7 @@ protected:
 		kernel_names.clear(); // just in case
 		for(const auto& prog : programs) {
 			if(!prog.second.valid) continue;
-			for(const auto& info : prog.second.kernels_info) {
+			for(const auto& info : prog.second.functions) {
 				kernel_names.push_back(info.name);
 			}
 		}

@@ -975,7 +975,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 																		   llvm_compute::program_data program,
 																		   const llvm_compute::TARGET& target) {
 	opencl_program::opencl_program_entry ret;
-	ret.kernels_info = program.functions;
+	ret.functions = program.functions;
 	const auto cl_dev = (const opencl_device*)device.get();
 	
 	if(!program.valid) {
@@ -1041,7 +1041,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 }
 
 shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																		 const vector<llvm_compute::function_info>& kernel_infos floor_unused) {
+																		 const vector<llvm_compute::function_info>& functions floor_unused) {
 	// TODO: !
 	log_error("not yet supported by opencl_compute!");
 	return {};

@@ -50,11 +50,11 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 
 bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
 	image = new uint8_t[image_data_size + protection_size] alignas(1024);
-	kernel_info.buffer = image;
-	kernel_info.runtime_image_type = image_type;
-	kernel_info.image_dim = image_dim;
-	kernel_info.image_clamp_dim.int_dim = image_dim - 1;
-	kernel_info.image_clamp_dim.float_dim = kernel_info.image_clamp_dim.int_dim;
+	program_info.buffer = image;
+	program_info.runtime_image_type = image_type;
+	program_info.image_dim = image_dim;
+	program_info.image_clamp_dim.int_dim = image_dim - 1;
+	program_info.image_clamp_dim.float_dim = program_info.image_clamp_dim.int_dim;
 	
 #if defined(FLOOR_DEBUG)
 	// set protection bytes

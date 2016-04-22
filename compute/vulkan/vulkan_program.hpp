@@ -32,7 +32,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class vulkan_device;
 class vulkan_program final : public compute_program {
 public:
-	//! stores a vulkan program + kernel infos for an individual device
+	//! stores a vulkan program + function infos for an individual device
 	struct vulkan_program_entry : program_entry {
 		VkShaderModule program { nullptr };
 	};

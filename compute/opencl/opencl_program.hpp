@@ -32,7 +32,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class opencl_device;
 class opencl_program final : public compute_program {
 public:
-	//! stores a opencl program + kernel infos for an individual device
+	//! stores a opencl program + function infos for an individual device
 	struct opencl_program_entry : program_entry {
 		cl_program program { nullptr };
 	};

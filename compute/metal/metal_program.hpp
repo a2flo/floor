@@ -31,7 +31,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 
 class metal_program final : public compute_program {
 public:
-	//! stores a metal program + kernel infos for an individual device
+	//! stores a metal program + function infos for an individual device
 	struct metal_program_entry : program_entry {
 		id <MTLLibrary> program { nil };
 		

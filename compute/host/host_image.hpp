@@ -56,15 +56,15 @@ public:
 		return image;
 	}
 	
-	//! returns the internal structure necessary to run a kernel with this image
-	void* get_host_image_kernel_info() const {
-		return (void*)&kernel_info;
+	//! returns the internal structure necessary to run a function/program with this image
+	void* get_host_image_program_info() const {
+		return (void*)&program_info;
 	}
 	
 protected:
 	uint8_t* __attribute__((aligned(1024))) image { nullptr };
 	
-	struct image_kernel_info {
+	struct image_program_info {
 		uint8_t* __attribute__((aligned(128))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;
 		uint4 image_dim;
@@ -72,7 +72,7 @@ protected:
 			uint4 int_dim;
 			float4 float_dim;
 		} image_clamp_dim;
-	} kernel_info;
+	} program_info;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

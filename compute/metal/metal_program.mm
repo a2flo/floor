@@ -38,7 +38,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 		
 		for(auto& prog : programs) {
 			if(!prog.second.valid) continue;
-			for(const auto& info : prog.second.kernels_info) {
+			for(const auto& info : prog.second.functions) {
 				if(info.name == kernel_name) {
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
