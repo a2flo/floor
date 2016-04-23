@@ -56,10 +56,12 @@ namespace host_image_impl {
 		//! int/uint coordinates
 		template <typename coord_type,
 				  enable_if_t<!is_floating_point<typename coord_type::decayed_scalar_type>::value>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim, const coord_type& coord) {
+		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+													  const coord_type& coord,
+													  const vector_n<int32_t, coord_type::dim> offset = {}) {
 			// clamp to [0, image_dim - 1]
 			return vector_n<uint32_t, coord_type::dim> {
-				coord.clamped(image_dim_to_coord_dim<coord_type::dim>(clamp_dim.int_dim))
+				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim>(clamp_dim.int_dim))
 			};
 		}
 		
@@ -67,17 +69,22 @@ namespace host_image_impl {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim, const coord_type& coord) {
+		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+													  const coord_type& coord,
+													  const vector_n<int32_t, coord_type::dim> offset = {}) {
 			// clamp to [0, image_dim - 1], with normalized coord
 			const auto fdim = image_dim_to_coord_dim<coord_type::dim>(clamp_dim.float_dim);
-			return vector_n<uint32_t, coord_type::dim> { (coord * fdim + 0.5f).clamp(fdim) };
+			return vector_n<uint32_t, coord_type::dim> { ((coord * fdim + 0.5f) + coord_type(offset)).clamp(fdim) };
 		}
 		
 		//! float coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim, const coord_type& coord) {
+		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+													  const coord_type& coord,
+													  // NOTE: offset coords with a cube map aren't supported anywhere (do the same)
+													  const vector_n<int32_t, coord_type::dim> offset floor_unused = {}) {
 			// clamp to [0, image_dim - 1], with normalized coord
 			const auto coord_layer = compute_cube_coord_and_layer(coord);
 			const auto fdim = image_dim_to_coord_dim<coord_type::dim - 1u>(clamp_dim.float_dim);
@@ -353,18 +360,21 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
 
 		// image read functions
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
+		static auto read(const host_device_image<type>* img,
+						 const coord_type& coord,
+						 const offset_type& coord_offset,
+						 const uint32_t layer = 0) {
 			// read/copy raw data
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			alignas(4) uint8_t raw_data[bpp];
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset), layer));
 			memcpy(raw_data, &img->data[offset], bpp);
 			
 			// extract channel bits/bytes
@@ -418,9 +428,12 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 
 FLOOR_POP_WARNINGS()
 
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
+		static auto read(const host_device_image<type>* img,
+						 const coord_type& coord,
+						 const offset_type& coord_offset,
+						 const uint32_t layer = 0) {
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
@@ -434,8 +447,8 @@ FLOOR_POP_WARNINGS()
 			typedef conditional_t<!has_stencil, float, pair<float, uint8_t>> ret_type;
 			ret_type ret;
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset), layer));
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
@@ -485,19 +498,22 @@ FLOOR_POP_WARNINGS()
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
 
-		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-		static auto read(const host_device_image<type>* img, const coord_type& coord, const uint32_t layer = 0) {
+		static auto read(const host_device_image<type>* img,
+						 const coord_type& coord,
+						 const offset_type& coord_offset,
+						 const uint32_t layer = 0) {
 			// read/copy raw data
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			alignas(4) uint8_t raw_data[bpp];
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord)),
-													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord), layer));
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset)),
+													  coord_to_offset(img->image_dim, process_coord(img->image_clamp_dim, coord, coord_offset), layer));
 			memcpy(raw_data, &img->data[offset], bpp);
 			
 			// for compatibility with opencl/cuda, always return 32-bit values for anything <= 32-bit (and 64-bit values for > 32-bit)

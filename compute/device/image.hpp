@@ -74,6 +74,7 @@ namespace floor_image {
 		typedef int2 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
+	//! NOTE: this isn't actually supported by any backend right now
 	struct offset_vec_type_for_image_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
 																   image_dim_count(image_type) == 3)>> {
 		typedef int3 type;
@@ -455,7 +456,7 @@ namespace floor_image {
 																					  compare_function, compare_value, is_compare)));
 #elif defined(FLOOR_COMPUTE_HOST)
 			// TODO: (bi)linear sampling
-			const auto color = r_img->read(converted_coord, layer);
+			const auto color = r_img->read(converted_coord, offset, layer);
 #endif
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
