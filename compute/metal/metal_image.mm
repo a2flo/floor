@@ -475,24 +475,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	else shim_image_type = image_type;
 	
 	// misc options
-	if(!is_mipmapped) {
-		[desc setMipmapLevelCount:1];
-	}
-	else {
-		const auto max_dim = std::max(std::max(region.size.width, region.size.height), region.size.depth);
-		if(max_dim > 1) {
-			// each mip level is half the size of its upper/parent level, until dim == 1
-			// -> get the closest power-of-two, then "ln(2^N) + 1"
-			// this can be done the fastest by counting the leading zeros in the 32-bit value
-			[desc setMipmapLevelCount:uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)))];
-			
-			// for compressed images, 8x8 is the minimum image and mip-map size -> substract 3 levels (1x1, 2x2 and 4x4)
-			if(is_compressed) {
-				[desc setMipmapLevelCount:(std::max((uint32_t)[desc mipmapLevelCount], 4u) - 3u)];
-			}
-		}
-		else [desc setMipmapLevelCount:1];
-	}
+	const size_t level_count = image_mip_level_count(image_dim, image_type);
+	[desc setMipmapLevelCount:level_count];
 	[desc setSampleCount:1];
 	
 	// usage/access options
@@ -512,65 +496,60 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		id <MTLCommandBuffer> cmd_buffer = mqueue->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		
-		// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
-		
 		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
 		const size_t slice_count = [desc arrayLength] * (is_cube ? 6u : 1u);
 		
-		const uint8_t* data_ptr {
-			image_type != shim_image_type ?
-			// need to copy/convert the RGB host data to RGBA
-			rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)host_ptr) :
-			// else: can use host ptr directly
-			(const uint8_t*)host_ptr
+		// upload level count == level count (if provided by user), or 1 if we have to manually generate the mip levels
+		const size_t upload_level_count = (generate_mip_maps ? 1 : level_count);
+		uint4 mip_image_dim {
+			image_dim.x,
+			dim_count >= 2 ? image_dim.y : 0,
+			dim_count >= 3 ? image_dim.z : 0,
+			0
 		};
-		
-		for(size_t slice = 0; slice < slice_count; ++slice) {
-			[image replaceRegion:region
-					 mipmapLevel:0
-						   slice:slice
-					   withBytes:(data_ptr + slice * bytes_per_slice)
-					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-				   bytesPerImage:(is_compressed ? 0 : bytes_per_slice)];
-		}
-		
-		// clean up shim data
-		if(image_type != shim_image_type) {
-			delete [] data_ptr;
+		const uint8_t* host_level_data = (const uint8_t*)host_ptr;
+		for(size_t level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
+			// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * mip_image_dim.x;
+			const auto bytes_per_slice = image_slice_data_size_from_types(mip_image_dim, shim_image_type);
+			const auto level_data_size = bytes_per_slice * slice_count;
+			
+			const uint8_t* data_ptr {
+				image_type != shim_image_type ?
+				// need to copy/convert the RGB host data to RGBA
+				rgb_to_rgba(image_type, shim_image_type, host_level_data, true /* ignore mip levels as we do this manually */) :
+				// else: can use host ptr directly
+				host_level_data
+			};
+			
+			for(size_t slice = 0; slice < slice_count; ++slice) {
+				[image replaceRegion:region
+						 mipmapLevel:level
+							   slice:slice
+						   withBytes:(data_ptr + slice * bytes_per_slice)
+						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+					   bytesPerImage:(is_compressed ? 0 : bytes_per_slice)];
+			}
+			
+			// clean up shim data
+			if(image_type != shim_image_type) {
+				delete [] data_ptr;
 #if defined(__clang_analyzer__) // suppress false positive about use after free
-			assert(!is_compressed);
+				assert(!is_compressed);
 #endif
+			}
+			
+			// mip-level image data provided by user, advance pointer
+			if(!generate_mip_maps) {
+				host_level_data += level_data_size;
+			}
 		}
 		
-		// also create mip-map chain when initializing from a host pointer and mip-map flag is set
-		if(is_mipmapped && [desc mipmapLevelCount] > 1) {
-			// can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
-			if(!is_compressed) {
-				[blit_encoder generateMipmapsForTexture:image];
-			}
-			// for compressed images, assume/require that mip-map data is already present in the original data
-			else {
-				auto mipmap_region = region;
-				uint32_t offset = 0;
-				for(uint32_t mip_level = 1; mip_level < [desc mipmapLevelCount]; ++mip_level) {
-					// offset from previous level
-					const auto prev_dim = uint2 { (uint32_t)mipmap_region.size.width, (uint32_t)mipmap_region.size.height };
-					offset += image_slice_data_size_from_types(prev_dim, image_type);
-					
-					// /2 per level
-					mipmap_region.size.width >>= 1;
-					mipmap_region.size.height >>= 1;
-					
-					[image replaceRegion:mipmap_region
-							 mipmapLevel:mip_level
-								   slice:0
-							   withBytes:(data_ptr + offset)
-							 bytesPerRow:0
-						   bytesPerImage:0];
-				}
-			}
+		// manually create the mip-map chain if this was specified
+		if(is_mipmapped && level_count > 1 && generate_mip_maps) {
+			// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
+			//       -> compressed + generate_mip_maps already fails at image creation
+			[blit_encoder generateMipmapsForTexture:image];
 		}
 		
 		[blit_encoder endEncoding];
@@ -806,7 +785,7 @@ bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	return true;
 }
 
-void metal_image::generate_mip_maps(shared_ptr<compute_queue> cqueue) const {
+void metal_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const {
 	// nothing to do here
 	if([image mipmapLevelCount] == 1) return;
 	

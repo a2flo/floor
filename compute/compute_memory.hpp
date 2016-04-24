@@ -77,6 +77,11 @@ enum class COMPUTE_MEMORY_FLAG : uint32_t {
 	//! NOTE: OPENGL_SHARING and USE_HOST_MEMORY are mutually exclusive (for obvious reasons)
 	OPENGL_SHARING		= (1u << 8u),
 	
+	//! automatically create mip-levels (either happens in the backend or libfloor)
+	//! NOTE: if not set, it is expected that the host data pointer contains all necessary mip-levels
+	//! NOTE: of course, this flag only makes sense for compute_images
+	GENERATE_MIP_MAPS	= (1u << 9u),
+	
 };
 floor_global_enum_ext(COMPUTE_MEMORY_FLAG)
 

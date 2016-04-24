@@ -463,8 +463,8 @@ static constexpr uint32_t image_bytes_per_pixel(const COMPUTE_IMAGE_TYPE& image_
 	return ((bpp + 7u) / 8u);
 }
 
-//! returns the total amount of bytes needed to store a slice of an image (or the complete image if it isn't an array or cube image)
-//! of the specified dimensions and types
+//! returns the total amount of bytes needed to store a slice of an image of the specified dimensions and types
+//! (or of the complete image w/o mip levels if it isn't an array or cube image)
 static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
 														 const COMPUTE_IMAGE_TYPE& image_type,
 														 const size_t sample_count = 1) {
@@ -484,21 +484,63 @@ static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
 	return size;
 }
 
-//! returns the total amount of bytes needed to store the image of the specified dimensions and types
-static constexpr size_t image_data_size_from_types(const uint4& image_dim,
-												   const COMPUTE_IMAGE_TYPE& image_type,
-												   const size_t sample_count = 1) {
-	const auto dim_count = image_dim_count(image_type);
-	size_t size = image_slice_data_size_from_types(image_dim, image_type, sample_count);
-	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-		// array count after: width (, height (, depth))
-		size *= size_t(dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+//! returns the amount of mip-map levels required by the specified image dim and type
+//! NOTE: #mip-levels from image dim to 1px if uncompressed, or 8px if compressed
+static constexpr size_t image_mip_level_count(const uint4& image_dim, const COMPUTE_IMAGE_TYPE image_type) {
+	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
+		return 1;
 	}
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		// 6 cube sides
-		size *= 6u;
+	const auto dim_count = image_dim_count(image_type);
+	const auto max_dim = std::max(std::max(image_dim.x, dim_count >= 2 ? image_dim.y : 1), dim_count >= 3 ? image_dim.z : 1);
+	if(max_dim == 1) return 1;
+	
+	// each mip level is half the size of its upper/parent level, until dim == 1
+	// -> get the closest power-of-two, then "ln(2^N) + 1"
+	// this can be done the fastest by counting the leading zeros in the 32-bit value
+	auto levels = uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
+	
+	// for compressed images, 8x8 is the minimum image and mip-map size -> substract 3 levels (1x1, 2x2 and 4x4)
+	if(image_compressed(image_type)) {
+		levels = (std::max(levels, 4u) - 3u);
+	}
+	
+	return levels;
+}
+
+//! returns the total amount of bytes needed to store the image of the specified dimensions, types, sample count and mip-levels
+//! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px for uncompressed images, or 8px for uncompressed ones
+static constexpr size_t image_data_size_from_types(const uint4& image_dim,
+												   const COMPUTE_IMAGE_TYPE& image_type,
+												   const size_t sample_count = 1,
+												   const bool ignore_mip_levels = false) {
+	const auto dim_count = image_dim_count(image_type);
+	const auto mip_levels = (ignore_mip_levels ? 1 : image_mip_level_count(image_dim, image_type));
+	
+	// array count after: width (, height (, depth))
+	const size_t array_dim = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+	
+	size_t size = 0;
+	uint4 mip_image_dim {
+		image_dim.x,
+		dim_count >= 2 ? image_dim.y : 0u,
+		dim_count >= 3 ? image_dim.z : 0u,
+		0u
+	};
+	for(size_t level = 0; level < mip_levels; ++level) {
+		size_t slice_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
+		
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
+			slice_size *= array_dim;
+		}
+		
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
+			// 6 cube sides
+			slice_size *= 6u;
+		}
+		
+		size += slice_size;
+		mip_image_dim >>= 1;
 	}
 	
 	return size;

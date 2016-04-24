@@ -283,80 +283,105 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 }
 
 void compute_image::init_gl_image_data(const void* data) {
-	const int4 gl_dim { image_dim };
-	const GLsizei sample_count { 4 }; // TODO: support this properly
-	const GLint level { 0 }; // TODO: support this properly
+	const GLsizei sample_count { 1 }; // TODO: support this properly
 	const bool fixed_sample_locations { false }; // TODO: support this properly
+	const auto dim_count = image_dim_count(image_type);
+	const auto storage_dim_count = image_storage_dim_count(image_type);
+	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
-		// TODO: how to init this?
-	}
-	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-			const auto size_per_side = image_data_size / 6;
-			
-			static constexpr const GLenum cube_targets[] {
-				GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-				GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-				GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-			};
-			
-			auto cube_data = data;
-			for(const auto& target : cube_targets) {
-				glTexImage2D(target, level, gl_internal_format, gl_dim.x, gl_dim.y, 0,
-							 gl_format, gl_type, cube_data);
+	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
+	const void* level_data = data;
+	int4 mip_image_dim {
+		(int)image_dim.x,
+		dim_count >= 2 ? (int)image_dim.y : 0,
+		dim_count >= 3 ? (int)image_dim.z : 0,
+		0
+	};
+	for(GLint level = 0; level < levels; ++level, mip_image_dim >>= 1) {
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
+		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		unique_ptr<uint8_t[]> generated_mip_level_data;
+		if(level > 0 && generate_mip_maps && data != nullptr) {
+			// TODO: compute the downscaled mip-level
+			generated_mip_level_data = make_unique<uint8_t[]>(level_data_size);
+			level_data = generated_mip_level_data.get();
+		}
+		
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
+			// TODO: how to init this?
+		}
+		else if(is_cube) {
+			if(!is_array) {
+				static constexpr const GLenum cube_targets[] {
+					GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+					GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+					GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+				};
 				
-				// advance to next side (if not nullptr init)
-				if(cube_data != nullptr) {
-					cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+				auto cube_data = (data != nullptr ? level_data : nullptr);
+				for(const auto& target : cube_targets) {
+					glTexImage2D(target, level, gl_internal_format, mip_image_dim.x, mip_image_dim.y, 0,
+								 gl_format, gl_type, cube_data);
+					
+					// advance to next side (if not nullptr init)
+					if(data != nullptr) {
+						cube_data = (uint8_t*)cube_data + slice_data_size;
+					}
 				}
+			}
+			else {
+				glTexImage3D(opengl_type, level, gl_internal_format,
+							 mip_image_dim.x, mip_image_dim.y, (int)array_dim_count * 6, 0, gl_format, gl_type, level_data);
 			}
 		}
 		else {
-			glTexImage3D(opengl_type, level, gl_internal_format,
-						 gl_dim.x, gl_dim.y, gl_dim.z * 6, 0, gl_format, gl_type, data);
-		}
-	}
-	else {
-		switch(image_storage_dim_count(image_type)) {
-			case 1:
-				glTexImage1D(opengl_type, level, gl_internal_format, gl_dim.x, 0, gl_format, gl_type, data);
-				break;
-			case 2:
-				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					glTexImage2D(opengl_type, level, gl_internal_format,
-								 gl_dim.x, gl_dim.y, 0, gl_format, gl_type, data);
-				}
-				else {
-					glTexImage2DMultisample(opengl_type, sample_count,
+			switch(storage_dim_count) {
+				case 1:
+					glTexImage1D(opengl_type, level, gl_internal_format, mip_image_dim.x, 0, gl_format, gl_type, level_data);
+					break;
+				case 2:
+					if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+						glTexImage2D(opengl_type, level, gl_internal_format,
+									 mip_image_dim.x, mip_image_dim.y, 0, gl_format, gl_type, level_data);
+					}
+					else {
+						glTexImage2DMultisample(opengl_type, sample_count,
 #if defined(__APPLE__)
-											gl_internal_format,
+												gl_internal_format,
 #else // why is this a different type than what's in glTexImage2D?
-											(GLenum)gl_internal_format,
+												(GLenum)gl_internal_format,
 #endif
-											gl_dim.x, gl_dim.y, fixed_sample_locations);
-				}
-				break;
-			case 3:
-				if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
-					glTexImage3D(opengl_type, level, gl_internal_format,
-								 gl_dim.x, gl_dim.y, gl_dim.z, 0, gl_format, gl_type, data);
-				}
-				else {
-					glTexImage3DMultisample(opengl_type, sample_count,
+												mip_image_dim.x, mip_image_dim.y, fixed_sample_locations);
+					}
+					break;
+				case 3:
+					if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
+						glTexImage3D(opengl_type, level, gl_internal_format,
+									 mip_image_dim.x, mip_image_dim.y, mip_image_dim.z, 0, gl_format, gl_type, level_data);
+					}
+					else {
+						glTexImage3DMultisample(opengl_type, sample_count,
 #if defined(__APPLE__)
-											gl_internal_format,
+												gl_internal_format,
 #else
-											(GLenum)gl_internal_format,
+												(GLenum)gl_internal_format,
 #endif
-											gl_dim.x, gl_dim.y, gl_dim.z, fixed_sample_locations);
-				}
-				break;
-			default: // already checked
-				floor_unreachable();
+												mip_image_dim.x, mip_image_dim.y, mip_image_dim.z, fixed_sample_locations);
+					}
+					break;
+				default: // already checked
+					floor_unreachable();
+			}
+		}
+		
+		// mip-level image data provided by user, advance pointer
+		if(!generate_mip_maps && data != nullptr) {
+			level_data = (uint8_t*)level_data + level_data_size;
 		}
 	}
 }
@@ -367,54 +392,71 @@ void compute_image::update_gl_image_data(const void* data) {
 		return;
 	}
 	
-	const int4 gl_dim { image_dim };
-	const GLint level { 0 }; // TODO: support this properly
+	const auto dim_count = image_dim_count(image_type);
+	const auto storage_dim_count = image_storage_dim_count(image_type);
+	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
-		// TODO: how to init this?
-	}
-	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-			const auto size_per_side = image_data_size / 6;
-			
-			static constexpr const GLenum cube_targets[] {
-				GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-				GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-				GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
-				GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
-			};
-			
-			auto cube_data = data;
-			for(const auto& target : cube_targets) {
-				glTexSubImage2D(target, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, cube_data);
+	// NOTE: mip-level data always exists in "data" if this is a mip-mapped image
+	// TODO: however, it is possibly still necessary to renew/regenerate the mip-levels if this is wanted (generate_mip_maps is set)
+	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
+	const void* level_data = data;
+	int4 mip_image_dim {
+		(int)image_dim.x,
+		dim_count >= 2 ? (int)image_dim.y : 0,
+		dim_count >= 3 ? (int)image_dim.z : 0,
+		0
+	};
+	for(GLint level = 0; level < levels; ++level, mip_image_dim >>= 1) {
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
+			// TODO: how to init this?
+		}
+		else if(is_cube) {
+			if(!is_array) {
+				static constexpr const GLenum cube_targets[] {
+					GL_TEXTURE_CUBE_MAP_POSITIVE_X,
+					GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
+					GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+					GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+				};
 				
-				// advance to next side (if not nullptr init)
-				if(cube_data != nullptr) {
-					cube_data = (void*)((uint8_t*)cube_data + size_per_side);
+				auto cube_data = level_data;
+				for(const auto& target : cube_targets) {
+					glTexSubImage2D(target, level, 0, 0, mip_image_dim.x, mip_image_dim.y, gl_format, gl_type, cube_data);
+					
+					// advance to next side
+					cube_data = (uint8_t*)cube_data + slice_data_size;
 				}
+			}
+			else {
+				// can upload cube map array directly
+				glTexSubImage3D(opengl_type, level, 0, 0, 0, mip_image_dim.x, mip_image_dim.y, mip_image_dim.z * 6, gl_format, gl_type, level_data);
 			}
 		}
 		else {
-			// can upload cube map array directly
-			glTexSubImage3D(opengl_type, level, 0, 0, 0, gl_dim.x, gl_dim.y, gl_dim.z * 6, gl_format, gl_type, data);
+			switch(storage_dim_count) {
+				case 1:
+					glTexSubImage1D(opengl_type, level, 0, mip_image_dim.x, gl_format, gl_type, level_data);
+					break;
+				case 2:
+					glTexSubImage2D(opengl_type, level, 0, 0, mip_image_dim.x, mip_image_dim.y, gl_format, gl_type, level_data);
+					break;
+				case 3:
+					glTexSubImage3D(opengl_type, level, 0, 0, 0, mip_image_dim.x, mip_image_dim.y, mip_image_dim.z, gl_format, gl_type, level_data);
+					break;
+				default: // already checked
+					floor_unreachable();
+			}
 		}
-	}
-	else {
-		switch(image_storage_dim_count(image_type)) {
-			case 1:
-				glTexSubImage1D(opengl_type, level, 0, gl_dim.x, gl_format, gl_type, data);
-				break;
-			case 2:
-				glTexSubImage2D(opengl_type, level, 0, 0, gl_dim.x, gl_dim.y, gl_format, gl_type, data);
-				break;
-			case 3:
-				glTexSubImage3D(opengl_type, level, 0, 0, 0, gl_dim.x, gl_dim.y, gl_dim.z, gl_format, gl_type, data);
-				break;
-			default: // already checked
-				floor_unreachable();
-		}
+		
+		// mip-level image data, advance pointer
+		level_data = (uint8_t*)level_data + level_data_size;
 	}
 }
 
@@ -677,9 +719,10 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 
 uint8_t* compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 									const COMPUTE_IMAGE_TYPE& rgba_type,
-									const uint8_t* rgb_data) {
+									const uint8_t* rgb_data,
+									const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	
@@ -696,10 +739,11 @@ uint8_t* compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 									const COMPUTE_IMAGE_TYPE& rgb_type,
 									const uint8_t* rgba_data,
-									uint8_t* dst_rgb_data) {
+									uint8_t* dst_rgb_data,
+									const bool ignore_mip_levels) {
 	// need to copy/convert the RGB host data to RGBA
-	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type);
-	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type);
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
+	const auto rgb_size = image_data_size_from_types(image_dim, rgb_type, 1, ignore_mip_levels);
 	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
 	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
 	

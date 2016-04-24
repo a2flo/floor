@@ -67,7 +67,10 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		if(copy_host_data &&
 		   host_ptr != nullptr &&
 		   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-			memcpy(image, host_ptr, image_data_size);
+			memcpy(image, host_ptr,
+				   // if mip-maps have to created on the libfloor side (i.e. not provided by the user),
+				   // only copy the data that is actually provided by the user
+				   generate_mip_maps ? image_data_size_from_types(image_dim, image_type, 1, true) : image_data_size);
 		}
 	}
 	// -> shared host/opengl image
@@ -136,6 +139,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	}
 	
 	// copy gl image data to host memory (if read access is set)
+	// TODO: mip-map support
 	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
 		glBindTexture(opengl_type, gl_object);
 		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
@@ -145,7 +149,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		}
 		else {
 			// must copy cube faces individually
-			const auto face_size = image_slice_data_size_from_types(image_dim, image_type);
+			const auto face_size = image_slice_data_size_from_types(image_dim, image_type, 1);
 			auto img_ptr = image;
 			for(uint32_t i = 0; i < 6; ++i) {
 				glGetTexImage(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, gl_format, gl_type, img_ptr);

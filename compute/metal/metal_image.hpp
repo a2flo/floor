@@ -65,7 +65,7 @@ public:
 	id <MTLTexture> get_metal_image() const { return image; }
 	
 	//! creates the mip-map chain for this metal image
-	void generate_mip_maps(shared_ptr<compute_queue> cqueue) const;
+	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const;
 	
 protected:
 	id <MTLTexture> image { nil };

@@ -48,6 +48,7 @@ public:
 		return image_type;
 	}
 	
+	// TODO: anisotropic value (must be present at init, or need to recreate image later)
 	compute_image(const compute_device* device,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
@@ -59,6 +60,7 @@ public:
 	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(infer_image_flags(image_type_)),
 	image_data_size(image_data_size_from_types(image_dim, image_type)),
+	generate_mip_maps(has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0) {
@@ -76,6 +78,11 @@ public:
 		// TODO: make sure format is supported, fail early if not
 		if(!image_format_valid(image_type)) {
 			log_error("invalid image format: %X", image_type);
+			return;
+		}
+		// can't generate compressed mip-levels right now
+		if(image_compressed(image_type) && generate_mip_maps) {
+			log_error("generating mip-maps for compressed image data is not supported!");
 			return;
 		}
 		// TODO: if opengl_type is 0 and opengl sharing is enabled, try guessing it, otherwise fail
@@ -144,6 +151,7 @@ protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
 	const size_t image_data_size;
+	const bool generate_mip_maps;
 	
 #if !defined(FLOOR_IOS)
 	// internal function to create/delete an opengl image if compute/opengl sharing is used
@@ -164,14 +172,16 @@ protected:
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
 	uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 						 const COMPUTE_IMAGE_TYPE& rgba_type,
-						 const uint8_t* rgb_data);
+						 const uint8_t* rgb_data,
+						 const bool ignore_mip_levels = false);
 	
 	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
 	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.
 	uint8_t* rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 						 const COMPUTE_IMAGE_TYPE& rgb_type,
 						 const uint8_t* rgba_data,
-						 uint8_t* dst_rgb_data = nullptr);
+						 uint8_t* dst_rgb_data = nullptr,
+						 const bool ignore_mip_levels = false);
 	
 };
 
