@@ -81,8 +81,6 @@ mv llvm-${RELEASE}.src llvm
 mv cfe-${RELEASE}.src llvm/tools/clang
 mv libcxx-${RELEASE}.src libcxx
 
-# TODO: cp in spir-encoder, spir-verifier and applecl-encoder
-
 # patch
 cd llvm
 patch -p1 < ../380_llvm.patch

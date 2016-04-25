@@ -13,14 +13,10 @@ cp ../build/Release/bin/clang bin/
 cp ../build/Release/bin/llc bin/
 cp ../build/Release/bin/llvm-dis bin/
 cp ../build/Release/bin/llvm-as bin/
-# TODO
-#cp ../build/Release/bin/spir-encoder bin/
-#cp ../build/Release/bin/spir-verifier bin/
-#cp ../build/Release/bin/applecl-encoder bin/
 cp ../build/Release/bin/llvm-spirv bin/
-cp ../SPIRV-Tools/build/spirv-as bin/
-cp ../SPIRV-Tools/build/spirv-dis bin/
-cp ../SPIRV-Tools/build/spirv-val bin/
+cp ../SPIRV-Tools/build/tools/spirv-as bin/
+cp ../SPIRV-Tools/build/tools/spirv-dis bin/
+cp ../SPIRV-Tools/build/tools/spirv-val bin/
 
 cp -R ../build/Release/lib/clang/${RELEASE}/include clang
 
