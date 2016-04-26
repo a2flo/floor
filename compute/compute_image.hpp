@@ -59,8 +59,8 @@ public:
 				  const opengl_image_info* gl_image_info = nullptr) :
 	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(infer_image_flags(image_type_)),
-	image_data_size(image_data_size_from_types(image_dim, image_type)),
 	generate_mip_maps(has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
+	image_data_size(image_data_size_from_types(image_dim, image_type, 1, generate_mip_maps)),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0) {
@@ -147,11 +147,16 @@ public:
 		return image_data_size;
 	}
 	
+	//! returns true if automatic mip-map chain generation is enabled
+	bool get_generate_mip_maps() const {
+		return generate_mip_maps;
+	}
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
-	const size_t image_data_size;
 	const bool generate_mip_maps;
+	const size_t image_data_size;
 	
 #if !defined(FLOOR_IOS)
 	// internal function to create/delete an opengl image if compute/opengl sharing is used

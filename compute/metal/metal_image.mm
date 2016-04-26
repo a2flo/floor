@@ -522,8 +522,16 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 				host_level_data
 			};
 			
+			const MTLRegion mipmap_region {
+				.origin = { 0, 0, 0 },
+				.size = {
+					mip_image_dim.x,
+					dim_count >= 2 ? mip_image_dim.y : 1,
+					dim_count >= 3 ? mip_image_dim.z : 1,
+				}
+			};
 			for(size_t slice = 0; slice < slice_count; ++slice) {
-				[image replaceRegion:region
+				[image replaceRegion:mipmap_region
 						 mipmapLevel:level
 							   slice:slice
 						   withBytes:(data_ptr + slice * bytes_per_slice)

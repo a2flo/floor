@@ -456,7 +456,10 @@ namespace floor_image {
 																					  compare_function, compare_value, is_compare)));
 #elif defined(FLOOR_COMPUTE_HOST)
 			// TODO: (bi)linear sampling
-			const auto color = r_img->read(converted_coord, offset, layer);
+			const auto color = host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																								  converted_coord, layer, offset,
+																								  (!is_lod_float ? int32_t(lod) : 0),
+																								  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias));
 #endif
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
@@ -767,7 +770,7 @@ namespace floor_image {
 			cuda_image::write_float<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 												image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
 		}
 		
@@ -782,7 +785,7 @@ namespace floor_image {
 			cuda_image::write_int<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 											  image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
 		}
 		
@@ -797,7 +800,7 @@ namespace floor_image {
 			cuda_image::write_uint<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
 											   image_base_type::template convert_data<sample_type>(data));
 #elif defined(FLOOR_COMPUTE_HOST)
-			w_img->write(convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
 #endif
 		}
 		

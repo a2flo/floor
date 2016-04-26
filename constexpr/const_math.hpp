@@ -861,6 +861,12 @@ namespace const_math {
 #error "unsupported target"
 #endif
 	
+	//! creates a "(1 << val) - 1" / "2^N - 1" bit mask (for 0 < N <= 64)
+	template <typename uint_type, typename enable_if<is_integral<uint_type>::value && is_unsigned<uint_type>::value, int>::type = 0>
+	constexpr uint_type bit_mask(const uint_type& val) {
+		return (uint_type)(~(((~0ull) << ((unsigned long long int)val - 1ull)) << 1ull));
+	}
+	
 }
 
 // runtime equivalents for certain non-standard math functions

@@ -292,6 +292,8 @@ void compute_image::init_gl_image_data(const void* data) {
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
 	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
+	// upload level count == level count (if provided by user), or 1 if we have to manually generate the mip levels
+	const auto upload_level_count = (generate_mip_maps ? 1 : levels);
 	const void* level_data = data;
 	int4 mip_image_dim {
 		(int)image_dim.x,
@@ -299,15 +301,9 @@ void compute_image::init_gl_image_data(const void* data) {
 		dim_count >= 3 ? (int)image_dim.z : 0,
 		0
 	};
-	for(GLint level = 0; level < levels; ++level, mip_image_dim >>= 1) {
+	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
 		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
-		unique_ptr<uint8_t[]> generated_mip_level_data;
-		if(level > 0 && generate_mip_maps && data != nullptr) {
-			// TODO: compute the downscaled mip-level
-			generated_mip_level_data = make_unique<uint8_t[]>(level_data_size);
-			level_data = generated_mip_level_data.get();
-		}
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
 			// TODO: how to init this?
@@ -384,6 +380,11 @@ void compute_image::init_gl_image_data(const void* data) {
 			level_data = (uint8_t*)level_data + level_data_size;
 		}
 	}
+	
+	// generate mip-map chain if requested
+	if(generate_mip_maps) {
+		glGenerateMipmap(opengl_type);
+	}
 }
 
 void compute_image::update_gl_image_data(const void* data) {
@@ -398,9 +399,9 @@ void compute_image::update_gl_image_data(const void* data) {
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
-	// NOTE: mip-level data always exists in "data" if this is a mip-mapped image
-	// TODO: however, it is possibly still necessary to renew/regenerate the mip-levels if this is wanted (generate_mip_maps is set)
+	// NOTE: mip-level data always exists in "data" if this is a mip-mapped image (and automatic mip-map generation is disabled)
 	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
+	const auto upload_level_count = (generate_mip_maps ? 1 : levels);
 	const void* level_data = data;
 	int4 mip_image_dim {
 		(int)image_dim.x,
@@ -408,7 +409,7 @@ void compute_image::update_gl_image_data(const void* data) {
 		dim_count >= 3 ? (int)image_dim.z : 0,
 		0
 	};
-	for(GLint level = 0; level < levels; ++level, mip_image_dim >>= 1) {
+	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
 		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
 		
@@ -457,6 +458,11 @@ void compute_image::update_gl_image_data(const void* data) {
 		
 		// mip-level image data, advance pointer
 		level_data = (uint8_t*)level_data + level_data_size;
+	}
+	
+	// generate mip-map chain if requested
+	if(generate_mip_maps) {
+		glGenerateMipmap(opengl_type);
 	}
 }
 
