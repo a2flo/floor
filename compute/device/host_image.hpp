@@ -256,10 +256,10 @@ namespace host_image_impl {
 			// need to fix up the sign bit for non-8/16/32/64-bit signed formats
 			if((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT) {
 				constexpr const const_array<uchannel_type, 4> high_bits {{
-					uchannel_type(1) << (max(bpc[0], 1ull) - 1u),
-					uchannel_type(1) << (max(bpc[1], 1ull) - 1u),
-					uchannel_type(1) << (max(bpc[2], 1ull) - 1u),
-					uchannel_type(1) << (max(bpc[3], 1ull) - 1u)
+					uchannel_type(1) << (max(bpc[0], uint64_t(1)) - 1u),
+					uchannel_type(1) << (max(bpc[1], uint64_t(1)) - 1u),
+					uchannel_type(1) << (max(bpc[2], uint64_t(1)) - 1u),
+					uchannel_type(1) << (max(bpc[3], uint64_t(1)) - 1u)
 				}};
 				for(uint32_t i = 0; i < channel_count; ++i) {
 					if(bpc[i] % 8u != 0u &&
@@ -303,7 +303,7 @@ namespace host_image_impl {
 			for(uint32_t i = 0; i < channel_count; ++i) {
 				// scale with 2^(bpc (- 1 if signed)) - 1 (e.g. 255 for unsigned 8-bit, 127 for signed 8-bit)
 				scaled_color[i] = channel_type(fp_scale_type(color[i]) * fp_scale_type((uchannel_type(1)
-																						<< uchannel_type(max(bpc[i], 1ull)
+																						<< uchannel_type(max(bpc[i], uint64_t(1))
 																										 - (data_type == COMPUTE_IMAGE_TYPE::UINT ? 0u : 1u)))
 																					   - uchannel_type(1)));
 			}
