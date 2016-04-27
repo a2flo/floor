@@ -38503,7 +38503,7 @@ index 0000000..5c87d34
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..0d30ec5
+index 0000000..8cb1138
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
 @@ -0,0 +1,393 @@
@@ -38631,7 +38631,7 @@ index 0000000..0d30ec5
 +	 COMPARE_FUNCTION compare_function, float compare_value, bool is_compare
 +	 
 +	 cuda write:
-+	 uint64_t surf, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, data_vec_type data
++	 uint64_t surf, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, uint32_t lod, bool is_lod, data_vec_type data
 +	 
 +	 opaque read:
 +	 image_t img, sampler_type smplr, COMPUTE_IMAGE_TYPE type,
@@ -38641,12 +38641,12 @@ index 0000000..0d30ec5
 +	 COMPARE_FUNCTION compare_function, float compare_value, bool is_compare
 +	 
 +	 opaque write:
-+	 image_t img, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, data_vec_type data
++	 image_t img, COMPUTE_IMAGE_TYPE type, coord_vec_type coord, uint32_t layer, uint32_t lod, bool is_lod, data_vec_type data
 +	 
 +	 */
 +	
 +	const uint32_t read_arg_count = (image_type_id == IMAGE_TYPE_ID::CUDA ? 17 : 18);
-+	const uint32_t write_arg_count = (image_type_id == IMAGE_TYPE_ID::CUDA ? 5 : 5);
++	const uint32_t write_arg_count = (image_type_id == IMAGE_TYPE_ID::CUDA ? 7 : 7);
 +	
 +	// as args are largely the same for cuda and opaque, just offset the arg num by 1 for opaque,
 +	// instead of doing this individually for each arg.
@@ -38874,7 +38874,7 @@ index 0000000..0d30ec5
 +	}
 +	else {
 +		// -> data
-+		const auto data_arg = CS.getArgument(4 + args_offset);
++		const auto data_arg = CS.getArgument(6 + args_offset);
 +		const auto data_type = data_arg->getType();
 +		if(!data_type->isVectorTy() ||
 +		   data_type->getVectorNumElements() != 4) {
