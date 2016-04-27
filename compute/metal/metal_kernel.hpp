@@ -119,7 +119,7 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	template <typename T>
+	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
 	void set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
 							 metal_encoder* encoder, const kernel_entry&, T&& arg) const {
 		set_const_parameter(encoder, buffer_idx, &arg, sizeof(T));
@@ -128,12 +128,22 @@ protected:
 	void set_const_parameter(metal_encoder* encoder, const uint32_t& idx,
 							 const void* ptr, const size_t& size) const;
 	
+	floor_inline_always void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+												 metal_encoder* encoder, const kernel_entry& entry,
+												 shared_ptr<compute_buffer> arg) const {
+		set_kernel_argument(total_idx, buffer_idx, texture_idx, encoder, entry, arg.get());
+	}
+	floor_inline_always void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+												 metal_encoder* encoder, const kernel_entry& entry,
+												 shared_ptr<compute_image> arg) const {
+		set_kernel_argument(total_idx, buffer_idx, texture_idx, encoder, entry, arg.get());
+	}
 	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder* encoder, const kernel_entry& entry,
-							 shared_ptr<compute_buffer> arg) const;
+							 const compute_buffer* arg) const;
 	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
 							 metal_encoder* encoder, const kernel_entry& entry,
-							 shared_ptr<compute_image> arg) const;
+							 const compute_image* arg) const;
 	
 };
 

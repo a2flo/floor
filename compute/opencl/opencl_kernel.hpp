@@ -103,7 +103,7 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	template <typename T>
+	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
 												 const cl_uint num, T&& arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(T), &arg),
@@ -112,15 +112,25 @@ protected:
 	
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
 												 const cl_uint num, shared_ptr<compute_buffer> arg) const {
-		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(cl_mem),
-								   &((opencl_buffer*)arg.get())->get_cl_buffer()),
-					"failed to set buffer kernel argument");
+		set_kernel_argument(entry, num, arg.get());
 	}
 	
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
 												 const cl_uint num, shared_ptr<compute_image> arg) const {
+		set_kernel_argument(entry, num, arg.get());
+	}
+	
+	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
+												 const cl_uint num, const compute_buffer* arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(cl_mem),
-								   &((opencl_image*)arg.get())->get_cl_image()),
+								   &((opencl_buffer*)arg)->get_cl_buffer()),
+					"failed to set buffer kernel argument");
+	}
+	
+	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
+												 const cl_uint num, const compute_image* arg) const {
+		CL_CALL_RET(clSetKernelArg(entry.kernel, num, sizeof(cl_mem),
+								   &((opencl_image*)arg)->get_cl_image()),
 					"failed to set image kernel argument");
 	}
 	

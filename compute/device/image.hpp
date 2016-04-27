@@ -759,48 +759,38 @@ namespace floor_image {
 #endif
 		
 	public:
-		//! internal fp write function
-		template <typename coord_type,
-				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_float(image_type_)>* = nullptr>
-		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
+		//! internal write function
+		template <bool is_lod = false, typename coord_type>
+		floor_inline_always void write_internal(const coord_type& coord,
+												const uint32_t layer,
+												const uint32_t lod,
+												const vector_sample_type& data) const {
+			// sample type must be 32-bit float, int or uint
+			constexpr const bool is_float = is_sample_float(image_type);
+			constexpr const bool is_int = is_sample_int(image_type);
+			static_assert(is_float || is_int || is_sample_uint(image_type), "invalid sample type");
+			
+			// backend specific coordinate conversion (should always be int here)
+			const auto converted_coord = convert_coord(coord);
+			
+			// convert input data (vector) to a vector4
+			const auto converted_data = image_base_type::template convert_data<sample_type>(data);
+			
+			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			opaque_image::write_image_float(w_img, image_type, convert_coord(coord), layer,
-											image_base_type::template convert_data<sample_type>(data));
+			__builtin_choose_expr(is_float,
+								  opaque_image::write_image_float(w_img, image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
+								  __builtin_choose_expr(is_int,
+														opaque_image::write_image_int(w_img, image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
+														opaque_image::write_image_uint(w_img, image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_float<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
-												image_base_type::template convert_data<sample_type>(data));
+			__builtin_choose_expr(is_float,
+								  cuda_image::write_float<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
+								  __builtin_choose_expr(is_int,
+														cuda_image::write_int<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
+														cuda_image::write_uint<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
 #elif defined(FLOOR_COMPUTE_HOST)
-			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
-#endif
-		}
-		
-		//! internal int write function
-		template <typename coord_type,
-				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_int(image_type_)>* = nullptr>
-		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			opaque_image::write_image_int(w_img, image_type, convert_coord(coord), layer,
-										  image_base_type::template convert_data<sample_type>(data));
-#elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_int<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
-											  image_base_type::template convert_data<sample_type>(data));
-#elif defined(FLOOR_COMPUTE_HOST)
-			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
-#endif
-		}
-		
-		//! internal uint write function
-		template <typename coord_type,
-				  COMPUTE_IMAGE_TYPE image_type_ = image_type, enable_if_t<is_sample_uint(image_type_)>* = nullptr>
-		floor_inline_always void write_internal(const coord_type& coord, const uint32_t layer, const vector_sample_type& data) const {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-			opaque_image::write_image_uint(w_img, image_type, convert_coord(coord), layer,
-										   image_base_type::template convert_data<sample_type>(data));
-#elif defined(FLOOR_COMPUTE_CUDA)
-			cuda_image::write_uint<image_type>(w_img, runtime_image_type, convert_coord(coord), layer,
-											   image_base_type::template convert_data<sample_type>(data));
-#elif defined(FLOOR_COMPUTE_HOST)
-			host_device_image<image_type>::write(w_img, convert_coord(coord), layer, image_base_type::template convert_data<sample_type>(data));
+			host_device_image<image_type, is_lod, false, false>::write((host_device_image<image_type, is_lod, false, false>*)w_img, converted_coord, layer, lod, converted_data);
 #endif
 		}
 		
@@ -810,7 +800,7 @@ namespace floor_image {
 		floor_inline_always auto write(const coord_type& coord,
 									   const vector_sample_type& data) const {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
-			return write_internal(coord, 0, data);
+			return write_internal<false>(coord, 0, 0, data);
 		}
 		
 		//! image write (array)
@@ -820,10 +810,29 @@ namespace floor_image {
 									   const uint32_t layer,
 									   const vector_sample_type& data) const {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
-			return write_internal(coord, layer, data);
+			return write_internal<false>(coord, layer, 0, data);
 		}
 		
-		// TODO: write lod support
+		//! image write at the specified lod level (non-array)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		floor_inline_always auto write_lod(const coord_type& coord,
+										   const uint32_t lod,
+										   const vector_sample_type& data) const {
+			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
+			return write_internal<true>(coord, 0, lod, data);
+		}
+		
+		//! image write at the specified lod level (array)
+		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
+				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
+		floor_inline_always auto write_lod(const coord_type& coord,
+										   const uint32_t layer,
+										   const uint32_t lod,
+										   const vector_sample_type& data) const {
+			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
+			return write_internal<true>(coord, layer, lod, data);
+		}
 		
 	};
 	

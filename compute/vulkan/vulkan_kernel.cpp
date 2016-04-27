@@ -122,7 +122,7 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_ke
 
 void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 										const vulkan_kernel_entry& entry,
-										const uint32_t num, shared_ptr<compute_buffer> arg) const {
+										const uint32_t num, const compute_buffer* arg) const {
 	auto& write_desc = encoder->write_descs[num];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
@@ -132,7 +132,7 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 	write_desc.descriptorCount = 1;
 	write_desc.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 	write_desc.pImageInfo = nullptr;
-	write_desc.pBufferInfo = ((vulkan_buffer*)arg.get())->get_vulkan_buffer_info();
+	write_desc.pBufferInfo = ((vulkan_buffer*)arg)->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
 	
 	// always offset 0 for now
@@ -141,7 +141,7 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 
 void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder floor_unused,
 										const vulkan_kernel_entry& entry floor_unused,
-										const uint32_t num floor_unused, shared_ptr<compute_image> arg floor_unused) const {
+										const uint32_t num floor_unused, const compute_image* arg floor_unused) const {
 	// TODO: implement this
 }
 

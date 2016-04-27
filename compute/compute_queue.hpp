@@ -44,7 +44,13 @@ protected:
 		__attribute__((unavailable("size_t vector types are not allowed due to a possible host/device size mismatch"))) { return false; }
 	};
 #endif
-	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer<T>::value>> {
+	
+	template <typename T, typename = void> struct is_compute_memory_pointer : public false_type {};
+	template <typename T>
+	struct is_compute_memory_pointer<T, enable_if_t<(is_pointer<T>::value &&
+													 is_base_of<compute_memory, remove_pointer_t<T>>::value)>> : public true_type {};
+	
+	template <typename T> struct is_valid_arg<T, enable_if_t<is_pointer<T>::value && !is_compute_memory_pointer<T>::value>> {
 		static constexpr bool valid()
 		__attribute__((unavailable("raw pointers are not allowed"))) { return false; }
 	};

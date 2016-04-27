@@ -35,9 +35,10 @@ host_device::host_device() : compute_device() {
 	max_work_item_sizes = { 0xFFFFFFFFu };
 	
 	// can technically use any dim as long as it fits into memory
-	max_image_1d_dim = { 65536 };
-	max_image_2d_dim = { 65536, 65536 };
-	max_image_3d_dim = { 65536, 65536, 65536 };
+	// TODO: should actually check for these when creating an image (also: dependent on opengl when using sharing)
+	max_image_1d_dim = { 32768 };
+	max_image_2d_dim = { 32768, 32768 };
+	max_image_3d_dim = { 32768, 32768, 32768 };
 	
 	double_support = true;
 	unified_memory = true;

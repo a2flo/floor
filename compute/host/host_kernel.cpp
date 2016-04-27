@@ -506,6 +506,14 @@ void* host_kernel::handle_kernel_arg(shared_ptr<compute_image> image) const {
 	return ((host_image*)image.get())->get_host_image_program_info();
 }
 
+void* host_kernel::handle_kernel_arg(const compute_buffer* buffer) const {
+	return ((const host_buffer*)buffer)->get_host_buffer_ptr();
+}
+
+void* host_kernel::handle_kernel_arg(const compute_image* image) const {
+	return ((const host_image*)image)->get_host_image_program_info();
+}
+
 void host_kernel::execute_internal(compute_queue* queue,
 								   const uint32_t work_dim,
 								   const uint3 global_work_size,

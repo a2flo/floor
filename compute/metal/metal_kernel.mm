@@ -67,26 +67,26 @@ void metal_kernel::set_const_parameter(metal_encoder* encoder, const uint32_t& i
 
 void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t&,
 									   metal_encoder* encoder, const kernel_entry&,
-									   shared_ptr<compute_buffer> arg) const {
-	[encoder->encoder setBuffer:((metal_buffer*)arg.get())->get_metal_buffer()
+									   const compute_buffer* arg) const {
+	[encoder->encoder setBuffer:((metal_buffer*)arg)->get_metal_buffer()
 						 offset:0
 						atIndex:buffer_idx++];
-	encoder->buffers.emplace((metal_buffer*)arg.get());
+	encoder->buffers.emplace((metal_buffer*)arg);
 }
 
 void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t& texture_idx,
 									   metal_encoder* encoder, const kernel_entry& entry,
-									   shared_ptr<compute_image> arg) const {
-	[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
+									   const compute_image* arg) const {
+	[encoder->encoder setTexture:((metal_image*)arg)->get_metal_image()
 						 atIndex:texture_idx++];
 	
 	// if this is a read/write image, add it again (one is read-only, the other is write-only)
 	if(entry.info->args[total_idx].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		[encoder->encoder setTexture:((metal_image*)arg.get())->get_metal_image()
+		[encoder->encoder setTexture:((metal_image*)arg)->get_metal_image()
 							 atIndex:texture_idx++];
 	}
 	
-	encoder->images.emplace((metal_image*)arg.get());
+	encoder->images.emplace((metal_image*)arg);
 }
 
 #endif

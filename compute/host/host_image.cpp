@@ -44,7 +44,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
 image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
 	// actually create the image
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, ((host_compute*)device->ctx)->get_main_queue())) {
 		return; // can't do much else
 	}
 }
@@ -232,7 +232,6 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 #endif
 }
 
-#if 0 // very wip
 // something about dog food
 #include <floor/compute/device/common.hpp>
 
@@ -249,13 +248,33 @@ kernel void libfloor_mip_map_minify_2d_float(image_2d<float> img,
 	// an we want to sample between [0, 1] -> 0, [2, 3] -> 1, [4, 5] -> 2, [6, 7] -> 3,
 	// which is normalized (to [0, 1]) equal to 1/8, 3/8, 5/8, 7/8
 	const float2 coord { float2(global_id.xy * 2u + 1u) * inv_prev_level_size };
-	// TODO: img.write_lod(global_id.xy, img.read_lod_linear(coord, level - 1u), level);
+	img.write_lod(global_id.xy, level, img.read_lod_linear(coord, level - 1u));
 }
-#endif
 
 void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
-#if 0 // TODO: !
 	// TODO: build/get all minification kernels
+	static unordered_map<string, shared_ptr<compute_kernel>> minify_kernels {
+		{ "libfloor_mip_map_minify_2d_float", {} },
+	};
+	// TODO: proper thread safety?
+	static atomic_flag kernel_init = ATOMIC_FLAG_INIT;
+	if(!kernel_init.test_and_set()) {
+		auto prog = make_shared<host_program>(cqueue->get_device());
+		if(prog == nullptr) {
+			log_error("failed to retrieve minification program/kernels");
+			return;
+		}
+		for(auto& entry : minify_kernels) {
+			entry.second = prog->get_kernel(entry.first);
+			if(entry.second == nullptr) {
+				log_error("failed to retrieve kernel \"%s\" from program", entry.first);
+				return;
+			}
+		}
+	}
+	
+	//
+	auto minify_kernel = minify_kernels["libfloor_mip_map_minify_2d_float"];
 	
 	// iterate over all levels, (bi/tri)linearly downscaling the previous level (minify)
 	const auto dim_count = image_dim_count(image_type);
@@ -270,10 +289,9 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	for(uint32_t level = 0; level < levels;
 		++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
 		if(level == 0) continue;
-		cqueue->execute(kern, level_size.round_next_multiple(8), uint2 { 8, 8 },
+		cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
 						this, level, level_size, inv_prev_level_size);
 	}
-#endif
 }
 
 #endif

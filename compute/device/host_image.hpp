@@ -564,6 +564,7 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
+						  const uint32_t lod,
 						  const float4& color) {
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -614,6 +615,7 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
+						  const uint32_t lod,
 						  const color_type& color) {
 			depth_format_validity_check();
 			
@@ -687,6 +689,7 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
+						  const uint32_t lod,
 						  const vector_n<scalar_type, 4>& color) {
 			// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);

@@ -125,7 +125,7 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	template <typename T>
+	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
 	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
 												 const uint32_t num, T&& arg) const {
 		set_kernel_argument(encoder, entry, num, &arg, sizeof(T));
@@ -134,11 +134,21 @@ protected:
 	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
 							 const uint32_t num, const void* ptr, const size_t& size) const;
 	
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, shared_ptr<compute_buffer> arg) const;
+	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+												 const uint32_t num, shared_ptr<compute_buffer> arg) const {
+		set_kernel_argument(encoder, entry, num, arg.get());
+	}
+	
+	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+												 const uint32_t num, shared_ptr<compute_image> arg) const {
+		set_kernel_argument(encoder, entry, num, arg.get());
+	}
 	
 	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, shared_ptr<compute_image> arg) const;
+							 const uint32_t num, const compute_buffer* arg) const;
+	
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, const compute_image* arg) const;
 	
 };
 

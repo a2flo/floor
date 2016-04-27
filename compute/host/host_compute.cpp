@@ -48,6 +48,7 @@ host_compute::host_compute() : compute_context() {
 	//
 	auto device = make_shared<host_device>();
 	devices.emplace_back(device);
+	device->ctx = this;
 	
 	// gather "device"/cpu information, this is very platform dependent
 	string cpu_name = "";

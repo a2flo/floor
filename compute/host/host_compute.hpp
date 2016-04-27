@@ -143,6 +143,10 @@ public:
 	//////////////////////////////////////////
 	// host specific functions
 	
+	shared_ptr<compute_queue> get_main_queue() {
+		return main_queue;
+	}
+	
 protected:
 	shared_ptr<compute_queue> main_queue;
 	

@@ -129,15 +129,25 @@ protected:
 	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&, uint8_t*&) const {}
 	
 	//! actual kernel argument setter
-	template <typename T>
+	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&, uint8_t*& data, T&& arg) const {
 		memcpy(data, &arg, sizeof(T));
 		data += sizeof(T);
 	}
 	
+	floor_inline_always void set_kernel_argument(const uint8_t num, const kernel_entry& entry,
+												 uint8_t*& data, shared_ptr<compute_buffer> arg) const {
+		set_kernel_argument(num, entry, data, (compute_buffer*)arg.get());
+	}
+	
+	floor_inline_always void set_kernel_argument(const uint8_t num, const kernel_entry& entry,
+												 uint8_t*& data, shared_ptr<compute_image> arg) const {
+		set_kernel_argument(num, entry, data, (compute_image*)arg.get());
+	}
+	
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&, uint8_t*& data,
-												 shared_ptr<compute_buffer> arg) const {
-		memcpy(data, &((cuda_buffer*)arg.get())->get_cuda_buffer(), sizeof(cu_device_ptr));
+												 const compute_buffer* arg) const {
+		memcpy(data, &((cuda_buffer*)arg)->get_cuda_buffer(), sizeof(cu_device_ptr));
 		data += sizeof(cu_device_ptr);
 	}
 	
@@ -147,8 +157,8 @@ protected:
 #else
 												 const uint8_t, const kernel_entry&,
 #endif
-												 uint8_t*& data, shared_ptr<compute_image> arg) const {
-		cuda_image* cu_img = (cuda_image*)arg.get();
+												 uint8_t*& data, const compute_image* arg) const {
+		auto cu_img = (cuda_image*)arg;
 		
 #if defined(FLOOR_DEBUG)
 		// sanity checks
