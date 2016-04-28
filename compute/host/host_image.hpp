@@ -24,6 +24,7 @@
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 
 #include <floor/compute/compute_image.hpp>
+#include <floor/compute/device/host_limits.hpp>
 
 class host_device;
 class host_image final : public compute_image {
@@ -75,10 +76,11 @@ protected:
 	struct image_program_info {
 		uint8_t* __attribute__((aligned(128))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;
-		uint4 image_dim;
+		uint4 image_dim[host_limits::max_mip_levels];
+		uint32_t level_offsets[host_limits::max_mip_levels];
 		struct {
-			uint4 int_dim;
-			float4 float_dim;
+			uint4 int_dim[host_limits::max_mip_levels];
+			float4 float_dim[host_limits::max_mip_levels];
 		} image_clamp_dim;
 	} program_info;
 	

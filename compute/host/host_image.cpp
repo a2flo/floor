@@ -53,9 +53,33 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	image = new uint8_t[image_data_size_mip_maps + protection_size] alignas(1024);
 	program_info.buffer = image;
 	program_info.runtime_image_type = image_type;
-	program_info.image_dim = image_dim;
-	program_info.image_clamp_dim.int_dim = image_dim - 1;
-	program_info.image_clamp_dim.float_dim = program_info.image_clamp_dim.int_dim;
+	
+	const auto dim_count = image_dim_count(image_type);
+	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
+	uint4 mip_image_dim {
+		image_dim.x,
+		dim_count >= 2 ? image_dim.y : 0,
+		dim_count >= 3 ? image_dim.z : 0,
+		0
+	};
+	uint32_t level_offset = 0;
+	for(size_t level = 0; level < host_limits::max_mip_levels; ++level, mip_image_dim >>= 1) {
+		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		program_info.level_offsets[level] = level_offset;
+		level_offset += level_data_size;
+		
+		program_info.image_dim[level] = mip_image_dim;
+		program_info.image_clamp_dim.int_dim[level] = {
+			mip_image_dim.x > 0 ? mip_image_dim.x - 1 : 0,
+			mip_image_dim.y > 0 ? mip_image_dim.y - 1 : 0,
+			mip_image_dim.z > 0 ? mip_image_dim.z - 1 : 0,
+			0
+		};
+		program_info.image_clamp_dim.float_dim[level] = program_info.image_clamp_dim.int_dim[level];
+	}
 	
 #if defined(FLOOR_DEBUG)
 	// set protection bytes
@@ -290,7 +314,7 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 		++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
 		if(level == 0) continue;
 		cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
-						this, level, level_size, inv_prev_level_size);
+						(const compute_image*)this, level, level_size, inv_prev_level_size);
 	}
 }
 

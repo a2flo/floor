@@ -30,8 +30,6 @@ class compute_context;
 
 class host_device final : public compute_device {
 public:
-	static constexpr const uint32_t host_compute_local_memory_size { 128ull * 1024ull * 1024ull };
-	
 	host_device();
 	~host_device() override {}
 	

@@ -17,6 +17,7 @@
  */
 
 #include <floor/compute/host/host_device.hpp>
+#include <floor/compute/device/host_limits.hpp>
 
 host_device::host_device() : compute_device() {
 	// init statically known info
@@ -25,7 +26,7 @@ host_device::host_device() : compute_device() {
 	version_str = FLOOR_BUILD_VERSION_STR;
 	driver_version_str = FLOOR_BUILD_VERSION_STR;
 	
-	local_mem_size = host_compute_local_memory_size;
+	local_mem_size = host_limits::local_memory_size;
 	local_mem_dedicated = false;
 	
 	// always at least 4 (SSE, newer NEON), 8-wide if avx/avx, 16-wide if avx-512
@@ -36,9 +37,9 @@ host_device::host_device() : compute_device() {
 	
 	// can technically use any dim as long as it fits into memory
 	// TODO: should actually check for these when creating an image (also: dependent on opengl when using sharing)
-	max_image_1d_dim = { 32768 };
-	max_image_2d_dim = { 32768, 32768 };
-	max_image_3d_dim = { 32768, 32768, 32768 };
+	max_image_1d_dim = { host_limits::max_image_dim };
+	max_image_2d_dim = { host_limits::max_image_dim };
+	max_image_3d_dim = { host_limits::max_image_dim };
 	
 	double_support = true;
 	unified_memory = true;

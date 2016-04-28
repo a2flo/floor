@@ -25,6 +25,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
+#include <floor/compute/device/host_limits.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -174,13 +175,8 @@ host_compute::host_compute() : compute_context() {
 	device->max_work_group_size = device->units;
 	device->max_work_group_item_sizes = { device->units, device->units, device->units };
 #else // mt-group
-#if !defined(__WINDOWS__)
-	device->max_work_group_size = 1024;
-	device->max_work_group_item_sizes = { 1024, 1024, 1024 };
-#else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
-	device->max_work_group_size = 64;
-	device->max_work_group_item_sizes = { 64, 64, 64 };
-#endif
+	device->max_work_group_size = host_limits::max_work_group_size;
+	device->max_work_group_item_sizes = { host_limits::max_work_group_size };
 #endif
 	device->max_image_1d_buffer_dim = { device->max_mem_alloc };
 	

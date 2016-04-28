@@ -32,6 +32,7 @@
 #include <floor/compute/host/host_buffer.hpp>
 #include <floor/compute/host/host_image.hpp>
 #include <floor/compute/host/host_queue.hpp>
+#include <floor/compute/device/host_limits.hpp>
 
 //#define FLOOR_HOST_KERNEL_ENABLE_TIMING 1
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
@@ -459,7 +460,7 @@ static _Thread_local fiber_context* item_contexts { nullptr };
 #endif
 
 // local memory management
-static constexpr const size_t floor_local_memory_max_size { host_device::host_compute_local_memory_size };
+static constexpr const size_t floor_local_memory_max_size { host_limits::local_memory_size };
 static uint32_t local_memory_alloc_offset { 0 };
 static bool local_memory_exceeded { false };
 static uint8_t* __attribute__((aligned(1024))) floor_local_memory_data { nullptr };
@@ -472,11 +473,6 @@ _Thread_local uint32_t floor_thread_local_memory_offset { 0 };
 // 4k - 8k stack should be enough, considering this runs on gpus (min 32k with ucontext)
 // TODO: stack protection?
 static constexpr const size_t item_stack_size { fiber_context::min_stack_size };
-#if !defined(__WINDOWS__)
-static constexpr const size_t max_items { 1024 }; // TODO: should match up with host_compute/host_device
-#else
-static constexpr const size_t max_items { 64 };
-#endif
 static uint8_t* __attribute__((aligned(1024))) floor_stack_memory_data { nullptr };
 
 static void floor_alloc_host_memory() {
@@ -486,7 +482,7 @@ static void floor_alloc_host_memory() {
 	
 #if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
 	if(floor_stack_memory_data == nullptr) {
-		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * max_items] alignas(1024);
+		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * host_limits::max_work_group_size] alignas(1024);
 	}
 #endif
 }
