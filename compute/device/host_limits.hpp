@@ -19,8 +19,6 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_HOST_LIMITS_HPP__
 #define __FLOOR_COMPUTE_DEVICE_HOST_LIMITS_HPP__
 
-#if defined(FLOOR_COMPUTE_HOST)
-
 namespace host_limits {
 	//! max amout of local memory that can be allocated per work-group
 	static constexpr const size_t local_memory_size { 128ull * 1024ull * 1024ull };
@@ -42,7 +40,5 @@ namespace host_limits {
 	};
 	
 }
-
-#endif
 
 #endif
