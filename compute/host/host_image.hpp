@@ -76,12 +76,15 @@ protected:
 	struct image_program_info {
 		uint8_t* __attribute__((aligned(128))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;
-		uint4 image_dim[host_limits::max_mip_levels];
-		uint32_t level_offsets[host_limits::max_mip_levels];
-		struct {
-			uint4 int_dim[host_limits::max_mip_levels];
-			float4 float_dim[host_limits::max_mip_levels];
-		} image_clamp_dim;
+		alignas(16) struct {
+			uint4 dim;
+			uint4 clamp_dim_int;
+			float4 clamp_dim_float;
+			uint32_t offset;
+			const uint32_t _unused[3] { 0, 0, 0 };
+		} level_info[host_limits::max_mip_levels];
+		static_assert(sizeof(level_info) == (16 * 4) * host_limits::max_mip_levels,
+					  "invalid level_info size");
 	} program_info;
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize

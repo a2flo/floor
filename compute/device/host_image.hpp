@@ -33,10 +33,14 @@ FLOOR_PUSH_WARNINGS()
 template <COMPUTE_IMAGE_TYPE, bool is_lod, bool is_lod_float, bool is_bias> struct host_device_image;
 
 namespace host_image_impl {
-	struct image_clamp_dim_type {
-		const uint4 int_dim[host_limits::max_mip_levels];
-		const float4 float_dim[host_limits::max_mip_levels];
+	struct image_level_info {
+		const uint4 dim;
+		const uint4 clamp_dim_int;
+		const float4 clamp_dim_float;
+		const uint32_t offset;
+		const uint32_t _unused[3];
 	};
+	static_assert(sizeof(image_level_info) == 64, "invalid level info size");
 	
 	//! due to the fact that there are normalized image formats that differ in sample type from their storage type,
 	//! we can't simply create templated functions for the specified 'image_type', but have to instantiate all possible
@@ -45,33 +49,32 @@ namespace host_image_impl {
 	struct fixed_image {
 		// returns the image_dim vector corresponding to the coord dimensionality
 		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 1>* = nullptr>
-		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim, const uint32_t lod) {
-			return clamp_dim[lod].x;
+		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
+			return clamp_dim.x;
 		}
 		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 2>* = nullptr>
-		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim, const uint32_t lod) {
-			return clamp_dim[lod].xy;
+		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
+			return clamp_dim.xy;
 		}
 		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 3>* = nullptr>
-		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim, const uint32_t lod) {
-			return clamp_dim[lod].xyz;
+		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
+			return clamp_dim.xyz;
 		}
 		template <size_t dim, typename clamp_dim_type, enable_if_t<dim == 4>* = nullptr>
-		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim, const uint32_t lod) {
-			return clamp_dim[lod];
+		floor_inline_always static auto image_dim_to_coord_dim(const clamp_dim_type& clamp_dim) {
+			return clamp_dim;
 		}
 		
 		// clamps input coordinates to image_dim (image_clamp_dim/image_float_clamp_dim) and converts them to uint vectors
 		//! int/uint coordinates
 		template <typename coord_type,
 				  enable_if_t<!is_floating_point<typename coord_type::decayed_scalar_type>::value>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
-													  const uint32_t lod,
 													  const vector_n<int32_t, coord_type::dim> offset = {}) {
 			// clamp to [0, image_dim - 1]
 			return vector_n<uint32_t, coord_type::dim> {
-				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim>(clamp_dim.int_dim, lod))
+				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_int))
 			};
 		}
 		
@@ -79,29 +82,32 @@ namespace host_image_impl {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
-													  const uint32_t lod,
 													  const vector_n<int32_t, coord_type::dim> offset = {}) {
-			// clamp to [0, image_dim - 1], with normalized coord
-			const auto fdim = image_dim_to_coord_dim<coord_type::dim>(clamp_dim.float_dim, lod);
-			return vector_n<uint32_t, coord_type::dim> { ((coord * fdim + 0.5f) + coord_type(offset)).clamp(fdim) };
+			// with normalized coords:
+			// * scale and add [0, 1] to [0, image dim]
+			// * apply offset (now in [-min offset, image dim + max offset])
+			// * clamp to [0, image dim - eps), taking care of out-of-bounds access and the case that
+			//   floor(image_dim) != image_dim - 1, but floor(nexttoward(image_dim), 0.0) == image_dim -1;
+			//   eps is 0.5f here just to be sure (__FLT_MIN__ might still cause issues)
+			// * convert to uint (equivalent to floor(x))
+			const auto fdim = image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_float);
+			return vector_n<uint32_t, coord_type::dim> { (coord * fdim + coord_type(offset)).clamp(fdim - 0.5f) };
 		}
 		
 		//! float coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
 				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
-		floor_inline_always static auto process_coord(const image_clamp_dim_type& clamp_dim,
+		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
-													  const uint32_t lod,
-													  // NOTE: offset coords with a cube map aren't supported anywhere (do the same)
-													  const vector_n<int32_t, coord_type::dim> offset floor_unused = {}) {
-			// clamp to [0, image_dim - 1], with normalized coord
+													  const int2 offset = {}) {
+			// normalized coords, see above for explanation
 			const auto coord_layer = compute_cube_coord_and_layer(coord);
-			const auto fdim = image_dim_to_coord_dim<coord_type::dim - 1u>(clamp_dim.float_dim, lod);
+			const auto fdim = image_dim_to_coord_dim<coord_type::dim - 1u>(level_info.clamp_dim_float);
 			return vector_n<uint32_t, coord_type::dim> {
-				(coord_layer.first * fdim + 0.5f).clamp(fdim),
+				(coord_layer.first * fdim + float2(offset)).clamp(fdim - 0.5f),
 				coord_layer.second
 			};
 		}
@@ -129,42 +135,42 @@ namespace host_image_impl {
 		
 		// -> coord to offset functions for all image dims, note that coord is assumed to be clamped and a floor vector
 		//! 1D, 1D buffer
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4&, const uint1 coord) {
-			return level_offset + size_t(coord.x) * image_bytes_per_pixel(fixed_image_type);
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint1 coord) {
+			return level_info.offset + size_t(coord.x) * image_bytes_per_pixel(fixed_image_type);
 		}
 		
 		//! 1D array
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint1 coord, const uint32_t layer) {
-			return coord_to_offset(level_offset, image_dim, coord.x) + image_slice_data_size_from_types(image_dim, fixed_image_type) * layer;
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint1 coord, const uint32_t layer) {
+			return coord_to_offset(level_info.offset, level_info.dim, coord.x) + image_slice_data_size_from_types(level_info.dim, fixed_image_type) * layer;
 		}
 		
 		//! 2D, 2D depth, 2D depth+stencil
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint2 coord) {
-			return level_offset + size_t(image_dim.x * coord.y + coord.x) * image_bytes_per_pixel(fixed_image_type);
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint2 coord) {
+			return level_info.offset + size_t(level_info.dim.x * coord.y + coord.x) * image_bytes_per_pixel(fixed_image_type);
 		}
 		
 		//! 2D array, 2D depth array
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint2 coord, const uint32_t layer) {
-			return coord_to_offset(level_offset, image_dim, coord) + image_slice_data_size_from_types(image_dim, fixed_image_type) * layer;
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint2 coord, const uint32_t layer) {
+			return coord_to_offset(level_info, coord) + image_slice_data_size_from_types(level_info.dim, fixed_image_type) * layer;
 		}
 		
 		//! 3D
 		template <COMPUTE_IMAGE_TYPE type = fixed_image_type, enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint3 coord) {
-			return level_offset + size_t(image_dim.x * image_dim.y * coord.z +
-										 image_dim.x * coord.y +
-										 coord.x) * image_bytes_per_pixel(type);
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord) {
+			return level_info.offset + size_t(level_info.dim.x * level_info.dim.y * coord.z +
+											  level_info.dim.x * coord.y +
+											  coord.x) * image_bytes_per_pixel(type);
 		}
 		
 		//! cube, depth cube
 		template <COMPUTE_IMAGE_TYPE type = fixed_image_type, enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type)>* = nullptr>
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint3 coord) {
-			return coord_to_offset(level_offset, image_dim, coord.xy, coord.z);
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord) {
+			return coord_to_offset(level_info, coord.xy, coord.z);
 		}
 		
 		//! cube array, depth cube array
-		floor_inline_always static size_t coord_to_offset(const size_t level_offset, const uint4& image_dim, const uint3 coord, const uint32_t layer) {
-			return coord_to_offset(level_offset, image_dim, coord.xy, layer * 6u + coord.z);
+		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint3 coord, const uint32_t layer) {
+			return coord_to_offset(level_info, coord.xy, layer * 6u + coord.z);
 		}
 		
 		// helper functions
@@ -369,27 +375,50 @@ FLOOR_POP_WARNINGS()
 			// this is a dummy function and never called, but necessary for compilation
 			return vector_n<uint8_t, image_channel_count(type)> {};
 		}
+		
+		// determines which lod/bias value to use and clamps it to [0, max #mip-levels - 1]
+		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<is_lod_ || is_bias_>* = nullptr>
+		floor_inline_always static constexpr uint32_t select_lod(const int32_t lod_i,
+																 const float lod_or_bias_f) {
+			return min(host_limits::max_mip_levels - 1u, (is_lod_float || is_bias ?
+														  uint32_t(max(0.0f, roundf(lod_or_bias_f))) :
+														  uint32_t(max(0, lod_i))));
+		}
+		// clamps lod to [0, max #mip-levels - 1]
+		template <bool is_lod_ = is_lod, enable_if_t<is_lod_>* = nullptr>
+		floor_inline_always static constexpr uint32_t select_lod(const uint32_t lod) {
+			return min(host_limits::max_mip_levels - 1u, lod);
+		}
+		// no lod/bias -> always return 0
+		template <bool is_lod_ = is_lod, bool is_bias_ = is_bias, enable_if_t<!is_lod_ && !is_bias_>* = nullptr>
+		floor_inline_always static constexpr uint32_t select_lod(const int32_t, const float) { return 0; }
+		// no lod/bias -> always return 0
+		template <bool is_lod_ = is_lod, enable_if_t<!is_lod_>* = nullptr>
+		floor_inline_always static constexpr uint32_t select_lod(const uint32_t) { return 0; }
+
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning in here (it is 4 byte aligned)
 
 		// image read functions
 		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+		bool is_lod_ = is_lod, bool is_bias_ = is_bias,
 				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
 		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
-						 const uint32_t layer,
 						 const offset_type& coord_offset,
+						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
 			// read/copy raw data
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
+			const auto lod = select_lod(lod_i, lod_or_bias_f);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset)),
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -460,8 +489,8 @@ FLOOR_POP_WARNINGS()
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type)>* = nullptr>
 		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
-						 const uint32_t layer,
 						 const offset_type& coord_offset,
+						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
@@ -474,11 +503,12 @@ FLOOR_POP_WARNINGS()
 			
 			// depth is always returned as a float, with stencil a a <float, 8-bit uint> pair
 			// NOTE: neither opencl, nor cuda support reading depth+stencil images, so a proper return type is unclear right now
-			typedef conditional_t<!has_stencil, float, pair<float, uint8_t>> ret_type;
+			typedef conditional_t<!has_stencil, float1, pair<float1, uint8_t>> ret_type;
 			ret_type ret;
+			const auto lod = select_lod(lod_i, lod_or_bias_f);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset)),
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
@@ -535,16 +565,17 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
 		static auto read(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						 const coord_type& coord,
-						 const uint32_t layer,
 						 const offset_type& coord_offset,
+						 const uint32_t layer,
 						 const int32_t lod_i,
 						 const float lod_or_bias_f) {
 			// read/copy raw data
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
+			const auto lod = select_lod(lod_i, lod_or_bias_f);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset)),
-													  coord_to_offset(img->level_offsets[uint32_t(lod_i)], img->image_dim[uint32_t(lod_i)], process_coord(img->image_clamp_dim, coord, uint32_t(lod_i), coord_offset), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -569,14 +600,15 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
-						  const uint32_t lod,
+						  const uint32_t lod_input,
 						  const float4& color) {
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
+			const auto lod = select_lod(lod_input);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod)),
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
 			
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				constexpr const auto channel_count = image_channel_count(type);
@@ -620,7 +652,7 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
-						  const uint32_t lod,
+						  const uint32_t lod_input,
 						  const color_type& color) {
 			depth_format_validity_check();
 			
@@ -630,9 +662,10 @@ FLOOR_POP_WARNINGS()
 			constexpr const bool has_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
 			
 			// depth value input is always a float -> convert it to the correct output format
+			const auto lod = select_lod(lod_input);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod)),
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
@@ -694,7 +727,7 @@ FLOOR_POP_WARNINGS()
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
-						  const uint32_t lod,
+						  const uint32_t lod_input,
 						  const vector_n<scalar_type, 4>& color) {
 			// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
@@ -702,9 +735,10 @@ FLOOR_POP_WARNINGS()
 			typedef vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count> storage_type;
 			static_assert(sizeof(storage_type) == image_bytes_per_pixel(type), "invalid storage type size!");
 			const storage_type raw_data = (storage_type)color; // nop if 32-bit/64-bit, cast down if 8-bit or 16-bit
+			const auto lod = select_lod(lod_input);
 			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod)),
-													  coord_to_offset(img->level_offsets[lod], img->image_dim[lod], process_coord(img->image_clamp_dim, coord, lod), layer));
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
+													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
 			memcpy(&img->data[offset], raw_data);
 		}
 	};
@@ -714,12 +748,97 @@ template <COMPUTE_IMAGE_TYPE sample_image_type, bool is_lod = false, bool is_lod
 struct host_device_image {
 	typedef conditional_t<(has_flag<COMPUTE_IMAGE_TYPE::READ>(sample_image_type) &&
 						   !has_flag<COMPUTE_IMAGE_TYPE::WRITE>(sample_image_type)), const uint8_t, uint8_t> storage_type;
+	typedef host_device_image<sample_image_type, is_lod, is_lod_float, is_bias> host_device_image_type;
 	
 	storage_type* data;
 	const COMPUTE_IMAGE_TYPE runtime_image_type;
-	const uint4 image_dim[host_limits::max_mip_levels];
-	const uint32_t level_offsets[host_limits::max_mip_levels];
-	const host_image_impl::image_clamp_dim_type image_clamp_dim;
+	alignas(16) const host_image_impl::image_level_info level_info[host_limits::max_mip_levels];
+	
+	// image read with linear interpolation (1D images)
+	template <typename coord_type, typename offset_type,
+			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
+			  enable_if_t<(image_dim_count(type) == 1 &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto read_linear(const host_device_image_type* img,
+							const coord_type& coord,
+							const offset_type& coord_offset,
+							const uint32_t layer,
+							const int32_t lod_i,
+							const float lod_or_bias_f) {
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		// * normalize coord to [0, 1]
+		// * scale it to [0, image dim]
+		// * get fractional [0, 1) in this texel
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
+		// texel A is always the outside pixel, texel B is always the active one
+		const color_type colors[2] {
+			read(img, coord, coord_offset + int1 { frac_coord < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		// linear interpolation with t == 0 -> A, t == 1 -> B
+		// for coord < 0.5: t = [0, 0.5) + 0.5 -> [0.5, 1)
+		// for coord >= 0.5: t = 1.5 - [0.5, 1) -> "[1, 0.5)"
+		return colors[0].interpolated(colors[1], (frac_coord < 0.5f ? frac_coord + 0.5f : 1.5f - frac_coord));
+	}
+	
+	// image read with bilinear interpolation (2D images)
+	template <typename coord_type, typename offset_type,
+			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
+			  enable_if_t<(image_dim_count(type) == 2 &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto read_linear(const host_device_image_type* img,
+							const coord_type& coord,
+							const offset_type& coord_offset,
+							const uint32_t layer,
+							const int32_t lod_i,
+							const float lod_or_bias_f) {
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
+		color_type colors[4] {
+			read(img, coord, coord_offset + int2 { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { 0, frac_coord.y < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { frac_coord.x < 0.5f ? -1 : 1, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		// interpolate in x first, then y
+		const float2 weights {
+			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.y),
+			(frac_coord.y < 0.5f ? frac_coord.y + 0.5f : 1.5f - frac_coord.y)
+		};
+		return colors[0].interpolate(colors[1], weights.x).interpolate(colors[2].interpolate(colors[3], weights.x), weights.y);
+	}
+	
+	// image read with trilinear interpolation (3D images)
+	template <typename coord_type, typename offset_type,
+			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
+			  enable_if_t<(image_dim_count(type) == 3 &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto read_linear(const host_device_image_type* img,
+							const coord_type& coord,
+							const offset_type& coord_offset,
+							const uint32_t layer,
+							const int32_t lod_i,
+							const float lod_or_bias_f) {
+		//typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		return read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f);
+	}
+	
+	// image read with *linear interpolation, but integer coordinates -> just forward to nearest/point read
+	template <typename coord_type, typename offset_type,
+			  COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
+			  enable_if_t<is_same<typename coord_type::decayed_scalar_type, int>::value>* = nullptr>
+	static auto read_linear(const host_device_image_type* img,
+							const coord_type& coord,
+							const offset_type& coord_offset,
+							const uint32_t layer,
+							const int32_t lod_i,
+							const float lod_or_bias_f) {
+		return read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f);
+	}
 	
 	// statically/compile-time known base type that won't change at run-time
 	floor_inline_always static constexpr COMPUTE_IMAGE_TYPE fixed_base_type() {
@@ -756,7 +875,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 							 (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&*/
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	static auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -849,7 +968,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -868,7 +987,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
-	static auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -887,7 +1006,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
 						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
-	static auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -907,7 +1026,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
 							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) /*&&
 						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) != COMPUTE_IMAGE_TYPE::FORMAT_64*/)>* = nullptr>
-	static auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -949,7 +1068,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
 							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) &&
 						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64)>* = nullptr>
-	auto read(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -974,7 +1093,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 							 (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&*/
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -1067,7 +1186,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -1086,7 +1205,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -1105,7 +1224,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
 						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type))>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK |
@@ -1125,7 +1244,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
 							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) /*&&
 						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) != COMPUTE_IMAGE_TYPE::FORMAT_64*/)>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
@@ -1167,7 +1286,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
 							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) &&
 						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64)>* = nullptr>
-	static void write(const host_device_image<sample_image_type, is_lod, is_lod_float, is_bias>* img, Args&&... args) {
+	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);

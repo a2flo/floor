@@ -709,8 +709,16 @@ namespace const_math {
 #endif
 	}
 	
+	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
+	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
+	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
+																is_floating_point<fp_type>::value)>* = nullptr>
+	constexpr any_type interpolate(const any_type& a, const any_type& b, const fp_type& t) {
+		return any_type(fp_type(b - a) * t) + a;
+	}
+	
 	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr fp_type cubic_interpolate(const fp_type& a_prev,
 										const fp_type& a,
 										const fp_type& b,
@@ -734,8 +742,30 @@ namespace const_math {
 		};
 	}
 	
+	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
+	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
+	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
+																is_floating_point<fp_type>::value)>* = nullptr>
+	constexpr any_type cubic_interpolate(const any_type& a_prev,
+										 const any_type& a,
+										 const any_type& b,
+										 const any_type& b_next,
+										 const fp_type& t) {
+		// -> explanation above
+		const auto t_2 = t * t;
+		const auto a_diff = (a_prev - a);
+		const auto b_diff = (b_next - b);
+		const auto A = b_diff - a_diff;
+		return {
+			any_type((fp_type(A) * t * t_2) +
+					 (fp_type(a_diff - A) * t_2) +
+					 (fp_type(b - a_prev) * t) +
+					 fp_type(a))
+		};
+	}
+	
 	//! computes the cubic catmull-rom interpolation between a and b, requiring the "point" prior to a and the "point" after b
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr fp_type catmull_rom_interpolate(const fp_type& a_prev,
 											  const fp_type& a,
 											  const fp_type& b,
@@ -753,6 +783,25 @@ namespace const_math {
 			 ((fp_type(2.0_fp) * a_prev - fp_type(5.0_fp) * a + fp_type(4.0_fp) * b - b_next) * t_2) +
 			 ((b - a_prev) * t))
 			* fp_type(0.5_fp) + a
+		};
+	}
+	
+	//! computes the cubic catmull-rom interpolation between a and b, requiring the "point" prior to a and the "point" after b
+	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
+	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
+																is_floating_point<fp_type>::value)>* = nullptr>
+	constexpr any_type catmull_rom_interpolate(const any_type& a_prev,
+											   const any_type& a,
+											   const any_type& b,
+											   const any_type& b_next,
+											   const fp_type& t) {
+		// -> explanation above
+		const auto t_2 = t * t;
+		return {
+			any_type((((fp_type(3.0_fp) * fp_type(a - b) + fp_type(b_next - a_prev)) * t * t_2) +
+					  ((fp_type(2.0_fp) * fp_type(a_prev) - fp_type(5.0_fp) * fp_type(a) + fp_type(4.0_fp) * fp_type(b) - fp_type(b_next)) * t_2) +
+					  (fp_type(b - a_prev) * t))
+					 * fp_type(0.5_fp) + fp_type(a))
 		};
 	}
 	

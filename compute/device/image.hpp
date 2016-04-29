@@ -74,9 +74,7 @@ namespace floor_image {
 		typedef int2 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	//! NOTE: this isn't actually supported by any backend right now
-	struct offset_vec_type_for_image_type<image_type, enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
-																   image_dim_count(image_type) == 3)>> {
+	struct offset_vec_type_for_image_type<image_type, enable_if_t<image_dim_count(image_type) == 3>> {
 		typedef int3 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
@@ -455,11 +453,15 @@ namespace floor_image {
 																					  gradient.first, gradient.second, is_gradient,
 																					  compare_function, compare_value, is_compare)));
 #elif defined(FLOOR_COMPUTE_HOST)
-			// TODO: (bi)linear sampling
-			const auto color = host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
-																								  converted_coord, layer, offset,
-																								  (!is_lod_float ? int32_t(lod) : 0),
-																								  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias));
+			const auto color = __builtin_choose_expr(!sample_linear,
+													 host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																														converted_coord, offset, layer,
+																														(!is_lod_float ? int32_t(lod) : 0),
+																														(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)),
+													 host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																															   converted_coord, offset, layer,
+																															   (!is_lod_float ? int32_t(lod) : 0),
+																															   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
 #endif
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)

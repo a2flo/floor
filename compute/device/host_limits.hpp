@@ -24,14 +24,14 @@ namespace host_limits {
 	static constexpr const size_t local_memory_size { 128ull * 1024ull * 1024ull };
 	
 	//! max supported image dim, identical for all image types
-	static constexpr const size_t max_image_dim { 32768 };
+	static constexpr const uint32_t max_image_dim { 32768 };
 	
 	//! max amount of mip-map/lod levels that can exist (log2(max_image_dim) + 1)
-	static constexpr const size_t max_mip_levels { 16 };
+	static constexpr const uint32_t max_mip_levels { 16 };
 	static_assert((1u << (max_mip_levels - 1u)) == max_image_dim, "max #lod-levels must match max image dim");
 	
 	//! max work-items per work-group (max #fibers)
-	static constexpr const size_t max_work_group_size {
+	static constexpr const uint32_t max_work_group_size {
 #if !defined(__WINDOWS__)
 		1024
 #else // due to memory restrictions with windows fibers, this shouldn't be higher than 64

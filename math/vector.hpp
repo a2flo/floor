@@ -190,6 +190,12 @@ public:
 	typedef FLOOR_VECNAME<int> clang_vector_type;
 #endif
 	
+	//! type of the scalar interpolator when doing linear/cubic/catmull-rom interpolation
+	//! NOTE: defaults to float for all non-floating-point types
+	typedef conditional_t<is_floating_point<decayed_scalar_type>::value, decayed_scalar_type, float> interpolation_scalar_type;
+	//! type of the vector interpolator when doing linear/cubic/catmull-rom interpolation
+	typedef FLOOR_VECNAME<interpolation_scalar_type> interpolation_vector_type;
+	
 	//////////////////////////////////////////
 	// constructors and assignment operators
 #pragma mark constructors and assignment operators
@@ -905,6 +911,42 @@ public:
 	constexpr vector_type& round_next_multiple(const vector_type& multiple_vec) {
 		*this = rounded_next_multiple(multiple_vec);
 		return *this;
+	}
+	
+	//! sets the components of this vector to their fractional part
+	//! (e.g. { 1.2f, 3.8f } -> { 0.2f, 0.8f }
+	template <typename fp_type = scalar_type, enable_if<is_floating_point<fp_type>::value>* = nullptr>
+	constexpr vector_type& fractional() {
+		decayed_scalar_type dummy;
+		x = modf(x, &dummy);
+#if FLOOR_VECTOR_WIDTH >= 2
+		y = modf(y, &dummy);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+		z = modf(z, &dummy);
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+		w = modf(w, &dummy);
+#endif
+		return *this;
+	}
+	
+	//! returns a vector which components are set to the fractional part of the components of this vector
+	template <typename fp_type = scalar_type, enable_if<is_floating_point<fp_type>::value>* = nullptr>
+	constexpr vector_type fractionaled() const {
+		decayed_scalar_type dummy;
+		return {
+			modf(x, &dummy),
+#if FLOOR_VECTOR_WIDTH >= 2
+			modf(y, &dummy),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			modf(z, &dummy),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			modf(w, &dummy),
+#endif
+		};
 	}
 	
 	//////////////////////////////////////////
@@ -1635,8 +1677,7 @@ public:
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::abs, abs, absed)
 	
 	//! linearly interpolates this vector with another vector according to interp
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr vector_type& interpolate(const vector_type& vec, const scalar_type& interp) {
+	constexpr vector_type& interpolate(const vector_type& vec, const interpolation_scalar_type& interp) {
 		x = const_math::interpolate(x, vec.x, interp);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::interpolate(y, vec.y, interp);
@@ -1650,8 +1691,7 @@ public:
 		return *this;
 	}
 	//! linearly interpolates this vector with another vector according to interp
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr vector_type& interpolate(const vector_type& vec, const vector_type& interp) {
+	constexpr vector_type& interpolate(const vector_type& vec, const interpolation_vector_type& interp) {
 		x = const_math::interpolate(x, vec.x, interp.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::interpolate(y, vec.y, interp.y);
@@ -1665,8 +1705,7 @@ public:
 		return *this;
 	}
 	//! returns the linear interpolation between this vector and another vector according to interp
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr vector_type interpolated(const vector_type& vec, const scalar_type& interp) const {
+	constexpr vector_type interpolated(const vector_type& vec, const interpolation_scalar_type& interp) const {
 		return {
 			const_math::interpolate(x, vec.x, interp),
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -1681,8 +1720,7 @@ public:
 		};
 	}
 	//! returns the linear interpolation between this vector and another vector according to interp
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
-	constexpr vector_type interpolated(const vector_type& vec, const vector_type& interp) const {
+	constexpr vector_type interpolated(const vector_type& vec, const interpolation_vector_type& interp) const {
 		return {
 			const_math::interpolate(x, vec.x, interp.x),
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -1698,9 +1736,8 @@ public:
 	}
 	
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-											 const vector_type& interp) {
+											 const interpolation_vector_type& interp) {
 		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp.y);
@@ -1714,9 +1751,8 @@ public:
 		return *this;
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-											 const vector_type& interp) const {
+											 const interpolation_vector_type& interp) const {
 		return {
 			const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp.x),
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -1731,9 +1767,8 @@ public:
 		};
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& cubic_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-											 const scalar_type& interp) {
+											 const interpolation_scalar_type& interp) {
 		x = const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::cubic_interpolate(a_prev.y, y, b.y, b_next.y, interp);
@@ -1747,9 +1782,8 @@ public:
 		return *this;
 	}
 	//! cubic interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type cubic_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-											 const scalar_type& interp) const {
+											 const interpolation_scalar_type& interp) const {
 		return {
 			const_math::cubic_interpolate(a_prev.x, x, b.x, b_next.x, interp),
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -1765,9 +1799,8 @@ public:
 	}
 	
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-												   const vector_type& interp) {
+												   const interpolation_vector_type& interp) {
 		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp.x);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp.y);
@@ -1781,9 +1814,8 @@ public:
 		return *this;
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-												   const vector_type& interp) const {
+												   const interpolation_vector_type& interp) const {
 		return {
 			const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp.x),
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -1798,9 +1830,8 @@ public:
 		};
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type& catmull_rom_interpolate(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-												   const scalar_type& interp) {
+												   const interpolation_scalar_type& interp) {
 		x = const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp);
 #if FLOOR_VECTOR_WIDTH >= 2
 		y = const_math::catmull_rom_interpolate(a_prev.y, y, b.y, b_next.y, interp);
@@ -1814,9 +1845,8 @@ public:
 		return *this;
 	}
 	//! cubic catmull-rom interpolation (with *this = a, interpolation between a and b, and values in order [a_prev, a, b, b_next])
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr vector_type catmull_rom_interpolated(const vector_type& b, const vector_type& a_prev, const vector_type& b_next,
-												   const scalar_type& interp) const {
+												   const interpolation_scalar_type& interp) const {
 		return {
 			const_math::catmull_rom_interpolate(a_prev.x, x, b.x, b_next.x, interp),
 #if FLOOR_VECTOR_WIDTH >= 2

@@ -68,17 +68,22 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	for(size_t level = 0; level < host_limits::max_mip_levels; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
 		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
-		program_info.level_offsets[level] = level_offset;
+		program_info.level_info[level].offset = level_offset;
 		level_offset += level_data_size;
 		
-		program_info.image_dim[level] = mip_image_dim;
-		program_info.image_clamp_dim.int_dim[level] = {
+		program_info.level_info[level].dim = mip_image_dim;
+		program_info.level_info[level].clamp_dim_int = {
 			mip_image_dim.x > 0 ? mip_image_dim.x - 1 : 0,
 			mip_image_dim.y > 0 ? mip_image_dim.y - 1 : 0,
 			mip_image_dim.z > 0 ? mip_image_dim.z - 1 : 0,
 			0
 		};
-		program_info.image_clamp_dim.float_dim[level] = program_info.image_clamp_dim.int_dim[level];
+		program_info.level_info[level].clamp_dim_float = {
+			mip_image_dim.x > 0 ? float(mip_image_dim.x) : 0.0f,
+			mip_image_dim.y > 0 ? float(mip_image_dim.y) : 0.0f,
+			mip_image_dim.z > 0 ? float(mip_image_dim.z) : 0.0f,
+			0.0f
+		};
 	}
 	
 #if defined(FLOOR_DEBUG)
