@@ -4239,10 +4239,10 @@ index 375b59c..80fd250 100644
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/lib/CodeGen/CGSPIRMetadataAdder.cpp b/lib/CodeGen/CGSPIRMetadataAdder.cpp
 new file mode 100644
-index 0000000..49b7f3e
+index 0000000..027a064
 --- /dev/null
 +++ b/lib/CodeGen/CGSPIRMetadataAdder.cpp
-@@ -0,0 +1,317 @@
+@@ -0,0 +1,318 @@
 +//===- SPIRMetadataAdder.cpp - Add SPIR related module scope metadata -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4543,6 +4543,7 @@ index 0000000..49b7f3e
 +           OI != OE; ++OI) {
 +        if (searchTypeInType((*OI)->getType(), pDoubleType, false))
 +          if (!(dyn_cast<CallInst>(I) &&
++                dyn_cast<CallInst>(I)->getCalledFunction() &&
 +                dyn_cast<CallInst>(I)->getCalledFunction()->isVarArg()))
 +            bUseDoubles = true;
 +        if (searchTypeInType((*OI)->getType(), pHalfType, true))
@@ -10743,7 +10744,7 @@ index 38fbea1..43d7bdb 100644
    case ICK_Array_To_Pointer:
    case ICK_Function_To_Pointer:
 diff --git a/lib/Sema/SemaExprMember.cpp b/lib/Sema/SemaExprMember.cpp
-index 9c345f8..519a41a 100644
+index 9c345f8..21835b2 100644
 --- a/lib/Sema/SemaExprMember.cpp
 +++ b/lib/Sema/SemaExprMember.cpp
 @@ -337,6 +337,7 @@ CheckExtVectorComponent(Sema &S, QualType baseType, ExprValueKind &VK,
@@ -10754,6 +10755,16 @@ index 9c345f8..519a41a 100644
      while (*compStr) {
        if (!vecType->isAccessorWithinNumElements(*compStr++)) {
          S.Diag(OpLoc, diag::err_ext_vector_component_exceeds_length)
+@@ -1716,7 +1717,8 @@ BuildFieldReferenceExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
+     Qualifiers MemberQuals
+     = S.Context.getCanonicalType(MemberType).getQualifiers();
+ 
+-    assert(!MemberQuals.hasAddressSpace());
++    // this should very well be possible
++    //assert(!MemberQuals.hasAddressSpace());
+ 
+ 
+     Qualifiers Combined = BaseQuals + MemberQuals;
 diff --git a/lib/Sema/SemaInit.cpp b/lib/Sema/SemaInit.cpp
 index c3a8946..0bcdea6 100644
 --- a/lib/Sema/SemaInit.cpp
