@@ -66,15 +66,29 @@ namespace host_image_impl {
 		}
 		
 		// clamps input coordinates to image_dim (image_clamp_dim/image_float_clamp_dim) and converts them to uint vectors
-		//! int/uint coordinates
-		template <typename coord_type,
-				  enable_if_t<!is_floating_point<typename coord_type::decayed_scalar_type>::value>* = nullptr>
+		//! int/uint coordinates, non cube map
+		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const vector_n<int32_t, coord_type::dim> offset = {}) {
 			// clamp to [0, image_dim - 1]
 			return vector_n<uint32_t, coord_type::dim> {
 				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_int))
+			};
+		}
+		
+		//! int/uint coordinates, cube map
+		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
+				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
+		floor_inline_always static auto process_coord(const image_level_info& level_info,
+													  const coord_type& coord,
+													  const int2 offset = {}) {
+			// clamp to [0, image_dim - 1]
+			return vector_n<uint32_t, coord_type::dim> {
+				int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).clamped(image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_int))
 			};
 		}
 		
@@ -402,7 +416,6 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 
 		// image read functions
 		template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-		bool is_lod_ = is_lod, bool is_bias_ = is_bias,
 				  enable_if_t<((has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
@@ -798,15 +811,16 @@ struct host_device_image {
 		
 		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
 		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
+		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
 		color_type colors[4] {
-			read(img, coord, coord_offset + int2 { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
-			read(img, coord, coord_offset + int2 { 0, frac_coord.y < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
-			read(img, coord, coord_offset + int2 { frac_coord.x < 0.5f ? -1 : 1, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { sample_offset.x, sample_offset.y }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { 0, sample_offset.y }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { sample_offset.x, 0 }, layer, lod_i, lod_or_bias_f),
 			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
 		};
 		// interpolate in x first, then y
 		const float2 weights {
-			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.y),
+			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.x),
 			(frac_coord.y < 0.5f ? frac_coord.y + 0.5f : 1.5f - frac_coord.y)
 		};
 		return colors[0].interpolate(colors[1], weights.x).interpolate(colors[2].interpolate(colors[3], weights.x), weights.y);
@@ -823,8 +837,30 @@ struct host_device_image {
 							const uint32_t layer,
 							const int32_t lod_i,
 							const float lod_or_bias_f) {
-		//typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
-		return read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f);
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
+		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
+		color_type colors[8] {
+			read(img, coord, coord_offset + int3 { sample_offset.x, sample_offset.y, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, sample_offset.y, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, 0, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, 0, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, sample_offset.y, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, sample_offset.y, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, 0, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		// interpolate in x first, then y, then z
+		const float3 weights {
+			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.x),
+			(frac_coord.y < 0.5f ? frac_coord.y + 0.5f : 1.5f - frac_coord.y),
+			(frac_coord.z < 0.5f ? frac_coord.z + 0.5f : 1.5f - frac_coord.z)
+		};
+		// chain calls ftw
+		return colors[0].interpolate(colors[1], weights.x).interpolate(colors[2].interpolate(colors[3], weights.x), weights.y).interpolate(
+			   colors[4].interpolate(colors[5], weights.x).interpolate(colors[6].interpolate(colors[7], weights.x), weights.y), weights.z);
 	}
 	
 	// image read with *linear interpolation, but integer coordinates -> just forward to nearest/point read

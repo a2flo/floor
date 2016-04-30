@@ -24,6 +24,8 @@
 #include <floor/core/cpp_ext.hpp>
 #include <tuple>
 
+#if (!defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN))
+
 // silence clang warnings about non-literal format strings - while it might be right that
 // these aren't proper c string literals, this whole thing wouldn't work if the input literals weren't
 FLOOR_PUSH_WARNINGS()
@@ -153,7 +155,7 @@ public:
 	
 	template <typename T, typename... Args, size_t array_len>
 	static constexpr void handle_arg_types(const_array<ARG_TYPE, array_len>& arg_types, size_t cur_idx) {
-		typedef decay_t<T> decayed_type;
+		typedef decay_as_t<T> decayed_type;
 		static_assert(handle_arg_type<decayed_type>::type() != ARG_TYPE::INVALID, "unsupported type");
 		arg_types[cur_idx] = handle_arg_type<decayed_type>::type();
 		handle_arg_types<Args...>(arg_types, cur_idx + 1);
@@ -430,7 +432,7 @@ public:
 	}
 	
 	// final call: forward to printf
-#if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
+#if !defined(FLOOR_COMPUTE_CUDA)
 	template <typename... Args>
 	static void log(const constant char* format, Args&&... args) {
 		apply(printf, tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
@@ -452,14 +454,18 @@ public:
 	static void log(const constant char* format, Args&&... args) {
 		_log_fwd(tuple_cat(tie(format), tupled_arg(forward<Args>(args))...));
 	}
-#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-	template <typename... Args>
-	static void log(const constant char*, Args&&...) {}
 #endif
 	
 };
 
 // cleanup
 FLOOR_POP_WARNINGS()
+
+#else
+
+// ignore for unsupported backends
+#define print(...)
+
+#endif
 
 #endif

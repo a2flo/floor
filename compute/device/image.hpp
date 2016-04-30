@@ -74,7 +74,15 @@ namespace floor_image {
 		typedef int2 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>
-	struct offset_vec_type_for_image_type<image_type, enable_if_t<image_dim_count(image_type) == 3>> {
+	struct offset_vec_type_for_image_type<image_type, enable_if_t<(image_dim_count(image_type) == 3
+#if !defined(FLOOR_COMPUTE_HOST)
+																   // this is a total hack, but cube map offsets aren't supported with
+																   // cuda/metal/opencl and I don't want to add image functions/handling
+																   // for something that isn't going to be used anyways
+																   // -> use int3 offset instead of the actual int2 offset (b/c symmetry)
+																   || has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)
+#endif
+																   )>> {
 		typedef int3 type;
 	};
 	template <COMPUTE_IMAGE_TYPE image_type>

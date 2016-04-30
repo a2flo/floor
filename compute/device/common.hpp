@@ -153,6 +153,16 @@ using namespace std;
 #include <algorithm>
 #include <atomic>
 
+// decay_as, same as decay, but also removes the address space
+template <typename T> struct decay_as { typedef decay_t<T> type; };
+#if !defined(FLOOR_COMPUTE_HOST)
+template <typename T> struct decay_as<__attribute__((global_as)) T> { typedef decay_t<T> type; };
+template <typename T> struct decay_as<__attribute__((local_as)) T> { typedef decay_t<T> type; };
+template <typename T> struct decay_as<__attribute__((constant_as)) T> { typedef decay_t<T> type; };
+template <typename T> struct decay_as<__attribute__((generic_as)) T> { typedef decay_t<T> type; };
+#endif
+template <typename T> using decay_as_t = typename decay_as<T>::type;
+
 // will be using const_array instead of stl array
 #include <floor/constexpr/const_array.hpp>
 
