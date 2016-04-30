@@ -10929,6 +10929,20 @@ index 35dad82..7eb8f69 100644
      Diag(op->getExprLoc(), diag::err_opencl_taking_function_address);
      return QualType();
    }
+diff --git a/tools/clang/lib/Sema/SemaExprMember.cpp b/tools/clang/lib/Sema/SemaExprMember.cpp
+index ef78982..f09ee0c 100644
+--- a/tools/clang/lib/Sema/SemaExprMember.cpp
++++ b/tools/clang/lib/Sema/SemaExprMember.cpp
+@@ -1681,7 +1681,8 @@ BuildFieldReferenceExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
+     Qualifiers MemberQuals
+     = S.Context.getCanonicalType(MemberType).getQualifiers();
+ 
+-    assert(!MemberQuals.hasAddressSpace());
++    // this should very well be possible
++    //assert(!MemberQuals.hasAddressSpace());
+ 
+ 
+     Qualifiers Combined = BaseQuals + MemberQuals;
 diff --git a/tools/clang/lib/Sema/SemaInit.cpp b/tools/clang/lib/Sema/SemaInit.cpp
 index 06ca9ae..a517db4 100644
 --- a/tools/clang/lib/Sema/SemaInit.cpp
