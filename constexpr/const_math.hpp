@@ -239,6 +239,22 @@ namespace const_math {
 		return x - y * const_math::trunc(x / y);
 	}
 	
+	//! decomposes val into its integral and fractional part, fractional is returned, integral is stored in "dst_integral"
+	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	constexpr fp_type modf(fp_type val, fp_type* dst_integral) {
+		const auto truncated = const_math::trunc(val);
+		*dst_integral = truncated;
+		return val - truncated;
+	}
+	
+	//! returns the fractional part of val
+	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	constexpr fp_type fractional(fp_type val) {
+		return val - const_math::trunc(val);
+	}
+	
 	//! computes n!, the factorial of n
 	//! NOTE: be aware that this uses 64-bit precision only, thus 20! is the largest correct result
 	template <uint64_t n> constexpr uint64_t factorial() {
@@ -893,7 +909,7 @@ namespace const_math {
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	floor_inline_always static fp_type native_rsqrt(fp_type a) {
-		return fp_type(1.0L) / std::sqrt(a);
+		return fp_type(1.0_fp) / std::sqrt(a);
 	}
 #elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
@@ -1122,6 +1138,7 @@ namespace math {
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
+	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, float)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int8_t)
@@ -1186,12 +1203,14 @@ namespace math {
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, double)
+	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, double)
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, long double)
+	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, long double)
 #endif
 	
 	// non-standard and metal-only for now
@@ -1223,6 +1242,7 @@ namespace math {
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, half)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, half)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, half)
+	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, half)
 #endif
 
 	// cleanup

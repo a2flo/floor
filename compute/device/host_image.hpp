@@ -450,7 +450,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 #if !defined(_MSC_VER) && !defined(__linux__) // TODO: a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
-#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
+#pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						ret[i] = (float)*(__fp16*)(raw_data + i * 2);
 					}
@@ -874,6 +874,186 @@ struct host_device_image {
 							const int32_t lod_i,
 							const float lod_or_bias_f) {
 		return read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f);
+	}
+
+// ignore fp comparison warnings
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(float-equal)
+	
+	// depth compare function (depth / no stencil)
+	floor_inline_always static constexpr float perform_compare(const COMPARE_FUNCTION compare_function,
+															   const float compare_value,
+															   const float1& depth_value) {
+		switch(compare_function) {
+			case COMPARE_FUNCTION::NONE:
+			case COMPARE_FUNCTION::NEVER: return 0.0f;
+			case COMPARE_FUNCTION::ALWAYS: return 1.0f;
+			case COMPARE_FUNCTION::LESS_OR_EQUAL: return (compare_value <= depth_value.x ? 1.0f : 0.0f);
+			case COMPARE_FUNCTION::GREATER_OR_EQUAL: return (compare_value >= depth_value.x ? 1.0f : 0.0f);
+			case COMPARE_FUNCTION::LESS: return (compare_value < depth_value.x ? 1.0f : 0.0f);
+			case COMPARE_FUNCTION::GREATER: return (compare_value > depth_value.x ? 1.0f : 0.0f);
+			case COMPARE_FUNCTION::EQUAL: return (compare_value == depth_value.x ? 1.0f : 0.0f);
+			case COMPARE_FUNCTION::NOT_EQUAL: return (compare_value != depth_value.x ? 1.0f : 0.0f);
+		}
+		floor_unreachable();
+	}
+	
+	// depth compare function (depth / stencil)
+	floor_inline_always static constexpr float perform_compare(const COMPARE_FUNCTION compare_function,
+															   const float compare_value,
+															   const pair<float1, uint8_t>& depth_stencil_value) {
+		return perform_compare(compare_function, compare_value, depth_stencil_value.first);
+	}
+
+FLOOR_POP_WARNINGS()
+	
+	// depth compare read (sample image, compare sampled depth with compare value according to compare function)
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	static auto compare(const host_device_image_type* img,
+						const coord_type& coord,
+						const offset_type& coord_offset,
+						const uint32_t layer,
+						const int32_t lod_i,
+						const float lod_or_bias_f,
+						const COMPARE_FUNCTION compare_function,
+						const float compare_value) {
+		return perform_compare(compare_function, compare_value, read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f));
+	}
+	
+	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(image_dim_count(type) == 1 &&
+						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto compare_linear(const host_device_image_type* img,
+							   const coord_type& coord,
+							   const offset_type& coord_offset,
+							   const uint32_t layer,
+							   const int32_t lod_i,
+							   const float lod_or_bias_f,
+							   const COMPARE_FUNCTION compare_function,
+							   const float compare_value) {
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.x).fractional();
+		const color_type depth_values[2] {
+			read(img, coord, coord_offset + int1 { frac_coord < 0.5f ? -1 : 1 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		float1 cmp_results[2] {
+			perform_compare(compare_function, compare_value, depth_values[0]),
+			perform_compare(compare_function, compare_value, depth_values[1]),
+		};
+		return cmp_results[0].interpolated(cmp_results[1], (frac_coord < 0.5f ? frac_coord + 0.5f : 1.5f - frac_coord));
+	}
+	
+	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(image_dim_count(type) == 2 &&
+						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto compare_linear(const host_device_image_type* img,
+							   const coord_type& coord,
+							   const offset_type& coord_offset,
+							   const uint32_t layer,
+							   const int32_t lod_i,
+							   const float lod_or_bias_f,
+							   const COMPARE_FUNCTION compare_function,
+							   const float compare_value) {
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xy).fractional();
+		const int2 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1 };
+		const color_type depth_values[4] {
+			read(img, coord, coord_offset + int2 { sample_offset.x, sample_offset.y }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { 0, sample_offset.y }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int2 { sample_offset.x, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		// interpolate in x first, then y
+		const float2 weights {
+			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.x),
+			(frac_coord.y < 0.5f ? frac_coord.y + 0.5f : 1.5f - frac_coord.y)
+		};
+		float1 cmp_results[4] {
+			perform_compare(compare_function, compare_value, depth_values[0]),
+			perform_compare(compare_function, compare_value, depth_values[1]),
+			perform_compare(compare_function, compare_value, depth_values[2]),
+			perform_compare(compare_function, compare_value, depth_values[3]),
+		};
+		return cmp_results[0].interpolate(cmp_results[1], weights.x).interpolate(cmp_results[2].interpolate(cmp_results[3], weights.x), weights.y);
+	}
+	
+	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(image_dim_count(type) == 3 &&
+						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
+						   is_same<typename coord_type::decayed_scalar_type, float>::value)>* = nullptr>
+	static auto compare_linear(const host_device_image_type* img,
+							   const coord_type& coord,
+							   const offset_type& coord_offset,
+							   const uint32_t layer,
+							   const int32_t lod_i,
+							   const float lod_or_bias_f,
+							   const COMPARE_FUNCTION compare_function,
+							   const float compare_value) {
+		typedef decltype(host_device_image_type::read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f)) color_type;
+		
+		const auto lod = host_image_impl::fixed_image<type, is_lod, is_lod_float, is_bias>::select_lod(lod_i, lod_or_bias_f);
+		const auto frac_coord = (coord.wrapped(1.0f) * img->level_info[lod].clamp_dim_float.xyz).fractional();
+		const int3 sample_offset { frac_coord.x < 0.5f ? -1 : 1, frac_coord.y < 0.5f ? -1 : 1, frac_coord.z < 0.5f ? -1 : 1 };
+		const color_type depth_values[8] {
+			read(img, coord, coord_offset + int3 { sample_offset.x, sample_offset.y, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, sample_offset.y, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, 0, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, 0, sample_offset.z }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, sample_offset.y, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { 0, sample_offset.y, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset + int3 { sample_offset.x, 0, 0 }, layer, lod_i, lod_or_bias_f),
+			read(img, coord, coord_offset, layer, lod_i, lod_or_bias_f),
+		};
+		// interpolate in x first, then y, then z
+		const float3 weights {
+			(frac_coord.x < 0.5f ? frac_coord.x + 0.5f : 1.5f - frac_coord.x),
+			(frac_coord.y < 0.5f ? frac_coord.y + 0.5f : 1.5f - frac_coord.y),
+			(frac_coord.z < 0.5f ? frac_coord.z + 0.5f : 1.5f - frac_coord.z)
+		};
+		float1 cmp_results[8] {
+			perform_compare(compare_function, compare_value, depth_values[0]),
+			perform_compare(compare_function, compare_value, depth_values[1]),
+			perform_compare(compare_function, compare_value, depth_values[2]),
+			perform_compare(compare_function, compare_value, depth_values[3]),
+			perform_compare(compare_function, compare_value, depth_values[4]),
+			perform_compare(compare_function, compare_value, depth_values[5]),
+			perform_compare(compare_function, compare_value, depth_values[6]),
+			perform_compare(compare_function, compare_value, depth_values[7]),
+		};
+		// chain calls ftw
+		return cmp_results[0].interpolate(cmp_results[1], weights.x).interpolate(cmp_results[2].interpolate(cmp_results[3], weights.x), weights.y).interpolate(
+			   cmp_results[4].interpolate(cmp_results[5], weights.x).interpolate(cmp_results[6].interpolate(cmp_results[7], weights.x), weights.y), weights.z);
+	}
+	
+	// depth compare is not supported for non-depth images
+	template <typename... Args, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	static auto compare(Args&&...) {
+		return 0.0f;
+	}
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) ||
+						   is_same<typename coord_type::decayed_scalar_type, int>::value)>* = nullptr>
+	static auto compare_linear(const host_device_image_type* img floor_unused,
+							   const coord_type& coord floor_unused,
+							   const offset_type& coord_offset floor_unused,
+							   const uint32_t layer floor_unused,
+							   const int32_t lod_i floor_unused,
+							   const float lod_or_bias_f floor_unused,
+							   const COMPARE_FUNCTION compare_function floor_unused,
+							   const float compare_value floor_unused) {
+		return 0.0f;
 	}
 	
 	// statically/compile-time known base type that won't change at run-time

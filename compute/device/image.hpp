@@ -418,6 +418,10 @@ namespace floor_image {
 			// if not explicit lod or gradient, then always use bias (neither lod nor gradient have a bias option)
 			constexpr const bool is_bias = (!is_lod && !is_gradient);
 			
+			// depth compare read is only allowed for depth images
+			static_assert((is_compare && has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) || !is_compare,
+						  "compare is only allowed with depth images");
+			
 			// backend specific coordinate conversion (also: any input -> float or int)
 			const auto converted_coord = convert_coord(coord);
 			
@@ -461,15 +465,27 @@ namespace floor_image {
 																					  gradient.first, gradient.second, is_gradient,
 																					  compare_function, compare_value, is_compare)));
 #elif defined(FLOOR_COMPUTE_HOST)
-			const auto color = __builtin_choose_expr(!sample_linear,
-													 host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
-																														converted_coord, offset, layer,
-																														(!is_lod_float ? int32_t(lod) : 0),
-																														(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)),
-													 host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
-																															   converted_coord, offset, layer,
-																															   (!is_lod_float ? int32_t(lod) : 0),
-																															   (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)));
+			const auto color = __builtin_choose_expr(!is_compare,
+													 __builtin_choose_expr(!sample_linear,
+																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																																			  converted_coord, offset, layer,
+																																			  (!is_lod_float ? int32_t(lod) : 0),
+																																			  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)),
+																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																																					 converted_coord, offset, layer,
+																																					 (!is_lod_float ? int32_t(lod) : 0),
+																																					 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias))),
+													 __builtin_choose_expr(!sample_linear,
+																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																																				 converted_coord, offset, layer,
+																																				 (!is_lod_float ? int32_t(lod) : 0),
+																																				 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																																				 compare_function, compare_value),
+																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img,
+																																						converted_coord, offset, layer,
+																																						(!is_lod_float ? int32_t(lod) : 0),
+																																						(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
+																																						compare_function, compare_value)));
 #endif
 			
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)

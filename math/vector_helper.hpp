@@ -152,6 +152,7 @@ public:
 	static constexpr T round(const T& val);
 	static constexpr T trunc(const T& val);
 	static constexpr T rint(const T& val);
+	static constexpr T fractional(const T& val);
 	static constexpr T sin(const T& val);
 	static constexpr T cos(const T& val);
 	static constexpr T tan(const T& val);
@@ -238,6 +239,7 @@ F1(ceil, constexpr, math::__ceil(val)) \
 F1(round, constexpr, math::__round(val)) \
 F1(trunc, constexpr, math::__trunc(val)) \
 F1(rint, constexpr, math::__rint(val)) \
+F1(fractional, constexpr, math::__fractional(val)) \
 F1(sin, constexpr, math::__sin(val)) \
 F1(cos, constexpr, math::__cos(val)) \
 F1(tan, constexpr, math::__tan(val)) \
@@ -270,6 +272,7 @@ F1(ceil, constexpr, math::__ceil(val)) \
 F1(round, constexpr, math::__round(val)) \
 F1(trunc, constexpr, math::__trunc(val)) \
 F1(rint, constexpr, math::__rint(val)) \
+F1(fractional, constexpr, math::__fractional(val)) \
 F1(sin, constexpr, math::__sin(val)) \
 F1(cos, constexpr, math::__cos(val)) \
 F1(tan, constexpr, math::__tan(val)) \
@@ -302,6 +305,7 @@ F1(ceil, constexpr, math::__ceil(val)) \
 F1(round, constexpr, math::__round(val)) \
 F1(trunc, constexpr, math::__trunc(val)) \
 F1(rint, constexpr, math::__rint(val)) \
+F1(fractional, constexpr, math::__fractional(val)) \
 F1(sin, constexpr, math::__sin(val)) \
 F1(cos, constexpr, math::__cos(val)) \
 F1(tan, constexpr, math::__tan(val)) \
@@ -334,6 +338,7 @@ F1(ceil, constexpr, math::__ceil(val)) \
 F1(round, constexpr, math::__round(val)) \
 F1(trunc, constexpr, math::__trunc(val)) \
 F1(rint, constexpr, math::__rint(val)) \
+F1(fractional, constexpr, math::__fractional(val)) \
 F1(sin, constexpr, math::__sin(val)) \
 F1(cos, constexpr, math::__cos(val)) \
 F1(tan, constexpr, math::__tan(val)) \
@@ -366,6 +371,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -398,6 +404,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -430,6 +437,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -462,6 +470,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -494,6 +503,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -526,6 +536,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -558,6 +569,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -590,6 +602,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -622,6 +635,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -654,6 +668,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -686,6 +701,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -718,6 +734,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, scalar_type(0)) \
 F1(sin, constexpr, (scalar_type)math::__sin((const_math::max_rt_fp_type)val)) \
 F1(cos, constexpr, (scalar_type)math::__cos((const_math::max_rt_fp_type)val)) \
 F1(tan, constexpr, (scalar_type)math::__tan((const_math::max_rt_fp_type)val)) \
@@ -750,6 +767,7 @@ F1(ceil, constexpr, val) \
 F1(round, constexpr, val) \
 F1(trunc, constexpr, val) \
 F1(rint, constexpr, val) \
+F1(fractional, constexpr, false) \
 F1(sin, constexpr, val) \
 F1(cos, constexpr, val) \
 F1(tan, constexpr, val) \
@@ -771,6 +789,10 @@ F2_INT(bit_right_shift, constexpr, (lhs >> rhs)) \
 F1(unary_not, constexpr, (!val)) \
 F1(unary_complement, constexpr, (~val)) \
 )
+
+// input parameters might be unused if the function/operation isn't applicable to the type
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(unused-parameter)
 
 FLOOR_VH_IMPL_DEF_FLOAT(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
@@ -804,5 +826,7 @@ FLOOR_VH_IMPL_DEF_SSIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_F
 						   !(__clang_major__ == 3 && __clang_minor__ < 7))
 FLOOR_VH_IMPL_DEF_SIZE_T(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 #endif
+
+FLOOR_POP_WARNINGS()
 
 #endif

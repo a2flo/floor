@@ -158,7 +158,11 @@ public:
 	//! this scalar type
 	typedef scalar_type this_scalar_type;
 	//! decayed scalar type (removes refs/etc.)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	typedef decay_t<scalar_type> decayed_scalar_type;
+#else // also remove address space for compute
+	typedef decay_as_t<scalar_type> decayed_scalar_type;
+#endif
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
@@ -915,36 +919,34 @@ public:
 	
 	//! sets the components of this vector to their fractional part
 	//! (e.g. { 1.2f, 3.8f } -> { 0.2f, 0.8f }
-	template <typename fp_type = scalar_type, enable_if<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr vector_type& fractional() {
-		decayed_scalar_type dummy;
-		x = modf(x, &dummy);
+		x = vector_helper<decayed_scalar_type>::fractional(x);
 #if FLOOR_VECTOR_WIDTH >= 2
-		y = modf(y, &dummy);
+		y = vector_helper<decayed_scalar_type>::fractional(y);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-		z = modf(z, &dummy);
+		z = vector_helper<decayed_scalar_type>::fractional(z);
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-		w = modf(w, &dummy);
+		w = vector_helper<decayed_scalar_type>::fractional(w);
 #endif
 		return *this;
 	}
 	
 	//! returns a vector which components are set to the fractional part of the components of this vector
-	template <typename fp_type = scalar_type, enable_if<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr vector_type fractionaled() const {
-		decayed_scalar_type dummy;
 		return {
-			modf(x, &dummy),
+			vector_helper<decayed_scalar_type>::fractional(x),
 #if FLOOR_VECTOR_WIDTH >= 2
-			modf(y, &dummy),
+			vector_helper<decayed_scalar_type>::fractional(y),
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			modf(z, &dummy),
+			vector_helper<decayed_scalar_type>::fractional(z),
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			modf(w, &dummy),
+			vector_helper<decayed_scalar_type>::fractional(w),
 #endif
 		};
 	}

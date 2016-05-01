@@ -62,7 +62,7 @@ namespace rt_math {
 	
 	//! wraps val to the range [0, max]
 	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
-	static floor_inline_always constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
+	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ? (max - fmod(abs(val), max)) : fmod(val, max));
 	}
 	
@@ -87,6 +87,12 @@ namespace rt_math {
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 		// no std::abs or __builtin_abs for __int128_t
 		return (val < (int_type)0 ? (max - ((val < (int_type)0 ? -val : val) % max)) : (val % max));
+	}
+	
+	//! returns the fractional part of val
+	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	static floor_inline_always fp_type fractional(const fp_type& val) {
+		return (val - trunc(val));
 	}
 	
 }

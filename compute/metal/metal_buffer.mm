@@ -172,7 +172,7 @@ void metal_buffer::read(shared_ptr<compute_queue> cqueue floor_unused_on_ios, vo
 #endif
 	
 	GUARD(lock);
-	memcpy(dst, (uint8_t*)[buffer contents] + offset, size_);
+	memcpy(dst, (uint8_t*)[buffer contents] + offset, read_size);
 }
 
 void metal_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -214,11 +214,11 @@ void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
 	
 	memcpy((uint8_t*)[buffer contents] + dst_offset,
 		   (uint8_t*)[((metal_buffer*)src.get())->get_metal_buffer() contents] + src_offset,
-		   size_);
+		   copy_size);
 	
 #if !defined(FLOOR_IOS)
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModeManaged) {
-		[buffer didModifyRange:NSRange { dst_offset, dst_offset + size_ }];
+		[buffer didModifyRange:NSRange { dst_offset, dst_offset + copy_size }];
 	}
 #endif
 }
