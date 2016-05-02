@@ -949,7 +949,7 @@ FLOOR_POP_WARNINGS()
 		return cmp_results[0].interpolated(cmp_results[1], (frac_coord < 0.5f ? frac_coord + 0.5f : 1.5f - frac_coord));
 	}
 	
-	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
+	// depth compare read with linear interpolation of the results / 2D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
 	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
 			  enable_if_t<(image_dim_count(type) == 2 &&
 						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
@@ -987,7 +987,7 @@ FLOOR_POP_WARNINGS()
 		return cmp_results[0].interpolate(cmp_results[1], weights.x).interpolate(cmp_results[2].interpolate(cmp_results[3], weights.x), weights.y);
 	}
 	
-	// depth compare read with linear interpolation of the results / 1D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
+	// depth compare read with linear interpolation of the results / 3D images (sample image, compare each sampled depth value with the compare value according to compare function, then blend the result)
 	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
 			  enable_if_t<(image_dim_count(type) == 3 &&
 						   has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
@@ -1036,23 +1036,30 @@ FLOOR_POP_WARNINGS()
 			   cmp_results[4].interpolate(cmp_results[5], weights.x).interpolate(cmp_results[6].interpolate(cmp_results[7], weights.x), weights.y), weights.z);
 	}
 	
+	// technically invalid to call this with integer coordinates, but still forward this to the nearest sampling function
+	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
+						   is_same<typename coord_type::decayed_scalar_type, int>::value)>* = nullptr>
+	static auto compare_linear(const host_device_image_type* img,
+							   const coord_type& coord,
+							   const offset_type& coord_offset,
+							   const uint32_t layer,
+							   const int32_t lod_i,
+							   const float lod_or_bias_f,
+							   const COMPARE_FUNCTION compare_function,
+							   const float compare_value) {
+		return compare(img, coord, coord_offset, layer, lod_i, lod_or_bias_f, compare_function, compare_value);
+	}
+	
 	// depth compare is not supported for non-depth images
 	template <typename... Args, COMPUTE_IMAGE_TYPE type = sample_image_type,
 			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
 	static auto compare(Args&&...) {
 		return 0.0f;
 	}
-	template <typename coord_type, typename offset_type, COMPUTE_IMAGE_TYPE type = sample_image_type,
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) ||
-						   is_same<typename coord_type::decayed_scalar_type, int>::value)>* = nullptr>
-	static auto compare_linear(const host_device_image_type* img floor_unused,
-							   const coord_type& coord floor_unused,
-							   const offset_type& coord_offset floor_unused,
-							   const uint32_t layer floor_unused,
-							   const int32_t lod_i floor_unused,
-							   const float lod_or_bias_f floor_unused,
-							   const COMPARE_FUNCTION compare_function floor_unused,
-							   const float compare_value floor_unused) {
+	template <typename... Args, COMPUTE_IMAGE_TYPE type = sample_image_type,
+			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
+	static auto compare_linear(Args&&...) {
 		return 0.0f;
 	}
 	

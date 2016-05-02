@@ -392,7 +392,11 @@ namespace floor_image {
 											   const offset_vec_type offset,
 											   const float bias = 0.0f,
 											   const lod_type lod = (lod_type)0,
+#if defined(FLOOR_COMPUTE_HOST) // NOTE: read with an explicit gradient is currently not supported on host-compute
+											   const pair<gradient_vec_type, gradient_vec_type> gradient floor_unused = {},
+#else
 											   const pair<gradient_vec_type, gradient_vec_type> gradient = {},
+#endif
 											   const float compare_value = 0.0f
 		) const {
 			// sample type must be 32-bit float, int or uint
@@ -568,7 +572,7 @@ namespace floor_image {
 			return read_internal<true>(coord, layer, sample, offset, bias);
 		}
 		
-		//! TODO
+		//! image read at an explicit lod level with nearest/point sampling (non-array)
 		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
@@ -577,7 +581,7 @@ namespace floor_image {
 			return read_internal<false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
-		//!
+		//! image read at an explicit lod level with nearest/point sampling (array)
 		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
@@ -586,7 +590,7 @@ namespace floor_image {
 			return read_internal<false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
-		//!
+		//! image read at an explicit lod level with linear sampling (non-array)
 		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
@@ -595,7 +599,7 @@ namespace floor_image {
 			return read_internal<true, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
-		//!
+		//! image read at an explicit lod level with linear sampling (array)
 		template <typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
@@ -604,7 +608,7 @@ namespace floor_image {
 			return read_internal<true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
-		//!
+		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (non-array)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -616,7 +620,7 @@ namespace floor_image {
 			return read_internal<false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
-		//!
+		//! image read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (array)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -628,7 +632,7 @@ namespace floor_image {
 			return read_internal<false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
-		//!
+		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling (non-array)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -640,7 +644,7 @@ namespace floor_image {
 			return read_internal<true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
-		//!
+		//! image read with an explicit gradient (dPdx, dPdy) with linear sampling (array)
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -654,10 +658,10 @@ namespace floor_image {
 		
 		//////////////////////////////////////////
 		// depth compare functions:
-		// * metal: should have full support for this
+		// * metal: has full support for this
+		// * host-compute: has full support for this
 		// * cuda: technically supports depth compare ptx instructions, but no way to set the compare function?! (using s/w compare for now)
 		// * opencl/spir: doesn't have support for this, compare will be performed in s/w
-		// * host-compute: no support for now (TODO: will be added later)
 		
 		//! image depth compare read with nearest/point sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
@@ -691,7 +695,7 @@ namespace floor_image {
 			return read_internal<true, false, false, true, compare_function>(coord, layer, 0, offset, bias, 0, {}, compare_value);
 		}
 		
-		//!
+		//! image depth compare read at an explicit lod level with nearest/point sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
@@ -699,7 +703,7 @@ namespace floor_image {
 			return read_internal<false, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
-		//!
+		//! image depth compare read at an explicit lod level with nearest/point sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
@@ -707,7 +711,7 @@ namespace floor_image {
 			return read_internal<false, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
-		//!
+		//! image depth compare read at an explicit lod level with linear sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
@@ -715,7 +719,7 @@ namespace floor_image {
 			return read_internal<true, true, false, true, compare_function>(coord, 0, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
-		//!
+		//! image depth compare read at an explicit lod level with linear sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, typename lod_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
@@ -723,7 +727,7 @@ namespace floor_image {
 			return read_internal<true, true, false, true, compare_function>(coord, layer, 0, offset, 0.0f, lod, {}, compare_value);
 		}
 		
-		//!
+		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -734,7 +738,7 @@ namespace floor_image {
 			return read_internal<false, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
-		//!
+		//! image depth compare read with an explicit gradient (dPdx, dPdy) with nearest/point sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -745,7 +749,7 @@ namespace floor_image {
 			return read_internal<false, false, true, true, compare_function>(coord, layer, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
-		//!
+		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (non-array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
@@ -756,7 +760,7 @@ namespace floor_image {
 			return read_internal<true, false, true, true, compare_function>(coord, 0, 0, offset, 0.0f, 0, gradient, compare_value);
 		}
 		
-		//!
+		//! image depth compare read with an explicit gradient (dPdx, dPdy) with linear sampling (array)
 		template <COMPARE_FUNCTION compare_function, typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type_>::type,
