@@ -29,6 +29,10 @@ namespace host_limits {
 	//! max amount of mip-map/lod levels that can exist (log2(max_image_dim) + 1)
 	static constexpr const uint32_t max_mip_levels { 16 };
 	static_assert((1u << (max_mip_levels - 1u)) == max_image_dim, "max #lod-levels must match max image dim");
+#if defined(FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS)
+	static_assert(FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS == max_mip_levels,
+				  "update FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS to match host_limits::max_mip_levels");
+#endif
 	
 	//! max work-items per work-group (max #fibers)
 	static constexpr const uint32_t max_work_group_size {

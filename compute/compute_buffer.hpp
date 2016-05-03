@@ -70,12 +70,24 @@ public:
 	//! back to the specified "dst" pointer
 	virtual void read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size = 0, const size_t offset = 0) = 0;
 	
+	//! reads sizeof("dst") bytes from "offset" onwards to "dst"
+	template <typename T>
+	floor_inline_always void read_to(T& dst, shared_ptr<compute_queue> cqueue, const size_t offset = 0) {
+		read(cqueue, &dst, sizeof(T), offset);
+	}
+	
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the previously specified host pointer to this buffer
 	virtual void write(shared_ptr<compute_queue> cqueue, const size_t size = 0, const size_t offset = 0) = 0;
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the specified "src" pointer to this buffer
 	virtual void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
+	
+	//! writes sizeof("src") bytes from "src" to "offset" onwards to this buffer
+	template <typename T>
+	floor_inline_always void write_from(const T& src, shared_ptr<compute_queue> cqueue, const size_t offset = 0) {
+		write(cqueue, &src, sizeof(T), offset);
+	}
 	
 	//! copies data from the specified "src" buffer to this buffer, of the specified "size" (complete buffer if size == 0),
 	//! from "src_offset" in the "src" buffer to "dst_offset" in this buffer

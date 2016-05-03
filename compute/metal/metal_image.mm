@@ -302,7 +302,6 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
-	const bool is_mipmapped = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type);
 	const bool is_compressed = image_compressed(image_type);
 	auto mtl_device = device->device;
 	if(is_msaa && is_array) {
@@ -475,8 +474,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	else shim_image_type = image_type;
 	
 	// misc options
-	const size_t level_count = image_mip_level_count(image_dim, image_type);
-	[desc setMipmapLevelCount:level_count];
+	[desc setMipmapLevelCount:mip_level_count];
 	[desc setSampleCount:1];
 	
 	// usage/access options
@@ -500,7 +498,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		const size_t slice_count = [desc arrayLength] * (is_cube ? 6u : 1u);
 		
 		// upload level count == level count (if provided by user), or 1 if we have to manually generate the mip levels
-		const size_t upload_level_count = (generate_mip_maps ? 1 : level_count);
+		const size_t upload_level_count = (generate_mip_maps ? 1 : mip_level_count);
 		uint4 mip_image_dim {
 			image_dim.x,
 			dim_count >= 2 ? image_dim.y : 0,
@@ -554,7 +552,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		}
 		
 		// manually create the mip-map chain if this was specified
-		if(is_mipmapped && level_count > 1 && generate_mip_maps) {
+		if(is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
 			// NOTE: can only generate mip-maps on-the-fly for uncompressed image data (compressed is not renderable)
 			//       -> compressed + generate_mip_maps already fails at image creation
 			[blit_encoder generateMipmapsForTexture:image];

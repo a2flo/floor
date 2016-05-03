@@ -496,7 +496,7 @@ static constexpr size_t image_mip_level_count(const uint4& image_dim, const COMP
 	if(max_dim == 1) return 1;
 	
 	// each mip level is half the size of its upper/parent level, until dim == 1
-	// -> get the closest power-of-two, then "ln(2^N) + 1"
+	// -> get the closest power-of-two, then "log2(2^N) + 1"
 	// this can be done the fastest by counting the leading zeros in the 32-bit value
 	auto levels = uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
 	

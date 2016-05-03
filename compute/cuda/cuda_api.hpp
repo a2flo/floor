@@ -483,6 +483,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*graphics_gl_register_buffer)(cu_graphics_resource* p_cuda_resource, GLuint buffer, CU_GRAPHICS_REGISTER_FLAGS flags);
 	CU_API CU_RESULT (*graphics_gl_register_image)(cu_graphics_resource* p_cuda_resource, GLuint image, GLenum target, CU_GRAPHICS_REGISTER_FLAGS flags);
 	CU_API CU_RESULT (*graphics_map_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
+	CU_API CU_RESULT (*graphics_resource_get_mapped_mipmapped_array)(cu_mip_mapped_array* handle, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_resource_get_mapped_pointer)(cu_device_ptr* p_dev_ptr, size_t* p_size, cu_graphics_resource resource);
 	CU_API CU_RESULT (*graphics_sub_resource_get_mapped_array)(cu_array* p_array, cu_graphics_resource resource, uint32_t array_index, uint32_t mip_level);
 	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
@@ -505,9 +506,15 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*memcpy_dtoh_async)(void* dst_host, cu_device_ptr src_device, size_t byte_count, cu_stream h_stream);
 	CU_API CU_RESULT (*memcpy_htod)(cu_device_ptr dst_device, const void* src_host, size_t byte_count);
 	CU_API CU_RESULT (*memcpy_htod_async)(cu_device_ptr dst_device, const void* src_host, size_t byte_count, cu_stream h_stream);
+	CU_API CU_RESULT (*memset_d16)(cu_device_ptr dst_device, uint16_t us, size_t n);
+	CU_API CU_RESULT (*memset_d32)(cu_device_ptr dst_device, uint32_t ui, size_t n);
+	CU_API CU_RESULT (*memset_d8)(cu_device_ptr dst_device, unsigned char uc, size_t n);
 	CU_API CU_RESULT (*memset_d16_async)(cu_device_ptr dst_device, uint16_t us, size_t n, cu_stream h_stream);
 	CU_API CU_RESULT (*memset_d32_async)(cu_device_ptr dst_device, uint32_t ui, size_t n, cu_stream h_stream);
 	CU_API CU_RESULT (*memset_d8_async)(cu_device_ptr dst_device, unsigned char uc, size_t n, cu_stream h_stream);
+	CU_API CU_RESULT (*mipmapped_array_create)(cu_mip_mapped_array* handle, const cu_array_3d_descriptor* desc, uint32_t num_mipmap_levels);
+	CU_API CU_RESULT (*mipmapped_array_destroy)(cu_mip_mapped_array handle);
+	CU_API CU_RESULT (*mipmapped_array_get_level)(cu_array* level_array, cu_mip_mapped_array mipmapped_array, uint32_t level);
 	CU_API CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
 	CU_API CU_RESULT (*module_load_data)(cu_module* module, const void* image);
 	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
@@ -541,6 +548,7 @@ extern bool cuda_api_init();
 #define cu_graphics_gl_register_buffer cuda_api.graphics_gl_register_buffer
 #define cu_graphics_gl_register_image cuda_api.graphics_gl_register_image
 #define cu_graphics_map_resources cuda_api.graphics_map_resources
+#define cu_graphics_resource_get_mapped_mipmapped_array cuda_api.graphics_resource_get_mapped_mipmapped_array
 #define cu_graphics_resource_get_mapped_pointer cuda_api.graphics_resource_get_mapped_pointer
 #define cu_graphics_sub_resource_get_mapped_array cuda_api.graphics_sub_resource_get_mapped_array
 #define cu_graphics_unmap_resources cuda_api.graphics_unmap_resources
@@ -563,9 +571,15 @@ extern bool cuda_api_init();
 #define cu_memcpy_dtoh_async cuda_api.memcpy_dtoh_async
 #define cu_memcpy_htod cuda_api.memcpy_htod
 #define cu_memcpy_htod_async cuda_api.memcpy_htod_async
+#define cu_memset_d16 cuda_api.memset_d16
+#define cu_memset_d32 cuda_api.memset_d32
+#define cu_memset_d8 cuda_api.memset_d8
 #define cu_memset_d16_async cuda_api.memset_d16_async
 #define cu_memset_d32_async cuda_api.memset_d32_async
 #define cu_memset_d8_async cuda_api.memset_d8_async
+#define cu_mipmapped_array_create cuda_api.mipmapped_array_create
+#define cu_mipmapped_array_destroy cuda_api.mipmapped_array_destroy
+#define cu_mipmapped_array_get_level cuda_api.mipmapped_array_get_level
 #define cu_module_get_function cuda_api.module_get_function
 #define cu_module_load_data cuda_api.module_load_data
 #define cu_module_load_data_ex cuda_api.module_load_data_ex

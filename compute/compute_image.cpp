@@ -291,9 +291,8 @@ void compute_image::init_gl_image_data(const void* data) {
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
-	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
 	// upload level count == level count (if provided by user), or 1 if we have to manually generate the mip levels
-	const auto upload_level_count = (generate_mip_maps ? 1 : levels);
+	const auto upload_level_count = GLint(generate_mip_maps ? 1 : mip_level_count);
 	const void* level_data = data;
 	int4 mip_image_dim {
 		(int)image_dim.x,
@@ -400,8 +399,7 @@ void compute_image::update_gl_image_data(const void* data) {
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
 	// NOTE: mip-level data always exists in "data" if this is a mip-mapped image (and automatic mip-map generation is disabled)
-	const auto levels = (GLint)image_mip_level_count(image_dim, image_type);
-	const auto upload_level_count = (generate_mip_maps ? 1 : levels);
+	const auto upload_level_count = GLint(generate_mip_maps ? 1 : mip_level_count);
 	const void* level_data = data;
 	int4 mip_image_dim {
 		(int)image_dim.x,

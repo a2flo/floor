@@ -117,6 +117,9 @@ bool cuda_api_init() {
 	(void*&)cuda_api.graphics_map_resources = load_symbol(cuda_lib, "cuGraphicsMapResources");
 	if(cuda_api.graphics_map_resources == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsMapResources\"");
 	
+	(void*&)cuda_api.graphics_resource_get_mapped_mipmapped_array = load_symbol(cuda_lib, "cuGraphicsResourceGetMappedMipmappedArray");
+	if(cuda_api.graphics_resource_get_mapped_mipmapped_array == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsResourceGetMappedMipmappedArray\"");
+	
 	(void*&)cuda_api.graphics_resource_get_mapped_pointer = load_symbol(cuda_lib, "cuGraphicsResourceGetMappedPointer_v2");
 	if(cuda_api.graphics_resource_get_mapped_pointer == nullptr) log_error("failed to retrieve function pointer for \"cuGraphicsResourceGetMappedPointer_v2\"");
 	
@@ -183,6 +186,15 @@ bool cuda_api_init() {
 	(void*&)cuda_api.memcpy_htod_async = load_symbol(cuda_lib, "cuMemcpyHtoDAsync_v2");
 	if(cuda_api.memcpy_htod_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemcpyHtoDAsync_v2\"");
 	
+	(void*&)cuda_api.memset_d16 = load_symbol(cuda_lib, "cuMemsetD16_v2");
+	if(cuda_api.memset_d16 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD16_v2\"");
+	
+	(void*&)cuda_api.memset_d32 = load_symbol(cuda_lib, "cuMemsetD32_v2");
+	if(cuda_api.memset_d32 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD32_v2\"");
+	
+	(void*&)cuda_api.memset_d8 = load_symbol(cuda_lib, "cuMemsetD8_v2");
+	if(cuda_api.memset_d8 == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD8_v2\"");
+	
 	(void*&)cuda_api.memset_d16_async = load_symbol(cuda_lib, "cuMemsetD16Async");
 	if(cuda_api.memset_d16_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD16Async\"");
 	
@@ -191,6 +203,15 @@ bool cuda_api_init() {
 	
 	(void*&)cuda_api.memset_d8_async = load_symbol(cuda_lib, "cuMemsetD8Async");
 	if(cuda_api.memset_d8_async == nullptr) log_error("failed to retrieve function pointer for \"cuMemsetD8Async\"");
+	
+	(void*&)cuda_api.mipmapped_array_create = load_symbol(cuda_lib, "cuMipmappedArrayCreate");
+	if(cuda_api.mipmapped_array_create == nullptr) log_error("failed to retrieve function pointer for \"cuMipmappedArrayCreate\"");
+	
+	(void*&)cuda_api.mipmapped_array_destroy = load_symbol(cuda_lib, "cuMipmappedArrayDestroy");
+	if(cuda_api.mipmapped_array_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuMipmappedArrayDestroy\"");
+	
+	(void*&)cuda_api.mipmapped_array_get_level = load_symbol(cuda_lib, "cuMipmappedArrayGetLevel");
+	if(cuda_api.mipmapped_array_get_level == nullptr) log_error("failed to retrieve function pointer for \"cuMipmappedArrayGetLevel\"");
 	
 	(void*&)cuda_api.module_get_function = load_symbol(cuda_lib, "cuModuleGetFunction");
 	if(cuda_api.module_get_function == nullptr) log_error("failed to retrieve function pointer for \"cuModuleGetFunction\"");

@@ -29,6 +29,13 @@
 #include <floor/core/gl_support.hpp>
 #include <floor/compute/cuda/cuda_api.hpp>
 
+// if FLOOR_COMPUTE_BREAK_ON_ERROR is set, create a debug breakpoint
+#if defined(__clang__) && defined(FLOOR_COMPUTE_BREAK_ON_ERROR)
+#define CU_DBG_BREAKPOINT() { logger::flush(); __builtin_debugtrap(); }
+#else
+#define CU_DBG_BREAKPOINT()
+#endif
+
 //
 #define CU_CALL_FWD(call, error_msg, line_num, do_stuff) {									\
 	CU_RESULT _cu_err = call;																\
@@ -41,6 +48,7 @@
 		log_error("%s: line %u: cuda error %s (#%u): %s (call: %s)",						\
 				  error_msg, line_num, (err_name != nullptr ? err_name : "INVALID"),		\
 				  _cu_err, (err_str != nullptr ? err_str : "INVALID"), #call);				\
+		CU_DBG_BREAKPOINT()																	\
 		do_stuff																			\
 	}																						\
 }

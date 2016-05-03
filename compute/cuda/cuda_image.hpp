@@ -63,8 +63,8 @@ public:
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
-	//! returns the cuda specific image pointer (cuda array)
-	const cu_array& get_cuda_image() const { return image; }
+	//! returns the cuda specific image pointer (array or mip-mapped array)
+	const void* get_cuda_image() const { return image; }
 	
 	//! returns the cuda surface object
 	const cu_surf_object& get_cuda_surface() const { return surface; }
@@ -78,9 +78,15 @@ public:
 	static void init_internal();
 	
 protected:
-	cu_array image { nullptr };
+	// generic image pointer (identical to either image_array or image_mipmap_array)
+	void* image { nullptr };
+	cu_array image_array { nullptr };
+	cu_mip_mapped_array image_mipmap_array { nullptr };
 	cu_graphics_resource rsrc { nullptr };
-	cu_array_3d_descriptor desc;
+	uint32_t fixed_depth { 1 }; // max(1, #layers * #cube-faces)
+	
+	// contains the cu_array for each mip-level
+	vector<cu_array> image_mipmap_arrays;
 	
 	// only need one surface object (only needs to point to image)
 	cu_surf_object surface { 0ull };

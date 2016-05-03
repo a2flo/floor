@@ -159,7 +159,9 @@ template <typename T> struct decay_as { typedef decay_t<T> type; };
 template <typename T> struct decay_as<__attribute__((global_as)) T> { typedef decay_t<T> type; };
 template <typename T> struct decay_as<__attribute__((local_as)) T> { typedef decay_t<T> type; };
 template <typename T> struct decay_as<__attribute__((constant_as)) T> { typedef decay_t<T> type; };
+#if defined(FLOOR_COMPUTE_TOOLCHAIN_VERSION) && (FLOOR_COMPUTE_TOOLCHAIN_VERSION >= 380u)
 template <typename T> struct decay_as<__attribute__((generic_as)) T> { typedef decay_t<T> type; };
+#endif
 #endif
 template <typename T> using decay_as_t = typename decay_as<T>::type;
 

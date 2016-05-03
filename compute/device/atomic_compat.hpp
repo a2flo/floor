@@ -67,6 +67,8 @@ constexpr bool floor_atomic_is_lock_free(const size_t& size) {
 
 template <typename T> T floor_atomic_fetch_add(volatile global T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
 template <typename T> T floor_atomic_fetch_sub(volatile global T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
+template <typename T> T floor_atomic_fetch_inc(volatile global T* addr, memory_order) { return atomic_inc(addr); }
+template <typename T> T floor_atomic_fetch_dec(volatile global T* addr, memory_order) { return atomic_dec(addr); }
 template <typename T> T floor_atomic_fetch_and(volatile global T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
 template <typename T> T floor_atomic_fetch_or(volatile global T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
 template <typename T> T floor_atomic_fetch_xor(volatile global T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }
@@ -83,6 +85,8 @@ template <typename T> bool floor_atomic_compare_exchange_weak(volatile global T*
 #if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_HOST) // cuda and host don't require address space specialization
 template <typename T> T floor_atomic_fetch_add(volatile local T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
 template <typename T> T floor_atomic_fetch_sub(volatile local T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
+template <typename T> T floor_atomic_fetch_inc(volatile local T* addr, memory_order) { return atomic_inc(addr); }
+template <typename T> T floor_atomic_fetch_dec(volatile local T* addr, memory_order) { return atomic_dec(addr); }
 template <typename T> T floor_atomic_fetch_and(volatile local T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
 template <typename T> T floor_atomic_fetch_or(volatile local T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
 template <typename T> T floor_atomic_fetch_xor(volatile local T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }

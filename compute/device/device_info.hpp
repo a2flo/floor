@@ -218,6 +218,11 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT != 0);
 	}
 	
+	//! returns the max amount of mip-levels that is supported by the device
+	constexpr uint32_t max_mip_levels() {
+		return FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS;
+	}
+	
 }
 
 #endif

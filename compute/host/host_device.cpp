@@ -40,6 +40,7 @@ host_device::host_device() : compute_device() {
 	max_image_1d_dim = { host_limits::max_image_dim };
 	max_image_2d_dim = { host_limits::max_image_dim };
 	max_image_3d_dim = { host_limits::max_image_dim };
+	max_mip_levels = host_limits::max_mip_levels;
 	
 	double_support = true;
 	unified_memory = true;

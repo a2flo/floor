@@ -59,8 +59,11 @@ public:
 				  const opengl_image_info* gl_image_info = nullptr) :
 	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
 	image_dim(image_dim_), image_type(infer_image_flags(image_type_)),
-	generate_mip_maps(has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
+	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)),
+	generate_mip_maps(is_mip_mapped &&
+					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
 	image_data_size(image_data_size_from_types(image_dim, image_type, 1, generate_mip_maps)),
+	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0) {
@@ -155,8 +158,10 @@ public:
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
+	const bool is_mip_mapped;
 	const bool generate_mip_maps;
 	const size_t image_data_size;
+	const uint32_t mip_level_count;
 	
 #if !defined(FLOOR_IOS)
 	// internal function to create/delete an opengl image if compute/opengl sharing is used
@@ -187,6 +192,35 @@ protected:
 						 const uint8_t* rgba_data,
 						 uint8_t* dst_rgb_data = nullptr,
 						 const bool ignore_mip_levels = false);
+	
+	// calls function "F" with (level, mip image dim, slice data size, mip-level size, args...) for each level of
+	// the mip-map chain or only the single level of a non-mip-mapped image.
+	// if function "F" returns false, this will immediately returns false; returns true otherwise
+	template <typename F, typename... Args>
+	bool apply_on_levels(F&& func, Args&&... args) {
+		const auto dim_count = image_dim_count(image_type);
+		const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
+		const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+		const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
+		const auto handled_level_count = (generate_mip_maps ? 1 : mip_level_count);
+		uint4 mip_image_dim {
+			image_dim.x,
+			dim_count >= 2 ? image_dim.y : 0,
+			dim_count >= 3 ? image_dim.z : 0,
+			0
+		};
+		for(uint32_t level = 0; level < handled_level_count; ++level, mip_image_dim >>= 1) {
+			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, image_type, 1);
+			const auto level_data_size = (uint32_t)(slice_data_size *
+													(is_array ? array_dim_count : 1) *
+													(is_cube ? 6 : 1));
+			if(!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size,
+									  std::forward<Args>(args)...)) {
+				return false;
+			}
+		}
+		return true;
+	}
 	
 };
 

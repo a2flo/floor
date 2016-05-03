@@ -820,18 +820,6 @@ shared_ptr<compute_queue> opencl_compute::get_device_default_queue(const compute
 	return {};
 }
 
-shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	// NOTE: device doesn't really matter in opencl (can't actually be specified), so simply use the "fastest"
-	// device which uses the same context as all other devices (only context matters for opencl)
-	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, flags, opengl_type);
-}
-
-shared_ptr<compute_buffer> opencl_compute::create_buffer(const size_t& size, void* data, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<opencl_buffer>((opencl_device*)fastest_device.get(), size, data, flags, opengl_type);
-}
-
 shared_ptr<compute_buffer> opencl_compute::create_buffer(shared_ptr<compute_device> device,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) {

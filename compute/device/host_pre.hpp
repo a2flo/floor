@@ -193,6 +193,8 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT 1
 #define FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT_1
 
+#define FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS 16u
+
 // for use with "#pragma clang loop unroll(x)", this is named "full" after clang 3.5, and "enable" for 3.5
 #if (__clang_major__ == 3 && __clang_minor__ == 5)
 #define FLOOR_CLANG_UNROLL_FULL enable

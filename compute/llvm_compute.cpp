@@ -431,6 +431,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_MIP_LEVELS="s + to_string(device->max_mip_levels) + "u";
+	
 	// floor function info
 	const auto function_info_file_name = core::create_tmp_file_name("ffi", ".txt");
 	clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;

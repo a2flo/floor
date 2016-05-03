@@ -107,6 +107,10 @@ namespace floor_image {
 		floor_unreachable();
 	}
 #endif
+
+// for testing purposes
+#define FLOOR_METAL_ADDRESS_MODE metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE
+//#define FLOOR_METAL_ADDRESS_MODE metal_image::sampler::ADDRESS_MODE::REPEAT
 	
 	//! backend specific default sampler (for integral and floating point coordinates)
 	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION = COMPARE_FUNCTION::NONE, typename = void>
@@ -121,7 +125,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+				FLOOR_METAL_ADDRESS_MODE,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::NEAREST,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
@@ -140,7 +144,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::NEAREST);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+				FLOOR_METAL_ADDRESS_MODE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::NEAREST,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_NONE,
@@ -159,7 +163,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+				FLOOR_METAL_ADDRESS_MODE,
 				metal_image::sampler::COORD_MODE::PIXEL,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
@@ -178,7 +182,7 @@ namespace floor_image {
 					opencl_image::sampler::FILTER_MODE::LINEAR);
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
-				metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
+				FLOOR_METAL_ADDRESS_MODE,
 				metal_image::sampler::COORD_MODE::NORMALIZED,
 				metal_image::sampler::FILTER_MODE::LINEAR,
 				metal_image::sampler::MIP_FILTER_MODE::MIP_LINEAR,
@@ -777,7 +781,7 @@ namespace floor_image {
 	//! NOTE: write function will be inlined for performance/code size reasons (matters for CUDA)
 	template <COMPUTE_IMAGE_TYPE image_type>
 	class image : public conditional_t<has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type), const_image<image_type> /* r/w */, image_base<image_type> /* w/o */> {
-	protected:
+	public:
 		typedef image_base<image_type> image_base_type;
 		using typename image_base_type::image_storage_type;
 		using typename image_base_type::sample_type;

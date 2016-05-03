@@ -392,17 +392,6 @@ shared_ptr<compute_queue> vulkan_compute::get_device_default_queue(const compute
 	return {};
 }
 
-// TODO: should probably remove non-device create_buffer/create_image calls ...
-shared_ptr<compute_buffer> vulkan_compute::create_buffer(const size_t& size, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<vulkan_buffer>((vulkan_device*)fastest_device.get(), size, flags, opengl_type);
-}
-
-shared_ptr<compute_buffer> vulkan_compute::create_buffer(const size_t& size, void* data, const COMPUTE_MEMORY_FLAG flags,
-														 const uint32_t opengl_type) {
-	return make_shared<vulkan_buffer>((vulkan_device*)fastest_device.get(), size, data, flags, opengl_type);
-}
-
 shared_ptr<compute_buffer> vulkan_compute::create_buffer(shared_ptr<compute_device> device,
 														 const size_t& size, const COMPUTE_MEMORY_FLAG flags,
 														 const uint32_t opengl_type) {

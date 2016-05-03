@@ -68,45 +68,14 @@ public:
 	//////////////////////////////////////////
 	// buffer creation
 	
-	//! constructs an uninitialized buffer of the specified size
-	virtual shared_ptr<compute_buffer> create_buffer(const size_t& size,
-													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-													 const uint32_t opengl_type = 0) = 0;
-	
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
-	virtual shared_ptr<compute_buffer> create_buffer(const size_t& size,
-													 void* data,
-													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-													 const uint32_t opengl_type = 0) = 0;
-	
-	//! constructs a buffer of the specified data (under consideration of the specified flags)
-	template <typename data_type>
-	shared_ptr<compute_buffer> create_buffer(const vector<data_type>& data,
-											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) {
-		return create_buffer(sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
-	}
-	
-	//! constructs a buffer of the specified data (under consideration of the specified flags)
-	template <typename data_type, size_t n>
-	shared_ptr<compute_buffer> create_buffer(const array<data_type, n>& data,
-											 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
-																				COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
-											 const uint32_t opengl_type = 0) {
-		return create_buffer(sizeof(data_type) * n, (void*)&data[0], flags, opengl_type);
-	}
-	
-	//! constructs an uninitialized buffer of the specified size, explicitly on the specified device
+	//! constructs an uninitialized buffer of the specified size on the specified device
 	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 													 const size_t& size,
 													 const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 													 const uint32_t opengl_type = 0) = 0;
 	
-	//! constructs a buffer of the specified size, using the host pointer as specified by the flags, explicitly on the specified device
+	//! constructs a buffer of the specified size, using the host pointer as specified by the flags on the specified device
 	virtual shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 													 const size_t& size,
 													 void* data,
@@ -114,7 +83,7 @@ public:
 																						COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 													 const uint32_t opengl_type = 0) = 0;
 	
-	//! constructs a buffer of the specified data (under consideration of the specified flags), explicitly on the specified device
+	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type>
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const vector<data_type>& data,
@@ -124,7 +93,7 @@ public:
 		return create_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags, opengl_type);
 	}
 	
-	//! constructs a buffer of the specified data (under consideration of the specified flags), explicitly on the specified device
+	//! constructs a buffer of the specified data (under consideration of the specified flags) on the specified device
 	template <typename data_type, size_t n>
 	shared_ptr<compute_buffer> create_buffer(shared_ptr<compute_device> device,
 											 const array<data_type, n>& data,
@@ -154,14 +123,14 @@ public:
 	//////////////////////////////////////////
 	// image creation
 	
-	//! constructs an uninitialized image of the specified dimensions, types and channel count, explicitly on the specified device
+	//! constructs an uninitialized image of the specified dimensions, types and channel count on the specified device
 	virtual shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) = 0;
 	
-	//! constructs an image of the specified dimensions, types and channel count, explicitly on the specified device
+	//! constructs an image of the specified dimensions, types and channel count on the specified device
 	virtual shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 												   const uint4 image_dim,
 												   const COMPUTE_IMAGE_TYPE image_type,
@@ -169,7 +138,7 @@ public:
 												   const COMPUTE_MEMORY_FLAG flags = (COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 												   const uint32_t opengl_type = 0) = 0;
 	
-	//! constructs an image of the specified dimensions, types and channel count, with the specified data, explicitly on the specified device
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type>
 	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 										   const uint4 image_dim,
@@ -180,7 +149,7 @@ public:
 		return create_image(device, image_dim, image_type, &data[0], flags, opengl_type);
 	}
 	
-	//! constructs an image of the specified dimensions, types and channel count, with the specified data, explicitly on the specified device
+	//! constructs an image of the specified dimensions, types and channel count, with the specified data on the specified device
 	template <typename data_type, size_t n>
 	shared_ptr<compute_image> create_image(shared_ptr<compute_device> device,
 										   const uint4 image_dim,

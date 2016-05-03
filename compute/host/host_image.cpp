@@ -179,7 +179,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	
 	// copy gl image data to host memory (if read access is set)
 	// NOTE: mip-map levels will only be copied/mapped if automatic mip-map chain generation is disabled
-	const auto download_level_count = (generate_mip_maps ? 1 : image_mip_level_count(image_dim, image_type));
+	const auto download_level_count = (generate_mip_maps ? 1 : mip_level_count);
 	const auto dim_count = image_dim_count(image_type);
 	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
@@ -307,7 +307,6 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	
 	// iterate over all levels, (bi/tri)linearly downscaling the previous level (minify)
 	const auto dim_count = image_dim_count(image_type);
-	const auto levels = image_mip_level_count(image_dim, image_type);
 	uint4 level_size {
 		image_dim.x,
 		dim_count >= 2 ? image_dim.y : 0u,
@@ -315,7 +314,7 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 		0u
 	};
 	float2 inv_prev_level_size;
-	for(uint32_t level = 0; level < levels;
+	for(uint32_t level = 0; level < mip_level_count;
 		++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
 		if(level == 0) continue;
 		cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
