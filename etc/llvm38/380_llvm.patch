@@ -37925,10 +37925,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..5c87d34
+index 0000000..d6be8f2
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,572 @@
+@@ -0,0 +1,614 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38239,8 +38239,47 @@ index 0000000..5c87d34
 +			}
 +			
 +			// -> compare
++			std::string compare_str = "";
 +			if(is_compare) {
-+				// TODO
++				// must have float coords with depth compare
++				if(!coord_type->isFloatTy()) {
++					ctx->emitError(&I, "coordinate type must be float when using depth compare");
++					return;
++				}
++				
++				// check for unsupported image types
++				switch(image_type) {
++					case COMPUTE_IMAGE_TYPE::IMAGE_1D:
++					case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:
++					case COMPUTE_IMAGE_TYPE::IMAGE_2D:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++					case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++						// all supported
++						break;
++						
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:
++					case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:
++					case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:
++					case COMPUTE_IMAGE_TYPE::IMAGE_3D:
++					default:
++						ctx->emitError(&I, "image type does not support depth compare");
++						return;
++				}
++				
++				asm_arg_types.push_back(builder->getFloatTy());
++				asm_args.push_back(compare_value_arg);
++				constraints_str += ",f";
++				compare_str = "$" + std::to_string(asm_arg_idx++);
++				
++				// TODO: s/w emulation of unsupported depth compare functions
 +			}
 +			
 +			// -> build asm string
@@ -38255,6 +38294,9 @@ index 0000000..5c87d34
 +			}
 +			if(is_offset) {
 +				asm_str += ", { " + offset_str + " }";
++			}
++			if(is_compare) {
++				asm_str += ", " + compare_str;
 +			}
 +			asm_str += ";";
 +			
