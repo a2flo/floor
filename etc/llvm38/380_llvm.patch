@@ -2042,10 +2042,10 @@ index 9173de1..5007126 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..46943c0
+index 0000000..a584452
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,362 @@
+@@ -0,0 +1,369 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2403,6 +2403,13 @@ index 0000000..46943c0
 +		
 +		llvm::AttributeSet nounwind_readnone_attr;
 +		llvm::AttributeSet nounwind_attr;
++		
++		// depth compare s/w emulation if not supported by backend h/w or s/w
++		void emulate_depth_compare(llvm::Value*& dst_vec,
++								   llvm::Value* src,
++								   const bool src_is_scalar,
++								   const COMPARE_FUNCTION& compare_function,
++								   llvm::Value* compare_value_arg);
 +		
 +	};
 +}
@@ -37925,10 +37932,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..d6be8f2
+index 0000000..51cea75
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,614 @@
+@@ -0,0 +1,621 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38241,6 +38248,7 @@ index 0000000..d6be8f2
 +			// -> compare
 +			std::string compare_str = "";
 +			if(is_compare) {
++#if 0 // not supported in cuda
 +				// must have float coords with depth compare
 +				if(!coord_type->isFloatTy()) {
 +					ctx->emitError(&I, "coordinate type must be float when using depth compare");
@@ -38278,8 +38286,7 @@ index 0000000..d6be8f2
 +				asm_args.push_back(compare_value_arg);
 +				constraints_str += ",f";
 +				compare_str = "$" + std::to_string(asm_arg_idx++);
-+				
-+				// TODO: s/w emulation of unsupported depth compare functions
++#endif
 +			}
 +			
 +			// -> build asm string
@@ -38295,9 +38302,11 @@ index 0000000..d6be8f2
 +			if(is_offset) {
 +				asm_str += ", { " + offset_str + " }";
 +			}
++#if 0 // not supported in cuda
 +			if(is_compare) {
 +				asm_str += ", " + compare_str;
 +			}
++#endif
 +			asm_str += ";";
 +			
 +			const auto asm_func_type = FunctionType::get(ret_type, asm_arg_types, false);
@@ -38308,9 +38317,14 @@ index 0000000..d6be8f2
 +			
 +			//
 +			llvm::Value* dst_vec = UndefValue::get(ret_vec_type);
-+			for(uint32_t i = 0; i < 4; ++i) {
-+				auto scalar = builder->CreateExtractValue(asm_call, i);
-+				dst_vec = builder->CreateInsertElement(dst_vec, scalar, builder->getInt32(i));
++			if(!is_compare) {
++				for(uint32_t i = 0; i < 4; ++i) {
++					auto scalar = builder->CreateExtractValue(asm_call, i);
++					dst_vec = builder->CreateInsertElement(dst_vec, scalar, builder->getInt32(i));
++				}
++			}
++			else {
++				emulate_depth_compare(dst_vec, asm_call, false /* not scalar */, compare_function, compare_value_arg);
 +			}
 +			
 +			//
@@ -38545,10 +38559,10 @@ index 0000000..d6be8f2
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..8cb1138
+index 0000000..1fa0401
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,393 @@
+@@ -0,0 +1,441 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38941,6 +38955,54 @@ index 0000000..8cb1138
 +						   is_normalized, image_channel_count,
 +						   coord_arg, layer_arg, data_arg);
 +	}
++}
++
++void FloorImageBasePass::emulate_depth_compare(llvm::Value*& dst_vec,
++											   llvm::Value* src,
++											   const bool src_is_scalar,
++											   const COMPARE_FUNCTION& compare_function,
++											   llvm::Value* compare_value_arg) {
++	auto scalar = (!src_is_scalar ? builder->CreateExtractValue(src, 0) : src);
++	
++	llvm::Value* insert_value = nullptr;
++	llvm::Value* condition = nullptr;
++	llvm::Constant* false_val = ConstantFP::get(builder->getFloatTy(), 0.0f);
++	llvm::Constant* true_val = ConstantFP::get(builder->getFloatTy(), 1.0f);
++	
++	switch(compare_function) {
++		case COMPARE_FUNCTION::NONE:
++		case COMPARE_FUNCTION::NEVER:
++			insert_value = false_val;
++			break;
++		case COMPARE_FUNCTION::ALWAYS:
++			insert_value = true_val;
++			break;
++		case COMPARE_FUNCTION::LESS_OR_EQUAL:
++			condition = builder->CreateFCmpOLE(compare_value_arg, scalar);
++			break;
++		case COMPARE_FUNCTION::GREATER_OR_EQUAL:
++			condition = builder->CreateFCmpOGE(compare_value_arg, scalar);
++			break;
++		case COMPARE_FUNCTION::LESS:
++			condition = builder->CreateFCmpOLT(compare_value_arg, scalar);
++			break;
++		case COMPARE_FUNCTION::GREATER:
++			condition = builder->CreateFCmpOGT(compare_value_arg, scalar);
++			break;
++		case COMPARE_FUNCTION::EQUAL:
++			condition = builder->CreateFCmpOEQ(compare_value_arg, scalar);
++			break;
++		case COMPARE_FUNCTION::NOT_EQUAL:
++			condition = builder->CreateFCmpONE(compare_value_arg, scalar);
++			break;
++		default: llvm_unreachable("invalid compare function");
++	}
++	
++	if(condition != nullptr) {
++		insert_value = builder->CreateSelect(condition, true_val, false_val);
++	}
++	
++	dst_vec = builder->CreateInsertElement(dst_vec, insert_value, builder->getInt32(0));
 +}
 diff --git a/lib/Transforms/Scalar/LoopRotation.cpp b/lib/Transforms/Scalar/LoopRotation.cpp
 index 5e6c2da..824f264 100644
@@ -40485,10 +40547,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..4f80c24
+index 0000000..593df11
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,622 @@
+@@ -0,0 +1,623 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -40955,11 +41017,6 @@ index 0000000..4f80c24
 +				func_args.push_back(lod);
 +			}
 +			
-+			// -> compare
-+			if(is_compare) {
-+				// TODO: emulate in s/w
-+			}
-+			
 +			// create the opencl call
 +			auto read_func = get_or_create_spir_function(cl_func_name, ret_type, func_arg_types, true);
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
@@ -40971,8 +41028,14 @@ index 0000000..4f80c24
 +			llvm::Value* read_call_result = read_call;
 +			if(is_depth) {
 +				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
-+				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
-+				// rest is undef/zero (and will be stripped away again anyways)
++				if(!is_compare) {
++					read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
++				}
++				// -> compare
++				else {
++					emulate_depth_compare(read_call_result, read_call, true /* is scalar */, compare_function, compare_value_arg);
++				}
++				// NOTE: rest of vector is undef/zero (and will be stripped away again anyways)
 +			}
 +			
 +			//
