@@ -218,6 +218,16 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT != 0);
 	}
 	
+	//! returns true if depth compare is supported in h/w
+	constexpr bool has_image_depth_compare_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_COMPARE_SUPPORT != 0);
+	}
+	
+	//! returns true if image gather is supported
+	constexpr bool has_image_gather_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_GATHER_SUPPORT != 0);
+	}
+	
 	//! returns the max amount of mip-levels that is supported by the device
 	constexpr uint32_t max_mip_levels() {
 		return FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS;

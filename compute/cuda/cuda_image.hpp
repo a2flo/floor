@@ -92,7 +92,7 @@ protected:
 	cu_surf_object surface { 0ull };
 	// the way cuda reads/samples images must be specified in the host api, which will basically
 	// create a combined texture+sampler object -> need to create these for all possible types
-	array<cu_tex_object, cuda_sampler_count()> textures;
+	array<cu_tex_only_object, cuda_sampler_count()> textures;
 	
 	struct cuda_mapping {
 		const size3 origin;

@@ -130,6 +130,7 @@ public:
 	enum class IMAGE_CAPABILITY : uint32_t {
 		NONE					= (0u),
 		BASIC					= (1u << 0u),
+		
 		DEPTH_READ				= (1u << 1u),
 		DEPTH_WRITE				= (1u << 2u),
 		MSAA_READ				= (1u << 3u),
@@ -140,6 +141,9 @@ public:
 		MIPMAP_WRITE			= (1u << 8u),
 		OFFSET_READ				= (1u << 9u),
 		OFFSET_WRITE			= (1u << 10u),
+		
+		DEPTH_COMPARE			= (1u << 16u),
+		GATHER					= (1u << 17u),
 	};
 	floor_enum_ext(IMAGE_CAPABILITY)
 	

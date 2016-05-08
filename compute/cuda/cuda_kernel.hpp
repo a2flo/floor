@@ -187,8 +187,8 @@ protected:
 		// set texture+sampler objects
 		const auto& textures = cu_img->get_cuda_textures();
 		for(const auto& texture : textures) {
-			memcpy(data, &texture, sizeof(uint64_t));
-			data += sizeof(uint64_t);
+			memcpy(data, &texture, sizeof(uint32_t));
+			data += sizeof(uint32_t);
 		}
 		
 		// set surface object

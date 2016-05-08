@@ -259,7 +259,7 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
 		const uint64_t w_img;
 		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
@@ -276,7 +276,7 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
 		const uint64_t w_img;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
@@ -294,7 +294,7 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint64_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
 		const uint64_t w_img;
 		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)

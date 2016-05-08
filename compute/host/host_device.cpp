@@ -54,10 +54,12 @@ host_device::host_device() : compute_device() {
 	image_msaa_write_support = false;
 	image_cube_support = true;
 	image_cube_write_support = true;
-	image_mipmap_support = false; // for now
-	image_mipmap_write_support = false;
+	image_mipmap_support = true;
+	image_mipmap_write_support = true;
 	image_offset_read_support = true;
 	image_offset_write_support = true;
+	image_depth_compare_support = true;
+	image_gather_support = false; // for now
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;

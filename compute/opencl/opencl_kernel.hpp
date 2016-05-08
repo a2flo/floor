@@ -112,12 +112,12 @@ protected:
 	
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
 												 const cl_uint num, shared_ptr<compute_buffer> arg) const {
-		set_kernel_argument(entry, num, arg.get());
+		set_kernel_argument(entry, num, (const compute_buffer*)arg.get());
 	}
 	
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,
 												 const cl_uint num, shared_ptr<compute_image> arg) const {
-		set_kernel_argument(entry, num, arg.get());
+		set_kernel_argument(entry, num, (const compute_image*)arg.get());
 	}
 	
 	floor_inline_always void set_kernel_argument(const opencl_kernel_entry& entry,

@@ -162,6 +162,10 @@ public:
 	bool image_offset_read_support { false };
 	//! true if writing with an offset is supported in h/w
 	bool image_offset_write_support { false };
+	//! true if depth compare is supported in h/w (still supports s/w depth compare if false)
+	bool image_depth_compare_support { false };
+	//! true if image gather is supported
+	bool image_gather_support { false };
 	
 	//! device name in string form
 	string name { "unknown" };

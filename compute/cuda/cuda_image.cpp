@@ -551,8 +551,22 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			tex_desc.min_mip_map_level_clamp = 0;
 			tex_desc.max_mip_map_level_clamp = (is_mip_mapped ? dev->max_mip_levels : 0);
 			
-			CU_CALL_RET(cu_tex_object_create(&textures[i], &rsrc_desc, &tex_desc, &rsrc_view_desc),
+			cu_tex_object new_texture = 0;
+			CU_CALL_RET(cu_tex_object_create(&new_texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
 						"failed to create texture object #" + to_string(i), false);
+			// we can do this, because cuda only tracks/returns the lower 32-bit of cu_tex_object
+			textures[i] = (cu_tex_only_object)new_texture;
+			
+#if 0 // TODO/NOTE: wip h/w depth compare mode setting
+			cu_texture_ref tex_ref = nullptr;
+			cuda_api.get_tex_ref_from_tex_obj(((cuda_device*)dev)->ctx->sampler_pool, textures[i], &tex_ref);
+			tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL; // or similar ...
+			cuda_api.update_tex_sampler(((cuda_device*)dev)->ctx->sampler_pool,
+										textures[i], &tex_ref->sampler_ptr, &tex_ref->sampler_enum);
+			
+			// TODO: future solution: override/hijack the device function pointer that creates/inits the sampler data,
+			// then we don't have to update the sampler data afterwards (a bit more tricky though)
+#endif
 		}
 	}
 	if(need_surf) {

@@ -136,7 +136,7 @@ void opencl_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size
 	if(!read_check(size, read_size, offset)) return;
 	
 	// TODO: blocking flag
-	clEnqueueReadBuffer(queue_or_default_queue(cqueue), buffer, false, offset, read_size, dst,
+	clEnqueueReadBuffer(queue_or_default_queue(cqueue), buffer, true, offset, read_size, dst,
 						0, nullptr, nullptr);
 }
 
@@ -151,7 +151,7 @@ void opencl_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, con
 	if(!write_check(size, write_size, offset)) return;
 	
 	// TODO: blocking flag
-	clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, false, offset, write_size, src,
+	clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, true, offset, write_size, src,
 						 0, nullptr, nullptr);
 }
 
@@ -247,7 +247,7 @@ bool opencl_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_s
 	}
 	else if(!copy_old_data && copy_host_data && is_host_buffer && host_ptr != nullptr) {
 		// TODO: blocking flag
-		clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, false, 0, size, host_ptr,
+		clEnqueueWriteBuffer(queue_or_default_queue(cqueue), buffer, true, 0, size, host_ptr,
 							 0, nullptr, nullptr);
 	}
 	

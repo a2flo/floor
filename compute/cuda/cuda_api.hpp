@@ -25,6 +25,11 @@
 
 #include <floor/math/vector_lib.hpp>
 
+// os x only for now
+#if defined(__APPLE__)
+#define FLOOR_CUDA_USE_INTERNAL_API 1
+#endif
+
 #if defined(__WINDOWS__)
 #define CU_API __stdcall
 #else
@@ -346,7 +351,7 @@ enum class CU_ARRAY_3D_FLAGS : uint32_t {
 	SURFACE_LOAD_STORE = 2,
 	CUBE_MAP = 4,
 	TEXTURE_GATHER = 8,
-	DEPTH_TEXTURE = 16
+	DEPTH_TEXTURE __attribute__((unavailable("unsupported"))) = 16,
 };
 floor_global_enum_ext(CU_ARRAY_3D_FLAGS)
 
@@ -363,9 +368,10 @@ floor_global_enum_ext(CU_TEXTURE_FLAGS)
 #define CU_LAUNCH_PARAM_END nullptr
 
 // these are all external opaque types
+typedef struct _cu_context* cu_context;
+typedef struct _cu_texture_ref* cu_texture_ref;
 typedef struct _cu_array* cu_array;
 typedef struct _cu_mip_mapped_array* cu_mip_mapped_array;
-typedef struct _cu_context* cu_context;
 typedef struct _cu_stream* cu_stream;
 typedef struct _cu_module* cu_module;
 typedef struct _cu_function* cu_function;
@@ -376,6 +382,7 @@ typedef int32_t cu_device;
 typedef size_t cu_device_ptr;
 typedef uint64_t cu_surf_object;
 typedef uint64_t cu_tex_object;
+typedef uint32_t cu_tex_only_object;
 typedef size_t (CU_API *cu_occupancy_b2d_size)(int32_t block_size);
 
 // structs that can actually be filled by the user
@@ -459,8 +466,14 @@ struct cu_texture_descriptor {
 	float mip_map_level_bias;
 	float min_mip_map_level_clamp;
 	float max_mip_map_level_clamp;
-	int32_t _reserved[16];
+	float4 _border_color; // cuda 8.0+
+	int32_t _reserved[12];
 };
+
+//
+#if defined(FLOOR_CUDA_USE_INTERNAL_API)
+#include <floor/compute/cuda/cuda_internal_api.hpp>
+#endif
 
 // actual cuda api function pointers
 struct cuda_api_ptrs {
@@ -525,6 +538,13 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*surf_object_destroy)(cu_surf_object surf_object);
 	CU_API CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);
 	CU_API CU_RESULT (*tex_object_destroy)(cu_tex_object tex_object);
+	CU_API CU_RESULT (*tex_object_get_resource_desc)(cu_resource_descriptor* desc, cu_tex_object tex_object);
+	
+#if defined(__APPLE__) && defined(FLOOR_CUDA_USE_INTERNAL_API)
+	// can only do this on os x right now, since these symbols are not exported on linux
+	CU_API CU_RESULT (*get_tex_ref_from_tex_obj)(cu_sampler_pool sampler_pool, const uint32_t trunc_tex_obj, cu_texture_ref* tex_ref);
+	CU_API CU_RESULT (*update_tex_sampler)(cu_sampler_pool sampler_pool, const uint32_t trunc_tex_obj, uint64_t** sampler_ptr, const CU_SAMPLER_TYPE* sampler_enum);
+#endif
 };
 extern cuda_api_ptrs cuda_api;
 extern bool cuda_api_init();
@@ -590,6 +610,7 @@ extern bool cuda_api_init();
 #define cu_surf_object_destroy cuda_api.surf_object_destroy
 #define cu_tex_object_create cuda_api.tex_object_create
 #define cu_tex_object_destroy cuda_api.tex_object_destroy
+#define cu_tex_object_get_resource_desc cuda_api.tex_object_get_resource_desc
 
 #endif
 

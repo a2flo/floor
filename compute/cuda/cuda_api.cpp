@@ -37,6 +37,85 @@ typedef HMODULE lib_handle_type;
 #endif
 static lib_handle_type cuda_lib { nullptr };
 
+#if defined(__APPLE__)
+// credits:
+// * http://opensource.apple.com//source/openmpi/openmpi-8/openmpi/opal/mca/backtrace/darwin/MoreBacktrace/MoreDebugging/MoreAddrToSym.c
+// * https://github.com/albertz/playground/blob/master/demo_NSAutoreleaseNoPool.mm
+
+#include <mach-o/dyld.h>
+#include <mach-o/nlist.h>
+
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-align)
+
+static void* load_symbol_mach(const struct mach_header* lib_handle, const char* symbol_name) {
+	if(lib_handle == nullptr || symbol_name == nullptr) {
+		return nullptr;
+	}
+	
+#if !defined(FLOOR_IOS) // only supported on x64
+#if !defined(PLATFORM_X64)
+#error "invalid compilation target"
+#endif
+	
+	if(lib_handle->magic != MH_MAGIC_64) {
+		log_error("invalid magic in mach header (not x64): symbol %s", symbol_name);
+		return nullptr;
+	}
+	
+	struct segment_command_64* seg_linkedit = nullptr;
+	struct segment_command_64* seg_text = nullptr;
+	struct symtab_command* symtab = nullptr;
+	auto cmd = (struct load_command*)(lib_handle + 1);
+	for(uint32_t index = 0; index < lib_handle->ncmds; index += 1, cmd = (struct load_command*)((uint8_t*)cmd + cmd->cmdsize)) {
+		switch(cmd->cmd) {
+			case LC_SEGMENT_64: {
+				const auto segcmd = (struct segment_command_64*)cmd;
+				if(!strcmp(segcmd->segname, SEG_TEXT)) {
+					seg_text = segcmd;
+				}
+				else if(!strcmp(segcmd->segname, SEG_LINKEDIT)) {
+					seg_linkedit = segcmd;
+				}
+				break;
+			}
+			case LC_SYMTAB:
+				symtab = (struct symtab_command*)cmd;
+				break;
+			default:
+				break;
+		}
+	}
+	
+	if(seg_text == nullptr || seg_linkedit == nullptr || symtab == nullptr) {
+		log_error("segment is null: symbol %s", symbol_name);
+		return nullptr;
+	}
+	
+	const auto vm_slide = uint64_t(lib_handle) - seg_text->vmaddr;
+	const auto file_slide = (seg_linkedit->vmaddr - seg_text->vmaddr) - seg_linkedit->fileoff;
+	const auto symbase = (struct nlist_64*)(uint64_t(lib_handle) + (symtab->symoff + file_slide));
+	const auto strings = (const char*)(uint64_t(lib_handle) + (symtab->stroff + file_slide));
+	struct nlist_64* sym = symbase;
+	for(uint32_t index = 0; index < symtab->nsyms; index += 1, sym += 1) {
+		if(sym->n_un.n_strx != 0 && !strcmp(symbol_name, strings + sym->n_un.n_strx)) {
+			const auto address = vm_slide + sym->n_value;
+			if(sym->n_desc & N_ARM_THUMB_DEF) {
+				return (void*)(address | 1ull);
+			}
+			return (void*)address;
+		}
+	}
+#endif
+	
+	log_error("symbol %s not found", symbol_name);
+	return nullptr;
+}
+
+FLOOR_POP_WARNINGS()
+
+#endif
+
 bool cuda_api_init() {
 	// already init check
 	static bool did_init = false, init_success = false;
@@ -242,6 +321,25 @@ bool cuda_api_init() {
 	
 	(void*&)cuda_api.tex_object_destroy = load_symbol(cuda_lib, "cuTexObjectDestroy");
 	if(cuda_api.tex_object_destroy == nullptr) log_error("failed to retrieve function pointer for \"cuTexObjectDestroy\"");
+	
+	(void*&)cuda_api.tex_object_get_resource_desc = load_symbol(cuda_lib, "cuTexObjectGetResourceDesc");
+	if(cuda_api.tex_object_get_resource_desc == nullptr) log_error("failed to retrieve function pointer for \"cuTexObjectGetResourceDesc\"");
+	
+#if defined(__APPLE__)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(deprecated) // yeah, deprecated, but dlopen/dlsym doesn't cut it
+	// TODO: figure this out at run-time
+	const auto cuda_driver_lib = NSAddImage("/Library/Frameworks/CUDA.framework/Libraries/libcuda_346.03.06_mercury.dylib",
+											NSADDIMAGE_OPTION_NONE);
+FLOOR_POP_WARNINGS()
+	
+	// or: _etiGetTexrefForTexObject(cu_context, ...)
+	(void*&)cuda_api.get_tex_ref_from_tex_obj = load_symbol_mach(cuda_driver_lib, "_texHeaderSamplerPoolGetTexrefFromBindlessId");
+	if(cuda_api.get_tex_ref_from_tex_obj == nullptr) log_error("failed to retrieve function pointer for \"texHeaderSamplerPoolGetTexrefFromBindlessId\"");
+	
+	(void*&)cuda_api.update_tex_sampler = load_symbol_mach(cuda_driver_lib, "_texHeaderSamplerPoolUpdateGeneric");
+	if(cuda_api.update_tex_sampler == nullptr) log_error("failed to retrieve function pointer for \"texHeaderSamplerPoolUpdateGeneric\"");
+#endif
 
 	logger::flush();
 	

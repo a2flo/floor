@@ -1,0 +1,164 @@
+/*
+ *  Flo's Open libRary (floor)
+ *  Copyright (C) 2004 - 2016 Florian Ziesche
+ *  
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; version 2 of the License only.
+ *  
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  You should have received a copy of the GNU General Public License along
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
+
+#ifndef __FLOOR_CUDA_INTERNAL_API_HPP__
+#define __FLOOR_CUDA_INTERNAL_API_HPP__
+
+#include <floor/core/essentials.hpp>
+
+#if !defined(FLOOR_NO_CUDA) && defined(FLOOR_CUDA_USE_INTERNAL_API)
+
+typedef struct _cu_device_obj* cu_device_obj;
+typedef struct _cu_sampler_pool* cu_sampler_pool;
+
+// cuda 7.5 on os x: 0xB0 bytes
+struct _cu_sampler_pool {
+	cu_context ctx;
+	uint32_t max_sampler_count;
+	int32_t _unknown_1;
+	int64_t _unknown_2;
+	int64_t _unknown_3;
+	uint32_t samplers_in_use;
+	int32_t _unknown_4;
+	void* tex_index_pool;
+	void* data[16];
+};
+static_assert(sizeof(_cu_sampler_pool) == 0xB0, "invalid _cu_sampler_pool size");
+
+// cuda 7.5 on os x: 0x1F10 bytes
+struct _cu_context {
+	int32_t ctx_state;
+	int32_t _unknown_1;
+	void* _unknown_2;
+	pthread_mutex_t mtx;
+	void* _unknown_3;
+	void* _unknown_4;
+	void* _unknown_5;
+	pthread_mutex_t mtx2;
+	void* _unknown_6;
+	void* _unknown_7;
+	void* _unknown_8;
+	void* _unknown_9;
+	void* _unknown_10;
+	void* _unknown_11;
+	cu_device_obj device;
+	void* data_1[94];
+	cu_sampler_pool sampler_pool;
+	void* data_2[871];
+};
+static_assert(sizeof(_cu_context) == 0x1F10, "invalid _cu_context size");
+
+union CU_SAMPLER_TYPE {
+	// same as metal
+	enum class COMPARE_FUNCTION : uint64_t {
+		NONE				= 0,
+		NEVER				= 0,
+		LESS				= 1,
+		EQUAL				= 2,
+		LESS_OR_EQUAL		= 3,
+		GREATER				= 4,
+		NOT_EQUAL			= 5,
+		GREATER_OR_EQUAL	= 6,
+		ALWAYS				= 7,
+	};
+	
+	struct {
+		// TODO: coord_mode? (0 = non-normalized, 1 = normalized)
+		uint64_t address_mode : 9;
+		uint64_t _unknown_1 : 1;
+		COMPARE_FUNCTION compare_function : 3;
+		uint64_t has_anisotropic : 1;
+		uint64_t _unknown_3 : 6;
+		uint64_t anisotropic : 3;
+		uint64_t _unknown_4 : 9;
+		uint64_t filter_1 : 2; // 1 = nearest, 2 = linear
+		uint64_t _unknown_5 : 2;
+		uint64_t filter_2 : 2;// 1 = nearest, 2 = linear
+	};
+	uint64_t value;
+};
+static_assert(sizeof(CU_SAMPLER_TYPE) == sizeof(uint64_t), "invalid sampler size");
+
+struct _cu_texture_ref {
+	int64_t _init_unknown_1;
+	cu_context ctx;
+	int32_t _init_unknown_2;
+	int32_t _unknown_3;
+	const char* identifier_str;
+	uint32_t is_tex_object;
+	int32_t _unknown_4;
+	uint32_t type;
+	int32_t _unknown_5;
+	cu_device_ptr device_ptr;
+	int32_t slice_size_2d;
+	int32_t _unknown_6;
+	cu_array array_ptr;
+	cu_texture_ref array_next_texture;
+	cu_texture_ref array_prev_texture;
+	cu_mip_mapped_array mip_array_ptr;
+	uint32_t format;
+	uint32_t channel_count;
+	uint32_t dim_x;
+	uint32_t dim_y;
+	uint32_t dim_z;
+	uint32_t pitch_in_bytes;
+	uint32_t has_no_gather;
+	int32_t _unknown_7;
+	uint64_t array_offset;
+	uint32_t first_mip_level;
+	uint32_t last_mip_level;
+	uint32_t has_rsrc_view;
+	int32_t _unknown_8;
+	cu_resource_view_descriptor view_desc;
+	uint32_t address_mode[3];
+	uint32_t filter_mode;
+	uint32_t mip_filter_mode;
+	float mip_level_bias;
+	float mip_level_clamp_min;
+	float mip_level_clamp_max;
+	uint32_t max_anisotropic;
+#if 0 // cuda 8.0+
+	float4 border_color;
+#endif
+	int32_t _unknown_9;
+	uint64_t _unknown_10;
+	uint32_t flags;
+	uint32_t is_dirty;
+	uint64_t* sampler_ptr;
+	int64_t _sampler1_1;
+	int64_t _sampler1_2;
+	int64_t _sampler1_3;
+	CU_SAMPLER_TYPE sampler_enum;
+	int64_t _sampler2_1;
+	int64_t _sampler2_2;
+	int64_t _sampler2_3;
+	cu_tex_object texture_object;
+	int32_t _unknown_11;
+	int32_t _unknown_12;
+	int32_t _unknown_13;
+	int32_t _unknown_14;
+	void* function_ptr;
+	int64_t _unknown_obj_ref_dep2;
+	void* _unknown_obj_ref_dep;
+};
+static_assert(sizeof(_cu_texture_ref) == 0x1B0, "invalid _cu_texture_ref size");
+//static_assert(sizeof(_cu_texture_ref) == 0x1C0, "invalid _cu_texture_ref size"); // cuda 8.0+
+
+#endif
+
+#endif

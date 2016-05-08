@@ -394,6 +394,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	const auto has_image_mipmap_write_support = to_string(device->image_mipmap_write_support);
 	const auto has_image_offset_read_support = to_string(device->image_offset_read_support);
 	const auto has_image_offset_write_support = to_string(device->image_offset_write_support);
+	const auto has_image_depth_compare_support = to_string(device->image_depth_compare_support);
+	const auto has_image_gather_support = to_string(device->image_gather_support);
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT="s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT_"s + has_image_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT="s + has_image_depth_support;
@@ -416,6 +418,10 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_READ_SUPPORT_"s + has_image_mipmap_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT="s + has_image_mipmap_write_support;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_OFFSET_WRITE_SUPPORT_"s + has_image_mipmap_write_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_COMPARE_SUPPORT="s + has_image_depth_compare_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_COMPARE_SUPPORT_"s + has_image_depth_compare_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_GATHER_SUPPORT="s + has_image_gather_support;
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_IMAGE_GATHER_SUPPORT_"s + has_image_gather_support;
 	
 	IMAGE_CAPABILITY img_caps { IMAGE_CAPABILITY::NONE };
 	if(device->image_support) img_caps |= IMAGE_CAPABILITY::BASIC;
@@ -429,6 +435,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	if(device->image_mipmap_write_support) img_caps |= IMAGE_CAPABILITY::MIPMAP_WRITE;
 	if(device->image_offset_read_support) img_caps |= IMAGE_CAPABILITY::OFFSET_READ;
 	if(device->image_offset_write_support) img_caps |= IMAGE_CAPABILITY::OFFSET_WRITE;
+	if(device->image_depth_compare_support) img_caps |= IMAGE_CAPABILITY::DEPTH_COMPARE;
+	if(device->image_gather_support) img_caps |= IMAGE_CAPABILITY::GATHER;
 	clang_cmd += " -Xclang -floor-image-capabilities=" + to_string((underlying_type_t<IMAGE_CAPABILITY>)img_caps);
 	
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_MAX_MIP_LEVELS="s + to_string(device->max_mip_levels) + "u";

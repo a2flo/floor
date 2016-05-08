@@ -36,6 +36,8 @@ metal_device::metal_device() : compute_device() {
 	image_mipmap_write_support = true;
 	image_offset_read_support = true;
 	image_offset_write_support = false;
+	image_depth_compare_support = true;
+	image_gather_support = true;
 	
 	// seems to be true for all devices? (at least nvptx64, igil64 and A7+)
 	bitness = 64;
