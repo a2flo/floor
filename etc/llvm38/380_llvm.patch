@@ -37935,10 +37935,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..bf9cba3
+index 0000000..1a45947
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,618 @@
+@@ -0,0 +1,638 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38250,6 +38250,7 @@ index 0000000..bf9cba3
 +			
 +			// -> compare
 +			std::string compare_str = "";
++			llvm::Value* compare_override = nullptr;
 +			const bool has_hw_depth_compare = has_flag<IMAGE_CAPABILITY::DEPTH_COMPARE>(image_capabilities);
 +			if(is_compare && has_hw_depth_compare) {
 +				// must have float coords with depth compare
@@ -38289,6 +38290,17 @@ index 0000000..bf9cba3
 +				asm_args.push_back(compare_value_arg);
 +				constraints_str += ",f";
 +				compare_str = "$" + std::to_string(asm_arg_idx++);
++				
++				// directly skip/eval NONE/NEVER and ALWAYS compare functions
++				// while this would be DCE'ed anyways, this is somewhat cleaner
++				// NOTE: we still want all of the usual error messages and checking, which is why we're not doing this earlier
++				if(compare_function == COMPARE_FUNCTION::NONE ||
++				   compare_function == COMPARE_FUNCTION::NEVER) {
++					compare_override = ConstantFP::get(builder->getFloatTy(), 0.0f);
++				}
++				else if(compare_function == COMPARE_FUNCTION::ALWAYS) {
++					compare_override = ConstantFP::get(builder->getFloatTy(), 1.0f);
++				}
 +			}
 +			
 +			// -> build asm string
@@ -38317,14 +38329,22 @@ index 0000000..bf9cba3
 +			
 +			//
 +			llvm::Value* dst_vec = UndefValue::get(ret_vec_type);
-+			if(!is_compare || has_hw_depth_compare) {
-+				for(uint32_t i = 0; i < 4; ++i) {
-+					auto scalar = builder->CreateExtractValue(asm_call, i);
-+					dst_vec = builder->CreateInsertElement(dst_vec, scalar, builder->getInt32(i));
++			if(compare_override == nullptr) {
++				// -> normal color read or h/w depth compare
++				if(!is_compare || has_hw_depth_compare) {
++					for(uint32_t i = 0; i < 4; ++i) {
++						auto scalar = builder->CreateExtractValue(asm_call, i);
++						dst_vec = builder->CreateInsertElement(dst_vec, scalar, builder->getInt32(i));
++					}
++				}
++				// -> s/w depth compare
++				else {
++					emulate_depth_compare(dst_vec, builder->CreateExtractValue(asm_call, 0), compare_function, compare_value_arg);
 +				}
 +			}
++			// -> compare override (NONE/NEVER/ALWAYS), don't emit tex instruction
 +			else {
-+				emulate_depth_compare(dst_vec, builder->CreateExtractValue(asm_call, 0), compare_function, compare_value_arg);
++				dst_vec = builder->CreateInsertElement(dst_vec, compare_override, builder->getInt32(0));
 +			}
 +			
 +			//
