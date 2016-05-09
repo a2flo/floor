@@ -48,8 +48,8 @@ static lib_handle_type cuda_lib { nullptr };
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(cast-align)
 
-static void* load_symbol_mach(const struct mach_header* lib_handle, const char* symbol_name) {
-	if(lib_handle == nullptr || symbol_name == nullptr) {
+static void* load_symbol_mach(const struct mach_header* lib_handle_, const char* symbol_name) {
+	if(lib_handle_ == nullptr || symbol_name == nullptr) {
 		return nullptr;
 	}
 	
@@ -58,6 +58,7 @@ static void* load_symbol_mach(const struct mach_header* lib_handle, const char* 
 #error "invalid compilation target"
 #endif
 	
+	const auto lib_handle = (struct mach_header_64*)lib_handle_;
 	if(lib_handle->magic != MH_MAGIC_64) {
 		log_error("invalid magic in mach header (not x64): symbol %s", symbol_name);
 		return nullptr;

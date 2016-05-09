@@ -34,7 +34,7 @@ static size_t compute_kernel_args_size(const llvm_compute::function_info& info) 
 			ret += info.args[i].size;
 		}
 		else if(info.args[i].address_space == llvm_compute::function_info::ARG_ADDRESS_SPACE::IMAGE) {
-			ret += sizeof(uint32_t) * cuda_sampler_count();
+			ret += sizeof(uint32_t) * cuda_sampler::max_sampler_count;
 			ret += sizeof(uint64_t) * 1 /* surface */;
 			ret += sizeof(COMPUTE_IMAGE_TYPE) + 4 /* padding */;
 		}

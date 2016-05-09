@@ -509,7 +509,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		rsrc_view_desc.first_layer = 0;
 		rsrc_view_desc.last_layer = layer_count - 1;
 		
-		for(size_t i = 0, count = size(textures); i < count; ++i) {
+		for(uint32_t i = 0, count = uint32_t(size(textures)); i < count; ++i) {
 			cu_texture_descriptor tex_desc;
 			memset(&tex_desc, 0, sizeof(cu_texture_descriptor));
 			
@@ -519,32 +519,15 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			if(dim_count >= 3) tex_desc.address_mode[2] = CU_ADDRESS_MODE::CLAMP;
 			
 			// filter mode
-			switch((CUDA_SAMPLER_TYPE)i) {
-				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NON_NORMALIZED_COORDS:
-				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NORMALIZED_COORDS:
-					tex_desc.filter_mode = CU_FILTER_MODE::NEAREST;
-					tex_desc.mip_map_filter_mode = CU_FILTER_MODE::NEAREST;
-					break;
-				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NON_NORMALIZED_COORDS:
-				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NORMALIZED_COORDS:
-					tex_desc.filter_mode = CU_FILTER_MODE::LINEAR;
-					tex_desc.mip_map_filter_mode = CU_FILTER_MODE::LINEAR;
-					break;
-				default: break;
-			}
+			const auto filter_mode = (cuda_sampler::get_filter_mode(i) == cuda_sampler::NEAREST ?
+									  CU_FILTER_MODE::NEAREST : CU_FILTER_MODE::LINEAR);
+			tex_desc.filter_mode = filter_mode;
+			tex_desc.mip_map_filter_mode = filter_mode;
 			
 			// non-normalized / normalized coordinates
-			switch((CUDA_SAMPLER_TYPE)i) {
-				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NON_NORMALIZED_COORDS:
-				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NON_NORMALIZED_COORDS:
-					tex_desc.flags = CU_TEXTURE_FLAGS::NONE;
-					break;
-				case CUDA_SAMPLER_TYPE::CLAMP_NEAREST_NORMALIZED_COORDS:
-				case CUDA_SAMPLER_TYPE::CLAMP_LINEAR_NORMALIZED_COORDS:
-					tex_desc.flags = CU_TEXTURE_FLAGS::NORMALIZED_COORDINATES;
-					break;
-				default: break;
-			}
+			const auto coord_mode = (cuda_sampler::get_coord_mode(i) == cuda_sampler::PIXEL ?
+									 CU_TEXTURE_FLAGS::NONE : CU_TEXTURE_FLAGS::NORMALIZED_COORDINATES);
+			tex_desc.flags = coord_mode;
 			
 			// no variable anisotropy yet
 			tex_desc.max_anisotropy = 16;
@@ -557,15 +540,41 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			// we can do this, because cuda only tracks/returns the lower 32-bit of cu_tex_object
 			textures[i] = (cu_tex_only_object)new_texture;
 			
-#if 0 // TODO/NOTE: wip h/w depth compare mode setting
-			cu_texture_ref tex_ref = nullptr;
-			cuda_api.get_tex_ref_from_tex_obj(((cuda_device*)dev)->ctx->sampler_pool, textures[i], &tex_ref);
-			tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL; // or similar ...
-			cuda_api.update_tex_sampler(((cuda_device*)dev)->ctx->sampler_pool,
-										textures[i], &tex_ref->sampler_ptr, &tex_ref->sampler_enum);
-			
-			// TODO: future solution: override/hijack the device function pointer that creates/inits the sampler data,
-			// then we don't have to update the sampler data afterwards (a bit more tricky though)
+#if defined(FLOOR_CUDA_USE_INTERNAL_API) // TODO/NOTE: wip h/w depth compare mode setting
+			const auto compare_function = cuda_sampler::get_compare_function(i);
+			if(compare_function != cuda_sampler::NONE) {
+				cu_texture_ref tex_ref = nullptr;
+				cuda_api.get_tex_ref_from_tex_obj(((cuda_device*)dev)->ctx->sampler_pool, textures[i], &tex_ref);
+				
+				switch(compare_function) {
+					case cuda_sampler::LESS:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS;
+						break;
+					case cuda_sampler::LESS_OR_EQUAL:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL;
+						break;
+					case cuda_sampler::GREATER:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER;
+						break;
+					case cuda_sampler::GREATER_OR_EQUAL:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER_OR_EQUAL;
+						break;
+					case cuda_sampler::EQUAL:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::EQUAL;
+						break;
+					case cuda_sampler::NOT_EQUAL:
+						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::NOT_EQUAL;
+						break;
+					default:
+						floor_unreachable();
+				}
+				
+				cuda_api.update_tex_sampler(((cuda_device*)dev)->ctx->sampler_pool,
+											textures[i], &tex_ref->sampler_ptr, &tex_ref->sampler_enum);
+				
+				// TODO: future solution: override/hijack the device function pointer that creates/inits the sampler data,
+				// then we don't have to update the sampler data afterwards (a bit more tricky though)
+			}
 #endif
 		}
 	}

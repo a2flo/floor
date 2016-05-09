@@ -190,6 +190,18 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		
 		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
 		
+		// enable h/w depth compare when using the internal api and everything is alright
+#if defined(FLOOR_CUDA_USE_INTERNAL_API)
+#if defined(__APPLE__)
+		if(cuda_api.update_tex_sampler != nullptr &&
+		   cuda_api.get_tex_ref_from_tex_obj != nullptr) {
+#endif
+			device->image_depth_compare_support = true;
+#if defined(__APPLE__)
+		}
+#endif
+#endif
+		
 		// compute score and try to figure out which device is the fastest
 		const auto compute_gpu_score = [](shared_ptr<cuda_device> dev) -> unsigned int {
 			unsigned int multiplier = 1;

@@ -24,18 +24,7 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_image.hpp>
-
-//! fixed cuda sampler types that are always created
-enum class CUDA_SAMPLER_TYPE : uint32_t {
-	CLAMP_NEAREST_NON_NORMALIZED_COORDS = 0,
-	CLAMP_NEAREST_NORMALIZED_COORDS,
-	CLAMP_LINEAR_NON_NORMALIZED_COORDS,
-	CLAMP_LINEAR_NORMALIZED_COORDS,
-	__MAX_CUDA_SAMPLER_TYPE
-};
-static floor_inline_always constexpr uint32_t cuda_sampler_count() {
-	return uint32_t(CUDA_SAMPLER_TYPE::__MAX_CUDA_SAMPLER_TYPE);
-}
+#include <floor/compute/device/cuda_sampler.hpp>
 
 class cuda_device;
 class cuda_image final : public compute_image {
@@ -92,7 +81,7 @@ protected:
 	cu_surf_object surface { 0ull };
 	// the way cuda reads/samples images must be specified in the host api, which will basically
 	// create a combined texture+sampler object -> need to create these for all possible types
-	array<cu_tex_only_object, cuda_sampler_count()> textures;
+	array<cu_tex_only_object, cuda_sampler::max_sampler_count> textures;
 	
 	struct cuda_mapping {
 		const size3 origin;

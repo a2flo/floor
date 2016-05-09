@@ -198,14 +198,6 @@ namespace floor_image {
 	typedef sampler_t sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
 	typedef metal_sampler_t sampler_type;
-#elif defined(FLOOR_COMPUTE_CUDA)
-	enum CUDA_SAMPLER_TYPE : uint32_t {
-		CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS = 0,
-		CUDA_CLAMP_NEAREST_NORMALIZED_COORDS,
-		CUDA_CLAMP_LINEAR_NON_NORMALIZED_COORDS,
-		CUDA_CLAMP_LINEAR_NORMALIZED_COORDS,
-		__MAX_CUDA_SAMPLER_TYPE
-	};
 #endif
 	
 	//! COMPUTE_IMAGE_TYPE -> sample type
@@ -259,7 +251,7 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
 		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
@@ -276,7 +268,7 @@ namespace floor_image {
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
@@ -294,7 +286,7 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img;
 #elif defined(FLOOR_COMPUTE_CUDA)
-		const uint32_t r_img[__MAX_CUDA_SAMPLER_TYPE];
+		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
 		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
@@ -453,11 +445,13 @@ namespace floor_image {
 																						gradient.first, gradient.second, is_gradient,
 																						compare_function, compare_value, is_compare)));
 #elif defined(FLOOR_COMPUTE_CUDA)
-			constexpr const auto cuda_tex_idx = (!sample_linear ?
-												 (!is_int_coord<coord_type>() ?
-												  CUDA_CLAMP_NEAREST_NORMALIZED_COORDS : CUDA_CLAMP_NEAREST_NON_NORMALIZED_COORDS) :
-												 (!is_int_coord<coord_type>() ?
-												  CUDA_CLAMP_LINEAR_NORMALIZED_COORDS : CUDA_CLAMP_LINEAR_NON_NORMALIZED_COORDS));
+			constexpr const auto cuda_tex_idx = cuda_sampler::sampler_index(is_int_coord<coord_type>() ? cuda_sampler::PIXEL : cuda_sampler::NORMALIZED,
+																			sample_linear ? cuda_sampler::LINEAR : cuda_sampler::NEAREST,
+																			(!is_compare ||
+																			 compare_function == COMPARE_FUNCTION::ALWAYS ||
+																			 compare_function == COMPARE_FUNCTION::NEVER ||
+																			 compare_function == COMPARE_FUNCTION::NONE) ?
+																			cuda_sampler::NONE : (cuda_sampler::COMPARE_FUNCTION)compare_function);
 			const auto read_color = __builtin_choose_expr(is_float,
 														  cuda_image::read_image_float(r_img[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
 																					   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,

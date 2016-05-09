@@ -190,6 +190,7 @@
 		5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */; };
 		5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */; };
 		5CBF88C81CDF570800C04AB0 /* cuda_internal_api.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBF88C71CDF570800C04AB0 /* cuda_internal_api.hpp */; };
+		5CBF88CA1CE1095700C04AB0 /* cuda_sampler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBF88C91CE1095700C04AB0 /* cuda_sampler.hpp */; };
 		5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
 		5CBFEFF71A52D49300915FDE /* opencl_buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */; };
 		5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */; };
@@ -442,6 +443,7 @@
 		5CBE41D91B31B48600AE0E5F /* darwin_helper.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = darwin_helper.mm; path = darwin/darwin_helper.mm; sourceTree = "<group>"; };
 		5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		5CBF88C71CDF570800C04AB0 /* cuda_internal_api.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_internal_api.hpp; sourceTree = "<group>"; };
+		5CBF88C91CE1095700C04AB0 /* cuda_sampler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda_sampler.hpp; path = device/cuda_sampler.hpp; sourceTree = "<group>"; };
 		5CBFEFF41A52D49300915FDE /* opencl_buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_buffer.cpp; sourceTree = "<group>"; };
 		5CBFEFF51A52D49300915FDE /* opencl_buffer.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = opencl_buffer.hpp; sourceTree = "<group>"; };
 		5CC063B91B85A06600F5979A /* cuda_api.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_api.cpp; sourceTree = "<group>"; };
@@ -777,6 +779,7 @@
 				5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */,
 				5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */,
 				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
+				5CBF88C91CE1095700C04AB0 /* cuda_sampler.hpp */,
 				5C4E30E81B428B120034E536 /* host_pre.hpp */,
 				5C4E30E91B428B120034E536 /* host.hpp */,
 				5C4E30E61B428B120034E536 /* host_atomic.hpp */,
@@ -1007,6 +1010,7 @@
 				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
 				5C2DA5BD1B9ECAA200FA6F23 /* compute_context.hpp in Headers */,
+				5CBF88CA1CE1095700C04AB0 /* cuda_sampler.hpp in Headers */,
 				5C4A85B118F953590039BFD4 /* lexer.hpp in Headers */,
 				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,

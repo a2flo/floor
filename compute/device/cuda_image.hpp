@@ -21,6 +21,8 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
+#include <floor/compute/device/cuda_sampler.hpp>
+
 namespace cuda_image {
 	//////////////////////////////////////////
 	// cuda image function wrappers/forwarders
