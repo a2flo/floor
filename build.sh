@@ -371,8 +371,8 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	LDFLAGS="${LDFLAGS} -shared"
 	
 	# use PIC
-	LDFLAGS="${LDFLAGS} -fPIC"
-	COMMON_FLAGS="${COMMON_FLAGS} -fPIC"
+	PIC_FLAGS="-fPIC"
+	LDFLAGS="${LDFLAGS} ${PIC_FLAGS}"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2"
@@ -743,8 +743,9 @@ if [ $BUILD_OS == "mingw" ]; then
 fi
 
 # finally: add all common c++ and c flags/options
-CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS}"
-CFLAGS="${CFLAGS} ${COMMON_FLAGS}"
+CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS} ${PIC_FLAGS}"
+PCHFLAGS="${CXXFLAGS} ${COMMON_FLAGS}"
+CFLAGS="${CFLAGS} ${COMMON_FLAGS} ${PIC_FLAGS}"
 
 ##########################################
 # targets and building
@@ -825,7 +826,7 @@ if [ -f "floor.pch" ]; then
 	rm floor.pch
 fi
 info "building precompiled header ..."
-precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch"
+precomp_header_cmd="${CXX} ${PCHFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch"
 verbose "${precomp_header_cmd}"
 eval ${precomp_header_cmd}
 

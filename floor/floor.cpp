@@ -89,7 +89,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 	// get working directory
 	char working_dir[16384];
 	memset(working_dir, 0, 16384);
-	getcwd(working_dir, 16383);
+	if(getcwd(working_dir, 16383) == nullptr) {
+		cerr << "failed to retrieve current working directory" << endl;
+		exit(1);
+	}
 	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {
