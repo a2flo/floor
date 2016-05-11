@@ -27,7 +27,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	platform_vendor = COMPUTE_VENDOR::NVIDIA;
 	
 	// init cuda api functions
-	if(!cuda_api_init()) {
+	if(!cuda_api_init(floor::get_cuda_use_internal_api())) {
 		log_error("failed to initialize CUDA API functions");
 		return;
 	}
@@ -191,16 +191,17 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
 		
 		// enable h/w depth compare when using the internal api and everything is alright
-#if defined(FLOOR_CUDA_USE_INTERNAL_API)
-#if defined(__APPLE__)
-		if(cuda_api.update_tex_sampler != nullptr &&
-		   cuda_api.get_tex_ref_from_tex_obj != nullptr) {
-#endif
+		if(cuda_can_use_internal_api()) {
+			log_msg("using internal api");
+#if defined(__APPLE__) // TODO: enable for linux/windows
 			device->image_depth_compare_support = true;
-#if defined(__APPLE__)
+			
+			// exchange the device sampler init function with our own + store the driver function in the device for later use
+			auto sampler_func_ptr = (void**)(uintptr_t(device->ctx->device) + cuda_device_sampler_func_offset);
+			(void*&)device->sampler_init_func_ptr = *sampler_func_ptr;
+			*sampler_func_ptr = (void*)&cuda_image::internal_device_sampler_init;
+#endif
 		}
-#endif
-#endif
 		
 		// compute score and try to figure out which device is the fastest
 		const auto compute_gpu_score = [](shared_ptr<cuda_device> dev) -> unsigned int {

@@ -21,11 +21,14 @@
 
 #include <floor/core/essentials.hpp>
 
-#if !defined(FLOOR_NO_CUDA) && defined(FLOOR_CUDA_USE_INTERNAL_API)
+#if !defined(FLOOR_NO_CUDA)
 
 typedef struct _cu_device_obj* cu_device_obj;
 typedef struct _cu_sampler_pool* cu_sampler_pool;
 
+// NOTE: do *not* make use of this, this is just for informational purposes
+//       struct contents/sizes are different for each cuda version on each os
+#if defined(__APPLE__)
 // cuda 7.5 on os x: 0xB0 bytes
 struct _cu_sampler_pool {
 	cu_context ctx;
@@ -62,6 +65,7 @@ struct _cu_context {
 	void* data_2[871];
 };
 static_assert(sizeof(_cu_context) == 0x1F10, "invalid _cu_context size");
+#endif
 
 union CU_SAMPLER_TYPE {
 	// same as metal
@@ -90,7 +94,7 @@ union CU_SAMPLER_TYPE {
 		uint64_t _unknown_5 : 2;
 		uint64_t filter_2 : 2;// 1 = nearest, 2 = linear
 	};
-	uint64_t value;
+	uint64_t value { 0 };
 };
 static_assert(sizeof(CU_SAMPLER_TYPE) == sizeof(uint64_t), "invalid sampler size");
 

@@ -198,6 +198,7 @@ public:
 	static const uint32_t& get_cuda_max_registers();
 	static const bool& get_cuda_jit_verbose();
 	static const uint32_t& get_cuda_jit_opt_level();
+	static const bool& get_cuda_use_internal_api();
 	
 	// metal
 	static const string& get_metal_base_path();
@@ -324,6 +325,7 @@ protected:
 		uint32_t cuda_max_registers = 32;
 		bool cuda_jit_verbose = false;
 		uint32_t cuda_jit_opt_level = 4;
+		bool cuda_use_internal_api = true;
 		
 		// metal
 		bool metal_toolchain_exists = false;

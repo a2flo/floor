@@ -25,11 +25,6 @@
 
 #include <floor/math/vector_lib.hpp>
 
-// os x only for now
-#if defined(__APPLE__)
-#define FLOOR_CUDA_USE_INTERNAL_API 1
-#endif
-
 #if defined(__WINDOWS__)
 #define CU_API __stdcall
 #else
@@ -470,10 +465,8 @@ struct cu_texture_descriptor {
 	int32_t _reserved[12];
 };
 
-//
-#if defined(FLOOR_CUDA_USE_INTERNAL_API)
+// internal api structs
 #include <floor/compute/cuda/cuda_internal_api.hpp>
-#endif
 
 // actual cuda api function pointers
 struct cuda_api_ptrs {
@@ -539,15 +532,12 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*tex_object_create)(cu_tex_object* p_tex_object, const cu_resource_descriptor* p_res_desc, const cu_texture_descriptor* p_tex_desc, const cu_resource_view_descriptor* p_res_view_desc);
 	CU_API CU_RESULT (*tex_object_destroy)(cu_tex_object tex_object);
 	CU_API CU_RESULT (*tex_object_get_resource_desc)(cu_resource_descriptor* desc, cu_tex_object tex_object);
-	
-#if defined(__APPLE__) && defined(FLOOR_CUDA_USE_INTERNAL_API)
-	// can only do this on os x right now, since these symbols are not exported on linux
-	CU_API CU_RESULT (*get_tex_ref_from_tex_obj)(cu_sampler_pool sampler_pool, const uint32_t trunc_tex_obj, cu_texture_ref* tex_ref);
-	CU_API CU_RESULT (*update_tex_sampler)(cu_sampler_pool sampler_pool, const uint32_t trunc_tex_obj, uint64_t** sampler_ptr, const CU_SAMPLER_TYPE* sampler_enum);
-#endif
 };
 extern cuda_api_ptrs cuda_api;
-extern bool cuda_api_init();
+extern bool cuda_api_init(const bool use_internal_api);
+
+extern uint32_t cuda_device_sampler_func_offset;
+extern bool cuda_can_use_internal_api();
 
 #define cu_array_3d_create cuda_api.array_3d_create
 #define cu_array_3d_get_descriptor cuda_api.array_3d_get_descriptor

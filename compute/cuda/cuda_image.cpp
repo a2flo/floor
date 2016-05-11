@@ -132,6 +132,29 @@ void cuda_image::init_internal() {
 	}
 }
 
+static safe_mutex device_sampler_mtx;
+static cuda_device* cur_device { nullptr };
+static bool apply_sampler_modifications { false };
+static CU_SAMPLER_TYPE cuda_sampler_or;
+CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
+	// TODO: rather use tex_ref->ctx to figure this out (need to figure out how stable this is first though)
+	if(cur_device == nullptr) {
+		log_error("current cuda device not set!");
+		return CU_RESULT::INVALID_VALUE;
+	}
+	
+	// call the original sampler init function
+	const auto ret = cur_device->sampler_init_func_ptr(tex_ref);
+	
+	// only modify the sampler enum if this is wanted (i.e. this will be false when not setting depth compare state)
+	if(apply_sampler_modifications) {
+		// TODO: need cuda version dependent offset for this (differs by 16 bytes for cuda 7.5/8.0)
+		tex_ref->sampler_enum.value |= cuda_sampler_or.value;
+	}
+	
+	return ret;
+}
+
 // TODO: proper error (return) value handling everywhere
 
 cuda_image::cuda_image(const cuda_device* device,
@@ -534,48 +557,46 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			tex_desc.min_mip_map_level_clamp = 0;
 			tex_desc.max_mip_map_level_clamp = (is_mip_mapped ? dev->max_mip_levels : 0);
 			
+			// at this point, the device function pointer that initializes/creates the sampler state
+			// has been overwritten/hijacked by our own function (if the internal api is used/enabled)
+			// -> set the sampler state that we want to have
+			GUARD(device_sampler_mtx); // necessary, b/c we don't know which device is calling us in internal_device_sampler_init
+			cur_device = (cuda_device*)dev;
+			cuda_sampler_or.value = 0;
+			const auto compare_function = cuda_sampler::get_compare_function(i);
+			if(compare_function != cuda_sampler::NONE) {
+				apply_sampler_modifications = true;
+				switch(compare_function) {
+					case cuda_sampler::LESS:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS;
+						break;
+					case cuda_sampler::LESS_OR_EQUAL:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL;
+						break;
+					case cuda_sampler::GREATER:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER;
+						break;
+					case cuda_sampler::GREATER_OR_EQUAL:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER_OR_EQUAL;
+						break;
+					case cuda_sampler::EQUAL:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::EQUAL;
+						break;
+					case cuda_sampler::NOT_EQUAL:
+						cuda_sampler_or.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::NOT_EQUAL;
+						break;
+					default: break;
+				}
+			}
+			
 			cu_tex_object new_texture = 0;
 			CU_CALL_RET(cu_tex_object_create(&new_texture, &rsrc_desc, &tex_desc, &rsrc_view_desc),
 						"failed to create texture object #" + to_string(i), false);
 			// we can do this, because cuda only tracks/returns the lower 32-bit of cu_tex_object
 			textures[i] = (cu_tex_only_object)new_texture;
 			
-#if defined(FLOOR_CUDA_USE_INTERNAL_API) // TODO/NOTE: wip h/w depth compare mode setting
-			const auto compare_function = cuda_sampler::get_compare_function(i);
-			if(compare_function != cuda_sampler::NONE) {
-				cu_texture_ref tex_ref = nullptr;
-				cuda_api.get_tex_ref_from_tex_obj(((cuda_device*)dev)->ctx->sampler_pool, textures[i], &tex_ref);
-				
-				switch(compare_function) {
-					case cuda_sampler::LESS:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS;
-						break;
-					case cuda_sampler::LESS_OR_EQUAL:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::LESS_OR_EQUAL;
-						break;
-					case cuda_sampler::GREATER:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER;
-						break;
-					case cuda_sampler::GREATER_OR_EQUAL:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::GREATER_OR_EQUAL;
-						break;
-					case cuda_sampler::EQUAL:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::EQUAL;
-						break;
-					case cuda_sampler::NOT_EQUAL:
-						tex_ref->sampler_enum.compare_function = CU_SAMPLER_TYPE::COMPARE_FUNCTION::NOT_EQUAL;
-						break;
-					default:
-						floor_unreachable();
-				}
-				
-				cuda_api.update_tex_sampler(((cuda_device*)dev)->ctx->sampler_pool,
-											textures[i], &tex_ref->sampler_ptr, &tex_ref->sampler_enum);
-				
-				// TODO: future solution: override/hijack the device function pointer that creates/inits the sampler data,
-				// then we don't have to update the sampler data afterwards (a bit more tricky though)
-			}
-#endif
+			// cleanup
+			apply_sampler_modifications = false;
 		}
 	}
 	if(need_surf) {

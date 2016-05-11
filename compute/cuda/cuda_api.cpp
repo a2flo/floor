@@ -23,6 +23,8 @@
 
 // instantiated in here
 cuda_api_ptrs cuda_api;
+uint32_t cuda_device_sampler_func_offset { 0 };
+static bool cuda_internal_api_functional { false };
 
 #if !defined(__WINDOWS__)
 #include <dlfcn.h>
@@ -38,86 +40,14 @@ typedef HMODULE lib_handle_type;
 static lib_handle_type cuda_lib { nullptr };
 
 #if defined(__APPLE__)
-// credits:
-// * http://opensource.apple.com//source/openmpi/openmpi-8/openmpi/opal/mca/backtrace/darwin/MoreBacktrace/MoreDebugging/MoreAddrToSym.c
-// * https://github.com/albertz/playground/blob/master/demo_NSAutoreleaseNoPool.mm
-
 #include <mach-o/dyld.h>
-#include <mach-o/nlist.h>
-
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(cast-align)
-
-static void* load_symbol_mach(const struct mach_header* lib_handle_, const char* symbol_name) {
-	if(lib_handle_ == nullptr || symbol_name == nullptr) {
-		return nullptr;
-	}
-	
-#if !defined(FLOOR_IOS) // only supported on x64
-#if !defined(PLATFORM_X64)
-#error "invalid compilation target"
-#endif
-	
-	const auto lib_handle = (struct mach_header_64*)lib_handle_;
-	if(lib_handle->magic != MH_MAGIC_64) {
-		log_error("invalid magic in mach header (not x64): symbol %s", symbol_name);
-		return nullptr;
-	}
-	
-	struct segment_command_64* seg_linkedit = nullptr;
-	struct segment_command_64* seg_text = nullptr;
-	struct symtab_command* symtab = nullptr;
-	auto cmd = (struct load_command*)(lib_handle + 1);
-	for(uint32_t index = 0; index < lib_handle->ncmds; index += 1, cmd = (struct load_command*)((uint8_t*)cmd + cmd->cmdsize)) {
-		switch(cmd->cmd) {
-			case LC_SEGMENT_64: {
-				const auto segcmd = (struct segment_command_64*)cmd;
-				if(!strcmp(segcmd->segname, SEG_TEXT)) {
-					seg_text = segcmd;
-				}
-				else if(!strcmp(segcmd->segname, SEG_LINKEDIT)) {
-					seg_linkedit = segcmd;
-				}
-				break;
-			}
-			case LC_SYMTAB:
-				symtab = (struct symtab_command*)cmd;
-				break;
-			default:
-				break;
-		}
-	}
-	
-	if(seg_text == nullptr || seg_linkedit == nullptr || symtab == nullptr) {
-		log_error("segment is null: symbol %s", symbol_name);
-		return nullptr;
-	}
-	
-	const auto vm_slide = uint64_t(lib_handle) - seg_text->vmaddr;
-	const auto file_slide = (seg_linkedit->vmaddr - seg_text->vmaddr) - seg_linkedit->fileoff;
-	const auto symbase = (struct nlist_64*)(uint64_t(lib_handle) + (symtab->symoff + file_slide));
-	const auto strings = (const char*)(uint64_t(lib_handle) + (symtab->stroff + file_slide));
-	struct nlist_64* sym = symbase;
-	for(uint32_t index = 0; index < symtab->nsyms; index += 1, sym += 1) {
-		if(sym->n_un.n_strx != 0 && !strcmp(symbol_name, strings + sym->n_un.n_strx)) {
-			const auto address = vm_slide + sym->n_value;
-			if(sym->n_desc & N_ARM_THUMB_DEF) {
-				return (void*)(address | 1ull);
-			}
-			return (void*)address;
-		}
-	}
-#endif
-	
-	log_error("symbol %s not found", symbol_name);
-	return nullptr;
-}
-
-FLOOR_POP_WARNINGS()
-
+#include <mach-o/dyld_images.h>
+#include <mach/mach_init.h>
+#include <mach/task.h>
+#include <mach/task_info.h>
 #endif
 
-bool cuda_api_init() {
+bool cuda_api_init(const bool use_internal_api) {
 	// already init check
 	static bool did_init = false, init_success = false;
 	if(did_init) return init_success;
@@ -326,27 +256,85 @@ bool cuda_api_init() {
 	(void*&)cuda_api.tex_object_get_resource_desc = load_symbol(cuda_lib, "cuTexObjectGetResourceDesc");
 	if(cuda_api.tex_object_get_resource_desc == nullptr) log_error("failed to retrieve function pointer for \"cuTexObjectGetResourceDesc\"");
 	
+	// if this is enabled, we need to look up offsets of cuda internal structs for later use
+	if(use_internal_api) {
 #if defined(__APPLE__)
-FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(deprecated) // yeah, deprecated, but dlopen/dlsym doesn't cut it
-	// TODO: figure this out at run-time
-	const auto cuda_driver_lib = NSAddImage("/Library/Frameworks/CUDA.framework/Libraries/libcuda_346.03.06_mercury.dylib",
-											NSADDIMAGE_OPTION_NONE);
-FLOOR_POP_WARNINGS()
-	
-	// or: _etiGetTexrefForTexObject(cu_context, ...)
-	(void*&)cuda_api.get_tex_ref_from_tex_obj = load_symbol_mach(cuda_driver_lib, "_texHeaderSamplerPoolGetTexrefFromBindlessId");
-	if(cuda_api.get_tex_ref_from_tex_obj == nullptr) log_error("failed to retrieve function pointer for \"texHeaderSamplerPoolGetTexrefFromBindlessId\"");
-	
-	(void*&)cuda_api.update_tex_sampler = load_symbol_mach(cuda_driver_lib, "_texHeaderSamplerPoolUpdateGeneric");
-	if(cuda_api.update_tex_sampler == nullptr) log_error("failed to retrieve function pointer for \"texHeaderSamplerPoolUpdateGeneric\"");
+		// get a list of all loaded dylibs
+		string cuda_dylib_path = "";
+		task_dyld_info dyld_info;
+		mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
+		if(task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
+			const auto all_image_infos = (const dyld_all_image_infos*)dyld_info.all_image_info_addr;
+			
+			// figure out which cuda dylib is loaded (-> we're using)
+			for(uint32_t i = 0; i < all_image_infos->infoArrayCount; ++i) {
+				if(strstr(all_image_infos->infoArray[i].imageFilePath, "libcuda_") != nullptr) {
+					cuda_dylib_path = all_image_infos->infoArray[i].imageFilePath;
+					break;
+				}
+			}
+			
+			// if we found the cuda dylib, load it to memory and search it for the offset we need
+			if(cuda_dylib_path != "") {
+				string cuda_dylib_data = "";
+				if(file_io::file_to_string(cuda_dylib_path, cuda_dylib_data)) {
+					static const uint8_t pattern_start[] {
+						// call to device specific sampler creation/init function pointer:
+						// mov  rax, qword ptr [r15 + 216] // NOTE: context offset is always the same on os x (ctx->device)
+						// mov  rdi, qword ptr [rbp - 48]
+						// call qword ptr [rax + $offset_we_want]
+						0x49, 0x8B, 0x87, 0xD8, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x7D, 0xD0, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x??
+					};
+					static const uint8_t pattern_end[] {
+						// always followed by:
+						// mov  r14d, eax
+						0x41, 0x89, 0xC6,
+					};
+					
+					size_t offset = 0;
+					uint32_t device_sampler_func_offset = 0;
+					for(;;) {
+						offset = cuda_dylib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
+						if(offset != string::npos) {
+							const auto device_sampler_func_offset_start = offset + size(pattern_start);
+							if(memcmp(cuda_dylib_data.data() + device_sampler_func_offset_start + sizeof(device_sampler_func_offset),
+									  pattern_end, size(pattern_end)) == 0) {
+								memcpy(&device_sampler_func_offset, cuda_dylib_data.data() + device_sampler_func_offset_start,
+									   sizeof(device_sampler_func_offset));
+								break;
+							}
+						}
+						else break;
+					}
+					
+					if(device_sampler_func_offset != 0 &&
+					   // sanity check, offset is never larger than this
+					   device_sampler_func_offset < 0x4000) {
+						cuda_internal_api_functional = true;
+						cuda_device_sampler_func_offset = device_sampler_func_offset;
+					}
+					else log_error("device sampler function pointer offset invalid or not found: %X", device_sampler_func_offset);
+				}
+			}
+			else log_error("cuda dylib not found (not loaded?)");
+		}
+		else log_error("task_info was unsuccessful");
+#elif defined(__WINDOWS__)
+		// TODO: !
+#else // linux
+		// TODO: !
 #endif
+	}
 
 	logger::flush();
 	
 	// done
 	init_success = true;
 	return init_success;
+}
+
+bool cuda_can_use_internal_api() {
+	return cuda_internal_api_functional;
 }
 
 #endif

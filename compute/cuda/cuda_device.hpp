@@ -52,14 +52,18 @@ public:
 	uint32_t async_engine_count { 0u };
 	
 #if !defined(FLOOR_NO_CUDA)
-	// cuda requires a context for each device (no shared context)
+	//! cuda requires a context for each device (no shared context)
 	cu_context ctx { nullptr };
 	
 	//!
 	cu_device device_id { 0u };
+	
+	//! the original device sampler init function pointer
+	CU_API CU_RESULT (*sampler_init_func_ptr)(cu_texture_ref tex_ref) { nullptr };
 #else
 	void* _ctx { nullptr };
 	int32_t _device_id { 0u };
+	void* _sampler_init_func_ptr { nullptr };
 #endif
 	
 };

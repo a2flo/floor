@@ -66,6 +66,10 @@ public:
 	//! internal function - initialized once by cuda_compute
 	static void init_internal();
 	
+	//! when the internal cuda api is used, this function will be called by the cuda driver when
+	//! creating a texture object to initialize/create the sampler state of the texture
+	static CU_API CU_RESULT internal_device_sampler_init(cu_texture_ref tex_ref);
+	
 protected:
 	// generic image pointer (identical to either image_array or image_mipmap_array)
 	void* image { nullptr };

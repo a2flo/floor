@@ -295,6 +295,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.cuda_max_registers = (uint32_t)config_doc.get<uint64_t>("compute.cuda.max_registers", 32);
 		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
 		config.cuda_jit_opt_level = (uint32_t)config_doc.get<uint64_t>("compute.cuda.jit_opt_level", 4);
+		config.cuda_use_internal_api = config_doc.get<bool>("compute.cuda.use_internal_api", true);
 		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
 		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
@@ -1497,6 +1498,9 @@ const bool& floor::get_cuda_jit_verbose() {
 }
 const uint32_t& floor::get_cuda_jit_opt_level() {
 	return config.cuda_jit_opt_level;
+}
+const bool& floor::get_cuda_use_internal_api() {
+	return config.cuda_use_internal_api;
 }
 
 const string& floor::get_metal_base_path() {
