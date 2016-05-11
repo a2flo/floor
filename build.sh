@@ -780,17 +780,20 @@ case ${BUILD_MODE} in
 	"release")
 		# release mode (default): add release mode flags/optimizations
 		CXXFLAGS="${CXXFLAGS} ${REL_FLAGS}"
+		PCHFLAGS="${PCHFLAGS} ${REL_FLAGS}"
 		CFLAGS="${CFLAGS} ${REL_FLAGS}"
 		;;
 	"release_opt")
 		# release mode + additional optimizations: add release mode and opt flags
 		CXXFLAGS="${CXXFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
+		PCHFLAGS="${PCHFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
 		CFLAGS="${CFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
 		LDFLAGS="${LDFLAGS} ${REL_OPT_LD_FLAGS}"
 		;;
 	"debug")
 		# debug mode: add debug flags
 		CXXFLAGS="${CXXFLAGS} ${DEBUG_FLAGS}"
+		PCHFLAGS="${PCHFLAGS} ${DEBUG_FLAGS}"
 		CFLAGS="${CFLAGS} ${DEBUG_FLAGS}"
 		;;
 	"clean")
@@ -807,12 +810,15 @@ esac
 
 if [ ${BUILD_VERBOSE} -gt 1 ]; then
 	CXXFLAGS="${CXXFLAGS} -v"
+	PCHFLAGS="${PCHFLAGS} -v"
 	CFLAGS="${CFLAGS} -v"
 	LDFLAGS="${LDFLAGS} -v"
 fi
 if [ ${BUILD_VERBOSE} -gt 0 ]; then
 	info ""
 	info "using CXXFLAGS: ${CXXFLAGS}"
+	info ""
+	info "using PCHFLAGS: ${PCHFLAGS}"
 	info ""
 	info "using CFLAGS: ${CFLAGS}"
 	info ""
