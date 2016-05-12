@@ -284,7 +284,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	}
 	
 	// init shaders in cuda_image
-	cuda_image::init_internal();
+	cuda_image::init_internal(driver_version);
 }
 
 shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev) {

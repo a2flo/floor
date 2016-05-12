@@ -92,17 +92,18 @@ union CU_SAMPLER_TYPE {
 		uint64_t _unknown_4 : 9;
 		uint64_t filter_1 : 2; // 1 = nearest, 2 = linear
 		uint64_t _unknown_5 : 2;
-		uint64_t filter_2 : 2;// 1 = nearest, 2 = linear
+		uint64_t filter_2 : 2; // 1 = nearest, 2 = linear
 	};
 	uint64_t value { 0 };
 };
 static_assert(sizeof(CU_SAMPLER_TYPE) == sizeof(uint64_t), "invalid sampler size");
 
-struct _cu_texture_ref {
-	int64_t _init_unknown_1;
+template <uint32_t cuda_version>
+struct cu_texture_ref_template {
+	size_t _init_unknown_1;
 	cu_context ctx;
 	int32_t _init_unknown_2;
-	int32_t _unknown_3;
+	// -- x64: 4 bytes padding
 	const char* identifier_str;
 	uint32_t is_tex_object;
 	int32_t _unknown_4;
@@ -122,12 +123,12 @@ struct _cu_texture_ref {
 	uint32_t dim_z;
 	uint32_t pitch_in_bytes;
 	uint32_t has_no_gather;
-	int32_t _unknown_7;
+	// -- x64: 4 bytes padding
 	uint64_t array_offset;
 	uint32_t first_mip_level;
 	uint32_t last_mip_level;
 	uint32_t has_rsrc_view;
-	int32_t _unknown_8;
+	// -- x64: 4 bytes padding
 	cu_resource_view_descriptor view_desc;
 	uint32_t address_mode[3];
 	uint32_t filter_mode;
@@ -136,32 +137,42 @@ struct _cu_texture_ref {
 	float mip_level_clamp_min;
 	float mip_level_clamp_max;
 	uint32_t max_anisotropic;
-#if 0 // cuda 8.0+
-	float4 border_color;
-#endif
-	int32_t _unknown_9;
-	uint64_t _unknown_10;
+	float4 border_color[cuda_version >= 8000 ? 1 : 0]; // cuda 8.0+
+	// -- x64: 4 bytes padding
+	size_t _init_unknown_3;
 	uint32_t flags;
 	uint32_t is_dirty;
-	uint64_t* sampler_ptr;
-	int64_t _sampler1_1;
-	int64_t _sampler1_2;
-	int64_t _sampler1_3;
+	// -- x86: 4 bytes padding
+	uint64_t _sampler1_0;
+	uint64_t _sampler1_1;
+	uint64_t _sampler1_2;
+	uint64_t _sampler1_3;
 	CU_SAMPLER_TYPE sampler_enum;
-	int64_t _sampler2_1;
-	int64_t _sampler2_2;
-	int64_t _sampler2_3;
+	uint64_t _sampler2_1;
+	uint64_t _sampler2_2;
+	uint64_t _sampler2_3;
 	cu_tex_object texture_object;
-	int32_t _unknown_11;
-	int32_t _unknown_12;
-	int32_t _unknown_13;
-	int32_t _unknown_14;
+	size_t _unknown_11;
+	size_t _unknown_12;
 	void* function_ptr;
-	int64_t _unknown_obj_ref_dep2;
+	void* _unknown_obj_ref_dep2;
 	void* _unknown_obj_ref_dep;
 };
-static_assert(sizeof(_cu_texture_ref) == 0x1B0, "invalid _cu_texture_ref size");
-//static_assert(sizeof(_cu_texture_ref) == 0x1C0, "invalid _cu_texture_ref size"); // cuda 8.0+
+using cu_texture_ref_75 = cu_texture_ref_template<7050>;
+using cu_texture_ref_80 = cu_texture_ref_template<8000>;
+
+// check if sizes/offsets are correct
+#if defined(PLATFORM_X64)
+static_assert(sizeof(cu_texture_ref_75) == 0x1B0, "invalid cu_texture_ref size");
+static_assert(sizeof(cu_texture_ref_80) == 0x1C0, "invalid cu_texture_ref size");
+static_assert(offsetof(cu_texture_ref_75, sampler_enum) == 352, "invalid sampler enum offset");
+static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 368, "invalid sampler enum offset");
+#else
+static_assert(sizeof(cu_texture_ref_75) == 0x158, "invalid cu_texture_ref size");
+static_assert(sizeof(cu_texture_ref_80) == 0x168, "invalid cu_texture_ref size");
+static_assert(offsetof(cu_texture_ref_75, sampler_enum) == 284, "invalid sampler enum offset");
+static_assert(offsetof(cu_texture_ref_80, sampler_enum) == 300, "invalid sampler enum offset");
+#endif
 
 #endif
 

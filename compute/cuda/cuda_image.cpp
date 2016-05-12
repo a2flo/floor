@@ -125,11 +125,13 @@ static bool cuda_memcpy(const void* host,
 	return true;
 }
 
-void cuda_image::init_internal() {
+static int cuda_driver_version { 7050 };
+void cuda_image::init_internal(const int& driver_version) {
 	// only need to (can) init gl shaders when there's a window / gl context
 	if(!floor::is_console_only()) {
 		cuda_image_support::init();
 	}
+	cuda_driver_version = driver_version;
 }
 
 static safe_mutex device_sampler_mtx;
@@ -148,8 +150,13 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 	
 	// only modify the sampler enum if this is wanted (i.e. this will be false when not setting depth compare state)
 	if(apply_sampler_modifications) {
-		// TODO: need cuda version dependent offset for this (differs by 16 bytes for cuda 7.5/8.0)
-		tex_ref->sampler_enum.value |= cuda_sampler_or.value;
+		// NOTE: need cuda version dependent offset for this (differs by 16 bytes for cuda 7.5/8.0)
+		if(cuda_driver_version < 8000) {
+			((cu_texture_ref_75*)tex_ref)->sampler_enum.value |= cuda_sampler_or.value;
+		}
+		else {
+			((cu_texture_ref_80*)tex_ref)->sampler_enum.value |= cuda_sampler_or.value;
+		}
 	}
 	
 	return ret;

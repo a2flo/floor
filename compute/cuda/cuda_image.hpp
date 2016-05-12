@@ -64,7 +64,7 @@ public:
 	}
 	
 	//! internal function - initialized once by cuda_compute
-	static void init_internal();
+	static void init_internal(const int& driver_version);
 	
 	//! when the internal cuda api is used, this function will be called by the cuda driver when
 	//! creating a texture object to initialize/create the sampler state of the texture
