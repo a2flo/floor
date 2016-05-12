@@ -537,6 +537,7 @@ extern cuda_api_ptrs cuda_api;
 extern bool cuda_api_init(const bool use_internal_api);
 
 extern uint32_t cuda_device_sampler_func_offset;
+extern uint32_t cuda_device_in_ctx_offset;
 extern bool cuda_can_use_internal_api();
 
 #define cu_array_3d_create cuda_api.array_3d_create

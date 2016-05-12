@@ -743,8 +743,8 @@ if [ $BUILD_OS == "mingw" ]; then
 fi
 
 # finally: add all common c++ and c flags/options
-CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS} ${PIC_FLAGS}"
 PCHFLAGS="${CXXFLAGS} ${COMMON_FLAGS}"
+CXXFLAGS="${CXXFLAGS} ${COMMON_FLAGS} ${PIC_FLAGS}"
 CFLAGS="${CFLAGS} ${COMMON_FLAGS} ${PIC_FLAGS}"
 
 ##########################################

@@ -24,6 +24,7 @@
 // instantiated in here
 cuda_api_ptrs cuda_api;
 uint32_t cuda_device_sampler_func_offset { 0 };
+uint32_t cuda_device_in_ctx_offset { 0 };
 static bool cuda_internal_api_functional { false };
 
 #if !defined(__WINDOWS__)
@@ -282,7 +283,7 @@ bool cuda_api_init(const bool use_internal_api) {
 						// call to device specific sampler creation/init function pointer:
 						// mov  rax, qword ptr [r15 + 216] // NOTE: context offset is always the same on os x (ctx->device)
 						// mov  rdi, qword ptr [rbp - 48]
-						// call qword ptr [rax + $offset_we_want]
+						// call qword ptr [rax + $sampler_init_func_ptr_offset]
 						0x49, 0x8B, 0x87, 0xD8, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x7D, 0xD0, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x??
 					};
 					static const uint8_t pattern_end[] {
@@ -312,6 +313,7 @@ bool cuda_api_init(const bool use_internal_api) {
 					   device_sampler_func_offset < 0x4000) {
 						cuda_internal_api_functional = true;
 						cuda_device_sampler_func_offset = device_sampler_func_offset;
+						cuda_device_in_ctx_offset = 216; // fixed on os x
 					}
 					else log_error("device sampler function pointer offset invalid or not found: %X", device_sampler_func_offset);
 				}
@@ -322,7 +324,61 @@ bool cuda_api_init(const bool use_internal_api) {
 #elif defined(__WINDOWS__)
 		// TODO: !
 #else // linux
-		// TODO: !
+#if defined(PLATFORM_X64) // only x64 is supported
+		string cuda_dylib_data = "";
+		if(file_io::file_to_string("/usr/lib/"s + cuda_lib_name, cuda_dylib_data)) {
+			static const uint8_t pattern_start[] {
+				// mov  rax, qword ptr [r12 + $device_in_ctx]
+				0x49, 0x8B, 0x84, 0x24, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
+			};
+			static const uint8_t pattern_middle[] {
+				// mov  rdi, qword ptr [rsp + 32]
+				// call qword ptr [rax + $sampler_init_func_ptr_offset]
+				0x48, 0x8B, 0x7C, 0x24, 0x20, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+			};
+			static const uint8_t pattern_end[] {
+				// always followed by:
+				// test eax, eax
+				0x85, 0xC0,
+			};
+					
+			size_t offset = 0;
+			uint32_t device_sampler_func_offset = 0, device_in_ctx_offset = 0;
+			for(;;) {
+				offset = cuda_dylib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
+				if(offset != string::npos) {
+					// offset to "device_in_ctx_offset"
+					offset += size(pattern_start);
+					
+					// check if middle and end pattern match
+					if(memcmp(cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset),
+							  pattern_middle, size(pattern_middle)) == 0 &&
+					   memcmp(cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle) + sizeof(device_sampler_func_offset),
+							  pattern_end, size(pattern_end)) == 0) {
+						memcpy(&device_in_ctx_offset, cuda_dylib_data.data() + offset,
+							   sizeof(device_in_ctx_offset));
+						memcpy(&device_sampler_func_offset, cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle),
+							   sizeof(device_sampler_func_offset));
+						break;
+					}
+				}
+				else break;
+			}
+			
+			if(device_in_ctx_offset != 0 &&
+			   device_sampler_func_offset != 0 &&
+			   // sanity check, offsets are never larger than this
+			   device_in_ctx_offset < 0x1000 &&
+			   device_sampler_func_offset < 0x4000) {
+				cuda_internal_api_functional = true;
+				cuda_device_sampler_func_offset = device_sampler_func_offset;
+				cuda_device_in_ctx_offset = device_in_ctx_offset;
+			}
+			else log_error("device sampler function pointer offset / device in context offset invalid or not found: %X, %X",
+						   device_sampler_func_offset, device_in_ctx_offset);
+		}
+		else log_error("cude lib not found");
+#endif
 #endif
 	}
 

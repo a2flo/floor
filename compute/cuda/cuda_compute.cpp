@@ -192,12 +192,13 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		
 		// enable h/w depth compare when using the internal api and everything is alright
 		if(cuda_can_use_internal_api()) {
+#if defined(__APPLE__) || !defined(__WINDOWS__) // TODO: enable for windows
 			log_msg("using internal api");
-#if defined(__APPLE__) // TODO: enable for linux/windows
 			device->image_depth_compare_support = true;
 			
 			// exchange the device sampler init function with our own + store the driver function in the device for later use
-			auto sampler_func_ptr = (void**)(uintptr_t(device->ctx->device) + cuda_device_sampler_func_offset);
+			auto device_ptr = *(void**)(uintptr_t(device->ctx) + cuda_device_in_ctx_offset);
+			auto sampler_func_ptr = (void**)(uintptr_t(device_ptr) + cuda_device_sampler_func_offset);
 			(void*&)device->sampler_init_func_ptr = *sampler_func_ptr;
 			*sampler_func_ptr = (void*)&cuda_image::internal_device_sampler_init;
 #endif
