@@ -137,7 +137,7 @@ void cuda_image::init_internal(const int& driver_version) {
 static safe_mutex device_sampler_mtx;
 static cuda_device* cur_device { nullptr };
 static bool apply_sampler_modifications { false };
-static CU_SAMPLER_TYPE cuda_sampler_or;
+static CU_SAMPLER_TYPE cuda_sampler_or { .low = 0, .high = 0 };
 CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 	// TODO: rather use tex_ref->ctx to figure this out (need to figure out how stable this is first though)
 	if(cur_device == nullptr) {
@@ -152,10 +152,12 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 	if(apply_sampler_modifications) {
 		// NOTE: need cuda version dependent offset for this (differs by 16 bytes for cuda 7.5/8.0)
 		if(cuda_driver_version < 8000) {
-			((cu_texture_ref_75*)tex_ref)->sampler_enum.value |= cuda_sampler_or.value;
+			((cu_texture_ref_75*)tex_ref)->sampler_enum.low |= cuda_sampler_or.low;
+			((cu_texture_ref_75*)tex_ref)->sampler_enum.high |= cuda_sampler_or.high;
 		}
 		else {
-			((cu_texture_ref_80*)tex_ref)->sampler_enum.value |= cuda_sampler_or.value;
+			((cu_texture_ref_80*)tex_ref)->sampler_enum.low |= cuda_sampler_or.low;
+			((cu_texture_ref_80*)tex_ref)->sampler_enum.high |= cuda_sampler_or.high;
 		}
 	}
 	
@@ -569,7 +571,8 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			// -> set the sampler state that we want to have
 			GUARD(device_sampler_mtx); // necessary, b/c we don't know which device is calling us in internal_device_sampler_init
 			cur_device = (cuda_device*)dev;
-			cuda_sampler_or.value = 0;
+			cuda_sampler_or.low = 0;
+			cuda_sampler_or.high = 0;
 			const auto compare_function = cuda_sampler::get_compare_function(i);
 			if(compare_function != cuda_sampler::NONE) {
 				apply_sampler_modifications = true;

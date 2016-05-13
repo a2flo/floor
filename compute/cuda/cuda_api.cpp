@@ -321,46 +321,92 @@ bool cuda_api_init(const bool use_internal_api) {
 			else log_error("cuda dylib not found (not loaded?)");
 		}
 		else log_error("task_info was unsuccessful");
-#elif defined(__WINDOWS__)
-		// TODO: !
-#else // linux
-#if defined(PLATFORM_X64) // only x64 is supported
-		string cuda_dylib_data = "";
-		if(file_io::file_to_string("/usr/lib/"s + cuda_lib_name, cuda_dylib_data)) {
+#elif (!defined(__WINDOWS__) && defined(PLATFORM_X64)) || defined(__WINDOWS__) // linux x64 / windows x64+x86
+		string cuda_lib_data = "";
+#if defined(__WINDOWS__)
+		const auto cuda_lib_path = core::expand_path_with_env(
+#if defined(PLATFORM_X64)
+															  "%windir%/SysWOW64/"s
+#else
+															  "%windir%/System32/"s
+#endif
+															  + cuda_lib_name);
+#else
+		const auto cuda_lib_path = "/usr/lib/"s + cuda_lib_name;
+#endif
+		if(file_io::file_to_string(cuda_lib_path, cuda_lib_data)) {
 			static const uint8_t pattern_start[] {
+#if defined(PLATFORM_X64)
+#if !defined(__WINDOWS__) // linux
 				// mov  rax, qword ptr [r12 + $device_in_ctx]
 				0x49, 0x8B, 0x84, 0x24, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
+#else // windows x64
+				// mov  rax, qword ptr [r13 + $device_in_ctx]
+				0x49, 0x8B, 0x85, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
+#endif
+#else // windows x86
+				// mov  edi, dword ptr [esp + 44]
+				// push dword ptr [esp + 36]
+				// mov  eax, dword ptr [edi + $device_in_ctx]
+				0x8B, 0x7C, 0x24, 0x2C, 0xFF, 0x74, 0x24, 0x24, 0x8B, 0x47, // 0x?? (ctx->device)
+#endif
 			};
 			static const uint8_t pattern_middle[] {
+#if defined(PLATFORM_X64)
+#if !defined(__WINDOWS__) // linux
 				// mov  rdi, qword ptr [rsp + 32]
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
 				0x48, 0x8B, 0x7C, 0x24, 0x20, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+#else // windows x64
+				// mov  rcx, qword ptr [rbp - 81]
+				// call qword ptr [rax + $sampler_init_func_ptr_offset]
+				0x48, 0x8B, 0x4D, 0xAF, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+#endif
+#else // windows x86
+				// mov  eax, dword ptr [eax + $sampler_init_func_ptr_offset]
+				0x8B, 0x80, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+#endif
 			};
 			static const uint8_t pattern_end[] {
+#if defined(PLATFORM_X64)
 				// always followed by:
+#if defined(__WINDOWS__)
+				// mov  ebx, eax
+				0x8B, 0xD8, // only on windows x64
+#endif
 				// test eax, eax
 				0x85, 0xC0,
+#else
+				// call eax
+				// mov  esi, eax
+				0xFF, 0xD0, 0x8B, 0xF0,
+#endif
 			};
-					
+			
 			size_t offset = 0;
-			uint32_t device_sampler_func_offset = 0, device_in_ctx_offset = 0;
+			uint32_t device_sampler_func_offset = 0;
+#if defined(PLATFORM_X64)
+			uint32_t device_in_ctx_offset = 0;
+#else
+			uint8_t device_in_ctx_offset = 0;
+#endif
 			for(;;) {
-				offset = cuda_dylib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
+				offset = cuda_lib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
 				if(offset != string::npos) {
 					// offset to "device_in_ctx_offset"
 					offset += size(pattern_start);
 					
 					// check if middle and end pattern match
-					if(memcmp(cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset),
+					if(memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset),
 							  pattern_middle, size(pattern_middle)) == 0 &&
-					   memcmp(cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle) + sizeof(device_sampler_func_offset),
+					   memcmp(cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle) + sizeof(device_sampler_func_offset),
 							  pattern_end, size(pattern_end)) == 0) {
-						memcpy(&device_in_ctx_offset, cuda_dylib_data.data() + offset,
+						   memcpy(&device_in_ctx_offset, cuda_lib_data.data() + offset,
 							   sizeof(device_in_ctx_offset));
-						memcpy(&device_sampler_func_offset, cuda_dylib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle),
+						   memcpy(&device_sampler_func_offset, cuda_lib_data.data() + offset + sizeof(device_in_ctx_offset) + sizeof(pattern_middle),
 							   sizeof(device_sampler_func_offset));
-						break;
-					}
+						   break;
+					   }
 				}
 				else break;
 			}
@@ -368,7 +414,7 @@ bool cuda_api_init(const bool use_internal_api) {
 			if(device_in_ctx_offset != 0 &&
 			   device_sampler_func_offset != 0 &&
 			   // sanity check, offsets are never larger than this
-			   device_in_ctx_offset < 0x1000 &&
+			   device_in_ctx_offset < 0x400 &&
 			   device_sampler_func_offset < 0x4000) {
 				cuda_internal_api_functional = true;
 				cuda_device_sampler_func_offset = device_sampler_func_offset;
@@ -378,7 +424,6 @@ bool cuda_api_init(const bool use_internal_api) {
 						   device_sampler_func_offset, device_in_ctx_offset);
 		}
 		else log_error("cude lib not found");
-#endif
 #endif
 	}
 

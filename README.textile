@@ -15,7 +15,7 @@
 ** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/vs-2015-product-editions
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
-** "SDL2":http://www.libsdl.org 2.0.4+ is recommended, earlier versions might work ("Windows 2.0.4+":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D)
+** "SDL2":http://www.libsdl.org 2.0.4+ is recommended, earlier versions might work
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
 ** (opt) CUDA: requires sm_20+/Fermi+ GPU and CUDA 7.5+ drivers (CUDA SDK not required!)

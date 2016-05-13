@@ -69,7 +69,7 @@ static_assert(sizeof(_cu_context) == 0x1F10, "invalid _cu_context size");
 
 union CU_SAMPLER_TYPE {
 	// same as metal
-	enum class COMPARE_FUNCTION : uint64_t {
+	enum class COMPARE_FUNCTION : uint32_t {
 		NONE				= 0,
 		NEVER				= 0,
 		LESS				= 1,
@@ -82,21 +82,30 @@ union CU_SAMPLER_TYPE {
 	};
 	
 	struct {
-		// TODO: coord_mode? (0 = non-normalized, 1 = normalized)
-		uint64_t address_mode : 9;
-		uint64_t _unknown_1 : 1;
-		COMPARE_FUNCTION compare_function : 3;
-		uint64_t has_anisotropic : 1;
-		uint64_t _unknown_3 : 6;
-		uint64_t anisotropic : 3;
-		uint64_t _unknown_4 : 9;
-		uint64_t filter_1 : 2; // 1 = nearest, 2 = linear
-		uint64_t _unknown_5 : 2;
-		uint64_t filter_2 : 2; // 1 = nearest, 2 = linear
+		struct {
+			// TODO: coord_mode? (0 = non-normalized, 1 = normalized)
+			uint32_t address_mode : 9;
+			uint32_t _unknown_1 : 1;
+			COMPARE_FUNCTION compare_function : 3;
+			uint32_t has_anisotropic : 1;
+			uint32_t _unknown_3 : 6;
+			uint32_t anisotropic : 3;
+			uint32_t _unknown_4 : 9;
+		};
+		struct {
+			uint32_t filter_1 : 2; // 1 = nearest, 2 = linear
+			uint32_t _unknown_5 : 2;
+			uint32_t filter_2 : 2; // 1 = nearest, 2 = linear
+			uint32_t _unknown_6 : 26;
+		};
 	};
-	uint64_t value { 0 };
+	struct {
+		uint32_t low { 0 };
+		uint32_t high { 0 };
+	};
 };
 static_assert(sizeof(CU_SAMPLER_TYPE) == sizeof(uint64_t), "invalid sampler size");
+static_assert(alignof(CU_SAMPLER_TYPE) == 4, "invalid sampler alignment");
 
 template <uint32_t cuda_version>
 struct cu_texture_ref_template {
@@ -142,16 +151,10 @@ struct cu_texture_ref_template {
 	size_t _init_unknown_3;
 	uint32_t flags;
 	uint32_t is_dirty;
-	// -- x86: 4 bytes padding
-	uint64_t _sampler1_0;
-	uint64_t _sampler1_1;
-	uint64_t _sampler1_2;
-	uint64_t _sampler1_3;
-	CU_SAMPLER_TYPE sampler_enum;
-	uint64_t _sampler2_1;
-	uint64_t _sampler2_2;
-	uint64_t _sampler2_3;
-	cu_tex_object texture_object;
+	uint32_t _sampler1[8]; // always 32 bytes
+	CU_SAMPLER_TYPE sampler_enum; // with _sampler2 always 32 bytes
+	uint32_t _sampler2[6];
+	uint32_t texture_object[2]; // low = texture id, high = sampler id
 	size_t _unknown_11;
 	size_t _unknown_12;
 	void* function_ptr;
