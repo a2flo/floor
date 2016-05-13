@@ -21,6 +21,9 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
+#include <floor/core/core.hpp>
+#include <floor/core/file_io.hpp>
+
 // instantiated in here
 cuda_api_ptrs cuda_api;
 uint32_t cuda_device_sampler_func_offset { 0 };
@@ -414,7 +417,7 @@ bool cuda_api_init(const bool use_internal_api) {
 			if(device_in_ctx_offset != 0 &&
 			   device_sampler_func_offset != 0 &&
 			   // sanity check, offsets are never larger than this
-			   device_in_ctx_offset < 0x400 &&
+			   uint32_t(device_in_ctx_offset) < 0x400 &&
 			   device_sampler_func_offset < 0x4000) {
 				cuda_internal_api_functional = true;
 				cuda_device_sampler_func_offset = device_sampler_func_offset;
