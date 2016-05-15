@@ -25,6 +25,7 @@
 
 #include <floor/compute/compute_queue.hpp>
 #include <floor/compute/vulkan/vulkan_kernel.hpp>
+#include <bitset>
 
 class vulkan_queue final : public compute_queue {
 public:

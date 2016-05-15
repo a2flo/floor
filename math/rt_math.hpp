@@ -71,7 +71,12 @@ namespace rt_math {
 											   is_signed<int_type>()) &&
 											  !is_same<int_type, __int128_t>())>* = nullptr>
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
-		return (val < (int_type)0 ? (max - (std::abs(val) % max)) : (val % max));
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
+		typedef conditional_t<sizeof(int_type) < 4, int32_t, int_type> cast_int_type;
+#else // still want native 8-bit/16-bit abs calls on compute platforms
+		typedef int_type cast_int_type;
+#endif
+		return (val < (int_type)0 ? (max - (std::abs(cast_int_type(val)) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]

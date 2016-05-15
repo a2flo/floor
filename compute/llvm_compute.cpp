@@ -19,6 +19,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 #include <regex>
+#include <climits>
 
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
