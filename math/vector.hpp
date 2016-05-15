@@ -620,6 +620,32 @@ public:
 		return _create_vec_ref<i0, i1, i2, i3, valid_components>();
 	}
 	
+	//! returns a copy of this vector that is trimmed to "target_dim" components
+	template <uint32_t target_dim>
+	floor_inline_always constexpr auto trim() const {
+		static_assert(target_dim != 0, "target dim can't be 0");
+		static_assert(target_dim <= FLOOR_VECTOR_WIDTH, "specified target dim must be <= dim of this vector");
+		return __builtin_choose_expr(target_dim == 1, vector1<scalar_type> { x },
+#if FLOOR_VECTOR_WIDTH < 2
+									 vector1<scalar_type> { decayed_scalar_type(0) }
+#else
+									 __builtin_choose_expr(target_dim == 2, vector2<scalar_type> { x, y },
+#if FLOOR_VECTOR_WIDTH < 3
+														   vector2<scalar_type> { decayed_scalar_type(0) }
+#else
+														   __builtin_choose_expr(target_dim == 3, vector3<scalar_type> { x, y, z },
+#if FLOOR_VECTOR_WIDTH < 4
+																				 vector3<scalar_type> { decayed_scalar_type(0) }
+#else
+																				 vector4<scalar_type> { x, y, z, w }
+#endif
+																				 )
+#endif
+														   )
+#endif
+									 );
+	}
+	
 	//////////////////////////////////////////
 	// basic ops
 #pragma mark basic ops
@@ -2101,7 +2127,22 @@ public:
 		return make_tuple(FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, std::cref FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT));
 	}
 	
-	// TODO: more conversions?
+	//! explicitly casts this vector (its components) to "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto cast() const {
+		return FLOOR_VECNAME<dst_scalar_type> {
+			dst_scalar_type(x),
+#if FLOOR_VECTOR_WIDTH >= 2
+			dst_scalar_type(y),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			dst_scalar_type(z),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			dst_scalar_type(w),
+#endif
+		};
+	}
 	
 };
 

@@ -264,26 +264,82 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 // something about dog food
 #include <floor/compute/device/common.hpp>
 
-kernel void libfloor_mip_map_minify_2d_float(image_2d<float> img,
-											 param<uint32_t> level,
-											 param<uint2> level_size,
-											 param<float2> inv_prev_level_size) {
-	if(global_id.x >= level_size.x ||
-	   global_id.y >= level_size.y) {
-		return;
-	}
+template <bool is_array, typename image_type, typename coord_type, enable_if_t<!is_array>* = nullptr>
+floor_inline_always void image_mip_level_read_write(image_type& img, const uint32_t level, const uint32_t, const coord_type& coord) {
+	img.write_lod(global_id.xy, level, img.read_lod_linear(coord, level - 1u));
+}
+template <bool is_array, typename image_type, typename coord_type, enable_if_t<is_array>* = nullptr>
+floor_inline_always void image_mip_level_read_write(image_type& img, const uint32_t level, const uint32_t layer, const coord_type& coord) {
+	img.write_lod(global_id.xy, layer, level, img.read_lod_linear(coord, layer, level - 1u));
+}
+
+template <COMPUTE_IMAGE_TYPE image_type, uint32_t image_dim = image_dim_count(image_type)>
+floor_inline_always void image_mip_map_minify(image<image_type> img,
+											  const vector_n<uint32_t, image_dim>& level_size,
+											  const vector_n<float, image_dim>& inv_prev_level_size,
+											  const uint32_t& level,
+											  const uint32_t& layer) {
+	static_assert(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type), "msaa is not supported!");
+	// TODO: support this (can't do this right now, because there is no (2d float coord, face) read function)
+	static_assert(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type), "cube map is not supported!");
+	
+	const auto trimmed_global_id = global_id.trim<image_dim>();
+	if((trimmed_global_id >= level_size).any()) return;
+	
 	// we generally want to directly sample in between pixels of the previous level
 	// e.g., in 1D for a previous level of [0 .. 7] px, global id is in [0 .. 3],
 	// an we want to sample between [0, 1] -> 0, [2, 3] -> 1, [4, 5] -> 2, [6, 7] -> 3,
 	// which is normalized (to [0, 1]) equal to 1/8, 3/8, 5/8, 7/8
-	const float2 coord { float2(global_id.xy * 2u + 1u) * inv_prev_level_size };
-	img.write_lod(global_id.xy, level, img.read_lod_linear(coord, level - 1u));
+	const auto coord = vector_n<float, image_dim>(trimmed_global_id * 2u + 1u) * inv_prev_level_size;
+	image_mip_level_read_write<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)>(img, level, layer, coord);
 }
 
+// list of all supported minification image types (base + sample type)
+#define FLOOR_MINIFY_IMAGE_TYPES(F) \
+F(IMAGE_1D, FLOAT) \
+F(IMAGE_1D, INT) \
+F(IMAGE_1D, UINT) \
+F(IMAGE_1D_ARRAY, FLOAT) \
+F(IMAGE_1D_ARRAY, INT) \
+F(IMAGE_1D_ARRAY, UINT) \
+F(IMAGE_2D, FLOAT) \
+F(IMAGE_2D, INT) \
+F(IMAGE_2D, UINT) \
+F(IMAGE_2D_ARRAY, FLOAT) \
+F(IMAGE_2D_ARRAY, INT) \
+F(IMAGE_2D_ARRAY, UINT) \
+F(IMAGE_3D, FLOAT) \
+F(IMAGE_3D, INT) \
+F(IMAGE_3D, UINT) \
+F(IMAGE_DEPTH, FLOAT) \
+F(IMAGE_DEPTH_ARRAY, FLOAT)
+
+#define FLOOR_MINIFY_KERNEL(image_type, sample_type) \
+kernel void libfloor_mip_map_minify_ ## image_type ## _ ## sample_type (image<(COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type | \
+																			   ((COMPUTE_IMAGE_TYPE::image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) == COMPUTE_IMAGE_TYPE::NONE ? \
+																				COMPUTE_IMAGE_TYPE::CHANNELS_4 : COMPUTE_IMAGE_TYPE::NONE))> img, \
+																		param<vector_n<uint32_t, image_dim_count(COMPUTE_IMAGE_TYPE::image_type)>> level_size, \
+																		param<vector_n<float, image_dim_count(COMPUTE_IMAGE_TYPE::image_type)>> inv_prev_level_size, \
+																		param<uint32_t> level, \
+																		param<uint32_t> layer) { \
+	image_mip_map_minify<(COMPUTE_IMAGE_TYPE::image_type | \
+						  COMPUTE_IMAGE_TYPE::sample_type | \
+						  ((COMPUTE_IMAGE_TYPE::image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) == COMPUTE_IMAGE_TYPE::NONE ? \
+						   COMPUTE_IMAGE_TYPE::CHANNELS_4 : COMPUTE_IMAGE_TYPE::NONE))>(img, level_size, inv_prev_level_size, level, layer); \
+}
+
+FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_KERNEL)
+
 void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
-	// TODO: build/get all minification kernels
-	static unordered_map<string, shared_ptr<compute_kernel>> minify_kernels {
-		{ "libfloor_mip_map_minify_2d_float", {} },
+	// build/get all minification kernels
+	static unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> minify_kernels {
+#define FLOOR_MINIFY_ENTRY(image_type, sample_type) \
+	{ \
+		COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type, \
+		{ "libfloor_mip_map_minify_" #image_type "_" #sample_type , {} } \
+	},
+		
+		FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_ENTRY)
 	};
 	// TODO: proper thread safety?
 	static atomic_flag kernel_init = ATOMIC_FLAG_INIT;
@@ -294,31 +350,53 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 			return;
 		}
 		for(auto& entry : minify_kernels) {
-			entry.second = prog->get_kernel(entry.first);
-			if(entry.second == nullptr) {
-				log_error("failed to retrieve kernel \"%s\" from program", entry.first);
+			entry.second.second = prog->get_kernel(entry.second.first);
+			if(entry.second.second == nullptr) {
+				log_error("failed to retrieve kernel \"%s\" from program", entry.second.first);
 				return;
 			}
 		}
 	}
 	
-	//
-	auto minify_kernel = minify_kernels["libfloor_mip_map_minify_2d_float"];
+	// find the appropriate kernel for this image type
+	const auto image_base_type = ((image_type & (COMPUTE_IMAGE_TYPE::__DIM_MASK |
+												 COMPUTE_IMAGE_TYPE::FLAG_ARRAY |
+												 COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
+												 COMPUTE_IMAGE_TYPE::FLAG_CUBE |
+												 COMPUTE_IMAGE_TYPE::FLAG_MSAA |
+												 COMPUTE_IMAGE_TYPE::FLAG_STENCIL)) |
+								  // use float sample type if normalized
+								  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ?
+								   COMPUTE_IMAGE_TYPE::FLOAT :
+								   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK)) |
+								  // must also attach channel count for depth (IMAGE_DEPTH uses it)
+								  (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ?
+								   COMPUTE_IMAGE_TYPE::NONE :
+								   (image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)));
+	const auto kernel_iter = minify_kernels.find(image_base_type);
+	if(kernel_iter == minify_kernels.end()) {
+		log_error("no minification kernel for this image type exists: %X", image_type);
+		return;
+	}
+	auto minify_kernel = kernel_iter->second.second;
 	
 	// iterate over all levels, (bi/tri)linearly downscaling the previous level (minify)
 	const auto dim_count = image_dim_count(image_type);
-	uint4 level_size {
-		image_dim.x,
-		dim_count >= 2 ? image_dim.y : 0u,
-		dim_count >= 3 ? image_dim.z : 0u,
-		0u
-	};
-	float2 inv_prev_level_size;
-	for(uint32_t level = 0; level < mip_level_count;
-		++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
-		if(level == 0) continue;
-		cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
-						(const compute_image*)this, level, level_size, inv_prev_level_size);
+	const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
+	for(uint32_t layer = 0; layer < layer_count; ++layer) {
+		uint4 level_size {
+			image_dim.x,
+			dim_count >= 2 ? image_dim.y : 0u,
+			dim_count >= 3 ? image_dim.z : 0u,
+			0u
+		};
+		float2 inv_prev_level_size;
+		for(uint32_t level = 0; level < mip_level_count;
+			++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
+			if(level == 0) continue;
+			cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
+							(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
+		}
 	}
 }
 

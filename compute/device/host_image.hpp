@@ -155,7 +155,7 @@ namespace host_image_impl {
 		
 		//! 1D array
 		floor_inline_always static size_t coord_to_offset(const image_level_info& level_info, const uint1 coord, const uint32_t layer) {
-			return coord_to_offset(level_info.offset, level_info.dim, coord.x) + image_slice_data_size_from_types(level_info.dim, fixed_image_type) * layer;
+			return coord_to_offset(level_info, coord) + image_slice_data_size_from_types(level_info.dim, fixed_image_type) * layer;
 		}
 		
 		//! 2D, 2D depth, 2D depth+stencil
@@ -439,8 +439,8 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			constexpr const auto channel_count = image_channel_count(type);
-			vector_n<conditional_t<(image_bits_of_channel(type, 0) <= 32 ||
-									data_type != COMPUTE_IMAGE_TYPE::FLOAT), float, double>, 4> ret;
+			vector4<conditional_t<(image_bits_of_channel(type, 0) <= 32 ||
+								   data_type != COMPUTE_IMAGE_TYPE::FLOAT), float, double>> ret;
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ||
 				   image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
@@ -600,7 +600,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const auto channel_count = image_channel_count(type);
 			const vector_n<ret_type, channel_count> ret_widened =
 				*(vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count>*)raw_data;
-			return vector_n<ret_type, 4> { ret_widened };
+			return vector4<ret_type> { ret_widened };
 		}
 
 FLOOR_POP_WARNINGS()
@@ -698,7 +698,7 @@ FLOOR_POP_WARNINGS()
 														depth_bytes == 3 ? 0xFFFFFFu : 0xFFFFFFFFu);
 				// always use long double for better precision
 				constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
-				uint32_t depth_val = (uint32_t)scale_factor * ((long double)*(float*)&color);
+				auto depth_val = uint32_t(scale_factor * ((long double)*(float*)&color));
 				if(depth_bytes != 4) {
 					// clamp non-32-bit values to their correct range
 					depth_val = const_math::clamp(depth_val, 0u, clamp_value);
@@ -735,24 +735,27 @@ FLOOR_POP_WARNINGS()
 													   conditional_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int32_t, uint32_t>,
 													   conditional_t<(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT, int64_t, uint64_t>>,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
+							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
 							   ((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT ||
 								(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
 		static void write(const host_device_image<type, is_lod, is_lod_float, is_bias>* img,
 						  const coord_type& coord,
 						  const uint32_t layer,
 						  const uint32_t lod_input,
-						  const vector_n<scalar_type, 4>& color) {
+						  const vector4<scalar_type>& color) {
 			// figure out the storage type/format of the image and create (cast to) the correct storage type from the input
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const auto channel_count = image_channel_count(type);
-			typedef vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count> storage_type;
+			typedef typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type storage_scalar_type;
+			typedef vector_n<storage_scalar_type, channel_count> storage_type;
 			static_assert(sizeof(storage_type) == image_bytes_per_pixel(type), "invalid storage type size!");
-			const storage_type raw_data = (storage_type)color; // nop if 32-bit/64-bit, cast down if 8-bit or 16-bit
+			// cast down to storage scalar type, then trim the vector to the image channel count
+			const storage_type raw_data = color.template cast<storage_scalar_type>().template trim<channel_count>();
 			const auto lod = select_lod(lod_input);
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
-			memcpy(&img->data[offset], raw_data);
+			memcpy(&img->data[offset], &raw_data, sizeof(raw_data));
 		}
 	};
 }
@@ -1472,7 +1475,8 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 		switch(runtime_base_type) {
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_2 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
+			// TODO: fix this
+			/*FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_2 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_2 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_2 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_2 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | fixed_data_type)
@@ -1480,7 +1484,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_4 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_4 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_4 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | fixed_data_type)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_4 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | fixed_data_type)
+			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_4 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | fixed_data_type)*/
 			
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
 			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_8 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | fixed_data_type)
