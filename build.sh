@@ -367,8 +367,8 @@ fi
 
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
-	# build a shared library
-	LDFLAGS="${LDFLAGS} -shared"
+	# build a shared library + need to make kernel symbols visible for dlsym
+	LDFLAGS="${LDFLAGS} -shared -rdynamic"
 	
 	# use PIC
 	LDFLAGS="${LDFLAGS} -fPIC"
@@ -420,7 +420,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	if [ $BUILD_OS == "linux" -o $BUILD_OS == "freebsd" -o $BUILD_OS == "openbsd" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} GL Xxf86vm"
 	elif [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} opengl32 glu32 gdi32 ws2_32"
+		UNCHECKED_LIBS="${UNCHECKED_LIBS} opengl32 glu32 gdi32 ws2_32 mswsock"
 	fi
 	
 	# linux:
@@ -458,7 +458,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel or AMD OpenCL SDK!"
 			fi
 		fi
-		# TODO: vulkan?
 	fi
 
 	for lib in ${UNCHECKED_LIBS}; do
