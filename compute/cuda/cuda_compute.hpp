@@ -138,9 +138,16 @@ public:
 	//////////////////////////////////////////
 	// cuda specific functions
 	
+	//! returns the cuda driver api version
+	uint32_t get_cuda_driver_version() const {
+		return driver_version;
+	}
+	
 protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<cuda_program>> programs GUARDED_BY(programs_lock);
+	
+	uint32_t driver_version { 0 };
 	
 };
 

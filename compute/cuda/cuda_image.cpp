@@ -24,6 +24,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
+#include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/core/gl_shader.hpp>
 
 // internal shaders for copying/blitting opengl textures
@@ -125,13 +126,19 @@ static bool cuda_memcpy(const void* host,
 	return true;
 }
 
-static int cuda_driver_version { 7050 };
-void cuda_image::init_internal(const int& driver_version) {
+static uint32_t cuda_driver_version { 7050 };
+static unordered_map<cuda_compute*, shared_ptr<compute_program>> minify_programs;
+void cuda_image::init_internal(cuda_compute* ctx) {
 	// only need to (can) init gl shaders when there's a window / gl context
 	if(!floor::is_console_only()) {
 		cuda_image_support::init();
 	}
-	cuda_driver_version = driver_version;
+	
+	// need to know the driver version when using internal cuda functionality later on
+	cuda_driver_version = ctx->get_cuda_driver_version();
+	
+	// build mip-map minify kernels (TODO: thread-safety + only init this when actually necessary?)
+	//minify_programs[ctx] = ctx->add_program_file(floor::get_cuda_base_path() + "floor/floor/compute/device/mip_map_minify.hpp");
 }
 
 static safe_mutex device_sampler_mtx;

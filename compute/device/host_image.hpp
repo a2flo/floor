@@ -35,7 +35,7 @@ template <COMPUTE_IMAGE_TYPE, bool is_lod, bool is_lod_float, bool is_bias> stru
 namespace host_image_impl {
 	struct image_level_info {
 		const uint4 dim;
-		const uint4 clamp_dim_int;
+		const int4 clamp_dim_int;
 		const float4 clamp_dim_float;
 		const uint32_t offset;
 		const uint32_t _unused[3];

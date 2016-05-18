@@ -205,22 +205,22 @@ namespace cuda_image {
 			case 1:
 				write_float<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							 COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, data);
+							 COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 2:
 				write_float<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							 COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, data);
+							 COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 3:
 				write_float<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							 COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, data);
+							 COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 4:
 				write_float<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							 COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							 COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, data);
+							 COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			default: floor_unreachable();
 		}
@@ -236,22 +236,22 @@ namespace cuda_image {
 			case 1:
 				write_int<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 						   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-						   COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, data);
+						   COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 2:
 				write_int<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 						   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-						   COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, data);
+						   COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 3:
 				write_int<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 						   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-						   COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, data);
+						   COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			case 4:
 				write_int<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 						   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-						   COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, data);
+						   COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				break;
 			default: floor_unreachable();
 		}
@@ -267,22 +267,22 @@ namespace cuda_image {
 			case 1:
 				write_uint<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, data);
+							COMPUTE_IMAGE_TYPE::CHANNELS_1)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				return;
 			case 2:
 				write_uint<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, data);
+							COMPUTE_IMAGE_TYPE::CHANNELS_2)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				return;
 			case 3:
 				write_uint<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, data);
+							COMPUTE_IMAGE_TYPE::CHANNELS_3)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				return;
 			case 4:
 				write_uint<((image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) |
 							COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-							COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, data);
+							COMPUTE_IMAGE_TYPE::CHANNELS_4)>(surf, runtime_image_type, coord, layer, lod, is_lod, data);
 				return;
 			default: floor_unreachable();
 		}

@@ -171,6 +171,7 @@
 		5C8FEF5F1AFE3BF4001D47BF /* opencl_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */; };
 		5C8FEF601AFE3BF4001D47BF /* opencl_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */; };
 		5C8FEF611AFE3BF4001D47BF /* opencl.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */; };
+		5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
@@ -429,6 +430,7 @@
 		5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_image.hpp; path = device/opencl_image.hpp; sourceTree = "<group>"; };
 		5C8FEF5D1AFE3BF4001D47BF /* opencl_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl_pre.hpp; path = device/opencl_pre.hpp; sourceTree = "<group>"; };
 		5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = opencl.hpp; path = device/opencl.hpp; sourceTree = "<group>"; };
+		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
@@ -774,6 +776,7 @@
 				5CBBFF571BC2B786001813E0 /* image.hpp */,
 				5C3A73F11AD921FA00AB2F13 /* image_types.hpp */,
 				5CAF42921B15C04D00316FBB /* logger.hpp */,
+				5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
 				5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */,
@@ -1060,6 +1063,7 @@
 				5CE0BDD919BB2A75000B28B3 /* bbox.hpp in Headers */,
 				5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */,
 				5C20C8D11B4139260005F5EA /* host_queue.hpp in Headers */,
+				5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */,
 				5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */,
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */,

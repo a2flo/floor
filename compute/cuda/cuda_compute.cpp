@@ -36,10 +36,9 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	CU_CALL_RET(cu_init(0), "failed to initialize CUDA")
 	
 	// need at least 7.5 right now
-	const auto to_driver_major = [](const int& version) { return version / 1000; };
-	const auto to_driver_minor = [](const int& version) { return (version % 100) / 10; };
-	int driver_version = 0;
-	cu_driver_get_version(&driver_version);
+	const auto to_driver_major = [](const uint32_t& version) { return version / 1000; };
+	const auto to_driver_minor = [](const uint32_t& version) { return (version % 100) / 10; };
+	cu_driver_get_version((int*)&driver_version);
 	if(driver_version < FLOOR_CUDA_API_VERSION_MIN) {
 		log_error("at least CUDA %u.%u is required, got CUDA %u.%u!",
 				  to_driver_major(FLOOR_CUDA_API_VERSION_MIN), to_driver_minor(FLOOR_CUDA_API_VERSION_MIN),
@@ -283,7 +282,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 	}
 	
 	// init shaders in cuda_image
-	cuda_image::init_internal(driver_version);
+	cuda_image::init_internal(this);
 }
 
 shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> dev) {

@@ -78,7 +78,7 @@ protected:
 		COMPUTE_IMAGE_TYPE runtime_image_type;
 		alignas(16) struct {
 			uint4 dim;
-			uint4 clamp_dim_int;
+			int4 clamp_dim_int;
 			float4 clamp_dim_float;
 			uint32_t offset;
 			const uint32_t _unused[3] { 0, 0, 0 };
