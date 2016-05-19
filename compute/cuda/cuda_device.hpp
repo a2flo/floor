@@ -25,6 +25,7 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class cuda_compute;
 class cuda_device final : public compute_device {
 public:
 	cuda_device();
@@ -65,6 +66,9 @@ public:
 	int32_t _device_id { 0u };
 	void* _sampler_init_func_ptr { nullptr };
 #endif
+	
+	//! associated cuda_compute context
+	cuda_compute* compute_ctx { nullptr };
 	
 };
 

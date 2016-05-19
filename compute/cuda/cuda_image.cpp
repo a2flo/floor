@@ -27,6 +27,14 @@
 #include <floor/compute/cuda/cuda_compute.hpp>
 #include <floor/core/gl_shader.hpp>
 
+#include <floor/compute/device/mip_map_minify.hpp>
+struct minify_program {
+	shared_ptr<compute_program> program;
+	unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> kernels;
+};
+static safe_mutex minify_programs_mtx;
+static unordered_map<cuda_compute*, unique_ptr<minify_program>> minify_programs GUARDED_BY(minify_programs_mtx);
+
 // internal shaders for copying/blitting opengl textures
 static const char blit_vs_text[] {
 	"out vec2 tex_coord;\n"
@@ -127,7 +135,6 @@ static bool cuda_memcpy(const void* host,
 }
 
 static uint32_t cuda_driver_version { 7050 };
-static unordered_map<cuda_compute*, shared_ptr<compute_program>> minify_programs;
 void cuda_image::init_internal(cuda_compute* ctx) {
 	// only need to (can) init gl shaders when there's a window / gl context
 	if(!floor::is_console_only()) {
@@ -137,8 +144,43 @@ void cuda_image::init_internal(cuda_compute* ctx) {
 	// need to know the driver version when using internal cuda functionality later on
 	cuda_driver_version = ctx->get_cuda_driver_version();
 	
-	// build mip-map minify kernels (TODO: thread-safety + only init this when actually necessary?)
-	//minify_programs[ctx] = ctx->add_program_file(floor::get_cuda_base_path() + "floor/floor/compute/device/mip_map_minify.hpp");
+	// TODO: only init this when actually necessary!
+	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
+	// NOTE: this will only be called once on context init
+	task::spawn([ctx]() {
+		auto prog = make_unique<minify_program>();
+		prog->program = ctx->add_program_file(floor::get_cuda_base_path() + "floor/floor/compute/device/mip_map_minify.hpp");
+		if(prog->program == nullptr) {
+			log_error("failed to build minify kernels");
+			return;
+		}
+		
+		// build/get all minification kernels
+		unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> minify_kernels {
+#define FLOOR_MINIFY_ENTRY(image_type, sample_type) \
+			{ \
+				COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type, \
+				{ "libfloor_mip_map_minify_" #image_type "_" #sample_type , {} } \
+			},
+		
+			FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_ENTRY)
+		};
+		
+		for(auto& entry : minify_kernels) {
+			entry.second.second = prog->program->get_kernel(entry.second.first);
+			if(entry.second.second == nullptr) {
+				log_error("failed to retrieve kernel \"%s\" from minify program", entry.second.first);
+				return;
+			}
+		}
+		minify_kernels.swap(prog->kernels);
+		
+		// done, set programs for this context and return
+		GUARD(minify_programs_mtx);
+		minify_programs[ctx] = move(prog);
+		
+		// TODO: safely/cleanly hold up cuda_compute destruction if the program exits before this is built
+	}, "cuda minify");
 }
 
 static safe_mutex device_sampler_mtx;
@@ -196,7 +238,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	}
 	
 	// actually create the image
-	if(!create_internal(true, nullptr)) {
+	if(!create_internal(true, device->compute_ctx->get_device_default_queue(device))) {
 		return; // can't do much else
 	}
 }
@@ -626,6 +668,12 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 					"failed to create surface object", false);
 	}
 	
+	// manually create mip-map chain
+	if(generate_mip_maps &&
+	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+		generate_mip_map_chain(cqueue);
+	}
+	
 	return true;
 }
 
@@ -958,6 +1006,68 @@ bool cuda_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	gl_object_state = true;
 	
 	return true;
+}
+
+void cuda_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
+	if(image == nullptr) return;
+	if(cqueue == nullptr) return;
+	
+	for(uint32_t try_out = 0; ; ++try_out) {
+		if(try_out == 100) {
+			log_error("mip-map minify kernel compilation is stuck?");
+			return;
+		}
+		if(try_out > 0) {
+			this_thread::sleep_for(50ms);
+		}
+		
+		// get the compiled program for this context
+		minify_programs_mtx.lock();
+		const auto iter = minify_programs.find(((cuda_device*)dev)->compute_ctx);
+		if(iter == minify_programs.end()) {
+			minify_programs_mtx.unlock();
+			continue;
+		}
+		const auto prog = iter->second.get();
+		minify_programs_mtx.unlock();
+		
+		// find the appropriate kernel for this image type
+		const auto image_base_type = minify_image_base_type(image_type);
+		const auto kernel_iter = prog->kernels.find(image_base_type);
+		if(kernel_iter == prog->kernels.end()) {
+			log_error("no minification kernel for this image type exists: %X", image_type);
+			return;
+		}
+		auto minify_kernel = kernel_iter->second.second;
+		
+		// run the kernel for this image
+		const auto dim_count = image_dim_count(image_type);
+		const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
+		uint3 local_size;
+		switch(dim_count) {
+			case 1: local_size = { dev->max_work_group_size, 1, 1 }; break;
+			case 2: local_size = { 32, (dev->max_work_group_size > 512 ? 32 : 16), 1 }; break;
+			default:
+			case 3: local_size = { (dev->max_work_group_size > 512 ? 32 : 16), 16, 2 }; break;
+		}
+		for(uint32_t layer = 0; layer < layer_count; ++layer) {
+			uint3 level_size {
+				image_dim.x,
+				dim_count >= 2 ? image_dim.y : 0u,
+				dim_count >= 3 ? image_dim.z : 0u,
+			};
+			float3 inv_prev_level_size;
+			for(uint32_t level = 0; level < mip_level_count;
+				++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
+				if(level == 0) continue;
+				cqueue->execute(minify_kernel, level_size.rounded_next_multiple(local_size), local_size,
+								(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
+			}
+		}
+		
+		// done
+		return;
+	}
 }
 
 #endif

@@ -111,6 +111,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		
 		// set initial/fixed attributes
 		device->ctx = ctx;
+		device->compute_ctx = this;
 		device->device_id = cuda_dev;
 		device->sm = uint2(cc);
 		device->type = (compute_device::TYPE)gpu_counter++;
@@ -216,7 +217,8 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					break;
 				case 6:
 				default:
-					multiplier = 64;
+					// TODO: sm_62? probably tegra, so default to 128 as well
+					multiplier = (dev->sm.y == 0 ? 64 : 128);
 					break;
 			}
 			return multiplier * (dev->units * dev->clock);
@@ -281,6 +283,11 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_ctx_set_current(((cuda_device*)fastest_gpu_device.get())->ctx));
 	}
 	
+	// create a default queue for each device
+	for(const auto& dev : devices) {
+		default_queues.insert(dev.get(), create_queue(dev));
+	}
+	
 	// init shaders in cuda_image
 	cuda_image::init_internal(this);
 }
@@ -298,6 +305,20 @@ shared_ptr<compute_queue> cuda_compute::create_queue(shared_ptr<compute_device> 
 	auto ret = make_shared<cuda_queue>(dev, stream);
 	queues.push_back(ret);
 	return ret;
+}
+
+shared_ptr<compute_queue> cuda_compute::get_device_default_queue(shared_ptr<compute_device> dev) const {
+	return get_device_default_queue(dev.get());
+}
+
+shared_ptr<compute_queue> cuda_compute::get_device_default_queue(const compute_device* dev) const {
+	const auto def_queue = default_queues.get(dev);
+	if(def_queue.first) {
+		return def_queue.second->second;
+	}
+	// only happens if the context is invalid (the default queues haven't been created)
+	log_error("no default queue for this device exists yet!");
+	return {};
 }
 
 shared_ptr<compute_buffer> cuda_compute::create_buffer(shared_ptr<compute_device> device,
@@ -399,8 +420,9 @@ shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_na
 	prog_map.reserve(devices.size());
 	options.target = llvm_compute::TARGET::PTX;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((cuda_device*)dev.get(),
-								  create_cuda_program(llvm_compute::compile_program_file(dev, file_name, options)));
+		const auto cuda_dev = (cuda_device*)dev.get();
+		prog_map.insert_or_assign(cuda_dev,
+								  create_cuda_program(cuda_dev, llvm_compute::compile_program_file(dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
@@ -417,15 +439,17 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	prog_map.reserve(devices.size());
 	options.target = llvm_compute::TARGET::PTX;
 	for(const auto& dev : devices) {
-		prog_map.insert_or_assign((cuda_device*)dev.get(),
-								  create_cuda_program(llvm_compute::compile_program(dev, source_code, options)));
+		const auto cuda_dev = (cuda_device*)dev.get();
+		prog_map.insert_or_assign(cuda_dev,
+								  create_cuda_program(cuda_dev, llvm_compute::compile_program(dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
-cuda_program::cuda_program_entry cuda_compute::create_cuda_program(llvm_compute::program_data program) {
+cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_device* device,
+																   llvm_compute::program_data program) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
-	const auto& sm = ((cuda_device*)devices[0].get())->sm;
+	const auto& sm = device->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
 	cuda_program::cuda_program_entry ret;
 	ret.functions = program.functions;
@@ -433,6 +457,10 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(llvm_compute:
 	if(!program.valid) {
 		return ret;
 	}
+	
+	// must make the device ctx current for this thread (if it isn't already)
+	CU_CALL_RET(cu_ctx_set_current(device->ctx),
+				"failed to make cuda context current", {});
 	
 	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
 		const CU_JIT_OPTION jit_options[] {
@@ -566,10 +594,10 @@ shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const str
 	return {};
 }
 
-shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
+shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device,
 																			  llvm_compute::program_data program,
 																			  const llvm_compute::TARGET) {
-	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program(program));
+	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program((cuda_device*)device.get(), program));
 }
 
 #endif

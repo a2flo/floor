@@ -126,7 +126,8 @@ public:
 															 const vector<llvm_compute::function_info>& functions) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
-	cuda_program::cuda_program_entry create_cuda_program(llvm_compute::program_data program);
+	cuda_program::cuda_program_entry create_cuda_program(const cuda_device* device,
+														 llvm_compute::program_data program);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<cuda_program> add_program(cuda_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
@@ -143,11 +144,16 @@ public:
 		return driver_version;
 	}
 	
+	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
+	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
+	
 protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<cuda_program>> programs GUARDED_BY(programs_lock);
 	
 	uint32_t driver_version { 0 };
+	
+	flat_map<const compute_device*, shared_ptr<compute_queue>> default_queues;
 	
 };
 

@@ -263,6 +263,7 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 
 // something about dog food
 #include <floor/compute/device/common.hpp>
+#define FLOOR_COMPUTE_HOST_MINIFY 1 // needed now so that kernel code will actually be included
 #include <floor/compute/device/mip_map_minify.hpp>
 
 void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
@@ -294,20 +295,7 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	}
 	
 	// find the appropriate kernel for this image type
-	const auto image_base_type = ((image_type & (COMPUTE_IMAGE_TYPE::__DIM_MASK |
-												 COMPUTE_IMAGE_TYPE::FLAG_ARRAY |
-												 COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
-												 COMPUTE_IMAGE_TYPE::FLAG_CUBE |
-												 COMPUTE_IMAGE_TYPE::FLAG_MSAA |
-												 COMPUTE_IMAGE_TYPE::FLAG_STENCIL)) |
-								  // use float sample type if normalized
-								  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(image_type) ?
-								   COMPUTE_IMAGE_TYPE::FLOAT :
-								   (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK)) |
-								  // must also attach channel count for depth (IMAGE_DEPTH uses it)
-								  (!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ?
-								   COMPUTE_IMAGE_TYPE::NONE :
-								   (image_type & COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)));
+	const auto image_base_type = minify_image_base_type(image_type);
 	const auto kernel_iter = minify_kernels.find(image_base_type);
 	if(kernel_iter == minify_kernels.end()) {
 		log_error("no minification kernel for this image type exists: %X", image_type);
@@ -318,18 +306,24 @@ void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	// iterate over all levels, (bi/tri)linearly downscaling the previous level (minify)
 	const auto dim_count = image_dim_count(image_type);
 	const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
+	uint3 lsize;
+	switch(dim_count) {
+		case 1: lsize = { 64, 1, 1 }; break;
+		default:
+		case 2:
+		case 3: lsize = { 8, 8, 1 }; break;
+	}
 	for(uint32_t layer = 0; layer < layer_count; ++layer) {
-		uint4 level_size {
+		uint3 level_size {
 			image_dim.x,
 			dim_count >= 2 ? image_dim.y : 0u,
-			dim_count >= 3 ? image_dim.z : 0u,
-			0u
+			dim_count >= 3 ? image_dim.z : 0u
 		};
-		float2 inv_prev_level_size;
+		float3 inv_prev_level_size;
 		for(uint32_t level = 0; level < mip_level_count;
-			++level, inv_prev_level_size = 1.0f / float2(level_size.xy), level_size >>= 1) {
+			++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
 			if(level == 0) continue;
-			cqueue->execute(minify_kernel, level_size.xy.rounded_next_multiple(8), uint2 { 8, 8 },
+			cqueue->execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
 							(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
 		}
 	}
