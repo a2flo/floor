@@ -2042,10 +2042,10 @@ index 9173de1..5007126 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..098bc8e
+index 0000000..65e68d0
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,372 @@
+@@ -0,0 +1,374 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2391,6 +2391,8 @@ index 0000000..098bc8e
 +										const uint32_t& image_channel_count,
 +										llvm::Value* coord_arg,
 +										llvm::Value* layer_arg,
++										llvm::Value* lod_arg,
++										const bool is_lod,
 +										llvm::Value* data_arg) = 0;
 +		
 +	protected:
@@ -37935,10 +37937,10 @@ index 0000000..b77f9fa
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..1a45947
+index 0000000..7329c5c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,638 @@
+@@ -0,0 +1,641 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38362,6 +38364,9 @@ index 0000000..1a45947
 +								const uint32_t& image_channel_count,
 +								llvm::Value* coord_arg,
 +								llvm::Value* layer_arg,
++								// NOTE: lod is handled on the library side
++								llvm::Value* /* lod_arg */,
++								const bool /* is_lod */,
 +								llvm::Value* data_arg) override {
 +			SmallVector<llvm::Type*, 16> asm_arg_types;
 +			SmallVector<llvm::Value*, 16> asm_args;
@@ -38445,7 +38450,7 @@ index 0000000..1a45947
 +				asm_args.push_back(layer_arg);
 +				constraints_str += ",r";
 +				coords_placeholders += " $";
-+				coords_placeholders += std::to_string(coord_idx++);
++				coords_placeholders += std::to_string(coord_start_idx + coord_idx++);
 +			}
 +			for(uint32_t i = 0; i < coord_dim; ++i) {
 +				asm_arg_types.push_back(coord_type);
@@ -38579,10 +38584,10 @@ index 0000000..1a45947
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..f0064cd
+index 0000000..ddd1068
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,438 @@
+@@ -0,0 +1,450 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -38969,11 +38974,23 @@ index 0000000..f0064cd
 +			return;
 +		}
 +		
++		// -> lod
++		const auto is_lod_arg = dyn_cast_or_null<ConstantInt>(CS.getArgument(5 + args_offset));
++		const bool is_lod = is_lod_arg->isOne();
++		const auto lod_arg = CS.getArgument(4 + args_offset);
++		
++		if(!lod_arg->getType()->isIntegerTy()) {
++			ctx->emitError(I, "invalid lod type (must be integer)");
++			return;
++		}
++		
 +		handle_write_image(*I, func_name,
 +						   img_handle_arg,
 +						   image_type, format_type, image_data_type,
 +						   is_normalized, image_channel_count,
-+						   coord_arg, layer_arg, data_arg);
++						   coord_arg, layer_arg,
++						   lod_arg, is_lod,
++						   data_arg);
 +	}
 +}
 +
@@ -39804,10 +39821,10 @@ index 0000000..ff5cb3f
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..b7b2c0d
+index 0000000..0a3eeb1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
-@@ -0,0 +1,500 @@
+@@ -0,0 +1,507 @@
 +//===- MetalImage.cpp - Metal-specific floor image transformations --------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -40169,6 +40186,8 @@ index 0000000..b7b2c0d
 +								const uint32_t& image_channel_count,
 +								llvm::Value* coord_arg,
 +								llvm::Value* layer_arg,
++								llvm::Value* lod_arg,
++								const bool is_lod,
 +								llvm::Value* data_arg) override {
 +			SmallVector<llvm::Type*, 16> func_arg_types;
 +			SmallVector<llvm::Value*, 16> func_args;
@@ -40281,9 +40300,14 @@ index 0000000..b7b2c0d
 +			func_arg_types.push_back(data_arg->getType());
 +			func_args.push_back(data_arg);
 +			
-+			// -> lod (always 0 for now, TODO: support write lod)
++			// -> lod
 +			func_arg_types.push_back(llvm::Type::getInt32Ty(*ctx));
-+			func_args.push_back(builder->getInt32(0));
++			if(!is_lod) {
++				func_args.push_back(builder->getInt32(0));
++			}
++			else {
++				func_args.push_back(lod_arg);
++			}
 +			
 +			// -> build write func name
 +			const std::string write_func_name = "air.write_" + geom + '.' + dtype;
@@ -40564,10 +40588,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..d207fe5
+index 0000000..f746114
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,623 @@
+@@ -0,0 +1,630 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -41070,6 +41094,8 @@ index 0000000..d207fe5
 +								const uint32_t& image_channel_count,
 +								llvm::Value* coord_arg,
 +								llvm::Value* layer_arg,
++								llvm::Value* lod_arg,
++								const bool is_lod,
 +								llvm::Value* data_arg) override {
 +			SmallVector<llvm::Type*, 8> func_arg_types;
 +			SmallVector<llvm::Value*, 8> func_args;
@@ -41151,6 +41177,14 @@ index 0000000..d207fe5
 +							func_arg_types,
 +							func_args);
 +			
++			// -> lod
++			if(is_lod) {
++				// always int
++				cl_func_name += "i";
++				func_arg_types.push_back(lod_arg->getType());
++				func_args.push_back(lod_arg);
++			}
++			
 +			// -> data
 +			// data is always a vector4, unless we're writing depth
 +			if(!is_depth) {
@@ -41165,9 +41199,6 @@ index 0000000..d207fe5
 +				func_args.push_back(depth_arg);
 +			}
 +			cl_func_name += dtype;
-+			
-+			// -> lod
-+			// TODO
 +			
 +			// create the opencl call
 +			auto write_func = get_or_create_spir_function(cl_func_name, builder->getVoidTy(), func_arg_types, false);
