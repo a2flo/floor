@@ -192,12 +192,26 @@ protected:
 		}
 		
 		// set surface object
-		memcpy(data, &cu_img->get_cuda_surface(), sizeof(uint64_t));
+		memcpy(data, &cu_img->get_cuda_surfaces()[0], sizeof(uint64_t));
 		data += sizeof(uint64_t);
+		
+		// set ptr to surfaces lod buffer
+		const auto lod_buffer = cu_img->get_cuda_surfaces_lod_buffer();
+		if(lod_buffer != nullptr) {
+			memcpy(data, &lod_buffer->get_cuda_buffer(), sizeof(cu_device_ptr));
+		}
+		else {
+			memset(data, 0, sizeof(cu_device_ptr));
+		}
+		data += sizeof(cu_device_ptr);
 		
 		// set run-time image type
 		memcpy(data, &cu_img->get_image_type(), sizeof(COMPUTE_IMAGE_TYPE));
-		data += sizeof(COMPUTE_IMAGE_TYPE) + 4 /* padding */;
+		data += sizeof(COMPUTE_IMAGE_TYPE);
+		
+#if defined(PLATFORM_X64)
+		data += 4 /* padding */;
+#endif
 	}
 	
 };

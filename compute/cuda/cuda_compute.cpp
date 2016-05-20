@@ -571,7 +571,8 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		CU_CALL_NO_ACTION(cu_link_destroy(link_state),
 						  "failed to destroy link state");
 		
-		if(info_log[0] != 0) {
+		if(info_log[0] != 0 &&
+		   !program.options.silence_debug_output) {
 			info_log[log_size - 1] = 0;
 			log_debug("ptx build info: %s", info_log);
 		}
@@ -581,7 +582,10 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			file_io::buffer_to_file("binary_" + to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
 		}
 	}
-	log_debug("successfully created cuda program!");
+	
+	if(!program.options.silence_debug_output) {
+		log_debug("successfully created cuda program!");
+	}
 	
 	ret.valid = true;
 	return ret;

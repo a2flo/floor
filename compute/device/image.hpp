@@ -253,6 +253,7 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
+		const uint64_t* w_img_lod;
 		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* r_img;
@@ -270,6 +271,7 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
+		const uint64_t* w_img_lod;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* w_img;
@@ -288,6 +290,7 @@ namespace floor_image {
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img[cuda_sampler::max_sampler_count];
 		const uint64_t w_img;
+		const uint64_t* w_img_lod;
 		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		// all the same, just different names
@@ -783,6 +786,7 @@ namespace floor_image {
 		using image_base_type::convert_coord;
 		using image_storage_type::w_img;
 #if defined(FLOOR_COMPUTE_CUDA)
+		using image_storage_type::w_img_lod;
 		using image_storage_type::runtime_image_type;
 #endif
 		
@@ -812,11 +816,12 @@ namespace floor_image {
 														opaque_image::write_image_int(w_img, image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
 														opaque_image::write_image_uint(w_img, image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
 #elif defined(FLOOR_COMPUTE_CUDA)
+			const auto surface = __builtin_choose_expr(!is_lod, w_img, w_img_lod[lod]);
 			__builtin_choose_expr(is_float,
-								  cuda_image::write_float<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
+								  cuda_image::write_float<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
 								  __builtin_choose_expr(is_int,
-														cuda_image::write_int<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
-														cuda_image::write_uint<image_type>(w_img, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
+														cuda_image::write_int<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
+														cuda_image::write_uint<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
 #elif defined(FLOOR_COMPUTE_HOST)
 			host_device_image<image_type, is_lod, false, false>::write((host_device_image<image_type, is_lod, false, false>*)w_img, converted_coord, layer, lod, converted_data);
 #endif

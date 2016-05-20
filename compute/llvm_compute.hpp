@@ -162,6 +162,9 @@ public:
 		//! if true, explicitly enables the emission of debug line info (-gline-tables-only)
 		bool emit_debug_line_info { false };
 		
+		//! if true, overrides the config compute.log_commands option and silences other debug output
+		bool silence_debug_output { false };
+		
 		//! cuda: sets the maximum amount of registers that may be used
 		//!       if 0, the global config setting is used
 		uint32_t cuda_max_registers { 0u };

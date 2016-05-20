@@ -28,6 +28,7 @@
 
 class cuda_device;
 class cuda_compute;
+class cuda_buffer;
 class cuda_image final : public compute_image {
 public:
 	cuda_image(const cuda_device* device,
@@ -56,10 +57,17 @@ public:
 	//! returns the cuda specific image pointer (array or mip-mapped array)
 	const void* get_cuda_image() const { return image; }
 	
-	//! returns the cuda surface object
-	const cu_surf_object& get_cuda_surface() const { return surface; }
+	//! returns the cuda surface objects
+	const auto& get_cuda_surfaces() const {
+		return surfaces;
+	}
 	
-	//! returns the cuda texture object
+	//! returns the cuda buffer containing all lod surface objects (on the device)
+	const cuda_buffer* get_cuda_surfaces_lod_buffer() const {
+		return (surfaces_lod_buffer != nullptr ? surfaces_lod_buffer.get() : nullptr);
+	}
+	
+	//! returns the cuda texture objects
 	const auto& get_cuda_textures() const {
 		return textures;
 	}
@@ -82,8 +90,10 @@ protected:
 	// contains the cu_array for each mip-level
 	vector<cu_array> image_mipmap_arrays;
 	
-	// only need one surface object (only needs to point to image)
-	cu_surf_object surface { 0ull };
+	// only need one surface object per mip-level (only needs to point to a cu_array)
+	vector<cu_surf_object> surfaces;
+	shared_ptr<cuda_buffer> surfaces_lod_buffer;
+	
 	// the way cuda reads/samples images must be specified in the host api, which will basically
 	// create a combined texture+sampler object -> need to create these for all possible types
 	array<cu_tex_only_object, cuda_sampler::max_sampler_count> textures;

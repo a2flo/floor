@@ -516,10 +516,12 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		return {};
 	}
 	// also print the output if it is non-empty
-	if(compilation_output != "") {
+	if(compilation_output != "" &&
+	   !options.silence_debug_output) {
 		log_debug("compilation output:\n%s", compilation_output);
 	}
-	if(floor::get_compute_log_commands()) {
+	if(floor::get_compute_log_commands() &&
+	   !options.silence_debug_output) {
 		log_debug("clang cmd: %s", clang_cmd);
 	}
 	
@@ -547,7 +549,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			};
 			string spir_encoder_output = "";
 			core::system(spir_3_2_encoder_cmd, spir_encoder_output);
-			log_msg("spir encoder: %s", spir_encoder_output);
+			if(!options.silence_debug_output) {
+				log_msg("spir encoder: %s", spir_encoder_output);
+			}
 			
 			// run spir-verifier if specified
 			if(floor::get_opencl_verify_spir() && toolchain_version < 380) {
@@ -562,7 +566,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				if(!spir_verifier_output.empty() && spir_verifier_output[spir_verifier_output.size() - 1] == '\n') {
 					spir_verifier_output.pop_back(); // trim last newline
 				}
-				log_msg("spir verifier: %s", spir_verifier_output);
+				if(!options.silence_debug_output) {
+					log_msg("spir verifier: %s", spir_verifier_output);
+				}
 			}
 			
 			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
@@ -614,7 +620,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			+ " 2>&1"
 #endif
 		};
-		if(floor::get_compute_log_commands()) {
+		if(floor::get_compute_log_commands() &&
+		   !options.silence_debug_output) {
 			log_debug("llc cmd: %s", llc_cmd);
 		}
 		string ptx_code = "";
@@ -655,7 +662,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			};
 			string applecl_encoder_output = "";
 			core::system(applecl_3_2_encoder_cmd, applecl_encoder_output);
-			log_msg("applecl encoder: %s", applecl_encoder_output);
+			if(!options.silence_debug_output) {
+				log_msg("applecl encoder: %s", applecl_encoder_output);
+			}
 			
 			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
 			if(!file_io::file_to_string(applecl_32_bc, applecl_bc_data)) {
@@ -704,7 +713,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		};
 		string spirv_encoder_output = "";
 		core::system(spirv_encoder_cmd, spirv_encoder_output);
-		log_msg("spir-v encoder: %s", spirv_encoder_output);
+		if(!options.silence_debug_output) {
+			log_msg("spir-v encoder: %s", spirv_encoder_output);
+		}
 		
 		// run spirv-val if specified
 		if(validate) {
@@ -719,7 +730,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			if(!spirv_validator_output.empty() && spirv_validator_output[spirv_validator_output.size() - 1] == '\n') {
 				spirv_validator_output.pop_back(); // trim last newline
 			}
-			log_msg("spir-v validator: %s", spirv_validator_output);
+			if(!options.silence_debug_output) {
+				log_msg("spir-v validator: %s", spirv_validator_output);
+			}
 		}
 		
 		// cleanup

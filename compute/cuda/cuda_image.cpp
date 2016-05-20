@@ -25,6 +25,7 @@
 #include <floor/compute/cuda/cuda_queue.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/cuda/cuda_compute.hpp>
+#include <floor/compute/cuda/cuda_buffer.hpp>
 #include <floor/core/gl_shader.hpp>
 
 #include <floor/compute/device/mip_map_minify.hpp>
@@ -149,7 +150,12 @@ void cuda_image::init_internal(cuda_compute* ctx) {
 	// NOTE: this will only be called once on context init
 	task::spawn([ctx]() {
 		auto prog = make_unique<minify_program>();
-		prog->program = ctx->add_program_file(floor::get_cuda_base_path() + "floor/floor/compute/device/mip_map_minify.hpp");
+		const llvm_compute::compile_options options {
+			// suppress any debug output for this, we only want to have console/log output if something goes wrong
+			.silence_debug_output = true
+		};
+		prog->program = ctx->add_program_file(floor::get_cuda_base_path() + "floor/floor/compute/device/mip_map_minify.hpp",
+											  options);
 		if(prog->program == nullptr) {
 			log_error("failed to build minify kernels");
 			return;
@@ -659,13 +665,31 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		}
 	}
 	if(need_surf) {
-		// TODO: support image write with lod (need to create a surface for each mip-level ...)
+		// there is no mip-map surface equivalent, so we must create a surface for each mip-map level from each level array
 		if(is_mip_mapped) {
 			rsrc_desc.type = CU_RESOURCE_TYPE::ARRAY;
-			rsrc_desc.array = image_mipmap_arrays[0];
 		}
-		CU_CALL_RET(cu_surf_object_create(&surface, &rsrc_desc),
-					"failed to create surface object", false);
+		
+		surfaces.resize(mip_level_count);
+		for(uint32_t level = 0; level < mip_level_count; ++level) {
+			if(is_mip_mapped) {
+				rsrc_desc.array = image_mipmap_arrays[level];
+			}
+			CU_CALL_RET(cu_surf_object_create(&surfaces[level], &rsrc_desc),
+						"failed to create surface object", false);
+		}
+		
+		// since we don't want to carry around 64-bit values for all possible mip-levels for all images (15 * 8 == 120 bytes per image!),
+		// store all mip-map level surface "objects"/ids in a separate buffer, which we will access if lod write is actually being used
+		if(is_mip_mapped) {
+			surfaces_lod_buffer = make_shared<cuda_buffer>((cuda_device*)dev, surfaces,
+														   COMPUTE_MEMORY_FLAG::READ | COMPUTE_MEMORY_FLAG::HOST_WRITE);
+		}
+	}
+	else {
+		// create dummy surface object (needed when setting kernel args)
+		surfaces.resize(1);
+		surfaces[0] = 0;
 	}
 	
 	// manually create mip-map chain
@@ -687,9 +711,11 @@ cuda_image::~cuda_image() {
 							  "failed to destroy texture object");
 		}
 	}
-	if(surface != 0) {
-		CU_CALL_NO_ACTION(cu_surf_object_destroy(surface),
-						  "failed to destroy surface object");
+	for(const auto& surface : surfaces) {
+		if(surface != 0) {
+			CU_CALL_NO_ACTION(cu_surf_object_destroy(surface),
+							  "failed to destroy surface object");
+		}
 	}
 	
 	// -> cuda array
@@ -840,7 +866,7 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	return host_buffer;
 }
 
-void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+void cuda_image::unmap(shared_ptr<compute_queue> cqueue,
 					   void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
@@ -875,6 +901,12 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
 	// free host memory again and remove the mapping
 	delete [] (unsigned char*)mapped_ptr;
 	mappings.erase(mapped_ptr);
+	
+	// update mip-map chain
+	if(generate_mip_maps &&
+	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+		generate_mip_map_chain(cqueue);
+	}
 }
 
 template <bool depth_to_color /* or color_to_depth if false */>

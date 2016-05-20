@@ -985,7 +985,9 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 			log_error("devices binary status: %s", to_string(binary_status));
 			return ret;
 		}
-		else log_debug("successfully created opencl program!");
+		else if(!program.options.silence_debug_output) {
+			log_debug("successfully created opencl program!");
+		}
 	}
 	else {
 		size_t code_size = 0;
@@ -997,7 +999,9 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
 			return ret;
 		}
-		else log_debug("successfully created opencl program (from IL/SPIR-V)!");
+		else if(!program.options.silence_debug_output) {
+			log_debug("successfully created opencl program (from IL/SPIR-V)!");
+		}
 	}
 	
 	// ... and build it
@@ -1011,7 +1015,9 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	
 	
 	// print out build log
-	log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
+	if(!program.options.silence_debug_output) {
+		log_debug("build log: %s", cl_get_info<CL_PROGRAM_BUILD_LOG>(ret.program, cl_dev->device_id));
+	}
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
 	if(floor::get_compute_log_binaries()) {
