@@ -174,7 +174,7 @@ protected:
 		}
 		if(entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::WRITE ||
 		   entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-			if(cu_img->get_cuda_surface() == 0) {
+			if(cu_img->get_cuda_surfaces()[0] == 0) {
 				log_error("image is set to be writable, but surface object doesn't exist!");
 				return;
 			}
