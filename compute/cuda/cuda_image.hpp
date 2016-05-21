@@ -112,6 +112,10 @@ protected:
 	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
 	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
 	
+	//! builds the mip-map minification program for this context and its devices
+	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
+	void build_mip_map_minification_program();
+	
 	//
 	uint32_t depth_compat_tex { 0u };
 	uint32_t depth_compat_format { 0u };

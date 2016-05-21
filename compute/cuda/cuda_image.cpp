@@ -144,11 +144,11 @@ void cuda_image::init_internal(cuda_compute* ctx) {
 	
 	// need to know the driver version when using internal cuda functionality later on
 	cuda_driver_version = ctx->get_cuda_driver_version();
-	
-	// TODO: only init this when actually necessary!
+}
+
+void cuda_image::build_mip_map_minification_program() {
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
-	// NOTE: this will only be called once on context init
-	task::spawn([ctx]() {
+	task::spawn([ctx = ((cuda_device*)dev)->compute_ctx]() {
 		auto prog = make_unique<minify_program>();
 		const llvm_compute::compile_options options {
 			// suppress any debug output for this, we only want to have console/log output if something goes wrong
@@ -1057,6 +1057,15 @@ void cuda_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 		minify_programs_mtx.lock();
 		const auto iter = minify_programs.find(((cuda_device*)dev)->compute_ctx);
 		if(iter == minify_programs.end()) {
+			// kick off build + insert nullptr value to signal build has started
+			build_mip_map_minification_program();
+			minify_programs.emplace(((cuda_device*)dev)->compute_ctx, nullptr);
+			
+			minify_programs_mtx.unlock();
+			continue;
+		}
+		if(iter->second == nullptr) {
+			// still building
 			minify_programs_mtx.unlock();
 			continue;
 		}
