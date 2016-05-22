@@ -896,17 +896,17 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue,
 			cpy_host_ptr += level_data_size;
 			return true;
 		});
+		
+		// update mip-map chain
+		if(generate_mip_maps &&
+		   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+			generate_mip_map_chain(cqueue);
+		}
 	}
 	
 	// free host memory again and remove the mapping
-	delete [] (unsigned char*)mapped_ptr;
+	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
-	
-	// update mip-map chain
-	if(generate_mip_maps &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		generate_mip_map_chain(cqueue);
-	}
 }
 
 template <bool depth_to_color /* or color_to_depth if false */>

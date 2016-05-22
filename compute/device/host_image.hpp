@@ -447,7 +447,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					// for 32-bit/64-bit float formats, just pass-through raw data
 					ret = *(decltype(ret)*)raw_data;
 				}
-#if !defined(_MSC_VER) && !defined(__linux__) // TODO: a s/w solution
+#if defined(__APPLE__) // TODO: a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
@@ -635,7 +635,7 @@ FLOOR_POP_WARNINGS()
 					const double4 double_color = color;
 					memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
 				}
-#if !defined(_MSC_VER) && !defined(__linux__) // TODO: add a s/w solution
+#if defined(__APPLE__) // TODO: add a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// for 16-bit half float formats, data must be converted to 32-bit float data
 					__fp16 half_vals[4];

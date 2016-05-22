@@ -611,7 +611,7 @@ string core::create_tmp_file_name(const string prefix, const string suffix) {
 	uniform_int_distribution<> dist(0, size(chars) - 1);
 	
 	string ret {
-#if !defined(_MSC_VER)
+#if !defined(__WINDOWS__)
 		"/tmp/" +
 #endif
 		prefix
