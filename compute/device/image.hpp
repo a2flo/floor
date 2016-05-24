@@ -578,7 +578,7 @@ namespace floor_image {
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_lod(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) {
+		auto read_lod(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
@@ -587,7 +587,7 @@ namespace floor_image {
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_lod(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) {
+		auto read_lod(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<false, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
@@ -596,7 +596,7 @@ namespace floor_image {
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_lod_linear(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) {
+		auto read_lod_linear(const coord_type& coord, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, true>(coord, 0, 0, offset, 0.0f, lod);
 		}
 		
@@ -605,7 +605,7 @@ namespace floor_image {
 				  typename offset_vec_type = typename offset_vec_type_for_image_type<image_type_>::type,
 				  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_) &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
-		auto read_lod_linear(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) {
+		auto read_lod_linear(const coord_type& coord, const uint32_t layer, const lod_type lod, const offset_vec_type offset = {}) const {
 			return read_internal<true, true>(coord, layer, 0, offset, 0.0f, lod);
 		}
 		
@@ -617,7 +617,7 @@ namespace floor_image {
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
 		auto read_gradient(const coord_type& coord,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
-						   const offset_vec_type offset = {}) {
+						   const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
@@ -629,7 +629,7 @@ namespace floor_image {
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
 		auto read_gradient(const coord_type& coord, const uint32_t layer,
 						   const pair<gradient_vec_type, gradient_vec_type> gradient,
-						   const offset_vec_type offset = {}) {
+						   const offset_vec_type offset = {}) const {
 			return read_internal<false, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		
@@ -641,7 +641,7 @@ namespace floor_image {
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
 		auto read_gradient_linear(const coord_type& coord,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
-								  const offset_vec_type offset = {}) {
+								  const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true>(coord, 0, 0, offset, 0.0f, 0, gradient);
 		}
 		
@@ -653,7 +653,7 @@ namespace floor_image {
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type_))>* = nullptr>
 		auto read_gradient_linear(const coord_type& coord, const uint32_t layer,
 								  const pair<gradient_vec_type, gradient_vec_type> gradient,
-								  const offset_vec_type offset = {}) {
+								  const offset_vec_type offset = {}) const {
 			return read_internal<true, false, true>(coord, layer, 0, offset, 0.0f, 0, gradient);
 		}
 		

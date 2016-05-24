@@ -152,14 +152,18 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 								  (dim_count == 2 ? CL_MEM_OBJECT_IMAGE2D : CL_MEM_OBJECT_IMAGE3D));
 	}
 	
-	// TODO: cube map?
 	cl_img_desc.image_width = image_dim.x;
 	if(dim_count > 1) cl_img_desc.image_height = image_dim.y;
 	if(dim_count > 2) cl_img_desc.image_depth = image_dim.z;
 	
-	// TODO: support these
-	//cl_img_desc.num_mip_levels = ;
+	// TODO: support this
 	//cl_img_desc.num_samples = ;
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
+	   // spec says this must be > 1
+	   mip_level_count > 1) {
+		cl_img_desc.num_mip_levels = mip_level_count;
+	}
 	
 	// NOTE: image_row_pitch, image_slice_pitch are optional, but should be set when constructing from an image descriptor (which is TODO)
 	

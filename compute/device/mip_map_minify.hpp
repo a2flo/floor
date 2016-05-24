@@ -86,7 +86,7 @@ floor_inline_always void image_mip_map_minify(image<image_type> img,
 	
 	// we generally want to directly sample in between pixels of the previous level
 	// e.g., in 1D for a previous level of [0 .. 7] px, global id is in [0 .. 3],
-	// an we want to sample between [0, 1] -> 0, [2, 3] -> 1, [4, 5] -> 2, [6, 7] -> 3,
+	// and we want to sample between [0, 1] -> 0, [2, 3] -> 1, [4, 5] -> 2, [6, 7] -> 3,
 	// which is normalized (to [0, 1]) equal to 1/8, 3/8, 5/8, 7/8
 	const auto coord = vector_n<float, image_dim>(trimmed_global_id * 2u + 1u) * inv_prev_level_size.trim<image_dim>();
 	image_mip_level_read_write<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)>(img, level, layer, coord, trimmed_global_id);

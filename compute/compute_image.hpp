@@ -48,6 +48,17 @@ public:
 		return image_type;
 	}
 	
+	//! handles misc image type modifications (infer no-sampler flag, strip mip-mapped flag if mip-level count <= 1)
+	static constexpr COMPUTE_IMAGE_TYPE handle_image_type(const uint4& image_dim_, COMPUTE_IMAGE_TYPE image_type_) {
+		COMPUTE_IMAGE_TYPE ret = infer_image_flags(image_type_);
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)) {
+			if(image_mip_level_count(image_dim_, image_type_) <= 1) {
+				ret &= ~COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED;
+			}
+		}
+		return ret;
+	}
+	
 	// TODO: anisotropic value (must be present at init, or need to recreate image later)
 	compute_image(const compute_device* device,
 				  const uint4 image_dim_,
@@ -58,8 +69,8 @@ public:
 				  const uint32_t external_gl_object_ = 0,
 				  const opengl_image_info* gl_image_info = nullptr) :
 	compute_memory(device, host_ptr_, infer_rw_flags(image_type_, flags_), opengl_type_, external_gl_object_),
-	image_dim(image_dim_), image_type(infer_image_flags(image_type_)),
-	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type_)),
+	image_dim(image_dim_), image_type(handle_image_type(image_dim_, image_type_)),
+	is_mip_mapped(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)),
 	generate_mip_maps(is_mip_mapped &&
 					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
 	image_data_size(image_data_size_from_types(image_dim, image_type, 1, generate_mip_maps)),
