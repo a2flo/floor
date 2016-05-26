@@ -368,7 +368,10 @@ fi
 # use pkg-config (and some manual libs/includes) on all platforms except osx/ios
 if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# build a shared library + need to make kernel symbols visible for dlsym
-	LDFLAGS="${LDFLAGS} -shared -rdynamic"
+	LDFLAGS="${LDFLAGS} -shared"
+	if [ $BUILD_OS != "mingw" ]; then
+		LDFLAGS="${LDFLAGS} -rdynamic"
+	fi
 	
 	# use PIC
 	LDFLAGS="${LDFLAGS} -fPIC"

@@ -327,13 +327,7 @@ bool cuda_api_init(const bool use_internal_api) {
 #elif (!defined(__WINDOWS__) && defined(PLATFORM_X64)) || defined(__WINDOWS__) // linux x64 / windows x64+x86
 		string cuda_lib_data = "";
 #if defined(__WINDOWS__)
-		const auto cuda_lib_path = core::expand_path_with_env(
-#if defined(PLATFORM_X64)
-															  "%windir%/SysWOW64/"s
-#else
-															  "%windir%/System32/"s
-#endif
-															  + cuda_lib_name);
+		const auto cuda_lib_path = core::expand_path_with_env("%windir%/System32/"s + cuda_lib_name);
 #else
 		const auto cuda_lib_path = "/usr/lib/"s + cuda_lib_name;
 #endif
