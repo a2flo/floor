@@ -343,7 +343,7 @@ bool opencl_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 
 cl_command_queue opencl_buffer::queue_or_default_queue(shared_ptr<compute_queue> cqueue) const {
 	if(cqueue != nullptr) return (cl_command_queue)cqueue->get_queue_ptr();
-	return (cl_command_queue)((opencl_device*)dev)->compute_ctx->get_device_default_queue((const opencl_device*)dev)->get_queue_ptr();
+	return (cl_command_queue)((opencl_compute*)dev->context)->get_device_default_queue((const opencl_device*)dev)->get_queue_ptr();
 }
 
 #endif

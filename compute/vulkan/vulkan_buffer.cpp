@@ -96,7 +96,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	   host_ptr != nullptr &&
 	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
-		auto map_queue = (cqueue != nullptr ? cqueue : ((const vulkan_device*)dev)->compute_ctx->get_device_default_queue(dev));
+		auto map_queue = (cqueue != nullptr ? cqueue : ((const vulkan_compute*)dev->context)->get_device_default_queue(dev));
 		auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, 0);
 		if(mapped_ptr != nullptr) {
 			memcpy(mapped_ptr, host_ptr, size);

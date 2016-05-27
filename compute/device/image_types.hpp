@@ -484,9 +484,17 @@ static constexpr size_t image_slice_data_size_from_types(const uint4& image_dim,
 	return size;
 }
 
+//! returns the amount of mip-map levels required by the specified max image dimension (no flag checking)
+static constexpr uint32_t image_mip_level_count_from_max_dim(const uint32_t& max_dim) {
+	// each mip level is half the size of its upper/parent level, until dim == 1
+	// -> get the closest power-of-two, then "log2(2^N) + 1"
+	// this can be done the fastest by counting the leading zeros in the 32-bit value
+	return uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
+}
+
 //! returns the amount of mip-map levels required by the specified image dim and type
 //! NOTE: #mip-levels from image dim to 1px if uncompressed, or 8px if compressed
-static constexpr size_t image_mip_level_count(const uint4& image_dim, const COMPUTE_IMAGE_TYPE image_type) {
+static constexpr uint32_t image_mip_level_count(const uint4& image_dim, const COMPUTE_IMAGE_TYPE image_type) {
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type)) {
 		return 1;
 	}
@@ -495,10 +503,7 @@ static constexpr size_t image_mip_level_count(const uint4& image_dim, const COMP
 	const auto max_dim = std::max(std::max(image_dim.x, dim_count >= 2 ? image_dim.y : 1), dim_count >= 3 ? image_dim.z : 1);
 	if(max_dim == 1) return 1;
 	
-	// each mip level is half the size of its upper/parent level, until dim == 1
-	// -> get the closest power-of-two, then "log2(2^N) + 1"
-	// this can be done the fastest by counting the leading zeros in the 32-bit value
-	auto levels = uint32_t(32 - __builtin_clz((uint32_t)const_math::next_pot(max_dim)));
+	auto levels = image_mip_level_count_from_max_dim(max_dim);
 	
 	// for compressed images, 8x8 is the minimum image and mip-map size -> substract 3 levels (1x1, 2x2 and 4x4)
 	if(image_compressed(image_type)) {

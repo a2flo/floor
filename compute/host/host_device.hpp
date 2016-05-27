@@ -33,8 +33,6 @@ public:
 	host_device();
 	~host_device() override {}
 	
-	compute_context* ctx { nullptr };
-	
 };
 
 FLOOR_POP_WARNINGS()

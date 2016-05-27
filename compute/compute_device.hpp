@@ -28,6 +28,7 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class compute_context;
 class compute_device {
 public:
 	virtual ~compute_device() = 0;
@@ -117,13 +118,13 @@ public:
 	//! max amount of work-items that can be active/used per work-group (CUDA: block dim)
 	uint3 max_work_group_item_sizes;
 	//! max 1D image dimensions
-	size_t max_image_1d_dim { 0u };
+	uint32_t max_image_1d_dim { 0u };
 	//! max 1D buffer image dimensions
 	size_t max_image_1d_buffer_dim { 0u };
 	//! max 2D image dimensions
-	size2 max_image_2d_dim;
+	uint2 max_image_2d_dim;
 	//! max 3D image dimensions
-	size3 max_image_3d_dim;
+	uint3 max_image_3d_dim;
 	//! max amount of mip-levels that can exist
 	uint32_t max_mip_levels { 0 };
 	//! bitness of the device (32 or 64)
@@ -177,6 +178,9 @@ public:
 	string driver_version_str { "" };
 	//! array of supported extensions (OpenCL only)
 	vector<string> extensions;
+	
+	//! associated compute_context this device is part of
+	compute_context* context { nullptr };
 	
 };
 

@@ -161,7 +161,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		devices.emplace_back(device);
 		physical_devices.emplace_back(phys_dev);
 		logical_devices.emplace_back(dev);
-		device->compute_ctx = this;
+		device->context = this;
 		device->physical_device = phys_dev;
 		device->device = dev;
 		device->name = props.deviceName;

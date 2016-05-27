@@ -67,9 +67,6 @@ public:
 	void* _sampler_init_func_ptr { nullptr };
 #endif
 	
-	//! associated cuda_compute context
-	cuda_compute* compute_ctx { nullptr };
-	
 };
 
 FLOOR_POP_WARNINGS()

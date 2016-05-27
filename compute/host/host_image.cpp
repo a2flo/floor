@@ -44,7 +44,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
 image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
 	// actually create the image
-	if(!create_internal(true, ((host_compute*)device->ctx)->get_main_queue())) {
+	if(!create_internal(true, ((host_compute*)device->context)->get_main_queue())) {
 		return; // can't do much else
 	}
 }
@@ -259,74 +259,6 @@ bool host_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	log_error("this is not supported in iOS!");
 	return false;
 #endif
-}
-
-// something about dog food
-#include <floor/compute/device/common.hpp>
-#define FLOOR_COMPUTE_HOST_MINIFY 1 // needed now so that kernel code will actually be included
-#include <floor/compute/device/mip_map_minify.hpp>
-
-void host_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
-	// build/get all minification kernels
-	static unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> minify_kernels {
-#define FLOOR_MINIFY_ENTRY(image_type, sample_type) \
-	{ \
-		COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type, \
-		{ "libfloor_mip_map_minify_" #image_type "_" #sample_type , {} } \
-	},
-		
-		FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_ENTRY)
-	};
-	// TODO: proper thread safety?
-	static atomic_flag kernel_init = ATOMIC_FLAG_INIT;
-	if(!kernel_init.test_and_set()) {
-		auto prog = make_shared<host_program>(cqueue->get_device());
-		if(prog == nullptr) {
-			log_error("failed to retrieve minification program/kernels");
-			return;
-		}
-		for(auto& entry : minify_kernels) {
-			entry.second.second = prog->get_kernel(entry.second.first);
-			if(entry.second.second == nullptr) {
-				log_error("failed to retrieve kernel \"%s\" from program", entry.second.first);
-				return;
-			}
-		}
-	}
-	
-	// find the appropriate kernel for this image type
-	const auto image_base_type = minify_image_base_type(image_type);
-	const auto kernel_iter = minify_kernels.find(image_base_type);
-	if(kernel_iter == minify_kernels.end()) {
-		log_error("no minification kernel for this image type exists: %X", image_type);
-		return;
-	}
-	auto minify_kernel = kernel_iter->second.second;
-	
-	// iterate over all levels, (bi/tri)linearly downscaling the previous level (minify)
-	const auto dim_count = image_dim_count(image_type);
-	const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
-	uint3 lsize;
-	switch(dim_count) {
-		case 1: lsize = { 64, 1, 1 }; break;
-		default:
-		case 2:
-		case 3: lsize = { 8, 8, 1 }; break;
-	}
-	for(uint32_t layer = 0; layer < layer_count; ++layer) {
-		uint3 level_size {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 0u,
-			dim_count >= 3 ? image_dim.z : 0u
-		};
-		float3 inv_prev_level_size;
-		for(uint32_t level = 0; level < mip_level_count;
-			++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
-			if(level == 0) continue;
-			cqueue->execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
-							(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
-		}
-	}
 }
 
 #endif

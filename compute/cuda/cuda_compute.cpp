@@ -111,7 +111,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		
 		// set initial/fixed attributes
 		device->ctx = ctx;
-		device->compute_ctx = this;
+		device->context = this;
 		device->device_id = cuda_dev;
 		device->sm = uint2(cc);
 		device->type = (compute_device::TYPE)gpu_counter++;
@@ -150,7 +150,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->max_work_group_item_sizes = uint3(max_block_dim);
 		
 		int max_image_1d, max_image_1d_buffer, max_image_1d_mip_map;
-		int2 max_image_2d, max_image_2d_mipmap;
+		int2 max_image_2d, max_image_2d_mip_map;
 		int3 max_image_3d;
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d_buffer, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_LINEAR_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_WIDTH, cuda_dev));
@@ -159,16 +159,16 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_WIDTH, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_HEIGHT, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_3d.z, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE3D_DEPTH, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mipmap.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_WIDTH, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mipmap.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_HEIGHT, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mip_map.x, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_WIDTH, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_2d_mip_map.y, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE2D_MIPMAPPED_HEIGHT, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_image_1d_mip_map, CU_DEVICE_ATTRIBUTE::MAXIMUM_TEXTURE1D_MIPMAPPED_WIDTH, cuda_dev));
-		device->max_image_1d_dim = size_t(max_image_1d);
+		device->max_image_1d_dim = uint32_t(max_image_1d);
 		device->max_image_1d_buffer_dim = size_t(max_image_1d_buffer);
-		device->max_image_2d_dim = size2(max_image_2d);
-		device->max_image_3d_dim = size3(max_image_3d);
+		device->max_image_2d_dim = uint2(max_image_2d);
+		device->max_image_3d_dim = uint3(max_image_3d);
 		// -> image_mip_level_count
-		device->max_mip_levels = uint32_t(32 - __builtin_clz(const_math::next_pot(uint32_t(max(max_image_2d_mipmap.max_element(),
-																							   max_image_1d_mip_map)))));
+		device->max_mip_levels = image_mip_level_count_from_max_dim(uint32_t(std::max(max_image_2d_mip_map.max_element(),
+																					  max_image_1d_mip_map)));
 		
 		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->clock, CU_DEVICE_ATTRIBUTE::CLOCK_RATE, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->mem_clock, CU_DEVICE_ATTRIBUTE::MEMORY_CLOCK_RATE, cuda_dev));

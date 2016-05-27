@@ -16,8 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <floor/floor/floor.hpp>
 #include <floor/compute/compute_image.hpp>
+#include <floor/compute/compute_device.hpp>
+#include <floor/compute/compute_context.hpp>
+#include <floor/compute/llvm_compute.hpp>
 #include <floor/core/logger.hpp>
+
+safe_mutex compute_image::minify_programs_mtx;
+unordered_map<compute_context*, unique_ptr<compute_image::minify_program>> compute_image::minify_programs;
 
 compute_image::~compute_image() {}
 
@@ -758,4 +765,140 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 			   rgb_bytes_per_pixel);
 	}
 	return (dst_rgb_data != nullptr ? nullptr : rgb_data_ptr);
+}
+
+// something about dog food
+#if !defined(FLOOR_NO_HOST_COMPUTE)
+#include <floor/compute/device/common.hpp>
+#define FLOOR_COMPUTE_HOST_MINIFY 1 // needed now so that kernel code will actually be included
+#endif
+#include <floor/compute/device/mip_map_minify.hpp>
+
+void compute_image::build_mip_map_minification_program() {
+	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
+	task::spawn([ctx = dev->context]() {
+		auto prog = make_unique<minify_program>();
+		const llvm_compute::compile_options options {
+			// suppress any debug output for this, we only want to have console/log output if something goes wrong
+			.silence_debug_output = true
+		};
+		
+		string base_path = "";
+		switch(ctx->get_compute_type()) {
+			case COMPUTE_TYPE::CUDA:
+				base_path = floor::get_cuda_base_path();
+				break;
+			case COMPUTE_TYPE::OPENCL:
+				base_path = floor::get_opencl_base_path();
+				break;
+			case COMPUTE_TYPE::HOST:
+				// doesn't matter
+				break;
+			default:
+				log_error("backend does not support (or need) mip-map minification kernels");
+				return;
+		}
+		
+		prog->program = ctx->add_program_file(base_path + "floor/floor/compute/device/mip_map_minify.hpp", options);
+		if(prog->program == nullptr) {
+			log_error("failed to build minify kernels");
+			return;
+		}
+		
+		// build/get all minification kernels
+		unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> minify_kernels {
+#define FLOOR_MINIFY_ENTRY(image_type, sample_type) \
+			{ \
+				COMPUTE_IMAGE_TYPE::image_type | COMPUTE_IMAGE_TYPE::sample_type, \
+				{ "libfloor_mip_map_minify_" #image_type "_" #sample_type , {} } \
+			},
+		
+			FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_ENTRY)
+		};
+		
+		for(auto& entry : minify_kernels) {
+			entry.second.second = prog->program->get_kernel(entry.second.first);
+			if(entry.second.second == nullptr) {
+				log_error("failed to retrieve kernel \"%s\" from minify program", entry.second.first);
+				return;
+			}
+		}
+		minify_kernels.swap(prog->kernels);
+		
+		// done, set programs for this context and return
+		GUARD(minify_programs_mtx);
+		minify_programs[ctx] = move(prog);
+		
+		// TODO: safely/cleanly hold up compute_context destruction if the program exits before this is built
+	}, "minify build");
+}
+
+void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
+	if(cqueue == nullptr) return;
+	
+	for(uint32_t try_out = 0; ; ++try_out) {
+		if(try_out == 100) {
+			log_error("mip-map minify kernel compilation is stuck?");
+			return;
+		}
+		if(try_out > 0) {
+			this_thread::sleep_for(50ms);
+		}
+		
+		// get the compiled program for this context
+		minify_programs_mtx.lock();
+		const auto iter = minify_programs.find(dev->context);
+		if(iter == minify_programs.end()) {
+			// kick off build + insert nullptr value to signal build has started
+			build_mip_map_minification_program();
+			minify_programs.emplace(dev->context, nullptr);
+			
+			minify_programs_mtx.unlock();
+			continue;
+		}
+		if(iter->second == nullptr) {
+			// still building
+			minify_programs_mtx.unlock();
+			continue;
+		}
+		const auto prog = iter->second.get();
+		minify_programs_mtx.unlock();
+		
+		// find the appropriate kernel for this image type
+		const auto image_base_type = minify_image_base_type(image_type);
+		const auto kernel_iter = prog->kernels.find(image_base_type);
+		if(kernel_iter == prog->kernels.end()) {
+			log_error("no minification kernel for this image type exists: %X", image_type);
+			return;
+		}
+		auto minify_kernel = kernel_iter->second.second;
+		
+		// run the kernel for this image
+		const auto dim_count = image_dim_count(image_type);
+		const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
+		uint3 lsize;
+		switch(dim_count) {
+			case 1: lsize = { dev->max_work_group_size, 1, 1 }; break;
+			case 2: lsize = { (dev->max_work_group_size > 256 ? 32 : 16), (dev->max_work_group_size > 512 ? 32 : 16), 1 }; break;
+			default:
+			case 3: lsize = { (dev->max_work_group_size > 512 ? 32 : 16), (dev->max_work_group_size > 256 ? 16 : 8), 2 }; break;
+		}
+		for(uint32_t layer = 0; layer < layer_count; ++layer) {
+			uint3 level_size {
+				image_dim.x,
+				dim_count >= 2 ? image_dim.y : 0u,
+				dim_count >= 3 ? image_dim.z : 0u,
+			};
+			float3 inv_prev_level_size;
+			for(uint32_t level = 0; level < mip_level_count;
+				++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
+				if(level == 0) continue;
+				cqueue->execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
+								(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
+			}
+		}
+		
+		// done
+		return;
+	}
 }

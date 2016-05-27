@@ -70,9 +70,6 @@ protected:
 	// otherwise this is equal to image_data_size
 	const size_t image_data_size_mip_maps;
 	
-	//! creates the mip-map chain for this host image (if not using opengl and not manually generating mip-maps)
-	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
-	
 	struct image_program_info {
 		uint8_t* __attribute__((aligned(128))) buffer;
 		COMPUTE_IMAGE_TYPE runtime_image_type;

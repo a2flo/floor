@@ -25,6 +25,9 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class compute_context;
+class compute_program;
+class compute_kernel;
 class compute_image : public compute_memory {
 public:
 	struct opengl_image_info;
@@ -232,6 +235,21 @@ protected:
 		}
 		return true;
 	}
+	
+	// mip-map minification program handling (for backends that need it)
+	struct minify_program {
+		shared_ptr<compute_program> program;
+		unordered_map<COMPUTE_IMAGE_TYPE, pair<string, shared_ptr<compute_kernel>>> kernels;
+	};
+	static safe_mutex minify_programs_mtx;
+	static unordered_map<compute_context*, unique_ptr<minify_program>> minify_programs GUARDED_BY(minify_programs_mtx);
+	
+	//! builds the mip-map minification program for this context and its devices
+	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
+	void build_mip_map_minification_program();
+	
+	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
+	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
 	
 };
 

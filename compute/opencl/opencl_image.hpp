@@ -60,6 +60,9 @@ protected:
 	cl_mem image { nullptr };
 	cl_mem_flags cl_flags { 0 };
 	
+	// mip-level origin index for use with cl*Image functions
+	const uint32_t mip_origin_idx;
+	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
 	

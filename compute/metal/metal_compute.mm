@@ -309,9 +309,9 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->double_support = ([dev_spi doubleFPConfig] > 0);
 		device->unified_memory = true; // TODO: not sure about this?
 		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
-		device->max_image_1d_dim = { [dev_spi maxTextureWidth1D] };
-		device->max_image_2d_dim = { [dev_spi maxTextureWidth2D], [dev_spi maxTextureHeight2D] };
-		device->max_image_3d_dim = { [dev_spi maxTextureWidth3D], [dev_spi maxTextureHeight3D], [dev_spi maxTextureDepth3D] };
+		device->max_image_1d_dim = { (uint32_t)[dev_spi maxTextureWidth1D] };
+		device->max_image_2d_dim = { (uint32_t)[dev_spi maxTextureWidth2D], (uint32_t)[dev_spi maxTextureHeight2D] };
+		device->max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
 		device->image_cube_write_support = true;
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
@@ -321,6 +321,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
 		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
+		
+		device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
+																					  device->max_image_3d_dim.max_element()),
+																			 device->max_image_1d_dim));
 		
 		// done
 		supported = true;

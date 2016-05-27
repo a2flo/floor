@@ -46,14 +46,10 @@ public:
 	//! associated opencl context
 	cl_context ctx { nullptr };
 	
-	//! associated opencl_compute context
-	opencl_compute* compute_ctx { nullptr };
-	
 	//! the opencl device id
 	cl_device_id device_id { nullptr };
 #else
 	void* _ctx { nullptr };
-	void* _compute_ctx { nullptr };
 	void* _device_id { nullptr };
 #endif
 	

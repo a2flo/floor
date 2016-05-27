@@ -278,7 +278,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			dev_type_str = "";
 			
 			device->ctx = ctx;
-			device->compute_ctx = this;
+			device->context = this;
 			device->device_id = cl_dev;
 			device->internal_type = (uint32_t)cl_get_info<CL_DEVICE_TYPE>(cl_dev);
 			device->units = cl_get_info<CL_DEVICE_MAX_COMPUTE_UNITS>(cl_dev);
@@ -343,12 +343,18 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device->image_offset_write_support = false;
 			
 			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
-			device->max_image_1d_dim = cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
-			device->max_image_2d_dim.set(cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
-										 cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
-			device->max_image_3d_dim.set(cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
-										 cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
-										 cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
+			device->max_image_1d_dim = (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
+			device->max_image_2d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev),
+										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_HEIGHT>(cl_dev));
+			device->max_image_3d_dim.set((uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_WIDTH>(cl_dev),
+										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_HEIGHT>(cl_dev),
+										 (uint32_t)cl_get_info<CL_DEVICE_IMAGE3D_MAX_DEPTH>(cl_dev));
+			if(device->image_mipmap_support) {
+				device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
+																							  device->max_image_3d_dim.max_element()),
+																					 device->max_image_1d_dim));
+			}
+			
 #if !defined(__APPLE__)
 			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
 #else
