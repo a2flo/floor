@@ -71,7 +71,7 @@ mip_origin_idx(!is_mip_mapped ? 0 :
 	}
 	
 	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags) && !is_mip_mapped) {
 		cl_flags |= CL_MEM_COPY_HOST_PTR;
 	}
 	
@@ -173,11 +173,32 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	// -> normal opencl image
 	if(!has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		image = clCreateImage(((opencl_device*)dev)->ctx, cl_flags, &cl_img_format, &cl_img_desc,
-							  (copy_host_data ? host_ptr : nullptr), &create_err);
+							  (copy_host_data && !is_mip_mapped ? host_ptr : nullptr), &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create image: %s", cl_error_to_string(create_err));
 			image = nullptr;
 			return false;
+		}
+		
+		// host_ptr must be nullptr in clCreateImage when using mip-mapping
+		// -> must copy/write this afterwards
+		if(is_mip_mapped && copy_host_data && host_ptr != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
+			auto cpy_host_ptr = (uint8_t*)host_ptr;
+			apply_on_levels([this, &cpy_host_ptr, &cqueue](const uint32_t& level,
+														   const uint4& mip_image_dim,
+														   const uint32_t&,
+														   const uint32_t& level_data_size) {
+				const size4 level_region { mip_image_dim.xyz.maxed(1), 1 };
+				size4 level_origin;
+				level_origin[mip_origin_idx] = level;
+				CL_CALL_RET(clEnqueueWriteImage(queue_or_default_queue(cqueue), image, false,
+												level_origin.data(), level_region.data(), 0, 0, cpy_host_ptr,
+												0, nullptr, nullptr),
+							"failed to copy initial host data to device (mip-level #" + to_string(level) + ")", false);
+				cpy_host_ptr += level_data_size;
+				return true;
+			});
+			queue_or_default_compute_queue(cqueue)->finish();
 		}
 	}
 	// -> shared opencl/opengl image
@@ -264,7 +285,7 @@ void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
 		});
 		
 		// block until all have been written
-		cqueue->finish();
+		queue_or_default_compute_queue(cqueue)->finish();
 	}
 }
 
@@ -361,9 +382,13 @@ bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	return true;
 }
 
+shared_ptr<compute_queue> opencl_image::queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const {
+	if(cqueue != nullptr) return cqueue;
+	return ((opencl_compute*)dev->context)->get_device_default_queue(dev);
+}
+
 cl_command_queue opencl_image::queue_or_default_queue(shared_ptr<compute_queue> cqueue) const {
-	if(cqueue != nullptr) return (cl_command_queue)cqueue->get_queue_ptr();
-	return (cl_command_queue)((opencl_compute*)dev->context)->get_device_default_queue((const opencl_device*)dev)->get_queue_ptr();
+	return (cl_command_queue)queue_or_default_compute_queue(cqueue)->get_queue_ptr();
 }
 
 #endif

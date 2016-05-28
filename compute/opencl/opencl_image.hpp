@@ -68,6 +68,8 @@ protected:
 	
 	//! if cqueue isn't nullptr, returns its cl_command_queue, otherwise returns the devices default queue
 	cl_command_queue queue_or_default_queue(shared_ptr<compute_queue> cqueue) const;
+	//! if cqueue isn't nullptr, returns cqueue, otherwise returns the devices default compute_queue
+	shared_ptr<compute_queue> queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const;
 	
 };
 
