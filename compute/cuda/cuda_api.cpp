@@ -262,9 +262,11 @@ bool cuda_api_init(const bool use_internal_api) {
 	
 	// if this is enabled, we need to look up offsets of cuda internal structs for later use
 	if(use_internal_api) {
+		bool has_cuda_lib_data = false;
+		string cuda_lib_data = "";
+		string cuda_lib_path = "";
 #if defined(__APPLE__)
 		// get a list of all loaded dylibs
-		string cuda_dylib_path = "";
 		task_dyld_info dyld_info;
 		mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
 		if(task_info(mach_task_self(), TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
@@ -273,73 +275,42 @@ bool cuda_api_init(const bool use_internal_api) {
 			// figure out which cuda dylib is loaded (-> we're using)
 			for(uint32_t i = 0; i < all_image_infos->infoArrayCount; ++i) {
 				if(strstr(all_image_infos->infoArray[i].imageFilePath, "libcuda_") != nullptr) {
-					cuda_dylib_path = all_image_infos->infoArray[i].imageFilePath;
+					cuda_lib_path = all_image_infos->infoArray[i].imageFilePath;
 					break;
 				}
 			}
-			
-			// if we found the cuda dylib, load it to memory and search it for the offset we need
-			if(cuda_dylib_path != "") {
-				string cuda_dylib_data = "";
-				if(file_io::file_to_string(cuda_dylib_path, cuda_dylib_data)) {
-					static const uint8_t pattern_start[] {
-						// call to device specific sampler creation/init function pointer:
-						// mov  rax, qword ptr [r15 + 216] // NOTE: context offset is always the same on os x (ctx->device)
-						// mov  rdi, qword ptr [rbp - 48]
-						// call qword ptr [rax + $sampler_init_func_ptr_offset]
-						0x49, 0x8B, 0x87, 0xD8, 0x00, 0x00, 0x00, 0x48, 0x8B, 0x7D, 0xD0, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x??
-					};
-					static const uint8_t pattern_end[] {
-						// always followed by:
-						// mov  r14d, eax
-						0x41, 0x89, 0xC6,
-					};
-					
-					size_t offset = 0;
-					uint32_t device_sampler_func_offset = 0;
-					for(;;) {
-						offset = cuda_dylib_data.find((const char*)pattern_start, offset + 1, size(pattern_start));
-						if(offset != string::npos) {
-							const auto device_sampler_func_offset_start = offset + size(pattern_start);
-							if(memcmp(cuda_dylib_data.data() + device_sampler_func_offset_start + sizeof(device_sampler_func_offset),
-									  pattern_end, size(pattern_end)) == 0) {
-								memcpy(&device_sampler_func_offset, cuda_dylib_data.data() + device_sampler_func_offset_start,
-									   sizeof(device_sampler_func_offset));
-								break;
-							}
-						}
-						else break;
-					}
-					
-					if(device_sampler_func_offset != 0 &&
-					   // sanity check, offset is never larger than this
-					   device_sampler_func_offset < 0x4000) {
-						cuda_internal_api_functional = true;
-						cuda_device_sampler_func_offset = device_sampler_func_offset;
-						cuda_device_in_ctx_offset = 216; // fixed on os x
-					}
-					else log_error("device sampler function pointer offset invalid or not found: %X", device_sampler_func_offset);
-				}
-			}
-			else log_error("cuda dylib not found (not loaded?)");
 		}
 		else log_error("task_info was unsuccessful");
-#elif (!defined(__WINDOWS__) && defined(PLATFORM_X64)) || defined(__WINDOWS__) // linux x64 / windows x64+x86
-		string cuda_lib_data = "";
+#else // linux/windows
 #if defined(__WINDOWS__)
-		const auto cuda_lib_path = core::expand_path_with_env("%windir%/System32/"s + cuda_lib_name);
-#else
-		const auto cuda_lib_path = "/usr/lib/"s + cuda_lib_name;
+		cuda_lib_path = core::expand_path_with_env("%windir%/System32/"s + cuda_lib_name);
+#elif !defined(__APPLE__)
+		cuda_lib_path = "/usr/lib/"s + cuda_lib_name;
 #endif
-		if(file_io::file_to_string(cuda_lib_path, cuda_lib_data)) {
+#endif
+		
+		// load the cuda lib (.so/.dylib/.dll)
+		if(cuda_lib_path != "") {
+			has_cuda_lib_data = file_io::file_to_string(cuda_lib_path, cuda_lib_data);
+		}
+		else {
+			log_error("cuda lib not found");
+		}
+		
+		// if we loaded the cuda lib to memory, search it for the offsets we need
+		if(has_cuda_lib_data) {
+			// -> find the call to the device specific sampler creation/init function pointer
 			static const uint8_t pattern_start[] {
 #if defined(PLATFORM_X64)
-#if !defined(__WINDOWS__) // linux
-				// mov  rax, qword ptr [r12 + $device_in_ctx]
-				0x49, 0x8B, 0x84, 0x24, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
-#else // windows x64
+#if defined(__APPLE__) // os x
+				// mov  rax, qword ptr [r15 + $device_in_ctx]
+				0x49, 0x8B, 0x87, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
+#elif defined(__WINDOWS__) // windows x64
 				// mov  rax, qword ptr [r13 + $device_in_ctx]
 				0x49, 0x8B, 0x85, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
+#else // linux
+				// mov  rax, qword ptr [r12 + $device_in_ctx]
+				0x49, 0x8B, 0x84, 0x24, // 0x?? 0x?? 0x?? 0x?? (ctx->device)
 #endif
 #else // windows x86
 				// mov  edi, dword ptr [esp + 44]
@@ -350,14 +321,18 @@ bool cuda_api_init(const bool use_internal_api) {
 			};
 			static const uint8_t pattern_middle[] {
 #if defined(PLATFORM_X64)
-#if !defined(__WINDOWS__) // linux
-				// mov  rdi, qword ptr [rsp + 32]
+#if defined(__APPLE__) // os x
+				// mov  rdi, qword ptr [rbp - 48]
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
-				0x48, 0x8B, 0x7C, 0x24, 0x20, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
-#else // windows x64
+				0x48, 0x8B, 0x7D, 0xD0, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+#elif defined(__WINDOWS__) // windows x64
 				// mov  rcx, qword ptr [rbp - 81]
 				// call qword ptr [rax + $sampler_init_func_ptr_offset]
 				0x48, 0x8B, 0x4D, 0xAF, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
+#else // linux
+				// mov  rdi, qword ptr [rsp + 32]
+				// call qword ptr [rax + $sampler_init_func_ptr_offset]
+				0x48, 0x8B, 0x7C, 0x24, 0x20, 0xFF, 0x90, // 0x?? 0x?? 0x?? 0x?? (device->sampler_init)
 #endif
 #else // windows x86
 				// mov  eax, dword ptr [eax + $sampler_init_func_ptr_offset]
@@ -367,13 +342,18 @@ bool cuda_api_init(const bool use_internal_api) {
 			static const uint8_t pattern_end[] {
 #if defined(PLATFORM_X64)
 				// always followed by:
+#if defined(__APPLE__) // os x
+				// mov  r14d, eax
+				0x41, 0x89, 0xC6,
+#else // windows/linux
 #if defined(__WINDOWS__)
 				// mov  ebx, eax
 				0x8B, 0xD8, // only on windows x64
 #endif
 				// test eax, eax
 				0x85, 0xC0,
-#else
+#endif
+#else // windows x86
 				// call eax
 				// mov  esi, eax
 				0xFF, 0xD0, 0x8B, 0xF0,
@@ -420,8 +400,7 @@ bool cuda_api_init(const bool use_internal_api) {
 			else log_error("device sampler function pointer offset / device in context offset invalid or not found: %X, %X",
 						   device_sampler_func_offset, device_in_ctx_offset);
 		}
-		else log_error("cude lib not found");
-#endif
+		else log_error("failed to load cuda lib");
 	}
 
 	logger::flush();
