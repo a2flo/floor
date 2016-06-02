@@ -1,3 +1,15 @@
+diff --git a/.gitignore b/.gitignore
+index 3d07e81..e75acd3 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -18,6 +18,7 @@
+ # vim swap files
+ .*.sw?
+ .sw?
++.DS_Store
+ 
+ #==============================================================================#
+ # Explicit files to ignore (only matches one).
 diff --git a/include/clang-c/Index.h b/include/clang-c/Index.h
 index 09e2160..8318ccd 100644
 --- a/include/clang-c/Index.h
@@ -21,7 +33,7 @@ index 09e2160..8318ccd 100644
    CXCallingConv_Invalid = 100,
    CXCallingConv_Unexposed = 200
 diff --git a/include/clang/AST/ASTContext.h b/include/clang/AST/ASTContext.h
-index abf9294..6581a4a 100644
+index abf9294..9400713 100644
 --- a/include/clang/AST/ASTContext.h
 +++ b/include/clang/AST/ASTContext.h
 @@ -414,6 +414,8 @@ private:
@@ -44,29 +56,46 @@ index abf9294..6581a4a 100644
    DiagnosticsEngine &getDiagnostics() const;
  
    FullSourceLoc getFullLoc(SourceLocation Loc) const {
-@@ -902,6 +908,7 @@ public:
-   CanQualType OCLImage2dTy, OCLImage2dArrayTy, OCLImage2dDepthTy;
-   CanQualType OCLImage2dArrayDepthTy, OCLImage2dMSAATy, OCLImage2dArrayMSAATy;
-   CanQualType OCLImage2dMSAADepthTy, OCLImage2dArrayMSAADepthTy;
-+  CanQualType OCLImageCubeTy, OCLImageCubeArrayTy, OCLImageCubeDepthTy, OCLImageCubeArrayDepthTy;
-   CanQualType OCLImage3dTy;
+@@ -898,11 +904,9 @@ public:
+   CanQualType PseudoObjectTy, ARCUnbridgedCastTy;
+   CanQualType ObjCBuiltinIdTy, ObjCBuiltinClassTy, ObjCBuiltinSelTy;
+   CanQualType ObjCBuiltinBoolTy;
+-  CanQualType OCLImage1dTy, OCLImage1dArrayTy, OCLImage1dBufferTy;
+-  CanQualType OCLImage2dTy, OCLImage2dArrayTy, OCLImage2dDepthTy;
+-  CanQualType OCLImage2dArrayDepthTy, OCLImage2dMSAATy, OCLImage2dArrayMSAATy;
+-  CanQualType OCLImage2dMSAADepthTy, OCLImage2dArrayMSAADepthTy;
+-  CanQualType OCLImage3dTy;
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  CanQualType SingletonId;
++#include "clang/Basic/OpenCLImageTypes.def"
    CanQualType OCLSamplerTy, OCLEventTy, OCLClkEventTy;
    CanQualType OCLQueueTy, OCLNDRangeTy, OCLReserveIDTy;
+   CanQualType OMPArraySectionTy;
 diff --git a/include/clang/AST/BuiltinTypes.def b/include/clang/AST/BuiltinTypes.def
-index a08a683..24ddb0c 100644
+index a08a683..dcca44d 100644
 --- a/include/clang/AST/BuiltinTypes.def
 +++ b/include/clang/AST/BuiltinTypes.def
-@@ -166,6 +166,10 @@ BUILTIN_TYPE(OCLImage2dMSAA, OCLImage2dMSAATy)
- BUILTIN_TYPE(OCLImage2dArrayMSAA, OCLImage2dArrayMSAATy)
- BUILTIN_TYPE(OCLImage2dMSAADepth, OCLImage2dMSAADepthTy)
- BUILTIN_TYPE(OCLImage2dArrayMSAADepth, OCLImage2dArrayMSAADepthTy)
-+BUILTIN_TYPE(OCLImageCube, OCLImageCubeTy)
-+BUILTIN_TYPE(OCLImageCubeArray, OCLImageCubeArrayTy)
-+BUILTIN_TYPE(OCLImageCubeDepth, OCLImageCubeDepthTy)
-+BUILTIN_TYPE(OCLImageCubeArrayDepth, OCLImageCubeArrayDepthTy)
- BUILTIN_TYPE(OCLImage3d, OCLImage3dTy)
+@@ -154,20 +154,6 @@ BUILTIN_TYPE(ObjCClass, ObjCBuiltinClassTy)
+ // type is a typedef of a PointerType to this.
+ BUILTIN_TYPE(ObjCSel, ObjCBuiltinSelTy)
  
+-// OpenCL image types.
+-BUILTIN_TYPE(OCLImage1d, OCLImage1dTy)
+-BUILTIN_TYPE(OCLImage1dArray, OCLImage1dArrayTy)
+-BUILTIN_TYPE(OCLImage1dBuffer, OCLImage1dBufferTy)
+-BUILTIN_TYPE(OCLImage2d, OCLImage2dTy)
+-BUILTIN_TYPE(OCLImage2dArray, OCLImage2dArrayTy)
+-BUILTIN_TYPE(OCLImage2dDepth, OCLImage2dDepthTy)
+-BUILTIN_TYPE(OCLImage2dArrayDepth, OCLImage2dArrayDepthTy)
+-BUILTIN_TYPE(OCLImage2dMSAA, OCLImage2dMSAATy)
+-BUILTIN_TYPE(OCLImage2dArrayMSAA, OCLImage2dArrayMSAATy)
+-BUILTIN_TYPE(OCLImage2dMSAADepth, OCLImage2dMSAADepthTy)
+-BUILTIN_TYPE(OCLImage2dArrayMSAADepth, OCLImage2dArrayMSAADepthTy)
+-BUILTIN_TYPE(OCLImage3d, OCLImage3dTy)
+-
  // OpenCL sampler_t.
+ BUILTIN_TYPE(OCLSampler, OCLSamplerTy)
+ 
 diff --git a/include/clang/AST/Decl.h b/include/clang/AST/Decl.h
 index 029c118..8fd8797 100644
 --- a/include/clang/AST/Decl.h
@@ -120,7 +149,7 @@ index 102bbc2..952b1a5 100644
    CK_AddressSpaceConversion
  };
 diff --git a/include/clang/AST/Type.h b/include/clang/AST/Type.h
-index d63b2c4..fdfa176 100644
+index d63b2c4..3cd2336 100644
 --- a/include/clang/AST/Type.h
 +++ b/include/clang/AST/Type.h
 @@ -411,10 +411,10 @@ public:
@@ -168,19 +197,25 @@ index d63b2c4..fdfa176 100644
    // Type Predicates: Check to see if this type is structurally the specified
    // type, ignoring typedefs and qualifiers.
    bool isFunctionType() const;
-@@ -1708,18 +1715,25 @@ public:
-   bool isImage2dArrayDepthT() const;     // OpenCL image_2d_array_depth_t
-   bool isImage2dMSAAT() const;           // OpenCL image_2d_msaa_t
-   bool isImage2dArrayMSAAT() const;      // OpenCL image_2d_array_msaa_t
+@@ -1699,27 +1706,21 @@ public:
+   bool isNullPtrType() const;                   // C++0x nullptr_t
+   bool isAtomicType() const;                    // C11 _Atomic()
+ 
+-  bool isImage1dT() const;               // OpenCL image1d_t
+-  bool isImage1dArrayT() const;          // OpenCL image1d_array_t
+-  bool isImage1dBufferT() const;         // OpenCL image1d_buffer_t
+-  bool isImage2dT() const;               // OpenCL image2d_t
+-  bool isImage2dArrayT() const;          // OpenCL image2d_array_t
+-  bool isImage2dDepthT() const;          // OpenCL image_2d_depth_t
+-  bool isImage2dArrayDepthT() const;     // OpenCL image_2d_array_depth_t
+-  bool isImage2dMSAAT() const;           // OpenCL image_2d_msaa_t
+-  bool isImage2dArrayMSAAT() const;      // OpenCL image_2d_array_msaa_t
 -  bool isImage2dMSAATDepth() const;      // OpenCL image_2d_msaa_depth_t
 -  bool isImage2dArrayMSAATDepth() const; // OpenCL image_2d_array_msaa_depth_t
-+  bool isImage2dMSAADepthT() const;      // OpenCL image_2d_msaa_depth_t
-+  bool isImage2dArrayMSAADepthT() const; // OpenCL image_2d_array_msaa_depth_t
-+  bool isImageCubeT() const;             // (not) OpenCL imagecube_t
-+  bool isImageCubeArrayT() const;        // (not) OpenCL imagecube_array_t
-+  bool isImageCubeDepthT() const;        // (not) OpenCL imagecube_depth_t
-+  bool isImageCubeArrayDepthT() const;   // (not) OpenCL imagecube_array_depth_t
-   bool isImage3dT() const;               // OpenCL image3d_t
+-  bool isImage3dT() const;               // OpenCL image3d_t
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  bool is##Id##Type() const;
++#include "clang/Basic/OpenCLImageTypes.def"
  
    bool isImageType() const;                     // Any OpenCL image type
  
@@ -196,7 +231,18 @@ index d63b2c4..fdfa176 100644
  
    bool isPipeType() const;                      // OpenCL pipe type
    bool isOpenCLSpecificType() const;            // Any OpenCL specific type
-@@ -5232,7 +5246,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
+@@ -2011,6 +2012,10 @@ template <> inline const Class##Type *Type::castAs() const { \
+ class BuiltinType : public Type {
+ public:
+   enum Kind {
++// OpenCL image types
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) Id,
++#include "clang/Basic/OpenCLImageTypes.def"
++// All other builtin types
+ #define BUILTIN_TYPE(Id, SingletonId) Id,
+ #define LAST_BUILTIN_TYPE(Id) LastKind = Id
+ #include "clang/AST/BuiltinTypes.def"
+@@ -5232,7 +5237,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
  inline bool QualType::isMoreQualifiedThan(QualType other) const {
    Qualifiers myQuals = getQualifiers();
    Qualifiers otherQuals = other.getQualifiers();
@@ -205,7 +251,7 @@ index d63b2c4..fdfa176 100644
  }
  
  /// Determine whether this type is at last
-@@ -5240,7 +5254,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
+@@ -5240,7 +5245,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
  /// int" is at least as qualified as "const int", "volatile int",
  /// "int", and "const volatile int".
  inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
@@ -214,40 +260,65 @@ index d63b2c4..fdfa176 100644
  }
  
  /// If Type is a reference type (e.g., const
-@@ -5453,14 +5467,30 @@ inline bool Type::isImage2dArrayMSAAT() const {
-   return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAA);
+@@ -5417,53 +5422,11 @@ inline bool Type::isObjCBuiltinType() const {
+   return isObjCIdType() || isObjCClassType() || isObjCSelType();
  }
  
+-inline bool Type::isImage1dT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage1d);
+-}
+-
+-inline bool Type::isImage1dArrayT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage1dArray);
+-}
+-
+-inline bool Type::isImage1dBufferT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage1dBuffer);
+-}
+-
+-inline bool Type::isImage2dT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2d);
+-}
+-
+-inline bool Type::isImage2dArrayT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dArray);
+-}
+-
+-inline bool Type::isImage2dDepthT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dDepth);
+-}
+-
+-inline bool Type::isImage2dArrayDepthT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayDepth);
+-}
+-
+-inline bool Type::isImage2dMSAAT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dMSAA);
+-}
+-
+-inline bool Type::isImage2dArrayMSAAT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAA);
+-}
+-
 -inline bool Type::isImage2dMSAATDepth() const {
-+inline bool Type::isImage2dMSAADepthT() const {
-   return isSpecificBuiltinType(BuiltinType::OCLImage2dMSAADepth);
- }
- 
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dMSAADepth);
+-}
+-
 -inline bool Type::isImage2dArrayMSAATDepth() const {
-+inline bool Type::isImage2dArrayMSAADepthT() const {
-   return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAADepth);
+-  return isSpecificBuiltinType(BuiltinType::OCLImage2dArrayMSAADepth);
+-}
+-
+-inline bool Type::isImage3dT() const {
+-  return isSpecificBuiltinType(BuiltinType::OCLImage3d);
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++inline bool Type::is##Id##Type() const { \
++  return isSpecificBuiltinType(BuiltinType::Id); \
  }
++#include "clang/Basic/OpenCLImageTypes.def"
  
-+inline bool Type::isImageCubeT() const {
-+  return isSpecificBuiltinType(BuiltinType::OCLImageCube);
-+}
-+
-+inline bool Type::isImageCubeArrayT() const {
-+  return isSpecificBuiltinType(BuiltinType::OCLImageCubeArray);
-+}
-+
-+inline bool Type::isImageCubeDepthT() const {
-+  return isSpecificBuiltinType(BuiltinType::OCLImageCubeDepth);
-+}
-+
-+inline bool Type::isImageCubeArrayDepthT() const {
-+  return isSpecificBuiltinType(BuiltinType::OCLImageCubeArrayDepth);
-+}
-+
- inline bool Type::isImage3dT() const {
-   return isSpecificBuiltinType(BuiltinType::OCLImage3d);
- }
-@@ -5489,12 +5519,19 @@ inline bool Type::isReserveIDT() const {
+ inline bool Type::isSamplerT() const {
+   return isSpecificBuiltinType(BuiltinType::OCLSampler);
+@@ -5489,12 +5452,16 @@ inline bool Type::isReserveIDT() const {
    return isSpecificBuiltinType(BuiltinType::OCLReserveID);
  }
  
@@ -257,20 +328,19 @@ index d63b2c4..fdfa176 100644
 +}
 +
  inline bool Type::isImageType() const {
-   return isImage3dT() || isImage2dT() || isImage2dArrayT() ||
-          isImage2dDepthT() || isImage2dArrayDepthT() || isImage2dMSAAT() ||
+-  return isImage3dT() || isImage2dT() || isImage2dArrayT() ||
+-         isImage2dDepthT() || isImage2dArrayDepthT() || isImage2dMSAAT() ||
 -         isImage2dArrayMSAAT() || isImage2dMSAATDepth() ||
 -         isImage2dArrayMSAATDepth() || isImage1dT() || isImage1dArrayT() ||
 -         isImage1dBufferT();
-+         isImage2dArrayMSAAT() || isImage2dMSAADepthT() ||
-+         isImage2dArrayMSAADepthT() || isImage1dT() || isImage1dArrayT() ||
-+         isImage1dBufferT() ||
-+         isImageCubeT() || isImageCubeArrayT() ||
-+         isImageCubeDepthT() || isImageCubeArrayDepthT();
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) is##Id##Type() ||
++  return
++#include "clang/Basic/OpenCLImageTypes.def"
++      0; // end boolean or operation
  }
  
  inline bool Type::isPipeType() const {
-@@ -5503,7 +5540,8 @@ inline bool Type::isPipeType() const {
+@@ -5503,7 +5470,8 @@ inline bool Type::isPipeType() const {
  
  inline bool Type::isOpenCLSpecificType() const {
    return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||
@@ -576,6 +646,34 @@ index b04498f..6f60318 100644
  
  def err_target_unsupported_arch
    : Error<"the target architecture '%0' is not supported by the target '%1'">;
+diff --git a/include/clang/Basic/DiagnosticGroups.td b/include/clang/Basic/DiagnosticGroups.td
+index 2e4e57b..20a952c 100644
+--- a/include/clang/Basic/DiagnosticGroups.td
++++ b/include/clang/Basic/DiagnosticGroups.td
+@@ -844,6 +844,10 @@ def CudaCompat : DiagGroup<"cuda-compat">;
+ // A warning group for things that will change semantics in the future.
+ def FutureCompat : DiagGroup<"future-compat">;
+ 
++// A warning group for warnings about code that clang accepts when
++// compiling OpenCL C/C++ but which is not compatible with the SPIR spec.
++def SpirCompat : DiagGroup<"spir-compat">;
++
+ def InvalidOrNonExistentDirectory : DiagGroup<"invalid-or-nonexistent-directory">;
+ 
+ def OptionIgnored : DiagGroup<"option-ignored">;
+diff --git a/include/clang/Basic/DiagnosticIDs.h b/include/clang/Basic/DiagnosticIDs.h
+index 312b71f..d13ae4c 100644
+--- a/include/clang/Basic/DiagnosticIDs.h
++++ b/include/clang/Basic/DiagnosticIDs.h
+@@ -36,7 +36,7 @@ namespace clang {
+       DIAG_START_AST           = DIAG_START_PARSE           +  500,
+       DIAG_START_COMMENT       = DIAG_START_AST             +  110,
+       DIAG_START_SEMA          = DIAG_START_COMMENT         +  100,
+-      DIAG_START_ANALYSIS      = DIAG_START_SEMA            + 3000,
++      DIAG_START_ANALYSIS      = DIAG_START_SEMA            + 4000,
+       DIAG_UPPER_LIMIT         = DIAG_START_ANALYSIS        +  100
+     };
+ 
 diff --git a/include/clang/Basic/DiagnosticParseKinds.td b/include/clang/Basic/DiagnosticParseKinds.td
 index f8dee2f..e0d4bb0 100644
 --- a/include/clang/Basic/DiagnosticParseKinds.td
@@ -594,7 +692,7 @@ index f8dee2f..e0d4bb0 100644
  // OpenCL error
  def err_opencl_taking_function_address_parser : Error<
 diff --git a/include/clang/Basic/DiagnosticSemaKinds.td b/include/clang/Basic/DiagnosticSemaKinds.td
-index 6ba482c..575918a 100644
+index 6ba482c..9129299 100644
 --- a/include/clang/Basic/DiagnosticSemaKinds.td
 +++ b/include/clang/Basic/DiagnosticSemaKinds.td
 @@ -330,6 +330,8 @@ def warn_implicit_function_decl : Warning<
@@ -648,14 +746,16 @@ index 6ba482c..575918a 100644
  // CFString checking
  def err_cfstring_literal_not_string_constant : Error<
    "CFString literal is not a string constant">;
-@@ -7636,16 +7656,97 @@ def err_event_t_addr_space_qual : Error<
+@@ -7636,16 +7656,99 @@ def err_event_t_addr_space_qual : Error<
    "the event_t type can only be used with __private address space qualifier">;
  def err_expected_kernel_void_return_type : Error<
    "kernel must have void return type">;
 +def err_opencl20_global_invalid_addr_space : Error<
 +  "program scope variables must reside global or constant address space">;
 +def err_sampler_initializer_not_integer : Error<
-+  "sampler_t initialization requires integer, not %0">;
++  "sampler_t initialization requires 32-bit integer, not %0">;
++def warn_sampler_initializer_invalid_bits : Warning<
++  "Sampler initializer has invalid %0 bits">, InGroup<SpirCompat>;
 +def err_event_initialization : Error<
 +  "cannot initialize event_t">;
 +def err_event_argument_not_null : Error<
@@ -746,7 +846,7 @@ index 6ba482c..575918a 100644
  def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
  def err_opencl_kernel_attr :
    Error<"attribute %0 can only be applied to a kernel function">;
-@@ -7653,9 +7754,6 @@ def err_opencl_return_value_with_address_space : Error<
+@@ -7653,9 +7756,6 @@ def err_opencl_return_value_with_address_space : Error<
    "return value cannot be qualified with address space">;
  def err_opencl_constant_no_init : Error<
    "variable in constant address space must be initialized">;
@@ -756,7 +856,7 @@ index 6ba482c..575918a 100644
  def err_opencl_implicit_vector_conversion : Error<
    "implicit conversions between vector types (%0 and %1) are not permitted">;
  
-@@ -8004,6 +8102,8 @@ def note_related_result_type_inferred : Note<
+@@ -8004,6 +8104,8 @@ def note_related_result_type_inferred : Note<
  def note_related_result_type_explicit : Note<
    "%select{overridden|current}0 method is explicitly declared 'instancetype'"
    "%select{| and is expected to return an instance of its class type}0">;
@@ -766,7 +866,7 @@ index 6ba482c..575918a 100644
  }
  
 diff --git a/include/clang/Basic/LangOptions.def b/include/clang/Basic/LangOptions.def
-index cc70d62..ebad515 100644
+index cc70d62..24b1d64 100644
 --- a/include/clang/Basic/LangOptions.def
 +++ b/include/clang/Basic/LangOptions.def
 @@ -159,6 +159,7 @@ ENUM_LANGOPT(MSPointerToMemberRepresentationMethod, PragmaMSPointersToMembersKin
@@ -777,11 +877,12 @@ index cc70d62..ebad515 100644
  LANGOPT(OpenCLVersion     , 32, 0, "OpenCL version")
  LANGOPT(NativeHalfType    , 1, 0, "Native half type support")
  LANGOPT(HalfArgsAndReturns, 1, 0, "half args and returns")
-@@ -236,6 +237,9 @@ LANGOPT(SanitizeAddressFieldPadding, 2, 0, "controls how aggressive is ASan "
+@@ -236,6 +237,10 @@ LANGOPT(SanitizeAddressFieldPadding, 2, 0, "controls how aggressive is ASan "
                                             "field padding (0: none, 1:least "
                                             "aggressive, 2: more aggressive)")
  
 +LANGOPT(CLEnableHalf            , 1, 0, "cl-enable-half flag used")
++LANGOPT(CLSamplerOpaque, 1, 0, "Emit sampler as a pointer to opaque structure")
 +LANGOPT(CLVerifySPIR            , 1, 0, "cl-verify-spir flag used")
 +
  #undef LANGOPT
@@ -880,26 +981,132 @@ index 91fd919..c9189fe 100644
 +
  #undef OPENCLEXT
 +#undef OPENCLEXT_1_2
+diff --git a/include/clang/Basic/OpenCLImageTypes.def b/include/clang/Basic/OpenCLImageTypes.def
+new file mode 100644
+index 0000000..d5e5c91
+--- /dev/null
++++ b/include/clang/Basic/OpenCLImageTypes.def
+@@ -0,0 +1,109 @@
++//===-- OpenCLImageTypes.def - Metadata about BuiltinTypes ------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//  This file extends builtin types database with OpenCL image singleton types.
++//  Custom code should define one of those two macros:
++//    GENERIC_IMAGE_TYPE(Type, Id) - a generic image with its Id without an
++//      access type
++//    IMAGE_TYPE(Type, Id, SingletonId, AccessType, CGSuffix) - an image type
++//      with given ID, singleton ID access type and a codegen suffix
++
++#ifdef GENERIC_IMAGE_TYPE
++
++#define IMAGE_READ_TYPE(Type, Id) GENERIC_IMAGE_TYPE(Type, Id)
++#define IMAGE_WRITE_TYPE(Type, Id)
++#define IMAGE_READ_WRITE_TYPE(Type, Id)
++
++#else
++
++// NOTE/TODO:
++// this new method of using ro/wo/rw specific image types does not yet
++// work everywhere, is generally incompatible to SPIR 1.2 itself, and I'll
++// not backport this for clang/llvm 3.5
++// -> use the new facilities, but keep using the old/standard type names
++#if 1
++
++#define IMAGE_READ_TYPE(Type, Id) IMAGE_TYPE(Type, Id, Id##Ty, , )
++#define IMAGE_WRITE_TYPE(Type, Id)
++#define IMAGE_READ_WRITE_TYPE(Type, Id)
++
++#else
++
++#ifndef IMAGE_READ_TYPE
++#define IMAGE_READ_TYPE(Type, Id) \
++          IMAGE_TYPE(Type, Id##RO, Id##ROTy,  read_only, _ro)
++#endif
++#ifndef IMAGE_WRITE_TYPE
++#define IMAGE_WRITE_TYPE(Type, Id) \
++          IMAGE_TYPE(Type, Id##WO, Id##WOTy, write_only, _wo)
++#endif
++#ifndef IMAGE_READ_WRITE_TYPE
++#define IMAGE_READ_WRITE_TYPE(Type, Id) \
++          IMAGE_TYPE(Type, Id##RW, Id##RWTy, read_write, _rw)
++#endif
++
++#endif
++
++#endif
++
++IMAGE_READ_TYPE(image1d, OCLImage1d)
++IMAGE_READ_TYPE(image1d_array, OCLImage1dArray)
++IMAGE_READ_TYPE(image1d_buffer, OCLImage1dBuffer)
++IMAGE_READ_TYPE(image2d, OCLImage2d)
++IMAGE_READ_TYPE(image2d_array, OCLImage2dArray)
++IMAGE_READ_TYPE(image2d_depth, OCLImage2dDepth)
++IMAGE_READ_TYPE(image2d_array_depth, OCLImage2dArrayDepth)
++IMAGE_READ_TYPE(image2d_msaa, OCLImage2dMSAA)
++IMAGE_READ_TYPE(image2d_array_msaa, OCLImage2dArrayMSAA)
++IMAGE_READ_TYPE(image2d_msaa_depth, OCLImage2dMSAADepth)
++IMAGE_READ_TYPE(image2d_array_msaa_depth, OCLImage2dArrayMSAADepth)
++IMAGE_READ_TYPE(image3d, OCLImage3d)
++IMAGE_READ_TYPE(imagecube, OCLImageCube)
++IMAGE_READ_TYPE(imagecube_array, OCLImageCubeArray)
++IMAGE_READ_TYPE(imagecube_depth, OCLImageCubeDepth)
++IMAGE_READ_TYPE(imagecube_array_depth, OCLImageCubeArrayDepth)
++
++IMAGE_WRITE_TYPE(image1d, OCLImage1d)
++IMAGE_WRITE_TYPE(image1d_array, OCLImage1dArray)
++IMAGE_WRITE_TYPE(image1d_buffer, OCLImage1dBuffer)
++IMAGE_WRITE_TYPE(image2d, OCLImage2d)
++IMAGE_WRITE_TYPE(image2d_array, OCLImage2dArray)
++IMAGE_WRITE_TYPE(image2d_depth, OCLImage2dDepth)
++IMAGE_WRITE_TYPE(image2d_array_depth, OCLImage2dArrayDepth)
++IMAGE_WRITE_TYPE(image2d_msaa, OCLImage2dMSAA)
++IMAGE_WRITE_TYPE(image2d_array_msaa, OCLImage2dArrayMSAA)
++IMAGE_WRITE_TYPE(image2d_msaa_depth, OCLImage2dMSAADepth)
++IMAGE_WRITE_TYPE(image2d_array_msaa_depth, OCLImage2dArrayMSAADepth)
++IMAGE_WRITE_TYPE(image3d, OCLImage3d)
++IMAGE_WRITE_TYPE(imagecube, OCLImageCube)
++IMAGE_WRITE_TYPE(imagecube_array, OCLImageCubeArray)
++IMAGE_WRITE_TYPE(imagecube_depth, OCLImageCubeDepth)
++IMAGE_WRITE_TYPE(imagecube_array_depth, OCLImageCubeArrayDepth)
++
++IMAGE_READ_WRITE_TYPE(image1d, OCLImage1d)
++IMAGE_READ_WRITE_TYPE(image1d_array, OCLImage1dArray)
++IMAGE_READ_WRITE_TYPE(image1d_buffer, OCLImage1dBuffer)
++IMAGE_READ_WRITE_TYPE(image2d, OCLImage2d)
++IMAGE_READ_WRITE_TYPE(image2d_array, OCLImage2dArray)
++IMAGE_READ_WRITE_TYPE(image2d_depth, OCLImage2dDepth)
++IMAGE_READ_WRITE_TYPE(image2d_array_depth, OCLImage2dArrayDepth)
++IMAGE_READ_WRITE_TYPE(image2d_msaa, OCLImage2dMSAA)
++IMAGE_READ_WRITE_TYPE(image2d_array_msaa, OCLImage2dArrayMSAA)
++IMAGE_READ_WRITE_TYPE(image2d_msaa_depth, OCLImage2dMSAADepth)
++IMAGE_READ_WRITE_TYPE(image2d_array_msaa_depth, OCLImage2dArrayMSAADepth)
++IMAGE_READ_WRITE_TYPE(image3d, OCLImage3d)
++IMAGE_READ_WRITE_TYPE(imagecube, OCLImageCube)
++IMAGE_READ_WRITE_TYPE(imagecube_array, OCLImageCubeArray)
++IMAGE_READ_WRITE_TYPE(imagecube_depth, OCLImageCubeDepth)
++IMAGE_READ_WRITE_TYPE(imagecube_array_depth, OCLImageCubeArrayDepth)
++
++#undef IMAGE_TYPE
++#undef GENERIC_IMAGE_TYPE
++#undef IMAGE_READ_TYPE
++#undef IMAGE_WRITE_TYPE
++#undef IMAGE_READ_WRITE_TYPE
+\ No newline at end of file
 diff --git a/include/clang/Basic/Specifiers.h b/include/clang/Basic/Specifiers.h
-index e284171..8257d8a 100644
+index e284171..1ea9d84 100644
 --- a/include/clang/Basic/Specifiers.h
 +++ b/include/clang/Basic/Specifiers.h
-@@ -73,6 +73,23 @@ namespace clang {
+@@ -73,6 +73,13 @@ namespace clang {
      TST_auto_type,        // __auto_type extension
      TST_unknown_anytype,  // __unknown_anytype extension
      TST_atomic,           // C11 _Atomic
-+    TST_image1d_t,        // OpenCL image1d_t
-+    TST_image1d_array_t,  // OpenCL image1d_array_t
-+    TST_image1d_buffer_t, // OpenCL image1d_buffer_t
-+    TST_image2d_t,        // OpenCL image2d_t
-+    TST_image2d_array_t,  // OpenCL image2d_array_t
-+    TST_image3d_t,        // OpenCL image3d_t
-+    TST_image2d_depth_t,  // OpenCL image2d_depth_t
-+    TST_image2d_msaa_t,   // OpenCL image2d_msaa_t
-+    TST_image2d_msaa_depth_t, // OpenCL image2d_msaa_depth_t
-+    TST_image2d_array_msaa_depth_t, // OpenCL image2d_array_msaa_depth_t
-+    TST_image2d_array_msaa_t, // OpenCL image2d_array_msaa_t
-+    TST_image2d_array_depth_t, // OpenCL image2d_array_depth_t
++#define GENERIC_IMAGE_TYPE(ImgType, Id) TST_##ImgType##_t, // OpenCL image types
++#include "clang/Basic/OpenCLImageTypes.def"
 +    TST_sampler_t,        // OpenCL sampler_t
 +    TST_event_t,          // OpenCL event_t
 +    TST_queue_t,          // OpenCL queue_t
@@ -908,7 +1115,7 @@ index e284171..8257d8a 100644
      TST_error         // erroneous type
    };
    
-@@ -203,6 +220,9 @@ namespace clang {
+@@ -203,6 +210,9 @@ namespace clang {
      SC_PrivateExtern,
  
      // These are only legal on variables.
@@ -1013,7 +1220,7 @@ index cc38e24..9efc991 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index 051f903..6db38c4 100644
+index 051f903..b9e39cb 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -440,6 +440,8 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -1041,7 +1248,7 @@ index 051f903..6db38c4 100644
  // OpenCL Options
  //===----------------------------------------------------------------------===//
  
-@@ -660,6 +671,18 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -660,6 +671,20 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def cl_denorms_are_zero : Flag<["-"], "cl-denorms-are-zero">,
    HelpText<"OpenCL only. Allow denormals to be flushed to zero">;
  
@@ -1053,6 +1260,8 @@ index 051f903..6db38c4 100644
 +// SPIR generator options
 +def cl_spir_compile_options : Separate<["-"], "cl-spir-compile-options">,
 +  HelpText<"SPIR compilation options to record in metadata">;
++def cl_sampler_type : Separate<["-"], "cl-sampler-type">,
++  HelpText<"OpenCL only. Specify type of sampler to emit. Valid values: \"opaque\"(default), \"i32\"">;
 +
 +def cl_verify_spir : Flag<["-"], "cl-verify-spir">,
 +  HelpText<"OpenCL/SPIR only. Runs the Khronos SPIR verifier on the final LLVM IR.">;
@@ -1060,7 +1269,7 @@ index 051f903..6db38c4 100644
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -678,6 +701,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
+@@ -678,6 +703,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
    HelpText<"Enable function overloads based on CUDA target attributes.">;
  
  //===----------------------------------------------------------------------===//
@@ -1305,25 +1514,16 @@ index 00885a5..2be247c 100644
    /// Returns true if the next token cannot start an expression.
    bool isNotExpressionStart();
 diff --git a/include/clang/Sema/DeclSpec.h b/include/clang/Sema/DeclSpec.h
-index 064d37b..1c0271d 100644
+index 064d37b..2e7439d 100644
 --- a/include/clang/Sema/DeclSpec.h
 +++ b/include/clang/Sema/DeclSpec.h
-@@ -299,6 +299,23 @@ public:
+@@ -299,6 +299,14 @@ public:
    static const TST TST_auto_type = clang::TST_auto_type;
    static const TST TST_unknown_anytype = clang::TST_unknown_anytype;
    static const TST TST_atomic = clang::TST_atomic;
-+  static const TST TST_image1d_t = clang::TST_image1d_t;
-+  static const TST TST_image1d_array_t = clang::TST_image1d_array_t;
-+  static const TST TST_image1d_buffer_t = clang::TST_image1d_buffer_t;
-+  static const TST TST_image2d_t = clang::TST_image2d_t;
-+  static const TST TST_image2d_array_t = clang::TST_image2d_array_t;
-+  static const TST TST_image2d_depth_t = clang::TST_image2d_depth_t;
-+  static const TST TST_image2d_array_depth_t = clang::TST_image2d_array_depth_t;
-+  static const TST TST_image2d_msaa_t = clang::TST_image2d_msaa_t;
-+  static const TST TST_image2d_array_msaa_t = clang::TST_image2d_array_msaa_t;
-+  static const TST TST_image2d_msaa_depth_t = clang::TST_image2d_msaa_depth_t;
-+  static const TST TST_image2d_array_msaa_depth_t = clang::TST_image2d_array_msaa_depth_t;
-+  static const TST TST_image3d_t = clang::TST_image3d_t;
++#define GENERIC_IMAGE_TYPE(ImgType, Id) \
++  static const TST TST_##ImgType##_t = clang::TST_##ImgType##_t;
++#include "clang/Basic/OpenCLImageTypes.def"
 +  static const TST TST_sampler_t = clang::TST_sampler_t;
 +  static const TST TST_event_t = clang::TST_event_t;
 +  static const TST TST_queue_t = clang::TST_queue_t;
@@ -1414,23 +1614,79 @@ index 60c6598..bea86fa 100644
  }
  
 diff --git a/include/clang/Serialization/ASTBitCodes.h b/include/clang/Serialization/ASTBitCodes.h
-index 0dfb8cf..76b9e22 100644
+index 0dfb8cf..58719f6 100644
 --- a/include/clang/Serialization/ASTBitCodes.h
 +++ b/include/clang/Serialization/ASTBitCodes.h
-@@ -794,6 +794,11 @@ namespace clang {
-       PREDEF_TYPE_IMAGE2D_MSAA_DEP_ID = 46,
-       /// \brief OpenCL 2d image array MSAA depth type.
-       PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID = 47,
-+      /// \brief not currently supported by OpenCL, but by other backends
-+      PREDEF_TYPE_IMAGECUBE_ID = 56,
-+      PREDEF_TYPE_IMAGECUBE_ARR_ID = 57,
-+      PREDEF_TYPE_IMAGECUBE_DEPTH_ID = 58,
-+      PREDEF_TYPE_IMAGECUBE_ARR_DEPTH_ID = 59,
-       /// \brief OpenCL 3d image type.
-       PREDEF_TYPE_IMAGE3D_ID    = 48,
+@@ -772,44 +772,24 @@ namespace clang {
+       PREDEF_TYPE_PSEUDO_OBJECT = 35,
+       /// \brief The placeholder type for builtin functions.
+       PREDEF_TYPE_BUILTIN_FN = 36,
+-      /// \brief OpenCL 1d image type.
+-      PREDEF_TYPE_IMAGE1D_ID    = 37,
+-      /// \brief OpenCL 1d image array type.
+-      PREDEF_TYPE_IMAGE1D_ARR_ID = 38,
+-      /// \brief OpenCL 1d image buffer type.
+-      PREDEF_TYPE_IMAGE1D_BUFF_ID = 39,
+-      /// \brief OpenCL 2d image type.
+-      PREDEF_TYPE_IMAGE2D_ID    = 40,
+-      /// \brief OpenCL 2d image array type.
+-      PREDEF_TYPE_IMAGE2D_ARR_ID = 41,
+-      /// \brief OpenCL 2d image depth type.
+-      PREDEF_TYPE_IMAGE2D_DEP_ID = 42,
+-      /// \brief OpenCL 2d image array depth type.
+-      PREDEF_TYPE_IMAGE2D_ARR_DEP_ID = 43,
+-      /// \brief OpenCL 2d image MSAA type.
+-      PREDEF_TYPE_IMAGE2D_MSAA_ID = 44,
+-      /// \brief OpenCL 2d image array MSAA type.
+-      PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID = 45,
+-      /// \brief OpenCL 2d image MSAA depth type.
+-      PREDEF_TYPE_IMAGE2D_MSAA_DEP_ID = 46,
+-      /// \brief OpenCL 2d image array MSAA depth type.
+-      PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID = 47,
+-      /// \brief OpenCL 3d image type.
+-      PREDEF_TYPE_IMAGE3D_ID    = 48,
        /// \brief OpenCL event type.
+-      PREDEF_TYPE_EVENT_ID      = 49,
++      PREDEF_TYPE_EVENT_ID      = 37,
+       /// \brief OpenCL clk event type.
+-      PREDEF_TYPE_CLK_EVENT_ID  = 50,
++      PREDEF_TYPE_CLK_EVENT_ID  = 38,
+       /// \brief OpenCL sampler type.
+-      PREDEF_TYPE_SAMPLER_ID    = 51,
++      PREDEF_TYPE_SAMPLER_ID    = 39,
+       /// \brief OpenCL queue type.
+-      PREDEF_TYPE_QUEUE_ID      = 52,
++      PREDEF_TYPE_QUEUE_ID      = 40,
+       /// \brief OpenCL ndrange type.
+-      PREDEF_TYPE_NDRANGE_ID    = 53,
++      PREDEF_TYPE_NDRANGE_ID    = 41,
+       /// \brief OpenCL reserve_id type.
+-      PREDEF_TYPE_RESERVE_ID_ID = 54,
++      PREDEF_TYPE_RESERVE_ID_ID = 42,
+       /// \brief The placeholder type for OpenMP array section.
+-      PREDEF_TYPE_OMP_ARRAY_SECTION = 55
++      PREDEF_TYPE_OMP_ARRAY_SECTION = 43,
++      /// \brief OpenCL image types with auto numeration
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++      PREDEF_TYPE_##Id##_ID,
++#include "clang/Basic/OpenCLImageTypes.def"
+     };
+ 
+     /// \brief The number of predefined type IDs that are reserved for
+diff --git a/include/clang/module.modulemap b/include/clang/module.modulemap
+index 28b6d16..440e8f0 100644
+--- a/include/clang/module.modulemap
++++ b/include/clang/module.modulemap
+@@ -41,6 +41,7 @@ module Clang_Basic {
+   textual header "Basic/DiagnosticOptions.def"
+   textual header "Basic/LangOptions.def"
+   textual header "Basic/OpenCLExtensions.def"
++  textual header "Basic/OpenCLImageTypes.def"
+   textual header "Basic/OpenMPKinds.def"
+   textual header "Basic/OperatorKinds.def"
+   textual header "Basic/Sanitizers.def"
 diff --git a/lib/AST/ASTContext.cpp b/lib/AST/ASTContext.cpp
-index 6438696..ad4ca54 100644
+index 6438696..a51d469 100644
 --- a/lib/AST/ASTContext.cpp
 +++ b/lib/AST/ASTContext.cpp
 @@ -744,6 +744,7 @@ ASTContext::ASTContext(LangOptions &LOpts, SourceManager &SM,
@@ -1441,40 +1697,80 @@ index 6438696..ad4ca54 100644
        SanitizerBL(new SanitizerBlacklist(LangOpts.SanitizerBlacklistFiles, SM)),
        AddrSpaceMap(nullptr), Target(nullptr), AuxTarget(nullptr),
        PrintingPolicy(LOpts), Idents(idents), Selectors(sels),
-@@ -1102,6 +1103,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
-     InitBuiltinType(OCLImage2dMSAADepthTy, BuiltinType::OCLImage2dMSAADepth);
-     InitBuiltinType(OCLImage2dArrayMSAADepthTy,
-                     BuiltinType::OCLImage2dArrayMSAADepth);
-+    InitBuiltinType(OCLImageCubeTy, BuiltinType::OCLImageCube);
-+    InitBuiltinType(OCLImageCubeArrayTy, BuiltinType::OCLImageCubeArray);
-+    InitBuiltinType(OCLImageCubeDepthTy, BuiltinType::OCLImageCubeDepth);
-+    InitBuiltinType(OCLImageCubeArrayDepthTy, BuiltinType::OCLImageCubeArrayDepth);
-     InitBuiltinType(OCLImage3dTy, BuiltinType::OCLImage3d);
+@@ -1089,20 +1090,10 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
+   InitBuiltinType(ObjCBuiltinClassTy, BuiltinType::ObjCClass);
+   InitBuiltinType(ObjCBuiltinSelTy, BuiltinType::ObjCSel);
+ 
+-  if (LangOpts.OpenCL) { 
+-    InitBuiltinType(OCLImage1dTy, BuiltinType::OCLImage1d);
+-    InitBuiltinType(OCLImage1dArrayTy, BuiltinType::OCLImage1dArray);
+-    InitBuiltinType(OCLImage1dBufferTy, BuiltinType::OCLImage1dBuffer);
+-    InitBuiltinType(OCLImage2dTy, BuiltinType::OCLImage2d);
+-    InitBuiltinType(OCLImage2dArrayTy, BuiltinType::OCLImage2dArray);
+-    InitBuiltinType(OCLImage2dDepthTy, BuiltinType::OCLImage2dDepth);
+-    InitBuiltinType(OCLImage2dArrayDepthTy, BuiltinType::OCLImage2dArrayDepth);
+-    InitBuiltinType(OCLImage2dMSAATy, BuiltinType::OCLImage2dMSAA);
+-    InitBuiltinType(OCLImage2dArrayMSAATy, BuiltinType::OCLImage2dArrayMSAA);
+-    InitBuiltinType(OCLImage2dMSAADepthTy, BuiltinType::OCLImage2dMSAADepth);
+-    InitBuiltinType(OCLImage2dArrayMSAADepthTy,
+-                    BuiltinType::OCLImage2dArrayMSAADepth);
+-    InitBuiltinType(OCLImage3dTy, BuiltinType::OCLImage3d);
++  if (LangOpts.OpenCL) {
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    InitBuiltinType(SingletonId, BuiltinType::Id);
++#include "clang/Basic/OpenCLImageTypes.def"
  
      InitBuiltinType(OCLSamplerTy, BuiltinType::OCLSampler);
-@@ -1691,6 +1696,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
-     case BuiltinType::OCLImage2dArrayMSAA:
-     case BuiltinType::OCLImage2dMSAADepth:
-     case BuiltinType::OCLImage2dArrayMSAADepth:
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-     case BuiltinType::OCLImage3d:
+     InitBuiltinType(OCLEventTy, BuiltinType::OCLEvent);
+@@ -1676,22 +1667,13 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
+       Align = Target->getIntAlign();
+       break;
+     case BuiltinType::OCLEvent:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
+     case BuiltinType::OCLClkEvent:
+     case BuiltinType::OCLQueue:
+     case BuiltinType::OCLNDRange:
+     case BuiltinType::OCLReserveID:
+-    case BuiltinType::OCLImage1d:
+-    case BuiltinType::OCLImage1dArray:
+-    case BuiltinType::OCLImage1dBuffer:
+-    case BuiltinType::OCLImage2d:
+-    case BuiltinType::OCLImage2dArray:
+-    case BuiltinType::OCLImage2dDepth:
+-    case BuiltinType::OCLImage2dArrayDepth:
+-    case BuiltinType::OCLImage2dMSAA:
+-    case BuiltinType::OCLImage2dArrayMSAA:
+-    case BuiltinType::OCLImage2dMSAADepth:
+-    case BuiltinType::OCLImage2dArrayMSAADepth:
+-    case BuiltinType::OCLImage3d:
        // Currently these types are pointers to opaque types.
        Width = Target->getPointerWidth(0);
-@@ -5471,6 +5480,10 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
-     case BuiltinType::OCLImage2dArrayMSAA:
-     case BuiltinType::OCLImage2dMSAADepth:
-     case BuiltinType::OCLImage2dArrayMSAADepth:
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-     case BuiltinType::OCLImage3d:
+       Align = Target->getPointerAlign(0);
+@@ -5460,18 +5442,9 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
+       llvm_unreachable("@encoding ObjC primitive type");
+ 
+     // OpenCL and placeholder types don't need @encodings.
+-    case BuiltinType::OCLImage1d:
+-    case BuiltinType::OCLImage1dArray:
+-    case BuiltinType::OCLImage1dBuffer:
+-    case BuiltinType::OCLImage2d:
+-    case BuiltinType::OCLImage2dArray:
+-    case BuiltinType::OCLImage2dDepth:
+-    case BuiltinType::OCLImage2dArrayDepth:
+-    case BuiltinType::OCLImage2dMSAA:
+-    case BuiltinType::OCLImage2dArrayMSAA:
+-    case BuiltinType::OCLImage2dMSAADepth:
+-    case BuiltinType::OCLImage2dArrayMSAADepth:
+-    case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLClkEvent:
-@@ -7450,13 +7463,34 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
+     case BuiltinType::OCLQueue:
+@@ -7450,13 +7423,34 @@ QualType ASTContext::mergeFunctionTypes(QualType lhs, QualType rhs,
    if (lproto && rproto) { // two C99 style function prototypes
      assert(!lproto->hasExceptionSpec() && !rproto->hasExceptionSpec() &&
             "C++ shouldn't be here");
@@ -1515,7 +1811,7 @@ index 6438696..ad4ca54 100644
  
      if (lproto->getTypeQuals() != rproto->getTypeQuals())
        return QualType();
-@@ -8350,7 +8384,7 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
+@@ -8350,7 +8344,7 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
    if (!FD->isInlined())
      return External;
  
@@ -1524,7 +1820,7 @@ index 6438696..ad4ca54 100644
         !Context.getTargetInfo().getCXXABI().isMicrosoft() &&
         !FD->hasAttr<DLLExportAttr>()) ||
        FD->hasAttr<GNUInlineAttr>()) {
-@@ -8380,7 +8414,7 @@ static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D) {
+@@ -8380,7 +8374,7 @@ static GVALinkage adjustGVALinkageForAttributes(GVALinkage L, const Decl *D) {
    if (D->hasAttr<DLLImportAttr>()) {
      if (L == GVA_DiscardableODR || L == GVA_StrongODR)
        return GVA_AvailableExternally;
@@ -1533,7 +1829,7 @@ index 6438696..ad4ca54 100644
      if (L == GVA_DiscardableODR)
        return GVA_StrongODR;
    }
-@@ -8541,6 +8575,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
+@@ -8541,6 +8535,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
  
  CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
                                                      bool IsCXXMethod) const {
@@ -1545,6 +1841,21 @@ index 6438696..ad4ca54 100644
    // Pass through to the C++ ABI object
    if (IsCXXMethod)
      return ABI->getDefaultMethodCallConv(IsVariadic);
+diff --git a/lib/AST/ASTImporter.cpp b/lib/AST/ASTImporter.cpp
+index 916f108..5c0f18c 100644
+--- a/lib/AST/ASTImporter.cpp
++++ b/lib/AST/ASTImporter.cpp
+@@ -1480,6 +1480,10 @@ QualType ASTNodeImporter::VisitType(const Type *T) {
+ 
+ QualType ASTNodeImporter::VisitBuiltinType(const BuiltinType *T) {
+   switch (T->getKind()) {
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id: \
++    return Importer.getToContext().SingletonId;
++#include "clang/Basic/OpenCLImageTypes.def"
+ #define SHARED_SINGLETON_TYPE(Expansion)
+ #define BUILTIN_TYPE(Id, SingletonId) \
+   case BuiltinType::Id: return Importer.getToContext().SingletonId;
 diff --git a/lib/AST/Decl.cpp b/lib/AST/Decl.cpp
 index 427ca5e..3f460f9 100644
 --- a/lib/AST/Decl.cpp
@@ -1734,7 +2045,7 @@ index fa652ba..821f4af 100644
      Info.Diag(E, diag::note_constexpr_nonliteral) << E->getType();
      return false;
 diff --git a/lib/AST/ItaniumMangle.cpp b/lib/AST/ItaniumMangle.cpp
-index 3f6b682..dff50ee 100644
+index 3f6b682..1ec4815 100644
 --- a/lib/AST/ItaniumMangle.cpp
 +++ b/lib/AST/ItaniumMangle.cpp
 @@ -174,6 +174,9 @@ public:
@@ -1828,7 +2139,15 @@ index 3f6b682..dff50ee 100644
    //  <type>         ::= <builtin-type>
    //  <builtin-type> ::= v  # void
    //                 ::= w  # wchar_t
-@@ -2080,48 +2119,25 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+@@ -1990,6 +2029,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
+   //                 ::= Ds # char16_t
+   //                 ::= Dn # std::nullptr_t (i.e., decltype(nullptr))
+   //                 ::= u <source-name>    # vendor extended type
++  //std::string type_name;
+   switch (T->getKind()) {
+   case BuiltinType::Void:
+     Out << 'v';
+@@ -2080,48 +2120,34 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
    case BuiltinType::ObjCSel:
      Out << "13objc_selector";
      break;
@@ -1874,6 +2193,14 @@ index 3f6b682..dff50ee 100644
 -  case BuiltinType::OCLEvent:
 -    Out << "9ocl_event";
 -    break;
++#if 0 // TODO: this is not correct!
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id: \
++    type_name = "ocl_" #ImgType #Suffix; \
++    Out << type_name.size() << type_name; \
++    break;
++#include "clang/Basic/OpenCLImageTypes.def"
++#else
 +  case BuiltinType::OCLImage1d: Out << mangle_opencl_name(getASTContext(), "11ocl_image1d", "PU3AS110_image1d_t"); break;
 +  case BuiltinType::OCLImage1dArray: Out << mangle_opencl_name(getASTContext(), "16ocl_image1darray", "PU3AS116_image1d_array_t"); break;
 +  case BuiltinType::OCLImage1dBuffer: Out << mangle_opencl_name(getASTContext(), "17ocl_image1dbuffer", "PU3AS117_image1d_buffer_t"); break;
@@ -1890,13 +2217,14 @@ index 3f6b682..dff50ee 100644
 +  case BuiltinType::OCLImageCubeDepth: Out << mangle_opencl_name(getASTContext(), "18ocl_imagecubedepth", "PU3AS117_imagecubedepth_t"); break;
 +  case BuiltinType::OCLImageCubeArrayDepth: Out << mangle_opencl_name(getASTContext(), "23ocl_imagecubearraydepth", "PU3AS122_imagecubearraydepth_t"); break;
 +  case BuiltinType::OCLImage3d: Out << mangle_opencl_name(getASTContext(), "11ocl_image3d", "PU3AS110_image3d_t"); break;
++#endif
 +  case BuiltinType::OCLSampler: Out << mangle_opencl_name(getASTContext(), "11ocl_sampler", "uSampler"); break;
 +  case BuiltinType::OCLEvent: Out << mangle_opencl_name(getASTContext(), "9ocl_event", "i"); break;
 +  // NOTE: the following are not supported by AppleCL, just standard OpenCL 2.0+
    case BuiltinType::OCLClkEvent:
      Out << "12ocl_clkevent";
      break;
-@@ -4246,6 +4262,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
+@@ -4246,6 +4272,26 @@ void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_os
    llvm_unreachable("Can't mangle string literals");
  }
  
@@ -1924,49 +2252,96 @@ index 3f6b682..dff50ee 100644
  ItaniumMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
    return new ItaniumMangleContextImpl(Context, Diags);
 diff --git a/lib/AST/MicrosoftMangle.cpp b/lib/AST/MicrosoftMangle.cpp
-index 4a45f9e..d74d47c 100644
+index 4a45f9e..0760399 100644
 --- a/lib/AST/MicrosoftMangle.cpp
 +++ b/lib/AST/MicrosoftMangle.cpp
-@@ -1725,6 +1725,22 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
-     Out << "PA";
-     mangleArtificalTagType(TTK_Struct, "ocl_image2darraymsaadepth");
+@@ -1681,54 +1681,11 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
+     mangleArtificalTagType(TTK_Struct, "objc_selector");
      break;
-+  case BuiltinType::OCLImageCube:
-+    Out << "PA";
-+    mangleArtificalTagType(TTK_Struct, "ocl_imagecube");
-+    break;
-+  case BuiltinType::OCLImageCubeArray:
-+    Out << "PA";
-+    mangleArtificalTagType(TTK_Struct, "ocl_imagecubearray");
-+    break;
-+  case BuiltinType::OCLImageCubeDepth:
-+    Out << "PA";
-+    mangleArtificalTagType(TTK_Struct, "ocl_imagecubedepth");
-+    break;
-+  case BuiltinType::OCLImageCubeArrayDepth:
-+    Out << "PA";
-+    mangleArtificalTagType(TTK_Struct, "ocl_imagecubearraydepth");
-+    break;
-   case BuiltinType::OCLImage3d:
+ 
+-  case BuiltinType::OCLImage1d:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image1d");
+-    break;
+-  case BuiltinType::OCLImage1dArray:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image1darray");
+-    break;
+-  case BuiltinType::OCLImage1dBuffer:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image1dbuffer");
+-    break;
+-  case BuiltinType::OCLImage2d:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2d");
+-    break;
+-  case BuiltinType::OCLImage2dArray:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2darray");
+-    break;
+-  case BuiltinType::OCLImage2dDepth:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2ddepth");
+-    break;
+-  case BuiltinType::OCLImage2dArrayDepth:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2darraydepth");
+-    break;
+-  case BuiltinType::OCLImage2dMSAA:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2dmsaa");
+-    break;
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2darraymsaa");
+-    break;
+-  case BuiltinType::OCLImage2dMSAADepth:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2dmsaadepth");
+-    break;
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image2darraymsaadepth");
+-    break;
+-  case BuiltinType::OCLImage3d:
+-    Out << "PA";
+-    mangleArtificalTagType(TTK_Struct, "ocl_image3d");
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id: \
++    Out << "PAUocl_" #ImgType #Suffix "@@"; \
+     break;
++#include "clang/Basic/OpenCLImageTypes.def"
+   case BuiltinType::OCLSampler:
      Out << "PA";
-     mangleArtificalTagType(TTK_Struct, "ocl_image3d");
+     mangleArtificalTagType(TTK_Struct, "ocl_sampler");
 diff --git a/lib/AST/NSAPI.cpp b/lib/AST/NSAPI.cpp
-index c562dae..004aeb5 100644
+index c562dae..4c49e4c 100644
 --- a/lib/AST/NSAPI.cpp
 +++ b/lib/AST/NSAPI.cpp
-@@ -456,6 +456,10 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
-   case BuiltinType::OCLImage2dArrayMSAA:
-   case BuiltinType::OCLImage2dMSAADepth:
-   case BuiltinType::OCLImage2dArrayMSAADepth:
-+  case BuiltinType::OCLImageCube:
-+  case BuiltinType::OCLImageCubeArray:
-+  case BuiltinType::OCLImageCubeDepth:
-+  case BuiltinType::OCLImageCubeArrayDepth:
-   case BuiltinType::OCLImage3d:
+@@ -445,18 +445,9 @@ NSAPI::getNSNumberFactoryMethodKind(QualType T) const {
+   case BuiltinType::ObjCClass:
+   case BuiltinType::ObjCId:
+   case BuiltinType::ObjCSel:
+-  case BuiltinType::OCLImage1d:
+-  case BuiltinType::OCLImage1dArray:
+-  case BuiltinType::OCLImage1dBuffer:
+-  case BuiltinType::OCLImage2d:
+-  case BuiltinType::OCLImage2dArray:
+-  case BuiltinType::OCLImage2dDepth:
+-  case BuiltinType::OCLImage2dArrayDepth:
+-  case BuiltinType::OCLImage2dMSAA:
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-  case BuiltinType::OCLImage2dMSAADepth:
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-  case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
+   case BuiltinType::OCLClkEvent:
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index b467dac..ec28e26 100644
+index b467dac..469743f 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1783,6 +1783,13 @@ bool Type::isFloatingType() const {
@@ -2024,33 +2399,71 @@ index b467dac..ec28e26 100644
    // C++1y [basic.types]p10:
    //   A type is a literal type if it is:
    //   -- cv void; or
-@@ -2603,6 +2637,14 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
-     return "image2d_msaa_depth_t";
-   case OCLImage2dArrayMSAADepth:
-     return "image2d_array_msaa_depth_t";
-+  case OCLImageCube:
-+    return "imagecube_t";
-+  case OCLImageCubeArray:
-+    return "imagecube_array_t";
-+  case OCLImageCubeDepth:
-+    return "imagecube_depth_t";
-+  case OCLImageCubeArrayDepth:
-+    return "imagecube_array_depth_t";
-   case OCLImage3d:
-     return "image3d_t";
+@@ -2581,30 +2615,17 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
+     return "Class";
+   case ObjCSel:
+     return "SEL";
+-  case OCLImage1d:
+-    return "image1d_t";
+-  case OCLImage1dArray:
+-    return "image1d_array_t";
+-  case OCLImage1dBuffer:
+-    return "image1d_buffer_t";
+-  case OCLImage2d:
+-    return "image2d_t";
+-  case OCLImage2dArray:
+-    return "image2d_array_t";
+-  case OCLImage2dDepth:
+-    return "image2d_depth_t";
+-  case OCLImage2dArrayDepth:
+-    return "image2d_array_depth_t";
+-  case OCLImage2dMSAA:
+-    return "image2d_msaa_t";
+-  case OCLImage2dArrayMSAA:
+-    return "image2d_array_msaa_t";
+-  case OCLImage2dMSAADepth:
+-    return "image2d_msaa_depth_t";
+-  case OCLImage2dArrayMSAADepth:
+-    return "image2d_array_msaa_depth_t";
+-  case OCLImage3d:
+-    return "image3d_t";
++#if 0 // TODO: enable this again when using ro/wo/rw image types
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case Id: \
++    return "__" #Access " " #ImgType "_t";
++#include "clang/Basic/OpenCLImageTypes.def"
++#else
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case Id: \
++    return #ImgType "_t";
++#include "clang/Basic/OpenCLImageTypes.def"
++#endif
    case OCLSampler:
-@@ -3572,6 +3614,10 @@ bool Type::canHaveNullability() const {
-     case BuiltinType::OCLImage2dArrayMSAA:
-     case BuiltinType::OCLImage2dMSAADepth:
-     case BuiltinType::OCLImage2dArrayMSAADepth:
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-     case BuiltinType::OCLImage3d:
+     return "sampler_t";
+   case OCLEvent:
+@@ -3561,18 +3582,9 @@ bool Type::canHaveNullability() const {
+     case BuiltinType::ObjCId:
+     case BuiltinType::ObjCClass:
+     case BuiltinType::ObjCSel:
+-    case BuiltinType::OCLImage1d:
+-    case BuiltinType::OCLImage1dArray:
+-    case BuiltinType::OCLImage1dBuffer:
+-    case BuiltinType::OCLImage2d:
+-    case BuiltinType::OCLImage2dArray:
+-    case BuiltinType::OCLImage2dDepth:
+-    case BuiltinType::OCLImage2dArrayDepth:
+-    case BuiltinType::OCLImage2dMSAA:
+-    case BuiltinType::OCLImage2dArrayMSAA:
+-    case BuiltinType::OCLImage2dMSAADepth:
+-    case BuiltinType::OCLImage2dArrayMSAADepth:
+-    case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
-@@ -3787,3 +3833,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+     case BuiltinType::OCLClkEvent:
+@@ -3787,3 +3799,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -2095,20 +2508,31 @@ index b467dac..ec28e26 100644
 +  return valid_and_has_image.first && valid_and_has_image.second;
 +}
 diff --git a/lib/AST/TypeLoc.cpp b/lib/AST/TypeLoc.cpp
-index d08b07b..11d62ea 100644
+index d08b07b..0fcad5a 100644
 --- a/lib/AST/TypeLoc.cpp
 +++ b/lib/AST/TypeLoc.cpp
-@@ -344,6 +344,10 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
-   case BuiltinType::OCLImage2dArrayMSAA:
-   case BuiltinType::OCLImage2dMSAADepth:
-   case BuiltinType::OCLImage2dArrayMSAADepth:
-+  case BuiltinType::OCLImageCube:
-+  case BuiltinType::OCLImageCubeArray:
-+  case BuiltinType::OCLImageCubeDepth:
-+  case BuiltinType::OCLImageCubeArrayDepth:
-   case BuiltinType::OCLImage3d:
+@@ -333,18 +333,9 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
+   case BuiltinType::ObjCId:
+   case BuiltinType::ObjCClass:
+   case BuiltinType::ObjCSel:
+-  case BuiltinType::OCLImage1d:
+-  case BuiltinType::OCLImage1dArray:
+-  case BuiltinType::OCLImage1dBuffer:
+-  case BuiltinType::OCLImage2d:
+-  case BuiltinType::OCLImage2dArray:
+-  case BuiltinType::OCLImage2dDepth:
+-  case BuiltinType::OCLImage2dArrayDepth:
+-  case BuiltinType::OCLImage2dMSAA:
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-  case BuiltinType::OCLImage2dMSAADepth:
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-  case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
+   case BuiltinType::OCLClkEvent:
 diff --git a/lib/AST/TypePrinter.cpp b/lib/AST/TypePrinter.cpp
 index b202523..60c6389 100644
 --- a/lib/AST/TypePrinter.cpp
@@ -2125,8 +2549,22 @@ index b202523..60c6389 100644
        break;
      }
    }
+diff --git a/lib/Analysis/PrintfFormatString.cpp b/lib/Analysis/PrintfFormatString.cpp
+index f0976bc..4235ce2 100644
+--- a/lib/Analysis/PrintfFormatString.cpp
++++ b/lib/Analysis/PrintfFormatString.cpp
+@@ -614,6 +614,9 @@ bool PrintfSpecifier::fixType(QualType QT, const LangOptions &LangOpt,
+     // Various types which are non-trivial to correct.
+     return false;
+ 
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
+ #define SIGNED_TYPE(Id, SingletonId)
+ #define UNSIGNED_TYPE(Id, SingletonId)
+ #define FLOATING_TYPE(Id, SingletonId)
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index af8aea0..5a9e0e5 100644
+index af8aea0..a6c6949 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -1615,8 +1615,16 @@ class NVPTXTargetInfo : public TargetInfo {
@@ -2265,7 +2703,27 @@ index af8aea0..5a9e0e5 100644
    }
  };
  
-@@ -7426,6 +7471,26 @@ public:
+@@ -7403,7 +7448,8 @@ public:
+     SizeType = TargetInfo::UnsignedInt;
+     PtrDiffType = IntPtrType = TargetInfo::SignedInt;
+     DataLayoutString = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-"
+-                       "v96:128-v192:256-v256:256-v512:512-v1024:1024";
++                       "v96:128-v192:256-v256:256-v512:512-v1024:1024"
++                       "-n8:16:32:64";
+   }
+   void getTargetDefines(const LangOptions &Opts,
+                         MacroBuilder &Builder) const override {
+@@ -7418,7 +7464,8 @@ public:
+     SizeType = TargetInfo::UnsignedLong;
+     PtrDiffType = IntPtrType = TargetInfo::SignedLong;
+     DataLayoutString = "e-i64:64-v16:16-v24:32-v32:32-v48:64-"
+-                       "v96:128-v192:256-v256:256-v512:512-v1024:1024";
++                       "v96:128-v192:256-v256:256-v512:512-v1024:1024"
++                       "-n8:16:32:64";
+   }
+   void getTargetDefines(const LangOptions &Opts,
+                         MacroBuilder &Builder) const override {
+@@ -7426,6 +7473,26 @@ public:
    }
  };
  
@@ -2292,7 +2750,7 @@ index af8aea0..5a9e0e5 100644
  class XCoreTargetInfo : public TargetInfo {
    static const Builtin::Info BuiltinInfo[];
  public:
-@@ -7911,18 +7976,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+@@ -7911,18 +7978,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
        return new X86_64TargetInfo(Triple);
      }
  
@@ -2429,7 +2887,7 @@ index 6d746c2..3614f90 100644
      getPerModulePasses()->add(
          createPrintModulePass(*OS, "", CodeGenOpts.EmitLLVMUseLists));
 diff --git a/lib/CodeGen/CGBlocks.cpp b/lib/CodeGen/CGBlocks.cpp
-index ba2941e..a4190c4 100644
+index ba2941e..3de24fe 100644
 --- a/lib/CodeGen/CGBlocks.cpp
 +++ b/lib/CodeGen/CGBlocks.cpp
 @@ -14,6 +14,7 @@
@@ -2527,7 +2985,7 @@ index ba2941e..a4190c4 100644
  llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
    // Using the computed layout, generate the actual block function.
    bool isLambdaConv = blockInfo.getBlockDecl()->isConversionFromLambda();
-@@ -694,28 +730,9 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
+@@ -694,27 +730,7 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
                                                         isLambdaConv);
    blockFn = llvm::ConstantExpr::getBitCast(blockFn, VoidPtrTy);
  
@@ -2544,19 +3002,18 @@ index ba2941e..a4190c4 100644
 -  llvm::Constant *descriptor = buildBlockDescriptor(CGM, blockInfo);
 -
    Address blockAddr = blockInfo.LocalAddress;
-   assert(blockAddr.isValid() && "block has no address!");
- 
+-  assert(blockAddr.isValid() && "block has no address!");
+-
 -  // Compute the initial on-stack block flags.
 -  BlockFlags flags = BLOCK_HAS_SIGNATURE;
 -  if (blockInfo.HasCapturedVariableLayout) flags |= BLOCK_HAS_EXTENDED_LAYOUT;
 -  if (blockInfo.NeedsCopyDispose) flags |= BLOCK_HAS_COPY_DISPOSE;
 -  if (blockInfo.HasCXXObject) flags |= BLOCK_HAS_CXX_OBJ;
 -  if (blockInfo.UsesStret) flags |= BLOCK_USE_STRET;
--
+ 
    auto projectField =
      [&](unsigned index, CharUnits offset, const Twine &name) -> Address {
-       return Builder.CreateStructGEP(blockAddr, index, offset, name);
-@@ -726,25 +743,57 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
+@@ -726,25 +742,53 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
        Builder.CreateStore(value, projectField(index, offset, name));
      };
  
@@ -2580,12 +3037,6 @@ index ba2941e..a4190c4 100644
 -    addHeaderField(blockFn, getPointerSize(), "block.invoke");
 -    addHeaderField(descriptor, getPointerSize(), "block.descriptor");
 +  if (CGM.getLangOpts().OpenCL) {
-+    // TODO: unused?
-+    //llvm::Type *ArgTys[] = {VoidPtrTy, IntTy, IntTy, VoidPtrTy};
-+    //llvm::FunctionType *FTy =
-+    //    llvm::FunctionType::get(CGM.getOpenCLRuntime().getBlockType(),
-+    //                            llvm::ArrayRef<llvm::Type *>(ArgTys), false);
-+
 +    if (blockInfo.CanBeGlobal)
 +      return GenerateOCLBlockBind(blockFn, blockInfo.BlockSize.getQuantity(),
 +                                  blockInfo.BlockAlign.getQuantity(),
@@ -2602,6 +3053,8 @@ index ba2941e..a4190c4 100644
 +
 +    // Build the block descriptor.
 +    llvm::Constant *descriptor = buildBlockDescriptor(CGM, blockInfo);
++    blockAddr = blockInfo.LocalAddress;
++    assert(blockAddr.isValid() && "block has no address!");
 +
 +    // Compute the initial on-stack block flags.
 +    BlockFlags flags = BLOCK_HAS_SIGNATURE;
@@ -2633,7 +3086,7 @@ index ba2941e..a4190c4 100644
    }
  
    // Finally, capture all the values into the block.
-@@ -891,8 +940,13 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
+@@ -891,8 +935,13 @@ llvm::Value *CodeGenFunction::EmitBlockLiteral(const CGBlockInfo &blockInfo) {
    // Cast to the converted block-pointer type, which happens (somewhat
    // unfortunately) to be a pointer to function type.
    llvm::Value *result =
@@ -2649,7 +3102,7 @@ index ba2941e..a4190c4 100644
  
    return result;
  }
-@@ -956,19 +1010,33 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
+@@ -956,19 +1005,33 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
  
    llvm::Value *Callee = EmitScalarExpr(E->getCallee());
  
@@ -2693,7 +3146,7 @@ index ba2941e..a4190c4 100644
  
    // Add the block literal.
    CallArgList Args;
-@@ -979,8 +1047,11 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
+@@ -979,8 +1042,11 @@ RValue CodeGenFunction::EmitBlockCallExpr(const CallExpr *E,
    // And the rest of the arguments.
    EmitCallArgs(Args, FnType->getAs<FunctionProtoType>(), E->arguments());
  
@@ -2707,7 +3160,7 @@ index ba2941e..a4190c4 100644
  
    const FunctionType *FuncTy = FnType->castAs<FunctionType>();
    const CGFunctionInfo &FnInfo =
-@@ -1047,6 +1118,13 @@ CodeGenModule::GetAddrOfGlobalBlock(const BlockExpr *blockExpr,
+@@ -1047,6 +1113,13 @@ CodeGenModule::GetAddrOfGlobalBlock(const BlockExpr *blockExpr,
                                                             LocalDeclMap,
                                                             false);
    }
@@ -2722,10 +3175,10 @@ index ba2941e..a4190c4 100644
  
    return buildGlobalBlock(*this, blockInfo, blockFn);
 diff --git a/lib/CodeGen/CGBuiltin.cpp b/lib/CodeGen/CGBuiltin.cpp
-index 787ac53..b60c61d 100644
+index 787ac53..9af0cf8 100644
 --- a/lib/CodeGen/CGBuiltin.cpp
 +++ b/lib/CodeGen/CGBuiltin.cpp
-@@ -15,6 +15,7 @@
+@@ -15,9 +15,11 @@
  #include "CGCXXABI.h"
  #include "CGObjCRuntime.h"
  #include "CodeGenModule.h"
@@ -2733,7 +3186,92 @@ index 787ac53..b60c61d 100644
  #include "TargetInfo.h"
  #include "clang/AST/ASTContext.h"
  #include "clang/AST/Decl.h"
-@@ -1885,6 +1886,175 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
++#include "clang/AST/Expr.h"
+ #include "clang/Basic/TargetBuiltins.h"
+ #include "clang/Basic/TargetInfo.h"
+ #include "clang/CodeGen/CGFunctionInfo.h"
+@@ -1318,29 +1320,29 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
+       int ord = cast<llvm::ConstantInt>(Order)->getZExtValue();
+       AtomicRMWInst *Result = nullptr;
+       switch (ord) {
+-      case 0:  // memory_order_relaxed
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_relaxed:
+       default: // invalid order
+         Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
+                                          Ptr, NewVal,
+                                          llvm::Monotonic);
+         break;
+-      case 1:  // memory_order_consume
+-      case 2:  // memory_order_acquire
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_consume:
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_acquire:
+         Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
+                                          Ptr, NewVal,
+                                          llvm::Acquire);
+         break;
+-      case 3:  // memory_order_release
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_release:
+         Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
+                                          Ptr, NewVal,
+                                          llvm::Release);
+         break;
+-      case 4:  // memory_order_acq_rel
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_acq_rel:
+         Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
+                                          Ptr, NewVal,
+                                          llvm::AcquireRelease);
+         break;
+-      case 5:  // memory_order_seq_cst
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_seq_cst:
+         Result = Builder.CreateAtomicRMW(llvm::AtomicRMWInst::Xchg,
+                                          Ptr, NewVal,
+                                          llvm::SequentiallyConsistent);
+@@ -1404,14 +1406,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
+       int ord = cast<llvm::ConstantInt>(Order)->getZExtValue();
+       StoreInst *Store = Builder.CreateStore(NewVal, Ptr, Volatile);
+       switch (ord) {
+-      case 0:  // memory_order_relaxed
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_relaxed:
+       default: // invalid order
+         Store->setOrdering(llvm::Monotonic);
+         break;
+-      case 3:  // memory_order_release
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_release:
+         Store->setOrdering(llvm::Release);
+         break;
+-      case 5:  // memory_order_seq_cst
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_seq_cst:
+         Store->setOrdering(llvm::SequentiallyConsistent);
+         break;
+       }
+@@ -1461,20 +1463,20 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
+     if (isa<llvm::ConstantInt>(Order)) {
+       int ord = cast<llvm::ConstantInt>(Order)->getZExtValue();
+       switch (ord) {
+-      case 0:  // memory_order_relaxed
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_relaxed:
+       default: // invalid order
+         break;
+-      case 1:  // memory_order_consume
+-      case 2:  // memory_order_acquire
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_consume:
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_acquire:
+         Builder.CreateFence(llvm::Acquire, Scope);
+         break;
+-      case 3:  // memory_order_release
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_release:
+         Builder.CreateFence(llvm::Release, Scope);
+         break;
+-      case 4:  // memory_order_acq_rel
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_acq_rel:
+         Builder.CreateFence(llvm::AcquireRelease, Scope);
+         break;
+-      case 5:  // memory_order_seq_cst
++      case AtomicExpr::AtomicOrderingKind::AO_ABI_memory_order_seq_cst:
+         Builder.CreateFence(llvm::SequentiallyConsistent, Scope);
+         break;
+       }
+@@ -1885,6 +1887,182 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
      RMWI->setVolatile(true);
      return RValue::get(RMWI);
    }
@@ -2745,6 +3283,7 @@ index 787ac53..b60c61d 100644
 +    Value *Arg0 = EmitScalarExpr(E->getArg(0)),
 +          *Arg1 = EmitScalarExpr(E->getArg(1));
 +    Value *PacketSize = CGOpenCLRuntime(CGM).getPipeElemSize(E->getArg(0));
++    Value *PacketAlign = CGOpenCLRuntime(CGM).getPipeElemAlign(E->getArg(0));
 +    llvm::SmallString<128> Out;
 +
 +    // Type of the packet parameter.
@@ -2757,14 +3296,14 @@ index 787ac53..b60c61d 100644
 +      SmallString<64> SS;
 +      Ocl20Mangler Mangler(SS);
 +      Mangler.appendPointer(1).appendPipe().appendPointer(4).appendVoid().
-+              appendInt();
++              appendUint().appendUint();
 +
 +      llvm::StringRef ManglerRef = SS.str();
 +      Twine NameTwine(NamePrefix, ManglerRef);
 +      StringRef Name = NameTwine.toStringRef(Out);
 +      // Re-Creating the function type for this call, since the original type
 +      // is variadic, which we convert to a specific type to match this call.
-+      llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty};
++      llvm::Type *ArgTys[] = {Arg0->getType(), I8PTy, Int32Ty, Int32Ty};
 +      llvm::FunctionType *FTy = llvm::FunctionType::get(
 +                                            Int32Ty,
 +                                            llvm::ArrayRef<llvm::Type*>(ArgTys),
@@ -2774,20 +3313,21 @@ index 787ac53..b60c61d 100644
 +                                                                       Name),
 +											{Arg0,
 +                                             BCast,
-+                                             PacketSize}));
++                                             PacketSize,
++                                             PacketAlign}));
 +    } else {
 +      assert(4 == E->getNumArgs() && "Illegal number of parameters to pipe function");
 +
 +      SmallString<64> SS;
 +      Ocl20Mangler Mangler(SS);
 +      Mangler.appendPointer(1).appendPipe().appendReservedId().
-+              appendUint().appendPointer(4).appendVoid().appendInt();
++              appendUint().appendPointer(4).appendVoid().appendUint().appendUint();
 +
 +      llvm::StringRef ManglerRef = SS.str();
 +      Twine NameTwine(NamePrefix, ManglerRef);
 +      StringRef Name = NameTwine.toStringRef(Out);
 +      llvm::Type *ArgTys[] = {Arg0->getType(), Arg1->getType(), Int32Ty, I8PTy,
-+                              Int32Ty};
++                              Int32Ty, Int32Ty};
 +      Value *Arg2 = EmitScalarExpr(E->getArg(2)),
 +            *Arg3 = EmitScalarExpr(E->getArg(3));
 +      llvm::FunctionType *FTy = llvm::FunctionType::get(
@@ -2805,7 +3345,8 @@ index 787ac53..b60c61d 100644
 +                                             Arg1,
 +                                             Arg2,
 +                                             BCast,
-+                                             PacketSize}));
++                                             PacketSize,
++                                             PacketAlign}));
 +    }
 +  }
 +  case Builtin::BIreserve_read_pipe:
@@ -2831,7 +3372,7 @@ index 787ac53..b60c61d 100644
 +
 +    SmallString<64> SS;
 +    Ocl20Mangler Mangler(SS);
-+    Mangler.appendPointer(1).appendPipe().appendUint().appendInt();
++    Mangler.appendPointer(1).appendPipe().appendUint().appendUint().appendUint();
 +    llvm::StringRef ManglerRef = SS.str();
 +    llvm::Twine NameTwine(NamePrefix, ManglerRef);
 +
@@ -2840,12 +3381,13 @@ index 787ac53..b60c61d 100644
 +    CGOpenCLRuntime CGOcl(CGM);
 +
 +    Value *PacketSize = CGOcl.getPipeElemSize(E->getArg(0));
++    Value *PacketAlign = CGOpenCLRuntime(CGM).getPipeElemAlign(E->getArg(0));
 +    Value *Arg0 = EmitScalarExpr(E->getArg(0)),
 +          *Arg1 = EmitScalarExpr(E->getArg(1));
 +    llvm::Type *ReservedIDTy = ConvertType(getContext().OCLReserveIDTy);
 +
-+    // Building the fucntion's prototype.
-+    llvm::Type *ArgTys[] = {Arg0->getType(), Int32Ty, Int32Ty};
++    // Building the function's prototype.
++    llvm::Type *ArgTys[] = {Arg0->getType(), Int32Ty, Int32Ty, Int32Ty};
 +    llvm::FunctionType *FTy = llvm::FunctionType::get(
 +                                            ReservedIDTy,
 +                                            llvm::ArrayRef<llvm::Type*>(ArgTys),
@@ -2857,7 +3399,8 @@ index 787ac53..b60c61d 100644
 +    return RValue::get( Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
 +										   {Arg0,
 +                                            Arg1,
-+                                            PacketSize}));
++                                            PacketSize,
++                                            PacketAlign}));
 +  }
 +  case Builtin::BIcommit_read_pipe:
 +  case Builtin::BIcommit_write_pipe:
@@ -2882,7 +3425,7 @@ index 787ac53..b60c61d 100644
 +
 +    SmallString<64> SS;
 +    Ocl20Mangler Mangler(SS);
-+    Mangler.appendPointer(1).appendPipe().appendReservedId().appendInt();
++    Mangler.appendPointer(1).appendPipe().appendReservedId().appendUint().appendUint();
 +    llvm::StringRef ManglerRef = SS.str();
 +    llvm::Twine NameTwine(NamePrefix, ManglerRef);
 +
@@ -2891,11 +3434,12 @@ index 787ac53..b60c61d 100644
 +    CGOpenCLRuntime CGOcl(CGM);
 +
 +    Value *PacketSize = CGOcl.getPipeElemSize(E->getArg(0));
++    Value *PacketAlign = CGOcl.getPipeElemAlign(E->getArg(0));
 +    Value *Arg0 = EmitScalarExpr(E->getArg(0)),
 +          *Arg1 = EmitScalarExpr(E->getArg(1));
 +
 +    // Building the function's prototype.
-+    llvm::Type *ArgTys[] = {Arg0->getType(), Arg1->getType(), Int32Ty};
++    llvm::Type *ArgTys[] = {Arg0->getType(), Arg1->getType(), Int32Ty, Int32Ty};
 +    llvm::FunctionType *FTy = llvm::FunctionType::get(
 +                                        llvm::Type::getVoidTy(getLLVMContext()),
 +                                        llvm::ArrayRef<llvm::Type*>(ArgTys),
@@ -2904,12 +3448,13 @@ index 787ac53..b60c61d 100644
 +    return RValue::get(Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
 +										  {Arg0,
 +                                           Arg1,
-+                                           PacketSize}));
++                                           PacketSize,
++                                           PacketAlign}));
 +  }
    case Builtin::BI__readfsdword: {
      Value *IntToPtr =
        Builder.CreateIntToPtr(EmitScalarExpr(E->getArg(0)),
-@@ -1963,6 +2133,35 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
+@@ -1963,6 +2141,37 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
        return RValue::get(llvm::ConstantExpr::getBitCast(GV, CGM.Int8PtrTy));
      break;
    }
@@ -2923,7 +3468,7 @@ index 787ac53..b60c61d 100644
 +      NamePrefix = "_Z20get_pipe_max_packets";
 +    SmallString<64> SS;
 +    Ocl20Mangler Mangler(SS);
-+    Mangler.appendPointer(1).appendPipe().appendInt();
++    Mangler.appendPointer(1).appendPipe().appendUint().appendUint();
 +    llvm::StringRef ManglerRef = SS.str();
 +    llvm::Twine NameTwine(NamePrefix, ManglerRef);
 +    llvm::SmallString<128> Out;
@@ -2932,15 +3477,17 @@ index 787ac53..b60c61d 100644
 +    // Building the function's prototype.
 +    CGOpenCLRuntime CGOcl(CGM);
 +    Value *PacketSize = CGOcl.getPipeElemSize(E->getArg(0));
++    Value *PacketAlign = CGOcl.getPipeElemAlign(E->getArg(0));
 +    Value *Arg0 = EmitScalarExpr(E->getArg(0));
-+    llvm::Type *ArgTys[] = {Arg0->getType(), Int32Ty};
++    llvm::Type *ArgTys[] = {Arg0->getType(), Int32Ty, Int32Ty};
 +    llvm::FunctionType *FTy = llvm::FunctionType::get(Int32Ty,
 +                                           llvm::ArrayRef<llvm::Type*>(ArgTys),
 +                                           false);
 +
 +    return RValue::get(Builder.CreateCall(CGM.CreateRuntimeFunction(FTy, Name),
 +										  {Arg0,
-+										   PacketSize}));
++										   PacketSize,
++										   PacketAlign}));
 +  }
    }
  
@@ -3318,29 +3865,55 @@ index 2e566de..49de167 100644
    QualType DerivedTy = getContext().getRecordType(Derived);
    CharUnits DerivedAlign = CGM.getClassPointerAlignment(Derived);
 diff --git a/lib/CodeGen/CGDebugInfo.cpp b/lib/CodeGen/CGDebugInfo.cpp
-index 5df8519..431a962 100644
+index 5df8519..cd329d1 100644
 --- a/lib/CodeGen/CGDebugInfo.cpp
 +++ b/lib/CodeGen/CGDebugInfo.cpp
-@@ -494,6 +494,18 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
-   case BuiltinType::OCLImage2dArrayMSAADepth:
-     return getOrCreateStructPtrType("opencl_image2d_array_msaa_depth_t",
-                                     OCLImage2dArrayMSAADepthDITy);
-+  case BuiltinType::OCLImageCube:
-+    return getOrCreateStructPtrType("opencl_imagecube_t",
-+                                    OCLImageCubeDITy);
-+  case BuiltinType::OCLImageCubeArray:
-+    return getOrCreateStructPtrType("opencl_imagecube_array_t",
-+                                    OCLImageCubeDITy);
-+  case BuiltinType::OCLImageCubeDepth:
-+    return getOrCreateStructPtrType("opencl_imagecube_depth_t",
-+                                    OCLImageCubeDITy);
-+  case BuiltinType::OCLImageCubeArrayDepth:
-+    return getOrCreateStructPtrType("opencl_imagecube_array_depth_t",
-+                                    OCLImageCubeDITy);
-   case BuiltinType::OCLImage3d:
-     return getOrCreateStructPtrType("opencl_image3d_t", OCLImage3dDITy);
+@@ -463,39 +463,11 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
+     return SelTy;
+   }
+ 
+-  case BuiltinType::OCLImage1d:
+-    return getOrCreateStructPtrType("opencl_image1d_t", OCLImage1dDITy);
+-  case BuiltinType::OCLImage1dArray:
+-    return getOrCreateStructPtrType("opencl_image1d_array_t",
+-                                    OCLImage1dArrayDITy);
+-  case BuiltinType::OCLImage1dBuffer:
+-    return getOrCreateStructPtrType("opencl_image1d_buffer_t",
+-                                    OCLImage1dBufferDITy);
+-  case BuiltinType::OCLImage2d:
+-    return getOrCreateStructPtrType("opencl_image2d_t", OCLImage2dDITy);
+-  case BuiltinType::OCLImage2dArray:
+-    return getOrCreateStructPtrType("opencl_image2d_array_t",
+-                                    OCLImage2dArrayDITy);
+-  case BuiltinType::OCLImage2dDepth:
+-    return getOrCreateStructPtrType("opencl_image2d_depth_t",
+-                                    OCLImage2dDepthDITy);
+-  case BuiltinType::OCLImage2dArrayDepth:
+-    return getOrCreateStructPtrType("opencl_image2d_array_depth_t",
+-                                    OCLImage2dArrayDepthDITy);
+-  case BuiltinType::OCLImage2dMSAA:
+-    return getOrCreateStructPtrType("opencl_image2d_msaa_t",
+-                                    OCLImage2dMSAADITy);
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-    return getOrCreateStructPtrType("opencl_image2d_array_msaa_t",
+-                                    OCLImage2dArrayMSAADITy);
+-  case BuiltinType::OCLImage2dMSAADepth:
+-    return getOrCreateStructPtrType("opencl_image2d_msaa_depth_t",
+-                                    OCLImage2dMSAADepthDITy);
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-    return getOrCreateStructPtrType("opencl_image2d_array_msaa_depth_t",
+-                                    OCLImage2dArrayMSAADepthDITy);
+-  case BuiltinType::OCLImage3d:
+-    return getOrCreateStructPtrType("opencl_image3d_t", OCLImage3dDITy);
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id: \
++    return getOrCreateStructPtrType("opencl_" #ImgType #Suffix "_t", \
++                                    SingletonId);
++#include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
-@@ -552,13 +564,19 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
+     return DBuilder.createBasicType(
+         "opencl_sampler_t", CGM.getContext().getTypeSize(BT),
+@@ -552,13 +524,19 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
  
    switch (BT->getKind()) {
    case BuiltinType::Long:
@@ -3362,7 +3935,7 @@ index 5df8519..431a962 100644
      break;
    case BuiltinType::ULongLong:
      BTName = "long long unsigned int";
-@@ -2027,6 +2045,8 @@ llvm::DIType *CGDebugInfo::CreateType(const AtomicType *Ty, llvm::DIFile *U) {
+@@ -2027,6 +2005,8 @@ llvm::DIType *CGDebugInfo::CreateType(const AtomicType *Ty, llvm::DIFile *U) {
  
  llvm::DIType* CGDebugInfo::CreateType(const PipeType *Ty,
                                       llvm::DIFile *U) {
@@ -3372,20 +3945,31 @@ index 5df8519..431a962 100644
  }
  
 diff --git a/lib/CodeGen/CGDebugInfo.h b/lib/CodeGen/CGDebugInfo.h
-index a68dd33..f736bb3 100644
+index a68dd33..e32ad01 100644
 --- a/lib/CodeGen/CGDebugInfo.h
 +++ b/lib/CodeGen/CGDebugInfo.h
-@@ -73,6 +73,10 @@ class CGDebugInfo {
-   llvm::DIType *OCLImage2dArrayMSAADITy = nullptr;
-   llvm::DIType *OCLImage2dMSAADepthDITy = nullptr;
-   llvm::DIType *OCLImage2dArrayMSAADepthDITy = nullptr;
-+  llvm::DIType *OCLImageCubeDITy = nullptr;
-+  llvm::DIType *OCLImageCubeArrayDITy = nullptr;
-+  llvm::DIType *OCLImageCubeDepthDITy = nullptr;
-+  llvm::DIType *OCLImageCubeArrayDepthDITy = nullptr;
-   llvm::DIType *OCLImage3dDITy = nullptr;
+@@ -62,18 +62,9 @@ class CGDebugInfo {
+   llvm::DIType *ClassTy = nullptr;
+   llvm::DICompositeType *ObjTy = nullptr;
+   llvm::DIType *SelTy = nullptr;
+-  llvm::DIType *OCLImage1dDITy = nullptr;
+-  llvm::DIType *OCLImage1dArrayDITy = nullptr;
+-  llvm::DIType *OCLImage1dBufferDITy = nullptr;
+-  llvm::DIType *OCLImage2dDITy = nullptr;
+-  llvm::DIType *OCLImage2dArrayDITy = nullptr;
+-  llvm::DIType *OCLImage2dDepthDITy = nullptr;
+-  llvm::DIType *OCLImage2dArrayDepthDITy = nullptr;
+-  llvm::DIType *OCLImage2dMSAADITy = nullptr;
+-  llvm::DIType *OCLImage2dArrayMSAADITy = nullptr;
+-  llvm::DIType *OCLImage2dMSAADepthDITy = nullptr;
+-  llvm::DIType *OCLImage2dArrayMSAADepthDITy = nullptr;
+-  llvm::DIType *OCLImage3dDITy = nullptr;
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  llvm::DIType *SingletonId = nullptr;
++#include "clang/Basic/OpenCLImageTypes.def"
    llvm::DIType *OCLEventDITy = nullptr;
    llvm::DIType *OCLClkEventDITy = nullptr;
+   llvm::DIType *OCLQueueDITy = nullptr;
 diff --git a/lib/CodeGen/CGDecl.cpp b/lib/CodeGen/CGDecl.cpp
 index b78e80d..71895a6 100644
 --- a/lib/CodeGen/CGDecl.cpp
@@ -3600,18 +4184,23 @@ index 22910d9..73d5a68 100644
      llvm_unreachable("invalid cast kind for complex value");
  
 diff --git a/lib/CodeGen/CGExprConstant.cpp b/lib/CodeGen/CGExprConstant.cpp
-index ee049f1..200b46c 100644
+index ee049f1..84f2818 100644
 --- a/lib/CodeGen/CGExprConstant.cpp
 +++ b/lib/CodeGen/CGExprConstant.cpp
-@@ -682,6 +682,7 @@ public:
-     case CK_NonAtomicToAtomic:
-     case CK_NoOp:
+@@ -684,6 +684,12 @@ public:
      case CK_ConstructorConversion:
-+    case CK_IntToOCLSampler:
        return C;
  
++    case CK_IntToOCLSampler: {
++      if (!CGM.getLangOpts().CLSamplerOpaque)
++        return C;
++      return CGM.createIntToSamplerConversion(subExpr, CGF);
++    }
++
      case CK_Dependent: llvm_unreachable("saw dependent cast!");
-@@ -743,6 +744,7 @@ public:
+ 
+     case CK_BuiltinFnToFnPtr:
+@@ -743,6 +749,7 @@ public:
      case CK_FloatingToBoolean:
      case CK_FloatingCast:
      case CK_ZeroToOCLEvent:
@@ -3620,7 +4209,7 @@ index ee049f1..200b46c 100644
      }
      llvm_unreachable("Invalid CastKind");
 diff --git a/lib/CodeGen/CGExprScalar.cpp b/lib/CodeGen/CGExprScalar.cpp
-index 268e7967..41eb6d4 100644
+index 268e7967..97009d8 100644
 --- a/lib/CodeGen/CGExprScalar.cpp
 +++ b/lib/CodeGen/CGExprScalar.cpp
 @@ -1394,8 +1394,14 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
@@ -3640,7 +4229,7 @@ index 268e7967..41eb6d4 100644
      }
  
      if (CGF.SanOpts.has(SanitizerKind::CFIUnrelatedCast)) {
-@@ -1588,6 +1594,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
+@@ -1588,8 +1594,28 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
      return llvm::Constant::getNullValue(ConvertType(DestTy));
    }
  
@@ -3651,13 +4240,25 @@ index 268e7967..41eb6d4 100644
 +
 +  case CK_IntToOCLSampler: {
 +    assert(DestTy->isSamplerT() && "CK_IntToOCLSampler cast to non sampler type");
-+    return Visit(E);
-+  }
-+
++    if (!CGF.CGM.getLangOpts().CLSamplerOpaque)
++      return Visit(E);
++    if (const CastExpr* SCE = dyn_cast<CastExpr>(E)) {
++      if (const DeclRefExpr *DRE = cast<DeclRefExpr>(SCE->getSubExpr())) {
++        if (const VarDecl *VD = cast<VarDecl>(DRE->getDecl())) {
++          assert(VD->getInit() && "Invalid sampler initializer");
++          E = const_cast<Expr*>(VD->getInit());
++        }
++      }
++    }
++    return CGF.CGM.createIntToSamplerConversion(E, &CGF);
    }
  
++  } // end of switch
++
    llvm_unreachable("unknown scalar cast");
-@@ -2495,9 +2511,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
+ }
+ 
+@@ -2495,9 +2521,9 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
    // GNU void* casts amount to no-ops since our void* type is i8*, but this is
    // future proof.
    if (elementType->isVoidType() || elementType->isFunctionType()) {
@@ -3669,7 +4270,7 @@ index 268e7967..41eb6d4 100644
    }
  
    if (CGF.getLangOpts().isSignedOverflowDefined())
-@@ -3264,35 +3280,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
+@@ -3264,35 +3290,9 @@ VisitAbstractConditionalOperator(const AbstractConditionalOperator *E) {
      llvm::Type *condType = ConvertType(condExpr->getType());
      llvm::VectorType *vecTy = cast<llvm::VectorType>(condType);
  
@@ -3706,7 +4307,7 @@ index 268e7967..41eb6d4 100644
    }
  
    // If this is a really simple expression (like x ? 4 : 5), emit this as a
-@@ -3392,30 +3382,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3392,30 +3392,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
    Value *Src  = CGF.EmitScalarExpr(E->getSrcExpr());
    llvm::Type *DstTy = ConvertType(E->getType());
  
@@ -3764,7 +4365,7 @@ index 268e7967..41eb6d4 100644
        }
  
        llvm::Value *UnV = llvm::UndefValue::get(Src->getType());
-@@ -3425,15 +3420,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3425,15 +3430,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
        Args.push_back(Builder.getInt32(1));
        Args.push_back(Builder.getInt32(2));
  
@@ -3793,10 +4394,10 @@ index 268e7967..41eb6d4 100644
  }
  
 diff --git a/lib/CodeGen/CGOpenCLRuntime.cpp b/lib/CodeGen/CGOpenCLRuntime.cpp
-index 6866789..3706c3d 100644
+index 6866789..2ace4db 100644
 --- a/lib/CodeGen/CGOpenCLRuntime.cpp
 +++ b/lib/CodeGen/CGOpenCLRuntime.cpp
-@@ -36,72 +36,173 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
+@@ -36,72 +36,183 @@ llvm::Type *CGOpenCLRuntime::convertOpenCLSpecificType(const Type *T) {
    llvm::LLVMContext& Ctx = CGM.getLLVMContext();
    uint32_t ImgAddrSpc =
      CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
@@ -3867,55 +4468,20 @@ index 6866789..3706c3d 100644
 +    default:
 +      llvm_unreachable("Unexpected opencl builtin type!");
 +      return nullptr;
-+    case BuiltinType::OCLImage1d:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image1d_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage1dArray:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image1d_array_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage1dBuffer:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image1d_buffer_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage2d:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image2d_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage2dArray:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image2d_array_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage2dDepth:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_depth_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage2dArrayDepth:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_array_depth_t"),
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id: \
++      return llvm::PointerType::get( \
++          llvm::StructType::create(Ctx, "opencl." #ImgType #Suffix "_t"), \
 +          ImgAddrSpc);
-+    case BuiltinType::OCLImage2dMSAA:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_msaa_t"), ImgAddrSpc);
-+    case BuiltinType::OCLImage2dArrayMSAA:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_array_msaa_t"),
-+          ImgAddrSpc);
-+    case BuiltinType::OCLImage2dMSAADepth:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_msaa_depth_t"),
-+          ImgAddrSpc);
-+    case BuiltinType::OCLImage2dArrayMSAADepth:
-+      return llvm::PointerType::get(
-+          llvm::StructType::create(Ctx, "opencl.image2d_array_msaa_depth_t"),
-+          ImgAddrSpc);
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-+      // NOTE: cube map types not handled/implemented yet
-+      llvm_unreachable("Unsupported image type (cube maps are not supported by opencl)!");
-+      return nullptr;
-+    case BuiltinType::OCLImage3d:
-+      return llvm::PointerType::get(llvm::StructType::create(
-+                             Ctx, "opencl.image3d_t"), ImgAddrSpc);
++#include "clang/Basic/OpenCLImageTypes.def"
 +    case BuiltinType::OCLSampler:
-+      return llvm::IntegerType::get(Ctx, 32);
++      if (CGM.getLangOpts().CLSamplerOpaque)
++        return llvm::PointerType::get(llvm::StructType::create(
++                             Ctx, "spirv.Sampler"),
++                             CGM.getContext().getTargetAddressSpace(
++                             LangAS::opencl_constant));
++      else
++        return llvm::IntegerType::get(Ctx, 32);
 +    case BuiltinType::OCLEvent:
 +      return llvm::PointerType::get(llvm::StructType::create(
 +                             Ctx, "opencl.event_t"), 0);
@@ -3938,37 +4504,12 @@ index 6866789..3706c3d 100644
 +      default:
 +        llvm_unreachable("Unexpected opencl builtin type!");
 +        return nullptr;
-+      case BuiltinType::OCLImage1d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage1dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_array_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage1dBuffer:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image1d_buffer_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dArray:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_depth_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dArrayDepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_depth_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dMSAA:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_msaa_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dArrayMSAA:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_msaa_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dMSAADepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_msaa_depth_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImage2dArrayMSAADepth:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image2d_array_msaa_depth_t"), ImgAddrSpc);
-+      case BuiltinType::OCLImageCube:
-+      case BuiltinType::OCLImageCubeArray:
-+      case BuiltinType::OCLImageCubeDepth:
-+      case BuiltinType::OCLImageCubeArrayDepth:
-+        // NOTE: cube map types not handled/implemented yet
-+        llvm_unreachable("Unsupported image type (cube maps are not supported by opencl)!");
-+        return nullptr;
-+      case BuiltinType::OCLImage3d:
-+        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._image3d_t"), ImgAddrSpc);
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id: \
++      return llvm::PointerType::get( \
++          llvm::StructType::create(Ctx, "struct._" #ImgType "_t"), \
++          ImgAddrSpc);
++#include "clang/Basic/OpenCLImageTypes.def"
 +      case BuiltinType::OCLSampler:
 +        return llvm::IntegerType::get(Ctx, 32);
 +      case BuiltinType::OCLEvent:
@@ -3980,6 +4521,75 @@ index 6866789..3706c3d 100644
 +      default:
 +        llvm_unreachable("Unexpected metal builtin type!");
 +        return nullptr;
++#if 0 // TODO: enable this again when using ro/wo/rw image types
++      case BuiltinType::OCLImage1dRO:
++      case BuiltinType::OCLImage1dWO:
++      case BuiltinType::OCLImage1dRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dArrayRO:
++      case BuiltinType::OCLImage1dArrayWO:
++      case BuiltinType::OCLImage1dArrayRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage1dBufferRO:
++      case BuiltinType::OCLImage1dBufferWO:
++      case BuiltinType::OCLImage1dBufferRW:
++        llvm_unreachable("Unsupported image type (1D-buffer is not supported by metal)!");
++        return nullptr;
++      case BuiltinType::OCLImage2dRO:
++      case BuiltinType::OCLImage2dWO:
++      case BuiltinType::OCLImage2dRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayRO:
++      case BuiltinType::OCLImage2dArrayWO:
++      case BuiltinType::OCLImage2dArrayRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dDepthRO:
++      case BuiltinType::OCLImage2dDepthWO:
++      case BuiltinType::OCLImage2dDepthRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayDepthRO:
++      case BuiltinType::OCLImage2dArrayDepthWO:
++      case BuiltinType::OCLImage2dArrayDepthRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dMSAARO:
++      case BuiltinType::OCLImage2dMSAAWO:
++      case BuiltinType::OCLImage2dMSAARW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_2d_ms_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAARO:
++      case BuiltinType::OCLImage2dArrayMSAAWO:
++      case BuiltinType::OCLImage2dArrayMSAARW:
++        llvm_unreachable("Unsupported image type (2D-Array-MSAA is not supported by metal)!");
++        return nullptr;
++      case BuiltinType::OCLImage2dMSAADepthRO:
++      case BuiltinType::OCLImage2dMSAADepthWO:
++      case BuiltinType::OCLImage2dMSAADepthRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_2d_ms_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage2dArrayMSAADepthRO:
++      case BuiltinType::OCLImage2dArrayMSAADepthWO:
++      case BuiltinType::OCLImage2dArrayMSAADepthRW:
++        llvm_unreachable("Unsupported image type (2D-Array-MSAA-Depth is not supported by metal)!");
++        return nullptr;
++      case BuiltinType::OCLImageCubeRO:
++      case BuiltinType::OCLImageCubeWO:
++      case BuiltinType::OCLImageCubeRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_cube_t"), ImgAddrSpc);
++      case BuiltinType::OCLImageCubeArrayRO:
++      case BuiltinType::OCLImageCubeArrayWO:
++      case BuiltinType::OCLImageCubeArrayRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_cube_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImageCubeDepthRO:
++      case BuiltinType::OCLImageCubeDepthWO:
++      case BuiltinType::OCLImageCubeDepthRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_cube_t"), ImgAddrSpc);
++      case BuiltinType::OCLImageCubeArrayDepthRO:
++      case BuiltinType::OCLImageCubeArrayDepthWO:
++      case BuiltinType::OCLImageCubeArrayDepthRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_cube_array_t"), ImgAddrSpc);
++      case BuiltinType::OCLImage3dRO:
++      case BuiltinType::OCLImage3dWO:
++      case BuiltinType::OCLImage3dRW:
++        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_3d_t"), ImgAddrSpc);
++#else
 +      case BuiltinType::OCLImage1d:
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_1d_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage1dArray:
@@ -4015,6 +4625,7 @@ index 6866789..3706c3d 100644
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._depth_cube_array_t"), ImgAddrSpc);
 +      case BuiltinType::OCLImage3d:
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._texture_3d_t"), ImgAddrSpc);
++#endif
 +      case BuiltinType::OCLSampler:
 +        return llvm::PointerType::get(llvm::StructType::create(Ctx, "struct._sampler_t"),
 +                                      CGM.getContext().getTargetAddressSpace(LangAS::opencl_constant));
@@ -4032,7 +4643,7 @@ index 6866789..3706c3d 100644
      uint32_t PipeAddrSpc =
        CGM.getContext().getTargetAddressSpace(LangAS::opencl_global);
      PipeTy = llvm::PointerType::get(llvm::StructType::create(
-@@ -110,3 +211,87 @@ llvm::Type *CGOpenCLRuntime::getPipeType() {
+@@ -110,3 +221,87 @@ llvm::Type *CGOpenCLRuntime::getPipeType() {
  
    return PipeTy;
  }
@@ -4076,12 +4687,12 @@ index 6866789..3706c3d 100644
 +Ocl20Mangler::Ocl20Mangler(llvm::SmallVectorImpl<char>& SS): MangledString(&SS) {}
 +
 +Ocl20Mangler& Ocl20Mangler::appendReservedId() {
-+  this->appendString("16ocl_reserve_id_t");
++  this->appendString("13ocl_reserveid");
 +  return *this;
 +}
 +
 +Ocl20Mangler& Ocl20Mangler::appendPipe() {
-+  this->appendString("10ocl_pipe_t");
++  this->appendString("8ocl_pipe");
 +  return *this;
 +}
 +
@@ -4660,7 +5271,7 @@ index 0a670ab..2f18243 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index e38ff0a..cb2550c 100644
+index e38ff0a..2bfcb06 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4823,7 +5434,7 @@ index e38ff0a..cb2550c 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -436,183 +582,1265 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -436,183 +582,1455 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM, llvm::LLVMContext &Context,
                                   SmallVector<llvm::Metadata *, 5> &kernelMDArgs,
                                   CGBuilderTy &Builder, ASTContext &ASTCtx) {
@@ -5272,7 +5883,7 @@ index e38ff0a..cb2550c 100644
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
 +		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +
-+		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx,
++		const auto add_image_arg = [&Builder, &tex_idx, &arg_infos, &arg_idx, &parm,
 +									&Context, &ASTCtx, &CGM](const clang::QualType& type,
 +															 const ImageAccessAttr* access_attr,
 +															 const FloorImageDataTypeAttr* data_type,
@@ -5306,23 +5917,123 @@ index e38ff0a..cb2550c 100644
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
 +			// proper type is necessary for metal debugging purposes
 +			std::string tex_type_name;
-+			if(type->isImage1dT()) tex_type_name = "texture1d";
-+			else if(type->isImage1dArrayT()) tex_type_name = "texture1d_array";
-+			//else if(type->isImage1dBufferT()) tex_type_name = ""; // not supported
-+			else if(type->isImage2dT()) tex_type_name = "texture2d";
-+			else if(type->isImage2dArrayT()) tex_type_name = "texture2d_array";
-+			else if(type->isImage2dDepthT()) tex_type_name = "depth2d";
-+			else if(type->isImage2dArrayDepthT()) tex_type_name = "depth2d_array";
-+			else if(type->isImage2dMSAAT()) tex_type_name = "texture2d_ms";
-+			//else if(type->isImage2dArrayMSAAT()) tex_type_name = ""; // not supported
-+			else if(type->isImage2dMSAADepthT()) tex_type_name = "depth2d_ms";
-+			//else if(type->isImage2dArrayMSAADepthT()) tex_type_name = ""; // not supported
-+			else if(type->isImage3dT()) tex_type_name = "texture3d";
-+			else if(type->isImageCubeT()) tex_type_name = "texturecube";
-+			else if(type->isImageCubeArrayT()) tex_type_name = "texturecube_array";
-+			else if(type->isImageCubeDepthT()) tex_type_name = "depthcube";
-+			else if(type->isImageCubeArrayDepthT()) tex_type_name = "depthcube_array";
-+			else tex_type_name = "texture";
++			const auto builtin_type = type->getAs<BuiltinType>();
++			if(!builtin_type) {
++				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image type (not a builtin type)!"));
++				return;
++			}
++			switch(builtin_type->getKind()) {
++#if 0 // TODO: enable this again when using ro/wo/rw image types
++				case BuiltinType::OCLImage1dRO:
++				case BuiltinType::OCLImage1dWO:
++				case BuiltinType::OCLImage1dRW:
++					tex_type_name = "texture1d";
++					break;
++				case BuiltinType::OCLImage1dArrayRO:
++				case BuiltinType::OCLImage1dArrayWO:
++				case BuiltinType::OCLImage1dArrayRW:
++					tex_type_name = "texture1d_array";
++					break;
++				case BuiltinType::OCLImage2dRO:
++				case BuiltinType::OCLImage2dWO:
++				case BuiltinType::OCLImage2dRW:
++					tex_type_name = "texture2d";
++					break;
++				case BuiltinType::OCLImage2dArrayRO:
++				case BuiltinType::OCLImage2dArrayWO:
++				case BuiltinType::OCLImage2dArrayRW:
++					tex_type_name = "texture2d_array";
++					break;
++				case BuiltinType::OCLImage2dDepthRO:
++				case BuiltinType::OCLImage2dDepthWO:
++				case BuiltinType::OCLImage2dDepthRW:
++					tex_type_name = "depth2d";
++					break;
++				case BuiltinType::OCLImage2dArrayDepthRO:
++				case BuiltinType::OCLImage2dArrayDepthWO:
++				case BuiltinType::OCLImage2dArrayDepthRW:
++					tex_type_name = "depth2d_array";
++					break;
++				case BuiltinType::OCLImage2dMSAARO:
++				case BuiltinType::OCLImage2dMSAAWO:
++				case BuiltinType::OCLImage2dMSAARW:
++					tex_type_name = "texture2d_ms";
++					break;
++				case BuiltinType::OCLImage2dMSAADepthRO:
++				case BuiltinType::OCLImage2dMSAADepthWO:
++				case BuiltinType::OCLImage2dMSAADepthRW:
++					tex_type_name = "depth2d_ms";
++					break;
++				case BuiltinType::OCLImage3dRO:
++				case BuiltinType::OCLImage3dWO:
++				case BuiltinType::OCLImage3dRW:
++					tex_type_name = "texture3d";
++					break;
++				case BuiltinType::OCLImageCubeRO:
++				case BuiltinType::OCLImageCubeWO:
++				case BuiltinType::OCLImageCubeRW:
++					tex_type_name = "texturecube";
++					break;
++				case BuiltinType::OCLImageCubeArrayRO:
++				case BuiltinType::OCLImageCubeArrayWO:
++				case BuiltinType::OCLImageCubeArrayRW:
++					tex_type_name = "texturecube_array";
++					break;
++				case BuiltinType::OCLImageCubeDepthRO:
++				case BuiltinType::OCLImageCubeDepthWO:
++				case BuiltinType::OCLImageCubeDepthRW:
++					tex_type_name = "depthcube";
++					break;
++				case BuiltinType::OCLImageCubeArrayDepthRO:
++				case BuiltinType::OCLImageCubeArrayDepthWO:
++				case BuiltinType::OCLImageCubeArrayDepthRW:
++					tex_type_name = "depthcube_array";
++					break;
++#else
++				case BuiltinType::OCLImage1d:
++					tex_type_name = "texture1d";
++					break;
++				case BuiltinType::OCLImage1dArray:
++					tex_type_name = "texture1d_array";
++					break;
++				case BuiltinType::OCLImage2d:
++					tex_type_name = "texture2d";
++					break;
++				case BuiltinType::OCLImage2dArray:
++					tex_type_name = "texture2d_array";
++					break;
++				case BuiltinType::OCLImage2dDepth:
++					tex_type_name = "depth2d";
++					break;
++				case BuiltinType::OCLImage2dArrayDepth:
++					tex_type_name = "depth2d_array";
++					break;
++				case BuiltinType::OCLImage2dMSAA:
++					tex_type_name = "texture2d_ms";
++					break;
++				case BuiltinType::OCLImage2dMSAADepth:
++					tex_type_name = "depth2d_ms";
++					break;
++				case BuiltinType::OCLImage3d:
++					tex_type_name = "texture3d";
++					break;
++				case BuiltinType::OCLImageCube:
++					tex_type_name = "texturecube";
++					break;
++				case BuiltinType::OCLImageCubeArray:
++					tex_type_name = "texturecube_array";
++					break;
++				case BuiltinType::OCLImageCubeDepth:
++					tex_type_name = "depthcube";
++					break;
++				case BuiltinType::OCLImageCubeArrayDepth:
++					tex_type_name = "depthcube_array";
++					break;
++#endif
++				default:
++					CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image type!"));
++					return;
++			}
 +			
 +			tex_type_name += "<";
 +			std::string sample_type_str = "float";
@@ -5941,22 +6652,112 @@ index e38ff0a..cb2550c 100644
 +			return FLOOR_ARG_INFO::IMG_ACCESS_READ;
 +		};
 +		static const auto img_type_to_floor_type = [](const clang::Type* type) {
-+			if(type->isImage1dT()) return FLOOR_ARG_INFO::IMG_1D;
-+			else if(type->isImage1dArrayT()) return FLOOR_ARG_INFO::IMG_1D_ARRAY;
-+			else if(type->isImage1dBufferT()) return FLOOR_ARG_INFO::IMG_1D_BUFFER;
-+			else if(type->isImage2dT()) return FLOOR_ARG_INFO::IMG_2D;
-+			else if(type->isImage2dArrayT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY;
-+			else if(type->isImage2dDepthT()) return FLOOR_ARG_INFO::IMG_2D_DEPTH;
-+			else if(type->isImage2dArrayDepthT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
-+			else if(type->isImage2dMSAAT()) return FLOOR_ARG_INFO::IMG_2D_MSAA;
-+			else if(type->isImage2dArrayMSAAT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
-+			else if(type->isImage2dMSAADepthT()) return FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
-+			else if(type->isImage2dArrayMSAADepthT()) return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
-+			else if(type->isImage3dT()) return FLOOR_ARG_INFO::IMG_3D;
-+			else if(type->isImageCubeT()) return FLOOR_ARG_INFO::IMG_CUBE;
-+			else if(type->isImageCubeArrayT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
-+			else if(type->isImageCubeDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
-+			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
++			const auto builtin_type = type->getAs<BuiltinType>();
++			if(!builtin_type) {
++				return (FLOOR_ARG_INFO)~0ull;
++			}
++			switch(builtin_type->getKind()) {
++#if 0 // TODO: enable this again when using ro/wo/rw image types
++				case BuiltinType::OCLImage1dRO:
++				case BuiltinType::OCLImage1dWO:
++				case BuiltinType::OCLImage1dRW:
++					return FLOOR_ARG_INFO::IMG_1D;
++				case BuiltinType::OCLImage1dArrayRO:
++				case BuiltinType::OCLImage1dArrayWO:
++				case BuiltinType::OCLImage1dArrayRW:
++					return FLOOR_ARG_INFO::IMG_1D_ARRAY;
++				case BuiltinType::OCLImage1dBufferRO:
++				case BuiltinType::OCLImage1dBufferWO:
++				case BuiltinType::OCLImage1dBufferRW:
++					return FLOOR_ARG_INFO::IMG_1D_BUFFER;
++				case BuiltinType::OCLImage2dRO:
++				case BuiltinType::OCLImage2dWO:
++				case BuiltinType::OCLImage2dRW:
++					return FLOOR_ARG_INFO::IMG_2D;
++				case BuiltinType::OCLImage2dArrayRO:
++				case BuiltinType::OCLImage2dArrayWO:
++				case BuiltinType::OCLImage2dArrayRW:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY;
++				case BuiltinType::OCLImage2dDepthRO:
++				case BuiltinType::OCLImage2dDepthWO:
++				case BuiltinType::OCLImage2dDepthRW:
++					return FLOOR_ARG_INFO::IMG_2D_DEPTH;
++				case BuiltinType::OCLImage2dArrayDepthRO:
++				case BuiltinType::OCLImage2dArrayDepthWO:
++				case BuiltinType::OCLImage2dArrayDepthRW:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
++				case BuiltinType::OCLImage2dMSAARO:
++				case BuiltinType::OCLImage2dMSAAWO:
++				case BuiltinType::OCLImage2dMSAARW:
++					return FLOOR_ARG_INFO::IMG_2D_MSAA;
++				case BuiltinType::OCLImage2dArrayMSAARO:
++				case BuiltinType::OCLImage2dArrayMSAAWO:
++				case BuiltinType::OCLImage2dArrayMSAARW:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
++				case BuiltinType::OCLImage2dMSAADepthRO:
++				case BuiltinType::OCLImage2dMSAADepthWO:
++				case BuiltinType::OCLImage2dMSAADepthRW:
++					return FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
++				case BuiltinType::OCLImage2dArrayMSAADepthRO:
++				case BuiltinType::OCLImage2dArrayMSAADepthWO:
++				case BuiltinType::OCLImage2dArrayMSAADepthRW:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
++				case BuiltinType::OCLImage3dRO:
++				case BuiltinType::OCLImage3dWO:
++				case BuiltinType::OCLImage3dRW:
++					return FLOOR_ARG_INFO::IMG_3D;
++				case BuiltinType::OCLImageCubeRO:
++				case BuiltinType::OCLImageCubeWO:
++				case BuiltinType::OCLImageCubeRW:
++					return FLOOR_ARG_INFO::IMG_CUBE;
++				case BuiltinType::OCLImageCubeArrayRO:
++				case BuiltinType::OCLImageCubeArrayWO:
++				case BuiltinType::OCLImageCubeArrayRW:
++					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
++				case BuiltinType::OCLImageCubeDepthRO:
++				case BuiltinType::OCLImageCubeDepthWO:
++				case BuiltinType::OCLImageCubeDepthRW:
++					return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
++				case BuiltinType::OCLImageCubeArrayDepthRO:
++				case BuiltinType::OCLImageCubeArrayDepthWO:
++				case BuiltinType::OCLImageCubeArrayDepthRW:
++					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
++#else
++				case BuiltinType::OCLImage1d:
++					return FLOOR_ARG_INFO::IMG_1D;
++				case BuiltinType::OCLImage1dArray:
++					return FLOOR_ARG_INFO::IMG_1D_ARRAY;
++				case BuiltinType::OCLImage1dBuffer:
++					return FLOOR_ARG_INFO::IMG_1D_BUFFER;
++				case BuiltinType::OCLImage2d:
++					return FLOOR_ARG_INFO::IMG_2D;
++				case BuiltinType::OCLImage2dArray:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY;
++				case BuiltinType::OCLImage2dDepth:
++					return FLOOR_ARG_INFO::IMG_2D_DEPTH;
++				case BuiltinType::OCLImage2dArrayDepth:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
++				case BuiltinType::OCLImage2dMSAA:
++					return FLOOR_ARG_INFO::IMG_2D_MSAA;
++				case BuiltinType::OCLImage2dArrayMSAA:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
++				case BuiltinType::OCLImage2dMSAADepth:
++					return FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
++				case BuiltinType::OCLImage2dArrayMSAADepth:
++					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
++				case BuiltinType::OCLImage3d:
++					return FLOOR_ARG_INFO::IMG_3D;
++				case BuiltinType::OCLImageCube:
++					return FLOOR_ARG_INFO::IMG_CUBE;
++				case BuiltinType::OCLImageCubeArray:
++					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
++				case BuiltinType::OCLImageCubeDepth:
++					return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
++				case BuiltinType::OCLImageCubeArrayDepth:
++					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
++#endif
++				default: break;
++			}
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
 + 		const auto add_image_arg = [this, &file](const FLOOR_ARG_INFO& floor_img_type,
@@ -6207,13 +7008,13 @@ index e38ff0a..cb2550c 100644
 +	  Fn->mutateFunctionType(func_type_with_ids);
 +	  kernelMDArgs.push_back(llvm::ConstantAsMetadata::get(Fn));
 +  }
- 
--  GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder,
--                       getContext());
++
 +  if (CGM.getCodeGenOpts().EmitOpenCLArgMetadata && !CGM.getCodeGenOpts().EmitAppleCLMetadata)
 +    GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder,
 +                         getContext());
-+
+ 
+-  GenOpenCLArgMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder,
+-                       getContext());
 +  if (CGM.getLangOpts().Metal)
 +    GenAIRMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
 +
@@ -6241,7 +7042,7 @@ index e38ff0a..cb2550c 100644
      kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
    }
  
-@@ -635,9 +1863,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -635,9 +2053,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -6297,7 +7098,7 @@ index e38ff0a..cb2550c 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -667,6 +1938,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -667,6 +2128,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6305,7 +7106,7 @@ index e38ff0a..cb2550c 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -698,7 +1970,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -698,7 +2160,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -6314,7 +7115,7 @@ index e38ff0a..cb2550c 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -709,16 +1981,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -709,16 +2171,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -6356,7 +7157,7 @@ index e38ff0a..cb2550c 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -735,7 +2028,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -735,7 +2218,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6365,7 +7166,7 @@ index e38ff0a..cb2550c 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -798,7 +2091,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -798,7 +2281,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6383,7 +7184,7 @@ index e38ff0a..cb2550c 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -828,11 +2130,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -828,11 +2320,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
          CXXThisValue = EmitLoadOfLValue(ThisLValue,
                                          SourceLocation()).getScalarVal();
        }
@@ -6399,7 +7200,7 @@ index e38ff0a..cb2550c 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -914,6 +2216,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
+@@ -914,6 +2406,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
    F->setDoesNotThrow();
  }
  
@@ -6491,7 +7292,7 @@ index e38ff0a..cb2550c 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -979,7 +2366,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -979,7 +2556,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -6500,7 +7301,7 @@ index e38ff0a..cb2550c 100644
      CGM.getCUDARuntime().emitDeviceStub(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -1026,6 +2413,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1026,6 +2603,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -6542,7 +7343,7 @@ index 4803b13..0e2c0f2 100644
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
 diff --git a/lib/CodeGen/CodeGenModule.cpp b/lib/CodeGen/CodeGenModule.cpp
-index 97b1662..f58015b 100644
+index 97b1662..70ab55c 100644
 --- a/lib/CodeGen/CodeGenModule.cpp
 +++ b/lib/CodeGen/CodeGenModule.cpp
 @@ -19,6 +19,7 @@
@@ -6854,8 +7655,81 @@ index 97b1662..f58015b 100644
                                                            Entry->getType()));
      Entry->eraseFromParent();
    } else {
+@@ -3936,6 +4129,72 @@ void CodeGenModule::EmitOMPThreadPrivateDecl(const OMPThreadPrivateDecl *D) {
+   }
+ }
+ 
++llvm::Constant*
++CodeGenModule::createIntToSamplerConversion(const Expr *E,
++                                            CodeGenFunction *CGF,
++                                            llvm::GlobalVariable *InsertBefore,
++                                            StringRef Name) {
++  llvm::Constant *C = EmitConstantExpr(E, E->getType(), CGF);
++  assert(C && "Sampler must be initialized by constant");
++  assert(isa<llvm::ConstantInt>(C) && "Sampler must be initialized by integer");
++  if (!getLangOpts().CLSamplerOpaque)
++    return C;
++
++  llvm::StructType*
++    ConstSamplerTy = TheModule.getTypeByName("spirv.ConstantSampler");
++  if (!ConstSamplerTy ) {
++    llvm::Type* Elements[] = {Int32Ty, Int32Ty, Int32Ty};
++    ConstSamplerTy = llvm::StructType::create(VMContext, Elements,
++                                              "spirv.ConstantSampler");
++  }
++  const llvm::ConstantInt *CI = static_cast<llvm::ConstantInt*>(C);
++  const uint64_t SamplerValue = CI->getValue().getZExtValue();
++  // 32-bit value of sampler's initializer is interpreted as
++  // bit-field with the following structure:
++  // |unspecified|Filter|Addressing Mode| Normalized Coords|
++  // |31        6|5    4|3             1|                 0|
++  // This structure corresponds to values of sampler properties from opencl.h
++  // Mapping these bits to values defined by SPIR-V specification.
++  unsigned NormalizedCoords = 0x01 & SamplerValue;
++  unsigned AddressingMode  = (0x0E & SamplerValue) >> 1;
++  unsigned FilterMode      = (0x30 & SamplerValue) >> 4;
++  // In SPIR sampler's filter bits are defined as the following
++  // #define CLK_FILTER_NEAREST 0x10
++  // #define CLK_FILTER_LINEAR 0x20
++  // corresponding to 1 and 2 in bits 4-5.
++  // SPIR-V defines sampler filter mode enum as: nearest=0, linear=1,
++  // Therefore, to convert FilterMode from SPIR to SPIR-V,
++  // FilterMode value must be decremented
++  if (FilterMode == 1 || FilterMode == 2)
++    --FilterMode;
++   else
++    getDiags().Report(Context.getFullLoc(E->getLocStart()),
++      diag::warn_sampler_initializer_invalid_bits) << "Filter Mode";
++  if (AddressingMode > 4)
++    getDiags().Report(Context.getFullLoc(E->getLocStart()),
++      diag::warn_sampler_initializer_invalid_bits) << "Addressing Mode";
++
++  llvm::Constant *Initializer = llvm::ConstantStruct::get(ConstSamplerTy,
++    llvm::ConstantInt::get(Int32Ty, AddressingMode),
++    llvm::ConstantInt::get(Int32Ty, NormalizedCoords),
++    llvm::ConstantInt::get(Int32Ty, FilterMode),
++    nullptr);
++  llvm::StructType*
++    SamplerTy = TheModule.getTypeByName("spirv.Sampler");
++  if(!SamplerTy)
++    SamplerTy = llvm::StructType::create(VMContext, "spirv.Sampler");
++
++  unsigned AS = Context.getTargetAddressSpace(LangAS::opencl_constant);
++  llvm::GlobalVariable *GV =
++    new llvm::GlobalVariable(TheModule, ConstSamplerTy, true,
++                             llvm::GlobalVariable::InternalLinkage,
++                             Initializer, Name + ".sampler.init", InsertBefore,
++                             llvm::GlobalVariable::NotThreadLocal, AS);
++
++  return llvm::ConstantExpr::getBitCast(GV,
++                                        llvm::PointerType::get(SamplerTy, AS));
++}
++
+ llvm::Metadata *CodeGenModule::CreateMetadataIdentifierForType(QualType T) {
+   llvm::Metadata *&InternalId = MetadataIdMap[T.getCanonicalType()];
+   if (InternalId)
 diff --git a/lib/CodeGen/CodeGenModule.h b/lib/CodeGen/CodeGenModule.h
-index fdb4d78..28d047a 100644
+index fdb4d78..87856dc 100644
 --- a/lib/CodeGen/CodeGenModule.h
 +++ b/lib/CodeGen/CodeGenModule.h
 @@ -459,6 +459,8 @@ private:
@@ -6903,7 +7777,20 @@ index fdb4d78..28d047a 100644
    bool isInSanitizerBlacklist(llvm::Function *Fn, SourceLocation Loc) const;
  
    bool isInSanitizerBlacklist(llvm::GlobalVariable *GV, SourceLocation Loc,
-@@ -1238,6 +1253,9 @@ private:
+@@ -1126,6 +1141,12 @@ public:
+   /// \breif Get the declaration of std::terminate for the platform.
+   llvm::Constant *getTerminateFn();
+ 
++  llvm::Constant*
++  createIntToSamplerConversion(const Expr *E,
++                               CodeGenFunction *CGF,
++                               llvm::GlobalVariable *InsertBefore = nullptr,
++                               StringRef Name = "");
++
+ private:
+   llvm::Constant *
+   GetOrCreateLLVMFunction(StringRef MangledName, llvm::Type *Ty, GlobalDecl D,
+@@ -1238,6 +1259,9 @@ private:
    /// Check whether we can use a "simpler", more core exceptions personality
    /// function.
    void SimplifyPersonality();
@@ -6914,21 +7801,32 @@ index fdb4d78..28d047a 100644
  }  // end namespace CodeGen
  }  // end namespace clang
 diff --git a/lib/CodeGen/CodeGenTypes.cpp b/lib/CodeGen/CodeGenTypes.cpp
-index 09d9bf1..bb59182 100644
+index 09d9bf1..37a1ba7 100644
 --- a/lib/CodeGen/CodeGenTypes.cpp
 +++ b/lib/CodeGen/CodeGenTypes.cpp
-@@ -464,6 +464,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
-     case BuiltinType::OCLImage2dArrayMSAA:
-     case BuiltinType::OCLImage2dMSAADepth:
-     case BuiltinType::OCLImage2dArrayMSAADepth:
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-     case BuiltinType::OCLImage3d:
+@@ -453,18 +453,9 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+       ResultType = llvm::IntegerType::get(getLLVMContext(), 128);
+       break;
+ 
+-    case BuiltinType::OCLImage1d:
+-    case BuiltinType::OCLImage1dArray:
+-    case BuiltinType::OCLImage1dBuffer:
+-    case BuiltinType::OCLImage2d:
+-    case BuiltinType::OCLImage2dArray:
+-    case BuiltinType::OCLImage2dDepth:
+-    case BuiltinType::OCLImage2dArrayDepth:
+-    case BuiltinType::OCLImage2dMSAA:
+-    case BuiltinType::OCLImage2dArrayMSAA:
+-    case BuiltinType::OCLImage2dMSAADepth:
+-    case BuiltinType::OCLImage2dArrayMSAADepth:
+-    case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
-@@ -595,6 +599,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+     case BuiltinType::OCLClkEvent:
+@@ -595,6 +586,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
    }
  
    case Type::BlockPointer: {
@@ -6939,7 +7837,7 @@ index 09d9bf1..bb59182 100644
      const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
      llvm::Type *PointeeType = ConvertTypeForMem(FTy);
      unsigned AS = Context.getTargetAddressSpace(FTy);
-@@ -714,7 +722,14 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+@@ -714,7 +709,14 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
  
  /// getCGRecordLayout - Return record layout info for the given record decl.
  const CGRecordLayout &
@@ -6955,7 +7853,7 @@ index 09d9bf1..bb59182 100644
    const Type *Key = Context.getTagDeclType(RD).getTypePtr();
  
    const CGRecordLayout *Layout = CGRecordLayouts.lookup(Key);
-@@ -762,3 +777,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -762,3 +764,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -7248,20 +8146,33 @@ index a96f23c..7a451dc 100644
  public:  // These are internal details of CGT that shouldn't be used externally.
    /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
 diff --git a/lib/CodeGen/ItaniumCXXABI.cpp b/lib/CodeGen/ItaniumCXXABI.cpp
-index e02c8dc..fcc9a1b 100644
+index e02c8dc..fffa956 100644
 --- a/lib/CodeGen/ItaniumCXXABI.cpp
 +++ b/lib/CodeGen/ItaniumCXXABI.cpp
-@@ -2528,6 +2528,10 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
-     case BuiltinType::OCLImage2dArrayMSAA:
-     case BuiltinType::OCLImage2dMSAADepth:
-     case BuiltinType::OCLImage2dArrayMSAADepth:
-+    case BuiltinType::OCLImageCube:
-+    case BuiltinType::OCLImageCubeArray:
-+    case BuiltinType::OCLImageCubeDepth:
-+    case BuiltinType::OCLImageCubeArrayDepth:
-     case BuiltinType::OCLImage3d:
+@@ -2517,18 +2517,11 @@ static bool TypeInfoIsInStandardLibrary(const BuiltinType *Ty) {
+     case BuiltinType::Char32:
+     case BuiltinType::Int128:
+     case BuiltinType::UInt128:
+-    case BuiltinType::OCLImage1d:
+-    case BuiltinType::OCLImage1dArray:
+-    case BuiltinType::OCLImage1dBuffer:
+-    case BuiltinType::OCLImage2d:
+-    case BuiltinType::OCLImage2dArray:
+-    case BuiltinType::OCLImage2dDepth:
+-    case BuiltinType::OCLImage2dArrayDepth:
+-    case BuiltinType::OCLImage2dMSAA:
+-    case BuiltinType::OCLImage2dArrayMSAA:
+-    case BuiltinType::OCLImage2dMSAADepth:
+-    case BuiltinType::OCLImage2dArrayMSAADepth:
+-    case BuiltinType::OCLImage3d:
++      return true;
++
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
+     case BuiltinType::OCLClkEvent:
 diff --git a/lib/CodeGen/Makefile b/lib/CodeGen/Makefile
 index 6032dff..054094d 100644
 --- a/lib/CodeGen/Makefile
@@ -8028,7 +8939,7 @@ index 3edcf5d..fdc26d2 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 237a447..a5911b8 100644
+index 237a447..7a2c696 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -42,6 +42,7 @@
@@ -8215,17 +9126,28 @@ index 237a447..a5911b8 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
    Opts.Modules = Args.hasArg(OPT_fmodules);
-@@ -1867,6 +1935,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1867,6 +1935,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
 +  Opts.CLEnableHalf = Args.hasArg(OPT_cl_enable_half);
 +  Opts.CLVerifySPIR = Args.hasArg(OPT_cl_verify_spir);
 +
++  if(const Arg* A = Args.getLastArg(OPT_cl_sampler_type)) {
++      Opts.CLSamplerOpaque  = llvm::StringSwitch<unsigned int>(A->getValue())
++        .Case("i32", 0u)
++        .Case("opaque", 1u)
++        .Default(~0u);
++      if(Opts.CLSamplerOpaque == ~0u)
++        Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args)
++                                                  << A->getValue();
++  } else
++    Opts.CLSamplerOpaque = 1;
++
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -1980,6 +2051,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -1980,6 +2062,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -8248,7 +9170,7 @@ index 407ccea..12a9f03 100644
      break;
        
 diff --git a/lib/Frontend/InitPreprocessor.cpp b/lib/Frontend/InitPreprocessor.cpp
-index 15aa546..d4eed2b 100644
+index 15aa546..934fa96 100644
 --- a/lib/Frontend/InitPreprocessor.cpp
 +++ b/lib/Frontend/InitPreprocessor.cpp
 @@ -112,11 +112,14 @@ static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
@@ -8305,7 +9227,49 @@ index 15aa546..d4eed2b 100644
                 "1.18973149535723176502e+4932",
                 "1.79769313486231580793728971405301e+308",
                 "1.18973149535723176508575932662800702e+4932");
-@@ -711,6 +714,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
+@@ -408,6 +411,41 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
+   if (LangOpts.ObjC1)
+     Builder.defineMacro("__OBJC__");
+ 
++  // OpenCL v1.0/1.1 s6.9, v1.2/2.0 s6.10: Preprocessor Directives and Macros.
++  if (LangOpts.OpenCL) {
++    // OpenCL v1.0 and v1.1 do not have a predefined macro to indicate the
++    // language standard with which the program is compiled. __OPENCL_VERSION__
++    // is for the OpenCL version supported by the OpenCL device, which is not
++    // necessarily the language standard with which the program is compiled.
++    // A shared OpenCL header file requires a macro to indicate the language
++    // standard. As a workaround, __OPENCL_C_VERSION__ is defined for
++    // OpenCL v1.0 and v1.1.
++    switch (LangOpts.OpenCLVersion) {
++    case 100:
++      Builder.defineMacro("__OPENCL_C_VERSION__", "100");
++      break;
++    case 110:
++      Builder.defineMacro("__OPENCL_C_VERSION__", "110");
++      break;
++    case 120:
++      Builder.defineMacro("__OPENCL_C_VERSION__", "120");
++      break;
++    case 200:
++    case 210:
++    case 220:
++      Builder.defineMacro("__OPENCL_C_VERSION__", "200");
++      break;
++    default:
++      llvm_unreachable("Unsupported OpenCL version");
++    }
++    Builder.defineMacro("CL_VERSION_1_0", "100");
++    Builder.defineMacro("CL_VERSION_1_1", "110");
++    Builder.defineMacro("CL_VERSION_1_2", "120");
++    Builder.defineMacro("CL_VERSION_2_0", "200");
++
++    if (LangOpts.FastRelaxedMath)
++      Builder.defineMacro("__FAST_RELAXED_MATH__");
++  }
+   // Not "standard" per se, but available even with the -undef flag.
+   if (LangOpts.AsmPreprocessor)
+     Builder.defineMacro("__ASSEMBLER__");
+@@ -711,6 +749,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
    DefineFmt("__UINTPTR", TI.getUIntPtrType(), TI, Builder);
    DefineTypeWidth("__UINTPTR_WIDTH__", TI.getUIntPtrType(), TI, Builder);
  
@@ -8313,7 +9277,7 @@ index 15aa546..d4eed2b 100644
    DefineFloatMacros(Builder, "FLT", &TI.getFloatFormat(), "F");
    DefineFloatMacros(Builder, "DBL", &TI.getDoubleFormat(), "");
    DefineFloatMacros(Builder, "LDBL", &TI.getLongDoubleFormat(), "L");
-@@ -922,6 +926,9 @@ void clang::InitializePreprocessor(
+@@ -922,6 +961,9 @@ void clang::InitializePreprocessor(
    llvm::raw_string_ostream Predefines(PredefineBuffer);
    MacroBuilder Builder(Predefines);
  
@@ -8364,20 +9328,31 @@ index 903acac..dc8bfb8 100644
  OBJHEADERS := $(addprefix $(HeaderDir)/, $(HEADERS))
  
 diff --git a/lib/Index/USRGeneration.cpp b/lib/Index/USRGeneration.cpp
-index c57694f..b480d21 100644
+index c57694f..cd77ecc 100644
 --- a/lib/Index/USRGeneration.cpp
 +++ b/lib/Index/USRGeneration.cpp
-@@ -616,6 +616,10 @@ void USRGenerator::VisitType(QualType T) {
-         case BuiltinType::OCLImage2dArrayMSAA:
-         case BuiltinType::OCLImage2dMSAADepth:
-         case BuiltinType::OCLImage2dArrayMSAADepth:
-+        case BuiltinType::OCLImageCube:
-+        case BuiltinType::OCLImageCubeArray:
-+        case BuiltinType::OCLImageCubeDepth:
-+        case BuiltinType::OCLImageCubeArrayDepth:
-         case BuiltinType::OCLImage3d:
+@@ -605,18 +605,9 @@ void USRGenerator::VisitType(QualType T) {
+ #define PLACEHOLDER_TYPE(Id, SingletonId) case BuiltinType::Id:
+ #include "clang/AST/BuiltinTypes.def"
+         case BuiltinType::Dependent:
+-        case BuiltinType::OCLImage1d:
+-        case BuiltinType::OCLImage1dArray:
+-        case BuiltinType::OCLImage1dBuffer:
+-        case BuiltinType::OCLImage2d:
+-        case BuiltinType::OCLImage2dArray:
+-        case BuiltinType::OCLImage2dDepth:
+-        case BuiltinType::OCLImage2dArrayDepth:
+-        case BuiltinType::OCLImage2dMSAA:
+-        case BuiltinType::OCLImage2dArrayMSAA:
+-        case BuiltinType::OCLImage2dMSAADepth:
+-        case BuiltinType::OCLImage2dArrayMSAADepth:
+-        case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++        case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
          case BuiltinType::OCLEvent:
          case BuiltinType::OCLClkEvent:
+         case BuiltinType::OCLQueue:
 diff --git a/lib/Lex/LiteralSupport.cpp b/lib/Lex/LiteralSupport.cpp
 index 5b1c493..9fd5e3d 100644
 --- a/lib/Lex/LiteralSupport.cpp
@@ -8816,25 +9791,15 @@ index 6fbcfd9..55e4849 100644
      return TPResult::False;
  
 diff --git a/lib/Sema/DeclSpec.cpp b/lib/Sema/DeclSpec.cpp
-index 6f6c4ca..5defb13 100644
+index 6f6c4ca..248eb55 100644
 --- a/lib/Sema/DeclSpec.cpp
 +++ b/lib/Sema/DeclSpec.cpp
-@@ -302,6 +302,23 @@ bool Declarator::isDeclarationOfFunction() const {
+@@ -302,6 +302,13 @@ bool Declarator::isDeclarationOfFunction() const {
      case TST_unspecified:
      case TST_void:
      case TST_wchar:
-+    case TST_image1d_t:
-+    case TST_image1d_array_t:
-+    case TST_image1d_buffer_t:
-+    case TST_image2d_t:
-+    case TST_image2d_array_t:
-+    case TST_image3d_t:
-+    case TST_image2d_depth_t:
-+    case TST_image2d_msaa_t:
-+    case TST_image2d_msaa_depth_t:
-+    case TST_image2d_array_msaa_depth_t:
-+    case TST_image2d_array_msaa_t:
-+    case TST_image2d_array_depth_t:
++#define GENERIC_IMAGE_TYPE(ImgType, Id) case TST_##ImgType##_t:
++#include "clang/Basic/OpenCLImageTypes.def"
 +    case TST_sampler_t:
 +    case TST_event_t:
 +    case TST_queue_t:
@@ -8843,22 +9808,14 @@ index 6f6c4ca..5defb13 100644
        return false;
  
      case TST_decltype_auto:
-@@ -474,6 +491,23 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
+@@ -474,6 +481,15 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
    case DeclSpec::TST_underlyingType: return "__underlying_type";
    case DeclSpec::TST_unknown_anytype: return "__unknown_anytype";
    case DeclSpec::TST_atomic: return "_Atomic";
-+  case DeclSpec::TST_image1d_t:   return "image1d_t";
-+  case DeclSpec::TST_image1d_array_t: return "image1d_array_t";
-+  case DeclSpec::TST_image1d_buffer_t: return "image1d_buffer_t";
-+  case DeclSpec::TST_image2d_t:   return "image2d_t";
-+  case DeclSpec::TST_image2d_array_t: return "image2d_array_t";
-+  case DeclSpec::TST_image3d_t:   return "image3d_t";
-+  case DeclSpec::TST_image2d_depth_t: return "image2d_depth_t";
-+  case DeclSpec::TST_image2d_msaa_t: return "image2d_msaa_t";
-+  case DeclSpec::TST_image2d_msaa_depth_t: return "image2d_msaa_depth_t";
-+  case DeclSpec::TST_image2d_array_msaa_depth_t: return "image2d_array_msaa_depth_t";
-+  case DeclSpec::TST_image2d_array_msaa_t: return "image2d_array_msaa_t";
-+  case DeclSpec::TST_image2d_array_depth_t: return "image2d_array_depth_t";
++#define GENERIC_IMAGE_TYPE(ImgType, Id) \
++  case DeclSpec::TST_##ImgType##_t: \
++    return #ImgType "_t";
++#include "clang/Basic/OpenCLImageTypes.def"
 +  case DeclSpec::TST_sampler_t:   return "sampler_t";
 +  case DeclSpec::TST_event_t:     return "event_t";
 +  case DeclSpec::TST_queue_t:     return "queue_t";
@@ -8868,7 +9825,7 @@ index 6f6c4ca..5defb13 100644
    }
    llvm_unreachable("Unknown typespec!");
 diff --git a/lib/Sema/Sema.cpp b/lib/Sema/Sema.cpp
-index 39b8cc9..78d80c7 100644
+index 39b8cc9..2a26942 100644
 --- a/lib/Sema/Sema.cpp
 +++ b/lib/Sema/Sema.cpp
 @@ -74,7 +74,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
@@ -8882,21 +9839,19 @@ index 39b8cc9..78d80c7 100644
      LangOpts(pp.getLangOpts()), PP(pp), Context(ctxt), Consumer(consumer),
      Diags(PP.getDiagnostics()), SourceMgr(PP.getSourceManager()),
      CollectStats(false), CodeCompleter(CodeCompleter),
-@@ -208,18 +210,20 @@ void Sema::Initialize() {
-     addImplicitTypedef("image1d_buffer_t", Context.OCLImage1dBufferTy);
-     addImplicitTypedef("image2d_t", Context.OCLImage2dTy);
-     addImplicitTypedef("image2d_array_t", Context.OCLImage2dArrayTy);
-+    addImplicitTypedef("image2d_depth_t", Context.OCLImage2dDepthTy);
-+    addImplicitTypedef("image2d_array_depth_t", Context.OCLImage2dArrayDepthTy);
-+    addImplicitTypedef("image2d_msaa_t", Context.OCLImage2dMSAATy);
-+    addImplicitTypedef("image2d_array_msaa_t", Context.OCLImage2dArrayMSAATy);
-+    addImplicitTypedef("image2d_msaa_depth_t", Context.OCLImage2dMSAADepthTy);
-+    addImplicitTypedef("image2d_array_msaa_depth_t", Context.OCLImage2dArrayMSAADepthTy);
-+    addImplicitTypedef("imagecube_t", Context.OCLImageCubeTy);
-+    addImplicitTypedef("imagecube_array_t", Context.OCLImageCubeArrayTy);
-+    addImplicitTypedef("imagecube_depth_t", Context.OCLImageCubeDepthTy);
-+    addImplicitTypedef("imagecube_array_depth_t", Context.OCLImageCubeArrayDepthTy);
-     addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
+@@ -203,23 +205,12 @@ void Sema::Initialize() {
+ 
+   // Initialize predefined OpenCL types.
+   if (getLangOpts().OpenCL) {
+-    addImplicitTypedef("image1d_t", Context.OCLImage1dTy);
+-    addImplicitTypedef("image1d_array_t", Context.OCLImage1dArrayTy);
+-    addImplicitTypedef("image1d_buffer_t", Context.OCLImage1dBufferTy);
+-    addImplicitTypedef("image2d_t", Context.OCLImage2dTy);
+-    addImplicitTypedef("image2d_array_t", Context.OCLImage2dArrayTy);
+-    addImplicitTypedef("image3d_t", Context.OCLImage3dTy);
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    addImplicitTypedef(#ImgType #Suffix "_t", Context. SingletonId);
++#include "clang/Basic/OpenCLImageTypes.def"
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
      if (getLangOpts().OpenCLVersion >= 200) {
@@ -10230,7 +11185,7 @@ index f94c822..b8ff0c4 100644
      if (Attr *A = D->getAttr<ReqdWorkGroupSizeAttr>()) {
        // FIXME: This emits a different error message than
 diff --git a/lib/Sema/SemaExpr.cpp b/lib/Sema/SemaExpr.cpp
-index 5a2eb60..f4f5f2d 100644
+index 5a2eb60..d8eb2a1 100644
 --- a/lib/Sema/SemaExpr.cpp
 +++ b/lib/Sema/SemaExpr.cpp
 @@ -44,6 +44,7 @@
@@ -10446,7 +11401,17 @@ index 5a2eb60..f4f5f2d 100644
    assert(VK == VK_RValue || LangOpts.CPlusPlus ||
           !ResultType.isCForbiddenLValueType());
  
-@@ -5264,7 +5398,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -4866,6 +5000,9 @@ static bool isPlaceholderToRemoveAsArg(QualType type) {
+ 
+   switch (placeholder->getKind()) {
+   // Ignore all the non-placeholder types.
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
+ #define PLACEHOLDER_TYPE(ID, SINGLETON_ID)
+ #define BUILTIN_TYPE(ID, SINGLETON_ID) case BuiltinType::ID:
+ #include "clang/AST/BuiltinTypes.def"
+@@ -5264,7 +5401,7 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
    if (getLangOpts().CUDA) {
      if (Config) {
        // CUDA: Kernel calls must be to global functions
@@ -10455,7 +11420,7 @@ index 5a2eb60..f4f5f2d 100644
          return ExprError(Diag(LParenLoc,diag::err_kern_call_not_global_function)
              << FDecl->getName() << Fn->getSourceRange());
  
-@@ -5274,12 +5408,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
+@@ -5274,12 +5411,17 @@ Sema::BuildResolvedCallExpr(Expr *Fn, NamedDecl *NDecl,
              << Fn->getType() << Fn->getSourceRange());
      } else {
        // CUDA: Calls to global functions must be configured
@@ -10474,7 +11439,7 @@ index 5a2eb60..f4f5f2d 100644
    // Check for a valid return type
    if (CheckCallReturnType(FuncT->getReturnType(), Fn->getLocStart(), TheCall,
                            FDecl))
-@@ -6131,9 +6270,25 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
+@@ -6131,9 +6273,25 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
      // In this situation, we assume void* type. No especially good
      // reason, but this is what gcc does, and we do have to pick
      // to get a consistent AST.
@@ -10503,7 +11468,7 @@ index 5a2eb60..f4f5f2d 100644
      return incompatTy;
    }
  
-@@ -6233,6 +6388,18 @@ static bool checkPointerIntegerMismatch(Sema &S, ExprResult &Int,
+@@ -6233,6 +6391,18 @@ static bool checkPointerIntegerMismatch(Sema &S, ExprResult &Int,
    return true;
  }
  
@@ -10522,7 +11487,7 @@ index 5a2eb60..f4f5f2d 100644
  /// \brief Simple conversion between integer and floating point types.
  ///
  /// Used when handling the OpenCL conditional operator where the
-@@ -6462,6 +6629,12 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
+@@ -6462,6 +6632,12 @@ QualType Sema::CheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
    QualType LHSTy = LHS.get()->getType();
    QualType RHSTy = RHS.get()->getType();
  
@@ -10535,7 +11500,19 @@ index 5a2eb60..f4f5f2d 100644
    // If both operands have arithmetic type, do the usual arithmetic conversions
    // to find a common type: C99 6.5.15p3,5.
    if (LHSTy->isArithmeticType() && RHSTy->isArithmeticType()) {
-@@ -7575,7 +7748,8 @@ QualType Sema::InvalidOperands(SourceLocation Loc, ExprResult &LHS,
+@@ -7353,6 +7529,11 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
+     }
+   }
+ 
++  if (LHSType->isSamplerT() && RHSType->isIntegerType()) {
++    Kind = CK_IntToOCLSampler;
++    return Compatible;
++  }
++
+   return Incompatible;
+ }
+ 
+@@ -7575,7 +7756,8 @@ QualType Sema::InvalidOperands(SourceLocation Loc, ExprResult &LHS,
  static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
                                       QualType scalarTy,
                                       QualType vectorEltTy,
@@ -10545,7 +11522,7 @@ index 5a2eb60..f4f5f2d 100644
    // The conversion to apply to the scalar before splatting it,
    // if necessary.
    CastKind scalarCast = CK_Invalid;
-@@ -7590,8 +7764,14 @@ static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
+@@ -7590,8 +7772,14 @@ static bool tryVectorConvertAndSplat(Sema &S, ExprResult *scalar,
    } else if (vectorEltTy->isRealFloatingType()) {
      if (scalarTy->isRealFloatingType()) {
        if (S.getLangOpts().OpenCL &&
@@ -10562,7 +11539,7 @@ index 5a2eb60..f4f5f2d 100644
        scalarCast = CK_FloatingCast;
      }
      else if (scalarTy->isIntegralType(S.Context))
-@@ -7683,13 +7863,13 @@ QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
+@@ -7683,13 +7871,13 @@ QualType Sema::CheckVectorOperands(ExprResult &LHS, ExprResult &RHS,
    // the vector element type and splat.
    if (!RHSVecType && isa<ExtVectorType>(LHSVecType)) {
      if (!tryVectorConvertAndSplat(*this, &RHS, RHSType,
@@ -10578,7 +11555,7 @@ index 5a2eb60..f4f5f2d 100644
        return RHSType;
    }
  
-@@ -9174,6 +9354,18 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
+@@ -9174,6 +9362,18 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
      return ResultTy;
    }
  
@@ -10597,7 +11574,7 @@ index 5a2eb60..f4f5f2d 100644
    return InvalidOperands(Loc, LHS, RHS);
  }
  
-@@ -10041,7 +10233,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
+@@ -10041,7 +10241,7 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    Expr *op = OrigOp.get()->IgnoreParens();
  
    // OpenCL v1.0 s6.8.a.3: Pointers to functions are not allowed.
@@ -10606,7 +11583,7 @@ index 5a2eb60..f4f5f2d 100644
      Diag(op->getExprLoc(), diag::err_opencl_taking_function_address);
      return QualType();
    }
-@@ -10199,6 +10391,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
+@@ -10199,6 +10399,15 @@ QualType Sema::CheckAddressOfOperand(ExprResult &OrigOp, SourceLocation OpLoc) {
    // If the operand has type "type", the result has type "pointer to type".
    if (op->getType()->isObjCObjectType())
      return Context.getObjCObjectPointerType(op->getType());
@@ -10622,7 +11599,7 @@ index 5a2eb60..f4f5f2d 100644
    return Context.getPointerType(op->getType());
  }
  
-@@ -10239,8 +10440,18 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
+@@ -10239,8 +10448,18 @@ static QualType CheckIndirectionOperand(Sema &S, Expr *Op, ExprValueKind &VK,
                                       Op->getSourceRange());
    }
  
@@ -10642,7 +11619,7 @@ index 5a2eb60..f4f5f2d 100644
    else if (const ObjCObjectPointerType *OPT =
               OpTy->getAs<ObjCObjectPointerType>())
      Result = OPT->getPointeeType();
-@@ -10453,6 +10664,22 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
+@@ -10453,6 +10672,22 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
      RHSExpr = Init.get();
    }
  
@@ -10665,7 +11642,7 @@ index 5a2eb60..f4f5f2d 100644
    ExprResult LHS = LHSExpr, RHS = RHSExpr;
    QualType ResultTy;     // Result type of the binary operator.
    // The following two variables are used for compound assignment operators
-@@ -10954,6 +11181,18 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
+@@ -10954,6 +11189,18 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
  ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
                                        UnaryOperatorKind Opc,
                                        Expr *InputExpr) {
@@ -10684,7 +11661,7 @@ index 5a2eb60..f4f5f2d 100644
    ExprResult Input = InputExpr;
    ExprValueKind VK = VK_RValue;
    ExprObjectKind OK = OK_Ordinary;
-@@ -12925,13 +13164,16 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
+@@ -12925,13 +13172,16 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
    bool ByRef = false;
        
    // Blocks are not allowed to capture arrays.
@@ -10707,7 +11684,7 @@ index 5a2eb60..f4f5f2d 100644
    }
  
    // Forbid the block-capture of autoreleasing variables.
-@@ -12945,7 +13187,11 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
+@@ -12945,7 +13195,11 @@ static bool captureInBlock(BlockScopeInfo *BSI, VarDecl *Var,
      return false;
    }
    const bool HasBlocksAttr = Var->hasAttr<BlocksAttr>();
@@ -10720,6 +11697,16 @@ index 5a2eb60..f4f5f2d 100644
      // Block capture by reference does not change the capture or
      // declaration reference types.
      ByRef = true;
+@@ -14627,6 +14881,9 @@ ExprResult Sema::CheckPlaceholderExpr(Expr *E) {
+     return ExprError();
+ 
+   // Everything else should be impossible.
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
+ #define BUILTIN_TYPE(Id, SingletonId) \
+   case BuiltinType::Id:
+ #define PLACEHOLDER_TYPE(Id, SingletonId)
 diff --git a/lib/Sema/SemaExprCXX.cpp b/lib/Sema/SemaExprCXX.cpp
 index 38fbea1..43d7bdb 100644
 --- a/lib/Sema/SemaExprCXX.cpp
@@ -10766,7 +11753,7 @@ index 9c345f8..21835b2 100644
  
      Qualifiers Combined = BaseQuals + MemberQuals;
 diff --git a/lib/Sema/SemaInit.cpp b/lib/Sema/SemaInit.cpp
-index c3a8946..0bcdea6 100644
+index c3a8946..eda3f5c 100644
 --- a/lib/Sema/SemaInit.cpp
 +++ b/lib/Sema/SemaInit.cpp
 @@ -1108,7 +1108,8 @@ void InitListChecker::CheckSubElementType(const InitializedEntity &Entity,
@@ -10836,7 +11823,20 @@ index c3a8946..0bcdea6 100644
    }
  
    //      - Otherwise, a temporary of type "cv1 T1" is created and initialized
-@@ -4796,6 +4813,20 @@ static bool TryOCLZeroEventInitialization(Sema &S,
+@@ -4767,6 +4784,12 @@ static bool TryOCLSamplerInitialization(Sema &S,
+                                         InitializationSequence &Sequence,
+                                         QualType DestType,
+                                         Expr *Initializer) {
++  // TODO/NOTE: this breaks things, don't do it
++  /*if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Initializer))
++    if (const VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl()))
++      if (const CastExpr* Init = dyn_cast_or_null<CastExpr>(VD->getInit()))
++        Initializer = const_cast<Expr*>(Init->getSubExpr());*/
++
+   if (!S.getLangOpts().OpenCL || !DestType->isSamplerT() ||
+     !Initializer->isIntegerConstantExpr(S.getASTContext()))
+     return false;
+@@ -4796,6 +4819,20 @@ static bool TryOCLZeroEventInitialization(Sema &S,
    return true;
  }
  
@@ -10857,7 +11857,7 @@ index c3a8946..0bcdea6 100644
  InitializationSequence::InitializationSequence(Sema &S,
                                                 const InitializedEntity &Entity,
                                                 const InitializationKind &Kind,
-@@ -4983,13 +5014,21 @@ void InitializationSequence::InitializeFrom(Sema &S,
+@@ -4983,13 +5020,21 @@ void InitializationSequence::InitializeFrom(Sema &S,
          tryObjCWritebackConversion(S, *this, Entity, Initializer)) {
        return;
      }
@@ -10879,7 +11879,7 @@ index c3a8946..0bcdea6 100644
      // Handle initialization in C
      AddCAssignmentStep(DestType);
      MaybeProduceObjCObject(S, *this, Entity);
-@@ -6135,6 +6174,20 @@ InitializationSequence::Perform(Sema &S,
+@@ -6135,6 +6180,20 @@ InitializationSequence::Perform(Sema &S,
        << Init->getSourceRange();
    }
  
@@ -10900,7 +11900,7 @@ index c3a8946..0bcdea6 100644
    // Diagnose cases where we initialize a pointer to an array temporary, and the
    // pointer obviously outlives the temporary.
    if (Args.size() == 1 && Args[0]->getType()->isArrayType() &&
-@@ -6189,7 +6242,8 @@ InitializationSequence::Perform(Sema &S,
+@@ -6189,7 +6248,8 @@ InitializationSequence::Perform(Sema &S,
    case SK_ProduceObjCObject:
    case SK_StdInitializerList:
    case SK_OCLSamplerInit:
@@ -10910,7 +11910,7 @@ index c3a8946..0bcdea6 100644
      assert(Args.size() == 1);
      CurInit = Args[0];
      if (!CurInit.get()) return ExprError();
-@@ -6298,7 +6352,10 @@ InitializationSequence::Perform(Sema &S,
+@@ -6298,7 +6358,10 @@ InitializationSequence::Perform(Sema &S,
  
      case SK_BindReferenceToTemporary: {
        // Make sure the "temporary" is actually an rvalue.
@@ -10922,22 +11922,33 @@ index c3a8946..0bcdea6 100644
  
        // Check exception specifications
        if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))
-@@ -6743,15 +6800,22 @@ InitializationSequence::Perform(Sema &S,
+@@ -6742,16 +6805,32 @@ InitializationSequence::Perform(Sema &S,
+       assert(Step->Type->isSamplerT() && 
               "Sampler initialization on non-sampler type.");
  
-       QualType SourceType = CurInit.get()->getType();
+-      QualType SourceType = CurInit.get()->getType();
 -
 -      if (Entity.isParameterKind()) {
 -        if (!SourceType->isSamplerT())
 -          S.Diag(Kind.getLocation(), diag::err_sampler_argument_required)
-+      bool isConst = CurInit.get()->isConstantInitializer(S.Context, false);
-+      InitializedEntity::EntityKind EntityKind = Entity.getKind();
++      Expr *Init = CurInit.get();
++      // In case of passing sampler or integer variable to a function
++      // use its initializer
++      if (const DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(Init))
++        Init = const_cast<Expr*>(cast<VarDecl>(DRE->getDecl())->getInit());
++      if (ImplicitCastExpr *ICE = dyn_cast<ImplicitCastExpr>(Init))
++        if (ICE->getCastKind() == CK_IntToOCLSampler)
++          Init = ICE->getSubExpr();
 +
++      QualType SourceType = Init->getType();
++      bool isConst = Init->isConstantInitializer(S.Context, false);
++      InitializedEntity::EntityKind EntityKind = Entity.getKind();
 +      if (EntityKind == InitializedEntity::EK_Variable ||
 +          EntityKind == InitializedEntity::EK_Parameter) {
 +        if (!isConst)
 +          S.Diag(Kind.getLocation(), diag::err_sampler_initializer_not_constant);
-+        else if (!SourceType->isIntegerType())
++        if (!SourceType->isIntegerType() ||
++            32 != S.Context.getIntWidth(SourceType))
 +          S.Diag(Kind.getLocation(), diag::err_sampler_initializer_not_integer)
              << SourceType;
 -      } else if (Entity.getKind() != InitializedEntity::EK_Variable) {
@@ -10945,13 +11956,13 @@ index c3a8946..0bcdea6 100644
          llvm_unreachable("Invalid EntityKind!");
 -      }
  
-+      CurInit = S.ImpCastExprToType(CurInit.get(), Step->Type,
++      CurInit = S.ImpCastExprToType(Init, Step->Type,
 +                                    CK_IntToOCLSampler,
-+                                    CurInit.get()->getValueKind());
++                                    Init->getValueKind());
        break;
      }
      case SK_OCLZeroEvent: {
-@@ -6763,6 +6827,15 @@ InitializationSequence::Perform(Sema &S,
+@@ -6763,6 +6842,15 @@ InitializationSequence::Perform(Sema &S,
                                      CurInit.get()->getValueKind());
        break;
      }
@@ -10967,7 +11978,7 @@ index c3a8946..0bcdea6 100644
      }
    }
  
-@@ -7544,6 +7617,10 @@ void InitializationSequence::dump(raw_ostream &OS) const {
+@@ -7544,6 +7632,10 @@ void InitializationSequence::dump(raw_ostream &OS) const {
      case SK_OCLZeroEvent:
        OS << "OpenCL event_t from zero";
        break;
@@ -11194,25 +12205,15 @@ index 7a452af..450d90e 100644
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/lib/Sema/SemaTemplateVariadic.cpp b/lib/Sema/SemaTemplateVariadic.cpp
-index cb67d71..a3cab6f 100644
+index cb67d71..f03300a 100644
 --- a/lib/Sema/SemaTemplateVariadic.cpp
 +++ b/lib/Sema/SemaTemplateVariadic.cpp
-@@ -740,6 +740,23 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
+@@ -740,6 +740,13 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
    case TST_auto_type:
    case TST_decltype_auto:
    case TST_unknown_anytype:
-+  case TST_image1d_t:
-+  case TST_image1d_array_t:
-+  case TST_image1d_buffer_t:
-+  case TST_image2d_t:
-+  case TST_image2d_array_t:
-+  case TST_image2d_depth_t:
-+  case TST_image2d_array_depth_t:
-+  case TST_image2d_msaa_t:
-+  case TST_image2d_array_msaa_t:
-+  case TST_image2d_msaa_depth_t:
-+  case TST_image2d_array_msaa_depth_t:
-+  case TST_image3d_t:
++#define GENERIC_IMAGE_TYPE(ImgType, Id) case TST_##ImgType##_t:
++#include "clang/Basic/OpenCLImageTypes.def"
 +  case TST_sampler_t:
 +  case TST_event_t:
 +  case TST_queue_t:
@@ -11222,7 +12223,7 @@ index cb67d71..a3cab6f 100644
      break;
    }
 diff --git a/lib/Sema/SemaType.cpp b/lib/Sema/SemaType.cpp
-index f6ad132..e64be68 100644
+index f6ad132..30d03c5 100644
 --- a/lib/Sema/SemaType.cpp
 +++ b/lib/Sema/SemaType.cpp
 @@ -20,6 +20,7 @@
@@ -11233,7 +12234,15 @@ index f6ad132..e64be68 100644
  #include "clang/AST/TypeLoc.h"
  #include "clang/AST/TypeLocVisitor.h"
  #include "clang/Lex/Preprocessor.h"
-@@ -282,7 +283,8 @@ enum TypeAttrLocation {
+@@ -33,6 +34,7 @@
+ #include "clang/Sema/Template.h"
+ #include "llvm/ADT/SmallPtrSet.h"
+ #include "llvm/ADT/SmallString.h"
++#include "llvm/ADT/StringSwitch.h"
+ #include "llvm/Support/ErrorHandling.h"
+ 
+ using namespace clang;
+@@ -282,7 +284,8 @@ enum TypeAttrLocation {
  
  static void processTypeAttrs(TypeProcessingState &state,
                               QualType &type, TypeAttrLocation TAL,
@@ -11243,7 +12252,29 @@ index f6ad132..e64be68 100644
  
  static bool handleFunctionTypeAttr(TypeProcessingState &state,
                                     AttributeList &attr,
-@@ -1281,6 +1283,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
+@@ -1171,6 +1174,21 @@ TypeResult Sema::actOnObjCTypeArgsAndProtocolQualifiers(
+   return CreateParsedType(Result, ResultTInfo);
+ }
+ 
++static StringRef getImageAccessAttrStr(AttributeList *attrs) {
++  if (attrs) {
++
++    AttributeList *Next;
++    do {
++      AttributeList &Attr = *attrs;
++      Next = Attr.getNext();
++      if (Attr.getKind() == AttributeList::AT_ImageAccess) {
++        return Attr.getName()->getName();
++      }
++    } while (Next);
++  }
++  return "";
++}
++
+ /// \brief Convert the specified declspec to the appropriate type
+ /// object.
+ /// \param state Specifies the declarator containing the declaration specifier
+@@ -1281,6 +1299,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
          S.Diag(DeclLoc, diag::err_missing_actual_pipe_type)
            << DS.getSourceRange();
          declarator.setInvalidType(true);
@@ -11253,69 +12284,24 @@ index f6ad132..e64be68 100644
        } else {
          S.Diag(DeclLoc, diag::ext_missing_type_specifier)
            << DS.getSourceRange();
-@@ -1424,8 +1429,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
+@@ -1422,13 +1443,6 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
+               << Result << "cl_khr_fp64";
+           declarator.setInvalidType(true);
          }
-       } else if (!S.getOpenCLOptions().cl_khr_gl_msaa_sharing &&
-                  (Result->isImage2dMSAAT() || Result->isImage2dArrayMSAAT() ||
+-      } else if (!S.getOpenCLOptions().cl_khr_gl_msaa_sharing &&
+-                 (Result->isImage2dMSAAT() || Result->isImage2dArrayMSAAT() ||
 -                  Result->isImage2dArrayMSAATDepth() ||
 -                  Result->isImage2dMSAATDepth())) {
-+                  Result->isImage2dArrayMSAADepthT() ||
-+                  Result->isImage2dMSAADepthT())) {
-         S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_requires_extension)
-             << Result << "cl_khr_gl_msaa_sharing";
-         declarator.setInvalidType(true);
-@@ -1539,6 +1544,71 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
+-        S.Diag(DS.getTypeSpecTypeLoc(), diag::err_type_requires_extension)
+-            << Result << "cl_khr_gl_msaa_sharing";
+-        declarator.setInvalidType(true);
+       }
+     }
+ 
+@@ -1539,6 +1553,45 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
      }
      break;
  
-+  case DeclSpec::TST_image1d_t:
-+    Result = Context.OCLImage1dTy;
-+    break;
-+
-+  case DeclSpec::TST_image1d_array_t:
-+    Result = Context.OCLImage1dArrayTy;
-+    break;
-+
-+  case DeclSpec::TST_image1d_buffer_t:
-+    Result = Context.OCLImage1dBufferTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_t:
-+    Result = Context.OCLImage2dTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_array_t:
-+    Result = Context.OCLImage2dArrayTy;
-+    break;
-+
-+  case DeclSpec::TST_image3d_t:
-+    Result = Context.OCLImage3dTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_depth_t:
-+    Result = Context.OCLImage2dDepthTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_msaa_t:
-+    Result = Context.OCLImage2dMSAATy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_msaa_depth_t:
-+    Result = Context.OCLImage2dMSAADepthTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_array_msaa_depth_t:
-+    Result = Context.OCLImage2dArrayMSAADepthTy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_array_msaa_t:
-+    Result = Context.OCLImage2dArrayMSAATy;
-+    break;
-+
-+  case DeclSpec::TST_image2d_array_depth_t:
-+    Result = Context.OCLImage2dArrayDepthTy;
-+    break;
-+
 +  case DeclSpec::TST_sampler_t:
 +    Result = Context.OCLSamplerTy;
 +    break;
@@ -11333,10 +12319,32 @@ index f6ad132..e64be68 100644
 +    Result = Context.OCLReserveIDTy;
 +    break;
 +
++#if 0 // TODO: enable this when using ro/wo/rw image types
++#define GENERIC_IMAGE_TYPE(ImgType, Id) \
++  case DeclSpec::TST_##ImgType##_t: \
++    Result = llvm::StringSwitch<QualType>( \
++                 getImageAccessAttrStr(DS.getAttributes().getList())) \
++                 .Cases("write_only", "__write_only", Context.Id##WOTy) \
++                 .Cases("read_write", "__read_write", Context.Id##RWTy) \
++                 .Default(Context.Id##ROTy); \
++    break;
++#include "clang/Basic/OpenCLImageTypes.def"
++#else
++#define GENERIC_IMAGE_TYPE(ImgType, Id) \
++  case DeclSpec::TST_##ImgType##_t: \
++    Result = llvm::StringSwitch<QualType>( \
++                 getImageAccessAttrStr(DS.getAttributes().getList())) \
++                 .Cases("write_only", "__write_only", Context.Id##Ty) \
++                 .Cases("read_write", "__read_write", Context.Id##Ty) \
++                 .Default(Context.Id##Ty); \
++    break;
++#include "clang/Basic/OpenCLImageTypes.def"
++#endif
++
    case DeclSpec::TST_error:
      Result = Context.IntTy;
      declarator.setInvalidType(true);
-@@ -1575,7 +1645,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
+@@ -1575,7 +1628,8 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
    // attributes are pushed around.
    // pipe attributes will be handled later ( at GetFullTypeForDeclarator )
    if (!DS.isTypeSpecPipe())
@@ -11346,7 +12354,7 @@ index f6ad132..e64be68 100644
  
    // Apply const/volatile/restrict qualifiers to T.
    if (unsigned TypeQuals = DS.getTypeQualifiers()) {
-@@ -1939,7 +2010,9 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
+@@ -1939,7 +1993,9 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
  ///
  /// \param T The type to which we'll be building a Pipe.
  ///
@@ -11357,7 +12365,7 @@ index f6ad132..e64be68 100644
  ///
  /// \returns A suitable pipe type, if there are no errors. Otherwise, returns a
  /// NULL type.
-@@ -1968,7 +2041,8 @@ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
+@@ -1968,7 +2024,8 @@ static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
    } Diagnoser;
  
    return S.VerifyIntegerConstantExpression(ArraySize, &SizeVal, Diagnoser,
@@ -11367,7 +12375,7 @@ index f6ad132..e64be68 100644
  }
  
  
-@@ -2176,6 +2250,13 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
+@@ -2176,6 +2233,13 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
      Diag(Loc, diag::warn_vla_used);
    }
  
@@ -11381,7 +12389,7 @@ index f6ad132..e64be68 100644
    return T;
  }
  
-@@ -2231,7 +2312,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
+@@ -2231,7 +2295,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
    }
  
    // Functions cannot return half FP.
@@ -11390,7 +12398,7 @@ index f6ad132..e64be68 100644
      Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 1 <<
        FixItHint::CreateInsertion(Loc, "*");
      return true;
-@@ -2261,7 +2342,7 @@ QualType Sema::BuildFunctionType(QualType T,
+@@ -2261,7 +2325,7 @@ QualType Sema::BuildFunctionType(QualType T,
      if (ParamType->isVoidType()) {
        Diag(Loc, diag::err_param_with_void_type);
        Invalid = true;
@@ -11399,7 +12407,7 @@ index f6ad132..e64be68 100644
        // Disallow half FP arguments.
        Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 0 <<
          FixItHint::CreateInsertion(Loc, "*");
-@@ -2621,7 +2702,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
+@@ -2621,7 +2685,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
      // "void" instead.
      T = SemaRef.Context.VoidTy;
      processTypeAttrs(state, T, TAL_DeclSpec,
@@ -11409,7 +12417,7 @@ index f6ad132..e64be68 100644
      break;
  
    case UnqualifiedId::IK_ConversionFunctionId:
-@@ -2979,14 +3061,14 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
+@@ -2979,14 +3044,14 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
    CallingConv CC = S.Context.getDefaultCallingConvention(FTI.isVariadic,
                                                           IsCXXInstanceMethod);
  
@@ -11426,7 +12434,7 @@ index f6ad132..e64be68 100644
          CC = CC_SpirKernel;
          break;
        }
-@@ -3811,7 +3893,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -3811,7 +3876,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
              S.Diag(D.getIdentifierLoc(), diag::err_opencl_half_return) << T;
              D.setInvalidType(true);
            } 
@@ -11435,7 +12443,7 @@ index f6ad132..e64be68 100644
            S.Diag(D.getIdentifierLoc(),
              diag::err_parameters_retval_cannot_have_fp16_type) << 1;
            D.setInvalidType(true);
-@@ -3921,7 +4003,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -3921,7 +3986,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
  
        FunctionType::ExtInfo EI(getCCForDeclaratorChunk(S, D, FTI, chunkIndex));
  
@@ -11444,7 +12452,7 @@ index f6ad132..e64be68 100644
          // Simple void foo(), where the incoming T is the result type.
          T = Context.getFunctionNoProtoType(T, EI);
        } else {
-@@ -4010,7 +4092,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4010,7 +4075,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  D.setInvalidType();
                  Param->setInvalidDecl();
                }
@@ -11453,7 +12461,7 @@ index f6ad132..e64be68 100644
                S.Diag(Param->getLocation(),
                  diag::err_parameters_retval_cannot_have_fp16_type) << 0;
                D.setInvalidType();
-@@ -4132,7 +4214,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4132,7 +4197,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
      }
  
      case DeclaratorChunk::Pipe: {
@@ -11462,7 +12470,7 @@ index f6ad132..e64be68 100644
        break;
      }
      }
-@@ -4144,7 +4226,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4144,7 +4209,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
  
      // See if there are any attributes on this declarator chunk.
      processTypeAttrs(state, T, TAL_DeclChunk,
@@ -11472,7 +12480,7 @@ index f6ad132..e64be68 100644
    }
  
    assert(!T.isNull() && "T must not be null after this point");
-@@ -4237,7 +4320,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4237,7 +4303,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
    }
  
    // Apply any undistributed attributes from the declarator.
@@ -11482,7 +12490,7 @@ index f6ad132..e64be68 100644
  
    // Diagnose any ignored type attributes.
    state.diagnoseIgnoredTypeAttrs(T);
-@@ -5065,16 +5149,16 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
+@@ -5065,16 +5132,16 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
    } else {
      // The keyword-based type attributes imply which address space to use.
      switch (Attr.getKind()) {
@@ -11504,7 +12512,7 @@ index f6ad132..e64be68 100644
        ASIdx = 0; break;
      }
    }
-@@ -6218,7 +6302,8 @@ static void HandleNeonVectorTypeAttr(QualType& CurType,
+@@ -6218,7 +6285,8 @@ static void HandleNeonVectorTypeAttr(QualType& CurType,
  }
  
  static void processTypeAttrs(TypeProcessingState &state, QualType &type,
@@ -11514,7 +12522,7 @@ index f6ad132..e64be68 100644
    // Scan through and apply attributes to this type where it makes sense.  Some
    // attributes (such as __address_space__, __vector_size__, etc) apply to the
    // type, but others can be present in the type specifiers even though they
-@@ -6279,11 +6364,11 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6279,11 +6347,11 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        // it it breaks large amounts of Linux software.
        attr.setUsedAsTypeAttr();
        break;
@@ -11531,7 +12539,7 @@ index f6ad132..e64be68 100644
      case AttributeList::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
        attr.setUsedAsTypeAttr();
-@@ -6312,11 +6397,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6312,11 +6380,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
@@ -11565,7 +12573,7 @@ index f6ad132..e64be68 100644
  
      MS_TYPE_ATTRS_CASELIST:
        if (!handleMSPointerTypeQualifierAttr(state, attr, type))
-@@ -6393,7 +6499,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6393,7 +6482,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
    // (...)
    // Pointers that are declared without pointing to a named address space point
    // to the generic address space.
@@ -11575,7 +12583,7 @@ index f6ad132..e64be68 100644
        !hasOpenCLAddressSpace && type.getAddressSpace() == 0 &&
        (TAL == TAL_DeclSpec || TAL == TAL_DeclChunk)) {
      Declarator &D = state.getDeclarator();
-@@ -6414,7 +6521,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6414,7 +6504,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
               D.getDeclSpec().getStorageClassSpec() == DeclSpec::SCS_static)
        type = state.getSema().Context.getAddrSpaceQualType(
            type, LangAS::opencl_global);
@@ -11585,50 +12593,106 @@ index f6ad132..e64be68 100644
  
  void Sema::completeExprArrayBound(Expr *E) {
 diff --git a/lib/Serialization/ASTCommon.cpp b/lib/Serialization/ASTCommon.cpp
-index 2b78d74..3a46e19 100644
+index 2b78d74..c22d8fc 100644
 --- a/lib/Serialization/ASTCommon.cpp
 +++ b/lib/Serialization/ASTCommon.cpp
-@@ -160,6 +160,18 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
-   case BuiltinType::OCLImage2dArrayMSAADepth:
-     ID = PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID;
+@@ -127,42 +127,11 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
+   case BuiltinType::ObjCSel:
+     ID = PREDEF_TYPE_OBJC_SEL;
      break;
-+  case BuiltinType::OCLImageCube:
-+    ID = PREDEF_TYPE_IMAGECUBE_ID;
-+    break;
-+  case BuiltinType::OCLImageCubeArray:
-+    ID = PREDEF_TYPE_IMAGECUBE_ARR_ID;
-+    break;
-+  case BuiltinType::OCLImageCubeDepth:
-+    ID = PREDEF_TYPE_IMAGECUBE_DEPTH_ID;
-+    break;
-+  case BuiltinType::OCLImageCubeArrayDepth:
-+    ID = PREDEF_TYPE_IMAGECUBE_ARR_DEPTH_ID;
-+    break;
-   case BuiltinType::OCLImage3d:
-     ID = PREDEF_TYPE_IMAGE3D_ID;
+-  case BuiltinType::OCLImage1d:
+-    ID = PREDEF_TYPE_IMAGE1D_ID;
+-    break;
+-  case BuiltinType::OCLImage1dArray:
+-    ID = PREDEF_TYPE_IMAGE1D_ARR_ID;
+-    break;
+-  case BuiltinType::OCLImage1dBuffer:
+-    ID = PREDEF_TYPE_IMAGE1D_BUFF_ID;
+-    break;
+-  case BuiltinType::OCLImage2d:
+-    ID = PREDEF_TYPE_IMAGE2D_ID;
+-    break;
+-  case BuiltinType::OCLImage2dArray:
+-    ID = PREDEF_TYPE_IMAGE2D_ARR_ID;
+-    break;
+-  case BuiltinType::OCLImage2dDepth:
+-    ID = PREDEF_TYPE_IMAGE2D_DEP_ID;
+-    break;
+-  case BuiltinType::OCLImage2dArrayDepth:
+-    ID = PREDEF_TYPE_IMAGE2D_ARR_DEP_ID;
+-    break;
+-  case BuiltinType::OCLImage2dMSAA:
+-    ID = PREDEF_TYPE_IMAGE2D_MSAA_ID;
+-    break;
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-    ID = PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID;
+-    break;
+-  case BuiltinType::OCLImage2dMSAADepth:
+-    ID = PREDEF_TYPE_IMAGE2D_MSAA_DEP_ID;
+-    break;
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-    ID = PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID;
+-    break;
+-  case BuiltinType::OCLImage3d:
+-    ID = PREDEF_TYPE_IMAGE3D_ID;
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id: \
++    ID = PREDEF_TYPE_##Id##_ID; \
+     break;
++#include "clang/Basic/OpenCLImageTypes.def"
+   case BuiltinType::OCLSampler:
+     ID = PREDEF_TYPE_SAMPLER_ID;
      break;
 diff --git a/lib/Serialization/ASTReader.cpp b/lib/Serialization/ASTReader.cpp
-index 833ff57..734a899 100644
+index 833ff57..cfe0fd7 100644
 --- a/lib/Serialization/ASTReader.cpp
 +++ b/lib/Serialization/ASTReader.cpp
-@@ -6079,6 +6079,18 @@ QualType ASTReader::GetType(TypeID ID) {
-     case PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID:
-       T = Context.OCLImage2dArrayMSAADepthTy;
+@@ -6046,42 +6046,11 @@ QualType ASTReader::GetType(TypeID ID) {
+     case PREDEF_TYPE_OBJC_SEL:
+       T = Context.ObjCBuiltinSelTy;
        break;
-+    case PREDEF_TYPE_IMAGECUBE_ID:
-+      T = Context.OCLImageCubeTy;
-+      break;
-+    case PREDEF_TYPE_IMAGECUBE_ARR_ID:
-+      T = Context.OCLImageCubeArrayTy;
-+      break;
-+    case PREDEF_TYPE_IMAGECUBE_DEPTH_ID:
-+      T = Context.OCLImageCubeDepthTy;
-+      break;
-+    case PREDEF_TYPE_IMAGECUBE_ARR_DEPTH_ID:
-+      T = Context.OCLImageCubeArrayDepthTy;
-+      break;
-     case PREDEF_TYPE_IMAGE3D_ID:
-       T = Context.OCLImage3dTy;
+-    case PREDEF_TYPE_IMAGE1D_ID:
+-      T = Context.OCLImage1dTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE1D_ARR_ID:
+-      T = Context.OCLImage1dArrayTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE1D_BUFF_ID:
+-      T = Context.OCLImage1dBufferTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_ID:
+-      T = Context.OCLImage2dTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_ARR_ID:
+-      T = Context.OCLImage2dArrayTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_DEP_ID:
+-      T = Context.OCLImage2dDepthTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_ARR_DEP_ID:
+-      T = Context.OCLImage2dArrayDepthTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_MSAA_ID:
+-      T = Context.OCLImage2dMSAATy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_ARR_MSAA_ID:
+-      T = Context.OCLImage2dArrayMSAATy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_MSAA_DEP_ID:
+-      T = Context.OCLImage2dMSAADepthTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE2D_ARR_MSAA_DEPTH_ID:
+-      T = Context.OCLImage2dArrayMSAADepthTy;
+-      break;
+-    case PREDEF_TYPE_IMAGE3D_ID:
+-      T = Context.OCLImage3dTy;
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++    case PREDEF_TYPE_##Id##_ID: \
++      T = Context.SingletonId; \
+       break;
++#include "clang/Basic/OpenCLImageTypes.def"
+     case PREDEF_TYPE_SAMPLER_ID:
+       T = Context.OCLSamplerTy;
        break;
 diff --git a/lib/StaticAnalyzer/Core/ExprEngineC.cpp b/lib/StaticAnalyzer/Core/ExprEngineC.cpp
 index 175225b..367c242 100644
@@ -11690,21 +12754,32 @@ index 8240561..3d69794 100644
    llvm::InitializeAllTargets();
    llvm::InitializeAllTargetMCs();
 diff --git a/tools/libclang/CIndex.cpp b/tools/libclang/CIndex.cpp
-index 9086c60..50dc8ea 100644
+index 9086c60..dbbb32f 100644
 --- a/tools/libclang/CIndex.cpp
 +++ b/tools/libclang/CIndex.cpp
-@@ -1467,6 +1467,10 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
-   case BuiltinType::OCLImage2dArrayMSAA:
-   case BuiltinType::OCLImage2dMSAADepth:
-   case BuiltinType::OCLImage2dArrayMSAADepth:
-+  case BuiltinType::OCLImageCube:
-+  case BuiltinType::OCLImageCubeArray:
-+  case BuiltinType::OCLImageCubeDepth:
-+  case BuiltinType::OCLImageCubeArrayDepth:
-   case BuiltinType::OCLImage3d:
+@@ -1456,18 +1456,9 @@ bool CursorVisitor::VisitBuiltinTypeLoc(BuiltinTypeLoc TL) {
+   case BuiltinType::Void:
+   case BuiltinType::NullPtr:
+   case BuiltinType::Dependent:
+-  case BuiltinType::OCLImage1d:
+-  case BuiltinType::OCLImage1dArray:
+-  case BuiltinType::OCLImage1dBuffer:
+-  case BuiltinType::OCLImage2d:
+-  case BuiltinType::OCLImage2dArray:
+-  case BuiltinType::OCLImage2dDepth:
+-  case BuiltinType::OCLImage2dArrayDepth:
+-  case BuiltinType::OCLImage2dMSAA:
+-  case BuiltinType::OCLImage2dArrayMSAA:
+-  case BuiltinType::OCLImage2dMSAADepth:
+-  case BuiltinType::OCLImage2dArrayMSAADepth:
+-  case BuiltinType::OCLImage3d:
++#define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
++  case BuiltinType::Id:
++#include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
-@@ -4403,11 +4407,11 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
+   case BuiltinType::OCLClkEvent:
+@@ -4403,11 +4394,11 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
    case CXCursor_NoDuplicateAttr:
      return cxstring::createRef("attribute(noduplicate)");
    case CXCursor_CUDAConstantAttr:
@@ -11719,7 +12794,7 @@ index 9086c60..50dc8ea 100644
    case CXCursor_CUDAHostAttr:
      return cxstring::createRef("attribute(host)");
    case CXCursor_CUDASharedAttr:
-@@ -6782,6 +6786,8 @@ enum CX_StorageClass clang_Cursor_getStorageClass(CXCursor C) {
+@@ -6782,6 +6773,8 @@ enum CX_StorageClass clang_Cursor_getStorageClass(CXCursor C) {
    }
    switch (sc) {
    case SC_None:
