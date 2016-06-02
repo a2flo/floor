@@ -137,7 +137,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(toolchain_version < 380 ? "" : " -llvm-bc-32") +
-				(floor::get_opencl_verify_spir() && toolchain_version >= 380 ? " -Xclang -cl-verify-spir" : "")
+				(floor::get_opencl_verify_spir() && toolchain_version >= 380 ? " -Xclang -cl-verify-spir" : "") +
+				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -212,7 +213,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_APPLECL" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 380 ? "" : " -llvm-bc-32")
+				(toolchain_version < 380 ? "" : " -llvm-bc-32") +
+				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -237,7 +239,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -267,7 +270,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
+				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
