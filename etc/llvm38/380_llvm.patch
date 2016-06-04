@@ -43459,7 +43459,7 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..f746114
+index 0000000..b0361a5
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,630 @@
@@ -43554,7 +43554,7 @@ index 0000000..f746114
 +			
 +			static const char* img_dim_funcs[] {
 +				"_Z15get_image_width",
-+				"_Z15get_image_height",
++				"_Z16get_image_height",
 +				"_Z15get_image_depth"
 +			};
 +			
