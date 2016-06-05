@@ -51,6 +51,19 @@ opencl_program::opencl_program(program_map_type&& programs_) : programs(move(pro
 					// retrieve max possible work-group size for this device for this kernel
 					entry.max_local_work_size = cl_get_info<CL_KERNEL_WORK_GROUP_SIZE>(entry.kernel, prog.first->device_id);
 					
+#if 0 // dump kernel + kernel args info
+					const auto arg_count = cl_get_info<CL_KERNEL_NUM_ARGS>(entry.kernel);
+					log_debug("kernel %s: arg count: %u", kernel_name, arg_count);
+					for(uint32_t i = 0; i < arg_count; ++i) {
+						log_debug("\targ #%u: %s: %u %u %s %u", i,
+								  cl_get_info<CL_KERNEL_ARG_NAME>(entry.kernel, i),
+								  cl_get_info<CL_KERNEL_ARG_ADDRESS_QUALIFIER>(entry.kernel, i),
+								  cl_get_info<CL_KERNEL_ARG_ACCESS_QUALIFIER>(entry.kernel, i),
+								  cl_get_info<CL_KERNEL_ARG_TYPE_NAME>(entry.kernel, i),
+								  cl_get_info<CL_KERNEL_ARG_TYPE_QUALIFIER>(entry.kernel, i));
+					}
+#endif
+					
 					// success, insert into map
 					kernel_map.insert_or_assign(prog.first, entry);
 					break;

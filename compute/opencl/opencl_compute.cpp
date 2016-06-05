@@ -252,7 +252,8 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				  (platform_cl_version == OPENCL_VERSION::OPENCL_1_0 ? "1.0" :
 				   (platform_cl_version == OPENCL_VERSION::OPENCL_1_1 ? "1.1" :
 					(platform_cl_version == OPENCL_VERSION::OPENCL_1_2 ? "1.2" :
-					 (platform_cl_version == OPENCL_VERSION::OPENCL_2_0 ? "2.0" : "2.1")))));
+					 (platform_cl_version == OPENCL_VERSION::OPENCL_2_0 ? "2.0" :
+					  (platform_cl_version == OPENCL_VERSION::OPENCL_2_1 ? "2.1" : "2.2"))))));
 		
 		// handle device init
 		ctx_devices.clear();

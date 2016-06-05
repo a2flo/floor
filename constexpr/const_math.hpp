@@ -903,7 +903,7 @@ namespace const_math {
 #if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fmal(a, b, c);
 #else
-	return (a * b) + c;
+		return (a * b) + c;
 #endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
@@ -1040,12 +1040,12 @@ namespace math {
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	\
-	/* forwarded call prototype - constexpr */ \
+	/* forwarded call - constexpr */ \
 	static __attribute__((always_inline, flatten)) constexpr type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
-	/* forwarded call prototype - run-time */ \
+	/* forwarded call - run-time */ \
 	static __attribute__((always_inline, flatten)) type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	}
@@ -1060,7 +1060,6 @@ namespace math {
 	// standard functions:
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, float)
 	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, float)
-	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, float)
 	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, float)
 	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, float)
 	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, float)
@@ -1085,7 +1084,6 @@ namespace math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, double)
 	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, double)
-	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, double)
 	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, double)
 	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, double)
 	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, double)
@@ -1111,7 +1109,6 @@ namespace math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmodl, long double)
 	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, ::sqrtl, long double)
-	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, long double)
 	FLOOR_CONST_SELECT_1(abs, const_math::abs, ::fabsl, long double)
 	FLOOR_CONST_SELECT_1(floor, const_math::floor, ::floorl, long double)
 	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, ::ceill, long double)
@@ -1135,6 +1132,7 @@ namespace math {
 #endif
 	
 	// non-standard functions:
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, float)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
@@ -1200,6 +1198,7 @@ namespace math {
 #endif
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, double)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, double)
@@ -1207,6 +1206,7 @@ namespace math {
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, long double)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, long double)

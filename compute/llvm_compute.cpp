@@ -715,6 +715,10 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			+ " 2>&1"
 #endif
 		};
+		if(floor::get_compute_log_commands() &&
+		   !options.silence_debug_output) {
+			log_debug("spir-v encoder cmd: %s", spirv_encoder_cmd);
+		}
 		string spirv_encoder_output = "";
 		core::system(spirv_encoder_cmd, spirv_encoder_output);
 		if(!options.silence_debug_output) {

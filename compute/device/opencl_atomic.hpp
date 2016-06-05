@@ -21,6 +21,12 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
+// always enable these (required by opencl 1.2 anyways, so easier to just set them instead of looking for uses of them)
+#pragma OPENCL EXTENSION cl_khr_global_int32_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_global_int32_extended_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_local_int32_base_atomics : enable
+#pragma OPENCL EXTENSION cl_khr_local_int32_extended_atomics : enable
+
 // atomic_* -> atom_* macro aliases
 // certain implementations don't have proper atomic_* function implementations and the standard isn't sure about this either
 // -> use atom_* for everything (which should always exist), but add atomic_* aliases, because they're nicer

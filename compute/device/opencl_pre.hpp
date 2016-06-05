@@ -28,6 +28,14 @@
 #pragma OPENCL EXTENSION cl_khr_gl_msaa_sharing : enable
 #endif
 
+#if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_SUPPORT_1)
+#pragma OPENCL EXTENSION cl_khr_mipmap_image : enable
+#endif
+
+#if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_WRITE_SUPPORT_1)
+#pragma OPENCL EXTENSION cl_khr_mipmap_image_writes : enable
+#endif
+
 // misc types
 typedef char int8_t;
 typedef short int int16_t;
