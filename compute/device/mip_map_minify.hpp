@@ -19,6 +19,16 @@
 #ifndef __FLOOR_COMPUTE_MIP_MAP_MINIFY_HPP__
 #define __FLOOR_COMPUTE_MIP_MAP_MINIFY_HPP__
 
+// only add depth image types if these are supported (both read and write)
+#if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT_1) && \
+	defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT_1)
+#define FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F) \
+F(IMAGE_DEPTH, FLOAT) \
+F(IMAGE_DEPTH_ARRAY, FLOAT)
+#else
+#define FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F)
+#endif
+
 // list of all supported minification image types (base + sample type)
 #define FLOOR_MINIFY_IMAGE_TYPES(F) \
 F(IMAGE_1D, FLOAT) \
@@ -36,8 +46,7 @@ F(IMAGE_2D_ARRAY, UINT) \
 F(IMAGE_3D, FLOAT) \
 F(IMAGE_3D, INT) \
 F(IMAGE_3D, UINT) \
-F(IMAGE_DEPTH, FLOAT) \
-F(IMAGE_DEPTH_ARRAY, FLOAT)
+FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F)
 
 floor_inline_always static constexpr COMPUTE_IMAGE_TYPE minify_image_base_type(COMPUTE_IMAGE_TYPE image_type) {
 	const auto image_base_type = ((image_type & (COMPUTE_IMAGE_TYPE::__DIM_MASK |

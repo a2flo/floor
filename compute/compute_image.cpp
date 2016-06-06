@@ -776,7 +776,7 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 
 void compute_image::build_mip_map_minification_program() {
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
-	task::spawn([ctx = dev->context]() {
+	task::spawn([this, ctx = dev->context]() {
 		auto prog = make_unique<minify_program>();
 		const llvm_compute::compile_options options {
 			// suppress any debug output for this, we only want to have console/log output if something goes wrong
@@ -815,6 +815,13 @@ void compute_image::build_mip_map_minification_program() {
 		
 			FLOOR_MINIFY_IMAGE_TYPES(FLOOR_MINIFY_ENTRY)
 		};
+		
+		// drop depth image kernel (handling) if there is no depth image support
+		if(!dev->image_depth_support ||
+		   !dev->image_depth_write_support) {
+			minify_kernels.erase(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH | COMPUTE_IMAGE_TYPE::FLOAT);
+			minify_kernels.erase(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY | COMPUTE_IMAGE_TYPE::FLOAT);
+		}
 		
 		for(auto& entry : minify_kernels) {
 			entry.second.second = prog->program->get_kernel(entry.second.first);
