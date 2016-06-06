@@ -226,7 +226,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	// manually create mip-map chain
 	if(generate_mip_maps &&
 	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		generate_mip_map_chain(cqueue);
+		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
 	}
 	
 	return true;
@@ -292,11 +292,7 @@ void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
 void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
 	if(image == nullptr) return nullptr;
 	
-	// TODO: parameter origin + region
-	const size4 region { image_dim.xyz.maxed(1), 1 }; // complete image(s) + "The values in region cannot be 0."
-	size4 origin;
-	
-	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
+	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_) || generate_mip_maps;
 	// TODO: image map check
 	
 	cl_map_flags map_flags = 0;
@@ -321,18 +317,58 @@ void* __attribute__((aligned(128))) opencl_image::map(shared_ptr<compute_queue> 
 		}
 	}
 	
-	// TODO: handle mip-mapping (must map each level, then copy into a single buffer ...)
-	size_t image_row_pitch = 0, image_slice_pitch = 0; // must not be nullptr (TODO: return these)
-	cl_int map_err = CL_SUCCESS;
-	auto ret_ptr = clEnqueueMapImage(queue_or_default_queue(cqueue),
-									 image, blocking_map, map_flags,
-									 origin.data(), region.data(),
-									 &image_row_pitch, &image_slice_pitch,
-									 0, nullptr, nullptr, &map_err);
-	if(map_err != CL_SUCCESS) {
-		log_error("failed to map image: %s!", cl_error_to_string(map_err));
+	// NOTE: for non-mip-mapped images and automatically mip-mapped images, this will only map level #0
+	//       for manually mip-mapped images, this will map all mip-levels
+	vector<void*> mapped_ptrs;
+	vector<size_t> level_sizes;
+	if(!apply_on_levels([this, &mapped_ptrs, &level_sizes,
+						 &blocking_map, &map_flags, &cqueue](const uint32_t& level,
+															 const uint4& mip_image_dim,
+															 const uint32_t&,
+															 const uint32_t& level_data_size) {
+		// TODO: parameter origin + region
+		const size4 region { mip_image_dim.xyz.maxed(1), 1 }; // complete image(s) + "The values in region cannot be 0."
+		size4 origin;
+		origin[mip_origin_idx] = level;
+		
+		size_t image_row_pitch = 0, image_slice_pitch = 0; // must not be nullptr
+		cl_int map_err = CL_SUCCESS;
+		auto mapped_ptr = clEnqueueMapImage(queue_or_default_queue(cqueue),
+											image, blocking_map, map_flags,
+											origin.data(), region.data(),
+											&image_row_pitch, &image_slice_pitch,
+											0, nullptr, nullptr, &map_err);
+		if(map_err != CL_SUCCESS) {
+			log_error("failed to map image%s: %s!",
+					  (generate_mip_maps ? " (level #" + to_string(level) + ")" : ""),
+					  cl_error_to_string(map_err));
+			return false;
+		}
+		
+		mapped_ptrs.emplace_back(mapped_ptr);
+		level_sizes.emplace_back(level_data_size);
+		return true;
+	})) {
 		return nullptr;
 	}
+	
+	auto ret_ptr = mapped_ptrs[0];
+	if(!generate_mip_maps && is_mip_mapped) { // -> manual mip-mapping
+		// since each mip-level is mapped individually, we must create a contiguous buffer manually
+		// and copy each mip-level into it (if using read mapping, for write/write_invalidate this doesn't matter)
+		const auto total_size = accumulate(begin(level_sizes), end(level_sizes), size_t(0));
+		ret_ptr = new uint8_t[total_size] alignas(128);
+		
+		if(has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(flags_)) {
+			auto cpy_ptr = (uint8_t*)ret_ptr;
+			for(size_t i = 0; i < mapped_ptrs.size(); ++i) {
+				memcpy(cpy_ptr, mapped_ptrs[i], level_sizes[i]);
+				cpy_ptr += level_sizes[i];
+			}
+		}
+	}
+	
+	mappings.emplace(ret_ptr, opencl_mapping { flags_, move(mapped_ptrs), move(level_sizes) });
 	return ret_ptr;
 }
 
@@ -340,14 +376,40 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
-	CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), image, mapped_ptr, 0, nullptr, nullptr),
-				"failed to unmap buffer");
+	// check if this is actually a mapped pointer
+	const auto iter = mappings.find(mapped_ptr);
+	if(iter == mappings.end()) {
+		log_error("invalid mapped pointer: %X", mapped_ptr);
+		return;
+	}
 	
-	// manually create mip-map chain
-	// TODO: only if mapping was write/write_invalidate
+	// when using manual mip-mapping and write/write_invalidate mapping,
+	// data must be copied back from the contiguous buffer to each mapped mip-level
+	if(!generate_mip_maps && is_mip_mapped &&
+		(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		 has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+		auto cpy_ptr = (uint8_t*)mapped_ptr;
+		for(size_t i = 0; i < iter->second.mapped_ptrs.size(); ++i) {
+			memcpy(iter->second.mapped_ptrs[i], cpy_ptr, iter->second.level_sizes[i]);
+			cpy_ptr += iter->second.level_sizes[i];
+		}
+		
+		// this was manually allocated
+		delete [] (uint8_t*)mapped_ptr;
+	}
+	
+	for(const auto& mptr : iter->second.mapped_ptrs) {
+		CL_CALL_RET(clEnqueueUnmapMemObject(queue_or_default_queue(cqueue), image, mptr, 0, nullptr, nullptr),
+					"failed to unmap buffer");
+	}
+	mappings.erase(mapped_ptr);
+	
+	// manually create mip-map chain (only if mapping was write/write_invalidate)
 	if(generate_mip_maps &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
-		generate_mip_map_chain(cqueue);
+	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
+	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
 	}
 }
 

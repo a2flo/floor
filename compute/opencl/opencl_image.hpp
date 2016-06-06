@@ -71,6 +71,14 @@ protected:
 	//! if cqueue isn't nullptr, returns cqueue, otherwise returns the devices default compute_queue
 	shared_ptr<compute_queue> queue_or_default_compute_queue(shared_ptr<compute_queue> cqueue) const;
 	
+	struct opencl_mapping {
+		const COMPUTE_MEMORY_MAP_FLAG flags;
+		vector<void*> mapped_ptrs;
+		vector<size_t> level_sizes;
+	};
+	// stores all mapped pointers and the mapped buffer
+	unordered_map<void*, opencl_mapping> mappings;
+	
 };
 
 #endif
