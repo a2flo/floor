@@ -2113,10 +2113,10 @@ index 9173de1..5007126 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..65e68d0
+index 0000000..850ef45
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,374 @@
+@@ -0,0 +1,375 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2404,6 +2404,7 @@ index 0000000..65e68d0
 +	
 +	DEPTH_COMPARE			= (1u << 16u),
 +	GATHER					= (1u << 17u),
++	READ_WRITE				= (1u << 18u),
 +};
 +template <IMAGE_CAPABILITY flag, typename int_type = typename std::underlying_type<IMAGE_CAPABILITY>::type>
 +__attribute__((always_inline, used)) static constexpr bool has_flag(const IMAGE_CAPABILITY& enum_object) {
@@ -38827,10 +38828,10 @@ index 0000000..9d2cb89
 +
 diff --git a/lib/SPIRVerifier/SpirTables.cpp b/lib/SPIRVerifier/SpirTables.cpp
 new file mode 100644
-index 0000000..999ae3a
+index 0000000..1df07e7
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirTables.cpp
-@@ -0,0 +1,564 @@
+@@ -0,0 +1,567 @@
 +//===-------------------------- SpirTables.cpp ---------------------------===//
 +//
 +//                              SPIR Tools
@@ -38874,6 +38875,7 @@ index 0000000..999ae3a
 +  "cl_khr_int64_base_atomics",
 +  "cl_khr_int64_extended_atomics",
 +  EXTENSION_CL_KHR_FP16,
++  "cl_khr_fp64",
 +  "cl_khr_gl_sharing",
 +  "cl_khr_gl_event",
 +  "cl_khr_d3d10_sharing",
@@ -38887,7 +38889,9 @@ index 0000000..999ae3a
 +  "cl_khr_3d_image_writes",
 +  "cl_khr_gl_msaa_sharing",
 +  "cl_khr_depth_images",
-+  "cl_khr_gl_depth_images"
++  "cl_khr_gl_depth_images",
++  "cl_khr_mipmap_image",
++  "cl_khr_mipmap_image_writes",
 +};
 +DCL_ARRAY_LENGTH(g_valid_khr_ext);
 +const char *g_valid_khr_ext_prefix = "cl_khr_";
@@ -43459,7 +43463,7 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..b0361a5
+index 0000000..a85d3b8
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,630 @@
@@ -43731,12 +43735,12 @@ index 0000000..b0361a5
 +					
 +					llvm::Value* fp_coord = UndefValue::get(fp_coord_type);
 +					for(uint32_t i = 0; i < coord_dim; ++i) {
-+						// fp_coord_i = float(int_coord_i) / float(img_dim_i - 1)
++						// fp_coord_i = (float(int_coord_i) + 0.5) / float(img_dim_i)
 +						auto elem = builder->CreateExtractElement(coord_arg, builder->getInt32(i));
 +						auto fp_elem = builder->CreateSIToFP(elem, builder->getFloatTy());
-+						auto dim_i = builder->CreateSub(img_dims[i], builder->getInt32(1));
-+						auto fp_dim_i = builder->CreateSIToFP(dim_i, builder->getFloatTy());
-+						auto div = builder->CreateFDiv(fp_elem, fp_dim_i);
++						auto fp_elem_half = builder->CreateFAdd(fp_elem, ConstantFP::get(builder->getFloatTy(), 0.5));
++						auto fp_dim_i = builder->CreateSIToFP(img_dims[i], builder->getFloatTy());
++						auto div = builder->CreateFDiv(fp_elem_half, fp_dim_i);
 +						fp_coord = builder->CreateInsertElement(fp_coord, div, builder->getInt32(i));
 +					}
 +					coord_arg = fp_coord;

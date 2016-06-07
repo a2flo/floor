@@ -33,7 +33,7 @@ index 09e2160..8318ccd 100644
    CXCallingConv_Invalid = 100,
    CXCallingConv_Unexposed = 200
 diff --git a/include/clang/AST/ASTContext.h b/include/clang/AST/ASTContext.h
-index abf9294..9400713 100644
+index abf9294..7b9191a 100644
 --- a/include/clang/AST/ASTContext.h
 +++ b/include/clang/AST/ASTContext.h
 @@ -414,6 +414,8 @@ private:
@@ -45,7 +45,16 @@ index abf9294..9400713 100644
    /// \brief Blacklist object that is used by sanitizers to decide which
    /// entities should not be instrumented.
    std::unique_ptr<SanitizerBlacklist> SanitizerBL;
-@@ -599,6 +601,10 @@ public:
+@@ -455,6 +457,8 @@ public:
+   IntrusiveRefCntPtr<ExternalASTSource> ExternalSource;
+   ASTMutationListener *Listener;
+ 
++  OpenCLOptions OpenCLFeatures;
++
+   /// \brief Contains parents of a node.
+   typedef llvm::SmallVector<ast_type_traits::DynTypedNode, 2> ParentVector;
+ 
+@@ -599,6 +603,10 @@ public:
      return *SanitizerBL;
    }
  
@@ -56,7 +65,7 @@ index abf9294..9400713 100644
    DiagnosticsEngine &getDiagnostics() const;
  
    FullSourceLoc getFullLoc(SourceLocation Loc) const {
-@@ -898,11 +904,9 @@ public:
+@@ -898,11 +906,9 @@ public:
    CanQualType PseudoObjectTy, ARCUnbridgedCastTy;
    CanQualType ObjCBuiltinIdTy, ObjCBuiltinClassTy, ObjCBuiltinSelTy;
    CanQualType ObjCBuiltinBoolTy;
@@ -940,7 +949,7 @@ index 736d4e0..5e9dcf8 100644
    }
  };
 diff --git a/include/clang/Basic/OpenCLExtensions.def b/include/clang/Basic/OpenCLExtensions.def
-index 91fd919..c9189fe 100644
+index 91fd919..8c60ee6 100644
 --- a/include/clang/Basic/OpenCLExtensions.def
 +++ b/include/clang/Basic/OpenCLExtensions.def
 @@ -11,11 +11,15 @@
@@ -961,7 +970,7 @@ index 91fd919..c9189fe 100644
  OPENCLEXT(cl_khr_gl_sharing)
  OPENCLEXT(cl_khr_gl_event)
  OPENCLEXT(cl_khr_d3d10_sharing)
-@@ -24,12 +28,18 @@ OPENCLEXT(cl_khr_global_int32_extended_atomics)
+@@ -24,12 +28,20 @@ OPENCLEXT(cl_khr_global_int32_extended_atomics)
  OPENCLEXT(cl_khr_local_int32_base_atomics)
  OPENCLEXT(cl_khr_local_int32_extended_atomics)
  OPENCLEXT(cl_khr_byte_addressable_store)
@@ -972,6 +981,8 @@ index 91fd919..c9189fe 100644
  OPENCLEXT(cl_khr_gl_msaa_sharing)
 +OPENCLEXT(cl_khr_depth_images)
 +OPENCLEXT(cl_khr_subgroups)
++OPENCLEXT(cl_khr_mipmap_image)
++OPENCLEXT(cl_khr_mipmap_image_writes)
  
  // Clang Extensions.
  OPENCLEXT(cl_clang_storage_class_specifiers)
@@ -4850,10 +4861,10 @@ index 375b59c..80fd250 100644
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/lib/CodeGen/CGSPIRMetadataAdder.cpp b/lib/CodeGen/CGSPIRMetadataAdder.cpp
 new file mode 100644
-index 0000000..027a064
+index 0000000..8e96cca
 --- /dev/null
 +++ b/lib/CodeGen/CGSPIRMetadataAdder.cpp
-@@ -0,0 +1,318 @@
+@@ -0,0 +1,316 @@
 +//===- SPIRMetadataAdder.cpp - Add SPIR related module scope metadata -----===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -5017,7 +5028,7 @@ index 0000000..027a064
 +
 +static void FunctionAddSPIRMetadata(Function &F, bool &bUseDoubles, OCLExtensionsTy &sUsedExts);
 +
-+void clang::CodeGen::AddSPIRMetadata(Module &M, int OCLVersion, std::list<std::string> sBuildOptions) {
++void clang::CodeGen::AddSPIRMetadata(Module &M, int OCLVersion, std::list<std::string> sBuildOptions, const OpenCLOptions& cl_options) {
 +  Type *pDoubleType = Type::getDoubleTy(M.getContext());
 +  Type *pHalfType = Type::getHalfTy(M.getContext());
 +
@@ -5064,11 +5075,9 @@ index 0000000..027a064
 +    FunctionAddSPIRMetadata(*FI, bUseDoubles, sUsedExts);
 +  }
 +
-+  // always enable these (required by opencl 1.2 anyways, so easier to just set them instead of looking for uses of them)
-+  sUsedExts._cl_khr_global_int32_base_atomics = true;
-+  sUsedExts._cl_khr_global_int32_extended_atomics = true;
-+  sUsedExts._cl_khr_local_int32_base_atomics = true;
-+  sUsedExts._cl_khr_local_int32_extended_atomics = true;
++  // enable/add explicitly enabled pragma extensions
++#define OPENCLEXT(nm) if (cl_options.nm) sUsedExts._##nm = true;
++#include "clang/Basic/OpenCLExtensions.def"
 +
 +  // Add SPIR version (1.2)
 +  llvm::Metadata *SPIRVerElts[] = {
@@ -5174,10 +5183,10 @@ index 0000000..027a064
 +}
 diff --git a/lib/CodeGen/CGSPIRMetadataAdder.h b/lib/CodeGen/CGSPIRMetadataAdder.h
 new file mode 100644
-index 0000000..69aa865
+index 0000000..863ee98
 --- /dev/null
 +++ b/lib/CodeGen/CGSPIRMetadataAdder.h
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +//===- SPIRMetadataAdder.h - Add SPIR related module scope metadata -------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -5191,6 +5200,7 @@ index 0000000..69aa865
 +//===----------------------------------------------------------------------===//
 +
 +#include "llvm/IR/Module.h"
++#include "clang/Basic/LangOptions.h"
 +#include <list>
 +#include <string>
 +
@@ -5201,7 +5211,7 @@ index 0000000..69aa865
 +
 +namespace CodeGen {
 +
-+  void AddSPIRMetadata(llvm::Module &M, int OCLVersion, std::list<std::string> sBuildOptions);
++  void AddSPIRMetadata(llvm::Module &M, int OCLVersion, std::list<std::string> sBuildOptions, const OpenCLOptions& cl_options);
 +
 +} // end namespace CodeGen
 +} // end namespace clang
@@ -5271,7 +5281,7 @@ index 0a670ab..2f18243 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index e38ff0a..2bfcb06 100644
+index e38ff0a..2475dc7 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -5434,7 +5444,7 @@ index e38ff0a..2bfcb06 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -436,183 +582,1455 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -436,183 +582,1456 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM, llvm::LLVMContext &Context,
                                   SmallVector<llvm::Metadata *, 5> &kernelMDArgs,
                                   CGBuilderTy &Builder, ASTContext &ASTCtx) {
@@ -5705,8 +5715,14 @@ index e38ff0a..2bfcb06 100644
 +			std::string baseTyName;
 +			if (IsCanonical) baseTyName = tyName;
 +			else {
-+				baseTyName = getPointerOrRefMetadataValue(clang_type.getCanonicalType()->getAs<PointerType>()->getPointeeType().getTypePtr(),
-+														  true, Policy);
++				QualType can_pointee_type;
++				if(clang_type->isPointerType()) {
++					can_pointee_type = clang_type.getCanonicalType()->getAs<PointerType>()->getPointeeType();
++				}
++				else { // ref
++					can_pointee_type = clang_type.getCanonicalType()->getAs<ReferenceType>()->getPointeeType();
++				}
++				baseTyName = getPointerOrRefMetadataValue(can_pointee_type.getTypePtr(), true, Policy);
 +			}
 +			argBaseTypeNames.push_back(llvm::MDString::get(Context, baseTyName));
 +			
@@ -6834,11 +6850,6 @@ index e38ff0a..2bfcb06 100644
 +							  StringRef("image type in an aggregate-image must have an access qualifier"));
 +					return;
 +				}
-+				if(access_attr->isReadWrite()) {
-+					CGM.Error(img->getSourceRange().getBegin(),
-+							  StringRef("read-write access qualifier not allowed for images inside an aggregate-image"));
-+					return;
-+				}
 +				floor_img_access |= uint64_t(get_image_access(access_attr));
 +				
 +				// first field initializes this
@@ -7042,7 +7053,7 @@ index e38ff0a..2bfcb06 100644
      kernelMDArgs.push_back(llvm::MDNode::get(Context, attrMDArgs));
    }
  
-@@ -635,9 +2053,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -635,9 +2054,52 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -7098,7 +7109,7 @@ index e38ff0a..2bfcb06 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -667,6 +2128,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -667,6 +2129,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -7106,7 +7117,7 @@ index e38ff0a..2bfcb06 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -698,7 +2160,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -698,7 +2161,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -7115,7 +7126,7 @@ index e38ff0a..2bfcb06 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -709,16 +2171,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -709,16 +2172,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -7157,7 +7168,7 @@ index e38ff0a..2bfcb06 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -735,7 +2218,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -735,7 +2219,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -7166,7 +7177,7 @@ index e38ff0a..2bfcb06 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -798,7 +2281,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -798,7 +2282,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -7184,7 +7195,7 @@ index e38ff0a..2bfcb06 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -828,11 +2320,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -828,11 +2321,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
          CXXThisValue = EmitLoadOfLValue(ThisLValue,
                                          SourceLocation()).getScalarVal();
        }
@@ -7200,7 +7211,7 @@ index e38ff0a..2bfcb06 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -914,6 +2406,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
+@@ -914,6 +2407,91 @@ static void TryMarkNoThrow(llvm::Function *F) {
    F->setDoesNotThrow();
  }
  
@@ -7292,7 +7303,7 @@ index e38ff0a..2bfcb06 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -979,7 +2556,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -979,7 +2557,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -7301,7 +7312,7 @@ index e38ff0a..2bfcb06 100644
      CGM.getCUDARuntime().emitDeviceStub(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -1026,6 +2603,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1026,6 +2604,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -7343,7 +7354,7 @@ index 4803b13..0e2c0f2 100644
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
 diff --git a/lib/CodeGen/CodeGenModule.cpp b/lib/CodeGen/CodeGenModule.cpp
-index 97b1662..70ab55c 100644
+index 97b1662..e715540 100644
 --- a/lib/CodeGen/CodeGenModule.cpp
 +++ b/lib/CodeGen/CodeGenModule.cpp
 @@ -19,6 +19,7 @@
@@ -7404,7 +7415,7 @@ index 97b1662..70ab55c 100644
 +      else
 +        tmp = "";
 +    }
-+    AddSPIRMetadata(TheModule, getLangOpts().OpenCLVersion, sBuildOptions);
++    AddSPIRMetadata(TheModule, getLangOpts().OpenCLVersion, sBuildOptions, getContext().OpenCLFeatures);
 +  }
    EmitVersionIdentMetadata();
  
@@ -9758,10 +9769,27 @@ index 1fd98c1..8cbd3fd 100644
          // We parsed '(' type-name ')' and the thing after it wasn't a '{'.
  
 diff --git a/lib/Parse/ParsePragma.cpp b/lib/Parse/ParsePragma.cpp
-index bc70942..d88a8d4 100644
+index bc70942..d035682 100644
 --- a/lib/Parse/ParsePragma.cpp
 +++ b/lib/Parse/ParsePragma.cpp
-@@ -483,6 +483,13 @@ void Parser::HandlePragmaOpenCLExtension() {
+@@ -469,20 +469,28 @@ void Parser::HandlePragmaOpenCLExtension() {
+   SourceLocation NameLoc = Tok.getLocation();
+   ConsumeToken(); // The annotation token.
+ 
++  OpenCLOptions &af = Actions.getASTContext().OpenCLFeatures;
+   OpenCLOptions &f = Actions.getOpenCLOptions();
+   // OpenCL 1.1 9.1: "The all variant sets the behavior for all extensions,
+   // overriding all previously issued extension directives, but only if the
+   // behavior is set to disable."
+   if (state == 0 && ename->isStr("all")) {
+-#define OPENCLEXT(nm)   f.nm = 0;
++#define OPENCLEXT(nm)   f.nm = 0; af.nm = 0;
+ #include "clang/Basic/OpenCLExtensions.def"
+   }
+-#define OPENCLEXT(nm) else if (ename->isStr(#nm)) { f.nm = state; }
++#define OPENCLEXT(nm) else if (ename->isStr(#nm)) { f.nm = state; af.nm = state; }
+ #include "clang/Basic/OpenCLExtensions.def"
+   else {
      PP.Diag(NameLoc, diag::warn_pragma_unknown_extension) << ename;
      return;
    }
@@ -12721,10 +12749,10 @@ index 347702e..5a29f62 100644
             clangSerialization.a clangCodeGen.a clangParse.a clangSema.a \
             clangRewriteFrontend.a clangRewrite.a
 diff --git a/tools/driver/cc1_main.cpp b/tools/driver/cc1_main.cpp
-index 8240561..3d69794 100644
+index 8240561..6be005c 100644
 --- a/tools/driver/cc1_main.cpp
 +++ b/tools/driver/cc1_main.cpp
-@@ -73,6 +73,28 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
+@@ -73,6 +73,30 @@ int cc1_main(ArrayRef<const char *> Argv, const char *Argv0, void *MainAddr) {
    PCHOps->registerWriter(llvm::make_unique<ObjectFilePCHContainerWriter>());
    PCHOps->registerReader(llvm::make_unique<ObjectFilePCHContainerReader>());
  
@@ -12746,6 +12774,8 @@ index 8240561..3d69794 100644
 +  SP.cl_khr_local_int32_base_atomics = 1;
 +  SP.cl_khr_local_int32_extended_atomics = 1;
 +  SP.cl_khr_subgroups = 1;
++  SP.cl_khr_mipmap_image = 1;
++  SP.cl_khr_mipmap_image_writes = 1;
 +  SP.cl_intel_subgroups = 1;
 +
 +  SP.cl_clang_storage_class_specifiers = 1;
