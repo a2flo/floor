@@ -34,3 +34,4 @@ config.xml.local
 floor_conf.hpp
 *.sdf
 *.opensdf
+._*

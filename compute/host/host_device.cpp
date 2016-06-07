@@ -60,6 +60,7 @@ host_device::host_device() : compute_device() {
 	image_offset_write_support = true;
 	image_depth_compare_support = true;
 	image_gather_support = false; // for now
+	image_read_write_support = true;
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;

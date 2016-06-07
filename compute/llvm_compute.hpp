@@ -144,6 +144,7 @@ public:
 		
 		DEPTH_COMPARE			= (1u << 16u),
 		GATHER					= (1u << 17u),
+		READ_WRITE				= (1u << 18u),
 	};
 	floor_enum_ext(IMAGE_CAPABILITY)
 	

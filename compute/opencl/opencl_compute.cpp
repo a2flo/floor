@@ -342,6 +342,9 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device->image_mipmap_write_support = core::contains(device->extensions, "cl_khr_mipmap_image_writes");
 			device->image_offset_read_support = false; // never
 			device->image_offset_write_support = false;
+			const auto read_write_images = cl_get_info<CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS>(cl_dev);
+			device->image_read_write_support = (read_write_images > 0);
+			log_msg("read/write images: %u", read_write_images);
 			
 			device->max_image_1d_buffer_dim = cl_get_info<CL_DEVICE_IMAGE_MAX_BUFFER_SIZE>(cl_dev);
 			device->max_image_1d_dim = (uint32_t)cl_get_info<CL_DEVICE_IMAGE2D_MAX_WIDTH>(cl_dev);
@@ -616,6 +619,14 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				for(auto& dev : devices) {
 					((opencl_device*)dev.get())->spirv_version = SPIRV_VERSION::NONE;
 				}
+			}
+		}
+		
+		// enable parameter workaround for all device that use spir-v
+		// (this is necessary, because struct parameters in spir-v are currently bugged)
+		for(auto& dev : devices) {
+			if(((opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE) {
+				dev->param_workaround = true;
 			}
 		}
 		

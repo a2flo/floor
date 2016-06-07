@@ -93,6 +93,10 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 #define CL_DEVICE_IL_VERSION 0x105B
 #endif
 
+#if !defined(CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS)
+#define CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS 0x104C
+#endif
+
 #include <cstdint>
 #include <iterator>
 
@@ -263,6 +267,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_MAX_CLOCK_FREQUENCY, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_ADDRESS_BITS, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_MAX_READ_IMAGE_ARGS, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_MAX_WRITE_IMAGE_ARGS, cl_uint) \
+F(cl_device_id, cl_device_info, CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_MAX_MEM_ALLOC_SIZE, cl_ulong) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE2D_MAX_WIDTH, size_t) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE2D_MAX_HEIGHT, size_t) \

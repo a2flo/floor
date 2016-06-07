@@ -771,6 +771,9 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 #include <floor/compute/device/common.hpp>
 #define FLOOR_COMPUTE_HOST_MINIFY 1 // needed now so that kernel code will actually be included
+#else // when not using host-compute, set these two defines so depth images are actually supported on other backends
+#define FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT_1
+#define FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT_1
 #endif
 #include <floor/compute/device/mip_map_minify.hpp>
 

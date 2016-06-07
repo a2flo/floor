@@ -167,6 +167,11 @@ public:
 	bool image_depth_compare_support { false };
 	//! true if image gather is supported
 	bool image_gather_support { false };
+	//! true if images that can both be read and written are supported
+	bool image_read_write_support { false };
+	
+	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
+	bool param_workaround { false };
 	
 	//! device name in string form
 	string name { "unknown" };

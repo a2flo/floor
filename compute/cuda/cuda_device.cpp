@@ -46,6 +46,7 @@ cuda_device::cuda_device() : compute_device() {
 	image_offset_write_support = false;
 	image_depth_compare_support = false; // supported in ptx, but not supported by cuda api (unless using internal api)
 	image_gather_support = true;
+	image_read_write_support = true;
 	
 #if defined(PLATFORM_X32)
 	bitness = 32;

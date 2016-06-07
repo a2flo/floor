@@ -903,15 +903,15 @@ public:
 	constexpr vector_type rounded_next_multiple(const scalar_type& multiple) const {
 		const auto mod = *this % multiple;
 		return {
-			mod.x == (scalar_type)0 ? x : x - mod.x + multiple,
+			mod.x == (scalar_type)0 ? (x == (scalar_type)0 ? multiple : x) : x - mod.x + multiple,
 #if FLOOR_VECTOR_WIDTH >= 2
-			mod.y == (scalar_type)0 ? y : y - mod.y + multiple,
+			mod.y == (scalar_type)0 ? (y == (scalar_type)0 ? multiple : y) : y - mod.y + multiple,
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			mod.z == (scalar_type)0 ? z : z - mod.z + multiple,
+			mod.z == (scalar_type)0 ? (z == (scalar_type)0 ? multiple : z) : z - mod.z + multiple,
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			mod.w == (scalar_type)0 ? w : w - mod.w + multiple,
+			mod.w == (scalar_type)0 ? (w == (scalar_type)0 ? multiple : w) : w - mod.w + multiple,
 #endif
 		};
 	}
@@ -925,15 +925,15 @@ public:
 	constexpr vector_type rounded_next_multiple(const vector_type& multiple_vec) const {
 		const auto mod = *this % multiple_vec;
 		return {
-			mod.x == (scalar_type)0 ? x : x - mod.x + multiple_vec.x,
+			mod.x == (scalar_type)0 ? (x == (scalar_type)0 ? multiple_vec.x : x) : x - mod.x + multiple_vec.x,
 #if FLOOR_VECTOR_WIDTH >= 2
-			mod.y == (scalar_type)0 ? y : y - mod.y + multiple_vec.y,
+			mod.y == (scalar_type)0 ? (y == (scalar_type)0 ? multiple_vec.y : y) : y - mod.y + multiple_vec.y,
 #endif
 #if FLOOR_VECTOR_WIDTH >= 3
-			mod.z == (scalar_type)0 ? z : z - mod.z + multiple_vec.z,
+			mod.z == (scalar_type)0 ? (z == (scalar_type)0 ? multiple_vec.z : z) : z - mod.z + multiple_vec.z,
 #endif
 #if FLOOR_VECTOR_WIDTH >= 4
-			mod.w == (scalar_type)0 ? w : w - mod.w + multiple_vec.w,
+			mod.w == (scalar_type)0 ? (w == (scalar_type)0 ? multiple_vec.w : w) : w - mod.w + multiple_vec.w,
 #endif
 		};
 	}
