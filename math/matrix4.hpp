@@ -170,10 +170,13 @@ public:
 	//! multiplies this matrix with 'mat' and returns the result
 	constexpr matrix4 operator*(const matrix4& mat) const {
 		matrix4 mul_mat { (scalar_type)0 };
-		for(size_t mi = 0; mi < 4; mi++) { // column
-			for(size_t mj = 0; mj < 4; mj++) { // row
-				for(size_t mk = 0; mk < 4; mk++) { // mul iteration
-					mul_mat.data[(mi*4) + mj] += data[(mi*4) + mk] * mat.data[(mk*4) + mj];
+#pragma unroll
+		for(size_t mi = 0; mi < 4; ++mi) { // column
+#pragma unroll
+			for(size_t mj = 0; mj < 4; ++mj) { // row
+#pragma unroll
+				for(size_t mk = 0; mk < 4; ++mk) { // mul iteration
+					mul_mat.data[(mi * 4) + mj] += data[(mi * 4) + mk] * mat.data[(mk * 4) + mj];
 				}
 			}
 		}
@@ -189,6 +192,7 @@ public:
 	//! multiplies each element of this matrix with 'val' and returns the result
 	constexpr matrix4 operator*(const scalar_type& val) const {
 		matrix4 mul_mat { (scalar_type)0 };
+#pragma unroll
 		for(size_t i = 0; i < 16; ++i) {
 			mul_mat[i] = data[i] * val;
 		}
@@ -204,6 +208,7 @@ public:
 	//! divides each element of this matrix by 'val' and returns the result
 	constexpr matrix4 operator/(const scalar_type& val) const {
 		matrix4 div_mat { (scalar_type)0 };
+#pragma unroll
 		for(size_t i = 0; i < 16; ++i) {
 			div_mat[i] = data[i] / val;
 		}
@@ -338,7 +343,9 @@ public:
 		mat.data[15] = (q10 * data[10] + q04 * data[2] + q09 * data[6]) - (q08 * data[6] + q11 * data[10] + q05 * data[2]);
 		
 		const scalar_type mx(((scalar_type)1) / (data[0] * mat.data[0] + data[4] * mat.data[1] + data[8] * mat.data[2] + data[12] * mat.data[3]));
+#pragma unroll
 		for(size_t mi = 0; mi < 4; mi++) {
+#pragma unroll
 			for(size_t mj = 0; mj < 4; mj++) {
 				mat.data[(mi*4) + mj] *= mx;
 			}
