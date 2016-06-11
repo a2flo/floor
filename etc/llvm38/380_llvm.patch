@@ -17324,10 +17324,10 @@ index 0000000..28f72b8
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..e8951fb
+index 0000000..9f099f1
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
-@@ -0,0 +1,2629 @@
+@@ -0,0 +1,2640 @@
 +//===- SPIRVReader.cpp - Converts SPIR-V to LLVM ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -18901,13 +18901,18 @@ index 0000000..e8951fb
 +
 +  case OpCompositeExtract: {
 +    SPIRVCompositeExtract *CE = static_cast<SPIRVCompositeExtract *>(BV);
-+    assert(CE->getComposite()->getType()->isTypeVector() && "Invalid type");
-+    assert(CE->getIndices().size() == 1 && "Invalid index");
++    if (CE->getComposite()->getType()->isTypeVector()) {
++      assert(CE->getIndices().size() == 1 && "Invalid index");
++      return mapValue(
++          BV, ExtractElementInst::Create(
++                  transValue(CE->getComposite(), F, BB),
++                  ConstantInt::get(*Context, APInt(32, CE->getIndices()[0])),
++                  BV->getName(), BB));
++    }
 +    return mapValue(
-+        BV, ExtractElementInst::Create(
++        BV, ExtractValueInst::Create(
 +                transValue(CE->getComposite(), F, BB),
-+                ConstantInt::get(*Context, APInt(32, CE->getIndices()[0])),
-+                BV->getName(), BB));
++                CE->getIndices(), BV->getName(), BB));
 +  }
 +
 +  case OpVectorExtractDynamic: {
@@ -18920,14 +18925,20 @@ index 0000000..e8951fb
 +
 +  case OpCompositeInsert: {
 +    auto CI = static_cast<SPIRVCompositeInsert *>(BV);
-+    assert(CI->getComposite()->getType()->isTypeVector() && "Invalid type");
-+    assert(CI->getIndices().size() == 1 && "Invalid index");
++    if (CI->getComposite()->getType()->isTypeVector()) {
++      assert(CI->getIndices().size() == 1 && "Invalid index");
++      return mapValue(
++          BV, InsertElementInst::Create(
++                  transValue(CI->getComposite(), F, BB),
++                  transValue(CI->getObject(), F, BB),
++                  ConstantInt::get(*Context, APInt(32, CI->getIndices()[0])),
++                  BV->getName(), BB));
++    }
 +    return mapValue(
-+        BV, InsertElementInst::Create(
++        BV, InsertValueInst::Create(
 +                transValue(CI->getComposite(), F, BB),
 +                transValue(CI->getObject(), F, BB),
-+                ConstantInt::get(*Context, APInt(32, CI->getIndices()[0])),
-+                BV->getName(), BB));
++                CI->getIndices(), BV->getName(), BB));
 +  }
 +
 +  case OpVectorInsertDynamic: {
@@ -22173,10 +22184,10 @@ index 0000000..423d06e
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..2313948
+index 0000000..2cd60cb
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,1684 @@
+@@ -0,0 +1,1698 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23161,6 +23172,20 @@ index 0000000..2313948
 +    }
 +    return mapValue(V, BM->addPhiInst(transType(Phi->getType()), IncomingPairs,
 +        BB));
++  }
++
++  if (auto Ext = dyn_cast<ExtractValueInst>(V)) {
++    return mapValue(V, BM->addCompositeExtractInst(
++        transType(Ext->getType()),
++        transValue(Ext->getAggregateOperand(), BB),
++        Ext->getIndices(), BB));
++  }
++
++  if (auto Ins = dyn_cast<InsertValueInst>(V)) {
++    return mapValue(V, BM->addCompositeInsertInst(
++        transValue(Ins->getInsertedValueOperand(), BB),
++        transValue(Ins->getAggregateOperand(), BB),
++        Ins->getIndices(), BB));
 +  }
 +
 +  if (UnaryInstruction *U = dyn_cast<UnaryInstruction>(V)) {
