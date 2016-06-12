@@ -244,10 +244,10 @@ index 413134e..e781ea3 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..65e68d0
+index 0000000..850ef45
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,374 @@
+@@ -0,0 +1,375 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -535,6 +535,7 @@ index 0000000..65e68d0
 +	
 +	DEPTH_COMPARE			= (1u << 16u),
 +	GATHER					= (1u << 17u),
++	READ_WRITE				= (1u << 18u),
 +};
 +template <IMAGE_CAPABILITY flag, typename int_type = typename std::underlying_type<IMAGE_CAPABILITY>::type>
 +__attribute__((always_inline, used)) static constexpr bool has_flag(const IMAGE_CAPABILITY& enum_object) {
@@ -4671,7 +4672,7 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..b0361a5
+index 0000000..a85d3b8
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,630 @@
@@ -4943,12 +4944,12 @@ index 0000000..b0361a5
 +					
 +					llvm::Value* fp_coord = UndefValue::get(fp_coord_type);
 +					for(uint32_t i = 0; i < coord_dim; ++i) {
-+						// fp_coord_i = float(int_coord_i) / float(img_dim_i - 1)
++						// fp_coord_i = (float(int_coord_i) + 0.5) / float(img_dim_i)
 +						auto elem = builder->CreateExtractElement(coord_arg, builder->getInt32(i));
 +						auto fp_elem = builder->CreateSIToFP(elem, builder->getFloatTy());
-+						auto dim_i = builder->CreateSub(img_dims[i], builder->getInt32(1));
-+						auto fp_dim_i = builder->CreateSIToFP(dim_i, builder->getFloatTy());
-+						auto div = builder->CreateFDiv(fp_elem, fp_dim_i);
++						auto fp_elem_half = builder->CreateFAdd(fp_elem, ConstantFP::get(builder->getFloatTy(), 0.5));
++						auto fp_dim_i = builder->CreateSIToFP(img_dims[i], builder->getFloatTy());
++						auto div = builder->CreateFDiv(fp_elem_half, fp_dim_i);
 +						fp_coord = builder->CreateInsertElement(fp_coord, div, builder->getInt32(i));
 +					}
 +					coord_arg = fp_coord;
@@ -7440,7 +7441,7 @@ index a10d8e7..852a803 100644
    OS << "<CGRecordLayout\n";
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..f10ea17 100644
+index 5ca3a78..552853a 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,9 @@
@@ -7566,7 +7567,7 @@ index 5ca3a78..f10ea17 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +449,1178 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +449,1180 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -7780,7 +7781,14 @@ index 5ca3a78..f10ea17 100644
 +			std::string baseTyName;
 +			if (IsCanonical) baseTyName = tyName;
 +			else {
-+				baseTyName = getPointerOrRefMetadataValue(clang_type.getCanonicalType()->getAs<PointerType>()->getPointeeType().getTypePtr(), true);
++				QualType can_pointee_type;
++				if(clang_type->isPointerType()) {
++					can_pointee_type = clang_type.getCanonicalType()->getAs<PointerType>()->getPointeeType();
++				}
++				else { // ref
++					can_pointee_type = clang_type.getCanonicalType()->getAs<ReferenceType>()->getPointeeType();
++				}
++				baseTyName = getPointerOrRefMetadataValue(can_pointee_type.getTypePtr(), true);
 +			}
 +			argBaseTypeNames.push_back(llvm::MDString::get(Context, baseTyName));
 +			
@@ -8669,11 +8677,6 @@ index 5ca3a78..f10ea17 100644
 +							  StringRef("image type in an aggregate-image must have an access qualifier"));
 +					return;
 +				}
-+				if(access_attr->isReadWrite()) {
-+					CGM.Error(img->getSourceRange().getBegin(),
-+							  StringRef("read-write access qualifier not allowed for images inside an aggregate-image"));
-+					return;
-+				}
 +				floor_img_access |= uint64_t(get_image_access(access_attr));
 +				
 +				// first field initializes this
@@ -8849,7 +8852,7 @@ index 5ca3a78..f10ea17 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1658,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1660,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -8938,7 +8941,7 @@ index 5ca3a78..f10ea17 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1763,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1765,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -8946,7 +8949,7 @@ index 5ca3a78..f10ea17 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1779,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1781,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -8955,7 +8958,7 @@ index 5ca3a78..f10ea17 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1790,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1792,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -8997,7 +9000,7 @@ index 5ca3a78..f10ea17 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1891,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1893,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -9015,7 +9018,7 @@ index 5ca3a78..f10ea17 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +2022,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2024,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -9107,7 +9110,7 @@ index 5ca3a78..f10ea17 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2160,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2162,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -9116,7 +9119,7 @@ index 5ca3a78..f10ea17 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2210,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2212,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
