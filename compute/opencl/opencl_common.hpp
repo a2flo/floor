@@ -236,6 +236,12 @@ constexpr const char* cl_error_to_string(const int& error_code) {
 		continue; \
 	} \
 }
+#define CL_CALL_IGNORE(call, error_msg) { \
+	const cl_int call_err_var = call; \
+	if(call_err_var != CL_SUCCESS) { \
+		log_error("%s: %u: %s", error_msg, call_err_var, cl_error_to_string(call_err_var)); \
+	} \
+}
 
 // define this if you want the cl_get_info functions/voodoo
 #if defined(FLOOR_OPENCL_INFO_FUNCS)

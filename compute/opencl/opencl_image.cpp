@@ -225,6 +225,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	
 	// manually create mip-map chain
 	if(generate_mip_maps &&
+	   // when using gl sharing: just acquired the opengl image, so no need to do this
 	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
 	}
@@ -262,10 +263,10 @@ void opencl_image::zero(shared_ptr<compute_queue> cqueue) {
 	// -> create a 0-buffer for all mip-levels > 0
 	if(is_mip_mapped) {
 		unique_ptr<uint8_t[]> zero_buffer;
-		apply_on_levels([this, &cqueue, &zero_buffer](const uint32_t& level,
-													  const uint4& mip_image_dim,
-													  const uint32_t&,
-													  const uint32_t& level_data_size) {
+		apply_on_levels<true>([this, &cqueue, &zero_buffer](const uint32_t& level,
+															const uint4& mip_image_dim,
+															const uint32_t&,
+															const uint32_t& level_data_size) {
 			// level #0 already handled
 			if(level == 0) return true;
 			if(level == 1) {
@@ -406,7 +407,6 @@ void opencl_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((
 	
 	// manually create mip-map chain (only if mapping was write/write_invalidate)
 	if(generate_mip_maps &&
-	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags) &&
 	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
 		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));

@@ -55,13 +55,8 @@ void opencl_kernel::execute_internal(shared_ptr<arg_handler> handler,
 	
 	if(handler->needs_param_workaround && has_tmp_buffers) {
 		task::spawn([handler, wait_evt]() {
-			CL_CALL_RET(clWaitForEvents(1, &wait_evt),
-						"waiting for kernel execution failed");
-			
-			// destroy all tmp buffers
-			for(auto& buf : handler->args) {
-				buf = nullptr;
-			}
+			CL_CALL_IGNORE(clWaitForEvents(1, &wait_evt), "waiting for kernel execution failed");
+			// NOTE: will hold onto all tmp buffers of handler until the end of this scope, then auto-destruct everything
 		}, "kernel cleanup");
 	}
 }

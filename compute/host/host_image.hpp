@@ -65,9 +65,8 @@ public:
 protected:
 	uint8_t* __attribute__((aligned(1024))) image { nullptr };
 	
-	// when automatically generating mip-maps and not using opengl,
-	// we also need to store all mip-maps manually (thus != image_data_size),
-	// otherwise this is equal to image_data_size
+	// when automatically generating mip-maps, we also need to store all mip-maps
+	// manually (thus != image_data_size), otherwise this is equal to image_data_size
 	const size_t image_data_size_mip_maps;
 	
 	struct image_program_info {

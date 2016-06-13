@@ -505,6 +505,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				cuda_gl_flags = CU_GRAPHICS_REGISTER_FLAGS::NONE;
 				break;
 		}
+		if(need_surf) cuda_gl_flags |= CU_GRAPHICS_REGISTER_FLAGS::SURFACE_LOAD_STORE;
 		CU_CALL_RET(cu_graphics_gl_register_image(&rsrc,
 												  (depth_compat_tex == 0 ? gl_object : depth_compat_tex),
 												  opengl_type, cuda_gl_flags),
@@ -643,6 +644,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	
 	// manually create mip-map chain
 	if(generate_mip_maps &&
+	   // when using gl sharing: just acquired the opengl image, so no need to do this
 	   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
 		generate_mip_map_chain(cqueue);
 	}
@@ -711,10 +713,10 @@ void cuda_image::zero(shared_ptr<compute_queue> cqueue) {
 	auto zero_data_ptr = zero_data.get();
 	memset(zero_data_ptr, 0, first_level_size);
 	
-	apply_on_levels([this, &zero_data_ptr](const uint32_t& level,
-										   const uint4& mip_image_dim,
-										   const uint32_t& slice_data_size,
-										   const uint32_t&) {
+	apply_on_levels<true>([this, &zero_data_ptr](const uint32_t& level,
+												 const uint4& mip_image_dim,
+												 const uint32_t& slice_data_size,
+												 const uint32_t&) {
 		if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(zero_data_ptr,
 																	 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																	 slice_data_size / max(mip_image_dim.y, 1u),
@@ -733,27 +735,7 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	
 	// TODO: parameter origin + region
 	// NOTE: a) not supported with mip-mapping if region != image size, b) must update all map/unmap code (relies on region == image size right now)
-	const size_t dim_count = image_dim_count(image_type);
-	uint32_t depth = 0;
-	if(dim_count >= 3) {
-		depth = image_dim.z;
-	}
-	else {
-		// check array first ...
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-			if(dim_count == 1) depth = image_dim.y;
-			else if(dim_count >= 2) depth = image_dim.z;
-		}
-		// ... and check cube map second
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-			depth = (depth != 0 ? depth * 6 : 6);
-		}
-	}
-	const size_t height = (dim_count >= 2 ? image_dim.y : 1);
-
-	const size3 origin { 0, 0, 0 };
-	const size3 region { size3(image_dim.x, height, depth).maxed(1) }; // complete image(s) + "The values in region cannot be 0."
-	const auto map_size = region.x * region.y * region.z * image_bytes_per_pixel(image_type);
+	const auto map_size = image_data_size;
 	
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags_);
 	// TODO: image map check
@@ -810,7 +792,7 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 	}
 	
 	// need to remember how much we mapped and where (so the host->device copy copies the right amount of bytes)
-	mappings.emplace(host_buffer, cuda_mapping { origin, region, flags_ });
+	mappings.emplace(host_buffer, cuda_mapping { flags_ });
 	
 	return host_buffer;
 }
@@ -847,8 +829,7 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue,
 		});
 		
 		// update mip-map chain
-		if(generate_mip_maps &&
-		   !has_flag<COMPUTE_MEMORY_FLAG::OPENGL_SHARING>(flags)) {
+		if(generate_mip_maps) {
 			generate_mip_map_chain(cqueue);
 		}
 	}

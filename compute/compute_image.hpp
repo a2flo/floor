@@ -210,13 +210,17 @@ protected:
 	// calls function "F" with (level, mip image dim, slice data size, mip-level size, args...) for each level of
 	// the mip-map chain or only the single level of a non-mip-mapped image.
 	// if function "F" returns false, this will immediately returns false; returns true otherwise
-	template <typename F, typename... Args>
-	bool apply_on_levels(F&& func, Args&&... args) {
-		const auto dim_count = image_dim_count(image_type);
+	// if "all_levels" is true, ignore the "generate_mip_maps" and run this on all mip-levels
+	template <bool all_levels = false, typename F>
+	bool apply_on_levels(F&& func, COMPUTE_IMAGE_TYPE override_image_type = COMPUTE_IMAGE_TYPE::NONE) {
+		const COMPUTE_IMAGE_TYPE mip_image_type = (override_image_type != COMPUTE_IMAGE_TYPE::NONE ?
+												   override_image_type : image_type);
+		const auto dim_count = image_dim_count(mip_image_type);
 		const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
-		const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
-		const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
-		const auto handled_level_count = (generate_mip_maps ? 1 : mip_level_count);
+		const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(mip_image_type);
+		const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(mip_image_type);
+		const auto handled_level_count = (generate_mip_maps && !all_levels ? 1 : mip_level_count);
+		const auto slice_count = (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
 		uint4 mip_image_dim {
 			image_dim.x,
 			dim_count >= 2 ? image_dim.y : 0,
@@ -224,12 +228,9 @@ protected:
 			0
 		};
 		for(uint32_t level = 0; level < handled_level_count; ++level, mip_image_dim >>= 1) {
-			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, image_type, 1);
-			const auto level_data_size = (uint32_t)(slice_data_size *
-													(is_array ? array_dim_count : 1) *
-													(is_cube ? 6 : 1));
-			if(!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size,
-									  std::forward<Args>(args)...)) {
+			const auto slice_data_size = (uint32_t)image_slice_data_size_from_types(mip_image_dim, mip_image_type, 1);
+			const auto level_data_size = (uint32_t)(slice_data_size * slice_count);
+			if(!std::forward<F>(func)(level, mip_image_dim, slice_data_size, level_data_size)) {
 				return false;
 			}
 		}
@@ -246,10 +247,10 @@ protected:
 	
 	//! builds the mip-map minification program for this context and its devices
 	//! NOTE: will only build once automatic mip-map chain generation is being used/requested
-	void build_mip_map_minification_program();
+	void build_mip_map_minification_program() const;
 	
 	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
-	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
+	virtual void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const;
 	
 };
 

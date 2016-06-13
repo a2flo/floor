@@ -161,8 +161,7 @@ void host_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((al
 	if(mapped_ptr == nullptr) return;
 	
 	// manually create mip-map chain
-	// NOTE: for opengl, the mip-map chain will be automatically generated the next time the image is acquired for opengl use
-	if(generate_mip_maps && gl_object == 0) {
+	if(generate_mip_maps) {
 		generate_mip_map_chain(cqueue);
 	}
 }
@@ -178,8 +177,6 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	}
 	
 	// copy gl image data to host memory (if read access is set)
-	// NOTE: mip-map levels will only be copied/mapped if automatic mip-map chain generation is disabled
-	const auto download_level_count = (generate_mip_maps ? 1 : mip_level_count);
 	const auto dim_count = image_dim_count(image_type);
 	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
@@ -193,7 +190,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	if(has_flag<COMPUTE_MEMORY_FLAG::READ>(flags)) {
 		glBindTexture(opengl_type, gl_object);
 		const uint8_t* level_data = image;
-		for(size_t level = 0; level < download_level_count; ++level, mip_image_dim >>= 1) {
+		for(size_t level = 0; level < mip_level_count; ++level, mip_image_dim >>= 1) {
 			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
 			const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
 			

@@ -65,7 +65,7 @@ public:
 	id <MTLTexture> get_metal_image() const { return image; }
 	
 	//! creates the mip-map chain for this metal image
-	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const;
+	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const override;
 	
 protected:
 	id <MTLTexture> image { nil };
@@ -78,10 +78,9 @@ protected:
 	
 	// for use with 3-channel image "emulation" through a corresponding 4-channel image
 	COMPUTE_IMAGE_TYPE shim_image_type;
+	size_t shim_image_data_size { 0 };
 	
 	struct metal_mapping {
-		const size_t size;
-		const MTLRegion region;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 		const bool write_only;
 	};

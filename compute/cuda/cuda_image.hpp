@@ -99,8 +99,6 @@ protected:
 	array<cu_tex_only_object, cuda_sampler::max_sampler_count> textures;
 	
 	struct cuda_mapping {
-		const size3 origin;
-		const size3 region;
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 	};
 	// stores all mapped pointers and the mapped buffer

@@ -55,8 +55,12 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 	const auto data_type = (image_type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 	const auto image_format = (image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 	
-	glTexParameteri(opengl_type, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(opengl_type, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(opengl_type, GL_TEXTURE_MIN_FILTER, !is_mip_mapped ? GL_NEAREST : GL_NEAREST_MIPMAP_NEAREST);
+	glTexParameterf(opengl_type, GL_TEXTURE_MIN_LOD, 0.0f);
+	glTexParameterf(opengl_type, GL_TEXTURE_MAX_LOD, !is_mip_mapped ? 0.0f : (float)mip_level_count);
+	glTexParameteri(opengl_type, GL_TEXTURE_MAX_LEVEL, !is_mip_mapped ? 0 : int(mip_level_count - 1));
+	
 	glTexParameteri(opengl_type, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	if(storage_dim_count >= 2) {
 		glTexParameteri(opengl_type, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -777,7 +781,7 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 #endif
 #include <floor/compute/device/mip_map_minify.hpp>
 
-void compute_image::build_mip_map_minification_program() {
+void compute_image::build_mip_map_minification_program() const {
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
 	task::spawn([this, ctx = dev->context]() {
 		auto prog = make_unique<minify_program>();
@@ -843,7 +847,7 @@ void compute_image::build_mip_map_minification_program() {
 	}, "minify build");
 }
 
-void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
+void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const {
 	if(cqueue == nullptr) return;
 	
 	for(uint32_t try_out = 0; ; ++try_out) {

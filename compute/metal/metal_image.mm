@@ -469,6 +469,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	// compressed images will always be used in their original state, even if they are RGB
 	if(channel_count == 3 && !is_compressed) {
 		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
+		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, 1, generate_mip_maps);
 	}
 	// == original type if not 3-channel -> 4-channel emulation
 	else shim_image_type = image_type;
@@ -497,59 +498,56 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
 		const size_t slice_count = [desc arrayLength] * (is_cube ? 6u : 1u);
 		
-		// upload level count == level count (if provided by user), or 1 if we have to manually generate the mip levels
-		const size_t upload_level_count = (generate_mip_maps ? 1 : mip_level_count);
-		uint4 mip_image_dim {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 0,
-			dim_count >= 3 ? image_dim.z : 0,
-			0
-		};
-		const uint8_t* host_level_data = (const uint8_t*)host_ptr;
-		for(size_t level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
+		const uint8_t* cpy_host_ptr = (const uint8_t*)host_ptr;
+		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+						 &is_compressed, &dim_count](const uint32_t& level,
+													 const uint4& mip_image_dim,
+													 const uint32_t& slice_data_size,
+													 const uint32_t& level_data_size) {
 			// NOTE: original size/type for non-3-channel types, and the 4-channel shim size/type for 3-channel types
-			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * mip_image_dim.x;
-			const auto bytes_per_slice = image_slice_data_size_from_types(mip_image_dim, shim_image_type);
-			const auto level_data_size = bytes_per_slice * slice_count;
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
 			
 			const uint8_t* data_ptr {
 				image_type != shim_image_type ?
 				// need to copy/convert the RGB host data to RGBA
-				rgb_to_rgba(image_type, shim_image_type, host_level_data, true /* ignore mip levels as we do this manually */) :
+				rgb_to_rgba(image_type, shim_image_type, cpy_host_ptr, true /* ignore mip levels as we do this manually */) :
 				// else: can use host ptr directly
-				host_level_data
+				cpy_host_ptr
 			};
 			
 			const MTLRegion mipmap_region {
 				.origin = { 0, 0, 0 },
 				.size = {
-					mip_image_dim.x,
-					dim_count >= 2 ? mip_image_dim.y : 1,
-					dim_count >= 3 ? mip_image_dim.z : 1,
+					max(mip_image_dim.x, 1u),
+					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 				}
 			};
 			for(size_t slice = 0; slice < slice_count; ++slice) {
 				[image replaceRegion:mipmap_region
 						 mipmapLevel:level
 							   slice:slice
-						   withBytes:(data_ptr + slice * bytes_per_slice)
+						   withBytes:(data_ptr + slice * slice_data_size)
 						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-					   bytesPerImage:(is_compressed ? 0 : bytes_per_slice)];
+					   bytesPerImage:(is_compressed ? 0 : slice_data_size)];
 			}
 			
 			// clean up shim data
 			if(image_type != shim_image_type) {
-				delete [] data_ptr;
-#if defined(__clang_analyzer__) // suppress false positive about use after free
+#if defined(__clang_analyzer__) // suppress false positives about use after free + memory leak
 				assert(!is_compressed);
+				assert(data_ptr != cpy_host_ptr);
 #endif
+				delete [] data_ptr;
 			}
 			
 			// mip-level image data provided by user, advance pointer
 			if(!generate_mip_maps) {
-				host_level_data += level_data_size;
+				cpy_host_ptr += level_data_size;
 			}
-		}
+			
+			return true;
+		}, shim_image_type);
 		
 		// manually create the mip-map chain if this was specified
 		if(is_mip_mapped && mip_level_count > 1 && generate_mip_maps) {
@@ -579,37 +577,44 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	
 	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 	id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-	const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
 	const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 	const bool is_compressed = image_compressed(image_type);
 	
-	alignas(128) uint8_t* zero_data = new uint8_t[bytes_per_slice];
-	memset(zero_data, 0, bytes_per_slice);
+	auto zero_data = make_unique<uint8_t[]>(bytes_per_slice);
+	auto zero_data_ptr = zero_data.get();
+	memset(zero_data_ptr, 0, bytes_per_slice);
 	
 	const auto dim_count = image_dim_count(image_type);
-	const MTLRegion region {
-		.origin = { 0, 0, 0 },
-		.size = {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 1,
-			dim_count >= 3 ? image_dim.z : 1,
+	const uint32_t slice_count = uint32_t([desc arrayLength]) * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
+	
+	apply_on_levels<true>([this, &zero_data_ptr, &slice_count,
+						   &dim_count, &is_compressed](const uint32_t& level,
+													   const uint4& mip_image_dim,
+													   const uint32_t& slice_data_size,
+													   const uint32_t&) {
+		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+		const MTLRegion mipmap_region {
+			.origin = { 0, 0, 0 },
+			.size = {
+				max(mip_image_dim.x, 1u),
+				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+			}
+		};
+		for(size_t slice = 0; slice < slice_count; ++slice) {
+			[image replaceRegion:mipmap_region
+					 mipmapLevel:level
+						   slice:slice
+					   withBytes:zero_data_ptr
+					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+				   bytesPerImage:slice_data_size];
 		}
-	};
-	const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
-	for(size_t slice = 0; slice < slice_count; ++slice) {
-		[image replaceRegion:region
-				 mipmapLevel:0
-					   slice:slice
-				   withBytes:zero_data
-				 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-			   bytesPerImage:bytes_per_slice];
-	}
+		return true;
+	}, shim_image_type);
 	
 	[blit_encoder endEncoding];
 	[cmd_buffer commit];
 	[cmd_buffer waitUntilCompleted];
-	
-	delete [] zero_data;
 }
 
 void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> cqueue,
@@ -618,17 +623,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 	
 	// TODO: parameter origin + region + layer
 	const auto dim_count = image_dim_count(image_type);
-	const MTLRegion region {
-		.origin = { 0, 0, 0 },
-		.size = {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 1,
-			dim_count >= 3 ? image_dim.z : 1,
-		}
-	};
 	const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
-	const auto map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(image_type) * slice_count;
-	const auto shim_map_size = region.size.width * region.size.height * region.size.depth * image_bytes_per_pixel(shim_image_type) * slice_count;
 	
 	// TODO: image map check + move this check there:
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
@@ -659,7 +654,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 	}
 	
 	// alloc host memory
-	alignas(128) unsigned char* host_buffer = new unsigned char[map_size] alignas(128);
+	alignas(128) uint8_t* host_buffer = new uint8_t[image_data_size] alignas(128);
 	
 	// check if we need to copy the image from the device (in case READ was specified)
 	if(!write_only) {
@@ -676,39 +671,56 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		// copy image data to the host
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		const bool is_compressed = image_compressed(image_type);
 		
-		uint8_t* data_ptr {
-			image_type != shim_image_type ?
-			new uint8_t[shim_map_size] :
-			host_buffer
-		};
-		for(size_t slice = 0; slice < slice_count; ++slice) {
-			[image getBytes:(data_ptr + slice * bytes_per_slice)
-				bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-			  bytesPerImage:bytes_per_slice
-				 fromRegion:region
-				mipmapLevel:0
-					  slice:slice];
+		alignas(128) uint8_t* host_shim_buffer = nullptr;
+		if(image_type != shim_image_type) {
+			host_shim_buffer = new uint8_t[shim_image_data_size] alignas(128);
 		}
+		
+		uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
+		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+						 &dim_count, &is_compressed](const uint32_t& level,
+													 const uint4& mip_image_dim,
+													 const uint32_t& slice_data_size,
+													 const uint32_t&) {
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+			const MTLRegion mipmap_region {
+				.origin = { 0, 0, 0 },
+				.size = {
+					max(mip_image_dim.x, 1u),
+					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+				}
+			};
+			for(size_t slice = 0; slice < slice_count; ++slice) {
+				[image getBytes:cpy_host_ptr
+					bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+				  bytesPerImage:slice_data_size
+					 fromRegion:mipmap_region
+					mipmapLevel:level
+						  slice:slice];
+				cpy_host_ptr += slice_data_size;
+			}
+			return true;
+		}, shim_image_type);
+		
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
 		
 		// convert to RGB + cleanup
 		if(image_type != shim_image_type) {
-			rgba_to_rgb(shim_image_type, image_type, data_ptr, host_buffer);
-			delete [] data_ptr;
+			rgba_to_rgb(shim_image_type, image_type, host_shim_buffer, host_buffer);
+			delete [] host_shim_buffer;
 		}
 #if defined(__clang_analyzer__) // suppress false positive about leaking memory
-		else { assert(data_ptr == host_buffer); }
+		else { assert(host_shim_buffer == nullptr); }
 #endif
 	}
 	
 	// need to remember how much we mapped and where (so the host->device write-back copies the right amount of bytes)
-	mappings.emplace(host_buffer, metal_mapping { map_size, region, flags_, write_only });
+	mappings.emplace(host_buffer, metal_mapping { flags_, write_only });
 	
 	return host_buffer;
 }
@@ -730,40 +742,61 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		// copy host memory to device memory
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
-		const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * image_dim.x;
-		const auto bytes_per_slice = image_slice_data_size_from_types(image_dim, shim_image_type);
 		const bool is_compressed = image_compressed(image_type);
+		const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
+		const auto dim_count = image_dim_count(image_type);
 		
 		// again, need to convert RGB to RGBA if necessary
-		const uint8_t* data_ptr = (const uint8_t*)mapped_ptr;
+		const uint8_t* host_buffer = (const uint8_t*)mapped_ptr;
+		const uint8_t* host_shim_buffer = nullptr;
 		if(image_type != shim_image_type) {
-			data_ptr = rgb_to_rgba(image_type, shim_image_type, (const uint8_t*)mapped_ptr);
+			host_shim_buffer = rgb_to_rgba(image_type, shim_image_type, host_buffer); // allocs mem for this
 		}
 		
-		const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
-		for(size_t slice = 0; slice < slice_count; ++slice) {
-			[image replaceRegion:iter->second.region
-					 mipmapLevel:0
-						   slice:slice
-					   withBytes:(data_ptr + slice * bytes_per_slice)
-					 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
-				   bytesPerImage:bytes_per_slice];
-		}
+		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
+		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+						 &dim_count, &is_compressed](const uint32_t& level,
+													 const uint4& mip_image_dim,
+													 const uint32_t& slice_data_size,
+													 const uint32_t&) {
+			const auto bytes_per_row = image_bytes_per_pixel(shim_image_type) * max(mip_image_dim.x, 1u);
+			const MTLRegion mipmap_region {
+				.origin = { 0, 0, 0 },
+				.size = {
+					max(mip_image_dim.x, 1u),
+					dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+				}
+			};
+			for(size_t slice = 0; slice < slice_count; ++slice) {
+				[image replaceRegion:mipmap_region
+						 mipmapLevel:level
+							   slice:slice
+						   withBytes:cpy_host_ptr
+						 bytesPerRow:(is_compressed ? 0 : bytes_per_row)
+					   bytesPerImage:slice_data_size];
+				cpy_host_ptr += slice_data_size;
+			}
+			return true;
+		}, shim_image_type);
+		
 		[blit_encoder endEncoding];
 		[cmd_buffer commit];
 		[cmd_buffer waitUntilCompleted];
 		
 		// cleanup
 		if(image_type != shim_image_type) {
-#if defined(__clang_analyzer__) // suppress false positive about freeing released memory
-			assert(data_ptr != mapped_ptr);
-#endif
-			delete [] data_ptr;
+			delete [] host_shim_buffer;
+		}
+		
+		// update mip-map chain
+		if(generate_mip_maps) {
+			generate_mip_map_chain(cqueue);
 		}
 	}
 	
 	// free host memory again and remove the mapping
-	delete [] (unsigned char*)mapped_ptr;
+	delete [] (uint8_t*)mapped_ptr;
 	mappings.erase(mapped_ptr);
 }
 
