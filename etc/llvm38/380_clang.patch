@@ -5281,7 +5281,7 @@ index 0a670ab..2f18243 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index e38ff0a..2475dc7 100644
+index e38ff0a..0267e28 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -7089,7 +7089,7 @@ index e38ff0a..2475dc7 100644
 +	  
 +	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
 +	  SmallVector <llvm::Metadata*, 4> air_lang_version;
-+	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
++	  air_lang_version.push_back(llvm::MDString::get(Context, "Metal"));
 +	  air_lang_version.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(metal_language_version[0])));
 +	  air_lang_version.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(metal_language_version[1])));
 +	  air_lang_version.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(metal_language_version[2])));
