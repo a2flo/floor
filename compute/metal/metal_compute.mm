@@ -202,8 +202,8 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->constant_mem_size = 65536; // no idea if this is correct, but it's the min required size for opencl 1.2
 		
 		// hard to make this forward compatible, there is no direct "get family" call
-		// -> just try the first 32 types, good enough for now
-		for(uint32_t i = 32; i > 0; --i) {
+		// -> just try the first 64 types, good enough for now
+		for(uint32_t i = 64; i > 0; --i) {
 			if([dev supportsFeatureSet:(MTLFeatureSet)(i - 1)]) {
 				device->family = i;
 				break;
@@ -219,10 +219,11 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				return;
 				
 			// A7/A7X
+			case 6:
 			case 3:
-				device->family_version = 2;
-				floor_fallthrough;
 			case 1:
+				device->family_version = (device->family == 1 ? 1 :
+										  (device->family == 3 ? 2 : 3));
 				device->family = 1;
 				device->units = 4; // G6430
 				device->mem_clock = 1600; // ram clock
@@ -231,10 +232,11 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			
 			// A8/A8X
+			case 7:
 			case 4:
-				device->family_version = 2;
-				floor_fallthrough;
 			case 2:
+				device->family_version = (device->family == 2 ? 1 :
+										  (device->family == 4 ? 2 : 3));
 				device->family = 2;
 				if(device->name.find("A8X") != string::npos) {
 					device->units = 8; // GXA6850
@@ -251,7 +253,9 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			default:
 				log_warn("unknown device family (%u), defaulting to family 3 (A9)", device->family);
 				floor_fallthrough;
+			case 8:
 			case 5:
+				device->family_version = (device->family == 5 ? 1 : 2);
 				device->family = 3;
 				if(device->name.find("A9X") != string::npos) {
 					device->units = 12; // GT7800/7900?
@@ -299,7 +303,14 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
 		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
 		device->family = (uint32_t)[dev_spi featureProfile];
-		device->family_version = device->family - 10000 + 1;
+		if(device->family == 10002) {
+			// MTLFeatureSet_OSX_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
+			device->family_version = 2;
+			//device->image_read_write_support = true; // TODO: enable this when supported by the compiler
+		}
+		else {
+			device->family_version = device->family - 10000 + 1;
+		}
 		device->local_mem_size = [dev_spi maxComputeThreadgroupMemory];
 		device->max_work_group_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		device->units = 0; // sadly unknown and impossible to query

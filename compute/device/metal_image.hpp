@@ -38,7 +38,10 @@ namespace metal_image {
 		};
 		enum FILTER_MODE {
 			NEAREST			= 0,
-			LINEAR			= 1
+			LINEAR			= 1,
+#if 0 // TODO: enable if targeting metal 1.2+
+			BICUBIC			= 2,
+#endif
 		};
 		enum MIP_FILTER_MODE {
 			MIP_NONE		= 0,
@@ -79,8 +82,19 @@ namespace metal_image {
 				// compare function
 				uint64_t compare_function : 4;
 				
+#if 0 // TODO: enable if targeting metal 1.2+
+				// anisotropic filtering
+				uint64_t anisotropy : 4;
+				
+				// lod min/max clamping (half floats)
+				uint64_t lod_clamp_min : 16;
+				uint64_t lod_clamp_max : 16;
+				
 				// currently unused/reserved
+				uint64_t _unused : 7;
+#else
 				uint64_t _unused : 43;
+#endif
 				
 				// constant sampler flag
 				uint64_t is_constant : 1;

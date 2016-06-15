@@ -335,7 +335,7 @@ namespace const_math {
 		max_fp_type x_pow = 1.0_fp;
 		max_fp_type x = 1.0_fp;
 		max_fp_type dfac = 1.0_fp;
-		for(int i = 1; i < 48; ++i) {
+		for(int i = 1; i < 100; ++i) {
 			x_pow *= ldbl_val;
 			dfac *= (max_fp_type)i;
 			x += x_pow / dfac;
