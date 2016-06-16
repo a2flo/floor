@@ -326,21 +326,73 @@ namespace const_math {
 	}
 #endif
 	
+	//! computes base^exponent, base to the power of exponent (with an integer exponent)
+	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	constexpr arithmetic_type pow(const arithmetic_type base, const int32_t exponent) {
+		arithmetic_type ret = (arithmetic_type)1;
+		for(int32_t i = 0; i < exponent; ++i) {
+			ret *= base;
+		}
+		return ret;
+	}
+	
 	//! computes e^val, the exponential function value of val
-	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type exp(fp_type val) {
-		// ref: https://en.wikipedia.org/wiki/Characterizations_of_the_exponential_function#Characterizations
-		const max_fp_type ldbl_val = (max_fp_type)val;
-		max_fp_type x_pow = 1.0_fp;
-		max_fp_type x = 1.0_fp;
-		max_fp_type dfac = 1.0_fp;
-		for(int i = 1; i < 100; ++i) {
-			x_pow *= ldbl_val;
-			dfac *= (max_fp_type)i;
-			x += x_pow / dfac;
+		// convert to largest float type + div with ln(2) so that we can compute 2^x instead: e^x == 2^(x / ln(2))
+		const auto abs_val = const_math::abs(val);
+		const auto exponent = const_math::_1_DIV_LN2<> * (max_fp_type)abs_val;
+		auto pot_factors = 1.0_fp;
+		
+		// "decompose" x of 2^x into integer power of two values that we can easily compute and a remainder in [0, 1)
+		// -> check all pot exponents from 2^14 == 16384 to 2^0 == 1
+		auto rem = exponent;
+		int32_t pot_bits = 0;
+		for(int32_t pot = 14; pot >= 0; --pot) {
+			const auto ldbl_pot = (max_fp_type)(1 << pot);
+			if(rem >= ldbl_pot) {
+				pot_bits |= (1 << pot);
+				rem -= ldbl_pot;
+				pot_factors *= const_math::pow(2.0_fp, 1 << pot);
+			}
+			
+			// no need to go on if this is the case (no more 2^x left to substract)
+			if(rem < 1.0_fp) break;
 		}
-		return (fp_type)x;
+		
+		// approximate e^x with x in [0, ln(2)) (== 2^x with x in [0, 1))
+		// NOTE: slightly better accuracy if we don't reconvert rem again, but substract the converted pots instead
+		const auto exp_val = ((max_fp_type)abs_val) - (const_math::LN2<> * (max_fp_type)pot_bits);
+		constexpr const uint32_t pade_deg = 10 + 1; // NOTE: there is no benefit of using a higher degree than this
+		constexpr const max_fp_type pade[pade_deg] {
+			1.0_fp,
+			0.5_fp,
+			9.0_fp / 76.0_fp,
+			1.0_fp / 57.0_fp,
+			7.0_fp / 3876.0_fp,
+			7.0_fp / 51680.0_fp,
+			7.0_fp / 930240.0_fp,
+			1.0_fp / 3255840.0_fp,
+			1.0_fp / 112869120.0_fp,
+			1.0_fp / 6094932480.0_fp,
+			1.0_fp / 670442572800.0_fp,
+		};
+		auto exp_num = 0.0_fp;
+		auto exp_denom = 0.0_fp;
+		auto exp_pow = 1.0_fp;
+		for(uint32_t i = 0; i < pade_deg; ++i) {
+			exp_num += pade[i] * exp_pow;
+			exp_denom += pade[i] * exp_pow * (i % 2 == 1 ? -1.0_fp : 1.0_fp);
+			exp_pow *= exp_val;
+		}
+		const auto exp_approx = exp_num / exp_denom;
+		
+		// put it all together
+		auto ret = pot_factors * exp_approx;
+		if(val < fp_type(0.0)) {
+			ret = 1.0_fp / ret;
+		}
+		return fp_type(ret);
 	}
 	
 	//! computes exp2(val) == 2^val == exp(val * ln(2))
@@ -408,17 +460,6 @@ namespace const_math {
 	}
 	
 	//! computes base^exponent, base to the power of exponent
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
-	constexpr arithmetic_type pow(const arithmetic_type base, const int32_t exponent) {
-		arithmetic_type ret = (arithmetic_type)1;
-		for(int32_t i = 0; i < exponent; ++i) {
-			ret *= base;
-		}
-		return ret;
-	}
-	
-	//! computes base^exponent, base to the power of exponent
-	//! NOTE: not precise, especially for huge values
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type pow(const fp_type base, const fp_type exponent) {
 		return const_math::exp(exponent * const_math::log(base));
@@ -673,6 +714,29 @@ namespace const_math {
 				return numeric_limits<fp_type>::quiet_NaN();
 			}
 		}
+	}
+	
+	//! computes sinh(x), the hyperbolic sine of the radian angle x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type sinh(fp_type rad_angle) {
+		const auto ldbl_val = (max_fp_type)rad_angle;
+		return 0.5_fp * (const_math::exp(ldbl_val) - const_math::exp(-ldbl_val));
+	}
+	
+	//! computes cosh(x), the hyperbolic cosine of the radian angle x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type cosh(fp_type rad_angle) {
+		const auto ldbl_val = (max_fp_type)rad_angle;
+		return 0.5_fp * (const_math::exp(ldbl_val) + const_math::exp(-ldbl_val));
+	}
+	
+	//! computes tanh(x), the hyperbolic tangent of the radian angle x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type tanh(fp_type rad_angle) {
+		const auto ldbl_val = (max_fp_type)rad_angle;
+		const auto exp_pos = const_math::exp(ldbl_val);
+		const auto exp_neg = const_math::exp(-ldbl_val);
+		return fp_type((exp_pos - exp_neg) / (exp_pos + exp_neg));
 	}
 	
 	//! clamps val to the range [min, max]
