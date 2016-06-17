@@ -739,6 +739,27 @@ namespace const_math {
 		return fp_type((exp_pos - exp_neg) / (exp_pos + exp_neg));
 	}
 	
+	//! computes asinh(x), the inverse hyperbolic sine of x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type asinh(fp_type val) {
+		const auto ldbl_val = (max_fp_type)val;
+		return (fp_type)const_math::log(ldbl_val + const_math::sqrt(ldbl_val * ldbl_val + 1.0_fp));
+	}
+	
+	//! computes acosh(x), the inverse hyperbolic cosine of x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type acosh(fp_type val) {
+		const auto ldbl_val = (max_fp_type)val;
+		return (fp_type)const_math::log(ldbl_val + const_math::sqrt(ldbl_val * ldbl_val - 1.0_fp));
+	}
+	
+	//! computes atanh(x), the inverse hyperbolic tangent of x
+	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	constexpr fp_type atanh(fp_type val) {
+		const auto ldbl_val = (max_fp_type)val;
+		return (fp_type)(0.5_fp * const_math::log((1.0_fp + ldbl_val) / (1.0_fp - ldbl_val)));
+	}
+	
 	//! clamps val to the range [min, max]
 	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
 													 is_same<arithmetic_type, __int128_t>() ||
