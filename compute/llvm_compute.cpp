@@ -136,9 +136,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIR" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 380 ? "" : " -llvm-bc-32") +
-				(floor::get_opencl_verify_spir() && toolchain_version >= 380 ? " -Xclang -cl-verify-spir" : "") +
-				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
+				(floor::get_opencl_verify_spir() && toolchain_version >= 30800u ? " -Xclang -cl-verify-spir" : "") +
+				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -151,12 +151,12 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			if(mtl_dev->family < 10000) {
 				// -> iOS 9.0+
 				os_target = "ios9.0.0";
-				if(toolchain_version < 380) os_target += " -miphoneos-version-min=9.0";
+				if(toolchain_version < 30800u) os_target += " -miphoneos-version-min=9.0";
 			}
 			else {
 				// -> OS X 10.11+
 				os_target = "macosx10.11.0";
-				if(toolchain_version < 380) os_target += " -mmacosx-version-min=10.11";
+				if(toolchain_version < 30800u) os_target += " -mmacosx-version-min=10.11";
 			}
 			
 			clang_cmd += {
@@ -170,7 +170,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" +
-				(toolchain_version < 380 ? "" : " -llvm-bc-35")
+				(toolchain_version < 30800u ? "" : " -llvm-bc-35")
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
@@ -190,7 +190,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
 				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
-				(toolchain_version >= 380 ? " --cuda-device-only --cuda-gpu-arch=sm_" + sm_version : "") +
+				(toolchain_version >= 30800u ? " --cuda-device-only --cuda-gpu-arch=sm_" + sm_version : "") +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
@@ -213,8 +213,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_APPLECL" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 380 ? "" : " -llvm-bc-32") +
-				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
+				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -222,7 +222,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			break;
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
-			if(toolchain_version < 380) {
+			if(toolchain_version < 30800u) {
 				log_error("SPIR-V is not supported by this toolchain!");
 				return {};
 			}
@@ -240,7 +240,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -248,7 +248,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			break;
 		case TARGET::SPIRV_OPENCL:
 			toolchain_version = floor::get_opencl_toolchain_version();
-			if(toolchain_version < 380) {
+			if(toolchain_version < 30800u) {
 				log_error("SPIR-V is not supported by this toolchain!");
 				return {};
 			}
@@ -271,7 +271,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_OPENCL" \
 				" -DFLOOR_COMPUTE_SPIRV" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version >= 380 ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -551,7 +551,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	// final target specific processing/compilation
 	if(options.target == TARGET::SPIR) {
 		string spir_bc_data = "";
-		if(toolchain_version < 380) {
+		if(toolchain_version < 30800u) {
 			// run spir-encoder for 3.5 -> 3.2 conversion
 			const auto spir_32_bc = core::create_tmp_file_name("spir_3_2", ".bc");
 			const string spir_3_2_encoder_cmd {
@@ -567,7 +567,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			}
 			
 			// run spir-verifier if specified
-			if(floor::get_opencl_verify_spir() && toolchain_version < 380) {
+			if(floor::get_opencl_verify_spir() && toolchain_version < 30800u) {
 				const string spir_verifier_cmd {
 					"\"" + floor::get_opencl_spir_verifier() + "\" " + spir_32_bc
 #if !defined(_MSC_VER)
@@ -662,7 +662,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	}
 	else if(options.target == TARGET::APPLECL) {
 		string applecl_bc_data = "";
-		if(toolchain_version < 380) {
+		if(toolchain_version < 30800u) {
 			// run applecl-encoder for 3.5 -> 3.2 conversion
 			const auto applecl_32_bc = core::create_tmp_file_name("applecl_3_2", ".bc");
 			const string applecl_3_2_encoder_cmd {

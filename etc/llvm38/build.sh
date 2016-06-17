@@ -3,7 +3,7 @@
 PRERELEASE=
 BASE_RELEASE=3.8.0
 RELEASE=${BASE_RELEASE}${PRERELEASE}
-VERSION_NAME=380
+VERSION_NAME=30800
 
 ##########################################
 # helper functions

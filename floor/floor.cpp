@@ -377,11 +377,17 @@ void floor::init(const char* callpath_, const char* datapath_,
 			const auto version_start_pos = clang_version_pos + size(clang_version_str) - 1 /* \0 */;
 			const auto next_space_pos = version_output.find(' ', version_start_pos);
 			if(next_space_pos == string::npos) continue;
-			if(next_space_pos - version_start_pos != 5 /* len(3.5.2) */) continue;
+			if(next_space_pos - version_start_pos < 5 /* at least len("3.5.2") */) continue;
 			
-			toolchain_version = 100u * uint32_t(version_output[version_start_pos] - '0');
-			toolchain_version += 10u * uint32_t(version_output[version_start_pos + 2] - '0');
-			toolchain_version += uint32_t(version_output[version_start_pos + 4] - '0');
+			const auto major_dot_pos = version_output.find('.', version_start_pos + 1);
+			if(major_dot_pos == string::npos || major_dot_pos > next_space_pos) continue;
+			
+			const auto minor_dot_pos = version_output.find('.', major_dot_pos + 1);
+			if(minor_dot_pos == string::npos || minor_dot_pos > next_space_pos) continue;
+			
+			toolchain_version = 10000u * stou(version_output.substr(version_start_pos, major_dot_pos - version_start_pos));
+			toolchain_version += 100u * stou(version_output.substr(major_dot_pos + 1, minor_dot_pos - major_dot_pos));
+			toolchain_version += stou(version_output.substr(minor_dot_pos + 1, next_space_pos - minor_dot_pos));
 			
 			// check additional bins after getting the toolchain version
 			bool found_additional_bins = true;
@@ -410,13 +416,13 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
 															vector<pair<uint2, string*>> {
-																{ { 350u, 352u }, &config.opencl_spir_encoder },
-																{ { 350u, 352u }, &config.opencl_spir_verifier },
-																{ { 350u, 352u }, &config.opencl_applecl_encoder },
-																{ { 380u, ~0u }, &config.opencl_spirv_encoder },
-																{ { 380u, ~0u }, &config.opencl_spirv_as },
-																{ { 380u, ~0u }, &config.opencl_spirv_dis },
-																{ { 380u, ~0u }, &config.opencl_spirv_validator },
+																{ { 30500u, 30502u }, &config.opencl_spir_encoder },
+																{ { 30500u, 30502u }, &config.opencl_spir_verifier },
+																{ { 30500u, 30502u }, &config.opencl_applecl_encoder },
+																{ { 30800u, ~0u }, &config.opencl_spirv_encoder },
+																{ { 30800u, ~0u }, &config.opencl_spirv_as },
+																{ { 30800u, ~0u }, &config.opencl_spirv_dis },
+																{ { 30800u, ~0u }, &config.opencl_spirv_validator },
 															});
 		if(config.opencl_base_path == "") {
 #if !defined(FLOOR_IOS) // not available on iOS anyways
@@ -486,10 +492,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.vulkan_compiler, config.vulkan_llc,
 															config.vulkan_as, config.vulkan_dis,
 															vector<pair<uint2, string*>> {
-																{ { 380u, ~0u }, &config.vulkan_spirv_encoder },
-																{ { 380u, ~0u }, &config.vulkan_spirv_as },
-																{ { 380u, ~0u }, &config.vulkan_spirv_dis },
-																{ { 380u, ~0u }, &config.vulkan_spirv_validator },
+																{ { 30800u, ~0u }, &config.vulkan_spirv_encoder },
+																{ { 30800u, ~0u }, &config.vulkan_spirv_as },
+																{ { 30800u, ~0u }, &config.vulkan_spirv_dis },
+																{ { 30800u, ~0u }, &config.vulkan_spirv_validator },
 															});
 		if(config.vulkan_base_path == "") {
 #if defined(FLOOR_IOS)

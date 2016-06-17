@@ -54,20 +54,20 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 
 // these would usually be set through llvm_compute at compile-time
 
-// toolchain version is just (MAJOR * 100 + MINOR * 10 + PATCHLEVEL), e.g. 352 for clang v3.5.2
+// toolchain version is just (MAJOR * 10000 + MINOR * 100 + PATCHLEVEL), e.g. 30502 for clang v3.5.2
 #if !defined(__apple_build_version__)
-#define FLOOR_COMPUTE_TOOLCHAIN_VERSION (__clang_major__ * 100u + __clang_minor__ * 10u + __clang_patchlevel__)
+#define FLOOR_COMPUTE_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #else // map apple version scheme ... (*sigh*)
 #if (__clang_major__ < 6) || (__clang_major__ == 6 && __clang_minor__ < 1) // Xcode 6.3 with clang 3.6.0 is the min req.
 #error "unsupported toolchain"
 #endif
 
 #if (__clang_major__ == 6)
-#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 360u
+#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30600u
 #elif (__clang_major__ == 7 && __clang_minor__ < 3)
-#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 370u
+#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30700u
 #else // Xcode 7.3.0+ (7.3.0/8.0.0)
-#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 380u
+#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30800u
 #endif
 
 #endif

@@ -36,14 +36,15 @@ command -v ${CC} >/dev/null 2>&1 || error "clang binary not found, please set CC
 CXX_VERSION=$(${CXX} -v 2>&1)
 if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
+	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
 		# apple xcode/llvm/clang versioning scheme -> at least 6.1.0 is required (ships with Xcode 6.3)
-		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/Apple LLVM version ([0-9.]+) .*/\1/")" \< "6.1.0" >/dev/null; then
+		if [ $CLANG_MAJOR -lt 6 ] || [ $CLANG_MAJOR -eq 6 -a $CLANG_MINOR -lt 1 ]; then
 			error "at least Xcode 6.3 / clang/LLVM 6.1.0 is required to compile this project!"
 		fi
 	else
 		# standard clang versioning scheme -> at least 3.5.0 is required
-		if expr "$(echo ${CXX_VERSION} | head -n 1 | sed -E "s/.*clang version ([0-9.]+) .*/\1/")" \< "3.5.0" >/dev/null; then
+		if [ $CLANG_MAJOR -lt 3 ] || [ $CLANG_MAJOR -eq 3 -a $CLANG_MINOR -lt 5 ]; then
 			error "at least clang 3.5.0 is required to compile this project!"
 		fi
 	fi
