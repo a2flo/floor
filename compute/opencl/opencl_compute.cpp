@@ -131,11 +131,12 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			ctx_cl_devices.clear();
 		}
 		
+		auto cur_cgl_ctx = (gl_sharing ? CGLGetCurrentContext() : nullptr);
 		cl_context_properties cl_properties[] {
 			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
-			gl_sharing ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
+			gl_sharing && cur_cgl_ctx != nullptr ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
 #if !defined(FLOOR_IOS)
-			gl_sharing ? (cl_context_properties)CGLGetShareGroup(CGLGetCurrentContext()) : 0,
+			gl_sharing && cur_cgl_ctx != nullptr ? (cl_context_properties)CGLGetShareGroup(cur_cgl_ctx) : 0,
 #else
 			gl_sharing ? (cl_context_properties)darwin_helper::get_eagl_sharegroup() : 0,
 #endif

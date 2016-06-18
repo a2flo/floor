@@ -45,7 +45,8 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
 					//
-					id <MTLFunction> func = [prog.second.program newFunctionWithName:[NSString stringWithUTF8String:info.name.c_str()]];
+					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
+					id <MTLFunction> func = [prog.second.program newFunctionWithName:func_name];
 					if(!func) {
 						log_error("failed to get function \"%s\" for device \"%s\"", info.name, prog.first->name);
 						continue;

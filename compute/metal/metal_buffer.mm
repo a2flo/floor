@@ -104,6 +104,7 @@ compute_buffer(device.get(), [external_buffer length], host_ptr_, flags_, 0, 0),
 #endif
 	
 	switch([buffer storageMode]) {
+		default:
 		case MTLStorageModeShared:
 			options |= MTLResourceStorageModeShared;
 			break;
@@ -195,7 +196,7 @@ void metal_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const vo
 #endif
 }
 
-void metal_buffer::copy(shared_ptr<compute_queue> cqueue,
+void metal_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused_on_ios,
 						shared_ptr<compute_buffer> src,
 						const size_t size_, const size_t src_offset, const size_t dst_offset) {
 	if(buffer == nil) return;

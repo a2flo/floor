@@ -545,7 +545,8 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	ret.program = [device->device newLibraryWithFile:[NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()]
+	const auto lib_file_name = [NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()];
+	ret.program = [device->device newLibraryWithFile:lib_file_name
 											   error:&err];
 	if(!floor::get_compute_keep_temp()) cleanup();
 	if(!ret.program) {
@@ -613,7 +614,8 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 		entry.functions = functions;
 		
 		NSError* err { nil };
-		entry.program = [((metal_device*)dev.get())->device newLibraryWithFile:[NSString stringWithUTF8String:file_name.c_str()]
+		const auto lib_file_name = [NSString stringWithUTF8String:file_name.c_str()];
+		entry.program = [((metal_device*)dev.get())->device newLibraryWithFile:lib_file_name
 																		 error:&err];
 		if(!entry.program) {
 			log_error("failed to create metal program/library for device %s: %s",

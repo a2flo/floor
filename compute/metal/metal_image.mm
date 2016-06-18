@@ -261,6 +261,7 @@ FLOOR_IGNORE_WARNING(switch) // MTLStorageModeManaged can't be handled on iOS
 #endif
 	
 	switch([image storageMode]) {
+		default:
 		case MTLStorageModeShared:
 			options |= MTLResourceStorageModeShared;
 			break;
