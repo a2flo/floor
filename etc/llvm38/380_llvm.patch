@@ -2032,10 +2032,10 @@ index 78d2fad..551559e 100644
  //===----------------------------------------------------------------------===//
  /// createReversePostOrderFunctionAttrsPass - This pass walks SCCs of the call
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index a4e7bce..796fe48 100644
+index a4e7bce..42f35ae 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -132,6 +132,15 @@ public:
+@@ -132,6 +132,16 @@ public:
    bool VerifyOutput;
    bool MergeFunctions;
    bool PrepareForLTO;
@@ -2043,6 +2043,7 @@ index a4e7bce..796fe48 100644
 +  bool EnableCUDAPasses;
 +  bool EnableMetalPasses;
 +  bool EnableMetalIntelWorkarounds;
++  bool EnableMetalNvidiaWorkarounds;
 +  bool EnableSPIRPasses;
 +  bool EnableVerifySPIR;
 +
@@ -2052,10 +2053,10 @@ index a4e7bce..796fe48 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 9173de1..5007126 100644
+index 9173de1..3c73f5f 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -33,6 +33,55 @@ class TargetMachine;
+@@ -33,6 +33,57 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2080,13 +2081,15 @@ index 9173de1..5007126 100644
 +//
 +// MetalFirst - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFirstPass(const bool enable_intel_workarounds = false);
++FunctionPass *createMetalFirstPass(const bool enable_intel_workarounds = false,
++                                   const bool enable_nvidia_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
 +// MetalFinal - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false);
++FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false,
++                                   const bool enable_nvidia_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -39976,7 +39979,7 @@ index b5410f5..563fa24 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index faada9c..76708a0 100644
+index faada9c..35fca8f 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -34,6 +34,7 @@
@@ -39987,7 +39990,7 @@ index faada9c..76708a0 100644
  
  using namespace llvm;
  
-@@ -123,6 +124,12 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -123,6 +124,13 @@ PassManagerBuilder::PassManagerBuilder() {
      VerifyOutput = false;
      MergeFunctions = false;
      PrepareForLTO = false;
@@ -39995,12 +39998,13 @@ index faada9c..76708a0 100644
 +    EnableCUDAPasses = false;
 +    EnableMetalPasses = false;
 +    EnableMetalIntelWorkarounds = false;
++    EnableMetalNvidiaWorkarounds = false;
 +    EnableSPIRPasses = false;
 +    EnableVerifySPIR = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -188,9 +195,38 @@ void PassManagerBuilder::populateFunctionPassManager(
+@@ -188,9 +196,38 @@ void PassManagerBuilder::populateFunctionPassManager(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -40029,7 +40033,7 @@ index faada9c..76708a0 100644
 +  // run "first" passes that should run before all else
 +  // if(EnableCUDAPasses) --none
 +  if(EnableMetalPasses) {
-+    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
++    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
 +  }
 +  // if(EnableSPIRPasses) --none
 +
@@ -40039,7 +40043,7 @@ index faada9c..76708a0 100644
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -213,11 +249,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -213,11 +250,9 @@ void PassManagerBuilder::populateModulePassManager(
      return;
    }
  
@@ -40054,7 +40058,7 @@ index faada9c..76708a0 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -346,6 +380,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -346,6 +381,28 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -40083,7 +40087,7 @@ index faada9c..76708a0 100644
    if (!DisableUnitAtATime)
      MPM.add(createReversePostOrderFunctionAttrsPass());
  
-@@ -484,6 +540,21 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -484,6 +541,21 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -40091,7 +40095,7 @@ index faada9c..76708a0 100644
 +  // run CUDAFinal/MetalFinal/SPIRFinal pass at the very end, no IR should change after this point!
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
 +  if(EnableMetalPasses) {
-+    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds));
++    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
 +
 +    // cleanup
 +    MPM.add(createTailCallEliminationPass());
@@ -41987,10 +41991,10 @@ index ecef6db..bbfa7c5 100644
      return false;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..ff5cb3f
+index 0000000..8c92905
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,728 @@
+@@ -0,0 +1,787 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -42203,14 +42207,13 @@ index 0000000..ff5cb3f
 +//////////////////////////////////////////
 +
 +namespace {
-+	static bool metal_load_splitter(LoadInst& LI, const bool is_vs) {
-+#if 1
-+		if(!is_vs) return false;
-+		if(!LI.getType()->isAggregateType()) return false;
-+		
-+		/*printf(">> replacing load: "); fflush(stdout);
-+		LI.dump(); fflush(stdout); fflush(stderr);
-+		printf("\n"); fflush(stdout);*/
++	static bool metal_load_splitter(LoadInst& LI,
++									const bool is_vs, const bool is_kernel,
++									const bool nvidia_workarounds) {
++		if(!is_vs && !is_kernel) return false;
++		if(is_kernel && !nvidia_workarounds) return false;
++		if(is_vs && !LI.getType()->isAggregateType()) return false;
++		if(is_kernel && !LI.getType()->isArrayTy()) return false;
 +		
 +		LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
 +		Value *V = UndefValue::get(LI.getType());
@@ -42218,28 +42221,21 @@ index 0000000..ff5cb3f
 +		LI.replaceAllUsesWith(V);
 +		LI.eraseFromParent();
 +		return true;
-+#else
-+		return false;
-+#endif
 +	}
 +	
-+	static bool metal_store_splitter(StoreInst& SI, const bool is_vs) {
-+#if 1
-+		if(!is_vs) return false;
-+		if(!SI.getType()->isAggregateType()) return false;
-+		
-+		/*printf(">> replacing store: "); fflush(stdout);
-+		SI.dump(); fflush(stdout); fflush(stderr);
-+		printf("\n"); fflush(stdout);*/
++	static bool metal_store_splitter(StoreInst& SI,
++									 const bool is_vs, const bool is_kernel,
++									 const bool nvidia_workarounds) {
++		if(!is_vs && !is_kernel) return false;
++		if(is_kernel && !nvidia_workarounds) return false;
++		if(is_vs && !SI.getType()->isAggregateType()) return false;
++		if(is_kernel && !SI.getType()->isArrayTy()) return false;
 +		
 +		Value *V = SI.getValueOperand();
 +		StoreOpSplitter Splitter(&SI, SI.getPointerOperand());
 +		Splitter.emitSplitOps(V->getType(), V, V->getName() + ".mtlst");
 +		SI.eraseFromParent();
 +		return true;
-+#else
-+		return false;
-+#endif
 +	}
 +	
 +	// MetalFirst
@@ -42247,7 +42243,7 @@ index 0000000..ff5cb3f
 +		friend class InstVisitor<MetalFirst>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
-+		const bool enable_intel_workarounds;
++		const bool enable_intel_workarounds, enable_nvidia_workarounds;
 +		
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
@@ -42255,9 +42251,13 @@ index 0000000..ff5cb3f
 +		bool was_modified { false };
 +		bool is_vertex_func { false };
 +		bool is_fragment_func { false };
++		bool is_kernel_func { false };
 +		
-+		MetalFirst(const bool enable_intel_workarounds_ = false) :
-+		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
++		MetalFirst(const bool enable_intel_workarounds_ = false,
++				   const bool enable_nvidia_workarounds_ = false) :
++		FunctionPass(ID),
++		enable_intel_workarounds(enable_intel_workarounds_),
++		enable_nvidia_workarounds(enable_nvidia_workarounds_) {
 +			initializeMetalFirstPass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -42271,6 +42271,7 @@ index 0000000..ff5cb3f
 +			
 +			is_vertex_func = F.hasFnAttribute("vertex_shader");
 +			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			is_kernel_func = F.hasFnAttribute("compute_kernel");
 +			
 +			//
 +			was_modified = false;
@@ -42286,11 +42287,11 @@ index 0000000..ff5cb3f
 +		}
 +		
 +		void visitLoadInst(LoadInst &LI) {
-+			was_modified = metal_load_splitter(LI, is_vertex_func);
++			was_modified = metal_load_splitter(LI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +		
 +		void visitStoreInst(StoreInst &SI) {
-+			was_modified = metal_store_splitter(SI, is_vertex_func);
++			was_modified = metal_store_splitter(SI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +	};
 +	
@@ -42299,7 +42300,7 @@ index 0000000..ff5cb3f
 +		friend class InstVisitor<MetalFinal>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
-+		const bool enable_intel_workarounds;
++		const bool enable_intel_workarounds, enable_nvidia_workarounds;
 +		
 +		std::shared_ptr<llvm::IRBuilder<>> builder;
 +		
@@ -42326,8 +42327,11 @@ index 0000000..ff5cb3f
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		
-+		MetalFinal(const bool enable_intel_workarounds_ = false) :
-+		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
++		MetalFinal(const bool enable_intel_workarounds_ = false,
++				   const bool enable_nvidia_workarounds_ = false) :
++		FunctionPass(ID),
++		enable_intel_workarounds(enable_intel_workarounds_),
++		enable_nvidia_workarounds(enable_nvidia_workarounds_) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -42419,6 +42423,13 @@ index 0000000..ff5cb3f
 +			ctx = &M->getContext();
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
++			
++			for(auto& instr : F.getEntryBlock().getInstList()) {
++				if(!isa<AllocaInst>(instr)) {
++					alloca_insert = &instr;
++					break;
++				}
++			}
 +			
 +			// add args if this is a kernel function
 +			is_kernel_func = F.hasFnAttribute("compute_kernel");
@@ -42696,26 +42707,78 @@ index 0000000..ff5cb3f
 +		}
 +		
 +		void visitLoadInst(LoadInst &LI) {
-+			was_modified = metal_load_splitter(LI, is_vertex_func);
++			was_modified = metal_load_splitter(LI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +		
 +		void visitStoreInst(StoreInst &SI) {
-+			was_modified = metal_store_splitter(SI, is_vertex_func);
++			was_modified = metal_store_splitter(SI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
++		}
++		
++		void visitAllocaInst(AllocaInst &AI) {
++			if(!enable_intel_workarounds) return;
++			
++			for(auto UI = AI.use_begin(), E = AI.use_end(); UI != E;) {
++				Use &TheUse = *UI++;
++				Instruction *User = cast<Instruction>(TheUse.getUser());
++				
++				// TODO: need to handle phi nodes as well
++				if(SelectInst *SI = dyn_cast<SelectInst>(User)) {
++					// select replacement strategy:
++					// * create a tmp alloca that will later hold the selected data
++					// * replace the select with two branches (true/false)
++					// * depending on the select condition branch to either true/false branch
++					// * inside these branches, store the corresponding true/false value into our tmp alloca, then branch back to after the select
++					// * remove the select
++					
++					builder->SetInsertPoint(alloca_insert);
++					auto tmp_alloca = builder->CreateAlloca(AI.getType()->getPointerElementType(), nullptr, "seltmp");
++					tmp_alloca->setAlignment(AI.getAlignment());
++					
++					// create our branch condition and true/false blocks that will replace the select
++					auto bb_true = BasicBlock::Create(*ctx, "sel.true", func);
++					auto bb_false = BasicBlock::Create(*ctx, "sel.false", func);
++					builder->SetInsertPoint(SI);
++					builder->CreateCondBr(SI->getCondition(), bb_true, bb_false);
++					
++					// split block before the select instruction so that we can branch back to it later
++					auto bb_start = SI->getParent();
++					auto bb_end = SI->getParent()->splitBasicBlock(SI);
++					// remove automatically inserted branch instruction from parent, since we already have a branch instruction
++					bb_start->getTerminator()->eraseFromParent();
++					
++					// create true/false branches that will copy the true/false data to our tmp alloca accordingly
++					// -> true branch
++					builder->SetInsertPoint(bb_true);
++					builder->CreateStore(builder->CreateLoad(SI->getTrueValue()), tmp_alloca);
++					builder->CreateBr(bb_end);
++					
++					// -> false branch
++					builder->SetInsertPoint(bb_false);
++					builder->CreateStore(builder->CreateLoad(SI->getFalseValue()), tmp_alloca);
++					builder->CreateBr(bb_end);
++					
++					// cleanup, replace select instruction with our new alloca
++					SI->replaceAllUsesWith(tmp_alloca);
++					SI->eraseFromParent();
++				}
++			}
 +		}
 +		
 +	};
 +}
 +
 +char MetalFirst::ID = 0;
-+FunctionPass *llvm::createMetalFirstPass(const bool enable_intel_workarounds) {
-+	return new MetalFirst(enable_intel_workarounds);
++FunctionPass *llvm::createMetalFirstPass(const bool enable_intel_workarounds,
++										 const bool enable_nvidia_workarounds) {
++	return new MetalFirst(enable_intel_workarounds, enable_nvidia_workarounds);
 +}
 +INITIALIZE_PASS_BEGIN(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +INITIALIZE_PASS_END(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +
 +char MetalFinal::ID = 0;
-+FunctionPass *llvm::createMetalFinalPass(const bool enable_intel_workarounds) {
-+	return new MetalFinal(enable_intel_workarounds);
++FunctionPass *llvm::createMetalFinalPass(const bool enable_intel_workarounds,
++										 const bool enable_nvidia_workarounds) {
++	return new MetalFinal(enable_intel_workarounds, enable_nvidia_workarounds);
 +}
 +INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)

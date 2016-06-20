@@ -1231,7 +1231,7 @@ index cc38e24..9efc991 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index 051f903..b9e39cb 100644
+index 051f903..05c0a81 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -440,6 +440,8 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -1280,7 +1280,7 @@ index 051f903..b9e39cb 100644
  //===----------------------------------------------------------------------===//
  // CUDA Options
  //===----------------------------------------------------------------------===//
-@@ -678,6 +703,19 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
+@@ -678,6 +703,21 @@ def fcuda_target_overloads : Flag<["-"], "fcuda-target-overloads">,
    HelpText<"Enable function overloads based on CUDA target attributes.">;
  
  //===----------------------------------------------------------------------===//
@@ -1289,6 +1289,8 @@ index 051f903..b9e39cb 100644
 +
 +def metal_intel_workarounds : Flag<["-"], "metal-intel-workarounds">,
 +  HelpText<"Enable Intel GPU specific fixes and workarounds">;
++def metal_nvidia_workarounds : Flag<["-"], "metal-nvidia-workarounds">,
++  HelpText<"Enable Nvidia GPU specific fixes and workarounds">;
 +
 +//===----------------------------------------------------------------------===//
 +// AppleCL/OpenCL Options
@@ -1345,19 +1347,20 @@ index d1b6915..08ae248 100644
  TYPE("lto-bc",                   LTO_BC,       INVALID,         "o",     "")
  
 diff --git a/include/clang/Frontend/CodeGenOptions.def b/include/clang/Frontend/CodeGenOptions.def
-index d9f6ab7..0e11206 100644
+index d9f6ab7..bd83701 100644
 --- a/include/clang/Frontend/CodeGenOptions.def
 +++ b/include/clang/Frontend/CodeGenOptions.def
-@@ -60,6 +60,8 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -60,6 +60,9 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 +CODEGENOPT(EmitAppleCLMetadata , 1, 0) ///< Emit AppleCL kernel info and arg metadata.
 +CODEGENOPT(MetalIntelWorkarounds , 1, 0) ///< Enable Intel GPU specific fixes and workarounds.
++CODEGENOPT(MetalNvidiaWorkarounds , 1, 0) ///< Enable Nvidia GPU specific fixes and workarounds.
  CODEGENOPT(EmulatedTLS       , 1, 0) ///< Set when -femulated-tls is enabled.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
-@@ -149,6 +151,11 @@ CODEGENOPT(VectorizeBB       , 1, 0) ///< Run basic block vectorizer.
+@@ -149,6 +152,11 @@ CODEGENOPT(VectorizeBB       , 1, 0) ///< Run basic block vectorizer.
  CODEGENOPT(VectorizeLoop     , 1, 0) ///< Run loop vectorizer.
  CODEGENOPT(VectorizeSLP      , 1, 0) ///< Run SLP vectorizer.
  
@@ -2785,7 +2788,7 @@ index af8aea0..a6c6949 100644
      if (!(Triple == llvm::Triple("wasm32-unknown-unknown")))
        return nullptr;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 6d746c2..3614f90 100644
+index 6d746c2..03e4238 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -31,6 +31,7 @@
@@ -2820,7 +2823,7 @@ index 6d746c2..3614f90 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -337,6 +344,36 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -337,6 +344,37 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
      return;
    }
  
@@ -2847,6 +2850,7 @@ index 6d746c2..3614f90 100644
 +  // only enable this for Metal/AIR
 +  PMBuilder.EnableMetalPasses = LangOpts.Metal;
 +  PMBuilder.EnableMetalIntelWorkarounds = CodeGenOpts.MetalIntelWorkarounds;
++  PMBuilder.EnableMetalNvidiaWorkarounds = CodeGenOpts.MetalNvidiaWorkarounds;
 +
 +  // only enable this for OpenCL/SPIR (don't want this for AppleCL or Metal)
 +  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
@@ -2857,7 +2861,7 @@ index 6d746c2..3614f90 100644
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -411,6 +448,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
+@@ -411,6 +449,10 @@ void EmitAssemblyHelper::CreatePasses(FunctionInfoIndex *FunctionIndex) {
    if (!CodeGenOpts.RewriteMapFiles.empty())
      addSymbolRewriterPass(CodeGenOpts, MPM);
  
@@ -2868,7 +2872,7 @@ index 6d746c2..3614f90 100644
    if (!CodeGenOpts.DisableGCov &&
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
-@@ -632,6 +673,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -632,6 +674,9 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
  
    bool UsesCodeGen = (Action != Backend_EmitNothing &&
                        Action != Backend_EmitBC &&
@@ -2878,7 +2882,7 @@ index 6d746c2..3614f90 100644
                        Action != Backend_EmitLL);
    if (!TM)
      TM.reset(CreateTargetMachine(UsesCodeGen));
-@@ -672,6 +716,18 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -672,6 +717,18 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
          *OS, CodeGenOpts.EmitLLVMUseLists, CodeGenOpts.EmitFunctionSummary));
      break;
  
@@ -7354,7 +7358,7 @@ index 4803b13..0e2c0f2 100644
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
 diff --git a/lib/CodeGen/CodeGenModule.cpp b/lib/CodeGen/CodeGenModule.cpp
-index 97b1662..e715540 100644
+index 97b1662..0d7c8ca 100644
 --- a/lib/CodeGen/CodeGenModule.cpp
 +++ b/lib/CodeGen/CodeGenModule.cpp
 @@ -19,6 +19,7 @@
@@ -7632,7 +7636,7 @@ index 97b1662..e715540 100644
 +	}
 +	
 +	// TODO: only create once?
-+	const std::string name = "__floor.flat." + cxx_rdecl->getName().str();
++	const std::string name = "struct.floor.flat." + cxx_rdecl->getName().str() + ".packed";
 +	auto ret = llvm::StructType::create(llvm_fields, name, true); // always make this packed
 +	ret->setMetalReturnType(); // fix up alignment/sizes/offsets
 +	CGT.create_flattened_cg_layout(cxx_rdecl, ret, fields); // create corresponding flattend CGRecordLayout
@@ -8950,7 +8954,7 @@ index 3edcf5d..fdc26d2 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 237a447..7a2c696 100644
+index 237a447..b8ba3e3 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -42,6 +42,7 @@
@@ -8995,7 +8999,7 @@ index 237a447..7a2c696 100644
    Opts.DisableGCov = Args.hasArg(OPT_test_coverage);
    Opts.EmitGcovArcs = Args.hasArg(OPT_femit_coverage_data);
    Opts.EmitGcovNotes = Args.hasArg(OPT_femit_coverage_notes);
-@@ -600,7 +610,13 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -600,7 +610,14 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
  
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
@@ -9007,10 +9011,11 @@ index 237a447..7a2c696 100644
 +  }
 +  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
 +  Opts.MetalIntelWorkarounds = Args.hasArg(OPT_metal_intel_workarounds);
++  Opts.MetalNvidiaWorkarounds = Args.hasArg(OPT_metal_nvidia_workarounds);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    for (auto A : Args.filtered(OPT_mlink_bitcode_file, OPT_mlink_cuda_bitcode)) {
-@@ -675,6 +691,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -675,6 +692,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      }
    }
  
@@ -9018,7 +9023,7 @@ index 237a447..7a2c696 100644
    if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
      StringRef Val = A->getValue();
      if (Val == "fast")
-@@ -945,6 +962,12 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -945,6 +963,12 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        Opts.ProgramAction = frontend::EmitAssembly; break;
      case OPT_emit_llvm_bc:
        Opts.ProgramAction = frontend::EmitBC; break;
@@ -9031,7 +9036,7 @@ index 237a447..7a2c696 100644
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1145,6 +1168,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1145,6 +1169,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -9039,7 +9044,7 @@ index 237a447..7a2c696 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -1159,6 +1183,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1159,6 +1184,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -9047,7 +9052,7 @@ index 237a447..7a2c696 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1333,6 +1358,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1333,6 +1359,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -9057,7 +9062,7 @@ index 237a447..7a2c696 100644
      case IK_CUDA:
      case IK_PreprocessedCuda:
        LangStd = LangStandard::lang_cuda;
-@@ -1377,6 +1405,17 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1377,6 +1406,17 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -9075,7 +9080,7 @@ index 237a447..7a2c696 100644
  
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
-@@ -1459,10 +1498,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1459,10 +1499,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -9092,7 +9097,7 @@ index 237a447..7a2c696 100644
        case IK_CUDA:
        case IK_PreprocessedCuda:
          if (!Std.isCPlusPlus())
-@@ -1484,6 +1528,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1484,6 +1529,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
      .Case("CL1.1", LangStandard::lang_opencl11)
      .Case("CL1.2", LangStandard::lang_opencl12)
      .Case("CL2.0", LangStandard::lang_opencl20)
@@ -9101,7 +9106,7 @@ index 237a447..7a2c696 100644
      .Default(LangStandard::lang_unspecified);
  
      if (OpenCLLangStd == LangStandard::lang_unspecified) {
-@@ -1496,6 +1542,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1496,6 +1543,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
  
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
@@ -9125,7 +9130,7 @@ index 237a447..7a2c696 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -1667,6 +1730,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1667,6 +1731,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RTTI = !Args.hasArg(OPT_fno_rtti);
    Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
    Opts.Blocks = Args.hasArg(OPT_fblocks);
@@ -9137,7 +9142,7 @@ index 237a447..7a2c696 100644
    Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
    Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
    Opts.Modules = Args.hasArg(OPT_fmodules);
-@@ -1867,6 +1935,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1867,6 +1936,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -9158,7 +9163,7 @@ index 237a447..7a2c696 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -1980,6 +2062,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -1980,6 +2063,9 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
