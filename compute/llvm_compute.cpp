@@ -163,7 +163,13 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
 				" -x metal -std=metal1.1 -target air64-apple-" + os_target +
+#if defined(__APPLE__)
+				// always enable intel workarounds (conversion problems)
 				(device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
+				// enable nvidia workarounds on osx 10.12+ (array load/store problems)
+				(device->vendor == COMPUTE_VENDOR::NVIDIA && darwin_helper::get_system_version() >= 101200 ?
+				 " -Xclang -metal-nvidia-workarounds" : "") +
+#endif
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
 				" -Xclang -cl-unsafe-math-optimizations" \

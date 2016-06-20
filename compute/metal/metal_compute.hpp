@@ -130,6 +130,9 @@ public:
 	shared_ptr<compute_queue> get_device_internal_queue(shared_ptr<compute_device> dev) const;
 	shared_ptr<compute_queue> get_device_internal_queue(const compute_device* dev) const;
 	
+	//! for debugging/testing purposes only (circumvents the internal program handling)
+	shared_ptr<compute_program> create_metal_test_program(shared_ptr<compute_program::program_entry> entry);
+	
 protected:
 	void* ctx { nullptr };
 	

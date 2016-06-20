@@ -43,7 +43,8 @@ namespace std {
 	const_func metal_func float atan2(float, float) asm("air.fast_atan2.f32");
 	// metal for os x doesn't define an fma function or intrinsic (although mentioned in the docs!),
 	// however it still works for the intel backend, but it doesn't for the nvidia backend
-#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) // -> use intrinsic for ios metal and osx metal if intel
+	// -> use intrinsic for ios metal and osx metal if not nvidia (or running on 10.12 where this is fixed)
+#if !defined(FLOOR_COMPUTE_INFO_VENDOR_NVIDIA) || FLOOR_COMPUTE_INFO_OS_VERSION >= 101200
 	const_func metal_func float fma(float, float, float) asm("air.fma.f32");
 #else // -> use nvidia intrinsic on osx
 	const_func metal_func float fma(float, float, float) asm("llvm.nvvm.fma.rz.ftz.f");

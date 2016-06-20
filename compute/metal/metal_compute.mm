@@ -635,4 +635,26 @@ shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(s
 	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program));
 }
 
+shared_ptr<compute_program> metal_compute::create_metal_test_program(shared_ptr<compute_program::program_entry> entry) {
+	const auto metal_entry = (const metal_program::metal_program_entry*)entry.get();
+	
+	// find the device the specified program has been compiled for
+	metal_device* metal_dev = nullptr;
+	for(auto& dev : devices) {
+		if(((metal_device*)dev.get())->device == [metal_entry->program device]) {
+			metal_dev = (metal_device*)dev.get();
+			break;
+		}
+	}
+	if(metal_dev == nullptr) {
+		log_error("program device is not part of this context");
+		return nullptr;
+	}
+	
+	// create/return the program
+	metal_program::program_map_type prog_map;
+	prog_map.insert(metal_dev, *metal_entry);
+	return make_shared<metal_program>(move(prog_map));
+}
+
 #endif
