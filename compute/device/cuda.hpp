@@ -217,6 +217,35 @@ namespace std {
 		}
 	}
 	
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type sinh(fp_type a) {
+		const auto exp_a = exp(a);
+		return fp_type(0.5) * (exp_a - fp_type(1.0) / exp_a); // TODO: check if approx rcp is good enough
+	}
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type cosh(fp_type a) {
+		const auto exp_a = exp(a);
+		return fp_type(0.5) * (exp_a + fp_type(1.0) / exp_a);
+	}
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type tanh(fp_type a) {
+		const auto exp_pos = exp(a);
+		const auto exp_neg = fp_type(1.0) / exp_pos;
+		return (exp_pos - exp_neg) / (exp_pos + exp_neg);
+	}
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type asinh(fp_type a) {
+		return log(a + sqrt(fma(a, a, fp_type(1.0))));
+	}
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type acosh(fp_type a) {
+		return log(a + sqrt(fma(a, a, fp_type(-1.0))));
+	}
+	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	const_func floor_inline_always fp_type atanh(fp_type a) {
+		return fp_type(0.5) * log((fp_type(1.0) + a) / (fp_type(1.0) - a));
+	}
+	
 }
 
 // provided by cuda runtime

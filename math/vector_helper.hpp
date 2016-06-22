@@ -160,6 +160,12 @@ public:
 	static constexpr T acos(const T& val);
 	static constexpr T atan(const T& val);
 	static constexpr T atan2(const T& lhs, const T& rhs);
+	static constexpr T sinh(const T& val);
+	static constexpr T cosh(const T& val);
+	static constexpr T tanh(const T& val);
+	static constexpr T asinh(const T& val);
+	static constexpr T acosh(const T& val);
+	static constexpr T atanh(const T& val);
 	static constexpr T exp(const T& val);
 	static constexpr T exp2(const T& val);
 	static constexpr T log(const T& val);
@@ -247,6 +253,12 @@ F1(asin, constexpr, math::__asin(val)) \
 F1(acos, constexpr, math::__acos(val)) \
 F1(atan, constexpr, math::__atan(val)) \
 F2(atan2, constexpr, math::__atan2(lhs, rhs)) \
+F1(sinh, constexpr, math::__sinh(val)) \
+F1(cosh, constexpr, math::__cosh(val)) \
+F1(tanh, constexpr, math::__tanh(val)) \
+F1(asinh, constexpr, math::__asinh(val)) \
+F1(acosh, constexpr, math::__acosh(val)) \
+F1(atanh, constexpr, math::__atanh(val)) \
 F1(exp, constexpr, math::__exp(val)) \
 F1(exp2, constexpr, math::__exp2(val)) \
 F1(log, constexpr, math::__log(val)) \
@@ -280,6 +292,12 @@ F1(asin, constexpr, math::__asin(val)) \
 F1(acos, constexpr, math::__acos(val)) \
 F1(atan, constexpr, math::__atan(val)) \
 F2(atan2, constexpr, math::__atan2(lhs, rhs)) \
+F1(sinh, constexpr, math::__sinh(val)) \
+F1(cosh, constexpr, math::__cosh(val)) \
+F1(tanh, constexpr, math::__tanh(val)) \
+F1(asinh, constexpr, math::__asinh(val)) \
+F1(acosh, constexpr, math::__acosh(val)) \
+F1(atanh, constexpr, math::__atanh(val)) \
 F1(exp, constexpr, math::__exp(val)) \
 F1(exp2, constexpr, math::__exp2(val)) \
 F1(log, constexpr, math::__log(val)) \
@@ -313,6 +331,12 @@ F1(asin, constexpr, math::__asin(val)) \
 F1(acos, constexpr, math::__acos(val)) \
 F1(atan, constexpr, math::__atan(val)) \
 F2(atan2, constexpr, math::__atan2(lhs, rhs)) \
+F1(sinh, constexpr, math::__sinh(val)) \
+F1(cosh, constexpr, math::__cosh(val)) \
+F1(tanh, constexpr, math::__tanh(val)) \
+F1(asinh, constexpr, math::__asinh(val)) \
+F1(acosh, constexpr, math::__acosh(val)) \
+F1(atanh, constexpr, math::__atanh(val)) \
 F1(exp, constexpr, math::__exp(val)) \
 F1(exp2, constexpr, math::__exp2(val)) \
 F1(log, constexpr, math::__log(val)) \
@@ -346,6 +370,12 @@ F1(asin, constexpr, math::__asin(val)) \
 F1(acos, constexpr, math::__acos(val)) \
 F1(atan, constexpr, math::__atan(val)) \
 F2(atan2, constexpr, math::__atan2(lhs, rhs)) \
+F1(sinh, constexpr, math::__sinh(val)) \
+F1(cosh, constexpr, math::__cosh(val)) \
+F1(tanh, constexpr, math::__tanh(val)) \
+F1(asinh, constexpr, math::__asinh(val)) \
+F1(acosh, constexpr, math::__acosh(val)) \
+F1(atanh, constexpr, math::__atanh(val)) \
 F1(exp, constexpr, math::__exp(val)) \
 F1(exp2, constexpr, math::__exp2(val)) \
 F1(log, constexpr, math::__log(val)) \
@@ -379,6 +409,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -412,6 +448,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -445,6 +487,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -478,6 +526,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -511,6 +565,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -544,6 +604,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -577,6 +643,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -610,6 +682,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -643,6 +721,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -676,6 +760,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -709,6 +799,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -742,6 +838,12 @@ F1(asin, constexpr, (scalar_type)math::__asin((const_math::max_rt_fp_type)val)) 
 F1(acos, constexpr, (scalar_type)math::__acos((const_math::max_rt_fp_type)val)) \
 F1(atan, constexpr, (scalar_type)math::__atan((const_math::max_rt_fp_type)val)) \
 F2(atan2, constexpr, (scalar_type)math::__atan2((const_math::max_rt_fp_type)lhs, (const_math::max_rt_fp_type)rhs)) \
+F1(sinh, constexpr, (scalar_type)math::__sinh((const_math::max_rt_fp_type)val)) \
+F1(cosh, constexpr, (scalar_type)math::__cosh((const_math::max_rt_fp_type)val)) \
+F1(tanh, constexpr, (scalar_type)math::__tanh((const_math::max_rt_fp_type)val)) \
+F1(asinh, constexpr, (scalar_type)math::__asinh((const_math::max_rt_fp_type)val)) \
+F1(acosh, constexpr, (scalar_type)math::__acosh((const_math::max_rt_fp_type)val)) \
+F1(atanh, constexpr, (scalar_type)math::__atanh((const_math::max_rt_fp_type)val)) \
 F1(exp, constexpr, (scalar_type)math::__exp((const_math::max_rt_fp_type)val)) \
 F1(exp2, constexpr, (scalar_type)math::__exp2((const_math::max_rt_fp_type)val)) \
 F1(log, constexpr, (scalar_type)math::__log((const_math::max_rt_fp_type)val)) \
@@ -775,6 +877,12 @@ F1(asin, constexpr, val) \
 F1(acos, constexpr, val) \
 F1(atan, constexpr, val) \
 F2(atan2, constexpr, lhs & rhs) \
+F1(sinh, constexpr, val) \
+F1(cosh, constexpr, val) \
+F1(tanh, constexpr, val) \
+F1(asinh, constexpr, val) \
+F1(acosh, constexpr, val) \
+F1(atanh, constexpr, val) \
 F1(exp, constexpr, val) \
 F1(exp2, constexpr, val) \
 F1(log, constexpr, val) \

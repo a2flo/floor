@@ -59,6 +59,12 @@ const_func float __cl_asin(float);
 const_func float __cl_acos(float);
 const_func float __cl_atan(float);
 const_func float __cl_atan2(float, float);
+const_func float __cl_sinh(float);
+const_func float __cl_cosh(float);
+const_func float __cl_tanh(float);
+const_func float __cl_asinh(float);
+const_func float __cl_acosh(float);
+const_func float __cl_atanh(float);
 const_func float __cl_fma(float, float, float);
 const_func float __cl_exp(float);
 const_func float __cl_exp2(float);
@@ -94,6 +100,12 @@ const_func double __cl_asin(double);
 const_func double __cl_acos(double);
 const_func double __cl_atan(double);
 const_func double __cl_atan2(double, double);
+const_func double __cl_sinh(double);
+const_func double __cl_cosh(double);
+const_func double __cl_tanh(double);
+const_func double __cl_asinh(double);
+const_func double __cl_acosh(double);
+const_func double __cl_atanh(double);
 const_func double __cl_fma(double, double, double);
 const_func double __cl_exp(double);
 const_func double __cl_exp2(double);
@@ -132,6 +144,12 @@ const_func float acos(float x) ACL_FWD(__cl_acos, x)
 const_func float atan(float x) ACL_FWD(__cl_atan, x)
 const_func float atan2(float x, float y) ACL_FWD(__cl_atan2, x, y)
 const_func float fma(float a, float b, float c) ACL_FWD(__cl_fma, a, b, c)
+const_func float sinh(float x) ACL_FWD(__cl_sinh, x)
+const_func float cosh(float x) ACL_FWD(__cl_cosh, x)
+const_func float tanh(float x) ACL_FWD(__cl_tanh, x)
+const_func float asinh(float x) ACL_FWD(__cl_asinh, x)
+const_func float acosh(float x) ACL_FWD(__cl_acosh, x)
+const_func float atanh(float x) ACL_FWD(__cl_atanh, x)
 const_func float exp(float x) ACL_FWD(__cl_exp, x)
 const_func float exp2(float x) ACL_FWD(__cl_exp2, x)
 const_func float log(float x) ACL_FWD(__cl_log, x)
@@ -182,6 +200,12 @@ const_func double asin(double x) ACL_FWD(__cl_asin, x)
 const_func double acos(double x) ACL_FWD(__cl_acos, x)
 const_func double atan(double x) ACL_FWD(__cl_atan, x)
 const_func double atan2(double x, double y) ACL_FWD(__cl_atan2, x, y)
+const_func double sinh(double x) ACL_FWD(__cl_sinh, x)
+const_func double cosh(double x) ACL_FWD(__cl_cosh, x)
+const_func double tanh(double x) ACL_FWD(__cl_tanh, x)
+const_func double asinh(double x) ACL_FWD(__cl_asinh, x)
+const_func double acosh(double x) ACL_FWD(__cl_acosh, x)
+const_func double atanh(double x) ACL_FWD(__cl_atanh, x)
 const_func double fma(double a, double b, double c) ACL_FWD(__cl_fma, a, b, c)
 const_func double exp(double x) ACL_FWD(__cl_exp, x)
 const_func double exp2(double x) ACL_FWD(__cl_exp2, x)
@@ -215,6 +239,12 @@ namespace std {
 	using ::acos;
 	using ::atan;
 	using ::atan2;
+	using ::sinh;
+	using ::cosh;
+	using ::tanh;
+	using ::asinh;
+	using ::acosh;
+	using ::atanh;
 	using ::fma;
 	using ::exp;
 	using ::exp2;

@@ -2064,6 +2064,18 @@ public:
 	FLOOR_VEC_FUNC_ARGS_VEC(vector_helper<decayed_scalar_type>::atan2, atan2, atan2ed,
 							(const vector_type& rhs),
 							rhs.)
+	//! applies the sinh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::sinh, sinh, sinhed)
+	//! applies the cosh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::cosh, cosh, coshed)
+	//! applies the tanh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::tanh, tanh, tanhed)
+	//! applies the asinh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::asinh, asinh, asinhed)
+	//! applies the acosh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::acosh, acosh, acoshed)
+	//! applies the atanh function on all components
+	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::atanh, atanh, atanhed)
 	//! applies the exp function on all components
 	FLOOR_VEC_FUNC(vector_helper<decayed_scalar_type>::exp, exp, exped)
 	//! applies the exp2 function on all components

@@ -720,14 +720,14 @@ namespace const_math {
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type sinh(fp_type rad_angle) {
 		const auto ldbl_val = (max_fp_type)rad_angle;
-		return 0.5_fp * (const_math::exp(ldbl_val) - const_math::exp(-ldbl_val));
+		return fp_type(0.5_fp * (const_math::exp(ldbl_val) - const_math::exp(-ldbl_val)));
 	}
 	
 	//! computes cosh(x), the hyperbolic cosine of the radian angle x
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type cosh(fp_type rad_angle) {
 		const auto ldbl_val = (max_fp_type)rad_angle;
-		return 0.5_fp * (const_math::exp(ldbl_val) + const_math::exp(-ldbl_val));
+		return fp_type(0.5_fp * (const_math::exp(ldbl_val) + const_math::exp(-ldbl_val)));
 	}
 	
 	//! computes tanh(x), the hyperbolic tangent of the radian angle x
@@ -1158,6 +1158,12 @@ namespace math {
 	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, float)
 	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, float)
 	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, float)
+	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, std::sinh, float)
+	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, std::cosh, float)
+	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, std::tanh, float)
+	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, std::asinh, float)
+	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, std::acosh, float)
+	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, std::atanh, float)
 	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, float)
 	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, float)
 	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, float)
@@ -1182,6 +1188,12 @@ namespace math {
 	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, double)
 	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, double)
 	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, double)
+	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, std::sinh, double)
+	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, std::cosh, double)
+	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, std::tanh, double)
+	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, std::asinh, double)
+	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, std::acosh, double)
+	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, std::atanh, double)
 	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, double)
 	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, double)
 	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, double)
@@ -1207,6 +1219,12 @@ namespace math {
 	FLOOR_CONST_SELECT_1(acos, const_math::acos, ::acosl, long double)
 	FLOOR_CONST_SELECT_1(atan, const_math::atan, ::atanl, long double)
 	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, ::atan2l, long double)
+	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, ::sinhl, long double)
+	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, ::coshl, long double)
+	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, ::tanhl, long double)
+	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, ::asinhl, long double)
+	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, ::acoshl, long double)
+	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, ::atanhl, long double)
 	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, long double)
 	FLOOR_CONST_SELECT_1(exp, const_math::exp, ::expl, long double)
 	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, long double)
@@ -1316,6 +1334,12 @@ namespace math {
 	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, half)
 	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, half)
 	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, half)
+	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, std::sinh, half)
+	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, std::cosh, half)
+	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, std::tanh, half)
+	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, std::asinh, half)
+	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, std::acosh, half)
+	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, std::atanh, half)
 	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, half)
 	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, half)
 	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, half)
