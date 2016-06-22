@@ -71,28 +71,28 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;C:\Intel\INDE\code_builder_5.0.0.43\include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;C:\Intel\INDE\code_builder_5.0.0.43\lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
