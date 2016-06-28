@@ -55,7 +55,7 @@ typedef UIWindow* wnd_type_ptr;
 static constexpr const uint32_t max_drawables_in_flight { 3 };
 
 // metal renderer NSView/UIView implementation
-@interface metal_view : UI_VIEW_CLASS <NSCoding, CALayerDelegate> {
+@interface metal_view : UI_VIEW_CLASS <NSCoding> {
 @public
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(objc-interface-ivars)

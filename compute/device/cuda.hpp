@@ -261,7 +261,7 @@ namespace std {
 		return ret;
 	}
 	const_func floor_inline_always int32_t floor_rt_ctz(uint16_t a) {
-		return floor_rt_ctz(0xFFFFFFu | (uint32_t)a);
+		return floor_rt_ctz(0xFFFF0000u | (uint32_t)a);
 	}
 	const_func floor_inline_always int32_t floor_rt_ctz(uint32_t a) {
 		int32_t ret;

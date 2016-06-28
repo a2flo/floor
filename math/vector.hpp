@@ -373,6 +373,7 @@ public:
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	const scalar_type& operator[](const size_t& index) const {
+		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
 		return ((scalar_type*)this)[index];
 	}
 	
@@ -380,6 +381,7 @@ public:
 	//! NOTE: prefer using the named accessors (these don't require a reinterpret_cast)
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	scalar_type& operator[](const size_t& index) {
+		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
 		return ((scalar_type*)this)[index];
 	}
 
