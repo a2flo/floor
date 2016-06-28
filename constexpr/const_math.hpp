@@ -1116,8 +1116,8 @@ namespace const_math {
 	//! count leading zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int clz(const uint_type& val) {
-		const uint64_t upper = val >> 64ull;
-		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
@@ -1163,8 +1163,8 @@ namespace const_math {
 	//! count trailing zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int ctz(const uint_type& val) {
-		const uint64_t upper = val >> 64ull;
-		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
@@ -1209,8 +1209,8 @@ namespace const_math {
 	//! count 1-bits
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int popcount(const uint_type& val) {
-		const uint64_t upper = val >> 64ull;
-		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		return popcount(upper) + popcount(lower);
 	}
 	//! count 1-bits
@@ -1333,30 +1333,30 @@ namespace math {
 	
 #define FLOOR_CONST_SELECT(ARG_EXPANDER, ENABLE_IF_EXPANDER, func_name, ce_func, rt_func, type, overload_suffix) \
 	/* direct call - run-time */ \
-	static __attribute__((always_inline, flatten)) auto func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* direct call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ENABLE_IF_EXPANDER(), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	\
 	/* forwarded call prototype - run-time */ \
-	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	/* forwarded call prototype - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	\
 	/* forwarded call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* forwarded call - run-time */ \
-	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(const type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	}
 	
@@ -1552,7 +1552,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, bool)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, bool)
 	
-#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32)
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST))
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)

@@ -178,7 +178,7 @@ host_compute::host_compute() : compute_context() {
 	device->max_work_group_size = host_limits::max_work_group_size;
 	device->max_work_group_item_sizes = { host_limits::max_work_group_size };
 #endif
-	device->max_image_1d_buffer_dim = { device->max_mem_alloc };
+	device->max_image_1d_buffer_dim = { (size_t)std::min(device->max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	
 	//
 	supported = true;

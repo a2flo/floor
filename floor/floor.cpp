@@ -516,7 +516,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	}
 	
 	// init logger and print out floor info
-	logger::init(config.verbosity, config.separate_msg_file, config.append_mode,
+	logger::init((size_t)config.verbosity, config.separate_msg_file, config.append_mode,
 				 config.log_use_time, config.log_use_color,
 				 config.log_filename, config.msg_filename);
 	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
@@ -618,7 +618,9 @@ void floor::init_internal(const bool use_gl33
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		
 		// detect x11 forwarding, and if detected, don't set/request any specific opengl version
+#if !defined(FLOOR_IOS)
 		bool ignore_gl_version = false;
+#endif
 #if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
 		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
 		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
@@ -734,6 +736,7 @@ void floor::init_internal(const bool use_gl33
 #endif
 		
 		// get supported opengl extensions
+#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
 #if !defined(__APPLE__)
 		if(glGetStringi != nullptr)
 #endif
@@ -744,6 +747,12 @@ void floor::init_internal(const bool use_gl33
 				gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
 			}
 		}
+#else
+		const string exts = (const char*)glGetString(GL_EXTENSIONS);
+		for(size_t pos = 0; (pos = exts.find("GL_", pos)) != string::npos; pos++) {
+			gl_extensions.emplace(exts.substr(pos, exts.find(" ", pos) - pos));
+		}
+#endif
 		
 		// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
 		const char* gl_version = (const char*)glGetString(GL_VERSION);
@@ -946,7 +955,7 @@ void floor::set_fullscreen(const bool& state) {
 	}
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
 				   make_shared<window_resize_event>(SDL_GetTicks(),
-													size2(config.width, config.height)));
+													size2(size_t(config.width), size_t(config.height))));
 	// TODO: border?
 }
 
@@ -1257,7 +1266,7 @@ void floor::set_fov(const float& fov) {
 	if(const_math::is_equal(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks(), size2(config.width, config.height)));
+				   make_shared<window_resize_event>(SDL_GetTicks(), size2(size_t(config.width), size_t(config.height))));
 }
 
 const float2& floor::get_near_far_plane() {

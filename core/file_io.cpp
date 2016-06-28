@@ -492,7 +492,7 @@ bool file_io::read_file(stringstream& buffer) {
 #endif
 	
 	const unsigned long long int size = (unsigned long long int)size_ll;
-	auto data = make_unique<char[]>(size + 1u);
+	auto data = make_unique<char[]>(size_t(size + 1u));
 	if(data == nullptr) return false;
 	
 	memset(data.get(), 0, size_t(size + 1u));

@@ -73,6 +73,13 @@ extern "C" {
 
 #define GL_TEXTURE_MAX_LEVEL GL_TEXTURE_MAX_LEVEL_APPLE
 
+#define GL_MAP_READ_BIT GL_MAP_READ_BIT_EXT
+#define GL_MAP_WRITE_BIT GL_MAP_WRITE_BIT_EXT
+#define GL_MAP_INVALIDATE_RANGE_BIT GL_MAP_INVALIDATE_RANGE_BIT_EXT
+#define GL_MAP_INVALIDATE_BUFFER_BIT GL_MAP_INVALIDATE_BUFFER_BIT_EXT
+#define GL_MAP_FLUSH_EXPLICIT_BIT GL_MAP_FLUSH_EXPLICIT_BIT_EXT
+#define GL_MAP_UNSYNCHRONIZED_BIT GL_MAP_UNSYNCHRONIZED_BIT_EXT
+
 #define glRenderbufferStorageMultisample glRenderbufferStorageMultisampleAPPLE
 #define glResolveMultisampleFramebuffer glResolveMultisampleFramebufferAPPLE
 #define glInvalidateFramebuffer glDiscardFramebufferEXT

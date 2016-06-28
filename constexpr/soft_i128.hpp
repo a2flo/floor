@@ -102,9 +102,22 @@ struct alignas(16) i128 {
 		if(lo < val.lo) return true;
 		return false;
 	}
+	constexpr bool operator>(const i128& val) const {
+		if(hi > val.hi) return true;
+		if(hi < val.hi) return false;
+		if(lo > val.lo) return true;
+		return false;
+	}
+	constexpr bool operator==(const i128& val) const {
+		return (hi == val.hi && lo == val.lo);
+	}
+	constexpr bool operator!=(const i128& val) const {
+		return (hi != val.hi || lo != val.lo);
+	}
 	
 	//! conversion to other types
-	template<typename dst_type> operator dst_type() const {
+	template <typename dst_type>
+	explicit constexpr operator dst_type() const {
 		return (dst_type)lo;
 	}
 	
