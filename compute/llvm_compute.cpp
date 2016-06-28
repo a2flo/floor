@@ -134,7 +134,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
-				" -DFLOOR_COMPUTE_SPIR" +
+				" -DFLOOR_COMPUTE_SPIR" \
+				" -DFLOOR_COMPUTE_OPENCL_MAJOR=1" \
+				" -DFLOOR_COMPUTE_OPENCL_MINOR=2" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
 				(floor::get_opencl_verify_spir() && toolchain_version >= 30800u ? " -Xclang -cl-verify-spir" : "") +
@@ -217,7 +219,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
-				" -DFLOOR_COMPUTE_APPLECL" +
+				" -DFLOOR_COMPUTE_APPLECL"
+				" -DFLOOR_COMPUTE_OPENCL_MAJOR=1" \
+				" -DFLOOR_COMPUTE_OPENCL_MINOR=2" + +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
 				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
@@ -275,7 +279,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_OPENCL" \
-				" -DFLOOR_COMPUTE_SPIRV" +
+				" -DFLOOR_COMPUTE_SPIRV" \
+				" -DFLOOR_COMPUTE_OPENCL_MAJOR=" + cl_major_version_to_string(cl_device->cl_version) +
+				" -DFLOOR_COMPUTE_OPENCL_MINOR=" + cl_minor_version_to_string(cl_device->cl_version) +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
 			};

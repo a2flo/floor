@@ -99,6 +99,7 @@ public:
 	// screen/window
 	static SDL_Window* get_window();
 	static unsigned int get_window_flags();
+	static uint32_t get_window_refresh_rate();
 	static SDL_GLContext get_context();
 	static bool get_fullscreen();
 	static void set_fullscreen(const bool& state);

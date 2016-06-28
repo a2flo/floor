@@ -52,17 +52,28 @@ typedef NSWindow* wnd_type_ptr;
 typedef UIWindow* wnd_type_ptr;
 #endif
 
+static constexpr const uint32_t max_drawables_in_flight { 3 };
+
 // metal renderer NSView/UIView implementation
-@interface metal_view : UI_VIEW_CLASS <NSCoding>
+@interface metal_view : UI_VIEW_CLASS <NSCoding, CALayerDelegate> {
+@public
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(objc-interface-ivars)
+	atomic<uint32_t> max_scheduled_frames;
+	chrono::time_point<chrono::high_resolution_clock> tp_prev_frame;
+FLOOR_POP_WARNINGS()
+}
 @property (assign, nonatomic) CAMetalLayer* metal_layer;
 @property (assign, nonatomic) bool is_hidpi;
 @property (assign, nonatomic) wnd_type_ptr wnd;
+@property (assign, nonatomic) uint32_t refresh_rate;
 @end
 
 @implementation metal_view
 @synthesize metal_layer = _metal_layer;
 @synthesize is_hidpi = _is_hidpi;
 @synthesize wnd = _wnd;
+@synthesize refresh_rate = _refresh_rate;
 
 // override to signal this is a CAMetalLayer
 + (Class)layerClass {
@@ -118,6 +129,9 @@ typedef UIWindow* wnd_type_ptr;
 		self.metal_layer.framebufferOnly = true; // note: must be false if used for compute processing
 		self.metal_layer.contentsScale = [self get_scale_factor];
 		
+		max_scheduled_frames = max_drawables_in_flight;
+		tp_prev_frame = chrono::high_resolution_clock::now();
+		
 #if !defined(FLOOR_IOS)
 		// need to listen for window resize events on os x (won't happen for ios)
 		[[NSNotificationCenter defaultCenter] addObserver:self
@@ -155,6 +169,8 @@ typedef UIWindow* wnd_type_ptr;
 #endif
 
 - (void)reshape {
+	self.refresh_rate = floor::get_window_refresh_rate();
+	
 	bool scale_change = false;
 	const auto new_scale = [self get_scale_factor];
 	if(const_math::is_unequal(self.metal_layer.contentsScale, new_scale)) {
@@ -202,7 +218,6 @@ metal_view* darwin_helper::create_metal_view(SDL_Window* wnd, id <MTLDevice> dev
 #endif
 						withDevice:device
 						withHiDPI:floor::get_hidpi()];
-	
 #if !defined(FLOOR_IOS)
 	[[info.info.cocoa.window contentView] addSubview:view];
 #else
@@ -215,8 +230,37 @@ CAMetalLayer* darwin_helper::get_metal_layer(metal_view* view) {
 	return [view metal_layer];
 }
 
-id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(metal_view* view) {
+id <CAMetalDrawable> darwin_helper::get_metal_next_drawable(metal_view* view, id <MTLCommandBuffer> cmd_buffer) {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(direct-ivar-access)
+	while(view->max_scheduled_frames == 0) {
+		this_thread::yield();
+	}
+	
+	// take away one frame/drawable + compute how many frames we're ahead
+	--view->max_scheduled_frames;
+	//const auto frame_num = view->max_scheduled_frames--;
+	//const auto ahead = max_drawables_in_flight - frame_num;
+	
+	for(;;) {
+		static const double time_den { chrono::high_resolution_clock::time_point::duration::period::den };
+		const auto now = chrono::high_resolution_clock::now();
+		const auto delta = now - view->tp_prev_frame;
+		const auto delta_s = ((double)delta.count()) / time_den;
+		const auto time_per_frame = (1.0 / double([view refresh_rate])) * 0.95 /* 5% margin */;
+		if(delta_s >= time_per_frame) {
+			view->tp_prev_frame = now;
+			break;
+		}
+		this_thread::yield();
+	}
+	
+	__block atomic<uint32_t>& max_scheduled_frames_ = view->max_scheduled_frames;
+	[cmd_buffer addCompletedHandler:^(id <MTLCommandBuffer> buffer floor_unused) {
+		++max_scheduled_frames_; // free up frame
+	}];
 	return [[view metal_layer] nextDrawable];
+FLOOR_POP_WARNINGS()
 }
 
 size_t darwin_helper::get_dpi(SDL_Window* wnd

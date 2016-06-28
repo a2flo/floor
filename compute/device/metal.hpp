@@ -97,6 +97,55 @@ namespace std {
 	const_func metal_func uint32_t mulhi(uint32_t x, uint32_t y) asm("air.mul_hi.u.i32");
 	
 	const_func metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
+	
+	// non-standard bit counting functions (don't use these directly, use math::func instead)
+#if 0 // TODO: enable if targeting metal 1.2+
+	// NOTE: since metal/air 1.2, clz/ctz have a second bool parameter to declare if clz/ctz of 0 is undefined or not
+	const_func metal_func uint16_t air_rt_clz(uint16_t, bool undef = false) asm("air.clz.i16");
+	const_func metal_func uint32_t air_rt_clz(uint32_t, bool undef = false) asm("air.clz.i32");
+	const_func metal_func uint16_t air_rt_ctz(uint16_t, bool undef = false) asm("air.ctz.i16");
+	const_func metal_func uint32_t air_rt_ctz(uint32_t, bool undef = false) asm("air.ctz.i32");
+#else
+	const_func metal_func uint16_t air_rt_clz(uint16_t) asm("air.clz.i16");
+	const_func metal_func uint32_t air_rt_clz(uint32_t) asm("air.clz.i32");
+	const_func metal_func uint16_t air_rt_ctz(uint16_t) asm("air.ctz.i16");
+	const_func metal_func uint32_t air_rt_ctz(uint32_t) asm("air.ctz.i32");
+#endif
+	
+	const_func floor_inline_always metal_func uint16_t floor_rt_clz(uint16_t x) {
+		return air_rt_clz(x);
+	}
+	const_func floor_inline_always metal_func uint32_t floor_rt_clz(uint32_t x) {
+		return air_rt_clz(x);
+	}
+	const_func floor_inline_always metal_func uint64_t floor_rt_clz(uint64_t x) {
+		const auto upper = uint32_t(x >> 32ull);
+		const auto lower = uint32_t(x & 0xFFFFFFFFull);
+		const auto clz_upper = floor_rt_clz(upper);
+		const auto clz_lower = floor_rt_clz(lower);
+		return (clz_upper < 32 ? clz_upper : (clz_upper + clz_lower));
+	}
+	const_func floor_inline_always metal_func uint16_t floor_rt_ctz(uint16_t x) {
+		return air_rt_ctz(x);
+	}
+	const_func floor_inline_always metal_func uint32_t floor_rt_ctz(uint32_t x) {
+		return air_rt_ctz(x);
+	}
+	const_func floor_inline_always metal_func uint64_t floor_rt_ctz(uint64_t x) {
+		const auto upper = uint32_t(x >> 32ull);
+		const auto lower = uint32_t(x & 0xFFFFFFFFull);
+		const auto ctz_upper = floor_rt_ctz(upper);
+		const auto ctz_lower = floor_rt_ctz(lower);
+		return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
+	}
+	const_func metal_func uint16_t floor_rt_popcount(uint16_t) asm("air.popcount.i16");
+	const_func metal_func uint32_t floor_rt_popcount(uint32_t) asm("air.popcount.i32");
+	const_func floor_inline_always metal_func uint64_t floor_rt_popcount(uint64_t x) {
+		const auto upper = uint32_t(x >> 32ull);
+		const auto lower = uint32_t(x & 0xFFFFFFFFull);
+		return floor_rt_popcount(upper) + floor_rt_popcount(lower);
+	}
+	
 }
 
 // metal itself does not provide get_*_id/get_*_size functions, but rather handles this by using additional kernel arguments

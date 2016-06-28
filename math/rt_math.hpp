@@ -100,6 +100,193 @@ namespace rt_math {
 		return (val - trunc(val));
 	}
 	
+	//! count leading zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	static floor_inline_always int32_t clz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_clzs(val);
+#else
+		return floor_rt_clz(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	static floor_inline_always int32_t clz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_clz(val);
+#else
+		return floor_rt_clz(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	static floor_inline_always int32_t clz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_clzll(val);
+#else
+		return floor_rt_clz(val);
+#endif
+	}
+	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		return val ? 0 : 1;
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		const uint16_t widened_val = *(uint8_t*)&val;
+		return rt_math::clz(widened_val) - 8 /* upper 8 bits */;
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		return rt_math::clz(*(uint16_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		return rt_math::clz(*(uint32_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		return rt_math::clz(*(uint64_t*)&val);
+	}
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
+											  is_same<any_type, __int128_t>() ||
+											  sizeof(any_type) == 16)>* = nullptr>
+	static floor_inline_always int32_t clz(const any_type& val) {
+		const uint64_t upper = (*(__uint128_t*)&val) >> 64ull;
+		const uint64_t lower = (*(__uint128_t*)&val) & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto clz_upper = clz(upper);
+		const auto clz_lower = clz(lower);
+		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
+	}
+#endif
+	
+	//! count trailing zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	static floor_inline_always int32_t ctz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_ctzs(val);
+#else
+		return floor_rt_ctz(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	static floor_inline_always int32_t ctz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_ctz(val);
+#else
+		return floor_rt_ctz(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	static floor_inline_always int32_t ctz(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_ctzll(val);
+#else
+		return floor_rt_ctz(val);
+#endif
+	}
+	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		return val ? 0 : 1;
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		const uint16_t widened_val = 0xFFu | *(uint8_t*)&val;
+		return rt_math::ctz(widened_val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		return rt_math::ctz(*(uint16_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		return rt_math::ctz(*(uint32_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		return rt_math::ctz(*(uint64_t*)&val);
+	}
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
+											  is_same<any_type, __int128_t>() ||
+											  sizeof(any_type) == 16)>* = nullptr>
+	static floor_inline_always int32_t ctz(const any_type& val) {
+		const uint64_t upper = (*(__uint128_t*)&val) >> 64ull;
+		const uint64_t lower = (*(__uint128_t*)&val) & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto ctz_upper = ctz(upper);
+		const auto ctz_lower = ctz(lower);
+		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
+	}
+#endif
+	
+	//! count 1-bits
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
+	static floor_inline_always int32_t popcount(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_popcount((uint32_t)val);
+#else
+		return floor_rt_popcount(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>())>* = nullptr>
+	static floor_inline_always int32_t popcount(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_popcount(val);
+#else
+		return floor_rt_popcount(val);
+#endif
+	}
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint64_t>())>* = nullptr>
+	static floor_inline_always int32_t popcount(const uint_type& val) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return __builtin_popcountll(val);
+#else
+		return floor_rt_popcount(val);
+#endif
+	}
+	template <typename any_type, enable_if_t<(is_same<any_type, bool>())>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		return val ? 1 : 0;
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, bool>() && sizeof(any_type) == 1)>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		const uint16_t widened_val = *(uint8_t*)&val;
+		return rt_math::popcount(widened_val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint16_t>() && sizeof(any_type) == 2)>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		return rt_math::popcount(*(uint16_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint32_t>() && sizeof(any_type) == 4)>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		return rt_math::popcount(*(uint32_t*)&val);
+	}
+	template <typename any_type, enable_if_t<(!is_same<any_type, uint64_t>() && sizeof(any_type) == 8)>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		return rt_math::popcount(*(uint64_t*)&val);
+	}
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	template <typename any_type, enable_if_t<(is_same<any_type, __uint128_t>() ||
+											  is_same<any_type, __int128_t>() ||
+											  sizeof(any_type) == 16)>* = nullptr>
+	static floor_inline_always int32_t popcount(const any_type& val) {
+		const uint64_t upper = (*(__uint128_t*)&val) >> 64ull;
+		const uint64_t lower = (*(__uint128_t*)&val) & 0xFFFF'FFFF'FFFF'FFFFull;
+		return popcount(upper) + popcount(lower);
+	}
+#endif
+	
+	//! find first set/one: ctz(x) + 1 if x != 0, 0 if x == 0
+	template <typename any_type>
+	static floor_inline_always int32_t ffs(const any_type& val) {
+		return val != any_type(0) ? ctz(val) + 1 : 0;
+	}
+	
+	//! parity: 1 if odd number of 1-bits set, 0 else
+	template <typename any_type>
+	static floor_inline_always int32_t parity(const any_type& val) {
+		return popcount(val) & 1;
+	}
+	
 }
 
 #endif

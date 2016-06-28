@@ -1216,6 +1216,23 @@ unsigned int floor::get_window_flags() {
 	return config.flags;
 }
 
+uint32_t floor::get_window_refresh_rate() {
+	// SDL_GetWindowDisplayMode is useless/broken, so get the display index + retrieve the mode that way instead
+	const auto display_index = SDL_GetWindowDisplayIndex(config.wnd);
+	if(display_index < 0) {
+		log_error("failed to retrieve window display index");
+		return 60;
+	}
+	else {
+		SDL_DisplayMode mode;
+		if(SDL_GetCurrentDisplayMode(display_index, &mode) < 0) {
+			log_error("failed to retrieve current display mode (for display #%u)", display_index);
+			return 60;
+		}
+		return (uint32_t)mode.refresh_rate;
+	}
+}
+
 SDL_GLContext floor::get_context() {
 	return config.ctx;
 }

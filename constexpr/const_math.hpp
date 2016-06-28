@@ -42,6 +42,81 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(float-equal)
 
 namespace const_math {
+	//! the equivalent/corresponding unsigned integer type to sizeof(T)
+	template <typename T, typename = void> struct sized_unsigned_int_eqv;
+	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 1>> {
+		typedef uint8_t type;
+	};
+	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 2>> {
+		typedef uint16_t type;
+	};
+	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 4>> {
+		typedef uint32_t type;
+	};
+	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 8>> {
+		typedef uint64_t type;
+	};
+	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<(sizeof(T) > 8)>> {
+		typedef __uint128_t type;
+	};
+	
+	//! the signed equivalent to T
+	template <typename T, typename = void> struct signed_eqv;
+	template <> struct signed_eqv<bool> {
+		typedef bool type;
+	};
+	template <typename fp_type>
+	struct signed_eqv<fp_type, enable_if_t<is_floating_point<fp_type>::value>> {
+		typedef fp_type type;
+	};
+	template <typename int_type>
+	struct signed_eqv<int_type, enable_if_t<(is_integral<int_type>::value &&
+											 is_signed<int_type>::value &&
+											 !is_same<int_type, __int128_t>::value)>> {
+		typedef int_type type;
+	};
+	template <typename uint_type>
+	struct signed_eqv<uint_type, enable_if_t<(is_integral<uint_type>::value &&
+											  is_unsigned<uint_type>::value &&
+											  sizeof(uint_type) <= 8)>> {
+		typedef make_signed_t<uint_type> type;
+	};
+	template <typename uint_type>
+	struct signed_eqv<uint_type, enable_if_t<(is_integral<uint_type>::value &&
+											  is_unsigned<uint_type>::value &&
+											  !is_same<uint_type, __uint128_t>::value &&
+											  sizeof(uint_type) == 16)>> {
+		typedef __int128_t type;
+	};
+	// is_integral is not specialized for __int128_t and __uint128_t
+	template <typename int128_type>
+	struct signed_eqv<int128_type, enable_if_t<(is_same<int128_type, __int128_t>::value ||
+												is_same<int128_type, __uint128_t>::value)>> {
+		typedef __int128_t type;
+	};
+	
+	//! the integral equivalent to T
+	template <typename T, typename = void> struct integral_eqv;
+	template <> struct integral_eqv<bool> {
+		typedef bool type;
+	};
+	template <typename fp_type>
+	struct integral_eqv<fp_type, enable_if_t<is_floating_point<fp_type>::value>> {
+		typedef typename sized_unsigned_int_eqv<fp_type>::type type;
+	};
+	template <typename int_type>
+	struct integral_eqv<int_type, enable_if_t<(is_integral<int_type>::value &&
+											   !is_same<int_type, __int128_t>::value &&
+											   !is_same<int_type, __uint128_t>::value)>> {
+		typedef int_type type;
+	};
+	// is_integral is not specialized for __int128_t and __uint128_t
+	template <typename int128_type>
+	struct integral_eqv<int128_type, enable_if_t<(is_same<int128_type, __int128_t>::value ||
+												  is_same<int128_type, __uint128_t>::value)>> {
+		typedef int128_type type;
+	};
+	
 	//! converts the input radian value to degrees
 	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
 	constexpr fp_type rad_to_deg(const fp_type& val) {
@@ -1017,6 +1092,156 @@ namespace const_math {
 		return (uint_type)(~(((~0ull) << ((unsigned long long int)val - 1ull)) << 1ull));
 	}
 	
+	//! count leading zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>() ||
+											   is_same<uint_type, uint32_t>() ||
+											   is_same<uint_type, uint64_t>() ||
+											   is_same<uint_type, size_t>())>* = nullptr>
+	constexpr int clz(const uint_type& val) {
+		return __builtin_choose_expr(is_same<uint_type, uint16_t>(), __builtin_clzs(val),
+									 __builtin_choose_expr(sizeof(uint_type) == 4,
+														   __builtin_clz(val), __builtin_clzll(val)));
+	}
+	//! count leading zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>
+	constexpr int clz(const uint_type& val) {
+		return val ? 0 : 1;
+	}
+	//! count leading zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint8_t>())>* = nullptr>
+	constexpr int clz(const uint_type& val) {
+		const uint16_t widened_val = val;
+		return const_math::clz(widened_val) - 8 /* upper 8 bits */;
+	}
+	//! count leading zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
+	constexpr int clz(const uint_type& val) {
+		const uint64_t upper = val >> 64ull;
+		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto clz_upper = clz(upper);
+		const auto clz_lower = clz(lower);
+		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
+	}
+	//! count leading zeros
+	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
+											  is_same<int_type, __int128_t>())>* = nullptr>
+	constexpr int clz(const int_type& val) {
+		// can't abs(min int val), so handle it separately
+		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
+			return sizeof(int_type) - 1;
+		}
+		// for leading zeros, clz(val with val < 0) == clz(~(-val))
+		return clz(~(typename sized_unsigned_int_eqv<int_type>::type)-val);
+	}
+	//! count leading zeros
+	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	constexpr int clz(const fp_type& val floor_unused) {
+		return 0; // TODO: implement this?
+	}
+	
+	//! count trailing zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>() ||
+											   is_same<uint_type, uint32_t>() ||
+											   is_same<uint_type, uint64_t>() ||
+											   is_same<uint_type, size_t>())>* = nullptr>
+	constexpr int ctz(const uint_type& val) {
+		return __builtin_choose_expr(is_same<uint_type, uint16_t>(), __builtin_ctzs(val),
+									 __builtin_choose_expr(sizeof(uint_type) == 4,
+														   __builtin_ctz(val), __builtin_ctzll(val)));
+	}
+	//! count trailing zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>
+	constexpr int ctz(const uint_type& val) {
+		return val ? 0 : 1;
+	}
+	//! count trailing zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint8_t>())>* = nullptr>
+	constexpr int ctz(const uint_type& val) {
+		const uint16_t widened_val = 0xFFu | val;
+		return const_math::ctz(widened_val);
+	}
+	//! count trailing zeros
+	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
+	constexpr int ctz(const uint_type& val) {
+		const uint64_t upper = val >> 64ull;
+		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		const auto ctz_upper = ctz(upper);
+		const auto ctz_lower = ctz(lower);
+		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
+	}
+	//! count trailing zeros
+	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
+											  is_same<int_type, __int128_t>())>* = nullptr>
+	constexpr int ctz(const int_type& val) {
+		// can't abs(min int val), so handle it separately
+		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
+			return sizeof(int_type) - 1;
+		}
+		// for trailing zeros, ctz(-val) == ctz(val)
+		return ctz((typename sized_unsigned_int_eqv<int_type>::type)-val);
+	}
+	//! count trailing zeros
+	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	constexpr int ctz(const fp_type& val floor_unused) {
+		return 0; // TODO: implement this?
+	}
+	
+	//! count 1-bits
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint32_t>() ||
+											   is_same<uint_type, uint64_t>() ||
+											   is_same<uint_type, size_t>())>* = nullptr>
+	constexpr int popcount(const uint_type& val) {
+		return __builtin_choose_expr(sizeof(uint_type) == 4,
+									 __builtin_popcount(val), __builtin_popcountll(val));
+	}
+	//! count 1-bits
+	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>
+	constexpr int popcount(const uint_type& val) {
+		return val ? 1 : 0;
+	}
+	//! count 1-bits
+	template <typename uint_type, enable_if_t<(is_same<uint_type, uint8_t>() ||
+											   is_same<uint_type, uint16_t>())>* = nullptr>
+	constexpr int popcount(const uint_type& val) {
+		const uint32_t widened_val = val;
+		return const_math::popcount(widened_val);
+	}
+	//! count 1-bits
+	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
+	constexpr int popcount(const uint_type& val) {
+		const uint64_t upper = val >> 64ull;
+		const uint64_t lower = val & 0xFFFF'FFFF'FFFF'FFFFull;
+		return popcount(upper) + popcount(lower);
+	}
+	//! count 1-bits
+	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
+											  is_same<int_type, __int128_t>())>* = nullptr>
+	constexpr int popcount(const int_type& val) {
+		// can't abs(min int val), so handle it separately
+		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
+			return sizeof(int_type);
+		}
+		// for popcount, popcount(val with val < 0) == popcount(~(-val))
+		return popcount(~(typename sized_unsigned_int_eqv<int_type>::type)-val);
+	}
+	//! count 1-bits
+	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	constexpr int popcount(const fp_type& val floor_unused) {
+		return 0; // TODO: implement this?
+	}
+	
+	//! find first set/one: ctz(x) + 1 if x != 0, 0 if x == 0
+	template <typename any_type>
+	constexpr int ffs(const any_type& val) {
+		return val != any_type(0) ? ctz(val) + 1 : 0;
+	}
+	
+	//! parity: 1 if odd number of 1-bits set, 0 else
+	template <typename any_type>
+	constexpr int parity(const any_type& val) {
+		return popcount(val) & 1;
+	}
+	
 }
 
 // runtime equivalents for certain non-standard math functions
@@ -1108,30 +1333,30 @@ namespace math {
 	
 #define FLOOR_CONST_SELECT(ARG_EXPANDER, ENABLE_IF_EXPANDER, func_name, ce_func, rt_func, type, overload_suffix) \
 	/* direct call - run-time */ \
-	static __attribute__((always_inline, flatten)) type func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) auto func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* direct call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr type func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ENABLE_IF_EXPANDER(), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	\
 	/* forwarded call prototype - run-time */ \
-	static __attribute__((always_inline, flatten)) type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	/* forwarded call prototype - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) \
 	asm("floor_const_select_" #func_name "_" #type overload_suffix ); \
 	\
 	/* forwarded call - constexpr */ \
-	static __attribute__((always_inline, flatten)) constexpr type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
+	static __attribute__((always_inline, flatten)) constexpr auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) \
 	__attribute__((enable_if(ARG_EXPANDER(!__builtin_constant_p FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT &&)), ""))) { \
 		return ce_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	} \
 	/* forwarded call - run-time */ \
-	static __attribute__((always_inline, flatten)) type __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
+	static __attribute__((always_inline, flatten)) auto __ ## func_name (ARG_EXPANDER(type, FLOOR_COMMA)) { \
 		return rt_func (ARG_EXPANDER(, FLOOR_COMMA)); \
 	}
 	
@@ -1240,57 +1465,122 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, float)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, float)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, float)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, float)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, float)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, float)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, float)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int8_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int8_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int8_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int8_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int8_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int8_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int16_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int16_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int16_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int16_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int16_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int16_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int16_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int32_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int32_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int32_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int32_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int32_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int32_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int64_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int64_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, int64_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, int64_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int64_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int64_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int64_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint8_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint8_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint8_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint8_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint8_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint8_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint8_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint16_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint16_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint16_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint16_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint16_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint16_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint16_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint32_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint32_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint32_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint32_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint32_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint32_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint64_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint64_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, uint64_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, uint64_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint64_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint64_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint64_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, bool)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, bool)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, bool)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, bool)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, bool)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, bool)
 	
 #if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, __int128_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, __int128_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, __int128_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, __int128_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, __int128_t)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __uint128_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, __uint128_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, __uint128_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, __uint128_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, __uint128_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, __uint128_t)
 #endif
 	
 #if defined(__APPLE__)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, ssize_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, ssize_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, ssize_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, ssize_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, ssize_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, ssize_t)
 #endif
 #if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && \
 						   defined(PLATFORM_X64) && \
@@ -1298,6 +1588,11 @@ namespace math {
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, size_t)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, size_t)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, size_t)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, size_t)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, size_t)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, size_t)
 #endif
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
@@ -1306,6 +1601,11 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, double)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, double)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, double)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, double)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, double)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, double)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, double)
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
@@ -1314,6 +1614,11 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, long double)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, long double)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, long double)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, long double)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, long double)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, long double)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, long double)
 #endif
 	
 	// non-standard and metal-only for now
@@ -1352,6 +1657,11 @@ namespace math {
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, half)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, half)
 	FLOOR_CONST_SELECT_1(fractional, const_math::fractional, rt_math::fractional, half)
+	FLOOR_CONST_SELECT_1(clz, const_math::clz, rt_math::clz, half)
+	FLOOR_CONST_SELECT_1(ctz, const_math::ctz, rt_math::ctz, half)
+	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, half)
+	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, half)
+	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, half)
 #endif
 
 	// cleanup

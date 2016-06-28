@@ -44,6 +44,28 @@ constexpr const char* cl_version_to_string(const OPENCL_VERSION& version) {
 		case OPENCL_VERSION::OPENCL_2_2: return "2.2";
 	}
 }
+constexpr const char* cl_major_version_to_string(const OPENCL_VERSION& version) {
+	switch(version) {
+		case OPENCL_VERSION::NONE: return "";
+		case OPENCL_VERSION::OPENCL_1_0:
+		case OPENCL_VERSION::OPENCL_1_1:
+		case OPENCL_VERSION::OPENCL_1_2: return "1";
+		case OPENCL_VERSION::OPENCL_2_0:
+		case OPENCL_VERSION::OPENCL_2_1:
+		case OPENCL_VERSION::OPENCL_2_2: return "2";
+	}
+}
+constexpr const char* cl_minor_version_to_string(const OPENCL_VERSION& version) {
+	switch(version) {
+		case OPENCL_VERSION::NONE: return "";
+		case OPENCL_VERSION::OPENCL_1_0: return "0";
+		case OPENCL_VERSION::OPENCL_1_1: return "1";
+		case OPENCL_VERSION::OPENCL_1_2: return "2";
+		case OPENCL_VERSION::OPENCL_2_0: return "0";
+		case OPENCL_VERSION::OPENCL_2_1: return "1";
+		case OPENCL_VERSION::OPENCL_2_2: return "2";
+	}
+}
 
 //! spir-v version that is supported by a device
 enum class SPIRV_VERSION : uint32_t {

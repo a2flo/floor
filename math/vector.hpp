@@ -759,23 +759,23 @@ public:
 	//! component-wise bit-wise OR
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(|, bit_or, typename integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(|, bit_or, typename const_math::integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise AND
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(&, bit_and, typename integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(&, bit_and, typename const_math::integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise XOR
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(^, bit_xor, typename integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(^, bit_xor, typename const_math::integral_eqv<decayed_scalar_type>::type)
 	//! component-wise left shift
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(<<, bit_left_shift, typename integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(<<, bit_left_shift, typename const_math::integral_eqv<decayed_scalar_type>::type)
 	//! component-wise right shift
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(>>, bit_right_shift, typename integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(>>, bit_right_shift, typename const_math::integral_eqv<decayed_scalar_type>::type)
 	//! component-wise bit-wise complement
 	FLOOR_VEC_UNARY_OP_FUNC(~, unary_complement)
 	
@@ -1925,83 +1925,30 @@ public:
 		return { false };
 	}
 	
-	//! returns an int vector containing the number of 1-bits of each component in this vector
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> popcount() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_popcount FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the number of 1-bits of each component in this vector
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> popcount() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_popcountll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	//! returns an int vector containing the number of leading 0-bits of each component in this vector
+	constexpr FLOOR_VECNAME<int> clz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::clz FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
-	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 2, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> clz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clzs FLOOR_PAREN_LEFT (uint16_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 4, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> clz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clz FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the leading 0-bits of each component in this vector, starting at the most significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> clz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_clzll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	//! returns an int vector containing the number of trailing 0-bits of each component in this vector
+	constexpr FLOOR_VECNAME<int> ctz() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::ctz FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
-	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 2, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> ctz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctzs FLOOR_PAREN_LEFT (uint16_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 4, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> ctz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctz FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the trailing 0-bits of each component in this vector, starting at the least significant bit
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> ctz() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ctzll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+	//! returns an int vector containing the number of 1-bits of each component in this vector
+	constexpr FLOOR_VECNAME<int> popcount() const {
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::popcount FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
 	//! returns an int vector containing 1 + the index of the least significant 1-bit of each component in this vector,
 	//! or 0 if the component is 0
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
 	constexpr FLOOR_VECNAME<int> ffs() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ffs FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing 1 + the index of the least significant 1-bit of each component in this vector,
-	//! or 0 if the component is 0
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> ffs() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_ffsll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::ffs FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
-	//! returns an int vector containing the parity of each component in this vector (#1-bits % 2)
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) <= 4, int>::type = 0>
+	//! returns an int vector containing the parity of each component in this vector (1 if odd number of 1-bits set, 0 else)
 	constexpr FLOOR_VECNAME<int> parity() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parity FLOOR_PAREN_LEFT (uint32_t), FLOOR_PAREN_RIGHT) };
-	}
-	//! returns an int vector containing the parity of each component in this vector (#1-bits % 2)
-	template <typename integral_type = decayed_scalar_type,
-			  typename enable_if<is_integral<integral_type>::value && sizeof(integral_type) == 8, int>::type = 0>
-	constexpr FLOOR_VECNAME<int> parity() const {
-		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, __builtin_parityll FLOOR_PAREN_LEFT (uint64_t), FLOOR_PAREN_RIGHT) };
+		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, vector_helper<decayed_scalar_type>::parity FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT) };
 	}
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)

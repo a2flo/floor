@@ -246,6 +246,51 @@ namespace std {
 		return fp_type(0.5) * log((fp_type(1.0) + a) / (fp_type(1.0) - a));
 	}
 	
+	// non-standard bit counting functions (don't use these directly, use math::func instead)
+	const_func floor_inline_always int32_t floor_rt_clz(uint16_t a) {
+		return floor_rt_clz((uint32_t)a) - 16 /* upper 16 bits */;
+	}
+	const_func floor_inline_always int32_t floor_rt_clz(uint32_t a) {
+		int32_t ret;
+		asm("clz.b32 %0, %1;" : "=r"(ret) : "r"(a));
+		return ret;
+	}
+	const_func floor_inline_always int32_t floor_rt_clz(uint64_t a) {
+		int32_t ret;
+		asm("clz.b64 %0, %1;" : "=l"(ret) : "l"(a));
+		return ret;
+	}
+	const_func floor_inline_always int32_t floor_rt_ctz(uint16_t a) {
+		return floor_rt_ctz(0xFFFFFFu | (uint32_t)a);
+	}
+	const_func floor_inline_always int32_t floor_rt_ctz(uint32_t a) {
+		int32_t ret;
+		uint32_t tmp;
+		asm("brev.b32 %0, %1;" : "=r"(tmp) : "r"(a));
+		asm("clz.b32 %0, %1;" : "=r"(ret) : "r"(tmp));
+		return ret;
+	}
+	const_func floor_inline_always int32_t floor_rt_ctz(uint64_t a) {
+		int32_t ret;
+		uint64_t tmp;
+		asm("brev.b64 %0, %1;" : "=l"(tmp) : "l"(a));
+		asm("clz.b64 %0, %1;" : "=l"(ret) : "l"(tmp));
+		return ret;
+	}
+	const_func floor_inline_always int32_t floor_rt_popcount(uint16_t a) {
+		return floor_rt_popcount((uint32_t)a);
+	}
+	const_func floor_inline_always int32_t floor_rt_popcount(uint32_t a) {
+		int32_t ret;
+		asm("popc.b32 %0, %1;" : "=r"(ret) : "r"(a));
+		return ret;
+	}
+	const_func floor_inline_always int32_t floor_rt_popcount(uint64_t a) {
+		int32_t ret;
+		asm("popc.b64 %0, %1;" : "=l"(ret) : "l"(a));
+		return ret;
+	}
+	
 }
 
 // provided by cuda runtime
