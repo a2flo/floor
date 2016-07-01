@@ -82,6 +82,16 @@ public:
 	//! writes "size" bytes (or the complete buffer if 0) from "offset" onwards
 	//! from the specified "src" pointer to this buffer
 	virtual void write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size = 0, const size_t offset = 0) = 0;
+	//! writes all of "src" to this buffer, from "offset" on onwards
+	template <typename data_type>
+	void write(shared_ptr<compute_queue> cqueue, const vector<data_type>& src, const size_t offset = 0) {
+		write(cqueue, (const void*)&src[0], sizeof(data_type) * src.size(), offset);
+	}
+	//! writes all of "src" to this buffer, from "offset" on onwards
+	template <typename data_type, size_t n>
+	void write(shared_ptr<compute_queue> cqueue, const array<data_type, n>& src, const size_t offset = 0) {
+		write(cqueue, (const void*)&src[0], sizeof(data_type) * n, offset);
+	}
 	
 	//! writes sizeof("src") bytes from "src" to "offset" onwards to this buffer
 	template <typename T>
