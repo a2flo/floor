@@ -47,6 +47,10 @@
    define "FLOOR_NO_XML" or "./build.sh no-xml"
 ** to disable C++ exceptions:
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
+** to build with libstdc++ instead of libc++:
+   "./build.sh libstdc++"
+** to build with experimental C++17 support (requires Clang 3.9+):
+   "./build.sh c++17"
 
 *Build Instructions (Xcode / OS X / iOS):*
 * open floor.xcodeproj and build

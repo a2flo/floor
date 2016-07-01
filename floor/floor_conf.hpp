@@ -66,6 +66,9 @@
 // if defined, this disables c++ exception support
 //#define FLOOR_NO_EXCEPTIONS 1
 
+// if defined, this enables c++17 support
+//#define FLOOR_CXX17 1
+
 // if defined, this will use extern templates for specific template classes (vector*, matrix, etc.)
 // and instantiate them for various basic types (float, int, ...)
 // NOTE: don't enable this for compute (these won't compile the necessary .cpp files)
