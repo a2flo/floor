@@ -68,27 +68,27 @@ namespace host_image_impl {
 		// clamps input coordinates to image_dim (image_clamp_dim/image_float_clamp_dim) and converts them to uint vectors
 		//! int/uint coordinates, non cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>() &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
-													  const vector_n<int32_t, coord_type::dim> offset = {}) {
+													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
 			// clamp to [0, image_dim - 1]
-			return vector_n<uint32_t, coord_type::dim> {
-				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_int))
+			return vector_n<uint32_t, coord_type::dim()> {
+				(coord + offset).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
 			};
 		}
 		
 		//! int/uint coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>() &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const int2 offset = {}) {
 			// clamp to [0, image_dim - 1]
-			return vector_n<uint32_t, coord_type::dim> {
-				int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).clamped(image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_int))
+			return vector_n<uint32_t, coord_type::dim()> {
+				int3(int(coord.x) + offset.x, int(coord.y) + offset.y, int(coord.z)).clamped(image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_int))
 			};
 		}
 		
@@ -98,7 +98,7 @@ namespace host_image_impl {
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
-													  const vector_n<int32_t, coord_type::dim> offset = {}) {
+													  const vector_n<int32_t, coord_type::dim()> offset = {}) {
 			// with normalized coords:
 			// * scale and add [0, 1] to [0, image dim]
 			// * apply offset (now in [-min offset, image dim + max offset])
@@ -106,21 +106,21 @@ namespace host_image_impl {
 			//   floor(image_dim) != image_dim - 1, but floor(nexttoward(image_dim), 0.0) == image_dim -1;
 			//   eps is 0.5f here just to be sure (__FLT_MIN__ might still cause issues)
 			// * convert to uint (equivalent to floor(x))
-			const auto fdim = image_dim_to_coord_dim<coord_type::dim>(level_info.clamp_dim_float);
-			return vector_n<uint32_t, coord_type::dim> { (coord * fdim + coord_type(offset)).clamp(fdim - 0.5f) };
+			const auto fdim = image_dim_to_coord_dim<coord_type::dim()>(level_info.clamp_dim_float);
+			return vector_n<uint32_t, coord_type::dim()> { (coord * fdim + coord_type(offset)).clamp(fdim - 0.5f) };
 		}
 		
 		//! float coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>() &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
 													  const int2 offset = {}) {
 			// normalized coords, see above for explanation
 			const auto coord_layer = compute_cube_coord_and_layer(coord);
-			const auto fdim = image_dim_to_coord_dim<coord_type::dim - 1u>(level_info.clamp_dim_float);
-			return vector_n<uint32_t, coord_type::dim> {
+			const auto fdim = image_dim_to_coord_dim<coord_type::dim() - 1u>(level_info.clamp_dim_float);
+			return vector_n<uint32_t, coord_type::dim()> {
 				(coord_layer.first * fdim + float2(offset)).clamp(fdim - 0.5f),
 				coord_layer.second
 			};
@@ -429,9 +429,15 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
+#endif
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -519,9 +525,15 @@ FLOOR_POP_WARNINGS()
 			typedef conditional_t<!has_stencil, float1, pair<float1, uint8_t>> ret_type;
 			ret_type ret;
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
+#endif
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
@@ -586,9 +598,15 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
+#endif
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -619,9 +637,15 @@ FLOOR_POP_WARNINGS()
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			const auto lod = select_lod(lod_input);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
+#endif
 			
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				constexpr const auto channel_count = image_channel_count(type);
@@ -676,9 +700,15 @@ FLOOR_POP_WARNINGS()
 			
 			// depth value input is always a float -> convert it to the correct output format
 			const auto lod = select_lod(lod_input);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
+#endif
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
@@ -752,9 +782,15 @@ FLOOR_POP_WARNINGS()
 			// cast down to storage scalar type, then trim the vector to the image channel count
 			const storage_type raw_data = color.template cast<storage_scalar_type>().template trim<channel_count>();
 			const auto lod = select_lod(lod_input);
+#if defined(FLOOR_CXX17)
+			size_t offset;
+			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
+			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
+#else
 			const auto offset = __builtin_choose_expr(!is_array,
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
 													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
+#endif
 			memcpy(&img->data[offset], &raw_data, sizeof(raw_data));
 		}
 	};

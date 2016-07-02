@@ -580,7 +580,7 @@ set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 set_conf_val "###FLOOR_XML###" "FLOOR_NO_XML" ${BUILD_CONF_XML}
 set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
-set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" ${BUILD_CONF_CXX17}
+set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" $((1 - $((${BUILD_CONF_CXX17}))))
 echo "${CONF}" > floor/floor_conf.hpp
 
 # only update build version if FLOOR_DEV environment variable is set

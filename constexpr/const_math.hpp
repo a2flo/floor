@@ -1098,9 +1098,15 @@ namespace const_math {
 											   is_same<uint_type, uint64_t>() ||
 											   is_same<uint_type, size_t>())>* = nullptr>
 	constexpr int clz(const uint_type& val) {
+#if defined(FLOOR_CXX17)
+		if constexpr(is_same<uint_type, uint16_t>()) return __builtin_clzs(val);
+		else if constexpr(sizeof(uint_type) == 4) return __builtin_clz(val);
+		else return __builtin_clzll(val);
+#else
 		return __builtin_choose_expr(is_same<uint_type, uint16_t>(), __builtin_clzs(val),
 									 __builtin_choose_expr(sizeof(uint_type) == 4,
 														   __builtin_clz(val), __builtin_clzll(val)));
+#endif
 	}
 	//! count leading zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>
@@ -1144,10 +1150,16 @@ namespace const_math {
 											   is_same<uint_type, uint32_t>() ||
 											   is_same<uint_type, uint64_t>() ||
 											   is_same<uint_type, size_t>())>* = nullptr>
-	constexpr int ctz(const uint_type& val) {
+																		constexpr int ctz(const uint_type& val) {
+#if defined(FLOOR_CXX17)
+		if constexpr(is_same<uint_type, uint16_t>()) return __builtin_ctzs(val);
+		else if constexpr(sizeof(uint_type) == 4) return __builtin_ctz(val);
+		else return __builtin_ctzll(val);
+#else
 		return __builtin_choose_expr(is_same<uint_type, uint16_t>(), __builtin_ctzs(val),
 									 __builtin_choose_expr(sizeof(uint_type) == 4,
 														   __builtin_ctz(val), __builtin_ctzll(val)));
+#endif
 	}
 	//! count trailing zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>
@@ -1191,8 +1203,13 @@ namespace const_math {
 											   is_same<uint_type, uint64_t>() ||
 											   is_same<uint_type, size_t>())>* = nullptr>
 	constexpr int popcount(const uint_type& val) {
+#if defined(FLOOR_CXX17)
+		if constexpr(sizeof(uint_type) == 4) return __builtin_popcount(val);
+		else return __builtin_popcountll(val);
+#else
 		return __builtin_choose_expr(sizeof(uint_type) == 4,
 									 __builtin_popcount(val), __builtin_popcountll(val));
+#endif
 	}
 	//! count 1-bits
 	template <typename uint_type, enable_if_t<(is_same<uint_type, bool>())>* = nullptr>

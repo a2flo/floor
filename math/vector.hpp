@@ -166,7 +166,7 @@ public:
 	//! signed vector type corresponding to this type
 	typedef FLOOR_VECNAME<typename vector_helper<decayed_scalar_type>::signed_type> signed_vector_type;
 	//! dimensionality of this vector type
-	static constexpr const size_t dim { FLOOR_VECTOR_WIDTH };
+	static constexpr size_t dim() { return FLOOR_VECTOR_WIDTH; }
 	
 	//! returns true if the vector type has a corresponding clang vector type
 	static constexpr bool has_clang_vector_type() {
@@ -627,6 +627,26 @@ public:
 	floor_inline_always constexpr auto trim() const {
 		static_assert(target_dim != 0, "target dim can't be 0");
 		static_assert(target_dim <= FLOOR_VECTOR_WIDTH, "specified target dim must be <= dim of this vector");
+#if defined(FLOOR_CXX17)
+		if constexpr(target_dim == 1) {
+			return vector1<scalar_type> { x };
+		}
+#if FLOOR_VECTOR_WIDTH >= 2
+		else if constexpr(target_dim == 2) {
+			return vector2<scalar_type> { x, y };
+		}
+#if FLOOR_VECTOR_WIDTH >= 3
+		else if constexpr(target_dim == 3) {
+			return vector3<scalar_type> { x, y, z };
+		}
+#if FLOOR_VECTOR_WIDTH >= 4
+		else {
+			return vector4<scalar_type> { x, y, z, w };
+		}
+#endif
+#endif
+#endif
+#else
 		return __builtin_choose_expr(target_dim == 1, vector1<scalar_type> { x },
 #if FLOOR_VECTOR_WIDTH < 2
 									 vector1<scalar_type> { decayed_scalar_type(0) }
@@ -646,6 +666,7 @@ public:
 														   )
 #endif
 									 );
+#endif
 	}
 	
 	//////////////////////////////////////////

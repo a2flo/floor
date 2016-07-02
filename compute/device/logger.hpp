@@ -123,7 +123,7 @@ public:
 	template <typename T> struct handle_arg_type<T, enable_if_t<is_floor_vector<T>::value>> {
 		static constexpr ARG_TYPE type() {
 			ARG_TYPE ret = ARG_TYPE::VEC;
-			switch(T::dim) {
+			switch(T::dim()) {
 				case 1: ret |= ARG_TYPE::VEC1; break;
 				case 2: ret |= ARG_TYPE::VEC2; break;
 				case 3: ret |= ARG_TYPE::VEC3; break;

@@ -89,7 +89,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::CUDA:
 #if !defined(FLOOR_NO_CUDA)
 			static_cast<cuda_kernel*>(this)->execute(queue_ptr,
-													 decay_t<work_size_type_global>::dim,
+													 decay_t<work_size_type_global>::dim(),
 													 uint3 { global_work_size },
 													 uint3 { local_work_size },
 													 forward<Args>(args)...);
@@ -98,7 +98,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::HOST:
 #if !defined(FLOOR_NO_HOST_COMPUTE)
 			static_cast<host_kernel*>(this)->execute(queue_ptr,
-													 decay_t<work_size_type_global>::dim,
+													 decay_t<work_size_type_global>::dim(),
 													 uint3 { global_work_size },
 													 uint3 { local_work_size },
 													 forward<Args>(args)...);
@@ -107,7 +107,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::METAL:
 #if !defined(FLOOR_NO_METAL)
 			static_cast<metal_kernel*>(this)->execute(queue_ptr,
-													  decay_t<work_size_type_global>::dim,
+													  decay_t<work_size_type_global>::dim(),
 													  uint3 { global_work_size },
 													  uint3 { local_work_size },
 													  forward<Args>(args)...);
@@ -116,7 +116,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::OPENCL:
 #if !defined(FLOOR_NO_OPENCL)
 			static_cast<opencl_kernel*>(this)->execute(queue_ptr,
-													   decay_t<work_size_type_global>::dim,
+													   decay_t<work_size_type_global>::dim(),
 													   uint3 { global_work_size },
 													   uint3 { local_work_size },
 													   forward<Args>(args)...);
@@ -125,7 +125,7 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 		case COMPUTE_TYPE::VULKAN:
 #if !defined(FLOOR_NO_VULKAN)
 			static_cast<vulkan_kernel*>(this)->execute(queue_ptr,
-													   decay_t<work_size_type_global>::dim,
+													   decay_t<work_size_type_global>::dim(),
 													   uint3 { global_work_size },
 													   uint3 { local_work_size },
 													   forward<Args>(args)...);
