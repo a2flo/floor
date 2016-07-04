@@ -114,6 +114,12 @@ struct alignas(16) i128 {
 	constexpr bool operator!=(const i128& val) const {
 		return (hi != val.hi || lo != val.lo);
 	}
+	constexpr bool operator<=(const i128& val) const {
+		return (*this < val || *this == val);
+	}
+	constexpr bool operator>=(const i128& val) const {
+		return (*this > val || *this == val);
+	}
 	
 	//! conversion to other types
 	template <typename dst_type>
