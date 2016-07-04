@@ -170,15 +170,19 @@ const_func uint32_t abs(uint32_t x) ACL_FWD(__cl_abs, x)
 const_func uint64_t abs(uint64_t x) ACL_FWD(__cl_abs, x)
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
+const_func int8_t floor_rt_min(int8_t x, int8_t y) asm("_Z3mincc");
 const_func int16_t floor_rt_min(int16_t x, int16_t y) asm("_Z3minss");
 const_func int32_t floor_rt_min(int32_t x, int32_t y) asm("_Z3minii");
 const_func int64_t floor_rt_min(int64_t x, int64_t y) asm("_Z3minll");
+const_func uint8_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3minhh");
 const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3mintt");
 const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) asm("_Z3minjj");
 const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) asm("_Z3minmm");
+const_func int8_t floor_rt_max(int8_t x, int8_t y) asm("_Z3maxcc");
 const_func int16_t floor_rt_max(int16_t x, int16_t y) asm("_Z3maxss");
 const_func int32_t floor_rt_max(int32_t x, int32_t y) asm("_Z3maxii");
 const_func int64_t floor_rt_max(int64_t x, int64_t y) asm("_Z3maxll");
+const_func uint8_t floor_rt_max(uint8_t x, uint8_t y) asm("_Z3maxhh");
 const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) asm("_Z3maxtt");
 const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) asm("_Z3maxjj");
 const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) asm("_Z3maxmm");

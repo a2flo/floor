@@ -49,8 +49,8 @@ namespace std {
 	const_func floor_inline_always float round(float a) { return __nvvm_round_ftz_f(a); }
 	const_func floor_inline_always float trunc(float a) { return __nvvm_trunc_ftz_f(a); }
 	const_func floor_inline_always float rint(float a) { return __nvvm_trunc_ftz_f(a); }
-	const_func floor_inline_always float fmin(float a, float b) { return __nvvm_fmin_f(a, b); }
-	const_func floor_inline_always float fmax(float a, float b) { return __nvvm_fmax_f(a, b); }
+	const_func floor_inline_always float fmin(float a, float b) { return __nvvm_fmin_ftz_f(a, b); }
+	const_func floor_inline_always float fmax(float a, float b) { return __nvvm_fmax_ftz_f(a, b); }
 	
 	const_func floor_inline_always float sin(float a) { return __nvvm_sin_approx_ftz_f(a); }
 	const_func floor_inline_always float cos(float a) { return __nvvm_cos_approx_ftz_f(a); }
@@ -126,34 +126,59 @@ namespace std {
 	const_func floor_inline_always uint32_t abs(uint32_t a) { return a; }
 	const_func floor_inline_always uint64_t abs(uint64_t a) { return a; }
 	
-	const_func floor_inline_always int16_t min(int16_t a) {
+	const_func floor_inline_always int16_t floor_rt_min(int16_t a, int16_t b) {
 		int16_t ret;
-		asm("min.s16 %0, %1;" : "=h"(ret) : "h"(a));
+		asm("min.s16 %0, %1, %2;" : "=h"(ret) : "h"(a), "h"(b));
 		return ret;
 	}
-	const_func floor_inline_always uint16_t min(uint16_t a) {
+	const_func floor_inline_always uint16_t floor_rt_min(uint16_t a, uint16_t b) {
 		uint16_t ret;
-		asm("min.u16 %0, %1;" : "=h"(ret) : "h"(a));
+		asm("min.u16 %0, %1, %2;" : "=h"(ret) : "h"(a), "h"(b));
 		return ret;
 	}
-	const_func floor_inline_always int16_t max(int16_t a) {
+	const_func floor_inline_always int16_t floor_rt_max(int16_t a, int16_t b) {
 		int16_t ret;
-		asm("max.s16 %0, %1;" : "=h"(ret) : "h"(a));
+		asm("max.s16 %0, %1, %2;" : "=h"(ret) : "h"(a), "h"(b));
 		return ret;
 	}
-	const_func floor_inline_always uint16_t max(uint16_t a) {
+	const_func floor_inline_always uint16_t floor_rt_max(uint16_t a, uint16_t b) {
 		uint16_t ret;
-		asm("max.u16 %0, %1;" : "=h"(ret) : "h"(a));
+		asm("max.u16 %0, %1, %2;" : "=h"(ret) : "h"(a), "h"(b));
 		return ret;
+	}
+	const_func floor_inline_always int8_t floor_rt_min(int8_t a, int8_t b) {
+		return (int8_t)floor_rt_min(int16_t(a), int16_t(b));
+	}
+	const_func floor_inline_always uint8_t floor_rt_min(uint8_t a, uint8_t b) {
+		return (uint8_t)floor_rt_min(uint16_t(a), uint16_t(b));
+	}
+	const_func floor_inline_always int8_t floor_rt_max(int8_t a, int8_t b) {
+		return (int8_t)floor_rt_max(int16_t(a), int16_t(b));
+	}
+	const_func floor_inline_always uint8_t floor_rt_max(uint8_t a, uint8_t b) {
+		return (uint8_t)floor_rt_max(uint16_t(a), uint16_t(b));
 	}
 	const_func floor_inline_always int32_t floor_rt_min(int32_t a, int32_t b) { return __nvvm_min_i(a, b); }
 	const_func floor_inline_always uint32_t floor_rt_min(uint32_t a, uint32_t b) { return __nvvm_min_ui(a, b); }
 	const_func floor_inline_always int64_t floor_rt_min(int64_t a, int64_t b) { return __nvvm_min_ll(a, b); }
 	const_func floor_inline_always uint64_t floor_rt_min(uint64_t a, uint64_t b) { return __nvvm_min_ull(a, b); }
+	const_func floor_inline_always float floor_rt_min(float a, float b) { return __nvvm_fmin_ftz_f(a, b); }
+	const_func floor_inline_always double floor_rt_min(double a, double b) { return __nvvm_fmin_d(a, b); }
 	const_func floor_inline_always int32_t floor_rt_max(int32_t a, int32_t b) { return __nvvm_max_i(a, b); }
 	const_func floor_inline_always uint32_t floor_rt_max(uint32_t a, uint32_t b) { return __nvvm_max_ui(a, b); }
 	const_func floor_inline_always int64_t floor_rt_max(int64_t a, int64_t b) { return __nvvm_max_ll(a, b); }
 	const_func floor_inline_always uint64_t floor_rt_max(uint64_t a, uint64_t b) { return __nvvm_max_ull(a, b); }
+	const_func floor_inline_always float floor_rt_max(float a, float b) { return __nvvm_fmax_ftz_f(a, b); }
+	const_func floor_inline_always double floor_rt_max(double a, double b) { return __nvvm_fmax_d(a, b); }
+	
+#if !(__clang_major__ == 3 && __clang_minor__ < 7) && defined(PLATFORM_X64)
+	const_func floor_inline_always size_t floor_rt_min(size_t a, size_t b) {
+		return (size_t)floor_rt_min(uint64_t(a), uint64_t(b));
+	}
+	const_func floor_inline_always size_t floor_rt_max(size_t a, size_t b) {
+		return (size_t)floor_rt_max(uint64_t(a), uint64_t(b));
+	}
+#endif
 	
 	// asin/acos/atan s/w computation
 	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>

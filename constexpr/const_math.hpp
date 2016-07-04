@@ -1477,6 +1477,8 @@ namespace math {
 #endif
 	
 	// non-standard functions:
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, float) // std, but needs special handling
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, float)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, float)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, float)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, float)
@@ -1488,6 +1490,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, float)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, float)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int8_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int8_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int8_t)
@@ -1497,6 +1501,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int8_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int8_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int16_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int16_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int16_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int16_t)
@@ -1506,6 +1512,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int16_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int16_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int32_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int32_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int32_t)
@@ -1515,6 +1523,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int32_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int64_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int64_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, int64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, int64_t)
@@ -1524,6 +1534,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int64_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint8_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint8_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint8_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint8_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint8_t)
@@ -1533,6 +1545,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint8_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint8_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint16_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint16_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint16_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint16_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint16_t)
@@ -1542,6 +1556,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint16_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint16_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint32_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint32_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint32_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint32_t)
@@ -1551,6 +1567,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint32_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint64_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint64_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, uint64_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, uint64_t)
@@ -1560,6 +1578,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint64_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, bool)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, bool)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, bool)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, bool)
@@ -1570,6 +1590,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, bool)
 	
 #if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST))
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, __int128_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, __int128_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __int128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __int128_t)
@@ -1579,6 +1601,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, __int128_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, __int128_t)
 	
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, __uint128_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, __uint128_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, __uint128_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, __uint128_t)
@@ -1590,6 +1614,8 @@ namespace math {
 #endif
 	
 #if defined(__APPLE__)
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, ssize_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, ssize_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, ssize_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, ssize_t)
@@ -1602,6 +1628,8 @@ namespace math {
 #if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && \
 						   defined(PLATFORM_X64) && \
 						   !(__clang_major__ == 3 && __clang_minor__ < 7))
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, size_t)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, size_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, size_t)
 	FLOOR_CONST_SELECT_2(wrap, const_math::wrap, rt_math::wrap, size_t)
@@ -1613,6 +1641,8 @@ namespace math {
 #endif
 	
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, double)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, double)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, double)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, double)
@@ -1626,6 +1656,8 @@ namespace math {
 #endif
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, long double)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, long double)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, long double)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, long double)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, long double)
@@ -1640,6 +1672,8 @@ namespace math {
 	
 	// non-standard and metal-only for now
 #if defined(FLOOR_COMPUTE_METAL)
+	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
+	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, half)
 	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, half)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, half)

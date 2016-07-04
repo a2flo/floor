@@ -41,6 +41,106 @@
 using namespace std;
 
 namespace rt_math {
+	//! computes min(x, y), returning x if x <= y, else y
+	template <typename rt_type>
+	static floor_inline_always rt_type min(const rt_type& a, const rt_type& b) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return std::min(a, b);
+#else
+#if defined(FLOOR_CXX17)
+		if constexpr(is_same<rt_type, int8_t>() ||
+					 is_same<rt_type, int16_t>() ||
+					 is_same<rt_type, int32_t>() ||
+					 is_same<rt_type, int64_t>() ||
+					 is_same<rt_type, uint8_t>() ||
+					 is_same<rt_type, uint16_t>() ||
+					 is_same<rt_type, uint32_t>() ||
+					 is_same<rt_type, uint64_t>() ||
+					 is_same<rt_type, float>()
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+					 || is_same<rt_type, double>()
+#endif
+#if defined(FLOOR_COMPUTE_METAL)
+					 || is_same<rt_type, half>()
+#endif
+					 ) {
+			return floor_rt_min(a, b);
+		}
+		else {
+			return std::min(a, b));;
+		}
+#else
+		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||
+									  is_same<rt_type, int16_t>() ||
+									  is_same<rt_type, int32_t>() ||
+									  is_same<rt_type, int64_t>() ||
+									  is_same<rt_type, uint8_t>() ||
+									  is_same<rt_type, uint16_t>() ||
+									  is_same<rt_type, uint32_t>() ||
+									  is_same<rt_type, uint64_t>() ||
+									  is_same<rt_type, float>()
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+									  || is_same<rt_type, double>()
+#endif
+#if defined(FLOOR_COMPUTE_METAL)
+									  || is_same<rt_type, half>()
+#endif
+									  ),
+									 floor_rt_min(a, b), std::min(a, b));
+#endif
+#endif
+	}
+	
+	//! computes max(x, y), returning x if x >= y, else y
+	template <typename rt_type>
+	static floor_inline_always rt_type max(const rt_type& a, const rt_type& b) {
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+		return std::max(a, b);
+#else
+#if defined(FLOOR_CXX17)
+		if constexpr(is_same<rt_type, int8_t>() ||
+					 is_same<rt_type, int16_t>() ||
+					 is_same<rt_type, int32_t>() ||
+					 is_same<rt_type, int64_t>() ||
+					 is_same<rt_type, uint8_t>() ||
+					 is_same<rt_type, uint16_t>() ||
+					 is_same<rt_type, uint32_t>() ||
+					 is_same<rt_type, uint64_t>() ||
+					 is_same<rt_type, float>()
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+					 || is_same<rt_type, double>()
+#endif
+#if defined(FLOOR_COMPUTE_METAL)
+					 || is_same<rt_type, half>()
+#endif
+					 ) {
+			return floor_rt_max(a, b);
+		}
+		else {
+			return std::max(a, b));;
+		}
+#else
+		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||
+									  is_same<rt_type, int16_t>() ||
+									  is_same<rt_type, int32_t>() ||
+									  is_same<rt_type, int64_t>() ||
+									  is_same<rt_type, uint8_t>() ||
+									  is_same<rt_type, uint16_t>() ||
+									  is_same<rt_type, uint32_t>() ||
+									  is_same<rt_type, uint64_t>() ||
+									  is_same<rt_type, float>()
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+									  || is_same<rt_type, double>()
+#endif
+#if defined(FLOOR_COMPUTE_METAL)
+									  || is_same<rt_type, half>()
+#endif
+									  ),
+									 floor_rt_max(a, b), std::max(a, b));
+#endif
+#endif
+	}
+	
 	//! clamps val to the range [min, max]
 	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
 													 is_same<arithmetic_type, __int128_t>() ||

@@ -1603,13 +1603,13 @@ public:
 	//! returns a vector of the minimum between each component of this vector and the corresponding component of another vector
 	constexpr vector_type minned(const vector_type& vec) const {
 		return {
-			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::min, , FLOOR_COMMA)
+			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, vector_helper<decayed_scalar_type>::min, , FLOOR_COMMA)
 		};
 	}
 	//! returns a vector of the maximum between each component of this vector and the corresponding component of another vector
 	constexpr vector_type maxed(const vector_type& vec) const {
 		return {
-			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, std::max, , FLOOR_COMMA)
+			FLOOR_VEC_EXPAND_DUAL_ENCLOSED(vec., FLOOR_COMMA, vector_helper<decayed_scalar_type>::max, , FLOOR_COMMA)
 		};
 	}
 	//! returns the minimum value and maximum value vector of the components of this vector and another vector

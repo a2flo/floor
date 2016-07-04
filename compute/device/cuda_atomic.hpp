@@ -77,36 +77,56 @@ floor_inline_always uint64_t atomic_sub(volatile uint64_t* addr, const uint64_t&
 
 // inc
 floor_inline_always int32_t atomic_inc(volatile int32_t* addr) {
-	return atomic_add(addr, 1);
+	int32_t ret;
+	asm volatile("atom.add.s32 %0, [%1], 1;" : "=r"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always uint32_t atomic_inc(volatile uint32_t* addr) {
-	return atomic_add(addr, 1u);
+	uint32_t ret;
+	asm volatile("atom.add.u32 %0, [%1], 1U;" : "=r"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always float atomic_inc(volatile float* addr) {
-	return atomic_add(addr, 1.0f);
+	float ret;
+	asm volatile("atom.add.f32 %0, [%1], 0F3f800000;" : "=f"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always int64_t atomic_inc(volatile int64_t* addr) {
-	return atomic_add(addr, 1ll);
+	int64_t ret;
+	asm volatile("atom.add.u64 %0, [%1], 1;" : "=l"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always uint64_t atomic_inc(volatile uint64_t* addr) {
-	return atomic_add(addr, 1ull);
+	uint64_t ret;
+	asm volatile("atom.add.u64 %0, [%1], 1U;" : "=l"(ret) : "l"(addr));
+	return ret;
 }
 
 // dec
 floor_inline_always int32_t atomic_dec(volatile int32_t* addr) {
-	return atomic_sub(addr, 1);
+	int32_t ret;
+	asm volatile("atom.add.s32 %0, [%1], -1;" : "=r"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always uint32_t atomic_dec(volatile uint32_t* addr) {
-	return atomic_sub(addr, 1u);
+	uint32_t ret;
+	asm volatile("atom.add.u32 %0, [%1], -1;" : "=r"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always float atomic_dec(volatile float* addr) {
-	return atomic_sub(addr, 1.0f);
+	float ret;
+	asm volatile("atom.add.f32 %0, [%1], 0Fbf800000;" : "=f"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always int64_t atomic_dec(volatile int64_t* addr) {
-	return atomic_sub(addr, 1ll);
+	int64_t ret;
+	asm volatile("atom.add.u64 %0, [%1], -1;" : "=l"(ret) : "l"(addr));
+	return ret;
 }
 floor_inline_always uint64_t atomic_dec(volatile uint64_t* addr) {
-	return atomic_sub(addr, 1ull);
+	uint64_t ret;
+	asm volatile("atom.add.u64 %0, [%1], -1;" : "=l"(ret) : "l"(addr));
+	return ret;
 }
 
 // xchg

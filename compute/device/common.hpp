@@ -216,10 +216,12 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 	
 	template <typename T> constexpr const_func floor_inline_always auto floor_ce_min(T x, T y) { return x <= y ? x : y; }
 	template <typename T> constexpr const_func floor_inline_always auto floor_ce_max(T x, T y) { return x >= y ? x : y; }
-	
+
+	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int8_t, "c")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int16_t, "s")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int32_t, "i")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, int64_t, "l")
+	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint8_t, "h")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint16_t, "t")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint32_t, "j")
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, floor_rt_min, uint64_t, "m")
@@ -228,9 +230,11 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 	FLOOR_CONST_SELECT_2(min, floor_ce_min, fmin, double, "d")
 #endif
 	
+	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int8_t, "c")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int16_t, "s")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int32_t, "i")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, int64_t, "l")
+	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint8_t, "h")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint16_t, "t")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint32_t, "j")
 	FLOOR_CONST_SELECT_2(max, floor_ce_max, floor_rt_max, uint64_t, "m")
@@ -325,7 +329,7 @@ protected:
 	}
 	
 	T* __attribute__((aligned(1024))) data;
-	uint32_t offset { 0 };
+	uint32_t offset;
 	
 	typedef T type_1d;
 	typedef T type_2d[count_2];
