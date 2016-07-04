@@ -118,6 +118,12 @@
 #if defined(max)
 #undef max
 #endif
+#if defined(__min)
+#undef __min
+#endif
+#if defined(__max)
+#undef __max
+#endif
 
 // if any bool macros get defined for whatever insane reasons, undefine them, because they cause issues
 #if defined(bool)
