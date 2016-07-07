@@ -248,13 +248,13 @@ floor_inline_always uint64_t atomic_max(volatile uint64_t* addr, const uint64_t&
 // NOTE: not natively supported, but can be efficiently emulated through 32-bit min/max
 floor_inline_always float atomic_min(volatile float* addr, const float& val) {
 	if(val < 0.0f) {
-		atomic_max((volatile uint32_t*)addr, *(uint32_t*)&val);
+		return atomic_max((volatile uint32_t*)addr, *(uint32_t*)&val);
 	}
 	return atomic_min((volatile int32_t*)addr, *(int32_t*)&val);
 }
 floor_inline_always float atomic_max(volatile float* addr, const float& val) {
 	if(val < 0.0f) {
-		atomic_min((volatile uint32_t*)addr, *(uint32_t*)&val);
+		return atomic_min((volatile uint32_t*)addr, *(uint32_t*)&val);
 	}
 	return atomic_max((volatile int32_t*)addr, *(int32_t*)&val);
 }

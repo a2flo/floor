@@ -30,9 +30,9 @@
 #include <floor/compute/cuda/cuda_api.hpp>
 
 // if FLOOR_COMPUTE_BREAK_ON_ERROR is set, create a debug breakpoint
-/*#if defined(FLOOR_DEBUG)
+#if defined(FLOOR_DEBUG)
 #define FLOOR_COMPUTE_BREAK_ON_ERROR
-#endif*/
+#endif
 #if defined(__clang__) && defined(FLOOR_COMPUTE_BREAK_ON_ERROR)
 #define CU_DBG_BREAKPOINT() { logger::flush(); __builtin_debugtrap(); }
 #else

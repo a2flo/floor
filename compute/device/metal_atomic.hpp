@@ -302,25 +302,25 @@ floor_inline_always float atomic_cmpxchg(volatile local float* p, float cmp, flo
 }
 floor_inline_always float atomic_min(volatile global float* p, float val) {
 	if(val < 0.0f) {
-		atomic_max((volatile global uint32_t*)p, *(uint32_t*)&val);
+		return atomic_max((volatile global uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atomic_min((volatile global int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atomic_min(volatile local float* p, float val) {
 	if(val < 0.0f) {
-		atomic_max((volatile local uint32_t*)p, *(uint32_t*)&val);
+		return atomic_max((volatile local uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atomic_min((volatile local int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atomic_max(volatile global float* p, float val) {
 	if(val < 0.0f) {
-		atomic_min((volatile global uint32_t*)p, *(uint32_t*)&val);
+		return atomic_min((volatile global uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atomic_max((volatile global int32_t*)p, *(int32_t*)&val);
 }
 floor_inline_always float atomic_max(volatile local float* p, float val) {
 	if(val < 0.0f) {
-		atomic_min((volatile local uint32_t*)p, *(uint32_t*)&val);
+		return atomic_min((volatile local uint32_t*)p, *(uint32_t*)&val);
 	}
 	return atomic_max((volatile local int32_t*)p, *(int32_t*)&val);
 }
