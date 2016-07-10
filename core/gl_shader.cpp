@@ -125,7 +125,9 @@ static void log_pretty_print(const char* log, const string&) {
 
 #define SHADER_LOG_SIZE 32767
 pair<bool, floor_shader_object> floor_compile_shader(const char* name,
-													 const char* vs_text, const char* fs_text,
+													 const char* vs_text,
+													 const char* gs_text,
+													 const char* fs_text,
 													 const uint32_t glsl_version,
 													 const vector<pair<string, int32_t>> options) {
 	floor_shader_object shd { .name = name };
@@ -145,8 +147,10 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	// combine code
 	const string vs_code = header + vs_text;
 	const string fs_code = header + fs_text;
+	const string gs_code = header + (gs_text != nullptr ? gs_text : "");
 	const auto vs_code_ptr = vs_code.c_str();
 	const auto fs_code_ptr = fs_code.c_str();
+	const auto gs_code_ptr = gs_code.c_str();
 	
 	// success flag (if it's 1 (true), we successfully created a shader object)
 	GLint success = 0;
@@ -168,6 +172,20 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 		return { false, {} };
 	}
 	
+	// create the geometry shader object
+	if(gs_text != nullptr) {
+		shd_obj.geometry_shader = glCreateShader(GL_GEOMETRY_SHADER);
+		glShaderSource(shd_obj.geometry_shader, 1, (GLchar const**)&gs_code_ptr, nullptr);
+		glCompileShader(shd_obj.geometry_shader);
+		glGetShaderiv(shd_obj.geometry_shader, GL_COMPILE_STATUS, &success);
+		if(!success) {
+			glGetShaderInfoLog(shd_obj.geometry_shader, SHADER_LOG_SIZE, nullptr, info_log);
+			log_error("error in geometry shader \"%s\" compilation:", shd.name);
+			log_pretty_print(info_log, gs_code);
+			return { false, {} };
+		}
+	}
+	
 	// create the fragment shader object
 	shd_obj.fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 	glShaderSource(shd_obj.fragment_shader, 1, (GLchar const**)&fs_code_ptr, nullptr);
@@ -184,6 +202,9 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	shd_obj.program = glCreateProgram();
 	// attach the vertex and fragment shader progam to it
 	glAttachShader(shd_obj.program, shd_obj.vertex_shader);
+	if(gs_text != nullptr) {
+		glAttachShader(shd_obj.program, shd_obj.geometry_shader);
+	}
 	glAttachShader(shd_obj.program, shd_obj.fragment_shader);
 	
 	// now link the program object

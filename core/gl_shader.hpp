@@ -25,6 +25,7 @@ struct floor_shader_object {
 	struct internal_shader_object {
 		uint32_t program { 0u };
 		uint32_t vertex_shader { 0u };
+		uint32_t geometry_shader { 0u };
 		uint32_t fragment_shader { 0u };
 		
 		struct shader_variable {
@@ -41,7 +42,9 @@ struct floor_shader_object {
 };
 
 pair<bool, floor_shader_object> floor_compile_shader(const char* name,
-													 const char* vs_text, const char* fs_text,
+													 const char* vs_text,
+													 const char* gs_text,
+													 const char* fs_text,
 #if !defined(FLOOR_IOS)
 													 const uint32_t glsl_version = 150, // glsl 1.50 core
 #else
@@ -52,5 +55,21 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 #endif
 #endif
 													 const vector<pair<string, int32_t>> options = {});
+
+floor_inline_always pair<bool, floor_shader_object> floor_compile_shader(const char* name,
+																		 const char* vs_text,
+																		 const char* fs_text,
+#if !defined(FLOOR_IOS)
+																		 const uint32_t glsl_version = 150, // glsl 1.50 core
+#else
+#if defined(PLATFORM_X64)
+																		 const uint32_t glsl_version = 300, // glsl es 3.00
+#else
+																		 const uint32_t glsl_version = 100, // glsl es 1.00
+#endif
+#endif
+																		 const vector<pair<string, int32_t>> options = {}) {
+	return floor_compile_shader(name, vs_text, nullptr, fs_text, glsl_version, options);
+}
 
 #endif
