@@ -460,6 +460,10 @@ static uint32_t barrier_users { 0 };
 static _Thread_local uint32_t item_local_linear_idx { 0 };
 static _Thread_local fiber_context* item_contexts { nullptr };
 #endif
+// -> sanity check for correct barrier use
+#if defined(FLOOR_DEBUG)
+static _Thread_local uint32_t unfinished_items { 0 };
+#endif
 
 // local memory management
 static constexpr const size_t floor_local_memory_max_size { host_limits::local_memory_size };
@@ -694,7 +698,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 	
 	// start worker threads
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
-	const auto time_start = floor_timer2::start();
+	const auto time_start = floor_timer::start();
 #endif
 	vector<unique_ptr<thread>> worker_threads(cpu_count);
 	for(uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
@@ -743,6 +747,9 @@ void host_kernel::execute_internal(compute_queue* queue,
 				for(uint32_t i = 0; i < local_size; ++i) {
 					items[i].reset();
 				}
+#if defined(FLOOR_DEBUG)
+				unfinished_items = local_size;
+#endif
 				
 				// run fibers/work-items for this group
 				static _Thread_local volatile bool done;
@@ -757,10 +764,20 @@ void host_kernel::execute_internal(compute_queue* queue,
 				
 				// exit due to excessive local memory allocation?
 				if(local_memory_exceeded) {
-					log_error("exceeded local memory allocation for kernel \"%s\" - requested %u bytes, limit is %u bytes",
+					log_error("exceeded local memory allocation in kernel \"%s\" - requested %u bytes, limit is %u bytes",
 							  func_name, local_memory_alloc_offset, floor_local_memory_max_size);
 					break;
 				}
+				
+				// check if any items are still unfinished (in a valid program, all must be finished at this point)
+				// NOTE: this won't detect all barrier misuses, doing so would require *a lot* of work
+#if defined(FLOOR_DEBUG)
+				if(unfinished_items > 0) {
+					log_error("barrier misuse detected in kernel \"%s\" - %u unfinished items in group %v",
+							  func_name, unfinished_items, group_id);
+					break;
+				}
+#endif
 			}
 		});
 	}
@@ -769,7 +786,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 		item->join();
 	}
 #if defined(FLOOR_HOST_KERNEL_ENABLE_TIMING)
-	log_debug("kernel time: %ums", double(floor_timer2::stop<chrono::microseconds>(time_start)) / 1000.0);
+	log_debug("kernel time: %ums", double(floor_timer::stop<chrono::microseconds>(time_start)) / 1000.0);
 #endif
 #endif
 }
@@ -793,12 +810,18 @@ extern "C" void run_mt_group_item(const uint32_t local_linear_idx) {
 	
 	// execute work-item / kernel function
 	(*cur_kernel_function)();
+	
+	// for barrier misuse checking
+#if defined(FLOOR_DEBUG)
+	--unfinished_items;
+#endif
 }
 
 // -> kernel lib function implementations
 #include <floor/compute/device/host.hpp>
 
 // barrier handling (all the same)
+// NOTE: the same barrier _must_ be encountered at the same point for all work-items
 void global_barrier() {
 #if defined(FLOOR_HOST_COMPUTE_MT_ITEM)
 	// save current barrier generation/id
@@ -833,41 +856,44 @@ void global_barrier() {
 	floor_global_idx = saved_global_id;
 #endif
 }
-void global_mem_fence() {
-	global_barrier();
-}
-void global_read_mem_fence() {
-	global_barrier();
-}
-void global_write_mem_fence() {
-	global_barrier();
-}
 void local_barrier() {
-	global_barrier();
-}
-void local_mem_fence() {
-	global_barrier();
-}
-void local_read_mem_fence() {
-	global_barrier();
-}
-void local_write_mem_fence() {
-	global_barrier();
-}
-void barrier() {
 	global_barrier();
 }
 void image_barrier() {
 	global_barrier();
 }
-void image_mem_fence() {
+void barrier() {
 	global_barrier();
+}
+
+// memory fence handling (all the same)
+// NOTE: compared to a barrier, a memory fence does not have to be encountered by all work-items (no context/fiber switching is necessary)
+void global_mem_fence() {
+	__sync_synchronize();
+}
+void global_read_mem_fence() {
+	global_mem_fence();
+}
+void global_write_mem_fence() {
+	global_mem_fence();
+}
+void local_mem_fence() {
+	global_mem_fence();
+}
+void local_read_mem_fence() {
+	global_mem_fence();
+}
+void local_write_mem_fence() {
+	global_mem_fence();
+}
+void image_mem_fence() {
+	global_mem_fence();
 }
 void image_read_mem_fence() {
-	global_barrier();
+	global_mem_fence();
 }
 void image_write_mem_fence() {
-	global_barrier();
+	global_mem_fence();
 }
 
 // local memory management

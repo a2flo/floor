@@ -39,21 +39,10 @@
 // NOTE: no fibers, barriers are sync'ed through spin locking
 //#define FLOOR_HOST_COMPUTE_MT_ITEM 1
 
-// multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in a work-group
-// NOTE: has intra-group parallelism, has no inter-group parallelism
-// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then spin lock sync
-//#define FLOOR_HOST_COMPUTE_MT_ITEM_FIBERED 1
-
 // multi-threaded, each logical cpu ("h/w thread") corresponding to one work-group
 // NOTE: has no intra-group parallelism, has inter-group parallelism
 // NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier, then continuing
 #define FLOOR_HOST_COMPUTE_MT_GROUP 1
-
-// multi-threaded, each logical cpu ("h/w thread") corresponding to multiple work-items in multiple work-groups
-// NOTE: has intra-group parallelism and potentially inter-group parallelism
-// NOTE: uses fibers when encountering a barrier, running all fibers up to the barrier in all work-groups,
-// then spin lock sync (TODO: +could continue as soon as one barrier has completed)
-//#define FLOOR_HOST_COMPUTE_MT_MIXED 1
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_HOST_KERNEL_IMPL 1

@@ -114,11 +114,6 @@ namespace compute_algorithm {
 		return reduce_no_init<work_group_size, reduced_type>(lmem, std::forward<F>(op));
 	}
 	
-	//! returns the amount of local memory that must be allocated by the caller
-	template <typename reduced_type, uint32_t work_group_size>
-	static constexpr uint32_t reduce_local_memory_size() {
-		return sizeof(reduced_type) * work_group_size;
-	}
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size>
 	static constexpr uint32_t reduce_local_memory_elements() {
@@ -133,7 +128,7 @@ namespace compute_algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
-	template <uint32_t local_work_dim, bool inclusive, typename data_type, typename op_func_type, typename lmem_type>
+	template <uint32_t work_group_size, bool inclusive, typename data_type, typename op_func_type, typename lmem_type>
 	floor_inline_always static auto scan(data_type value,
 										 op_func_type&& op,
 										 lmem_type& lmem,
@@ -144,11 +139,11 @@ namespace compute_algorithm {
 		
 		uint32_t side_idx = 0;
 #pragma unroll
-		for(uint32_t offset = 1; offset < local_work_dim; offset <<= 1) {
+		for(uint32_t offset = 1; offset < work_group_size; offset <<= 1) {
 			if(lid >= offset) {
 				value = op(lmem[side_idx + lid - offset], value);
 			}
-			side_idx = local_work_dim - side_idx; // swap side
+			side_idx = work_group_size - side_idx; // swap side
 			lmem[side_idx + lid] = value;
 			local_barrier();
 		}
@@ -175,31 +170,26 @@ namespace compute_algorithm {
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
-	template <uint32_t local_work_dim, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan(data_type value,
+	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
+	floor_inline_always static auto inclusive_scan(data_type work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
 												   data_type zero_val = (data_type)0) {
-		return scan<local_work_dim, true>(value, std::forward<op_func_type>(op), lmem, zero_val);
+		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	
 	//! generic work-group exclusive-scan function
 	//! NOTE: local memory must be allocated on the user side and passed into this function
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
-	template <uint32_t local_work_dim, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan(data_type value,
+	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
+	floor_inline_always static auto exclusive_scan(data_type work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
 												   data_type zero_val = (data_type)0) {
-		return scan<local_work_dim, false>(value, std::forward<op_func_type>(op), lmem, zero_val);
+		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	
-	//! returns the amount of local memory that must be allocated by the caller
-	template <typename reduced_type, uint32_t work_group_size>
-	static constexpr uint32_t scan_local_memory_size() {
-		return sizeof(reduced_type) * (work_group_size * 2u - 1u);
-	}
 	//! returns the amount of local memory elements that must be allocated by the caller
 	template <uint32_t work_group_size>
 	static constexpr uint32_t scan_local_memory_elements() {
