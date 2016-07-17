@@ -241,6 +241,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		}
 		platform_cl_version = extracted_cl_version.second;
 		bool check_spirv_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
+		bool check_sub_group_support = (platform_cl_version >= OPENCL_VERSION::OPENCL_2_1);
 		
 		// pocl only identifies itself in the platform version string, not the vendor string
 		if(cl_version_str.find("pocl") != string::npos) {
@@ -378,6 +379,18 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device->sub_group_support = (core::contains(device->extensions, "cl_khr_subgroups") ||
 										 core::contains(device->extensions, "cl_intel_subgroups") ||
 										 (device->cl_version >= OPENCL_VERSION::OPENCL_2_1 && platform_cl_version >= OPENCL_VERSION::OPENCL_2_1));
+			if(device->sub_group_support) {
+				check_sub_group_support = true;
+			}
+			device->required_size_sub_group_support = core::contains(device->extensions, "cl_intel_required_subgroup_size");
+			if(device->required_size_sub_group_support) {
+				const auto sub_group_sizes = cl_get_info<CL_DEVICE_SUB_GROUP_SIZES>(cl_dev);
+				string sub_group_sizes_str = "";
+				for(const auto& sg_size : sub_group_sizes) {
+					sub_group_sizes_str += to_string(sg_size) + " ";
+				}
+				log_msg("supported sub-group sizes: %v", sub_group_sizes_str);
+			}
 			
 			log_msg("address space size: %u", device->bitness);
 			log_msg("max mem alloc: %u bytes / %u MB",
@@ -603,17 +616,31 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				check_extension_ptr = true;
 #else
 				// we're compiling with opencl 2.1+ headers and this function *should* exist, but check for it just in case
-				create_program_with_il = &clCreateProgramWithIL;
-				check_extension_ptr = (create_program_with_il == nullptr);
+				cl_create_program_with_il = &clCreateProgramWithIL;
+				check_extension_ptr = (cl_create_program_with_il == nullptr);
 #endif
 			}
 			
 			// if the platform is not 2.1+, but the extension is supported, get the function pointer to it
 			if(platform_cl_version < OPENCL_VERSION::OPENCL_2_1 || check_extension_ptr) {
-				create_program_with_il = (decltype(create_program_with_il))clGetExtensionFunctionAddressForPlatform(platform, "clCreateProgramWithILKHR");
+				cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddressForPlatform(platform, "clCreateProgramWithILKHR");
+				if(cl_create_program_with_il == nullptr) {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(deprecated-declarations)
+					cl_create_program_with_il = (decltype(cl_create_program_with_il))clGetExtensionFunctionAddress("clCreateProgramWithILKHR");
+FLOOR_POP_WARNINGS()
+				}
 			}
 			
-			if(create_program_with_il == nullptr) {
+			// last resort: if we compiled against a opencl 2.1+ header/lib, but aren't using a opencl 2.1+ platform,
+			// still try the core function (which might yet work)
+#if defined(CL_VERSION_2_1)
+			if(cl_create_program_with_il == nullptr) {
+				cl_create_program_with_il = &clCreateProgramWithIL;
+			}
+#endif
+			
+			if(cl_create_program_with_il == nullptr) {
 				log_error("no valid clCreateProgramWithIL function has been found, disabling SPIR-V support");
 				
 				// disable spir-v on all devices
@@ -628,6 +655,40 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		for(auto& dev : devices) {
 			if(((opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE) {
 				dev->param_workaround = true;
+			}
+		}
+		
+		// handle sub-group support
+		if(check_sub_group_support) {
+			bool check_extension_ptr = false;
+			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+#if !defined(CL_VERSION_2_1)
+				check_extension_ptr = true;
+#else
+				cl_get_kernel_sub_group_info = &clGetKernelSubGroupInfo;
+				check_extension_ptr = (cl_get_kernel_sub_group_info == nullptr);
+#endif
+			}
+			
+			// if the platform is not 2.1+, but the extension is supported, get the function pointer to it
+			if(platform_cl_version < OPENCL_VERSION::OPENCL_2_1 || check_extension_ptr) {
+				cl_get_kernel_sub_group_info = (decltype(cl_get_kernel_sub_group_info))clGetExtensionFunctionAddressForPlatform(platform, "clGetKernelSubGroupInfoKHR");
+				if(cl_get_kernel_sub_group_info == nullptr) {
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(deprecated-declarations)
+					cl_get_kernel_sub_group_info = (decltype(cl_get_kernel_sub_group_info))clGetExtensionFunctionAddress("clGetKernelSubGroupInfoKHR");
+FLOOR_POP_WARNINGS()
+				}
+			}
+			
+			if(cl_get_kernel_sub_group_info == nullptr) {
+				log_error("no valid clGetKernelSubGroupInfo function has been found, disabling sub-group support");
+				
+				// disable sub-group support on all devices
+				for(auto& dev : devices) {
+					dev->sub_group_support = false;
+					((opencl_device*)dev.get())->required_size_sub_group_support = false;
+				}
 			}
 		}
 		
@@ -1013,7 +1074,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 		auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
 		if(code == nullptr) return ret; // already prints an error
 		
-		ret.program = create_program_with_il(ctx, code.get(), code_size, &create_err);
+		ret.program = cl_create_program_with_il(ctx, code.get(), code_size, &create_err);
 		if(create_err != CL_SUCCESS) {
 			log_error("failed to create opencl program from IL/SPIR-V: %u: %s", create_err, cl_error_to_string(create_err));
 			return ret;
@@ -1064,6 +1125,65 @@ shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(
 																				llvm_compute::program_data program,
 																				const llvm_compute::TARGET target) {
 	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program, target));
+}
+
+// from opencl_common: just forward to the context function
+cl_int floor_opencl_get_kernel_sub_group_info(cl_kernel kernel,
+											  const opencl_compute* ctx,
+											  cl_device_id device,
+											  cl_kernel_sub_group_info param_name,
+											  size_t input_value_size,
+											  const void* input_value,
+											  size_t param_value_size,
+											  void* param_value,
+											  size_t* param_value_size_ret) {
+	if(ctx == nullptr) return CL_INVALID_VALUE;
+	return ctx->get_kernel_sub_group_info(kernel, device, param_name, input_value_size, input_value,
+										  param_value_size, param_value, param_value_size_ret);
+}
+
+
+cl_int opencl_compute::get_kernel_sub_group_info(cl_kernel kernel,
+												 cl_device_id device,
+												 cl_kernel_sub_group_info param_name,
+												 size_t input_value_size,
+												 const void* input_value,
+												 size_t param_value_size,
+												 void* param_value,
+												 size_t* param_value_size_ret) const {
+	if(cl_get_kernel_sub_group_info == nullptr) return CL_INVALID_VALUE;
+	
+	for(const auto& dev : devices) {
+		const auto cl_dev = (const opencl_device*)dev.get();
+		if(cl_dev->device_id == device) {
+			switch(param_name) {
+				// opencl 2.1+ or cl_khr_subgroups or cl_intel_subgroups
+				case CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE:
+				case CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE:
+					return cl_get_kernel_sub_group_info(kernel, device, param_name, input_value_size, input_value,
+														param_value_size, param_value, param_value_size_ret);
+					
+				// opencl 2.1+
+				case CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT:
+				case CL_KERNEL_MAX_NUM_SUB_GROUPS:
+				case CL_KERNEL_COMPILE_NUM_SUB_GROUPS:
+					if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1) {
+						return cl_get_kernel_sub_group_info(kernel, device, param_name, input_value_size, input_value,
+															param_value_size, param_value, param_value_size_ret);
+					}
+					return CL_INVALID_VALUE;
+					
+				// cl_intel_required_subgroup_size
+				case CL_KERNEL_COMPILE_SUB_GROUP_SIZE:
+					if(cl_dev->required_size_sub_group_support) {
+						return cl_get_kernel_sub_group_info(kernel, device, param_name, input_value_size, input_value,
+															param_value_size, param_value, param_value_size_ret);
+					}
+					return CL_INVALID_VALUE;
+			}
+		}
+	}
+	return CL_INVALID_DEVICE;
 }
 
 #endif

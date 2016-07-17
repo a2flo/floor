@@ -107,16 +107,55 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 #include <CL/cl_gl.h>
 #endif
 
+// cl_khr_spir
 #if !defined(CL_DEVICE_SPIR_VERSIONS)
 #define CL_DEVICE_SPIR_VERSIONS 0x40E0
 #endif
 
+// opencl 2.1+ or cl_khr_il_program
 #if !defined(CL_DEVICE_IL_VERSION)
 #define CL_DEVICE_IL_VERSION 0x105B
 #endif
 
+// opencl 2.0+
 #if !defined(CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS)
 #define CL_DEVICE_MAX_READ_WRITE_IMAGE_ARGS 0x104C
+#endif
+
+// opencl 2.1+ or cl_khr_subgroups or cl_intel_subgroups
+#if !defined(CL_VERSION_2_1)
+#if !defined(cl_khr_sub_groups)
+typedef cl_uint cl_kernel_sub_group_info;
+#endif
+#define CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE 0x2033
+#define CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE 0x2034
+// -> only opencl 2.1
+#define CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT 0x11B8
+#define CL_KERNEL_MAX_NUM_SUB_GROUPS 0x11B9
+#define CL_KERNEL_COMPILE_NUM_SUB_GROUPS 0x11BA
+#endif
+
+// either wraps clGetKernelSubGroupInfo(KHR) or is a dummy implementation
+class opencl_compute;
+extern cl_int floor_opencl_get_kernel_sub_group_info(cl_kernel kernel,
+													 const opencl_compute* ctx,
+													 cl_device_id device,
+													 cl_kernel_sub_group_info param_name,
+													 size_t input_value_size,
+													 const void* input_value,
+													 size_t param_value_size,
+													 void* param_value,
+													 size_t* param_value_size_ret);
+
+// cl_intel_required_subgroup_size
+#if !defined(CL_DEVICE_SUB_GROUP_SIZES)
+#define CL_DEVICE_SUB_GROUP_SIZES 0x4108
+#endif
+#if !defined(CL_KERNEL_SPILL_MEM_SIZE)
+#define CL_KERNEL_SPILL_MEM_SIZE 0x4109
+#endif
+#if !defined(CL_KERNEL_COMPILE_SUB_GROUP_SIZE)
+#define CL_KERNEL_COMPILE_SUB_GROUP_SIZE 0x410A
 #endif
 
 #include <cstdint>
@@ -358,6 +397,7 @@ F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_PITCH_ALIGNMENT, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IMAGE_BASE_ADDRESS_ALIGNMENT, cl_uint) \
 F(cl_device_id, cl_device_info, CL_DEVICE_SPIR_VERSIONS, string) \
 F(cl_device_id, cl_device_info, CL_DEVICE_IL_VERSION, string) \
+F(cl_device_id, cl_device_info, CL_DEVICE_SUB_GROUP_SIZES, vector<size_t>) \
 /* cl_context_info */ \
 F(cl_context, cl_context_info, CL_CONTEXT_REFERENCE_COUNT, cl_uint) \
 F(cl_context, cl_context_info, CL_CONTEXT_DEVICES, vector<cl_device_id>) \
@@ -390,6 +430,14 @@ F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_LOCAL_MEM_SIZE, cl_ulong) \
 F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, size_t) \
 F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_PRIVATE_MEM_SIZE, cl_ulong) \
 F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_GLOBAL_WORK_SIZE, vector<size_t>) \
+F(cl_kernel, cl_kernel_work_group_info, CL_KERNEL_SPILL_MEM_SIZE, cl_ulong) \
+/* cl_kernel_sub_group_info */ \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE, size_t) \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE, size_t) \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT, vector<size_t>) \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_MAX_NUM_SUB_GROUPS, size_t) \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_COMPILE_NUM_SUB_GROUPS, size_t) \
+F(cl_kernel, cl_kernel_sub_group_info, CL_KERNEL_COMPILE_SUB_GROUP_SIZE, size_t) \
 /* cl_kernel_arg_info */ \
 F(cl_kernel, cl_kernel_arg_info, CL_KERNEL_ARG_ADDRESS_QUALIFIER, cl_kernel_arg_address_qualifier) \
 F(cl_kernel, cl_kernel_arg_info, CL_KERNEL_ARG_ACCESS_QUALIFIER, cl_kernel_arg_access_qualifier) \
@@ -415,33 +463,38 @@ FLOOR_CL_INFO_RET_TYPES(FLOOR_CL_INFO_RET_TYPE_SPEC)
 #define FLOOR_CI_ADD_DEVICE_ARG_NAME() , device
 #define FLOOR_CI_ADD_ARG_IDX_ARG() , const cl_uint& arg_idx
 #define FLOOR_CI_ADD_ARG_IDX_ARG_NAME() , arg_idx
+#define FLOOR_CI_ADD_CTX_AND_DEVICE_ARG() , const opencl_compute* ctx, const cl_device_id& device
+#define FLOOR_CI_ADD_CTX_AND_DEVICE_ARG_NAME() , ctx, device
+#define FLOOR_CI_ADD_INPUT_ARG() , const size_t input_value_size = 0, const void* input_value = nullptr
+#define FLOOR_CI_ADD_INPUT_ARG_NAME() , input_value_size, input_value
 
 #define FLOOR_CL_INFO_TYPES(F) \
-F(cl_platform_id, cl_platform_info, clGetPlatformInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_device_id, cl_device_info, clGetDeviceInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_context, cl_context_info, clGetContextInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_command_queue, cl_command_queue_info, clGetCommandQueueInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_mem, cl_mem_info, clGetMemObjectInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_mem, cl_image_info, clGetImageInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_sampler, cl_sampler_info, clGetSamplerInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_program, cl_program_info, clGetProgramInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_program, cl_program_build_info, clGetProgramBuildInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME) \
-F(cl_kernel, cl_kernel_info, clGetKernelInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_kernel, cl_kernel_work_group_info, clGetKernelWorkGroupInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME) \
-F(cl_kernel, cl_kernel_arg_info, clGetKernelArgInfo, FLOOR_CI_ADD_ARG_IDX_ARG, FLOOR_CI_ADD_ARG_IDX_ARG_NAME) \
-F(cl_event, cl_event_info, clGetEventInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
-F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD)
+F(cl_platform_id, cl_platform_info, clGetPlatformInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_device_id, cl_device_info, clGetDeviceInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_context, cl_context_info, clGetContextInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_command_queue, cl_command_queue_info, clGetCommandQueueInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_mem, cl_mem_info, clGetMemObjectInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_mem, cl_image_info, clGetImageInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_sampler, cl_sampler_info, clGetSamplerInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_program, cl_program_info, clGetProgramInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_program, cl_program_build_info, clGetProgramBuildInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_kernel, cl_kernel_info, clGetKernelInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_kernel, cl_kernel_work_group_info, clGetKernelWorkGroupInfo, FLOOR_CI_ADD_DEVICE_ARG, FLOOR_CI_ADD_DEVICE_ARG_NAME, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_kernel, cl_kernel_sub_group_info, floor_opencl_get_kernel_sub_group_info, FLOOR_CI_ADD_CTX_AND_DEVICE_ARG, FLOOR_CI_ADD_CTX_AND_DEVICE_ARG_NAME, FLOOR_CI_ADD_INPUT_ARG, FLOOR_CI_ADD_INPUT_ARG_NAME) \
+F(cl_kernel, cl_kernel_arg_info, clGetKernelArgInfo, FLOOR_CI_ADD_ARG_IDX_ARG, FLOOR_CI_ADD_ARG_IDX_ARG_NAME, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_event, cl_event_info, clGetEventInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD) \
+F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD, FLOOR_CI_NO_ADD)
 
-#define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func, additional_args, additional_arg_names) \
+#define FLOOR_CL_INFO_FUNC(obj_type, cl_info_typename, cl_info_func, additional_args, additional_arg_names, additional_input_args, additional_input_arg_names) \
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   !is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	ret_type ret {}; \
-	cl_info_func(obj additional_arg_names() , info_type, sizeof(ret_type), &ret, nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , sizeof(ret_type), &ret, nullptr); \
 	return ret; \
 } \
 template <cl_uint info_type, \
@@ -449,11 +502,11 @@ template <cl_uint info_type, \
 					   is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   !is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	size_t buf_size = 0; \
-	cl_info_func(obj additional_arg_names() , info_type, 0, nullptr, &buf_size); \
+	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , 0, nullptr, &buf_size); \
 	vector<char> info(buf_size); \
-	cl_info_func(obj additional_arg_names() , info_type, buf_size, info.data(), nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , buf_size, info.data(), nullptr); \
 	return (buf_size > 0 ? string(info.data(), buf_size - 1 /* trim \0 */) : ""); \
 } \
 template <cl_uint info_type, \
@@ -461,13 +514,13 @@ template <cl_uint info_type, \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
 					   is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
-typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() ) { \
+typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
 	typedef typename ret_type::value_type value_type; \
 	size_t params_size = 0; \
-	cl_info_func(obj additional_arg_names() , info_type, 0, nullptr, &params_size); \
+	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , 0, nullptr, &params_size); \
 	ret_type ret(params_size / sizeof(value_type)); \
-	cl_info_func(obj additional_arg_names() , info_type, params_size, ret.data(), nullptr); \
+	cl_info_func(obj additional_arg_names() , info_type additional_input_arg_names() , params_size, ret.data(), nullptr); \
 	return ret; \
 }
 

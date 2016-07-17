@@ -149,6 +149,16 @@ public:
 	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
 	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
 	
+	// for compat with clGetKernelSubGroupInfo(KHR) and misc sub-group extensions
+	cl_int get_kernel_sub_group_info(cl_kernel kernel,
+									 cl_device_id device,
+									 cl_kernel_sub_group_info param_name,
+									 size_t input_value_size,
+									 const void* input_value,
+									 size_t param_value_size,
+									 void* param_value,
+									 size_t* param_value_size_ret) const;
+	
 protected:
 	cl_context ctx { nullptr };
 	vector<cl_device_id> ctx_devices;
@@ -164,10 +174,20 @@ protected:
 	vector<shared_ptr<opencl_program>> programs GUARDED_BY(programs_lock);
 	
 	// either core clCreateProgramWithIL or extension clCreateProgramWithILKHR
-	CL_API_CALL cl_program (*create_program_with_il)(cl_context context,
-													 const void* il,
-													 size_t length,
-													 cl_int* errcode_ret) = nullptr;
+	CL_API_CALL cl_program (*cl_create_program_with_il)(cl_context context,
+														const void* il,
+														size_t length,
+														cl_int* errcode_ret) = nullptr;
+	
+	// either core clGetKernelSubGroupInfo or extension clGetKernelSubGroupInfoKHR
+	CL_API_CALL cl_int (*cl_get_kernel_sub_group_info)(cl_kernel kernel,
+													   cl_device_id device,
+													   cl_kernel_sub_group_info param_name,
+													   size_t input_value_size,
+													   const void* input_value,
+													   size_t param_value_size,
+													   void* param_value,
+													   size_t* param_value_size_ret) = nullptr;
 	
 };
 

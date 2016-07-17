@@ -53,6 +53,9 @@ public:
 	void* _device_id { nullptr };
 #endif
 	
+	//! true if the device supports cl_intel_required_subgroup_size
+	bool required_size_sub_group_support { false };
+	
 };
 
 FLOOR_POP_WARNINGS()
