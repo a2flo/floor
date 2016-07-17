@@ -169,57 +169,6 @@ const_func uint16_t abs(uint16_t x) ACL_FWD(__cl_abs, x)
 const_func uint32_t abs(uint32_t x) ACL_FWD(__cl_abs, x)
 const_func uint64_t abs(uint64_t x) ACL_FWD(__cl_abs, x)
 
-// to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
-const_func int8_t floor_rt_min(int8_t x, int8_t y) asm("_Z3mincc");
-const_func int16_t floor_rt_min(int16_t x, int16_t y) asm("_Z3minss");
-const_func int32_t floor_rt_min(int32_t x, int32_t y) asm("_Z3minii");
-const_func int64_t floor_rt_min(int64_t x, int64_t y) asm("_Z3minll");
-const_func uint8_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3minhh");
-const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3mintt");
-const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) asm("_Z3minjj");
-const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) asm("_Z3minmm");
-const_func int8_t floor_rt_max(int8_t x, int8_t y) asm("_Z3maxcc");
-const_func int16_t floor_rt_max(int16_t x, int16_t y) asm("_Z3maxss");
-const_func int32_t floor_rt_max(int32_t x, int32_t y) asm("_Z3maxii");
-const_func int64_t floor_rt_max(int64_t x, int64_t y) asm("_Z3maxll");
-const_func uint8_t floor_rt_max(uint8_t x, uint8_t y) asm("_Z3maxhh");
-const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) asm("_Z3maxtt");
-const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) asm("_Z3maxjj");
-const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) asm("_Z3maxmm");
-
-// non-standard bit counting functions (don't use these directly, use math::func instead)
-const_func uint16_t floor_rt_clz(uint16_t x) asm("_Z3clzt");
-const_func uint32_t floor_rt_clz(uint32_t x) asm("_Z3clzj");
-const_func uint64_t floor_rt_clz(uint64_t x) asm("_Z3clzm");
-const_func uint16_t floor_rt_popcount(uint16_t x) asm("_Z8popcountt");
-const_func uint32_t floor_rt_popcount(uint32_t x) asm("_Z8popcountj");
-const_func uint64_t floor_rt_popcount(uint64_t x) asm("_Z8popcountm");
-// ctz was only added in opencl c 2.0, but also exists for spir-v (must also be supported by 1.2 devices)
-#if defined(FLOOR_COMPUTE_SPIRV) || (FLOOR_COMPUTE_OPENCL_MAJOR >= 2)
-const_func uint16_t floor_rt_ctz(uint16_t x) asm("_Z3ctzt");
-const_func uint32_t floor_rt_ctz(uint32_t x) asm("_Z3ctzj");
-const_func uint64_t floor_rt_ctz(uint64_t x) asm("_Z3ctzm");
-#else
-static floor_inline_always const_func uint32_t floor_rt_ctz(uint16_t x) {
-	// ref: https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightFloatCast
-	const uint32_t widened_val = uint32_t(x) | 0xFFFF0000u;
-	const auto f = float(widened_val & -widened_val);
-	return (*(uint32_t*)&f >> 23u) - 0x7Fu; // widened_val is never 0
-}
-static floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) {
-	// ref: https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightFloatCast
-	const auto f = float(x & -x);
-	return (x != 0 ? (*(uint32_t*)&f >> 23u) - 0x7Fu : 32);
-}
-static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
-	const auto upper = uint32_t(x >> 32ull);
-	const auto lower = uint32_t(x & 0xFFFFFFFFull);
-	const auto ctz_lower = floor_rt_ctz(lower);
-	const auto ctz_upper = floor_rt_ctz(upper);
-	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
-}
-#endif
-
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double fmod(double x, double y) ACL_FWD(__cl_fmod, x, y)
 const_func double sqrt(double x) ACL_FWD(__cl_sqrt, x);
@@ -252,6 +201,63 @@ const_func double pow(double x, double y) ACL_FWD(__cl_pow, x, y)
 const_func double copysign(double x, double y) ACL_FWD(__cl_copysign, x, y)
 const_func double fmin(double x, double y) ACL_FWD(__cl_fmin, x, y)
 const_func double fmax(double x, double y) ACL_FWD(__cl_fmax, x, y)
+#endif
+
+// to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
+const_func int8_t floor_rt_min(int8_t x, int8_t y) asm("_Z3mincc");
+const_func int16_t floor_rt_min(int16_t x, int16_t y) asm("_Z3minss");
+const_func int32_t floor_rt_min(int32_t x, int32_t y) asm("_Z3minii");
+const_func int64_t floor_rt_min(int64_t x, int64_t y) asm("_Z3minll");
+const_func uint8_t floor_rt_min(uint8_t x, uint8_t y) asm("_Z3minhh");
+const_func uint16_t floor_rt_min(uint16_t x, uint16_t y) asm("_Z3mintt");
+const_func uint32_t floor_rt_min(uint32_t x, uint32_t y) asm("_Z3minjj");
+const_func uint64_t floor_rt_min(uint64_t x, uint64_t y) asm("_Z3minmm");
+const_func int8_t floor_rt_max(int8_t x, int8_t y) asm("_Z3maxcc");
+const_func int16_t floor_rt_max(int16_t x, int16_t y) asm("_Z3maxss");
+const_func int32_t floor_rt_max(int32_t x, int32_t y) asm("_Z3maxii");
+const_func int64_t floor_rt_max(int64_t x, int64_t y) asm("_Z3maxll");
+const_func uint8_t floor_rt_max(uint8_t x, uint8_t y) asm("_Z3maxhh");
+const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) asm("_Z3maxtt");
+const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) asm("_Z3maxjj");
+const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) asm("_Z3maxmm");
+const_func float floor_rt_min(float x, float y) { return fmin(x, y); }
+const_func float floor_rt_max(float x, float y) { return fmax(x, y); }
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+const_func double floor_rt_min(double x, double y) { return fmin(x, y); }
+const_func double floor_rt_max(double x, double y) { return fmax(x, y); }
+#endif
+
+// non-standard bit counting functions (don't use these directly, use math::func instead)
+const_func uint16_t floor_rt_clz(uint16_t x) asm("_Z3clzt");
+const_func uint32_t floor_rt_clz(uint32_t x) asm("_Z3clzj");
+const_func uint64_t floor_rt_clz(uint64_t x) asm("_Z3clzm");
+const_func uint16_t floor_rt_popcount(uint16_t x) asm("_Z8popcountt");
+const_func uint32_t floor_rt_popcount(uint32_t x) asm("_Z8popcountj");
+const_func uint64_t floor_rt_popcount(uint64_t x) asm("_Z8popcountm");
+// ctz was only added in opencl c 2.0, but also exists for spir-v (must also be supported by 1.2 devices)
+#if defined(FLOOR_COMPUTE_SPIRV) || (FLOOR_COMPUTE_OPENCL_MAJOR >= 2)
+const_func uint16_t floor_rt_ctz(uint16_t x) asm("_Z3ctzt");
+const_func uint32_t floor_rt_ctz(uint32_t x) asm("_Z3ctzj");
+const_func uint64_t floor_rt_ctz(uint64_t x) asm("_Z3ctzm");
+#else
+static floor_inline_always const_func uint32_t floor_rt_ctz(uint16_t x) {
+	// ref: https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightFloatCast
+	const uint32_t widened_val = uint32_t(x) | 0xFFFF0000u;
+	const auto f = float(widened_val & -widened_val);
+	return (*(uint32_t*)&f >> 23u) - 0x7Fu; // widened_val is never 0
+}
+static floor_inline_always const_func uint32_t floor_rt_ctz(uint32_t x) {
+	// ref: https://graphics.stanford.edu/~seander/bithacks.html#ZerosOnRightFloatCast
+	const auto f = float(x & -x);
+	return (x != 0 ? (*(uint32_t*)&f >> 23u) - 0x7Fu : 32);
+}
+static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
+	const auto upper = uint32_t(x >> 32ull);
+	const auto lower = uint32_t(x & 0xFFFFFFFFull);
+	const auto ctz_lower = floor_rt_ctz(lower);
+	const auto ctz_upper = floor_rt_ctz(upper);
+	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
+}
 #endif
 
 // cleanup
