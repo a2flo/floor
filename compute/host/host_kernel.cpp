@@ -907,8 +907,8 @@ uint8_t* __attribute__((aligned(1024))) floor_requisition_local_memory(const siz
 		item_contexts[item_local_linear_idx].exit_to_main();
 	}
 	
-	// align to 1024-bit / 64 bytes
-	const auto per_thread_alloc_size = (size % 64 == 0 ? size : (((size / 64) + 1) * 64));
+	// align to 1024-bit / 128 bytes
+	const auto per_thread_alloc_size = (size % 128 == 0 ? size : (((size / 128) + 1) * 128));
 	// set the offset to this allocation
 	offset = local_memory_alloc_offset;
 	// adjust allocation offset for the next allocation

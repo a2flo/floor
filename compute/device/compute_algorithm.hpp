@@ -83,6 +83,7 @@ namespace compute_algorithm {
 														   F&& op) {
 		const auto lid = local_id.x;
 		
+#if !defined(FLOOR_COMPUTE_HOST)
 		// butterfly reduce to [0]
 #pragma unroll
 		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
@@ -97,6 +98,17 @@ namespace compute_algorithm {
 				lmem[lid] = op(lmem[lid], lmem[lid + i]);
 			}
 		}
+#else // -> host-compute
+		// make sure everyone has written to local memory
+		local_barrier();
+		// reduce in the first work-item only
+		if(lid == 0) {
+			auto& arr = lmem.as_array();
+			for(uint32_t i = 1; i < work_group_size; ++i) {
+				arr[0] = op(arr[0], arr[i]);
+			}
+		}
+#endif
 		return lmem[0];
 	}
 	
@@ -134,6 +146,8 @@ namespace compute_algorithm {
 										 lmem_type& lmem,
 										 data_type zero_val = (data_type)0) {
 		const auto lid = local_id.x;
+		
+#if !defined(FLOOR_COMPUTE_HOST)
 		lmem[lid] = value;
 		local_barrier();
 		
@@ -163,6 +177,28 @@ namespace compute_algorithm {
 		return __builtin_choose_expr(inclusive,
 									 value,
 									 (value = (lid == 0 ? zero_val : lmem[side_idx + lid - 1]), local_barrier(), value));
+#endif
+#else // -> host-compute
+		lmem[inclusive ? lid : lid + 1] = value;
+		local_barrier();
+		
+		if(lid == 0) {
+			// exclusive: #0 has not been set yet -> init with zero
+			if(!inclusive) {
+				lmem[0] = zero_val;
+			}
+			
+			// just forward scan
+			auto& arr = lmem.as_array();
+			for(uint32_t i = 1; i < work_group_size; ++i) {
+				arr[i] = op(arr[i - 1], arr[i]);
+			}
+		}
+		
+		// sync once so that lmem can safely be used again outside of this function
+		const auto ret = lmem[lid];
+		local_barrier();
+		return ret;
 #endif
 	}
 	
