@@ -1,9 +1,9 @@
 #!/bin/bash
 
 PRERELEASE=
-BASE_RELEASE=3.8.0
+BASE_RELEASE=3.8.1
 RELEASE=${BASE_RELEASE}${PRERELEASE}
-VERSION_NAME=30800
+VERSION_NAME=30801
 
 ##########################################
 # helper functions
@@ -83,11 +83,11 @@ mv libcxx-${RELEASE}.src libcxx
 
 # patch
 cd llvm
-patch -p1 < ../380_llvm.patch
+patch -p1 < ../381_llvm.patch
 cd tools/clang
-patch -p1 < ../../../380_clang.patch
+patch -p1 < ../../../381_clang.patch
 cd ../../../libcxx
-patch -p1 < ../380_libcxx.patch
+patch -p1 < ../381_libcxx.patch
 cd ..
 
 # handle platform

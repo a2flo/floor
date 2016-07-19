@@ -2578,7 +2578,7 @@ index f0976bc..4235ce2 100644
  #define UNSIGNED_TYPE(Id, SingletonId)
  #define FLOATING_TYPE(Id, SingletonId)
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index af8aea0..a6c6949 100644
+index 9c6eaff..4cdaf60 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
 @@ -1615,8 +1615,16 @@ class NVPTXTargetInfo : public TargetInfo {
@@ -2668,7 +2668,7 @@ index af8aea0..a6c6949 100644
                .Default(GK_NONE);
  
      return GPU != GK_NONE;
-@@ -7349,12 +7391,11 @@ static const unsigned SPIRAddrSpaceMap[] = {
+@@ -7355,12 +7397,11 @@ static const unsigned SPIRAddrSpaceMap[] = {
      0  // cuda_shared
  };
  class SPIRTargetInfo : public TargetInfo {
@@ -2685,7 +2685,7 @@ index af8aea0..a6c6949 100644
      BigEndian = false;
      TLSSupported = false;
      LongWidth = LongAlign = 64;
-@@ -7363,6 +7404,7 @@ public:
+@@ -7369,6 +7410,7 @@ public:
      // Define available target features
      // These must be defined in sorted order!
      NoAsmVariants = true;
@@ -2693,7 +2693,7 @@ index af8aea0..a6c6949 100644
    }
    void getTargetDefines(const LangOptions &Opts,
                          MacroBuilder &Builder) const override {
-@@ -7372,6 +7414,8 @@ public:
+@@ -7378,6 +7420,8 @@ public:
      return Feature == "spir";
    }
  
@@ -2702,7 +2702,7 @@ index af8aea0..a6c6949 100644
    ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
    const char *getClobbers() const override { return ""; }
    ArrayRef<const char *> getGCCRegNames() const override { return None; }
-@@ -7387,12 +7431,13 @@ public:
+@@ -7393,12 +7437,13 @@ public:
    }
  
    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
@@ -2717,7 +2717,7 @@ index af8aea0..a6c6949 100644
    }
  };
  
-@@ -7403,7 +7448,8 @@ public:
+@@ -7409,7 +7454,8 @@ public:
      SizeType = TargetInfo::UnsignedInt;
      PtrDiffType = IntPtrType = TargetInfo::SignedInt;
      DataLayoutString = "e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-"
@@ -2727,7 +2727,7 @@ index af8aea0..a6c6949 100644
    }
    void getTargetDefines(const LangOptions &Opts,
                          MacroBuilder &Builder) const override {
-@@ -7418,7 +7464,8 @@ public:
+@@ -7424,7 +7470,8 @@ public:
      SizeType = TargetInfo::UnsignedLong;
      PtrDiffType = IntPtrType = TargetInfo::SignedLong;
      DataLayoutString = "e-i64:64-v16:16-v24:32-v32:32-v48:64-"
@@ -2737,7 +2737,7 @@ index af8aea0..a6c6949 100644
    }
    void getTargetDefines(const LangOptions &Opts,
                          MacroBuilder &Builder) const override {
-@@ -7426,6 +7473,26 @@ public:
+@@ -7432,6 +7479,26 @@ public:
    }
  };
  
@@ -2764,7 +2764,7 @@ index af8aea0..a6c6949 100644
  class XCoreTargetInfo : public TargetInfo {
    static const Builtin::Info BuiltinInfo[];
  public:
-@@ -7911,18 +7978,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+@@ -7917,18 +7984,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
        return new X86_64TargetInfo(Triple);
      }
  
@@ -4131,7 +4131,7 @@ index 507ce3d..cd7d6ba 100644
  
    llvm_unreachable("Unhandled lvalue cast kind?");
 diff --git a/lib/CodeGen/CGExprAgg.cpp b/lib/CodeGen/CGExprAgg.cpp
-index a4547a9..4a5aa23 100644
+index 947b3d5..21596d2 100644
 --- a/lib/CodeGen/CGExprAgg.cpp
 +++ b/lib/CodeGen/CGExprAgg.cpp
 @@ -748,7 +748,9 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
@@ -4144,7 +4144,7 @@ index a4547a9..4a5aa23 100644
      llvm_unreachable("cast kind invalid for aggregate types");
    }
  }
-@@ -1429,13 +1431,14 @@ void CodeGenFunction::EmitAggregateCopy(Address DestPtr,
+@@ -1426,13 +1428,14 @@ void CodeGenFunction::EmitAggregateCopy(Address DestPtr,
    if (getLangOpts().CPlusPlus) {
      if (const RecordType *RT = Ty->getAs<RecordType>()) {
        CXXRecordDecl *Record = cast<CXXRecordDecl>(RT->getDecl());
@@ -4224,7 +4224,7 @@ index ee049f1..84f2818 100644
      }
      llvm_unreachable("Invalid CastKind");
 diff --git a/lib/CodeGen/CGExprScalar.cpp b/lib/CodeGen/CGExprScalar.cpp
-index 268e7967..97009d8 100644
+index 3294ff2..6a40755 100644
 --- a/lib/CodeGen/CGExprScalar.cpp
 +++ b/lib/CodeGen/CGExprScalar.cpp
 @@ -1394,8 +1394,14 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
@@ -4322,7 +4322,7 @@ index 268e7967..97009d8 100644
    }
  
    // If this is a really simple expression (like x ? 4 : 5), emit this as a
-@@ -3392,30 +3392,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3394,30 +3394,35 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
    Value *Src  = CGF.EmitScalarExpr(E->getSrcExpr());
    llvm::Type *DstTy = ConvertType(E->getType());
  
@@ -4380,7 +4380,7 @@ index 268e7967..97009d8 100644
        }
  
        llvm::Value *UnV = llvm::UndefValue::get(Src->getType());
-@@ -3425,15 +3430,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
+@@ -3427,15 +3432,25 @@ Value *ScalarExprEmitter::VisitAsTypeExpr(AsTypeExpr *E) {
        Args.push_back(Builder.getInt32(1));
        Args.push_back(Builder.getInt32(2));
  
@@ -8217,7 +8217,7 @@ index 6032dff..054094d 100644
  include $(CLANG_LEVEL)/Makefile
 -
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 3d1ddef..667ecd0 100644
+index 04edc0c..416c96b 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -43,11 +43,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -8270,8 +8270,8 @@ index 3d1ddef..667ecd0 100644
        Found = FT.getTypePtr();
      } else {
        Found = isSingleElementStruct(FT, Context);
-@@ -557,9 +578,12 @@ Address DefaultABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
- }
+@@ -602,9 +623,12 @@ public:
+ };
  
  ABIArgInfo DefaultABIInfo::classifyArgumentType(QualType Ty) const {
 +  if (isAggregateImageType(Ty))
@@ -8284,7 +8284,7 @@ index 3d1ddef..667ecd0 100644
      // Records with non-trivial destructors/copy-constructors should not be
      // passed by value.
      if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI()))
-@@ -580,7 +604,7 @@ ABIArgInfo DefaultABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -625,7 +649,7 @@ ABIArgInfo DefaultABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVoidType())
      return ABIArgInfo::getIgnore();
  
@@ -8293,7 +8293,7 @@ index 3d1ddef..667ecd0 100644
      return getNaturalAlignIndirect(RetTy);
  
    // Treat an enum type as its underlying type.
-@@ -626,7 +650,7 @@ public:
+@@ -672,7 +696,7 @@ public:
  ABIArgInfo WebAssemblyABIInfo::classifyArgumentType(QualType Ty) const {
    Ty = useFirstFieldIfTransparentUnion(Ty);
  
@@ -8302,7 +8302,7 @@ index 3d1ddef..667ecd0 100644
      // Records with non-trivial destructors/copy-constructors should not be
      // passed by value.
      if (auto RAA = getRecordArgABI(Ty, getCXXABI()))
-@@ -646,7 +670,7 @@ ABIArgInfo WebAssemblyABIInfo::classifyArgumentType(QualType Ty) const {
+@@ -692,7 +716,7 @@ ABIArgInfo WebAssemblyABIInfo::classifyArgumentType(QualType Ty) const {
  }
  
  ABIArgInfo WebAssemblyABIInfo::classifyReturnType(QualType RetTy) const {
@@ -8311,7 +8311,7 @@ index 3d1ddef..667ecd0 100644
      // Records with non-trivial destructors/copy-constructors should not be
      // returned by value.
      if (!getRecordArgABI(RetTy, getCXXABI())) {
-@@ -705,7 +729,7 @@ Address PNaClABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
+@@ -757,7 +781,7 @@ Address PNaClABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
  
  /// \brief Classify argument of given type \p Ty.
  ABIArgInfo PNaClABIInfo::classifyArgumentType(QualType Ty) const {
@@ -8320,7 +8320,7 @@ index 3d1ddef..667ecd0 100644
      if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI()))
        return getNaturalAlignIndirect(Ty, RAA == CGCXXABI::RAA_DirectInMemory);
      return getNaturalAlignIndirect(Ty);
-@@ -726,7 +750,7 @@ ABIArgInfo PNaClABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -778,7 +802,7 @@ ABIArgInfo PNaClABIInfo::classifyReturnType(QualType RetTy) const {
      return ABIArgInfo::getIgnore();
  
    // In the PNaCl ABI we always return records/structures on the stack.
@@ -8329,7 +8329,7 @@ index 3d1ddef..667ecd0 100644
      return getNaturalAlignIndirect(RetTy);
  
    // Treat an enum type as its underlying type.
-@@ -1103,7 +1127,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
+@@ -1155,7 +1179,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
      return ABIArgInfo::getDirect();
    }
  
@@ -8338,7 +8338,7 @@ index 3d1ddef..667ecd0 100644
      if (const RecordType *RT = RetTy->getAs<RecordType>()) {
        // Structures with flexible arrays are always indirect.
        if (RT->getDecl()->hasFlexibleArrayMember())
-@@ -1338,7 +1362,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
+@@ -1390,7 +1414,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
      return getIndirectResult(Ty, /*ByVal=*/false, State);
    }
  
@@ -8347,7 +8347,7 @@ index 3d1ddef..667ecd0 100644
      if (RT) {
        // Structs are always byval on win32, regardless of what they contain.
        if (IsWin32StructABI)
-@@ -1419,6 +1443,20 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
+@@ -1471,6 +1495,20 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
  }
  
  void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
@@ -8368,7 +8368,7 @@ index 3d1ddef..667ecd0 100644
    CCState State(FI.getCallingConvention());
    if (IsMCUABI)
      State.FreeRegs = 3;
-@@ -2442,7 +2480,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
+@@ -2494,7 +2532,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
  ABIArgInfo X86_64ABIInfo::getIndirectReturnResult(QualType Ty) const {
    // If this is a scalar LLVM value then assume LLVM will pass it in the right
    // place naturally.
@@ -8377,7 +8377,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -2475,7 +2513,7 @@ ABIArgInfo X86_64ABIInfo::getIndirectResult(QualType Ty,
+@@ -2527,7 +2565,7 @@ ABIArgInfo X86_64ABIInfo::getIndirectResult(QualType Ty,
    // the argument in the free register. This does not seem to happen currently,
    // but this code would be much safer if we could mark the argument with
    // 'onstack'. See PR12193.
@@ -8386,7 +8386,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -3065,6 +3103,19 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(
+@@ -3117,6 +3155,19 @@ ABIArgInfo X86_64ABIInfo::classifyArgumentType(
  }
  
  void X86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
@@ -8406,7 +8406,7 @@ index 3d1ddef..667ecd0 100644
  
    if (!getCXXABI().classifyReturnType(FI))
      FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
-@@ -3430,6 +3481,18 @@ void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -3482,6 +3533,18 @@ void WinX86_64ABIInfo::computeInfo(CGFunctionInfo &FI) const {
    if (!getCXXABI().classifyReturnType(FI))
      FI.getReturnInfo() = classify(FI.getReturnType(), FreeSSERegs, true);
  
@@ -8425,7 +8425,7 @@ index 3d1ddef..667ecd0 100644
    // We can use up to 6 SSE register parameters with vectorcall.
    FreeSSERegs = IsVectorCall ? 6 : 0;
    for (auto &I : FI.arguments())
-@@ -3840,7 +3903,7 @@ CharUnits PPC64_SVR4_ABIInfo::getParamTypeAlignment(QualType Ty) const {
+@@ -3894,7 +3957,7 @@ CharUnits PPC64_SVR4_ABIInfo::getParamTypeAlignment(QualType Ty) const {
    const Type *Base = nullptr;
    uint64_t Members = 0;
    if (!AlignAsType && Kind == ELFv2 &&
@@ -8434,7 +8434,7 @@ index 3d1ddef..667ecd0 100644
      AlignAsType = Base;
  
    // With special case aggregates, only vector base types need alignment.
-@@ -3855,7 +3918,7 @@ CharUnits PPC64_SVR4_ABIInfo::getParamTypeAlignment(QualType Ty) const {
+@@ -3909,7 +3972,7 @@ CharUnits PPC64_SVR4_ABIInfo::getParamTypeAlignment(QualType Ty) const {
  
    // Otherwise, we only need alignment for any aggregate type that
    // has an alignment requirement of >= 16 bytes.
@@ -8443,7 +8443,7 @@ index 3d1ddef..667ecd0 100644
      if (HasQPX && getContext().getTypeAlign(Ty) >= 256)
        return CharUnits::fromQuantity(32);
      return CharUnits::fromQuantity(16);
-@@ -4001,7 +4064,7 @@ PPC64_SVR4_ABIInfo::classifyArgumentType(QualType Ty) const {
+@@ -4055,7 +4118,7 @@ PPC64_SVR4_ABIInfo::classifyArgumentType(QualType Ty) const {
      }
    }
  
@@ -8452,7 +8452,7 @@ index 3d1ddef..667ecd0 100644
      if (CGCXXABI::RecordArgABI RAA = getRecordArgABI(Ty, getCXXABI()))
        return getNaturalAlignIndirect(Ty, RAA == CGCXXABI::RAA_DirectInMemory);
  
-@@ -4073,7 +4136,7 @@ PPC64_SVR4_ABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -4127,7 +4190,7 @@ PPC64_SVR4_ABIInfo::classifyReturnType(QualType RetTy) const {
      }
    }
  
@@ -8461,7 +8461,7 @@ index 3d1ddef..667ecd0 100644
      // ELFv2 homogeneous aggregates are returned as array types.
      const Type *Base = nullptr;
      uint64_t Members = 0;
-@@ -4306,7 +4369,7 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty) const {
+@@ -4360,7 +4423,7 @@ ABIArgInfo AArch64ABIInfo::classifyArgumentType(QualType Ty) const {
      return getNaturalAlignIndirect(Ty, /*ByVal=*/false);
    }
  
@@ -8470,7 +8470,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -4366,7 +4429,7 @@ ABIArgInfo AArch64ABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -4420,7 +4483,7 @@ ABIArgInfo AArch64ABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 128)
      return getNaturalAlignIndirect(RetTy);
  
@@ -8479,7 +8479,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -4614,7 +4677,7 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
+@@ -4668,7 +4731,7 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
      // It might be right-aligned in its slot.
      CharUnits SlotSize = BaseAddr.getAlignment();
      if (CGF.CGM.getDataLayout().isBigEndian() && !IsIndirect &&
@@ -8488,7 +8488,7 @@ index 3d1ddef..667ecd0 100644
          TyInfo.first < SlotSize) {
        CharUnits Offset = SlotSize - TyInfo.first;
        BaseAddr = CGF.Builder.CreateConstInBoundsByteGEP(BaseAddr, Offset);
-@@ -4668,7 +4731,7 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
+@@ -4722,7 +4785,7 @@ Address AArch64ABIInfo::EmitAAPCSVAArg(Address VAListAddr,
    // Write the new value of __stack for the next call to va_arg
    CGF.Builder.CreateStore(NewStack, stack_p);
  
@@ -8497,16 +8497,16 @@ index 3d1ddef..667ecd0 100644
        TyInfo.first < StackSlotSize) {
      CharUnits Offset = StackSlotSize - TyInfo.first;
      OnStackAddr = CGF.Builder.CreateConstInBoundsByteGEP(OnStackAddr, Offset);
-@@ -4698,7 +4761,7 @@ Address AArch64ABIInfo::EmitDarwinVAArg(Address VAListAddr, QualType Ty,
+@@ -4752,7 +4815,7 @@ Address AArch64ABIInfo::EmitDarwinVAArg(Address VAListAddr, QualType Ty,
    // The backend's lowering doesn't support va_arg for aggregates or
    // illegal vector types.  Lower VAArg here for these cases and use
    // the LLVM va_arg instruction for everything else.
 -  if (!isAggregateTypeForABI(Ty) && !isIllegalVectorType(Ty))
 +  if (!TargetCodeGenInfo::isAggregateTypeForABI(Ty) && !isIllegalVectorType(Ty))
-     return Address::invalid();
+     return EmitVAArgInstr(CGF, VAListAddr, Ty, ABIArgInfo::getDirect());
  
    CharUnits SlotSize = CharUnits::fromQuantity(8);
-@@ -4995,7 +5058,7 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
+@@ -5049,7 +5112,7 @@ ABIArgInfo ARMABIInfo::classifyArgumentType(QualType Ty,
      return ABIArgInfo::getDirect(ResType);
    }
  
@@ -8515,7 +8515,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>()) {
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -5187,7 +5250,7 @@ ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
+@@ -5241,7 +5304,7 @@ ABIArgInfo ARMABIInfo::classifyReturnType(QualType RetTy,
      return ABIArgInfo::getDirect(ResType);
    }
  
@@ -8524,7 +8524,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -5414,7 +5477,7 @@ ABIArgInfo NVPTXABIInfo::classifyArgumentType(QualType Ty) const {
+@@ -5468,7 +5531,7 @@ ABIArgInfo NVPTXABIInfo::classifyArgumentType(QualType Ty) const {
      Ty = EnumTy->getDecl()->getIntegerType();
  
    // Return aggregates type as indirect by value
@@ -8533,7 +8533,7 @@ index 3d1ddef..667ecd0 100644
      return getNaturalAlignIndirect(Ty, /* byval */ true);
  
    return (Ty->isPromotableIntegerType() ?
-@@ -5451,7 +5514,7 @@ setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+@@ -5505,7 +5568,7 @@ setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
    if (M.getLangOpts().OpenCL) {
      // Use OpenCL function attributes to check for kernel functions
      // By default, all functions are device functions
@@ -8542,7 +8542,7 @@ index 3d1ddef..667ecd0 100644
        // OpenCL __kernel functions get kernel metadata
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
-@@ -5465,7 +5528,7 @@ setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+@@ -5519,7 +5582,7 @@ setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
      // CUDA __global__ functions get a kernel metadata entry.  Since
      // __global__ functions cannot be called from the device, we do not
      // need to set the noinline attribute.
@@ -8551,7 +8551,7 @@ index 3d1ddef..667ecd0 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -5508,6 +5571,101 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -5562,6 +5625,101 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -8653,7 +8653,7 @@ index 3d1ddef..667ecd0 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5572,7 +5730,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -5626,7 +5784,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
    return (Ty->isAnyComplexType() ||
            Ty->isVectorType() ||
@@ -8662,7 +8662,7 @@ index 3d1ddef..667ecd0 100644
  }
  
  bool SystemZABIInfo::isVectorArgumentType(QualType Ty) const {
-@@ -6070,7 +6228,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -6124,7 +6282,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::RoundUpToAlignment(Offset, Align);
    Offset = CurrOffset + llvm::RoundUpToAlignment(TySize, Align * 8) / 8;
  
@@ -8671,7 +8671,7 @@ index 3d1ddef..667ecd0 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -6155,7 +6313,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6209,7 +6367,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -8680,7 +8680,7 @@ index 3d1ddef..667ecd0 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -6308,7 +6466,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
+@@ -6362,7 +6520,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
    llvm::Function *F = cast<llvm::Function>(GV);
  
    if (M.getLangOpts().OpenCL) {
@@ -8689,7 +8689,7 @@ index 3d1ddef..667ecd0 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -6388,7 +6546,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -6442,7 +6600,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -8698,7 +8698,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -6426,7 +6584,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6480,7 +6638,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return getNaturalAlignIndirect(RetTy);
  
@@ -8707,7 +8707,7 @@ index 3d1ddef..667ecd0 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -6670,7 +6828,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -6724,7 +6882,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend();
  
    // Other non-aggregates go in registers.
@@ -8716,7 +8716,7 @@ index 3d1ddef..667ecd0 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -7585,5 +7743,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -7641,5 +7799,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
    case llvm::Triple::xcore:
      return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));

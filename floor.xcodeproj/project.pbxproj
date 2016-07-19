@@ -434,6 +434,9 @@
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
+		5CAF9C7F1D3E3CB200A00C32 /* 381_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_llvm.patch; path = etc/llvm38/381_llvm.patch; sourceTree = "<group>"; };
+		5CAF9C801D3E3CB200A00C32 /* 381_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_libcxx.patch; path = etc/llvm38/381_libcxx.patch; sourceTree = "<group>"; };
+		5CAF9C811D3E3CB200A00C32 /* 381_clang.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_clang.patch; path = etc/llvm38/381_clang.patch; sourceTree = "<group>"; };
 		5CB382791C9C2E2400B3633F /* gcc_5_1.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = gcc_5_1.patch; path = etc/llvm35/gcc_5_1.patch; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
 		5CBBFF571BC2B786001813E0 /* image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image.hpp; path = device/image.hpp; sourceTree = "<group>"; };
@@ -455,9 +458,6 @@
 		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
-		5CD187271C8F5A5600DBAECC /* 380_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_libcxx.patch; path = etc/llvm38/380_libcxx.patch; sourceTree = "<group>"; };
-		5CD187281C8F5A5600DBAECC /* 380_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_llvm.patch; path = etc/llvm38/380_llvm.patch; sourceTree = "<group>"; };
-		5CD187291C8F5A5600DBAECC /* 380_clang.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 380_clang.patch; path = etc/llvm38/380_clang.patch; sourceTree = "<group>"; };
 		5CD1872A1C8F5A5600DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm38/build.sh; sourceTree = "<group>"; };
 		5CD1872B1C8F5A5600DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm38/pkg.sh; sourceTree = "<group>"; };
 		5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 350_clang_llvm.patch; path = etc/llvm35/350_clang_llvm.patch; sourceTree = "<group>"; };
@@ -905,9 +905,9 @@
 		5CD187261C8F5A4100DBAECC /* llvm38 */ = {
 			isa = PBXGroup;
 			children = (
-				5CD187271C8F5A5600DBAECC /* 380_libcxx.patch */,
-				5CD187281C8F5A5600DBAECC /* 380_llvm.patch */,
-				5CD187291C8F5A5600DBAECC /* 380_clang.patch */,
+				5CAF9C801D3E3CB200A00C32 /* 381_libcxx.patch */,
+				5CAF9C811D3E3CB200A00C32 /* 381_clang.patch */,
+				5CAF9C7F1D3E3CB200A00C32 /* 381_llvm.patch */,
 				5CD1872A1C8F5A5600DBAECC /* build.sh */,
 				5CD1872B1C8F5A5600DBAECC /* pkg.sh */,
 			);
