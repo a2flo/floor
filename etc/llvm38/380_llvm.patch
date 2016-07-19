@@ -41965,10 +41965,10 @@ index ecef6db..bbfa7c5 100644
      return false;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..378ae91
+index 0000000..eb8c0e1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,788 @@
+@@ -0,0 +1,795 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -42735,6 +42735,13 @@ index 0000000..378ae91
 +					SI->replaceAllUsesWith(tmp_alloca);
 +					SI->eraseFromParent();
 +					was_modified = true;
++				}
++				else if(PHINode *PHI = dyn_cast<PHINode>(User)) {
++					errs() << "unhandled phi node!\n"; fflush(stderr);
++				}
++				else {
++					errs() << "unknown user: ";
++					User->dump(); fflush(stderr);
 +				}
 +			}
 +		}
