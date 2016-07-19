@@ -58,9 +58,9 @@ namespace std {
 	
 	const_func floor_inline_always float fma(float a, float b, float c) { return __nvvm_fma_rz_ftz_f(a, b, c); }
 	const_func floor_inline_always float pow(float a, float b) { return __nvvm_ex2_approx_ftz_f(b * __nvvm_lg2_approx_ftz_f(a)); }
-	const_func floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * const_math::_1_DIV_LN2<float>); } // 2^(x / ln(2))
+	const_func floor_inline_always float exp(float a) { return __nvvm_ex2_approx_ftz_f(a * const_math::_1_DIV_LN_2<float>); } // 2^(x / ln(2))
 	const_func floor_inline_always float exp2(float a) { return __nvvm_ex2_approx_ftz_f(a); }
-	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * const_math::_1_DIV_LD2_E<float>; } // log_e(x) = log_2(x) / log_2(e)
+	const_func floor_inline_always float log(float a) { return __nvvm_lg2_approx_ftz_f(a) * const_math::_1_DIV_LD_E<float>; } // log_e(x) = log_2(x) / log_2(e)
 	const_func floor_inline_always float log2(float a) { return __nvvm_lg2_approx_ftz_f(a); }
 	
 	const_func floor_inline_always float copysign(float a, float b) {
@@ -91,9 +91,9 @@ namespace std {
 	const_func floor_inline_always double fma(double a, double b, double c) { return __nvvm_fma_rz_d(a, b, c); }
 	// NOTE: even though there are intrinsics for this, there are no double/f64 versions supported in h/w
 	const_func floor_inline_always double pow(double a, double b) { return double(__nvvm_ex2_approx_ftz_f(float(b) * __nvvm_lg2_approx_ftz_f(float(a)))); }
-	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * const_math::_1_DIV_LN2<float>)); } // 2^(x / ln(2))
+	const_func floor_inline_always double exp(double a) { return double(__nvvm_ex2_approx_ftz_f(float(a) * const_math::_1_DIV_LN_2<float>)); } // 2^(x / ln(2))
 	const_func floor_inline_always double exp2(double a) { return (double)__nvvm_ex2_approx_ftz_f(float(a)); }
-	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * const_math::_1_DIV_LD2_E<float>; } // log_e(x) = log_2(x) / log_2(e)
+	const_func floor_inline_always double log(double a) { return double(__nvvm_lg2_approx_ftz_f(float(a))) * const_math::_1_DIV_LD_E<float>; } // log_e(x) = log_2(x) / log_2(e)
 	const_func floor_inline_always double log2(double a) { return (double)__nvvm_lg2_approx_ftz_f(float(a)); }
 	
 	const_func floor_inline_always double copysign(double a, double b) {

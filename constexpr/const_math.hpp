@@ -416,7 +416,7 @@ namespace const_math {
 	constexpr fp_type exp(fp_type val) {
 		// convert to largest float type + div with ln(2) so that we can compute 2^x instead: e^x == 2^(x / ln(2))
 		const auto abs_val = const_math::abs(val);
-		const auto exponent = const_math::_1_DIV_LN2<> * (max_fp_type)abs_val;
+		const auto exponent = const_math::_1_DIV_LN_2<> * (max_fp_type)abs_val;
 		auto pot_factors = 1.0_fp;
 		
 		// "decompose" x of 2^x into integer power of two values that we can easily compute and a remainder in [0, 1)
@@ -437,7 +437,7 @@ namespace const_math {
 		
 		// approximate e^x with x in [0, ln(2)) (== 2^x with x in [0, 1))
 		// NOTE: slightly better accuracy if we don't reconvert rem again, but substract the converted pots instead
-		const auto exp_val = ((max_fp_type)abs_val) - (const_math::LN2<> * (max_fp_type)pot_bits);
+		const auto exp_val = ((max_fp_type)abs_val) - (const_math::LN_2<> * (max_fp_type)pot_bits);
 		constexpr const uint32_t pade_deg = 10 + 1; // NOTE: there is no benefit of using a higher degree than this
 		constexpr const max_fp_type pade[pade_deg] {
 			1.0_fp,
@@ -473,7 +473,7 @@ namespace const_math {
 	//! computes exp2(val) == 2^val == exp(val * ln(2))
 	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
 	constexpr fp_type exp2(fp_type val) {
-		return fp_type(exp(max_fp_type(val) * const_math::LN2<>));
+		return fp_type(exp(max_fp_type(val) * const_math::LN_2<>));
 	}
 	
 	//! makes use of log(x * y) = log(x) + log(y) by decomposing val into a value in [1, 2) and its 2^x exponent,
@@ -522,7 +522,7 @@ namespace const_math {
 		const auto ret = partial_ln_and_log2(val);
 		if(!ret.valid) return ret.invalid_ret;
 		// "log_e(x) = log_2(x) / log_2(e)" for the exponent value, log(val in [1, 2)) is already correct
-		return fp_type(ret.decomp_base + (ret.decomp_exp * const_math::_1_DIV_LD2_E<max_fp_type>));
+		return fp_type(ret.decomp_base + (ret.decomp_exp * const_math::_1_DIV_LD_E<max_fp_type>));
 	}
 	
 	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
@@ -531,7 +531,7 @@ namespace const_math {
 		const auto ret = partial_ln_and_log2(val);
 		if(!ret.valid) return ret.invalid_ret;
 		// "log_2(x) = ln(x) / ln(2)" for the decomposed value, log2(2^x) == x is already correct
-		return fp_type((ret.decomp_base * const_math::_1_DIV_LN2<max_fp_type>) + ret.decomp_exp);
+		return fp_type((ret.decomp_base * const_math::_1_DIV_LN_2<max_fp_type>) + ret.decomp_exp);
 	}
 	
 	//! computes base^exponent, base to the power of exponent

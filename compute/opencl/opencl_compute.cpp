@@ -495,9 +495,11 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 #endif
 			
 			// check spir-v support (core, extension, or forced for testing purposes)
-			if(platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
-			   core::contains(device->extensions, "cl_khr_il_program") ||
-			   floor::get_opencl_force_spirv_check()) {
+			if((platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
+				core::contains(device->extensions, "cl_khr_il_program") ||
+				floor::get_opencl_force_spirv_check()) &&
+			   // disable takes prio over force-check
+			   !floor::get_opencl_disable_spirv()) {
 				check_spirv_support = true;
 				
 				const auto il_versions = cl_get_info<CL_DEVICE_IL_VERSION>(cl_dev);
@@ -537,6 +539,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			
 			if(floor::get_opencl_force_spirv_check() &&
+			   !floor::get_opencl_disable_spirv() &&
 			   device->spirv_version == SPIRV_VERSION::NONE) {
 				device->spirv_version = SPIRV_VERSION::SPIRV_1_0;
 			}

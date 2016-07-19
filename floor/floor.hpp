@@ -173,6 +173,7 @@ public:
 	static bool get_opencl_verify_spir();
 	static bool get_opencl_validate_spirv();
 	static bool get_opencl_force_spirv_check();
+	static bool get_opencl_disable_spirv();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
@@ -298,6 +299,7 @@ protected:
 		bool opencl_verify_spir = false;
 		bool opencl_validate_spirv = false;
 		bool opencl_force_spirv_check = false;
+		bool opencl_disable_spirv = false;
 		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
 		string opencl_llc = default_llc;

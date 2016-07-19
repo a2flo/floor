@@ -106,6 +106,9 @@
 #if !__has_builtin(__builtin_assume_aligned)
 #define __builtin_assume_aligned(ptr, alignment) (ptr)
 #endif
+#if !__has_builtin(__builtin_assume)
+#define __builtin_assume(expr)
+#endif
 
 #endif // __FLOOR_ESSENTIALS_HPP__
 

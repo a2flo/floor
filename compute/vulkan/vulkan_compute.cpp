@@ -314,7 +314,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
 		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
 		log_msg("queue families: %u", queue_family_count);
-		log_msg("max queus (family #0): %u", device->queue_counts[0]);
+		log_msg("max queues (family #0): %u", device->queue_counts[0]);
 		
 		// TODO: other device flags
 		// TODO: fastest device selection, tricky to do without a unit count

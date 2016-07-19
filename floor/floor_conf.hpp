@@ -45,7 +45,7 @@
 //#define FLOOR_NO_OPENCL 1
 
 // if defined, this disables vulkan support
-//#define FLOOR_NO_VULKAN 1
+#define FLOOR_NO_VULKAN 1
 
 // if defined, this disables metal support
 #if defined(__APPLE__)

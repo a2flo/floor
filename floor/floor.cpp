@@ -275,6 +275,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_verify_spir = config_doc.get<bool>("compute.opencl.verify_spir", false);
 		config.opencl_validate_spirv = config_doc.get<bool>("compute.opencl.validate_spirv", false);
 		config.opencl_force_spirv_check = config_doc.get<bool>("compute.opencl.force_spirv", false);
+		config.opencl_disable_spirv = config_doc.get<bool>("compute.opencl.disable_spirv", false);
 		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
 		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
@@ -1457,6 +1458,9 @@ bool floor::get_opencl_validate_spirv() {
 }
 bool floor::get_opencl_force_spirv_check() {
 	return config.opencl_force_spirv_check;
+}
+bool floor::get_opencl_disable_spirv() {
+	return config.opencl_disable_spirv;
 }
 const string& floor::get_opencl_compiler() {
 	return config.opencl_compiler;

@@ -73,7 +73,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					entry.kernel = (__bridge void*)func;
 					entry.kernel_state = (__bridge void*)kernel_state;
 					if(kernel_state != nil) {
-						entry.max_local_work_size = [kernel_state maxTotalThreadsPerThreadgroup];
+						entry.max_local_work_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
 					}
 					kernel_map.insert_or_assign(prog.first, entry);
 					break;
