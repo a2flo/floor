@@ -165,7 +165,7 @@ protected: \
 
 // int base types: bool, char, short, int, long long int, unsigned char, unsigned short, unsigned int, unsigned long long int
 //              -> bool, int8_t, int16_t, int32_t, int64_t, uint8_t, uint16_t, uint32_t, uint64_t
-// float base types: float, double, long double
+// float base types: half, float, double, long double
 
 #define FLOOR_VH_IMPL_DEF_FLOAT(F1, F2, F2_INT, F3) FLOOR_VH_IMPL(float, \
 F2(min, constexpr, math::__min(lhs, rhs)) \

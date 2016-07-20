@@ -22,6 +22,7 @@
 #if defined(FLOOR_COMPUTE_HOST)
 
 #include <floor/compute/device/host_limits.hpp>
+#include <floor/constexpr/soft_f16.hpp>
 
 // ignore vectorization/optimization/etc. hints and infos
 FLOOR_PUSH_WARNINGS()
@@ -453,15 +454,13 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					// for 32-bit/64-bit float formats, just pass-through raw data
 					ret = *(decltype(ret)*)raw_data;
 				}
-#if defined(__APPLE__) // TODO: a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
-						ret[i] = (float)*(__fp16*)(raw_data + i * 2);
+						ret[i] = (float)*(soft_f16*)(raw_data + i * 2);
 					}
 				}
-#endif
 				else floor_unreachable();
 			}
 			else {
@@ -659,17 +658,15 @@ FLOOR_POP_WARNINGS()
 					const double4 double_color = color;
 					memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
 				}
-#if defined(__APPLE__) // TODO: add a s/w solution
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// for 16-bit half float formats, data must be converted to 32-bit float data
-					__fp16 half_vals[4];
+					soft_f16 half_vals[4];
 #pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
-						half_vals[i] = (__fp16)color[i];
+						half_vals[i] = (soft_f16)color[i];
 					}
-					memcpy(&img->data[offset], half_vals, sizeof(__fp16) * channel_count);
+					memcpy(&img->data[offset], half_vals, sizeof(soft_f16) * channel_count);
 				}
-#endif
 				else floor_unreachable();
 			}
 			else {

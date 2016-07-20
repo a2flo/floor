@@ -200,6 +200,8 @@
 		5CC330CD1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */; };
 		5CC330CF1AEA0E8000836CC4 /* gl_shader.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */; };
+		5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */; };
+		5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */; };
 		5CCF37961C3D208D006D355B /* metal_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CCF37951C3D208D006D355B /* metal_post.hpp */; };
 		5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
 		5CD2175919E985D80049D6AE /* cuda_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2175319E985D80049D6AE /* cuda_compute.cpp */; };
@@ -457,6 +459,8 @@
 		5CC330CB1AEA0E8000836CC4 /* gl_shader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_shader.cpp; sourceTree = "<group>"; };
 		5CC330CC1AEA0E8000836CC4 /* gl_shader.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_shader.hpp; sourceTree = "<group>"; };
 		5CC97EE71A93808800611CF6 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS8.3.sdk/System/Library/Frameworks/Metal.framework; sourceTree = DEVELOPER_DIR; };
+		5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = soft_f16.cpp; sourceTree = "<group>"; };
+		5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = soft_f16.hpp; sourceTree = "<group>"; };
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD1872A1C8F5A5600DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm38/build.sh; sourceTree = "<group>"; };
 		5CD1872B1C8F5A5600DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm38/pkg.sh; sourceTree = "<group>"; };
@@ -746,6 +750,8 @@
 				5CA3FF041B16475C006E3D81 /* const_array.hpp */,
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
+				5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */,
+				5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */,
 				5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */,
 			);
 			path = constexpr;
@@ -987,6 +993,7 @@
 				5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */,
 				5C1091CC17D1153E007F536E /* net.hpp in Headers */,
 				5C5383ED1A641B1E007AEDD7 /* cuda_program.hpp in Headers */,
+				5CCAC0181D3F3FAD006A4C1A /* soft_f16.hpp in Headers */,
 				5CE0BDDC19BB2A75000B28B3 /* matrix4.hpp in Headers */,
 				5C1091AD17D1153E007F536E /* file_io.hpp in Headers */,
 				5C366DDC19A64FF2006D1D09 /* const_math.hpp in Headers */,
@@ -1258,6 +1265,7 @@
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C8FD0C71AD38F9700215230 /* opencl_image.cpp in Sources */,
 				5C7173B218D717EB00DDF097 /* audio_store.cpp in Sources */,
+				5CCAC0171D3F3FAD006A4C1A /* soft_f16.cpp in Sources */,
 				5C5383EE1A641B1E007AEDD7 /* cuda_queue.cpp in Sources */,
 				5CD2176119EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5C1091D117D1153E007F536E /* thread_base.cpp in Sources */,

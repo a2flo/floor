@@ -137,14 +137,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_0
 #endif
 
-// use compiler specific define to detect if this is wanted or not
-#if defined(__FMA__)
-#define FLOOR_COMPUTE_INFO_HAS_FMA 1
-#define FLOOR_COMPUTE_INFO_HAS_FMA_1
-#else
+// always disable this (no native fma functions should be used),
+// this way the optimizer and vectorizer can actually generate proper code
 #define FLOOR_COMPUTE_INFO_HAS_FMA 0
 #define FLOOR_COMPUTE_INFO_HAS_FMA_0
-#endif
 
 // these are always set, as all targets (x86/arm) should/must support these
 #define FLOOR_COMPUTE_INFO_HAS_64_BIT_ATOMICS 1

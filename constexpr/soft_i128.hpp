@@ -60,7 +60,7 @@ struct alignas(16) i128 {
 	
 	// non-functional, just a hack to make this compile
 #define FLOOR_I128_OP(op) \
-	constexpr i128 operator op (const i128& val) const { \
+	constexpr i128 operator op (const i128& val) const noexcept { \
 		auto rlo = lo op val.lo; \
 		auto rhi = hi op val.hi; \
 		return i128 { rhi, rlo }; \

@@ -678,7 +678,7 @@ fi
 
 # release mode flags/optimizations
 # TODO: sse/avx selection/config? default to sse4.1 for now (core2)
-# TODO: also add -mtune option
+# TODO: also add -march=native -mtune=native option
 REL_FLAGS="-Ofast -funroll-loops -msse4.1"
 
 # additional optimizations (used in addition to REL_CXX_FLAGS)
