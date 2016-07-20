@@ -201,6 +201,9 @@
     <ClCompile Include="compute\metal\metal_device.cpp">
       <Filter>compute\metal</Filter>
     </ClCompile>
+    <ClCompile Include="constexpr\soft_f16.cpp">
+      <Filter>constexpr</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compute\compute_context.hpp">
@@ -490,6 +493,9 @@
     </ClInclude>
     <ClInclude Include="compute\metal\metal_queue.hpp">
       <Filter>compute\metal</Filter>
+    </ClInclude>
+    <ClInclude Include="constexpr\soft_f16.hpp">
+      <Filter>constexpr</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
