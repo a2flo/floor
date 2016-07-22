@@ -920,6 +920,48 @@ index cf29fc9..0dd0dec 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/IR/CallingConv.h b/include/llvm/IR/CallingConv.h
+index bc05092..f0257b3 100644
+--- a/include/llvm/IR/CallingConv.h
++++ b/include/llvm/IR/CallingConv.h
+@@ -117,23 +117,20 @@ namespace CallingConv {
+     /// Passes all arguments in register or parameter space.
+     PTX_Device = 72,
+ 
+-    /// SPIR_FUNC - Calling convention for SPIR non-kernel device functions.
+-    /// No lowering or expansion of arguments.
+-    /// Structures are passed as a pointer to a struct with the byval attribute.
+-    /// Functions can only call SPIR_FUNC and SPIR_KERNEL functions.
+-    /// Functions can only have zero or one return values.
+-    /// Variable arguments are not allowed, except for printf.
+-    /// How arguments/return values are lowered are not specified.
+-    /// Functions are only visible to the devices.
+-    SPIR_FUNC = 75,
+-
+-    /// SPIR_KERNEL - Calling convention for SPIR kernel functions.
+-    /// Inherits the restrictions of SPIR_FUNC, except
+-    /// Cannot have non-void return values.
+-    /// Cannot have variable arguments.
+-    /// Can also be called by the host.
+-    /// Is externally visible.
+-    SPIR_KERNEL = 76,
++    /// AIR/Metal vertex shader function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    FLOOR_VERTEX = 73,
++    /// AIR/Metal fragment shader function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    FLOOR_FRAGMENT = 74,
++    /// OpenCL/SPIR, AIR/Metal and CUDA normal function calling convention (not an entry point)
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    /// NOTE: used to be SPIR_FUNC, must be 75 for binary compat
++    FLOOR_FUNC = 75,
++    /// OpenCL/SPIR, AIR/Metal and CUDA compute kernel function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    /// NOTE: used to be SPIR_KERNEL, must be 76 for binary compat
++    FLOOR_KERNEL = 76,
+ 
+     /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
+     Intel_OCL_BI = 77,
 diff --git a/include/llvm/IR/DebugInfoMetadata.h b/include/llvm/IR/DebugInfoMetadata.h
 index 456313a..dd48fef 100644
 --- a/include/llvm/IR/DebugInfoMetadata.h
@@ -1024,10 +1066,10 @@ index df8ce35..cbb38e1 100644
  
  /// \brief Root of the metadata hierarchy.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 90fbc1d..167aa6d 100644
+index 90fbc1d..a4e1f6b 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -61,6 +61,14 @@ void initializeTarget(PassRegistry&);
+@@ -61,6 +61,15 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
@@ -1036,13 +1078,14 @@ index 90fbc1d..167aa6d 100644
 +void initializeCUDAFinalPass(PassRegistry&);
 +void initializeMetalFirstPass(PassRegistry&);
 +void initializeMetalFinalPass(PassRegistry&);
++void initializeMetalFinalModuleCleanupPass(PassRegistry&);
 +void initializeMetalImagePass(PassRegistry&);
 +void initializeSPIRFinalPass(PassRegistry&);
 +void initializeSPIRImagePass(PassRegistry&);
  void initializeADCELegacyPassPass(PassRegistry&);
  void initializeBDCEPass(PassRegistry&);
  void initializeAliasSetPrinterPass(PassRegistry&);
-@@ -115,6 +123,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
+@@ -115,6 +124,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
  void initializeDominatorTreeWrapperPassPass(PassRegistry&);
  void initializeEarlyIfConverterPass(PassRegistry&);
  void initializeEdgeBundlesPass(PassRegistry&);
@@ -2148,10 +2191,10 @@ index a4e7bce..42f35ae 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 9173de1..3c73f5f 100644
+index 9173de1..1780c2d 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -33,6 +33,57 @@ class TargetMachine;
+@@ -33,6 +33,64 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2185,6 +2228,13 @@ index 9173de1..3c73f5f 100644
 +//
 +FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false,
 +                                   const bool enable_nvidia_workarounds = false);
++
++//===----------------------------------------------------------------------===//
++//
++// MetalFinalModuleCleanup - This pass removes any calling convention attributes
++// and removes unused functions/prototypes/externs.
++//
++ModulePass *createMetalFinalModuleCleanupPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -2694,11 +2744,54 @@ index ef1bb3a..09aa3eb 100644
  }
  
  ScalarEvolution::ExitLimit
+diff --git a/lib/AsmParser/LLLexer.cpp b/lib/AsmParser/LLLexer.cpp
+index 26eca23..981b396 100644
+--- a/lib/AsmParser/LLLexer.cpp
++++ b/lib/AsmParser/LLLexer.cpp
+@@ -581,8 +581,10 @@ lltok::Kind LLLexer::LexIdentifier() {
+   KEYWORD(msp430_intrcc);
+   KEYWORD(ptx_kernel);
+   KEYWORD(ptx_device);
+-  KEYWORD(spir_kernel);
+-  KEYWORD(spir_func);
++  KEYWORD(floor_kernel);
++  KEYWORD(floor_vertex);
++  KEYWORD(floor_fragment);
++  KEYWORD(floor_func);
+   KEYWORD(intel_ocl_bicc);
+   KEYWORD(x86_64_sysvcc);
+   KEYWORD(x86_64_win64cc);
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
-index 3471a2d..037e3be 100644
+index 3471a2d..d7d24b8 100644
 --- a/lib/AsmParser/LLParser.cpp
 +++ b/lib/AsmParser/LLParser.cpp
-@@ -2774,10 +2774,10 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
+@@ -1537,8 +1537,10 @@ bool LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
+ ///   ::= 'msp430_intrcc'
+ ///   ::= 'ptx_kernel'
+ ///   ::= 'ptx_device'
+-///   ::= 'spir_func'
+-///   ::= 'spir_kernel'
++///   ::= 'floor_func'
++///   ::= 'floor_kernel'
++///   ::= 'floor_vertex'
++///   ::= 'floor_fragment'
+ ///   ::= 'x86_64_sysvcc'
+ ///   ::= 'x86_64_win64cc'
+ ///   ::= 'webkit_jscc'
+@@ -1568,8 +1570,10 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
+   case lltok::kw_msp430_intrcc:  CC = CallingConv::MSP430_INTR; break;
+   case lltok::kw_ptx_kernel:     CC = CallingConv::PTX_Kernel; break;
+   case lltok::kw_ptx_device:     CC = CallingConv::PTX_Device; break;
+-  case lltok::kw_spir_kernel:    CC = CallingConv::SPIR_KERNEL; break;
+-  case lltok::kw_spir_func:      CC = CallingConv::SPIR_FUNC; break;
++  case lltok::kw_floor_kernel:   CC = CallingConv::FLOOR_KERNEL; break;
++  case lltok::kw_floor_vertex:   CC = CallingConv::FLOOR_VERTEX; break;
++  case lltok::kw_floor_fragment: CC = CallingConv::FLOOR_FRAGMENT; break;
++  case lltok::kw_floor_func:     CC = CallingConv::FLOOR_FUNC; break;
+   case lltok::kw_intel_ocl_bicc: CC = CallingConv::Intel_OCL_BI; break;
+   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;
+   case lltok::kw_x86_64_win64cc: CC = CallingConv::X86_64_Win64; break;
+@@ -2774,10 +2778,10 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
          ParseType(DestTy) ||
          ParseToken(lltok::rparen, "expected ')' at end of constantexpr cast"))
        return true;
@@ -2711,7 +2804,7 @@ index 3471a2d..037e3be 100644
      ID.ConstantVal = ConstantExpr::getCast((Instruction::CastOps)Opc,
                                                   SrcVal, DestTy);
      ID.Kind = ValID::t_Constant;
-@@ -5412,12 +5412,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
+@@ -5412,12 +5416,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
        ParseType(DestTy))
      return true;
  
@@ -2726,6 +2819,19 @@ index 3471a2d..037e3be 100644
    Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
    return false;
  }
+diff --git a/lib/AsmParser/LLToken.h b/lib/AsmParser/LLToken.h
+index 29a7f16..1b85d0c 100644
+--- a/lib/AsmParser/LLToken.h
++++ b/lib/AsmParser/LLToken.h
+@@ -95,7 +95,7 @@ namespace lltok {
+     kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
+     kw_msp430_intrcc,
+     kw_ptx_kernel, kw_ptx_device,
+-    kw_spir_kernel, kw_spir_func,
++    kw_floor_kernel, kw_floor_vertex, kw_floor_fragment, kw_floor_func,
+     kw_x86_64_sysvcc, kw_x86_64_win64cc,
+     kw_webkit_jscc, kw_anyregcc,
+     kw_preserve_mostcc, kw_preserve_allcc,
 diff --git a/lib/Bitcode/CMakeLists.txt b/lib/Bitcode/CMakeLists.txt
 index ff7e290..9e90072 100644
 --- a/lib/Bitcode/CMakeLists.txt
@@ -9963,7 +10069,7 @@ index d00c10f..5f71d23 100644
 +add_subdirectory(SPIRV)
 +add_subdirectory(SPIRVerifier)
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
-index 0ce44e1..7b3c26b 100644
+index 0ce44e1..3d3cb66 100644
 --- a/lib/IR/AsmWriter.cpp
 +++ b/lib/IR/AsmWriter.cpp
 @@ -19,6 +19,7 @@
@@ -9974,7 +10080,23 @@ index 0ce44e1..7b3c26b 100644
  #include "llvm/IR/AssemblyAnnotationWriter.h"
  #include "llvm/IR/CFG.h"
  #include "llvm/IR/CallingConv.h"
-@@ -2409,12 +2410,21 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
+@@ -311,11 +312,13 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
+   case CallingConv::PTX_Device:    Out << "ptx_device"; break;
+   case CallingConv::X86_64_SysV:   Out << "x86_64_sysvcc"; break;
+   case CallingConv::X86_64_Win64:  Out << "x86_64_win64cc"; break;
+-  case CallingConv::SPIR_FUNC:     Out << "spir_func"; break;
+-  case CallingConv::SPIR_KERNEL:   Out << "spir_kernel"; break;
+   case CallingConv::X86_INTR:      Out << "x86_intrcc"; break;
+   case CallingConv::HHVM:          Out << "hhvmcc"; break;
+   case CallingConv::HHVM_C:        Out << "hhvm_ccc"; break;
++  case CallingConv::FLOOR_FUNC:    Out << "floor_func"; break;
++  case CallingConv::FLOOR_VERTEX:  Out << "floor_vertex"; break;
++  case CallingConv::FLOOR_FRAGMENT:Out << "floor_fragment"; break;
++  case CallingConv::FLOOR_KERNEL:  Out << "floor_kernel"; break;
+   }
+ }
+ 
+@@ -2409,12 +2412,21 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
    PrintVisibility(GV->getVisibility(), Out);
    PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
    PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
@@ -17396,7 +17518,7 @@ index 0000000..28f72b8
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..9f099f1
+index 0000000..5350c4e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
 @@ -0,0 +1,2640 @@
@@ -17980,7 +18102,7 @@ index 0000000..9f099f1
 +  if (!Func) {
 +    FunctionType *FT = FunctionType::get(ReturnTy, ArgTy, false);
 +    Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-+    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
 +    Func->addFnAttr(Attribute::NoUnwind);
 +    Func->addFnAttr(Attribute::ReadNone);
 +  }
@@ -19150,8 +19272,8 @@ index 0000000..9f099f1
 +  assert(F);
 +  mapFunction(BF, F);
 +  if (!F->isIntrinsic()) {
-+    F->setCallingConv(IsKernel ? CallingConv::SPIR_KERNEL :
-+        CallingConv::SPIR_FUNC);
++    F->setCallingConv(IsKernel ? CallingConv::FLOOR_KERNEL :
++        CallingConv::FLOOR_FUNC);
 +    if (isFuncNoUnwind())
 +      F->addFnAttr(Attribute::NoUnwind);
 +    foreachFuncCtlMask(BF, [&](Attribute::AttrKind Attr){
@@ -19305,7 +19427,7 @@ index 0000000..9f099f1
 +      dbgs() << *I << '\n';
 +    });
 +    Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-+    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
 +    if (isFuncNoUnwind())
 +      Func->addFnAttr(Attribute::NoUnwind);
 +  }
@@ -19466,7 +19588,7 @@ index 0000000..9f099f1
 +    SPIRVFunction *BF = BM->getFunction(I);
 +    Function *F = static_cast<Function *>(getTranslatedValue(BF));
 +    assert(F && "Invalid translated function");
-+    if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
++    if (F->getCallingConv() != CallingConv::FLOOR_KERNEL)
 +      continue;
 +    std::vector<llvm::Metadata*> KernelMD;
 +    KernelMD.push_back(ValueAsMetadata::get(F));
@@ -19683,7 +19805,7 @@ index 0000000..9f099f1
 +      GlobalValue::ExternalLinkage,
 +      MangledName,
 +      M);
-+    F->setCallingConv(CallingConv::SPIR_FUNC);
++    F->setCallingConv(CallingConv::FLOOR_FUNC);
 +    if (isFuncNoUnwind())
 +      F->addFnAttr(Attribute::NoUnwind);
 +  }
@@ -19739,7 +19861,7 @@ index 0000000..9f099f1
 +  if (!Func) {
 +    FunctionType *FT = FunctionType::get(VoidTy, ArgTy, false);
 +    Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-+    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
 +    if (isFuncNoUnwind())
 +      Func->addFnAttr(Attribute::NoUnwind);
 +  }
@@ -19788,7 +19910,7 @@ index 0000000..9f099f1
 +  if (!Func) {
 +    FunctionType *FT = FunctionType::get(VoidTy, ArgTy, false);
 +    Func = Function::Create(FT, GlobalValue::ExternalLinkage, MangledName, M);
-+    Func->setCallingConv(CallingConv::SPIR_FUNC);
++    Func->setCallingConv(CallingConv::FLOOR_FUNC);
 +    if (isFuncNoUnwind())
 +      Func->addFnAttr(Attribute::NoUnwind);
 +  }
@@ -20824,7 +20946,7 @@ index 0000000..e964d6f
 +}
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..423d06e
+index 0000000..e2c37bb
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
 @@ -0,0 +1,1426 @@
@@ -21157,7 +21279,7 @@ index 0000000..423d06e
 +      dbgs() << *NewF << '\n';
 +      );
 +    F = NewF;
-+    F->setCallingConv(CallingConv::SPIR_FUNC);
++    F->setCallingConv(CallingConv::FLOOR_FUNC);
 +    if (Attrs)
 +      F->setAttributes(*Attrs);
 +  }
@@ -22256,7 +22378,7 @@ index 0000000..423d06e
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..2cd60cb
+index 0000000..41f6daf
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -0,0 +1,1698 @@
@@ -22585,7 +22707,7 @@ index 0000000..2cd60cb
 +
 +bool
 +LLVMToSPIRV::oclIsKernel(Function *F) {
-+  if (F->getCallingConv() == CallingConv::SPIR_KERNEL)
++  if (F->getCallingConv() == CallingConv::FLOOR_KERNEL)
 +    return true;
 +  return false;
 +}
@@ -24074,7 +24196,7 @@ index 0000000..ba59ea4
 +#endif
 diff --git a/lib/SPIRV/TransOCLMD.cpp b/lib/SPIRV/TransOCLMD.cpp
 new file mode 100644
-index 0000000..d86b3f8
+index 0000000..5a4a839
 --- /dev/null
 +++ b/lib/SPIRV/TransOCLMD.cpp
 @@ -0,0 +1,222 @@
@@ -24239,9 +24361,9 @@ index 0000000..d86b3f8
 +      continue;
 +    Function *Kernel = mdconst::dyn_extract<Function>(KernelMD->getOperand(0));
 +
-+    // Workaround for OCL 2.0 producer not using SPIR_KERNEL calling convention
++    // Workaround for OCL 2.0 producer not using FLOOR_KERNEL calling convention
 +#if  SPCV_RELAX_KERNEL_CALLING_CONV
-+    Kernel->setCallingConv(CallingConv::SPIR_KERNEL);
++    Kernel->setCallingConv(CallingConv::FLOOR_KERNEL);
 +#endif
 +
 +    MDNode *EPNode;
@@ -37890,7 +38012,7 @@ index 0000000..1256e5d
 +} // End SPIR namespace
 diff --git a/lib/SPIRVerifier/SpirIterators.cpp b/lib/SPIRVerifier/SpirIterators.cpp
 new file mode 100644
-index 0000000..9d2cb89
+index 0000000..e478e12
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirIterators.cpp
 @@ -0,0 +1,1029 @@
@@ -38384,8 +38506,8 @@ index 0000000..9d2cb89
 +
 +  if (!F->isDeclaration()) {
 +    // Verify that this call has valid calling convention.
-+    if (CI->getCallingConv() != CallingConv::SPIR_KERNEL &&
-+        CI->getCallingConv() != CallingConv::SPIR_FUNC) {
++    if (CI->getCallingConv() != CallingConv::FLOOR_KERNEL &&
++        CI->getCallingConv() != CallingConv::FLOOR_FUNC) {
 +        ErrCreator->addError(ERR_INVALID_CALLING_CONVENTION, I);
 +    }
 +  }
@@ -38442,8 +38564,8 @@ index 0000000..9d2cb89
 +void VerifyFunctionPrototype::execute(const Function *F) {
 +  if (!F->isDeclaration()) {
 +    // Verify calling convention for user defined functions
-+    if (F->getCallingConv() != CallingConv::SPIR_KERNEL &&
-+        F->getCallingConv() != CallingConv::SPIR_FUNC)
++    if (F->getCallingConv() != CallingConv::FLOOR_KERNEL &&
++        F->getCallingConv() != CallingConv::FLOOR_FUNC)
 +          ErrCreator->addError(ERR_INVALID_CALLING_CONVENTION, F->getName());
 +  }
 +  Function::const_arg_iterator ai = F->arg_begin(), ae = F->arg_end();
@@ -38466,7 +38588,7 @@ index 0000000..9d2cb89
 +
 +void VerifyKernelPrototype::execute(const Function *F) {
 +  // detect kernel by looking at the calling convention
-+  if (F->getCallingConv() != CallingConv::SPIR_KERNEL)
++  if (F->getCallingConv() != CallingConv::FLOOR_KERNEL)
 +    return;
 +
 +  // check arguments
@@ -38616,7 +38738,7 @@ index 0000000..9d2cb89
 +    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
 +    return;
 +  }
-+  if (F->getCallingConv() != CallingConv::SPIR_KERNEL) {
++  if (F->getCallingConv() != CallingConv::FLOOR_KERNEL) {
 +    ErrCreator->addError(ERR_INVALID_METADATA_KERNEL, Node);
 +  }
 +  if (FoundMap.count(F)) {
@@ -38665,7 +38787,7 @@ index 0000000..9d2cb89
 +  Module::const_iterator fi = M->begin(), fe = M->end();
 +  for (; fi != fe; fi++) {
 +    const Function *F = &*fi;
-+    if (F->getCallingConv() == CallingConv::SPIR_KERNEL) {
++    if (F->getCallingConv() == CallingConv::FLOOR_KERNEL) {
 +      NumKernels++;
 +    }
 +  }
@@ -39807,6 +39929,20 @@ index bd2509a..55c1aca 100644
    }
  
    return *this;
+diff --git a/lib/Target/NVPTX/NVPTXUtilities.cpp b/lib/Target/NVPTX/NVPTXUtilities.cpp
+index 578b466..dbf93d8 100644
+--- a/lib/Target/NVPTX/NVPTXUtilities.cpp
++++ b/lib/Target/NVPTX/NVPTXUtilities.cpp
+@@ -295,7 +295,8 @@ bool llvm::isKernelFunction(const Function &F) {
+       &F, llvm::PropertyAnnotationNames[llvm::PROPERTY_ISKERNEL_FUNCTION], x);
+   if (!retval) {
+     // There is no NVVM metadata, check the calling convention
+-    return F.getCallingConv() == llvm::CallingConv::PTX_Kernel;
++    return (F.getCallingConv() == llvm::CallingConv::PTX_Kernel ||
++            F.getCallingConv() == llvm::CallingConv::FLOOR_KERNEL);
+   }
+   return (x == 1);
+ }
 diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
 index 351b88f..409a483 100644
 --- a/lib/Transforms/IPO/CMakeLists.txt
@@ -39820,7 +39956,7 @@ index 351b88f..409a483 100644
    Inliner.cpp
    Internalize.cpp
 diff --git a/lib/Transforms/IPO/FunctionAttrs.cpp b/lib/Transforms/IPO/FunctionAttrs.cpp
-index 527fdd1..e79a376 100644
+index 527fdd1..ca006bf 100644
 --- a/lib/Transforms/IPO/FunctionAttrs.cpp
 +++ b/lib/Transforms/IPO/FunctionAttrs.cpp
 @@ -73,6 +73,7 @@ private:
@@ -39831,8 +39967,22 @@ index 527fdd1..e79a376 100644
  INITIALIZE_PASS_BEGIN(PostOrderFunctionAttrs, "functionattrs",
                        "Deduce function attributes", false, false)
  INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
+@@ -950,6 +951,13 @@ static bool addNoRecurseAttrs(const CallGraphSCC &SCC) {
+   if (!F || F->isDeclaration() || F->doesNotRecurse())
+     return false;
+ 
++  // set norecurse for all compute kernels and vertex/fragment shaders
++  if (F->getCallingConv() == CallingConv::FLOOR_KERNEL ||
++      F->getCallingConv() == CallingConv::FLOOR_VERTEX ||
++      F->getCallingConv() == CallingConv::FLOOR_FRAGMENT) {
++    return setDoesNotRecurse(*F);
++  }
++
+   // If all of the calls in F are identifiable and are to norecurse functions, F
+   // is norecurse. This check also detects self-recursion as F is not currently
+   // marked norecurse, so any called from F to F will not be marked norecurse.
 diff --git a/lib/Transforms/IPO/GlobalOpt.cpp b/lib/Transforms/IPO/GlobalOpt.cpp
-index fd773690..da9b5f6 100644
+index fd773690..4688d6a 100644
 --- a/lib/Transforms/IPO/GlobalOpt.cpp
 +++ b/lib/Transforms/IPO/GlobalOpt.cpp
 @@ -20,6 +20,7 @@
@@ -39847,14 +39997,14 @@ index fd773690..da9b5f6 100644
    }
  }
  
-+/// ChangeCalleesToSpirFunc - Walk all of the direct calls of the specified
-+/// function, changing them to spir_func calling convention.
-+static void ChangeCalleesToSpirFunc(Function *F) {
++/// ChangeCalleesToFloorFunc - Walk all of the direct calls of the specified
++/// function, changing them to floor_func calling convention.
++static void ChangeCalleesToFloorFunc(Function *F) {
 +  for (User *U : F->users()) {
 +    if (isa<BlockAddress>(U))
 +      continue;
 +    CallSite CS(cast<Instruction>(U));
-+    CS.setCallingConv(CallingConv::SPIR_FUNC);
++    CS.setCallingConv(CallingConv::FLOOR_FUNC);
 +  }
 +}
 +
@@ -39869,18 +40019,20 @@ index fd773690..da9b5f6 100644
    bool Changed = false;
    // Optimize functions.
    for (Module::iterator FI = M.begin(), E = M.end(); FI != E; ) {
-@@ -2057,8 +2070,17 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
+@@ -2057,8 +2070,19 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
        // If this function has a calling convention worth changing, is not a
        // varargs function, and is only called directly, promote it to use the
        // Fast calling convention.
 -      F->setCallingConv(CallingConv::Fast);
 -      ChangeCalleesToFastCall(F);
-+      // with OpenCL/SPIR: change it to spir_func instead (fastcc is invalid)
-+      if ((triple.getArch() == llvm::Triple::ArchType::spir ||
-+           triple.getArch() == llvm::Triple::ArchType::spir64) &&
-+          triple.getVendorName().str() == "unknown") {
-+        F->setCallingConv(CallingConv::SPIR_FUNC);
-+        ChangeCalleesToSpirFunc(F);
++      // with OpenCL/SPIR, Metal/AIR and CUDA: change it to floor_func instead (fastcc is invalid)
++      if (((triple.getArch() == llvm::Triple::ArchType::spir ||
++            triple.getArch() == llvm::Triple::ArchType::spir64) &&
++           triple.getVendorName().str() == "unknown") ||
++          triple.getArch() == llvm::Triple::ArchType::air64 ||
++          triple.getOS() == llvm::Triple::OSType::CUDA) {
++        F->setCallingConv(CallingConv::FLOOR_FUNC);
++        ChangeCalleesToFloorFunc(F);
 +      }
 +      else {
 +        F->setCallingConv(CallingConv::Fast);
@@ -40008,7 +40160,7 @@ index 0000000..b1ed84e
 +}
 +
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
-index 21bb5d0..c52d4062 100644
+index 21bb5d0..3521109 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
 +++ b/lib/Transforms/IPO/Internalize.cpp
 @@ -23,6 +23,7 @@
@@ -40027,9 +40179,9 @@ index 21bb5d0..c52d4062 100644
 +  if (isa<Function>(GV)) {
 +    const Function* F = dyn_cast<Function>(&GV);
 +    if (F &&
-+        (F->hasFnAttribute("compute_kernel") ||
-+         F->hasFnAttribute("vertex_shader") ||
-+         F->hasFnAttribute("fragment_shader"))) {
++        (F->getCallingConv() == CallingConv::FLOOR_KERNEL ||
++         F->getCallingConv() == CallingConv::FLOOR_VERTEX ||
++         F->getCallingConv() == CallingConv::FLOOR_FRAGMENT)) {
 +      return true;
 +    }
 +  }
@@ -40048,7 +40200,7 @@ index b5410f5..563fa24 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index faada9c..35fca8f 100644
+index faada9c..44c7f53 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -34,6 +34,7 @@
@@ -40156,7 +40308,7 @@ index faada9c..35fca8f 100644
    if (!DisableUnitAtATime)
      MPM.add(createReversePostOrderFunctionAttrsPass());
  
-@@ -484,6 +541,21 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -484,6 +541,22 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -40165,6 +40317,7 @@ index faada9c..35fca8f 100644
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
 +  if(EnableMetalPasses) {
 +    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
++    MPM.add(createMetalFinalModuleCleanupPass());
 +
 +    // cleanup
 +    MPM.add(createTailCallEliminationPass());
@@ -40788,7 +40941,7 @@ index a0ddbd0..1d4fcb3 100644
    BDCE.cpp
 diff --git a/lib/Transforms/Scalar/CUDAFinal.cpp b/lib/Transforms/Scalar/CUDAFinal.cpp
 new file mode 100644
-index 0000000..b77f9fa
+index 0000000..9f08fe5
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFinal.cpp
 @@ -0,0 +1,116 @@
@@ -40877,7 +41030,7 @@ index 0000000..b77f9fa
 +			if(F.empty()) return false;
 +			
 +			// if not a kernel function, return (for now)
-+			if(!F.hasFnAttribute("compute_kernel")) return false;
++			if(F.getCallingConv() != CallingConv::FLOOR_KERNEL) return false;
 +			
 +			// reset
 +			M = F.getParent();
@@ -42060,10 +42213,10 @@ index ecef6db..bbfa7c5 100644
      return false;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..eb8c0e1
+index 0000000..5c64b5b
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,795 @@
+@@ -0,0 +1,853 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -42338,9 +42491,9 @@ index 0000000..eb8c0e1
 +			M = F.getParent();
 +			ctx = &M->getContext();
 +			
-+			is_vertex_func = F.hasFnAttribute("vertex_shader");
-+			is_fragment_func = F.hasFnAttribute("fragment_shader");
-+			is_kernel_func = F.hasFnAttribute("compute_kernel");
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			
 +			//
 +			was_modified = false;
@@ -42501,7 +42654,7 @@ index 0000000..eb8c0e1
 +			}
 +			
 +			// add args if this is a kernel function
-+			is_kernel_func = F.hasFnAttribute("compute_kernel");
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			if(is_kernel_func) {
 +				const auto vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
 +				global_id = new llvm::Argument(vec_type, "__metal__global_id__", &F);
@@ -42513,7 +42666,7 @@ index 0000000..eb8c0e1
 +			}
 +			
 +			// add args if this is a vertex function
-+			is_vertex_func = F.hasFnAttribute("vertex_shader");
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
 +			if(is_vertex_func) {
 +				const auto uint_type = llvm::Type::getInt32Ty(*ctx);
 +				vertex_id = new llvm::Argument(uint_type, "__metal__vertex_id__", &F);
@@ -42522,7 +42675,7 @@ index 0000000..eb8c0e1
 +			}
 +			
 +			// add args if this is a fragment function
-+			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
 +			if(is_fragment_func) {
 +				const auto vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 2);
 +				point_coord = new llvm::Argument(vec_type, "__metal__point_coord__", &F);
@@ -42842,6 +42995,57 @@ index 0000000..eb8c0e1
 +		}
 +		
 +	};
++	
++	// MetalFinalModuleCleanup:
++	// * calling convention cleanup
++	// * strip unused functions/prototypes/externs
++	struct MetalFinalModuleCleanup : public ModulePass {
++		static char ID; // Pass identification, replacement for typeid
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		bool was_modified { false };
++		
++		MetalFinalModuleCleanup() : ModulePass(ID) {
++			initializeMetalFinalModuleCleanupPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnModule(Module& Mod) override {
++			M = &Mod;
++			ctx = &M->getContext();
++			
++			// * strip floor_* calling convention from all functions and their users (replace it with C CC)
++			// * kill all functions named floor.*
++			bool module_modified = false;
++			for(auto func_iter = Mod.begin(); func_iter != Mod.end();) {
++				auto& func = *func_iter;
++				if(func.getName().startswith("floor.")) {
++					if(func.getNumUses() != 0) {
++						errs() << func.getName() << " should not have an uses at this point!\n";
++					}
++					++func_iter; // inc before erase
++					func.eraseFromParent();
++					module_modified = true;
++					continue;
++				}
++				
++				if(func.getCallingConv() != CallingConv::C) {
++					func.setCallingConv(CallingConv::C);
++					for(auto user : func.users()) {
++						if(auto instr = dyn_cast<Instruction>(user)) {
++							CallSite call_site(instr);
++							call_site.setCallingConv(CallingConv::C);
++						}
++					}
++					module_modified = true;
++				}
++				++func_iter;
++			}
++			return module_modified;
++		}
++		
++	};
++	
 +}
 +
 +char MetalFirst::ID = 0;
@@ -42859,6 +43063,13 @@ index 0000000..eb8c0e1
 +}
 +INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
++
++char MetalFinalModuleCleanup::ID = 0;
++ModulePass *llvm::createMetalFinalModuleCleanupPass() {
++	return new MetalFinalModuleCleanup();
++}
++INITIALIZE_PASS_BEGIN(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
++INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
 index 0000000..0a3eeb1
@@ -43374,7 +43585,7 @@ index 0000000..0a3eeb1
 +}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..580e2b0
+index 0000000..0dc85f6
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
 @@ -0,0 +1,273 @@
@@ -43473,7 +43684,7 @@ index 0000000..580e2b0
 +			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
 +			
 +			// update function signature / param list
-+			if(F.hasFnAttribute("compute_kernel")) {
++			if(F.getCallingConv() == CallingConv::FLOOR_KERNEL) {
 +				std::vector<Type*> param_types;
 +				for(auto& arg : F.args()) {
 +					// add "byval" attribute for all kernel struct parameters
@@ -43653,7 +43864,7 @@ index 0000000..580e2b0
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..a85d3b8
+index 0000000..b3c628d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,630 @@
@@ -43736,7 +43947,7 @@ index 0000000..a85d3b8
 +																 is_readnone ?
 +																 nounwind_readnone_attr :
 +																 nounwind_attr));
-+				func->setCallingConv(CallingConv::SPIR_FUNC);
++				func->setCallingConv(CallingConv::FLOOR_FUNC);
 +			}
 +			return func;
 +		}
@@ -43763,7 +43974,7 @@ index 0000000..a85d3b8
 +																get_dim_arg_types);
 +				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
 +				get_dim_call->setDoesNotAccessMemory();
-+				get_dim_call->setCallingConv(CallingConv::SPIR_FUNC);
++				get_dim_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +				ret.push_back(get_dim_call);
 +			}
 +			
@@ -44128,7 +44339,7 @@ index 0000000..a85d3b8
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
-+			read_call->setCallingConv(CallingConv::SPIR_FUNC);
++			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
 +			// if this is a depth read/sample, the return type is a float -> create a float4
 +			llvm::Value* read_call_result = read_call;
@@ -44269,7 +44480,7 @@ index 0000000..a85d3b8
 +			auto write_func = get_or_create_spir_function(cl_func_name, builder->getVoidTy(), func_arg_types, false);
 +			llvm::CallInst* write_call = builder->CreateCall(write_func, func_args);
 +			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
-+			write_call->setCallingConv(CallingConv::SPIR_FUNC);
++			write_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
 +			//
 +			I.replaceAllUsesWith(write_call);
@@ -44288,10 +44499,10 @@ index 0000000..a85d3b8
 +	return new SPIRImage(image_capabilities);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index 52d477c..6a91c2c 100644
+index 52d477c..f5fa9f3 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -90,6 +90,38 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -90,6 +90,42 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -44313,6 +44524,10 @@ index 52d477c..6a91c2c 100644
 +
 +void LLVMAddMetalFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createMetalFinalPass());
++}
++
++void LLVMAddMetalFinalModuleCleanupPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalFinalModuleCleanupPass());
 +}
 +
 +void LLVMAddMetalImagePass(LLVMPassManagerRef PM) {
