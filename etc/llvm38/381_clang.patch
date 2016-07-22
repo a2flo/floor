@@ -4256,10 +4256,42 @@ index b78e80d..71895a6 100644
    // If this isn't C++, we don't need a mangled name, just a pretty one.
    assert(!D.isExternallyVisible() && "name shouldn't matter");
 diff --git a/lib/CodeGen/CGExpr.cpp b/lib/CodeGen/CGExpr.cpp
-index 507ce3d..cd7d6ba 100644
+index 507ce3d..344e280 100644
 --- a/lib/CodeGen/CGExpr.cpp
 +++ b/lib/CodeGen/CGExpr.cpp
-@@ -2102,8 +2102,19 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
+@@ -1241,6 +1241,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
+                                                QualType TBAABaseType,
+                                                uint64_t TBAAOffset,
+                                                bool isNontemporal) {
++#if 0 // incorrect and not at all beneficial for compute backends
+   // For better performance, handle vector loads differently.
+   if (Ty->isVectorType()) {
+     const llvm::Type *EltTy = Addr.getElementType();
+@@ -1263,6 +1264,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
+       return EmitFromMemory(V, Ty);
+     }
+   }
++#endif
+ 
+   // Atomic operations have to be done on integral types.
+   if (Ty->isAtomicType() || typeIsSuitableForInlineAtomic(Ty, Volatile)) {
+@@ -1356,6 +1358,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
+   // Handle vectors differently to get better performance.
+   if (Ty->isVectorType()) {
+     llvm::Type *SrcTy = Value->getType();
++#if 0 // incorrect and not at all beneficial for compute backends
+     auto *VecTy = cast<llvm::VectorType>(SrcTy);
+     // Handle vec3 special.
+     if (VecTy->getNumElements() == 3) {
+@@ -1369,6 +1372,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
+                                           MaskV, "extractVec");
+       SrcTy = llvm::VectorType::get(VecTy->getElementType(), 4);
+     }
++#endif
+     if (Addr.getElementType() != SrcTy) {
+       Addr = Builder.CreateElementBitCast(Addr, SrcTy, "storetmp");
+     }
+@@ -2102,8 +2106,19 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
  
    if (const auto *VD = dyn_cast<VarDecl>(ND)) {
      // Check if this is a global variable.
@@ -4280,7 +4312,7 @@ index 507ce3d..cd7d6ba 100644
  
      Address addr = Address::invalid();
  
-@@ -3076,11 +3087,11 @@ LValue CodeGenFunction::EmitLValueForLambdaField(const FieldDecl *Field) {
+@@ -3076,11 +3091,11 @@ LValue CodeGenFunction::EmitLValueForLambdaField(const FieldDecl *Field) {
  ///
  /// The resulting address doesn't necessarily have the right type.
  static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
@@ -4294,7 +4326,7 @@ index 507ce3d..cd7d6ba 100644
  
    CharUnits offset;
    // Adjust the alignment down to the given offset.
-@@ -3100,36 +3111,37 @@ static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
+@@ -3100,36 +3115,37 @@ static Address emitAddrOfFieldStorage(CodeGenFunction &CGF, Address base,
  
  LValue CodeGenFunction::EmitLValueForField(LValue base,
                                             const FieldDecl *field) {
@@ -4341,7 +4373,7 @@ index 507ce3d..cd7d6ba 100644
    unsigned cvr = base.getVRQualifiers();
    bool TBAAPath = CGM.getCodeGenOpts().StructPathTBAA;
    if (rec->isUnion()) {
-@@ -3139,7 +3151,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -3139,7 +3155,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
      TBAAPath = false;
    } else {
      // For structs, we GEP to the field that the record layout suggests.
@@ -4350,7 +4382,7 @@ index 507ce3d..cd7d6ba 100644
  
      // If this is a reference field, load the reference right now.
      if (const ReferenceType *refType = type->getAs<ReferenceType>()) {
-@@ -3217,7 +3229,8 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
+@@ -3217,7 +3233,8 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
    if (!FieldType->isReferenceType())
      return EmitLValueForField(Base, Field);
  
@@ -4360,7 +4392,7 @@ index 507ce3d..cd7d6ba 100644
  
    // Make sure that the address is pointing to the right type.
    llvm::Type *llvmType = ConvertTypeForMem(FieldType);
-@@ -3487,6 +3500,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
+@@ -3487,6 +3504,10 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
    }
    case CK_ZeroToOCLEvent:
      llvm_unreachable("NULL to OpenCL event lvalue cast is not valid");
