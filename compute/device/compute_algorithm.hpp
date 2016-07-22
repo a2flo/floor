@@ -118,7 +118,7 @@ namespace compute_algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, typename reduced_type, typename local_memory_type, typename F>
-	floor_inline_always static reduced_type reduce(reduced_type work_item_value,
+	floor_inline_always static reduced_type reduce(const reduced_type& work_item_value,
 												   local_memory_type& lmem,
 												   F&& op) {
 		// init/set all work-item values
@@ -141,11 +141,12 @@ namespace compute_algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, bool inclusive, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto scan(data_type value,
+	floor_inline_always static auto scan(const data_type& work_item_value,
 										 op_func_type&& op,
 										 lmem_type& lmem,
-										 data_type zero_val = (data_type)0) {
+										 const data_type zero_val = (data_type)0) {
 		const auto lid = local_id.x;
+		auto value = work_item_value;
 		
 #if !defined(FLOOR_COMPUTE_HOST)
 		lmem[lid] = value;
@@ -207,10 +208,10 @@ namespace compute_algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto inclusive_scan(data_type work_item_value,
+	floor_inline_always static auto inclusive_scan(const data_type& work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
-												   data_type zero_val = (data_type)0) {
+												   const data_type zero_val = (data_type)0) {
 		return scan<work_group_size, true>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	
@@ -219,10 +220,10 @@ namespace compute_algorithm {
 	//! NOTE: this function can only be called for 1D kernels
 	//! NOTE: the reduce function/op must be a binary function
 	template <uint32_t work_group_size, typename data_type, typename op_func_type, typename lmem_type>
-	floor_inline_always static auto exclusive_scan(data_type work_item_value,
+	floor_inline_always static auto exclusive_scan(const data_type& work_item_value,
 												   op_func_type&& op,
 												   lmem_type& lmem,
-												   data_type zero_val = (data_type)0) {
+												   const data_type zero_val = (data_type)0) {
 		return scan<work_group_size, false>(work_item_value, std::forward<op_func_type>(op), lmem, zero_val);
 	}
 	

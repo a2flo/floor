@@ -35,7 +35,9 @@ public:
 	//! after completing the task op or after encountering an unhandled exception.
 	//! NOTE: example usage: task::spawn([]() { cout << "do something in here" << endl; });
 	static void spawn(std::function<void()> op, const string task_name = "task") {
+#if !defined(__clang_analyzer__) // kill off memory leak warnings, it's supposed to work like this
 		new task(op, task_name);
+#endif
 	}
 	
 protected:
