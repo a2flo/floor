@@ -217,7 +217,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					break;
 				case 6:
 				default:
-					// TODO: sm_62? probably tegra, so default to 128 as well
+					// sm_60: 64 cores/sm, sm_61/sm_62: 128 cores/sm
 					multiplier = (dev->sm.y == 0 ? 64 : 128);
 					break;
 			}

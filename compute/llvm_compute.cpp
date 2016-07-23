@@ -500,7 +500,6 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		" -Wno-reserved-id-macro"
 		// not intended to be compatible
 		" -Wno-gcc-compat"
-		// TODO: also add -Wno-padded -Wno-packed? or make these optional? there are situations were these are useful
 		// end
 		" "
 	};

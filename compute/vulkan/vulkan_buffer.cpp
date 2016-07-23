@@ -36,12 +36,6 @@ vulkan_buffer::vulkan_buffer(const vulkan_device* device,
 compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_) {
 	if(size < min_multiple()) return;
 	
-	// TODO: really need to make memory directly associated with devices now (opencl is the only backend that doesn't do this)
-	if(device == nullptr) {
-		log_error("no device has been specified");
-		return;
-	}
-	
 	// TODO: handle the remaining flags + host ptr
 	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// TODO: flag?
