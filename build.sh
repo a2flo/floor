@@ -734,16 +734,29 @@ if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 	fi
 fi
 
-# hard-mode c++ ;) TODO: clean this up + explanations
-WARNINGS="${WARNINGS} -Weverything -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
-WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat -Wno-c++98-compat"
-WARNINGS="${WARNINGS} -Wno-c++98-compat-pedantic -Wno-c99-extensions"
-WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation"
-WARNINGS="${WARNINGS} -Wno-system-headers -Wno-global-constructors -Wno-padded"
-WARNINGS="${WARNINGS} -Wno-packed -Wno-switch-enum -Wno-exit-time-destructors"
-WARNINGS="${WARNINGS} -Wno-unknown-warning-option -Wno-nested-anon-types"
-WARNINGS="${WARNINGS} -Wno-old-style-cast -Wno-date-time -Wno-reserved-id-macro"
-WARNINGS="${WARNINGS} -Wno-documentation-unknown-command -Wno-partial-availability"
+# hard-mode c++ ;)
+# let's start with everything
+WARNINGS="-Weverything ${WARNINGS}"
+# in case we're using warning options that aren't supported by other clang versions
+WARNINGS="${WARNINGS} -Wno-unknown-warning-option"
+# remove std compat warnings (c++14 with gnu and clang extensions is required)
+WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++11-compat -Wno-c99-extensions -Wno-c11-extensions"
+WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
+# don't be too pedantic
+WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast"
+WARNINGS="${WARNINGS} -Wno-global-constructors -Wno-exit-time-destructors -Wno-reserved-id-macro -Wno-date-time"
+# suppress warnings in system headers
+WARNINGS="${WARNINGS} -Wno-system-headers"
+# these two are only useful in certain situations, but are quite noisy
+WARNINGS="${WARNINGS} -Wno-packed -Wno-padded"
+# this conflicts with the other switch/case warning
+WARNINGS="${WARNINGS} -Wno-switch-enum"
+# quite useful feature/extension
+WARNINGS="${WARNINGS} -Wno-nested-anon-types"
+# this should be taken care of in a different way
+WARNINGS="${WARNINGS} -Wno-partial-availability"
+# enable thread-safety warnings
+WARNINGS="${WARNINGS} -Wthread-safety -Wthread-safety-negative -Wthread-safety-beta -Wthread-safety-verbose"
 if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
 	# ignore warnings about required alignment increases on 32-bit platforms (won't and can't fix)
 	WARNINGS="${WARNINGS} -Wno-cast-align"
