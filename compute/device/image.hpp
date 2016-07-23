@@ -108,9 +108,10 @@ namespace floor_image {
 	}
 #endif
 
-// for testing purposes
+// for testing purposes (a total hack until there are run-time samplers)
+#if !defined(FLOOR_METAL_ADDRESS_MODE)
 #define FLOOR_METAL_ADDRESS_MODE metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE
-//#define FLOOR_METAL_ADDRESS_MODE metal_image::sampler::ADDRESS_MODE::REPEAT
+#endif
 	
 	//! backend specific default sampler (for integral and floating point coordinates)
 	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION = COMPARE_FUNCTION::NONE, typename = void>

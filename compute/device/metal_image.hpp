@@ -39,9 +39,8 @@ namespace metal_image {
 		enum FILTER_MODE {
 			NEAREST			= 0,
 			LINEAR			= 1,
-#if 0 // TODO: enable if targeting metal 1.2+
+			// metal 1.2+
 			BICUBIC			= 2,
-#endif
 		};
 		enum MIP_FILTER_MODE {
 			MIP_NONE		= 0,
@@ -82,19 +81,15 @@ namespace metal_image {
 				// compare function
 				uint64_t compare_function : 4;
 				
-#if 0 // TODO: enable if targeting metal 1.2+
-				// anisotropic filtering
+				// metal 1.2+: anisotropic filtering (N - 1)
 				uint64_t anisotropy : 4;
 				
-				// lod min/max clamping (half floats)
+				// metal 1.2+: lod min/max clamping (half floats)
 				uint64_t lod_clamp_min : 16;
 				uint64_t lod_clamp_max : 16;
 				
 				// currently unused/reserved
 				uint64_t _unused : 7;
-#else
-				uint64_t _unused : 43;
-#endif
 				
 				// constant sampler flag
 				uint64_t is_constant : 1;
@@ -113,6 +108,8 @@ namespace metal_image {
 		mag_filter(filter_mode), min_filter(filter_mode),
 		mip_filter(mip_filter_mode),
 		compare_function(compare_function_),
+		anisotropy(0),
+		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		_unused(0u), is_constant(1u) {}
 		
 		constexpr sampler(const sampler& s) :
@@ -120,6 +117,8 @@ namespace metal_image {
 		mag_filter(s.mag_filter), min_filter(s.min_filter), mip_filter(s.mip_filter),
 		coord_mode(s.coord_mode),
 		compare_function(s.compare_function),
+		anisotropy(0),
+		lod_clamp_min(0), lod_clamp_max(0x7BFF /* __HALF_MAX__ */),
 		_unused(0u), is_constant(1u) {}
 		
 		// provide metal_sampler_t conversion, so the builtin sampler_t can be initialized
@@ -129,6 +128,7 @@ namespace metal_image {
 		void operator=(const sampler&) = delete;
 		void operator&() = delete;
 	};
+	static_assert(sizeof(sampler) == 8, "invalid sampler size");
 	
 }
 
