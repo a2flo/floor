@@ -74,6 +74,7 @@ BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
 BUILD_CONF_CXX17=0
+BUILD_CONF_NATIVE=0
 
 BUILD_CONF_SANITIZERS=0
 BUILD_CONF_ASAN=0
@@ -121,6 +122,7 @@ for arg in "$@"; do
 			echo "	c++17              enable experimental C++17 support"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
+			echo "  native             optimize and specifically build for the host cpu"
 			echo ""
 			echo "sanitizers:"
 			echo "  asan               build with address sanitizer"
@@ -205,6 +207,9 @@ for arg in "$@"; do
 			;;
 		"x64")
 			BUILD_ARCH_SIZE="x64"
+			;;
+		"native")
+			BUILD_CONF_NATIVE=1
 			;;
 		"asan")
 			BUILD_CONF_SANITIZERS=1
@@ -668,6 +673,11 @@ fi
 # c++ and c flags that apply to all build configurations
 COMMON_FLAGS="${COMMON_FLAGS} -ffast-math -fstrict-aliasing"
 
+# set flags when building for the native/host cpu
+if [ $BUILD_CONF_NATIVE -gt 0 ]; then
+	COMMON_FLAGS="${COMMON_FLAGS} -march=native -mtune=native"
+fi
+
 # debug flags, only used in the debug target
 DEBUG_FLAGS="-O0 -DFLOOR_DEBUG=1 -DDEBUG"
 if [ $BUILD_OS != "mingw" ]; then
@@ -677,9 +687,12 @@ else
 fi
 
 # release mode flags/optimizations
-# TODO: sse/avx selection/config? default to sse4.1 for now (core2)
-# TODO: also add -march=native -mtune=native option
-REL_FLAGS="-Ofast -funroll-loops -msse4.1"
+REL_FLAGS="-Ofast -funroll-loops"
+# if we're building for the native/host cpu, the appropriate sse/avx flags will already be set/used
+if [ $BUILD_CONF_NATIVE -eq 0 ]; then
+	# TODO: sse/avx selection/config? default to sse4.1 for now (core2)
+	REL_FLAGS="${REL_FLAGS} -msse4.1"
+fi
 
 # additional optimizations (used in addition to REL_CXX_FLAGS)
 REL_OPT_FLAGS="-flto"
