@@ -10586,10 +10586,10 @@ index 0000000..de039c2
 +#endif //__FUNCTION_DESCRIPTOR_H__
 diff --git a/lib/SPIRV/Mangler/Mangler.cpp b/lib/SPIRV/Mangler/Mangler.cpp
 new file mode 100644
-index 0000000..bbd01c4
+index 0000000..aa2c333
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/Mangler.cpp
-@@ -0,0 +1,196 @@
+@@ -0,0 +1,197 @@
 +//===--------------------------- Mangler.cpp -----------------------------===//
 +//
 +//                              SPIR Tools
@@ -10606,6 +10606,7 @@ index 0000000..bbd01c4
 +#include "ManglingUtils.h"
 +#include "NameMangleAPI.h"
 +#include "ParameterType.h"
++#include "SPIRVInternal.h"
 +#include <algorithm>
 +#include <string>
 +#include <sstream>
@@ -14267,10 +14268,10 @@ index 0000000..82991ff
 +
 diff --git a/lib/SPIRV/OCLUtil.cpp b/lib/SPIRV/OCLUtil.cpp
 new file mode 100644
-index 0000000..2957f0a
+index 0000000..33f59f2
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.cpp
-@@ -0,0 +1,569 @@
+@@ -0,0 +1,598 @@
 +//===- OCLUtil.cpp - OCL Utilities ----------------------------------------===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -14572,6 +14573,7 @@ index 0000000..2957f0a
 +  case OpTypeReserveId:
 +    return SPIRV_RESERVE_ID_T_ADDR_SPACE;
 +  case OpTypePipe:
++  case OpTypePipeStorage:
 +    return SPIRV_PIPE_ADDR_SPACE;
 +  case OpTypeImage:
 +  case OpTypeSampledImage:
@@ -14814,11 +14816,11 @@ index 0000000..2957f0a
 +  return mutateFunction(F, ArgMutate, &BtnInfo, Attrs, false);
 +}
 +
-+bool
-+isSamplerInitializer(Instruction *Inst) {
-+  BitCastInst *BIC = dyn_cast<BitCastInst>(Inst);
++static std::pair<StringRef, StringRef>
++getSrcAndDstElememntTypeName(BitCastInst* BIC) {
 +  if (!BIC)
-+    return false;
++    return std::pair<StringRef, StringRef>("", "");
++
 +  Type *SrcTy = BIC->getSrcTy();
 +  Type *DstTy = BIC->getDestTy();
 +  if (SrcTy->isPointerTy())
@@ -14827,9 +14829,37 @@ index 0000000..2957f0a
 +    DstTy = DstTy->getPointerElementType();
 +  auto SrcST = dyn_cast<StructType>(SrcTy);
 +  auto DstST = dyn_cast<StructType>(DstTy);
-+  return DstST && DstST->hasName() && SrcST && SrcST->hasName() &&
-+    DstST->getName() == getSPIRVTypeName(kSPIRVTypeName::Sampler) &&
-+    SrcST->getName() == getSPIRVTypeName(kSPIRVTypeName::ConstantSampler);
++  if (!DstST || !DstST->hasName() || !SrcST || !SrcST->hasName())
++    return std::pair<StringRef, StringRef>("", "");
++
++  return std::make_pair(SrcST->getName(), DstST->getName());
++}
++
++bool
++isSamplerInitializer(Instruction *Inst) {
++  BitCastInst *BIC = dyn_cast<BitCastInst>(Inst);
++  auto Names = getSrcAndDstElememntTypeName(BIC);
++  if (Names.second == getSPIRVTypeName(kSPIRVTypeName::Sampler) &&
++      Names.first == getSPIRVTypeName(kSPIRVTypeName::ConstantSampler))
++    return true;
++  
++  return false;
++}
++
++bool
++isPipeStorageInitializer(Instruction *Inst) {
++  BitCastInst *BIC = dyn_cast<BitCastInst>(Inst);
++  auto Names = getSrcAndDstElememntTypeName(BIC);
++  if (Names.second == getSPIRVTypeName(kSPIRVTypeName::PipeStorage) &&
++    Names.first == getSPIRVTypeName(kSPIRVTypeName::ConstantPipeStorage))
++    return true;
++
++  return false;
++}
++
++bool
++isSpecialTypeInitializer(Instruction* Inst) {
++  return isSamplerInitializer(Inst) || isPipeStorageInitializer(Inst);
 +}
 +
 +} // namespace OCLUtil
@@ -14842,10 +14872,10 @@ index 0000000..2957f0a
 +}
 diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
 new file mode 100644
-index 0000000..db109f1
+index 0000000..77ff468
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.h
-@@ -0,0 +1,613 @@
+@@ -0,0 +1,623 @@
 +//===- OCLUtil.h - OCL Utilities declarations -------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -15205,7 +15235,17 @@ index 0000000..db109f1
 +
 +/// Check if instruction is bitcast from spirv.ConstantSampler to spirv.Sampler
 +bool
-+isSamplerInitializer(llvm::Instruction *Inst);
++isSamplerInitializer(Instruction *Inst);
++
++/// Check if instruction is bitcast from spirv.ConstantPipeStorage
++/// to spirv.PipeStorage
++bool
++isPipeStorageInitializer(Instruction *Inst);
++
++/// Check (isSamplerInitializer || isPipeStorageInitializer)
++bool
++isSpecialTypeInitializer(Instruction* Inst);
++
 +} // namespace OCLUtil
 +
 +///////////////////////////////////////////////////////////////////////////////
@@ -15461,10 +15501,10 @@ index 0000000..db109f1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..2da46ed
+index 0000000..29f2123
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,934 @@
+@@ -0,0 +1,941 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -15749,19 +15789,21 @@ index 0000000..2da46ed
 +}
 +
 +namespace kSPIRVTypeName {
-+  const static char Delimiter         = '.';
-+  const static char DeviceEvent[]     = "DeviceEvent";
-+  const static char Event[]           = "Event";
-+  const static char Image[]           = "Image";
-+  const static char Pipe[]            = "Pipe";
-+  const static char PostfixDelim      = '_';
-+  const static char Prefix[]          = "spirv";
-+  const static char PrefixAndDelim[]  = "spirv.";
-+  const static char Queue[]           = "Queue";
-+  const static char ReserveId[]       = "ReserveId";
-+  const static char SampledImg[]      = "SampledImage";
-+  const static char Sampler[]         = "Sampler";
-+  const static char ConstantSampler[] = "ConstantSampler";
++  const static char Delimiter             = '.';
++  const static char DeviceEvent[]         = "DeviceEvent";
++  const static char Event[]               = "Event";
++  const static char Image[]               = "Image";
++  const static char Pipe[]                = "Pipe";
++  const static char PostfixDelim          = '_';
++  const static char Prefix[]              = "spirv";
++  const static char PrefixAndDelim[]      = "spirv.";
++  const static char Queue[]               = "Queue";
++  const static char ReserveId[]           = "ReserveId";
++  const static char SampledImg[]          = "SampledImage";
++  const static char Sampler[]             = "Sampler";
++  const static char ConstantSampler[]     = "ConstantSampler";
++  const static char PipeStorage[]         = "PipeStorage";
++  const static char ConstantPipeStorage[] = "ConstantPipeStorage";
 +}
 +
 +namespace kSPR2TypeName {
@@ -16001,6 +16043,7 @@ index 0000000..2da46ed
 +PointerType *getOrCreateOpaquePtrType(Module *M, const std::string &Name,
 +    unsigned AddrSpace = SPIRAS_Global);
 +PointerType* getSamplerType(Module *M);
++PointerType* getPipeStorageType(Module *M);
 +void getFunctionTypeParameterTypes(llvm::FunctionType* FT,
 +    std::vector<Type*>& ArgTys);
 +Function *getOrCreateFunction(Module *M, Type *RetTy,
@@ -16277,6 +16320,10 @@ index 0000000..2da46ed
 +/// Get SPIR-V type name as spirv.BaseTyName.Postfixes.
 +std::string
 +getSPIRVTypeName(StringRef BaseTyName, StringRef Postfixes = "");
++
++/// Checks if given type name is either ConstantSampler or ConsantPipeStorage.
++bool
++isSPIRVConstantName(StringRef TyName);
 +
 +/// Get SPIR-V type by changing the type name from spirv.OldName.Postfixes
 +/// to spirv.NewName.Postfixes.
@@ -16711,10 +16758,10 @@ index 0000000..d950665
 +}
 diff --git a/lib/SPIRV/SPIRVLowerOCLBlocks.cpp b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
 new file mode 100644
-index 0000000..3b04f5c
+index 0000000..87961fd
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
-@@ -0,0 +1,476 @@
+@@ -0,0 +1,592 @@
 +//===- SPIRVLowerOCLBlocks.cpp - Lower OpenCL blocks ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -16784,7 +16831,7 @@ index 0000000..3b04f5c
 +#include "llvm/Support/raw_ostream.h"
 +#include "llvm/Support/ToolOutputFile.h"
 +#include "llvm/Transforms/Utils/Cloning.h"
-+
++#include "llvm/Transforms/Utils/GlobalStatus.h"
 +#include <iostream>
 +#include <list>
 +#include <memory>
@@ -16833,6 +16880,8 @@ index 0000000..3b04f5c
 +    lowerBlockBind();
 +    lowerGetBlockInvoke();
 +    lowerGetBlockContext();
++    EraseUselessGlobalVars();
++    EliminateDeadArgs();
 +    erase(M->getFunction(SPIR_INTRINSIC_GET_BLOCK_INVOKE));
 +    erase(M->getFunction(SPIR_INTRINSIC_GET_BLOCK_CONTEXT));
 +    erase(M->getFunction(SPIR_INTRINSIC_BLOCK_BIND));
@@ -17067,6 +17116,120 @@ index 0000000..3b04f5c
 +      Inlined = true;
 +    }
 +    return changed || Inlined;
++  }
++
++/// Looking for a global variables initialized by opencl.block*. If found, check
++/// its users. If users are trivially dead, erase them. If the global variable
++/// has no users left after that, erase it too.
++  void EraseUselessGlobalVars() {
++    std::vector<GlobalVariable*> GlobalVarsToDelete;
++    for(GlobalVariable &G : M->globals()) {
++      if(!G.hasInitializer())
++        continue;
++      Type *T = G.getInitializer()->getType();
++      if(!T->isPointerTy())
++        continue;
++      T = cast<PointerType>(T)->getElementType();
++      if(!T->isStructTy())
++        continue;
++      StringRef STName = cast<StructType>(T)->getName();
++      if(STName != "opencl.block")
++        continue;
++
++      std::vector<User*> UsersToDelete;
++      for (User *U : G.users())
++        if (U->use_empty())
++          UsersToDelete.push_back(U);
++      for (User* U : UsersToDelete)
++        erase(dyn_cast<Instruction>(U));
++
++      if(G.use_empty()) {
++        GlobalVarsToDelete.push_back(&G);
++      }
++    }
++    for(GlobalVariable *G: GlobalVarsToDelete) {
++      if (G->hasInitializer()) {
++        Constant *Init = G->getInitializer();
++        G->setInitializer(nullptr);
++        if (llvm::isSafeToDestroyConstant(Init))
++          Init->destroyConstant();
++      }
++      M->getGlobalList().erase(G);
++    }
++  }
++
++/// Looking for functions which first argument is i8* %.block_descriptor
++/// If users of this argument are dead, erase them.
++/// After that clone the found function, removing its first argument
++/// Then adjust all users/callers of the function with new arguments
++/// Implementation of this function is based on
++/// the dead argument elimination pass.
++  void EliminateDeadArgs() {
++    std::vector<Function*> FunctionsToDelete;
++    for (Function &F : M->functions()) {
++      if(F.arg_size() < 1)
++        continue;
++      auto FirstArg = F.arg_begin();
++      if (FirstArg->getName() != ".block_descriptor")
++        continue;
++
++      std::vector<User*> UsersToDelete;
++      for (User *U : FirstArg->users())
++        if (U->use_empty())
++          UsersToDelete.push_back(U);
++
++      for (User *U : UsersToDelete)
++          erase(dyn_cast<Instruction>(U));
++      UsersToDelete.clear();
++
++      if (!FirstArg->use_empty())
++        continue;
++
++      // Create new function without block descriptor argument.
++      ValueToValueMapTy VMap;
++      // If any of the arguments to the function are in the VMap,
++      // the arguments are deleted from the resultant function.
++      VMap[&*FirstArg] = llvm::UndefValue::get(FirstArg->getType());
++      Function *NF = CloneFunction(&F, VMap, true);
++      F.getParent()->getFunctionList().push_back(NF);
++      NF->takeName(&F);
++
++      // Redirect all users of the old function to the new one.
++      for (User *U : F.users()) {
++        ConstantExpr *CE = dyn_cast<ConstantExpr>(U);
++        CallSite CS(U);
++        if (CE && CE->getOpcode() == Instruction::BitCast) {
++          Constant *NewCE = ConstantExpr::getBitCast(NF, CE->getType());
++          U->replaceAllUsesWith(NewCE);
++        } else if (CS) {
++          assert(isa<CallInst>(CS.getInstruction()) && "Call instruction is expected");
++          CallInst * Call = cast<CallInst>(CS.getInstruction());
++
++          std::vector<Value*> Args;
++          auto I = CS.arg_begin();
++          Args.assign(++I, CS.arg_end()); // Skip first argument.
++          CallInst *New = CallInst::Create(NF, Args, "", Call);
++          assert(New->getType() == Call->getType());
++          New->setCallingConv(CS.getCallingConv());
++          New->setAttributes(NF->getAttributes());
++          if (Call->isTailCall())
++            New->setTailCall();
++          New->setDebugLoc(Call->getDebugLoc());
++          New->takeName(Call);
++          Call->replaceAllUsesWith(New);
++          UsersToDelete.push_back(Call);
++        } else {
++          llvm_unreachable("Unexpected user of function");
++        }
++      }
++      for(User* U : UsersToDelete)
++        erase(cast<Instruction>(U));
++      UsersToDelete.clear();
++      FunctionsToDelete.push_back(&F);
++    } // iteration over module's functions.
++
++    for (Function *F : FunctionsToDelete)
++      erase(F);
 +  }
 +
 +  void
@@ -17518,10 +17681,10 @@ index 0000000..28f72b8
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..5350c4e
+index 0000000..521c3e9
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
-@@ -0,0 +1,2640 @@
+@@ -0,0 +1,2745 @@
 +//===- SPIRVReader.cpp - Converts SPIR-V to LLVM ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -17812,7 +17975,7 @@ index 0000000..5350c4e
 +  std::string getOCLConvertBuiltinName(SPIRVInstruction *BI);
 +  std::string getOCLGenericCastToPtrName(SPIRVInstruction *BI);
 +
-+  Type *transType(SPIRVType *BT);
++  Type *transType(SPIRVType *BT, bool IsClassMember = false);
 +  std::string transTypeToOCLTypeName(SPIRVType *BT, bool IsSigned = true);
 +  std::vector<Type *> transTypeVector(const std::vector<SPIRVType *>&);
 +  bool translate();
@@ -17830,6 +17993,7 @@ index 0000000..5350c4e
 +  Function *transFunction(SPIRVFunction *F);
 +  bool transFPContractMetadata();
 +  bool transKernelMetadata();
++  bool transNonTemporalMetadata(Instruction *I);
 +  bool transSourceLanguage();
 +  bool transSourceExtension();
 +  void transGeneratorMD();
@@ -18009,11 +18173,14 @@ index 0000000..5350c4e
 +      CallInst* CI, BasicBlock* BB, const std::string &DemangledName);
 +  std::string transOCLImageTypeName(SPIRV::SPIRVTypeImage* ST);
 +  std::string transOCLSampledImageTypeName(SPIRV::SPIRVTypeSampledImage* ST);
-+  std::string transOCLPipeTypeName(SPIRV::SPIRVTypePipe* ST);
++  std::string transOCLPipeTypeName(SPIRV::SPIRVTypePipe* ST,
++      bool UseSPIRVFriendlyFormat = false, int PipeAccess = 0);
++  std::string transOCLPipeStorageTypeName(SPIRV::SPIRVTypePipeStorage* PST);
 +  std::string transOCLImageTypeAccessQualifier(SPIRV::SPIRVTypeImage* ST);
 +  std::string transOCLPipeTypeAccessQualifier(SPIRV::SPIRVTypePipe* ST);
 +
 +  Value *oclTransConstantSampler(SPIRV::SPIRVConstantSampler* BCS);
++  Value * oclTransConstantPipeStorage(SPIRV::SPIRVConstantPipeStorage* BCPS);
 +  void setName(llvm::Value* V, SPIRVValue* BV);
 +  void insertImageNameAccessQualifier(SPIRV::SPIRVTypeImage* ST, std::string &Name);
 +  template<class Source, class Func>
@@ -18174,12 +18341,26 @@ index 0000000..5350c4e
 +}
 +
 +std::string
-+SPIRVToLLVM::transOCLPipeTypeName(SPIRV::SPIRVTypePipe* PT) {
-+  return kSPR2TypeName::Pipe;
++SPIRVToLLVM::transOCLPipeTypeName(SPIRV::SPIRVTypePipe* PT,
++                                  bool UseSPIRVFriendlyFormat, int PipeAccess){
++  if (!UseSPIRVFriendlyFormat)
++    return kSPR2TypeName::Pipe;
++  else
++    return std::string(kSPIRVTypeName::PrefixAndDelim)
++          + kSPIRVTypeName::Pipe
++          + kSPIRVTypeName::Delimiter
++          + kSPIRVTypeName::PostfixDelim
++          + PipeAccess;
++}
++
++std::string
++SPIRVToLLVM::transOCLPipeStorageTypeName(SPIRV::SPIRVTypePipeStorage* PST) {
++  return std::string(kSPIRVTypeName::PrefixAndDelim)
++            + kSPIRVTypeName::PipeStorage;
 +}
 +
 +Type *
-+SPIRVToLLVM::transType(SPIRVType *T) {
++SPIRVToLLVM::transType(SPIRVType *T, bool IsClassMember) {
 +  auto Loc = TypeMap.find(T);
 +  if (Loc != TypeMap.end())
 +    return Loc->second;
@@ -18199,7 +18380,8 @@ index 0000000..5350c4e
 +    return mapType(T, ArrayType::get(transType(T->getArrayElementType()),
 +        T->getArrayLength()));
 +  case OpTypePointer:
-+    return mapType(T, PointerType::get(transType(T->getPointerElementType()),
++    return mapType(T, PointerType::get(transType(
++        T->getPointerElementType(), IsClassMember),
 +        SPIRSPIRVAddrSpaceMap::rmap(T->getPointerStorageClass())));
 +  case OpTypeVector:
 +    return mapType(T, VectorType::get(transType(T->getVectorComponentType()),
@@ -18241,14 +18423,21 @@ index 0000000..5350c4e
 +    mapType(ST, StructTy);
 +    SmallVector<Type *, 4> MT;
 +    for (size_t I = 0, E = ST->getMemberCount(); I != E; ++I)
-+      MT.push_back(transType(ST->getMemberType(I)));
++      MT.push_back(transType(ST->getMemberType(I), true));
 +    StructTy->setBody(MT, ST->isPacked());
 +    return StructTy;
 +  }
 +  case OpTypePipe: {
 +    auto PT = static_cast<SPIRVTypePipe *>(T);
 +    return mapType(T, getOrCreateOpaquePtrType(M,
-+        transOCLPipeTypeName(PT),
++        transOCLPipeTypeName(PT, IsClassMember, PT->getAccessQualifier()),
++        getOCLOpaqueTypeAddrSpace(T->getOpCode())));
++
++    }
++  case OpTypePipeStorage: {
++    auto PST = static_cast<SPIRVTypePipeStorage *>(T);
++    return mapType(T, getOrCreateOpaquePtrType(M,
++        transOCLPipeStorageTypeName(PST),
 +        getOCLOpaqueTypeAddrSpace(T->getOpCode())));
 +    }
 +  default: {
@@ -18777,6 +18966,33 @@ index 0000000..5350c4e
 +  return ConstantInt::get(Ty, Lit);
 +}
 +
++Value *
++SPIRVToLLVM::oclTransConstantPipeStorage(
++                        SPIRV::SPIRVConstantPipeStorage* BCPS) {
++
++  string CPSName = string(kSPIRVTypeName::PrefixAndDelim)
++                        + kSPIRVTypeName::ConstantPipeStorage;
++
++  auto Int32Ty = IntegerType::getInt32Ty(*Context);
++  auto CPSTy = M->getTypeByName(CPSName);
++  if (!CPSTy) {
++    Type* CPSElemsTy[] = { Int32Ty, Int32Ty, Int32Ty };
++    CPSTy = StructType::create(*Context, CPSElemsTy, CPSName);
++  }
++
++  assert(CPSTy != nullptr && "Could not create spirv.ConstantPipeStorage");
++
++  Constant* CPSElems[] = {
++    ConstantInt::get(Int32Ty, BCPS->getPacketSize()),
++    ConstantInt::get(Int32Ty, BCPS->getPacketAlign()),
++    ConstantInt::get(Int32Ty, BCPS->getCapacity())
++  };
++
++  return new GlobalVariable(*M, CPSTy, false, GlobalValue::LinkOnceODRLinkage,
++                        ConstantStruct::get(CPSTy, CPSElems), BCPS->getName(),
++                        nullptr, GlobalValue::NotThreadLocal, SPIRAS_Global);
++}
++
 +/// For instructions, this function assumes they are created in order
 +/// and appended to the given basic block. An instruction may use a
 +/// instruction from another BB which has not been translated. Such
@@ -18851,9 +19067,27 @@ index 0000000..5350c4e
 +    case OpTypeArray:
 +      return mapValue(BV, ConstantArray::get(
 +          dyn_cast<ArrayType>(transType(BCC->getType())), CV));
-+    case OpTypeStruct:
++    case OpTypeStruct: {
++      auto BCCTy = dyn_cast<StructType>(transType(BCC->getType()));
++      auto Members = BCCTy->getNumElements();
++      auto Constants = CV.size();
++      //if we try to initialize constant TypeStruct, add bitcasts
++      //if src and dst types are both pointers but to different types
++      if (Members == Constants) {
++        for (unsigned i = 0; i < Members; ++i) {
++          if (CV[i]->getType() == BCCTy->getElementType(i))
++            continue;
++          if (!CV[i]->getType()->isPointerTy() ||
++              !BCCTy->getElementType(i)->isPointerTy())
++            continue;
++
++          CV[i] = ConstantExpr::getBitCast(CV[i], BCCTy->getElementType(i));
++        }
++      }
++
 +      return mapValue(BV, ConstantStruct::get(
 +          dyn_cast<StructType>(transType(BCC->getType())), CV));
++    }
 +    default:
 +      llvm_unreachable("not implemented");
 +      return nullptr;
@@ -18863,6 +19097,11 @@ index 0000000..5350c4e
 +  case OpConstantSampler: {
 +    auto BCS = static_cast<SPIRVConstantSampler*>(BV);
 +    return mapValue(BV, oclTransConstantSampler(BCS));
++  }
++
++  case OpConstantPipeStorage: {
++    auto BCPS = static_cast<SPIRVConstantPipeStorage*>(BV);
++    return mapValue(BV, oclTransConstantPipeStorage(BCPS));
 +  }
 +
 +  case OpSpecConstantOp: {
@@ -18922,17 +19161,17 @@ index 0000000..5350c4e
 +  case OpLabel:
 +    return mapValue(BV, BasicBlock::Create(*Context, BV->getName(), F));
 +
-+  case OpBitcast: // Can be translated without BB pointer
-+    if(!CreatePlaceHolder) // May be a placeholder
-+      return mapValue(BV, transConvertInst(BV, F, BB));
-+
 +  default:
 +    // do nothing
 +    break;
 +  }
 +
++  // During translation of OpSpecConstantOp we create an instruction
++  // corresponding to the Opcode operand and then translate this instruction.
++  // For such instruction BB and F should be nullptr, because it is a constant
++  // expression declared out of scope of any basic block or function.
 +  // All other values require valid BB pointer.
-+  assert(BB && "Invalid BB");
++  assert(((isSpecConstantOpAllowedOp(OC) && !F && !BB) || BB) && "Invalid BB");
 +
 +  // Creation of place holder
 +  if (CreatePlaceHolder) {
@@ -18991,19 +19230,23 @@ index 0000000..5350c4e
 +
 +  case OpStore: {
 +    SPIRVStore *BS = static_cast<SPIRVStore*>(BV);
-+    return mapValue(BV,
-+                    new StoreInst(transValue(BS->getSrc(), F, BB),
++    StoreInst *SI = new StoreInst(transValue(BS->getSrc(), F, BB),
 +                                  transValue(BS->getDst(), F, BB),
 +                                  BS->SPIRVMemoryAccess::isVolatile(),
-+                                  BS->SPIRVMemoryAccess::getAlignment(), BB));
++                                  BS->SPIRVMemoryAccess::getAlignment(), BB);
++    if (BS->SPIRVMemoryAccess::isNonTemporal())
++      transNonTemporalMetadata(SI);
++    return mapValue(BV, SI);
 +  }
 +
 +  case OpLoad: {
 +    SPIRVLoad *BL = static_cast<SPIRVLoad*>(BV);
-+    return mapValue(BV,
-+                    new LoadInst(transValue(BL->getSrc(), F, BB), BV->getName(),
-+                                 BL->SPIRVMemoryAccess::isVolatile(),
-+                                 BL->SPIRVMemoryAccess::getAlignment(), BB));
++    LoadInst *LI = new LoadInst(transValue(BL->getSrc(), F, BB), BV->getName(),
++                                BL->SPIRVMemoryAccess::isVolatile(),
++                                BL->SPIRVMemoryAccess::getAlignment(), BB);
++    if (BL->SPIRVMemoryAccess::isNonTemporal())
++      transNonTemporalMetadata(LI);
++    return mapValue(BV, LI);
 +  }
 +
 +  case OpCopyMemorySized: {
@@ -19063,9 +19306,14 @@ index 0000000..5350c4e
 +        Select, dyn_cast<BasicBlock>(transValue(BS->getDefault(), F, BB)),
 +        BS->getNumPairs(), BB);
 +    BS->foreachPair(
-+        [&](SPIRVWord Literal, SPIRVBasicBlock *Label, size_t Index) {
-+          LS->addCase(ConstantInt::get(dyn_cast<IntegerType>(Select->getType()),
-+                                       Literal),
++        [&](SPIRVSwitch::LiteralTy Literals, SPIRVBasicBlock *Label) {
++        assert(!Literals.empty() && "Literals should not be empty");
++        assert(Literals.size() <= 2 && "Number of literals should not be more then two");
++        uint64_t Literal = uint64_t(Literals.at(0));
++        if (Literals.size() == 2) {
++          Literal += uint64_t(Literals.at(1)) << 32;
++        }
++          LS->addCase(ConstantInt::get(dyn_cast<IntegerType>(Select->getType()), Literal),
 +                      dyn_cast<BasicBlock>(transValue(Label, F, BB)));
 +        });
 +    return mapValue(BV, LS);
@@ -19492,7 +19740,20 @@ index 0000000..5350c4e
 +Instruction *
 +SPIRVToLLVM::transSPIRVBuiltinFromInst(SPIRVInstruction *BI, BasicBlock *BB) {
 +  assert(BB && "Invalid BB");
-+  return transBuiltinFromInst(getSPIRVFuncName(BI->getOpCode()), BI, BB);
++  string Suffix = "";
++  if (BI->getOpCode() == OpCreatePipeFromPipeStorage) {
++    auto CPFPS = static_cast<SPIRVCreatePipeFromPipeStorage*>(BI);
++    assert(CPFPS->getType()->isTypePipe() &&
++      "Invalid type of CreatePipeFromStorage");
++    auto PipeType = static_cast<SPIRVTypePipe*>(CPFPS->getType());
++    switch (PipeType->getAccessQualifier()) {
++    case AccessQualifierReadOnly: Suffix = "_read"; break;
++    case AccessQualifierWriteOnly: Suffix = "_write"; break;
++    case AccessQualifierReadWrite: Suffix = "_read_write"; break;
++    }
++  }
++
++  return transBuiltinFromInst(getSPIRVFuncName(BI->getOpCode(), Suffix), BI, BB);
 +}
 +
 +bool
@@ -19579,6 +19840,14 @@ index 0000000..5350c4e
 +std::string SPIRVToLLVM::transOCLImageTypeAccessQualifier(
 +    SPIRV::SPIRVTypeImage* ST) {
 +  return SPIRSPIRVAccessQualifierMap::rmap(ST->getAccessQualifier());
++}
++
++bool
++SPIRVToLLVM::transNonTemporalMetadata(Instruction *I) {
++  Constant* One = ConstantInt::get(Type::getInt32Ty(*Context), 1);
++  MDNode *Node = MDNode::get(*Context, ConstantAsMetadata::get(One));
++  I->setMetadata(M->getMDKindID("nontemporal"), Node);
++  return true;
 +}
 +
 +bool
@@ -20140,7 +20409,6 @@ index 0000000..5350c4e
 +  M = new Module("", C);
 +  std::unique_ptr<SPIRVModule> BM(SPIRVModule::createSPIRVModule());
 +
-+  BM->setAutoAddCapability(false);
 +  IS >> *BM;
 +
 +  SPIRVToLLVM BTL(M, BM.get());
@@ -20946,10 +21214,10 @@ index 0000000..e964d6f
 +}
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..e2c37bb
+index 0000000..5880133
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1426 @@
+@@ -0,0 +1,1454 @@
 +//===- SPIRVUtil.cpp - SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -21170,6 +21438,13 @@ index 0000000..e2c37bb
 +getSamplerType(Module *M) {
 +  return getOrCreateOpaquePtrType(M, getSPIRVTypeName(kSPIRVTypeName::Sampler),
 +                                  SPIRAS_Constant);
++}
++
++PointerType*
++getPipeStorageType(Module* M) {
++  return getOrCreateOpaquePtrType(M, getSPIRVTypeName(
++                                        kSPIRVTypeName::PipeStorage),
++                                        SPIRAS_Constant);
 +}
 +
 +
@@ -21977,13 +22252,25 @@ index 0000000..e2c37bb
 +  }
 +  if (Ty->isStructTy()) {
 +    auto Name = Ty->getStructName();
++    std::string Tmp;
++
 +    if (Name.startswith(kLLVMTypeName::StructPrefix))
 +      Name = Name.drop_front(strlen(kLLVMTypeName::StructPrefix));
++    if (Name.startswith(kSPIRVTypeName::PrefixAndDelim)) {
++      Name = Name.substr(sizeof(kSPIRVTypeName::PrefixAndDelim) - 1);
++      Tmp = Name.str();
++      auto pos = Tmp.find(kSPIRVTypeName::Delimiter); //first dot
++      while (pos != std::string::npos) {
++        Tmp[pos] = '_';
++        pos = Tmp.find(kSPIRVTypeName::Delimiter, pos);
++      }
++      Name = Tmp = kSPIRVName::Prefix + Tmp;
++    }
 +    // ToDo: Create a better unique name for struct without name
 +    if (Name.empty()) {
 +      std::ostringstream OS;
 +      OS << reinterpret_cast<size_t>(Ty);
-+      Name = std::string("struct_") + OS.str();
++      Name = Tmp = std::string("struct_") + OS.str();
 +    }
 +    return SPIR::RefParamType(new SPIR::UserDefinedType(Name));
 +  }
@@ -22135,6 +22422,15 @@ index 0000000..e2c37bb
 +  if (Postfixes.empty())
 +    return TN;
 +  return TN + kSPIRVTypeName::Delimiter + Postfixes.str();
++}
++
++bool
++isSPIRVConstantName(StringRef TyName) {
++  if (TyName == getSPIRVTypeName(kSPIRVTypeName::ConstantSampler) ||
++      TyName == getSPIRVTypeName(kSPIRVTypeName::ConstantPipeStorage))
++    return true;
++
++  return false;
 +}
 +
 +Type *
@@ -22378,10 +22674,10 @@ index 0000000..e2c37bb
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..41f6daf
+index 0000000..6a08e81
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,1698 @@
+@@ -0,0 +1,1762 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -22881,10 +23177,16 @@ index 0000000..41f6daf
 +      } else if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
 +        return transSPIRVOpaqueType(T);
 +      else if (OCLOpaqueTypeOpCodeMap::find(STName, &OpCode)) {
-+        if (OpCode == OpTypePipe) {
++        switch (OpCode) {
++        default:
++          return mapType(T, BM->addOpaqueGenericType(OpCode));
++        case OpTypePipe:
 +          return mapType(T, BM->addPipeType());
++        case OpTypeDeviceEvent:
++          return mapType(T, BM->addDeviceEventType());
++        case OpTypeQueue:
++          return mapType(T, BM->addQueueType());
 +        }
-+        return mapType(T, BM->addOpaqueGenericType(OpCode));
 +      } else if (isPointerToOpaqueStructType(T)) {
 +        return mapType(T, BM->addPointerType(SPIRSPIRVAddrSpaceMap::map(
 +          static_cast<SPIRAddressSpace>(AddrSpc)),
@@ -22922,6 +23224,8 @@ index 0000000..41f6daf
 +
 +    if(Name == getSPIRVTypeName(kSPIRVTypeName::ConstantSampler))
 +      return transType(getSamplerType(M));
++    if (Name == getSPIRVTypeName(kSPIRVTypeName::ConstantPipeStorage))
++      return transType(getPipeStorageType(M));
 +
 +    auto *Struct = BM->openStructType(T->getStructNumElements(), Name);
 +    mapType(T, Struct);
@@ -22997,6 +23301,10 @@ index 0000000..41f6daf
 +    return mapType(T, BM->addSamplerType());
 +  else if (TN == kSPIRVTypeName::DeviceEvent)
 +    return mapType(T, BM->addDeviceEventType());
++  else if (TN == kSPIRVTypeName::Queue)
++    return mapType(T, BM->addQueueType());
++  else if (TN == kSPIRVTypeName::PipeStorage)
++    return mapType(T, BM->addPipeStorageType());
 +  else
 +    return mapType(T, BM->addOpaqueGenericType(
 +      SPIRVOpaqueTypeOpCodeMap::map(TN)));
@@ -23123,6 +23431,20 @@ index 0000000..41f6daf
 +      return BM->addSamplerConstant(SamplerTy,
 +                                    AddrMode, Normalized, FilterMode);
 +    }
++    if (ConstV->getType()->getName() ==
++      getSPIRVTypeName(kSPIRVTypeName::ConstantPipeStorage)) {
++      assert(ConstV->getNumOperands() == 3);
++      SPIRVWord
++        PacketSize = ConstV->getOperand(0)->getUniqueInteger().getZExtValue(),
++        PacketAlign = ConstV->getOperand(1)->getUniqueInteger().getZExtValue(),
++        Capacity = ConstV->getOperand(2)->getUniqueInteger().getZExtValue();
++      assert(PacketAlign >= 1 && "Invalid packet alignment");
++      assert(PacketSize >= PacketAlign && PacketSize % PacketAlign == 0 &&
++        "Invalid packet size and/or alignment.");
++      SPIRVType* PipeStorageTy = transType(ConstV->getType());
++      return BM->addPipeStorageConstant(PipeStorageTy, PacketSize, PacketAlign,
++                                        Capacity);
++    }
 +    std::vector<SPIRVValue *> BV;
 +    for (auto I = ConstV->op_begin(), E = ConstV->op_end(); I != E; ++I)
 +      BV.push_back(transValue(*I, nullptr));
@@ -23235,14 +23557,13 @@ index 0000000..41f6daf
 +    llvm::Value *Init = GV->hasInitializer() && !GV->hasCommonLinkage() ?
 +      GV->getInitializer() : nullptr;
 +    StructType *ST = Init ? dyn_cast<StructType>(Init->getType()) : nullptr;
-+    if (ST && ST->hasName() &&
-+        ST->getName() == getSPIRVTypeName(kSPIRVTypeName::ConstantSampler)) {
++    if (ST && ST->hasName() && isSPIRVConstantName(ST->getName())) {
 +      auto BV = transConstant(Init);
 +      assert(BV);
 +      return mapValue(V, BV);
 +    } else if (ConstantExpr *ConstUE = dyn_cast_or_null<ConstantExpr>(Init)) {
 +      Instruction * Inst = ConstUE->getAsInstruction();
-+      if (isSamplerInitializer(Inst)) {
++      if (isSpecialTypeInitializer(Inst)) {
 +        Init = Inst->getOperand(0);
 +        Ty = static_cast<PointerType*>(Init->getType());
 +      }
@@ -23282,11 +23603,17 @@ index 0000000..41f6daf
 +    return mapValue(V, BM->addForward(transType(V->getType())));
 +
 +  if (StoreInst *ST = dyn_cast<StoreInst>(V)) {
-+    std::vector<SPIRVWord> MemoryAccess;
++    std::vector<SPIRVWord> MemoryAccess(1,0);
 +    if (ST->isVolatile())
-+      MemoryAccess.push_back(MemoryAccessVolatileMask);
-+    MemoryAccess.push_back(MemoryAccessAlignedMask);
-+    MemoryAccess.push_back(ST->getAlignment());
++      MemoryAccess[0] |= MemoryAccessVolatileMask;
++    if (ST->getAlignment()) {
++      MemoryAccess[0] |= MemoryAccessAlignedMask;
++      MemoryAccess.push_back(ST->getAlignment());
++    }
++    if (ST->getMetadata(LLVMContext::MD_nontemporal))
++      MemoryAccess[0] |= MemoryAccessNontemporalMask;
++    if (MemoryAccess.front() == 0)
++      MemoryAccess.clear();
 +    return mapValue(V, BM->addStoreInst(
 +        transValue(ST->getPointerOperand(), BB),
 +        transValue(ST->getValueOperand(), BB),
@@ -23294,11 +23621,17 @@ index 0000000..41f6daf
 +  }
 +
 +  if (LoadInst *LD = dyn_cast<LoadInst>(V)) {
-+    std::vector<SPIRVWord> MemoryAccess;
++    std::vector<SPIRVWord> MemoryAccess(1,0);
 +    if (LD->isVolatile())
-+      MemoryAccess.push_back(MemoryAccessVolatileMask);
-+    MemoryAccess.push_back(MemoryAccessAlignedMask);
-+    MemoryAccess.push_back(LD->getAlignment());
++      MemoryAccess[0] |= MemoryAccessVolatileMask;
++    if (LD->getAlignment()) {
++      MemoryAccess[0] |= MemoryAccessAlignedMask;
++      MemoryAccess.push_back(LD->getAlignment());
++    }
++    if (LD->getMetadata(LLVMContext::MD_nontemporal))
++      MemoryAccess[0] |= MemoryAccessNontemporalMask;
++    if (MemoryAccess.front() == 0)
++      MemoryAccess.clear();
 +    return mapValue(V, BM->addLoadInst(
 +        transValue(LD->getPointerOperand(), BB),
 +        MemoryAccess, BB));
@@ -23335,13 +23668,26 @@ index 0000000..41f6daf
 +      StorageClassFunction, BB));
 +
 +  if (auto *Switch = dyn_cast<SwitchInst>(V)) {
-+    std::vector<std::pair<SPIRVWord, SPIRVBasicBlock *>> Pairs;
-+    for (auto I = Switch->case_begin(), E = Switch->case_end(); I != E; ++I)
-+      Pairs.push_back(std::make_pair(I.getCaseValue()->getZExtValue(),
++    std::vector<SPIRVSwitch::PairTy> Pairs;
++    auto Select = transValue(Switch->getCondition(), BB);
++
++    unsigned BitWidth = Select->getType()->getBitWidth();
++
++    for (auto I = Switch->case_begin(), E = Switch->case_end(); I != E; ++I) {
++      SPIRVSwitch::LiteralTy Lit;
++      uint64_t CaseValue = I.getCaseValue()->getZExtValue();
++
++      Lit.push_back(CaseValue);
++      assert(Select->getType()->getBitWidth() <= 64 && "unexpected selector bitwidth");
++      if(Select->getType()->getBitWidth() == 64)
++        Lit.push_back(CaseValue >> 32);
++
++      Pairs.push_back(std::make_pair(Lit,
 +          static_cast<SPIRVBasicBlock*>(transValue(I.getCaseSuccessor(),
 +              nullptr))));
-+    return mapValue(V, BM->addSwitchInst(
-+        transValue(Switch->getCondition(), BB),
++    }
++
++    return mapValue(V, BM->addSwitchInst(Select,
 +        static_cast<SPIRVBasicBlock*>(transValue(Switch->getDefaultDest(),
 +            nullptr)), Pairs, BB));
 +  }
@@ -23382,8 +23728,22 @@ index 0000000..41f6daf
 +        Ins->getIndices(), BB));
 +  }
 +
++  if (auto Ext = dyn_cast<ExtractValueInst>(V)) {
++    return mapValue(V, BM->addCompositeExtractInst(
++        transType(Ext->getType()),
++        transValue(Ext->getAggregateOperand(), BB),
++        Ext->getIndices(), BB));
++  }
++
++  if (auto Ins = dyn_cast<InsertValueInst>(V)) {
++    return mapValue(V, BM->addCompositeInsertInst(
++        transValue(Ins->getInsertedValueOperand(), BB),
++        transValue(Ins->getAggregateOperand(), BB),
++        Ins->getIndices(), BB));
++  }
++
 +  if (UnaryInstruction *U = dyn_cast<UnaryInstruction>(V)) {
-+    if(isSamplerInitializer(U))
++    if (isSpecialTypeInitializer(U))
 +      return mapValue(V, transValue(U->getOperand(0), BB));
 +    return mapValue(V, transUnaryInst(U, BB));
 +  }
@@ -25040,7 +25400,7 @@ index 0000000..f0c5cb6
 +#endif /* SPIRVDEBUG_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp b/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp
 new file mode 100644
-index 0000000..757db75
+index 0000000..25bc4f6
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp
 @@ -0,0 +1,238 @@
@@ -25235,7 +25595,7 @@ index 0000000..757db75
 +
 +bool
 +SPIRVDecorateGeneric::Comparator::operator()(const SPIRVDecorateGeneric *A,
-+    const SPIRVDecorateGeneric *B) {
++    const SPIRVDecorateGeneric *B) const {
 +  auto Action = [=](){
 +  if (A->getOpCode() < B->getOpCode())
 +    return true;
@@ -25284,7 +25644,7 @@ index 0000000..757db75
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDecorate.h b/lib/SPIRV/libSPIRV/SPIRVDecorate.h
 new file mode 100644
-index 0000000..63e0f4a
+index 0000000..1cd410d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDecorate.h
 @@ -0,0 +1,321 @@
@@ -25355,7 +25715,7 @@ index 0000000..63e0f4a
 +  size_t getLiteralCount() const;
 +  /// Compare for kind and literal only.
 +  struct Comparator {
-+    bool operator()(const SPIRVDecorateGeneric *A, const SPIRVDecorateGeneric *B);
++    bool operator ()(const SPIRVDecorateGeneric *A, const SPIRVDecorateGeneric *B) const;
 +  };
 +  /// Compare kind, literals and target.
 +  friend bool operator==(const SPIRVDecorateGeneric &A,
@@ -26246,10 +26606,10 @@ index 0000000..a536fa3
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..40cd38f
+index 0000000..d98fd96
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,772 @@
+@@ -0,0 +1,769 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities -------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -27014,9 +27374,6 @@ index 0000000..40cd38f
 +_SPIRV_OP(MemoryNamedBarrier)
 +_SPIRV_OP(GetKernelMaxNumSubgroups)
 +_SPIRV_OP(GetKernelLocalSizeForSubgroupCount)
-+_SPIRV_OP(TypePipeStorage)
-+_SPIRV_OP(ConstantPipeStorage)
-+_SPIRV_OP(CreatePipeFromPipeStorage)
 +_SPIRV_OP(SizeOf)
 +#undef _SPIRV_OP
 +
@@ -28463,10 +28820,10 @@ index 0000000..774a444
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..c493bab
+index 0000000..e09d3a3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,1856 @@
+@@ -0,0 +1,1884 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -28880,29 +29237,30 @@ index 0000000..c493bab
 +class SPIRVMemoryAccess {
 +public:
 +  SPIRVMemoryAccess(const std::vector<SPIRVWord> &TheMemoryAccess):
-+    Alignment(0), Volatile(0) {
++    TheMemoryAccessMask(0), Alignment(0) {
 +    MemoryAccessUpdate(TheMemoryAccess);
 +  }
 +
-+  SPIRVMemoryAccess() : Alignment(0), Volatile(0){}
++  SPIRVMemoryAccess() : TheMemoryAccessMask(0), Alignment(0){}
 +
 +  void MemoryAccessUpdate(const std::vector<SPIRVWord> &MemoryAccess) {
-+    unsigned i = 0;
-+    while (i < MemoryAccess.size()) {
-+      if (MemoryAccess[i] == MemoryAccessVolatileMask)
-+        Volatile = MemoryAccess[i++];
-+      else if (MemoryAccess[i] == MemoryAccessAlignedMask) {
-+        Alignment = MemoryAccess[i + 1];
-+        i += 2;
-+      }
++    if (!MemoryAccess.size())
++      return;
++    assert((MemoryAccess.size() == 1 || MemoryAccess.size() == 2) && "Invalid memory access operand size");
++    TheMemoryAccessMask = MemoryAccess[0];
++    if (MemoryAccess[0] & MemoryAccessAlignedMask) {
++      assert(MemoryAccess.size() == 2 && "Alignment operand is missing");
++      Alignment = MemoryAccess[1];
 +    }
 +  }
-+  SPIRVWord isVolatile() const { return Volatile; }
++  SPIRVWord isVolatile() const { return getMemoryAccessMask() & MemoryAccessVolatileMask; }
++  SPIRVWord isNonTemporal() const { return getMemoryAccessMask() & MemoryAccessNontemporalMask; }
++  SPIRVWord getMemoryAccessMask() const { return TheMemoryAccessMask; }
 +  SPIRVWord getAlignment() const { return Alignment; }
 +
 +protected:
++  SPIRVWord TheMemoryAccessMask;
 +  SPIRVWord Alignment;
-+  SPIRVWord Volatile;
 +};
 +
 +class SPIRVVariable : public SPIRVInstruction {
@@ -29458,13 +29816,18 @@ index 0000000..c493bab
 +public:
 +  static const Op OC = OpSwitch;
 +  static const SPIRVWord FixedWordCount = 3;
++  typedef std::vector<SPIRVWord> LiteralTy;
++  typedef std::pair<LiteralTy, SPIRVBasicBlock *> PairTy;
++
 +  SPIRVSwitch(SPIRVValue *TheSelect, SPIRVBasicBlock *TheDefault,
-+      const std::vector<std::pair<SPIRVWord, SPIRVBasicBlock *>> &ThePairs,
-+      SPIRVBasicBlock *BB)
-+    :SPIRVInstruction(ThePairs.size() * 2 + FixedWordCount, OC, BB),
-+     Select(TheSelect->getId()), Default(TheDefault->getId()) {
-+    for (auto &I:ThePairs) {
-+      Pairs.push_back(I.first);
++    const std::vector<PairTy> &ThePairs,
++    SPIRVBasicBlock *BB)
++    :SPIRVInstruction(ThePairs.size() * (ThePairs.at(0).first.size() + 1) + FixedWordCount, OC, BB),
++    Select(TheSelect->getId()), Default(TheDefault->getId()) {
++
++    for (auto &I : ThePairs) {
++      for (auto &U : I.first)
++        Pairs.push_back(U);
 +      Pairs.push_back(I.second->getId());
 +    }
 +    validate();
@@ -29482,14 +29845,22 @@ index 0000000..c493bab
 +  SPIRVBasicBlock *getDefault() const {
 +    return static_cast<SPIRVBasicBlock *>(getValue(Default));
 +  }
-+  size_t getNumPairs() const { return Pairs.size()/2;}
-+  void foreachPair(std::function<void(SPIRVWord, SPIRVBasicBlock *, size_t)> Func)
++  size_t getLiteralsCount() const { return getSelect()->getType()->getBitWidth() / (sizeof(SPIRVWord) * 8);}
++  size_t getPairSize() const { return getLiteralsCount() + 1; }
++  size_t getNumPairs() const { return Pairs.size()/getPairSize();}
++  void foreachPair(std::function<void(LiteralTy, SPIRVBasicBlock *)> Func)
 +    const {
-+    for (size_t I = 0, E = Pairs.size()/2; I != E; ++I) {
++    unsigned PairSize = getPairSize();
++    for (size_t I = 0, E = getNumPairs(); I != E; ++I) {
 +      SPIRVEntry *BB;
-+      if (!Module->exist(Pairs[2*I+1], &BB))
++      LiteralTy Literals;
++      if (!Module->exist(Pairs[PairSize*I + getLiteralsCount()], &BB))
 +        continue;
-+      Func(Pairs[2*I], static_cast<SPIRVBasicBlock *>(BB), I);
++
++      for (size_t i = 0; i < getLiteralsCount(); ++i) {
++        Literals.push_back(Pairs.at(PairSize*I + i));
++      }
++      Func(Literals, static_cast<SPIRVBasicBlock *>(BB));
 +    }
 +  }
 +  void setWordCount(SPIRVWord TheWordCount) {
@@ -29500,8 +29871,8 @@ index 0000000..c493bab
 +  void validate()const {
 +    assert(WordCount == Pairs.size() + FixedWordCount);
 +    assert(OpCode == OC);
-+    assert(Pairs.size() % 2 == 0);
-+    foreachPair([=](SPIRVWord Literal, SPIRVBasicBlock *BB, size_t Index){
++    assert(Pairs.size() % getPairSize() == 0);
++    foreachPair([=](LiteralTy Literals, SPIRVBasicBlock *BB){
 +      assert(BB->isBasicBlock() || BB->isForward());
 +    });
 +    SPIRVInstruction::validate();
@@ -30223,6 +30594,20 @@ index 0000000..c493bab
 +_SPIRV_OP(GetMaxPipePackets, true, 6)
 +#undef _SPIRV_OP
 +
++class SPIRVPipeStorageInstBase :public SPIRVInstTemplateBase {
++public:
++  SPIRVCapVec getRequiriedCapability() const {
++    return getVec(CapabilityPipeStorage, CapabilityPipes);
++  }
++};
++
++#define _SPIRV_OP(x, ...) \
++  typedef SPIRVInstTemplate<SPIRVPipeStorageInstBase, Op##x, __VA_ARGS__> \
++  SPIRV##x;
++
++_SPIRV_OP(CreatePipeFromPipeStorage, true, 4)
++#undef _SPIRV_OP
++
 +class SPIRVGroupInstBase:public SPIRVInstTemplateBase {
 +public:
 +  SPIRVCapVec getRequiriedCapability() const {
@@ -30325,10 +30710,10 @@ index 0000000..c493bab
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 0000000..c380946
+index 0000000..6132961
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
-@@ -0,0 +1,988 @@
+@@ -0,0 +1,993 @@
 +//===- SPIRVIsValidEnum.h - SPIR-V isValid enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -30379,6 +30764,9 @@ index 0000000..c380946
 +
 +#include "spirv.hpp"
 +#include "SPIRVEnum.h"
++
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wcovered-switch-default"
 +
 +using namespace spv;
 +
@@ -31316,13 +31704,15 @@ index 0000000..c380946
 +
 +} /* namespace SPIRV */
 +
++#pragma clang diagnostic pop
++
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..d55f50a
+index 0000000..6ab0695
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1566 @@
+@@ -0,0 +1,1590 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -31392,10 +31782,11 @@ index 0000000..d55f50a
 +    GeneratorVer(0),
 +    InstSchema(SPIRVISCH_Default),
 +    SrcLang(SourceLanguageOpenCL_C),
-+    SrcLangVer(102000),
-+    MemoryModel(MemoryModelOpenCL){
-+    AddrModel = sizeof(size_t) == 32 ? AddressingModelPhysical32
++    SrcLangVer(102000) {
++    AddrModel = sizeof(size_t) == 4 ? AddressingModelPhysical32
 +        : AddressingModelPhysical64;
++    // OpenCL memory model requires Kernel capability
++    setMemoryModel(MemoryModelOpenCL);
 +  };
 +  virtual ~SPIRVModuleImpl();
 +
@@ -31522,12 +31913,14 @@ index 0000000..d55f50a
 +  virtual SPIRVTypeImage *addImageType(SPIRVType *,
 +      const SPIRVTypeImageDescriptor &, SPIRVAccessQualifierKind);
 +  virtual SPIRVTypeSampler *addSamplerType();
++  virtual SPIRVTypePipeStorage *addPipeStorageType();
 +  virtual SPIRVTypeSampledImage *addSampledImageType(SPIRVTypeImage *T);
 +  virtual SPIRVTypeStruct *openStructType(unsigned, const std::string &);
 +  virtual void closeStructType(SPIRVTypeStruct *T, bool);
 +  virtual SPIRVTypeVector *addVectorType(SPIRVType *, SPIRVWord);
 +  virtual SPIRVType *addOpaqueGenericType(Op);
 +  virtual SPIRVTypeDeviceEvent *addDeviceEventType();
++  virtual SPIRVTypeQueue *addQueueType();
 +  virtual SPIRVTypePipe *addPipeType();
 +  virtual SPIRVTypeVoid *addVoidType();
 +  virtual void createForwardPointers();
@@ -31547,6 +31940,8 @@ index 0000000..d55f50a
 +  virtual SPIRVValue *addUndef(SPIRVType *TheType);
 +  virtual SPIRVValue *addSamplerConstant(SPIRVType *TheType, SPIRVWord AddrMode,
 +      SPIRVWord ParametricMode, SPIRVWord FilterMode);
++  virtual SPIRVValue* addPipeStorageConstant(SPIRVType* TheType,
++    SPIRVWord PacketSize, SPIRVWord PacketAlign, SPIRVWord Capacity);
 +
 +  // Instruction creation functions
 +  virtual SPIRVInstruction *addPtrAccessChainInst(SPIRVType *, SPIRVValue *,
@@ -31602,7 +31997,7 @@ index 0000000..d55f50a
 +  virtual SPIRVInstruction *addStoreInst(SPIRVValue *, SPIRVValue *,
 +      const std::vector<SPIRVWord>&, SPIRVBasicBlock *);
 +  virtual SPIRVInstruction *addSwitchInst(SPIRVValue *, SPIRVBasicBlock *,
-+      const std::vector<std::pair<SPIRVWord, SPIRVBasicBlock *>>&,
++      const std::vector<std::pair<std::vector<SPIRVWord>, SPIRVBasicBlock *>>&,
 +      SPIRVBasicBlock *);
 +  virtual SPIRVInstruction *addUnaryInst(Op, SPIRVType *, SPIRVValue *,
 +      SPIRVBasicBlock *);
@@ -31760,6 +32155,13 @@ index 0000000..d55f50a
 +    SPIRVWord AddrMode, SPIRVWord ParametricMode, SPIRVWord FilterMode) {
 +  return addConstant(new SPIRVConstantSampler(this, TheType, getId(), AddrMode,
 +      ParametricMode, FilterMode));
++}
++
++SPIRVValue*
++SPIRVModuleImpl::addPipeStorageConstant(SPIRVType* TheType,
++    SPIRVWord PacketSize, SPIRVWord PacketAlign, SPIRVWord Capacity) {
++  return addConstant(new SPIRVConstantPipeStorage(this, TheType, getId(),
++    PacketSize, PacketAlign, Capacity));
 +}
 +
 +void
@@ -32051,6 +32453,11 @@ index 0000000..d55f50a
 +  return addType(new SPIRVTypeDeviceEvent(this, getId()));
 +}
 +
++SPIRVTypeQueue *
++SPIRVModuleImpl::addQueueType() {
++  return addType(new SPIRVTypeQueue(this, getId()));
++}
++
 +SPIRVTypePipe*
 +SPIRVModuleImpl::addPipeType() {
 +  return addType(new SPIRVTypePipe(this, getId()));
@@ -32073,6 +32480,11 @@ index 0000000..d55f50a
 +SPIRVTypeSampler *
 +SPIRVModuleImpl::addSamplerType() {
 +  return addType(new SPIRVTypeSampler(this, getId()));
++}
++
++SPIRVTypePipeStorage*
++SPIRVModuleImpl::addPipeStorageType() {
++  return addType(new SPIRVTypePipeStorage(this, getId()));
 +}
 +
 +SPIRVTypeSampledImage *
@@ -32238,7 +32650,7 @@ index 0000000..d55f50a
 +
 +SPIRVInstruction *
 +SPIRVModuleImpl::addSwitchInst(SPIRVValue *Select, SPIRVBasicBlock *Default,
-+    const std::vector<std::pair<SPIRVWord, SPIRVBasicBlock *>>& Pairs,
++    const std::vector<std::pair<std::vector<SPIRVWord>, SPIRVBasicBlock *>>& Pairs,
 +    SPIRVBasicBlock *BB) {
 +  return BB->addInstruction(new SPIRVSwitch(Select, Default, Pairs, BB));
 +}
@@ -32708,6 +33120,8 @@ index 0000000..d55f50a
 +operator>> (std::istream &I, SPIRVModule &M) {
 +  SPIRVDecoder Decoder(I, M);
 +  SPIRVModuleImpl &MI = *static_cast<SPIRVModuleImpl*>(&M);
++  // Disable automatic capability filling.
++  MI.setAutoAddCapability(false);
 +
 +  SPIRVWord Magic;
 +  Decoder >> Magic;
@@ -32891,11 +33305,11 @@ index 0000000..d55f50a
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..8653d3b
+index 0000000..fd65605
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,340 @@
-+//===- SPIRVModule.h – Class to represent a SPIR-V module --------*- C++ -*-===//
+@@ -0,0 +1,346 @@
++//===- SPIRVModule.h - Class to represent a SPIR-V module --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
 +//
@@ -32964,10 +33378,12 @@ index 0000000..8653d3b
 +class SPIRVTypeImage;
 +class SPIRVTypeSampler;
 +class SPIRVTypeSampledImage;
++class SPIRVTypePipeStorage;
 +class SPIRVTypeStruct;
 +class SPIRVTypeVector;
 +class SPIRVTypeVoid;
 +class SPIRVTypeDeviceEvent;
++class SPIRVTypeQueue;
 +class SPIRVTypePipe;
 +class SPIRVValue;
 +class SPIRVVariable;
@@ -33093,6 +33509,7 @@ index 0000000..8653d3b
 +  virtual SPIRVTypeImage *addImageType(SPIRVType *,
 +      const SPIRVTypeImageDescriptor &, SPIRVAccessQualifierKind) = 0;
 +  virtual SPIRVTypeSampler *addSamplerType() = 0;
++  virtual SPIRVTypePipeStorage *addPipeStorageType() = 0;
 +  virtual SPIRVTypeSampledImage *addSampledImageType(SPIRVTypeImage *T) = 0;
 +  virtual SPIRVTypeInt *addIntegerType(unsigned) = 0;
 +  virtual SPIRVTypeOpaque *addOpaqueType(const std::string &) = 0;
@@ -33103,6 +33520,7 @@ index 0000000..8653d3b
 +  virtual SPIRVTypeVoid *addVoidType() = 0;
 +  virtual SPIRVType *addOpaqueGenericType(Op) = 0;
 +  virtual SPIRVTypeDeviceEvent *addDeviceEventType() = 0;
++  virtual SPIRVTypeQueue *addQueueType() = 0;
 +  virtual SPIRVTypePipe *addPipeType() = 0;
 +  virtual void createForwardPointers() = 0;
 +
@@ -33118,6 +33536,8 @@ index 0000000..8653d3b
 +  virtual SPIRVValue *addUndef(SPIRVType *TheType) = 0;
 +  virtual SPIRVValue *addSamplerConstant(SPIRVType *TheType, SPIRVWord AddrMode,
 +      SPIRVWord ParametricMode, SPIRVWord FilterMode) = 0;
++  virtual SPIRVValue* addPipeStorageConstant(SPIRVType* TheType,
++    SPIRVWord PacketSize, SPIRVWord PacketAlign, SPIRVWord Capacity) = 0;
 +
 +  // Instruction creation functions
 +  virtual SPIRVInstruction *addPtrAccessChainInst(SPIRVType *, SPIRVValue *,
@@ -33182,7 +33602,7 @@ index 0000000..8653d3b
 +  virtual SPIRVInstruction *addStoreInst(SPIRVValue *, SPIRVValue *,
 +      const std::vector<SPIRVWord>&, SPIRVBasicBlock *) = 0;
 +  virtual SPIRVInstruction *addSwitchInst(SPIRVValue *, SPIRVBasicBlock *,
-+      const std::vector<std::pair<SPIRVWord, SPIRVBasicBlock *>>&,
++      const std::vector<std::pair<std::vector<SPIRVWord>, SPIRVBasicBlock *>>&,
 +      SPIRVBasicBlock *) = 0;
 +  virtual SPIRVInstruction *addUnaryInst(Op, SPIRVType *, SPIRVValue *,
 +      SPIRVBasicBlock *) = 0;
@@ -33237,10 +33657,10 @@ index 0000000..8653d3b
 +#endif /* SPIRVMODULE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
 new file mode 100644
-index 0000000..a13b017
+index 0000000..4128071
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
-@@ -0,0 +1,485 @@
+@@ -0,0 +1,486 @@
 +//===- SPIRVNameMapEnum.h - SPIR-V NameMap enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -33681,6 +34101,7 @@ index 0000000..a13b017
 +  add(CapabilityImageReadWrite, "ImageReadWrite");
 +  add(CapabilityImageMipmap, "ImageMipmap");
 +  add(CapabilityPipes, "Pipes");
++  add(CapabilityPipeStorage, "PipeStorage");
 +  add(CapabilityGroups, "Groups");
 +  add(CapabilityDeviceEnqueue, "DeviceEnqueue");
 +  add(CapabilityLiteralSampler, "LiteralSampler");
@@ -33728,7 +34149,7 @@ index 0000000..a13b017
 +#endif /* SPIRVNAMEMAPENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCode.h b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 new file mode 100644
-index 0000000..32d1052
+index 0000000..cbd7f62
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 @@ -0,0 +1,174 @@
@@ -33888,14 +34309,14 @@ index 0000000..32d1052
 +}
 +inline bool isTypeOpCode(Op OpCode) {
 +  unsigned OC = OpCode;
-+  return OpTypeVoid <= OC && OC <= OpTypePipe;
++  return (OpTypeVoid <= OC && OC <= OpTypePipe) || OC == OpTypePipeStorage;
 +}
 +
 +inline bool isConstantOpCode(Op OpCode) {
 +  unsigned OC = OpCode;
 +  return (OpConstantTrue <= OC
 +      && OC <= OpSpecConstantOp)
-+      || OC == OpUndef;
++      || OC == OpUndef || OC == OpConstantPipeStorage;
 +}
 +
 +inline bool isModuleScopeAllowedOpCode(Op OpCode) {
@@ -33908,10 +34329,10 @@ index 0000000..32d1052
 +#endif /* SPIRVOPCODE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h b/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h
 new file mode 100644
-index 0000000..b036d11
+index 0000000..e4a1b23
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h
-@@ -0,0 +1,294 @@
+@@ -0,0 +1,297 @@
 +_SPIRV_OP(Nop, 0)
 +_SPIRV_OP(Undef, 1)
 +_SPIRV_OP(SourceContinued, 2)
@@ -34205,10 +34626,13 @@ index 0000000..b036d11
 +_SPIRV_OP(NoLine, 317)
 +_SPIRV_OP(AtomicFlagTestAndSet, 318)
 +_SPIRV_OP(AtomicFlagClear, 319)
++_SPIRV_OP(TypePipeStorage, 322)
++_SPIRV_OP(ConstantPipeStorage, 323)
++_SPIRV_OP(CreatePipeFromPipeStorage, 324)
 +_SPIRV_OP(Forward, 1024)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVStream.cpp b/lib/SPIRV/libSPIRV/SPIRVStream.cpp
 new file mode 100644
-index 0000000..4154987
+index 0000000..dee1e81
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVStream.cpp
 @@ -0,0 +1,267 @@
@@ -34369,7 +34793,7 @@ index 0000000..4154987
 +
 +  uint64_t Count = 0;
 +  char Ch;
-+  while (I.IS >> Ch && Ch != '\0') {
++  while (I.IS.get(Ch) && Ch != '\0') {
 +    Str += Ch;
 +    ++Count;
 +  }
@@ -34689,10 +35113,10 @@ index 0000000..bc22799
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.cpp b/lib/SPIRV/libSPIRV/SPIRVType.cpp
 new file mode 100644
-index 0000000..7761ce1
+index 0000000..bfbd145
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.cpp
-@@ -0,0 +1,288 @@
+@@ -0,0 +1,293 @@
 +//===- SPIRVtype.cpp – Class to represent a SPIR-V type ----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -34856,6 +35280,11 @@ index 0000000..7761ce1
 +}
 +
 +bool
++SPIRVType::isTypePipeStorage() const {
++  return OpCode == OpTypePipeStorage;
++}
++
++bool
 +SPIRVType::isTypeReserveId() const {
 +  return OpCode == OpTypeReserveId;
 +}
@@ -34983,10 +35412,10 @@ index 0000000..7761ce1
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.h b/lib/SPIRV/libSPIRV/SPIRVType.h
 new file mode 100644
-index 0000000..7817988
+index 0000000..89170d3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.h
-@@ -0,0 +1,707 @@
+@@ -0,0 +1,748 @@
 +//===- SPIRVType.h - Class to represent a SPIR-V Type -----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35077,6 +35506,7 @@ index 0000000..7817988
 +  bool isTypeImage() const;
 +  bool isTypeOCLImage() const;
 +  bool isTypePipe()const;
++  bool isTypePipeStorage() const;
 +  bool isTypeInt(unsigned Bits = 0) const;
 +  bool isTypeOpaque() const;
 +  bool isTypePointer() const;
@@ -35407,6 +35837,10 @@ index 0000000..7817988
 +  SPIRVCapVec getRequiredCapability() const {
 +    SPIRVCapVec CV;
 +    CV.push_back(CapabilityImageBasic);
++    if (Desc.Dim == 1)
++      CV.push_back(CapabilitySampled1D);
++    else if (Desc.Dim == 5)
++      CV.push_back(CapabilitySampledBuffer);
 +    if (Acc.size() > 0 && Acc[0] == AccessQualifierReadWrite)
 +      CV.push_back(CapabilityImageReadWrite);
 +    if (Desc.MS)
@@ -35495,6 +35929,24 @@ index 0000000..7817988
 +    assert(OpCode == OC);
 +    assert(WordCount == FixedWC);
 +    assert(ImgTy && ImgTy->isTypeImage());
++  }
++};
++
++class SPIRVTypePipeStorage :public SPIRVType {
++public:
++  const static Op OC = OpTypePipeStorage;
++  const static SPIRVWord FixedWC = 2;
++  SPIRVTypePipeStorage(SPIRVModule *M, SPIRVId TheId)
++    :SPIRVType(M, FixedWC, OC, TheId){
++    validate();
++  }
++  SPIRVTypePipeStorage() :SPIRVType(OC){
++  }
++protected:
++  _SPIRV_DEF_ENCDEC1(Id)
++    void validate()const {
++      assert(OpCode == OC);
++      assert(WordCount == FixedWC);
 +  }
 +};
 +
@@ -35625,7 +36077,6 @@ index 0000000..7817988
 +#define _SPIRV_OP(x) typedef SPIRVOpaqueGenericType<OpType##x> SPIRVType##x;
 +_SPIRV_OP(Event)
 +_SPIRV_OP(ReserveId)
-+_SPIRV_OP(Queue)
 +#undef _SPIRV_OP
 +
 +class SPIRVTypeDeviceEvent : public SPIRVType {
@@ -35646,6 +36097,25 @@ index 0000000..7817988
 +protected:
 +  _SPIRV_DEF_ENCDEC1(Id)
 +  void validate() const { SPIRVEntry::validate(); }
++};
++
++class SPIRVTypeQueue : public SPIRVType {
++public:
++  // Complete constructor
++  SPIRVTypeQueue(SPIRVModule *M, SPIRVId TheId)
++      : SPIRVType(M, 2, OpTypeQueue, TheId) {
++    validate();
++  }
++
++  // Incomplete constructor
++  SPIRVTypeQueue() : SPIRVType(OpTypeQueue) {}
++
++  SPIRVCapVec getRequiredCapability() const {
++    return getVec(CapabilityDeviceEnqueue);
++  }
++
++protected:
++  _SPIRV_DEF_ENCDEC1(Id)
 +};
 +
 +class SPIRVTypePipe :public SPIRVType {
@@ -36228,10 +36698,10 @@ index 0000000..18347ac
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVValue.h b/lib/SPIRV/libSPIRV/SPIRVValue.h
 new file mode 100644
-index 0000000..c87e41c
+index 0000000..6534270
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVValue.h
-@@ -0,0 +1,364 @@
+@@ -0,0 +1,406 @@
 +//===- SPIRVValue.h - Class to represent a SPIR-V Value ----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36572,6 +37042,48 @@ index 0000000..c87e41c
 +    assert(Type->isTypeSampler());
 +  }
 +  _SPIRV_DEF_ENCDEC5(Type, Id, AddrMode, Normalized, FilterMode)
++};
++
++class SPIRVConstantPipeStorage : public SPIRVValue {
++public:
++  const static Op OC = OpConstantPipeStorage;
++  const static SPIRVWord WC = 6;
++  // Complete constructor
++  SPIRVConstantPipeStorage(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
++    SPIRVWord ThePacketSize, SPIRVWord ThePacketAlign, SPIRVWord TheCapacity)
++    :SPIRVValue(M, WC, OC, TheType, TheId), PacketSize(ThePacketSize),
++    PacketAlign(ThePacketAlign), Capacity(TheCapacity){
++    validate();
++  }
++  // Incomplete constructor
++  SPIRVConstantPipeStorage() :SPIRVValue(OC), PacketSize(0),
++    PacketAlign(0), Capacity(0){}
++
++  SPIRVWord getPacketSize() const {
++    return PacketSize;
++  }
++
++  SPIRVWord getPacketAlign() const {
++    return PacketAlign;
++  }
++
++  SPIRVWord getCapacity() const {
++    return Capacity;
++  }
++  SPIRVCapVec getRequiredCapability() const {
++    return getVec(CapabilityPipes, CapabilityPipeStorage);
++  }
++protected:
++  SPIRVWord PacketSize;
++  SPIRVWord PacketAlign;
++  SPIRVWord Capacity;
++  void validate() const {
++    SPIRVValue::validate();
++    assert(OpCode == OC);
++    assert(WordCount == WC);
++    assert(Type->isTypePipeStorage());
++  }
++  _SPIRV_DEF_ENCDEC5(Type, Id, PacketSize, PacketAlign, Capacity)
 +};
 +
 +class SPIRVForward:public SPIRVValue, public SPIRVComponentExecutionModes {
