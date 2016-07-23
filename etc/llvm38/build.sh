@@ -66,6 +66,7 @@ fi
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
 git clone git://github.com/a2flo/SPIRV-Tools.git
+git clone git://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/SPIRV-Headers
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null
