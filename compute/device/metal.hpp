@@ -107,7 +107,9 @@ namespace std {
 	const_func metal_func uint32_t madsat(uint32_t, uint32_t, uint32_t) asm("air.mad_sat.u.i32");
 	
 	// non-standard bit counting functions (don't use these directly, use math::func instead)
-#if 0 // TODO: enable if targeting metal 1.2+
+	// TODO: enable this if targeting metal 1.2+
+	// NOTE: already needed for intel on 10.12 even when targeting 1.1 (also works for other backends)
+#if FLOOR_COMPUTE_INFO_OS_VERSION >= 101200
 	// NOTE: since metal/air 1.2, clz/ctz have a second bool parameter to declare if clz/ctz of 0 is undefined or not
 	const_func metal_func uint16_t air_rt_clz(uint16_t, bool undef = false) asm("air.clz.i16");
 	const_func metal_func uint32_t air_rt_clz(uint32_t, bool undef = false) asm("air.clz.i32");
