@@ -140,7 +140,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
 				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
 				(floor::get_opencl_verify_spir() && toolchain_version >= 30800u ? " -Xclang -cl-verify-spir" : "") +
-				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "") +
+				(device->platform_vendor == COMPUTE_VENDOR::INTEL &&
+				 device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
