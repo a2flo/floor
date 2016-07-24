@@ -2170,10 +2170,10 @@ index 78d2fad..551559e 100644
  //===----------------------------------------------------------------------===//
  /// createReversePostOrderFunctionAttrsPass - This pass walks SCCs of the call
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index a4e7bce..42f35ae 100644
+index a4e7bce..8b1e058 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -132,6 +132,16 @@ public:
+@@ -132,6 +132,17 @@ public:
    bool VerifyOutput;
    bool MergeFunctions;
    bool PrepareForLTO;
@@ -2183,6 +2183,7 @@ index a4e7bce..42f35ae 100644
 +  bool EnableMetalIntelWorkarounds;
 +  bool EnableMetalNvidiaWorkarounds;
 +  bool EnableSPIRPasses;
++  bool EnableSPIRIntelWorkarounds;
 +  bool EnableVerifySPIR;
 +
 +  // can't rely on clang header here, so just use a uint32_t
@@ -2191,10 +2192,10 @@ index a4e7bce..42f35ae 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 9173de1..1780c2d 100644
+index 9173de1..503538c 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -33,6 +33,64 @@ class TargetMachine;
+@@ -33,6 +33,65 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2252,7 +2253,8 @@ index 9173de1..1780c2d 100644
 +//
 +// SPIRImage - This pass applies SPIR-specific floor image transformations.
 +//
-+FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0);
++FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0,
++                                  const bool enable_intel_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -40712,7 +40714,7 @@ index b5410f5..563fa24 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index faada9c..44c7f53 100644
+index faada9c..205022a 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -34,6 +34,7 @@
@@ -40723,7 +40725,7 @@ index faada9c..44c7f53 100644
  
  using namespace llvm;
  
-@@ -123,6 +124,13 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -123,6 +124,14 @@ PassManagerBuilder::PassManagerBuilder() {
      VerifyOutput = false;
      MergeFunctions = false;
      PrepareForLTO = false;
@@ -40733,11 +40735,12 @@ index faada9c..44c7f53 100644
 +    EnableMetalIntelWorkarounds = false;
 +    EnableMetalNvidiaWorkarounds = false;
 +    EnableSPIRPasses = false;
++    EnableSPIRIntelWorkarounds = false;
 +    EnableVerifySPIR = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -188,9 +196,38 @@ void PassManagerBuilder::populateFunctionPassManager(
+@@ -188,9 +197,38 @@ void PassManagerBuilder::populateFunctionPassManager(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -40776,7 +40779,7 @@ index faada9c..44c7f53 100644
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -213,11 +250,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -213,11 +251,9 @@ void PassManagerBuilder::populateModulePassManager(
      return;
    }
  
@@ -40791,7 +40794,7 @@ index faada9c..44c7f53 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -346,6 +381,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -346,6 +382,28 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -40802,7 +40805,7 @@ index faada9c..44c7f53 100644
 +  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
 +    if(EnableCUDAPasses) MPM.add(createCUDAImagePass(floor_image_capabilities));
 +    if(EnableMetalPasses) MPM.add(createMetalImagePass(floor_image_capabilities));
-+    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities));
++    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities, EnableSPIRIntelWorkarounds));
 +
 +    // and cleanup afterwards, including loop and unrolling related things
 +    MPM.add(createTailCallEliminationPass());
@@ -40820,7 +40823,7 @@ index faada9c..44c7f53 100644
    if (!DisableUnitAtATime)
      MPM.add(createReversePostOrderFunctionAttrsPass());
  
-@@ -484,6 +541,22 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -484,6 +542,22 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -44097,10 +44100,10 @@ index 0000000..0a3eeb1
 +}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..0dc85f6
+index 0000000..8e94de7
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
-@@ -0,0 +1,273 @@
+@@ -0,0 +1,274 @@
 +//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44295,12 +44298,13 @@ index 0000000..0dc85f6
 +			vec_to_scalar_ops<Instruction::SIToFP>(I);
 +		}
 +		
-+		// SPIR doesn't support LLVM lifetime intrinsics
++		// SPIR doesn't support LLVM lifetime and assume intrinsics
 +		// -> simply remove them
 +		// TODO: should probably kill the global decl as well
 +		void visitIntrinsicInst(IntrinsicInst &I) {
 +			if (I.getIntrinsicID() == Intrinsic::lifetime_start ||
-+				I.getIntrinsicID() == Intrinsic::lifetime_end) {
++				I.getIntrinsicID() == Intrinsic::lifetime_end ||
++				I.getIntrinsicID() == Intrinsic::assume) {
 +				I.eraseFromParent();
 +				was_modified = true;
 +			}
@@ -44376,10 +44380,10 @@ index 0000000..0dc85f6
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..b3c628d
+index 0000000..760bdc1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,630 @@
+@@ -0,0 +1,657 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44429,6 +44433,7 @@ index 0000000..b3c628d
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
 +#include "llvm/Transforms/Scalar/FloorImage.h"
++#include <unordered_map>
 +using namespace llvm;
 +
 +#define DEBUG_TYPE "SPIRImage"
@@ -44442,16 +44447,41 @@ index 0000000..b3c628d
 +namespace {
 +	struct SPIRImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
++		bool enable_intel_workarounds { false };
 +		
-+		SPIRImage(const uint32_t image_capabilities_ = 0) :
-+		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
++		SPIRImage(const uint32_t image_capabilities_ = 0,
++				  const bool enable_intel_workarounds_ = false) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_),
++		enable_intel_workarounds(enable_intel_workarounds_) {
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
-+		llvm::Value* get_or_create_spir_function(const std::string& func_name,
++		llvm::Value* get_or_create_spir_function(std::string func_name,
 +												 llvm::Type* ret_type,
 +												 const SmallVector<llvm::Type*, 8>& func_arg_types,
 +												 const bool is_readnone = false) {
++			if(enable_intel_workarounds) {
++				// intel name mangling is a bit off sometimes, so use their name mangling instead
++				// correct -> intel
++				static const std::unordered_map<std::string, std::string> intel_func_repl {
++					{ "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagei11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagei11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z12read_imageui11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z12read_imageui11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagef16ocl_image2ddepth11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagef16ocl_image2ddepth11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagef11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z11read_imagef11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z11read_imagei11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z11read_imagei11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z12read_imageui11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z12read_imageui11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z12write_imagei11ocl_image3dDv4_iDv4_i", "_Z12write_imagei11ocl_image3dDv4_iS_" },
++					{ "_Z12write_imagei11ocl_image3dDv4_iiDv4_i", "_Z12write_imagei11ocl_image3dDv4_iiS_" },
++					{ "_Z12write_imagei16ocl_image2darrayDv4_iDv4_i", "_Z12write_imagei16ocl_image2darrayDv4_iS_" },
++					{ "_Z12write_imagei16ocl_image2darrayDv4_iiDv4_i", "_Z12write_imagei16ocl_image2darrayDv4_iiS_" },
++				};
++				const auto iter = intel_func_repl.find(func_name);
++				if(iter != intel_func_repl.end()) {
++					func_name = iter->second;
++				}
++			}
++			
 +			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
 +			auto func = M->getFunction(func_name);
 +			if(func == nullptr) { // only do this once
@@ -44606,7 +44636,7 @@ index 0000000..b3c628d
 +			std::string geom;
 +			bool is_array = false, is_msaa = false, is_depth = false;
 +			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
@@ -44926,7 +44956,7 @@ index 0000000..b3c628d
 +			std::string geom;
 +			bool is_array = false, is_depth = false;
 +			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
@@ -45007,8 +45037,9 @@ index 0000000..b3c628d
 +INITIALIZE_PASS_BEGIN(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +INITIALIZE_PASS_END(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +
-+FunctionPass *llvm::createSPIRImagePass(const uint32_t image_capabilities) {
-+	return new SPIRImage(image_capabilities);
++FunctionPass *llvm::createSPIRImagePass(const uint32_t image_capabilities,
++										const bool intel_workarounds) {
++	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
 index 52d477c..f5fa9f3 100644
