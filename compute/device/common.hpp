@@ -364,7 +364,7 @@ public:
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
-#define constant_buffer __attribute__((align_value(1024))) constant compute_constant_buffer
+#define constant_buffer __restrict __attribute__((align_value(1024))) constant compute_constant_buffer
 template <typename T> using compute_constant_buffer = const T* const;
 
 //! array for use with static constant memory
@@ -376,7 +376,9 @@ template <class data_type, size_t array_size> using compute_constant_array = dat
 	!defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
 template <typename T> using param = const T;
 #elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
-template <typename T> using param = const constant T&;
+// the __restrict prevents the parameter unnecessarily being loaded multiple times
+#define param __restrict compute_param
+template <typename T> using compute_param = const constant T&;
 #elif defined(FLOOR_COMPUTE_HOST)
 template <typename T> using param = const T&;
 #endif

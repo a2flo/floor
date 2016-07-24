@@ -84,6 +84,7 @@ namespace compute_algorithm {
 		const auto lid = local_id.x;
 		
 #if !defined(FLOOR_COMPUTE_HOST)
+		auto value = lmem[lid];
 		// butterfly reduce to [0]
 #pragma unroll
 		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
@@ -95,7 +96,10 @@ namespace compute_algorithm {
 				local_barrier();
 			}
 			if(lid < i) {
-				lmem[lid] = op(lmem[lid], lmem[lid + i]);
+				value = op(value, lmem[lid + i]);
+				if(i > 1) {
+					lmem[lid] = value;
+				}
 			}
 		}
 #else // -> host-compute
@@ -122,8 +126,41 @@ namespace compute_algorithm {
 												   local_memory_type& lmem,
 												   F&& op) {
 		// init/set all work-item values
-		lmem[local_id.x] = work_item_value;
-		return reduce_no_init<work_group_size, reduced_type>(lmem, std::forward<F>(op));
+		const auto lid = local_id.x;
+		auto value = work_item_value;
+		lmem[lid] = value;
+		
+#if !defined(FLOOR_COMPUTE_HOST)
+		// butterfly reduce to [0]
+#pragma unroll
+		for(uint32_t i = work_group_size / 2; i > 0; i >>= 1) {
+			// sync local mem + work-item barrier
+#if defined(FLOOR_COMPUTE_CUDA)
+			if(i >= device_info::simd_width())
+#endif
+			{
+				local_barrier();
+			}
+			if(lid < i) {
+				value = op(value, lmem[lid + i]);
+				if(i > 1) {
+					lmem[lid] = value;
+				}
+			}
+		}
+		return value;
+#else // -> host-compute
+		// make sure everyone has written to local memory
+		local_barrier();
+		// reduce in the first work-item only
+		if(lid == 0) {
+			auto& arr = lmem.as_array();
+			for(uint32_t i = 1; i < work_group_size; ++i) {
+				arr[0] = op(arr[0], arr[i]);
+			}
+		}
+		return lmem[0];
+#endif
 	}
 	
 	//! returns the amount of local memory elements that must be allocated by the caller
