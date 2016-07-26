@@ -32,6 +32,50 @@ index de14c1a..80fc6bc 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/IR/CallingConv.h b/include/llvm/IR/CallingConv.h
+index 1eaf4f7..37f0d82 100644
+--- a/include/llvm/IR/CallingConv.h
++++ b/include/llvm/IR/CallingConv.h
+@@ -108,23 +108,22 @@ namespace CallingConv {
+     /// Passes all arguments in register or parameter space.
+     PTX_Device = 72,
+ 
+-    /// SPIR_FUNC - Calling convention for SPIR non-kernel device functions.
+-    /// No lowering or expansion of arguments.
+-    /// Structures are passed as a pointer to a struct with the byval attribute.
+-    /// Functions can only call SPIR_FUNC and SPIR_KERNEL functions.
+-    /// Functions can only have zero or one return values.
+-    /// Variable arguments are not allowed, except for printf.
+-    /// How arguments/return values are lowered are not specified.
+-    /// Functions are only visible to the devices.
+-    SPIR_FUNC = 75,
+-
+-    /// SPIR_KERNEL - Calling convention for SPIR kernel functions.
+-    /// Inherits the restrictions of SPIR_FUNC, except
+-    /// Cannot have non-void return values.
+-    /// Cannot have variable arguments.
+-    /// Can also be called by the host.
+-    /// Is externally visible.
+-    SPIR_KERNEL = 76,
++    /// AIR/Metal vertex shader function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    FLOOR_VERTEX = 73,
++    /// AIR/Metal fragment shader function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    FLOOR_FRAGMENT = 74,
++    /// OpenCL/SPIR, AIR/Metal and CUDA normal function calling convention (not an entry point)
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    /// NOTE: used to be SPIR_FUNC, must be 75 for binary compat
++    FLOOR_FUNC = 75,
++    SPIR_FUNC = FLOOR_FUNC,
++    /// OpenCL/SPIR, AIR/Metal and CUDA compute kernel function calling convention
++    /// NOTE: for metal this is entirely virtual and will be stripped in the end
++    /// NOTE: used to be SPIR_KERNEL, must be 76 for binary compat
++    FLOOR_KERNEL = 76,
++    SPIR_KERNEL = FLOOR_KERNEL,
+ 
+     /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
+     Intel_OCL_BI = 77,
 diff --git a/include/llvm/IR/DerivedTypes.h b/include/llvm/IR/DerivedTypes.h
 index ff15087..0e9430c 100644
 --- a/include/llvm/IR/DerivedTypes.h
@@ -76,11 +120,37 @@ index 7a0ca88..4b27374 100644
  };
  
  //===----------------------------------------------------------------------===//
+diff --git a/include/llvm/IR/Operator.h b/include/llvm/IR/Operator.h
+index 888cabf..9b9b434 100644
+--- a/include/llvm/IR/Operator.h
++++ b/include/llvm/IR/Operator.h
+@@ -506,6 +506,21 @@ public:
+   }
+ };
+ 
++class BitCastOperator
++    : public ConcreteOperator<Operator, Instruction::BitCast> {
++  friend class BitCastInst;
++  friend class ConstantExpr;
++
++public:
++  Type *getSrcTy() const {
++    return getOperand(0)->getType();
++  }
++
++  Type *getDestTy() const {
++    return getType();
++  }
++};
++
+ 
+ } // End llvm namespace
+ 
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index 02f4259..37570c8 100644
+index 02f4259..7d0800f 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -64,6 +64,14 @@ void initializeTarget(PassRegistry&);
+@@ -64,6 +64,15 @@ void initializeTarget(PassRegistry&);
  
  void initializeAAEvalPass(PassRegistry&);
  void initializeAddDiscriminatorsPass(PassRegistry&);
@@ -89,13 +159,14 @@ index 02f4259..37570c8 100644
 +void initializeCUDAFinalPass(PassRegistry&);
 +void initializeMetalFirstPass(PassRegistry&);
 +void initializeMetalFinalPass(PassRegistry&);
++void initializeMetalFinalModuleCleanupPass(PassRegistry&);
 +void initializeMetalImagePass(PassRegistry&);
 +void initializeSPIRFinalPass(PassRegistry&);
 +void initializeSPIRImagePass(PassRegistry&);
  void initializeADCEPass(PassRegistry&);
  void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
  void initializeAliasAnalysisCounterPass(PassRegistry&);
-@@ -117,6 +125,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
+@@ -117,6 +126,7 @@ void initializeDominanceFrontierPass(PassRegistry&);
  void initializeDominatorTreeWrapperPassPass(PassRegistry&);
  void initializeEarlyIfConverterPass(PassRegistry&);
  void initializeEdgeBundlesPass(PassRegistry&);
@@ -156,10 +227,10 @@ index ce1a7d6..0511a23 100644
  //===----------------------------------------------------------------------===//
  /// createMergeFunctionsPass - This pass discovers identical functions and
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index 50877d0..4af3890 100644
+index 50877d0..276f33d 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-@@ -118,6 +118,14 @@ public:
+@@ -118,6 +118,16 @@ public:
    bool LoopVectorize;
    bool RerollLoops;
    bool LoadCombine;
@@ -167,7 +238,9 @@ index 50877d0..4af3890 100644
 +  bool EnableCUDAPasses;
 +  bool EnableMetalPasses;
 +  bool EnableMetalIntelWorkarounds;
++  bool EnableMetalNvidiaWorkarounds;
 +  bool EnableSPIRPasses;
++  bool EnableSPIRIntelWorkarounds;
 +
 +  // can't rely on clang header here, so just use a uint32_t
 +  unsigned int floor_image_capabilities { 0 };
@@ -175,7 +248,7 @@ index 50877d0..4af3890 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 413134e..e781ea3 100644
+index 413134e..1eb635b 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
 @@ -21,6 +21,7 @@ namespace llvm {
@@ -186,7 +259,7 @@ index 413134e..e781ea3 100644
  class Pass;
  class GetElementPtrInst;
  class PassInfo;
-@@ -30,6 +31,55 @@ class TargetMachine;
+@@ -30,6 +31,65 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -211,13 +284,22 @@ index 413134e..e781ea3 100644
 +//
 +// MetalFirst - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFirstPass(const bool enable_intel_workarounds = false);
++FunctionPass *createMetalFirstPass(const bool enable_intel_workarounds = false,
++                                   const bool enable_nvidia_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
 +// MetalFinal - This pass fixes Metal/AIR issues.
 +//
-+FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false);
++FunctionPass *createMetalFinalPass(const bool enable_intel_workarounds = false,
++                                   const bool enable_nvidia_workarounds = false);
++
++//===----------------------------------------------------------------------===//
++//
++// MetalFinalModuleCleanup - This pass removes any calling convention attributes
++// and removes unused functions/prototypes/externs.
++//
++ModulePass *createMetalFinalModuleCleanupPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -235,7 +317,8 @@ index 413134e..e781ea3 100644
 +//
 +// SPIRImage - This pass applies SPIR-specific floor image transformations.
 +//
-+FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0);
++FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0,
++                                  const bool enable_intel_workarounds = false);
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -623,11 +706,54 @@ index 0000000..850ef45
 +}
 +
 +#endif
+diff --git a/lib/AsmParser/LLLexer.cpp b/lib/AsmParser/LLLexer.cpp
+index 962298f..5590877 100644
+--- a/lib/AsmParser/LLLexer.cpp
++++ b/lib/AsmParser/LLLexer.cpp
+@@ -592,8 +592,10 @@ lltok::Kind LLLexer::LexIdentifier() {
+   KEYWORD(msp430_intrcc);
+   KEYWORD(ptx_kernel);
+   KEYWORD(ptx_device);
+-  KEYWORD(spir_kernel);
+-  KEYWORD(spir_func);
++  KEYWORD(floor_kernel);
++  KEYWORD(floor_vertex);
++  KEYWORD(floor_fragment);
++  KEYWORD(floor_func);
+   KEYWORD(intel_ocl_bicc);
+   KEYWORD(x86_64_sysvcc);
+   KEYWORD(x86_64_win64cc);
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
-index ac6e0e5..9e922f8 100644
+index ac6e0e5..dfc48b9 100644
 --- a/lib/AsmParser/LLParser.cpp
 +++ b/lib/AsmParser/LLParser.cpp
-@@ -2644,10 +2644,10 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
+@@ -1517,8 +1517,10 @@ bool LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
+ ///   ::= 'msp430_intrcc'
+ ///   ::= 'ptx_kernel'
+ ///   ::= 'ptx_device'
+-///   ::= 'spir_func'
+-///   ::= 'spir_kernel'
++///   ::= 'floor_func'
++///   ::= 'floor_kernel'
++///   ::= 'floor_vertex'
++///   ::= 'floor_fragment'
+ ///   ::= 'x86_64_sysvcc'
+ ///   ::= 'x86_64_win64cc'
+ ///   ::= 'webkit_jscc'
+@@ -1542,8 +1544,10 @@ bool LLParser::ParseOptionalCallingConv(CallingConv::ID &CC) {
+   case lltok::kw_msp430_intrcc:  CC = CallingConv::MSP430_INTR; break;
+   case lltok::kw_ptx_kernel:     CC = CallingConv::PTX_Kernel; break;
+   case lltok::kw_ptx_device:     CC = CallingConv::PTX_Device; break;
+-  case lltok::kw_spir_kernel:    CC = CallingConv::SPIR_KERNEL; break;
+-  case lltok::kw_spir_func:      CC = CallingConv::SPIR_FUNC; break;
++  case lltok::kw_floor_kernel:   CC = CallingConv::FLOOR_KERNEL; break;
++  case lltok::kw_floor_vertex:   CC = CallingConv::FLOOR_VERTEX; break;
++  case lltok::kw_floor_fragment: CC = CallingConv::FLOOR_FRAGMENT; break;
++  case lltok::kw_floor_func:     CC = CallingConv::FLOOR_FUNC; break;
+   case lltok::kw_intel_ocl_bicc: CC = CallingConv::Intel_OCL_BI; break;
+   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;
+   case lltok::kw_x86_64_win64cc: CC = CallingConv::X86_64_Win64; break;
+@@ -2644,10 +2648,10 @@ bool LLParser::ParseValID(ValID &ID, PerFunctionState *PFS) {
          ParseType(DestTy) ||
          ParseToken(lltok::rparen, "expected ')' at end of constantexpr cast"))
        return true;
@@ -640,7 +766,7 @@ index ac6e0e5..9e922f8 100644
      ID.ConstantVal = ConstantExpr::getCast((Instruction::CastOps)Opc,
                                                   SrcVal, DestTy);
      ID.Kind = ValID::t_Constant;
-@@ -3971,12 +3971,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
+@@ -3971,12 +3975,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
        ParseType(DestTy))
      return true;
  
@@ -655,8 +781,21 @@ index ac6e0e5..9e922f8 100644
    Inst = CastInst::Create((Instruction::CastOps)Opc, Op, DestTy);
    return false;
  }
+diff --git a/lib/AsmParser/LLToken.h b/lib/AsmParser/LLToken.h
+index 2f02606..fc5aa7b 100644
+--- a/lib/AsmParser/LLToken.h
++++ b/lib/AsmParser/LLToken.h
+@@ -93,7 +93,7 @@ namespace lltok {
+     kw_arm_apcscc, kw_arm_aapcscc, kw_arm_aapcs_vfpcc,
+     kw_msp430_intrcc,
+     kw_ptx_kernel, kw_ptx_device,
+-    kw_spir_kernel, kw_spir_func,
++    kw_floor_kernel, kw_floor_vertex, kw_floor_fragment, kw_floor_func,
+     kw_x86_64_sysvcc, kw_x86_64_win64cc,
+     kw_webkit_jscc, kw_anyregcc,
+     kw_preserve_mostcc, kw_preserve_allcc,
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
-index a7499bc..90ec2a3 100644
+index a7499bc..83ec8cc 100644
 --- a/lib/IR/AsmWriter.cpp
 +++ b/lib/IR/AsmWriter.cpp
 @@ -19,6 +19,7 @@
@@ -667,7 +806,20 @@ index a7499bc..90ec2a3 100644
  #include "llvm/IR/AssemblyAnnotationWriter.h"
  #include "llvm/IR/CFG.h"
  #include "llvm/IR/CallingConv.h"
-@@ -1469,12 +1470,21 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
+@@ -87,8 +88,10 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
+   case CallingConv::PTX_Device:    Out << "ptx_device"; break;
+   case CallingConv::X86_64_SysV:   Out << "x86_64_sysvcc"; break;
+   case CallingConv::X86_64_Win64:  Out << "x86_64_win64cc"; break;
+-  case CallingConv::SPIR_FUNC:     Out << "spir_func"; break;
+-  case CallingConv::SPIR_KERNEL:   Out << "spir_kernel"; break;
++  case CallingConv::FLOOR_FUNC:    Out << "floor_func"; break;
++  case CallingConv::FLOOR_VERTEX:  Out << "floor_vertex"; break;
++  case CallingConv::FLOOR_FRAGMENT:Out << "floor_fragment"; break;
++  case CallingConv::FLOOR_KERNEL:  Out << "floor_kernel"; break;
+   }
+ }
+ 
+@@ -1469,12 +1472,21 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
    PrintVisibility(GV->getVisibility(), Out);
    PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
    PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
@@ -864,6 +1016,19 @@ index 714d9e8..18e01ff 100644
    case Triple::mips64:
    case Triple::mips64el:
    case Triple::nvptx64:
+diff --git a/lib/Target/NVPTX/NVPTX.h b/lib/Target/NVPTX/NVPTX.h
+index e74c808..06c8822 100644
+--- a/lib/Target/NVPTX/NVPTX.h
++++ b/lib/Target/NVPTX/NVPTX.h
+@@ -69,6 +69,8 @@ ModulePass *createNVVMReflectPass(const StringMap<int>& Mapping);
+ MachineFunctionPass *createNVPTXPrologEpilogPass();
+ MachineFunctionPass *createNVPTXReplaceImageHandlesPass();
+ FunctionPass *createNVPTXImageOptimizerPass();
++FunctionPass *createNVPTXLowerKernelArgsPass(const NVPTXTargetMachine *TM);
++BasicBlockPass *createNVPTXLowerAllocaPass();
+ 
+ bool isImageOrSamplerVal(const Value *, const Module *);
+ 
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
 index 93fabf6..b1c087d 100644
 --- a/lib/Target/NVPTX/NVPTX.td
@@ -956,6 +1121,303 @@ index a9f9bdd..bf44862 100644
    void EmitInstruction(const MachineInstr *) override;
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
+diff --git a/lib/Target/NVPTX/NVPTXFavorNonGenericAddrSpaces.cpp b/lib/Target/NVPTX/NVPTXFavorNonGenericAddrSpaces.cpp
+index f3a095d..b077c84 100644
+--- a/lib/Target/NVPTX/NVPTXFavorNonGenericAddrSpaces.cpp
++++ b/lib/Target/NVPTX/NVPTXFavorNonGenericAddrSpaces.cpp
+@@ -10,34 +10,54 @@
+ // When a load/store accesses the generic address space, checks whether the
+ // address is casted from a non-generic address space. If so, remove this
+ // addrspacecast because accessing non-generic address spaces is typically
+-// faster. Besides seeking addrspacecasts, this optimization also traces into
+-// the base pointer of a GEP.
++// faster. Besides removing addrspacecasts directly used by loads/stores, this
++// optimization also recursively traces into a GEP's pointer operand and a
++// bitcast's source to find more eliminable addrspacecasts.
+ //
+ // For instance, the code below loads a float from an array allocated in
+ // addrspace(3).
+ //
+-// %0 = addrspacecast [10 x float] addrspace(3)* @a to [10 x float]*
+-// %1 = gep [10 x float]* %0, i64 0, i64 %i
+-// %2 = load float* %1 ; emits ld.f32
++//   %0 = addrspacecast [10 x float] addrspace(3)* @a to [10 x float]*
++//   %1 = gep [10 x float]* %0, i64 0, i64 %i
++//   %2 = bitcast float* %1 to i32*
++//   %3 = load i32* %2 ; emits ld.u32
+ //
+-// First, function hoistAddrSpaceCastFromGEP reorders the addrspacecast
+-// and the GEP to expose more optimization opportunities to function
++// First, function hoistAddrSpaceCastFrom reorders the addrspacecast, the GEP,
++// and the bitcast to expose more optimization opportunities to function
+ // optimizeMemoryInst. The intermediate code looks like:
+ //
+-// %0 = gep [10 x float] addrspace(3)* @a, i64 0, i64 %i
+-// %1 = addrspacecast float addrspace(3)* %0 to float*
+-// %2 = load float* %1 ; still emits ld.f32, but will be optimized shortly
++//   %0 = gep [10 x float] addrspace(3)* @a, i64 0, i64 %i
++//   %1 = bitcast float addrspace(3)* %0 to i32 addrspace(3)*
++//   %2 = addrspacecast i32 addrspace(3)* %1 to i32*
++//   %3 = load i32* %2 ; still emits ld.u32, but will be optimized shortly
+ //
+ // Then, function optimizeMemoryInstruction detects a load from addrspacecast'ed
+ // generic pointers, and folds the load and the addrspacecast into a load from
+ // the original address space. The final code looks like:
+ //
+-// %0 = gep [10 x float] addrspace(3)* @a, i64 0, i64 %i
+-// %2 = load float addrspace(3)* %0 ; emits ld.shared.f32
++//   %0 = gep [10 x float] addrspace(3)* @a, i64 0, i64 %i
++//   %1 = bitcast float addrspace(3)* %0 to i32 addrspace(3)*
++//   %3 = load i32 addrspace(3)* %1 ; emits ld.shared.f32
+ //
+ // This pass may remove an addrspacecast in a different BB. Therefore, we
+ // implement it as a FunctionPass.
+ //
++// TODO:
++// The current implementation doesn't handle PHINodes. Eliminating
++// addrspacecasts used by PHINodes is trickier because PHINodes can introduce
++// loops in data flow. For example,
++//
++//     %generic.input = addrspacecast float addrspace(3)* %input to float*
++//   loop:
++//     %y = phi [ %generic.input, %y2 ]
++//     %y2 = getelementptr %y, 1
++//     %v = load %y2
++//     br ..., label %loop, ...
++//
++// Marking %y2 shared depends on marking %y shared, but %y also data-flow
++// depends on %y2. We probably need an iterative fix-point algorithm on handle
++// this case.
++//
+ //===----------------------------------------------------------------------===//
+ 
+ #include "NVPTX.h"
+@@ -62,17 +82,30 @@ class NVPTXFavorNonGenericAddrSpaces : public FunctionPass {
+ public:
+   static char ID;
+   NVPTXFavorNonGenericAddrSpaces() : FunctionPass(ID) {}
+-
+   bool runOnFunction(Function &F) override;
+ 
++private:
+   /// Optimizes load/store instructions. Idx is the index of the pointer operand
+   /// (0 for load, and 1 for store). Returns true if it changes anything.
+   bool optimizeMemoryInstruction(Instruction *I, unsigned Idx);
+-  /// Transforms "gep (addrspacecast X), indices" into "addrspacecast (gep X,
+-  /// indices)".  This reordering exposes to optimizeMemoryInstruction more
+-  /// optimization opportunities on loads and stores. Returns true if it changes
+-  /// the program.
+-  bool hoistAddrSpaceCastFromGEP(GEPOperator *GEP);
++  /// Recursively traces into a GEP's pointer operand or a bitcast's source to
++  /// find an eliminable addrspacecast, and hoists that addrspacecast to the
++  /// outermost level. For example, this function transforms
++  ///   bitcast(gep(gep(addrspacecast(X))))
++  /// to
++  ///   addrspacecast(bitcast(gep(gep(X)))).
++  ///
++  /// This reordering exposes to optimizeMemoryInstruction more
++  /// optimization opportunities on loads and stores.
++  ///
++  /// If this function successfully hoists an eliminable addrspacecast or V is
++  /// already such an addrspacecast, it returns the transformed value (which is
++  /// guaranteed to be an addrspacecast); otherwise, it returns nullptr.
++  Value *hoistAddrSpaceCastFrom(Value *V, int Depth = 0);
++  /// Helper function for GEPs.
++  Value *hoistAddrSpaceCastFromGEP(GEPOperator *GEP, int Depth);
++  /// Helper function for bitcasts.
++  Value *hoistAddrSpaceCastFromBitCast(BitCastOperator *BC, int Depth);
+ };
+ }
+ 
+@@ -85,11 +118,12 @@ INITIALIZE_PASS(NVPTXFavorNonGenericAddrSpaces, "nvptx-favor-non-generic",
+                 "Remove unnecessary non-generic-to-generic addrspacecasts",
+                 false, false)
+ 
+-// Decides whether removing Cast is valid and beneficial. Cast can be an
+-// instruction or a constant expression.
+-static bool IsEliminableAddrSpaceCast(Operator *Cast) {
+-  // Returns false if not even an addrspacecast.
+-  if (Cast->getOpcode() != Instruction::AddrSpaceCast)
++// Decides whether V is an addrspacecast and shortcutting V in load/store is
++// valid and beneficial.
++static bool isEliminableAddrSpaceCast(Value *V) {
++  // Returns false if V is not even an addrspacecast.
++  Operator *Cast = dyn_cast<Operator>(V);
++  if (Cast == nullptr || Cast->getOpcode() != Instruction::AddrSpaceCast)
+     return false;
+ 
+   Value *Src = Cast->getOperand(0);
+@@ -108,48 +142,108 @@ static bool IsEliminableAddrSpaceCast(Operator *Cast) {
+           DestTy->getAddressSpace() == AddressSpace::ADDRESS_SPACE_GENERIC);
+ }
+ 
+-bool NVPTXFavorNonGenericAddrSpaces::hoistAddrSpaceCastFromGEP(
+-    GEPOperator *GEP) {
+-  Operator *Cast = dyn_cast<Operator>(GEP->getPointerOperand());
+-  if (!Cast)
+-    return false;
++Value *NVPTXFavorNonGenericAddrSpaces::hoistAddrSpaceCastFromGEP(
++    GEPOperator *GEP, int Depth) {
++  Value *NewOperand =
++      hoistAddrSpaceCastFrom(GEP->getPointerOperand(), Depth + 1);
++  if (NewOperand == nullptr)
++    return nullptr;
+ 
+-  if (!IsEliminableAddrSpaceCast(Cast))
+-    return false;
++  // hoistAddrSpaceCastFrom returns an eliminable addrspacecast or nullptr.
++  assert(isEliminableAddrSpaceCast(NewOperand));
++  Operator *Cast = cast<Operator>(NewOperand);
+ 
+   SmallVector<Value *, 8> Indices(GEP->idx_begin(), GEP->idx_end());
++  Value *NewASC;
+   if (Instruction *GEPI = dyn_cast<Instruction>(GEP)) {
+-    // %1 = gep (addrspacecast X), indices
++    // GEP = gep (addrspacecast X), indices
+     // =>
+-    // %0 = gep X, indices
+-    // %1 = addrspacecast %0
+-    GetElementPtrInst *NewGEPI = GetElementPtrInst::Create(Cast->getOperand(0),
+-                                                           Indices,
+-                                                           GEP->getName(),
+-                                                           GEPI);
+-    NewGEPI->setIsInBounds(GEP->isInBounds());
+-    GEP->replaceAllUsesWith(
+-        new AddrSpaceCastInst(NewGEPI, GEP->getType(), "", GEPI));
++    // NewGEP = gep X, indices
++    // NewASC = addrspacecast NewGEP
++    GetElementPtrInst *NewGEP = GetElementPtrInst::Create(
++        Cast->getOperand(0), Indices, "", GEPI);
++    NewGEP->setIsInBounds(GEP->isInBounds());
++    NewASC = new AddrSpaceCastInst(NewGEP, GEP->getType(), "", GEPI);
++    NewASC->takeName(GEP);
++    // Without RAUWing GEP, the compiler would visit GEP again and emit
++    // redundant instructions. This is exercised in test @rauw in
++    // access-non-generic.ll.
++    GEP->replaceAllUsesWith(NewASC);
+   } else {
+     // GEP is a constant expression.
+-    Constant *NewGEPCE = ConstantExpr::getGetElementPtr(
++    Constant *NewGEP = ConstantExpr::getGetElementPtr(
+         cast<Constant>(Cast->getOperand(0)),
+-        Indices,
+-        GEP->isInBounds());
+-    GEP->replaceAllUsesWith(
+-        ConstantExpr::getAddrSpaceCast(NewGEPCE, GEP->getType()));
++        Indices, GEP->isInBounds());
++    NewASC = ConstantExpr::getAddrSpaceCast(NewGEP, GEP->getType());
+   }
++  return NewASC;
++}
+ 
+-  return true;
++Value *NVPTXFavorNonGenericAddrSpaces::hoistAddrSpaceCastFromBitCast(
++    BitCastOperator *BC, int Depth) {
++  Value *NewOperand = hoistAddrSpaceCastFrom(BC->getOperand(0), Depth + 1);
++  if (NewOperand == nullptr)
++    return nullptr;
++
++  // hoistAddrSpaceCastFrom returns an eliminable addrspacecast or nullptr.
++  assert(isEliminableAddrSpaceCast(NewOperand));
++  Operator *Cast = cast<Operator>(NewOperand);
++
++  // Cast  = addrspacecast Src
++  // BC    = bitcast Cast
++  //   =>
++  // Cast' = bitcast Src
++  // BC'   = addrspacecast Cast'
++  Value *Src = Cast->getOperand(0);
++  Type *TypeOfNewCast =
++      PointerType::get(BC->getType()->getPointerElementType(),
++                       Src->getType()->getPointerAddressSpace());
++  Value *NewBC;
++  if (BitCastInst *BCI = dyn_cast<BitCastInst>(BC)) {
++    Value *NewCast = new BitCastInst(Src, TypeOfNewCast, "", BCI);
++    NewBC = new AddrSpaceCastInst(NewCast, BC->getType(), "", BCI);
++    NewBC->takeName(BC);
++    // Without RAUWing BC, the compiler would visit BC again and emit
++    // redundant instructions. This is exercised in test @rauw in
++    // access-non-generic.ll.
++    BC->replaceAllUsesWith(NewBC);
++  } else {
++    // BC is a constant expression.
++    Constant *NewCast =
++        ConstantExpr::getBitCast(cast<Constant>(Src), TypeOfNewCast);
++    NewBC = ConstantExpr::getAddrSpaceCast(NewCast, BC->getType());
++  }
++  return NewBC;
++}
++
++Value *NVPTXFavorNonGenericAddrSpaces::hoistAddrSpaceCastFrom(Value *V,
++                                                              int Depth) {
++  // Returns V if V is already an eliminable addrspacecast.
++  if (isEliminableAddrSpaceCast(V))
++    return V;
++
++  // Limit the depth to prevent this recursive function from running too long.
++  const int MaxDepth = 20;
++  if (Depth >= MaxDepth)
++    return nullptr;
++
++  // If V is a GEP or bitcast, hoist the addrspacecast if any from its pointer
++  // operand. This enables optimizeMemoryInstruction to shortcut addrspacecasts
++  // that are not directly used by the load/store.
++  if (GEPOperator *GEP = dyn_cast<GEPOperator>(V))
++    return hoistAddrSpaceCastFromGEP(GEP, Depth);
++
++  if (BitCastOperator *BC = dyn_cast<BitCastOperator>(V))
++    return hoistAddrSpaceCastFromBitCast(BC, Depth);
++
++  return nullptr;
+ }
+ 
+ bool NVPTXFavorNonGenericAddrSpaces::optimizeMemoryInstruction(Instruction *MI,
+                                                                unsigned Idx) {
+-  // If the pointer operand is a GEP, hoist the addrspacecast if any from the
+-  // GEP to expose more optimization opportunites.
+-  if (GEPOperator *GEP = dyn_cast<GEPOperator>(MI->getOperand(Idx))) {
+-    hoistAddrSpaceCastFromGEP(GEP);
+-  }
++  Value *NewOperand = hoistAddrSpaceCastFrom(MI->getOperand(Idx));
++  if (NewOperand == nullptr)
++    return false;
+ 
+   // load/store (addrspacecast X) => load/store X if shortcutting the
+   // addrspacecast is valid and can improve performance.
+@@ -161,14 +255,10 @@ bool NVPTXFavorNonGenericAddrSpaces::optimizeMemoryInstruction(Instruction *MI,
+   // %2 = load float addrspace(3)* %0
+   //
+   // Note: the addrspacecast can also be a constant expression.
+-  if (Operator *Cast = dyn_cast<Operator>(MI->getOperand(Idx))) {
+-    if (IsEliminableAddrSpaceCast(Cast)) {
+-      MI->setOperand(Idx, Cast->getOperand(0));
+-      return true;
+-    }
+-  }
+-
+-  return false;
++  assert(isEliminableAddrSpaceCast(NewOperand));
++  Operator *ASC = dyn_cast<Operator>(NewOperand);
++  MI->setOperand(Idx, ASC->getOperand(0));
++  return true;
+ }
+ 
+ bool NVPTXFavorNonGenericAddrSpaces::runOnFunction(Function &F) {
+diff --git a/lib/Target/NVPTX/NVPTXISelDAGToDAG.cpp b/lib/Target/NVPTX/NVPTXISelDAGToDAG.cpp
+index 05205fb..4973e17 100644
+--- a/lib/Target/NVPTX/NVPTXISelDAGToDAG.cpp
++++ b/lib/Target/NVPTX/NVPTXISelDAGToDAG.cpp
+@@ -619,6 +619,10 @@ SDNode *NVPTXDAGToDAGISel::SelectAddrSpaceCast(SDNode *N) {
+       Opc = Subtarget.is64Bit() ? NVPTX::cvta_to_local_yes_64
+                                 : NVPTX::cvta_to_local_yes;
+       break;
++    case ADDRESS_SPACE_PARAM:
++      Opc = Subtarget.is64Bit() ? NVPTX::nvvm_ptr_gen_to_param_64
++                                : NVPTX::nvvm_ptr_gen_to_param;
++      break;
+     }
+     return CurDAG->getMachineNode(Opc, SDLoc(N), N->getValueType(0), Src);
+   }
 diff --git a/lib/Target/NVPTX/NVPTXISelLowering.cpp b/lib/Target/NVPTX/NVPTXISelLowering.cpp
 index d76b20a..a444f10 100644
 --- a/lib/Target/NVPTX/NVPTXISelLowering.cpp
@@ -1013,6 +1475,364 @@ index 9900b8c..4879b84 100644
  defm FSetNUM : FSET_FORMAT<seto, CmpNUM, CmpNUM_FTZ>;
  defm FSetNAN : FSET_FORMAT<setuo, CmpNAN, CmpNAN_FTZ>;
  
+diff --git a/lib/Target/NVPTX/NVPTXLowerAlloca.cpp b/lib/Target/NVPTX/NVPTXLowerAlloca.cpp
+new file mode 100644
+index 0000000..624052e
+--- /dev/null
++++ b/lib/Target/NVPTX/NVPTXLowerAlloca.cpp
+@@ -0,0 +1,115 @@
++//===-- NVPTXLowerAlloca.cpp - Make alloca to use local memory =====--===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// For all alloca instructions, and add a pair of cast to local address for
++// each of them. For example,
++//
++//   %A = alloca i32
++//   store i32 0, i32* %A ; emits st.u32
++//
++// will be transformed to
++//
++//   %A = alloca i32
++//   %Local = addrspacecast i32* %A to i32 addrspace(5)*
++//   %Generic = addrspacecast i32 addrspace(5)* %A to i32*
++//   store i32 0, i32 addrspace(5)* %Generic ; emits st.local.u32
++//
++// And we will rely on NVPTXFavorNonGenericAddrSpace to combine the last
++// two instructions.
++//
++//===----------------------------------------------------------------------===//
++
++#include "NVPTX.h"
++#include "NVPTXUtilities.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Type.h"
++#include "llvm/Pass.h"
++
++using namespace llvm;
++
++namespace llvm {
++void initializeNVPTXLowerAllocaPass(PassRegistry &);
++}
++
++namespace {
++class NVPTXLowerAlloca : public BasicBlockPass {
++  bool runOnBasicBlock(BasicBlock &BB) override;
++
++public:
++  static char ID; // Pass identification, replacement for typeid
++  NVPTXLowerAlloca() : BasicBlockPass(ID) {}
++  const char *getPassName() const override {
++    return "convert address space of alloca'ed memory to local";
++  }
++};
++} // namespace
++
++char NVPTXLowerAlloca::ID = 1;
++
++INITIALIZE_PASS(NVPTXLowerAlloca, "nvptx-lower-alloca",
++                "Lower Alloca", false, false)
++
++// =============================================================================
++// Main function for this pass.
++// =============================================================================
++bool NVPTXLowerAlloca::runOnBasicBlock(BasicBlock &BB) {
++  bool Changed = false;
++  for (auto &I : BB) {
++    if (auto allocaInst = dyn_cast<AllocaInst>(&I)) {
++      Changed = true;
++      auto PTy = dyn_cast<PointerType>(allocaInst->getType());
++      auto ETy = PTy->getElementType();
++      auto LocalAddrTy = PointerType::get(ETy, ADDRESS_SPACE_LOCAL);
++      auto NewASCToLocal = new AddrSpaceCastInst(allocaInst, LocalAddrTy, "");
++      auto GenericAddrTy = PointerType::get(ETy, ADDRESS_SPACE_GENERIC);
++      auto NewASCToGeneric = new AddrSpaceCastInst(NewASCToLocal,
++                                                    GenericAddrTy, "");
++      NewASCToLocal->insertAfter(allocaInst);
++      NewASCToGeneric->insertAfter(NewASCToLocal);
++      for (Value::use_iterator UI = allocaInst->use_begin(),
++                                UE = allocaInst->use_end();
++            UI != UE; ) {
++        // Check Load, Store, GEP, and BitCast Uses on alloca and make them
++        // use the converted generic address, in order to expose non-generic
++        // addrspacecast to NVPTXFavorNonGenericAddrSpace. For other types
++        // of instructions this is unnecessary and may introduce redundant
++        // address cast.
++        const auto &AllocaUse = *UI++;
++        auto LI = dyn_cast<LoadInst>(AllocaUse.getUser());
++        if (LI && LI->getPointerOperand() == allocaInst && !LI->isVolatile()) {
++          LI->setOperand(LI->getPointerOperandIndex(), NewASCToGeneric);
++          continue;
++        }
++        auto SI = dyn_cast<StoreInst>(AllocaUse.getUser());
++        if (SI && SI->getPointerOperand() == allocaInst && !SI->isVolatile()) {
++          SI->setOperand(SI->getPointerOperandIndex(), NewASCToGeneric);
++          continue;
++        }
++        auto GI = dyn_cast<GetElementPtrInst>(AllocaUse.getUser());
++        if (GI && GI->getPointerOperand() == allocaInst) {
++          GI->setOperand(GI->getPointerOperandIndex(), NewASCToGeneric);
++          continue;
++        }
++        auto BI = dyn_cast<BitCastInst>(AllocaUse.getUser());
++        if (BI && BI->getOperand(0) == allocaInst) {
++          BI->setOperand(0, NewASCToGeneric);
++          continue;
++        }
++      }
++    }
++  }
++  return Changed;
++}
++
++BasicBlockPass *llvm::createNVPTXLowerAllocaPass() {
++  return new NVPTXLowerAlloca();
++}
+diff --git a/lib/Target/NVPTX/NVPTXLowerKernelArgs.cpp b/lib/Target/NVPTX/NVPTXLowerKernelArgs.cpp
+new file mode 100644
+index 0000000..42f070c
+--- /dev/null
++++ b/lib/Target/NVPTX/NVPTXLowerKernelArgs.cpp
+@@ -0,0 +1,231 @@
++//===-- NVPTXLowerKernelArgs.cpp - Lower kernel arguments -----------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// Pointer arguments to kernel functions need to be lowered specially.
++//
++// 1. Copy byval struct args to local memory. This is a preparation for handling
++//    cases like
++//
++//    kernel void foo(struct A arg, ...)
++//    {
++//      struct A *p = &arg;
++//      ...
++//      ... = p->filed1 ...  (this is no generic address for .param)
++//      p->filed2 = ...      (this is no write access to .param)
++//    }
++//
++// 2. Convert non-byval pointer arguments of CUDA kernels to pointers in the
++//    global address space. This allows later optimizations to emit
++//    ld.global.*/st.global.* for accessing these pointer arguments. For
++//    example,
++//
++//    define void @foo(float* %input) {
++//      %v = load float, float* %input, align 4
++//      ...
++//    }
++//
++//    becomes
++//
++//    define void @foo(float* %input) {
++//      %input2 = addrspacecast float* %input to float addrspace(1)*
++//      %input3 = addrspacecast float addrspace(1)* %input2 to float*
++//      %v = load float, float* %input3, align 4
++//      ...
++//    }
++//
++//    Later, NVPTXFavorNonGenericAddrSpaces will optimize it to
++//
++//    define void @foo(float* %input) {
++//      %input2 = addrspacecast float* %input to float addrspace(1)*
++//      %v = load float, float addrspace(1)* %input2, align 4
++//      ...
++//    }
++//
++// 3. Convert pointers in a byval kernel parameter to pointers in the global
++//    address space. As #2, it allows NVPTX to emit more ld/st.global. E.g.,
++//
++//    struct S {
++//      int *x;
++//      int *y;
++//    };
++//    __global__ void foo(S s) {
++//      int *b = s.y;
++//      // use b
++//    }
++//
++//    "b" points to the global address space. In the IR level,
++//
++//    define void @foo({i32*, i32*}* byval %input) {
++//      %b_ptr = getelementptr {i32*, i32*}, {i32*, i32*}* %input, i64 0, i32 1
++//      %b = load i32*, i32** %b_ptr
++//      ; use %b
++//    }
++//
++//    becomes
++//
++//    define void @foo({i32*, i32*}* byval %input) {
++//      %b_ptr = getelementptr {i32*, i32*}, {i32*, i32*}* %input, i64 0, i32 1
++//      %b = load i32*, i32** %b_ptr
++//      %b_global = addrspacecast i32* %b to i32 addrspace(1)*
++//      %b_generic = addrspacecast i32 addrspace(1)* %b_global to i32*
++//      ; use %b_generic
++//    }
++//
++// TODO: merge this pass with NVPTXFavorNonGenericAddrSpace so that other passes
++// don't cancel the addrspacecast pair this pass emits.
++//===----------------------------------------------------------------------===//
++
++#include "NVPTX.h"
++#include "NVPTXUtilities.h"
++#include "NVPTXTargetMachine.h"
++#include "llvm/Analysis/ValueTracking.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Type.h"
++#include "llvm/Pass.h"
++
++using namespace llvm;
++
++namespace llvm {
++void initializeNVPTXLowerKernelArgsPass(PassRegistry &);
++}
++
++namespace {
++class NVPTXLowerKernelArgs : public FunctionPass {
++  bool runOnFunction(Function &F) override;
++
++  // handle byval parameters
++  void handleByValParam(Argument *Arg);
++  // Knowing Ptr must point to the global address space, this function
++  // addrspacecasts Ptr to global and then back to generic. This allows
++  // NVPTXFavorNonGenericAddrSpace to fold the global-to-generic cast into
++  // loads/stores that appear later.
++  void markPointerAsGlobal(Value *Ptr);
++
++public:
++  static char ID; // Pass identification, replacement for typeid
++  NVPTXLowerKernelArgs(const NVPTXTargetMachine *TM = nullptr)
++      : FunctionPass(ID), TM(TM) {}
++  const char *getPassName() const override {
++    return "Lower pointer arguments of CUDA kernels";
++  }
++
++private:
++  const NVPTXTargetMachine *TM;
++};
++} // namespace
++
++char NVPTXLowerKernelArgs::ID = 1;
++
++INITIALIZE_PASS(NVPTXLowerKernelArgs, "nvptx-lower-kernel-args",
++                "Lower kernel arguments (NVPTX)", false, false)
++
++// =============================================================================
++// If the function had a byval struct ptr arg, say foo(%struct.x *byval %d),
++// then add the following instructions to the first basic block:
++//
++// %temp = alloca %struct.x, align 8
++// %tempd = addrspacecast %struct.x* %d to %struct.x addrspace(101)*
++// %tv = load %struct.x addrspace(101)* %tempd
++// store %struct.x %tv, %struct.x* %temp, align 8
++//
++// The above code allocates some space in the stack and copies the incoming
++// struct from param space to local space.
++// Then replace all occurrences of %d by %temp.
++// =============================================================================
++void NVPTXLowerKernelArgs::handleByValParam(Argument *Arg) {
++  Function *Func = Arg->getParent();
++  Instruction *FirstInst = &(Func->getEntryBlock().front());
++  PointerType *PType = dyn_cast<PointerType>(Arg->getType());
++
++  assert(PType && "Expecting pointer type in handleByValParam");
++
++  Type *StructType = PType->getElementType();
++  AllocaInst *AllocA = new AllocaInst(StructType, Arg->getName(), FirstInst);
++  // Set the alignment to alignment of the byval parameter. This is because,
++  // later load/stores assume that alignment, and we are going to replace
++  // the use of the byval parameter with this alloca instruction.
++  AllocA->setAlignment(Func->getParamAlignment(Arg->getArgNo() + 1));
++  Arg->replaceAllUsesWith(AllocA);
++
++  Value *ArgInParam = new AddrSpaceCastInst(
++      Arg, PointerType::get(StructType, ADDRESS_SPACE_PARAM), Arg->getName(),
++      FirstInst);
++  LoadInst *LI = new LoadInst(ArgInParam, Arg->getName(), FirstInst);
++  new StoreInst(LI, AllocA, FirstInst);
++}
++
++void NVPTXLowerKernelArgs::markPointerAsGlobal(Value *Ptr) {
++  if (Ptr->getType()->getPointerAddressSpace() == ADDRESS_SPACE_GLOBAL)
++    return;
++
++  // Deciding where to emit the addrspacecast pair.
++  BasicBlock::iterator InsertPt;
++  if (Argument *Arg = dyn_cast<Argument>(Ptr)) {
++    // Insert at the functon entry if Ptr is an argument.
++    InsertPt = Arg->getParent()->getEntryBlock().begin();
++  } else {
++    // Insert right after Ptr if Ptr is an instruction.
++    InsertPt = cast<Instruction>(Ptr);
++    ++InsertPt;
++    assert(InsertPt != InsertPt->getParent()->end() &&
++           "We don't call this function with Ptr being a terminator.");
++  }
++
++  Instruction *PtrInGlobal = new AddrSpaceCastInst(
++      Ptr, PointerType::get(Ptr->getType()->getPointerElementType(),
++                            ADDRESS_SPACE_GLOBAL),
++      Ptr->getName(), InsertPt);
++  Value *PtrInGeneric = new AddrSpaceCastInst(PtrInGlobal, Ptr->getType(),
++                                              Ptr->getName(), InsertPt);
++  // Replace with PtrInGeneric all uses of Ptr except PtrInGlobal.
++  Ptr->replaceAllUsesWith(PtrInGeneric);
++  PtrInGlobal->setOperand(0, Ptr);
++}
++
++// =============================================================================
++// Main function for this pass.
++// =============================================================================
++bool NVPTXLowerKernelArgs::runOnFunction(Function &F) {
++  // Skip non-kernels. See the comments at the top of this file.
++  if (!isKernelFunction(F))
++    return false;
++
++  // Mark pointers in byval structs as global.
++  for (auto &B : F) {
++    for (auto &I : B) {
++      if (LoadInst *LI = dyn_cast<LoadInst>(&I)) {
++        if (LI->getType()->isPointerTy()) {
++          Value *UO = GetUnderlyingObject(LI->getPointerOperand(),
++                                          F.getParent()->getDataLayout());
++          if (Argument *Arg = dyn_cast<Argument>(UO)) {
++            if (Arg->hasByValAttr()) {
++              // LI is a load from a pointer within a byval kernel parameter.
++              markPointerAsGlobal(LI);
++            }
++          }
++        }
++      }
++    }
++  }
++
++  for (Argument &Arg : F.args()) {
++    if (Arg.getType()->isPointerTy()) {
++      if (Arg.hasByValAttr()) handleByValParam(&Arg);
++      else markPointerAsGlobal(&Arg);
++    }
++  }
++  return true;
++}
++
++FunctionPass *
++llvm::createNVPTXLowerKernelArgsPass(const NVPTXTargetMachine *TM) {
++  return new NVPTXLowerKernelArgs(TM);
++}
 diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
 index d5cded2..ddc554e 100644
 --- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
@@ -1029,6 +1849,54 @@ index d5cded2..ddc554e 100644
    }
  
    return *this;
+diff --git a/lib/Target/NVPTX/NVPTXTargetMachine.cpp b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
+index 069a1b9..fe7c23a 100644
+--- a/lib/Target/NVPTX/NVPTXTargetMachine.cpp
++++ b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
+@@ -50,6 +50,8 @@ void initializeNVVMReflectPass(PassRegistry&);
+ void initializeGenericToNVVMPass(PassRegistry&);
+ void initializeNVPTXAssignValidGlobalNamesPass(PassRegistry&);
+ void initializeNVPTXFavorNonGenericAddrSpacesPass(PassRegistry &);
++void initializeNVPTXLowerKernelArgsPass(PassRegistry &);
++void initializeNVPTXLowerAllocaPass(PassRegistry &);
+ }
+ 
+ extern "C" void LLVMInitializeNVPTXTarget() {
+@@ -64,6 +66,8 @@ extern "C" void LLVMInitializeNVPTXTarget() {
+   initializeNVPTXAssignValidGlobalNamesPass(*PassRegistry::getPassRegistry());
+   initializeNVPTXFavorNonGenericAddrSpacesPass(
+     *PassRegistry::getPassRegistry());
++  initializeNVPTXLowerKernelArgsPass(*PassRegistry::getPassRegistry());
++  initializeNVPTXLowerAllocaPass(*PassRegistry::getPassRegistry());
+ }
+ 
+ NVPTXTargetMachine::NVPTXTargetMachine(const Target &T, StringRef TT,
+@@ -134,6 +138,11 @@ void NVPTXPassConfig::addIRPasses() {
+   TargetPassConfig::addIRPasses();
+   addPass(createNVPTXAssignValidGlobalNamesPass());
+   addPass(createGenericToNVVMPass());
++  addPass(createNVPTXLowerKernelArgsPass(&getNVPTXTargetMachine()));
++  // NVPTXLowerKernelArgs emits alloca for byval parameters which can often
++  // be eliminated by SROA.
++  addPass(createSROAPass());
++  addPass(createNVPTXLowerAllocaPass());
+   addPass(createNVPTXFavorNonGenericAddrSpacesPass());
+   addPass(createSeparateConstOffsetFromGEPPass());
+   // The SeparateConstOffsetFromGEP pass creates variadic bases that can be used
+diff --git a/lib/Target/NVPTX/NVPTXUtilities.cpp b/lib/Target/NVPTX/NVPTXUtilities.cpp
+index a9fd190..5d3547f 100644
+--- a/lib/Target/NVPTX/NVPTXUtilities.cpp
++++ b/lib/Target/NVPTX/NVPTXUtilities.cpp
+@@ -294,7 +294,8 @@ bool llvm::isKernelFunction(const Function &F) {
+       &F, llvm::PropertyAnnotationNames[llvm::PROPERTY_ISKERNEL_FUNCTION], x);
+   if (retval == false) {
+     // There is no NVVM metadata, check the calling convention
+-    if (F.getCallingConv() == llvm::CallingConv::PTX_Kernel)
++    if (F.getCallingConv() == llvm::CallingConv::PTX_Kernel ||
++        F.getCallingConv() == llvm::CallingConv::FLOOR_KERNEL)
+       return true;
+     else
+       return false;
 diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
 index 90c1c33..3c64ad0 100644
 --- a/lib/Transforms/IPO/CMakeLists.txt
@@ -1054,7 +1922,7 @@ index 8174df9..21a73ba 100644
                  "Deduce function attributes", false, false)
  INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
 diff --git a/lib/Transforms/IPO/GlobalOpt.cpp b/lib/Transforms/IPO/GlobalOpt.cpp
-index c1d0d3b..3d4303a 100644
+index c1d0d3b..ea5a91a 100644
 --- a/lib/Transforms/IPO/GlobalOpt.cpp
 +++ b/lib/Transforms/IPO/GlobalOpt.cpp
 @@ -20,6 +20,7 @@
@@ -1069,14 +1937,14 @@ index c1d0d3b..3d4303a 100644
    }
  }
  
-+/// ChangeCalleesToSpirFunc - Walk all of the direct calls of the specified
-+/// function, changing them to spir_func calling convention.
-+static void ChangeCalleesToSpirFunc(Function *F) {
++/// ChangeCalleesToFloorFunc - Walk all of the direct calls of the specified
++/// function, changing them to floor_func calling convention.
++static void ChangeCalleesToFloorFunc(Function *F) {
 +  for (User *U : F->users()) {
 +    if (isa<BlockAddress>(U))
 +      continue;
 +    CallSite CS(cast<Instruction>(U));
-+    CS.setCallingConv(CallingConv::SPIR_FUNC);
++    CS.setCallingConv(CallingConv::FLOOR_FUNC);
 +  }
 +}
 +
@@ -1091,18 +1959,20 @@ index c1d0d3b..3d4303a 100644
    bool Changed = false;
    // Optimize functions.
    for (Module::iterator FI = M.begin(), E = M.end(); FI != E; ) {
-@@ -1921,8 +1934,17 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
+@@ -1921,8 +1934,19 @@ bool GlobalOpt::OptimizeFunctions(Module &M) {
          // If this function has a calling convention worth changing, is not a
          // varargs function, and is only called directly, promote it to use the
          // Fast calling convention.
 -        F->setCallingConv(CallingConv::Fast);
 -        ChangeCalleesToFastCall(F);
-+        // with OpenCL/SPIR: change it to spir_func instead (fastcc is invalid)
-+        if ((triple.getArch() == llvm::Triple::ArchType::spir ||
-+             triple.getArch() == llvm::Triple::ArchType::spir64) &&
-+            triple.getVendorName().str() == "unknown") {
-+          F->setCallingConv(CallingConv::SPIR_FUNC);
-+          ChangeCalleesToSpirFunc(F);
++        // with OpenCL/SPIR, Metal/AIR and CUDA: change it to floor_func instead (fastcc is invalid)
++        if (((triple.getArch() == llvm::Triple::ArchType::spir ||
++              triple.getArch() == llvm::Triple::ArchType::spir64) &&
++             triple.getVendorName().str() == "unknown") ||
++            triple.getArch() == llvm::Triple::ArchType::air64 ||
++            triple.getOS() == llvm::Triple::OSType::CUDA) {
++          F->setCallingConv(CallingConv::FLOOR_FUNC);
++          ChangeCalleesToFloorFunc(F);
 +        }
 +        else {
 +          F->setCallingConv(CallingConv::Fast);
@@ -1241,7 +2111,7 @@ index 0000000..4284c6d
 +  Inliner::getAnalysisUsage(AU);
 +}
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
-index c970a1a..62f3c6a 100644
+index c970a1a..d7916cb 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
 +++ b/lib/Transforms/IPO/Internalize.cpp
 @@ -23,6 +23,7 @@
@@ -1260,9 +2130,9 @@ index c970a1a..62f3c6a 100644
 +  if (isa<Function>(GV)) {
 +    const Function* F = dyn_cast<Function>(&GV);
 +    if (F &&
-+        (F->hasFnAttribute("compute_kernel") ||
-+         F->hasFnAttribute("vertex_shader") ||
-+         F->hasFnAttribute("fragment_shader"))) {
++        (F->getCallingConv() == CallingConv::FLOOR_KERNEL ||
++         F->getCallingConv() == CallingConv::FLOOR_VERTEX ||
++         F->getCallingConv() == CallingConv::FLOOR_FRAGMENT)) {
 +      return false;
 +    }
 +  }
@@ -1271,10 +2141,10 @@ index c970a1a..62f3c6a 100644
  }
  
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 701fb46..f7568f2 100644
+index 701fb46..277994f 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -70,6 +70,11 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -70,6 +70,13 @@ PassManagerBuilder::PassManagerBuilder() {
      LoopVectorize = RunLoopVectorization;
      RerollLoops = RunLoopRerolling;
      LoadCombine = RunLoadCombine;
@@ -1282,11 +2152,13 @@ index 701fb46..f7568f2 100644
 +    EnableCUDAPasses = false;
 +    EnableMetalPasses = false;
 +    EnableMetalIntelWorkarounds = false;
++    EnableMetalNvidiaWorkarounds = false;
 +    EnableSPIRPasses = false;
++    EnableSPIRIntelWorkarounds = false;
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -130,6 +135,30 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
+@@ -130,6 +137,30 @@ void PassManagerBuilder::populateFunctionPassManager(FunctionPassManager &FPM) {
  }
  
  void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
@@ -1310,14 +2182,14 @@ index 701fb46..f7568f2 100644
 +  // run "first" passes that should run before all else
 +  // if(EnableCUDAPasses) --none
 +  if(EnableMetalPasses) {
-+    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds));
++    MPM.add(createMetalFirstPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
 +  }
 +  // if(EnableSPIRPasses) --none
 +
    // If all optimizations are disabled, just run the always-inline pass.
    if (OptLevel == 0) {
      if (Inliner) {
-@@ -148,10 +177,9 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -148,10 +179,9 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      return;
    }
  
@@ -1331,7 +2203,7 @@ index 701fb46..f7568f2 100644
  
    if (!DisableUnitAtATime) {
      addExtensionsToPM(EP_ModuleOptimizerEarly, MPM);
-@@ -255,6 +283,29 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -255,6 +285,29 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
    // pass manager that we are specifically trying to avoid. To prevent this
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
@@ -1343,7 +2215,7 @@ index 701fb46..f7568f2 100644
 +  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
 +    if(EnableCUDAPasses) MPM.add(createCUDAImagePass(floor_image_capabilities));
 +    if(EnableMetalPasses) MPM.add(createMetalImagePass(floor_image_capabilities));
-+    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities));
++    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities, EnableSPIRIntelWorkarounds));
 +
 +    // and cleanup afterwards, including loop and unrolling related things
 +    MPM.add(createTailCallEliminationPass());
@@ -1361,7 +2233,7 @@ index 701fb46..f7568f2 100644
    MPM.add(createLoopVectorizePass(DisableUnrollLoops, LoopVectorize));
    // FIXME: Because of #pragma vectorize enable, the passes below are always
    // inserted in the pipeline, even when the vectorizer doesn't run (ex. when
-@@ -280,6 +331,20 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
+@@ -280,6 +333,21 @@ void PassManagerBuilder::populateModulePassManager(PassManagerBase &MPM) {
      }
    }
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -1369,7 +2241,8 @@ index 701fb46..f7568f2 100644
 +  // run CUDAFinal/MetalFinal/SPIRFinal pass at the very end, no IR should change after this point!
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
 +  if(EnableMetalPasses) {
-+    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds));
++    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
++    MPM.add(createMetalFinalModuleCleanupPass());
 +
 +    // cleanup
 +    MPM.add(createTailCallEliminationPass());
@@ -1946,7 +2819,7 @@ index 261ddda..88976b0 100644
    ConstantProp.cpp
 diff --git a/lib/Transforms/Scalar/CUDAFinal.cpp b/lib/Transforms/Scalar/CUDAFinal.cpp
 new file mode 100644
-index 0000000..b77f9fa
+index 0000000..9f08fe5
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFinal.cpp
 @@ -0,0 +1,116 @@
@@ -2035,7 +2908,7 @@ index 0000000..b77f9fa
 +			if(F.empty()) return false;
 +			
 +			// if not a kernel function, return (for now)
-+			if(!F.hasFnAttribute("compute_kernel")) return false;
++			if(F.getCallingConv() != CallingConv::FLOOR_KERNEL) return false;
 +			
 +			// reset
 +			M = F.getParent();
@@ -3171,10 +4044,10 @@ index 0000000..ddd1068
 +}
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..ff5cb3f
+index 0000000..4e68bf0
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
-@@ -0,0 +1,728 @@
+@@ -0,0 +1,934 @@
 +//===- MetalFinal.cpp - Metal final pass ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -3226,6 +4099,7 @@ index 0000000..ff5cb3f
 +#include <cstdarg>
 +#include <memory>
 +#include <unordered_map>
++#include <unordered_set>
 +#include <array>
 +#include <cxxabi.h>
 +using namespace llvm;
@@ -3375,9 +4249,14 @@ index 0000000..ff5cb3f
 +    void emitFunc(Type *Ty, Value *&Agg, const Twine &Name) {
 +      assert(Ty->isSingleValueType());
 +      // Extract the single value and store it using the indices.
-+      Value *Store = IRB.CreateStore(
-+        IRB.CreateExtractValue(Agg, Indices, Name + ".extract"),
-+        IRB.CreateInBoundsGEP(Ptr, GEPIndices, Name + ".gep"));
++      //
++      // The gep and extractvalue values are factored out of the CreateStore
++      // call to make the output independent of the argument evaluation order.
++      Value *ExtractValue =
++          IRB.CreateExtractValue(Agg, Indices, Name + ".extract");
++      Value *InBoundsGEP =
++          IRB.CreateInBoundsGEP(Ptr, GEPIndices, Name + ".gep");
++      Value *Store = IRB.CreateStore(ExtractValue, InBoundsGEP);
 +      (void)Store;
 +      DEBUG(dbgs() << "          to: " << *Store << "\n");
 +    }
@@ -3387,14 +4266,12 @@ index 0000000..ff5cb3f
 +//////////////////////////////////////////
 +
 +namespace {
-+	static bool metal_load_splitter(LoadInst& LI, const bool is_vs) {
-+#if 1
-+		if(!is_vs) return false;
-+		if(!LI.getType()->isAggregateType()) return false;
-+		
-+		/*printf(">> replacing load: "); fflush(stdout);
-+		LI.dump(); fflush(stdout); fflush(stderr);
-+		printf("\n"); fflush(stdout);*/
++	static bool metal_load_splitter(LoadInst& LI,
++									const bool is_vs, const bool is_kernel,
++									const bool nvidia_workarounds) {
++		if(!is_vs && !is_kernel) return false;
++		if(is_kernel && !(nvidia_workarounds && LI.getType()->isArrayTy())) return false;
++		if(is_vs && !LI.getType()->isAggregateType()) return false;
 +		
 +		LoadOpSplitter Splitter(&LI, LI.getPointerOperand());
 +		Value *V = UndefValue::get(LI.getType());
@@ -3402,28 +4279,20 @@ index 0000000..ff5cb3f
 +		LI.replaceAllUsesWith(V);
 +		LI.eraseFromParent();
 +		return true;
-+#else
-+		return false;
-+#endif
 +	}
 +	
-+	static bool metal_store_splitter(StoreInst& SI, const bool is_vs) {
-+#if 1
-+		if(!is_vs) return false;
-+		if(!SI.getType()->isAggregateType()) return false;
-+		
-+		/*printf(">> replacing store: "); fflush(stdout);
-+		SI.dump(); fflush(stdout); fflush(stderr);
-+		printf("\n"); fflush(stdout);*/
++	static bool metal_store_splitter(StoreInst& SI,
++									 const bool is_vs, const bool is_kernel,
++									 const bool nvidia_workarounds) {
++		if(!is_vs && !is_kernel) return false;
++		if(is_kernel && !(nvidia_workarounds && SI.getType()->isArrayTy())) return false;
++		if(is_vs && !SI.getType()->isAggregateType()) return false;
 +		
 +		Value *V = SI.getValueOperand();
 +		StoreOpSplitter Splitter(&SI, SI.getPointerOperand());
 +		Splitter.emitSplitOps(V->getType(), V, V->getName() + ".mtlst");
 +		SI.eraseFromParent();
 +		return true;
-+#else
-+		return false;
-+#endif
 +	}
 +	
 +	// MetalFirst
@@ -3431,7 +4300,7 @@ index 0000000..ff5cb3f
 +		friend class InstVisitor<MetalFirst>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
-+		const bool enable_intel_workarounds;
++		const bool enable_intel_workarounds, enable_nvidia_workarounds;
 +		
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
@@ -3439,9 +4308,13 @@ index 0000000..ff5cb3f
 +		bool was_modified { false };
 +		bool is_vertex_func { false };
 +		bool is_fragment_func { false };
++		bool is_kernel_func { false };
 +		
-+		MetalFirst(const bool enable_intel_workarounds_ = false) :
-+		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
++		MetalFirst(const bool enable_intel_workarounds_ = false,
++				   const bool enable_nvidia_workarounds_ = false) :
++		FunctionPass(ID),
++		enable_intel_workarounds(enable_intel_workarounds_),
++		enable_nvidia_workarounds(enable_nvidia_workarounds_) {
 +			initializeMetalFirstPass(*PassRegistry::getPassRegistry());
 +		}
 +		
@@ -3453,8 +4326,9 @@ index 0000000..ff5cb3f
 +			M = F.getParent();
 +			ctx = &M->getContext();
 +			
-+			is_vertex_func = F.hasFnAttribute("vertex_shader");
-+			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			
 +			//
 +			was_modified = false;
@@ -3470,11 +4344,11 @@ index 0000000..ff5cb3f
 +		}
 +		
 +		void visitLoadInst(LoadInst &LI) {
-+			was_modified = metal_load_splitter(LI, is_vertex_func);
++			was_modified = metal_load_splitter(LI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +		
 +		void visitStoreInst(StoreInst &SI) {
-+			was_modified = metal_store_splitter(SI, is_vertex_func);
++			was_modified = metal_store_splitter(SI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +	};
 +	
@@ -3483,12 +4357,13 @@ index 0000000..ff5cb3f
 +		friend class InstVisitor<MetalFinal>;
 +		
 +		static char ID; // Pass identification, replacement for typeid
-+		const bool enable_intel_workarounds;
++		const bool enable_intel_workarounds, enable_nvidia_workarounds;
 +		
 +		std::shared_ptr<llvm::IRBuilder<>> builder;
 +		
 +		Module* M { nullptr };
 +		LLVMContext* ctx { nullptr };
++		AliasAnalysis* AA { nullptr };
 +		Function* func { nullptr };
 +		Instruction* alloca_insert { nullptr };
 +		bool was_modified { false };
@@ -3510,9 +4385,16 @@ index 0000000..ff5cb3f
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		
-+		MetalFinal(const bool enable_intel_workarounds_ = false) :
-+		FunctionPass(ID), enable_intel_workarounds(enable_intel_workarounds_) {
++		MetalFinal(const bool enable_intel_workarounds_ = false,
++				   const bool enable_nvidia_workarounds_ = false) :
++		FunctionPass(ID),
++		enable_intel_workarounds(enable_intel_workarounds_),
++		enable_nvidia_workarounds(enable_nvidia_workarounds_) {
 +			initializeMetalFinalPass(*PassRegistry::getPassRegistry());
++		}
++		
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.addRequired<AliasAnalysis>();
 +		}
 +		
 +		template <Instruction::CastOps cast_op, typename std::enable_if<(cast_op == llvm::Instruction::FPToSI ||
@@ -3601,11 +4483,19 @@ index 0000000..ff5cb3f
 +			//
 +			M = F.getParent();
 +			ctx = &M->getContext();
++			AA = &getAnalysis<AliasAnalysis>();
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
 +			
++			for(auto& instr : F.getEntryBlock().getInstList()) {
++				if(!isa<AllocaInst>(instr)) {
++					alloca_insert = &instr;
++					break;
++				}
++			}
++			
 +			// add args if this is a kernel function
-+			is_kernel_func = F.hasFnAttribute("compute_kernel");
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
 +			if(is_kernel_func) {
 +				const auto vec_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
 +				global_id = new llvm::Argument(vec_type, "__metal__global_id__", &F);
@@ -3617,7 +4507,7 @@ index 0000000..ff5cb3f
 +			}
 +			
 +			// add args if this is a vertex function
-+			is_vertex_func = F.hasFnAttribute("vertex_shader");
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
 +			if(is_vertex_func) {
 +				const auto uint_type = llvm::Type::getInt32Ty(*ctx);
 +				vertex_id = new llvm::Argument(uint_type, "__metal__vertex_id__", &F);
@@ -3626,7 +4516,7 @@ index 0000000..ff5cb3f
 +			}
 +			
 +			// add args if this is a fragment function
-+			is_fragment_func = F.hasFnAttribute("fragment_shader");
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
 +			if(is_fragment_func) {
 +				const auto vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 2);
 +				point_coord = new llvm::Argument(vec_type, "__metal__point_coord__", &F);
@@ -3880,29 +4770,218 @@ index 0000000..ff5cb3f
 +		}
 +		
 +		void visitLoadInst(LoadInst &LI) {
-+			was_modified = metal_load_splitter(LI, is_vertex_func);
++			was_modified = metal_load_splitter(LI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
 +		}
 +		
 +		void visitStoreInst(StoreInst &SI) {
-+			was_modified = metal_store_splitter(SI, is_vertex_func);
++			was_modified = metal_store_splitter(SI, is_vertex_func, is_kernel_func, enable_nvidia_workarounds);
++		}
++		
++		void visitAllocaInst(AllocaInst &AI) {
++			if(!enable_intel_workarounds) return;
++			DBG(errs() << "alloca: " << AI << ", " << *AI.getType() << "\n";)
++			
++			// recursively find all users of this alloca + store all select and phi instructions that select/choose based on the alloca pointer
++			std::vector<Instruction*> users;
++			std::unordered_set<Instruction*> visited;
++			const std::function<void(Instruction&)> collect_users = [&users, &collect_users, &visited, &AI, this](Instruction& I) {
++				for(auto user : I.users()) {
++					auto instr = cast<Instruction>(user);
++					const auto has_visited = visited.insert(instr);
++					if(!has_visited.second) continue;
++					
++					// TODO: ideally, we want to track all GEPs and bitcasts to/of the alloca and only add select/phi instructions that
++					//       either use these or directly use the alloca (and not all pointers) - for now, AA will do
++					if(SelectInst* SI = dyn_cast<SelectInst>(user)) {
++						DBG(errs() << ">> select: " << *SI << "\n";)
++						DBG(errs() << "cond: " << *SI->getCondition() << "\n";)
++						DBG(errs() << "ops: " << *SI->getTrueValue() << ", " << *SI->getFalseValue() << "\n";)
++						
++						// skip immediately if not a pointer type
++						if(SI->getTrueValue()->getType()->isPointerTy() /* false val has the same type */) {
++							// check if either true or false alias with our alloca
++							const auto aa_res_true = AA->alias(SI->getTrueValue(), &AI);
++							const auto aa_res_false = AA->alias(SI->getFalseValue(), &AI);
++							DBG(errs() << "aa: " << aa_res_true << ", " << aa_res_false << "\n";)
++							if(aa_res_true != AliasAnalysis::NoAlias ||
++							   aa_res_false != AliasAnalysis::NoAlias) {
++								// if so, add this select
++								users.push_back(SI);
++							}
++						}
++					}
++					else if(PHINode* PHI = dyn_cast<PHINode>(user)) {
++						DBG(errs() << ">> phi: " << *PHI << "\n";)
++						DBG(errs() << "type: " << *PHI->getType() << "\n";)
++						
++						// skip immediately if not a pointer type
++						if(PHI->getType()->isPointerTy()) {
++							// check if it aliases with our alloca
++							const auto aa_res = AA->alias(PHI, &AI);
++							DBG(errs() << "aa: " << aa_res << "\n";)
++							if(aa_res != AliasAnalysis::NoAlias) {
++								// if so, add this phi node
++								users.push_back(PHI);
++							}
++						}
++					}
++					collect_users(*instr);
++				}
++			};
++			collect_users(AI);
++			
++			DBG({
++				errs() << "####### users ##\n";
++				for(const auto& user : users) {
++					errs() << "user: " << *user << "\n";
++				}
++				errs() << "\n";
++			})
++			
++			// select replacement strategy:
++			// * create a tmp alloca that will later hold the selected data
++			// * replace the select with two branches (true/false)
++			// * depending on the select condition, branch to either true/false branch
++			// * inside these branches, store the corresponding true/false value into our tmp alloca, then branch back to after the select
++			// * remove the select
++			const auto select_replace = [&](SelectInst* SI) {
++				builder->SetInsertPoint(alloca_insert);
++				auto tmp_alloca = builder->CreateAlloca(AI.getType()->getPointerElementType(), nullptr, "sel_tmp");
++				tmp_alloca->setAlignment(AI.getAlignment());
++				
++				// create our branch condition and true/false blocks that will replace the select
++				auto bb_true = BasicBlock::Create(*ctx, "sel.true", func);
++				auto bb_false = BasicBlock::Create(*ctx, "sel.false", func);
++				builder->SetInsertPoint(SI);
++				builder->CreateCondBr(SI->getCondition(), bb_true, bb_false);
++				
++				// split block before the select instruction so that we can branch back to it later
++				auto bb_start = SI->getParent();
++				auto bb_end = SI->getParent()->splitBasicBlock(SI);
++				// remove automatically inserted branch instruction from parent, since we already have a branch instruction
++				bb_start->getTerminator()->eraseFromParent();
++				
++				// create true/false branches that will copy the true/false data to our tmp alloca accordingly
++				// -> true branch
++				builder->SetInsertPoint(bb_true);
++				builder->CreateStore(builder->CreateLoad(SI->getTrueValue()), tmp_alloca);
++				builder->CreateBr(bb_end);
++				
++				// -> false branch
++				builder->SetInsertPoint(bb_false);
++				builder->CreateStore(builder->CreateLoad(SI->getFalseValue()), tmp_alloca);
++				builder->CreateBr(bb_end);
++				
++				// cleanup, replace select instruction with our new alloca
++				SI->replaceAllUsesWith(tmp_alloca);
++				SI->eraseFromParent();
++			};
++			
++			// phi replacement strategy:
++			// * create a tmp alloca (pointer), this will be used to store all phi pointers
++			// * iterate over all incoming values/pointers, then create a store of their pointer to the tmp pointer in their originating block
++			// * create a load from the tmp alloca and replace all uses of the phi node with it
++			// NOTE: loads and stores are volatile, so that no optimization can do any re-phi-ification(tm) later on
++			const auto phi_replace = [&](PHINode* PHI) {
++				auto phi_tmp_alloca = new AllocaInst(PHI->getType(), nullptr, PHI->getName() + ".tmp", alloca_insert);
++				
++				for(uint32_t i = 0; i < PHI->getNumIncomingValues(); ++i) {
++					auto origin = PHI->getIncomingBlock(i);
++					new StoreInst(PHI->getIncomingValue(i), phi_tmp_alloca, true, origin->getTerminator());
++				}
++				
++				auto load_repl = new LoadInst(phi_tmp_alloca, PHI->getName() + ".repl", true, PHI->getParent()->getFirstNonPHI());
++				PHI->replaceAllUsesWith(load_repl);
++				PHI->eraseFromParent();
++			};
++			
++			for(const auto& user : users) {
++				if(SelectInst* SI = dyn_cast<SelectInst>(user)) {
++					select_replace(SI);
++				}
++				else if(PHINode* PHI = dyn_cast<PHINode>(user)) {
++					phi_replace(PHI);
++				}
++			}
++			was_modified = !users.empty();
 +		}
 +		
 +	};
++	
++	// MetalFinalModuleCleanup:
++	// * calling convention cleanup
++	// * strip unused functions/prototypes/externs
++	struct MetalFinalModuleCleanup : public ModulePass {
++		static char ID; // Pass identification, replacement for typeid
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		bool was_modified { false };
++		
++		MetalFinalModuleCleanup() : ModulePass(ID) {
++			initializeMetalFinalModuleCleanupPass(*PassRegistry::getPassRegistry());
++		}
++		
++		bool runOnModule(Module& Mod) override {
++			M = &Mod;
++			ctx = &M->getContext();
++			
++			// * strip floor_* calling convention from all functions and their users (replace it with C CC)
++			// * kill all functions named floor.*
++			bool module_modified = false;
++			for(auto func_iter = Mod.begin(); func_iter != Mod.end();) {
++				auto& func = *func_iter;
++				if(func.getName().startswith("floor.")) {
++					if(func.getNumUses() != 0) {
++						errs() << func.getName() << " should not have an uses at this point!\n";
++					}
++					++func_iter; // inc before erase
++					func.eraseFromParent();
++					module_modified = true;
++					continue;
++				}
++				
++				if(func.getCallingConv() != CallingConv::C) {
++					func.setCallingConv(CallingConv::C);
++					for(auto user : func.users()) {
++						if(auto instr = dyn_cast<Instruction>(user)) {
++							CallSite call_site(instr);
++							call_site.setCallingConv(CallingConv::C);
++						}
++					}
++					module_modified = true;
++				}
++				++func_iter;
++			}
++			return module_modified;
++		}
++		
++	};
++	
 +}
 +
 +char MetalFirst::ID = 0;
-+FunctionPass *llvm::createMetalFirstPass(const bool enable_intel_workarounds) {
-+	return new MetalFirst(enable_intel_workarounds);
++FunctionPass *llvm::createMetalFirstPass(const bool enable_intel_workarounds,
++										 const bool enable_nvidia_workarounds) {
++	return new MetalFirst(enable_intel_workarounds, enable_nvidia_workarounds);
 +}
 +INITIALIZE_PASS_BEGIN(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +INITIALIZE_PASS_END(MetalFirst, "MetalFirst", "MetalFirst Pass", false, false)
 +
 +char MetalFinal::ID = 0;
-+FunctionPass *llvm::createMetalFinalPass(const bool enable_intel_workarounds) {
-+	return new MetalFinal(enable_intel_workarounds);
++FunctionPass *llvm::createMetalFinalPass(const bool enable_intel_workarounds,
++										 const bool enable_nvidia_workarounds) {
++	return new MetalFinal(enable_intel_workarounds, enable_nvidia_workarounds);
 +}
 +INITIALIZE_PASS_BEGIN(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
 +INITIALIZE_PASS_END(MetalFinal, "MetalFinal", "MetalFinal Pass", false, false)
++
++char MetalFinalModuleCleanup::ID = 0;
++ModulePass *llvm::createMetalFinalModuleCleanupPass() {
++	return new MetalFinalModuleCleanup();
++}
++INITIALIZE_PASS_BEGIN(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
++INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
 index 0000000..0a3eeb1
@@ -4418,10 +5497,10 @@ index 0000000..0a3eeb1
 +}
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..7ce000e
+index 0000000..0dc85f6
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
-@@ -0,0 +1,248 @@
+@@ -0,0 +1,273 @@
 +//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4515,6 +5594,31 @@ index 0000000..7ce000e
 +			// visit everything in this function
 +			was_modified = false; // reset every time
 +			DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++			
++			// update function signature / param list
++			if(F.getCallingConv() == CallingConv::FLOOR_KERNEL) {
++				std::vector<Type*> param_types;
++				for(auto& arg : F.args()) {
++					// add "byval" attribute for all kernel struct parameters
++					if(arg.getType()->isPointerTy() &&
++					   arg.getType()->getPointerElementType()->isAggregateType() &&
++					   arg.getType()->getPointerAddressSpace() == 0 &&
++					   !F.getAttributes().hasAttribute(arg.getArgNo() + 1, Attribute::ByVal)) {
++						AttrBuilder B;
++						B.addAttribute(Attribute::ByVal);
++						arg.addAttr(AttributeSet::get(*ctx, arg.getArgNo() + 1,  B));
++						was_modified = true;
++					}
++					
++					param_types.push_back(arg.getType());
++				}
++				if(was_modified) {
++					auto new_func_type = PointerType::get(FunctionType::get(F.getReturnType(), param_types, false), 0);
++					F.mutateType(new_func_type);
++				}
++			}
++			
++			//
 +			visit(F);
 +			if(was_modified) {
 +				DBG(errs() << "!! modified function: ";)
@@ -4672,10 +5776,10 @@ index 0000000..7ce000e
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..a85d3b8
+index 0000000..760bdc1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
-@@ -0,0 +1,630 @@
+@@ -0,0 +1,657 @@
 +//===- SPIRImage.cpp - SPIR-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -4725,6 +5829,7 @@ index 0000000..a85d3b8
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
 +#include "llvm/Transforms/Scalar/FloorImage.h"
++#include <unordered_map>
 +using namespace llvm;
 +
 +#define DEBUG_TYPE "SPIRImage"
@@ -4738,16 +5843,41 @@ index 0000000..a85d3b8
 +namespace {
 +	struct SPIRImage : public FloorImageBasePass {
 +		static char ID; // Pass identification, replacement for typeid
++		bool enable_intel_workarounds { false };
 +		
-+		SPIRImage(const uint32_t image_capabilities_ = 0) :
-+		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
++		SPIRImage(const uint32_t image_capabilities_ = 0,
++				  const bool enable_intel_workarounds_ = false) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_),
++		enable_intel_workarounds(enable_intel_workarounds_) {
 +			initializeSPIRImagePass(*PassRegistry::getPassRegistry());
 +		}
 +		
-+		llvm::Value* get_or_create_spir_function(const std::string& func_name,
++		llvm::Value* get_or_create_spir_function(std::string func_name,
 +												 llvm::Type* ret_type,
 +												 const SmallVector<llvm::Type*, 8>& func_arg_types,
 +												 const bool is_readnone = false) {
++			if(enable_intel_workarounds) {
++				// intel name mangling is a bit off sometimes, so use their name mangling instead
++				// correct -> intel
++				static const std::unordered_map<std::string, std::string> intel_func_repl {
++					{ "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagef11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagei11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagei11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z12read_imageui11ocl_image2d11ocl_samplerDv2_fDv2_fDv2_f", "_Z12read_imageui11ocl_image2d11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagef16ocl_image2ddepth11ocl_samplerDv2_fDv2_fDv2_f", "_Z11read_imagef16ocl_image2ddepth11ocl_samplerDv2_fS_S_" },
++					{ "_Z11read_imagef11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z11read_imagef11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z11read_imagei11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z11read_imagei11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z12read_imageui11ocl_image3d11ocl_samplerDv4_fDv4_fDv4_f", "_Z12read_imageui11ocl_image3d11ocl_samplerDv4_fS_S_" },
++					{ "_Z12write_imagei11ocl_image3dDv4_iDv4_i", "_Z12write_imagei11ocl_image3dDv4_iS_" },
++					{ "_Z12write_imagei11ocl_image3dDv4_iiDv4_i", "_Z12write_imagei11ocl_image3dDv4_iiS_" },
++					{ "_Z12write_imagei16ocl_image2darrayDv4_iDv4_i", "_Z12write_imagei16ocl_image2darrayDv4_iS_" },
++					{ "_Z12write_imagei16ocl_image2darrayDv4_iiDv4_i", "_Z12write_imagei16ocl_image2darrayDv4_iiS_" },
++				};
++				const auto iter = intel_func_repl.find(func_name);
++				if(iter != intel_func_repl.end()) {
++					func_name = iter->second;
++				}
++			}
++			
 +			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
 +			auto func = M->getFunction(func_name);
 +			if(func == nullptr) { // only do this once
@@ -4755,7 +5885,7 @@ index 0000000..a85d3b8
 +																 is_readnone ?
 +																 nounwind_readnone_attr :
 +																 nounwind_attr));
-+				func->setCallingConv(CallingConv::SPIR_FUNC);
++				func->setCallingConv(CallingConv::FLOOR_FUNC);
 +			}
 +			return func;
 +		}
@@ -4782,7 +5912,7 @@ index 0000000..a85d3b8
 +																get_dim_arg_types);
 +				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
 +				get_dim_call->setDoesNotAccessMemory();
-+				get_dim_call->setCallingConv(CallingConv::SPIR_FUNC);
++				get_dim_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +				ret.push_back(get_dim_call);
 +			}
 +			
@@ -4902,7 +6032,7 @@ index 0000000..a85d3b8
 +			std::string geom;
 +			bool is_array = false, is_msaa = false, is_depth = false;
 +			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
@@ -5147,7 +6277,7 @@ index 0000000..a85d3b8
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
-+			read_call->setCallingConv(CallingConv::SPIR_FUNC);
++			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
 +			// if this is a depth read/sample, the return type is a float -> create a float4
 +			llvm::Value* read_call_result = read_call;
@@ -5222,7 +6352,7 @@ index 0000000..a85d3b8
 +			std::string geom;
 +			bool is_array = false, is_depth = false;
 +			switch(image_type) {
-+				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "17ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
@@ -5288,7 +6418,7 @@ index 0000000..a85d3b8
 +			auto write_func = get_or_create_spir_function(cl_func_name, builder->getVoidTy(), func_arg_types, false);
 +			llvm::CallInst* write_call = builder->CreateCall(write_func, func_args);
 +			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
-+			write_call->setCallingConv(CallingConv::SPIR_FUNC);
++			write_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
 +			//
 +			I.replaceAllUsesWith(write_call);
@@ -5303,14 +6433,15 @@ index 0000000..a85d3b8
 +INITIALIZE_PASS_BEGIN(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +INITIALIZE_PASS_END(SPIRImage, "SPIRImage", "SPIRImage Pass", false, false)
 +
-+FunctionPass *llvm::createSPIRImagePass(const uint32_t image_capabilities) {
-+	return new SPIRImage(image_capabilities);
++FunctionPass *llvm::createSPIRImagePass(const uint32_t image_capabilities,
++										const bool intel_workarounds) {
++	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index de724d4..e119f54 100644
+index de724d4..e08e29a 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -73,6 +73,38 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -73,6 +73,42 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -5334,6 +6465,10 @@ index de724d4..e119f54 100644
 +  unwrap(PM)->add(createMetalFinalPass());
 +}
 +
++void LLVMAddMetalFinalModuleCleanupPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createMetalFinalModuleCleanupPass());
++}
++
 +void LLVMAddMetalImagePass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createMetalImagePass());
 +}
@@ -5350,7 +6485,7 @@ index de724d4..e119f54 100644
    unwrap(PM)->add(createAggressiveDCEPass());
  }
 diff --git a/tools/clang/include/clang-c/Index.h b/tools/clang/include/clang-c/Index.h
-index f69f567..4fffcdb 100644
+index f69f567..01615a1 100644
 --- a/tools/clang/include/clang-c/Index.h
 +++ b/tools/clang/include/clang-c/Index.h
 @@ -2226,7 +2226,7 @@ enum CXCursorKind {
@@ -5362,18 +6497,20 @@ index f69f567..4fffcdb 100644
    CXCursor_CUDAHostAttr                  = 415,
    CXCursor_LastAttr                      = CXCursor_CUDAHostAttr,
  
-@@ -2822,6 +2822,9 @@ enum CXCallingConv {
+@@ -2822,6 +2822,11 @@ enum CXCallingConv {
    CXCallingConv_IntelOclBicc = 9,
    CXCallingConv_X86_64Win64 = 10,
    CXCallingConv_X86_64SysV = 11,
 +  // 12 is CXCallingConv_X86VectorCall in later clang/llvm
-+  CXCallingConv_SpirFunction = 13,
-+  CXCallingConv_SpirKernel = 14,
++  CXCallingConv_FloorFunction = 13,
++  CXCallingConv_FloorKernel = 14,
++  CXCallingConv_FloorVertex = 15,
++  CXCallingConv_FloorFragment = 16,
  
    CXCallingConv_Invalid = 100,
    CXCallingConv_Unexposed = 200
 diff --git a/tools/clang/include/clang/AST/ASTContext.h b/tools/clang/include/clang/AST/ASTContext.h
-index 8134f6b..bfcd916 100644
+index 8134f6b..693ae42 100644
 --- a/tools/clang/include/clang/AST/ASTContext.h
 +++ b/tools/clang/include/clang/AST/ASTContext.h
 @@ -789,7 +789,8 @@ public:
@@ -5385,6 +6522,16 @@ index 8134f6b..bfcd916 100644
 +  CanQualType OCLImageCubeTy, OCLImageCubeArrayTy, OCLImageCubeDepthTy, OCLImageCubeArrayDepthTy;
    CanQualType OCLImage3dTy;
    CanQualType OCLSamplerTy, OCLEventTy;
+ 
+@@ -909,6 +910,9 @@ public:
+   const FunctionType *adjustFunctionType(const FunctionType *Fn,
+                                          FunctionType::ExtInfo EInfo);
+ 
++  /// Adjust the given function result type.
++  CanQualType getCanonicalFunctionResultType(QualType ResultType) const;
++
+   /// \brief Change the result type of a function type once it is deduced.
+   void adjustDeducedFunctionResultType(FunctionDecl *FD, QualType ResultType);
  
 diff --git a/tools/clang/include/clang/AST/BuiltinTypes.def b/tools/clang/include/clang/AST/BuiltinTypes.def
 index 488cace..a815eae 100644
@@ -5422,7 +6569,7 @@ index a8d1199..41139fc 100644
  };
  
 diff --git a/tools/clang/include/clang/AST/Type.h b/tools/clang/include/clang/AST/Type.h
-index 09862e4..eed14f2 100644
+index 09862e4..19e3aad 100644
 --- a/tools/clang/include/clang/AST/Type.h
 +++ b/tools/clang/include/clang/AST/Type.h
 @@ -403,10 +403,10 @@ public:
@@ -5461,7 +6608,17 @@ index 09862e4..eed14f2 100644
    bool isSamplerT() const;                      // OpenCL sampler_t
    bool isEventT() const;                        // OpenCL event_t
  
-@@ -4803,7 +4815,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
+@@ -3420,6 +3432,9 @@ public:
+     attr_inteloclbicc,
+     attr_ms_abi,
+     attr_sysv_abi,
++    attr_floor_vertex,
++    attr_floor_fragment,
++    attr_floor_kernel,
+     attr_ptr32,
+     attr_ptr64,
+     attr_sptr,
+@@ -4803,7 +4818,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
  inline bool QualType::isMoreQualifiedThan(QualType other) const {
    Qualifiers myQuals = getQualifiers();
    Qualifiers otherQuals = other.getQualifiers();
@@ -5470,7 +6627,7 @@ index 09862e4..eed14f2 100644
  }
  
  /// isAtLeastAsQualifiedAs - Determine whether this type is at last
-@@ -4811,7 +4823,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
+@@ -4811,7 +4826,7 @@ inline bool QualType::isMoreQualifiedThan(QualType other) const {
  /// int" is at least as qualified as "const int", "volatile int",
  /// "int", and "const volatile int".
  inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
@@ -5479,7 +6636,7 @@ index 09862e4..eed14f2 100644
  }
  
  /// getNonReferenceType - If Type is a reference type (e.g., const
-@@ -5008,6 +5020,46 @@ inline bool Type::isImage2dArrayT() const {
+@@ -5008,6 +5023,46 @@ inline bool Type::isImage2dArrayT() const {
    return isSpecificBuiltinType(BuiltinType::OCLImage2dArray);
  }
  
@@ -5526,7 +6683,7 @@ index 09862e4..eed14f2 100644
  inline bool Type::isImage3dT() const {
    return isSpecificBuiltinType(BuiltinType::OCLImage3d);
  }
-@@ -5023,11 +5075,16 @@ inline bool Type::isEventT() const {
+@@ -5023,11 +5078,16 @@ inline bool Type::isEventT() const {
  inline bool Type::isImageType() const {
    return isImage3dT() ||
           isImage2dT() || isImage2dArrayT() ||
@@ -5920,29 +7077,24 @@ index 9bffc7c..e7ec23d 100644
    clang::ObjCRuntime ObjCRuntime;
  
 diff --git a/tools/clang/include/clang/Basic/Specifiers.h b/tools/clang/include/clang/Basic/Specifiers.h
-index f895673..78084dc 100644
+index f895673..d41e3a5 100644
 --- a/tools/clang/include/clang/Basic/Specifiers.h
 +++ b/tools/clang/include/clang/Basic/Specifiers.h
-@@ -209,7 +209,9 @@ namespace clang {
+@@ -209,7 +209,13 @@ namespace clang {
      CC_AAPCS,       // __attribute__((pcs("aapcs")))
      CC_AAPCS_VFP,   // __attribute__((pcs("aapcs-vfp")))
      CC_PnaclCall,   // __attribute__((pnaclcall))
 -    CC_IntelOclBicc // __attribute__((intel_ocl_bicc))
 +    CC_IntelOclBicc,// __attribute__((intel_ocl_bicc))
-+    CC_SpirFunction,// default for OpenCL functions on SPIR target
-+    CC_SpirKernel   // inferred for OpenCL kernels on SPIR target
++    CC_FloorFunction, // default for OpenCL/SPIR, Metal/AIR and CUDA functions (non entry points)
++    CC_FloorKernel,   // inferred for OpenCL/SPIR, Metal/AIR and CUDA kernels
++    CC_FloorVertex,   // inferred for Metal/AIR vertex shaders
++    CC_FloorFragment, // inferred for Metal/AIR fragment shaders
++    // ^^^ 14
++    // NOTE: don't go above 15
    };
  
    /// \brief Checks whether the given calling convention is callee-cleanup.
-@@ -219,6 +221,8 @@ namespace clang {
-     case CC_X86FastCall:
-     case CC_X86ThisCall:
-     case CC_X86Pascal:
-+    case CC_SpirFunction:
-+    case CC_SpirKernel:
-       return true;
-     default:
-       return false;
 diff --git a/tools/clang/include/clang/Basic/TokenKinds.def b/tools/clang/include/clang/Basic/TokenKinds.def
 index 5d08833..c53d8b2 100644
 --- a/tools/clang/include/clang/Basic/TokenKinds.def
@@ -5979,7 +7131,7 @@ index 5d08833..c53d8b2 100644
  // Borland Extensions.
  KEYWORD(__pascal                    , KEYALL)
 diff --git a/tools/clang/include/clang/Driver/CC1Options.td b/tools/clang/include/clang/Driver/CC1Options.td
-index d25560c..d83db99 100644
+index d25560c..f2f25a4 100644
 --- a/tools/clang/include/clang/Driver/CC1Options.td
 +++ b/tools/clang/include/clang/Driver/CC1Options.td
 @@ -550,6 +550,15 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
@@ -5998,7 +7150,17 @@ index d25560c..d83db99 100644
  // OpenCL Options
  //===----------------------------------------------------------------------===//
  
-@@ -577,6 +586,19 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
+@@ -570,6 +579,9 @@ def cl_mad_enable : Flag<["-"], "cl-mad-enable">,
+ def cl_std_EQ : Joined<["-"], "cl-std=">,
+   HelpText<"OpenCL language standard to compile for">;
+ 
++def cl_spir_intel_workarounds : Flag<["-"], "cl-spir-intel-workarounds">,
++  HelpText<"Enable Intel SPIR specific fixes and workarounds">;
++
+ //===----------------------------------------------------------------------===//
+ // CUDA Options
+ //===----------------------------------------------------------------------===//
+@@ -577,6 +589,21 @@ def cl_std_EQ : Joined<["-"], "cl-std=">,
  def fcuda_is_device : Flag<["-"], "fcuda-is-device">,
    HelpText<"Generate code for CUDA device">;
  
@@ -6008,6 +7170,8 @@ index d25560c..d83db99 100644
 +
 +def metal_intel_workarounds : Flag<["-"], "metal-intel-workarounds">,
 +  HelpText<"Enable Intel GPU specific fixes and workarounds">;
++def metal_nvidia_workarounds : Flag<["-"], "metal-nvidia-workarounds">,
++  HelpText<"Enable Nvidia GPU specific fixes and workarounds">;
 +
 +//===----------------------------------------------------------------------===//
 +// AppleCL/OpenCL Options
@@ -6039,15 +7203,17 @@ index 3209679..2df0e4b 100644
  TYPE("objective-c-header",       ObjCHeader,   PP_ObjCHeader,   nullptr, "pu")
  TYPE("c++-header-cpp-output",    PP_CXXHeader, INVALID,         "ii",    "p")
 diff --git a/tools/clang/include/clang/Frontend/CodeGenOptions.def b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-index 1d92efe..3db3307 100644
+index 1d92efe..54a1f3d 100644
 --- a/tools/clang/include/clang/Frontend/CodeGenOptions.def
 +++ b/tools/clang/include/clang/Frontend/CodeGenOptions.def
-@@ -56,6 +56,8 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -56,6 +56,10 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 +CODEGENOPT(EmitAppleCLMetadata , 1, 0) ///< Emit AppleCL kernel info and arg metadata.
 +CODEGENOPT(MetalIntelWorkarounds , 1, 0) ///< Enable Intel GPU specific fixes and workarounds.
++CODEGENOPT(MetalNvidiaWorkarounds , 1, 0) ///< Enable Nvidia GPU specific fixes and workarounds.
++CODEGENOPT(SPIRIntelWorkarounds , 1, 0) ///< Enable Intel SPIR specific fixes and workarounds.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
  CODEGENOPT(ForbidGuardVariables , 1, 0) ///< Issue errors if C++ guard variables
@@ -6113,10 +7279,19 @@ index c21c19f..a37f138 100644
    ExpectedVariableOrField,
    ExpectedVariableFieldOrTag,
 diff --git a/tools/clang/include/clang/Sema/Sema.h b/tools/clang/include/clang/Sema/Sema.h
-index e254afd..c34d2b3 100644
+index e254afd..8c7de58 100644
 --- a/tools/clang/include/clang/Sema/Sema.h
 +++ b/tools/clang/include/clang/Sema/Sema.h
-@@ -7283,6 +7283,15 @@ public:
+@@ -6053,6 +6053,8 @@ public:
+   bool DeduceReturnType(FunctionDecl *FD, SourceLocation Loc,
+                         bool Diagnose = true);
+ 
++  TypeLoc getReturnTypeLoc(FunctionDecl *FD) const;
++
+   bool DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
+                                         SourceLocation ReturnLoc,
+                                         Expr *&RetExpr, AutoType *AT);
+@@ -7283,6 +7285,15 @@ public:
    void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
                        unsigned SpellingListIndex, bool IsPackExpansion);
  
@@ -6155,7 +7330,7 @@ index 7ae1977..a5ced4e 100644
        PREDEF_TYPE_IMAGE3D_ID    = 43,
        /// \brief OpenCL event type.
 diff --git a/tools/clang/lib/AST/ASTContext.cpp b/tools/clang/lib/AST/ASTContext.cpp
-index bccdae9..80a9618 100644
+index bccdae9..6da3474 100644
 --- a/tools/clang/lib/AST/ASTContext.cpp
 +++ b/tools/clang/lib/AST/ASTContext.cpp
 @@ -1030,6 +1030,16 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
@@ -6192,7 +7367,46 @@ index bccdae9..80a9618 100644
      case BuiltinType::OCLImage3d:
        // Currently these types are pointers to opaque types.
        Width = Target->getPointerWidth(0);
-@@ -5154,6 +5174,16 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
+@@ -2822,6 +2842,21 @@ static bool isCanonicalResultType(QualType T) {
+           T.getObjCLifetime() == Qualifiers::OCL_ExplicitNone);
+ }
+ 
++CanQualType
++ASTContext::getCanonicalFunctionResultType(QualType ResultType) const {
++  CanQualType CanResultType = getCanonicalType(ResultType);
++
++  // Canonical result types do not have ARC lifetime qualifiers.
++  if (CanResultType.getQualifiers().hasObjCLifetime()) {
++    Qualifiers Qs = CanResultType.getQualifiers();
++    Qs.removeObjCLifetime();
++    return CanQualType::CreateUnsafe(
++             getQualifiedType(CanResultType.getUnqualifiedType(), Qs));
++  }
++
++  return CanResultType;
++}
++
+ QualType
+ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
+                             const FunctionProtoType::ExtProtoInfo &EPI) const {
+@@ -2860,14 +2895,8 @@ ASTContext::getFunctionType(QualType ResultTy, ArrayRef<QualType> ArgArray,
+     CanonicalEPI.ExceptionSpecType = EST_None;
+     CanonicalEPI.NumExceptions = 0;
+ 
+-    // Result types do not have ARC lifetime qualifiers.
+-    QualType CanResultTy = getCanonicalType(ResultTy);
+-    if (ResultTy.getQualifiers().hasObjCLifetime()) {
+-      Qualifiers Qs = CanResultTy.getQualifiers();
+-      Qs.removeObjCLifetime();
+-      CanResultTy = getQualifiedType(CanResultTy.getUnqualifiedType(), Qs);
+-    }
+-
++    // Adjust the canonical function result type.
++    CanQualType CanResultTy = getCanonicalFunctionResultType(ResultTy);
+     Canonical = getFunctionType(CanResultTy, CanonicalArgs, CanonicalEPI);
+ 
+     // Get the new insert position for the node we care about.
+@@ -5154,6 +5183,16 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
      case BuiltinType::OCLImage1dBuffer:
      case BuiltinType::OCLImage2d:
      case BuiltinType::OCLImage2dArray:
@@ -6209,7 +7423,7 @@ index bccdae9..80a9618 100644
      case BuiltinType::OCLImage3d:
      case BuiltinType::OCLEvent:
      case BuiltinType::OCLSampler:
-@@ -7973,7 +8003,9 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
+@@ -7973,7 +8012,9 @@ CallingConv ASTContext::getDefaultCallingConvention(bool IsVariadic,
    if (IsCXXMethod)
      return ABI->getDefaultMethodCallConv(IsVariadic);
  
@@ -6496,7 +7710,7 @@ index 986b3b5..3f8aad8 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/Type.cpp b/tools/clang/lib/AST/Type.cpp
-index 1677874..fb31818 100644
+index 1677874..e798a73 100644
 --- a/tools/clang/lib/AST/Type.cpp
 +++ b/tools/clang/lib/AST/Type.cpp
 @@ -1546,6 +1546,16 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
@@ -6516,16 +7730,28 @@ index 1677874..fb31818 100644
    case OCLImage3d:        return "image3d_t";
    case OCLSampler:        return "sampler_t";
    case OCLEvent:          return "event_t";
-@@ -1583,6 +1593,8 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
+@@ -1583,6 +1593,10 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
    case CC_AAPCS_VFP: return "aapcs-vfp";
    case CC_PnaclCall: return "pnaclcall";
    case CC_IntelOclBicc: return "intel_ocl_bicc";
-+  case CC_SpirFunction: return "spir_function";
-+  case CC_SpirKernel: return "spir_kernel";
++  case CC_FloorFunction: return "floor_function";
++  case CC_FloorKernel: return "floor_kernel";
++  case CC_FloorVertex: return "floor_vertex";
++  case CC_FloorFragment: return "floor_fragment";
    }
  
    llvm_unreachable("Invalid calling convention.");
-@@ -2469,3 +2481,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -1912,6 +1926,9 @@ bool AttributedType::isCallingConv() const {
+   case attr_pascal:
+   case attr_ms_abi:
+   case attr_sysv_abi:
++  case attr_floor_vertex:
++  case attr_floor_fragment:
++  case attr_floor_kernel:
+   case attr_pnaclcall:
+   case attr_inteloclbicc:
+     return true;
+@@ -2469,3 +2486,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -6591,24 +7817,40 @@ index 208d695..3fca2c9 100644
    case BuiltinType::OCLSampler:
    case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/AST/TypePrinter.cpp b/tools/clang/lib/AST/TypePrinter.cpp
-index 061473e..9de3dad 100644
+index 061473e..86c05c3 100644
 --- a/tools/clang/lib/AST/TypePrinter.cpp
 +++ b/tools/clang/lib/AST/TypePrinter.cpp
-@@ -694,6 +694,12 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
+@@ -694,6 +694,18 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
      case CC_X86_64SysV:
        OS << " __attribute__((sysv_abi))";
        break;
-+    case CC_SpirFunction:
-+      OS << "spir_function";
++    case CC_FloorFunction:
++      OS << "floor_function";
 +      break;
-+    case CC_SpirKernel:
-+      OS << "spir_kernel";
++    case CC_FloorKernel:
++      OS << "floor_kernel";
++      break;
++    case CC_FloorVertex:
++      OS << "floor_vertex";
++      break;
++    case CC_FloorFragment:
++      OS << "floor_fragment";
 +      break;
      }
    }
  
+@@ -1238,6 +1250,9 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
+   case AttributedType::attr_pascal: OS << "pascal"; break;
+   case AttributedType::attr_ms_abi: OS << "ms_abi"; break;
+   case AttributedType::attr_sysv_abi: OS << "sysv_abi"; break;
++  case AttributedType::attr_floor_vertex: OS << "floor_vertex"; break;
++  case AttributedType::attr_floor_fragment: OS << "floor_fragment"; break;
++  case AttributedType::attr_floor_kernel: OS << "floor_kernel"; break;
+   case AttributedType::attr_pcs:
+   case AttributedType::attr_pcs_vfp: {
+     OS << "pcs(";
 diff --git a/tools/clang/lib/Basic/Targets.cpp b/tools/clang/lib/Basic/Targets.cpp
-index 075f905..230850f 100644
+index 075f905..046085c 100644
 --- a/tools/clang/lib/Basic/Targets.cpp
 +++ b/tools/clang/lib/Basic/Targets.cpp
 @@ -1361,6 +1361,7 @@ namespace {
@@ -6627,7 +7869,7 @@ index 075f905..230850f 100644
          Info.setAllowsRegister();
          return true;
        }
-@@ -1411,7 +1413,16 @@ namespace {
+@@ -1411,11 +1413,34 @@ namespace {
          .Case("sm_20", true)
          .Case("sm_21", true)
          .Case("sm_30", true)
@@ -6644,7 +7886,25 @@ index 075f905..230850f 100644
          .Default(false);
  
        return Valid;
-@@ -5872,12 +5883,11 @@ namespace {
+     }
++
++    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
++      if (CC == CC_FloorFunction ||
++          CC == CC_FloorVertex ||
++          CC == CC_FloorFragment ||
++          CC == CC_FloorKernel) {
++          return CCCR_OK;
++      }
++      return CCCR_Warning;
++    }
++
++    CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
++      return CC_FloorFunction;
++    }
+   };
+ 
+   const Builtin::Info NVPTXTargetInfo::BuiltinInfo[] = {
+@@ -5872,12 +5897,11 @@ namespace {
      0     // cuda_shared
    };
    class SPIRTargetInfo : public TargetInfo {
@@ -6661,7 +7921,7 @@ index 075f905..230850f 100644
        BigEndian = false;
        TLSSupported = false;
        LongWidth = LongAlign = 64;
-@@ -5886,6 +5896,7 @@ namespace {
+@@ -5886,6 +5910,7 @@ namespace {
        // Define available target features
        // These must be defined in sorted order!
        NoAsmVariants = true;
@@ -6669,24 +7929,29 @@ index 075f905..230850f 100644
      }
      void getTargetDefines(const LangOptions &Opts,
                            MacroBuilder &Builder) const override {
-@@ -5911,6 +5922,16 @@ namespace {
+@@ -5911,6 +5936,21 @@ namespace {
      BuiltinVaListKind getBuiltinVaListKind() const override {
        return TargetInfo::VoidPtrBuiltinVaList;
      }
 +
 +    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
 +      if (!is_pure_spir) return CCCR_OK;
-+      return (CC == CC_SpirFunction ||
-+              CC == CC_SpirKernel) ? CCCR_OK : CCCR_Warning;
++      if (CC == CC_FloorFunction ||
++          CC == CC_FloorVertex ||
++          CC == CC_FloorFragment ||
++          CC == CC_FloorKernel) {
++          return CCCR_OK;
++      }
++      return CCCR_Warning;
 +    }
 +
 +    CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
-+      return (is_pure_spir ? CC_SpirFunction : CC_C);
++      return (is_pure_spir ? CC_FloorFunction : CC_C);
 +    }
    };
  
  
-@@ -5944,6 +5965,26 @@ namespace {
+@@ -5944,6 +5984,40 @@ namespace {
        DefineStd(Builder, "SPIR64", Opts);
      }
    };
@@ -6709,11 +7974,25 @@ index 075f905..230850f 100644
 +                          MacroBuilder &Builder) const override {
 +      DefineStd(Builder, "AIR64", Opts);
 +    }
++
++    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
++      if (CC == CC_FloorFunction ||
++          CC == CC_FloorVertex ||
++          CC == CC_FloorFragment ||
++          CC == CC_FloorKernel) {
++          return CCCR_OK;
++      }
++      return CCCR_Warning;
++    }
++
++    CallingConv getDefaultCallingConv(CallingConvMethodType MT) const override {
++      return CC_FloorFunction;
++    }
 +  };
  }
  
  namespace {
-@@ -6369,18 +6410,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
+@@ -6369,18 +6443,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
        return new X86_64TargetInfo(Triple);
      }
  
@@ -6739,7 +8018,7 @@ index 075f905..230850f 100644
  }
  
 diff --git a/tools/clang/lib/CodeGen/BackendUtil.cpp b/tools/clang/lib/CodeGen/BackendUtil.cpp
-index cec48f3..56854b4 100644
+index cec48f3..7bf02ba 100644
 --- a/tools/clang/lib/CodeGen/BackendUtil.cpp
 +++ b/tools/clang/lib/CodeGen/BackendUtil.cpp
 @@ -39,6 +39,7 @@
@@ -6750,7 +8029,7 @@ index cec48f3..56854b4 100644
  using namespace clang;
  using namespace llvm;
  
-@@ -240,6 +241,35 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -240,6 +241,37 @@ void EmitAssemblyHelper::CreatePasses() {
    PMBuilder.DisableUnrollLoops = !CodeGenOpts.UnrollLoops;
    PMBuilder.RerollLoops = CodeGenOpts.RerollLoops;
  
@@ -6777,16 +8056,18 @@ index cec48f3..56854b4 100644
 +  // only enable this for Metal/AIR
 +  PMBuilder.EnableMetalPasses = LangOpts.Metal;
 +  PMBuilder.EnableMetalIntelWorkarounds = CodeGenOpts.MetalIntelWorkarounds;
++  PMBuilder.EnableMetalNvidiaWorkarounds = CodeGenOpts.MetalNvidiaWorkarounds;
 +
 +  // only enable this for OpenCL/SPIR (don't want this for AppleCL or Metal)
 +  PMBuilder.EnableSPIRPasses = (LangOpts.OpenCL &&
 +                                (Triple(TheModule->getTargetTriple()).getArch() == Triple::spir64) &&
 +                                (Triple(TheModule->getTargetTriple()).getVendorName().str() == "unknown"));
++  PMBuilder.EnableSPIRIntelWorkarounds = CodeGenOpts.SPIRIntelWorkarounds;
 +
    PMBuilder.addExtension(PassManagerBuilder::EP_EarlyAsPossible,
                           addAddDiscriminatorsPass);
  
-@@ -301,8 +331,13 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -301,8 +333,13 @@ void EmitAssemblyHelper::CreatePasses() {
    switch (Inlining) {
    case CodeGenOptions::NoInlining: break;
    case CodeGenOptions::NormalInlining: {
@@ -6802,7 +8083,7 @@ index cec48f3..56854b4 100644
      break;
    }
    case CodeGenOptions::OnlyAlwaysInlining:
-@@ -326,6 +361,10 @@ void EmitAssemblyHelper::CreatePasses() {
+@@ -326,6 +363,10 @@ void EmitAssemblyHelper::CreatePasses() {
    if (CodeGenOpts.VerifyModule)
      MPM->add(createDebugInfoVerifierPass());
  
@@ -6814,37 +8095,82 @@ index cec48f3..56854b4 100644
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
 diff --git a/tools/clang/lib/CodeGen/CGCall.cpp b/tools/clang/lib/CodeGen/CGCall.cpp
-index 17c3354..cc2c088 100644
+index 17c3354..d48882e 100644
 --- a/tools/clang/lib/CodeGen/CGCall.cpp
 +++ b/tools/clang/lib/CodeGen/CGCall.cpp
-@@ -47,6 +47,8 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
+@@ -47,6 +47,10 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
    case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
    case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
    case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
-+  case CC_SpirFunction: return llvm::CallingConv::SPIR_FUNC;
-+  case CC_SpirKernel: return llvm::CallingConv::SPIR_KERNEL;
++  case CC_FloorFunction: return llvm::CallingConv::FLOOR_FUNC;
++  case CC_FloorKernel: return llvm::CallingConv::FLOOR_KERNEL;
++  case CC_FloorVertex: return llvm::CallingConv::FLOOR_VERTEX;
++  case CC_FloorFragment: return llvm::CallingConv::FLOOR_FRAGMENT;
    // TODO: add support for CC_X86Pascal to llvm
    }
  }
-@@ -562,7 +564,11 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+@@ -155,6 +159,15 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
+   if (D->hasAttr<SysVABIAttr>())
+     return IsWindows ? CC_X86_64SysV : CC_C;
+ 
++  if (D->hasAttr<GraphicsVertexShaderAttr>())
++    return CC_FloorVertex;
++
++  if (D->hasAttr<GraphicsFragmentShaderAttr>())
++    return CC_FloorFragment;
++
++  if (D->hasAttr<ComputeKernelAttr>())
++    return CC_FloorKernel;
++
+   return CC_C;
+ }
+ 
+@@ -552,17 +565,27 @@ CGFunctionInfo *CGFunctionInfo::create(unsigned llvmCC,
+ 
+ /***/
+ 
+-void CodeGenTypes::GetExpandedTypes(QualType type,
+-                     SmallVectorImpl<llvm::Type*> &expandedTypes) {
++void
++CodeGenTypes::GetExpandedTypes(QualType type,
++                               SmallVectorImpl<llvm::Type*> &expandedTypes,
++                               const CallingConv CC) {
+   if (const ConstantArrayType *AT = Context.getAsConstantArrayType(type)) {
+     uint64_t NumElts = AT->getSize().getZExtValue();
+     for (uint64_t Elt = 0; Elt < NumElts; ++Elt)
+-      GetExpandedTypes(AT->getElementType(), expandedTypes);
++      GetExpandedTypes(AT->getElementType(), expandedTypes, CC);
+   } else if (const RecordType *RT = type->getAs<RecordType>()) {
      const RecordDecl *RD = RT->getDecl();
      assert(!RD->hasFlexibleArrayMember() &&
             "Cannot expand structure with flexible array.");
 -    if (RD->isUnion()) {
 +
 +    const auto cxx_rdecl = RT->getAsCXXRecordDecl();
-+    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
-+      GetExpandedTypes(get_compat_vector_type(cxx_rdecl), expandedTypes);
++    // libfloor vector compat expansion (metal vertex/fragment shader only)
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>() &&
++        CGM.getLangOpts().Metal &&
++        (CC == CallingConv::CC_FloorVertex ||
++         CC == CallingConv::CC_FloorFragment)) {
++      GetExpandedTypes(get_compat_vector_type(cxx_rdecl), expandedTypes, CC);
 +    } else if (RD->isUnion()) {
        // Unions can be here only in degenerative cases - all the fields are same
        // after flattening. Thus we have to use the "largest" field.
        const FieldDecl *LargestFD = nullptr;
-@@ -579,6 +585,12 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+@@ -578,12 +601,24 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+         }
        }
        if (LargestFD)
-         GetExpandedTypes(LargestFD->getType(), expandedTypes);
-+    } else if (type->isAggregateImageType() ||
-+               CGM.getLangOpts().Metal) {
+-        GetExpandedTypes(LargestFD->getType(), expandedTypes);
++        GetExpandedTypes(LargestFD->getType(), expandedTypes, CC);
++    }
++    // libfloor aggregate expansion:
++    // * any aggregate image type
++    // * any aggregate if calling a metal vertex/fragment shader function
++	else if (type->isAggregateImageType() ||
++             (CGM.getLangOpts().Metal &&
++              (CC == CallingConv::CC_FloorVertex ||
++               CC == CallingConv::CC_FloorFragment))) {
 +      const auto fields = get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl);
 +      for(const auto& field : fields) {
 +        expandedTypes.push_back(ConvertType(field.type));
@@ -6852,44 +8178,104 @@ index 17c3354..cc2c088 100644
      } else {
        for (const auto *I : RD->fields()) {
          assert(!I->isBitField() &&
-@@ -610,7 +622,12 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+                "Cannot expand structure with bit-field members.");
+-        GetExpandedTypes(I->getType(), expandedTypes);
++        GetExpandedTypes(I->getType(), expandedTypes, CC);
+       }
+     }
+   } else if (const ComplexType *CT = type->getAs<ComplexType>()) {
+@@ -596,7 +631,8 @@ void CodeGenTypes::GetExpandedTypes(QualType type,
+ 
+ llvm::Function::arg_iterator
+ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+-                                    llvm::Function::arg_iterator AI) {
++                                    llvm::Function::arg_iterator AI,
++                                    const CallingConv CC) {
+   assert(LV.isSimple() &&
+          "Unexpected non-simple lvalue during struct expansion.");
+ 
+@@ -606,11 +642,20 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+     for (unsigned Elt = 0; Elt < NumElts; ++Elt) {
+       llvm::Value *EltAddr = Builder.CreateConstGEP2_32(LV.getAddress(), 0, Elt);
+       LValue LV = MakeAddrLValue(EltAddr, EltTy);
+-      AI = ExpandTypeFromArgs(EltTy, LV, AI);
++      AI = ExpandTypeFromArgs(EltTy, LV, AI, CC);
      }
    } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
      RecordDecl *RD = RT->getDecl();
 -    if (RD->isUnion()) {
 +    const auto cxx_rdecl = RT->getAsCXXRecordDecl();
-+    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
++    // libfloor vector compat expansion (metal vertex/fragment shader only)
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>() &&
++        CGM.getLangOpts().Metal &&
++        (CC == CallingConv::CC_FloorVertex ||
++         CC == CallingConv::CC_FloorFragment)) {
 +      const auto vec_type = getTypes().get_compat_vector_type(cxx_rdecl);
 +      LValue VecLV = MakeAddrLValue(LV.getAddress(), vec_type);
-+      AI = ExpandTypeFromArgs(vec_type, VecLV, AI);
++      AI = ExpandTypeFromArgs(vec_type, VecLV, AI, CC);
 +    } else if (RD->isUnion()) {
        // Unions can be here only in degenerative cases - all the fields are same
        // after flattening. Thus we have to use the "largest" field.
        const FieldDecl *LargestFD = nullptr;
-@@ -630,6 +647,22 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+@@ -628,7 +673,29 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+       if (LargestFD) {
+         // FIXME: What are the right qualifiers here?
          LValue SubLV = EmitLValueForField(LV, LargestFD);
-         AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
-       }
-+    } else if(Ty->isAggregateImageType() ||
-+              CGM.getLangOpts().Metal) {
+-        AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI);
++        AI = ExpandTypeFromArgs(LargestFD->getType(), SubLV, AI, CC);
++      }
++    }
++    // libfloor aggregate expansion:
++    // * any aggregate image type
++    // * any aggregate if calling a metal vertex/fragment shader function
++	else if (Ty->isAggregateImageType() ||
++             (CGM.getLangOpts().Metal &&
++              (CC == CallingConv::CC_FloorVertex ||
++               CC == CallingConv::CC_FloorFragment))) {
 +      for (const auto& base : cxx_rdecl->bases()) {
 +        // TODO: should use the base offset:
 +        // getContext().getASTRecordLayout(cxx_decl).getBaseClassOffset(base.getType()->getAsCXXRecordDecl());
 +        llvm::Value* addr = Builder.CreateConstGEP2_32(LV.getAddress(), 0, 0);
 +        LValue BaseLV = MakeAddrLValue(addr, base.getType());
-+        AI = ExpandTypeFromArgs(base.getType(), BaseLV, AI);
++        AI = ExpandTypeFromArgs(base.getType(), BaseLV, AI, CC);
 +      }
 +
 +      const auto fields = getTypes().get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, false, true);
 +      for(const auto& field : fields) {
 +        // TODO: arrays -> these have no FD
 +        LValue SubLV = EmitLValueForField(LV, field.field_decl);
-+        AI = ExpandTypeFromArgs(SubLV.getType(), SubLV, AI);
-+      }
++        AI = ExpandTypeFromArgs(SubLV.getType(), SubLV, AI, CC);
+       }
      } else {
        for (const auto *FD : RD->fields()) {
-         QualType FT = FD->getType();
-@@ -1527,6 +1560,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -636,7 +703,7 @@ CodeGenFunction::ExpandTypeFromArgs(QualType Ty, LValue LV,
+ 
+         // FIXME: What are the right qualifiers here?
+         LValue SubLV = EmitLValueForField(LV, FD);
+-        AI = ExpandTypeFromArgs(FT, SubLV, AI);
++        AI = ExpandTypeFromArgs(FT, SubLV, AI, CC);
+       }
+     }
+   } else if (const ComplexType *CT = Ty->getAs<ComplexType>()) {
+@@ -1029,7 +1096,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+     }
+ 
+     case ABIArgInfo::Expand:
+-      GetExpandedTypes(it->type, argTypes);
++      GetExpandedTypes(it->type, argTypes, FI.getASTCallingConvention());
+       break;
+     }
+   }
+@@ -1293,7 +1360,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
+       // FIXME: This is rather inefficient. Do we ever actually need to do
+       // anything here? The result should be just reconstructed on the other
+       // side, so extension should be a non-issue.
+-      getTypes().GetExpandedTypes(ParamType, types);
++      getTypes().GetExpandedTypes(ParamType, types, FI.getASTCallingConvention());
+       Index += types.size();
+       continue;
+     }
+@@ -1527,6 +1594,25 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
                                                    AI->getArgNo() + 1,
                                                    llvm::Attribute::NonNull));
            }
@@ -6915,7 +8301,16 @@ index 17c3354..cc2c088 100644
          }
  
          if (Arg->getType().isRestrictQualified())
-@@ -2573,9 +2625,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
+@@ -1645,7 +1731,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+       CharUnits Align = getContext().getDeclAlign(Arg);
+       Alloca->setAlignment(Align.getQuantity());
+       LValue LV = MakeAddrLValue(Alloca, Ty, Align);
+-      llvm::Function::arg_iterator End = ExpandTypeFromArgs(Ty, LV, AI);
++      llvm::Function::arg_iterator End = ExpandTypeFromArgs(Ty, LV, AI, FI.getASTCallingConvention());
+       ArgVals.push_back(ValueAndIsPtr(Alloca, HavePointer));
+ 
+       // Name the arguments used in expansion and increment AI.
+@@ -2573,9 +2659,12 @@ CodeGenFunction::EmitCallOrInvoke(llvm::Value *Callee,
  }
  
  static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
@@ -6931,13 +8326,35 @@ index 17c3354..cc2c088 100644
    else
      assert(FTy->isVarArg());
    ++ArgNo;
-@@ -2598,7 +2653,14 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+@@ -2583,7 +2672,8 @@ static void checkArgMatches(llvm::Value *Elt, unsigned &ArgNo,
+ 
+ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+                                        SmallVectorImpl<llvm::Value *> &Args,
+-                                       llvm::FunctionType *IRFuncTy) {
++                                       llvm::FunctionType *IRFuncTy,
++                                       const CallingConv CC) {
+   if (const ConstantArrayType *AT = getContext().getAsConstantArrayType(Ty)) {
+     unsigned NumElts = AT->getSize().getZExtValue();
+     QualType EltTy = AT->getElementType();
+@@ -2591,14 +2681,25 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
+     for (unsigned Elt = 0; Elt < NumElts; ++Elt) {
+       llvm::Value *EltAddr = Builder.CreateConstGEP2_32(Addr, 0, Elt);
+       RValue EltRV = convertTempToRValue(EltAddr, EltTy, SourceLocation());
+-      ExpandTypeToArgs(EltTy, EltRV, Args, IRFuncTy);
++      ExpandTypeToArgs(EltTy, EltRV, Args, IRFuncTy, CC);
+     }
+   } else if (const RecordType *RT = Ty->getAs<RecordType>()) {
+     RecordDecl *RD = RT->getDecl();
      assert(RV.isAggregate() && "Unexpected rvalue during struct expansion");
      LValue LV = MakeAddrLValue(RV.getAggregateAddr(), Ty);
  
 -    if (RD->isUnion()) {
 +    const auto cxx_rdecl = Ty->getAsCXXRecordDecl();
-+    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>()) {
++    // libfloor vector compat expansion (metal vertex/fragment shader only)
++    if (cxx_rdecl && cxx_rdecl->hasAttr<VectorCompatAttr>() &&
++        CGM.getLangOpts().Metal &&
++        (CC == CallingConv::CC_FloorVertex ||
++         CC == CallingConv::CC_FloorFragment)) {
 +      const auto vec_type = getTypes().get_compat_vector_type(cxx_rdecl);
 +      const auto llvm_vec_type = getTypes().ConvertType(vec_type);
 +      auto vec_ptr = Builder.CreateBitCast(RV.getAggregateAddr(),
@@ -6947,26 +8364,40 @@ index 17c3354..cc2c088 100644
        const FieldDecl *LargestFD = nullptr;
        CharUnits UnionSize = CharUnits::Zero();
  
-@@ -2615,6 +2677,18 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
-         RValue FldRV = EmitRValueForField(LV, LargestFD, SourceLocation());
-         ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy);
+@@ -2613,12 +2714,30 @@ void CodeGenFunction::ExpandTypeToArgs(QualType Ty, RValue RV,
        }
-+    } else if(Ty->isAggregateImageType() ||
-+              CGM.getLangOpts().Metal) {
+       if (LargestFD) {
+         RValue FldRV = EmitRValueForField(LV, LargestFD, SourceLocation());
+-        ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy);
++        ExpandTypeToArgs(LargestFD->getType(), FldRV, Args, IRFuncTy, CC);
++      }
++    }
++    // libfloor aggregate expansion:
++    // * any aggregate image type
++    // * any aggregate if calling a metal vertex/fragment shader function
++	else if (Ty->isAggregateImageType() ||
++             (CGM.getLangOpts().Metal &&
++              (CC == CallingConv::CC_FloorVertex ||
++               CC == CallingConv::CC_FloorFragment))) {
 +      for (const auto& base : cxx_rdecl->bases()) {
-+        ExpandTypeToArgs(base.getType(), RV, Args, IRFuncTy);
++        ExpandTypeToArgs(base.getType(), RV, Args, IRFuncTy, CC);
 +      }
 +
 +      const auto fields = getTypes().get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, false, true);
 +      for(const auto& field : fields) {
 +        // TODO: arrays -> these have no FD
 +        RValue FldRV = EmitRValueForField(LV, field.field_decl, SourceLocation());
-+        ExpandTypeToArgs(field.field_decl->getType(), FldRV, Args, IRFuncTy);
-+      }
++        ExpandTypeToArgs(field.field_decl->getType(), FldRV, Args, IRFuncTy, CC);
+       }
      } else {
        for (const auto *FD : RD->fields()) {
          RValue FldRV = EmitRValueForField(LV, FD, SourceLocation());
-@@ -2832,12 +2906,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+-        ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy);
++        ExpandTypeToArgs(FD->getType(), FldRV, Args, IRFuncTy, CC);
+       }
+     }
+   } else if (Ty->isAnyComplexType()) {
+@@ -2832,12 +2951,20 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
@@ -6990,7 +8421,16 @@ index 17c3354..cc2c088 100644
          break;
        }
  
-@@ -3078,6 +3160,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -2909,7 +3036,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+     }
+ 
+     case ABIArgInfo::Expand:
+-      ExpandTypeToArgs(I->Ty, RV, Args, IRFuncTy);
++      ExpandTypeToArgs(I->Ty, RV, Args, IRFuncTy, CallInfo.getASTCallingConvention());
+       IRArgNo = Args.size();
+       break;
+     }
+@@ -3078,6 +3205,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
            DestPtr = CreateMemTemp(RetTy, "agg.tmp");
            DestIsVolatile = false;
          }
@@ -7102,10 +8542,42 @@ index 91f8041..2c68378 100644
    StringRef ContextName;
    if (!CGF.CurFuncDecl) {
 diff --git a/tools/clang/lib/CodeGen/CGExpr.cpp b/tools/clang/lib/CodeGen/CGExpr.cpp
-index 512b323..0bacf88 100644
+index 512b323..8b40086 100644
 --- a/tools/clang/lib/CodeGen/CGExpr.cpp
 +++ b/tools/clang/lib/CodeGen/CGExpr.cpp
-@@ -2538,28 +2538,36 @@ LValue CodeGenFunction::EmitLValueForLambdaField(const FieldDecl *Field) {
+@@ -1072,6 +1072,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
+                                                llvm::MDNode *TBAAInfo,
+                                                QualType TBAABaseType,
+                                                uint64_t TBAAOffset) {
++#if 0 // incorrect and not at all beneficial for compute backends
+   // For better performance, handle vector loads differently.
+   if (Ty->isVectorType()) {
+     llvm::Value *V;
+@@ -1109,6 +1110,7 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
+       return EmitFromMemory(V, Ty);
+     }
+   }
++#endif
+ 
+   // Atomic operations have to be done on integral types.
+   if (Ty->isAtomicType()) {
+@@ -1195,6 +1197,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
+   // Handle vectors differently to get better performance.
+   if (Ty->isVectorType()) {
+     llvm::Type *SrcTy = Value->getType();
++#if 0 // incorrect and not at all beneficial for compute backends
+     auto *VecTy = cast<llvm::VectorType>(SrcTy);
+     // Handle vec3 special.
+     if (VecTy->getNumElements() == 3) {
+@@ -1216,6 +1219,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
+                                           MaskV, "extractVec");
+       SrcTy = llvm::VectorType::get(VecTy->getElementType(), 4);
+     }
++#endif
+     auto *DstPtr = cast<llvm::PointerType>(Addr->getType());
+     if (DstPtr->getElementType() != SrcTy) {
+       llvm::Type *MemTy =
+@@ -2538,28 +2542,36 @@ LValue CodeGenFunction::EmitLValueForLambdaField(const FieldDecl *Field) {
  
  LValue CodeGenFunction::EmitLValueForField(LValue base,
                                             const FieldDecl *field) {
@@ -7151,7 +8623,7 @@ index 512b323..0bacf88 100644
    QualType type = field->getType();
    CharUnits alignment = getContext().getDeclAlign(field);
  
-@@ -2570,7 +2578,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -2570,7 +2582,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
  
    bool mayAlias = rec->hasAttr<MayAliasAttr>();
  
@@ -7159,7 +8631,7 @@ index 512b323..0bacf88 100644
    unsigned cvr = base.getVRQualifiers();
    bool TBAAPath = CGM.getCodeGenOpts().StructPathTBAA;
    if (rec->isUnion()) {
-@@ -2580,7 +2587,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
+@@ -2580,7 +2591,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
      TBAAPath = false;
    } else {
      // For structs, we GEP to the field that the record layout suggests.
@@ -7168,7 +8640,7 @@ index 512b323..0bacf88 100644
      addr = Builder.CreateStructGEP(addr, idx, field->getName());
  
      // If this is a reference field, load the reference right now.
-@@ -2657,8 +2664,9 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
+@@ -2657,8 +2668,9 @@ CodeGenFunction::EmitLValueForFieldInitialization(LValue Base,
    if (!FieldType->isReferenceType())
      return EmitLValueForField(Base, Field);
  
@@ -7441,7 +8913,7 @@ index a10d8e7..852a803 100644
    OS << "<CGRecordLayout\n";
    OS << "  LLVMType:" << *CompleteObjectType << "\n";
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.cpp b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
-index 5ca3a78..552853a 100644
+index 5ca3a78..fd02b7c 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.cpp
 @@ -30,6 +30,9 @@
@@ -7567,7 +9039,7 @@ index 5ca3a78..552853a 100644
  // OpenCL v1.2 s5.6.4.6 allows the compiler to store kernel argument
  // information in the program executable. The argument information stored
  // includes the argument name, its type, the address and access qualifiers used.
-@@ -340,127 +449,1180 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
+@@ -340,127 +449,1199 @@ static void GenOpenCLArgMetadata(const FunctionDecl *FD, llvm::Function *Fn,
                                   CodeGenModule &CGM,llvm::LLVMContext &Context,
                                   SmallVector <llvm::Value*, 5> &kernelMDArgs,
                                   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -8481,13 +9953,14 @@ index 5ca3a78..552853a 100644
 +		return;
 +	}
 +	std::fstream& file = *getLangOpts().floor_function_info;
++	std::stringstream info;
 +	
 +	// #0: info version
-+	file << "2,";
++	info << "2,";
 +	// #1: function name
-+	file << Fn->getName().str() << ",";
++	info << Fn->getName().str() << ",";
 +	// #2: function type
-+	file << (is_kernel ? "1" : (is_vertex ? "2" : "3")) << ",";
++	info << (is_kernel ? "1" : (is_vertex ? "2" : "3")) << ",";
 +	
 +	// iterate over clang function decl parameters
 +	// NOTE: in case of struct expansion, this doesn't match the llvm parameters
@@ -8562,11 +10035,17 @@ index 5ca3a78..552853a 100644
 +				auto err_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Fatal, "%0");
 +				CGM.getDiags().Report(parm->getSourceRange().getBegin(), err_diagID) << "parameter uses a type with an unknown size (NOTE: this can happen when internal vector type conversion/replacement has failed)";
 +				
-+				auto note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM function type: %0");
++				auto param_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM type: %0");
++				std::string param_type = "";
++				llvm::raw_string_ostream param_type_stream(param_type);
++				type->print(param_type_stream);
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), param_note_diagID) << param_type_stream.str();
++				
++				auto func_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM function type: %0");
 +				std::string fun_type = "";
 +				llvm::raw_string_ostream fun_type_stream(fun_type);
 +				Fn->getFunctionType()->print(fun_type_stream);
-+				CGM.getDiags().Report(parm->getSourceRange().getBegin(), note_diagID) << fun_type_stream.str();
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), func_note_diagID) << fun_type_stream.str();
 +				
 +				return uint64_t(0);
 +			}
@@ -8603,15 +10082,15 @@ index 5ca3a78..552853a 100644
 +			else if(type->isImageCubeArrayDepthT()) return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
-+		const auto add_image_arg = [this, &file](const FLOOR_ARG_INFO& floor_img_type,
++		const auto add_image_arg = [this, &info](const FLOOR_ARG_INFO& floor_img_type,
 +												 const FLOOR_ARG_INFO& access) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
-+			file << arg_info << ",";
++			info << arg_info << ",";
 +		};
 +		// anything that isn't a pointer or special type
-+		const auto add_normal_arg = [this, &file,
++		const auto add_normal_arg = [this, &info,
 +									 &compute_type_size](llvm::Type* llvm_type,
 +														 const clang::QualType& clang_type,
 +														 const FLOOR_ARG_INFO init_info = FLOOR_ARG_INFO::NONE) {
@@ -8625,7 +10104,7 @@ index 5ca3a78..552853a 100644
 +				arg_info |= compute_type_size(llvm_type);
 +			}
 +			arg_info |= (uint64_t)to_fas(clang_type.getAddressSpace());
-+			file << arg_info << ",";
++			info << arg_info << ",";
 +		};
 +		
 +		// #2+: argument sizes + types
@@ -8642,7 +10121,7 @@ index 5ca3a78..552853a 100644
 +				// always pretend this is global
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_GLOBAL;
 +			}
-+			file << arg_info << ",";
++			info << arg_info << ",";
 +		}
 +		// handle image types
 +		else if(clang_type->isImageType()) {
@@ -8711,17 +10190,17 @@ index 5ca3a78..552853a 100644
 +		else if(getLangOpts().CUDA) {
 +			// is this an aggregate that is expanded into multiple llvm arguments?
 +			if(cxx_rdecl &&
-+			   abi_arg_info_iter->info.isDirect() &&
++			   (abi_arg_info_iter->info.isDirect() || abi_arg_info_iter->info.isIndirect()) &&
 +			   TargetCodeGenInfo::isAggregateTypeForABI(abi_arg_info_iter->type)) {
 +				// check if this is an aggregate image (must have image access qualifiers)
 +				const ImageAccessAttr* access_attr = get_aggregate_access_attr(cxx_rdecl);
 +				if(access_attr != nullptr) {
-+					uint64_t arg_info = compute_type_size(llvm_type);
++					uint64_t arg_info = 0; // size is irrelevant for cuda images
 +					arg_info |= uint64_t(get_image_access(access_attr));
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_IMAGE;
-+					file << arg_info << ",";
++					info << arg_info << ",";
 +				}
-+				else {
++				else if(abi_arg_info_iter->info.isDirect()) {
 +					// simple aggregate, all constant -> must handle each field individually
 +					// note that we're only interested in the first expanded layer, not multiple expansion
 +					// (i.e. fully scalarized), as this is identical to what cuda / nvptx / the abi do
@@ -8733,8 +10212,15 @@ index 5ca3a78..552853a 100644
 +						++arg_idx;
 +					}
 +					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+					file << arg_info << ",";
++					info << arg_info << ",";
 +					--arg_idx; // fixup, b/c of inc later
++				}
++				else { // -> indirect
++					// simple aggregate, all constant -> single pointer on either side of clang/llvm
++					uint64_t arg_info = 0;
++					arg_info |= compute_type_size(llvm_type->getPointerElementType());
++					arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
++					info << arg_info << ",";
 +				}
 +			}
 +			else {
@@ -8742,7 +10228,7 @@ index 5ca3a78..552853a 100644
 +				// store the parameter size
 +				uint64_t arg_info = compute_type_size(llvm_type);
 +				arg_info |= (uint64_t)FLOOR_ARG_INFO::AS_CONSTANT;
-+				file << arg_info << ",";
++				info << arg_info << ",";
 +			}
 +		}
 +		// stage input
@@ -8779,7 +10265,12 @@ index 5ca3a78..552853a 100644
 +		++abi_arg_info_iter;
 +	}
 +	
-+	file << "\n";
++	info << "\n";
++	file << info.str();
++	
++#if 0 // for debugging purposes
++	printf("floor function info: %s", info.str().c_str()); fflush(stdout);
++#endif
 +	
 +	// if this is wrong, the kernel will almost certainly not be usable
 +	if(arg_idx != Fn->arg_size()) {
@@ -8852,7 +10343,7 @@ index 5ca3a78..552853a 100644
    if (const VecTypeHintAttr *A = FD->getAttr<VecTypeHintAttr>()) {
      QualType hintQTy = A->getTypeHint();
      const ExtVectorType *hintEltQTy = hintQTy->getAs<ExtVectorType>();
-@@ -498,9 +1660,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -498,9 +1679,85 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
    }
  
    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
@@ -8888,7 +10379,7 @@ index 5ca3a78..552853a 100644
 +	  
 +	  llvm::NamedMDNode *AIRLangVersion = CGM.getModule().getOrInsertNamedMetadata("air.language_version");
 +	  SmallVector <llvm::Value*, 4> air_lang_version;
-+	  air_lang_version.push_back(llvm::MDString::get(Context, "METAL"));
++	  air_lang_version.push_back(llvm::MDString::get(Context, "Metal"));
 +	  air_lang_version.push_back(Builder.getInt32(metal_language_version[0]));
 +	  air_lang_version.push_back(Builder.getInt32(metal_language_version[1]));
 +	  air_lang_version.push_back(Builder.getInt32(metal_language_version[2]));
@@ -8941,7 +10432,7 @@ index 5ca3a78..552853a 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -527,6 +1765,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -527,6 +1784,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                                      SourceLocation Loc,
                                      SourceLocation StartLoc) {
    const Decl *D = GD.getDecl();
@@ -8949,7 +10440,7 @@ index 5ca3a78..552853a 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -542,7 +1781,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -542,7 +1800,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // Pass inline keyword to optimizer if it appears explicitly on any
    // declaration. Also, in the case of -fno-inline attach NoInline
    // attribute to all function that are not marked AlwaysInline.
@@ -8958,7 +10449,7 @@ index 5ca3a78..552853a 100644
      if (!CGM.getCodeGenOpts().NoInline) {
        for (auto RI : FD->redecls())
          if (RI->isInlineSpecified()) {
-@@ -553,16 +1792,37 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -553,16 +1811,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
        Fn->addFnAttr(llvm::Attribute::NoInline);
    }
  
@@ -8970,19 +10461,6 @@ index 5ca3a78..552853a 100644
 +    if(FD) {
 +      // add floor specific metadata for kernel functions
 +      EmitFloorKernelMetadata(FD, Fn, Args, FnInfo);
-+
-+      // add "compute_kernel" llvm function attribute if this is a kernel function
-+      if (FD->hasAttr<ComputeKernelAttr>()) {
-+        Fn->addFnAttr("compute_kernel");
-+      }
-+      // add "vertex_shader" llvm function attribute if this is a vertex shader
-+      if (FD->hasAttr<GraphicsVertexShaderAttr>()) {
-+        Fn->addFnAttr("vertex_shader");
-+      }
-+      // add "fragment_shader" llvm function attribute if this is a fragment shader
-+      if (FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+        Fn->addFnAttr("fragment_shader");
-+      }
 +    }
 +    
 +    // opencl/spir and metal specific metadata
@@ -9000,7 +10478,7 @@ index 5ca3a78..552853a 100644
        if (llvm::Constant *PrefixSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -633,7 +1893,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -633,7 +1899,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      llvm::Value *Addr = Builder.CreateStructGEP(EI, Idx);
      ReturnValue = Builder.CreateLoad(Addr, "agg.result");
    } else {
@@ -9018,7 +10496,7 @@ index 5ca3a78..552853a 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -755,6 +2024,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
+@@ -755,6 +2030,91 @@ static void EmitSizedDeallocationFunction(CodeGenFunction &CGF,
    CGF.Builder.CreateCall(Unsized, &*CGF.CurFn->arg_begin());
  }
  
@@ -9110,7 +10588,7 @@ index 5ca3a78..552853a 100644
  void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
                                     const CGFunctionInfo &FnInfo) {
    const FunctionDecl *FD = cast<FunctionDecl>(GD.getDecl());
-@@ -808,7 +2162,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -808,7 +2168,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !CGM.getCodeGenOpts().CUDAIsDevice &&
@@ -9119,7 +10597,7 @@ index 5ca3a78..552853a 100644
      CGM.getCUDARuntime().EmitDeviceStubBody(*this, Args);
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
-@@ -858,6 +2212,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -858,6 +2218,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
    // Emit the standard function epilogue.
    FinishFunction(BodyRange.getEnd());
  
@@ -9131,7 +10609,7 @@ index 5ca3a78..552853a 100644
    // a quick pass now to see if we can.
    if (!CurFn->doesNotThrow())
 diff --git a/tools/clang/lib/CodeGen/CodeGenFunction.h b/tools/clang/lib/CodeGen/CodeGenFunction.h
-index 59cc30d..bc9e3e1 100644
+index 59cc30d..054b111 100644
 --- a/tools/clang/lib/CodeGen/CodeGenFunction.h
 +++ b/tools/clang/lib/CodeGen/CodeGenFunction.h
 @@ -989,7 +989,14 @@ private:
@@ -9150,8 +10628,27 @@ index 59cc30d..bc9e3e1 100644
  public:
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
+@@ -2593,14 +2600,16 @@ private:
+   /// argument.
+   llvm::Function::arg_iterator
+   ExpandTypeFromArgs(QualType Ty, LValue Dst,
+-                     llvm::Function::arg_iterator AI);
++                     llvm::Function::arg_iterator AI,
++                     const CallingConv CC);
+ 
+   /// ExpandTypeToArgs - Expand an RValue \arg Src, with the LLVM type for \arg
+   /// Ty, into individual arguments on the provided vector \arg Args. See
+   /// ABIArgInfo::Expand.
+   void ExpandTypeToArgs(QualType Ty, RValue Src,
+                         SmallVectorImpl<llvm::Value *> &Args,
+-                        llvm::FunctionType *IRFuncTy);
++                        llvm::FunctionType *IRFuncTy,
++                        const CallingConv CC);
+ 
+   llvm::Value* EmitAsmInput(const TargetInfo::ConstraintInfo &Info,
+                             const Expr *InputExpr, std::string &ConstraintStr);
 diff --git a/tools/clang/lib/CodeGen/CodeGenModule.cpp b/tools/clang/lib/CodeGen/CodeGenModule.cpp
-index 48823be..894bf42 100644
+index 48823be..211605e 100644
 --- a/tools/clang/lib/CodeGen/CodeGenModule.cpp
 +++ b/tools/clang/lib/CodeGen/CodeGenModule.cpp
 @@ -359,7 +359,10 @@ void CodeGenModule::Release() {
@@ -9255,7 +10752,7 @@ index 48823be..894bf42 100644
 +	}
 +	
 +	// TODO: only create once?
-+	const std::string name = "__floor.flat." + cxx_rdecl->getName().str();
++	const std::string name = "struct.floor.flat." + cxx_rdecl->getName().str() + ".packed";
 +	auto ret = llvm::StructType::create(llvm_fields, name, true); // always make this packed
 +	ret->setMetalReturnType(); // fix up alignment/sizes/offsets
 +	CGT.create_flattened_cg_layout(cxx_rdecl, ret, fields); // create corresponding flattend CGRecordLayout
@@ -9533,7 +11030,7 @@ index d4e2262..47454ca 100644
 +	return ret;
 +}
 diff --git a/tools/clang/lib/CodeGen/CodeGenTypes.h b/tools/clang/lib/CodeGen/CodeGenTypes.h
-index fe155b5..16777d5 100644
+index fe155b5..9a8e60f 100644
 --- a/tools/clang/lib/CodeGen/CodeGenTypes.h
 +++ b/tools/clang/lib/CodeGen/CodeGenTypes.h
 @@ -81,6 +81,10 @@ class CodeGenTypes {
@@ -9615,6 +11112,16 @@ index fe155b5..16777d5 100644
  
  public:  // These are internal details of CGT that shouldn't be used externally.
    /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
+@@ -243,7 +297,8 @@ public:  // These are internal details of CGT that shouldn't be used externally.
+   /// argument types it would be passed as on the provided vector \arg
+   /// ArgTys. See ABIArgInfo::Expand.
+   void GetExpandedTypes(QualType type,
+-                        SmallVectorImpl<llvm::Type*> &expanded);
++                        SmallVectorImpl<llvm::Type*> &expanded,
++                        const CallingConv CC);
+ 
+   /// IsZeroInitializable - Return whether a type can be
+   /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
 diff --git a/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp b/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp
 index d7e61f0..03c08c2 100644
 --- a/tools/clang/lib/CodeGen/ItaniumCXXABI.cpp
@@ -9637,7 +11144,7 @@ index d7e61f0..03c08c2 100644
      case BuiltinType::OCLSampler:
      case BuiltinType::OCLEvent:
 diff --git a/tools/clang/lib/CodeGen/TargetInfo.cpp b/tools/clang/lib/CodeGen/TargetInfo.cpp
-index f75e59d..b702b94 100644
+index f75e59d..3ef03d6 100644
 --- a/tools/clang/lib/CodeGen/TargetInfo.cpp
 +++ b/tools/clang/lib/CodeGen/TargetInfo.cpp
 @@ -41,11 +41,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -9840,7 +11347,19 @@ index f75e59d..b702b94 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -4910,7 +4917,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+@@ -4876,6 +4883,11 @@ ABIArgInfo NVPTXABIInfo::classifyArgumentType(QualType Ty) const {
+   if (const EnumType *EnumTy = Ty->getAs<EnumType>())
+     Ty = EnumTy->getDecl()->getIntegerType();
+ 
++  // Return aggregates type as indirect by value
++  if (TargetCodeGenInfo::isAggregateTypeForABI(Ty)) {
++    return ABIArgInfo::getIndirect(0, /* byval */ true);
++  }
++
+   return (Ty->isPromotableIntegerType() ?
+           ABIArgInfo::getExtend() : ABIArgInfo::getDirect());
+ }
+@@ -4910,7 +4922,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
    if (M.getLangOpts().OpenCL) {
      // Use OpenCL function attributes to check for kernel functions
      // By default, all functions are device functions
@@ -9849,7 +11368,7 @@ index f75e59d..b702b94 100644
        // OpenCL __kernel functions get kernel metadata
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
-@@ -4924,7 +4931,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+@@ -4924,7 +4936,7 @@ SetTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
      // CUDA __global__ functions get a kernel metadata entry.  Since
      // __global__ functions cannot be called from the device, we do not
      // need to set the noinline attribute.
@@ -9858,7 +11377,7 @@ index f75e59d..b702b94 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -4962,6 +4969,101 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -4962,6 +4974,101 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -9960,7 +11479,7 @@ index f75e59d..b702b94 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5019,7 +5121,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -5019,7 +5126,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  }
  
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
@@ -9969,7 +11488,7 @@ index f75e59d..b702b94 100644
  }
  
  bool SystemZABIInfo::isFPArgumentType(QualType Ty) const {
-@@ -5433,7 +5535,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -5433,7 +5540,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::RoundUpToAlignment(Offset, Align);
    Offset = CurrOffset + llvm::RoundUpToAlignment(TySize, Align * 8) / 8;
  
@@ -9978,7 +11497,7 @@ index f75e59d..b702b94 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -5518,7 +5620,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -5518,7 +5625,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -9987,7 +11506,7 @@ index f75e59d..b702b94 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -5657,7 +5759,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
+@@ -5657,7 +5764,7 @@ void TCETargetCodeGenInfo::SetTargetAttributes(const Decl *D,
    llvm::Function *F = cast<llvm::Function>(GV);
    
    if (M.getLangOpts().OpenCL) {
@@ -9996,7 +11515,7 @@ index f75e59d..b702b94 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -5732,7 +5834,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -5732,7 +5839,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -10005,7 +11524,7 @@ index f75e59d..b702b94 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -5770,7 +5872,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -5770,7 +5877,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return ABIArgInfo::getIndirect(0);
  
@@ -10014,7 +11533,7 @@ index f75e59d..b702b94 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -5994,7 +6096,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -5994,7 +6101,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend();
  
    // Other non-aggregates go in registers.
@@ -10023,7 +11542,7 @@ index f75e59d..b702b94 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -6877,5 +6979,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -6877,5 +6984,10 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return *(TheTargetCodeGenInfo = new SparcV9TargetCodeGenInfo(Types));
    case llvm::Triple::xcore:
      return *(TheTargetCodeGenInfo = new XCoreTargetCodeGenInfo(Types));
@@ -10074,7 +11593,7 @@ index 6af920d..a83d536 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/tools/clang/lib/Frontend/CompilerInvocation.cpp b/tools/clang/lib/Frontend/CompilerInvocation.cpp
-index ce61a46..bdc7109 100644
+index ce61a46..bd1e63f 100644
 --- a/tools/clang/lib/Frontend/CompilerInvocation.cpp
 +++ b/tools/clang/lib/Frontend/CompilerInvocation.cpp
 @@ -36,6 +36,7 @@
@@ -10094,7 +11613,7 @@ index ce61a46..bdc7109 100644
      DefaultOpt = 2;
  
    if (Arg *A = Args.getLastArg(options::OPT_O_Group)) {
-@@ -474,6 +475,12 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -474,6 +475,14 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.InstrumentFunctions = Args.hasArg(OPT_finstrument_functions);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
    Opts.EmitOpenCLArgMetadata = Args.hasArg(OPT_cl_kernel_arg_info);
@@ -10104,10 +11623,12 @@ index ce61a46..bdc7109 100644
 +  }
 +  Opts.EmitAppleCLMetadata = Args.hasArg(OPT_applecl_kernel_info);
 +  Opts.MetalIntelWorkarounds = Args.hasArg(OPT_metal_intel_workarounds);
++  Opts.MetalNvidiaWorkarounds = Args.hasArg(OPT_metal_nvidia_workarounds);
++  Opts.SPIRIntelWorkarounds = Args.hasArg(OPT_cl_spir_intel_workarounds);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
    Opts.LinkBitcodeFile = Args.getLastArgValue(OPT_mlink_bitcode_file);
-@@ -904,6 +911,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -904,6 +913,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -10115,7 +11636,7 @@ index ce61a46..bdc7109 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -917,6 +925,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -917,6 +927,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -10123,7 +11644,7 @@ index ce61a46..bdc7109 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1110,6 +1119,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1110,6 +1121,9 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -10133,7 +11654,7 @@ index ce61a46..bdc7109 100644
      case IK_CUDA:
        LangStd = LangStandard::lang_cuda;
        break;
-@@ -1151,7 +1163,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1151,7 +1165,14 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
        Opts.OpenCLVersion = 110;
    else if (LangStd == LangStandard::lang_opencl12)
      Opts.OpenCLVersion = 120;
@@ -10149,7 +11670,7 @@ index ce61a46..bdc7109 100644
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
      Opts.AltiVec = 0;
-@@ -1276,10 +1295,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1276,10 +1297,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -10166,7 +11687,7 @@ index ce61a46..bdc7109 100644
        case IK_CUDA:
          if (!Std.isCPlusPlus())
            Diags.Report(diag::err_drv_argument_not_allowed_with)
-@@ -1311,6 +1335,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1311,6 +1337,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    
    CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
  
@@ -10479,7 +12000,7 @@ index 2c65332..303fc49 100644
      addImplicitTypedef("sampler_t", Context.OCLSamplerTy);
      addImplicitTypedef("event_t", Context.OCLEventTy);
 diff --git a/tools/clang/lib/Sema/SemaDecl.cpp b/tools/clang/lib/Sema/SemaDecl.cpp
-index 8716227..f012fe5 100644
+index 8716227..a6d8f22 100644
 --- a/tools/clang/lib/Sema/SemaDecl.cpp
 +++ b/tools/clang/lib/Sema/SemaDecl.cpp
 @@ -5994,17 +5994,41 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
@@ -10752,7 +12273,17 @@ index 8716227..f012fe5 100644
    // Introduce our parameters into the function scope
    for (auto Param : FD->params()) {
      Param->setOwningFunction(FD);
-@@ -11941,7 +12034,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
+@@ -10118,8 +10211,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
+         FD->setInvalidDecl();
+       } else {
+         // Substitute 'void' for the 'auto' in the type.
+-        TypeLoc ResultType = FD->getTypeSourceInfo()->getTypeLoc().
+-            IgnoreParens().castAs<FunctionProtoTypeLoc>().getReturnLoc();
++        TypeLoc ResultType = getReturnTypeLoc(FD);
+         Context.adjustDeducedFunctionResultType(
+             FD, SubstAutoType(ResultType.getType(), Context.VoidTy));
+       }
+@@ -11941,7 +12033,7 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
    }
  
    // OpenCL v1.2 s6.9.c: bitfields are not supported.
@@ -10762,7 +12293,7 @@ index 8716227..f012fe5 100644
      InvalidDecl = true;
    }
 diff --git a/tools/clang/lib/Sema/SemaDeclAttr.cpp b/tools/clang/lib/Sema/SemaDeclAttr.cpp
-index 61683cd..1268dbb 100644
+index 61683cd..6e84904 100644
 --- a/tools/clang/lib/Sema/SemaDeclAttr.cpp
 +++ b/tools/clang/lib/Sema/SemaDeclAttr.cpp
 @@ -1956,6 +1956,94 @@ static void handleVisibilityAttr(Sema &S, Decl *D, const AttributeList &Attr,
@@ -10942,7 +12473,17 @@ index 61683cd..1268dbb 100644
  static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
    FunctionDecl *Fn = cast<FunctionDecl>(D);
    if (!Fn->isInlineSpecified()) {
-@@ -4102,6 +4226,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -3186,6 +3310,9 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
+   }
+   case AttributeList::AT_PnaclCall: CC = CC_PnaclCall; break;
+   case AttributeList::AT_IntelOclBicc: CC = CC_IntelOclBicc; break;
++  case AttributeList::AT_GraphicsVertexShader: CC = CC_FloorVertex; break;
++  case AttributeList::AT_GraphicsFragmentShader: CC = CC_FloorFragment; break;
++  case AttributeList::AT_ComputeKernel: CC = CC_FloorKernel; break;
+   default: llvm_unreachable("unexpected attribute kind");
+   }
+ 
+@@ -4102,6 +4229,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_Aligned:
      handleAlignedAttr(S, D, Attr);
      break;
@@ -10952,7 +12493,7 @@ index 61683cd..1268dbb 100644
    case AttributeList::AT_AlwaysInline:
      handleAlwaysInlineAttr(S, D, Attr);
      break;
-@@ -4159,9 +4286,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4159,9 +4289,6 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_FormatArg:
      handleFormatArgAttr(S, D, Attr);
      break;
@@ -10962,7 +12503,7 @@ index 61683cd..1268dbb 100644
    case AttributeList::AT_CUDADevice:
      handleSimpleAttribute<CUDADeviceAttr>(S, D, Attr);
      break;
-@@ -4399,11 +4523,38 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
+@@ -4399,11 +4526,38 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
    case AttributeList::AT_IntelOclBicc:
      handleCallConvAttr(S, D, Attr);
      break;
@@ -11005,7 +12546,7 @@ index 61683cd..1268dbb 100644
      break;
  
    // Microsoft attributes:
-@@ -4553,7 +4704,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
+@@ -4553,7 +4707,7 @@ void Sema::ProcessDeclAttributeList(Scope *S, Decl *D,
      return;
    }
  
@@ -11160,6 +12701,20 @@ index 06ca9ae..a517db4 100644
  
        // Check exception specifications
        if (S.CheckExceptionSpecCompatibility(CurInit.get(), DestType))
+diff --git a/tools/clang/lib/Sema/SemaLambda.cpp b/tools/clang/lib/Sema/SemaLambda.cpp
+index 0cf4ed7..ca71ad4 100644
+--- a/tools/clang/lib/Sema/SemaLambda.cpp
++++ b/tools/clang/lib/Sema/SemaLambda.cpp
+@@ -680,7 +680,8 @@ void Sema::deduceClosureReturnType(CapturingScopeInfo &CSI) {
+     const Expr *RetE = RS->getRetValue();
+ 
+     QualType ReturnType = (RetE ? RetE->getType() : Context.VoidTy);
+-    if (Context.hasSameType(ReturnType, CSI.ReturnType))
++    if (Context.getCanonicalFunctionResultType(ReturnType) ==
++          Context.getCanonicalFunctionResultType(CSI.ReturnType))
+       continue;
+ 
+     // FIXME: This is a poor diagnostic for ReturnStmts without expressions.
 diff --git a/tools/clang/lib/Sema/SemaOverload.cpp b/tools/clang/lib/Sema/SemaOverload.cpp
 index 03001d8..2c4bc8c 100644
 --- a/tools/clang/lib/Sema/SemaOverload.cpp
@@ -11190,6 +12745,64 @@ index 03001d8..2c4bc8c 100644
        return ICS;
    }
  
+diff --git a/tools/clang/lib/Sema/SemaStmt.cpp b/tools/clang/lib/Sema/SemaStmt.cpp
+index 278e6d6..d014da3 100644
+--- a/tools/clang/lib/Sema/SemaStmt.cpp
++++ b/tools/clang/lib/Sema/SemaStmt.cpp
+@@ -2727,14 +2727,20 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
+   return Result;
+ }
+ 
++TypeLoc Sema::getReturnTypeLoc(FunctionDecl *FD) const {
++  TypeLoc TL = FD->getTypeSourceInfo()->getTypeLoc().IgnoreParens();
++  while (auto ATL = TL.getAs<AttributedTypeLoc>())
++    TL = ATL.getModifiedLoc().IgnoreParens();
++  return TL.castAs<FunctionProtoTypeLoc>().getReturnLoc();
++}
++
+ /// Deduce the return type for a function from a returned expression, per
+ /// C++1y [dcl.spec.auto]p6.
+ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
+                                             SourceLocation ReturnLoc,
+                                             Expr *&RetExpr,
+                                             AutoType *AT) {
+-  TypeLoc OrigResultType = FD->getTypeSourceInfo()->getTypeLoc().
+-    IgnoreParens().castAs<FunctionProtoTypeLoc>().getReturnLoc();
++  TypeLoc OrigResultType = getReturnTypeLoc(FD);
+   QualType Deduced;
+ 
+   if (RetExpr && isa<InitListExpr>(RetExpr)) {
+@@ -2754,14 +2760,9 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
+     //   statement with a non-type-dependent operand.
+     assert(AT->isDeduced() && "should have deduced to dependent type");
+     return false;
+-  } else if (RetExpr) {
+-    //  If the deduction is for a return statement and the initializer is
+-    //  a braced-init-list, the program is ill-formed.
+-    if (isa<InitListExpr>(RetExpr)) {
+-      Diag(RetExpr->getExprLoc(), diag::err_auto_fn_return_init_list);
+-      return true;
+-    }
++  }
+ 
++  if (RetExpr) {
+     //  Otherwise, [...] deduce a value for U using the rules of template
+     //  argument deduction.
+     DeduceAutoResult DAR = DeduceAutoType(OrigResultType, RetExpr, Deduced);
+@@ -2795,8 +2796,11 @@ bool Sema::DeduceFunctionTypeFromReturnExpr(FunctionDecl *FD,
+   //  the program is ill-formed.
+   if (AT->isDeduced() && !FD->isInvalidDecl()) {
+     AutoType *NewAT = Deduced->getContainedAutoType();
+-    if (!FD->isDependentContext() &&
+-        !Context.hasSameType(AT->getDeducedType(), NewAT->getDeducedType())) {
++    CanQualType OldDeducedType = Context.getCanonicalFunctionResultType(
++                                   AT->getDeducedType());
++    CanQualType NewDeducedType = Context.getCanonicalFunctionResultType(
++                                   NewAT->getDeducedType());
++    if (!FD->isDependentContext() && OldDeducedType != NewDeducedType) {
+       const LambdaScopeInfo *LambdaSI = getCurLambda();
+       if (LambdaSI && LambdaSI->HasImplicitReturnType) {
+         Diag(ReturnLoc, diag::err_typecheck_missing_return_type_incompatible)
 diff --git a/tools/clang/lib/Sema/SemaStmtAttr.cpp b/tools/clang/lib/Sema/SemaStmtAttr.cpp
 index a32e0fb..9876c05 100644
 --- a/tools/clang/lib/Sema/SemaStmtAttr.cpp
@@ -11302,10 +12915,22 @@ index accec95..333f28b 100644
      if (TmplAttr->isLateParsed() && LateAttrs) {
        // Late parsed attributes must be instantiated and attached after the
 diff --git a/tools/clang/lib/Sema/SemaType.cpp b/tools/clang/lib/Sema/SemaType.cpp
-index be1191c..dd9edad 100644
+index be1191c..d7248a4 100644
 --- a/tools/clang/lib/Sema/SemaType.cpp
 +++ b/tools/clang/lib/Sema/SemaType.cpp
-@@ -1746,7 +1746,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
+@@ -112,7 +112,10 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
+     case AttributeList::AT_Regparm: \
+     case AttributeList::AT_Pcs: \
+     case AttributeList::AT_PnaclCall: \
+-    case AttributeList::AT_IntelOclBicc
++    case AttributeList::AT_IntelOclBicc: \
++    case AttributeList::AT_ComputeKernel: \
++    case AttributeList::AT_GraphicsVertexShader: \
++    case AttributeList::AT_GraphicsFragmentShader
+ 
+ // Microsoft-specific type qualifiers.
+ #define MS_TYPE_ATTRS_CASELIST  \
+@@ -1746,7 +1749,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
    }
  
    // Functions cannot return half FP.
@@ -11314,7 +12939,7 @@ index be1191c..dd9edad 100644
      Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 1 <<
        FixItHint::CreateInsertion(Loc, "*");
      return true;
-@@ -1776,7 +1776,7 @@ QualType Sema::BuildFunctionType(QualType T,
+@@ -1776,7 +1779,7 @@ QualType Sema::BuildFunctionType(QualType T,
      if (ParamType->isVoidType()) {
        Diag(Loc, diag::err_param_with_void_type);
        Invalid = true;
@@ -11323,7 +12948,7 @@ index be1191c..dd9edad 100644
        // Disallow half FP arguments.
        Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 0 <<
          FixItHint::CreateInsertion(Loc, "*");
-@@ -2474,8 +2474,24 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
+@@ -2474,8 +2477,32 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
      }
    }
  
@@ -11332,15 +12957,23 @@ index be1191c..dd9edad 100644
 +  CallingConv CC = S.Context.getDefaultCallingConvention(FTI.isVariadic,
 +                                                         IsCXXInstanceMethod);
 +
-+  // Attribute AT_ComputeKernel affects the calling convention only on
-+  // the SPIR target, hence it cannot be treated as a calling
-+  // convention attribute. This is the simplest place to infer
-+  // "spir_kernel" for OpenCL kernels on SPIR.
-+  if (CC == CC_SpirFunction) {
++  // Attributes AT_ComputeKernel, AT_GraphicsVertexShader, AT_GraphicsFragmentShader
++  // affect the calling convention only on SPIR, AIR and CUDA targets, hence they cannot
++  // be treated as calling convention attributes. This is the simplest place to infer
++  // "floor_kernel"/"floor_vertex"/"floor_fragment".
++  if (CC == CC_FloorFunction) {
 +    for (const AttributeList *Attr = D.getDeclSpec().getAttributes().getList();
 +         Attr; Attr = Attr->getNext()) {
 +      if (Attr->getKind() == AttributeList::AT_ComputeKernel) {
-+        CC = CC_SpirKernel;
++        CC = CC_FloorKernel;
++        break;
++      }
++      if (Attr->getKind() == AttributeList::AT_GraphicsVertexShader) {
++        CC = CC_FloorVertex;
++        break;
++      }
++      if (Attr->getKind() == AttributeList::AT_GraphicsFragmentShader) {
++        CC = CC_FloorFragment;
 +        break;
 +      }
 +    }
@@ -11350,7 +12983,7 @@ index be1191c..dd9edad 100644
  }
  
  static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
-@@ -2751,7 +2767,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -2751,7 +2778,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
              S.Diag(D.getIdentifierLoc(), diag::err_opencl_half_return) << T;
              D.setInvalidType(true);
            } 
@@ -11359,7 +12992,7 @@ index be1191c..dd9edad 100644
            S.Diag(D.getIdentifierLoc(),
              diag::err_parameters_retval_cannot_have_fp16_type) << 1;
            D.setInvalidType(true);
-@@ -2941,7 +2957,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -2941,7 +2968,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  D.setInvalidType();
                  Param->setInvalidDecl();
                }
@@ -11368,7 +13001,20 @@ index be1191c..dd9edad 100644
                S.Diag(Param->getLocation(),
                  diag::err_parameters_retval_cannot_have_fp16_type) << 0;
                D.setInvalidType();
-@@ -3969,14 +3985,14 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
+@@ -3428,6 +3455,12 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
+     return AttributeList::AT_MSABI;
+   case AttributedType::attr_sysv_abi:
+     return AttributeList::AT_SysVABI;
++  case AttributedType::attr_floor_vertex:
++    return AttributeList::AT_GraphicsVertexShader;
++  case AttributedType::attr_floor_fragment:
++    return AttributeList::AT_GraphicsFragmentShader;
++  case AttributedType::attr_floor_kernel:
++    return AttributeList::AT_ComputeKernel;
+   case AttributedType::attr_ptr32:
+     return AttributeList::AT_Ptr32;
+   case AttributedType::attr_ptr64:
+@@ -3969,14 +4002,14 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
    } else {
      // The keyword-based type attributes imply which address space to use.
      switch (Attr.getKind()) {
@@ -11387,7 +13033,20 @@ index be1191c..dd9edad 100644
        ASIdx = 0; break;
      }
    }
-@@ -4895,10 +4911,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -4453,6 +4486,12 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
+     return AttributedType::attr_ms_abi;
+   case AttributeList::AT_SysVABI:
+     return AttributedType::attr_sysv_abi;
++  case AttributeList::AT_GraphicsVertexShader:
++    return AttributedType::attr_floor_vertex;
++  case AttributeList::AT_GraphicsFragmentShader:
++    return AttributedType::attr_floor_fragment;
++  case AttributeList::AT_ComputeKernel:
++    return AttributedType::attr_floor_kernel;
+   }
+   llvm_unreachable("unexpected attribute kind!");
+ }
+@@ -4895,10 +4934,10 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        // it it breaks large amounts of Linux software.
        attr.setUsedAsTypeAttr();
        break;
@@ -11402,7 +13061,7 @@ index be1191c..dd9edad 100644
      case AttributeList::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
        attr.setUsedAsTypeAttr();
-@@ -4926,11 +4942,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -4926,11 +4965,32 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
@@ -11528,15 +13187,17 @@ index 4321903..08f0179 100644
    }
  
 diff --git a/tools/clang/tools/libclang/CXType.cpp b/tools/clang/tools/libclang/CXType.cpp
-index fe45899..0f97dc0 100644
+index fe45899..56b0b5a 100644
 --- a/tools/clang/tools/libclang/CXType.cpp
 +++ b/tools/clang/tools/libclang/CXType.cpp
-@@ -526,6 +526,8 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
+@@ -526,6 +526,10 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
        TCALLINGCONV(AAPCS_VFP);
        TCALLINGCONV(PnaclCall);
        TCALLINGCONV(IntelOclBicc);
-+      TCALLINGCONV(SpirFunction);
-+      TCALLINGCONV(SpirKernel);
++      TCALLINGCONV(FloorFunction);
++      TCALLINGCONV(FloorKernel);
++      TCALLINGCONV(FloorVertex);
++      TCALLINGCONV(FloorFragment);
      }
  #undef TCALLINGCONV
    }
