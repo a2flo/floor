@@ -99,7 +99,7 @@
 * NOTE: when building with GNU Make 4.2, use -j1 (jobserver changes in 4.2 broke *something*)
 * compile the toolchain:
 ** 3.5.2 toolchain: cd floor/etc/llvm35/ && ./build.sh
-** (experimental) 3.8.0 toolchain: cd floor/etc/llvm38/ && ./build.sh
+** 3.8.1 toolchain: cd floor/etc/llvm38/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
