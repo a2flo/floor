@@ -655,9 +655,11 @@ FLOOR_POP_WARNINGS()
 		
 		// enable parameter workaround for all device that use spir-v
 		// (this is necessary, because struct parameters in spir-v are currently bugged)
-		for(auto& dev : devices) {
-			if(((opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE) {
-				dev->param_workaround = true;
+		if(floor::get_opencl_spirv_param_workaround()) {
+			for(auto& dev : devices) {
+				if(((opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE) {
+					dev->param_workaround = true;
+				}
 			}
 		}
 		

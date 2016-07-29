@@ -174,6 +174,7 @@ public:
 	static bool get_opencl_validate_spirv();
 	static bool get_opencl_force_spirv_check();
 	static bool get_opencl_disable_spirv();
+	static bool get_opencl_spirv_param_workaround();
 	static const string& get_opencl_compiler();
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
@@ -300,6 +301,7 @@ protected:
 		bool opencl_validate_spirv = false;
 		bool opencl_force_spirv_check = false;
 		bool opencl_disable_spirv = false;
+		bool opencl_spirv_param_workaround = true;
 		vector<string> opencl_whitelist;
 		string opencl_compiler = default_compiler;
 		string opencl_llc = default_llc;
