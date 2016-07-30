@@ -65,8 +65,11 @@ fi
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
-git clone git://github.com/a2flo/SPIRV-Tools.git
+git clone git://github.com/a2flo/SPIRV-Tools.git --branch libfloor_v0.2.2 --single-branch
 git clone git://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
+cd SPIRV-Tools/external/spirv-headers
+git reset --hard 3814effb879ab5a98a7b9288a4b4c7849d2bc8ac
+cd ../../../
 
 # clean up prior source and build folders
 rm -Rf llvm 2>/dev/null
