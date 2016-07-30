@@ -276,7 +276,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_validate_spirv = config_doc.get<bool>("compute.opencl.validate_spirv", false);
 		config.opencl_force_spirv_check = config_doc.get<bool>("compute.opencl.force_spirv", false);
 		config.opencl_disable_spirv = config_doc.get<bool>("compute.opencl.disable_spirv", false);
-		config.opencl_spirv_param_workaround = config_doc.get<bool>("compute.opencl.spirv_param_workaround", true);
+		config.opencl_spirv_param_workaround = config_doc.get<bool>("compute.opencl.spirv_param_workaround", false);
 		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
 		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
 		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
