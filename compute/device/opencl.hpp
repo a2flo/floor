@@ -45,80 +45,80 @@ floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(g
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
-const_func float fmod(float x, float y)
-const_func float sqrt(float x)
+const_func float fmod(float x, float y);
+const_func float sqrt(float x);
 const_func float rsqrt(float x);
-const_func float fabs(float x)
-const_func float floor(float x)
-const_func float ceil(float x)
-const_func float round(float x)
-const_func float trunc(float x)
-const_func float rint(float x)
-const_func float sin(float x)
-const_func float cos(float x)
-const_func float tan(float x)
-const_func float asin(float x)
-const_func float acos(float x)
-const_func float atan(float x)
-const_func float atan2(float x, float y)
-const_func float fma(float a, float b, float c)
-const_func float sinh(float x)
-const_func float cosh(float x)
-const_func float tanh(float x)
-const_func float asinh(float x)
-const_func float acosh(float x)
-const_func float atanh(float x)
-const_func float exp(float x)
-const_func float exp2(float x)
-const_func float log(float x)
-const_func float log2(float x)
-const_func float pow(float x, float y)
-const_func float pown(float x, int y)
-const_func float copysign(float x, float y)
-const_func float fmin(float x, float y)
-const_func float fmax(float x, float y)
+const_func float fabs(float x);
+const_func float floor(float x);
+const_func float ceil(float x);
+const_func float round(float x);
+const_func float trunc(float x);
+const_func float rint(float x);
+const_func float sin(float x);
+const_func float cos(float x);
+const_func float tan(float x);
+const_func float asin(float x);
+const_func float acos(float x);
+const_func float atan(float x);
+const_func float atan2(float x, float y);
+const_func float fma(float a, float b, float c);
+const_func float sinh(float x);
+const_func float cosh(float x);
+const_func float tanh(float x);
+const_func float asinh(float x);
+const_func float acosh(float x);
+const_func float atanh(float x);
+const_func float exp(float x);
+const_func float exp2(float x);
+const_func float log(float x);
+const_func float log2(float x);
+const_func float pow(float x, float y);
+const_func float pown(float x, int y);
+const_func float copysign(float x, float y);
+const_func float fmin(float x, float y);
+const_func float fmax(float x, float y);
 
-const_func int8_t abs(int8_t x)
-const_func int16_t abs(int16_t x)
-const_func int32_t abs(int32_t x)
-const_func int64_t abs(int64_t x)
-const_func uint8_t abs(uint8_t x)
-const_func uint16_t abs(uint16_t x)
-const_func uint32_t abs(uint32_t x)
-const_func uint64_t abs(uint64_t x)
+const_func int8_t abs(int8_t x);
+const_func int16_t abs(int16_t x);
+const_func int32_t abs(int32_t x);
+const_func int64_t abs(int64_t x);
+const_func uint8_t abs(uint8_t x);
+const_func uint16_t abs(uint16_t x);
+const_func uint32_t abs(uint32_t x);
+const_func uint64_t abs(uint64_t x);
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-const_func double fmod(double x, double y)
-const_func double sqrt(double x)
-const_func double rsqrt(double x);
-const_func double fabs(double x)
-const_func double floor(double x)
-const_func double ceil(double x)
-const_func double round(double x)
-const_func double trunc(double x)
-const_func double rint(double x)
-const_func double sin(double x)
-const_func double cos(double x)
-const_func double tan(double x)
-const_func double asin(double x)
-const_func double acos(double x)
-const_func double atan(double x)
-const_func double atan2(double x, double y)
-const_func double sinh(double x)
-const_func double cosh(double x)
-const_func double tanh(double x)
-const_func double asinh(double x)
-const_func double acosh(double x)
-const_func double atanh(double x)
-const_func double fma(double a, double b, double c)
-const_func double exp(double x)
-const_func double exp2(double x)
-const_func double log(double x)
-const_func double log2(double x)
-const_func double pow(double x, double y)
-const_func double copysign(double x, double y)
-const_func double fmin(double x, double y)
-const_func double fmax(double x, double y)
+const_func double fmod(double x, double y);
+const_func double sqrt(double x);
+const_func double rsqrt(double x);;
+const_func double fabs(double x);
+const_func double floor(double x);
+const_func double ceil(double x);
+const_func double round(double x);
+const_func double trunc(double x);
+const_func double rint(double x);
+const_func double sin(double x);
+const_func double cos(double x);
+const_func double tan(double x);
+const_func double asin(double x);
+const_func double acos(double x);
+const_func double atan(double x);
+const_func double atan2(double x, double y);
+const_func double sinh(double x);
+const_func double cosh(double x);
+const_func double tanh(double x);
+const_func double asinh(double x);
+const_func double acosh(double x);
+const_func double atanh(double x);
+const_func double fma(double a, double b, double c);
+const_func double exp(double x);
+const_func double exp2(double x);
+const_func double log(double x);
+const_func double log2(double x);
+const_func double pow(double x, double y);
+const_func double copysign(double x, double y);
+const_func double fmin(double x, double y);
+const_func double fmax(double x, double y);
 #endif
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
