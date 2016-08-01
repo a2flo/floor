@@ -282,9 +282,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
 		config.opencl_as = config_doc.get<string>("compute.opencl.as", config.default_as);
 		config.opencl_dis = config_doc.get<string>("compute.opencl.dis", config.default_dis);
-		config.opencl_spir_encoder = config_doc.get<string>("compute.opencl.spir-encoder", config.opencl_spir_encoder);
-		config.opencl_spir_verifier = config_doc.get<string>("compute.opencl.spir-verifier", config.opencl_spir_verifier);
-		config.opencl_applecl_encoder = config_doc.get<string>("compute.opencl.applecl-encoder", config.opencl_applecl_encoder);
 		config.opencl_spirv_encoder = config_doc.get<string>("compute.opencl.spirv-encoder", config.opencl_spirv_encoder);
 		config.opencl_spirv_as= config_doc.get<string>("compute.opencl.spirv-as", config.opencl_spirv_as);
 		config.opencl_spirv_dis = config_doc.get<string>("compute.opencl.spirv-dis", config.opencl_spirv_dis);
@@ -418,9 +415,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 															config.opencl_compiler, config.opencl_llc,
 															config.opencl_as, config.opencl_dis,
 															vector<pair<uint2, string*>> {
-																{ { 30500u, 30502u }, &config.opencl_spir_encoder },
-																{ { 30500u, 30502u }, &config.opencl_spir_verifier },
-																{ { 30500u, 30502u }, &config.opencl_applecl_encoder },
 																{ { 30800u, ~0u }, &config.opencl_spirv_encoder },
 																{ { 30800u, ~0u }, &config.opencl_spirv_as },
 																{ { 30800u, ~0u }, &config.opencl_spirv_dis },
@@ -437,9 +431,6 @@ void floor::init(const char* callpath_, const char* datapath_,
 			config.opencl_llc.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_as.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_dis.insert(0, config.opencl_base_path + "bin/");
-			config.opencl_spir_encoder.insert(0, config.opencl_base_path + "bin/");
-			config.opencl_spir_verifier.insert(0, config.opencl_base_path + "bin/");
-			config.opencl_applecl_encoder.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_spirv_encoder.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_spirv_as.insert(0, config.opencl_base_path + "bin/");
 			config.opencl_spirv_dis.insert(0, config.opencl_base_path + "bin/");
@@ -846,7 +837,7 @@ void floor::init_internal(const bool use_gl33
 		// default compute backends (will try these in order, using the first working one)
 #if defined(__APPLE__)
 #if !defined(FLOOR_IOS) // osx
-		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL, COMPUTE_TYPE::CUDA, COMPUTE_TYPE::OPENCL };
+		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL, COMPUTE_TYPE::CUDA };
 #else // ios
 		vector<COMPUTE_TYPE> compute_defaults { COMPUTE_TYPE::METAL };
 #endif
@@ -1477,15 +1468,6 @@ const string& floor::get_opencl_as() {
 }
 const string& floor::get_opencl_dis() {
 	return config.opencl_dis;
-}
-const string& floor::get_opencl_spir_encoder() {
-	return config.opencl_spir_encoder;
-}
-const string& floor::get_opencl_spir_verifier() {
-	return config.opencl_spir_verifier;
-}
-const string& floor::get_opencl_applecl_encoder() {
-	return config.opencl_applecl_encoder;
 }
 const string& floor::get_opencl_spirv_encoder() {
 	return config.opencl_spirv_encoder;

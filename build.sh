@@ -67,9 +67,8 @@ BUILD_CONF_CUDA=1
 BUILD_CONF_OPENAL=1
 BUILD_CONF_HOST_COMPUTE=1
 BUILD_CONF_METAL=1
-BUILD_CONF_VULKAN=0 # hard disabled for now (TODO/NOTE: will come back in v0.3)
+BUILD_CONF_VULKAN=1
 BUILD_CONF_NET=1
-BUILD_CONF_XML=1
 BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
@@ -115,7 +114,6 @@ for arg in "$@"; do
 			echo "  no-vulkan          disables vulkan support"
 			echo "	no-openal          disables openal support"
 			echo "	no-net             disables network support"
-			echo "	no-xml             disables xml support"
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
@@ -182,9 +180,6 @@ for arg in "$@"; do
 			;;
 		"no-net")
 			BUILD_CONF_NET=0
-			;;
-		"no-xml")
-			BUILD_CONF_XML=0
 			;;
 		"no-exceptions")
 			BUILD_CONF_EXCEPTIONS=0
@@ -399,9 +394,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2"
 	PACKAGES_OPT=""
-	if [ ${BUILD_CONF_XML} -gt 0 ]; then
-		PACKAGES_OPT="${PACKAGES_OPT} libxml-2.0"
-	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		PACKAGES_OPT="${PACKAGES_OPT} libcrypto libssl"
 	fi
@@ -503,9 +495,6 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 else
 	# on osx/ios: assume everything is installed, pkg-config doesn't really exist
 	INCLUDES="${INCLUDES} -isystem /opt/X11/include"
-	if [ ${BUILD_CONF_XML} -gt 0 ]; then
-		INCLUDES="${INCLUDES} -isystem /usr/include/libxml2"
-	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	fi
@@ -534,9 +523,6 @@ else
 	
 	# frameworks and libs
 	LDFLAGS="${LDFLAGS} -framework SDL2"
-	if [ ${BUILD_CONF_XML} -gt 0 ]; then
-		LDFLAGS="${LDFLAGS} -lxml2"
-	fi
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lcrypto -lssl"
 	fi
@@ -546,9 +532,6 @@ else
 	
 	# system frameworks
 	LDFLAGS="${LDFLAGS} -framework ApplicationServices -framework AppKit -framework Cocoa -framework OpenGL -framework QuartzCore"
-	if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
-		LDFLAGS="${LDFLAGS} -framework OpenCL"
-	fi
 	if [ ${BUILD_CONF_METAL} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -framework Metal"
 	fi
@@ -583,7 +566,6 @@ else
 fi
 set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
-set_conf_val "###FLOOR_XML###" "FLOOR_NO_XML" ${BUILD_CONF_XML}
 set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
 set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" $((1 - $((${BUILD_CONF_CXX17}))))
 echo "${CONF}" > floor/floor_conf.hpp
@@ -701,13 +683,9 @@ REL_OPT_LD_FLAGS="-flto"
 # osx/ios: set min version
 if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 	if [ $BUILD_OS == "osx" ]; then
-		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.9"
+		COMMON_FLAGS="${COMMON_FLAGS} -mmacosx-version-min=10.11"
 	else # ios
-		if [ ${BUILD_CONF_METAL} -gt 0 ]; then
-			COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=9.0"
-		else
-			COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=7.0"
-		fi
+		COMMON_FLAGS="${COMMON_FLAGS} -miphoneos-version-min=9.0"
 	fi
 	
 	# set lib version

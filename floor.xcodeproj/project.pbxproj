@@ -29,8 +29,6 @@
 		5C1091B617D1153E007F536E /* unicode.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10917D17D1153E007F536E /* unicode.hpp */; };
 		5C1091B717D1153E007F536E /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
 		5C1091B817D1153E007F536E /* util.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10917F17D1153E007F536E /* util.hpp */; };
-		5C1091BF17D1153E007F536E /* xml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918617D1153E007F536E /* xml.cpp */; };
-		5C1091C017D1153E007F536E /* xml.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10918717D1153E007F536E /* xml.hpp */; };
 		5C1091CA17D1153E007F536E /* http_net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919617D1153E007F536E /* http_net.hpp */; };
 		5C1091CB17D1153E007F536E /* irc_net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919717D1153E007F536E /* irc_net.hpp */; };
 		5C1091CC17D1153E007F536E /* net.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919817D1153E007F536E /* net.hpp */; };
@@ -40,12 +38,10 @@
 		5C1091D017D1153E007F536E /* task.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919D17D1153E007F536E /* task.hpp */; };
 		5C1091D117D1153E007F536E /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
 		5C1091D217D1153E007F536E /* thread_base.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10919F17D1153E007F536E /* thread_base.hpp */; };
-		5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F217D148B8007F536E /* OpenCL.framework */; };
 		5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F317D148B8007F536E /* OpenGL.framework */; };
 		5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F617D148C5007F536E /* Cocoa.framework */; };
 		5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091F817D148CB007F536E /* AppKit.framework */; };
 		5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FA17D148D0007F536E /* ApplicationServices.framework */; };
-		5C1091FD17D148DB007F536E /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C1091FC17D148DB007F536E /* libxml2.dylib */; };
 		5C10920017D14C95007F536E /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
 		5C10920317D1F80E007F536E /* gl_support.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10920117D1F80E007F536E /* gl_support.cpp */; };
 		5C10920617D1F81B007F536E /* gl_support.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C10920517D1F81B007F536E /* gl_support.hpp */; };
@@ -181,7 +177,6 @@
 		5CAEC247186799BE00BEC3A3 /* logger.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917617D1153E007F536E /* logger.cpp */; };
 		5CAEC24A186799BE00BEC3A3 /* unicode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917C17D1153E007F536E /* unicode.cpp */; };
 		5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917E17D1153E007F536E /* util.cpp */; };
-		5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10918617D1153E007F536E /* xml.cpp */; };
 		5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C1091FF17D14C95007F536E /* floor.cpp */; };
 		5CAEC256186799BF00BEC3A3 /* task.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919C17D1153E007F536E /* task.cpp */; };
 		5CAEC257186799BF00BEC3A3 /* thread_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10919E17D1153E007F536E /* thread_base.cpp */; };
@@ -296,8 +291,6 @@
 		5C10917D17D1153E007F536E /* unicode.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = unicode.hpp; sourceTree = "<group>"; };
 		5C10917E17D1153E007F536E /* util.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = util.cpp; sourceTree = "<group>"; };
 		5C10917F17D1153E007F536E /* util.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = util.hpp; sourceTree = "<group>"; };
-		5C10918617D1153E007F536E /* xml.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = xml.cpp; sourceTree = "<group>"; };
-		5C10918717D1153E007F536E /* xml.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = xml.hpp; sourceTree = "<group>"; };
 		5C10919617D1153E007F536E /* http_net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = http_net.hpp; sourceTree = "<group>"; };
 		5C10919717D1153E007F536E /* irc_net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = irc_net.hpp; sourceTree = "<group>"; };
 		5C10919817D1153E007F536E /* net.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = net.hpp; sourceTree = "<group>"; };
@@ -313,7 +306,6 @@
 		5C1091F617D148C5007F536E /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		5C1091F817D148CB007F536E /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		5C1091FA17D148D0007F536E /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = System/Library/Frameworks/ApplicationServices.framework; sourceTree = SDKROOT; };
-		5C1091FC17D148DB007F536E /* libxml2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libxml2.dylib; path = usr/lib/libxml2.dylib; sourceTree = SDKROOT; };
 		5C1091FF17D14C95007F536E /* floor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = floor.cpp; sourceTree = "<group>"; };
 		5C10920117D1F80E007F536E /* gl_support.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = gl_support.cpp; sourceTree = "<group>"; };
 		5C10920517D1F81B007F536E /* gl_support.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = gl_support.hpp; sourceTree = "<group>"; };
@@ -439,7 +431,6 @@
 		5CAF9C7F1D3E3CB200A00C32 /* 381_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_llvm.patch; path = etc/llvm38/381_llvm.patch; sourceTree = "<group>"; };
 		5CAF9C801D3E3CB200A00C32 /* 381_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_libcxx.patch; path = etc/llvm38/381_libcxx.patch; sourceTree = "<group>"; };
 		5CAF9C811D3E3CB200A00C32 /* 381_clang.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 381_clang.patch; path = etc/llvm38/381_clang.patch; sourceTree = "<group>"; };
-		5CB382791C9C2E2400B3633F /* gcc_5_1.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = gcc_5_1.patch; path = etc/llvm35/gcc_5_1.patch; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
 		5CBBFF571BC2B786001813E0 /* image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image.hpp; path = device/image.hpp; sourceTree = "<group>"; };
 		5CBD02DF1A45F46100B1F4A1 /* thread_safety.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = thread_safety.hpp; sourceTree = "<group>"; };
@@ -464,11 +455,6 @@
 		5CCF37951C3D208D006D355B /* metal_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_post.hpp; path = device/metal_post.hpp; sourceTree = "<group>"; };
 		5CD1872A1C8F5A5600DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm38/build.sh; sourceTree = "<group>"; };
 		5CD1872B1C8F5A5600DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm38/pkg.sh; sourceTree = "<group>"; };
-		5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 350_clang_llvm.patch; path = etc/llvm35/350_clang_llvm.patch; sourceTree = "<group>"; };
-		5CD1872E1C8F5A7400DBAECC /* 350_libcxx.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = 350_libcxx.patch; path = etc/llvm35/350_libcxx.patch; sourceTree = "<group>"; };
-		5CD1872F1C8F5A7400DBAECC /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = build.sh; path = etc/llvm35/build.sh; sourceTree = "<group>"; };
-		5CD187311C8F5A7400DBAECC /* llvm_tools_spir_applecl_encoder.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = llvm_tools_spir_applecl_encoder.patch; path = etc/llvm35/llvm_tools_spir_applecl_encoder.patch; sourceTree = "<group>"; };
-		5CD187321C8F5A7400DBAECC /* pkg.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; name = pkg.sh; path = etc/llvm35/pkg.sh; sourceTree = "<group>"; };
 		5CD2175319E985D80049D6AE /* cuda_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = cuda_compute.cpp; sourceTree = "<group>"; };
 		5CD2175419E985D80049D6AE /* cuda_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cuda_compute.hpp; sourceTree = "<group>"; };
 		5CD2175619E985D80049D6AE /* opencl_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_compute.cpp; sourceTree = "<group>"; };
@@ -526,9 +512,7 @@
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
-				5C1091F417D148B8007F536E /* OpenCL.framework in Frameworks */,
 				5C1091F517D148B8007F536E /* OpenGL.framework in Frameworks */,
-				5C1091FD17D148DB007F536E /* libxml2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -617,8 +601,6 @@
 				5C10917D17D1153E007F536E /* unicode.hpp */,
 				5C10917E17D1153E007F536E /* util.cpp */,
 				5C10917F17D1153E007F536E /* util.hpp */,
-				5C10918617D1153E007F536E /* xml.cpp */,
-				5C10918717D1153E007F536E /* xml.hpp */,
 			);
 			path = core;
 			sourceTree = "<group>";
@@ -683,7 +665,6 @@
 		5C1091FE17D148EF007F536E /* libs */ = {
 			isa = PBXGroup;
 			children = (
-				5C1091FC17D148DB007F536E /* libxml2.dylib */,
 				5CC97EE71A93808800611CF6 /* Metal.framework */,
 				5C2F83681B63FF1000B27BE3 /* metal */,
 				5CBE41DD1B31D34900AE0E5F /* QuartzCore.framework */,
@@ -861,7 +842,6 @@
 			isa = PBXGroup;
 			children = (
 				5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */,
-				5CD1872C1C8F5A6700DBAECC /* llvm35 */,
 				5CD187261C8F5A4100DBAECC /* llvm38 */,
 			);
 			name = etc;
@@ -918,19 +898,6 @@
 				5CD1872B1C8F5A5600DBAECC /* pkg.sh */,
 			);
 			name = llvm38;
-			sourceTree = "<group>";
-		};
-		5CD1872C1C8F5A6700DBAECC /* llvm35 */ = {
-			isa = PBXGroup;
-			children = (
-				5CD1872D1C8F5A7400DBAECC /* 350_clang_llvm.patch */,
-				5CD1872E1C8F5A7400DBAECC /* 350_libcxx.patch */,
-				5CD1872F1C8F5A7400DBAECC /* build.sh */,
-				5CB382791C9C2E2400B3633F /* gcc_5_1.patch */,
-				5CD187311C8F5A7400DBAECC /* llvm_tools_spir_applecl_encoder.patch */,
-				5CD187321C8F5A7400DBAECC /* pkg.sh */,
-			);
-			name = llvm35;
 			sourceTree = "<group>";
 		};
 		5CD2175219E985D80049D6AE /* cuda */ = {
@@ -1041,7 +1008,6 @@
 				5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */,
 				5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */,
 				5C1091B617D1153E007F536E /* unicode.hpp in Headers */,
-				5C1091C017D1153E007F536E /* xml.hpp in Headers */,
 				5C20C8CB1B4139260005F5EA /* host_image.hpp in Headers */,
 				5C4E30EB1B428B120034E536 /* host_image.hpp in Headers */,
 				5C1091CD17D1153E007F536E /* net_protocol.hpp in Headers */,
@@ -1274,7 +1240,6 @@
 				5CEB9F6A1A4BF91B00EC3543 /* compute_kernel.cpp in Sources */,
 				5CEEA6D61A4EE171005239DA /* compute_program.cpp in Sources */,
 				5C4A85AF18F953590039BFD4 /* lexer.cpp in Sources */,
-				5C1091BF17D1153E007F536E /* xml.cpp in Sources */,
 				5C5383EC1A641B1E007AEDD7 /* cuda_program.cpp in Sources */,
 				5C3E82D01BAC20130096D7A5 /* asio_error_handler.cpp in Sources */,
 				5C1091B717D1153E007F536E /* util.cpp in Sources */,
@@ -1325,7 +1290,6 @@
 				5CEEA6D71A4EE171005239DA /* compute_program.cpp in Sources */,
 				5CAEC24B186799BE00BEC3A3 /* util.cpp in Sources */,
 				5C7173C418D7288900DDF097 /* audio_controller.cpp in Sources */,
-				5CAEC24F186799BE00BEC3A3 /* xml.cpp in Sources */,
 				5CAEC250186799BE00BEC3A3 /* floor.cpp in Sources */,
 				5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */,
 				5CEEA6E11A4F2EB5005239DA /* opencl_queue.cpp in Sources */,
@@ -1376,10 +1340,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 0.2.2;
+				CURRENT_PROJECT_VERSION = 0.3.0;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DYLIB_COMPATIBILITY_VERSION = 0.2.2;
-				DYLIB_CURRENT_VERSION = 0.2.2;
+				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
+				DYLIB_CURRENT_VERSION = 0.3.0;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
@@ -1423,7 +1387,7 @@
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
 				LLVM_VECTORIZE_LOOPS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
@@ -1431,8 +1395,6 @@
 					"$(DT_TOOLCHAIN_DIR)/usr/include",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
-					"-isystem",
-					"$(SDK_DIR)/usr/include/libxml2",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
@@ -1508,10 +1470,10 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				CONFIGURATION_BUILD_DIR = bin;
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 0.2.2;
+				CURRENT_PROJECT_VERSION = 0.3.0;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DYLIB_COMPATIBILITY_VERSION = 0.2.2;
-				DYLIB_CURRENT_VERSION = 0.2.2;
+				DYLIB_COMPATIBILITY_VERSION = 0.3.0;
+				DYLIB_CURRENT_VERSION = 0.3.0;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
@@ -1550,15 +1512,13 @@
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(PRODUCT_NAME).dylib";
 				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Resources @loader_path/../Frameworks /Library/Frameworks /usr/local/lib /usr/lib /opt/floor/lib";
 				LLVM_VECTORIZE_LOOPS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.9;
+				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				OTHER_CFLAGS = (
 					"-fparse-all-comments",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/include",
 					"-isystem",
 					"$(DT_TOOLCHAIN_DIR)/usr/lib/c++/v1",
-					"-isystem",
-					"$(SDK_DIR)/usr/include/libxml2",
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",

@@ -23,10 +23,7 @@
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
-
-#if defined(FLOOR_COMPUTE_TOOLCHAIN_VERSION) && (FLOOR_COMPUTE_TOOLCHAIN_VERSION >= 30800u)
 #pragma OPENCL EXTENSION cl_khr_gl_msaa_sharing : enable
-#endif
 
 #define global __attribute__((global_as))
 #define constant __attribute__((constant_as))

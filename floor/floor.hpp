@@ -179,9 +179,6 @@ public:
 	static const string& get_opencl_llc();
 	static const string& get_opencl_as();
 	static const string& get_opencl_dis();
-	static const string& get_opencl_spir_encoder();
-	static const string& get_opencl_spir_verifier();
-	static const string& get_opencl_applecl_encoder();
 	static const string& get_opencl_spirv_encoder();
 	static const string& get_opencl_spirv_as();
 	static const string& get_opencl_spirv_dis();
@@ -307,9 +304,6 @@ protected:
 		string opencl_llc = default_llc;
 		string opencl_as = default_as;
 		string opencl_dis = default_dis;
-		string opencl_spir_encoder = "spir-encoder";
-		string opencl_spir_verifier = "spir-verifier";
-		string opencl_applecl_encoder = "applecl-encoder";
 		string opencl_spirv_encoder = "llvm-spirv";
 		string opencl_spirv_as = "spirv-as";
 		string opencl_spirv_dis = "spirv-dis";

@@ -1625,9 +1625,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, ssize_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, ssize_t)
 #endif
-#if defined(__APPLE__) || (defined(FLOOR_COMPUTE_CUDA) && \
-						   defined(PLATFORM_X64) && \
-						   !(__clang_major__ == 3 && __clang_minor__ < 7))
+#if defined(__APPLE__) || \
+    (defined(FLOOR_COMPUTE_CUDA) && defined(PLATFORM_X64))
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, size_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, size_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, size_t)

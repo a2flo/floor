@@ -23,10 +23,7 @@
 
 #pragma OPENCL EXTENSION cl_khr_fp64 : enable
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
-
-#if defined(FLOOR_COMPUTE_TOOLCHAIN_VERSION) && (FLOOR_COMPUTE_TOOLCHAIN_VERSION >= 30800u)
 #pragma OPENCL EXTENSION cl_khr_gl_msaa_sharing : enable
-#endif
 
 #if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_MIPMAP_SUPPORT_1)
 #pragma OPENCL EXTENSION cl_khr_mipmap_image : enable
@@ -66,13 +63,6 @@ typedef long int ssize_t;
 #define constant __attribute__((constant_as))
 #define local __attribute__((local_as))
 #define kernel extern "C" __attribute__((compute_kernel))
-
-// proper function mangling (default to c++ mangling on spir, c on applecl)
-#if defined(FLOOR_COMPUTE_APPLECL)
-#define opencl_c_func extern "C"
-#else
-#define opencl_c_func
-#endif
 
 #endif
 

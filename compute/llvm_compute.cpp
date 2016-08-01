@@ -128,6 +128,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -llvm-bc-32" \
+				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
@@ -138,9 +140,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_OPENCL_MAJOR=1" \
 				" -DFLOOR_COMPUTE_OPENCL_MINOR=2" +
 				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
-				(floor::get_opencl_verify_spir() && toolchain_version >= 30800u ? " -Xclang -cl-verify-spir" : "") +
-				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "") +
+				(floor::get_opencl_verify_spir() ? " -Xclang -cl-verify-spir" : "") +
 				(device->platform_vendor == COMPUTE_VENDOR::INTEL &&
 				 device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -cl-spir-intel-workarounds" : "")
 			};
@@ -155,12 +155,10 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			if(mtl_dev->family < 10000) {
 				// -> iOS 9.0+
 				os_target = "ios9.0.0";
-				if(toolchain_version < 30800u) os_target += " -miphoneos-version-min=9.0";
 			}
 			else {
 				// -> OS X 10.11+
 				os_target = "macosx10.11.0";
-				if(toolchain_version < 30800u) os_target += " -mmacosx-version-min=10.11";
 			}
 			
 			clang_cmd += {
@@ -179,8 +177,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
-				" -DFLOOR_COMPUTE_METAL" +
-				(toolchain_version < 30800u ? "" : " -llvm-bc-35")
+				" -DFLOOR_COMPUTE_METAL" \
+				" -llvm-bc-35"
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
@@ -200,7 +198,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
 				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
-				(toolchain_version >= 30800u ? " --cuda-device-only --cuda-gpu-arch=sm_" + sm_version : "") +
+				" --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
@@ -208,42 +206,15 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			clang_path += floor::get_cuda_base_path() + "clang";
 			floor_path += floor::get_cuda_base_path() + "floor";
 		} break;
-		case TARGET::APPLECL:
-			toolchain_version = floor::get_opencl_toolchain_version();
-			clang_cmd += {
-				"\"" + floor::get_opencl_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL1.2" \
-				" -target " + (device->bitness == 32 ? "spir-applecl-" : "spir64-applecl-") +
-				(compute_device::has_flag<compute_device::TYPE::GPU>(device->type) ? "gpu" : "cpu") +
-				" -Xclang -applecl-kernel-info" \
-				" -Xclang -cl-mad-enable" \
-				" -Xclang -cl-fast-relaxed-math" \
-				" -Xclang -cl-unsafe-math-optimizations" \
-				" -Xclang -cl-finite-math-only" \
-				" -DFLOOR_COMPUTE_OPENCL" \
-				" -DFLOOR_COMPUTE_APPLECL"
-				" -DFLOOR_COMPUTE_OPENCL_MAJOR=1" \
-				" -DFLOOR_COMPUTE_OPENCL_MINOR=2" + +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version < 30800u ? "" : " -llvm-bc-32") +
-				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
-			};
-			libcxx_path += floor::get_opencl_base_path() + "libcxx";
-			clang_path += floor::get_opencl_base_path() + "clang";
-			floor_path += floor::get_opencl_base_path() + "floor";
-			break;
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
-			if(toolchain_version < 30800u) {
-				log_error("SPIR-V is not supported by this toolchain!");
-				return {};
-			}
 			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL2.0" \
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
@@ -251,8 +222,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_VULKAN" \
 				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
@@ -260,10 +230,6 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			break;
 		case TARGET::SPIRV_OPENCL:
 			toolchain_version = floor::get_opencl_toolchain_version();
-			if(toolchain_version < 30800u) {
-				log_error("SPIR-V is not supported by this toolchain!");
-				return {};
-			}
 			const auto cl_device = (const opencl_device*)device.get();
 			if(cl_device->spirv_version == SPIRV_VERSION::NONE) {
 				log_error("SPIR-V is not supported by this device!");
@@ -275,6 +241,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				// compile to the max opencl standard that is supported by the device
 				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
 				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
 				" -Xclang -cl-fast-relaxed-math" \
@@ -284,8 +251,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				" -DFLOOR_COMPUTE_SPIRV" \
 				" -DFLOOR_COMPUTE_OPENCL_MAJOR=" + cl_major_version_to_string(cl_device->cl_version) +
 				" -DFLOOR_COMPUTE_OPENCL_MINOR=" + cl_minor_version_to_string(cl_device->cl_version) +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "") +
-				(toolchain_version >= 30800u ? " -Xclang -cl-sampler-type -Xclang i32" : "")
+				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_opencl_base_path() + "libcxx";
 			clang_path += floor::get_opencl_base_path() + "clang";
@@ -564,55 +530,9 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	// final target specific processing/compilation
 	if(options.target == TARGET::SPIR) {
 		string spir_bc_data = "";
-		if(toolchain_version < 30800u) {
-			// run spir-encoder for 3.5 -> 3.2 conversion
-			const auto spir_32_bc = core::create_tmp_file_name("spir_3_2", ".bc");
-			const string spir_3_2_encoder_cmd {
-				"\"" + floor::get_opencl_spir_encoder() + "\" " + compiled_file_or_code + " " + spir_32_bc
-#if !defined(_MSC_VER)
-				+ " 2>&1"
-#endif
-			};
-			string spir_encoder_output = "";
-			core::system(spir_3_2_encoder_cmd, spir_encoder_output);
-			if(!options.silence_debug_output) {
-				log_msg("spir encoder: %s", spir_encoder_output);
-			}
-			
-			// run spir-verifier if specified
-			if(floor::get_opencl_verify_spir() && toolchain_version < 30800u) {
-				const string spir_verifier_cmd {
-					"\"" + floor::get_opencl_spir_verifier() + "\" " + spir_32_bc
-#if !defined(_MSC_VER)
-					+ " 2>&1"
-#endif
-				};
-				string spir_verifier_output = "";
-				core::system(spir_verifier_cmd, spir_verifier_output);
-				if(!spir_verifier_output.empty() && spir_verifier_output[spir_verifier_output.size() - 1] == '\n') {
-					spir_verifier_output.pop_back(); // trim last newline
-				}
-				if(!options.silence_debug_output) {
-					log_msg("spir verifier: %s", spir_verifier_output);
-				}
-			}
-			
-			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
-			if(!file_io::file_to_string(spir_32_bc, spir_bc_data)) {
-				log_error("failed to read back SPIR 1.2 .bc file");
-				return {};
-			}
-			
-			// cleanup
-			if(!floor::get_compute_keep_temp()) {
-				core::system("rm " + spir_32_bc);
-			}
-		}
-		else {
-			if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
-				log_error("failed to read SPIR 1.2 .bc file");
-				return {};
-			}
+		if(!file_io::file_to_string(compiled_file_or_code, spir_bc_data)) {
+			log_error("failed to read SPIR 1.2 .bc file");
+			return {};
 		}
 		
 		// cleanup
@@ -672,51 +592,6 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		
 		// move ptx code
 		compiled_file_or_code.swap(ptx_code);
-	}
-	else if(options.target == TARGET::APPLECL) {
-		string applecl_bc_data = "";
-		if(toolchain_version < 30800u) {
-			// run applecl-encoder for 3.5 -> 3.2 conversion
-			const auto applecl_32_bc = core::create_tmp_file_name("applecl_3_2", ".bc");
-			const string applecl_3_2_encoder_cmd {
-				"\"" + floor::get_opencl_applecl_encoder() + "\"" +
-				(compute_device::has_flag<compute_device::TYPE::CPU>(device->type) ? " -encode-cpu" : "") +
-				" " + compiled_file_or_code + " " + applecl_32_bc
-#if !defined(_MSC_VER)
-				+ " 2>&1"
-#endif
-			};
-			string applecl_encoder_output = "";
-			core::system(applecl_3_2_encoder_cmd, applecl_encoder_output);
-			if(!options.silence_debug_output) {
-				log_msg("applecl encoder: %s", applecl_encoder_output);
-			}
-			
-			// finally, read converted bitcode data back, this is the code that will be compiled by the opencl implementation
-			if(!file_io::file_to_string(applecl_32_bc, applecl_bc_data)) {
-				log_error("failed to read back AppleCL .bc file");
-				return {};
-			}
-			
-			// cleanup
-			if(!floor::get_compute_keep_temp()) {
-				core::system("rm " + applecl_32_bc);
-			}
-		}
-		else {
-			if(!file_io::file_to_string(compiled_file_or_code, applecl_bc_data)) {
-				log_error("failed to read AppleCL .bc file");
-				return {};
-			}
-		}
-		
-		// cleanup
-		if(!floor::get_compute_keep_temp()) {
-			core::system("rm " + compiled_file_or_code);
-		}
-		
-		// move applecl data
-		compiled_file_or_code.swap(applecl_bc_data);
 	}
 	else if(options.target == TARGET::SPIRV_VULKAN ||
 			options.target == TARGET::SPIRV_OPENCL) {

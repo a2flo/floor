@@ -21,13 +21,13 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
-const_func opencl_c_func size_t get_global_id(uint32_t dim);
-const_func opencl_c_func size_t get_global_size(uint32_t dim);
-const_func opencl_c_func size_t get_local_id(uint32_t dim);
-const_func opencl_c_func size_t get_local_size(uint32_t dim);
-const_func opencl_c_func size_t get_group_id(uint32_t dim);
-const_func opencl_c_func size_t get_num_groups(uint32_t dim);
-const_func opencl_c_func uint32_t get_work_dim();
+const_func size_t get_global_id(uint32_t dim);
+const_func size_t get_global_size(uint32_t dim);
+const_func size_t get_local_id(uint32_t dim);
+const_func size_t get_local_size(uint32_t dim);
+const_func size_t get_group_id(uint32_t dim);
+const_func size_t get_num_groups(uint32_t dim);
+const_func uint32_t get_work_dim();
 
 // wrap opencl id handling functions so that uint32_t is always returned
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
@@ -43,164 +43,82 @@ floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(g
 #define get_group_id(x) cl_get_group_id(x)
 #define get_num_groups(x) cl_get_num_groups(x)
 
-#if defined(FLOOR_COMPUTE_APPLECL)
-const_func float __cl_fmod(float, float);
-const_func float __cl_sqrt(float);
-const_func float __cl_fabs(float);
-const_func float __cl_floor(float);
-const_func float __cl_ceil(float);
-const_func float __cl_round(float);
-const_func float __cl_trunc(float);
-const_func float __cl_rint(float);
-const_func float __cl_sin(float);
-const_func float __cl_cos(float);
-const_func float __cl_tan(float);
-const_func float __cl_asin(float);
-const_func float __cl_acos(float);
-const_func float __cl_atan(float);
-const_func float __cl_atan2(float, float);
-const_func float __cl_sinh(float);
-const_func float __cl_cosh(float);
-const_func float __cl_tanh(float);
-const_func float __cl_asinh(float);
-const_func float __cl_acosh(float);
-const_func float __cl_atanh(float);
-const_func float __cl_fma(float, float, float);
-const_func float __cl_exp(float);
-const_func float __cl_exp2(float);
-const_func float __cl_log(float);
-const_func float __cl_log2(float);
-const_func float __cl_pow(float, float);
-const_func float __cl_pown(float, int);
-const_func float __cl_copysign(float, float);
-const_func float __cl_fmin(float, float);
-const_func float __cl_fmax(float, float);
-const_func int8_t __cl_abs(int8_t);
-const_func int16_t __cl_abs(int16_t);
-const_func int32_t __cl_abs(int32_t);
-const_func int64_t __cl_abs(int64_t);
-const_func uint8_t __cl_abs(uint8_t);
-const_func uint16_t __cl_abs(uint16_t);
-const_func uint32_t __cl_abs(uint32_t);
-const_func uint64_t __cl_abs(uint64_t);
-
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-const_func double __cl_fmod(double, double);
-const_func double __cl_sqrt(double);
-const_func double __cl_fabs(double);
-const_func double __cl_floor(double);
-const_func double __cl_ceil(double);
-const_func double __cl_round(double);
-const_func double __cl_trunc(double);
-const_func double __cl_rint(double);
-const_func double __cl_sin(double);
-const_func double __cl_cos(double);
-const_func double __cl_tan(double);
-const_func double __cl_asin(double);
-const_func double __cl_acos(double);
-const_func double __cl_atan(double);
-const_func double __cl_atan2(double, double);
-const_func double __cl_sinh(double);
-const_func double __cl_cosh(double);
-const_func double __cl_tanh(double);
-const_func double __cl_asinh(double);
-const_func double __cl_acosh(double);
-const_func double __cl_atanh(double);
-const_func double __cl_fma(double, double, double);
-const_func double __cl_exp(double);
-const_func double __cl_exp2(double);
-const_func double __cl_log(double);
-const_func double __cl_log2(double);
-const_func double __cl_pow(double, double);
-const_func double __cl_pown(double, int);
-const_func double __cl_copysign(double, double);
-const_func double __cl_fmin(double, double);
-const_func double __cl_fmax(double, double);
-#endif
-
-#define ACL_FWD(func, ...) { return func(__VA_ARGS__); }
-#define SPIR_FWD(func)
-#else // no need for this on opencl/spir
-#define ACL_FWD(func, ...) ;
-#define SPIR_FWD(func) asm(func)
-#endif
-
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)
-const_func float fmod(float x, float y) ACL_FWD(__cl_fmod, x, y)
-const_func float sqrt(float x) ACL_FWD(__cl_sqrt, x);
+const_func float fmod(float x, float y)
+const_func float sqrt(float x)
 const_func float rsqrt(float x);
-const_func float fabs(float x) ACL_FWD(__cl_fabs, x)
-const_func float floor(float x) ACL_FWD(__cl_floor, x)
-const_func float ceil(float x) ACL_FWD(__cl_ceil, x)
-const_func float round(float x) ACL_FWD(__cl_round, x)
-const_func float trunc(float x) ACL_FWD(__cl_trunc, x)
-const_func float rint(float x) ACL_FWD(__cl_rint, x)
-const_func float sin(float x) ACL_FWD(__cl_sin, x)
-const_func float cos(float x) ACL_FWD(__cl_cos, x)
-const_func float tan(float x) ACL_FWD(__cl_tan, x)
-const_func float asin(float x) ACL_FWD(__cl_asin, x)
-const_func float acos(float x) ACL_FWD(__cl_acos, x)
-const_func float atan(float x) ACL_FWD(__cl_atan, x)
-const_func float atan2(float x, float y) ACL_FWD(__cl_atan2, x, y)
-const_func float fma(float a, float b, float c) ACL_FWD(__cl_fma, a, b, c)
-const_func float sinh(float x) ACL_FWD(__cl_sinh, x)
-const_func float cosh(float x) ACL_FWD(__cl_cosh, x)
-const_func float tanh(float x) ACL_FWD(__cl_tanh, x)
-const_func float asinh(float x) ACL_FWD(__cl_asinh, x)
-const_func float acosh(float x) ACL_FWD(__cl_acosh, x)
-const_func float atanh(float x) ACL_FWD(__cl_atanh, x)
-const_func float exp(float x) ACL_FWD(__cl_exp, x)
-const_func float exp2(float x) ACL_FWD(__cl_exp2, x)
-const_func float log(float x) ACL_FWD(__cl_log, x)
-const_func float log2(float x) ACL_FWD(__cl_log2, x)
-const_func float pow(float x, float y) ACL_FWD(__cl_pow, x, y)
-const_func float pown(float x, int y) ACL_FWD(__cl_pown, x, y)
-const_func float copysign(float x, float y) ACL_FWD(__cl_copysign, x, y)
-const_func float fmin(float x, float y) ACL_FWD(__cl_fmin, x, y)
-const_func float fmax(float x, float y) ACL_FWD(__cl_fmax, x, y)
+const_func float fabs(float x)
+const_func float floor(float x)
+const_func float ceil(float x)
+const_func float round(float x)
+const_func float trunc(float x)
+const_func float rint(float x)
+const_func float sin(float x)
+const_func float cos(float x)
+const_func float tan(float x)
+const_func float asin(float x)
+const_func float acos(float x)
+const_func float atan(float x)
+const_func float atan2(float x, float y)
+const_func float fma(float a, float b, float c)
+const_func float sinh(float x)
+const_func float cosh(float x)
+const_func float tanh(float x)
+const_func float asinh(float x)
+const_func float acosh(float x)
+const_func float atanh(float x)
+const_func float exp(float x)
+const_func float exp2(float x)
+const_func float log(float x)
+const_func float log2(float x)
+const_func float pow(float x, float y)
+const_func float pown(float x, int y)
+const_func float copysign(float x, float y)
+const_func float fmin(float x, float y)
+const_func float fmax(float x, float y)
 
-const_func int8_t abs(int8_t x) ACL_FWD(__cl_abs, x)
-const_func int16_t abs(int16_t x) ACL_FWD(__cl_abs, x)
-const_func int32_t abs(int32_t x) ACL_FWD(__cl_abs, x)
-const_func int64_t abs(int64_t x) ACL_FWD(__cl_abs, x)
-const_func uint8_t abs(uint8_t x) ACL_FWD(__cl_abs, x)
-const_func uint16_t abs(uint16_t x) ACL_FWD(__cl_abs, x)
-const_func uint32_t abs(uint32_t x) ACL_FWD(__cl_abs, x)
-const_func uint64_t abs(uint64_t x) ACL_FWD(__cl_abs, x)
+const_func int8_t abs(int8_t x)
+const_func int16_t abs(int16_t x)
+const_func int32_t abs(int32_t x)
+const_func int64_t abs(int64_t x)
+const_func uint8_t abs(uint8_t x)
+const_func uint16_t abs(uint16_t x)
+const_func uint32_t abs(uint32_t x)
+const_func uint64_t abs(uint64_t x)
 
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-const_func double fmod(double x, double y) ACL_FWD(__cl_fmod, x, y)
-const_func double sqrt(double x) ACL_FWD(__cl_sqrt, x);
+const_func double fmod(double x, double y)
+const_func double sqrt(double x)
 const_func double rsqrt(double x);
-const_func double fabs(double x) ACL_FWD(__cl_fabs, x)
-const_func double floor(double x) ACL_FWD(__cl_floor, x)
-const_func double ceil(double x) ACL_FWD(__cl_ceil, x)
-const_func double round(double x) ACL_FWD(__cl_round, x)
-const_func double trunc(double x) ACL_FWD(__cl_trunc, x)
-const_func double rint(double x) ACL_FWD(__cl_rint, x)
-const_func double sin(double x) ACL_FWD(__cl_sin, x)
-const_func double cos(double x) ACL_FWD(__cl_cos, x)
-const_func double tan(double x) ACL_FWD(__cl_tan, x)
-const_func double asin(double x) ACL_FWD(__cl_asin, x)
-const_func double acos(double x) ACL_FWD(__cl_acos, x)
-const_func double atan(double x) ACL_FWD(__cl_atan, x)
-const_func double atan2(double x, double y) ACL_FWD(__cl_atan2, x, y)
-const_func double sinh(double x) ACL_FWD(__cl_sinh, x)
-const_func double cosh(double x) ACL_FWD(__cl_cosh, x)
-const_func double tanh(double x) ACL_FWD(__cl_tanh, x)
-const_func double asinh(double x) ACL_FWD(__cl_asinh, x)
-const_func double acosh(double x) ACL_FWD(__cl_acosh, x)
-const_func double atanh(double x) ACL_FWD(__cl_atanh, x)
-const_func double fma(double a, double b, double c) ACL_FWD(__cl_fma, a, b, c)
-const_func double exp(double x) ACL_FWD(__cl_exp, x)
-const_func double exp2(double x) ACL_FWD(__cl_exp2, x)
-const_func double log(double x) ACL_FWD(__cl_log, x)
-const_func double log2(double x) ACL_FWD(__cl_log2, x)
-const_func double pow(double x, double y) ACL_FWD(__cl_pow, x, y)
-const_func double copysign(double x, double y) ACL_FWD(__cl_copysign, x, y)
-const_func double fmin(double x, double y) ACL_FWD(__cl_fmin, x, y)
-const_func double fmax(double x, double y) ACL_FWD(__cl_fmax, x, y)
+const_func double fabs(double x)
+const_func double floor(double x)
+const_func double ceil(double x)
+const_func double round(double x)
+const_func double trunc(double x)
+const_func double rint(double x)
+const_func double sin(double x)
+const_func double cos(double x)
+const_func double tan(double x)
+const_func double asin(double x)
+const_func double acos(double x)
+const_func double atan(double x)
+const_func double atan2(double x, double y)
+const_func double sinh(double x)
+const_func double cosh(double x)
+const_func double tanh(double x)
+const_func double asinh(double x)
+const_func double acosh(double x)
+const_func double atanh(double x)
+const_func double fma(double a, double b, double c)
+const_func double exp(double x)
+const_func double exp2(double x)
+const_func double log(double x)
+const_func double log2(double x)
+const_func double pow(double x, double y)
+const_func double copysign(double x, double y)
+const_func double fmin(double x, double y)
+const_func double fmax(double x, double y)
 #endif
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
@@ -260,10 +178,6 @@ static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
 }
 #endif
 
-// cleanup
-#undef ACL_FWD
-#undef SPIR_FWD
-
 // add them to std::
 namespace std {
 	using ::fmod;
@@ -305,29 +219,18 @@ namespace std {
 }
 
 // NOTE: not supported with vulkan
-#if !defined(FLOOR_COMPUTE_APPLECL) && !defined(FLOOR_COMPUTE_VULKAN)
-// can't normally produce _Z6printfPrU3AS2cz with clang/llvm 3.5, because a proper "restrict" keyword is missing in c++ mode
+#if !defined(FLOOR_COMPUTE_VULKAN)
+// can't normally produce _Z6printfPrU3AS2cz with clang/llvm, because a proper "restrict" keyword is missing in c++ mode
 // -> slay it with an asm label
 int printf(const char constant* st, ...) asm("_Z6printfPrU3AS2cz");
-#elif defined(FLOOR_COMPUTE_APPLECL)
-// apple uses __printf_cl internally, with c naming!
-extern "C" int __printf_cl(const char constant* __restrict st, ...);
-#define printf __printf_cl
 #endif
 
 // barrier and mem_fence functionality
 // NOTE: local = 1, global = 2, image = 4
-#if !defined(FLOOR_COMPUTE_APPLECL)
 void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("_Z7barrierj");
 void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z9mem_fencej");
 void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
 void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("_Z14read_mem_fencej");
-#else
-void cl_barrier(uint32_t flags) __attribute__((noduplicate)) asm("barrier");
-void cl_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("mem_fence");
-void cl_read_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_mem_fence");
-void cl_write_mem_fence(uint32_t flags) __attribute__((noduplicate)) asm("read_mem_fence");
-#endif
 
 floor_inline_always static void global_barrier() {
 	cl_barrier(2u);

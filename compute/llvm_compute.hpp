@@ -33,8 +33,6 @@ public:
 		PTX,
 		//! Metal Apple-IR 1.1
 		AIR,
-		//! Apple OpenCL 3.2
-		APPLECL,
 		//! Vulkan SPIR-V 1.0
 		SPIRV_VULKAN,
 		//! OpenCL SPIR-V 1.0
@@ -176,7 +174,7 @@ public:
 		//! true if compilation was successful and this contains valid program data, false otherwise
 		bool valid { false };
 		
-		//! this either contains the compiled binary data (for PTX, SPIR, APPLECL),
+		//! this either contains the compiled binary data (for PTX, SPIR),
 		//! or the filename to the compiled binary (SPIR-V, AIR)
 		string data_or_filename;
 		

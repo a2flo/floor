@@ -135,9 +135,6 @@
     <ClCompile Include="core\util.cpp">
       <Filter>core</Filter>
     </ClCompile>
-    <ClCompile Include="core\xml.cpp">
-      <Filter>core</Filter>
-    </ClCompile>
     <ClCompile Include="floor\floor.cpp">
       <Filter>floor</Filter>
     </ClCompile>
@@ -339,9 +336,6 @@
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="core\util.hpp">
-      <Filter>core</Filter>
-    </ClInclude>
-    <ClInclude Include="core\xml.hpp">
       <Filter>core</Filter>
     </ClInclude>
     <ClInclude Include="floor\build_version.hpp">

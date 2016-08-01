@@ -4,8 +4,8 @@
 *Requirements:*
 * OS:
 ** Windows: NT 6.0+ (lib is x86/32-bit only here)
-** OS X: 10.9+ (lib is x64/64-bit only here)
-** iOS: 9.0+ (7.0+ w/o Metal; 32-bit and 64-bit)
+** OS X: 10.11+ (lib is x64/64-bit only here)
+** iOS: 9.0+ (32-bit and 64-bit)
 ** Linux: any current x64 distribution
 ** FreeBSD: 10.0+ (lib is x64/64-bit only here)
 ** other Unix: if x64 and other requirements are met
@@ -24,7 +24,6 @@
 ** (opt) Vulkan: requires "Vulkan headers":https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/tree/master/include/vulkan and "ICD loader / SDK":https://vulkan.lunarg.com
 ** (opt) networking: requires "asio":http://think-async.com/Asio headers and "OpenSSL":https://www.openssl.org 1.0.1+
 ** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
-** (opt) XML: requires "libxml2":https://www.xmlsoft.org (probably with iconv)
 
 *Build Instructions:*
 * run ./build.sh (use "./build.sh help" to get a list of all options)
@@ -43,8 +42,6 @@
    define "FLOOR_NO_NET" or "./build.sh no-net"
 ** to disable OpenAL:
    define "FLOOR_NO_OPENAL" or "./build.sh no-openal"
-** to disable XML:
-   define "FLOOR_NO_XML" or "./build.sh no-xml"
 ** to disable C++ exceptions:
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ instead of libc++:
@@ -97,9 +94,8 @@
 * NOTE: this requires a Unix environment with all LLVM build dependencies installed - use MSYS2 on Windows
 * NOTE: the absolute build path must not contain spaces
 * NOTE: when building with GNU Make 4.2, use -j1 (jobserver changes in 4.2 broke *something*)
-* compile either toolchain:
-** current 3.8.1 toolchain: cd floor/etc/llvm38/ && ./build.sh
-** legacy 3.5.2 toolchain: cd floor/etc/llvm35/ && ./build.sh
+* compile the toolchain:
+** 3.8.1 toolchain: cd floor/etc/llvm38/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:

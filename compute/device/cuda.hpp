@@ -171,7 +171,7 @@ namespace std {
 	const_func floor_inline_always float floor_rt_max(float a, float b) { return __nvvm_fmax_ftz_f(a, b); }
 	const_func floor_inline_always double floor_rt_max(double a, double b) { return __nvvm_fmax_d(a, b); }
 	
-#if !(__clang_major__ == 3 && __clang_minor__ < 7) && defined(PLATFORM_X64)
+#if defined(PLATFORM_X64)
 	const_func floor_inline_always size_t floor_rt_min(size_t a, size_t b) {
 		return (size_t)floor_rt_min(uint64_t(a), uint64_t(b));
 	}

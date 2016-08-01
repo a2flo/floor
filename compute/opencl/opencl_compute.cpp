@@ -26,11 +26,6 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
-
-#if defined(__APPLE__)
-#include <floor/darwin/darwin_helper.hpp>
-#endif
-
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
@@ -122,33 +117,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			continue;
 		}
 		
-		//
-#if defined(__APPLE__)
-		platform_vendor = COMPUTE_VENDOR::APPLE;
-		
-		// drop all devices when using gl sharing (not adding cpu devices here, because this would cause other issues)
-		if(gl_sharing) {
-			ctx_cl_devices.clear();
-		}
-		
-		auto cur_cgl_ctx = (gl_sharing ? CGLGetCurrentContext() : nullptr);
-		cl_context_properties cl_properties[] {
-			CL_CONTEXT_PLATFORM, (cl_context_properties)platform,
-			gl_sharing && cur_cgl_ctx != nullptr ? CL_CONTEXT_PROPERTY_USE_CGL_SHAREGROUP_APPLE : 0,
-#if !defined(FLOOR_IOS)
-			gl_sharing && cur_cgl_ctx != nullptr ? (cl_context_properties)CGLGetShareGroup(cur_cgl_ctx) : 0,
-#else
-			gl_sharing ? (cl_context_properties)darwin_helper::get_eagl_sharegroup() : 0,
-#endif
-			0
-		};
-		
-		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(),
-													 (!ctx_cl_devices.empty() ? ctx_cl_devices.data() : nullptr),
-													 clLogMessagesToStdoutAPPLE, nullptr, &ctx_error),
-							   ctx_error, "failed to create opencl context")
-		
-#else
 		// context with gl share group (cl/gl interop)
 #if defined(__WINDOWS__)
 		cl_context_properties cl_properties[] {
@@ -173,7 +141,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		CL_CALL_ERR_PARAM_CONT(ctx = clCreateContext(cl_properties, (cl_uint)ctx_cl_devices.size(), ctx_cl_devices.data(),
 													 nullptr, nullptr, &ctx_error),
 							   ctx_error, "failed to create opencl context")
-#endif
 		
 		// success
 		log_debug("created opencl context on platform \"%s\"!",
@@ -183,7 +150,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		log_msg("platform profile: \"%s\"", cl_get_info<CL_PLATFORM_PROFILE>(platform));
 		log_msg("platform extensions: \"%s\"", core::trim(cl_get_info<CL_PLATFORM_EXTENSIONS>(platform)));
 		
-#if !defined(__APPLE__)
 		// get platform vendor
 		const string platform_vendor_str = core::str_to_lower(cl_get_info<CL_PLATFORM_VENDOR>(platform));
 		if(platform_vendor_str.find("nvidia") != string::npos) {
@@ -196,7 +162,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 		else if(platform_vendor_str.find("intel") != string::npos) {
 			platform_vendor = COMPUTE_VENDOR::INTEL;
 		}
-#endif
 		
 		//
 		const auto extract_cl_version = [](const string& cl_version_str, const string str_start) -> pair<bool, OPENCL_VERSION> {
@@ -314,14 +279,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			
 			if(device->internal_type == CL_DEVICE_TYPE_CPU) {
-#if defined(__APPLE__)
-				// apple is doing weird stuff again -> if device is a cpu, divide wg/item sizes by (at least) 8
-				const auto size_div = std::max(8u, device->units); // might be cpu/unit count, don't have the h/w to test this -> assume at least 8
-				if(device->max_work_group_size > size_div) device->max_work_group_size /= size_div;
-				if(device->max_work_group_item_sizes.x > size_div) device->max_work_group_item_sizes.x /= size_div;
-				if(device->max_work_group_item_sizes.y > size_div) device->max_work_group_item_sizes.y /= size_div;
-				if(device->max_work_group_item_sizes.z > size_div) device->max_work_group_item_sizes.z /= size_div;
-#else
 				// intel cpu is reporting 8192, but this isn't actually working on SSE cpus (unsure about avx, so leaving it for now)
 				// -> set it to 4096 as it is actually working
 				if(platform_vendor == COMPUTE_VENDOR::INTEL &&
@@ -330,7 +287,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 					device->max_work_group_size = 4096;
 					device->max_work_group_item_sizes.min(device->max_work_group_size);
 				}
-#endif
 			}
 			
 			device->image_support = (cl_get_info<CL_DEVICE_IMAGE_SUPPORT>(cl_dev) == 1);
@@ -361,12 +317,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 																					 device->max_image_1d_dim));
 			}
 			
-#if !defined(__APPLE__)
 			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
-#else
-			// not properly supported on os x (defined in the headers, but no backend implementation)
-			device->double_support = false;
-#endif
 			device->bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
 			device->max_work_item_sizes = (device->bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
 										   0xFFFF'FFFFull :
@@ -482,9 +433,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			}
 			device->c_version = extracted_cl_c_version.second;
 			
-			// there is no spir support on apple platforms, so don't even try this
-			// also, pocl doesn't support, but can apparently handle llvm bitcode files
-#if !defined(__APPLE__)
+			// pocl doesn't support spir, but can apparently handle llvm bitcode files
 			if(!core::contains(device->extensions, "cl_khr_spir") &&
 			   device->vendor != COMPUTE_VENDOR::POCL) {
 				log_error("device \"%s\" does not support \"cl_khr_spir\", removing it!", device->name);
@@ -492,7 +441,6 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				continue;
 			}
 			log_msg("spir versions: %s", cl_get_info<CL_DEVICE_SPIR_VERSIONS>(cl_dev));
-#endif
 			
 			// check spir-v support (core, extension, or forced for testing purposes)
 			if((platform_cl_version >= OPENCL_VERSION::OPENCL_2_1 ||
@@ -857,11 +805,7 @@ shared_ptr<compute_queue> opencl_compute::create_queue(shared_ptr<compute_device
 	
 	// create the queue
 	cl_int create_err = CL_SUCCESS;
-#if /*defined(CL_VERSION_2_0) ||*/ defined(__APPLE__) // TODO: should only be enabled if platform (and device?) support opencl 2.0+
-#if defined(__APPLE__) && !defined(CL_VERSION_2_0)
-#define clCreateCommandQueueWithProperties clCreateCommandQueueWithPropertiesAPPLE
-#define cl_queue_properties cl_queue_properties_APPLE
-#endif
+#if /*defined(CL_VERSION_2_0) ||*/ 0 // TODO: should only be enabled if platform (and device?) support opencl 2.0+
 	const cl_queue_properties properties[] { 0 };
 	cl_command_queue cl_queue = clCreateCommandQueueWithProperties(ctx, ((opencl_device*)dev.get())->device_id,
 																   properties, &create_err);
@@ -1003,14 +947,8 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		options.target = (
-#if defined(__APPLE__)
-						  llvm_compute::TARGET::APPLECL
-#else
-						  ((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
-#endif
-		);
+		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
 								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name, options),
 														options.target));
@@ -1029,14 +967,8 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	opencl_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
-		options.target = (
-#if defined(__APPLE__)
-						  llvm_compute::TARGET::APPLECL
-#else
-						  ((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR
-#endif
-		);
+		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
+						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
 								  create_opencl_program(dev, llvm_compute::compile_program(dev, source_code, options),
 														options.target));

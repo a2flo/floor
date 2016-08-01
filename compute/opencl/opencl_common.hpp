@@ -84,28 +84,10 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 
 #if !defined(FLOOR_NO_OPENCL)
 
-#if defined(__APPLE__)
-#if defined(FLOOR_IOS)
-// don't let cl_gl_ext.h get included (it won't work anyways)
-#define __OPENCL_CL_GL_EXT_H
-#define __GCL_H
-#endif
-#include <OpenCL/OpenCL.h>
-#include <OpenCL/cl.h>
-#include <OpenCL/cl_platform.h>
-#include <OpenCL/cl_ext.h>
-#include <OpenCL/cl_gl.h>
-#if !defined(FLOOR_IOS)
-#include <OpenGL/CGLContext.h>
-#include <OpenGL/CGLCurrent.h>
-#include <OpenGL/CGLDevice.h>
-#endif
-#else
 #include <CL/cl.h>
 #include <CL/cl_platform.h>
 #include <CL/cl_ext.h>
 #include <CL/cl_gl.h>
-#endif
 
 // cl_khr_spir
 #if !defined(CL_DEVICE_SPIR_VERSIONS)
@@ -225,12 +207,7 @@ constexpr const char* cl_error_to_string(const int& error_code) {
 		case -68: return "CL_INVALID_DEVICE_PARTITION_COUNT";
 		case -69: return "CL_INVALID_PIPE_SIZE";
 		case -70: return "CL_INVALID_DEVICE_QUEUE";
-		case -1000:
-#if defined(__APPLE__)
-			return "CL_INVALID_GL_CONTEXT_APPLE";
-#else
-			return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
-#endif
+		case -1000: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
 		case -1001: return "CL_PLATFORM_NOT_FOUND_KHR";
 		case -1002: return "CL_INVALID_D3D10_DEVICE_KHR";
 		case -1003: return "CL_INVALID_D3D10_RESOURCE_KHR";
