@@ -198,7 +198,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
 				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
-				" --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
+				" -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};
@@ -619,7 +619,12 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		string spirv_encoder_output = "";
 		core::system(spirv_encoder_cmd, spirv_encoder_output);
 		if(!options.silence_debug_output) {
-			log_msg("spir-v encoder: %s", spirv_encoder_output);
+			if(spirv_encoder_output == "") {
+				log_msg("spir-v encoder: done");
+			}
+			else {
+				log_error("spir-v encoder: %s", spirv_encoder_output);
+			}
 		}
 		
 		// run spirv-val if specified
@@ -636,7 +641,12 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				spirv_validator_output.pop_back(); // trim last newline
 			}
 			if(!options.silence_debug_output) {
-				log_msg("spir-v validator: %s", spirv_validator_output);
+				if(spirv_validator_output == "") {
+					log_msg("spir-v validator: valid");
+				}
+				else {
+					log_error("spir-v validator: %s", spirv_validator_output);
+				}
 			}
 		}
 		
