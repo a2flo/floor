@@ -434,7 +434,7 @@ index cf03d66..da25c8f 100644
  template <class _RandomAccessIterator>
  inline _LIBCPP_INLINE_VISIBILITY
 diff --git a/include/atomic b/include/atomic
-index a25b5bf..7153214 100644
+index a25b5bf..1b94ec6 100644
 --- a/include/atomic
 +++ b/include/atomic
 @@ -542,17 +542,21 @@ void atomic_signal_fence(memory_order m) noexcept;
@@ -742,7 +742,7 @@ index a25b5bf..7153214 100644
  
  template <class _Tp>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -845,23 +576,25 @@ kill_dependency(_Tp __y) _NOEXCEPT
+@@ -845,180 +576,159 @@ kill_dependency(_Tp __y) _NOEXCEPT
      return __y;
  }
  
@@ -779,8 +779,9 @@ index a25b5bf..7153214 100644
 +    mutable volatile _Tp __a_;
  
  #if defined(__cpp_lib_atomic_is_always_lock_free)
-   static _LIBCPP_CONSTEXPR bool is_always_lock_free = __atomic_always_lock_free(sizeof(__a_), 0);
-@@ -869,90 +602,57 @@ struct __atomic_base  // false
+-  static _LIBCPP_CONSTEXPR bool is_always_lock_free = __atomic_always_lock_free(sizeof(__a_), 0);
++    static _LIBCPP_CONSTEXPR bool is_always_lock_free = __atomic_always_lock_free(sizeof(__a_), 0);
+ #endif
  
      _LIBCPP_INLINE_VISIBILITY
      bool is_lock_free() const volatile _NOEXCEPT
@@ -890,9 +891,11 @@ index a25b5bf..7153214 100644
 -#endif  // _LIBCPP_HAS_NO_DELETED_FUNCTIONS
  };
  
- #if defined(__cpp_lib_atomic_is_always_lock_free)
-@@ -962,63 +662,78 @@ _LIBCPP_CONSTEXPR bool __atomic_base<_Tp, __b>::is_always_lock_free;
- 
+-#if defined(__cpp_lib_atomic_is_always_lock_free)
+-template <class _Tp, bool __b>
+-_LIBCPP_CONSTEXPR bool __atomic_base<_Tp, __b>::is_always_lock_free;
+-#endif
+-
  // atomic<Integral>
  
 -template <class _Tp>
@@ -915,94 +918,94 @@ index a25b5bf..7153214 100644
 -        {return __c11_atomic_fetch_add(&this->__a_, __op, __m);}
 +    _Tp fetch_add(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_add(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
-+    _LIBCPP_INLINE_VISIBILITY
-+    _Tp fetch_add(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_add(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
-+    _LIBCPP_INLINE_VISIBILITY
-+    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_add(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_add(&this->__a_, __op, __m);}
-+    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_add(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_add(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_sub(&this->__a_, __op, __m);}
-+    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_sub(&this->__a_, __op, __m);}
-+    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_and(&this->__a_, __op, __m);}
-+    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_and(&this->__a_, __op, __m);}
-+    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_or(&this->__a_, __op, __m);}
-+    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_or(&this->__a_, __op, __m);}
-+    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
-+
-+    // non-standard inc/dec
-+    _LIBCPP_INLINE_VISIBILITY
-+    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
++    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_xor(&this->__a_, __op, __m);}
-+    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
++    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_xor(&this->__a_, __op, __m);}
-+    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
-+    _LIBCPP_INLINE_VISIBILITY
-+    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
++    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
  
++    // non-standard inc/dec
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator++(int) volatile _NOEXCEPT      {return fetch_add(_Tp(1));}
-+    _Tp operator++(int) volatile _NOEXCEPT      {return _fetch_inc();}
++    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator++(int) _NOEXCEPT               {return fetch_add(_Tp(1));}
-+    _Tp operator++(int) _NOEXCEPT               {return _fetch_inc();}
++    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator--(int) volatile _NOEXCEPT      {return fetch_sub(_Tp(1));}
-+    _Tp operator--(int) volatile _NOEXCEPT      {return _fetch_dec();}
++    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
++        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator--(int) _NOEXCEPT               {return fetch_sub(_Tp(1));}
-+    _Tp operator--(int) _NOEXCEPT               {return _fetch_dec();}
++    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
++
++    _LIBCPP_INLINE_VISIBILITY
++    _Tp operator++(int) volatile _NOEXCEPT      {return _fetch_inc();}
++    _LIBCPP_INLINE_VISIBILITY
++    _Tp operator++(int) _NOEXCEPT               {return _fetch_inc();}
++    _LIBCPP_INLINE_VISIBILITY
++    _Tp operator--(int) volatile _NOEXCEPT      {return _fetch_dec();}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator++() volatile _NOEXCEPT         {return fetch_add(_Tp(1)) + _Tp(1);}
-+    _Tp operator++() volatile _NOEXCEPT         {return _fetch_inc() + _Tp(1);}
++    _Tp operator--(int) _NOEXCEPT               {return _fetch_dec();}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator++() _NOEXCEPT                  {return fetch_add(_Tp(1)) + _Tp(1);}
-+    _Tp operator++() _NOEXCEPT                  {return _fetch_inc() + _Tp(1);}
++    _Tp operator++() volatile _NOEXCEPT         {return _fetch_inc() + _Tp(1);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator--() volatile _NOEXCEPT         {return fetch_sub(_Tp(1)) - _Tp(1);}
-+    _Tp operator--() volatile _NOEXCEPT         {return _fetch_dec() - _Tp(1);}
++    _Tp operator++() _NOEXCEPT                  {return _fetch_inc() + _Tp(1);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp operator--() _NOEXCEPT                  {return fetch_sub(_Tp(1)) - _Tp(1);}
++    _Tp operator--() volatile _NOEXCEPT         {return _fetch_dec() - _Tp(1);}
++    _LIBCPP_INLINE_VISIBILITY
 +    _Tp operator--() _NOEXCEPT                  {return _fetch_dec() - _Tp(1);}
      _LIBCPP_INLINE_VISIBILITY
      _Tp operator+=(_Tp __op) volatile _NOEXCEPT {return fetch_add(__op) + __op;}
      _LIBCPP_INLINE_VISIBILITY
-@@ -1043,11 +758,11 @@ struct __atomic_base<_Tp, true>
+@@ -1043,11 +753,11 @@ struct __atomic_base<_Tp, true>
  
  // atomic<T>
  
@@ -1017,7 +1020,7 @@ index a25b5bf..7153214 100644
      _LIBCPP_INLINE_VISIBILITY
      atomic() _NOEXCEPT _LIBCPP_DEFAULT
      _LIBCPP_INLINE_VISIBILITY
-@@ -1063,709 +778,70 @@ struct atomic
+@@ -1063,709 +773,70 @@ struct atomic
  
  // atomic<T*>
  
@@ -1177,7 +1180,9 @@ index a25b5bf..7153214 100644
 -{
 -    __o->store(__d, __m);
 -}
--
++// NOTE: freestanding atomic<*> functions are not supported, either use the corresponding member functions,
++// or use the freestanding floor atomic functions, which operate on raw global/local type pointers
+ 
 -// atomic_load
 -
 -template <class _Tp>
@@ -1737,9 +1742,7 @@ index a25b5bf..7153214 100644
 -{
 -    __o->clear();
 -}
-+// NOTE: freestanding atomic<*> functions are not supported, either use the corresponding member functions,
-+// or use the freestanding floor atomic functions, which operate on raw global/local type pointers
- 
+-
 -inline _LIBCPP_INLINE_VISIBILITY
 -void
 -atomic_flag_clear_explicit(volatile atomic_flag* __o, memory_order __m) _NOEXCEPT
@@ -1757,7 +1760,7 @@ index a25b5bf..7153214 100644
  
  // fences
  
-@@ -1773,47 +849,48 @@ inline _LIBCPP_INLINE_VISIBILITY
+@@ -1773,47 +844,48 @@ inline _LIBCPP_INLINE_VISIBILITY
  void
  atomic_thread_fence(memory_order __m) _NOEXCEPT
  {
@@ -1824,7 +1827,7 @@ index a25b5bf..7153214 100644
  typedef atomic<int_fast32_t>  atomic_int_fast32_t;
  typedef atomic<uint_fast32_t> atomic_uint_fast32_t;
  typedef atomic<int_fast64_t>  atomic_int_fast64_t;
-@@ -1835,7 +912,7 @@ typedef atomic<ptrdiff_t> atomic_ptrdiff_t;
+@@ -1835,7 +907,7 @@ typedef atomic<ptrdiff_t> atomic_ptrdiff_t;
  typedef atomic<intmax_t>  atomic_intmax_t;
  typedef atomic<uintmax_t> atomic_uintmax_t;
  

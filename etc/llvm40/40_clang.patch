@@ -1271,7 +1271,7 @@ index a75523f..a645019 100644
    IK_PreprocessedCuda,
    IK_RenderScript,
 diff --git a/include/clang/Frontend/LangStandards.def b/include/clang/Frontend/LangStandards.def
-index a303693..a1d550f 100644
+index a303693..d535fd1 100644
 --- a/include/clang/Frontend/LangStandards.def
 +++ b/include/clang/Frontend/LangStandards.def
 @@ -142,16 +142,27 @@ LANGSTANDARD(gnucxx1z, "gnu++1z",
@@ -1280,32 +1280,32 @@ index a303693..a1d550f 100644
               "OpenCL 1.0",
 -             LineComment | C99 | Digraphs | HexFloat)
 -LANGSTANDARD(opencl11, "cl1.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +LANGSTANDARD(opencl11, "CL1.1",
               "OpenCL 1.1",
 -             LineComment | C99 | Digraphs | HexFloat)
 -LANGSTANDARD(opencl12, "cl1.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +LANGSTANDARD(opencl12, "CL1.2",
               "OpenCL 1.2",
 -             LineComment | C99 | Digraphs | HexFloat)
 -LANGSTANDARD(opencl20, "cl2.0",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +LANGSTANDARD(opencl20, "CL2.0",
               "OpenCL 2.0",
 -             LineComment | C99 | Digraphs | HexFloat)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +LANGSTANDARD(opencl21, "CL2.1",
 +             "OpenCL 2.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +LANGSTANDARD(opencl22, "CL2.2",
 +             "OpenCL 2.2",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
 +
 +// Metal
 +LANGSTANDARD(metal11, "metal1.1",
 +             "Metal 1.1",
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
  
  LANGSTANDARD_ALIAS(opencl, "CL")
  LANGSTANDARD_ALIAS(opencl11, "CL1.1")
@@ -1314,7 +1314,7 @@ index a303693..a1d550f 100644
  LANGSTANDARD(cuda, "cuda",
               "NVIDIA CUDA(tm)",
 -             LineComment | CPlusPlus | Digraphs)
-+             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | Digraphs | HexFloat | GNUMode)
++             LineComment | CPlusPlus | CPlusPlus11 | CPlusPlus14 | CPlusPlus1z | Digraphs | HexFloat | GNUMode)
  
  #undef LANGSTANDARD
  #undef LANGSTANDARD_ALIAS
