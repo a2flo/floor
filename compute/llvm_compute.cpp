@@ -604,8 +604,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		const auto validator = (options.target == TARGET::SPIRV_VULKAN ?
 								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
-		// run llvm-spirv for llvm 3.8 bc -> spir-v binary conversion
-		auto spirv_bin = core::create_tmp_file_name("spirv_3_8", ".spv");
+		// run llvm-spirv for llvm bc -> spir-v binary conversion
+		auto spirv_bin = core::create_tmp_file_name("spirv", ".spv");
 		const string spirv_encoder_cmd {
 			"\"" + encoder + "\" -o " + spirv_bin + " " + compiled_file_or_code
 #if !defined(_MSC_VER)

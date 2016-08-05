@@ -67,7 +67,7 @@ namespace rt_math {
 			return floor_rt_min(a, b);
 		}
 		else {
-			return std::min(a, b));
+			return std::min(a, b);
 		}
 #else
 		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||
@@ -117,7 +117,7 @@ namespace rt_math {
 			return floor_rt_max(a, b);
 		}
 		else {
-			return std::max(a, b));
+			return std::max(a, b);
 		}
 #else
 		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||

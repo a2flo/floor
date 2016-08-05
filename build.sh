@@ -117,7 +117,7 @@ for arg in "$@"; do
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
-			echo "	c++17              enable experimental C++17 support"
+			echo "	c++17              enable C++17 support"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo "  native             optimize and specifically build for the host cpu"

@@ -16,10 +16,6 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#if defined(__APPLE__)
-#include <floor/darwin/darwin_helper.hpp>
-#endif
-
 #include <floor/core/gl_shader.hpp>
 #include <floor/core/gl_support.hpp>
 #include <regex>
@@ -154,7 +150,10 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	const string gs_code = header + (gs_text != nullptr ? gs_text : "");
 	const auto vs_code_ptr = vs_code.c_str();
 	const auto fs_code_ptr = fs_code.c_str();
-	floor_unused_on_ios const auto gs_code_ptr = gs_code.c_str();
+#if defined(FLOOR_IOS)
+	floor_unused
+#endif
+	const auto gs_code_ptr = gs_code.c_str();
 	
 	// success flag (if it's 1 (true), we successfully created a shader object)
 	GLint success = 0;

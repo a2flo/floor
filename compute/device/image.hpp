@@ -483,10 +483,10 @@ namespace floor_image {
 															   compare_function, compare_value, is_compare));
 			}
 			else {
-				return fit_output(paque_image::read_image_uint(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-															   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-															   gradient.first, gradient.second, is_gradient,
-															   compare_function, compare_value, is_compare));
+				return fit_output(opaque_image::read_image_uint(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
+																(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
+																gradient.first, gradient.second, is_gradient,
+																compare_function, compare_value, is_compare));
 			}
 #elif defined(FLOOR_COMPUTE_CUDA)
 			constexpr const auto cuda_tex_idx = cuda_sampler::sampler_index(is_int_coord<coord_type>() ? cuda_sampler::PIXEL : cuda_sampler::NORMALIZED,
@@ -547,48 +547,9 @@ namespace floor_image {
 			}
 #endif
 #else // non-c++17
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-#if !defined(FLOOR_COMPUTE_METAL) // only constexpr with opencl/vulkan
-			constexpr
+#if !defined(FLOOR_COMPUTE_HOST)
+#error "pre-c++17 code only support on host-compute"
 #endif
-			const sampler_type smplr = default_sampler<coord_type, sample_linear, compare_function>::value();
-			const auto read_color = __builtin_choose_expr(is_float,
-														  opaque_image::read_image_float(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																						 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																						 gradient.first, gradient.second, is_gradient,
-																						 compare_function, compare_value, is_compare),
-														  __builtin_choose_expr(is_int,
-														  opaque_image::read_image_int(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																					   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																					   gradient.first, gradient.second, is_gradient,
-																					   compare_function, compare_value, is_compare),
-														  opaque_image::read_image_uint(r_img(), smplr, image_type, converted_coord, layer, sample, offset,
-																						(!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																						gradient.first, gradient.second, is_gradient,
-																						compare_function, compare_value, is_compare)));
-#elif defined(FLOOR_COMPUTE_CUDA)
-			constexpr const auto cuda_tex_idx = cuda_sampler::sampler_index(is_int_coord<coord_type>() ? cuda_sampler::PIXEL : cuda_sampler::NORMALIZED,
-																			sample_linear ? cuda_sampler::LINEAR : cuda_sampler::NEAREST,
-																			(!is_compare ||
-																			 compare_function == COMPARE_FUNCTION::ALWAYS ||
-																			 compare_function == COMPARE_FUNCTION::NEVER ||
-																			 compare_function == COMPARE_FUNCTION::NONE) ?
-																			cuda_sampler::NONE : (cuda_sampler::COMPARE_FUNCTION)compare_function);
-			const auto read_color = __builtin_choose_expr(is_float,
-														  cuda_image::read_image_float(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-																					   (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																					   gradient.first, gradient.second, is_gradient,
-																					   compare_function, compare_value, is_compare),
-														  __builtin_choose_expr(is_int,
-														  cuda_image::read_image_int(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-																					 (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																					 gradient.first, gradient.second, is_gradient,
-																					 compare_function, compare_value, is_compare),
-														  cuda_image::read_image_uint(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
-																					  (!is_lod_float ? int32_t(lod) : 0), (!is_bias ? (is_lod_float ? lod : 0.0f) : bias), is_lod, is_lod_float, is_bias,
-																					  gradient.first, gradient.second, is_gradient,
-																					  compare_function, compare_value, is_compare)));
-#elif defined(FLOOR_COMPUTE_HOST)
 			const auto color = __builtin_choose_expr(!is_compare,
 													 __builtin_choose_expr(!sample_linear,
 																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
@@ -610,13 +571,6 @@ namespace floor_image {
 																																						(!is_lod_float ? int32_t(lod) : 0),
 																																						(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
 																																						compare_function, compare_value)));
-#endif
-			
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
-			const auto color = __builtin_choose_expr(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type),
-													 vector_n<sample_type, 4>::from_clang_vector(read_color),
-													 read_color.x);
-#endif
 			return image_vec_ret_type<image_type, sample_type>::fit(color);
 #endif
 		}
@@ -931,34 +885,20 @@ namespace floor_image {
 			
 			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-#if defined(FLOOR_CXX17)
 			if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
 			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
-#else
-			__builtin_choose_expr(is_float,
-								  opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
-								  __builtin_choose_expr(is_int,
-														opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
-														opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
-#endif
 #elif defined(FLOOR_COMPUTE_CUDA)
-#if defined(FLOOR_CXX17)
-			decltype(w_img_obj) surface;
-			if constexpr(!is_lod) surface = w_img_obj;
-			else surface = w_img_lod_obj[lod];
-			
-			if constexpr(is_float) cuda_image::write_float<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-			else if constexpr(is_int) cuda_image::write_int<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-			else cuda_image::write_uint<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
-#else
-			const auto surface = __builtin_choose_expr(!is_lod, w_img_obj, w_img_lod_obj[lod]);
-			__builtin_choose_expr(is_float,
-								  cuda_image::write_float<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data),
-								  __builtin_choose_expr(is_int,
-														cuda_image::write_int<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data),
-														cuda_image::write_uint<image_type>(surface, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data)));
-#endif
+			if constexpr(!is_lod) {
+				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			}
+			else {
+				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else cuda_image::write_uint<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			}
 #elif defined(FLOOR_COMPUTE_HOST)
 			host_device_image<image_type, is_lod, false, false>::write((host_device_image<image_type, is_lod, false, false>*)w_img(), converted_coord, layer, lod, converted_data);
 #endif

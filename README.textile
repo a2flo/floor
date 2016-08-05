@@ -46,7 +46,7 @@
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ instead of libc++:
    "./build.sh libstdc++"
-** to build with experimental C++17 support (requires Clang 3.9+):
+** to build with C++17 support (requires Clang 3.9+):
    "./build.sh c++17"
 
 *Build Instructions (Xcode / OS X / iOS):*
@@ -95,7 +95,6 @@
 * NOTE: the absolute build path must not contain spaces
 * NOTE: when building with GNU Make 4.2, use -j1 (jobserver changes in 4.2 broke *something*)
 * compile the toolchain:
-** 3.8.1 toolchain: cd floor/etc/llvm38/ && ./build.sh
 ** 4.0.0 toolchain: cd floor/etc/llvm40/ && ./build.sh
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
