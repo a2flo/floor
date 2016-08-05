@@ -47,10 +47,10 @@ index 5659ed0..4c192be 100644
          // do last word
          if (__n > 0)
 diff --git a/include/__config b/include/__config
-index db5a832..826c414 100644
+index 353ca10..006ea8b 100644
 --- a/include/__config
 +++ b/include/__config
-@@ -822,8 +822,6 @@ extern "C" void __sanitizer_annotate_contiguous_container(
+@@ -875,8 +875,6 @@ extern "C" void __sanitizer_annotate_contiguous_container(
  
  #if __has_feature(cxx_atomic) || __has_extension(c_atomic)
  #define _LIBCPP_HAS_C_ATOMIC_IMP
@@ -60,7 +60,7 @@ index db5a832..826c414 100644
  
  #if (!defined(_LIBCPP_HAS_C_ATOMIC_IMP) && !defined(_LIBCPP_HAS_GCC_ATOMIC_IMP)) \
 diff --git a/include/__functional_base b/include/__functional_base
-index 52c535a..15027c2 100644
+index 1a08ea2..90a9e4a 100644
 --- a/include/__functional_base
 +++ b/include/__functional_base
 @@ -13,9 +13,11 @@
@@ -76,20 +76,20 @@ index 52c535a..15027c2 100644
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
 diff --git a/include/algorithm b/include/algorithm
-index 71e5df3..eb99c69 100644
+index cf03d66..da25c8f 100644
 --- a/include/algorithm
 +++ b/include/algorithm
-@@ -623,7 +623,9 @@ template <class BidirectionalIterator, class Compare>
+@@ -629,7 +629,9 @@ template <class BidirectionalIterator, class Compare>
  #include <__config>
  #include <initializer_list>
  #include <type_traits>
 +#if 0
  #include <cstring>
 +#endif
- #include <utility>
+ #include <utility> // needed to provide swap_ranges.
  #include <memory>
  #include <iterator>
-@@ -1745,7 +1747,7 @@ __copy(_Tp* __first, _Tp* __last, _Up* __result)
+@@ -1767,7 +1769,7 @@ __copy(_Tp* __first, _Tp* __last, _Up* __result)
  {
      const size_t __n = static_cast<size_t>(__last - __first);
      if (__n > 0)
@@ -98,7 +98,7 @@ index 71e5df3..eb99c69 100644
      return __result + __n;
  }
  
-@@ -1783,7 +1785,7 @@ __copy_backward(_Tp* __first, _Tp* __last, _Up* __result)
+@@ -1805,7 +1807,7 @@ __copy_backward(_Tp* __first, _Tp* __last, _Up* __result)
      if (__n > 0)
      {
          __result -= __n;
@@ -107,7 +107,7 @@ index 71e5df3..eb99c69 100644
      }
      return __result;
  }
-@@ -1882,7 +1884,7 @@ __move(_Tp* __first, _Tp* __last, _Up* __result)
+@@ -1904,7 +1906,7 @@ __move(_Tp* __first, _Tp* __last, _Up* __result)
  {
      const size_t __n = static_cast<size_t>(__last - __first);
      if (__n > 0)
@@ -116,7 +116,7 @@ index 71e5df3..eb99c69 100644
      return __result + __n;
  }
  
-@@ -1920,7 +1922,7 @@ __move_backward(_Tp* __first, _Tp* __last, _Up* __result)
+@@ -1942,7 +1944,7 @@ __move_backward(_Tp* __first, _Tp* __last, _Up* __result)
      if (__n > 0)
      {
          __result -= __n;
@@ -125,7 +125,7 @@ index 71e5df3..eb99c69 100644
      }
      return __result;
  }
-@@ -2041,7 +2043,7 @@ typename enable_if
+@@ -2063,7 +2065,7 @@ typename enable_if
  __fill_n(_Tp* __first, _Size __n,_Up __value_)
  {
      if (__n > 0)
@@ -134,7 +134,7 @@ index 71e5df3..eb99c69 100644
      return __first + __n;
  }
  
-@@ -3029,13 +3031,14 @@ uniform_int_distribution<_IntType>::operator()(_URNG& __g, const param_type& __p
+@@ -3072,13 +3074,14 @@ uniform_int_distribution<_IntType>::operator()(_URNG& __g, const param_type& __p
      return static_cast<result_type>(__u + __p.a());
  }
  
@@ -150,7 +150,7 @@ index 71e5df3..eb99c69 100644
  
      __rs_default();
  public:
-@@ -3077,6 +3080,7 @@ random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last)
+@@ -3120,6 +3123,7 @@ random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last)
          }
      }
  }
@@ -158,7 +158,7 @@ index 71e5df3..eb99c69 100644
  
  template <class _RandomAccessIterator, class _RandomNumberGenerator>
  void
-@@ -3335,6 +3339,7 @@ __second_half_done:
+@@ -3378,6 +3382,7 @@ __second_half_done:
      //         |
  }
  
@@ -166,7 +166,7 @@ index 71e5df3..eb99c69 100644
  struct __return_temporary_buffer
  {
      template <class _Tp>
-@@ -3371,6 +3376,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
+@@ -3414,6 +3419,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
      return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
                               (__first, __last, __pred, __len, __p, forward_iterator_tag());
  }
@@ -174,7 +174,7 @@ index 71e5df3..eb99c69 100644
  
  template <class _Predicate, class _BidirectionalIterator, class _Distance, class _Pair>
  _BidirectionalIterator
-@@ -3480,6 +3486,7 @@ __second_half_done:
+@@ -3523,6 +3529,7 @@ __second_half_done:
      //         |
  }
  
@@ -182,7 +182,7 @@ index 71e5df3..eb99c69 100644
  template <class _Predicate, class _BidirectionalIterator>
  _BidirectionalIterator
  __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last, _Predicate __pred,
-@@ -3519,6 +3526,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
+@@ -3562,6 +3569,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
      return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
                               (__first, __last, __pred, __len, __p, bidirectional_iterator_tag());
  }
@@ -190,7 +190,7 @@ index 71e5df3..eb99c69 100644
  
  template <class _ForwardIterator, class _Predicate>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -3823,188 +3831,30 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
+@@ -3866,188 +3874,30 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
      typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
      const difference_type __limit = is_trivially_copy_constructible<value_type>::value &&
                                      is_trivially_copy_assignable<value_type>::value ? 30 : 6;
@@ -401,7 +401,7 @@ index 71e5df3..eb99c69 100644
  }
  
  // This forwarder keeps the top call and the recursive calls using the same instantiation, forcing a reference _Compare
-@@ -4488,6 +4338,7 @@ __inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle,
+@@ -4531,6 +4381,7 @@ __inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle,
      }
  }
  
@@ -409,7 +409,7 @@ index 71e5df3..eb99c69 100644
  template <class _BidirectionalIterator, class _Compare>
  inline _LIBCPP_INLINE_VISIBILITY
  void
-@@ -4513,6 +4364,7 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
+@@ -4556,6 +4407,7 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
                                              __buf.first, __buf.second);
  #endif  // _LIBCPP_DEBUG
  }
@@ -417,7 +417,7 @@ index 71e5df3..eb99c69 100644
  
  template <class _BidirectionalIterator>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -4698,6 +4550,7 @@ __stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Comp
+@@ -4741,6 +4593,7 @@ __stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Comp
      __inplace_merge<_Compare>(__first, __m, __last, __comp, __l2, __len - __l2, __buff, __buff_size);
  }
  
@@ -425,7 +425,7 @@ index 71e5df3..eb99c69 100644
  template <class _RandomAccessIterator, class _Compare>
  inline _LIBCPP_INLINE_VISIBILITY
  void
-@@ -4722,6 +4575,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
+@@ -4765,6 +4618,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
      __stable_sort<_Comp_ref>(__first, __last, __comp, __len, __buf.first, __buf.second);
  #endif  // _LIBCPP_DEBUG
  }
@@ -434,10 +434,10 @@ index 71e5df3..eb99c69 100644
  template <class _RandomAccessIterator>
  inline _LIBCPP_INLINE_VISIBILITY
 diff --git a/include/atomic b/include/atomic
-index abec2a0..762de62 100644
+index a25b5bf..7153214 100644
 --- a/include/atomic
 +++ b/include/atomic
-@@ -526,7 +526,9 @@ void atomic_signal_fence(memory_order m) noexcept;
+@@ -542,17 +542,21 @@ void atomic_signal_fence(memory_order m) noexcept;
  
  #include <__config>
  #include <cstddef>
@@ -447,14 +447,20 @@ index abec2a0..762de62 100644
  #include <type_traits>
  
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
-@@ -536,286 +538,13 @@ void atomic_signal_fence(memory_order m) noexcept;
+ #pragma GCC system_header
+ #endif
+ 
++#if 0
  #ifdef _LIBCPP_HAS_NO_THREADS
  #error <atomic> is not supported on this single threaded system
  #endif
 -#if !defined(_LIBCPP_HAS_C_ATOMIC_IMP) && !defined(_LIBCPP_HAS_GCC_ATOMIC_IMP)
++#endif
 +#if !defined(_LIBCPP_HAS_C_ATOMIC_IMP)
  #error <atomic> is not implemented
  #endif
+ 
+@@ -562,280 +566,7 @@ void atomic_signal_fence(memory_order m) noexcept;
  
  _LIBCPP_BEGIN_NAMESPACE_STD
  
@@ -736,7 +742,30 @@ index abec2a0..762de62 100644
  
  template <class _Tp>
  inline _LIBCPP_INLINE_VISIBILITY
-@@ -827,158 +556,142 @@ kill_dependency(_Tp __y) _NOEXCEPT
+@@ -845,23 +576,25 @@ kill_dependency(_Tp __y) _NOEXCEPT
+     return __y;
+ }
+ 
+-#define ATOMIC_BOOL_LOCK_FREE      __GCC_ATOMIC_BOOL_LOCK_FREE
+-#define ATOMIC_CHAR_LOCK_FREE      __GCC_ATOMIC_CHAR_LOCK_FREE
+-#define ATOMIC_CHAR16_T_LOCK_FREE  __GCC_ATOMIC_CHAR16_T_LOCK_FREE
+-#define ATOMIC_CHAR32_T_LOCK_FREE  __GCC_ATOMIC_CHAR32_T_LOCK_FREE
+-#define ATOMIC_WCHAR_T_LOCK_FREE   __GCC_ATOMIC_WCHAR_T_LOCK_FREE
+-#define ATOMIC_SHORT_LOCK_FREE     __GCC_ATOMIC_SHORT_LOCK_FREE
+-#define ATOMIC_INT_LOCK_FREE       __GCC_ATOMIC_INT_LOCK_FREE
+-#define ATOMIC_LONG_LOCK_FREE      __GCC_ATOMIC_LONG_LOCK_FREE
+-#define ATOMIC_LLONG_LOCK_FREE     __GCC_ATOMIC_LLONG_LOCK_FREE
+-#define ATOMIC_POINTER_LOCK_FREE   __GCC_ATOMIC_POINTER_LOCK_FREE
++#define ATOMIC_BOOL_LOCK_FREE      false
++#define ATOMIC_CHAR_LOCK_FREE      false
++#define ATOMIC_CHAR16_T_LOCK_FREE  false
++#define ATOMIC_CHAR32_T_LOCK_FREE  true
++#define ATOMIC_WCHAR_T_LOCK_FREE   false
++#define ATOMIC_SHORT_LOCK_FREE     false
++#define ATOMIC_INT_LOCK_FREE       true
++#define ATOMIC_LONG_LOCK_FREE      FLOOR_ATOMIC_LONG_LOCK_FREE
++#define ATOMIC_LLONG_LOCK_FREE     FLOOR_ATOMIC_LLONG_LOCK_FREE
++#define ATOMIC_POINTER_LOCK_FREE   FLOOR_ATOMIC_POINTER_LOCK_FREE
  
  // general atomic<T>
  
@@ -748,6 +777,10 @@ index abec2a0..762de62 100644
 +    typedef volatile _TpAS* _ptr_type;
 +    
 +    mutable volatile _Tp __a_;
+ 
+ #if defined(__cpp_lib_atomic_is_always_lock_free)
+   static _LIBCPP_CONSTEXPR bool is_always_lock_free = __atomic_always_lock_free(sizeof(__a_), 0);
+@@ -869,90 +602,57 @@ struct __atomic_base  // false
  
      _LIBCPP_INLINE_VISIBILITY
      bool is_lock_free() const volatile _NOEXCEPT
@@ -857,6 +890,9 @@ index abec2a0..762de62 100644
 -#endif  // _LIBCPP_HAS_NO_DELETED_FUNCTIONS
  };
  
+ #if defined(__cpp_lib_atomic_is_always_lock_free)
+@@ -962,63 +662,78 @@ _LIBCPP_CONSTEXPR bool __atomic_base<_Tp, __b>::is_always_lock_free;
+ 
  // atomic<Integral>
  
 -template <class _Tp>
@@ -885,36 +921,38 @@ index abec2a0..762de62 100644
 +    _LIBCPP_INLINE_VISIBILITY
 +    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
-+    _LIBCPP_INLINE_VISIBILITY
-+    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
-+        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_add(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_add(&this->__a_, __op, __m);}
-+    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_sub(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_sub(&this->__a_, __op, __m);}
-+    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_sub(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_sub(&this->__a_, __op, __m);}
-+    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
-+        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
++    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_and(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
 -        {return __c11_atomic_fetch_and(&this->__a_, __op, __m);}
-+    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
 -    _Tp fetch_and(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_and(&this->__a_, __op, __m);}
++    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
++        {return floor_atomic_fetch_or(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
+     _LIBCPP_INLINE_VISIBILITY
+-    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
+-        {return __c11_atomic_fetch_or(&this->__a_, __op, __m);}
 +    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
      _LIBCPP_INLINE_VISIBILITY
--    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
+-    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_or(&this->__a_, __op, __m);}
 +    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_relaxed) _NOEXCEPT
 +        {return floor_atomic_fetch_xor(reinterpret_cast<_ptr_type>(&this->__a_), __op, __m);}
@@ -924,18 +962,16 @@ index abec2a0..762de62 100644
 +    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
      _LIBCPP_INLINE_VISIBILITY
--    _Tp fetch_or(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
--        {return __c11_atomic_fetch_or(&this->__a_, __op, __m);}
+-    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
+-        {return __c11_atomic_fetch_xor(&this->__a_, __op, __m);}
 +    _Tp _fetch_inc(memory_order __m = memory_order_relaxed) _NOEXCEPT
 +        {return floor_atomic_fetch_inc(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
      _LIBCPP_INLINE_VISIBILITY
--    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) volatile _NOEXCEPT
+-    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
 -        {return __c11_atomic_fetch_xor(&this->__a_, __op, __m);}
 +    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) volatile _NOEXCEPT
 +        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
-     _LIBCPP_INLINE_VISIBILITY
--    _Tp fetch_xor(_Tp __op, memory_order __m = memory_order_seq_cst) _NOEXCEPT
--        {return __c11_atomic_fetch_xor(&this->__a_, __op, __m);}
++    _LIBCPP_INLINE_VISIBILITY
 +    _Tp _fetch_dec(memory_order __m = memory_order_relaxed) _NOEXCEPT
 +        {return floor_atomic_fetch_dec(reinterpret_cast<_ptr_type>(&this->__a_), __m);}
  
@@ -966,7 +1002,7 @@ index abec2a0..762de62 100644
      _LIBCPP_INLINE_VISIBILITY
      _Tp operator+=(_Tp __op) volatile _NOEXCEPT {return fetch_add(__op) + __op;}
      _LIBCPP_INLINE_VISIBILITY
-@@ -1003,11 +716,11 @@ struct __atomic_base<_Tp, true>
+@@ -1043,11 +758,11 @@ struct __atomic_base<_Tp, true>
  
  // atomic<T>
  
@@ -981,7 +1017,7 @@ index abec2a0..762de62 100644
      _LIBCPP_INLINE_VISIBILITY
      atomic() _NOEXCEPT _LIBCPP_DEFAULT
      _LIBCPP_INLINE_VISIBILITY
-@@ -1023,709 +736,70 @@ struct atomic
+@@ -1063,709 +778,70 @@ struct atomic
  
  // atomic<T*>
  
@@ -1249,9 +1285,7 @@ index abec2a0..762de62 100644
 -{
 -    return __o->compare_exchange_strong(*__e, __d);
 -}
-+// NOTE: freestanding atomic<*> functions are not supported, either use the corresponding member functions,
-+// or use the freestanding floor atomic functions, which operate on raw global/local type pointers
- 
+-
 -// atomic_compare_exchange_weak_explicit
 -
 -template <class _Tp>
@@ -1648,7 +1682,7 @@ index abec2a0..762de62 100644
 -#endif // _LIBCPP_HAS_NO_DEFAULTED_FUNCTIONS
 -
 -    _LIBCPP_INLINE_VISIBILITY
--    atomic_flag(bool __b) _NOEXCEPT : __a_(__b) {}
+-    atomic_flag(bool __b) _NOEXCEPT : __a_(__b) {} // EXTENSION
 -
 -#ifndef _LIBCPP_HAS_NO_DELETED_FUNCTIONS
 -    atomic_flag(const atomic_flag&) = delete;
@@ -1703,7 +1737,9 @@ index abec2a0..762de62 100644
 -{
 -    __o->clear();
 -}
--
++// NOTE: freestanding atomic<*> functions are not supported, either use the corresponding member functions,
++// or use the freestanding floor atomic functions, which operate on raw global/local type pointers
+ 
 -inline _LIBCPP_INLINE_VISIBILITY
 -void
 -atomic_flag_clear_explicit(volatile atomic_flag* __o, memory_order __m) _NOEXCEPT
@@ -1721,7 +1757,7 @@ index abec2a0..762de62 100644
  
  // fences
  
-@@ -1733,47 +807,48 @@ inline _LIBCPP_INLINE_VISIBILITY
+@@ -1773,47 +849,48 @@ inline _LIBCPP_INLINE_VISIBILITY
  void
  atomic_thread_fence(memory_order __m) _NOEXCEPT
  {
@@ -1788,7 +1824,7 @@ index abec2a0..762de62 100644
  typedef atomic<int_fast32_t>  atomic_int_fast32_t;
  typedef atomic<uint_fast32_t> atomic_uint_fast32_t;
  typedef atomic<int_fast64_t>  atomic_int_fast64_t;
-@@ -1786,19 +861,19 @@ typedef atomic<ptrdiff_t> atomic_ptrdiff_t;
+@@ -1835,7 +912,7 @@ typedef atomic<ptrdiff_t> atomic_ptrdiff_t;
  typedef atomic<intmax_t>  atomic_intmax_t;
  typedef atomic<uintmax_t> atomic_uintmax_t;
  
@@ -1796,29 +1832,7 @@ index abec2a0..762de62 100644
 +#define ATOMIC_FLAG_INIT {0u}
  #define ATOMIC_VAR_INIT(__v) {__v}
  
--#define ATOMIC_BOOL_LOCK_FREE      __GCC_ATOMIC_BOOL_LOCK_FREE
--#define ATOMIC_CHAR_LOCK_FREE      __GCC_ATOMIC_CHAR_LOCK_FREE
--#define ATOMIC_CHAR16_T_LOCK_FREE  __GCC_ATOMIC_CHAR16_T_LOCK_FREE
--#define ATOMIC_CHAR32_T_LOCK_FREE  __GCC_ATOMIC_CHAR32_T_LOCK_FREE
--#define ATOMIC_WCHAR_T_LOCK_FREE   __GCC_ATOMIC_WCHAR_T_LOCK_FREE
--#define ATOMIC_SHORT_LOCK_FREE     __GCC_ATOMIC_SHORT_LOCK_FREE
--#define ATOMIC_INT_LOCK_FREE       __GCC_ATOMIC_INT_LOCK_FREE
--#define ATOMIC_LONG_LOCK_FREE      __GCC_ATOMIC_LONG_LOCK_FREE
--#define ATOMIC_LLONG_LOCK_FREE     __GCC_ATOMIC_LLONG_LOCK_FREE
--#define ATOMIC_POINTER_LOCK_FREE   __GCC_ATOMIC_POINTER_LOCK_FREE
-+#define ATOMIC_BOOL_LOCK_FREE      false
-+#define ATOMIC_CHAR_LOCK_FREE      false
-+#define ATOMIC_CHAR16_T_LOCK_FREE  false
-+#define ATOMIC_CHAR32_T_LOCK_FREE  true
-+#define ATOMIC_WCHAR_T_LOCK_FREE   false
-+#define ATOMIC_SHORT_LOCK_FREE     false
-+#define ATOMIC_INT_LOCK_FREE       true
-+#define ATOMIC_LONG_LOCK_FREE      FLOOR_ATOMIC_LONG_LOCK_FREE
-+#define ATOMIC_LLONG_LOCK_FREE     FLOOR_ATOMIC_LLONG_LOCK_FREE
-+#define ATOMIC_POINTER_LOCK_FREE   FLOOR_ATOMIC_POINTER_LOCK_FREE
- 
  _LIBCPP_END_NAMESPACE_STD
- 
 diff --git a/include/cstddef b/include/cstddef
 index edd106c..2a6df0c 100644
 --- a/include/cstddef
@@ -1833,6 +1847,35 @@ index edd106c..2a6df0c 100644
  #include <__nullptr>
  
  _LIBCPP_BEGIN_NAMESPACE_STD
+diff --git a/include/exception b/include/exception
+index 186d379..d4efd74 100644
+--- a/include/exception
++++ b/include/exception
+@@ -80,10 +80,12 @@ template <class E> void rethrow_if_nested(const E& e);
+ #include <__config>
+ #include <cstddef>
+ #include <type_traits>
++#if 0
+ #if defined(_LIBCPP_NO_EXCEPTIONS)
+ #include <cstdio>
+ #include <cstdlib>
+ #endif
++#endif
+ 
+ #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
+ #pragma GCC system_header
+@@ -263,9 +265,11 @@ inline void __libcpp_throw(_Exception const& __e) {
+ #ifndef _LIBCPP_NO_EXCEPTIONS
+     throw __e;
+ #else
++#if 0
+     _VSTD::fprintf(stderr, "%s\n", __e.what());
+     _VSTD::abort();
+ #endif
++#endif
+ }
+ 
+ _LIBCPP_END_NAMESPACE_STD
 diff --git a/include/float.h b/include/float.h
 deleted file mode 100644
 index 1acfdc6..0000000
@@ -1923,10 +1966,10 @@ index 1acfdc6..0000000
 -
 -#endif  // _LIBCPP_FLOAT_H
 diff --git a/include/functional b/include/functional
-index dbe9b01..08631bb 100644
+index 2056ffe..ad5f592 100644
 --- a/include/functional
 +++ b/include/functional
-@@ -472,8 +472,10 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
+@@ -474,8 +474,10 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
  
  #include <__config>
  #include <type_traits>
@@ -1937,20 +1980,20 @@ index dbe9b01..08631bb 100644
  #include <memory>
  #include <tuple>
  
-@@ -1973,16 +1975,16 @@ namespace placeholders
- 
+@@ -1972,16 +1974,16 @@ namespace placeholders
  template <int _Np> struct __ph {};
  
--_LIBCPP_FUNC_VIS extern __ph<1>   _1;
--_LIBCPP_FUNC_VIS extern __ph<2>   _2;
--_LIBCPP_FUNC_VIS extern __ph<3>   _3;
--_LIBCPP_FUNC_VIS extern __ph<4>   _4;
--_LIBCPP_FUNC_VIS extern __ph<5>   _5;
--_LIBCPP_FUNC_VIS extern __ph<6>   _6;
--_LIBCPP_FUNC_VIS extern __ph<7>   _7;
--_LIBCPP_FUNC_VIS extern __ph<8>   _8;
--_LIBCPP_FUNC_VIS extern __ph<9>   _9;
--_LIBCPP_FUNC_VIS extern __ph<10> _10;
+ #if defined(_LIBCPP_CXX03_LANG) || defined(_LIBCPP_BUILDING_BIND)
+-_LIBCPP_FUNC_VIS extern const __ph<1>   _1;
+-_LIBCPP_FUNC_VIS extern const __ph<2>   _2;
+-_LIBCPP_FUNC_VIS extern const __ph<3>   _3;
+-_LIBCPP_FUNC_VIS extern const __ph<4>   _4;
+-_LIBCPP_FUNC_VIS extern const __ph<5>   _5;
+-_LIBCPP_FUNC_VIS extern const __ph<6>   _6;
+-_LIBCPP_FUNC_VIS extern const __ph<7>   _7;
+-_LIBCPP_FUNC_VIS extern const __ph<8>   _8;
+-_LIBCPP_FUNC_VIS extern const __ph<9>   _9;
+-_LIBCPP_FUNC_VIS extern const __ph<10> _10;
 +_LIBCPP_FUNC_VIS extern constant __ph<1>   _1;
 +_LIBCPP_FUNC_VIS extern constant __ph<2>   _2;
 +_LIBCPP_FUNC_VIS extern constant __ph<3>   _3;
@@ -1961,9 +2004,9 @@ index dbe9b01..08631bb 100644
 +_LIBCPP_FUNC_VIS extern constant __ph<8>   _8;
 +_LIBCPP_FUNC_VIS extern constant __ph<9>   _9;
 +_LIBCPP_FUNC_VIS extern constant __ph<10> _10;
- 
- }  // placeholders
- 
+ #else
+ constexpr __ph<1>   _1{};
+ constexpr __ph<2>   _2{};
 diff --git a/include/inttypes.h b/include/inttypes.h
 deleted file mode 100644
 index 5c5618b..0000000
@@ -2222,7 +2265,7 @@ index 5c5618b..0000000
 -
 -#endif  // _LIBCPP_INTTYPES_H
 diff --git a/include/iosfwd b/include/iosfwd
-index eccfd34..a012c79 100644
+index e4149ef..d621ecd 100644
 --- a/include/iosfwd
 +++ b/include/iosfwd
 @@ -87,7 +87,12 @@ typedef fpos<char_traits<wchar_t>::state_type> wstreampos;
@@ -2395,10 +2438,10 @@ index 80a1be4..8f8a657 100644
  _LIBCPP_END_NAMESPACE_STD
  
 diff --git a/include/memory b/include/memory
-index 3ef687c..23cef71 100644
+index 5cdb60f..d56fc3d 100644
 --- a/include/memory
 +++ b/include/memory
-@@ -597,9 +597,13 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
+@@ -625,9 +625,13 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
  
  #include <__config>
  #include <type_traits>
@@ -2412,10 +2455,10 @@ index 3ef687c..23cef71 100644
  #include <new>
  #include <utility>
  #include <limits>
-@@ -607,10 +611,12 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
- #include <__functional_base>
+@@ -636,10 +640,12 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
  #include <iosfwd>
  #include <tuple>
+ #include <stdexcept>
 +#if 0
  #include <cstring>
  #if defined(_LIBCPP_NO_EXCEPTIONS)
@@ -2425,7 +2468,7 @@ index 3ef687c..23cef71 100644
  
  #if !defined(_LIBCPP_HAS_NO_ATOMIC_HEADER)
  #  include <atomic>
-@@ -1571,7 +1577,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
+@@ -1600,7 +1606,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
              ptrdiff_t _Np = __end1 - __begin1;
              if (_Np > 0)
              {
@@ -2434,7 +2477,7 @@ index 3ef687c..23cef71 100644
                  __begin2 += _Np;
              }
          }
-@@ -1602,7 +1608,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
+@@ -1631,7 +1637,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
              ptrdiff_t _Np = __end1 - __begin1;
              if (_Np > 0)
              {
@@ -2443,7 +2486,7 @@ index 3ef687c..23cef71 100644
                  __begin2 += _Np;
              }
          }
-@@ -1635,7 +1641,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
+@@ -1664,7 +1670,7 @@ struct _LIBCPP_TYPE_VIS_ONLY allocator_traits
              ptrdiff_t _Np = __end1 - __begin1;
              __end2 -= _Np;
              if (_Np > 0)
@@ -2452,7 +2495,7 @@ index 3ef687c..23cef71 100644
          }
  
  private:
-@@ -1921,6 +1927,7 @@ public:
+@@ -1960,6 +1966,7 @@ public:
  #endif
  };
  
@@ -2460,7 +2503,7 @@ index 3ef687c..23cef71 100644
  template <class _Tp>
  pair<_Tp*, ptrdiff_t>
  get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
-@@ -1947,6 +1954,7 @@ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
+@@ -1986,6 +1993,7 @@ get_temporary_buffer(ptrdiff_t __n) _NOEXCEPT
  template <class _Tp>
  inline _LIBCPP_INLINE_VISIBILITY
  void return_temporary_buffer(_Tp* __p) _NOEXCEPT {::operator delete(__p);}
@@ -2468,7 +2511,7 @@ index 3ef687c..23cef71 100644
  
  template <class _Tp>
  struct auto_ptr_ref
-@@ -3175,7 +3183,7 @@ _Size
+@@ -3198,7 +3206,7 @@ _Size
  __loadword(const void* __p)
  {
      _Size __r;
@@ -2558,11 +2601,108 @@ index 8841bbe..0000000
 -#endif
 -
 -#endif  // _LIBCPP_STDDEF_H
+diff --git a/include/stdexcept b/include/stdexcept
+index 4218b13..fe44b95 100644
+--- a/include/stdexcept
++++ b/include/stdexcept
+@@ -54,9 +54,9 @@ public:
+ _LIBCPP_BEGIN_NAMESPACE_STD
+ class _LIBCPP_HIDDEN __libcpp_refstring {
+ #ifdef __clang__
+-    const char *__imp_ __attribute__((__unused__)); // only clang emits a warning
++    const constant char *__imp_ __attribute__((__unused__)); // only clang emits a warning
+ #else
+-    const char *__imp_;
++    const constant char *__imp_;
+ #endif
+ };
+ _LIBCPP_END_NAMESPACE_STD
+@@ -72,7 +72,7 @@ private:
+     _VSTD::__libcpp_refstring __imp_;
+ public:
+     explicit logic_error(const string&);
+-    explicit logic_error(const char*);
++    explicit logic_error(const constant char*);
+ 
+     logic_error(const logic_error&) _NOEXCEPT;
+     logic_error& operator=(const logic_error&) _NOEXCEPT;
+@@ -89,7 +89,7 @@ private:
+     _VSTD::__libcpp_refstring __imp_;
+ public:
+     explicit runtime_error(const string&);
+-    explicit runtime_error(const char*);
++    explicit runtime_error(const constant char*);
+ 
+     runtime_error(const runtime_error&) _NOEXCEPT;
+     runtime_error& operator=(const runtime_error&) _NOEXCEPT;
+@@ -104,7 +104,7 @@ class _LIBCPP_EXCEPTION_ABI domain_error
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit domain_error(const string& __s) : logic_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit domain_error(const char* __s)   : logic_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit domain_error(const constant char* __s)   : logic_error(__s) {}
+ 
+     virtual ~domain_error() _NOEXCEPT;
+ };
+@@ -114,7 +114,7 @@ class _LIBCPP_EXCEPTION_ABI invalid_argument
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit invalid_argument(const string& __s) : logic_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit invalid_argument(const char* __s)   : logic_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit invalid_argument(const constant char* __s)   : logic_error(__s) {}
+ 
+     virtual ~invalid_argument() _NOEXCEPT;
+ };
+@@ -124,7 +124,7 @@ class _LIBCPP_EXCEPTION_ABI length_error
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit length_error(const string& __s) : logic_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit length_error(const char* __s)   : logic_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit length_error(const constant char* __s)   : logic_error(__s) {}
+ 
+     virtual ~length_error() _NOEXCEPT;
+ };
+@@ -134,7 +134,7 @@ class _LIBCPP_EXCEPTION_ABI out_of_range
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit out_of_range(const string& __s) : logic_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit out_of_range(const char* __s)   : logic_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit out_of_range(const constant char* __s)   : logic_error(__s) {}
+ 
+     virtual ~out_of_range() _NOEXCEPT;
+ };
+@@ -144,7 +144,7 @@ class _LIBCPP_EXCEPTION_ABI range_error
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit range_error(const string& __s) : runtime_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit range_error(const char* __s)   : runtime_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit range_error(const constant char* __s)   : runtime_error(__s) {}
+ 
+     virtual ~range_error() _NOEXCEPT;
+ };
+@@ -154,7 +154,7 @@ class _LIBCPP_EXCEPTION_ABI overflow_error
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit overflow_error(const string& __s) : runtime_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit overflow_error(const char* __s)   : runtime_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit overflow_error(const constant char* __s)   : runtime_error(__s) {}
+ 
+     virtual ~overflow_error() _NOEXCEPT;
+ };
+@@ -164,7 +164,7 @@ class _LIBCPP_EXCEPTION_ABI underflow_error
+ {
+ public:
+     _LIBCPP_INLINE_VISIBILITY explicit underflow_error(const string& __s) : runtime_error(__s) {}
+-    _LIBCPP_INLINE_VISIBILITY explicit underflow_error(const char* __s)   : runtime_error(__s) {}
++    _LIBCPP_INLINE_VISIBILITY explicit underflow_error(const constant char* __s)   : runtime_error(__s) {}
+ 
+     virtual ~underflow_error() _NOEXCEPT;
+ };
 diff --git a/include/type_traits b/include/type_traits
-index b7adfeb..0ad5df6 100644
+index 0d578bb..85f75a5 100644
 --- a/include/type_traits
 +++ b/include/type_traits
-@@ -464,8 +464,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant
+@@ -506,8 +506,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant
  #endif
  };
  
@@ -2573,7 +2713,7 @@ index b7adfeb..0ad5df6 100644
  
  #if _LIBCPP_STD_VER > 14
  template <bool __b>
-@@ -669,6 +669,9 @@ template <class _Tp> struct __libcpp_is_floating_point              : public fal
+@@ -711,6 +711,9 @@ template <class _Tp> struct __libcpp_is_floating_point              : public fal
  template <>          struct __libcpp_is_floating_point<float>       : public true_type {};
  template <>          struct __libcpp_is_floating_point<double>      : public true_type {};
  template <>          struct __libcpp_is_floating_point<long double> : public true_type {};

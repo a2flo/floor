@@ -47,14 +47,13 @@ for arg in "$@"; do
 	esac
 done
 
-# clean up prior source and build folders
-rm -Rf libcxx 2>/dev/null
+# clean up prior build folders
 rm -Rf build 2>/dev/null
 
 # download src
 LLVM_COMMIT=fa714f9672c501360d01b333201d8417a660923d
 CLANG_COMMIT=331c3de83304fe93fc6ccabbf953c542427e2aee
-LIBCXX_COMMIT=
+LIBCXX_COMMIT=eeae30ead0fedb3f34a1d7bcc70f7004682cf24e
 
 if [ ! -d llvm ]; then
 	# init llvm/clang repositories if they don't exist yet
@@ -93,12 +92,24 @@ else
 fi
 cd ../../../
 
-# still using libc++ 3.8.1 for now
-if [ ! -f libcxx-3.8.1.src.tar.xz ]; then
-	curl -o libcxx-3.8.1.src.tar.xz http://llvm.org/releases/3.8.1/libcxx-3.8.1.src.tar.xz
+if [ ! -d libcxx ]; then
+	mkdir libcxx
+	cd libcxx
+	git init
+	git remote add origin https://github.com/llvm-mirror/libcxx.git
+	git fetch --depth=1000 origin master
+	git reset --hard ${LIBCXX_COMMIT}
+else
+	cd libcxx
+	git clean -f -d
+	CURRENT_LIBCXX_COMMIT=$(git rev-parse HEAD)
+	if [ ${CURRENT_LIBCXX_COMMIT} != ${LIBCXX_COMMIT} ]; then
+		git reset --hard ${CURRENT_LIBCXX_COMMIT}
+		git fetch --depth=1000 origin master
+	fi
+	git reset --hard ${LIBCXX_COMMIT}
 fi
-tar xfv libcxx-3.8.1.src.tar.xz
-mv libcxx-3.8.1.src libcxx
+cd ..
 
 # always clone anew
 rm -Rf SPIRV-Tools 2>/dev/null
