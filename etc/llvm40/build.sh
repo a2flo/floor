@@ -107,11 +107,11 @@ git clone git://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/s
 
 # patch
 cd llvm
-patch -p1 < ../40_llvm.patch
+git apply -p1 --ignore-whitespace ../40_llvm.patch
 cd tools/clang
-patch -p1 < ../../../40_clang.patch
+git apply -p1 --ignore-whitespace ../../../40_clang.patch
 cd ../../../libcxx
-patch -p1 < ../40_libcxx.patch
+git apply -p1 --ignore-whitespace ../40_libcxx.patch
 cd ..
 
 # handle platform
@@ -186,7 +186,7 @@ cd build
 # TODO: cmake!
 EXTRA_OPTIONS=""
 if [ $BUILD_OS == "osx" ]; then
-	EXTRA_OPTIONS="-mmacosx-version-min=10.9"
+	EXTRA_OPTIONS="-mmacosx-version-min=10.11"
 elif [ $BUILD_OS == "ios" ]; then
 	EXTRA_OPTIONS="-miphoneos-version-min=9.0"
 fi
