@@ -144,6 +144,9 @@ FLOOR_POP_WARNINGS()
 												 selector:@selector(orientationChanged:)
 													 name:UIDeviceOrientationDidChangeNotification
 												   object:[UIDevice currentDevice]];
+		
+		// noone else calls this on init, so do it explicitly in here
+		[self reshape];
 #endif
 	}
 	return self;
@@ -170,6 +173,7 @@ FLOOR_POP_WARNINGS()
 
 - (void)reshape {
 	self.refresh_rate = floor::get_window_refresh_rate();
+	if(self.refresh_rate == 0) self.refresh_rate = 60; // sane fallback
 	
 	bool scale_change = false;
 	const auto new_scale = [self get_scale_factor];
