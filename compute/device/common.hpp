@@ -144,6 +144,7 @@ using namespace std;
 #define _LIBCPP_NO_RTTI 1
 #define _LIBCPP_BUILD_STATIC 1
 #define _LIBCPP_NO_EXCEPTIONS 1
+#define _LIBCPP_HAS_NO_THREADS 1
 #define assert(...)
 #endif
 #include <utility>
