@@ -1669,8 +1669,8 @@ namespace math {
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, long double)
 #endif
 	
-	// non-standard and metal-only for now
-#if defined(FLOOR_COMPUTE_METAL)
+	// non-standard and metal/vulkan-only for now
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
 	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, half)

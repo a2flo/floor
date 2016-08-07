@@ -212,8 +212,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
-				" -x cl -Xclang -cl-std=CL2.0" \
-				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -x vulkan -std=vulkan1.0" \
+				" -target " + (device->bitness == 32 ? "spir-unknown-unknown-vulkan" : "spir64-unknown-unknown-vulkan") +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \

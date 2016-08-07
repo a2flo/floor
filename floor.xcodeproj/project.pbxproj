@@ -236,6 +236,7 @@
 		5CEB9F6D1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
 		5CEB9F6E1A4BF91B00EC3543 /* compute_queue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */; };
 		5CEB9F6F1A4BF91B00EC3543 /* compute_queue.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */; };
+		5CEBAB361D55B8F700F5076F /* vulkan_post.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEBAB351D55B8F700F5076F /* vulkan_post.hpp */; };
 		5CEEA6CA1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
 		5CEEA6CB1A4D4F2A005239DA /* sig_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */; };
 		5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */; };
@@ -487,6 +488,7 @@
 		5CEB9F641A4BF91B00EC3543 /* compute_kernel.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_kernel.hpp; sourceTree = "<group>"; };
 		5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_queue.cpp; sourceTree = "<group>"; };
 		5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_queue.hpp; sourceTree = "<group>"; };
+		5CEBAB351D55B8F700F5076F /* vulkan_post.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_post.hpp; path = device/vulkan_post.hpp; sourceTree = "<group>"; };
 		5CEEA6C81A4D4F2A005239DA /* sig_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = sig_handler.cpp; sourceTree = "<group>"; };
 		5CEEA6C91A4D4F2A005239DA /* sig_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = sig_handler.hpp; sourceTree = "<group>"; };
 		5CEEA6CD1A4EA2C0005239DA /* opencl_kernel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = opencl_kernel.cpp; sourceTree = "<group>"; };
@@ -784,6 +786,7 @@
 				5C8FEF5E1AFE3BF4001D47BF /* opencl.hpp */,
 				5C0E18C81B0946B900E63235 /* opencl_atomic.hpp */,
 				5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */,
+				5CEBAB351D55B8F700F5076F /* vulkan_post.hpp */,
 				5C3B61D91C60FD4400358DAB /* opaque_image.hpp */,
 				5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */,
 				5C3B61DB1C61647600358DAB /* sampler.hpp */,
@@ -1001,6 +1004,7 @@
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
 				5C20C8C41B4139260005F5EA /* host_buffer.hpp in Headers */,
+				5CEBAB361D55B8F700F5076F /* vulkan_post.hpp in Headers */,
 				5C3B61DC1C61647600358DAB /* sampler.hpp in Headers */,
 				5C515D691ACDB75D002FB38F /* option_handler.hpp in Headers */,
 				5C2B87D51C73893E00F11EA5 /* vulkan_compute.hpp in Headers */,

@@ -87,6 +87,38 @@ const_func uint16_t abs(uint16_t x);
 const_func uint32_t abs(uint32_t x);
 const_func uint64_t abs(uint64_t x);
 
+const_func half fmod(half x, half y);
+const_func half sqrt(half x);
+const_func half rsqrt(half x);;
+const_func half fabs(half x);
+const_func half floor(half x);
+const_func half ceil(half x);
+const_func half round(half x);
+const_func half trunc(half x);
+const_func half rint(half x);
+const_func half sin(half x);
+const_func half cos(half x);
+const_func half tan(half x);
+const_func half asin(half x);
+const_func half acos(half x);
+const_func half atan(half x);
+const_func half atan2(half x, half y);
+const_func half sinh(half x);
+const_func half cosh(half x);
+const_func half tanh(half x);
+const_func half asinh(half x);
+const_func half acosh(half x);
+const_func half atanh(half x);
+const_func half fma(half a, half b, half c);
+const_func half exp(half x);
+const_func half exp2(half x);
+const_func half log(half x);
+const_func half log2(half x);
+const_func half pow(half x, half y);
+const_func half copysign(half x, half y);
+const_func half fmin(half x, half y);
+const_func half fmax(half x, half y);
+
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double fmod(double x, double y);
 const_func double sqrt(double x);
@@ -138,6 +170,8 @@ const_func uint8_t floor_rt_max(uint8_t x, uint8_t y) asm("_Z3maxhh");
 const_func uint16_t floor_rt_max(uint16_t x, uint16_t y) asm("_Z3maxtt");
 const_func uint32_t floor_rt_max(uint32_t x, uint32_t y) asm("_Z3maxjj");
 const_func uint64_t floor_rt_max(uint64_t x, uint64_t y) asm("_Z3maxmm");
+const_func half floor_rt_min(half x, half y) { return fmin(x, y); }
+const_func half floor_rt_max(half x, half y) { return fmax(x, y); }
 const_func float floor_rt_min(float x, float y) { return fmin(x, y); }
 const_func float floor_rt_max(float x, float y) { return fmax(x, y); }
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
@@ -211,6 +245,7 @@ namespace std {
 	using ::copysign;
 	using ::abs;
 	
+	const_func floor_inline_always half abs(half x) { return fabs(x); }
 	const_func floor_inline_always float abs(float x) { return fabs(x); }
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	const_func floor_inline_always double abs(double x) { return fabs(x); }
