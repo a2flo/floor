@@ -1119,6 +1119,7 @@ namespace const_math {
 		const uint16_t widened_val = val;
 		return const_math::clz(widened_val) - 8 /* upper 8 bits */;
 	}
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32) // no 128-bit types
 	//! count leading zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int clz(const uint_type& val) {
@@ -1128,6 +1129,7 @@ namespace const_math {
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
 	}
+#endif
 	//! count leading zeros
 	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
 											  is_same<int_type, __int128_t>())>* = nullptr>
@@ -1172,6 +1174,7 @@ namespace const_math {
 		const uint16_t widened_val = 0xFFu | val;
 		return const_math::ctz(widened_val);
 	}
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32) // no 128-bit types
 	//! count trailing zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int ctz(const uint_type& val) {
@@ -1181,6 +1184,7 @@ namespace const_math {
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
 	}
+#endif
 	//! count trailing zeros
 	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
 											  is_same<int_type, __int128_t>())>* = nullptr>
@@ -1223,6 +1227,7 @@ namespace const_math {
 		const uint32_t widened_val = val;
 		return const_math::popcount(widened_val);
 	}
+#if (!defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)) && !defined(PLATFORM_X32) // no 128-bit types
 	//! count 1-bits
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int popcount(const uint_type& val) {
@@ -1230,6 +1235,7 @@ namespace const_math {
 		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		return popcount(upper) + popcount(lower);
 	}
+#endif
 	//! count 1-bits
 	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
 											  is_same<int_type, __int128_t>())>* = nullptr>
