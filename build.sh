@@ -427,7 +427,11 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		UNCHECKED_LIBS="${UNCHECKED_LIBS} OpenCL"
 	fi
 	if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
-		UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan"
+		if [ $BUILD_OS != "mingw" ]; then
+			UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan"
+		else
+			UNCHECKED_LIBS="${UNCHECKED_LIBS} vulkan-1"
+		fi
 	fi
 
 	# add os specific libs
@@ -447,7 +451,7 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 		LDFLAGS="${LDFLAGS} -L/lib"
 	fi
 	
-	# windows/mingw opencl handling
+	# windows/mingw opencl and vulkan handling
 	if [ $BUILD_OS == "mingw" ]; then
 		if [ ${BUILD_CONF_OPENCL} -gt 0 ]; then
 			if [ ! -z "${AMDAPPSDKROOT}" ]; then
@@ -470,6 +474,20 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 				INCLUDES="${INCLUDES} -isystem \"${INTELOCLSDKROOT_FIXED}include\""
 			else
 				error "building with OpenCL support, but no OpenCL SDK was found - please install the Intel or AMD OpenCL SDK!"
+			fi
+		fi
+		
+		if [ ${BUILD_CONF_VULKAN} -gt 0 ]; then
+			if [ ! -z "${VK_SDK_PATH}" ]; then
+				VK_SDK_PATH_FIXED=$(echo ${VK_SDK_PATH} | sed -E "s/\\\\/\//g")
+				if [ ${BUILD_ARCH_SIZE} == "x32" ]; then
+					LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin32\""
+				else
+					LDFLAGS="${LDFLAGS} -L\"${VK_SDK_PATH_FIXED}/Bin\""
+				fi
+				INCLUDES="${INCLUDES} -isystem \"${VK_SDK_PATH_FIXED}/Include\""
+			else
+				error "Vulkan SDK not installed (VK_SDK_PATH not set)"
 			fi
 		fi
 	fi
