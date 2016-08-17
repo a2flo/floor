@@ -255,6 +255,7 @@ TARGET_NAME=floor
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
 BUILD_OS="unknown"
 BUILD_CPU_COUNT=1
+STAT_IS_BSD=0
 case ${BUILD_PLATFORM} in
 	"darwin")
 		if expr `uname -p` : "arm.*" >/dev/null; then
@@ -263,6 +264,7 @@ case ${BUILD_PLATFORM} in
 			BUILD_OS="osx"
 		fi
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
+		STAT_IS_BSD=1
 		;;
 	"linux")
 		BUILD_OS="linux"
@@ -272,10 +274,12 @@ case ${BUILD_PLATFORM} in
 	"freebsd")
 		BUILD_OS="freebsd"
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
+		STAT_IS_BSD=1
 		;;
 	"openbsd")
 		BUILD_OS="openbsd"
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
+		STAT_IS_BSD=1
 		;;
 	"cygwin"*)
 		# untested
@@ -291,6 +295,14 @@ case ${BUILD_PLATFORM} in
 		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
 		;;
 esac
+
+file_mod_time() {
+	if [ ${STAT_IS_BSD} -gt 0 ]; then
+		echo $(stat -f "%m" $@)
+	else
+		echo $(stat -c "%Y" $@)
+	fi
+}
 
 # if an explicit job count was specified, overwrite BUILD_CPU_COUNT with it
 if [ ${BUILD_JOB_COUNT} -gt 0 ]; then
@@ -353,12 +365,15 @@ CUR_DIR=$(pwd)
 ESC_CUR_DIR=$(echo ${CUR_DIR} | sed -E "s/\//\\\\\//g")
 
 # trigger full rebuild if build.sh is newer than the target bin or the target bin doesn't exist
-if [ ! -f ${BIN_DIR}/${TARGET_BIN_NAME} ]; then
-	info "rebuilding because the target bin doesn't exist ..."
-	BUILD_REBUILD=1
-elif [ $(stat -f "%m" build.sh) -gt $(stat -f "%m" ${BIN_DIR}/${TARGET_BIN_NAME}) ]; then
-	info "rebuilding because build.sh is newer than the target bin ..."
-	BUILD_REBUILD=1
+if [ ${BUILD_MODE} != "clean" ]; then
+	if [ ! -f ${BIN_DIR}/${TARGET_BIN_NAME} ]; then
+		info "rebuilding because the target bin doesn't exist ..."
+		BUILD_REBUILD=1
+	elif [ $(file_mod_time build.sh) -gt $(file_mod_time ${BIN_DIR}/${TARGET_BIN_NAME}) ]; then
+		info "rebuilding because build.sh is newer than the target bin ..."
+		info "$(file_mod_time build.sh) > $(file_mod_time ${BIN_DIR}/${TARGET_BIN_NAME})"
+		BUILD_REBUILD=1
+	fi
 fi
 
 ##########################################
@@ -640,7 +655,9 @@ fi
 eval $(${CXX} -E -dM -I../ floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 TARGET_VERSION="${FLOOR_MAJOR_VERSION}.${FLOOR_MINOR_VERSION}.${FLOOR_REVISION_VERSION}"
 TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION_STR}-${FLOOR_BUILD_VERSION}"
-info "building ${TARGET_NAME} v${TARGET_FULL_VERSION} (${BUILD_MODE})"
+if [ ${BUILD_MODE} != "clean" ]; then
+	info "building ${TARGET_NAME} v${TARGET_FULL_VERSION} (${BUILD_MODE})"
+fi
 
 ##########################################
 # flags
@@ -874,6 +891,8 @@ case ${BUILD_MODE} in
 		# delete the target binary and the complete build folder (all object files)
 		info "cleaning ..."
 		rm -f ${TARGET_BIN}
+		rm -f ${TARGET_STATIC_BIN}
+		rm -f floor.pch
 		rm -Rf ${BUILD_DIR}
 		exit 0
 		;;
@@ -916,8 +935,8 @@ needs_rebuild() {
 	else
 		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | grep -v "${source_file}" | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
 		if [ "${dep_list}" ]; then
-			file_time=$(stat -f "%m" "${bin_file_name}")
-			dep_times=$(stat -f "%m" ${dep_list})
+			file_time=$(file_mod_time "${bin_file_name}")
+			dep_times=$(file_mod_time ${dep_list})
 			for dep_time in ${dep_times}; do
 				if [ $dep_time -gt $file_time ]; then
 					rebuild_file=1
