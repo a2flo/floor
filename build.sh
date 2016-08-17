@@ -296,6 +296,7 @@ case ${BUILD_PLATFORM} in
 		;;
 esac
 
+# runs the platform specific stat cmd to get the modification date of the specified file(s) as a unix timestamp
 file_mod_time() {
 	if [ ${STAT_IS_BSD} -gt 0 ]; then
 		echo $(stat -f "%m" $@)
@@ -303,6 +304,16 @@ file_mod_time() {
 		echo $(stat -c "%Y" $@)
 	fi
 }
+
+# figure out which md5 cmd/binary can be used
+MD5_CMD=
+if [ $(command -v md5sum) ]; then
+	MD5_CMD=md5sum
+elif [ $(command -v md5) ]; then
+	MD5_CMD=md5
+else
+	error "neither md5 nor md5sum was found"
+fi
 
 # if an explicit job count was specified, overwrite BUILD_CPU_COUNT with it
 if [ ${BUILD_JOB_COUNT} -gt 0 ]; then
@@ -371,7 +382,6 @@ if [ ${BUILD_MODE} != "clean" ]; then
 		BUILD_REBUILD=1
 	elif [ $(file_mod_time build.sh) -gt $(file_mod_time ${BIN_DIR}/${TARGET_BIN_NAME}) ]; then
 		info "rebuilding because build.sh is newer than the target bin ..."
-		info "$(file_mod_time build.sh) > $(file_mod_time ${BIN_DIR}/${TARGET_BIN_NAME})"
 		BUILD_REBUILD=1
 	fi
 fi
@@ -637,7 +647,7 @@ if [ ${BUILD_MODE} != "clean" ]; then
 	# check if this is an entirely new conf or if it differs from the existing conf
 	if [ ! -f floor/floor_conf.hpp ]; then
 		mv floor/floor_conf.hpp.tmp floor/floor_conf.hpp
-	elif [ "$(shasum -a 256 floor/floor_conf.hpp.tmp | cut -c -64)" != "$(shasum -a 256 floor/floor_conf.hpp | cut -c -64)" ]; then
+	elif [ "$(${MD5_CMD} floor/floor_conf.hpp.tmp | cut -c -32)" != "$(${MD5_CMD} floor/floor_conf.hpp | cut -c -32)" ]; then
 		info "new conf file ..."
 		mv -f floor/floor_conf.hpp.tmp floor/floor_conf.hpp
 	fi
