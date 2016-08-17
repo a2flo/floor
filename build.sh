@@ -71,6 +71,7 @@ fi
 ##########################################
 # arg handling
 BUILD_MODE="release"
+BUILD_REBUILD=0
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
 
@@ -116,6 +117,7 @@ for arg in "$@"; do
 			echo "	<default>          builds this project in release mode"
 			echo "	opt                builds this project in release mode + additional optimizations that take longer to compile (lto)"
 			echo "	debug              builds this project in debug mode"
+			echo "  rebuild            rebuild all source files of this project"
 			echo "	clean              cleans all build binaries and intermediate build files"
 			echo ""
 			echo "build configuration:"
@@ -156,6 +158,9 @@ for arg in "$@"; do
 			;;
 		"debug")
 			BUILD_MODE="debug"
+			;;
+		"rebuild")
+			BUILD_REBUILD=1
 			;;
 		"clean")
 			BUILD_MODE="clean"
@@ -342,6 +347,19 @@ fi
 
 # build directory where all temporary files are stored (*.o, etc.)
 BUILD_DIR=build
+
+# current directory + escaped form
+CUR_DIR=$(pwd)
+ESC_CUR_DIR=$(echo ${CUR_DIR} | sed -E "s/\//\\\\\//g")
+
+# trigger full rebuild if build.sh is newer than the target bin or the target bin doesn't exist
+if [ ! -f ${BIN_DIR}/${TARGET_BIN_NAME} ]; then
+	info "rebuilding because the target bin doesn't exist ..."
+	BUILD_REBUILD=1
+elif [ $(stat -f "%m" build.sh) -gt $(stat -f "%m" ${BIN_DIR}/${TARGET_BIN_NAME}) ]; then
+	info "rebuilding because build.sh is newer than the target bin ..."
+	BUILD_REBUILD=1
+fi
 
 ##########################################
 # library/dependency handling
@@ -572,40 +590,50 @@ fi
 LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib -L/opt/floor/lib"
 
 # create the floor_conf.hpp file
-CONF=$(cat floor/floor_conf.hpp.in)
-set_conf_val() {
-	repl_text="$1"
-	define="$2"
-	enabled=$3
-	if [ ${enabled} -gt 0 ]; then
-		CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/\/\/#define ${define} 1/g")
+if [ ${BUILD_MODE} != "clean" ]; then
+	CONF=$(cat floor/floor_conf.hpp.in)
+	set_conf_val() {
+		repl_text="$1"
+		define="$2"
+		enabled=$3
+		if [ ${enabled} -gt 0 ]; then
+			CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/\/\/#define ${define} 1/g")
+		else
+			CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/#define ${define} 1/g")
+		fi
+	}
+	set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
+	set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
+	set_conf_val "###FLOOR_HOST_COMPUTE###" "FLOOR_NO_HOST_COMPUTE" ${BUILD_CONF_HOST_COMPUTE}
+	set_conf_val "###FLOOR_VULKAN###" "FLOOR_NO_VULKAN" ${BUILD_CONF_VULKAN}
+	# NOTE: metal is disabled on non-ios platforms anyways and this would overwrite the ios flag that is already ifdef'ed
+	if [ $BUILD_OS != "ios" ]; then
+		set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" 1
 	else
-		CONF=$(echo "${CONF}" | sed -E "s/${repl_text}/#define ${define} 1/g")
+		# -> only actually set the config option if we're building on ios
+		set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
 	fi
-}
-set_conf_val "###FLOOR_CUDA###" "FLOOR_NO_CUDA" ${BUILD_CONF_CUDA}
-set_conf_val "###FLOOR_OPENCL###" "FLOOR_NO_OPENCL" ${BUILD_CONF_OPENCL}
-set_conf_val "###FLOOR_HOST_COMPUTE###" "FLOOR_NO_HOST_COMPUTE" ${BUILD_CONF_HOST_COMPUTE}
-set_conf_val "###FLOOR_VULKAN###" "FLOOR_NO_VULKAN" ${BUILD_CONF_VULKAN}
-# NOTE: metal is disabled on non-ios platforms anyways and this would overwrite the ios flag that is already ifdef'ed
-if [ $BUILD_OS != "ios" ]; then
-	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" 1
-else
-	# -> only actually set the config option if we're building on ios
-	set_conf_val "###FLOOR_METAL###" "FLOOR_NO_METAL" ${BUILD_CONF_METAL}
-fi
-set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
-set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
-set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
-set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" $((1 - $((${BUILD_CONF_CXX17}))))
-echo "${CONF}" > floor/floor_conf.hpp
+	set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
+	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
+	set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
+	set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" $((1 - $((${BUILD_CONF_CXX17}))))
+	echo "${CONF}" > floor/floor_conf.hpp.tmp
 
-# only update build version if FLOOR_DEV environment variable is set
-if [ -n "${FLOOR_DEV}" ]; then
-	# checks if any source files have updated (are newer than the target binary)
-	# if so, this increments the build version by one (updates the header file)
-	info "build version update ..."
-	. ./floor/build_version.sh
+	# check if this is an entirely new conf or if it differs from the existing conf
+	if [ ! -f floor/floor_conf.hpp ]; then
+		mv floor/floor_conf.hpp.tmp floor/floor_conf.hpp
+	elif [ "$(shasum -a 256 floor/floor_conf.hpp.tmp | cut -c -64)" != "$(shasum -a 256 floor/floor_conf.hpp | cut -c -64)" ]; then
+		info "new conf file ..."
+		mv -f floor/floor_conf.hpp.tmp floor/floor_conf.hpp
+	fi
+
+	# only update build version if FLOOR_DEV environment variable is set
+	if [ -n "${FLOOR_DEV}" ]; then
+		# checks if any source files have updated (are newer than the target binary)
+		# if so, this increments the build version by one (updates the header file)
+		info "build version update ..."
+		. ./floor/build_version.sh
+	fi
 fi
 
 # version of the target (preprocess the floor version header, grep the version defines, transform them to exports and eval)
@@ -869,15 +897,63 @@ if [ ${BUILD_VERBOSE} -gt 0 ]; then
 	info ""
 fi
 
+# this function checks if a source file needs rebuilding, based on its dependency list that has been generated in a previos build
+# -> this will check the modification date of the source files object/build file against all dependency files
+# -> if any is newer, this source file needs to be rebuild
+# -> will also rebuild if either the object/build file or dependency file don't exist, or the "rebuild" build mode is set
+needs_rebuild() {
+	source_file=$1
+
+	bin_file_name="${BUILD_DIR}/${source_file}.o"
+	if [ ${source_file} == "floor_prefix.pch" ]; then
+		bin_file_name="floor.pch"
+	fi
+
+	rebuild_file=0
+	if [ ! -f ${BUILD_DIR}/${source_file}.d -o ! -f ${bin_file_name} -o ${BUILD_REBUILD} -gt 0 ]; then
+		info "rebuild because >${BUILD_DIR}/${source_file}.d< doesn't exist or BUILD_REBUILD $BUILD_REBUILD"
+		rebuild_file=1
+	else
+		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | grep -v "${source_file}" | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
+		if [ "${dep_list}" ]; then
+			file_time=$(stat -f "%m" "${bin_file_name}")
+			dep_times=$(stat -f "%m" ${dep_list})
+			for dep_time in ${dep_times}; do
+				if [ $dep_time -gt $file_time ]; then
+					rebuild_file=1
+					break
+				fi
+			done
+		fi
+	fi
+	if [ $rebuild_file -gt 0 ]; then
+		echo "1"
+	fi
+}
+
 # build the precompiled header
-# -> kill old pch file if it exists
-if [ -f "floor.pch" ]; then
-	rm floor.pch
+rebuild_pch=0
+rebuild_pch_info=$(needs_rebuild floor_prefix.pch)
+if [ ! -f "floor.pch" ]; then
+	info "building precompiled header ..."
+	rebuild_pch=1
+elif [ "${rebuild_pch_info}" ]; then
+	info "rebuilding precompiled header ..."
+	# -> kill old pch file if it exists
+	if [ -f "floor.pch" ]; then
+		rm floor.pch
+	fi
+	rebuild_pch=1
 fi
-info "building precompiled header ..."
-precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch"
-verbose "${precomp_header_cmd}"
-eval ${precomp_header_cmd}
+
+if [ $rebuild_pch -gt 0 ]; then
+	precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch -MD -MT deps -MF ${BUILD_DIR}/floor_prefix.pch.d"
+	verbose "${precomp_header_cmd}"
+	eval ${precomp_header_cmd}
+
+	# also signal that we need to rebuild all source code
+	BUILD_REBUILD=1
+fi
 
 if [ ! -f "floor.pch" ]; then
 	error "precompiled header compilation failed"
@@ -892,33 +968,37 @@ build_file() {
 	file_num=$2
 	file_count=$3
 	parent_pid=$4
-	info "building ${source_file} [${file_num}/${file_count}]"
-	case ${source_file} in
-		*".cpp")
-			build_cmd="${CXX} -include-pch floor.pch ${CXXFLAGS}"
-			;;
-		*".c")
-			build_cmd="${CC} ${CFLAGS}"
-			;;
-		*".mm")
-			build_cmd="${CXX} -x objective-c++ ${OBJCFLAGS} ${CXXFLAGS}"
-			;;
-		*".m")
-			build_cmd="${CC} -x objective-c ${OBJCFLAGS} ${CFLAGS}"
-			;;
-		*)
-			error "unknown source file ending: ${source_file}"
-			;;
-	esac
-	build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MMD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
-	verbose "${build_cmd}"
-	eval ${build_cmd}
 
-	# handle errors
-	ret_code=$?
-	if [ ${ret_code} -ne 0 ]; then
-		kill -USR1 ${parent_pid}
-		error "compilation failed (${source_file})"
+	rebuild_file=$(needs_rebuild ${source_file})
+	if [ "${rebuild_file}" ]; then
+		info "building ${source_file} [${file_num}/${file_count}]"
+		case ${source_file} in
+			*".cpp")
+				build_cmd="${CXX} -include-pch floor.pch ${CXXFLAGS}"
+				;;
+			*".c")
+				build_cmd="${CC} ${CFLAGS}"
+				;;
+			*".mm")
+				build_cmd="${CXX} -x objective-c++ ${OBJCFLAGS} ${CXXFLAGS}"
+				;;
+			*".m")
+				build_cmd="${CC} -x objective-c ${OBJCFLAGS} ${CFLAGS}"
+				;;
+			*)
+				error "unknown source file ending: ${source_file}"
+				;;
+		esac
+		build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o -MD -MT deps -MF ${BUILD_DIR}/${source_file}.d"
+		verbose "${build_cmd}"
+		eval ${build_cmd}
+
+		# handle errors
+		ret_code=$?
+		if [ ${ret_code} -ne 0 ]; then
+			kill -USR1 ${parent_pid}
+			error "compilation failed (${source_file})"
+		fi
 	fi
 }
 job_count() {
