@@ -29,9 +29,15 @@
 #endif
 #endif
 
-// when building on osx/ios, always disable vulkan for now
+// when building on osx/ios, always disable opencl
+// for vulkan, put the disable behind a big ol' hack, so that we can at least get syntax
+// highlighting/completion when vulkan headers are installed (will build, but won't link though)
 #if defined(__APPLE__)
+#if !__has_include(<floor/floor/vulkan_testing.hpp>)
 #define FLOOR_NO_VULKAN 1
+#else
+#include <floor/floor/vulkan_testing.hpp>
+#endif
 #define FLOOR_NO_OPENCL 1
 #endif
 

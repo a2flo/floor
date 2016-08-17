@@ -1078,6 +1078,23 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXLegacyTarget section */
+		5CBB61241D6367A000B09EEE /* floor_remote */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "floor_remote \"cd ~/floor_remote && FLOOR_DEV=1 NO_COLOR=1 ./build.sh $(ACTION)\"";
+			buildConfigurationList = 5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */;
+			buildPhases = (
+			);
+			buildToolPath = ssh;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = floor_remote;
+			passBuildSettingsInEnvironment = 0;
+			productName = floor_remote;
+		};
+/* End PBXLegacyTarget section */
+
 /* Begin PBXNativeTarget section */
 		5C10915D17D114BC007F536E /* floor */ = {
 			isa = PBXNativeTarget;
@@ -1122,6 +1139,12 @@
 			attributes = {
 				LastUpgradeCheck = 0800;
 				ORGANIZATIONNAME = libfloor;
+				TargetAttributes = {
+					5CBB61241D6367A000B09EEE = {
+						CreatedOnToolsVersion = 8.0;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 5C10915917D114BC007F536E /* Build configuration list for PBXProject "floor" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -1137,6 +1160,7 @@
 			targets = (
 				5C10915D17D114BC007F536E /* floor */,
 				5CC2F77418678AAC0031E08D /* floor_ios */,
+				5CBB61241D6367A000B09EEE /* floor_remote */,
 			);
 		};
 /* End PBXProject section */
@@ -1632,6 +1656,52 @@
 			};
 			name = Release;
 		};
+		5CBB61251D6367A000B09EEE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		5CBB61261D6367A000B09EEE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_SUSPICIOUS_MOVES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		5CC2F79518678AAD0031E08D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1759,6 +1829,15 @@
 			buildConfigurations = (
 				5C10916317D114BC007F536E /* Debug */,
 				5C10916417D114BC007F536E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5CBB61251D6367A000B09EEE /* Debug */,
+				5CBB61261D6367A000B09EEE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

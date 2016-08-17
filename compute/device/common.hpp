@@ -376,13 +376,15 @@ template <typename T> using compute_constant_buffer = const T* const;
 template <class data_type, size_t array_size> using compute_constant_array = data_type[array_size];
 
 //! generic parameter object/buffer
-#if (defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)) && \
-	!defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
+#if (defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL)) && !defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
 template <typename T> using param = const T;
-#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
+#elif defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_PARAM_WORKAROUND)
 // the __restrict prevents the parameter unnecessarily being loaded multiple times
 #define param __restrict compute_param
 template <typename T> using compute_param = const constant T&;
+#elif defined(FLOOR_COMPUTE_VULKAN)
+#define param __restrict compute_param
+template <typename T> using compute_param = const global T&;
 #elif defined(FLOOR_COMPUTE_HOST)
 template <typename T> using param = const T&;
 #endif

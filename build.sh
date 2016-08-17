@@ -3,14 +3,26 @@
 ##########################################
 # helper functions
 error() {
-	printf "\033[1;31m>> $@ \033[m\n"
+	if [ -z "$NO_COLOR" ]; then
+		printf "\033[1;31m>> $@ \033[m\n"
+	else
+		printf "error: $@\n"
+	fi
 	exit 1
 }
 warning() {
-	printf "\033[1;33m>> $@ \033[m\n"
+	if [ -z "$NO_COLOR" ]; then
+		printf "\033[1;33m>> $@ \033[m\n"
+	else
+		printf "warning: $@\n"
+	fi
 }
 info() {
-	printf "\033[1;32m>> $@ \033[m\n"
+	if [ -z "$NO_COLOR" ]; then
+		printf "\033[1;32m>> $@ \033[m\n"
+	else
+		printf ">> $@\n"
+	fi
 }
 verbose() {
 	if [ ${BUILD_VERBOSE} -gt 0 ]; then

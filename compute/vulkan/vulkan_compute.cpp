@@ -39,7 +39,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		.pEngineName = "floor",
 		.engineVersion = FLOOR_VERSION_U32,
 		// TODO/NOTE: even though the spec allows setting this to 0, nvidias current driver requires VK_API_VERSION / VK_MAKE_VERSION(1, 0, 3)
-		.apiVersion = VK_MAKE_VERSION(1, 0, 3),
+		.apiVersion = VK_MAKE_VERSION(1, 0, 5),
 	};
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
@@ -245,8 +245,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
-		//device->bitness = (limits.sparseAddressSpaceSize > 0xFFFFFFFF ? 64 : 32); // TODO: this is a hack, but there is no other way of doing this
-		device->bitness = 32; // TODO/NOTE: for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
+		device->bitness = 32; // for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
 		device->max_push_constants_size = limits.maxPushConstantsSize;
 
 		// retrieve memory info

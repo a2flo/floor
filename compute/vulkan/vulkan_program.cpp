@@ -30,7 +30,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 	// create all kernels of all device programs
 	// note that this essentially reshuffles the program "device -> kernels" data to "kernels -> devices"
 	kernels.reserve(kernel_names.size());
-	for(const auto& kernel_name : kernel_names) {
+	for(const auto& func_name : kernel_names) {
 		vulkan_kernel::kernel_map_type kernel_map;
 		kernel_map.reserve(kernel_names.size());
 		
@@ -38,7 +38,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 			if(!prog.second.valid) continue;
 			
 			for(const auto& info : prog.second.functions) {
-				if(info.name == kernel_name) {
+				if(info.name == func_name) {
 					vulkan_kernel::vulkan_kernel_entry entry;
 					entry.info = &info;
 					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
@@ -51,20 +51,15 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// create kernel + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
-					uint32_t buffer_desc = 0, read_image_desc = 0, write_image_desc = 0;
+					uint32_t ssbo_desc = 0, uniform_desc = 0, read_image_desc = 0, write_image_desc = 0;
 					bool valid_desc = true;
-					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i, ++binding_idx) {
+					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i) {
 						bindings[binding_idx].binding = binding_idx;
 						bindings[binding_idx].descriptorCount = 1;
 						bindings[binding_idx].stageFlags = VK_SHADER_STAGE_ALL;
 						bindings[binding_idx].pImmutableSamplers = nullptr; // TODO: use this?
 						
 						switch(info.args[i].address_space) {
-							// buffer
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::GLOBAL:
-								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-								++buffer_desc;
-								break;
 							// image
 							case llvm_compute::function_info::ARG_ADDRESS_SPACE::IMAGE:
 								switch(info.args[i].image_access) {
@@ -98,28 +93,41 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										break;
 								}
 								break;
-							// param
+							// buffer and param (there are no proper constant parameters)
+							case llvm_compute::function_info::ARG_ADDRESS_SPACE::GLOBAL:
 							case llvm_compute::function_info::ARG_ADDRESS_SPACE::CONSTANT:
 								// TODO/NOTE: for now, this is always a buffer, later on it might make sense to fit as much as possible
 								//            into push constants (will require compiler support of course + device specific binary)
 								// NOTE: min push constants size is at least 128 bytes
 								// alternatively: put it into a ubo
-								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-								++buffer_desc;
+								if(info.args[i].special_type == llvm_compute::function_info::SPECIAL_TYPE::SSBO) {
+									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+									++ssbo_desc;
+								}
+								else {
+									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+									++uniform_desc;
+								}
 								break;
 							case llvm_compute::function_info::ARG_ADDRESS_SPACE::LOCAL:
 								log_error("arg with a local address space is not supported");
 								valid_desc = false;
 								break;
 							case llvm_compute::function_info::ARG_ADDRESS_SPACE::UNKNOWN:
+								if(info.args[i].special_type == llvm_compute::function_info::SPECIAL_TYPE::STAGE_INPUT) {
+									// ignore + compact
+									bindings.pop_back();
+									continue;
+								}
 								log_error("arg with an unknown address space");
 								valid_desc = false;
 								break;
 						}
 						if(!valid_desc) break;
+						++binding_idx;
 					}
 					if(!valid_desc) {
-						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", kernel_name, prog.first->name);
+						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", func_name, prog.first->name);
 						continue;
 					}
 					
@@ -154,7 +162,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.flags = 0,
 						.stage = VK_SHADER_STAGE_COMPUTE_BIT,
 						.module = prog.second.program,
-						.pName = kernel_name.c_str(),
+						.pName = func_name.c_str(),
 						// TODO: use this later on to set dynamic local / work-group sizes
 						.pSpecializationInfo = nullptr,
 					};
@@ -172,14 +180,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// create descriptor pool + descriptors
 					// TODO: think about how this can be properly handled (creating a pool per kernel per device is probably not a good idea)
-					const uint32_t pool_count = ((buffer_desc > 0 ? 1 : 0) +
+					const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
+												 (uniform_desc > 0 ? 1 : 0) +
 												 (read_image_desc > 0 ? 1 : 0) +
 												 (write_image_desc > 0 ? 1 : 0));
 					vector<VkDescriptorPoolSize> pool_sizes(pool_count > 0 ? pool_count : 1); // need at least 1
 					uint32_t pool_index = 0;
-					if(buffer_desc > 0 || pool_count == 0) {
+					if(ssbo_desc > 0 || pool_count == 0) {
 						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-						pool_sizes[pool_index].descriptorCount = (buffer_desc > 0 ? buffer_desc : 1);
+						pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
+						++pool_index;
+					}
+					if(uniform_desc > 0) {
+						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+						pool_sizes[pool_index].descriptorCount = uniform_desc;
 						++pool_index;
 					}
 					if(read_image_desc > 0) {

@@ -92,6 +92,8 @@ public:
 			STAGE_INPUT						= (1u),
 			//! vulkan-only: constant parameter fast path
 			PUSH_CONSTANT					= (2u),
+			//! vulkan-only: param is BufferBlock/storage (not Block/uniform)
+			SSBO							= (3u),
 		};
 		
 		struct arg_info {

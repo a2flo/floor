@@ -50,6 +50,7 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 		case -9: return "VK_ERROR_INCOMPATIBLE_DRIVER";
 		case -10: return "VK_ERROR_TOO_MANY_OBJECTS";
 		case -11: return "VK_ERROR_FORMAT_NOT_SUPPORTED";
+		case -12: return "VK_ERROR_FRAGMENTED_POOL";
 		case -1000000000: return "VK_ERROR_SURFACE_LOST_KHR";
 		case -1000000001: return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
 		case 1000001003: return "VK_SUBOPTIMAL_KHR";

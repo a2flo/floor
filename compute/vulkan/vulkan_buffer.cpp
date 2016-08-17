@@ -344,12 +344,12 @@ void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	mappings.erase(mapped_ptr);
 }
 
-bool vulkan_buffer::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool vulkan_buffer::acquire_opengl_object(shared_ptr<compute_queue>) {
 	log_error("not supported by vulkan");
 	return false;
 }
 
-bool vulkan_buffer::release_opengl_object(shared_ptr<compute_queue> cqueue) {
+bool vulkan_buffer::release_opengl_object(shared_ptr<compute_queue>) {
 	log_error("not supported by vulkan");
 	return false;
 }
