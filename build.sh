@@ -322,9 +322,11 @@ fi
 
 # set the target binary name (depends on the platform)
 TARGET_BIN_NAME=lib${TARGET_NAME}
+PCH_BIN_NAME=${TARGET_NAME}.pch
 # append 'd' for debug builds
 if [ $BUILD_MODE == "debug" ]; then
 	TARGET_BIN_NAME=${TARGET_BIN_NAME}d
+	PCH_BIN_NAME=${TARGET_NAME}d.pch
 fi
 
 # use *.a for all platforms
@@ -369,7 +371,12 @@ if [ $BUILD_OS == "osx" -o $BUILD_OS == "ios" ]; then
 fi
 
 # build directory where all temporary files are stored (*.o, etc.)
-BUILD_DIR=build
+BUILD_DIR=
+if [ $BUILD_MODE == "debug" ]; then
+	BUILD_DIR=build/debug
+else
+	BUILD_DIR=build/release
+fi
 
 # current directory + escaped form
 CUR_DIR=$(pwd)
@@ -902,7 +909,7 @@ case ${BUILD_MODE} in
 		info "cleaning ..."
 		rm -f ${TARGET_BIN}
 		rm -f ${TARGET_STATIC_BIN}
-		rm -f floor.pch
+		rm -f ${PCH_BIN_NAME}
 		rm -Rf ${BUILD_DIR}
 		exit 0
 		;;
@@ -935,7 +942,7 @@ needs_rebuild() {
 
 	bin_file_name="${BUILD_DIR}/${source_file}.o"
 	if [ ${source_file} == "floor_prefix.pch" ]; then
-		bin_file_name="floor.pch"
+		bin_file_name="${PCH_BIN_NAME}"
 	fi
 
 	rebuild_file=0
@@ -963,20 +970,20 @@ needs_rebuild() {
 # build the precompiled header
 rebuild_pch=0
 rebuild_pch_info=$(needs_rebuild floor_prefix.pch)
-if [ ! -f "floor.pch" ]; then
+if [ ! -f "${PCH_BIN_NAME}" ]; then
 	info "building precompiled header ..."
 	rebuild_pch=1
 elif [ "${rebuild_pch_info}" ]; then
 	info "rebuilding precompiled header ..."
 	# -> kill old pch file if it exists
-	if [ -f "floor.pch" ]; then
-		rm floor.pch
+	if [ -f "${PCH_BIN_NAME}" ]; then
+		rm ${PCH_BIN_NAME}
 	fi
 	rebuild_pch=1
 fi
 
 if [ $rebuild_pch -gt 0 ]; then
-	precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o floor.pch -MD -MT deps -MF ${BUILD_DIR}/floor_prefix.pch.d"
+	precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o ${PCH_BIN_NAME} -MD -MT deps -MF ${BUILD_DIR}/floor_prefix.pch.d"
 	verbose "${precomp_header_cmd}"
 	eval ${precomp_header_cmd}
 
@@ -984,7 +991,7 @@ if [ $rebuild_pch -gt 0 ]; then
 	BUILD_REBUILD=1
 fi
 
-if [ ! -f "floor.pch" ]; then
+if [ ! -f "${PCH_BIN_NAME}" ]; then
 	error "precompiled header compilation failed"
 fi
 
@@ -1003,7 +1010,7 @@ build_file() {
 		info "building ${source_file} [${file_num}/${file_count}]"
 		case ${source_file} in
 			*".cpp")
-				build_cmd="${CXX} -include-pch floor.pch ${CXXFLAGS}"
+				build_cmd="${CXX} -include-pch ${PCH_BIN_NAME} ${CXXFLAGS}"
 				;;
 			*".c")
 				build_cmd="${CC} ${CFLAGS}"
@@ -1071,14 +1078,38 @@ info "waiting for build jobs to finish ..."
 wait
 
 # link
-info "linking ..."
 mkdir -p ${BIN_DIR}
 
-linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
-verbose "${linker_cmd}"
-eval ${linker_cmd}
+relink_target=${BUILD_REBUILD}
+relink_static_target=${BUILD_REBUILD}
+if [ ! -f ${TARGET_BIN} -o ! -f ${TARGET_STATIC_BIN} ]; then
+	relink_target=1
+	relink_static_target=1
+elif [ ${BUILD_REBUILD} -eq 0 ]; then
+	target_time=$(file_mod_time "${TARGET_BIN}")
+	static_target_time=$(file_mod_time "${TARGET_STATIC_BIN}")
+	obj_times=$(file_mod_time "${OBJ_FILES}")
+	for obj_time in ${obj_times}; do
+		if [ $obj_time -gt $target_time ]; then
+			relink_target=1
+		fi
+		if [ $obj_time -gt $static_target_time ]; then
+			relink_static_target=1
+		fi
+	done
+fi
 
-verbose "${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}"
-${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}
+if [ $relink_target -gt 0  ]; then
+	info "linking ..."
+	linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+	verbose "${linker_cmd}"
+	eval ${linker_cmd}
+fi
+
+if [ $relink_static_target -gt 0 ]; then
+	info "linking static ..."
+	verbose "${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}"
+	${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}
+fi
 
 info "built ${TARGET_NAME} v${TARGET_FULL_VERSION}"

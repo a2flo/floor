@@ -160,6 +160,10 @@ protected:
 	atomic_spin_lock programs_lock;
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
 	
+#if defined(FLOOR_DEBUG)
+	VkDebugReportCallbackEXT debug_callback;
+#endif
+	
 };
 
 #endif

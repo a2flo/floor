@@ -21,7 +21,6 @@
 
 #include <floor/compute/compute_device.hpp>
 #include <floor/core/core.hpp>
-#include <floor/floor/floor_version.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)

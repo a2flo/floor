@@ -1081,7 +1081,7 @@
 /* Begin PBXLegacyTarget section */
 		5CBB61241D6367A000B09EEE /* floor_remote */ = {
 			isa = PBXLegacyTarget;
-			buildArgumentsString = "floor_remote \"cd ~/floor_remote && FLOOR_DEV=1 NO_COLOR=1 ./build.sh $(ACTION)\"";
+			buildArgumentsString = "floor_remote \"cd ~/floor_remote && export FLOOR_DEV=1 && export NO_COLOR=1 && if [ '${CONFIGURATION}' == 'Debug' ]; then ./build.sh $(ACTION) debug; else ./build.sh $(ACTION); fi\"";
 			buildConfigurationList = 5CBB61271D6367A000B09EEE /* Build configuration list for PBXLegacyTarget "floor_remote" */;
 			buildPhases = (
 			);
@@ -1090,7 +1090,7 @@
 			dependencies = (
 			);
 			name = floor_remote;
-			passBuildSettingsInEnvironment = 0;
+			passBuildSettingsInEnvironment = 1;
 			productName = floor_remote;
 		};
 /* End PBXLegacyTarget section */

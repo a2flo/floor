@@ -43,13 +43,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					entry.info = &info;
 					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
 					
-					// retrieve max possible work-group size for this device for this kernel
+					// retrieve max possible work-group size for this device for this function
 					// TODO: retrieve this from the binary
 					entry.max_local_work_size = prog.first->max_work_group_size;
 					
 					// TODO: make sure that _all_ of this is synchronized
 					
-					// create kernel + device specific descriptor set layout
+					// create function + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
 					uint32_t ssbo_desc = 0, uniform_desc = 0, read_image_desc = 0, write_image_desc = 0;
 					bool valid_desc = true;
@@ -155,31 +155,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 								 "failed to create pipeline layout");
 					
-					// create the compute pipeline for this kernel + device
-					const VkPipelineShaderStageCreateInfo pipeline_stage_info {
-						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-						.pNext = nullptr,
-						.flags = 0,
-						.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-						.module = prog.second.program,
-						.pName = func_name.c_str(),
-						// TODO: use this later on to set dynamic local / work-group sizes
-						.pSpecializationInfo = nullptr,
-					};
-					const VkComputePipelineCreateInfo pipeline_info {
-						.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-						.pNext = nullptr,
-						.flags = 0,
-						.stage = pipeline_stage_info,
-						.layout = entry.pipeline_layout,
-						.basePipelineHandle = VK_NULL_HANDLE,
-						.basePipelineIndex = 0,
-					};
-					VK_CALL_CONT(vkCreateComputePipelines(prog.first->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &entry.pipeline),
-								 "failed to create compute pipeline");
-					
 					// create descriptor pool + descriptors
-					// TODO: think about how this can be properly handled (creating a pool per kernel per device is probably not a good idea)
+					// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
 					const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
 												 (uniform_desc > 0 ? 1 : 0) +
 												 (read_image_desc > 0 ? 1 : 0) +
@@ -227,6 +204,34 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.pSetLayouts = &entry.desc_set_layout,
 					};
 					VK_CALL_CONT(vkAllocateDescriptorSets(prog.first->device, &desc_set_alloc_info, &entry.desc_set), "failed to allocate descriptor set");
+					
+					// we can only actually create compute pipelines here, because they can exist on their own
+					// vertex/fragment/etc graphics pipelines would need much more information (which ones to combine to begin with)
+					// TODO: will also actually need to create combined descriptor sets ...
+					if(info.type == llvm_compute::function_info::FUNCTION_TYPE::KERNEL) {
+						// create the compute pipeline for this kernel + device
+						const VkPipelineShaderStageCreateInfo pipeline_stage_info {
+							.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+							.pNext = nullptr,
+							.flags = 0,
+							.stage = VK_SHADER_STAGE_COMPUTE_BIT,
+							.module = prog.second.program,
+							.pName = func_name.c_str(),
+							// TODO: use this later on to set dynamic local / work-group sizes
+							.pSpecializationInfo = nullptr,
+						};
+						const VkComputePipelineCreateInfo pipeline_info {
+							.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+							.pNext = nullptr,
+							.flags = 0,
+							.stage = pipeline_stage_info,
+							.layout = entry.pipeline_layout,
+							.basePipelineHandle = VK_NULL_HANDLE,
+							.basePipelineIndex = 0,
+						};
+						VK_CALL_CONT(vkCreateComputePipelines(prog.first->device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &entry.pipeline),
+									 "failed to create compute pipeline");
+					}
 					
 					// success, insert into map
 					kernel_map.insert_or_assign(prog.first, entry);

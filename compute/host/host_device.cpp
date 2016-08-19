@@ -18,6 +18,7 @@
 
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/device/host_limits.hpp>
+#include <floor/floor/floor_version.hpp>
 
 host_device::host_device() : compute_device() {
 	// init statically known info

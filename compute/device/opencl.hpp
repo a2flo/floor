@@ -21,6 +21,8 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
 
+#if defined(FLOOR_COMPUTE_OPENCL)
+// wrap opencl id handling functions so that uint32_t is always returned
 const_func size_t get_global_id(uint32_t dim);
 const_func size_t get_global_size(uint32_t dim);
 const_func size_t get_local_id(uint32_t dim);
@@ -29,7 +31,6 @@ const_func size_t get_group_id(uint32_t dim);
 const_func size_t get_num_groups(uint32_t dim);
 const_func uint32_t get_work_dim();
 
-// wrap opencl id handling functions so that uint32_t is always returned
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
 floor_inline_always uint32_t cl_get_global_size(uint32_t dim) { return uint32_t(get_global_size(dim)); }
 floor_inline_always uint32_t cl_get_local_id(uint32_t dim) { return uint32_t(get_local_id(dim)); }
@@ -42,6 +43,17 @@ floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(g
 #define get_local_size(x) cl_get_local_size(x)
 #define get_group_id(x) cl_get_group_id(x)
 #define get_num_groups(x) cl_get_num_groups(x)
+
+#elif defined(FLOOR_COMPUTE_VULKAN)
+// similar to metal, vulkan id handling functions will be handled on the compiler side and replaced with builtin variables
+const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
+const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
+const_func uint32_t get_local_id(uint32_t dim) asm("floor.builtin.local_id.i32");
+const_func uint32_t get_local_size(uint32_t dim) asm("floor.builtin.local_size.i32");
+const_func uint32_t get_group_id(uint32_t dim) asm("floor.builtin.group_id.i32");
+const_func uint32_t get_group_size(uint32_t dim) asm("floor.builtin.group_size.i32");
+const_func uint32_t get_work_dim() asm("floor.builtin.work_dim.i32");
+#endif
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
 // it is provided automatically (same mangling)

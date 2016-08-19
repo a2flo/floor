@@ -29,6 +29,18 @@
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportFlagsEXT flags,
+															const VkDebugReportObjectTypeEXT object_type,
+															const uint64_t object,
+															const size_t location,
+															const int32_t message_code,
+															const char* layer_prefix,
+															const char* message,
+															vulkan_compute* ctx) {
+	log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
+	return VK_FALSE; // don't abort
+}
+
 vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context() {
 	// create a vulkan instance (context)
 	const VkApplicationInfo app_info {
@@ -43,30 +55,64 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	};
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
-	static constexpr const char* extensions[] {
-		"VK_KHR_surface",
+	static constexpr const char* instance_extensions[] {
+		VK_KHR_SURFACE_EXTENSION_NAME,
+#if defined(FLOOR_DEBUG)
+		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
+#endif
 #if 0 // don't use either yet
 #if defined(__WINDOWS__)
-		"VK_KHR_win32_surface",
+		VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #else
 		// nvidia only supports this:
-		"VK_KHR_xlib_surface",
+		VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 		// intel only supports this:
-		"VK_KHR_xcb_surface",
+		VK_KHR_XCB_SURFACE_EXTENSION_NAME,
 #endif
 #endif
 	};
+#if defined(FLOOR_DEBUG)
+	static constexpr const char* instance_layers[] {
+		"VK_LAYER_LUNARG_standard_validation",
+	};
+#endif
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
 		.pApplicationInfo = &app_info,
+#if !defined(FLOOR_DEBUG)
 		.enabledLayerCount = 0,
 		.ppEnabledLayerNames = nullptr,
-		.enabledExtensionCount = size(extensions),
-		.ppEnabledExtensionNames = extensions,
+#else
+		.enabledLayerCount = size(instance_layers),
+		.ppEnabledLayerNames = instance_layers,
+#endif
+		.enabledExtensionCount = size(instance_extensions),
+		.ppEnabledExtensionNames = instance_extensions,
 	};
 	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance");
+	
+#if defined(FLOOR_DEBUG)
+	// register debug callback
+	const auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugReportCallbackEXT");
+	if(vkCreateDebugReportCallbackEXT == nullptr) {
+		log_error("failed to retrieve vkCreateDebugReportCallbackEXT function pointer");
+		return;
+	}
+	//const auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugReportCallbackEXT"); // TODO: cleanup
+	const VkDebugReportCallbackCreateInfoEXT debug_cb_info {
+		.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT,
+		.pNext = nullptr,
+		.flags = (VK_DEBUG_REPORT_WARNING_BIT_EXT |
+				  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+				  VK_DEBUG_REPORT_ERROR_BIT_EXT),
+		.pfnCallback = (PFN_vkDebugReportCallbackEXT)&vulkan_debug_callback,
+		.pUserData = this,
+	};
+	VK_CALL_RET(vkCreateDebugReportCallbackEXT(ctx, &debug_cb_info, nullptr, &debug_callback),
+				"failed to register debug callback");
+#endif
 	
 	// get layers
 	uint32_t layer_count = 0;
@@ -140,14 +186,19 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		}
 		
 		// create device
+		static constexpr const char* device_layers[] {
+#if defined(FLOOR_DEBUG)
+			"VK_LAYER_LUNARG_standard_validation",
+#endif
+		};
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = nullptr,
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
-			.enabledLayerCount = 0,
-			.ppEnabledLayerNames = nullptr,
+			.enabledLayerCount = size(device_layers),
+			.ppEnabledLayerNames = device_layers,
 			.enabledExtensionCount = 0,
 			.ppEnabledExtensionNames = nullptr,
 			.pEnabledFeatures = &features // enable all that is supported
