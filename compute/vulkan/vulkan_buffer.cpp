@@ -56,8 +56,14 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		.pNext = nullptr,
 		.flags = 0, // no sparse backing
 		.size = size,
-		// TODO: will want to use other things here as well, later on (ubo, vbo, ...)
-		.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		// set all the bits here, might need some better restrictions later on
+		// NOTE: not setting vertex bit here, b/c we're always using SSBOs
+		.usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+				  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+				  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+				  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
+				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
 		// TODO: probably want a concurrent option later on
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
 		.queueFamilyIndexCount = 0,
