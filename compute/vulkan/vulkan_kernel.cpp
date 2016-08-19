@@ -130,7 +130,7 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 	write_desc.dstBinding = num; // TODO: need to differentiate images, buffers, others?
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = 1;
-	write_desc.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+	write_desc.descriptorType = entry.desc_types[num];
 	write_desc.pImageInfo = nullptr;
 	write_desc.pBufferInfo = ((vulkan_buffer*)arg)->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;

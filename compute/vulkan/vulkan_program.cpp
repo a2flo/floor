@@ -51,6 +51,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// create function + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
+					vector<VkDescriptorType> descriptor_types(info.args.size());
 					uint32_t ssbo_desc = 0, uniform_desc = 0, read_image_desc = 0, write_image_desc = 0;
 					bool valid_desc = true;
 					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i) {
@@ -124,12 +125,17 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								break;
 						}
 						if(!valid_desc) break;
+						
+						descriptor_types[binding_idx] = bindings[binding_idx].descriptorType;
 						++binding_idx;
 					}
 					if(!valid_desc) {
 						log_error("invalid descriptor bindings for function \"%s\" for device \"%s\"!", func_name, prog.first->name);
 						continue;
 					}
+					
+					// move descriptor types to the kernel entry, we'll need these when setting function args
+					entry.desc_types = move(descriptor_types);
 					
 					const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
 						.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,

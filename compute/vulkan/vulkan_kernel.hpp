@@ -46,6 +46,7 @@ public:
 		VkPipelineLayout pipeline_layout { nullptr };
 		VkDescriptorPool desc_pool { nullptr };
 		VkDescriptorSet desc_set { nullptr };
+		vector<VkDescriptorType> desc_types;
 	};
 	typedef flat_map<vulkan_device*, vulkan_kernel_entry> kernel_map_type;
 	
