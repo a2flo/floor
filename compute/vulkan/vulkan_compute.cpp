@@ -186,7 +186,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		}
 		
 		// create device
-		static constexpr const char* device_layers[] {
+		static const vector<const char*> device_layers {
 #if defined(FLOOR_DEBUG)
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
@@ -197,8 +197,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			.flags = 0,
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
-			.enabledLayerCount = size(device_layers),
-			.ppEnabledLayerNames = device_layers,
+			.enabledLayerCount = (uint32_t)size(device_layers),
+			.ppEnabledLayerNames = device_layers.data(),
 			.enabledExtensionCount = 0,
 			.ppEnabledExtensionNames = nullptr,
 			.pEnabledFeatures = &features // enable all that is supported
