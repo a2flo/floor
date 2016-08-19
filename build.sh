@@ -1082,10 +1082,17 @@ mkdir -p ${BIN_DIR}
 
 relink_target=${BUILD_REBUILD}
 relink_static_target=${BUILD_REBUILD}
-if [ ! -f ${TARGET_BIN} -o ! -f ${TARGET_STATIC_BIN} ]; then
+relink_any=${BUILD_REBUILD}
+if [ ! -f ${TARGET_BIN} ]; then
 	relink_target=1
+	relink_any=1
+fi
+if [ ! -f ${TARGET_STATIC_BIN} ]; then
 	relink_static_target=1
-elif [ ${BUILD_REBUILD} -eq 0 ]; then
+	relink_any=1
+fi
+
+if [ $relink_any -eq 0 -a ${BUILD_REBUILD} -eq 0 ]; then
 	target_time=$(file_mod_time "${TARGET_BIN}")
 	static_target_time=$(file_mod_time "${TARGET_STATIC_BIN}")
 	obj_times=$(file_mod_time "${OBJ_FILES}")
@@ -1099,11 +1106,14 @@ elif [ ${BUILD_REBUILD} -eq 0 ]; then
 	done
 fi
 
-if [ $relink_target -gt 0  ]; then
-	info "linking ..."
-	linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
-	verbose "${linker_cmd}"
-	eval ${linker_cmd}
+# don't create/link dll on mingw
+if [ $BUILD_OS != "mingw" ]; then
+	if [ $relink_target -gt 0  ]; then
+		info "linking ..."
+		linker_cmd="${CXX} -o ${TARGET_BIN} ${OBJ_FILES} ${LDFLAGS}"
+		verbose "${linker_cmd}"
+		eval ${linker_cmd}
+	fi
 fi
 
 if [ $relink_static_target -gt 0 ]; then
