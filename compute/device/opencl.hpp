@@ -46,13 +46,14 @@ floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(g
 
 #elif defined(FLOOR_COMPUTE_VULKAN)
 // similar to metal, vulkan id handling functions will be handled on the compiler side and replaced with builtin variables
-const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
-const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
-const_func uint32_t get_local_id(uint32_t dim) asm("floor.builtin.local_id.i32");
-const_func uint32_t get_local_size(uint32_t dim) asm("floor.builtin.local_size.i32");
-const_func uint32_t get_group_id(uint32_t dim) asm("floor.builtin.group_id.i32");
-const_func uint32_t get_group_size(uint32_t dim) asm("floor.builtin.group_size.i32");
-const_func uint32_t get_work_dim() asm("floor.builtin.work_dim.i32");
+[[range(0u, 0xFFFFFFFFu)]] const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
+[[range(1u, 0xFFFFFFFFu)]] const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
+// NOTE: nobody supports a work-group size > 2048 (or 1536) right now, if that changes, this needs to be updated
+[[range(0u, 2048u)]] const_func uint32_t get_local_id(uint32_t dim) asm("floor.builtin.local_id.i32");
+[[range(1u, 2048u)]] const_func uint32_t get_local_size(uint32_t dim) asm("floor.builtin.local_size.i32");
+[[range(0u, 0xFFFFFFFFu)]] const_func uint32_t get_group_id(uint32_t dim) asm("floor.builtin.group_id.i32");
+[[range(1u, 0xFFFFFFFFu)]] const_func uint32_t get_group_size(uint32_t dim) asm("floor.builtin.group_size.i32");
+[[range(1u, 3u)]] const_func uint32_t get_work_dim() asm("floor.builtin.work_dim.i32");
 #endif
 
 // NOTE: in C, these must be declared overloadable, but since this is compiled in C++,
