@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index c9276b3..896a9e1 100644
+index 52a0927..ea04c47 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -259,7 +259,8 @@ set(LLVM_ALL_TARGETS
+@@ -280,7 +280,8 @@ set(LLVM_ALL_TARGETS
    )
  
  # List of targets with JIT support:
@@ -426,21 +426,21 @@ index b98f840..d7bc2ec 100644
      LastEnvironmentType = CoreCLR
    };
 diff --git a/include/llvm/Analysis/CodeMetrics.h b/include/llvm/Analysis/CodeMetrics.h
-index f512aca..fee041a 100644
+index 9e861ac..636fb32 100644
 --- a/include/llvm/Analysis/CodeMetrics.h
 +++ b/include/llvm/Analysis/CodeMetrics.h
 @@ -87,7 +87,8 @@ struct CodeMetrics {
  
    /// \brief Add information about a block to the current state.
    void analyzeBasicBlock(const BasicBlock *BB, const TargetTransformInfo &TTI,
--                         SmallPtrSetImpl<const Value*> &EphValues);
-+                         SmallPtrSetImpl<const Value*> &EphValues,
+-                         const SmallPtrSetImpl<const Value*> &EphValues);
++                         const SmallPtrSetImpl<const Value*> &EphValues,
 +                         const bool allow_duplicate = false);
  
    /// \brief Collect a loop's ephemeral values (those used only by an assume
    /// or similar intrinsics in the loop).
 diff --git a/include/llvm/Bitcode/BitcodeWriterPass.h b/include/llvm/Bitcode/BitcodeWriterPass.h
-index 946255b..f0f60f2 100644
+index 9ac6fba..a546c1c 100644
 --- a/include/llvm/Bitcode/BitcodeWriterPass.h
 +++ b/include/llvm/Bitcode/BitcodeWriterPass.h
 @@ -40,6 +40,10 @@ ModulePass *createBitcodeWriterPass(raw_ostream &Str,
@@ -454,8 +454,8 @@ index 946255b..f0f60f2 100644
  /// \brief Pass for writing a module of IR out to a bitcode file.
  ///
  /// Note that this is intended for use with the new pass manager. To construct
-@@ -72,6 +76,34 @@ public:
-   static StringRef name() { return "BitcodeWriterPass"; }
+@@ -70,6 +74,34 @@ public:
+   PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
  };
  
 +class Bitcode32WriterPass {
@@ -876,7 +876,7 @@ index 52d4f01..37652a5 100644
  
  } // End bitc namespace
 diff --git a/include/llvm/Bitcode/ReaderWriter.h b/include/llvm/Bitcode/ReaderWriter.h
-index 53deaae..48cc861 100644
+index 0ff32d8..fa8ae77 100644
 --- a/include/llvm/Bitcode/ReaderWriter.h
 +++ b/include/llvm/Bitcode/ReaderWriter.h
 @@ -104,6 +104,10 @@ namespace llvm {
@@ -955,7 +955,7 @@ index 4987b7e..97d8e69 100644
      /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
      Intel_OCL_BI = 77,
 diff --git a/include/llvm/IR/DebugInfoMetadata.h b/include/llvm/IR/DebugInfoMetadata.h
-index 853a94a..c2789dc 100644
+index a9caf79..b068353 100644
 --- a/include/llvm/IR/DebugInfoMetadata.h
 +++ b/include/llvm/IR/DebugInfoMetadata.h
 @@ -216,6 +216,9 @@ public:
@@ -976,7 +976,7 @@ index 853a94a..c2789dc 100644
    friend class LLVMContextImpl;
    friend class MDNode;
  
-@@ -1273,6 +1277,7 @@ public:
+@@ -1283,6 +1287,7 @@ public:
  /// TODO: Remove DisplayName.  It's always equal to Name.
  /// TODO: Split up flags.
  class DISubprogram : public DILocalScope {
@@ -984,7 +984,7 @@ index 853a94a..c2789dc 100644
    friend class LLVMContextImpl;
    friend class MDNode;
  
-@@ -1298,6 +1303,9 @@ class DISubprogram : public DILocalScope {
+@@ -1308,6 +1313,9 @@ class DISubprogram : public DILocalScope {
    unsigned IsLocalToUnit : 1;
    unsigned IsDefinition : 1;
    unsigned IsOptimized : 1;
@@ -1025,10 +1025,10 @@ index efd0d07..3d949cd 100644
    bool isSized(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
  
 diff --git a/include/llvm/IR/Function.h b/include/llvm/IR/Function.h
-index 46fba00..4f06329 100644
+index ff55fcb..6720241 100644
 --- a/include/llvm/IR/Function.h
 +++ b/include/llvm/IR/Function.h
-@@ -116,6 +116,13 @@ public:
+@@ -112,6 +112,13 @@ public:
    /// \brief Provide fast operand accessors
    DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
  
@@ -1059,7 +1059,7 @@ index 91f43d3..8ca6164 100644
  
  /// \brief Root of the metadata hierarchy.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index e0bb575..72b1661 100644
+index a411273..3826deb 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
 @@ -345,6 +345,21 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
@@ -1085,18 +1085,18 @@ index e0bb575..72b1661 100644
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index b2721d0..d07959a 100644
+index 16c5f5c..2f6b277 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
-@@ -98,6 +98,7 @@ namespace {
+@@ -99,6 +99,7 @@ namespace {
        (void) llvm::createFunctionImportPass();
        (void) llvm::createFunctionInliningPass();
-       (void) llvm::createAlwaysInlinerPass();
+       (void) llvm::createAlwaysInlinerLegacyPass();
 +      (void) llvm::createEverythingInlinerPass();
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
-@@ -210,6 +211,19 @@ namespace {
+@@ -211,6 +212,19 @@ namespace {
        X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
        (void) llvm::AreStatisticsEnabled();
        (void) llvm::sys::RunningOnValgrind();
@@ -2146,11 +2146,11 @@ index 0000000..d340108
 +
 +#endif
 diff --git a/include/llvm/Transforms/IPO.h b/include/llvm/Transforms/IPO.h
-index f673188..92bc349 100644
+index 9ef3881..2acf5b9 100644
 --- a/include/llvm/Transforms/IPO.h
 +++ b/include/llvm/Transforms/IPO.h
-@@ -111,6 +111,12 @@ Pass *createAlwaysInlinerPass();
- Pass *createAlwaysInlinerPass(bool InsertLifetime);
+@@ -107,6 +107,12 @@ Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel);
+ Pass *createFunctionInliningPass(InlineParams &Params);
  
  //===----------------------------------------------------------------------===//
 +/// createEverythingInlinerPass - Return a new pass object that inlines
@@ -2650,20 +2650,20 @@ index 0000000..a56a3e3
 +
 +#endif
 diff --git a/lib/Analysis/CodeMetrics.cpp b/lib/Analysis/CodeMetrics.cpp
-index ed83704..129b408 100644
+index bdffdd8..30a3805 100644
 --- a/lib/Analysis/CodeMetrics.cpp
 +++ b/lib/Analysis/CodeMetrics.cpp
-@@ -104,7 +104,8 @@ void CodeMetrics::collectEphemeralValues(
+@@ -118,7 +118,8 @@ void CodeMetrics::collectEphemeralValues(
  /// block.
  void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
                                      const TargetTransformInfo &TTI,
--                                    SmallPtrSetImpl<const Value*> &EphValues) {
-+                                    SmallPtrSetImpl<const Value*> &EphValues,
+-                                    const SmallPtrSetImpl<const Value*> &EphValues) {
++                                    const SmallPtrSetImpl<const Value*> &EphValues,
 +                                    const bool allow_duplicate) {
    ++NumBlocks;
    unsigned NumInstsBeforeThisBB = NumInsts;
    for (const Instruction &I : *BB) {
-@@ -148,18 +149,18 @@ void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
+@@ -162,18 +163,18 @@ void CodeMetrics::analyzeBasicBlock(const BasicBlock *BB,
      if (isa<ExtractElementInst>(I) || I.getType()->isVectorTy())
        ++NumVectorInsts;
  
@@ -2686,10 +2686,10 @@ index ed83704..129b408 100644
  
      NumInsts += TTI.getUserCost(&I);
 diff --git a/lib/Analysis/LoopInfo.cpp b/lib/Analysis/LoopInfo.cpp
-index cbd5ede..6bb3db5 100644
+index 9d2e38e..019c03f 100644
 --- a/lib/Analysis/LoopInfo.cpp
 +++ b/lib/Analysis/LoopInfo.cpp
-@@ -196,10 +196,11 @@ bool Loop::isSafeToClone() const {
+@@ -195,10 +195,11 @@ bool Loop::isSafeToClone() const {
      if (isa<IndirectBrInst>(BB->getTerminator()))
        return false;
  
@@ -2706,10 +2706,10 @@ index cbd5ede..6bb3db5 100644
    return true;
  }
 diff --git a/lib/AsmParser/LLLexer.cpp b/lib/AsmParser/LLLexer.cpp
-index 507e7e7..d7de551 100644
+index 58fe13e..416c3ce 100644
 --- a/lib/AsmParser/LLLexer.cpp
 +++ b/lib/AsmParser/LLLexer.cpp
-@@ -586,8 +586,10 @@ lltok::Kind LLLexer::LexIdentifier() {
+@@ -580,8 +580,10 @@ lltok::Kind LLLexer::LexIdentifier() {
    KEYWORD(avr_signalcc);
    KEYWORD(ptx_kernel);
    KEYWORD(ptx_device);
@@ -2723,7 +2723,7 @@ index 507e7e7..d7de551 100644
    KEYWORD(x86_64_sysvcc);
    KEYWORD(x86_64_win64cc);
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
-index a2fcbf4..d7cd6ca 100644
+index e97202d..f0403f7 100644
 --- a/lib/AsmParser/LLParser.cpp
 +++ b/lib/AsmParser/LLParser.cpp
 @@ -1645,8 +1645,10 @@ void LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
@@ -2765,7 +2765,7 @@ index a2fcbf4..d7cd6ca 100644
      ID.ConstantVal = ConstantExpr::getCast((Instruction::CastOps)Opc,
                                                   SrcVal, DestTy);
      ID.Kind = ValID::t_Constant;
-@@ -5631,12 +5635,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
+@@ -5633,12 +5637,12 @@ bool LLParser::ParseCast(Instruction *&Inst, PerFunctionState &PFS,
        ParseType(DestTy))
      return true;
  
@@ -9982,10 +9982,10 @@ index 9449421..e87da39 100644
 +add_subdirectory(SPIRV)
 +add_subdirectory(SPIRVerifier)
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
-index 9b2399d..a1342db 100644
+index 828767e..ebc7ee1 100644
 --- a/lib/IR/AsmWriter.cpp
 +++ b/lib/IR/AsmWriter.cpp
-@@ -19,6 +19,7 @@
+@@ -20,6 +20,7 @@
  #include "llvm/ADT/SetVector.h"
  #include "llvm/ADT/SmallString.h"
  #include "llvm/ADT/StringExtras.h"
@@ -9993,7 +9993,7 @@ index 9b2399d..a1342db 100644
  #include "llvm/IR/AssemblyAnnotationWriter.h"
  #include "llvm/IR/CFG.h"
  #include "llvm/IR/CallingConv.h"
-@@ -322,8 +323,10 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
+@@ -323,8 +324,10 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
    case CallingConv::PTX_Device:    Out << "ptx_device"; break;
    case CallingConv::X86_64_SysV:   Out << "x86_64_sysvcc"; break;
    case CallingConv::X86_64_Win64:  Out << "x86_64_win64cc"; break;
@@ -10006,7 +10006,7 @@ index 9b2399d..a1342db 100644
    case CallingConv::Swift:         Out << "swiftcc"; break;
    case CallingConv::X86_INTR:      Out << "x86_intrcc"; break;
    case CallingConv::HHVM:          Out << "hhvmcc"; break;
-@@ -2468,13 +2471,23 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
+@@ -2441,13 +2444,23 @@ void AssemblyWriter::printGlobal(const GlobalVariable *GV) {
    PrintVisibility(GV->getVisibility(), Out);
    PrintDLLStorageClass(GV->getDLLStorageClass(), Out);
    PrintThreadLocalModel(GV->getThreadLocalMode(), Out);
@@ -10032,7 +10032,7 @@ index 9b2399d..a1342db 100644
    TypePrinter.print(GV->getValueType(), Out);
  
 diff --git a/lib/IR/AutoUpgrade.cpp b/lib/IR/AutoUpgrade.cpp
-index dbdf343..1af944e 100644
+index 883cf29..b2f73dc 100644
 --- a/lib/IR/AutoUpgrade.cpp
 +++ b/lib/IR/AutoUpgrade.cpp
 @@ -1464,7 +1464,8 @@ Value *llvm::UpgradeBitCastExpr(unsigned Opc, Constant *C, Type *DestTy) {
@@ -10084,7 +10084,7 @@ index d7ed730..1f45bfd 100644
  
  
 diff --git a/lib/IR/Instructions.cpp b/lib/IR/Instructions.cpp
-index b9c693ff..d257741 100644
+index 5355f1a..90ca87e 100644
 --- a/lib/IR/Instructions.cpp
 +++ b/lib/IR/Instructions.cpp
 @@ -257,11 +257,13 @@ void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
@@ -10102,10 +10102,10 @@ index b9c693ff..d257741 100644
    std::copy(Args.begin(), Args.end(), op_begin());
  
 diff --git a/lib/IR/Metadata.cpp b/lib/IR/Metadata.cpp
-index 8b8e4dc..05be472 100644
+index ad95bff..7b24d49 100644
 --- a/lib/IR/Metadata.cpp
 +++ b/lib/IR/Metadata.cpp
-@@ -1391,6 +1391,11 @@ void GlobalObject::getAllMetadata(
+@@ -1382,6 +1382,11 @@ void GlobalObject::getAllMetadata(
  void GlobalObject::clearMetadata() {
    if (!hasMetadata())
      return;
@@ -10117,7 +10117,7 @@ index 8b8e4dc..05be472 100644
    getContext().pImpl->GlobalObjectMetadata.erase(this);
    setHasMetadataHashEntry(false);
  }
-@@ -1448,6 +1453,7 @@ void GlobalObject::addTypeMetadata(unsigned Offset, Metadata *TypeID) {
+@@ -1439,6 +1444,7 @@ void GlobalObject::addTypeMetadata(unsigned Offset, Metadata *TypeID) {
  
  void Function::setSubprogram(DISubprogram *SP) {
    setMetadata(LLVMContext::MD_dbg, SP);
@@ -10126,10 +10126,10 @@ index 8b8e4dc..05be472 100644
  
  DISubprogram *Function::getSubprogram() const {
 diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
-index d675ab9..d90a686 100644
+index 189450d..c23675b 100644
 --- a/lib/IR/Verifier.cpp
 +++ b/lib/IR/Verifier.cpp
-@@ -2527,10 +2527,17 @@ void Verifier::verifyCallSite(CallSite CS) {
+@@ -2566,10 +2566,17 @@ void Verifier::verifyCallSite(CallSite CS) {
             "Incorrect number of arguments passed to called function!", I);
  
    // Verify that all arguments to the call match the function type.
@@ -41880,10 +41880,10 @@ index bd2509a..55c1aca 100644
  
    return *this;
 diff --git a/lib/Target/NVPTX/NVPTXTargetMachine.cpp b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
-index d83154a..5493bbb 100644
+index 05df3e4c..822bcac 100644
 --- a/lib/Target/NVPTX/NVPTXTargetMachine.cpp
 +++ b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
-@@ -57,10 +57,11 @@ static cl::opt<bool> UseInferAddressSpaces(
+@@ -56,10 +56,11 @@ static cl::opt<bool> UseInferAddressSpaces(
  
  // LSV is still relatively new; this switch lets us turn it off in case we
  // encounter (or suspect) a bug.
@@ -41897,7 +41897,7 @@ index d83154a..5493bbb 100644
  namespace llvm {
  void initializeNVVMIntrRangePass(PassRegistry&);
 diff --git a/lib/Target/NVPTX/NVPTXUtilities.cpp b/lib/Target/NVPTX/NVPTXUtilities.cpp
-index 835e4b4..6d89981 100644
+index 8c980a6..63654c4 100644
 --- a/lib/Target/NVPTX/NVPTXUtilities.cpp
 +++ b/lib/Target/NVPTX/NVPTXUtilities.cpp
 @@ -295,7 +295,8 @@ bool llvm::isKernelFunction(const Function &F) {
@@ -41911,22 +41911,22 @@ index 835e4b4..6d89981 100644
    return (x == 1);
  }
 diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
-index d6782c7..4422411 100644
+index 341ce55..259bdef 100644
 --- a/lib/Transforms/IPO/CMakeLists.txt
 +++ b/lib/Transforms/IPO/CMakeLists.txt
 @@ -15,6 +15,7 @@ add_llvm_library(LLVMipo
+   IPConstantPropagation.cpp
    IPO.cpp
    InferFunctionAttrs.cpp
-   InlineAlways.cpp
 +  InlineEverything.cpp
    InlineSimple.cpp
    Inliner.cpp
    Internalize.cpp
 diff --git a/lib/Transforms/IPO/FunctionAttrs.cpp b/lib/Transforms/IPO/FunctionAttrs.cpp
-index b5d04a7..691cc14 100644
+index 2d897b5..3c2e483 100644
 --- a/lib/Transforms/IPO/FunctionAttrs.cpp
 +++ b/lib/Transforms/IPO/FunctionAttrs.cpp
-@@ -1016,6 +1016,13 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
+@@ -1013,6 +1013,13 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
    if (!F || F->isDeclaration() || F->doesNotRecurse())
      return false;
  
@@ -41941,7 +41941,7 @@ index b5d04a7..691cc14 100644
    // is norecurse. This check also detects self-recursion as F is not currently
    // marked norecurse, so any called from F to F will not be marked norecurse.
 diff --git a/lib/Transforms/IPO/GlobalOpt.cpp b/lib/Transforms/IPO/GlobalOpt.cpp
-index 967aeb3..a6cfd38 100644
+index 52c1cc5..59d1713 100644
 --- a/lib/Transforms/IPO/GlobalOpt.cpp
 +++ b/lib/Transforms/IPO/GlobalOpt.cpp
 @@ -20,6 +20,7 @@
@@ -41993,19 +41993,19 @@ index 967aeb3..a6cfd38 100644
        Changed = true;
      }
 diff --git a/lib/Transforms/IPO/IPO.cpp b/lib/Transforms/IPO/IPO.cpp
-index 181875e..0d438cf 100644
+index 58b89b2..3409389 100644
 --- a/lib/Transforms/IPO/IPO.cpp
 +++ b/lib/Transforms/IPO/IPO.cpp
-@@ -33,6 +33,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
+@@ -34,6 +34,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
    initializeGlobalOptLegacyPassPass(Registry);
    initializeIPCPPass(Registry);
-   initializeAlwaysInlinerPass(Registry);
+   initializeAlwaysInlinerLegacyPassPass(Registry);
 +  initializeEverythingInlinerPass(Registry);
    initializeSimpleInlinerPass(Registry);
    initializeInferFunctionAttrsLegacyPassPass(Registry);
    initializeInternalizeLegacyPassPass(Registry);
-@@ -85,6 +86,10 @@ void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
-   unwrap(PM)->add(llvm::createAlwaysInlinerPass());
+@@ -86,6 +87,10 @@ void LLVMAddAlwaysInlinerPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(llvm::createAlwaysInlinerLegacyPass());
  }
  
 +void LLVMAddEverythingInlinerPass(LLVMPassManagerRef PM) {
@@ -42114,7 +42114,7 @@ index 0000000..48595e0
 +}
 +
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
-index 8c5c6f7..5e5f3b9 100644
+index 26db146..5e91105 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
 +++ b/lib/Transforms/IPO/Internalize.cpp
 @@ -24,6 +24,7 @@
@@ -42154,10 +42154,10 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 99fb422..869c349 100644
+index 71e479a..dccce22 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
-@@ -38,6 +38,7 @@
+@@ -39,6 +39,7 @@
  #include "llvm/Transforms/Scalar.h"
  #include "llvm/Transforms/Scalar/GVN.h"
  #include "llvm/Transforms/Vectorize.h"
@@ -42165,7 +42165,7 @@ index 99fb422..869c349 100644
  
  using namespace llvm;
  
-@@ -164,6 +165,15 @@ PassManagerBuilder::PassManagerBuilder() {
+@@ -165,6 +166,15 @@ PassManagerBuilder::PassManagerBuilder() {
      PGOInstrUse = RunPGOInstrUse;
      PrepareForThinLTO = false;
      PerformThinLTO = false;
@@ -42181,7 +42181,7 @@ index 99fb422..869c349 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -221,7 +231,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
+@@ -222,7 +232,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
  
  void PassManagerBuilder::addInstructionCombiningPass(
      legacy::PassManagerBase &PM) const {
@@ -42192,7 +42192,7 @@ index 99fb422..869c349 100644
    PM.add(createInstructionCombiningPass(ExpensiveCombines));
  }
  
-@@ -363,9 +375,37 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
+@@ -373,9 +385,37 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -42230,7 +42230,7 @@ index 99fb422..869c349 100644
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -393,7 +433,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -403,7 +443,9 @@ void PassManagerBuilder::populateModulePassManager(
    if (LibraryInfo)
      MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
  
@@ -42241,7 +42241,7 @@ index 99fb422..869c349 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -448,6 +490,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -458,6 +500,28 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -42270,7 +42270,7 @@ index 99fb422..869c349 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -616,6 +680,34 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +690,34 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -42306,10 +42306,10 @@ index 99fb422..869c349 100644
  
  void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 diff --git a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
-index d312983..ebfa2c7 100644
+index 1603278..1279da1 100644
 --- a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
 +++ b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
-@@ -466,13 +466,16 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
+@@ -465,13 +465,16 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
    if (LI.use_empty())
      return nullptr;
  
@@ -42326,7 +42326,7 @@ index d312983..ebfa2c7 100644
 +  Type *Ty = LI.getType();
    if (!Ty->isIntegerTy() && Ty->isSized() &&
        DL.isLegalInteger(DL.getTypeStoreSizeInBits(Ty)) &&
-       DL.getTypeStoreSizeInBits(Ty) == DL.getTypeSizeInBits(Ty)) {
+       DL.getTypeStoreSizeInBits(Ty) == DL.getTypeSizeInBits(Ty) &&
 @@ -495,6 +498,7 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
        return &LI;
      }
@@ -44142,7 +44142,7 @@ index 0000000..2b58a8c
 +	dst_vec = builder->CreateInsertElement(dst_vec, insert_value, builder->getInt32(0));
 +}
 diff --git a/lib/Transforms/Scalar/LoopRotation.cpp b/lib/Transforms/Scalar/LoopRotation.cpp
-index 7a06a25..9e6535c 100644
+index 4498e1d..5600e22 100644
 --- a/lib/Transforms/Scalar/LoopRotation.cpp
 +++ b/lib/Transforms/Scalar/LoopRotation.cpp
 @@ -220,7 +220,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
@@ -44165,7 +44165,7 @@ index 7a06a25..9e6535c 100644
        return false;
    }
 diff --git a/lib/Transforms/Scalar/LoopUnrollPass.cpp b/lib/Transforms/Scalar/LoopUnrollPass.cpp
-index 5c95bee..ef63011 100644
+index 1018b61..c916b3a 100644
 --- a/lib/Transforms/Scalar/LoopUnrollPass.cpp
 +++ b/lib/Transforms/Scalar/LoopUnrollPass.cpp
 @@ -537,7 +537,7 @@ static unsigned ApproximateLoopSize(const Loop *L, unsigned &NumCalls,
@@ -46622,7 +46622,7 @@ index 0000000..b094838
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index a122984..b89345c 100644
+index b1d2420..b1920be 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
 @@ -96,6 +96,50 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
