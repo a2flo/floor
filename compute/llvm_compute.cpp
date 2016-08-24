@@ -197,8 +197,8 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
-				" -target " + (device->bitness == 32 ? "nvptx-nvidia-cuda" : "nvptx64-nvidia-cuda") +
-				" -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
+				" -target " + (device->bitness == 32 ? "x86--" : "x86_64--") +
+				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
 			};

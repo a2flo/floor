@@ -40,8 +40,12 @@ const_func uint32_t get_instance_id() asm("floor.get_instance_id.i32");
 const_func clang_float2 get_point_coord_cf2() asm("floor.get_point_coord.float2");
 //! returns the normalized (in [0, 1]) point coordinate
 floor_inline_always const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
+
+#define point_coord get_point_coord()
+
 //! discards the current fragment
 void discard_fragment() __attribute__((noreturn)) asm("air.discard_fragment");
+
 //! partial derivative of p with respect to the screen-space x coordinate
 const_func float dfdx(float p) asm("air.dfdx.f32");
 //! partial derivative of p with respect to the screen-space y coordinate
