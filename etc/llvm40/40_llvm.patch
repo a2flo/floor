@@ -22669,10 +22669,10 @@ index 0000000..5c29a09
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..4f05fc1
+index 0000000..697e28b
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2580 @@
+@@ -0,0 +1,2581 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23147,7 +23147,8 @@ index 0000000..4f05fc1
 +    return mapType(T, BM->addBoolType());
 +
 +  if (T->isIntegerTy())
-+    return mapType(T, BM->addIntegerType(T->getIntegerBitWidth()));
++    return mapType(T, BM->addIntegerType(T->getIntegerBitWidth(),
++                                         SrcLang == spv::SourceLanguageGLSL));
 +
 +  if (T->isFloatingPointTy())
 +    return mapType(T, BM->addFloatType(T->getPrimitiveSizeInBits()));
@@ -24805,11 +24806,11 @@ index 0000000..4f05fc1
 +              (llvm::ConstantInt *)llvm_wg_size_init->getAggregateElement(2u))
 +              ->getZExtValue(),
 +      };
-+      auto uint_type = BM->addIntegerType(32);
++      auto int_type = BM->addIntegerType(32, true);
 +      std::vector<SPIRVValue *> wg_size_vals{
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[0]),
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[1]),
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[2]),
++          BM->addIntegerConstant(int_type, llvm_wg_size_vals[0], true),
++          BM->addIntegerConstant(int_type, llvm_wg_size_vals[1], true),
++          BM->addIntegerConstant(int_type, llvm_wg_size_vals[2], true),
 +      };
 +      auto wg_size = BM->addCompositeConstant(
 +          transType(gv_wg_size->getType()->getPointerElementType()),
@@ -29888,10 +29889,10 @@ index 0000000..774a444
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..19172b2
+index 0000000..7b2127b
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2037 @@
+@@ -0,0 +1,2038 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -30195,8 +30196,9 @@ index 0000000..19172b2
 +  /// Get operand as value.
 +  /// If the operand is a literal, return it as a uint32 constant.
 +  SPIRVValue *getOpValue(int I) {
-+    return isOperandLiteral(I) ? Module->getLiteralAsConstant(Ops[I]) :
-+        getValue(Ops[I]);
++    return isOperandLiteral(I) ?
++      Module->getLiteralAsConstant(Ops[I], Module->getSourceLanguage(nullptr) == spv::SourceLanguageGLSL) :
++      getValue(Ops[I]);
 +  }
 +
 +  // Get the offset of operands.
@@ -32931,7 +32933,7 @@ index 0000000..cc7c7ff
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..80b2094
+index 0000000..fecb258
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 @@ -0,0 +1,1685 @@
@@ -33039,7 +33041,7 @@ index 0000000..80b2094
 +  virtual std::vector<SPIRVType *> getValueTypes(const std::vector<SPIRVId>&)
 +      const;
 +  SPIRVMemoryModelKind getMemoryModel() const { return MemoryModel;}
-+  virtual SPIRVConstant* getLiteralAsConstant(unsigned Literal);
++  virtual SPIRVConstant* getLiteralAsConstant(unsigned Literal, bool is_signed);
 +  unsigned getNumEntryPoints(SPIRVExecutionModelKind EM) const {
 +    auto Loc = EntryPointVec.find(EM);
 +    if (Loc == EntryPointVec.end())
@@ -33130,7 +33132,7 @@ index 0000000..80b2094
 +  virtual SPIRVTypeFloat *addFloatType(unsigned BitWidth);
 +  virtual SPIRVTypeFunction *addFunctionType(SPIRVType *,
 +      const std::vector<SPIRVType *> &);
-+  virtual SPIRVTypeInt *addIntegerType(unsigned BitWidth);
++  virtual SPIRVTypeInt *addIntegerType(unsigned BitWidth, bool is_signed);
 +  virtual SPIRVTypeOpaque *addOpaqueType(const std::string &);
 +  virtual SPIRVTypePointer *addPointerType(SPIRVStorageClassKind, SPIRVType *);
 +  virtual SPIRVTypeImage *addImageType(SPIRVType *,
@@ -33161,7 +33163,7 @@ index 0000000..80b2094
 +  virtual SPIRVValue *addConstant(SPIRVType *, uint64_t);
 +  virtual SPIRVValue *addDoubleConstant(SPIRVTypeFloat *, double);
 +  virtual SPIRVValue *addFloatConstant(SPIRVTypeFloat *, float);
-+  virtual SPIRVValue *addIntegerConstant(SPIRVTypeInt *, uint64_t);
++  virtual SPIRVValue *addIntegerConstant(SPIRVTypeInt *, uint64_t, bool);
 +  virtual SPIRVValue *addNullConstant(SPIRVType *);
 +  virtual SPIRVValue *addUndef(SPIRVType *TheType);
 +  virtual SPIRVValue *addUndefInst(SPIRVType *TheType, SPIRVBasicBlock*);
@@ -33423,11 +33425,11 @@ index 0000000..80b2094
 +}
 +
 +SPIRVConstant*
-+SPIRVModuleImpl::getLiteralAsConstant(unsigned Literal) {
++SPIRVModuleImpl::getLiteralAsConstant(unsigned Literal, bool is_signed) {
 +  auto Loc = LiteralMap.find(Literal);
 +  if (Loc != LiteralMap.end())
 +    return Loc->second;
-+  auto Ty = addIntegerType(32);
++  auto Ty = addIntegerType(32, is_signed);
 +  auto V = new SPIRVConstant(this, Ty, getId(), static_cast<uint64_t>(Literal));
 +  LiteralMap[Literal] = V;
 +  addConstant(V);
@@ -33637,11 +33639,11 @@ index 0000000..80b2094
 +}
 +
 +SPIRVTypeInt *
-+SPIRVModuleImpl::addIntegerType(unsigned BitWidth) {
++SPIRVModuleImpl::addIntegerType(unsigned BitWidth, bool is_signed) {
 +  auto Loc = IntTypeMap.find(BitWidth);
 +  if (Loc != IntTypeMap.end())
 +    return Loc->second;
-+  auto Ty = new SPIRVTypeInt(this, getId(), BitWidth, false);
++  auto Ty = new SPIRVTypeInt(this, getId(), BitWidth, is_signed);
 +  IntTypeMap[BitWidth] = Ty;
 +  return addType(Ty);
 +}
@@ -33856,16 +33858,16 @@ index 0000000..80b2094
 +      return addConstant(new SPIRVConstantFalse(this, Ty, getId()));
 +  }
 +  if (Ty->isTypeInt())
-+    return addIntegerConstant(static_cast<SPIRVTypeInt*>(Ty), V);
++    return addIntegerConstant(static_cast<SPIRVTypeInt*>(Ty), V, static_cast<SPIRVTypeInt*>(Ty)->isSigned());
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
 +
 +SPIRVValue *
-+SPIRVModuleImpl::addIntegerConstant(SPIRVTypeInt *Ty, uint64_t V) {
++SPIRVModuleImpl::addIntegerConstant(SPIRVTypeInt *Ty, uint64_t V, bool is_signed) {
 +  if (Ty->getBitWidth() == 32) {
 +    unsigned I32 = V;
 +    assert(I32 == V && "Integer value truncated");
-+    return getLiteralAsConstant(I32);
++    return getLiteralAsConstant(I32, is_signed);
 +  }
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
@@ -34088,7 +34090,7 @@ index 0000000..80b2094
 +  }
 +  if(is_rtarr_access) {
 +    // add an additional 0 index in front, because we always wrap SSBO/run-time array data in a struct
-+    Indices.insert(begin(Indices), addIntegerConstant((SPIRVTypeInt*)Indices[0]->getType(), 0));
++    Indices.insert(begin(Indices), addIntegerConstant((SPIRVTypeInt*)Indices[0]->getType(), 0, true));
 +  } else if(Indices.size() > 1) {
 +    // if it's not a run-time array access, remove the first (0) index
 +    // TODO: actually make this work for double-GEPs by fusing these with their users
@@ -34622,7 +34624,7 @@ index 0000000..80b2094
 +
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..2626097
+index 0000000..e7d4751
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
 @@ -0,0 +1,363 @@
@@ -34760,7 +34762,7 @@ index 0000000..2626097
 +  virtual SPIRVType *getValueType(SPIRVId TheId)const = 0;
 +  virtual std::vector<SPIRVType *> getValueTypes(const std::vector<SPIRVId>&)
 +      const = 0;
-+  virtual SPIRVConstant* getLiteralAsConstant(unsigned Literal) = 0;
++  virtual SPIRVConstant* getLiteralAsConstant(unsigned Literal, bool is_signed) = 0;
 +  virtual bool isEntryPoint(SPIRVExecutionModelKind, SPIRVId) const = 0;
 +  virtual unsigned short getGeneratorId() const = 0;
 +  virtual unsigned short getGeneratorVer() const = 0;
@@ -34832,7 +34834,7 @@ index 0000000..2626097
 +  virtual SPIRVTypeSampler *addSamplerType() = 0;
 +  virtual SPIRVTypePipeStorage *addPipeStorageType() = 0;
 +  virtual SPIRVTypeSampledImage *addSampledImageType(SPIRVTypeImage *T) = 0;
-+  virtual SPIRVTypeInt *addIntegerType(unsigned) = 0;
++  virtual SPIRVTypeInt *addIntegerType(unsigned, bool) = 0;
 +  virtual SPIRVTypeOpaque *addOpaqueType(const std::string &) = 0;
 +  virtual SPIRVTypePointer *addPointerType(SPIRVStorageClassKind, SPIRVType *) = 0;
 +  virtual SPIRVTypeStruct *openStructType(unsigned, const std::string &) = 0;
@@ -34852,7 +34854,7 @@ index 0000000..2626097
 +  virtual SPIRVValue *addConstant(SPIRVType *, uint64_t) = 0;
 +  virtual SPIRVValue *addDoubleConstant(SPIRVTypeFloat *, double) = 0;
 +  virtual SPIRVValue *addFloatConstant(SPIRVTypeFloat *, float) = 0;
-+  virtual SPIRVValue *addIntegerConstant(SPIRVTypeInt *, uint64_t) = 0;
++  virtual SPIRVValue *addIntegerConstant(SPIRVTypeInt *, uint64_t, bool) = 0;
 +  virtual SPIRVValue *addNullConstant(SPIRVType *) = 0;
 +  virtual SPIRVValue *addUndef(SPIRVType *TheType) = 0;
 +  virtual SPIRVValue *addUndefInst(SPIRVType *TheType, SPIRVBasicBlock*) = 0;
