@@ -38,7 +38,7 @@ public:
 	
 	vulkan_compute(const vector<string> whitelist = {});
 	
-	~vulkan_compute() override {}
+	~vulkan_compute() override;
 	
 	bool is_supported() const override { return supported; }
 	
@@ -161,6 +161,8 @@ protected:
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
 	
 #if defined(FLOOR_DEBUG)
+	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback;
+	PFN_vkDestroyDebugReportCallbackEXT destroy_debug_report_callback;
 	VkDebugReportCallbackEXT debug_callback;
 #endif
 	

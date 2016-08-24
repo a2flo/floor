@@ -950,7 +950,7 @@ needs_rebuild() {
 		info "rebuild because >${BUILD_DIR}/${source_file}.d< doesn't exist or BUILD_REBUILD $BUILD_REBUILD"
 		rebuild_file=1
 	else
-		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | grep -v "${source_file}" | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
+		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
 		if [ "${dep_list}" ]; then
 			file_time=$(file_mod_time "${bin_file_name}")
 			dep_times=$(file_mod_time ${dep_list})

@@ -44,6 +44,14 @@
 #define floor_unused __attribute__((unused))
 #define floor_used __attribute__((used))
 
+#if defined(FLOOR_DEBUG)
+#define floor_unused_if_debug __attribute__((unused))
+#define floor_unused_if_release
+#else
+#define floor_unused_if_debug
+#define floor_unused_if_release __attribute__((unused))
+#endif
+
 // for packing structs/classes (removes padding bytes)
 #if defined(__clang__) || defined(__GNUC__)
 #define floor_packed __attribute__((packed))

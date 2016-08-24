@@ -43,7 +43,7 @@ typename vulkan_kernel::kernel_map_type::const_iterator vulkan_kernel::get_kerne
 shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success) {
 	success = false;
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
-		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer(),
+		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer("kernel encoder"),
 		.device = (vulkan_device*)(queue->get_device().get()),
 	});
 	
@@ -78,21 +78,23 @@ void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 									 const uint3& block_dim floor_unused /* unused for now, until dyn local size is possible */) const {
 	// TODO: vkCmdPushConstants
 	
-	// set/write/update descriptors
-	const auto write_desc_count = (uint32_t)encoder->write_descs.size();
-	vkUpdateDescriptorSets(((vulkan_device*)((vulkan_queue*)queue)->get_device().get())->device,
-						   write_desc_count, (write_desc_count > 0 ? encoder->write_descs.data() : nullptr),
-						   0, nullptr);
-	
-	// final desc set binding after all parameters have been updated/set
-	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
-							VK_PIPELINE_BIND_POINT_COMPUTE,
-							entry.pipeline_layout,
-							0,
-							1,
-							&entry.desc_set,
-							(uint32_t)encoder->dyn_offsets.size(),
-							encoder->dyn_offsets.data());
+	if(entry.desc_set != nullptr) {
+		// set/write/update descriptors
+		const auto write_desc_count = (uint32_t)encoder->write_descs.size();
+		vkUpdateDescriptorSets(((vulkan_device*)((vulkan_queue*)queue)->get_device().get())->device,
+							   write_desc_count, (write_desc_count > 0 ? encoder->write_descs.data() : nullptr),
+							   0, nullptr);
+		
+		// final desc set binding after all parameters have been updated/set
+		vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
+								VK_PIPELINE_BIND_POINT_COMPUTE,
+								entry.pipeline_layout,
+								0,
+								1,
+								&entry.desc_set,
+								(uint32_t)encoder->dyn_offsets.size(),
+								encoder->dyn_offsets.data());
+	}
 	
 	// set dims + pipeline
 	// TODO: check if grid_dim matches compute shader defintion

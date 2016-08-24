@@ -137,79 +137,92 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// move descriptor types to the kernel entry, we'll need these when setting function args
 					entry.desc_types = move(descriptor_types);
 					
-					const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
-						.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-						.pNext = nullptr,
-						.flags = 0,
-						.bindingCount = (uint32_t)bindings.size(),
-						.pBindings = bindings.data(),
-					};
-					VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
-								 "failed to create descriptor set layout");
-					// TODO: vkDestroyDescriptorSetLayout cleanup
+					if(!bindings.empty()) {
+						const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+							.pNext = nullptr,
+							.flags = 0,
+							.bindingCount = (uint32_t)bindings.size(),
+							.pBindings = bindings.data(),
+						};
+						VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
+									 "failed to create descriptor set layout");
+						// TODO: vkDestroyDescriptorSetLayout cleanup
+					}
+					else {
+						entry.desc_set_layout = nullptr;
+					}
 					
 					// create the pipeline layout
 					const VkPipelineLayoutCreateInfo pipeline_layout_info {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 						.pNext = nullptr,
 						.flags = 0,
-						.setLayoutCount = 1,
-						.pSetLayouts = &entry.desc_set_layout,
+						.setLayoutCount = (entry.desc_set_layout != nullptr ? 1u : 0u),
+						.pSetLayouts = (entry.desc_set_layout != nullptr ? &entry.desc_set_layout : nullptr),
 						.pushConstantRangeCount = 0,
 						.pPushConstantRanges = nullptr,
 					};
 					VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 								 "failed to create pipeline layout");
 					
-					// create descriptor pool + descriptors
-					// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
-					const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
-												 (uniform_desc > 0 ? 1 : 0) +
-												 (read_image_desc > 0 ? 1 : 0) +
-												 (write_image_desc > 0 ? 1 : 0));
-					vector<VkDescriptorPoolSize> pool_sizes(pool_count > 0 ? pool_count : 1); // need at least 1
-					uint32_t pool_index = 0;
-					if(ssbo_desc > 0 || pool_count == 0) {
-						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-						pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
-						++pool_index;
+					if(!bindings.empty()) {
+						// create descriptor pool + descriptors
+						// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
+						const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
+													 (uniform_desc > 0 ? 1 : 0) +
+													 (read_image_desc > 0 ? 1 : 0) +
+													 (write_image_desc > 0 ? 1 : 0));
+						vector<VkDescriptorPoolSize> pool_sizes(pool_count);
+						uint32_t pool_index = 0;
+						if(ssbo_desc > 0 || pool_count == 0) {
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
+							++pool_index;
+						}
+						if(uniform_desc > 0) {
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+							pool_sizes[pool_index].descriptorCount = uniform_desc;
+							++pool_index;
+						}
+						if(read_image_desc > 0) {
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+							pool_sizes[pool_index].descriptorCount = read_image_desc;
+							++pool_index;
+						}
+						if(write_image_desc > 0) {
+							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+							pool_sizes[pool_index].descriptorCount = write_image_desc;
+							++pool_index;
+						}
+						const VkDescriptorPoolCreateInfo desc_pool_info {
+							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+							.pNext = nullptr,
+							.flags = 0,
+							// we only need one set for now
+							.maxSets = 1,
+							.poolSizeCount = pool_count,
+							.pPoolSizes = pool_sizes.data(),
+						};
+						VK_CALL_CONT(vkCreateDescriptorPool(prog.first->device, &desc_pool_info, nullptr, &entry.desc_pool),
+									 "failed to create descriptor pool");
+						
+						// allocate descriptor set
+						const VkDescriptorSetAllocateInfo desc_set_alloc_info {
+							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+							.pNext = nullptr,
+							.descriptorPool = entry.desc_pool,
+							.descriptorSetCount = 1,
+							.pSetLayouts = &entry.desc_set_layout,
+						};
+						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first->device, &desc_set_alloc_info, &entry.desc_set), "failed to allocate descriptor set");
 					}
-					if(uniform_desc > 0) {
-						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-						pool_sizes[pool_index].descriptorCount = uniform_desc;
-						++pool_index;
+					else {
+						// no descriptors, set everything to nullptr
+						entry.desc_set_layout = nullptr;
+						entry.desc_pool = nullptr;
+						entry.desc_set = nullptr;
 					}
-					if(read_image_desc > 0) {
-						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-						pool_sizes[pool_index].descriptorCount = read_image_desc;
-						++pool_index;
-					}
-					if(write_image_desc > 0) {
-						pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-						pool_sizes[pool_index].descriptorCount = write_image_desc;
-						++pool_index;
-					}
-					const VkDescriptorPoolCreateInfo desc_pool_info {
-						.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-						.pNext = nullptr,
-						.flags = 0,
-						// we only need one set for now
-						.maxSets = 1,
-						.poolSizeCount = pool_count,
-						.pPoolSizes = pool_sizes.data(),
-					};
-					VK_CALL_CONT(vkCreateDescriptorPool(prog.first->device, &desc_pool_info, nullptr, &entry.desc_pool),
-								 "failed to create descriptor pool");
-					
-					// allocate descriptor set
-					const VkDescriptorSetAllocateInfo desc_set_alloc_info {
-						.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-						.pNext = nullptr,
-						.descriptorPool = entry.desc_pool,
-						.descriptorSetCount = 1,
-						.pSetLayouts = &entry.desc_set_layout,
-					};
-					VK_CALL_CONT(vkAllocateDescriptorSets(prog.first->device, &desc_set_alloc_info, &entry.desc_set), "failed to allocate descriptor set");
 					
 					// we can only actually create compute pipelines here, because they can exist on their own
 					// vertex/fragment/etc graphics pipelines would need much more information (which ones to combine to begin with)

@@ -29,6 +29,7 @@
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 
+#if defined(FLOOR_DEBUG)
 static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportFlagsEXT flags,
 															const VkDebugReportObjectTypeEXT object_type,
 															const uint64_t object,
@@ -40,6 +41,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportF
 	log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
 	return VK_FALSE; // don't abort
 }
+#endif
 
 vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context() {
 	// create a vulkan instance (context)
@@ -95,22 +97,25 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	
 #if defined(FLOOR_DEBUG)
 	// register debug callback
-	const auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugReportCallbackEXT");
-	if(vkCreateDebugReportCallbackEXT == nullptr) {
+	create_debug_report_callback = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkCreateDebugReportCallbackEXT");
+	if(create_debug_report_callback == nullptr) {
 		log_error("failed to retrieve vkCreateDebugReportCallbackEXT function pointer");
 		return;
 	}
-	//const auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugReportCallbackEXT"); // TODO: cleanup
+	destroy_debug_report_callback = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(ctx, "vkDestroyDebugReportCallbackEXT");
 	const VkDebugReportCallbackCreateInfoEXT debug_cb_info {
 		.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT,
 		.pNext = nullptr,
 		.flags = (VK_DEBUG_REPORT_WARNING_BIT_EXT |
 				  VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
-				  VK_DEBUG_REPORT_ERROR_BIT_EXT),
+				  VK_DEBUG_REPORT_ERROR_BIT_EXT
+				  //| VK_DEBUG_REPORT_DEBUG_BIT_EXT
+				  //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT
+				  ),
 		.pfnCallback = (PFN_vkDebugReportCallbackEXT)&vulkan_debug_callback,
 		.pUserData = this,
 	};
-	VK_CALL_RET(vkCreateDebugReportCallbackEXT(ctx, &debug_cb_info, nullptr, &debug_callback),
+	VK_CALL_RET(create_debug_report_callback(ctx, &debug_cb_info, nullptr, &debug_callback),
 				"failed to register debug callback");
 #endif
 	
@@ -289,9 +294,15 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		const auto& limits = props.limits;
 		device->constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
 		device->local_mem_size = limits.maxComputeSharedMemorySize;
+#if 0 // TODO: enable this again once we can have "dynamic"/spec work sizes
 		device->max_work_group_size = limits.maxComputeWorkGroupInvocations;
 		device->max_work_item_sizes = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device->max_work_group_item_sizes = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
+#else
+		device->max_work_group_size = 512;
+		device->max_work_item_sizes = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
+		device->max_work_group_item_sizes = { 512, 1, 1 };
+#endif
 		device->max_image_1d_dim = limits.maxImageDimension1D;
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
@@ -399,6 +410,15 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	
 	// workaround non-existent fastest device selection
 	fastest_device = devices[0];
+}
+
+vulkan_compute::~vulkan_compute() {
+#if defined(FLOOR_DEBUG)
+	if(destroy_debug_report_callback != nullptr &&
+	   debug_callback != nullptr) {
+		destroy_debug_report_callback(ctx, debug_callback, nullptr);
+	}
+#endif
 }
 
 shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device> dev) {

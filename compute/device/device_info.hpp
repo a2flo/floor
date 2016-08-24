@@ -33,6 +33,7 @@ namespace device_info {
 		APPLE,
 		POCL,
 		HOST,
+		KHRONOS,
 		UNKNOWN
 	};
 	//! returns the device vendor

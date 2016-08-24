@@ -112,10 +112,16 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 }
 
 vulkan_buffer::~vulkan_buffer() {
+	auto vulkan_dev = ((const vulkan_device*)dev)->device;
 	if(buffer != nullptr) {
-		vkDestroyBuffer(((const vulkan_device*)dev)->device, buffer, nullptr);
+		vkDestroyBuffer(vulkan_dev, buffer, nullptr);
+		buffer = nullptr;
 	}
-	// TODO: destroy all the rest
+	if(mem != nullptr) {
+		vkFreeMemory(vulkan_dev, mem, nullptr);
+		mem = nullptr;
+	}
+	buffer_info = { nullptr, 0, 0 };
 }
 
 void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {
@@ -157,7 +163,20 @@ void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue,
 void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {
 	if(buffer == nullptr) return;
 	
-	// TODO: implement this
+	auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("buffer zero"); // TODO: abstract
+	const VkCommandBufferBeginInfo begin_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr,
+	};
+	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+				"failed to begin command buffer");
+	
+	vkCmdFillBuffer(cmd_buffer.cmd_buffer, buffer, 0, size, 0);
+	
+	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+	((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer);
 }
 
 bool vulkan_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
@@ -207,8 +226,8 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 	
 	// create the host-visible buffer if necessary
 	vulkan_mapping mapping {
-		.buffer = buffer,
-		.mem = mem,
+		.buffer = nullptr,
+		.mem = nullptr,
 		.size = map_size,
 		.offset = offset,
 		.flags = flags_,
@@ -235,7 +254,7 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 	
 		// allocate / back it up
 		VkMemoryRequirements mem_req;
-		vkGetBufferMemoryRequirements(vulkan_dev, buffer, &mem_req);
+		vkGetBufferMemoryRequirements(vulkan_dev, mapping.buffer, &mem_req);
 	
 		const VkMemoryAllocateInfo alloc_info {
 			.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
@@ -245,6 +264,10 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 		};
 		VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mapping.mem), "map buffer allocation failed", nullptr);
 		VK_CALL_RET(vkBindBufferMemory(vulkan_dev, mapping.buffer, mapping.mem, 0), "map buffer allocation binding failed", nullptr);
+	}
+	else {
+		mapping.buffer = buffer;
+		mapping.mem = mem;
 	}
 	
 	// check if we need to copy the buffer from the device (in case READ was specified)
@@ -256,7 +279,7 @@ void* __attribute__((aligned(128))) vulkan_buffer::map(shared_ptr<compute_queue>
 		
 		// device -> host buffer copy
 		if(!dev->unified_memory) {
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer(); // TODO: should probably abstract this a little
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("dev -> host buffer copy"); // TODO: should probably abstract this a little
 			const VkCommandBufferBeginInfo begin_info {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				.pNext = nullptr,
@@ -314,7 +337,7 @@ void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 		if(!dev->unified_memory) {
 			// host -> device copy
 			// TODO: sync ...
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer(); // TODO: should probably abstract this a little
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev buffer copy"); // TODO: should probably abstract this a little
 			const VkCommandBufferBeginInfo begin_info {
 				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 				.pNext = nullptr,

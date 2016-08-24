@@ -39,15 +39,15 @@ public:
 	
 	struct command_buffer {
 		VkCommandBuffer cmd_buffer;
-		VkFence fence;
 		const uint32_t index;
+		const char* name;
 	};
-	command_buffer make_command_buffer() REQUIRES(!cmd_buffers_lock);
+	command_buffer make_command_buffer(const char* name = nullptr) REQUIRES(!cmd_buffers_lock);
 	
-	void submit_command_buffer(command_buffer cmd_buffer, const bool blocking = false) REQUIRES(!cmd_buffers_lock, !queue_lock);
+	void submit_command_buffer(command_buffer cmd_buffer, const bool blocking = true) REQUIRES(!cmd_buffers_lock, !queue_lock);
 	void submit_command_buffer(command_buffer cmd_buffer,
 							   function<void(const command_buffer&)> completion_handler,
-							   const bool blocking = false) REQUIRES(!cmd_buffers_lock, !queue_lock);
+							   const bool blocking = true) REQUIRES(!cmd_buffers_lock, !queue_lock);
 	
 protected:
 	const VkQueue queue GUARDED_BY(queue_lock);
@@ -66,6 +66,13 @@ protected:
 	};
 	array<VkCommandBuffer, cmd_buffer_count> cmd_buffers GUARDED_BY(cmd_buffers_lock);
 	bitset<cmd_buffer_count> cmd_buffers_in_use GUARDED_BY(cmd_buffers_lock);
+	
+	static constexpr const uint32_t fence_count { 32 };
+	mutable safe_mutex fence_lock;
+	array<VkFence, fence_count> fences GUARDED_BY(fence_lock);
+	bitset<fence_count> fences_in_use GUARDED_BY(fence_lock);
+	pair<VkFence, uint32_t> acquire_fence() REQUIRES(!fence_lock);
+	void release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) REQUIRES(!fence_lock);
 	
 };
 
