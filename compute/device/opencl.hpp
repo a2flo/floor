@@ -23,12 +23,12 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 // wrap opencl id handling functions so that uint32_t is always returned
-const_func size_t get_global_id(uint32_t dim);
-const_func size_t get_global_size(uint32_t dim);
-const_func size_t get_local_id(uint32_t dim);
-const_func size_t get_local_size(uint32_t dim);
-const_func size_t get_group_id(uint32_t dim);
-const_func size_t get_num_groups(uint32_t dim);
+[[range(0u, 0xFFFFFFFFu)]] const_func size_t get_global_id(uint32_t dim);
+[[range(1u, 0xFFFFFFFFu)]] const_func size_t get_global_size(uint32_t dim);
+[[range(0u, 2048u)]] const_func size_t get_local_id(uint32_t dim);
+[[range(1u, 2048u)]] const_func size_t get_local_size(uint32_t dim);
+[[range(0u, 0xFFFFFFFFu)]] const_func size_t get_group_id(uint32_t dim);
+[[range(1u, 0xFFFFFFFFu)]] const_func size_t get_num_groups(uint32_t dim);
 const_func uint32_t get_work_dim();
 
 floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }

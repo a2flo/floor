@@ -120,6 +120,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
+	uint32_t bitness = device->bitness; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	switch(options.target) {
 		case TARGET::SPIR:
@@ -127,7 +128,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				" -x cl -Xclang -cl-std=CL1.2" \
-				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -target " + (bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -llvm-bc-32" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -197,7 +198,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			clang_cmd += {
 				"\"" + floor::get_cuda_compiler() + "\"" +
 				" -x cuda -std=cuda" \
-				" -target " + (device->bitness == 32 ? "i386--" : "x86_64--") +
+				" -target " + (bitness == 32 ? "i386--" : "x86_64--") +
 				" -nocudalib -nocudainc --cuda-device-only --cuda-gpu-arch=sm_" + sm_version +
 				" -Xclang -fcuda-is-device" \
 				" -DFLOOR_COMPUTE_CUDA"
@@ -208,12 +209,13 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		} break;
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
+			bitness = 32; // always 32-bit for now
 			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x vulkan -std=vulkan1.0" \
-				" -target " + (device->bitness == 32 ? "spir-unknown-unknown-vulkan" : "spir64-unknown-unknown-vulkan") +
+				" -target spir-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -240,7 +242,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				"\"" + floor::get_opencl_compiler() + "\"" +
 				// compile to the max opencl standard that is supported by the device
 				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
-				" -target " + (device->bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -target " + (bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -488,7 +490,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		(options.enable_warnings ? warning_flags : " ") +
 		options.cli +
 		// compile to the right device bitness
-		(device->bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
+		(bitness == 32 ? " -m32 -DPLATFORM_X32" : " -m64 -DPLATFORM_X64") +
 		" -emit-llvm -c -o " + compiled_file_or_code + " " + input
 	};
 	
