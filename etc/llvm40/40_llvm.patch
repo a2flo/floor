@@ -912,6 +912,157 @@ index de618d1..d1e3957 100644
  
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
+diff --git a/include/llvm/IR/BasicBlock.h b/include/llvm/IR/BasicBlock.h
+index 50eedec..900a098 100644
+--- a/include/llvm/IR/BasicBlock.h
++++ b/include/llvm/IR/BasicBlock.h
+@@ -17,6 +17,7 @@
+ #include "llvm/ADT/Twine.h"
+ #include "llvm/ADT/ilist.h"
+ #include "llvm/IR/Instruction.h"
++#include "llvm/IR/InstrTypes.h"
+ #include "llvm/IR/SymbolTableListTraits.h"
+ #include "llvm/Support/CBindingWrapping.h"
+ #include "llvm/Support/DataTypes.h"
+@@ -25,7 +26,6 @@ namespace llvm {
+ 
+ class CallInst;
+ class LandingPadInst;
+-class TerminatorInst;
+ class LLVMContext;
+ class BlockAddress;
+ class Function;
+@@ -319,6 +319,130 @@ public:
+   LandingPadInst *getLandingPadInst();
+   const LandingPadInst *getLandingPadInst() const;
+ 
++  //
++  template <class Ptr, class USE_iterator> // Predecessor Iterator
++  class PredIterator : public std::iterator<std::forward_iterator_tag,
++                                            Ptr, ptrdiff_t, Ptr*, Ptr*> {
++    typedef std::iterator<std::forward_iterator_tag, Ptr, ptrdiff_t, Ptr*,
++                                                                      Ptr*> super;
++    typedef PredIterator<Ptr, USE_iterator> Self;
++    USE_iterator It;
++
++    inline void advancePastNonTerminators() {
++      // Loop to ignore non-terminator uses (for example BlockAddresses).
++      while (!It.atEnd() && !isa<TerminatorInst>(*It))
++        ++It;
++    }
++
++  public:
++    typedef typename super::pointer pointer;
++    typedef typename super::reference reference;
++
++    PredIterator() {}
++    explicit inline PredIterator(Ptr *bb) : It(bb->user_begin()) {
++      advancePastNonTerminators();
++    }
++    inline PredIterator(Ptr *bb, bool) : It(bb->user_end()) {}
++
++    inline bool operator==(const Self& x) const { return It == x.It; }
++    inline bool operator!=(const Self& x) const { return !operator==(x); }
++
++    inline reference operator*() const {
++      assert(!It.atEnd() && "pred_iterator out of range!");
++      return cast<TerminatorInst>(*It)->getParent();
++    }
++    inline pointer *operator->() const { return &operator*(); }
++
++    inline Self& operator++() {   // Preincrement
++      assert(!It.atEnd() && "pred_iterator out of range!");
++      ++It; advancePastNonTerminators();
++      return *this;
++    }
++
++    inline Self operator++(int) { // Postincrement
++      Self tmp = *this; ++*this; return tmp;
++    }
++
++    /// getOperandNo - Return the operand number in the predecessor's
++    /// terminator of the successor.
++    unsigned getOperandNo() const {
++      return It.getOperandNo();
++    }
++
++    /// getUse - Return the operand Use in the predecessor's terminator
++    /// of the successor.
++    Use &getUse() const {
++      return It.getUse();
++    }
++  };
++
++  typedef PredIterator<BasicBlock, Value::user_iterator> pred_iterator;
++  typedef PredIterator<const BasicBlock, Value::const_user_iterator> const_pred_iterator;
++  typedef llvm::iterator_range<pred_iterator> pred_range;
++  typedef llvm::iterator_range<const_pred_iterator> pred_const_range;
++
++  inline pred_iterator pred_begin() { return pred_iterator(this); }
++  inline const_pred_iterator pred_begin() const {
++    return const_pred_iterator(this);
++  }
++  inline pred_iterator pred_end() { return pred_iterator(this, true);}
++  inline const_pred_iterator pred_end() const {
++    return const_pred_iterator(this, true);
++  }
++  inline bool pred_empty() const {
++    return pred_begin() == pred_end();
++  }
++  inline pred_range predecessors() {
++    return pred_range(pred_begin(), pred_end());
++  }
++  inline pred_const_range predecessors() const {
++    return pred_const_range(pred_begin(), pred_end());
++  }
++  inline unsigned pred_size() {
++    return (unsigned)std::abs(std::distance(pred_begin(), pred_end()));
++  }
++
++  // returns true if BB is a predecessor of this BasicBlock
++  inline bool isPredecessor(const BasicBlock* BB) const {
++    return is_contained(predecessors(), BB);
++  }
++
++  //
++  typedef TerminatorInst::SuccIterator<TerminatorInst *, BasicBlock> succ_iterator;
++  typedef TerminatorInst::SuccIterator<const TerminatorInst *, const BasicBlock> succ_const_iterator;
++  typedef llvm::iterator_range<succ_iterator> succ_range;
++  typedef llvm::iterator_range<succ_const_iterator> succ_const_range;
++
++  inline succ_iterator succ_begin() {
++    return succ_iterator(getTerminator());
++  }
++  inline succ_const_iterator succ_begin() const {
++    return succ_const_iterator(getTerminator());
++  }
++  inline succ_iterator succ_end() {
++    return succ_iterator(getTerminator(), true);
++  }
++  inline succ_const_iterator succ_end() const {
++    return succ_const_iterator(getTerminator(), true);
++  }
++  inline bool succ_empty() const {
++    return succ_begin() == succ_end();
++  }
++  inline succ_range successors() {
++    return succ_range(succ_begin(), succ_end());
++  }
++  inline succ_const_range successors() const {
++    return succ_const_range(succ_begin(), succ_end());
++  }
++  inline unsigned succ_size() {
++    return (unsigned)std::abs(std::distance(succ_begin(), succ_end()));
++  }
++
++  // returns true if BB is a successor of this BasicBlock
++  inline bool isSuccessor(const BasicBlock* BB) const {
++    return is_contained(successors(), BB);
++  }
++
+ private:
+   /// \brief Increment the internal refcount of the number of BlockAddresses
+   /// referencing this BasicBlock by \p Amt.
 diff --git a/include/llvm/IR/CallingConv.h b/include/llvm/IR/CallingConv.h
 index 4987b7e..97d8e69 100644
 --- a/include/llvm/IR/CallingConv.h
@@ -1059,10 +1210,10 @@ index 91f43d3..8ca6164 100644
  
  /// \brief Root of the metadata hierarchy.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index a411273..3826deb 100644
+index a411273..c977e29 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -345,6 +345,21 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
+@@ -345,6 +345,22 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
  void initializeWinEHPreparePass(PassRegistry&);
  void initializeWriteBitcodePassPass(PassRegistry &);
  void initializeXRayInstrumentationPass(PassRegistry &);
@@ -1078,6 +1229,7 @@ index a411273..3826deb 100644
 +void initializeMetalImagePass(PassRegistry&);
 +void initializeSPIRFinalPass(PassRegistry&);
 +void initializeSPIRImagePass(PassRegistry&);
++void initializeCFGStructurizationPass(PassRegistry&);
 +void initializeVulkanFinalPass(PassRegistry&);
 +void initializeVulkanFinalModuleCleanupPass(PassRegistry&);
 +
@@ -1085,7 +1237,7 @@ index a411273..3826deb 100644
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index 16c5f5c..2f6b277 100644
+index 16c5f5c..7e6812d 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -99,6 +99,7 @@ namespace {
@@ -1096,7 +1248,7 @@ index 16c5f5c..2f6b277 100644
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
-@@ -211,6 +212,19 @@ namespace {
+@@ -211,6 +212,20 @@ namespace {
        X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
        (void) llvm::AreStatisticsEnabled();
        (void) llvm::sys::RunningOnValgrind();
@@ -1111,6 +1263,7 @@ index 16c5f5c..2f6b277 100644
 +      (void) llvm::createMetalImagePass(0);
 +      (void) llvm::createSPIRFinalPass();
 +      (void) llvm::createSPIRImagePass(0, false);
++      (void) llvm::createCFGStructurizationPass();
 +      (void) llvm::createVulkanFinalPass();
 +      (void) llvm::createVulkanFinalModuleCleanupPass();
      }
@@ -2187,10 +2340,10 @@ index adc4179..ad2a706 100644
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..060f19e 100644
+index 167cc94..4c37e5e 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -32,6 +32,77 @@ class TargetMachine;
+@@ -32,6 +32,83 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2250,6 +2403,12 @@ index 167cc94..060f19e 100644
 +//
 +FunctionPass *createSPIRImagePass(const uint32_t image_capabilities = 0,
 +                                  const bool enable_intel_workarounds = false);
++
++//===----------------------------------------------------------------------===//
++//
++// CFGStructurization - This pass transforms the CFG into a structurized CFG.
++//
++FunctionPass *createCFGStructurizationPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -10045,6 +10204,64 @@ index 883cf29..b2f73dc 100644
      return false;
  
    bool RetCode = StripDebugInfo(M);
+diff --git a/lib/IR/BasicBlock.cpp b/lib/IR/BasicBlock.cpp
+index 4640b4f..b5f9a0d 100644
+--- a/lib/IR/BasicBlock.cpp
++++ b/lib/IR/BasicBlock.cpp
+@@ -224,7 +224,7 @@ void BasicBlock::dropAllReferences() {
+ /// If this basic block has a single predecessor block,
+ /// return the block, otherwise return a null pointer.
+ BasicBlock *BasicBlock::getSinglePredecessor() {
+-  pred_iterator PI = pred_begin(this), E = pred_end(this);
++  auto PI = ::pred_begin(this), E = ::pred_end(this);
+   if (PI == E) return nullptr;         // No preds.
+   BasicBlock *ThePred = *PI;
+   ++PI;
+@@ -237,7 +237,7 @@ BasicBlock *BasicBlock::getSinglePredecessor() {
+ /// multiple edges from the unique predecessor to this block (for example
+ /// a switch statement with multiple cases having the same destination).
+ BasicBlock *BasicBlock::getUniquePredecessor() {
+-  pred_iterator PI = pred_begin(this), E = pred_end(this);
++  auto PI = ::pred_begin(this), E = ::pred_end(this);
+   if (PI == E) return nullptr; // No preds.
+   BasicBlock *PredBB = *PI;
+   ++PI;
+@@ -251,7 +251,7 @@ BasicBlock *BasicBlock::getUniquePredecessor() {
+ }
+ 
+ BasicBlock *BasicBlock::getSingleSuccessor() {
+-  succ_iterator SI = succ_begin(this), E = succ_end(this);
++  auto SI = ::succ_begin(this), E = ::succ_end(this);
+   if (SI == E) return nullptr; // no successors
+   BasicBlock *TheSucc = *SI;
+   ++SI;
+@@ -259,7 +259,7 @@ BasicBlock *BasicBlock::getSingleSuccessor() {
+ }
+ 
+ BasicBlock *BasicBlock::getUniqueSuccessor() {
+-  succ_iterator SI = succ_begin(this), E = succ_end(this);
++  auto SI = ::succ_begin(this), E = ::succ_end(this);
+   if (SI == E) return nullptr; // No successors
+   BasicBlock *SuccBB = *SI;
+   ++SI;
+@@ -281,7 +281,7 @@ BasicBlock *BasicBlock::getUniqueSuccessor() {
+ void BasicBlock::removePredecessor(BasicBlock *Pred,
+                                    bool DontDeleteUselessPHIs) {
+   assert((hasNUsesOrMore(16)||// Reduce cost of this assertion for complex CFGs.
+-          find(pred_begin(this), pred_end(this), Pred) != pred_end(this)) &&
++          find(::pred_begin(this), ::pred_end(this), Pred) != ::pred_end(this)) &&
+          "removePredecessor: BB is not a predecessor!");
+ 
+   if (InstList.empty()) return;
+@@ -394,7 +394,7 @@ BasicBlock *BasicBlock::splitBasicBlock(iterator I, const Twine &BBName) {
+   // successors.  If there were PHI nodes in the successors, then they need to
+   // know that incoming branches will be from New, not from Old.
+   //
+-  for (succ_iterator I = succ_begin(New), E = succ_end(New); I != E; ++I) {
++  for (succ_iterator I = ::succ_begin(New), E = ::succ_end(New); I != E; ++I) {
+     // Loop over any phi nodes in the basic block, updating the BB field of
+     // incoming values...
+     BasicBlock *Successor = *I;
 diff --git a/lib/IR/Constants.cpp b/lib/IR/Constants.cpp
 index d8d55b4..43f215e 100644
 --- a/lib/IR/Constants.cpp
@@ -42154,7 +42371,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..dccce22 100644
+index 71e479a..ea10334 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -42270,7 +42487,7 @@ index 71e479a..dccce22 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -626,6 +690,34 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +690,45 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -42278,8 +42495,16 @@ index 71e479a..dccce22 100644
 +  // run backend final passes at the very end, no IR should change after this point!
 +  if(EnableCUDAPasses) MPM.add(createCUDAFinalPass());
 +  if(EnableSPIRPasses) MPM.add(createSPIRFinalPass());
-+  if(EnableVulkanPasses) {
-+    // must run after spir!
++  if(EnableVulkanPasses) { // must run after spir!
++	// initial cfg cleanup/simplification
++	MPM.add(createLowerSwitchPass());
++	MPM.add(createCFGSimplificationPass());
++    MPM.add(createSinkingPass());
++
++    // structured control flow creation
++    MPM.add(createCFGStructurizationPass());
++
++    // vulkanization
 +    MPM.add(createVulkanFinalPass());
 +    MPM.add(createVulkanFinalModuleCleanupPass());
 +  }
@@ -42287,20 +42512,23 @@ index 71e479a..dccce22 100644
 +    MPM.add(createMetalFinalPass(EnableMetalIntelWorkarounds, EnableMetalNvidiaWorkarounds));
 +    MPM.add(createMetalFinalModuleCleanupPass());
 +  }
-+  if(EnableMetalPasses || EnableVulkanPasses) {
-+    // cleanup
++
++  // cleanup
++  if(EnableMetalPasses || EnableCUDAPasses || (EnableSPIRPasses && !EnableVulkanPasses)) {
 +    MPM.add(createTailCallEliminationPass());
-+    // don't do this for vulkan, because we need certain blocks to exist for structured control flow
-+    // also: it would be a bad idea to change this after the VulkanFinal pass
-+    if (!EnableVulkanPasses) {
-+      MPM.add(createCFGSimplificationPass());
-+    }
-+    MPM.add(createInstructionCombiningPass(!EnableVulkanPasses));
-+    if (!EnableVulkanPasses) {
-+      MPM.add(createGVNPass());
-+    }
++    MPM.add(createCFGSimplificationPass());
++    MPM.add(createInstructionCombiningPass());
++    MPM.add(createGVNPass());
 +    MPM.add(createAggressiveDCEPass());
 +  }
++  if(EnableVulkanPasses) {
++	// certain cleanup / post-final passes are disabled for vulkan, because we don't
++	// want to change the CFG or introduce "invalid" instructions
++    MPM.add(createTailCallEliminationPass());
++    MPM.add(createInstructionCombiningPass(false));
++    MPM.add(createAggressiveDCEPass());
++  }
++
 +  if(EnableVerifySPIR) MPM.add(createSpirValidationPass());
  }
  
@@ -42896,17 +43124,569 @@ index 0000000..23be65f
 +ModulePass *llvm::createAddressSpaceFixPass() {
 +	return new AddressSpaceFix();
 +}
+diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
+new file mode 100644
+index 0000000..b3befb0
+--- /dev/null
++++ b/lib/Transforms/Scalar/CFGStructurization.cpp
+@@ -0,0 +1,543 @@
++//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//==-----------------------------------------------------------------------===//
++//
++// Transforms the CFG into a structurized CFG.
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/Analysis/BasicAliasAnalysis.h"
++#include "llvm/Analysis/GlobalsModRef.h"
++#include "llvm/Analysis/PostDominators.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Utils/BasicBlockUtils.h"
++#include "llvm/Transforms/Utils/LoopUtils.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++#include <unordered_map>
++#include <unordered_set>
++#include <deque>
++#include <array>
++
++#include "StructuralAnalysis.h"
++#include "StructuralTransform.h"
++
++using namespace llvm;
++
++#define DEBUG_TYPE "cfg-structurization"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	class CFGStructurization : public FunctionPass {
++	public:
++		static char ID; // Pass identification, replacement for typeid
++		
++		typedef StructuralAnalysis SA;
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		
++		DominatorTree* DT;
++		
++		bool was_modified { false };
++
++		CFGStructurization() : FunctionPass(ID) {
++			initializeCFGStructurizationPass(*PassRegistry::getPassRegistry());
++		}
++		
++		const char *getPassName() const override {
++			return "CFG structurization";
++		}
++
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.addRequired<DominatorTreeWrapperPass>();
++		}
++		
++		void sort_bbs() {
++			// dominator fixes: reorder blocks
++			// NOTE: obviously only necessary when there are more than 2 blocks
++			if(func->getBasicBlockList().size() <= 2) return;
++			
++			if(was_modified) {
++				DT->recalculate(*func);
++			}
++			
++			DBG(errs() << "\n> bbs before:\n";
++				for(BasicBlock& bb : func->getBasicBlockList()) {
++					errs() << "\t" << bb.getName() << "\n";
++				})
++			
++			// use the dominator tree order to sort the bbs, i.e. with the DT we already know the sorted order,
++			// we just need to physically move the blocks according to it
++			std::vector<BasicBlock*> sorted_blocks;
++			const std::function<void(const DomTreeNodeBase<BasicBlock>&)> sort_recurse = [&sort_recurse, &sorted_blocks](const DomTreeNodeBase<BasicBlock>& node) {
++				sorted_blocks.emplace_back(node.getBlock());
++				for(const auto& child : node) {
++					sort_recurse(*child);
++				}
++			};
++			sort_recurse(*DT->getRootNode());
++			
++			DBG(DT->print(errs());)
++			
++			// move blocks in reverse order (not moving entry of course)
++			for(size_t i = 0, count = sorted_blocks.size(); i < count - 2; ++i) {
++				sorted_blocks[count - i - 2]->moveBefore(sorted_blocks[count - i - 1]);
++			}
++			
++			DBG(errs() << "> bbs after:\n";
++				for(BasicBlock& bb : func->getBasicBlockList()) {
++					errs() << "\t" << bb.getName() << "\n";
++				})
++		}
++		
++		// returns true if the BB only contains a terminator and doesn't have a successor
++		static bool is_simple_bb(const BasicBlock* bb) {
++			if(!succ_empty(bb)) return false;
++			
++			const TerminatorInst* term = bb->getTerminator();
++			if(&bb->front() == term) {
++				return true;
++			}
++			// also need to handle special terminations (discard is a func call + unreachable/term inst)
++			if(const CallInst* CI = dyn_cast<CallInst>(&bb->front())) {
++				if(const Function* CF = CI->getCalledFunction()) {
++					if(CF->hasName() && CF->getName() == "floor.discard_fragment") {
++						// next must be term
++						if(&*next(bb->begin()) == term) {
++							return true;
++						}
++						assert("invalid discard_fragment call (not followed by term instr)");
++					}
++				}
++			}
++			return false;
++		}
++		
++		void create_loop_merge(Instruction* insert_before, BasicBlock* bb_merge, BasicBlock* bb_continue) {
++			Function* loop_merge_func = M->getFunction("floor.loop_merge");
++			if(loop_merge_func == nullptr) {
++				llvm::Type* loop_merge_arg_types[] { llvm::Type::getLabelTy(*ctx), llvm::Type::getLabelTy(*ctx) };
++				FunctionType* loop_merge_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), loop_merge_arg_types, false);
++				loop_merge_func = (Function*)M->getOrInsertFunction("floor.loop_merge", loop_merge_type);
++				loop_merge_func->setCallingConv(CallingConv::FLOOR_FUNC);
++				loop_merge_func->setCannotDuplicate();
++				loop_merge_func->setDoesNotThrow();
++				loop_merge_func->setNotConvergent();
++				loop_merge_func->setDoesNotRecurse();
++			}
++			llvm::Value* merge_vars[] { bb_merge, bb_continue };
++			CallInst* loop_merge_call = CallInst::Create(loop_merge_func, merge_vars, "", insert_before);
++			loop_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
++		}
++		
++		void create_selection_merge(Instruction* insert_before, BasicBlock* merge_block) {
++			Function* sel_merge_func = M->getFunction("floor.selection_merge");
++			if(sel_merge_func == nullptr) {
++				llvm::Type* sel_merge_arg_types[] { llvm::Type::getLabelTy(*ctx) };
++				FunctionType* sel_merge_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), sel_merge_arg_types, false);
++				sel_merge_func = (Function*)M->getOrInsertFunction("floor.selection_merge", sel_merge_type);
++				sel_merge_func->setCallingConv(CallingConv::FLOOR_FUNC);
++				sel_merge_func->setCannotDuplicate();
++				sel_merge_func->setDoesNotThrow();
++				sel_merge_func->setNotConvergent();
++				sel_merge_func->setDoesNotRecurse();
++			}
++			llvm::Value* merge_vars[] { merge_block };
++			CallInst* sel_merge_call = CallInst::Create(sel_merge_func, merge_vars, "", insert_before);
++			sel_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
++		};
++		
++		// recursively traverses a StructuralAnalysis node tree, applying the specified handler function on each combined node
++		template <typename F>
++		void node_recurse(const SA::NodeTy* node, SA& cfg_analysis, F&& handler) {
++			if(!node->isCombined) return;
++			
++			BasicBlock* this_block = cfg_analysis.mapNode2BB(node);
++			handler(node, this_block);
++			
++			for(const auto* child : node->childNode) {
++				node_recurse(child, cfg_analysis, std::forward<F&&>(handler));
++			}
++		}
++		
++		// this applies simple fixes on the CFG:
++		//  * split SelfLoops (single loops) into a header and body block
++		//  * clone / split off trivial exit blocks (to somewhat mitigate the "single merge block" problem)
++		void restructure_simple() {
++			DBG(errs() << "> simple CFG restructuring\n";)
++			StructuralAnalysis cfg_analysis;
++			cfg_analysis.analyze(*func);
++			DBG(cfg_analysis.write(errs());)
++			
++			node_recurse(*cfg_analysis.Net.begin(), cfg_analysis,
++						 [this](const SA::NodeTy* node, BasicBlock* this_block) {
++				switch(node->nodeType) {
++					case SA::SelfLoop: {
++						DBG(errs() << ">> splitting self loop: " << this_block->getName() << "\n";)
++						SplitBlock(this_block, this_block->getFirstNonPHI());
++						was_modified = true;
++						break;
++					}
++					case SA::IfThen:
++					case SA::IfThenElse: {
++						BranchInst* branch = dyn_cast<BranchInst>(this_block->getTerminator());
++						assert(branch != nullptr && "if-then/if-then-else block must have a branch instruction");
++						if(node->exitBB != nullptr &&
++						   is_simple_bb(node->exitBB) &&
++						   branch->isConditional()) {
++							// only do this for immediate branches to a trivial exit block, otherwise continue
++							BasicBlock* branches[] { branch->getSuccessor(0), branch->getSuccessor(1) };
++							const bool simple_bb[] {
++								is_simple_bb(branches[0]),
++								is_simple_bb(branches[1]),
++							};
++							if(simple_bb[0] || simple_bb[1]) {
++								const uint32_t simple_idx = (simple_bb[0] ? 0 : 1);
++								
++								DBG(errs() << ">> added new trivial exit: in: " << this_block->getName() << ", exit: " << branches[simple_idx]->getName() << "\n";)
++								
++								ValueToValueMapTy dummy_vmap;
++								auto new_exit = CloneBasicBlock(branches[simple_idx], dummy_vmap, ".exit", func);
++								branch->setSuccessor(simple_idx, new_exit);
++								was_modified = true;
++							}
++						}
++						break;
++					}
++					default: break;
++				}
++			});
++		}
++		
++		void restructure_and_annotate() {
++			DBG(errs() << "> final CFG restructuring and annotating\n";)
++			StructuralAnalysis cfg_analysis;
++			cfg_analysis.analyze(*func);
++			DBG(cfg_analysis.write(errs());)
++			
++			// compute LoopInfo from the DT (ideally we could use the StructuralAnalysis info for this,
++			// but it doesn't provide (correct) back-edge info)
++			if(was_modified) {
++				DT->recalculate(*func);
++			}
++			LoopInfo LI(*DT);
++			
++			// first: gather all merge block information
++			struct merge_info {
++				BasicBlock* header_block;
++				BasicBlock* continue_block; // nullptr if not a loop (TODO: still needed with node?)
++				const SA::NodeTy* node;
++			};
++			std::unordered_map<BasicBlock*, std::vector<merge_info>> merge_blocks;
++			std::unordered_set<BasicBlock*> loop_header_blocks, selection_header_blocks;
++			node_recurse(*cfg_analysis.Net.begin(), cfg_analysis, [this, &cfg_analysis,
++																   &loop_header_blocks,
++																   &selection_header_blocks,
++																   &LI, &merge_blocks](const SA::NodeTy* node,
++																					   BasicBlock* this_block) {
++				switch(node->nodeType) {
++					case SA::NaturalLoop: {
++						assert(node->exitBB != nullptr && "must have an exit block");
++						DBG(errs() << ">> @loop: " << this_block->getName() << "\n";)
++						Loop* loop = LI.getLoopFor(this_block);
++						assert(loop != nullptr && "must have LoopInfo for this loop BB!");
++						BasicBlock* back_edge = loop->getLoopLatch();
++						if(back_edge == nullptr) {
++							report_fatal_error("did not find the loop back-edge");
++							llvm_unreachable("did not find the loop back-edge");
++						}
++						DBG(errs() << "loop back-edge: " << back_edge->getName() << "\n";)
++						DBG(errs() << "loop merge: " << node->exitBB->getName() << "\n";)
++						loop_header_blocks.emplace(this_block);
++						merge_blocks[node->exitBB].emplace_back(merge_info { this_block, back_edge, node });
++						break;
++					}
++					case SA::IfThen:
++					case SA::IfThenElse: {
++						BranchInst* branch = dyn_cast<BranchInst>(this_block->getTerminator());
++						assert(branch != nullptr && "if-then/if-then-else block must have a branch instruction");
++						if(branch->isConditional()) {
++							// if this selection header block is also a loop header block, split it before the branch,
++							// because blocks can't be both (according to the current spec)
++							// NOTE: will always encounter NaturalLoop before IfThen/IfThenElse of the same block
++							if(loop_header_blocks.count(this_block) > 0) {
++								this_block = SplitBlock(this_block, this_block->getTerminator(), DT, &LI);
++								was_modified = true;
++							}
++							
++							// check if either successor is a simple return block (only this block is it's predecessor)
++							// if so, make the other block the merge block (outcome doesn't matter if both return)
++							const bool is_simple_return_bb[] {
++								branch->getSuccessor(0)->succ_empty() &&
++								branch->getSuccessor(0)->getSinglePredecessor() == this_block,
++								branch->getSuccessor(1)->succ_empty() &&
++								branch->getSuccessor(1)->getSinglePredecessor() == this_block,
++							};
++							if(is_simple_return_bb[0] || is_simple_return_bb[1]) {
++								merge_blocks[is_simple_return_bb[0] ?
++											 branch->getSuccessor(1) :
++											 branch->getSuccessor(0)].emplace_back(merge_info { this_block, nullptr, node });
++							}
++							// if not, make the exit block the merge block
++							else {
++								assert(node->exitBB != nullptr && "must have an exit block");
++								merge_blocks[node->exitBB].emplace_back(merge_info { this_block, nullptr, node });
++							}
++							selection_header_blocks.emplace(this_block);
++						}
++						// else: don't need to handle unconditionals
++						break;
++					}
++					case SA::SelfLoop: {
++						report_fatal_error("CFG should no longer contain self-loops!");
++						llvm_unreachable("CFG should no longer contain self-loops!");
++					}
++					// TODO: how to handle other invalid types?
++					default: break;
++				}
++			});
++			
++			// then: add (loop|selection) merge annotations + possibly restructure the CFG if a merge block has multiple users
++			for(auto& merge_block : merge_blocks) {
++				// simple case: single-user merge block
++				if(merge_block.second.size() == 1) {
++					// loop
++					const auto& info = merge_block.second[0];
++					if(info.continue_block != nullptr) {
++						create_loop_merge(info.header_block->getTerminator(),
++										  merge_block.first, info.continue_block);
++					}
++					// selection
++					else {
++						create_selection_merge(info.header_block->getTerminator(), merge_block.first);
++					}
++					continue;
++				}
++				
++				// will always modify something after this
++				was_modified = true;
++				DBG(errs() << ">> multi-user merge block: " << merge_block.first->getName() << "\n";
++				for(const auto& info : merge_block.second) {
++					errs() << "\tuser: " << info.header_block->getName() << "\n";
++				}
++				errs() << "\n";)
++				
++				// figure out the merge tree we need to create
++				// (due to the merge-block dominator requirements we can't just simply create a chain or binary tree)
++				// NOTE: there will always be a single parent node and it will always be the first entry in
++				//       merge_block.second (unstructured -> structured cfg transformation makes sure of this)
++				struct merge_node {
++					const merge_info& info;
++					std::vector<merge_node> children;
++				};
++				const std::function<merge_node(const merge_info&)> merge_tree_recurse =
++					[&merge_tree_recurse, &merge_block, &cfg_analysis /* TODO: if needed */](const merge_info& info) {
++						merge_node node { info, {} };
++						for(auto* direct_child : info.node->childNode) {
++							if(!direct_child->isCombined) continue;
++							
++							std::deque<SA::NodeTy*> child_stack;
++							child_stack.emplace_back(direct_child);
++							while(!child_stack.empty()) {
++								auto* child = child_stack[0];
++								child_stack.pop_front();
++								if(!child->isCombined) continue;
++								
++								const auto iter = std::find_if(merge_block.second.cbegin(), merge_block.second.cend(),
++															   [child](const merge_info& entry) {
++																   return (entry.node == child);
++															   });
++								if(iter != merge_block.second.cend()) {
++									node.children.emplace_back(merge_tree_recurse(*iter));
++									break;
++								}
++								else {
++									for(auto* indirect_child : child->childNode) {
++										child_stack.emplace_back(indirect_child);
++									}
++								}
++							}
++						}
++						return node;
++					};
++				merge_node merge_tree = merge_tree_recurse(merge_block.second[0]);
++				
++				const std::function<void(const merge_node&, const uint32_t)> dump_merge_tree =
++					[&dump_merge_tree, &loop_header_blocks](const merge_node& node, const uint32_t level) {
++						for(uint32_t i = 0; i < level; ++i) errs() << "  ";
++						errs() << node.info.header_block->getName() << "(loop: " << (node.info.continue_block != nullptr ? 1 : 0) << ", " << loop_header_blocks.count(node.info.header_block) << ")\n";
++						for(const auto& child : node.children) {
++							dump_merge_tree(child, level + 1);
++						}
++					};
++				DBG(errs() << "## merge-tree:\n";
++				dump_merge_tree(merge_tree, 1);
++				errs() << "####\n";)
++				
++				// create the actual merge tree + insert resp. merge instructions
++				BasicBlock* merge_bb = merge_block.first;
++				const std::function<void(const merge_node&,
++										 BasicBlock*,
++										 const uint32_t,
++										 const uint32_t)> create_cfg_merge_tree =
++					[this, &create_cfg_merge_tree](const merge_node& node,
++												   BasicBlock* this_merge_block,
++												   const uint32_t level,
++												   const uint32_t child_idx) {
++						BasicBlock* header = node.info.header_block;
++						
++						std::vector<BasicBlock*> child_merge_bbs;
++						for(const auto& child : node.children) {
++							std::unordered_set<BasicBlock*> preds, visited;
++							// TODO: this is inefficient
++							const std::function<void(BasicBlock* bb)> get_preds =
++								[&get_preds, &preds, &visited, &this_merge_block](BasicBlock* bb) {
++									if(visited.count(bb) > 0) return;
++									visited.emplace(bb);
++									for(auto* succ : bb->successors()) {
++										if(succ == this_merge_block) {
++											preds.emplace(bb);
++										}
++										else {
++											get_preds(succ);
++										}
++									}
++								};
++							get_preds(child.info.header_block);
++							if(preds.empty()) continue;
++							
++							std::vector<BasicBlock*> preds_vec(preds.cbegin(), preds.cend());
++							DBG(errs() << "@" << header->getName() << ", split off:\n";
++							for(const auto* pred : preds_vec) {
++								errs() << "\tpred: " << pred->getName() << "\n";
++							})
++							
++							child_merge_bbs.emplace_back(SplitBlockPredecessors(this_merge_block, preds_vec,
++																				"merge", DT, nullptr, false));
++						}
++						
++						uint32_t cidx = 0;
++						for(const auto& child : node.children) {
++							create_cfg_merge_tree(child, child_merge_bbs[cidx], level + 1, cidx);
++							cidx++;
++						}
++						
++						// add merge annotation
++						if(node.info.continue_block != nullptr) {
++							create_loop_merge(header->getTerminator(), this_merge_block, node.info.continue_block);
++						}
++						else {
++							create_selection_merge(header->getTerminator(), this_merge_block);
++						}
++						
++						return;
++					};
++				create_cfg_merge_tree(merge_tree, merge_bb, 0, 0);
++			}
++			
++			// final cleanup: sort BBs according to the DT
++			sort_bbs();
++		}
++		
++		bool runOnFunction(Function &F) override {
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			was_modified = false;
++			
++			DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
++			
++#if 0
++			DBG(
++				errs() << "#################### func before: " << F.getName() << " ####\n" << F << "\n";
++				for(Loop* loop : *LI) {
++					loop->dump();
++				}
++			)
++#endif
++			
++			// initial unstructured -> structured control flow fixes
++			DBG(errs() << "> fixing unstructured control flow\n";)
++			StructuralTransform cfg_transform;
++			was_modified |= cfg_transform.transform(F);
++			
++			// apply simple cfg fixes
++			restructure_simple();
++			
++			// vulkan/spir-v specific annotations / cfg restructuring
++			restructure_and_annotate();
++			DBG({
++				StructuralAnalysis cfg_analysis;
++				cfg_analysis.analyze(F);
++				cfg_analysis.write(errs());
++			})
++			
++#if 0
++			DBG(
++				errs() << "#################### func after: " << F.getName() << " ####\n" << F << "\n";
++			)
++#endif
++			
++			DBG(errs() << "## " << F.getName() << " modified? " << was_modified << "\n";)
++			return was_modified;
++		}
++	};
++
++}
++
++char CFGStructurization::ID = 0;
++FunctionPass *llvm::createCFGStructurizationPass() {
++	return new CFGStructurization();
++}
++INITIALIZE_PASS_BEGIN(CFGStructurization, "CFGStructurization", "CFGStructurization Pass", false, false)
++INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
++INITIALIZE_PASS_END(CFGStructurization, "CFGStructurization", "CFGStructurization Pass", false, false)
++
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 9f04344..a631d7f 100644
+index 9f04344..4a60c19 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,13 @@
+@@ -1,4 +1,16 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
 +  CUDAImage.cpp
 +  CUDAFinal.cpp
 +  MetalFinal.cpp
 +  SPIRFinal.cpp
++  CFGStructurization.cpp
++  StructuralAnalysis.cpp
++  StructuralTransform.cpp
 +  VulkanFinal.cpp
 +  FloorImage.cpp
 +  MetalImage.cpp
@@ -46622,10 +47402,10 @@ index 0000000..b094838
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index b1d2420..b1920be 100644
+index b1d2420..88f4634 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -96,6 +96,50 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -96,6 +96,54 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -46665,6 +47445,10 @@ index b1d2420..b1920be 100644
 +  unwrap(PM)->add(createSPIRImagePass());
 +}
 +
++void LLVMAddCFGStructurizationPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createCFGStructurizationPass());
++}
++
 +void LLVMAddVulkanFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createVulkanFinalPass());
 +}
@@ -46676,13 +47460,2815 @@ index b1d2420..b1920be 100644
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {
    unwrap(PM)->add(createAggressiveDCEPass());
  }
+diff --git a/lib/Transforms/Scalar/StructuralAnalysis.cpp b/lib/Transforms/Scalar/StructuralAnalysis.cpp
+new file mode 100644
+index 0000000..ff8406e
+--- /dev/null
++++ b/lib/Transforms/Scalar/StructuralAnalysis.cpp
+@@ -0,0 +1,1813 @@
++//===- StructuralAnalysis.cpp - -------------------------------------------===//
++//
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
++// Tech
++// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// All rights reserved.
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// * Redistributions of source code must retain the above copyright notice, this
++//   list of conditions and the following disclaimer.
++//
++// * Redistributions in binary form must reproduce the above copyright notice,
++//   this list of conditions and the following disclaimer in the documentation
++//   and/or other materials provided with the distribution.
++//
++// * Neither the name of gpuocelot nor the names of its
++//   contributors may be used to endorse or promote products derived from
++//   this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++// ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++//
++//===----------------------------------------------------------------------===//
++// \author  Haicheng Wu <hwu36@gatech.edu>
++// \date    Monday April 4, 2011
++// \brief   The source file for the StructuralAnalysis pass.
++//===----------------------------------------------------------------------===//
++//
++// This file defines the class of Structural Analysis which will return the
++// control tree and unstructured branches of a function
++//
++//===----------------------------------------------------------------------===//
++
++#include "StructuralAnalysis.h"
++#include <algorithm>
++
++namespace llvm {
++
++StructuralAnalysis::Node::~Node() {
++  for (auto n = childNode.begin(); n != childNode.end(); ++n) {
++    delete *n;
++  }
++}
++
++// buildSimpleCFG - Build a Simple CFG out of the LLVM CFG
++void StructuralAnalysis::buildSimpleCFG(NodeSetTy &N) {
++  // Create a simple CFG node for every Basic Block
++  for (BasicBlock &i : *_function) {
++    NodeTy *n = new NodeTy();
++    n->BB = &i;
++    n->containedBB.insert(&i);
++    N.insert(n);
++    BB2NodeMap[&i] = n;
++  }
++
++  // Setup the edges of the simple CFG
++  for (BasicBlock &block : *_function) {
++    NodeTy *n = BB2NodeMap[&block];
++
++    // Setup the predecessor of every node
++    for (BasicBlock *pred : block.predecessors()) {
++      n->predNode.emplace_back(BB2NodeMap[pred]);
++    }
++
++    // Setup the successor of every node
++    for (BasicBlock *succ : block.successors()) {
++      n->succNode.emplace_back(BB2NodeMap[succ]);
++    }
++  }
++
++  // Remove unreachable node
++  NodeTy *entry = BB2NodeMap[&_function->getEntryBlock()];
++
++  deleteUnreachableNodes(N, entry);
++}
++
++// structuralAnalysis - Follow Fig 7.39 of Muchnick book
++void StructuralAnalysis::structuralAnalysis(NodeSetTy &N, NodeTy *entry) {
++  NodeTy *n = nullptr, *p = nullptr, *entryNode = nullptr, *exitNode = nullptr;
++  RegionTy rType;
++  NodeSetTy nodeSet, reachUnder;
++
++  unstructuredBRVec.clear();
++
++  // Handle the case if the Function has only one Basic Block
++  if (N.size() == 1) {
++    NodeTy *node = new NodeTy();
++    NodeTy *singleNode = *(N.begin());
++    node->isCombined = true;
++    node->childNode.insert(singleNode);
++    node->entryNode = singleNode;
++    node->exitBB = singleNode->BB;
++    node->containedBB.insert(singleNode->BB);
++    node->nodeType = Block;
++
++    singleNode->parentNode = node;
++
++    N.erase(singleNode);
++    N.insert(node);
++
++    return;
++  }
++
++  do {
++    bool change = false;
++
++    post.clear();
++    preTree.clear();
++    postTree.clear();
++
++    visit.clear();
++    visitPath.clear();
++    postMax = 0;
++    postCtr = 1;
++    preMax = 0;
++
++    for (NodeTy *node : N) {
++      preTree[node] = 0;
++      postTree[node] = 0;
++    }
++
++    DFSPostorder(N, entry);
++
++    while (N.size() > 1 && postCtr <= postMax) {
++      n = post[postCtr];
++
++      if (N.count(n) == 0)
++        continue;
++
++      // Locate an acyclic region, if present
++      if (n->isLoopHeader && n->loopExitNode) {
++        visitPath.clear();
++
++        if (path(n, n->loopExitNode, N, nullptr)) {
++          NodeTy *tmpNode = n->loopExitNode;
++
++          while (tmpNode->parentNode)
++            tmpNode = tmpNode->parentNode;
++
++          n->remove_successor(tmpNode);
++          tmpNode->remove_predecessor(n);
++          n->loopExitNode = tmpNode;
++        } else
++          n->loopExitNode = nullptr;
++      }
++
++      rType = acyclicRegionType(N, n, nodeSet, &entryNode, &exitNode, entry);
++
++      if (n->isLoopHeader && n->loopExitNode) {
++        n->add_successor(n->loopExitNode);
++        n->loopExitNode->add_predecessor(n);
++      }
++
++      if (rType == Improper) {
++        change = true;
++
++        break;
++      } else if (rType != Nil) {
++        p = reduce(N, rType, nodeSet, entryNode, exitNode);
++        change = true;
++
++        if (nodeSet.count(entry))
++          entry = p;
++
++        break;
++      } else {
++        if (NodeTy *backEdgeNode = pathBack(n, N, reachUnder)) {
++          rType = cyclicRegionType(N, reachUnder, n, backEdgeNode, &exitNode,
++                                   entry);
++
++          if (rType == Improper) {
++            change = true;
++
++            break;
++          } else if (rType != Nil) {
++            change = true;
++            p = reduce(N, rType, reachUnder, n, exitNode);
++
++            if (reachUnder.count(entry))
++              entry = p;
++
++            break;
++          } else
++            postCtr++;
++        } else
++          postCtr++;
++      }
++    }
++
++    if (!change) {
++      for (uint32_t i = 1; i <= postMax; i++) {
++        NodeTy *node = post[i];
++
++        if (node->predNode.size() > 1 && node->succNode.empty()) {
++          uint32_t min = postMax + 1;
++
++          for (NodeTy *predNode : node->predNode) {
++            if (postTree[predNode] < min)
++              min = postTree[predNode];
++          }
++
++          for (NodeTy *predNode : node->predNode) {
++            if (postTree[predNode] != min) {
++              if (isStillReachableFromEntry(N, entry, node, predNode)) {
++                findUnstructuredBR(N, predNode, node, true, true);
++                change = true;
++              }
++            }
++          }
++
++          if (change)
++            break;
++        }
++      }
++    }
++
++    if (!change) {
++      for (uint32_t i = 1; i <= postMax; i++) {
++        NodeTy *node = post[i];
++
++        if (node->predNode.size() > 1 && !node->isBackEdge) {
++          NodeTy *tmpNode = nullptr;
++          bool processThisNode = true;
++
++          for (NodeTy *predNode : node->predNode) {
++            if (edge2ClassMap[std::make_pair(predNode, node)] == BACK) {
++              processThisNode = false;
++
++              break;
++            }
++
++            if (tmpNode == nullptr)
++              tmpNode = predNode;
++            else {
++              visitPath.clear();
++
++              if (path(tmpNode, predNode, N, node))
++                continue;
++              else {
++                visitPath.clear();
++
++                if (path(predNode, tmpNode, N, node))
++                  tmpNode = predNode;
++                else {
++                  processThisNode = false;
++
++                  break;
++                }
++              }
++            }
++          }
++
++          if (processThisNode) {
++            for (NodeTy *predNode : node->predNode) {
++              if (predNode == tmpNode) {
++                if (isStillReachableFromEntry(N, entry, node, predNode)) {
++                  findUnstructuredBR(N, predNode, node, true, true);
++                  change = true;
++                }
++              }
++            }
++
++            if (change)
++              break;
++          }
++        }
++      }
++    }
++
++    if (!change) {
++      for (uint32_t i = 1; i <= postMax; i++) {
++        NodeTy *node = post[i];
++
++        if (node->predNode.size() > 1 && !node->isBackEdge) {
++          bool processThisNode = true;
++          uint32_t min = postMax + 1;
++
++          for (NodeTy *predNode : node->predNode) {
++            if (edge2ClassMap[std::make_pair(predNode, node)] == BACK) {
++              processThisNode = false;
++
++              break;
++            }
++
++            if (postTree[predNode] < min)
++              min = postTree[predNode];
++          }
++
++          if (processThisNode) {
++
++            for (NodeTy *predNode : node->predNode) {
++              if (postTree[predNode] != min) {
++                if (isStillReachableFromEntry(N, entry, node, predNode)) {
++                  findUnstructuredBR(N, predNode, node, true, true);
++                  change = true;
++                }
++              }
++            }
++
++            if (change)
++              break;
++          }
++        }
++      }
++    }
++
++    // TODO: properly report this instead of asserting
++    assert(change != false && "Cannot reduce any more in structural analysis");
++    if (!change)
++      break;
++  } while (N.size() != 1);
++}
++
++// DFSPostorder - Follow Fig 7.40 of Muchnick book
++void StructuralAnalysis::DFSPostorder(NodeSetTy &N, NodeTy *x) {
++  visit.emplace(x);
++  preTree[x] = ++preMax;
++
++  for (NodeTy *y : x->succNode) {
++    if (visit.count(y) == 0) {
++      DFSPostorder(N, y);
++      edge2ClassMap[std::make_pair(x, y)] = TREE;
++    } else if (preTree[x] < preTree[y])
++      edge2ClassMap[std::make_pair(x, y)] = FORWARD;
++    else if (postTree[y] == 0 || preTree[x] == preTree[y])
++      edge2ClassMap[std::make_pair(x, y)] = BACK;
++    else
++      edge2ClassMap[std::make_pair(x, y)] = CROSS;
++  }
++
++  postMax++;
++  post[postMax] = x;
++  postTree[x] = postMax;
++}
++
++// acyclicRegionType - Follow Fig 7.41 of Muchnick book
++StructuralAnalysis::RegionTy
++StructuralAnalysis::acyclicRegionType(NodeSetTy &N, NodeTy *node,
++                                      NodeSetTy &nset, NodeTy **entryNode,
++                                      NodeTy **exitNode, NodeTy *entry) {
++  NodeTy *m, *n;
++  bool p, s;
++
++  nset.clear();
++
++  // Check for a block containing node
++  NodeTy *firstNode, *lastNode;
++  firstNode = lastNode = n = node;
++  p = true;
++  s = (n->succNode.size() == 1);
++
++  while (p && s) {
++    lastNode = n;
++
++    if (nset.count(n) == 0)
++      nset.insert(n);
++    else
++      return Nil;
++
++    n = *(n->succNode.begin());
++    p = (n->predNode.size() == 1);
++    s = (n->succNode.size() == 1);
++  }
++
++  if (p) {
++    if (nset.count(n) == 0) {
++      nset.insert(n);
++      lastNode = n;
++    } else
++      return Nil;
++  }
++
++  n = node;
++  p = (n->predNode.size() == 1);
++  s = true;
++
++  while (p && s) {
++    firstNode = n;
++
++    if (nset.count(n) == 0 || n == node)
++      nset.insert(n);
++    else
++      return Nil;
++    n = *(n->predNode.begin());
++    p = (n->predNode.size() == 1);
++    s = (n->succNode.size() == 1);
++  }
++
++  if (s) {
++    if (nset.count(n) == 0 || n == node) {
++      firstNode = n;
++      nset.insert(n);
++    } else
++      return Nil;
++  }
++
++  if (firstNode->has_predecessor(lastNode)) {
++    if (nset.size() == 2)
++      return Nil;
++    else
++      nset.erase(firstNode);
++  }
++
++  *entryNode = n;
++
++  if (nset.size() >= 2) {
++    if (nset.count(*entryNode) == 0)
++      for (NodeTy *succ : (*entryNode)->succNode)
++        if (nset.count(succ) > 0)
++          *entryNode = succ;
++
++    *exitNode = lastNode;
++
++    return Block;
++  }
++
++  *entryNode = node;
++
++  if ((*entryNode)->succNode.size() == 2) {
++    auto i = (*entryNode)->succNode.begin();
++    m = *i;
++    ++i;
++    n = *i;
++
++    if (m == *entryNode || n == *entryNode)
++      return Nil;
++
++    if (edge2ClassMap[std::make_pair(*entryNode, m)] == BACK)
++      return Nil;
++    if (edge2ClassMap[std::make_pair(*entryNode, n)] == BACK)
++      return Nil;
++
++    // Check for a normal IfThenElse
++    if (m->succNode.size() == 1 && n->succNode.size() == 1 &&
++        m->predNode.size() == 1 && n->predNode.size() == 1 &&
++        *(m->succNode.begin()) == *(n->succNode.begin()) &&
++        *(m->succNode.begin()) != *entryNode) {
++
++      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
++        return Nil;
++      if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
++        return Nil;
++
++      nset.insert(*entryNode);
++      nset.insert(m);
++      nset.insert(n);
++      *exitNode = *(m->succNode.begin());
++
++      return IfThenElse;
++    }
++    // Check for an IfThenElse with no exit block
++    if (m->succNode.empty() && n->succNode.empty() && m->predNode.size() == 1 &&
++        n->predNode.size() == 1) {
++      nset.insert(*entryNode);
++      nset.insert(m);
++      nset.insert(n);
++      *exitNode = nullptr;
++
++      return IfThenElse;
++    }
++    // Check for an IfThen
++    // n is the Then part
++    else if (n->succNode.size() == 1 && n->predNode.size() == 1 &&
++             m == *(n->succNode.begin())) {
++      if (edge2ClassMap[std::make_pair(n, m)] != BACK) {
++        if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
++          return Nil;
++
++        nset.insert(*entryNode);
++        nset.insert(n);
++        *exitNode = m;
++
++        return IfThen;
++      }
++    }
++    // m is the Then part
++    else if (m->succNode.size() == 1 && m->predNode.size() == 1 &&
++             n == *(m->succNode.begin())) {
++      if (edge2ClassMap[std::make_pair(m, n)] != BACK) {
++        if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
++          return Nil;
++
++        nset.insert(*entryNode);
++        nset.insert(m);
++        *exitNode = n;
++
++        return IfThen;
++      }
++    }
++    // n is the Then part w/o exiting edge
++    else if (n->succNode.empty() && n->predNode.size() == 1) {
++      visitPath.clear();
++
++      if (!path(m, *entryNode, N, nullptr)) {
++        nset.insert(*entryNode);
++        nset.insert(n);
++        *exitNode = nullptr;
++
++        return IfThen;
++      }
++    }
++    // m is the Then part w/o exiting edge
++    else if (m->succNode.empty() && m->predNode.size() == 1) {
++      visitPath.clear();
++
++      if (!path(n, *entryNode, N, nullptr)) {
++        nset.insert(*entryNode);
++        nset.insert(m);
++        *exitNode = nullptr;
++
++        return IfThen;
++      }
++    }
++    // Check for an IfThenElse with incoming edges
++    else if (m->succNode.size() == 1 && n->succNode.size() == 1 &&
++             *(m->succNode.begin()) == *(n->succNode.begin()) &&
++             *(m->succNode.begin()) != *entryNode) {
++
++      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
++        return Nil;
++      if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
++        return Nil;
++
++      if (!n->has_predecessor(*(n->succNode.begin())) &&
++          !m->has_predecessor(*(m->succNode.begin()))) {
++
++        if (m->has_predecessor(*(m->succNode.begin())) ||
++            n->has_predecessor(*(n->succNode.begin())))
++          return Nil;
++
++        bool improperFlag = false;
++
++        if (m->predNode.size() > 1) {
++          for (auto pi = m->predNode.begin(), pe = m->predNode.end(); pi != pe;
++               ++pi)
++            if (*pi != *entryNode &&
++                isStillReachableFromEntry(N, entry, m, *pi) &&
++                edge2ClassMap[std::make_pair(*pi, m)] != BACK) {
++              findUnstructuredBR(N, *pi, m, true, true);
++              improperFlag = true;
++            }
++        }
++
++        if (n->predNode.size() > 1) {
++          for (auto pi = n->predNode.begin(), pe = n->predNode.end(); pi != pe;
++               ++pi)
++            if (*pi != *entryNode &&
++                isStillReachableFromEntry(N, entry, n, *pi) &&
++                edge2ClassMap[std::make_pair(*pi, n)] != BACK) {
++              findUnstructuredBR(N, *pi, n, true, true);
++              improperFlag = true;
++            }
++        }
++
++        if (improperFlag)
++          return Improper;
++      }
++    }
++    // Check for an IfThen with incoming edges
++    // n is the Then part
++    else if (n->succNode.size() == 1 && n->predNode.size() > 1 &&
++             m == *(n->succNode.begin())) {
++      if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
++        return Nil;
++
++      if (edge2ClassMap[std::make_pair(n, m)] != BACK) {
++        if (n->has_predecessor(m))
++          return Nil;
++
++        bool improperFlag = false;
++
++        for (auto pi = n->predNode.begin(), pe = n->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, n, *pi) &&
++              edge2ClassMap[std::make_pair(*pi, n)] != BACK) {
++            findUnstructuredBR(N, *pi, n, true, true);
++            improperFlag = true;
++          }
++
++        if (improperFlag)
++          return Improper;
++      }
++    }
++    // m is the Then part
++    else if (m->succNode.size() == 1 && m->predNode.size() > 1 &&
++             n == *(m->succNode.begin())) {
++      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
++        return Nil;
++
++      if (edge2ClassMap[std::make_pair(m, n)] != BACK) {
++        if (m->has_predecessor(n))
++          return Nil;
++
++        bool improperFlag = false;
++
++        for (auto pi = m->predNode.begin(), pe = m->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, m, *pi) &&
++              edge2ClassMap[std::make_pair(*pi, m)] != BACK) {
++            findUnstructuredBR(N, *pi, m, true, true);
++            improperFlag = true;
++          }
++
++        if (improperFlag)
++          return Improper;
++      }
++    }
++    // Check for an IfThenElse (w/o exit block) with incoming edges
++    else if (m->succNode.empty() && n->succNode.empty()) {
++      bool improperFlag = false;
++
++      if (m->predNode.size() > 1) {
++        for (auto pi = m->predNode.begin(), pe = m->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, m, *pi)) {
++            findUnstructuredBR(N, *pi, m, true, true);
++            improperFlag = true;
++          }
++      }
++
++      if (n->predNode.size() > 1) {
++        for (auto pi = n->predNode.begin(), pe = n->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, n, *pi)) {
++            findUnstructuredBR(N, *pi, n, true, true);
++            improperFlag = true;
++          }
++      }
++
++      if (improperFlag)
++        return Improper;
++    }
++    // n is the Then part (w/o exiting edge) with incoming edges
++    else if (n->succNode.empty() && n->predNode.size() > 1) {
++      visitPath.clear();
++
++      if (!path(m, *entryNode, N, nullptr)) {
++        if (n->has_predecessor(m))
++          return Nil;
++
++        bool improperFlag = false;
++
++        for (auto pi = n->predNode.begin(), pe = n->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, n, *pi)) {
++            findUnstructuredBR(N, *pi, n, true, true);
++            improperFlag = true;
++          }
++
++        if (improperFlag)
++          return Improper;
++      }
++    }
++    // m is the Then part w/o exiting edge with incoming edges
++    else if (m->succNode.empty() && m->predNode.size() > 1) {
++      visitPath.clear();
++
++      if (!path(n, *entryNode, N, nullptr)) {
++        if (m->has_predecessor(n))
++          return Nil;
++
++        bool improperFlag = false;
++
++        for (auto pi = m->predNode.begin(), pe = m->predNode.end(); pi != pe;
++             ++pi)
++          if (*pi != *entryNode &&
++              isStillReachableFromEntry(N, entry, n, *pi)) {
++            findUnstructuredBR(N, *pi, m, true, true);
++            improperFlag = true;
++          }
++
++        if (improperFlag)
++          return Improper;
++      }
++    }
++  }
++  // Check for Case
++  else if ((*entryNode)->succNode.size() > 2) {
++    if (isCaseWithDefault(N, *entryNode, exitNode, entry)) {
++      nset.insert(*entryNode);
++
++      for (auto i = (*entryNode)->succNode.begin(),
++                e = (*entryNode)->succNode.end();
++           i != e; ++i)
++        nset.insert(*i);
++
++      return Case;
++    } else if (isCaseWithoutDefault(N, *entryNode, exitNode, entry)) {
++      nset.insert(*entryNode);
++
++      for (auto i = (*entryNode)->succNode.begin(),
++                e = (*entryNode)->succNode.end();
++           i != e; ++i)
++        if (*i != *exitNode)
++          nset.insert(*i);
++
++      return Case;
++    } else if (isImproperCaseWithDefault(N, *entryNode, entry))
++      return Improper;
++    else if (isImproperCaseWithoutDefault(N, *entryNode, exitNode, entry))
++      return Improper;
++  }
++
++  return Nil;
++}
++
++// isCaseWithDefault - Check if node leads a case block
++bool StructuralAnalysis::isCaseWithDefault(NodeSetTy &N, NodeTy *entryNode,
++                                           NodeTy **exitNode, NodeTy *entry) {
++  *exitNode = nullptr;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    // Check if every successor node has only one successor
++    if ((*i)->succNode.size() > 1)
++      return false;
++
++    if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
++      return false;
++
++    // If successor has only one predessor, it has to be the entry node
++    if ((*i)->predNode.size() == 1) {
++      if (entryNode != *((*i)->predNode.begin()))
++        return false;
++    }
++    // If successor has two predessors, one has to be the entry node
++    // and the other has to be another successor node
++    else if ((*i)->predNode.size() == 2) {
++      auto pi = (*i)->predNode.begin();
++      NodeTy *predNode1 = *pi;
++      ++pi;
++      NodeTy *predNode2 = *pi;
++
++      if (predNode1 != entryNode || !entryNode->has_successor(predNode2))
++        if (!entryNode->has_successor(predNode1) || predNode2 != entryNode)
++          return false;
++    }
++    // The predecessor node number has to be less than 3
++    else
++      return false;
++
++    NodeTy *succNode = *((*i)->succNode.begin());
++
++    if (succNode == nullptr)
++      continue;
++
++    if (succNode == entryNode)
++      return false;
++
++    // Check if the successor of the successor node is not another successor
++    if (!entryNode->has_successor(succNode)) {
++      // Check if the successor of the successor is the only exit node
++      if (!*exitNode)
++        *exitNode = succNode;
++      else if (*exitNode != succNode)
++        return false;
++    }
++    // There is no loop between successors
++    else if (succNode->has_successor(*i))
++      return false;
++  }
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if ((*i)->succNode.empty()) {
++      visitPath.clear();
++
++      if (path(*exitNode, entryNode, N, nullptr))
++        return false;
++    }
++  }
++
++  return true;
++}
++
++// isImproperCaseWithDefault - Check if node leads a case block
++bool StructuralAnalysis::isImproperCaseWithDefault(NodeSetTy &N,
++                                                   NodeTy *entryNode,
++                                                   NodeTy *entry) {
++  NodeTy *exitNode = nullptr;
++  EdgeSetTy improperEdgeSet;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    // Check if every successor node has only one successor
++    if ((*i)->succNode.size() > 1)
++      return false;
++
++    if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
++      return false;
++
++    NodeTy *succNode = *((*i)->succNode.begin());
++
++    if (succNode) {
++      if (succNode == entryNode)
++        return false;
++
++      // Check if the successor of the successor node
++      // is not another successor node
++      if (!entryNode->has_successor(succNode)) {
++        // Is the successor of the successor node is the only exit node?
++        if (!exitNode)
++          exitNode = succNode;
++        else if (exitNode != succNode)
++          return false;
++      }
++      // There is no loop between successors
++      else if (succNode->has_successor(*i))
++        return false;
++    }
++
++    // If successor has only one predessor, it has to be the entry node
++    if ((*i)->predNode.size() == 1) {
++      if (entryNode != *((*i)->predNode.begin()))
++        return false;
++    }
++    // If successor has two predessors, one has to be the entry node
++    // and the other has to be another successor node
++    else if ((*i)->predNode.size() == 2) {
++      auto pi = (*i)->predNode.begin();
++      NodeTy *predNode1 = *pi;
++      ++pi;
++      NodeTy *predNode2 = *pi;
++
++      if (predNode1 != entryNode || !entryNode->has_successor(predNode2))
++        if (!entryNode->has_successor(predNode1) || predNode2 != entryNode)
++          return false;
++    }
++    // The predecessor node number has to be less than 3
++    else {
++      int insideIncomingNum = 0;
++
++      for (auto pi = (*i)->predNode.begin(), pe = (*i)->predNode.end();
++           pi != pe; ++pi) {
++
++        if (edge2ClassMap[std::make_pair(*pi, *i)] != BACK && *pi != exitNode &&
++            *pi != entryNode) {
++          if (!entryNode->has_successor(*pi))
++            improperEdgeSet.insert(std::make_pair(*pi, *i));
++          else {
++            insideIncomingNum++;
++
++            if (insideIncomingNum > 1)
++              improperEdgeSet.insert(std::make_pair(*pi, *i));
++          }
++        } else
++          return false;
++      }
++    }
++  }
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if ((*i)->succNode.empty()) {
++      visitPath.clear();
++
++      if (path(exitNode, entryNode, N, nullptr))
++        return false;
++    }
++  }
++
++  bool improperFlag = false;
++
++  for (EdgeSetTy::iterator i = improperEdgeSet.begin(),
++                           e = improperEdgeSet.end();
++       i != e; ++i)
++    if (isStillReachableFromEntry(N, entry, i->second, i->first)) {
++      findUnstructuredBR(N, i->first, i->second, true, true);
++      improperFlag = true;
++    }
++
++  return improperFlag;
++}
++
++// isCaseWithoutDefault - Check if node leads a case block
++bool StructuralAnalysis::isCaseWithoutDefault(NodeSetTy &N, NodeTy *entryNode,
++                                              NodeTy **exitNode,
++                                              NodeTy *entry) {
++  // Find the exit node first
++  *exitNode = nullptr;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    NodeTy *node1 = *i;
++    bool foundExit = true;
++
++    // all of successors of exit node are not within the switch block
++    for (auto si = node1->succNode.begin(), se = node1->succNode.end();
++         si != se; ++si) {
++      NodeTy *succNode = *si;
++
++      if (succNode) {
++        if (entryNode->has_successor(succNode)) {
++          foundExit = false;
++
++          break;
++        } else if (succNode == entryNode)
++          return false;
++      }
++    }
++
++    if (!foundExit)
++      continue;
++
++    foundExit = false;
++
++    // at least one of predcessors of exit node comes from switch block
++    for (auto pi = node1->predNode.begin(), pe = node1->predNode.end();
++         pi != pe; ++pi) {
++      NodeTy *predNode = *pi;
++
++      if (predNode != entryNode && entryNode->has_successor(predNode)) {
++        foundExit = true;
++      }
++    }
++
++    if (foundExit) {
++      *exitNode = node1;
++
++      break;
++    }
++  }
++
++  if (!(*exitNode))
++    return false;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if (*i == *exitNode)
++      continue;
++
++    // Check if every successor node has only one successor
++    if ((*i)->succNode.size() > 1)
++      return false;
++
++    NodeTy *succNode = *((*i)->succNode.begin());
++
++    if (succNode) {
++      if (succNode == nullptr)
++        continue;
++
++      if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
++        return false;
++
++      // The successor of the successor node should be the the another
++      // successor node of node
++      if (!entryNode->has_successor(succNode))
++        return false;
++      // There is no loop between successors
++      else if (succNode != *exitNode && succNode->has_successor(*i))
++        return false;
++    }
++
++    // If successor has only one predessor, it has to be the entry node
++    if ((*i)->predNode.size() == 1) {
++      if (entryNode != *((*i)->predNode.begin()))
++        return false;
++    }
++    // If successor has two predessors, one has to be the entry node
++    // and the other has to be another successor node
++    else if ((*i)->predNode.size() == 2) {
++      auto pi = (*i)->predNode.begin();
++      NodeTy *predNode1 = *pi;
++      ++pi;
++      NodeTy *predNode2 = *pi;
++
++      if (predNode1 != entryNode || !entryNode->has_successor(predNode2))
++        if (!entryNode->has_successor(predNode1) || predNode2 != entryNode)
++          return false;
++    }
++    // The predecessor node number has to be less than 3
++    else
++      return false;
++  }
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if ((*i)->succNode.empty()) {
++      visitPath.clear();
++
++      if (path(*exitNode, entryNode, N, nullptr))
++        return false;
++    }
++  }
++
++  return true;
++}
++
++// isImproperCaseoutWithDefault - Check if node leads a case block with incoming
++// edges
++bool StructuralAnalysis::isImproperCaseWithoutDefault(NodeSetTy &N,
++                                                      NodeTy *entryNode,
++                                                      NodeTy **exitNode,
++                                                      NodeTy *entry) {
++  EdgeSetTy improperEdgeSet;
++
++  // Find the exit node first
++  *exitNode = nullptr;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    NodeTy *node1 = *i;
++    bool foundExit = true;
++
++    // all of successors of exit node are not within the switch block
++    for (auto si = node1->succNode.begin(), se = node1->succNode.end();
++         si != se; ++si) {
++      NodeTy *succNode = *si;
++
++      if (succNode) {
++        if (entryNode->has_successor(succNode)) {
++          foundExit = false;
++
++          break;
++        } else if (succNode == entryNode)
++          return false;
++      }
++    }
++
++    if (!foundExit)
++      continue;
++
++    foundExit = false;
++
++    // at least one of predcessors of exit node comes from switch block
++    for (auto pi = node1->predNode.begin(), pe = node1->predNode.end();
++         pi != pe; ++pi) {
++      NodeTy *predNode = *pi;
++
++      if (predNode != entryNode && entryNode->has_successor(predNode)) {
++        foundExit = true;
++      }
++    }
++
++    if (foundExit) {
++      *exitNode = node1;
++
++      break;
++    }
++  }
++
++  if (!(*exitNode))
++    return false;
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if (*i == *exitNode)
++      continue;
++
++    // Check if every successor node has only one successor
++    if ((*i)->succNode.size() > 1)
++      return false;
++
++    if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
++      return false;
++
++    NodeTy *succNode = *((*i)->succNode.begin());
++
++    if (succNode) {
++      if (succNode == nullptr)
++        continue;
++
++      // The successor of the successor node should be the the another
++      // successor node of node
++      if (!entryNode->has_successor(succNode))
++        return false;
++      // There is no loop between successors
++      else if (succNode != *exitNode && succNode->has_successor(*i))
++        return false;
++    }
++
++    // If successor has only one predessor, it has to be the entry node
++    if ((*i)->predNode.size() == 1) {
++      if (entryNode != *((*i)->predNode.begin()))
++        return false;
++    }
++    // If successor has two predessors, one has to be the entry node
++    // and the other has to be another successor node
++    else if ((*i)->predNode.size() == 2) {
++      auto pi = (*i)->predNode.begin();
++      NodeTy *predNode1 = *pi;
++      ++pi;
++      NodeTy *predNode2 = *pi;
++
++      if (predNode1 != entryNode || !entryNode->has_successor(predNode2))
++        if (!entryNode->has_successor(predNode1) || predNode2 != entryNode)
++          return false;
++
++      if (predNode1 == *exitNode)
++        return false;
++
++      if (predNode2 == *exitNode)
++        return false;
++    }
++    // The predecessor node number has to be less than 3
++    else {
++      int insideIncomingNum = 0;
++
++      for (auto pi = (*i)->predNode.begin(), pe = (*i)->predNode.end();
++           pi != pe; ++pi) {
++
++        if (edge2ClassMap[std::make_pair(*pi, *i)] != BACK &&
++            (*i) != *exitNode && (*pi) != entryNode && (*pi) != *exitNode) {
++          if (!entryNode->has_successor(*pi))
++            improperEdgeSet.insert(std::make_pair(*pi, *i));
++          else {
++            insideIncomingNum++;
++
++            if (insideIncomingNum > 1)
++              improperEdgeSet.insert(std::make_pair(*pi, *i));
++          }
++        } else
++          return false;
++      }
++    }
++  }
++
++  for (auto i = entryNode->succNode.begin(), e = entryNode->succNode.end();
++       i != e; ++i) {
++    if ((*i)->succNode.empty()) {
++      visitPath.clear();
++
++      if (path(*exitNode, entryNode, N, nullptr))
++        return false;
++    }
++  }
++
++  bool improperFlag = false;
++
++  for (EdgeSetTy::iterator i = improperEdgeSet.begin(),
++                           e = improperEdgeSet.end();
++       i != e; ++i)
++    if (isStillReachableFromEntry(N, entry, i->second, i->first)) {
++      findUnstructuredBR(N, i->first, i->second, true, true);
++      improperFlag = true;
++    }
++
++  return improperFlag;
++}
++
++// cyclicRegionType - Follow Fig 7.42 of Muchnick book
++StructuralAnalysis::RegionTy StructuralAnalysis::cyclicRegionType(
++    NodeSetTy &N, NodeSetTy &nset, NodeTy *loopHeaderNode, NodeTy *backEdgeNode,
++    NodeTy **exitNode, NodeTy *entry) {
++  // Check for a SelfLoop
++  if (nset.size() == 1) {
++    if (loopHeaderNode == backEdgeNode) {
++      *exitNode = *(backEdgeNode->succNode.begin());
++
++      return SelfLoop;
++    } else
++      return Nil;
++  }
++
++  if (isImproper(N, nset, loopHeaderNode, backEdgeNode, exitNode, entry))
++    // It is an Improper region
++    return Improper;
++
++  if (nset.size() == 2) {
++    if (backEdgeNode->succNode.size() == 1) {
++      for (NodeTy *pred : loopHeaderNode->predNode) {
++        if (pred != backEdgeNode) {
++          if (edge2ClassMap[std::make_pair(pred, loopHeaderNode)] == BACK)
++            return Nil;
++        }
++      }
++
++      for (NodeTy *succ : loopHeaderNode->succNode) {
++        if (succ != backEdgeNode) {
++          if (edge2ClassMap[std::make_pair(loopHeaderNode, succ)] == BACK)
++            return Nil;
++        }
++      }
++
++      if (backEdgeNode->predNode.size() != 1 ||
++          backEdgeNode->succNode.size() != 1)
++        return Nil;
++
++      return NaturalLoop;
++    } else if (backEdgeNode->succNode.size() > 1) {
++      for (NodeTy *pred : loopHeaderNode->predNode) {
++        if (pred != backEdgeNode) {
++          if (edge2ClassMap[std::make_pair(pred, loopHeaderNode)] == BACK)
++            return Nil;
++        }
++      }
++
++      for (NodeTy *succ : loopHeaderNode->succNode) {
++        if (succ != backEdgeNode) {
++          if (edge2ClassMap[std::make_pair(loopHeaderNode, succ)] == BACK)
++            return Nil;
++        }
++      }
++
++      if (backEdgeNode->predNode.size() != 1)
++        return Nil;
++
++      return NaturalLoop;
++    }
++  }
++
++  return Nil;
++}
++
++// reduce - Follow Fig 7.43 of Muchnick book
++StructuralAnalysis::NodeTy *
++StructuralAnalysis::reduce(NodeSetTy &N, RegionTy rType, NodeSetTy &nodeSet,
++                           NodeTy *entryNode, NodeTy *exitNode) {
++  NodeTy *node = new NodeTy();
++
++  node->isCombined = true;
++
++  if (entryNode) {
++    node->entryNode = entryNode;
++    node->entryBB = findEntryBB(entryNode);
++  }
++
++  replace(N, node, nodeSet /*, addSelfEdge*/);
++
++  node->isLoopHeader = false;
++  node->loopExitNode = nullptr;
++  node->isBackEdge = false;
++  node->parentNode = nullptr;
++
++  if (exitNode)
++    node->exitBB = findEntryBB(exitNode);
++  else
++    node->exitBB = nullptr;
++
++  for (auto &i : nodeSet)
++    findBB(i, node->containedBB);
++
++  node->nodeType = rType;
++
++  return node;
++}
++
++// replace - Follow Fig 7.44 of Muchnick book
++void StructuralAnalysis::replace(NodeSetTy &N, NodeTy *node,
++                                 NodeSetTy &nodeSet /*, bool addSelfEdge*/) {
++  // Link region node into abstract flowgraph, adjust the postorder traversal
++  // and predecessor and successor functions, and augment the control tree
++  compact(N, node, nodeSet /*, addSelfEdge*/);
++
++  for (auto i = nodeSet.begin(), e = nodeSet.end(); i != e; ++i) {
++    node->childNode.insert(*i);
++    (*i)->parentNode = node;
++  }
++}
++
++// isImproper - Follow Fig 7.45 of Muchnick book
++bool StructuralAnalysis::isImproper(NodeSetTy &N, NodeSetTy &nset,
++                                    NodeTy *loopHeaderNode,
++                                    NodeTy *backEdgeNode, NodeTy **exitNode,
++                                    NodeTy *entry) {
++  bool improperFlag = false;
++
++  // Check loopHeaderNode first
++  for (auto i = loopHeaderNode->predNode.begin(),
++            e = loopHeaderNode->predNode.end();
++       i != e; ++i) {
++    NodeTy *predNode = *i;
++
++    if (edge2ClassMap[std::make_pair(predNode, loopHeaderNode)] == BACK) {
++      if (nset.count(predNode) == 0 &&
++          isStillReachableFromEntry(N, entry, loopHeaderNode, predNode)) {
++        findUnstructuredBR(N, predNode, loopHeaderNode, true, true);
++        improperFlag = true;
++      } else if (nset.count(predNode) > 0 && predNode != backEdgeNode) {
++        findUnstructuredBR(N, predNode, loopHeaderNode, false, false);
++        improperFlag = true;
++      }
++    }
++  }
++
++  // Check the incoming edges
++  for (auto i = nset.begin(), e = nset.end(); i != e; ++i) {
++    NodeTy *node = *i;
++
++    if (node != loopHeaderNode)
++      for (auto ii = node->predNode.begin(), ee = node->predNode.end();
++           ii != ee; ++ii) {
++        if (nset.count(*ii) == 0
++            /*&& isStillReachableFromEntry(N, entry, node, *ii)*/) {
++          improperFlag = true;
++
++          findUnstructuredBR(N, *ii, node, false, true);
++          deleteUnreachableNodes(N, entry);
++        }
++      }
++  }
++
++  EdgeSetTy exitEdgeSet;
++  NodeTy *exitNodeOfHeader = nullptr;
++  NodeTy *exitNodeOfBackEdge = nullptr;
++  NodeTy *mainExitNode = nullptr;
++
++  for (auto i = nset.begin(), e = nset.end(); i != e; ++i) {
++    NodeTy *node = *i;
++
++    for (auto ii = node->succNode.begin(), ee = node->succNode.end(); ii != ee;
++         ++ii) {
++      if (nset.count(*ii) == 0) {
++        exitEdgeSet.insert(std::make_pair(node, *ii));
++
++        if (node == loopHeaderNode) {
++          if (exitNodeOfHeader == nullptr)
++            exitNodeOfHeader = *ii;
++        } else if (node == backEdgeNode) {
++          if (exitNodeOfBackEdge == nullptr)
++            exitNodeOfBackEdge = *ii;
++        }
++      }
++    }
++  }
++
++  if (exitNodeOfHeader)
++    mainExitNode = exitNodeOfHeader;
++  else if (exitNodeOfBackEdge)
++    mainExitNode = exitNodeOfBackEdge;
++
++  for (EdgeSetTy::iterator i = exitEdgeSet.begin(), e = exitEdgeSet.end();
++       i != e; ++i) {
++    EdgeTy exitEdge = *i;
++
++    if (exitEdge.second != mainExitNode) {
++      findUnstructuredBR(N, exitEdge.first, exitEdge.second, false, true);
++      deleteUnreachableNodes(N, entry);
++      improperFlag = true;
++    }
++  }
++
++  if (exitNodeOfHeader) {
++    for (EdgeSetTy::iterator i = exitEdgeSet.begin(), e = exitEdgeSet.end();
++         i != e; ++i) {
++      if (i->first != loopHeaderNode && (*i).second == mainExitNode) {
++        findUnstructuredBR(N, i->first, i->second, false, false);
++        improperFlag = true;
++      }
++    }
++  } else if (exitNodeOfBackEdge) {
++    for (EdgeSetTy::iterator i = exitEdgeSet.begin(), e = exitEdgeSet.end();
++         i != e; ++i) {
++      if (i->first != backEdgeNode && i->second == mainExitNode) {
++        findUnstructuredBR(N, i->first, i->second, false, false);
++        improperFlag = true;
++      }
++    }
++  }
++
++  *exitNode = mainExitNode;
++  loopHeaderNode->isLoopHeader = true;
++  backEdgeNode->isBackEdge = true;
++  loopHeaderNode->loopExitNode = mainExitNode;
++
++  return improperFlag;
++}
++
++// pathBack - Check if there is a node k such that there is a path from
++// m to k that does not pass through n and an edge k->n that is a back edge
++StructuralAnalysis::NodeTy *
++StructuralAnalysis::pathBack(NodeTy *n, NodeSetTy &N, NodeSetTy &reachUnder) {
++  NodeTy *backEdgeNode = nullptr;
++
++  reachUnder.clear();
++
++  // Find backedge first
++  for (NodeTy *predNode : n->predNode) {
++    if (edge2ClassMap[std::make_pair(predNode, n)] == BACK) {
++      if (reachUnder.count(predNode) == 0) {
++        backEdgeNode = predNode;
++
++        // Locate a cyclic region, if present
++        reachUnder.clear();
++        reachUnder.insert(n);
++        reachUnder.insert(backEdgeNode);
++
++        for (NodeTy *m : N) {
++          // Check if there is a path from m to loop exit node
++          visitPath.clear();
++          if (path(m, backEdgeNode, N, n)) {
++            visitPath.clear();
++
++            if (path(n, m, N, backEdgeNode))
++              reachUnder.insert(m);
++          }
++        }
++      }
++    }
++  }
++
++  return backEdgeNode;
++}
++
++// path(n, m, I) - Return true if there is a path from from n to m
++// such that all the nodes in it are in I and false otherwise
++bool StructuralAnalysis::path(NodeTy *n, NodeTy *m, NodeSetTy &I, NodeTy *esc) {
++  visitPath.emplace(n);
++
++  if (n == esc || m == esc)
++    return false;
++
++  if (n == m)
++    return true;
++
++  for (auto i = n->succNode.begin(), e = n->succNode.end(); i != e; ++i)
++    if (I.count(*i) > 0 && *i != esc && visitPath.count(*i) == 0) {
++      if (*i == m)
++        return true;
++      else if (path(*i, m, I, esc))
++        return true;
++    }
++
++  return false;
++}
++
++// path(n, m, I, src, dst ) - Return true if there is a path from from n to m
++// such that all the nodes in it are in I without going through edge src->dst
++// and false otherwise
++bool StructuralAnalysis::path(NodeTy *n, NodeTy *m, NodeSetTy &I, NodeTy *src,
++                              NodeTy *dst) {
++  visitPath.emplace(n);
++
++  if (n == m)
++    return true;
++
++  for (auto i = n->succNode.begin(), e = n->succNode.end(); i != e; ++i)
++    if (I.count(*i) > 0 && visitPath.count(*i) == 0) {
++      if (*i == dst && n == src)
++        continue;
++
++      if (*i == m)
++        return true;
++      else if (path(*i, m, I, src, dst))
++        return true;
++    }
++
++  return false;
++}
++
++// compact - Compact nodes in nset into n;
++void StructuralAnalysis::compact(NodeSetTy &N, NodeTy *n,
++                                 NodeSetTy &nset /*, bool addSelfEdge*/) {
++  // Adds node n to N
++  N.insert(n);
++
++  // Remove the nodes in nset from both N and post()
++  for (auto nset_node : nset) {
++    for (auto succ : nset_node->succNode) {
++      if (nset.count(succ) == 0) {
++        n->add_successor(succ);
++        succ->add_predecessor(n);
++        succ->remove_predecessor(nset_node);
++      }
++    }
++
++    for (auto pred : nset_node->predNode) {
++      if (nset.count(pred) == 0) {
++        n->add_predecessor(pred);
++        pred->add_successor(n);
++        pred->remove_successor(nset_node);
++      }
++    }
++
++    N.erase(nset_node);
++  }
++}
++
++// mapNode2BB - Return the corresponding BasicBlock* of the node
++BasicBlock *StructuralAnalysis::mapNode2BB(const NodeTy *node) const {
++  const NodeTy *tmpNode = node;
++  while (tmpNode->isCombined) {
++    tmpNode = tmpNode->entryNode;
++  }
++  return tmpNode->BB;
++}
++
++// mapBB2Node - Return the corresponding sturcture node of the basic block
++StructuralAnalysis::NodeTy *StructuralAnalysis::mapBB2Node(BasicBlock *bb) {
++  NodeTy *node, *tmpNode;
++
++  node = BB2NodeMap[bb];
++
++  while ((tmpNode = node->parentNode) != nullptr)
++    node = tmpNode;
++
++  return node;
++}
++
++// dumpCTNode - dump one CT node
++void StructuralAnalysis::dumpCTNode(llvm::raw_ostream &stream,
++                                    NodeTy *node) const {
++  if (!node->isCombined)
++    return;
++
++  stream << "\t";
++
++  switch (node->nodeType) {
++  case Block:
++    stream << "Block      ";
++    break;
++  case IfThen:
++    stream << "IfThen     ";
++    break;
++  case IfThenElse:
++    stream << "IfThenElse ";
++    break;
++  case Case:
++    stream << "Case       ";
++    break;
++  case SelfLoop:
++    stream << "SelfLoop   ";
++    break;
++  case NaturalLoop:
++    stream << "NaturalLoop";
++    break;
++  default:
++    break;
++  }
++
++  stream << "\t";
++
++  dumpNode(stream, node);
++  stream << " -> exit: "
++         << (node->exitBB != nullptr ? node->exitBB->getName().str() : "null");
++
++  stream << '\n';
++
++  for (auto i = node->childNode.begin(), e = node->childNode.end(); i != e;
++       ++i) {
++    dumpCTNode(stream, *i);
++  }
++}
++
++// dumpNode - dump one node
++void StructuralAnalysis::dumpNode(llvm::raw_ostream &stream,
++                                  NodeTy *node) const {
++  BBVecTy BBVec;
++
++  BasicBlock *this_block = mapNode2BB(node);
++  stream << "[" << this_block->getName().str() << "]\t";
++
++  findBB(node, BBVec);
++  for (BasicBlock *BB : BBVec) {
++    if (BB == this_block)
++      continue;
++    stream << BB->getName().str() << "\t";
++  }
++}
++
++// findUnstructuredBR - Record the branch and remove it from CFG
++void StructuralAnalysis::findUnstructuredBR(NodeSetTy &N, NodeTy *srcNode,
++                                            NodeTy *dstNode,
++                                            bool needForwardCopy, bool isGoto) {
++  BBVecTy srcNodeVec, dstNodeVec;
++  findBB(srcNode, srcNodeVec);
++  findBB(dstNode, dstNodeVec);
++
++  for (BasicBlock *srcBB : srcNodeVec) {
++    for (BasicBlock *succ : srcBB->successors()) {
++      for (BasicBlock *dstBB : dstNodeVec) {
++        if (dstBB == succ) {
++          if (isGoto) {
++            if (checkUnique(unstructuredBRVec, srcBB, dstBB))
++              unstructuredBRVec.push_back(std::make_pair(srcBB, dstBB));
++          }
++
++          if (needForwardCopy) {
++            if (checkUnique(dstNode->incomingForwardBR, srcBB, dstBB))
++              dstNode->incomingForwardBR.push_back(
++                  std::make_pair(srcBB, dstBB));
++          }
++        }
++      }
++    }
++  }
++
++  srcNode->remove_successor(dstNode);
++  dstNode->remove_predecessor(srcNode);
++
++  if (edge2ClassMap[std::make_pair(srcNode, dstNode)] == BACK) {
++    dstNode->isLoopHeader = false;
++    dstNode->loopExitNode = nullptr;
++  }
++}
++
++// findBB - put all Basic Blocks in node into nodeVec
++void StructuralAnalysis::findBB(NodeTy *node, BBVecTy &nodeVec) const {
++  if (!node->isCombined) {
++    if (find(nodeVec.cbegin(), nodeVec.cend(), node->BB) != nodeVec.cend())
++      return;
++    nodeVec.emplace_back(node->BB);
++  } else {
++    for (NodeTy *child : node->childNode)
++      findBB(child, nodeVec);
++  }
++}
++
++// findBB - put all Basic Blocks in node into nodeSet
++void StructuralAnalysis::findBB(NodeTy *node, BBSetTy &nodeSet) const {
++  if (!node->isCombined)
++    nodeSet.insert(node->BB);
++  else {
++    for (NodeTy *child : node->childNode)
++      findBB(child, nodeSet);
++  }
++}
++
++// dumpUnstructuredBR - Dump all found unstructured branches
++void StructuralAnalysis::dumpUnstructuredBR(llvm::raw_ostream &stream) const {
++  stream << "\nUnstructured Branches:\n";
++
++  for (EdgeVecTy::const_iterator i = unstructuredBRVec.begin(),
++                                 e = unstructuredBRVec.end();
++       i != e; ++i) {
++    stream << "\t" << i->first->getName().str() << "\t"
++           << i->second->getName().str() << "\n";
++  }
++
++  stream << "\n";
++}
++
++// True if after erasing edge src->dst, dst is still reachable from entry
++bool StructuralAnalysis::isStillReachableFromEntry(NodeSetTy &N, NodeTy *entry,
++                                                   NodeTy *dstNode,
++                                                   NodeTy *srcNode) {
++  visitPath.clear();
++
++  return path(entry, dstNode, N, srcNode, dstNode);
++}
++
++// findEntryBB - find the entry Basic Block of the node
++BasicBlock *StructuralAnalysis::findEntryBB(NodeTy *node) {
++  if (!node->isCombined)
++    return node->BB;
++  else
++    return findEntryBB(node->entryNode);
++}
++
++void StructuralAnalysis::cleanupUnreachable() {
++  for (auto i = unreachableNodeSet.begin(), e = unreachableNodeSet.end();
++       i != e; ++i) {
++    cleanup(*i);
++  }
++}
++
++// clean - fill in the element of incoming branches and outgoing branches
++void StructuralAnalysis::cleanup(NodeTy *node) {
++  if (!node->isCombined)
++    return;
++  else {
++    if ((node->nodeType == NaturalLoop || node->nodeType == SelfLoop) &&
++        node->containedBB.size() > 1) {
++      for (BBSetTy::iterator i = node->containedBB.begin(),
++                             e = node->containedBB.end();
++           i != e; ++i) {
++        BasicBlock *BB = *i;
++
++        if (BB != node->entryBB) {
++          for (BasicBlock *Pred : BB->predecessors()) {
++            if (node->containedBB.count(Pred) == 0)
++              node->incomingBR.push_back(std::make_pair(Pred, BB));
++          }
++
++          for (BasicBlock *Succ : BB->successors()) {
++            if (node->containedBB.count(Succ) == 0 && Succ != node->exitBB)
++              node->outgoingBR.push_back(std::make_pair(BB, Succ));
++          }
++        }
++      }
++    }
++
++    NodeSetTy nodeSet = node->childNode;
++
++    for (auto i = nodeSet.begin(), e = nodeSet.end(); i != e; ++i)
++      cleanup(*i);
++  }
++}
++
++// deleteUnreachableNode - delete nodes no longer reachable from the entry
++void StructuralAnalysis::deleteUnreachableNodes(NodeSetTy &N, NodeTy *entry) {
++  for (auto i = N.begin(), e = N.end(); i != e; ++i) {
++    visitPath.clear();
++    NodeTy *node = *i;
++
++    if (!path(entry, node, N, nullptr)) {
++      for (auto pi = node->predNode.begin(), pe = node->predNode.end();
++           pi != pe; ++pi)
++        (*pi)->remove_successor(node);
++
++      for (auto si = node->succNode.begin(), se = node->succNode.end();
++           si != se; ++si) {
++        (*si)->remove_predecessor(node);
++      }
++
++      unreachableNodeSet.insert(node);
++
++      N.erase(node);
++    }
++  }
++}
++
++void StructuralAnalysis::reconstructUnreachable() {
++BEGIN:
++  bool merge = false;
++
++  for (auto i = unreachableNodeSet.begin(), e = unreachableNodeSet.end();
++       i != e; ++i) {
++    NodeTy *node1 = *i;
++
++    for (auto ii = unreachableNodeSet.begin(), ee = unreachableNodeSet.end();
++         ii != ee; ++ii) {
++      NodeTy *node2 = *i;
++
++      if (node1 == node2)
++        continue;
++
++      for (auto pi = node1->predNode.begin(), pe = node1->predNode.end();
++           pi != pe; ++pi) {
++        NodeTy *pred = *pi;
++
++        if ((pred->isCombined && node2->containedBB.count(pred->entryBB) > 0) ||
++            (!pred->isCombined && node2->containedBB.count(pred->BB) > 0)) {
++          pred->add_successor(node1);
++          merge = true;
++        }
++      }
++
++      for (auto si = node1->succNode.begin(), se = node1->succNode.end();
++           si != se; ++si) {
++        NodeTy *succ = *si;
++
++        if ((succ->isCombined && node2->containedBB.count(succ->entryBB) > 0) ||
++            (!succ->isCombined && node2->containedBB.count(succ->BB) > 0)) {
++          succ->add_predecessor(node1);
++          merge = true;
++        }
++      }
++
++      if (merge) {
++        NodeSetTy nodeSet;
++
++        nodeSet.insert(node1);
++        nodeSet.insert(node2);
++
++        reduce(unreachableNodeSet, Unreachable, nodeSet, nullptr, nullptr);
++
++        goto BEGIN;
++      }
++    }
++  }
++}
++
++StructuralAnalysis::~StructuralAnalysis() {
++  for (auto n = Net.begin(); n != Net.end(); ++n) {
++    delete *n;
++  }
++}
++
++void StructuralAnalysis::analyze(Function &F) {
++  _function = &F;
++
++  // build a Simple CFG out of the LLVM CFG
++  buildSimpleCFG(Net);
++
++  NodeTy *entry = BB2NodeMap[&_function->getEntryBlock()];
++
++  // Follow the Fig 7.39 of Muchnick book
++  structuralAnalysis(Net, entry);
++
++  cleanup(*(Net.begin()));
++
++  reconstructUnreachable();
++
++  cleanupUnreachable();
++}
++
++void StructuralAnalysis::write(llvm::raw_ostream &stream) const {
++  stream << _function->getName().str() << ":\n";
++
++  dumpCTNode(stream, *(Net.begin()));
++
++  dumpUnstructuredBR(stream);
++}
++
++bool StructuralAnalysis::checkUnique(EdgeVecTy &edgeVec, BasicBlock *srcBB,
++                                     BasicBlock *dstBB) {
++  for (EdgeVecTy::iterator i = edgeVec.begin(), e = edgeVec.end(); i != e;
++       ++i) {
++
++    if (i->first == srcBB && i->second == dstBB)
++      return false;
++  }
++
++  return true;
++}
++}
+diff --git a/lib/Transforms/Scalar/StructuralAnalysis.h b/lib/Transforms/Scalar/StructuralAnalysis.h
+new file mode 100644
+index 0000000..d2bbbee
+--- /dev/null
++++ b/lib/Transforms/Scalar/StructuralAnalysis.h
+@@ -0,0 +1,306 @@
++//===- StructuralAnalysis.h - ---------------------------------------------===//
++//
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
++// Tech
++// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// All rights reserved.
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// * Redistributions of source code must retain the above copyright notice, this
++//   list of conditions and the following disclaimer.
++//
++// * Redistributions in binary form must reproduce the above copyright notice,
++//   this list of conditions and the following disclaimer in the documentation
++//   and/or other materials provided with the distribution.
++//
++// * Neither the name of gpuocelot nor the names of its
++//   contributors may be used to endorse or promote products derived from
++//   this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++// ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++//
++//===----------------------------------------------------------------------===//
++// \author  Haicheng Wu <hwu36@gatech.edu>
++// \date    Monday April 4, 2011
++// \brief   The header file for the StructuralAnalysis pass.
++//===----------------------------------------------------------------------===//
++//
++// This file defines the class of Structural Analysis which will return the
++// control tree and unstructured branches of a function
++//
++// ref: "Using Hammock Graphs to Structure Programs",
++// Fubo Zhang and Erik H. D’Hollander
++// -> https://biblio.ugent.be/publication/291746/file/451220
++//
++// ref: "Characterization and Transformation of Unstructured Control Flow in GPU
++// Applications", Haicheng Wu, Gregory Diamos, Si Li, and Sudhakar Yalamanchili
++// -> http://www.gdiamos.net/papers/caches-paper.pdf
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef CFGANALYSIS_STRUCTURALANALYSIS_H
++#define CFGANALYSIS_STRUCTURALANALYSIS_H
++
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/Analysis/BasicAliasAnalysis.h"
++#include "llvm/Analysis/GlobalsModRef.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/Analysis/PostDominators.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/Function.h"
++#include "llvm/Support/raw_ostream.h"
++
++#include <map>
++#include <set>
++#include <unordered_map>
++#include <unordered_set>
++#include <vector>
++
++// TODO: modernize/c++ify this
++
++namespace llvm {
++
++// StructuralAnalysis - This class holds all the methods and data structures
++class StructuralAnalysis {
++public:
++  typedef enum { TREE, FORWARD, BACK, CROSS } EdgeClass;
++  typedef std::pair<BasicBlock *, BasicBlock *> EdgeLLVMTy;
++  typedef std::vector<EdgeLLVMTy> EdgeVecTy;
++  typedef std::unordered_set<BasicBlock *> BBSetTy;
++  typedef std::vector<BasicBlock *> BBVecTy;
++
++  // Types defined in Fig 7.38 of Muchnick book
++  typedef enum {
++    Nil,
++    Block,
++    IfThen,
++    IfThenElse,
++    Case,
++    SelfLoop,
++    NaturalLoop,
++    Improper,
++    Unreachable
++  } RegionTy;
++
++  // NodeTy - This type is used for the CFG node
++  typedef struct Node {
++    bool isCombined{
++        false}; // Whether it is an original or combined from original
++    // Map to the corresponding BasicBlock* if it is original
++    BasicBlock *BB{nullptr};
++    std::vector<struct Node *> predNode; // Predecessor of the node
++    std::vector<struct Node *> succNode; // Successor of the node
++    // If isCombined is true, it points to the entry of the nodeset
++    struct Node *entryNode{nullptr};
++    struct Node *parentNode{nullptr};  // Parent Node in Control Tree
++    std::set<struct Node *> childNode; // Child Nodes in Control Tree
++    EdgeVecTy outgoingBR;              // Outgoing Branches of a loop
++    EdgeVecTy incomingBR;              // Incoming Branches of a loop
++    BasicBlock *entryBB{nullptr};      // The entry Basic Block
++    BasicBlock *exitBB{nullptr};       // The exit Basic Block
++    BBSetTy containedBB;               // BasicBlock*s contained in this node
++    EdgeVecTy incomingForwardBR;       // The shared code of unstructured branch
++    RegionTy nodeType{Nil};            // The type of the node
++    bool isLoopHeader{false};
++    bool isBackEdge{false};
++    struct Node *loopExitNode{nullptr};
++
++    void remove_predecessor(struct Node *pred) {
++      predNode.erase(std::remove(predNode.begin(), predNode.end(), pred),
++                     predNode.end());
++    }
++    bool has_predecessor(struct Node *pred) const {
++      const auto iter = std::find(predNode.cbegin(), predNode.cend(), pred);
++      return (iter != predNode.cend());
++    }
++    bool add_predecessor(struct Node *pred) {
++      if (has_predecessor(pred))
++        return false;
++      predNode.emplace_back(pred);
++      return true;
++    }
++    void remove_successor(struct Node *succ) {
++      succNode.erase(std::remove(succNode.begin(), succNode.end(), succ),
++                     succNode.end());
++    }
++    bool has_successor(struct Node *succ) const {
++      const auto iter = std::find(succNode.cbegin(), succNode.cend(), succ);
++      return (iter != succNode.cend());
++    }
++    bool add_successor(struct Node *succ) {
++      if (has_successor(succ))
++        return false;
++      succNode.emplace_back(succ);
++      return true;
++    }
++
++    ~Node();
++  } NodeTy;
++
++  // NodeSetTy - used to holds nodes in a set
++  typedef std::set<NodeTy *> NodeSetTy;
++  typedef std::unordered_map<BasicBlock *, NodeTy *> BB2NodeMapTy;
++  typedef std::map<NodeTy *, NodeTy *> Node2NodeMapTy;
++  typedef std::map<NodeTy *, RegionTy> Node2RegionTyMapTy;
++  typedef std::map<NodeTy *, NodeSetTy *> Node2NodeSetMapTy;
++  typedef std::pair<NodeTy *, NodeTy *> EdgeTy;
++  typedef std::map<EdgeTy, EdgeClass> Edge2ClassMapTy;
++  typedef std::set<EdgeTy> EdgeSetTy;
++  typedef std::set<NodeTy *> VisitSetTy;
++
++public:
++  ~StructuralAnalysis();
++  void analyze(Function &F);
++
++  // Get a text representation of the analysis
++  void write(llvm::raw_ostream &stream) const;
++
++public:
++  NodeSetTy Net;
++
++  // unstructuredBRVec - store the detected unstructured branches
++  EdgeVecTy unstructuredBRVec;
++
++  // BB2NodeMap - This var is used to find the Node from BasicBlock*
++  BB2NodeMapTy BB2NodeMap;
++
++  NodeSetTy unreachableNodeSet;
++
++private:
++  Function *_function;
++
++  // postorder traversal of the flowgraph
++  uint32_t postCtr, postMax, preMax;
++  std::map<uint32_t, NodeTy *> post;
++  VisitSetTy visit, visitPath;
++  std::map<NodeTy *, uint32_t> preTree, postTree;
++
++  // edge2ClassMap - map the edge to its class
++  Edge2ClassMapTy edge2ClassMap;
++
++public:
++  // buildSimpleCFG - Build a Simple CFG out of the LLVM CFG
++  void buildSimpleCFG(NodeSetTy &N);
++
++  // structuralAnalysis - Follow Fig 7.39 of Muchnick book
++  void structuralAnalysis(NodeSetTy &N, NodeTy *entry);
++
++  // DFSPostorder - Follow Fig 7.40 of Muchnick book
++  void DFSPostorder(NodeSetTy &N, NodeTy *x);
++
++  // acyclicRegionType - Follow Fig 7.41 of Muchnick book
++  RegionTy acyclicRegionType(NodeSetTy &N, NodeTy *node, NodeSetTy &nset,
++                             NodeTy **entryNode, NodeTy **exitNode,
++                             NodeTy *entry);
++
++  // cyclicRegionType - Follow Fig 7.42 of Muchnick book
++  RegionTy cyclicRegionType(NodeSetTy &N, NodeSetTy &nset,
++                            NodeTy *loopHeaderNode, NodeTy *backEdgeNode,
++                            NodeTy **exitNode, NodeTy *entry);
++
++  // reduce - Follow Fig 7.43 of Muchnick book
++  NodeTy *reduce(NodeSetTy &N, RegionTy rType, NodeSetTy &nodeSet,
++                 NodeTy *entryNode, NodeTy *exitNode);
++
++  // replace - Follow Fig 7.44 of Muchnick book
++  void replace(NodeSetTy &N, NodeTy *node, NodeSetTy &nodeSet);
++
++  // isImproper - Follow Fig 7.45 of Muchnick book
++  bool isImproper(NodeSetTy &N, NodeSetTy &nset, NodeTy *loopHeaderNode,
++                  NodeTy *backEdgeNode, NodeTy **exitNode, NodeTy *entry);
++
++  // pathBack - Check if there is a node k such that there is a path from
++  // m to k that does not pass through n and an edge k->n that is a back edge
++  NodeTy *pathBack(NodeTy *n, NodeSetTy &N, NodeSetTy &reachUnder);
++
++  // isCaseWithDefault - Check if node leads a case block
++  bool isCaseWithDefault(NodeSetTy &N, NodeTy *entryNode, NodeTy **exitNode,
++                         NodeTy *entry);
++
++  // isCaseWithoutDefault - Check if node leads a case block
++  bool isCaseWithoutDefault(NodeSetTy &N, NodeTy *entryNode, NodeTy **exitNode,
++                            NodeTy *entry);
++
++  // isImproperCaseWithDefault - Check if node leads
++  // a case block with incoming edges
++  bool isImproperCaseWithDefault(NodeSetTy &N, NodeTy *entryNode,
++                                 NodeTy *entry);
++
++  // isImproperCaseoutWithDefault - Check if node leads
++  //	a case block with incoming edges
++  bool isImproperCaseWithoutDefault(NodeSetTy &N, NodeTy *entryNode,
++                                    NodeTy **exitNode, NodeTy *entry);
++
++  // path(n, m, I) - Return true if there is a path from from n to m
++  // such that all the nodes in it are in I and false otherwise
++  bool path(NodeTy *n, NodeTy *m, NodeSetTy &I, NodeTy *esc);
++
++  // path(n, m, I, src, dst ) - Return true if there is a path from from
++  // n to m such that all the nodes in it are in I without going through edge
++  // src->dst and false otherwise
++  bool path(NodeTy *n, NodeTy *m, NodeSetTy &I, NodeTy *src, NodeTy *dst);
++
++  // compact - Compact nodes in nset into n;
++  void compact(NodeSetTy &N, NodeTy *n, NodeSetTy &nset);
++
++  // mapNode2BB - Return the corresponding BasicBlock* of the node
++  BasicBlock *mapNode2BB(const NodeTy *node) const;
++
++  // mapBB2Node - Return the corresponding sturcture node of the basic block
++  NodeTy *mapBB2Node(BasicBlock *bb);
++
++  // dumpCTNode - Dump one Control Node
++  void dumpCTNode(llvm::raw_ostream &stream, NodeTy *n) const;
++
++  // dumpNode - Dump one node
++  void dumpNode(llvm::raw_ostream &stream, NodeTy *node) const;
++
++  // findUnstructuredBR - Record the branch and remove it from CFG
++  void findUnstructuredBR(NodeSetTy &N, NodeTy *srcNode, NodeTy *dstNode,
++                          bool needForwardCopy, bool isGoto);
++
++  // findBB - put all Basic Blocks in node into nodeVec
++  void findBB(NodeTy *node, BBVecTy &nodeVec) const;
++
++  // findBB - put all Basic Blocks in node into nodeSet
++  void findBB(NodeTy *node, BBSetTy &nodeSet) const;
++
++  // findEntryBB - find the entry Basic Block of the node
++  BasicBlock *findEntryBB(NodeTy *node);
++
++  // dumpUnstructuredBR - Dump all found unstructured branches
++  void dumpUnstructuredBR(llvm::raw_ostream &stream) const;
++
++  // isStillReachableFrom entry -Return true if after erasing
++  // edge src->dst, dst is still reachable from entry
++  bool isStillReachableFromEntry(NodeSetTy &N, NodeTy *entry, NodeTy *dstNode,
++                                 NodeTy *srcNode);
++
++  // clean - fill in the element of incoming branches and outgoing branches
++  void cleanup(NodeTy *node);
++
++  void cleanupUnreachable();
++
++  void reconstructUnreachable();
++
++  // deleteUnreachableNode - delete nodes that is no longer
++  // reachable from the entry
++  void deleteUnreachableNodes(NodeSetTy &N, NodeTy *entry);
++
++  bool checkUnique(EdgeVecTy &edgeVec, BasicBlock *srcBB, BasicBlock *dstBB);
++};
++}
++
++#endif
+diff --git a/lib/Transforms/Scalar/StructuralTransform.cpp b/lib/Transforms/Scalar/StructuralTransform.cpp
+new file mode 100644
+index 0000000..8fdf806
+--- /dev/null
++++ b/lib/Transforms/Scalar/StructuralTransform.cpp
+@@ -0,0 +1,535 @@
++//===- StructuralTransform.cpp - ------------------------------------------===//
++//
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
++// Tech
++// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// All rights reserved.
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// * Redistributions of source code must retain the above copyright notice, this
++//   list of conditions and the following disclaimer.
++//
++// * Redistributions in binary form must reproduce the above copyright notice,
++//   this list of conditions and the following disclaimer in the documentation
++//   and/or other materials provided with the distribution.
++//
++// * Neither the name of gpuocelot nor the names of its
++//   contributors may be used to endorse or promote products derived from
++//   this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++// ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++//
++//===----------------------------------------------------------------------===//
++// \author  Haicheng Wu <hwu36@gatech.edu>
++// \date    Monday April 4, 2011
++// \brief   The source file for the StructuralTransform pass.
++//===----------------------------------------------------------------------===//
++//
++// This file implements an Structural Transform based on Zhang's paper
++//
++//===----------------------------------------------------------------------===//
++
++#include "StructuralTransform.h"
++#include "llvm/Transforms/Utils/BasicBlockUtils.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++#include "llvm/Transforms/Utils/LoopUtils.h"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++#define report(x) DBG(errs() << x << "\n"; errs().flush();)
++
++namespace llvm {
++
++typedef StructuralAnalysis SA;
++
++// Algorithm 2 of Zhang's paper -- elimination of outgoing branches
++bool StructuralTransform::Cut(NodeTy *N) {
++  report("Applying cut transform");
++  bool change = false;
++
++  for (auto *child : N->childNode) {
++    change |= Cut(child);
++  }
++
++  if (!stopCut) {
++    if (N->isCombined &&
++        (N->nodeType == SA::NaturalLoop || N->nodeType == SA::SelfLoop) &&
++        N->containedBB.size() > 1 && !N->outgoingBR.empty()) {
++      change = true;
++
++      BasicBlock *TopExitBB = N->exitBB;
++
++      for (auto &edge : N->outgoingBR) {
++        // 1. Before loop, insert fp = false
++        auto fp = new AllocaInst(condition_type, nullptr, "fp", alloca_insert);
++
++        // TODO: "before loop" doesn't equal "in the entry block", or does it?
++        // what if it is contained by another loop?
++        new StoreInst(ConstantInt::get(condition_type, 0), fp,
++                      condition_init_insert);
++
++        // 2. replace branch to targe t by if (B) then {fp = true; exit}
++        new StoreInst(ConstantInt::get(condition_type, 1), fp,
++                      edge.first->getFirstNonPHI());
++
++        for (BasicBlock *succ : edge.first->successors()) {
++          if (N->containedBB.count(succ) == 0)
++            continue;
++
++          new StoreInst(ConstantInt::get(condition_type, 0), fp,
++                        succ->getFirstNonPHI());
++        }
++
++        // 3. After loop, insert if (fp) goto t
++        BasicBlock *NewCmpBB = BasicBlock::Create(
++            _function->getContext(), "NewCmpBB", _function, nullptr);
++
++        // ValueMap
++        STValueToValueMapTy ValueMap;
++        ValueMap[edge.second] = NewCmpBB;
++
++        if (TopExitBB != nullptr) {
++          ValueMap[TopExitBB] = NewCmpBB;
++        }
++
++        // For each BasicBlock
++        // Remap Values here for Instructions
++        for (BasicBlock *BB : N->containedBB) {
++          // TODO: handle switches
++          assert(!isa<ReturnInst>(BB->getTerminator()) &&
++                 "terminator can not be a return instruction");
++          BranchInst *branch = dyn_cast<BranchInst>(BB->getTerminator());
++          assert(branch != nullptr &&
++                 "terminator must be a branch instruction");
++
++          if (branch->isUnconditional()) {
++            STValueToValueMapTy::iterator it =
++                ValueMap.find(branch->getSuccessor(0));
++
++            // found in ValueMap
++            if (it != ValueMap.end()) {
++              DBG(errs() << "changing successor of " << BB->getName()
++                         << " from " << branch->getSuccessor(0)->getName()
++                         << " to " << it->second->getName() << "\n";)
++              branch->setSuccessor(0, it->second);
++            }
++          } else if (branch->isConditional()) {
++            STValueToValueMapTy::iterator it1 =
++                ValueMap.find(branch->getSuccessor(0));
++            STValueToValueMapTy::iterator it2 =
++                ValueMap.find(branch->getSuccessor(1));
++
++            const bool found1 = (it1 != ValueMap.end());
++            const bool found2 = (it2 != ValueMap.end());
++
++            // both found in ValueMap
++            if (found1 && found2) {
++              branch->eraseFromParent();
++              BranchInst::Create(it1->second, BB);
++            }
++            // edge 1 is found in ValueMap & edge 2 is not
++            else if (found1 && !found2) {
++              branch->setSuccessor(0, it1->second);
++            }
++            // edge 2 is found in ValueMap & edge 1 is not
++            else if (!found1 && found2) {
++              branch->setSuccessor(1, it2->second);
++            }
++          }
++        }
++
++        if (TopExitBB != nullptr) {
++          // TODO: insert before branch?
++          ICmpInst *cmp =
++              new ICmpInst(NewCmpBB->getFirstNonPHI(), CmpInst::ICMP_EQ, fp,
++                           ConstantInt::get(condition_type, 1), "fp_cmp");
++
++          BranchInst::Create(edge.second, TopExitBB, cmp, NewCmpBB);
++        } else {
++          BranchInst::Create(edge.second, NewCmpBB);
++        }
++
++        TopExitBB = NewCmpBB;
++      }
++
++      if (N->exitBB == nullptr) {
++        // TODO: can this be an unconditional? also: handle switch?
++        BranchInst *branch = dyn_cast<BranchInst>(N->entryBB->getTerminator());
++        assert(branch != nullptr && branch->isUnconditional() &&
++               "invalid branch in entryBB");
++        branch->setSuccessor(0, TopExitBB);
++      }
++
++      stopCut = true;
++      return change;
++    }
++  }
++
++  return change;
++}
++
++// Algorithm 3 of Zhang's paper -- elimination of backward branches
++bool StructuralTransform::BackwardCopy(NodeTy *N) {
++  // report("Applying backward copy");
++  assert(false && "BackwardCopy not implemented yet");
++  // TODO: !
++  return false;
++}
++
++// Algorithm 4 of Zhang's paper -- elimination of Forward branches
++bool StructuralTransform::ForwardCopy(NodeTy *N) {
++  report("Applying forward copy");
++  bool change = false;
++
++  for (auto *child : N->childNode) {
++    change |= ForwardCopy(child);
++  }
++
++  if (!N->incomingForwardBR.empty()) {
++    change = true;
++
++    for (auto &edge : N->incomingForwardBR) {
++      // ValueMap
++      STValueToValueMapTy ValueMap;
++      std::unordered_map<BasicBlock *, std::unique_ptr<ValueToValueMapTy>>
++          clone_vmap;
++
++      // Clone BasicBlocks to the new function
++      // TODO: properly handle loop cloning
++      for (BasicBlock *BB : N->containedBB) {
++        auto vmap = std::make_unique<ValueToValueMapTy>();
++        BasicBlock *ClonedBB = CloneBasicBlock(BB, *vmap.get(), ".scfg.cloned",
++                                               _function, nullptr);
++
++        // replace instruction uses of instructions that were cloned in the
++        // cloned block
++        // (CloneBasicBlock will only clone the "lhs", not the uses/operands
++        // inside instructions)
++        for (Instruction &instr : *ClonedBB) {
++          for (uint32_t i = 0, count = instr.getNumOperands(); i < count; ++i) {
++            const auto iter = vmap->find(instr.getOperand(i));
++            if (iter != vmap->end()) {
++              instr.setOperand(i, iter->second);
++            }
++          }
++        }
++
++        clone_vmap[ClonedBB] = std::move(vmap);
++        ValueMap[BB] = ClonedBB;
++      }
++
++      // For each BasicBlock
++      // Remap Values here for Instructions
++      for (auto &ValuePair : ValueMap) {
++        // nothing to do here
++        if (isa<ReturnInst>(ValuePair.first->getTerminator())) {
++          continue;
++        }
++
++        BranchInst *branch =
++            dyn_cast<BranchInst>(ValuePair.first->getTerminator());
++        assert(branch != nullptr && "terminator must be a branch instruction");
++        BranchInst *sec_branch =
++            dyn_cast<BranchInst>(ValuePair.second->getTerminator());
++        assert(sec_branch != nullptr && "invalid branch");
++
++        if (branch->isUnconditional()) {
++          STValueToValueMapTy::iterator it =
++              ValueMap.find(branch->getSuccessor(0));
++
++          BasicBlock *new_sec_branch_target = nullptr;
++          // found in ValueMap
++          if (it != ValueMap.end()) {
++            new_sec_branch_target = it->second;
++          }
++          // not found in ValueMap
++          else {
++            new_sec_branch_target = branch->getSuccessor(0);
++          }
++
++          // transform conditional branch to an unconditional one
++          if (sec_branch->isConditional()) {
++            BranchInst::Create(new_sec_branch_target, sec_branch);
++            sec_branch->eraseFromParent();
++          }
++        } else if (branch->isConditional()) {
++          STValueToValueMapTy::iterator it1 =
++              ValueMap.find(branch->getSuccessor(0));
++          STValueToValueMapTy::iterator it2 =
++              ValueMap.find(branch->getSuccessor(1));
++
++          // both found in ValueMap
++          if (it1 != ValueMap.end() && it2 != ValueMap.end()) {
++            sec_branch->setSuccessor(0, it1->second);
++            sec_branch->setSuccessor(1, it2->second);
++          }
++          // edge 1 is found in ValueMap & edge 2 is not
++          else if (it1 != ValueMap.end() && it2 == ValueMap.end()) {
++            sec_branch->setSuccessor(0, it1->second);
++            sec_branch->setSuccessor(1, branch->getSuccessor(1));
++          }
++          // edge 2 is found in ValueMap & edge 1 is not
++          else if (it1 == ValueMap.end() && it2 != ValueMap.end()) {
++            // TODO: correct order? or reverse here?
++            sec_branch->setSuccessor(0, it2->second);
++            sec_branch->setSuccessor(1, branch->getSuccessor(0));
++          }
++          // neither is in ValueMap
++          else if (it1 == ValueMap.end() && it2 == ValueMap.end()) {
++            sec_branch->setSuccessor(0, branch->getSuccessor(0));
++            sec_branch->setSuccessor(1, branch->getSuccessor(1));
++          }
++        }
++      }
++
++      BranchInst *branch = dyn_cast<BranchInst>(edge.first->getTerminator());
++      BasicBlock *newDst = ValueMap[edge.second];
++      assert(branch != nullptr && "terminator must be a branch instruction");
++      if (branch->getSuccessor(0) == edge.second) {
++        branch->setSuccessor(0, newDst);
++      } else if (branch->isConditional() &&
++                 branch->getSuccessor(1) == edge.second) {
++        branch->setSuccessor(1, newDst);
++      } else {
++        assert(false && "initial edge doesn't point to edge target");
++      }
++
++      // update phi nodes of cloned blocks + successors preds / phi nodes
++      for (auto &entry : ValueMap) {
++        BasicBlock *orig = entry.first;
++        BasicBlock *clone = entry.second;
++        const auto update_phis = [&clone_vmap](BasicBlock *bb,
++                                               BasicBlock *orig_bb) {
++          // update incoming
++          std::unordered_set<BasicBlock *> preds;
++          for (BasicBlock *pred : bb->predecessors()) {
++            preds.emplace(pred);
++          }
++          for (Instruction *instr = &bb->front(),
++                           *non_phi = bb->getFirstNonPHI();
++               instr != non_phi; instr = instr->getNextNode()) {
++            if (PHINode *phi = dyn_cast<PHINode>(instr)) {
++              // remove incoming BB values from BBs that no longer point to this
++              std::unordered_set<BasicBlock *> rem_bbs;
++              DBG(std::unordered_set<BasicBlock *> keep_bbs;)
++              for (BasicBlock *bb_in : phi->blocks()) {
++                if (preds.count(bb_in) == 0) {
++                  rem_bbs.emplace(bb_in);
++                }
++                DBG(else keep_bbs.emplace(bb_in);)
++              }
++              for (BasicBlock *rem_bb : rem_bbs) {
++                phi->removeIncomingValue(rem_bb);
++              }
++              // TODO: do we need to add non-existing preds? can this happen?
++              DBG(for (BasicBlock *pred
++                       : preds) {
++                if (keep_bbs.count(pred) == 0) {
++                  errs() << "predecessor " << pred->getName()
++                         << " not in phi node of " << bb->getName() << ": "
++                         << *phi << "\n";
++                  assert(false && "predecessor not in phi node");
++                }
++              })
++            }
++          }
++
++          // update outgoing (only necessary for clones)
++          if (orig_bb == nullptr)
++            return;
++          for (BasicBlock *succ : bb->successors()) {
++            for (Instruction *instr = &succ->front(),
++                             *non_phi = succ->getFirstNonPHI();
++                 instr != non_phi; instr = instr->getNextNode()) {
++              if (PHINode *phi = dyn_cast<PHINode>(instr)) {
++                Value *orig_val = phi->getIncomingValueForBlock(orig_bb);
++                assert(orig_val != nullptr &&
++                       "original block was not using this phi/block?");
++                phi->addIncoming((*clone_vmap[bb])[orig_val], bb);
++              }
++            }
++          }
++        };
++        update_phis(orig, nullptr);
++        update_phis(clone, orig);
++      }
++    }
++
++    return change;
++  }
++
++  return change;
++}
++
++bool StructuralTransform::transform(Function &F) {
++  _function = &F;
++
++  alloca_insert = &F.getEntryBlock().front();
++  condition_init_insert = F.getEntryBlock().getTerminator();
++
++  // TODO: can we merge multiple conditions to a larger integer and then use a
++  // switch instead?
++  if (condition_type == nullptr) {
++    condition_type = llvm::Type::getInt1Ty(F.getContext());
++  }
++
++  SA.unstructuredBRVec.clear();
++  SA.unreachableNodeSet.clear();
++  SA.Net.clear();
++  SA.analyze(F);
++
++  DBG(SA.write(errs());)
++
++  bool was_modified = false;
++  while (!SA.unstructuredBRVec.empty()) {
++    NodeTy *entry = *(SA.Net.begin());
++
++    stopCut = false;
++
++    for (NodeTy *node : SA.unreachableNodeSet) {
++      if (Cut(node)) {
++        was_modified = true;
++        goto ANALYSIS;
++      }
++    }
++
++    if (ForwardCopy(entry)) {
++      was_modified = true;
++      goto ANALYSIS;
++    }
++
++    if (Cut(entry)) {
++      was_modified = true;
++      goto ANALYSIS;
++    }
++
++    if (BackwardCopy(entry)) {
++      was_modified = true;
++      goto ANALYSIS;
++    }
++
++  ANALYSIS:
++    SA.unstructuredBRVec.clear();
++    SA.unreachableNodeSet.clear();
++    SA.Net.clear();
++    SA.analyze(*_function);
++  }
++
++  SA.Net.clear();
++  // SA.analyze(*_function); // TODO: needed?
++
++  return was_modified;
++}
++
++const BasicBlock *StructuralTransform::bb(NodeTy *node) const {
++  return (node->isCombined ? nullptr : node->BB);
++}
++
++const StructuralTransform::NodeListTy &
++StructuralTransform::children(const NodeTy *node) const {
++  NodeListTy *nList = new NodeListTy;
++  NodeTy *tmp = nullptr;
++
++  switch (node->nodeType) {
++  case SA::Block:
++    tmp = node->entryNode;
++    nList->push_back(tmp);
++
++    while (tmp->succNode.size() == 1) {
++      tmp = *(tmp->succNode.begin());
++      nList->push_back(tmp);
++    }
++
++    break;
++  case SA::IfThen:
++    nList->push_back(cond(node));
++    nList->push_back(*(node->childNode.begin()));
++
++    break;
++  case SA::IfThenElse:
++    nList->push_back(cond(node));
++    nList->push_back(ifTrue(node));
++    nList->push_back(ifFalse(node));
++
++    break;
++  case SA::SelfLoop:
++    nList->push_back(*(node->childNode.begin()));
++    break;
++  case SA::NaturalLoop:
++    tmp = node->entryNode;
++    nList->push_back(tmp);
++
++    tmp = *(tmp->succNode.begin());
++    nList->push_back(tmp);
++
++    break;
++  default:
++    break;
++  }
++
++  return *nList;
++}
++
++const SA::NodeTy *StructuralTransform::cond(const NodeTy *node) const {
++  return node->entryNode;
++}
++
++const SA::NodeTy *StructuralTransform::ifTrue(const NodeTy *node) const {
++  if (node->nodeType == SA::IfThen)
++    return *(node->childNode.begin());
++
++  const NodeTy *lastChild = node;
++
++  while (!lastChild->isCombined)
++    lastChild = children(lastChild).back();
++
++  BranchInst *branch = dyn_cast<BranchInst>(lastChild->BB->getTerminator());
++  assert(branch != nullptr && "terminator must be a branch instruction");
++
++  SA::NodeSetTy::iterator tmpNode = node->childNode.begin();
++  NodeTy *childNode1 = *tmpNode;
++  ++tmpNode;
++  NodeTy *childNode2 = *tmpNode;
++
++  if (branch->getSuccessor(0) == childNode1->entryBB)
++    return childNode2;
++  else
++    return childNode1;
++}
++
++const SA::NodeTy *StructuralTransform::ifFalse(const NodeTy *node) const {
++  const NodeTy *lastChild = node;
++
++  while (!lastChild->isCombined)
++    lastChild = children(lastChild).back();
++
++  BranchInst *branch = dyn_cast<BranchInst>(lastChild->BB->getTerminator());
++  assert(branch != nullptr && "terminator must be a branch instruction");
++
++  SA::NodeSetTy::iterator tmpNode = node->childNode.begin();
++  NodeTy *childNode1 = *tmpNode;
++  ++tmpNode;
++  NodeTy *childNode2 = *tmpNode;
++
++  if (branch->getSuccessor(0) == childNode1->entryBB)
++    return childNode1;
++  else
++    return childNode2;
++}
++}
+diff --git a/lib/Transforms/Scalar/StructuralTransform.h b/lib/Transforms/Scalar/StructuralTransform.h
+new file mode 100644
+index 0000000..cadb3f0
+--- /dev/null
++++ b/lib/Transforms/Scalar/StructuralTransform.h
+@@ -0,0 +1,124 @@
++//===- StructuralTransform.h - --------------------------------------------===//
++//
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
++// Tech
++// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// All rights reserved.
++//
++// Redistribution and use in source and binary forms, with or without
++// modification, are permitted provided that the following conditions are met:
++//
++// * Redistributions of source code must retain the above copyright notice, this
++//   list of conditions and the following disclaimer.
++//
++// * Redistributions in binary form must reproduce the above copyright notice,
++//   this list of conditions and the following disclaimer in the documentation
++//   and/or other materials provided with the distribution.
++//
++// * Neither the name of gpuocelot nor the names of its
++//   contributors may be used to endorse or promote products derived from
++//   this software without specific prior written permission.
++//
++// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++// ARE
++// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
++// FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++// DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
++// CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
++// OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
++// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++//
++//===----------------------------------------------------------------------===//
++// \author  Haicheng Wu <hwu36@gatech.edu>
++// \date    Monday April 4, 2011
++// \brief   The header file for the StructuralTransform pass.
++//===----------------------------------------------------------------------===//
++//
++// This file implements an Structural Transform based on Zhang's paper
++//
++// ref: "Using Hammock Graphs to Structure Programs",
++// Fubo Zhang and Erik H. D’Hollander
++// -> https://biblio.ugent.be/publication/291746/file/451220
++//
++// ref: "Characterization and Transformation of Unstructured Control Flow in GPU
++// Applications", Haicheng Wu, Gregory Diamos, Si Li, and Sudhakar Yalamanchili
++// -> http://www.gdiamos.net/papers/caches-paper.pdf
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef CFGANALYSIS_STRUCTURALTRANSFORM_H
++#define CFGANALYSIS_STRUCTURALTRANSFORM_H
++
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/Analysis/BasicAliasAnalysis.h"
++#include "llvm/Analysis/GlobalsModRef.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/Analysis/PostDominators.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/Function.h"
++
++#include "StructuralAnalysis.h"
++
++#include <list>
++#include <unordered_map>
++
++namespace llvm {
++
++/// StructuralTransform - This class holds all the methods and data structures
++class StructuralTransform {
++public:
++  typedef StructuralAnalysis::BBVecTy BBVecTy;
++  typedef StructuralAnalysis::NodeTy NodeTy;
++
++public:
++  bool transform(Function &F);
++
++private:
++  typedef std::unordered_map<BasicBlock *, BasicBlock *> STValueToValueMapTy;
++
++  // alloca insertion point
++  Instruction *alloca_insert{nullptr};
++
++  // insertion point for condition initialization
++  Instruction *condition_init_insert{nullptr};
++
++  // type used when creating new conditions (i1)
++  llvm::Type *condition_type{nullptr};
++
++  Function *_function;
++
++  // Algorithm 2 of Zhang's paper -- elimination of outgoing branches
++  bool Cut(NodeTy *N);
++
++  // Algorithm 3 of Zhang's paper -- elimination of backward branches
++  bool BackwardCopy(NodeTy *N);
++
++  // Algorithm 4 of Zhang's paper -- elimination of Forward branches
++  bool ForwardCopy(NodeTy *N);
++
++  bool stopCut;
++
++  StructuralAnalysis SA;
++
++  /// Get iterator to the basic block in the cfg
++  const BasicBlock *bb(NodeTy *node) const;
++
++  typedef std::list<const NodeTy *> NodeListTy;
++
++  /// Get the children (returns an ordered container)
++  const NodeListTy &children(const NodeTy *node) const;
++
++  /// Get condition node from IfThen and IfThenElse.
++  /// The last instruction of the condition node should be a branch.
++  const NodeTy *cond(const NodeTy *node) const;
++  /// Get if-true node from IfThen and IfThenElse
++  const NodeTy *ifTrue(const NodeTy *node) const;
++  /// Get if-false node from IfThenElse
++  const NodeTy *ifFalse(const NodeTy *node) const;
++};
++}
++
++#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..d85f408
+index 0000000..40887e4
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,810 @@
-+//===- VulkanFinal.cpp - Metal final pass ---------------------------------===//
+@@ -0,0 +1,548 @@
++//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
 +//
@@ -46691,7 +50277,9 @@ index 0000000..d85f408
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// This file fixes certain post-codegen issues.
++// This file fixes certain post-codegen issues and transforms specific builtin
++// functions with uses of new function arguments, as well as transforming
++// input/output variables/arguments for later use in the SPIR-V backend.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -46743,7 +50331,6 @@ index 0000000..d85f408
 +#include <unordered_set>
 +#include <deque>
 +#include <array>
-+#include <cxxabi.h>
 +using namespace llvm;
 +
 +#define DEBUG_TYPE "VulkanFinal"
@@ -46775,10 +50362,6 @@ index 0000000..d85f408
 +		bool is_vertex_func { false };
 +		bool is_fragment_func { false };
 +		
-+		LoopInfo* LI;
-+		DominatorTree* DT;
-+		PostDominatorTree* PDT;
-+		
 +		// added kernel function args
 +		Argument* global_id { nullptr };
 +		Argument* local_id { nullptr };
@@ -46803,9 +50386,6 @@ index 0000000..d85f408
 +			AU.addRequired<AAResultsWrapperPass>();
 +			AU.addRequired<GlobalsAAWrapperPass>();
 +			AU.addRequired<AssumptionCacheTracker>();
-+			AU.addRequired<LoopInfoWrapperPass>();
-+			AU.addRequired<DominatorTreeWrapperPass>();
-+			AU.addRequired<PostDominatorTreeWrapperPass>();
 +			AU.addRequired<TargetLibraryInfoWrapperPass>();
 +		}
 +		
@@ -46825,284 +50405,6 @@ index 0000000..d85f408
 +			ctx = &M->getContext();
 +			func = &F;
 +			builder = std::make_shared<llvm::IRBuilder<>>(*ctx);
-+			
-+			DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-+			PDT = &getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-+			LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-+			
-+			// structured control flow fixes: fix loops so that they are in the form that vulkan/spir-v requires
-+			// + add loop-merge instructions that are required
-+			DBG(errs() << "> loop control flow fixes ...\n";)
-+			std::unordered_set<const BasicBlock*> bb_blacklist; // don't want to handle loop blocks in selection merge for now
-+			const std::function<void(Loop* loop)> loop_recurse = [this, &F, &loop_recurse, &bb_blacklist](Loop* loop) {
-+				DBG(errs() << ">> loop: " << loop->getName() << "\n";
-+				errs() << ">> " << loop->isLoopSimplifyForm() << ", " << loop->isLCSSAForm(*DT) << ", " << loop->isRecursivelyLCSSAForm(*DT) << "\n";
-+				errs() << ">>> "; loop->dump();
-+				for(const auto* block : loop->getBlocks()) {
-+					errs() << ">>> block: " << block->getName() << "\n";
-+				})
-+				
-+				for(const BasicBlock* bb : loop->getBlocks()) {
-+					bb_blacklist.insert(bb);
-+				}
-+				
-+				// llvms "loop simplify form" is almost identical to what vulkan/spir-v requires
-+				if(!loop->isLoopSimplifyForm()) {
-+					// TODO: handle or prevent this case
-+					ctx->emitError("loop \"" + loop->getName() + "\" is not in simplify form");
-+					return;
-+				}
-+				
-+				BasicBlock* header = loop->getHeader();
-+				BasicBlock* back_edge = loop->getLoopLatch();
-+				BasicBlock* exit = loop->getUniqueExitBlock(); // TODO: handle multiple exit blocks
-+				if(header != nullptr) {
-+					DBG(errs() << ">> has header: " << header->getName() << "\n";
-+					if(exit != nullptr) errs() << ">> has exit: " << exit->getName() << "\n";
-+					if(back_edge != nullptr) errs() << ">> has back-edge: " << back_edge->getName() << "\n";)
-+					
-+					// the single case where "loop simplify form" differs from the vulkan/spir-v requirement:
-+					// a node can't loop to itself, i.e. the back-edge can't be the header block
-+					if(back_edge == header) {
-+						// fix it by splitting the header block after the phi nodes
-+						DBG(errs() << ">> back-edge is identical to the header -> creating new header\n";)
-+						back_edge = SplitBlock(header, header->getFirstNonPHI());
-+					}
-+					
-+					// create the merge call
-+					llvm::Value* merge_vars[] { exit, back_edge };
-+					llvm::Type* loop_merge_arg_types[] { llvm::Type::getLabelTy(*ctx), llvm::Type::getLabelTy(*ctx) };
-+					FunctionType* loop_merge_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), loop_merge_arg_types, false);
-+					Function* loop_merge_func = (Function*)M->getOrInsertFunction("floor.loop_merge", loop_merge_type);
-+					loop_merge_func->setCallingConv(CallingConv::FLOOR_FUNC);
-+					loop_merge_func->setCannotDuplicate();
-+					loop_merge_func->setDoesNotThrow();
-+					loop_merge_func->setNotConvergent();
-+					loop_merge_func->setDoesNotRecurse();
-+					CallInst* loop_merge_call = CallInst::Create(loop_merge_func, merge_vars, "",
-+																 header->getTerminator());
-+					loop_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
-+				}
-+				
-+				for(Loop* sub_loop : loop->getSubLoops()) {
-+					loop_recurse(sub_loop);
-+				}
-+			};
-+			for(Loop* loop : *LI) {
-+				loop_recurse(loop);
-+			}
-+			
-+			// structured control flow fixes #2: add selection_merge calls + insert empty merge blocks where necessary, because
-+			// spir-v doesn't approve of using the same block as a merge block multiple times
-+			// -> from the top down traverse all if/else/switch selections and insert an empty merge block before the block where they would usually merge
-+			// TODO/NOTE: this has to be merged with the loop handling above, because those might need selection merging as well + doing this separately leads to problems (hence bb_blacklist for now ...)
-+			// NOTE/TODO: llvm tends to merge all returns to a single block (all paths converge to it), can this be guaranteed?
-+			// NOTE: only need to do this when there are more than 2 blocks (can't move anything before entry)
-+			DBG(errs() << "> selection control flow fixes ...\n";)
-+			if(F.getBasicBlockList().size() > 2) {
-+				DT->recalculate(F);
-+				PDT->recalculate(F); // TODO: needed?
-+				
-+				auto& bb_list = F.getBasicBlockList();
-+				std::vector<BasicBlock*> bbs;
-+				std::deque<BasicBlock*> bbs_todo;
-+				std::unordered_set<BasicBlock*> traversed;
-+				for(BasicBlock& bb : bb_list) {
-+					// ignore blacklisted ones
-+					if(bb_blacklist.count(&bb) > 0) continue;
-+					bbs.emplace_back(&bb);
-+				}
-+				bbs_todo.emplace_back(&bb_list.front());
-+				
-+				// returns true if the BB only contains a terminator and doesn't have a successor
-+				static const auto is_simple_bb = [](const BasicBlock* bb) {
-+					if(!succ_empty(bb)) return false;
-+					
-+					const TerminatorInst* term = bb->getTerminator();
-+					if(&bb->front() == term) {
-+						return true;
-+					}
-+					// also need to handle special terminations (discard is a func call + unreachable/term inst)
-+					if(const CallInst* CI = dyn_cast<CallInst>(&bb->front())) {
-+						if(const Function* CF = CI->getCalledFunction()) {
-+							if(CF->hasName() && CF->getName() == "floor.discard_fragment") {
-+								// next must be term
-+								if(&*next(bb->begin()) == term) {
-+									return true;
-+								}
-+								assert("invalid discard_fragment call (not followed by term instr)");
-+							}
-+						}
-+					}
-+					return false;
-+				};
-+				const auto add_selection_merge = [this](BasicBlock* merge_block, Instruction* insert_before) {
-+					llvm::Value* merge_vars[] { merge_block };
-+					llvm::Type* sel_merge_arg_types[] { llvm::Type::getLabelTy(*ctx) };
-+					FunctionType* sel_merge_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), sel_merge_arg_types, false);
-+					Function* sel_merge_func = (Function*)M->getOrInsertFunction("floor.selection_merge", sel_merge_type);
-+					sel_merge_func->setCallingConv(CallingConv::FLOOR_FUNC);
-+					sel_merge_func->setCannotDuplicate();
-+					sel_merge_func->setDoesNotThrow();
-+					sel_merge_func->setNotConvergent();
-+					sel_merge_func->setDoesNotRecurse();
-+					CallInst* sel_merge_call = CallInst::Create(sel_merge_func, merge_vars, "", insert_before);
-+					sel_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
-+				};
-+				
-+				BasicBlock* cur_block = nullptr;
-+				while(!bbs_todo.empty()) {
-+					cur_block = bbs_todo.front();
-+					bbs_todo.pop_front();
-+					DBG(errs() << ">> handle: " << cur_block->getName() << "\n";)
-+					if(bb_blacklist.count(cur_block) > 0) continue;
-+					
-+					if(BranchInst* branch = dyn_cast<BranchInst>(cur_block->getTerminator())) {
-+						if(branch->isUnconditional()) {
-+							// nothing to do here, just add the successor block to the todo list
-+							bbs_todo.emplace_back(branch->getSuccessor(0));
-+							continue;
-+						}
-+						
-+						BasicBlock* branches[] { branch->getSuccessor(0), branch->getSuccessor(1) };
-+						
-+						// if both bbs have no successors, there is no need to do anything,
-+						// just choose branch #0 as the merge block
-+						const bool empty_succ[] { succ_empty(branches[0]), succ_empty(branches[1]) };
-+						if(empty_succ[0] && empty_succ[1]) {
-+							DBG(errs() << ">> trivial exit blocks: (" << branches[0]->getName() << ", " << branches[1]->getName() << ")\n";)
-+							add_selection_merge(branches[0], cur_block->getTerminator());
-+							continue;
-+						}
-+						
-+						// if either branch is a simple block with no successors,
-+						// clone it, modify the branch, make the other branch the merge block
-+						const bool simple_bb[] {
-+							is_simple_bb(branches[0]),
-+							is_simple_bb(branches[1]),
-+						};
-+						if(simple_bb[0] || simple_bb[1]) {
-+							const uint32_t simple_idx = (simple_bb[0] ? 0 : 1);
-+							const uint32_t non_simple_idx = (simple_bb[0] ? 1 : 0);
-+							
-+							ValueToValueMapTy dummy_vmap;
-+							auto new_exit = CloneBasicBlock(branches[simple_idx], dummy_vmap, ".exit");
-+							new_exit->insertInto(&F, branches[simple_idx]);
-+							branch->setSuccessor(simple_idx, new_exit);
-+							
-+							add_selection_merge(branches[non_simple_idx], cur_block->getTerminator());
-+							bbs_todo.emplace_back(branches[non_simple_idx]);
-+							DBG(errs() << ">> added new trivial exit for " << branches[simple_idx]->getName() << ", merge/branch: " << branches[non_simple_idx]->getName() << "\n";)
-+							continue;
-+						}
-+						
-+						// NOTE: anything beyond this point is basically incomplete/unhandled
-+						
-+						//
-+						const bool post_dom[] {
-+							PDT->dominates(branches[0], branches[1]),
-+							PDT->dominates(branches[1], branches[0]),
-+						};
-+						
-+						// find the merge block of the if and else branch
-+						// if either successor block dominates the other one, then the dominated one might be the merge block
-+						BasicBlock* merge_block = nullptr;
-+						if(DT->dominates(branches[0], branches[1])) {
-+							merge_block = branches[1];
-+						}
-+						else if(DT->dominates(branches[1], branches[0])) {
-+							merge_block = branches[0];
-+						}
-+						for(auto& bb : bbs) {
-+							// bb must be dominated by both branch blocks
-+							// TODO : reachable, not dom!
-+							if(DT->dominates(branches[0], bb) &&
-+							   DT->dominates(branches[1], bb)) {
-+								// if we don't have a possible merge block yet, set it
-+								if(merge_block == nullptr) {
-+									merge_block = bb;
-+								}
-+								// if we do, figure out which of the two is more dominant (closer to our branch blocks)
-+								else {
-+									merge_block = (DT->dominates(merge_block, bb) ? merge_block : bb);
-+								}
-+							}
-+						}
-+						
-+						if(merge_block == nullptr) {
-+							DBG(errs() << ">> did not find a merge block for: (" << branches[0]->getName() << ", " << branches[1]->getName() << ")\n";)
-+							continue;
-+						}
-+						
-+						// create the merge call
-+						DBG(errs() << ">> merge block for (" << branches[0]->getName() << ", " << branches[1]->getName() << "): " << merge_block->getName() << "\n";)
-+						add_selection_merge(merge_block, cur_block->getTerminator());
-+						
-+						// add to todo list
-+						bbs_todo.emplace_back(branches[0]);
-+						bbs_todo.emplace_back(branches[1]);
-+					}
-+					else if(isa<ReturnInst>(cur_block->getTerminator()) ||
-+							isa<UnreachableInst>(cur_block->getTerminator())) {
-+						continue; // done here
-+					}
-+					else if(SwitchInst* switch_instr = dyn_cast<SwitchInst>(cur_block->getTerminator())) {
-+						// TODO: !
-+						continue;
-+					}
-+					else {
-+						// any of the other terminator instructions are not supported in general (no exceptions, no indirect branching)
-+						assert("unknown or unhandled terminator instruction");
-+						continue;
-+					}
-+				}
-+			}
-+			
-+			// dominator fixes: reorder blocks now that we've made sure loops are simplified
-+			// NOTE: again, obviously only necessary when there are more than 2 blocks
-+			DBG(errs() << "> dominator fixes ...\n";)
-+			if(F.getBasicBlockList().size() > 2) {
-+				DT->recalculate(F);
-+				
-+				auto& bb_list = F.getBasicBlockList();
-+				std::vector<BasicBlock*> bbs;
-+				bbs.reserve(bb_list.size());
-+				for(BasicBlock& bb : bb_list) {
-+					bbs.emplace_back(&bb);
-+				}
-+				
-+				DBG(errs() << "> bbs before:\n";
-+				for(BasicBlock* bb : bbs) {
-+					errs() << "\t" << bb->getName() << "\n";
-+				})
-+				
-+				// sort according to "most dominant block"
-+				std::vector<BasicBlock*> sorted_blocks;
-+				sorted_blocks.emplace_back(bbs[0]); // keep entry in place
-+				bbs.erase(begin(bbs));
-+				while(!bbs.empty()) {
-+					BasicBlock* most_dom = bbs.front();
-+					for(size_t i = 1; i < bbs.size(); ++i) {
-+						if(DT->dominates(bbs[i], most_dom)) {
-+							most_dom = bbs[i];
-+						}
-+					}
-+					sorted_blocks.emplace_back(most_dom);
-+					bbs.erase(find(bbs.begin(), bbs.end(), most_dom));
-+				}
-+				
-+				DBG(errs() << "> bbs after:\n";
-+				for(BasicBlock* bb : sorted_blocks) {
-+					errs() << "\t" << bb->getName() << "\n";
-+				})
-+				
-+				// move blocks in reverse order
-+				// TODO: only do this when necessary
-+				for(size_t i = 0, count = sorted_blocks.size(); i < count - 2; ++i) {
-+					DBG(errs() << ">> moving " << sorted_blocks[count - i - 2]->getName() << " before " << sorted_blocks[count - i - 1]->getName() << "\n";)
-+					sorted_blocks[count - i - 2]->moveBefore(sorted_blocks[count - i - 1]);
-+				}
-+			}
 +			
 +			DBG(errs() << "> adding built-in args ...\n";)
 +			// add args if this is a kernel function
@@ -47374,8 +50676,8 @@ index 0000000..d85f408
 +			}
 +		}
 +		
-+		// prefer i32 indices so that we don't need the Int64 capability
 +		void visitGetElementPtrInst(GetElementPtrInst &I) {
++			// prefer i32 indices so that we don't need the Int64 capability
 +			for(auto& op : I.operands()) {
 +				if(op->getType()->isIntegerTy() &&
 +				   !op->getType()->isIntegerTy(32)) {
@@ -47386,6 +50688,31 @@ index 0000000..d85f408
 +						builder->SetInsertPoint(&I);
 +						op.set(builder->CreateIntCast(op, builder->getInt32Ty(), false));
 +					}
++				}
++			}
++			
++			// GEP fusion, i.e. can't have GEPs into GEPs, so merge them together
++			// TODO: loop / recurse
++			if(GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I.getPointerOperand())) {
++				// simple case: only need to swap out the base pointer + modify the first index
++				if(GEP->getNumIndices() == 1) {
++					I.setOperand(0, GEP->getPointerOperand());
++					
++					// is the first index 0?
++					ConstantInt* first_const_idx = dyn_cast<ConstantInt>(I.getOperand(1));
++					if(first_const_idx != nullptr && first_const_idx->getZExtValue() == 0) {
++						// if so, just swap it out with the first index from the other GEP
++						I.setOperand(1, GEP->getOperand(1));
++					}
++					else {
++						// if not, then we need to add both
++						auto added_idx = BinaryOperator::CreateAdd(GEP->getOperand(1), I.getOperand(1), "idxadd", &I);
++						I.setOperand(1, added_idx);
++					}
++				}
++				// else: need to create a new GEP and merge both indices lists
++				else {
++					// TODO: !
 +				}
 +			}
 +		}
@@ -47480,9 +50807,6 @@ index 0000000..d85f408
 +	return new VulkanFinal();
 +}
 +INITIALIZE_PASS_BEGIN(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
-+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
-+INITIALIZE_PASS_DEPENDENCY(PostDominatorTreeWrapperPass)
 +INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 +INITIALIZE_PASS_END(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
 +
