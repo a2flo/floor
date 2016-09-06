@@ -1210,10 +1210,10 @@ index 91f43d3..8ca6164 100644
  
  /// \brief Root of the metadata hierarchy.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index a411273..c977e29 100644
+index a411273..97312ac 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -345,6 +345,22 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
+@@ -345,6 +345,23 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
  void initializeWinEHPreparePass(PassRegistry&);
  void initializeWriteBitcodePassPass(PassRegistry &);
  void initializeXRayInstrumentationPass(PassRegistry &);
@@ -1232,12 +1232,13 @@ index a411273..c977e29 100644
 +void initializeCFGStructurizationPass(PassRegistry&);
 +void initializeVulkanFinalPass(PassRegistry&);
 +void initializeVulkanFinalModuleCleanupPass(PassRegistry&);
++void initializePropagateRangeInfoPass(PassRegistry&);
 +
  }
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index 16c5f5c..7e6812d 100644
+index 16c5f5c..2c2934f 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -99,6 +99,7 @@ namespace {
@@ -1248,7 +1249,7 @@ index 16c5f5c..7e6812d 100644
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
-@@ -211,6 +212,20 @@ namespace {
+@@ -211,6 +212,21 @@ namespace {
        X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
        (void) llvm::AreStatisticsEnabled();
        (void) llvm::sys::RunningOnValgrind();
@@ -1266,6 +1267,7 @@ index 16c5f5c..7e6812d 100644
 +      (void) llvm::createCFGStructurizationPass();
 +      (void) llvm::createVulkanFinalPass();
 +      (void) llvm::createVulkanFinalModuleCleanupPass();
++      (void) llvm::createPropagateRangeInfoPass();
      }
    } ForcePassLinking; // Force link by creating a global definition.
  }
@@ -2340,10 +2342,10 @@ index adc4179..ad2a706 100644
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..4c37e5e 100644
+index 167cc94..1820b40 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -32,6 +32,83 @@ class TargetMachine;
+@@ -32,6 +32,89 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2421,6 +2423,12 @@ index 167cc94..4c37e5e 100644
 +// VulkanFinalModuleCleanup - This pass removes unused functions/etc.
 +//
 +ModulePass *createVulkanFinalModuleCleanupPass();
++
++//===----------------------------------------------------------------------===//
++//
++// PropagateRangeInfo - This pass propagates range metadata info.
++//
++FunctionPass *createPropagateRangeInfoPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -41723,7 +41731,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..ea10334 100644
+index 71e479a..0aed168 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -41761,7 +41769,7 @@ index 71e479a..ea10334 100644
    PM.add(createInstructionCombiningPass(ExpensiveCombines));
  }
  
-@@ -373,9 +385,37 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
+@@ -373,9 +385,40 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -41793,13 +41801,16 @@ index 71e479a..ea10334 100644
 +  }
 +  // if(EnableSPIRPasses) --none
 +
++  // run this before any other major optimizations (it will be helpful to them)
++  MPM.add(createPropagateRangeInfoPass());
++
 +  // run this again, since functions might have changed
 +  MPM.add(createForceFunctionAttrsLegacyPass());
 +
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -403,7 +443,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -403,7 +446,9 @@ void PassManagerBuilder::populateModulePassManager(
    if (LibraryInfo)
      MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
  
@@ -41810,7 +41821,7 @@ index 71e479a..ea10334 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -458,6 +500,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -458,6 +503,28 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -41839,7 +41850,7 @@ index 71e479a..ea10334 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -626,6 +690,45 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +693,45 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -43026,10 +43037,10 @@ index 0000000..b3befb0
 +INITIALIZE_PASS_END(CFGStructurization, "CFGStructurization", "CFGStructurization Pass", false, false)
 +
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 9f04344..4a60c19 100644
+index 9f04344..2500b89 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,16 @@
+@@ -1,4 +1,17 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
 +  CUDAImage.cpp
@@ -43043,6 +43054,7 @@ index 9f04344..4a60c19 100644
 +  FloorImage.cpp
 +  MetalImage.cpp
 +  SPIRImage.cpp
++  PropagateRangeInfo.cpp
    ADCE.cpp
    AlignmentFromAssumptions.cpp
    BDCE.cpp
@@ -45771,6 +45783,219 @@ index 0000000..0a3eeb1
 +FunctionPass *llvm::createMetalImagePass(const uint32_t image_capabilities) {
 +	return new MetalImage(image_capabilities);
 +}
+diff --git a/lib/Transforms/Scalar/PropagateRangeInfo.cpp b/lib/Transforms/Scalar/PropagateRangeInfo.cpp
+new file mode 100644
+index 0000000..9366898
+--- /dev/null
++++ b/lib/Transforms/Scalar/PropagateRangeInfo.cpp
+@@ -0,0 +1,207 @@
++//===- PropagateRangeInfo.cpp - Vulkan final pass -------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// TODO
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/Analysis/BasicAliasAnalysis.h"
++#include "llvm/Analysis/GlobalsModRef.h"
++#include "llvm/Analysis/PostDominators.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Utils/BasicBlockUtils.h"
++#include "llvm/Transforms/Utils/LoopUtils.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++#include <algorithm>
++#include <cstdarg>
++#include <memory>
++#include <unordered_map>
++#include <unordered_set>
++#include <deque>
++#include <array>
++using namespace llvm;
++
++#define DEBUG_TYPE "PropagateRangeInfo"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	// PropagateRangeInfo
++	struct PropagateRangeInfo : public FunctionPass, InstVisitor<PropagateRangeInfo> {
++		friend class InstVisitor<PropagateRangeInfo>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		
++		bool was_modified { false };
++		
++		PropagateRangeInfo() :
++		FunctionPass(ID) {
++			initializePropagateRangeInfoPass(*PassRegistry::getPassRegistry());
++		}
++		
++		const char *getPassName() const override {
++			return "Propagate Range Info";
++		}
++		
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.setPreservesCFG();
++			FunctionPass::getAnalysisUsage(AU);
++		}
++		
++		bool runOnFunction(Function &F) override {
++			// exit if empty function
++			if(F.empty()) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			was_modified = false;
++			
++			visit(F);
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<PropagateRangeInfo>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<PropagateRangeInfo>::visit(I);
++		}
++		
++		// we always start at call instructions, because this is where range info originates from
++		void visitCallInst(CallInst &CI) {
++			MDNode* range = CI.getMetadata(LLVMContext::MD_range);
++			if(range == nullptr) return;
++			
++			for(User* user : CI.users()) {
++				if(Instruction* I = dyn_cast<Instruction>(user)) {
++					DBG(errs() << "adding range info to user: " << *I << "\n";)
++					addRangeInfo(*I, range);
++				}
++			}
++		}
++		
++		void addRangeInfo(Instruction& I, MDNode* range) {
++			// can't handle non-integer types or int bit-width > 64 yet
++			IntegerType* int_type = dyn_cast<IntegerType>(I.getType());
++			if(int_type == nullptr ||
++			   int_type->getBitWidth() > 64) {
++				return;
++			}
++			
++			// can only propagate to certain instruction
++			switch(I.getOpcode()) {
++				// trunc/extend are obvious
++				case llvm::Instruction::Trunc:
++				case llvm::Instruction::SExt:
++				case llvm::Instruction::ZExt:
++					break;
++				
++				// TODO: integer/other ops when the operand is a ConstantInt
++				// add/sub/mul/div/rem/shl/shr -> obvious
++				// and -> [0, currrent max]?
++				// or/xor -> remove range info, b/c [0, int max]?
++				// select -> merge
++				// phi -> merge if all have range info
++				
++				// else: can't propagate
++				default: return;
++			}
++			
++			// will modify now
++			was_modified = true;
++			
++			// check if we need to convert the integer type
++			// TODO: how to handle signed values? can't retrieve that info from APInt or ConstantInt
++			const auto range_type = mdconst::extract<ConstantInt>(range->getOperand(0))->getType();
++			MDNode* apply_range = range;
++			if(range_type != int_type) {
++				const uint64_t max_value = int_type->getBitMask();
++				
++				SmallVector<Metadata*, 2> conv_range_ints;
++				conv_range_ints.reserve(range->getNumOperands());
++				for(const auto& op : range->operands()) {
++					const auto val = mdconst::extract<ConstantInt>(op)->getValue();
++					const auto clamped_val = std::min(val.getZExtValue(), max_value);
++					conv_range_ints.push_back(llvm::ConstantAsMetadata::get(ConstantInt::get(int_type, clamped_val, false)));
++				}
++				apply_range = MDNode::get(*ctx, conv_range_ints);
++			}
++			
++			// if the instruction already contains range info, merge it
++			MDNode* instr_range = I.getMetadata(LLVMContext::MD_range);
++			if(instr_range == nullptr) {
++				I.setMetadata(LLVMContext::MD_range, apply_range);
++			}
++			else {
++				I.setMetadata(LLVMContext::MD_range, MDNode::getMostGenericRange(apply_range, instr_range));
++			}
++			
++			// continue the recursion
++			for(User* user : I.users()) {
++				if(Instruction* UI = dyn_cast<Instruction>(user)) {
++					DBG(errs() << "> adding range info to user: " << *UI << "\n";)
++					addRangeInfo(*UI, apply_range);
++				}
++			}
++		}
++		
++	};
++	
++}
++
++char PropagateRangeInfo::ID = 0;
++FunctionPass *llvm::createPropagateRangeInfoPass() {
++	return new PropagateRangeInfo();
++}
++INITIALIZE_PASS_BEGIN(PropagateRangeInfo, "PropagateRangeInfo", "PropagateRangeInfo Pass", false, false)
++INITIALIZE_PASS_END(PropagateRangeInfo, "PropagateRangeInfo", "PropagateRangeInfo Pass", false, false)
++
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
 index 0000000..4bebcc8
@@ -46754,10 +46979,10 @@ index 0000000..b094838
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index b1d2420..88f4634 100644
+index b1d2420..c5dc40f 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -96,6 +96,54 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -96,6 +96,58 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -46807,6 +47032,10 @@ index b1d2420..88f4634 100644
 +
 +void LLVMAddVulkanFinalModuleCleanupPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createVulkanFinalModuleCleanupPass());
++}
++
++void LLVMAddPropagateRangeInfoPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createPropagateRangeInfoPass());
 +}
 +
  void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM) {

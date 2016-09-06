@@ -2922,7 +2922,7 @@ index c06fcf7..f0e6a75 100644
        }
        return RValue::get(nullptr);
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 94261bf..411397b 100644
+index 94261bf..78af38c 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -57,8 +57,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3399,7 +3399,7 @@ index 94261bf..411397b 100644
            BuildAggStore(*this, CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -4127,6 +4304,23 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4127,6 +4304,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      }
    }
  
@@ -3412,8 +3412,12 @@ index 94261bf..411397b 100644
 +        lower_bound = range_attr->getLowerBound()->EvaluateKnownConstInt(getContext());
 +        upper_bound = range_attr->getUpperBound()->EvaluateKnownConstInt(getContext());
 +        llvm::Metadata* range_md[2] {
-+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(), lower_bound.getZExtValue())),
-+          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(), upper_bound.getZExtValue()))
++          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(),
++                                                               lower_bound.getZExtValue(),
++                                                               lower_bound.isSigned())),
++          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(),
++                                                               upper_bound.getZExtValue(),
++                                                               upper_bound.isSigned()))
 +        };
 +        Call->setMetadata(llvm::LLVMContext::MD_range, llvm::MDNode::get(getLLVMContext(), range_md));
 +      }
