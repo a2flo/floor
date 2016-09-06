@@ -2922,7 +2922,7 @@ index c06fcf7..f0e6a75 100644
        }
        return RValue::get(nullptr);
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 94261bf..d6877a2 100644
+index 94261bf..411397b 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -57,8 +57,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3399,29 +3399,22 @@ index 94261bf..d6877a2 100644
            BuildAggStore(*this, CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -4127,6 +4304,30 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4127,6 +4304,23 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      }
    }
  
 +  // add LLVM [lower bound, upper bound] attribute if possible
 +  if (llvm::CallInst *Call = dyn_cast<llvm::CallInst>(CI)) {
-+    if (TargetDecl) {
++    if (TargetDecl && Call->getType()->isIntegerTy()) {
 +      RetRangeAttr* range_attr = TargetDecl->getAttr<RetRangeAttr>();
 +      if (range_attr != nullptr) {
 +        llvm::APSInt lower_bound(64), upper_bound(64);
 +        lower_bound = range_attr->getLowerBound()->EvaluateKnownConstInt(getContext());
 +        upper_bound = range_attr->getUpperBound()->EvaluateKnownConstInt(getContext());
-+
-+        llvm::Metadata* range_md[2];
-+        llvm::Type* int_type = nullptr;
-+        if (lower_bound.getZExtValue() <= UINT_MAX &&
-+          upper_bound.getZExtValue() <= UINT_MAX) {
-+          int_type = llvm::Type::getInt32Ty(getLLVMContext());
-+        } else {
-+          int_type = llvm::Type::getInt64Ty(getLLVMContext());
-+        }
-+        range_md[0] = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(int_type, lower_bound.getZExtValue()));
-+        range_md[1] = llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(int_type, upper_bound.getZExtValue()));
++        llvm::Metadata* range_md[2] {
++          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(), lower_bound.getZExtValue())),
++          llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Call->getType(), upper_bound.getZExtValue()))
++        };
 +        Call->setMetadata(llvm::LLVMContext::MD_range, llvm::MDNode::get(getLLVMContext(), range_md));
 +      }
 +    }
