@@ -57,8 +57,8 @@ shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) con
 	}
 	
 	compute_kernel::kernel_entry entry;
-	entry.max_local_work_size = device->max_work_group_size;
-	entry.max_work_group_item_sizes = device->max_work_group_item_sizes;
+	entry.max_total_local_size = device->max_total_local_size;
+	entry.max_local_size = device->max_local_size;
 	
 	auto kernel = make_shared<host_kernel>((const void*)func_ptr, func_name, move(entry));
 	kernels.emplace_back(kernel);

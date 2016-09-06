@@ -41,11 +41,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 				if(info.name == func_name) {
 					vulkan_kernel::vulkan_kernel_entry entry;
 					entry.info = &info;
-					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
+					entry.max_local_size = prog.first->max_local_size;
 					
 					// retrieve max possible work-group size for this device for this function
 					// TODO: retrieve this from the binary
-					entry.max_local_work_size = prog.first->max_work_group_size;
+					entry.max_total_local_size = prog.first->max_total_local_size;
 					
 					// TODO: make sure that _all_ of this is synchronized
 					

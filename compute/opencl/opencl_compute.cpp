@@ -263,14 +263,14 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			device->extensions = core::tokenize(core::trim(cl_get_info<CL_DEVICE_EXTENSIONS>(cl_dev)), ' ');
 			
 			device->max_mem_alloc = cl_get_info<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(cl_dev);
-			device->max_work_group_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
-			const auto max_work_group_item_sizes = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
-			if(max_work_group_item_sizes.size() != 3) {
-				log_warn("max workgroup sizes dim != 3: %u", max_work_group_item_sizes.size());
+			device->max_total_local_size = (uint32_t)cl_get_info<CL_DEVICE_MAX_WORK_GROUP_SIZE>(cl_dev);
+			const auto max_local_size = cl_get_info<CL_DEVICE_MAX_WORK_ITEM_SIZES>(cl_dev);
+			if(max_local_size.size() != 3) {
+				log_warn("max local size dim != 3: %u", max_local_size.size());
 			}
-			if(max_work_group_item_sizes.size() >= 1) device->max_work_group_item_sizes.x = (uint32_t)max_work_group_item_sizes[0];
-			if(max_work_group_item_sizes.size() >= 2) device->max_work_group_item_sizes.y = (uint32_t)max_work_group_item_sizes[1];
-			if(max_work_group_item_sizes.size() >= 3) device->max_work_group_item_sizes.z = (uint32_t)max_work_group_item_sizes[2];
+			if(max_local_size.size() >= 1) device->max_local_size.x = (uint32_t)max_local_size[0];
+			if(max_local_size.size() >= 2) device->max_local_size.y = (uint32_t)max_local_size[1];
+			if(max_local_size.size() >= 3) device->max_local_size.z = (uint32_t)max_local_size[2];
 			
 			// for cpu devices: assume this is the host cpu and compute the simd-width dependent on that
 			if(device->internal_type & CL_DEVICE_TYPE_CPU) {
@@ -283,9 +283,9 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 				// -> set it to 4096 as it is actually working
 				if(platform_vendor == COMPUTE_VENDOR::INTEL &&
 				   device->simd_width == 4 &&
-				   device->max_work_group_size >= 8192) {
-					device->max_work_group_size = 4096;
-					device->max_work_group_item_sizes.min(device->max_work_group_size);
+				   device->max_total_local_size >= 8192) {
+					device->max_total_local_size = 4096;
+					device->max_local_size.min(device->max_total_local_size);
 				}
 			}
 			
@@ -319,11 +319,11 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			
 			device->double_support = (cl_get_info<CL_DEVICE_DOUBLE_FP_CONFIG>(cl_dev) != 0);
 			device->bitness = cl_get_info<CL_DEVICE_ADDRESS_BITS>(cl_dev);
-			device->max_work_item_sizes = (device->bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
-										   0xFFFF'FFFFull :
-										   (device->bitness == 64 ?
-											0xFFFF'FFFF'FFFF'FFFFull :
-											(1ull << uint64_t(device->bitness)) - 1ull)); // just in case "address bits" is something weird
+			device->max_global_size = (device->bitness == 32 ? // range: sizeof(size_t) -> clEnqueueNDRangeKernel
+									   0xFFFF'FFFFull :
+									   (device->bitness == 64 ?
+										0xFFFF'FFFF'FFFF'FFFFull :
+										(1ull << uint64_t(device->bitness)) - 1ull)); // just in case "address bits" is something weird
 			device->unified_memory = (cl_get_info<CL_DEVICE_HOST_UNIFIED_MEMORY>(cl_dev) == 1);
 			device->basic_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_base_atomics");
 			device->extended_64_bit_atomics_support = core::contains(device->extensions, "cl_khr_int64_extended_atomics");
@@ -354,9 +354,9 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 			log_msg("mem base address alignment: %u", cl_get_info<CL_DEVICE_MEM_BASE_ADDR_ALIGN>(cl_dev));
 			log_msg("min data type alignment size: %u", cl_get_info<CL_DEVICE_MIN_DATA_TYPE_ALIGN_SIZE>(cl_dev));
 			log_msg("host unified memory: %u", device->unified_memory);
-			log_msg("max work-group size: %u", device->max_work_group_size);
-			log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
-			log_msg("max work-item sizes: %v", device->max_work_item_sizes);
+			log_msg("max total local size: %u", device->max_total_local_size);
+			log_msg("max local size: %v", device->max_local_size);
+			log_msg("max global size: %v", device->max_global_size);
 			log_msg("max param size: %u", cl_get_info<CL_DEVICE_MAX_PARAMETER_SIZE>(cl_dev));
 			log_msg("double support: %b", device->double_support);
 			log_msg("image support: %b", device->image_support);
@@ -524,7 +524,7 @@ opencl_compute::opencl_compute(const uint64_t platform_index_,
 					switch(dev->vendor) {
 						case COMPUTE_VENDOR::NVIDIA:
 							// fermi or kepler+ card if wg size is >= 1024
-							multiplier = (dev->max_work_group_size >= 1024 ? 32 : 8);
+							multiplier = (dev->max_total_local_size >= 1024 ? 32 : 8);
 							break;
 						case COMPUTE_VENDOR::AMD:
 							multiplier = 16;

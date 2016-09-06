@@ -38,8 +38,8 @@ public:
 	
 	struct kernel_entry {
 		const llvm_compute::function_info* info { nullptr };
-		uint32_t max_local_work_size { 0u };
-		uint3 max_work_group_item_sizes;
+		uint32_t max_total_local_size { 0u };
+		uint3 max_local_size;
 	};
 	//! returns the internal kernel entry for the specified device
 	virtual const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const = 0;

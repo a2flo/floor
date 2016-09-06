@@ -337,6 +337,47 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY="s + has_dedicated_local_memory_str;
 	clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_"s + has_dedicated_local_memory_str;
 	
+	// id/size ranges
+	uint2 global_id_range { 0u, 0xFFFFFFFFu };
+	uint2 global_size_range { 1u, 0xFFFFFFFFu };
+	// NOTE: nobody supports a local size > 2048 (or 1536) right now, if that changes, this needs to be updated
+	uint2 local_id_range { 0u, 2048u };
+	uint2 local_size_range { 1u, 2048u };
+	uint2 group_id_range { 0u, 0xFFFFFFFFu };
+	uint2 group_size_range { 1u, 0xFFFFFFFFu };
+	
+	// if the device has actual info about this, use that instead of the defaults
+	const auto max_global_size = device->max_global_size.max_element();
+	if(max_global_size > 0) {
+		const uint32_t max_global_size_u32 = (max_global_size > 0xFFFFFFFFull ? 0xFFFFFFFFu : uint32_t(max_global_size));
+		global_id_range.y = max_global_size_u32;
+		global_size_range.y = max_global_size_u32;
+	}
+	
+	if(device->max_total_local_size != 0) {
+		local_id_range.y = device->max_total_local_size;
+		local_size_range.y = device->max_total_local_size;
+	}
+	
+	const auto max_group_size = device->max_group_size.max_element();
+	if(max_group_size > 0) {
+		group_id_range.y = max_group_size;
+		group_size_range.y = max_group_size;
+	}
+	
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN=" + to_string(global_id_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MAX=" + to_string(global_id_range.y) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MIN=" + to_string(global_size_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MAX=" + to_string(global_size_range.y) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MIN=" + to_string(local_id_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX=" + to_string(local_id_range.y) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MIN=" + to_string(local_size_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX=" + to_string(local_size_range.y) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MIN=" + to_string(group_id_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MAX=" + to_string(group_id_range.y) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MIN=" + to_string(group_size_range.x) + "u";
+	clang_cmd += " -DFLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MAX=" + to_string(group_size_range.y) + "u";
+	
 	// handle device simd width
 	uint32_t simd_width = device->simd_width;
 	uint2 simd_range = device->simd_range;

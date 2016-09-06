@@ -34,7 +34,7 @@ host_device::host_device() : compute_device() {
 	simd_width = (core::cpu_has_avx() ? (core::cpu_has_avx512() ? 16 : 8) : 4);
 	simd_range = { 1, simd_width };
 	
-	max_work_item_sizes = { 0xFFFFFFFFu };
+	max_global_size = { 0xFFFFFFFFu };
 	
 	// can technically use any dim as long as it fits into memory
 	// TODO: should actually check for these when creating an image (also: dependent on opengl when using sharing)

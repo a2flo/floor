@@ -21,7 +21,6 @@
 
 #if defined(FLOOR_COMPUTE_HOST)
 
-#include <floor/compute/device/host_limits.hpp>
 #include <floor/constexpr/soft_f16.hpp>
 
 // ignore vectorization/optimization/etc. hints and infos

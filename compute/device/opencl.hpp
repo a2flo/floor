@@ -23,36 +23,29 @@
 
 #if defined(FLOOR_COMPUTE_OPENCL)
 // wrap opencl id handling functions so that uint32_t is always returned
-[[range(0u, 0xFFFFFFFFu)]] const_func size_t get_global_id(uint32_t dim);
-[[range(1u, 0xFFFFFFFFu)]] const_func size_t get_global_size(uint32_t dim);
-[[range(0u, 2048u)]] const_func size_t get_local_id(uint32_t dim);
-[[range(1u, 2048u)]] const_func size_t get_local_size(uint32_t dim);
-[[range(0u, 0xFFFFFFFFu)]] const_func size_t get_group_id(uint32_t dim);
-[[range(1u, 0xFFFFFFFFu)]] const_func size_t get_num_groups(uint32_t dim);
-const_func uint32_t get_work_dim();
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func size_t cl_get_global_id(uint32_t dim) asm("_Z13get_global_idj");
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func size_t cl_get_global_size(uint32_t dim) asm("_Z15get_global_sizej");
+FLOOR_LOCAL_ID_RANGE_ATTR const_func size_t cl_get_local_id(uint32_t dim) asm("_Z12get_local_idj");
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func size_t cl_get_local_size(uint32_t dim) asm("_Z14get_local_sizej");
+FLOOR_GROUP_ID_RANGE_ATTR const_func size_t cl_get_group_id(uint32_t dim) asm("_Z12get_group_idj");
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func size_t cl_get_group_size(uint32_t dim) asm("_Z14get_num_groupsj");
+[[range(1u, 3u)]] const_func uint32_t get_work_dim();
 
-floor_inline_always uint32_t cl_get_global_id(uint32_t dim) { return uint32_t(get_global_id(dim)); }
-floor_inline_always uint32_t cl_get_global_size(uint32_t dim) { return uint32_t(get_global_size(dim)); }
-floor_inline_always uint32_t cl_get_local_id(uint32_t dim) { return uint32_t(get_local_id(dim)); }
-floor_inline_always uint32_t cl_get_local_size(uint32_t dim) { return uint32_t(get_local_size(dim)); }
-floor_inline_always uint32_t cl_get_group_id(uint32_t dim) { return uint32_t(get_group_id(dim)); }
-floor_inline_always uint32_t cl_get_num_groups(uint32_t dim) { return uint32_t(get_num_groups(dim)); }
-#define get_global_id(x) cl_get_global_id(x)
-#define get_global_size(x) cl_get_global_size(x)
-#define get_local_id(x) cl_get_local_id(x)
-#define get_local_size(x) cl_get_local_size(x)
-#define get_group_id(x) cl_get_group_id(x)
-#define get_num_groups(x) cl_get_num_groups(x)
+#define get_global_id(x) uint32_t(cl_get_global_id(x))
+#define get_global_size(x) uint32_t(cl_get_global_size(x))
+#define get_local_id(x) uint32_t(cl_get_local_id(x))
+#define get_local_size(x) uint32_t(cl_get_local_size(x))
+#define get_group_id(x) uint32_t(cl_get_group_id(x))
+#define get_group_size(x) uint32_t(cl_get_group_size(x))
 
 #elif defined(FLOOR_COMPUTE_VULKAN)
 // similar to metal, vulkan id handling functions will be handled on the compiler side and replaced with builtin variables
-[[range(0u, 0xFFFFFFFFu)]] const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
-[[range(1u, 0xFFFFFFFFu)]] const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
-// NOTE: nobody supports a work-group size > 2048 (or 1536) right now, if that changes, this needs to be updated
-[[range(0u, 2048u)]] const_func uint32_t get_local_id(uint32_t dim) asm("floor.builtin.local_id.i32");
-[[range(1u, 2048u)]] const_func uint32_t get_local_size(uint32_t dim) asm("floor.builtin.local_size.i32");
-[[range(0u, 0xFFFFFFFFu)]] const_func uint32_t get_group_id(uint32_t dim) asm("floor.builtin.group_id.i32");
-[[range(1u, 0xFFFFFFFFu)]] const_func uint32_t get_group_size(uint32_t dim) asm("floor.builtin.group_size.i32");
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func uint32_t get_global_id(uint32_t dim) asm("floor.builtin.global_id.i32");
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func uint32_t get_global_size(uint32_t dim) asm("floor.builtin.global_size.i32");
+FLOOR_LOCAL_ID_RANGE_ATTR const_func uint32_t get_local_id(uint32_t dim) asm("floor.builtin.local_id.i32");
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func uint32_t get_local_size(uint32_t dim) asm("floor.builtin.local_size.i32");
+FLOOR_GROUP_ID_RANGE_ATTR const_func uint32_t get_group_id(uint32_t dim) asm("floor.builtin.group_id.i32");
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_group_size(uint32_t dim) asm("floor.builtin.group_size.i32");
 [[range(1u, 3u)]] const_func uint32_t get_work_dim() asm("floor.builtin.work_dim.i32");
 #endif
 

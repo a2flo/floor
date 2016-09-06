@@ -892,10 +892,10 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) con
 		const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
 		uint3 lsize;
 		switch(dim_count) {
-			case 1: lsize = { dev->max_work_group_size, 1, 1 }; break;
-			case 2: lsize = { (dev->max_work_group_size > 256 ? 32 : 16), (dev->max_work_group_size > 512 ? 32 : 16), 1 }; break;
+			case 1: lsize = { dev->max_total_local_size, 1, 1 }; break;
+			case 2: lsize = { (dev->max_total_local_size > 256 ? 32 : 16), (dev->max_total_local_size > 512 ? 32 : 16), 1 }; break;
 			default:
-			case 3: lsize = { (dev->max_work_group_size > 512 ? 32 : 16), (dev->max_work_group_size > 256 ? 16 : 8), 2 }; break;
+			case 3: lsize = { (dev->max_total_local_size > 512 ? 32 : 16), (dev->max_total_local_size > 256 ? 16 : 8), 2 }; break;
 		}
 		for(uint32_t layer = 0; layer < layer_count; ++layer) {
 			uint3 level_size {

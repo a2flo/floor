@@ -294,15 +294,17 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		const auto& limits = props.limits;
 		device->constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
 		device->local_mem_size = limits.maxComputeSharedMemorySize;
+		
 #if 0 // TODO: enable this again once we can have "dynamic"/spec work sizes
-		device->max_work_group_size = limits.maxComputeWorkGroupInvocations;
-		device->max_work_item_sizes = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
-		device->max_work_group_item_sizes = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
+		device->max_total_local_size = limits.maxComputeWorkGroupInvocations;
+		device->max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
 #else
-		device->max_work_group_size = 512;
-		device->max_work_item_sizes = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
-		device->max_work_group_item_sizes = { 512, 1, 1 };
+		device->max_total_local_size = 512;
+		device->max_local_size = { 512, 1, 1 };
 #endif
+		device->max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
+		device->max_global_size = device->max_local_size * device->max_group_size;
+		
 		device->max_image_1d_dim = limits.maxImageDimension1D;
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
@@ -372,9 +374,9 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 				device->local_mem_size / 1024ULL,
 				device->constant_mem_size / 1024ULL);
 		
-		log_msg("max work-group size: %u", device->max_work_group_size);
-		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
-		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
+		log_msg("max total local size: %u", device->max_total_local_size);
+		log_msg("max local size: %v", device->max_local_size);
+		log_msg("max global size: %v", device->max_global_size);
 		log_msg("queue families: %u", queue_family_count);
 		log_msg("max queues (family #0): %u", device->queue_counts[0]);
 		

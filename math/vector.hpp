@@ -21,7 +21,7 @@
 #endif
 
 FLOOR_PUSH_WARNINGS()
-FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is always be aligned correctly
+FLOOR_IGNORE_WARNING(cast-align) // NOTE: except for "long double" this is always aligned correctly
 
 #define FLOOR_VECNAME_CONCAT(vec_width) vector##vec_width
 #define FLOOR_VECNAME_EVAL(vec_width) FLOOR_VECNAME_CONCAT(vec_width)

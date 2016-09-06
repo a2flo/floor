@@ -166,13 +166,13 @@ namespace std {
 // and for those that are supported, the return type is sometimes a 32-bit and sometimes a 64-bit integer -> unusable.
 // solution: add compiler voodoo that automatically adds the special kernel arguments and loads these arguments in places
 // where the following "intrinsics" are used. thus, compatible to the opencl/cuda way of doing it (and sane ...).
-const_func uint32_t get_global_id(uint32_t dim) asm("floor.get_global_id.i32");
-const_func uint32_t get_global_size(uint32_t dim) asm("floor.get_global_size.i32");
-const_func uint32_t get_local_id(uint32_t dim) asm("floor.get_local_id.i32");
-const_func uint32_t get_local_size(uint32_t dim) asm("floor.get_local_size.i32");
-const_func uint32_t get_group_id(uint32_t dim) asm("floor.get_group_id.i32");
-const_func uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
-const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func uint32_t get_global_id(uint32_t dim) asm("floor.get_global_id.i32");
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func uint32_t get_global_size(uint32_t dim) asm("floor.get_global_size.i32");
+FLOOR_LOCAL_ID_RANGE_ATTR const_func uint32_t get_local_id(uint32_t dim) asm("floor.get_local_id.i32");
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func uint32_t get_local_size(uint32_t dim) asm("floor.get_local_size.i32");
+FLOOR_GROUP_ID_RANGE_ATTR const_func uint32_t get_group_id(uint32_t dim) asm("floor.get_group_id.i32");
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func uint32_t get_group_size(uint32_t dim) asm("floor.get_group_size.i32");
+[[range(1u, 3u)]] const_func uint32_t get_work_dim() asm("floor.get_work_dim.i32");
 
 // barrier and mem_fence functionality
 // (note that there is also a air.mem_barrier function, but it seems non-functional/broken and isn't used by apples code)

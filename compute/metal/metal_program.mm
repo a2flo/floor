@@ -42,7 +42,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 				if(info.name == kernel_name) {
 					metal_kernel::metal_kernel_entry entry;
 					entry.info = &info;
-					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
+					entry.max_local_size = prog.first->max_local_size;
 					
 					//
 					const auto func_name = [NSString stringWithUTF8String:info.name.c_str()];
@@ -73,7 +73,7 @@ metal_program::metal_program(program_map_type&& programs_) : programs(move(progr
 					entry.kernel = (__bridge void*)func;
 					entry.kernel_state = (__bridge void*)kernel_state;
 					if(kernel_state != nil) {
-						entry.max_local_work_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
+						entry.max_total_local_size = (uint32_t)[kernel_state maxTotalThreadsPerThreadgroup];
 					}
 					kernel_map.insert_or_assign(prog.first, entry);
 					break;

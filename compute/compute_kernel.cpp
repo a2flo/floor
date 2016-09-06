@@ -25,8 +25,8 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 	uint3 ret = local_work_size.maxed(1u);
 	
 	const auto work_group_size = ret.x * ret.y * ret.z;
-	if(entry.max_local_work_size > 0 &&
-	   work_group_size > entry.max_local_work_size) {
+	if(entry.max_total_local_size > 0 &&
+	   work_group_size > entry.max_total_local_size) {
 		// only warn/error once about this, don't want to spam the console/log unnecessarily
 		bool do_warn = false;
 		{
@@ -37,16 +37,16 @@ uint3 compute_kernel::check_local_work_size(const compute_kernel::kernel_entry& 
 		
 		// if local work size y-dim is > 1, max work-size is > 1 and device work-group item sizes y-dim is > 2, set it at least to 2
 		// note that this is usually a good idea for image accesses / cache use
-		if(local_work_size.y > 1 && entry.max_local_work_size > 1 && entry.max_work_group_item_sizes.y > 1) {
-			ret = { (uint32_t)(entry.max_local_work_size / 2u), 2, 1 };
+		if(local_work_size.y > 1 && entry.max_total_local_size > 1 && entry.max_local_size.y > 1) {
+			ret = { (uint32_t)(entry.max_total_local_size / 2u), 2, 1 };
 			// TODO: might want to have/keep a specific shape
 		}
 		// just return max possible local work size "{ max, 1, 1 }"
-		else ret = { (uint32_t)entry.max_local_work_size, 1, 1 };
+		else ret = { (uint32_t)entry.max_total_local_size, 1, 1 };
 		
 		if(do_warn) {
 			log_error("specified work-group size (%u) too large for this device (max: %u) - using %v now!",
-					  work_group_size, entry.max_local_work_size, ret);
+					  work_group_size, entry.max_total_local_size, ret);
 		}
 	}
 	return ret;

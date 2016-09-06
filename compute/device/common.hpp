@@ -258,7 +258,7 @@ _LIBCPP_END_NAMESPACE_STD
 #define local_id uint3 { get_local_id(0), get_local_id(1), get_local_id(2) }
 #define local_size uint3 { get_local_size(0), get_local_size(1), get_local_size(2) }
 #define group_id uint3 { get_group_id(0), get_group_id(1), get_group_id(2) }
-#define group_size uint3 { get_num_groups(0), get_num_groups(1), get_num_groups(2) }
+#define group_size uint3 { get_group_size(0), get_group_size(1), get_group_size(2) }
 #define sub_group_id get_sub_group_id()
 #define sub_group_id_1d sub_group_id
 #define sub_group_id_2d sub_group_id

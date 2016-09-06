@@ -25,6 +25,8 @@
 #include <AvailabilityMacros.h>
 #endif
 
+#include <floor/compute/device/host_limits.hpp>
+
 // used to mark kernel functions which must be dynamically retrievable at runtime
 // extern "C": use C name mangling instead of C++ mangling (so function name is the same as written in the code)
 // inline: not actually inline, but makes sure that no prototype is required for global functions

@@ -135,19 +135,19 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->local_mem_size = (local_mem < 0 ? 0ull : uint64_t(local_mem));
 		device->l2_cache_size = (l2_cache_size < 0 ? 0u : uint32_t(l2_cache_size));
 		
-		int max_work_group_size;
+		int max_total_local_size;
 		int3 max_block_dim, max_grid_dim;
 		CU_CALL_IGNORE(cu_device_get_attribute((int*)&device->warp_size, CU_DEVICE_ATTRIBUTE::WARP_SIZE, cuda_dev));
-		CU_CALL_IGNORE(cu_device_get_attribute(&max_work_group_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&max_total_local_size, CU_DEVICE_ATTRIBUTE::MAX_THREADS_PER_BLOCK, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.x, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.y, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_block_dim.z, CU_DEVICE_ATTRIBUTE::MAX_BLOCK_DIM_Z, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.x, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_X, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.y, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Y, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&max_grid_dim.z, CU_DEVICE_ATTRIBUTE::MAX_GRID_DIM_Z, cuda_dev));
-		device->max_work_group_size = uint32_t(max_work_group_size);
-		device->max_work_item_sizes = ulong3(max_block_dim) * ulong3(max_grid_dim);
-		device->max_work_group_item_sizes = uint3(max_block_dim);
+		device->max_total_local_size = uint32_t(max_total_local_size);
+		device->max_global_size = ulong3(max_block_dim) * ulong3(max_grid_dim);
+		device->max_local_size = uint3(max_block_dim);
 		
 		int max_image_1d, max_image_1d_buffer, max_image_1d_mip_map;
 		int2 max_image_2d, max_image_2d_mip_map;
@@ -242,10 +242,10 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 				device->local_mem_size / 1024ULL,
 				device->constant_mem_size / 1024ULL);
 		log_msg("host unified memory: %u", device->unified_memory);
-		log_msg("max work-group size: %u", device->max_work_group_size);
-		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
+		log_msg("max total local size: %u", device->max_total_local_size);
+		log_msg("max local size: %v", device->max_local_size);
+		log_msg("max global size: %v", device->max_global_size);
 		log_msg("max cuda grid-dim: %u", max_grid_dim);
-		log_msg("max work-item sizes: %v", device->max_work_item_sizes);
 		log_msg("max mip-levels: %u", device->max_mip_levels);
 		
 		size_t printf_buffer_size = 0;

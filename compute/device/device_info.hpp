@@ -125,6 +125,66 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY != 0);
 	}
 	
+	//! returns the min part of the possible global id [min, max] range of this device
+	constexpr uint32_t global_id_range_min() {
+		return FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible global id [min, max] range of this device
+	constexpr uint32_t global_id_range_max() {
+		return FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MAX;
+	}
+	
+	//! returns the min part of the possible global size [min, max] range of this device
+	constexpr uint32_t global_size_range_min() {
+		return FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible global size [min, max] range of this device
+	constexpr uint32_t global_size_range_max() {
+		return FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MAX;
+	}
+	
+	//! returns the min part of the possible local id [min, max] range of this device
+	constexpr uint32_t local_id_range_min() {
+		return FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible local id [min, max] range of this device
+	constexpr uint32_t local_id_range_max() {
+		return FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX;
+	}
+	
+	//! returns the min part of the possible local size [min, max] range of this device
+	constexpr uint32_t local_size_range_min() {
+		return FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible local size [min, max] range of this device
+	constexpr uint32_t local_size_range_max() {
+		return FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX;
+	}
+	
+	//! returns the min part of the possible group id [min, max] range of this device
+	constexpr uint32_t group_id_range_min() {
+		return FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible group id [min, max] range of this device
+	constexpr uint32_t group_id_range_max() {
+		return FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MAX;
+	}
+	
+	//! returns the min part of the possible group size [min, max] range of this device
+	constexpr uint32_t group_size_range_min() {
+		return FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MIN;
+	}
+	
+	//! returns the max part of the possible group size [min, max] range of this device
+	constexpr uint32_t group_size_range_max() {
+		return FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MAX;
+	}
+	
 	//! returns the expected SIMD-width of the device (or 0 if unknown)
 	//! NOTE: for certain devices this might be variable both at run-time and at compile-time,
 	//!       use simd_width_min() and simd_width_max() to retrieve the expected range
@@ -240,6 +300,19 @@ namespace device_info {
 	}
 	
 }
+
+//! range attribute containing the global [min, max] id range
+#define FLOOR_GLOBAL_ID_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN, FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MAX)]]
+//! range attribute containing the global [min, max] size range
+#define FLOOR_GLOBAL_SIZE_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MIN, FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MAX)]]
+//! range attribute containing the local [min, max] id range
+#define FLOOR_LOCAL_ID_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MIN, FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX)]]
+//! range attribute containing the local [min, max] size range
+#define FLOOR_LOCAL_SIZE_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MIN, FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX)]]
+//! range attribute containing the group [min, max] id range
+#define FLOOR_GROUP_ID_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MIN, FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MAX)]]
+//! range attribute containing the group [min, max] size range
+#define FLOOR_GROUP_SIZE_RANGE_ATTR [[range(FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MIN, FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MAX)]]
 
 #endif
 

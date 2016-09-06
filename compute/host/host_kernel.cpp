@@ -488,7 +488,7 @@ static void floor_alloc_host_memory() {
 	
 #if defined(FLOOR_HOST_COMPUTE_MT_GROUP)
 	if(floor_stack_memory_data == nullptr) {
-		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * host_limits::max_work_group_size] alignas(1024);
+		floor_stack_memory_data = new uint8_t[floor_max_thread_count * item_stack_size * host_limits::max_total_local_size] alignas(1024);
 	}
 #endif
 }

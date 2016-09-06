@@ -65,16 +65,16 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 					cuda_kernel::cuda_kernel_entry entry;
 					entry.info = &info;
 					entry.kernel_args_size = compute_kernel_args_size(info);
-					entry.max_work_group_item_sizes = prog.first->max_work_group_item_sizes;
+					entry.max_local_size = prog.first->max_local_size;
 					
 					CU_CALL_CONT(cu_module_get_function(&entry.kernel, prog.second.program, kernel_name.c_str()),
 								 "failed to get function \"" + kernel_name + "\"");
 					
 					// retrieve max local work size for this kernel for this device
-					int max_local_work_size = 0;
-					CU_CALL_IGNORE(cu_function_get_attribute(&max_local_work_size,
+					int max_total_local_size = 0;
+					CU_CALL_IGNORE(cu_function_get_attribute(&max_total_local_size,
 															 CU_FUNCTION_ATTRIBUTE::MAX_THREADS_PER_BLOCK, entry.kernel));
-					entry.max_local_work_size = (max_local_work_size < 0 ? 0 : (uint32_t)max_local_work_size);
+					entry.max_total_local_size = (max_total_local_size < 0 ? 0 : (uint32_t)max_total_local_size);
 					
 #if 0
 					// use this to compute max occupancy

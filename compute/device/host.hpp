@@ -53,7 +53,7 @@ floor_inline_always __attribute__((const)) static uint32_t get_group_id(uint32_t
 	if(dim >= floor_work_dim) return 0;
 	return floor_group_idx[dim];
 }
-floor_inline_always __attribute__((const)) static uint32_t get_num_groups(uint32_t dim) {
+floor_inline_always __attribute__((const)) static uint32_t get_group_size(uint32_t dim) {
 	if(dim >= floor_work_dim) return 1;
 	return floor_group_size[dim];
 }

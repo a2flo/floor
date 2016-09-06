@@ -19,6 +19,26 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_HOST_LIMITS_HPP__
 #define __FLOOR_COMPUTE_DEVICE_HOST_LIMITS_HPP__
 
+// id/size ranges
+#define FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MIN 0u
+#define FLOOR_COMPUTE_INFO_GLOBAL_ID_RANGE_MAX 0xFFFFFFFFu
+#define FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MIN 0u
+#define FLOOR_COMPUTE_INFO_GLOBAL_SIZE_RANGE_MAX 0xFFFFFFFFu
+#define FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MIN 0u
+#define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MIN 1u
+#define FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MIN 0u
+#define FLOOR_COMPUTE_INFO_GROUP_ID_RANGE_MAX 0xFFFFFFFFu
+#define FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MIN 1u
+#define FLOOR_COMPUTE_INFO_GROUP_SIZE_RANGE_MAX 0xFFFFFFFFu
+
+#if !defined(__WINDOWS__)
+#define FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX 1024u
+#define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX 1024u
+#else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
+#define FLOOR_COMPUTE_INFO_LOCAL_ID_RANGE_MAX 64u
+#define FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX 64u
+#endif
+
 namespace host_limits {
 	//! max amout of local memory that can be allocated per work-group
 	static constexpr const size_t local_memory_size { 128ull * 1024ull * 1024ull };
@@ -35,12 +55,8 @@ namespace host_limits {
 #endif
 	
 	//! max work-items per work-group (max #fibers)
-	static constexpr const uint32_t max_work_group_size {
-#if !defined(__WINDOWS__)
-		1024
-#else // due to memory restrictions with windows fibers, this shouldn't be higher than 64
-		64
-#endif
+	static constexpr const uint32_t max_total_local_size {
+		FLOOR_COMPUTE_INFO_LOCAL_SIZE_RANGE_MAX
 	};
 	
 }

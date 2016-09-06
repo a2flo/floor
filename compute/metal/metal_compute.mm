@@ -269,8 +269,8 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 		}
 		device->local_mem_size = 16384;
-		device->max_work_group_size = 512;
-		device->max_work_item_sizes = { 0xFFFFFFFFu };
+		device->max_total_local_size = 512;
+		device->max_global_size = { 0xFFFFFFFFu };
 		device->double_support = false; // double config is 0
 		device->unified_memory = true;
 		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
@@ -312,11 +312,11 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 			device->family_version = device->family - 10000 + 1;
 		}
 		device->local_mem_size = [dev_spi maxComputeThreadgroupMemory];
-		device->max_work_group_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
+		device->max_total_local_size = (uint32_t)[dev_spi maxTotalComputeThreadsPerThreadgroup];
 		device->units = 0; // sadly unknown and impossible to query
 		device->clock = 0;
 		device->mem_clock = 0;
-		device->max_work_item_sizes = { 0xFFFFFFFFu };
+		device->max_global_size = { 0xFFFFFFFFu };
 		device->double_support = ([dev_spi doubleFPConfig] > 0);
 		device->unified_memory = true; // TODO: not sure about this?
 		device->max_image_1d_buffer_dim = { 0 }; // N/A on metal
@@ -326,12 +326,15 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->image_cube_write_support = true;
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
-		device->max_work_group_item_sizes = {
+		device->max_group_size = { 0xFFFFFFFFu };
+		device->max_local_size = {
 			(uint32_t)[dev maxThreadsPerThreadgroup].width,
 			(uint32_t)[dev maxThreadsPerThreadgroup].height,
 			(uint32_t)[dev maxThreadsPerThreadgroup].depth
 		};
-		log_msg("max work-group item sizes: %v", device->max_work_group_item_sizes);
+		log_msg("max total local size: %v", device->max_total_local_size);
+		log_msg("max local size: %v", device->max_local_size);
+		log_msg("max global size: %v", device->max_global_size);
 		
 		device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
 																					  device->max_image_3d_dim.max_element()),

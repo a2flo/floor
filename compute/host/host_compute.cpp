@@ -172,11 +172,11 @@ host_compute::host_compute() : compute_context() {
 	}
 	
 #if 0 // mt-item
-	device->max_work_group_size = device->units;
-	device->max_work_group_item_sizes = { device->units, device->units, device->units };
+	device->max_total_local_size = device->units;
+	device->max_local_size = { device->units, device->units, device->units };
 #else // mt-group
-	device->max_work_group_size = host_limits::max_work_group_size;
-	device->max_work_group_item_sizes = { host_limits::max_work_group_size };
+	device->max_total_local_size = host_limits::max_total_local_size;
+	device->max_local_size = { host_limits::max_total_local_size };
 #endif
 	device->max_image_1d_buffer_dim = { (size_t)std::min(device->max_mem_alloc, uint64_t(0xFFFFFFFFu)) };
 	

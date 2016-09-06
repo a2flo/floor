@@ -71,19 +71,19 @@
 #define sub_group_size FLOOR_COMPUTE_INFO_SIMD_WIDTH
 #define sub_group_count __nvvm_read_ptx_sreg_nwarpid()
 
-const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_ctaid_x() * __nvvm_read_ptx_sreg_ntid_x() + __nvvm_read_ptx_sreg_tid_x();
 }
-const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_ctaid_y() * __nvvm_read_ptx_sreg_ntid_y() + __nvvm_read_ptx_sreg_tid_y();
 }
-const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_ctaid_z() * __nvvm_read_ptx_sreg_ntid_z() + __nvvm_read_ptx_sreg_tid_z();
 }
-static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_GLOBAL_ID_RANGE_ATTR static uint32_t get_global_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_GLOBAL_ID_RANGE_ATTR const_func static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_ctaid_x() * __nvvm_read_ptx_sreg_ntid_x() + __nvvm_read_ptx_sreg_tid_x();
 		case 1: return __nvvm_read_ptx_sreg_ctaid_y() * __nvvm_read_ptx_sreg_ntid_y() + __nvvm_read_ptx_sreg_tid_y();
@@ -91,19 +91,19 @@ const_func static uint32_t get_global_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 		default: return 0;
 	}
 }
-const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_nctaid_x() * __nvvm_read_ptx_sreg_ntid_x();
 }
-const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_nctaid_y() * __nvvm_read_ptx_sreg_ntid_y();
 }
-const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_nctaid_z() * __nvvm_read_ptx_sreg_ntid_z();
 }
-static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_GLOBAL_SIZE_RANGE_ATTR static uint32_t get_global_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_GLOBAL_SIZE_RANGE_ATTR const_func static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_nctaid_x() * __nvvm_read_ptx_sreg_ntid_x();
 		case 1: return __nvvm_read_ptx_sreg_nctaid_y() * __nvvm_read_ptx_sreg_ntid_y();
@@ -112,19 +112,19 @@ const_func static uint32_t get_global_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_LOCAL_ID_RANGE_ATTR const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_tid_x();
 }
-const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_LOCAL_ID_RANGE_ATTR const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_tid_y();
 }
-const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_LOCAL_ID_RANGE_ATTR const_func static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_tid_z();
 }
-static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_LOCAL_ID_RANGE_ATTR static uint32_t get_local_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_LOCAL_ID_RANGE_ATTR const_func static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_tid_x();
 		case 1: return __nvvm_read_ptx_sreg_tid_y();
@@ -133,19 +133,19 @@ const_func static uint32_t get_local_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_ntid_x();
 }
-const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_ntid_y();
 }
-const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_ntid_z();
 }
-static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_LOCAL_SIZE_RANGE_ATTR static uint32_t get_local_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_LOCAL_SIZE_RANGE_ATTR const_func static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_ntid_x();
 		case 1: return __nvvm_read_ptx_sreg_ntid_y();
@@ -154,19 +154,19 @@ const_func static uint32_t get_local_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_GROUP_ID_RANGE_ATTR const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_ctaid_x();
 }
-const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_GROUP_ID_RANGE_ATTR const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_ctaid_y();
 }
-const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_GROUP_ID_RANGE_ATTR const_func static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_ctaid_z();
 }
-static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_GROUP_ID_RANGE_ATTR static uint32_t get_group_id(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_GROUP_ID_RANGE_ATTR const_func static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_ctaid_x();
 		case 1: return __nvvm_read_ptx_sreg_ctaid_y();
@@ -175,19 +175,19 @@ const_func static uint32_t get_group_id(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func static uint32_t get_group_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM0 {
 	return __nvvm_read_ptx_sreg_nctaid_x();
 }
-const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func static uint32_t get_group_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM1 {
 	return __nvvm_read_ptx_sreg_nctaid_y();
 }
-const_func static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func static uint32_t get_group_size(uint32_t dim floor_unused) FLOOR_CUDA_DIM2 {
 	return __nvvm_read_ptx_sreg_nctaid_z();
 }
-static uint32_t get_num_groups(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
+FLOOR_GROUP_SIZE_RANGE_ATTR static uint32_t get_group_size(uint32_t dim floor_unused) FLOOR_CUDA_INVALID {
 	return 42;
 }
-const_func static uint32_t get_num_groups(uint32_t dim) FLOOR_CUDA_DIM_RT {
+FLOOR_GROUP_SIZE_RANGE_ATTR const_func static uint32_t get_group_size(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	switch(dim) {
 		case 0: return __nvvm_read_ptx_sreg_nctaid_x();
 		case 1: return __nvvm_read_ptx_sreg_nctaid_y();
@@ -196,7 +196,7 @@ const_func static uint32_t get_num_groups(uint32_t dim) FLOOR_CUDA_DIM_RT {
 	}
 }
 
-const_func static uint32_t get_work_dim() {
+[[range(1u, 3u)]] const_func static uint32_t get_work_dim() {
 	// grid dim (X, Y, Z)
 	// -> if Z is 1, must either be 1D or 2D
 	if(__nvvm_read_ptx_sreg_nctaid_z() == 1) {
