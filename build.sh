@@ -71,6 +71,7 @@ fi
 ##########################################
 # arg handling
 BUILD_MODE="release"
+BUILD_CLEAN=0
 BUILD_REBUILD=0
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
@@ -163,7 +164,7 @@ for arg in "$@"; do
 			BUILD_REBUILD=1
 			;;
 		"clean")
-			BUILD_MODE="clean"
+			BUILD_CLEAN=1
 			;;
 		"-v")
 			BUILD_VERBOSE=1
@@ -383,7 +384,7 @@ CUR_DIR=$(pwd)
 ESC_CUR_DIR=$(echo ${CUR_DIR} | sed -E "s/\//\\\\\//g")
 
 # trigger full rebuild if build.sh is newer than the target bin or the target bin doesn't exist
-if [ ${BUILD_MODE} != "clean" ]; then
+if [ ${BUILD_CLEAN} -eq 0 ]; then
 	if [ ! -f ${BIN_DIR}/${TARGET_BIN_NAME} ]; then
 		info "rebuilding because the target bin doesn't exist ..."
 		BUILD_REBUILD=1
@@ -622,7 +623,7 @@ fi
 LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib -L/opt/floor/lib"
 
 # create the floor_conf.hpp file
-if [ ${BUILD_MODE} != "clean" ]; then
+if [ ${BUILD_CLEAN} -eq 0 ]; then
 	CONF=$(cat floor/floor_conf.hpp.in)
 	set_conf_val() {
 		repl_text="$1"
@@ -672,7 +673,7 @@ fi
 eval $(${CXX} -E -dM -I../ floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 TARGET_VERSION="${FLOOR_MAJOR_VERSION}.${FLOOR_MINOR_VERSION}.${FLOOR_REVISION_VERSION}"
 TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION_STR}-${FLOOR_BUILD_VERSION}"
-if [ ${BUILD_MODE} != "clean" ]; then
+if [ ${BUILD_CLEAN} -eq 0 ]; then
 	info "building ${TARGET_NAME} v${TARGET_FULL_VERSION} (${BUILD_MODE})"
 fi
 
@@ -887,36 +888,37 @@ for source_file in ${SRC_FILES}; do
 done
 
 # set flags depending on the build mode, or make a clean exit
-case ${BUILD_MODE} in
-	"release")
-		# release mode (default): add release mode flags/optimizations
-		CXXFLAGS="${CXXFLAGS} ${REL_FLAGS}"
-		CFLAGS="${CFLAGS} ${REL_FLAGS}"
-		;;
-	"release_opt")
-		# release mode + additional optimizations: add release mode and opt flags
-		CXXFLAGS="${CXXFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
-		CFLAGS="${CFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
-		LDFLAGS="${LDFLAGS} ${REL_OPT_LD_FLAGS}"
-		;;
-	"debug")
-		# debug mode: add debug flags
-		CXXFLAGS="${CXXFLAGS} ${DEBUG_FLAGS}"
-		CFLAGS="${CFLAGS} ${DEBUG_FLAGS}"
-		;;
-	"clean")
-		# delete the target binary and the complete build folder (all object files)
-		info "cleaning ..."
-		rm -f ${TARGET_BIN}
-		rm -f ${TARGET_STATIC_BIN}
-		rm -f ${PCH_BIN_NAME}
-		rm -Rf ${BUILD_DIR}
-		exit 0
-		;;
-	*)
-		error "unknown build mode: ${BUILD_MODE}"
-		;;
-esac
+if [ ${BUILD_CLEAN} -gt 0 ]; then
+	# delete the target binary and the complete build folder (all object files)
+	info "cleaning ${BUILD_MODE} ..."
+	rm -f ${TARGET_BIN}
+	rm -f ${TARGET_STATIC_BIN}
+	rm -f ${PCH_BIN_NAME}
+	rm -Rf ${BUILD_DIR}
+	exit 0
+else
+	case ${BUILD_MODE} in
+		"release")
+			# release mode (default): add release mode flags/optimizations
+			CXXFLAGS="${CXXFLAGS} ${REL_FLAGS}"
+			CFLAGS="${CFLAGS} ${REL_FLAGS}"
+			;;
+		"release_opt")
+			# release mode + additional optimizations: add release mode and opt flags
+			CXXFLAGS="${CXXFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
+			CFLAGS="${CFLAGS} ${REL_FLAGS} ${REL_OPT_FLAGS}"
+			LDFLAGS="${LDFLAGS} ${REL_OPT_LD_FLAGS}"
+			;;
+		"debug")
+			# debug mode: add debug flags
+			CXXFLAGS="${CXXFLAGS} ${DEBUG_FLAGS}"
+			CFLAGS="${CFLAGS} ${DEBUG_FLAGS}"
+			;;
+		*)
+			error "unknown build mode: ${BUILD_MODE}"
+			;;
+	esac
+fi
 
 if [ ${BUILD_VERBOSE} -gt 1 ]; then
 	CXXFLAGS="${CXXFLAGS} -v"

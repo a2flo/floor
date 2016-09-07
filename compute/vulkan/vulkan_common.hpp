@@ -76,6 +76,13 @@ constexpr const char* vulkan_error_to_string(const int& error_code) {
 		continue; \
 	} \
 }
+#define VK_CALL_BREAK(call, error_msg) { \
+	const int32_t call_err_var = call; \
+	if(call_err_var != VK_SUCCESS) { \
+		log_error("%s: %u: %s", error_msg, call_err_var, vulkan_error_to_string(call_err_var)); \
+		break; \
+	} \
+}
 #define VK_CALL_ERR_PARAM_RET(call, err_var_name, error_msg, ...) { \
 	int32_t err_var_name = VK_SUCCESS; \
 	call; \

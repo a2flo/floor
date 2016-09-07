@@ -128,7 +128,8 @@ void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, c
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, void* dst, const size_t size_, const size_t offset) {
+void vulkan_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst floor_unused,
+						 const size_t size_ floor_unused, const size_t offset floor_unused) {
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
@@ -138,23 +139,24 @@ void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, 
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src, const size_t size_, const size_t offset) {
+void vulkan_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src floor_unused,
+						  const size_t size_ floor_unused, const size_t offset floor_unused) {
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
 }
 
-void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue,
-						 shared_ptr<compute_buffer> src,
-						 const size_t size_, const size_t src_offset, const size_t dst_offset) {
+void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,
+						 shared_ptr<compute_buffer> src floor_unused,
+						 const size_t size_ floor_unused, const size_t src_offset floor_unused, const size_t dst_offset floor_unused) {
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
 }
 
-void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue,
-						 const void* pattern, const size_t& pattern_size,
-						 const size_t size_, const size_t offset) {
+void vulkan_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
+						 const void* pattern floor_unused, const size_t& pattern_size floor_unused,
+						 const size_t size_ floor_unused, const size_t offset floor_unused) {
 	if(buffer == nullptr) return;
 	
 	// TODO: implement this
@@ -179,9 +181,9 @@ void vulkan_buffer::zero(shared_ptr<compute_queue> cqueue) {
 	((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer);
 }
 
-bool vulkan_buffer::resize(shared_ptr<compute_queue> cqueue, const size_t& new_size_,
-						   const bool copy_old_data, const bool copy_host_data,
-						   void* new_host_ptr) {
+bool vulkan_buffer::resize(shared_ptr<compute_queue> cqueue floor_unused, const size_t& new_size_ floor_unused,
+						   const bool copy_old_data floor_unused, const bool copy_host_data floor_unused,
+						   void* new_host_ptr floor_unused) {
 	// TODO: implement this
 	return false;
 }
@@ -329,33 +331,33 @@ void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 		return;
 	}
 	
-	// TODO: again, make sure this is cleaned up properly on failure
-	
 	// check if we need to actually copy data back to the device (not the case if read-only mapping)
 	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
 	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
 		if(!dev->unified_memory) {
-			// host -> device copy
-			// TODO: sync ...
-			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev buffer copy"); // TODO: should probably abstract this a little
-			const VkCommandBufferBeginInfo begin_info {
-				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-				.pNext = nullptr,
-				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-				.pInheritanceInfo = nullptr,
-			};
-			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-						"failed to begin command buffer");
-		
-			const VkBufferCopy region {
-				.srcOffset = 0,
-				.dstOffset = iter->second.offset,
-				.size = iter->second.size,
-			};
-			vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, buffer, 1, &region);
-		
-			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
-			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+			do {
+				// host -> device copy
+				// TODO: sync ...
+				auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev buffer copy"); // TODO: should probably abstract this a little
+				const VkCommandBufferBeginInfo begin_info {
+					.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+					.pNext = nullptr,
+					.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+					.pInheritanceInfo = nullptr,
+				};
+				VK_CALL_BREAK(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+							  "failed to begin command buffer");
+				
+				const VkBufferCopy region {
+					.srcOffset = 0,
+					.dstOffset = iter->second.offset,
+					.size = iter->second.size,
+				};
+				vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, buffer, 1, &region);
+				
+				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+				((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+			} while(false);
 		}
 		else {
 			// TODO: flush?
@@ -367,7 +369,15 @@ void vulkan_buffer::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	// also: TODO: SYNC!
 	vkUnmapMemory(vulkan_dev, iter->second.mem);
 	
-	// TODO: delete host buffer
+	// delete host buffer
+	if(!dev->unified_memory) {
+		if(iter->second.buffer != nullptr) {
+			vkDestroyBuffer(vulkan_dev, iter->second.buffer, nullptr);
+		}
+		if(iter->second.mem != nullptr) {
+			vkFreeMemory(vulkan_dev, iter->second.mem, nullptr);
+		}
+	}
 	
 	// remove the mapping
 	mappings.erase(mapped_ptr);

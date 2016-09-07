@@ -119,7 +119,8 @@ pair<VkFence, uint32_t> vulkan_queue::acquire_fence() {
 }
 
 void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fence) {
-	vkResetFences(dev, 1, &fence.first);
+	VK_CALL_RET(vkResetFences(dev, 1, &fence.first),
+				"failed to reset fence");
 	
 	GUARD(fence_lock);
 	fences_in_use.reset(fence.second);

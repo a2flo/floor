@@ -48,7 +48,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 	}
 }
 
-bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
+bool vulkan_image::create_internal(const bool copy_host_data floor_unused, shared_ptr<compute_queue> cqueue floor_unused) {
 	// TODO: implement this
 	return false;
 }
@@ -57,19 +57,21 @@ vulkan_image::~vulkan_image() {
 	// TODO: implement this
 }
 
-void vulkan_image::zero(shared_ptr<compute_queue> cqueue) {
+void vulkan_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
 	if(image == nullptr) return;
 	// TODO: implement this
 }
 
-void* __attribute__((aligned(128))) vulkan_image::map(shared_ptr<compute_queue> cqueue, const COMPUTE_MEMORY_MAP_FLAG flags_) {
+void* __attribute__((aligned(128))) vulkan_image::map(shared_ptr<compute_queue> cqueue floor_unused,
+													  const COMPUTE_MEMORY_MAP_FLAG flags_ floor_unused) {
 	if(image == nullptr) return nullptr;
 	
 	// TODO: implement this
 	return nullptr;
 }
 
-void vulkan_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
+void vulkan_image::unmap(shared_ptr<compute_queue> cqueue floor_unused,
+						 void* __attribute__((aligned(128))) mapped_ptr) {
 	if(image == nullptr) return;
 	if(mapped_ptr == nullptr) return;
 	
