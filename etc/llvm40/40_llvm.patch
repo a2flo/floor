@@ -22641,10 +22641,10 @@ index 0000000..956aff5
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..a7700c0
+index 0000000..0cc4f55
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2690 @@
+@@ -0,0 +1,2687 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -24720,12 +24720,12 @@ index 0000000..a7700c0
 +             arg.hasAttribute(Attribute::DereferenceableOrNull))) {
 +          // -> Block uniform (TODO: could also make this a push constant later
 +          // on)
-+          auto GV = emitShaderGlobal(
-+              *F, spirv_func, arg_name.str(), elem_type, SPIRAS_Uniform,
-+              spirv_global_io_type{
-+                  .is_constant = true, .is_uniform = true, .is_read_only = true,
-+              },
-+              &uniform_var);
++          spirv_global_io_type global_type;
++          global_type.is_constant = true;
++          global_type.is_uniform = true;
++          global_type.is_read_only = true;
++          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
++                                     SPIRAS_Uniform, global_type, &uniform_var);
 +          arg.replaceAllUsesWith(GV);
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Uniform) {
 +          // all image types are opaque/unsized
@@ -24734,17 +24734,15 @@ index 0000000..a7700c0
 +            errs() << "images are not handled yet\n";
 +          } else {
 +            // -> BufferBlock uniform (SSBO)
-+            const bool is_read_only = arg.onlyReadsMemory();
-+            const bool is_write_only =
-+                (!is_read_only ? is_write_only_arg(*F, arg) : false);
-+            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
-+                                       elem_type, SPIRAS_Uniform,
-+                                       spirv_global_io_type{
-+                                           .is_uniform = true,
-+                                           .is_read_only = is_read_only,
-+                                           .is_write_only = is_write_only,
-+                                       },
-+                                       &uniform_var);
++            spirv_global_io_type global_type;
++            global_type.is_uniform = true;
++            global_type.is_read_only = arg.onlyReadsMemory();
++            global_type.is_write_only =
++                (!global_type.is_read_only ? is_write_only_arg(*F, arg)
++                                           : false);
++            auto GV =
++                emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
++                                 SPIRAS_Uniform, global_type, &uniform_var);
 +            arg.replaceAllUsesWith(GV);
 +          }
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Local) {
@@ -24777,11 +24775,11 @@ index 0000000..a7700c0
 +              is_builtin_valid_in_stage(builtin.first, stage, true /* input */);
 +          if (is_valid) {
 +            llvm::Type *elem_type = arg_type->getPointerElementType();
++            spirv_global_io_type global_type;
++            global_type.is_input = true;
++            global_type.is_builtin = true;
 +            auto repl_var = emitShaderGlobal(
-+                *F, spirv_func, arg_name, elem_type, SPIRAS_Input,
-+                spirv_global_io_type{
-+                    .is_input = true, .is_builtin = true,
-+                },
++                *F, spirv_func, arg_name, elem_type, SPIRAS_Input, global_type,
 +                nullptr, builtin.first);
 +            arg.replaceAllUsesWith(repl_var);
 +          } else {
@@ -24794,11 +24792,11 @@ index 0000000..a7700c0
 +          }
 +        } else {
 +          // -> stage input
-+          auto repl_var =
-+              emitShaderGlobal(*F, spirv_func, arg_name, arg_type, SPIRAS_Input,
-+                               spirv_global_io_type{
-+                                   .is_input = true, .is_read_only = true,
-+                               });
++          spirv_global_io_type global_type;
++          global_type.is_input = true;
++          global_type.is_read_only = true;
++          auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
++                                           SPIRAS_Input, global_type);
 +          // only emit load if there actually is a user
 +          if (arg.getNumUses() > 0) {
 +            LoadInst *load_repl_var = new LoadInst(repl_var, arg_name, false,
@@ -24836,11 +24834,11 @@ index 0000000..a7700c0
 +          const auto is_valid = is_builtin_valid_in_stage(builtin.first, stage,
 +                                                          false /* output */);
 +          if (is_valid) {
++            spirv_global_io_type global_type;
++            global_type.is_builtin = true;
++            global_type.is_write_only = true;
 +            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
-+                                  spirv_global_io_type{
-+                                      .is_builtin = true, .is_write_only = true,
-+                                  },
-+                                  builtin.first);
++                                  global_type, builtin.first);
 +          } else {
 +            // TODO: should catch this earlier
 +            errs() << "output builtin \"" << md_data_output[output_arg_idx]
@@ -24848,11 +24846,10 @@ index 0000000..a7700c0
 +                   << vulkan_stage_to_string(stage) << "\"\n";
 +          }
 +        } else if (is_fbo_output) {
-+          auto fbo_output_var =
-+              emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
-+                                    spirv_global_io_type{
-+                                        .is_write_only = true,
-+                                    });
++          spirv_global_io_type global_type;
++          global_type.is_write_only = true;
++          auto fbo_output_var = emitShaderSPIRVGlobal(
++              spirv_func, GV, output_name, SPIRAS_Output, global_type);
 +
 +          // extract location idx + add the resp. decoration
 +          const auto location_str = md_data_output[output_arg_idx].substr(
@@ -24862,10 +24859,10 @@ index 0000000..a7700c0
 +          fbo_output_var->addDecorate(
 +              new SPIRVDecorate(DecorationLocation, fbo_output_var, location));
 +        } else {
++          spirv_global_io_type global_type;
++          global_type.is_write_only = true;
 +          emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
-+                                spirv_global_io_type{
-+                                    .is_write_only = true,
-+                                });
++                                global_type);
 +        }
 +        ++output_arg_idx;
 +      }
