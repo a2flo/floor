@@ -10389,7 +10389,7 @@ index 50bf690..8091ca1 100644
   Target
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
 new file mode 100644
-index 0000000..d684951
+index 0000000..50b991d
 --- /dev/null
 +++ b/lib/SPIRV/CMakeLists.txt
 @@ -0,0 +1,44 @@
@@ -10401,7 +10401,7 @@ index 0000000..d684951
 +if ( SPIRV_USE_LLVM_API )
 +  add_definitions(-D_SPIRV_LLVM_API)
 +  # silence numerous warnings
-+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments -Wno-inconsistent-missing-override")
++  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-gnu-zero-variadic-macro-arguments -Wno-inconsistent-missing-override -Wno-c99-extensions")
 +endif()
 +
 +add_llvm_library(LLVMSPIRVLib
@@ -22641,10 +22641,10 @@ index 0000000..956aff5
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..9549f7c
+index 0000000..a7700c0
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2580 @@
+@@ -0,0 +1,2690 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -22953,6 +22953,30 @@ index 0000000..9549f7c
 +  void decorateComposite(llvm::Type *llvm_type, SPIRVType *spirv_type);
 +
 +  bool ignore_next_unreachable{false};
++
++  //
++  struct spirv_global_io_type {
++    bool is_constant{false};
++    bool is_uniform{false};
++    bool is_input{false};
++    bool is_builtin{false};
++    bool is_read_only{false};
++    bool is_write_only{false};
++  };
++
++  GlobalVariable *
++  emitShaderGlobal(const Function &F, SPIRVFunction *spirv_func,
++                   const std::string &var_name, llvm::Type *llvm_type,
++                   uint32_t address_space,
++                   const spirv_global_io_type global_type,
++                   SPIRVVariable **created_spirv_var = nullptr,
++                   spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition);
++
++  SPIRVVariable *
++  emitShaderSPIRVGlobal(SPIRVFunction *spirv_func, const GlobalVariable &GV,
++                        const std::string &var_name, uint32_t address_space,
++                        const spirv_global_io_type global_type,
++                        spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition);
 +};
 +
 +SPIRVValue *LLVMToSPIRV::getTranslatedValue(Value *V) {
@@ -24253,6 +24277,175 @@ index 0000000..9549f7c
 +  }
 +}
 +
++SPIRVVariable *LLVMToSPIRV::emitShaderSPIRVGlobal(
++    SPIRVFunction *spirv_func, const GlobalVariable &GV,
++    const std::string &var_name, uint32_t address_space,
++    const spirv_global_io_type global_type, spv::BuiltIn builtin) {
++  spv::StorageClass storage_class = spv::StorageClassUniform;
++  if (global_type.is_builtin) {
++    storage_class = (global_type.is_input ? spv::StorageClassInput
++                                          : spv::StorageClassOutput);
++  } else if (global_type.is_input) {
++    storage_class = spv::StorageClassInput;
++  } else if (global_type.is_uniform) {
++    storage_class = spv::StorageClassUniform;
++  } else {
++    storage_class = spv::StorageClassOutput;
++  }
++
++  SPIRVType *mapped_type = nullptr;
++  if (global_type.is_uniform) {
++    assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
++    auto elem_type = GV.getType()->getPointerElementType();
++    auto spirv_elem_type = transType(elem_type);
++    if (!global_type.is_constant) {
++      // this is a SSBO with an unknown size, switch out the top pointer
++      // type with a runtime array type
++      auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
++      std::string enclosing_type_name = "enclose.";
++      if (elem_type->isStructTy()) {
++        enclosing_type_name += elem_type->getStructName().str();
++      } else {
++        std::string type_str = "";
++        llvm::raw_string_ostream type_stream(type_str);
++        elem_type->print(type_stream, false, true);
++        enclosing_type_name += type_stream.str();
++      }
++      auto enclosing_type = BM->openStructType(1, enclosing_type_name);
++      enclosing_type->setMemberType(0, rtarr_type);
++      BM->closeStructType(enclosing_type, false);
++      mapped_type =
++          BM->addPointerType(spv::StorageClassUniform, enclosing_type);
++
++      // add required deco
++      enclosing_type->addDecorate(
++          new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
++      enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
++      rtarr_type->addDecorate(spv::DecorationArrayStride,
++                              M->getDataLayout().getTypeStoreSize(elem_type));
++    } else {
++      assert(elem_type->isStructTy() && "uniform type must be a struct");
++
++      mapped_type = transType(GV.getType());
++
++      // deco
++      spirv_elem_type->addDecorate(
++          new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++    }
++    decorateComposite(elem_type, spirv_elem_type);
++  } else {
++    mapped_type = transType(GV.getType());
++  }
++
++  auto BVar = static_cast<SPIRVVariable *>(
++      BM->addVariable(mapped_type, false, spv::LinkageTypeInternal, nullptr,
++                      GV.getName(), storage_class, nullptr));
++  BM->setName(BVar, GV.getName().str());
++  mapValue((Value *)&GV, BVar);
++
++  if (global_type.is_builtin) {
++    BVar->setBuiltin(builtin);
++  }
++
++  if (!global_type.is_uniform) {
++    BM->addEntryPointIO(spirv_func->getId(), BVar);
++  }
++
++  // set non-readable/-writable deco on SSBOs
++  if (global_type.is_uniform && !global_type.is_constant) {
++    if (global_type.is_read_only) {
++      BVar->addDecorate(new SPIRVDecorate(DecorationNonWritable, BVar));
++    } else if (global_type.is_write_only) {
++      BVar->addDecorate(new SPIRVDecorate(DecorationNonReadable, BVar));
++    }
++  }
++
++  return BVar;
++}
++
++GlobalVariable *LLVMToSPIRV::emitShaderGlobal(
++    const Function &F, SPIRVFunction *spirv_func, const std::string &var_name,
++    llvm::Type *llvm_type, uint32_t address_space,
++    const spirv_global_io_type global_type, SPIRVVariable **created_spirv_var,
++    spv::BuiltIn builtin) {
++  std::string name_type = ".";
++  if (global_type.is_builtin) {
++    name_type = (global_type.is_input ? ".vulkan_builtin_input."
++                                      : ".vulkan_builtin_output.");
++  } else if (global_type.is_input) {
++    name_type = ".vulkan_input.";
++  } else if (global_type.is_uniform) {
++    name_type = ".vulkan_uniform.";
++  }
++
++  auto GV =
++      new GlobalVariable(*M, llvm_type, false, GlobalVariable::InternalLinkage,
++                         nullptr, F.getName().str() + name_type + var_name,
++                         nullptr, GlobalValue::NotThreadLocal, address_space);
++
++  // also add the SPIR-V global
++  auto spirv_var = emitShaderSPIRVGlobal(spirv_func, *GV, var_name,
++                                         address_space, global_type, builtin);
++  if (created_spirv_var != nullptr) {
++    *created_spirv_var = spirv_var;
++  }
++
++  return GV;
++}
++
++// helper function to figure out if a SSBO argument is only being written to
++// TODO/NOTE: since WriteOnly is a fairly new attribute, the FunctionAttrs pass
++// can't handle it yet (like it does for readonly/readnone) -> once it can infer
++// the WriteOnly attribute, use that instead
++static bool is_write_only_arg(Function &F, Argument &arg) {
++  // since Vulkan/SPIR-V is very restrictive on pointer usage, that makes this
++  // rather simple. however, we still bail out if we find something that we
++  // can't handle.
++  const std::function<bool(Value *)> user_recurse =
++      [&user_recurse](Value *val) {
++        for (User *user : val->users()) {
++          // is read from -> bail
++          if (isa<LoadInst>(user)) {
++            return false;
++          }
++          // is written to -> continue
++          else if (isa<StoreInst>(user)) {
++            continue;
++          }
++          // recurse for GEPs
++          else if (isa<GetElementPtrInst>(user)) {
++            // bail if GEP is used for loads
++            if (!user_recurse(user)) {
++              return false;
++            }
++          }
++          // calls are somewhat tricky
++          else if (CallInst *CI = dyn_cast<CallInst>(user)) {
++            // does read -> bail
++            if (!CI->doesNotReadMemory()) {
++              return false;
++            }
++            // we don't know what the call is doing exactly, but if it does
++            // return a pointer, assume it's us
++            if (CI->getType()->isPointerTy()) {
++              if (!user_recurse(user)) {
++                return false;
++              }
++            }
++          }
++          // NOTE: Vulkan/SPIR-V doesn't allow pointer usage in
++          // select/phi/bitcast, so we're good here
++          // unknown usage -> assume it's being read
++          else {
++            return false;
++          }
++        }
++        // didn't find any loads -> write-only
++        return true;
++      };
++  return user_recurse(&arg);
++}
++
 +void LLVMToSPIRV::transFunction(Function *F) {
 +  // again, ignore any floor.* functions
 +  if (F->getName().startswith("floor."))
@@ -24280,116 +24473,6 @@ index 0000000..9549f7c
 +    default:
 +      return;
 +    }
-+
-+    const auto emit_spirv_global = [this, &spirv_func](
-+        const GlobalVariable &GV, const std::string &var_name,
-+        uint32_t address_space, bool is_constant, bool is_uniform,
-+        bool is_input, bool is_builtin,
-+        spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition) {
-+      spv::StorageClass storage_class = spv::StorageClassUniform;
-+      if (is_builtin) {
-+        storage_class =
-+            (is_input ? spv::StorageClassInput : spv::StorageClassOutput);
-+      } else if (is_input) {
-+        storage_class = spv::StorageClassInput;
-+      } else if (is_uniform) {
-+        storage_class = spv::StorageClassUniform;
-+      } else {
-+        storage_class = spv::StorageClassOutput;
-+      }
-+
-+      SPIRVType *mapped_type = nullptr;
-+      if (is_uniform) {
-+        assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
-+        auto elem_type = GV.getType()->getPointerElementType();
-+        auto spirv_elem_type = transType(elem_type);
-+        if (!is_constant) {
-+          // this is a SSBO with an unknown size, switch out the top pointer
-+          // type with a runtime array type
-+          auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
-+          std::string enclosing_type_name = "enclose.";
-+          if (elem_type->isStructTy()) {
-+            enclosing_type_name += elem_type->getStructName().str();
-+          } else {
-+            std::string type_str = "";
-+            llvm::raw_string_ostream type_stream(type_str);
-+            elem_type->print(type_stream, false, true);
-+            enclosing_type_name += type_stream.str();
-+          }
-+          auto enclosing_type = BM->openStructType(1, enclosing_type_name);
-+          enclosing_type->setMemberType(0, rtarr_type);
-+          BM->closeStructType(enclosing_type, false);
-+          mapped_type =
-+              BM->addPointerType(spv::StorageClassUniform, enclosing_type);
-+
-+          // add required deco
-+          enclosing_type->addDecorate(
-+              new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
-+          enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
-+          rtarr_type->addDecorate(
-+              spv::DecorationArrayStride,
-+              M->getDataLayout().getTypeStoreSize(elem_type));
-+        } else {
-+          assert(elem_type->isStructTy() && "uniform type must be a struct");
-+
-+          mapped_type = transType(GV.getType());
-+
-+          // deco
-+          spirv_elem_type->addDecorate(
-+              new SPIRVDecorate(DecorationBlock, spirv_elem_type));
-+        }
-+        decorateComposite(elem_type, spirv_elem_type);
-+      } else {
-+        mapped_type = transType(GV.getType());
-+      }
-+
-+      auto BVar = static_cast<SPIRVVariable *>(
-+          BM->addVariable(mapped_type, false, spv::LinkageTypeInternal, nullptr,
-+                          GV.getName(), storage_class, nullptr));
-+      BM->setName(BVar, GV.getName().str());
-+      mapValue((Value *)&GV, BVar);
-+
-+      if (is_builtin) {
-+        BVar->setBuiltin(builtin);
-+      }
-+
-+      if (!is_uniform) {
-+        BM->addEntryPointIO(spirv_func->getId(), BVar);
-+      }
-+
-+      return BVar;
-+    };
-+    const auto emit_global_var = [this, &F, &emit_spirv_global](
-+        const std::string &var_name, llvm::Type *global_type,
-+        uint32_t address_space, bool is_constant, bool is_uniform,
-+        bool is_input, bool is_builtin,
-+        SPIRVVariable **created_spirv_var = nullptr,
-+        spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition) {
-+      std::string name_type = ".";
-+      if (is_builtin) {
-+        name_type =
-+            (is_input ? ".vulkan_builtin_input." : ".vulkan_builtin_output.");
-+      } else if (is_input) {
-+        name_type = ".vulkan_input.";
-+      } else if (is_uniform) {
-+        name_type = ".vulkan_uniform.";
-+      }
-+
-+      auto GV = new GlobalVariable(
-+          *M, global_type, false, GlobalVariable::InternalLinkage, nullptr,
-+          F->getName().str() + name_type + var_name, nullptr,
-+          GlobalValue::NotThreadLocal, address_space);
-+
-+      // also add the SPIR-V global
-+      auto spirv_var =
-+          emit_spirv_global(*GV, var_name, address_space, is_constant,
-+                            is_uniform, is_input, is_builtin, builtin);
-+      if (created_spirv_var != nullptr) {
-+        *created_spirv_var = spirv_var;
-+      }
-+
-+      return GV;
-+    };
 +
 +    const std::string func_name = F->getName().str();
 +    std::vector<std::string> md_data_input, md_data_output;
@@ -24635,10 +24718,14 @@ index 0000000..9549f7c
 +        if (arg.onlyReadsMemory() &&
 +            (arg.hasAttribute(Attribute::Dereferenceable) ||
 +             arg.hasAttribute(Attribute::DereferenceableOrNull))) {
-+          // -> block uniform (TODO: could also make this a push constant later
++          // -> Block uniform (TODO: could also make this a push constant later
 +          // on)
-+          auto GV = emit_global_var(arg_name.str(), elem_type, SPIRAS_Uniform,
-+                                    true, true, false, false, &uniform_var);
++          auto GV = emitShaderGlobal(
++              *F, spirv_func, arg_name.str(), elem_type, SPIRAS_Uniform,
++              spirv_global_io_type{
++                  .is_constant = true, .is_uniform = true, .is_read_only = true,
++              },
++              &uniform_var);
 +          arg.replaceAllUsesWith(GV);
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Uniform) {
 +          // all image types are opaque/unsized
@@ -24646,9 +24733,18 @@ index 0000000..9549f7c
 +            // -> TODO: image
 +            errs() << "images are not handled yet\n";
 +          } else {
-+            // -> bufferblock uniform (SSBO)
-+            auto GV = emit_global_var(arg_name.str(), elem_type, SPIRAS_Uniform,
-+                                      false, true, false, false, &uniform_var);
++            // -> BufferBlock uniform (SSBO)
++            const bool is_read_only = arg.onlyReadsMemory();
++            const bool is_write_only =
++                (!is_read_only ? is_write_only_arg(*F, arg) : false);
++            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
++                                       elem_type, SPIRAS_Uniform,
++                                       spirv_global_io_type{
++                                           .is_uniform = true,
++                                           .is_read_only = is_read_only,
++                                           .is_write_only = is_write_only,
++                                       },
++                                       &uniform_var);
 +            arg.replaceAllUsesWith(GV);
 +          }
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Local) {
@@ -24681,9 +24777,12 @@ index 0000000..9549f7c
 +              is_builtin_valid_in_stage(builtin.first, stage, true /* input */);
 +          if (is_valid) {
 +            llvm::Type *elem_type = arg_type->getPointerElementType();
-+            auto repl_var =
-+                emit_global_var(arg_name, elem_type, SPIRAS_Input, false, false,
-+                                true, true, nullptr, builtin.first);
++            auto repl_var = emitShaderGlobal(
++                *F, spirv_func, arg_name, elem_type, SPIRAS_Input,
++                spirv_global_io_type{
++                    .is_input = true, .is_builtin = true,
++                },
++                nullptr, builtin.first);
 +            arg.replaceAllUsesWith(repl_var);
 +          } else {
 +            // TODO: should catch this earlier
@@ -24695,8 +24794,11 @@ index 0000000..9549f7c
 +          }
 +        } else {
 +          // -> stage input
-+          auto repl_var = emit_global_var(arg_name, arg_type, SPIRAS_Input,
-+                                          false, false, true, false);
++          auto repl_var =
++              emitShaderGlobal(*F, spirv_func, arg_name, arg_type, SPIRAS_Input,
++                               spirv_global_io_type{
++                                   .is_input = true, .is_read_only = true,
++                               });
 +          // only emit load if there actually is a user
 +          if (arg.getNumUses() > 0) {
 +            LoadInst *load_repl_var = new LoadInst(repl_var, arg_name, false,
@@ -24734,8 +24836,11 @@ index 0000000..9549f7c
 +          const auto is_valid = is_builtin_valid_in_stage(builtin.first, stage,
 +                                                          false /* output */);
 +          if (is_valid) {
-+            emit_spirv_global(GV, output_name, SPIRAS_Output, false, false,
-+                              false, true, builtin.first);
++            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                  spirv_global_io_type{
++                                      .is_builtin = true, .is_write_only = true,
++                                  },
++                                  builtin.first);
 +          } else {
 +            // TODO: should catch this earlier
 +            errs() << "output builtin \"" << md_data_output[output_arg_idx]
@@ -24743,8 +24848,11 @@ index 0000000..9549f7c
 +                   << vulkan_stage_to_string(stage) << "\"\n";
 +          }
 +        } else if (is_fbo_output) {
-+          auto fbo_output_var = emit_spirv_global(
-+              GV, output_name, SPIRAS_Output, false, false, false, false);
++          auto fbo_output_var =
++              emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                    spirv_global_io_type{
++                                        .is_write_only = true,
++                                    });
 +
 +          // extract location idx + add the resp. decoration
 +          const auto location_str = md_data_output[output_arg_idx].substr(
@@ -24754,8 +24862,10 @@ index 0000000..9549f7c
 +          fbo_output_var->addDecorate(
 +              new SPIRVDecorate(DecorationLocation, fbo_output_var, location));
 +        } else {
-+          emit_spirv_global(GV, output_name, SPIRAS_Output, false, false, false,
-+                            false);
++          emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                spirv_global_io_type{
++                                    .is_write_only = true,
++                                });
 +        }
 +        ++output_arg_idx;
 +      }
