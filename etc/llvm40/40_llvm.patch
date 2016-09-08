@@ -2437,10 +2437,10 @@ index 167cc94..1820b40 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..a56a3e3
+index 0000000..41c46c9
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,375 @@
+@@ -0,0 +1,386 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2479,7 +2479,7 @@ index 0000000..a56a3e3
 +	
 +	//////////////////////////////////////////
 +	// -> image flags and types
-+	//! upper 14-bit (18-31): type flags
++	//! upper 12-bit (20-31): type flags
 +	__FLAG_MASK				= (0xFFFC0000u),
 +	__FLAG_SHIFT			= (18u),
 +	//! base type: image is an array (aka has layers)
@@ -2494,25 +2494,33 @@ index 0000000..a56a3e3
 +	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
 +	//! base type: image is a stencil image
 +	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
-+	//! base type: image is a renderbuffer
-+	//! NOTE: only applicable when using opengl sharing or metal
-+	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
++	//! base type: image is a render target (Metal) / renderbuffer (OpenGL) / framebuffer attachment (Vulkan)
++	//! NOTE: only applicable when using OpenGL sharing, Metal or Vulkan
++	FLAG_RENDER_TARGET		= (1u << (__FLAG_SHIFT + 6u)),
 +	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 +	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
 +	//! optional type: image uses a fixed channel count
 +	//! NOTE: only used internally, serves no purpose on the user-side
 +	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
-+	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
-+	//! NOTE: on some platforms this might provide better performance and/or less overhead
-+	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
 +	//! optional type: image uses gather sampling (aka tld4/fetch4)
-+	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
++	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 9u)),
 +	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
-+	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
-+	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
-+	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
++	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 10u)),
 +	//! optional type: image data contains sRGB data
-+	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 13u)),
++	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 11u)),
++	
++	//! bits 18-19: channel layout
++	__LAYOUT_MASK			= (0x000C0000u),
++	__LAYOUT_SHIFT			= (18u),
++	LAYOUT_RGBA				= (0u << __LAYOUT_SHIFT),
++	LAYOUT_BGRA				= (1u << __LAYOUT_SHIFT),
++	LAYOUT_ABGR				= (2u << __LAYOUT_SHIFT),
++	LAYOUT_ARGB				= (3u << __LAYOUT_SHIFT),
++	//! layout convenience aliases
++	LAYOUT_R				= LAYOUT_RGBA,
++	LAYOUT_RG				= LAYOUT_RGBA,
++	LAYOUT_RGB				= LAYOUT_RGBA,
++	LAYOUT_BGR				= LAYOUT_ABGR,
 +	
 +	//! bits 16-17: dimensionality
 +	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
@@ -2586,6 +2594,7 @@ index 0000000..a56a3e3
 +	//! bits 0-5: formats
 +	//! NOTE: unless specified otherwise, a format is usable with any channel count
 +	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
++	//! NOTE: channel layout / order is determined by LAYOUT_* -> bit/channel order in here can be different to the actual layout
 +	__FORMAT_MASK			= (0x0000003Fu),
 +	//! 1 bit per channel
 +	FORMAT_1				= (1u),
@@ -2604,17 +2613,17 @@ index 0000000..a56a3e3
 +	//! 3 channel format: 5-bit/5-bit/5-bit
 +	FORMAT_5_5_5			= (8u),
 +	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
-+	FORMAT_5_5_5_1			= (9u),
++	FORMAT_5_5_5_ALPHA_1	= (9u),
 +	//! 3 channel format: 5-bit/6-bit/5-bit
 +	FORMAT_5_6_5			= (10u),
 +	//! 8 bits per channel
 +	FORMAT_8				= (11u),
 +	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
-+	FORMAT_9_9_9_5			= (12u),
++	FORMAT_9_9_9_EXP_5		= (12u),
 +	//! 3 channel format: 10-bit/10-bit/10-bit
 +	FORMAT_10				= (13u),
 +	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
-+	FORMAT_10_10_10_2		= (14u),
++	FORMAT_10_10_10_ALPHA_2	= (14u),
 +	//! 3 channel format: 11-bit/11-bit/10-bit
 +	FORMAT_11_11_10			= (15u),
 +	//! 3 channel format: 12-bit/12-bit/12-bit
@@ -2623,16 +2632,18 @@ index 0000000..a56a3e3
 +	FORMAT_12_12_12_12		= (17u),
 +	//! 16 bits per channel
 +	FORMAT_16				= (18u),
++	//! 2 channel format: 16-bit/8-bit
++	FORMAT_16_8				= (19u),
 +	//! 1 channel format: 24-bit
-+	FORMAT_24				= (19u),
++	FORMAT_24				= (20u),
 +	//! 2 channel format: 24-bit/8-bit
-+	FORMAT_24_8				= (20u),
++	FORMAT_24_8				= (21u),
 +	//! 32 bits per channel
-+	FORMAT_32				= (21u),
++	FORMAT_32				= (22u),
 +	//! 2 channel format: 32-bit/8-bit
-+	FORMAT_32_8				= (22u),
++	FORMAT_32_8				= (23u),
 +	//! 64 bits per channel
-+	FORMAT_64				= (23u),
++	FORMAT_64				= (24u),
 +	__FORMAT_MAX			= FORMAT_64,
 +	
 +	//////////////////////////////////////////
@@ -22641,10 +22652,10 @@ index 0000000..956aff5
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..0cc4f55
+index 0000000..791b84c
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2687 @@
+@@ -0,0 +1,2708 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -24705,6 +24716,27 @@ index 0000000..0cc4f55
 +
 +    // handle parameters (input or globals)
 +    uint32_t input_arg_idx = 0, uniform_arg_idx = 0;
++    uint32_t desc_set = 0;
++    switch (stage) { // put each stage into a different set
++    case VULKAN_STAGE::KERNEL:
++    case VULKAN_STAGE::VERTEX:
++      desc_set = 0;
++      break;
++    case VULKAN_STAGE::FRAGMENT:
++      desc_set = 1;
++      break;
++    case VULKAN_STAGE::GEOMETRY:
++      desc_set = 2;
++      break;
++    case VULKAN_STAGE::TESSELLATION_CONTROL:
++      desc_set = 3;
++      break;
++    case VULKAN_STAGE::TESSELLATION_EVALUATION:
++      desc_set = 4;
++      break;
++    default:
++      llvm_unreachable("invalid stage");
++    }
 +    for (Argument &arg : F->args()) {
 +      llvm::Type *arg_type = arg.getType();
 +      const auto arg_name = arg.getName();
@@ -24756,7 +24788,7 @@ index 0000000..0cc4f55
 +
 +        //
 +        uniform_var->addDecorate(
-+            new SPIRVDecorate(DecorationDescriptorSet, uniform_var, 0));
++            new SPIRVDecorate(DecorationDescriptorSet, uniform_var, desc_set));
 +        uniform_var->addDecorate(
 +            new SPIRVDecorate(DecorationBinding, uniform_var, uniform_arg_idx));
 +        ++uniform_arg_idx;
