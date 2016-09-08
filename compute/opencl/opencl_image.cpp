@@ -100,7 +100,8 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			cl_img_format.image_channel_order = CL_RGB;
 			break;
 		case COMPUTE_IMAGE_TYPE::CHANNELS_4:
-			cl_img_format.image_channel_order = (has_flag<COMPUTE_IMAGE_TYPE::FLAG_REVERSE>(image_type) ? CL_BGRA : CL_RGBA);
+			cl_img_format.image_channel_order = (image_layout_bgra(image_type) ? CL_BGRA :
+												 image_layout_argb(image_type) ? CL_ARGB : CL_RGBA);
 			break;
 		default: floor_unreachable();
 	}
@@ -207,7 +208,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		
 		// "Only CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY and CL_MEM_READ_WRITE values specified in table 5.3 can be used"
 		cl_flags &= (CL_MEM_READ_ONLY | CL_MEM_WRITE_ONLY | CL_MEM_READ_WRITE); // be lenient on other flag use
-		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER>(image_type)) {
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 			image = clCreateFromGLTexture(((opencl_device*)dev)->ctx, cl_flags, opengl_type,
 										  is_mip_mapped ? -1 : 0, gl_object, &create_err);
 		}

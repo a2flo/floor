@@ -42,8 +42,9 @@ protected:
 public:
 	struct vulkan_kernel_entry : kernel_entry {
 		VkPipeline pipeline { nullptr };
-		VkDescriptorSetLayout desc_set_layout { nullptr };
 		VkPipelineLayout pipeline_layout { nullptr };
+		VkPipelineShaderStageCreateInfo stage_info;
+		VkDescriptorSetLayout desc_set_layout { nullptr };
 		VkDescriptorPool desc_pool { nullptr };
 		VkDescriptorSet desc_set { nullptr };
 		vector<VkDescriptorType> desc_types;

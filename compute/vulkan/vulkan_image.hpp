@@ -24,9 +24,10 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/compute/compute_image.hpp>
+#include <floor/compute/vulkan/vulkan_memory.hpp>
 
 class vulkan_device;
-class vulkan_image final : public compute_image {
+class vulkan_image final : public compute_image, vulkan_memory {
 public:
 	vulkan_image(const vulkan_device* device,
 				 const uint4 image_dim,
@@ -58,9 +59,13 @@ public:
 	
 protected:
 	VkImage image { nullptr };
+	VkImageView image_view { nullptr };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
+	
+	void image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
+	void image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
 	
 };
 

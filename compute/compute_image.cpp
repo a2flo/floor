@@ -161,7 +161,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
 						type = GL_UNSIGNED_SHORT;
 						break;
-					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1:
 						type = GL_UNSIGNED_SHORT_5_5_5_1;
 						break;
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
@@ -170,7 +170,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_10:
 						type = GL_UNSIGNED_INT;
 						break;
-					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2:
 						type = GL_UNSIGNED_INT_10_10_10_2;
 						break;
 					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
@@ -185,7 +185,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_24_8:
 						type = GL_UNSIGNED_INT_24_8;
 						break;
-					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5:
 					case COMPUTE_IMAGE_TYPE::FORMAT_64:
 					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
 					case COMPUTE_IMAGE_TYPE::FORMAT_32_8:
@@ -214,11 +214,11 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_64:
 					case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2:
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
-					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1:
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
-					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5:
 					case COMPUTE_IMAGE_TYPE::FORMAT_10:
-					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2:
 					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
 					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
 					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12:
@@ -243,7 +243,7 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_64:
 						type = GL_DOUBLE;
 						break;
-					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5:
+					case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5:
 						type = GL_UNSIGNED_INT_5_9_9_9_REV;
 						break;
 					case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10:
@@ -254,10 +254,10 @@ bool compute_image::create_gl_image(const bool copy_host_data) {
 					case COMPUTE_IMAGE_TYPE::FORMAT_8:
 					case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2:
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5:
-					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1:
+					case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1:
 					case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5:
 					case COMPUTE_IMAGE_TYPE::FORMAT_10:
-					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2:
+					case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2:
 					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12:
 					case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12:
 					case COMPUTE_IMAGE_TYPE::FORMAT_24:
@@ -553,7 +553,7 @@ compute_image::opengl_image_info compute_image::get_opengl_image_info(const uint
 		glBindTexture(opengl_target, (GLuint)cur_bound_tex);
 	}
 	else if(glIsRenderbuffer(opengl_image)) {
-		info.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D | COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER;
+		info.image_type |= COMPUTE_IMAGE_TYPE::IMAGE_2D | COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
 		
 		GLint cur_bound_rb = 0;
 		glGetIntegerv(GL_RENDERBUFFER_BINDING, &cur_bound_rb);

@@ -199,15 +199,13 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 }
 
 bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue) {
-	// image handling in cuda/ptx is rather complicated:
-	// when using a texture reference (sm_20+) or object (sm_30+), you can only read from it, but with sampler support,
-	// when using a surface reference (sm_20+) or object (sm_30+), you can read _and_ write from/to it, but without sampler support.
-	// this is further complicated by the fact that I currently can't generate texture/surface reference code, thus no sm_20 support
-	// right now + even then, setting and using a texture/surface reference is rather tricky as it is a global module symbol.
-	// if "no sampler" flag is set, only use surfaces
-	const bool no_sampler { has_flag<COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER>(image_type) };
-	const bool need_tex { has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !no_sampler };
-	const bool need_surf { has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags) || no_sampler };
+	// image handling in cuda/ptx is somewhat complicated:
+	// when using a texture object, you can only read from it, but with sampler support,
+	// when using a surface object, you can read _and_ write from/to it, but without sampler support.
+	// if write-only, only use surfaces
+	const bool write_only { !has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type) };
+	const bool need_tex { has_flag<COMPUTE_MEMORY_FLAG::READ>(flags) && !write_only };
+	const bool need_surf { has_flag<COMPUTE_MEMORY_FLAG::WRITE>(flags) || write_only };
 	
 	//
 	const auto dim_count = image_dim_count(image_type);

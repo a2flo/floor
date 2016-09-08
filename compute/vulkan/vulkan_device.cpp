@@ -17,3 +17,14 @@
  */
 
 #include <floor/compute/vulkan/vulkan_device.hpp>
+
+vulkan_device::vulkan_device() : compute_device() {
+	// init statically known info
+	local_mem_dedicated = true;
+	
+	image_support = true;
+	// others: must be determined later
+	
+	// for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
+	bitness = 32;
+}

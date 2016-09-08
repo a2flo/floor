@@ -26,7 +26,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 	//////////////////////////////////////////
 	// -> image flags and types
-	//! upper 14-bit (18-31): type flags
+	//! upper 12-bit (20-31): type flags
 	__FLAG_MASK				= (0xFFFC0000u),
 	__FLAG_SHIFT			= (18u),
 	//! base type: image is an array (aka has layers)
@@ -41,25 +41,33 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FLAG_DEPTH				= (1u << (__FLAG_SHIFT + 4u)),
 	//! base type: image is a stencil image
 	FLAG_STENCIL			= (1u << (__FLAG_SHIFT + 5u)),
-	//! base type: image is a renderbuffer
-	//! NOTE: only applicable when using opengl sharing or metal
-	FLAG_RENDERBUFFER		= (1u << (__FLAG_SHIFT + 6u)),
+	//! base type: image is a render target (Metal) / renderbuffer (OpenGL) / framebuffer attachment (Vulkan)
+	//! NOTE: only applicable when using OpenGL sharing, Metal or Vulkan
+	FLAG_RENDER_TARGET		= (1u << (__FLAG_SHIFT + 6u)),
 	//! optional type: image uses mip-mapping, i.e. has multiple LODs
 	FLAG_MIPMAPPED			= (1u << (__FLAG_SHIFT + 7u)),
 	//! optional type: image uses a fixed channel count
 	//! NOTE: only used internally, serves no purpose on the user-side
 	FLAG_FIXED_CHANNELS		= (1u << (__FLAG_SHIFT + 8u)),
-	//! optional type: image doesn't need a sampler (i.e. only point/nearest/pixel sampled)
-	//! NOTE: on some platforms this might provide better performance and/or less overhead
-	FLAG_NO_SAMPLER			= (1u << (__FLAG_SHIFT + 9u)),
 	//! optional type: image uses gather sampling (aka tld4/fetch4)
-	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 10u)),
+	FLAG_GATHER				= (1u << (__FLAG_SHIFT + 9u)),
 	//! optional type: when using integer storage formats, the data is normalized in [0, 1]
-	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 11u)),
-	//! optional type: image data is stored in (partial) reverse order (e.g. BGRA instead of RGBA)
-	FLAG_REVERSE			= (1u << (__FLAG_SHIFT + 12u)),
+	FLAG_NORMALIZED			= (1u << (__FLAG_SHIFT + 10u)),
 	//! optional type: image data contains sRGB data
-	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 13u)),
+	FLAG_SRGB				= (1u << (__FLAG_SHIFT + 11u)),
+	
+	//! bits 18-19: channel layout
+	__LAYOUT_MASK			= (0x000C0000u),
+	__LAYOUT_SHIFT			= (18u),
+	LAYOUT_RGBA				= (0u << __LAYOUT_SHIFT),
+	LAYOUT_BGRA				= (1u << __LAYOUT_SHIFT),
+	LAYOUT_ABGR				= (2u << __LAYOUT_SHIFT),
+	LAYOUT_ARGB				= (3u << __LAYOUT_SHIFT),
+	//! layout convenience aliases
+	LAYOUT_R				= LAYOUT_RGBA,
+	LAYOUT_RG				= LAYOUT_RGBA,
+	LAYOUT_RGB				= LAYOUT_RGBA,
+	LAYOUT_BGR				= LAYOUT_ABGR,
 	
 	//! bits 16-17: dimensionality
 	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
@@ -133,6 +141,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! bits 0-5: formats
 	//! NOTE: unless specified otherwise, a format is usable with any channel count
 	//! NOTE: not all backends support all formats (for portability, stick to 8-bit/16-bit/32-bit)
+	//! NOTE: channel layout / order is determined by LAYOUT_* -> bit/channel order in here can be different to the actual layout
 	__FORMAT_MASK			= (0x0000003Fu),
 	//! 1 bit per channel
 	FORMAT_1				= (1u),
@@ -151,17 +160,17 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	//! 3 channel format: 5-bit/5-bit/5-bit
 	FORMAT_5_5_5			= (8u),
 	//! 4 channel format: 5-bit/5-bit/5-bit/1-bit
-	FORMAT_5_5_5_1			= (9u),
+	FORMAT_5_5_5_ALPHA_1	= (9u),
 	//! 3 channel format: 5-bit/6-bit/5-bit
 	FORMAT_5_6_5			= (10u),
 	//! 8 bits per channel
 	FORMAT_8				= (11u),
 	//! 3 channel format: 9-bit/9-bit/9-bit (5-bit exp)
-	FORMAT_9_9_9_5			= (12u),
+	FORMAT_9_9_9_EXP_5		= (12u),
 	//! 3 channel format: 10-bit/10-bit/10-bit
 	FORMAT_10				= (13u),
 	//! 4 channel format: 10-bit/10-bit/10-bit/2-bit
-	FORMAT_10_10_10_2		= (14u),
+	FORMAT_10_10_10_ALPHA_2	= (14u),
 	//! 3 channel format: 11-bit/11-bit/10-bit
 	FORMAT_11_11_10			= (15u),
 	//! 3 channel format: 12-bit/12-bit/12-bit
@@ -170,16 +179,18 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	FORMAT_12_12_12_12		= (17u),
 	//! 16 bits per channel
 	FORMAT_16				= (18u),
+	//! 2 channel format: 16-bit/8-bit
+	FORMAT_16_8				= (19u),
 	//! 1 channel format: 24-bit
-	FORMAT_24				= (19u),
+	FORMAT_24				= (20u),
 	//! 2 channel format: 24-bit/8-bit
-	FORMAT_24_8				= (20u),
+	FORMAT_24_8				= (21u),
 	//! 32 bits per channel
-	FORMAT_32				= (21u),
+	FORMAT_32				= (22u),
 	//! 2 channel format: 32-bit/8-bit
-	FORMAT_32_8				= (22u),
+	FORMAT_32_8				= (23u),
 	//! 64 bits per channel
-	FORMAT_64				= (23u),
+	FORMAT_64				= (24u),
 	__FORMAT_MAX			= FORMAT_64,
 	
 	//////////////////////////////////////////
@@ -230,8 +241,10 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	R8						= CHANNELS_1 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RG8						= CHANNELS_2 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RGB8					= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	BGR8					= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_BGR,
 	RGBA8					= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
-	BGRA8					= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | FLAG_REVERSE,
+	ABGR8					= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_ABGR,
+	BGRA8					= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_BGRA,
 	R16						= CHANNELS_1 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RG16					= CHANNELS_2 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RGB16					= CHANNELS_3 | FORMAT_16 | UINT | FLAG_NORMALIZED,
@@ -240,8 +253,10 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	R8UI_NORM				= CHANNELS_1 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RG8UI_NORM				= CHANNELS_2 | FORMAT_8 | UINT | FLAG_NORMALIZED,
 	RGB8UI_NORM				= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED,
+	BGR8UI_NORM				= CHANNELS_3 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_BGR,
 	RGBA8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED,
-	BGRA8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | FLAG_REVERSE,
+	ABGR8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_ABGR,
+	BGRA8UI_NORM			= CHANNELS_4 | FORMAT_8 | UINT | FLAG_NORMALIZED | LAYOUT_BGRA,
 	R16UI_NORM				= CHANNELS_1 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RG16UI_NORM				= CHANNELS_2 | FORMAT_16 | UINT | FLAG_NORMALIZED,
 	RGB16UI_NORM			= CHANNELS_3 | FORMAT_16 | UINT | FLAG_NORMALIZED,
@@ -251,7 +266,10 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	R8I_NORM				= CHANNELS_1 | FORMAT_8 | INT | FLAG_NORMALIZED,
 	RG8I_NORM				= CHANNELS_2 | FORMAT_8 | INT | FLAG_NORMALIZED,
 	RGB8I_NORM				= CHANNELS_3 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	BGR8I_NORM				= CHANNELS_3 | FORMAT_8 | INT | FLAG_NORMALIZED | LAYOUT_BGR,
 	RGBA8I_NORM				= CHANNELS_4 | FORMAT_8 | INT | FLAG_NORMALIZED,
+	ABGR8I_NORM				= CHANNELS_4 | FORMAT_8 | INT | FLAG_NORMALIZED | LAYOUT_ABGR,
+	BGRA8I_NORM				= CHANNELS_4 | FORMAT_8 | INT | FLAG_NORMALIZED | LAYOUT_BGRA,
 	R16I_NORM				= CHANNELS_1 | FORMAT_16 | INT | FLAG_NORMALIZED,
 	RG16I_NORM				= CHANNELS_2 | FORMAT_16 | INT | FLAG_NORMALIZED,
 	RGB16I_NORM				= CHANNELS_3 | FORMAT_16 | INT | FLAG_NORMALIZED,
@@ -261,11 +279,17 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	R8UI					= CHANNELS_1 | FORMAT_8 | UINT,
 	RG8UI					= CHANNELS_2 | FORMAT_8 | UINT,
 	RGB8UI					= CHANNELS_3 | FORMAT_8 | UINT,
+	BGR8UI					= CHANNELS_3 | FORMAT_8 | UINT | LAYOUT_BGR,
 	RGBA8UI					= CHANNELS_4 | FORMAT_8 | UINT,
+	ABGR8UI					= CHANNELS_4 | FORMAT_8 | UINT | LAYOUT_ABGR,
+	BGRA8UI					= CHANNELS_4 | FORMAT_8 | UINT | LAYOUT_BGRA,
 	R8I						= CHANNELS_1 | FORMAT_8 | INT,
 	RG8I					= CHANNELS_2 | FORMAT_8 | INT,
 	RGB8I					= CHANNELS_3 | FORMAT_8 | INT,
+	BGR8I					= CHANNELS_3 | FORMAT_8 | INT | LAYOUT_BGR,
 	RGBA8I					= CHANNELS_4 | FORMAT_8 | INT,
+	ABGR8I					= CHANNELS_4 | FORMAT_8 | INT | LAYOUT_ABGR,
+	BGRA8I					= CHANNELS_4 | FORMAT_8 | INT | LAYOUT_BGRA,
 	R16UI					= CHANNELS_1 | FORMAT_16 | UINT,
 	RG16UI					= CHANNELS_2 | FORMAT_16 | UINT,
 	RGB16UI					= CHANNELS_3 | FORMAT_16 | UINT,
@@ -300,9 +324,11 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	DS32F_8					= IMAGE_DEPTH_STENCIL | FORMAT_32_8 | FLOAT,
 	
 	//! compressed formats
+	BC1_RGB					= BC1 | CHANNELS_3 | FORMAT_1 | UINT | FLAG_NORMALIZED,
 	BC1_RGBA				= BC1 | CHANNELS_4 | FORMAT_1 | UINT | FLAG_NORMALIZED,
 	BC2_RGBA				= BC2 | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED,
 	BC3_RGBA				= BC3 | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED,
+	BC1_RGB_SRGB			= BC1 | CHANNELS_3 | FORMAT_1 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	BC1_RGBA_SRGB			= BC1 | CHANNELS_4 | FORMAT_1 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	BC2_RGBA_SRGB			= BC2 | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
 	BC3_RGBA_SRGB			= BC3 | CHANNELS_4 | FORMAT_2 | UINT | FLAG_NORMALIZED | FLAG_SRGB,
@@ -325,6 +351,26 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	
 };
 floor_global_enum_ext(COMPUTE_IMAGE_TYPE)
+
+//! returns true if the image layout is R, RG, RGB or RGBA
+floor_inline_always static constexpr bool image_layout_rgba(const COMPUTE_IMAGE_TYPE& image_type) {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__LAYOUT_MASK) == COMPUTE_IMAGE_TYPE::LAYOUT_RGBA);
+}
+
+//! returns true if the image layout is ABGR or BGR
+floor_inline_always static constexpr bool image_layout_abgr(const COMPUTE_IMAGE_TYPE& image_type) {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__LAYOUT_MASK) == COMPUTE_IMAGE_TYPE::LAYOUT_ABGR);
+}
+
+//! returns true if the image layout is BGRA
+floor_inline_always static constexpr bool image_layout_bgra(const COMPUTE_IMAGE_TYPE& image_type) {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__LAYOUT_MASK) == COMPUTE_IMAGE_TYPE::LAYOUT_BGRA);
+}
+
+//! returns true if the image layout is ARGB
+floor_inline_always static constexpr bool image_layout_argb(const COMPUTE_IMAGE_TYPE& image_type) {
+	return ((image_type & COMPUTE_IMAGE_TYPE::__LAYOUT_MASK) == COMPUTE_IMAGE_TYPE::LAYOUT_ARGB);
+}
 
 //! returns the dimensionality of the specified image type
 floor_inline_always static constexpr uint32_t image_dim_count(const COMPUTE_IMAGE_TYPE& image_type) {
@@ -367,11 +413,11 @@ floor_inline_always static constexpr bool image_format_valid(const COMPUTE_IMAGE
 	switch(image_type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
 		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return (channel_count == 3);
-		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1: return (channel_count == 4);
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return (channel_count == 4);
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel_count == 3);
-		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5: return (channel_count == 3);
+		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_10: return (channel_count == 3);
-		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2: return (channel_count == 4);
+		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return (channel_count == 4);
 		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return (channel_count == 3);
 		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return (channel_count == 4);
@@ -400,11 +446,11 @@ static constexpr uint32_t image_bits_per_pixel(const COMPUTE_IMAGE_TYPE& image_t
 			// special channel specific formats
 			case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return 8;
 			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 15;
-			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1: return 16;
+			case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return 16;
 			case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return 16;
-			case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5: return 32;
+			case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return 32;
 			case COMPUTE_IMAGE_TYPE::FORMAT_10: return 30;
-			case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2: return 32;
+			case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return 32;
 			case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return 32;
 			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 36;
 			case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 48;
@@ -441,11 +487,11 @@ static constexpr uint32_t image_bits_of_channel(const COMPUTE_IMAGE_TYPE& image_
 		// special channel specific formats
 		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: return (channel <= 1 ? 3 : 2);
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: return 5;
-		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_1: return (channel <= 2 ? 5 : 1);
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: return (channel <= 2 ? 5 : 1);
 		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: return (channel == 1 ? 6 : 5);
-		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_5: return (channel <= 2 ? 14 : 0); // tricky
+		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: return (channel <= 2 ? 14 : 0); // tricky
 		case COMPUTE_IMAGE_TYPE::FORMAT_10: return 10;
-		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_2: return (channel <= 2 ? 10 : 2);
+		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: return (channel <= 2 ? 10 : 2);
 		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: return (channel <= 1 ? 11 : 10);
 		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: return 12;
 		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: return 12;

@@ -309,7 +309,6 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
-		device->bitness = 32; // for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
 		device->max_push_constants_size = limits.maxPushConstantsSize;
 
 		// retrieve memory info

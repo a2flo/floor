@@ -44,10 +44,6 @@ public:
 	
 	//! automatically sets/infers image_type flags when certain conditions are met
 	static constexpr COMPUTE_IMAGE_TYPE infer_image_flags(COMPUTE_IMAGE_TYPE image_type) {
-		// set no-sampler flag if write-only
-		if(!has_flag<COMPUTE_IMAGE_TYPE::READ>(image_type) && has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type)) {
-			image_type |= COMPUTE_IMAGE_TYPE::FLAG_NO_SAMPLER;
-		}
 		return image_type;
 	}
 	

@@ -52,7 +52,7 @@ compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 		default: floor_unreachable();
 	}
 	
-	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER>(image_type)) {
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		usage_options |= MTLTextureUsageRenderTarget;
 	}
 	
@@ -234,7 +234,7 @@ FLOOR_POP_WARNINGS()
 	if([img sampleCount] > 1) type |= COMPUTE_IMAGE_TYPE::FLAG_MSAA;
 	
 	if(([img usage] & MTLTextureUsageRenderTarget) != 0) {
-		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDERBUFFER;
+		type |= COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET;
 	}
 	
 	return type;
@@ -455,10 +455,10 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 															COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
 															COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK |
 															COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
+															COMPUTE_IMAGE_TYPE::__LAYOUT_MASK |
 															COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED |
 															COMPUTE_IMAGE_TYPE::FLAG_DEPTH |
 															COMPUTE_IMAGE_TYPE::FLAG_STENCIL |
-															COMPUTE_IMAGE_TYPE::FLAG_REVERSE |
 															COMPUTE_IMAGE_TYPE::FLAG_SRGB));
 	if(metal_format == end(format_lut)) {
 		log_error("unsupported image format: %X", image_type);

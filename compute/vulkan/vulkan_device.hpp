@@ -31,6 +31,7 @@ class vulkan_compute;
 
 class vulkan_device final : public compute_device {
 public:
+	vulkan_device();
 	~vulkan_device() override {}
 	
 #if !defined(FLOOR_NO_VULKAN)

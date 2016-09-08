@@ -211,6 +211,8 @@
 		5CD2176619EAA8800049D6AE /* opencl_device.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2176319EAA8800049D6AE /* opencl_device.cpp */; };
 		5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD2176419EAA8800049D6AE /* opencl_device.hpp */; };
 		5CD6448E1A51BF5B00716FE8 /* compute_common.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CD6448D1A51BF5B00716FE8 /* compute_common.hpp */; };
+		5CDEB85D1D81AC0200A8CD9B /* vulkan_memory.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CDEB85B1D81AC0200A8CD9B /* vulkan_memory.cpp */; };
+		5CDEB85E1D81AC0200A8CD9B /* vulkan_memory.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CDEB85C1D81AC0200A8CD9B /* vulkan_memory.hpp */; };
 		5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */; };
 		5CE0BDCD19BA432C000B28B3 /* vector_lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */; };
 		5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5CE0BDCE19BA46E3000B28B3 /* vector.cpp */; };
@@ -469,6 +471,8 @@
 		5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = cuda_image.hpp; path = device/cuda_image.hpp; sourceTree = "<group>"; };
 		5CD6448D1A51BF5B00716FE8 /* compute_common.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_common.hpp; sourceTree = "<group>"; };
 		5CDB02671B0B1774005FCEDE /* metal_atomic.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = metal_atomic.hpp; path = device/metal_atomic.hpp; sourceTree = "<group>"; };
+		5CDEB85B1D81AC0200A8CD9B /* vulkan_memory.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = vulkan_memory.cpp; path = vulkan/vulkan_memory.cpp; sourceTree = "<group>"; };
+		5CDEB85C1D81AC0200A8CD9B /* vulkan_memory.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_memory.hpp; path = vulkan/vulkan_memory.hpp; sourceTree = "<group>"; };
 		5CE0BDC719B90930000B28B3 /* vector_ops_cleanup.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = vector_ops_cleanup.hpp; sourceTree = "<group>"; };
 		5CE0BDCB19BA432C000B28B3 /* vector_lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector_lib.cpp; sourceTree = "<group>"; };
 		5CE0BDCE19BA46E3000B28B3 /* vector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vector.cpp; sourceTree = "<group>"; };
@@ -719,6 +723,8 @@
 				5C2B87D11C73893E00F11EA5 /* vulkan_image.hpp */,
 				5C2B87C91C73893E00F11EA5 /* vulkan_kernel.cpp */,
 				5C2B87C71C73893E00F11EA5 /* vulkan_kernel.hpp */,
+				5CDEB85B1D81AC0200A8CD9B /* vulkan_memory.cpp */,
+				5CDEB85C1D81AC0200A8CD9B /* vulkan_memory.hpp */,
 				5C2B87CA1C73893E00F11EA5 /* vulkan_program.cpp */,
 				5C2B87CB1C73893E00F11EA5 /* vulkan_program.hpp */,
 				5C2B87CD1C73893E00F11EA5 /* vulkan_queue.cpp */,
@@ -986,6 +992,7 @@
 				5C3B61DA1C60FD4400358DAB /* opaque_image.hpp in Headers */,
 				5C10920617D1F81B007F536E /* gl_support.hpp in Headers */,
 				5C20C8C51B4139260005F5EA /* host_common.hpp in Headers */,
+				5CDEB85E1D81AC0200A8CD9B /* vulkan_memory.hpp in Headers */,
 				5C2B87D61C73893E00F11EA5 /* vulkan_kernel.hpp in Headers */,
 				5CEEA6D11A4EA2C0005239DA /* opencl_kernel.hpp in Headers */,
 				5C1091D017D1153E007F536E /* task.hpp in Headers */,
@@ -1217,6 +1224,7 @@
 				5C1091A617D1153E007F536E /* core.cpp in Sources */,
 				5CD2175819E985D80049D6AE /* cuda_compute.cpp in Sources */,
 				5C2B87D31C73893E00F11EA5 /* vulkan_device.cpp in Sources */,
+				5CDEB85D1D81AC0200A8CD9B /* vulkan_memory.cpp in Sources */,
 				5C2B87DC1C73893E00F11EA5 /* vulkan_queue.cpp in Sources */,
 				5CE0BDDA19BB2A75000B28B3 /* matrix4.cpp in Sources */,
 				5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */,
