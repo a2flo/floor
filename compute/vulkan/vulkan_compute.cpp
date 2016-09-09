@@ -19,8 +19,14 @@
 #include <floor/core/essentials.hpp>
 
 #if !defined(FLOOR_NO_VULKAN)
-#include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/core/platform.hpp>
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#elif defined(SDL_VIDEO_DRIVER_X11)
+#define VK_USE_PLATFORM_XLIB_KHR 1
+#endif
+
+#include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
@@ -62,15 +68,11 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 #if defined(FLOOR_DEBUG)
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
-#if 0 // don't use either yet
-#if defined(__WINDOWS__)
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
 		VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
-#else
-		// nvidia only supports this:
+#elif defined(SDL_VIDEO_DRIVER_X11)
+		// SDL only supports xlib
 		VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
-		// intel only supports this:
-		VK_KHR_XCB_SURFACE_EXTENSION_NAME,
-#endif
 #endif
 	};
 #if defined(FLOOR_DEBUG)

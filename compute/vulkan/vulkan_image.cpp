@@ -221,14 +221,17 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	VkImageUsageFlags usage = (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
 							   VK_IMAGE_USAGE_TRANSFER_DST_BIT |
 							   VK_IMAGE_USAGE_SAMPLED_BIT); // TODO: VK_IMAGE_USAGE_STORAGE_BIT?
+	VkAccessFlags dst_access_flags = 0;
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-		if(is_depth) {
-			usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-			final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		}
-		else {
+		if(!is_depth) {
 			usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			final_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			dst_access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		}
+		else {
+			usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+			final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			dst_access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
 	}
 	
@@ -328,7 +331,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.pNext = nullptr,
 		.srcAccessMask = 0, // TODO: ?
-		.dstAccessMask = 0,
+		.dstAccessMask = dst_access_flags,
 		.oldLayout = initial_layout,
 		.newLayout = final_layout,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,

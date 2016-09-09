@@ -28,7 +28,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	// -> image flags and types
 	//! upper 12-bit (20-31): type flags
 	__FLAG_MASK				= (0xFFFC0000u),
-	__FLAG_SHIFT			= (18u),
+	__FLAG_SHIFT			= (20u),
 	//! base type: image is an array (aka has layers)
 	FLAG_ARRAY				= (1u << (__FLAG_SHIFT + 0u)),
 	//! base type: image is a buffer object
