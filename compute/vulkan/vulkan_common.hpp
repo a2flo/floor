@@ -23,6 +23,17 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 
+#if defined(__WINDOWS__) || defined(__APPLE__)
+#include <SDL2/SDL_syswm.h>
+#else
+#include <SDL_syswm.h>
+#endif
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+#define VK_USE_PLATFORM_WIN32_KHR 1
+#elif defined(SDL_VIDEO_DRIVER_X11)
+#define VK_USE_PLATFORM_XLIB_KHR 1
+#endif
+
 #include <vulkan/vulkan.h>
 
 //! vulkan version of the platform/driver/device

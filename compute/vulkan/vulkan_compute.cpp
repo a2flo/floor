@@ -20,12 +20,6 @@
 
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/platform.hpp>
-#if defined(SDL_VIDEO_DRIVER_WINDOWS)
-#define VK_USE_PLATFORM_WIN32_KHR 1
-#elif defined(SDL_VIDEO_DRIVER_X11)
-#define VK_USE_PLATFORM_XLIB_KHR 1
-#endif
-
 #include <floor/compute/vulkan/vulkan_compute.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
@@ -198,6 +192,9 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
 		};
+		static constexpr const char* device_extensions[] {
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		};
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = nullptr,
@@ -206,8 +203,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			.pQueueCreateInfos = queue_create_info.data(),
 			.enabledLayerCount = (uint32_t)size(device_layers),
 			.ppEnabledLayerNames = device_layers.data(),
-			.enabledExtensionCount = 0,
-			.ppEnabledExtensionNames = nullptr,
+			.enabledExtensionCount = (uint32_t)size(device_extensions),
+			.ppEnabledExtensionNames = device_extensions,
 			.pEnabledFeatures = &features // enable all that is supported
 		};
 		

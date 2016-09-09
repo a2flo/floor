@@ -70,10 +70,6 @@ void vulkan_queue::flush() const {
 	// nop
 }
 
-const void* vulkan_queue::get_queue_ptr() const {
-	return queue;
-}
-
 static const char* cmd_buffer_name(const vulkan_queue::command_buffer& cmd_buffer) {
 	return (cmd_buffer.name != nullptr ? cmd_buffer.name : "unknown");
 }
@@ -126,14 +122,23 @@ void vulkan_queue::release_fence(VkDevice dev, const pair<VkFence, uint32_t>& fe
 	fences_in_use.reset(fence.second);
 }
 
-void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer, const bool blocking) {
-	submit_command_buffer(cmd_buffer, [](const command_buffer&){}, blocking);
+void vulkan_queue::submit_command_buffer(command_buffer cmd_buffer,
+										 const bool blocking,
+										 const VkSemaphore* wait_semas,
+										 const uint32_t wait_sema_count,
+										 const VkPipelineStageFlags wait_stage_flags) {
+	submit_command_buffer(cmd_buffer, [](const command_buffer&){}, blocking,
+						  wait_semas, wait_sema_count, wait_stage_flags);
 }
 
 void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer,
 										 function<void(const command_buffer&)> completion_handler,
-										 const bool blocking) {
+										 const bool blocking,
+										 const VkSemaphore* wait_semas,
+										 const uint32_t wait_sema_count,
+										 const VkPipelineStageFlags wait_stage_flags) {
 	const auto submit_func = [this, cmd_buffer, completion_handler,
+							  wait_semas, wait_sema_count, wait_stage_flags,
 							  dev = ((vulkan_device*)device.get())->device]() {
 		// must sync/lock queue
 		auto fence = acquire_fence();
@@ -143,9 +148,9 @@ void vulkan_queue::submit_command_buffer(vulkan_queue::command_buffer cmd_buffer
 			const VkSubmitInfo submit_info {
 				.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				.pNext = nullptr,
-				.waitSemaphoreCount = 0,
-				.pWaitSemaphores = nullptr,
-				.pWaitDstStageMask = nullptr,
+				.waitSemaphoreCount = wait_sema_count,
+				.pWaitSemaphores = wait_semas,
+				.pWaitDstStageMask = (wait_stage_flags != 0 ? &wait_stage_flags : nullptr),
 				.commandBufferCount = 1,
 				.pCommandBuffers = &cmd_buffer.cmd_buffer,
 				.signalSemaphoreCount = 0,
