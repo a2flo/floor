@@ -36,6 +36,10 @@
 
 #include <vulkan/vulkan.h>
 
+#if VK_HEADER_VERSION < 24
+#error "Vulkan header version must at least be 24"
+#endif
+
 //! vulkan version of the platform/driver/device
 enum class VULKAN_VERSION : uint32_t {
 	VULKAN_1_0,
