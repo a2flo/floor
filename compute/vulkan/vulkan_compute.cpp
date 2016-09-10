@@ -55,6 +55,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		// TODO/NOTE: even though the spec allows setting this to 0, nvidias current driver requires VK_API_VERSION / VK_MAKE_VERSION(1, 0, 3)
 		.apiVersion = VK_MAKE_VERSION(1, 0, 5),
 	};
+	
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
 	static constexpr const char* instance_extensions[] {
@@ -69,23 +70,31 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
 #endif
 	};
+	static const vector<const char*> instance_layers {
 #if defined(FLOOR_DEBUG)
-	static constexpr const char* instance_layers[] {
 		"VK_LAYER_LUNARG_standard_validation",
-	};
 #endif
+	};
+	
+	string inst_exts_str = "", inst_layers_str = "";
+	for(const auto& ext : instance_extensions) {
+		inst_exts_str += ext;
+		inst_exts_str += " ";
+	}
+	for(const auto& layer : instance_layers) {
+		inst_layers_str += layer;
+		inst_layers_str += " ";
+	}
+	log_debug("instance extensions: %s", inst_exts_str);
+	log_debug("instance layers: %s", inst_layers_str);
+
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pNext = nullptr,
 		.flags = 0,
 		.pApplicationInfo = &app_info,
-#if !defined(FLOOR_DEBUG)
-		.enabledLayerCount = 0,
-		.ppEnabledLayerNames = nullptr,
-#else
-		.enabledLayerCount = size(instance_layers),
-		.ppEnabledLayerNames = instance_layers,
-#endif
+		.enabledLayerCount = (uint32_t)size(instance_layers),
+		.ppEnabledLayerNames = size(instance_layers) > 0 ? instance_layers.data() : nullptr,
 		.enabledExtensionCount = size(instance_extensions),
 		.ppEnabledExtensionNames = instance_extensions,
 	};
@@ -195,6 +204,19 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		static constexpr const char* device_extensions[] {
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		};
+		
+		string dev_exts_str = "", dev_layers_str = "";
+		for(const auto& ext : device_extensions) {
+			dev_exts_str += ext;
+			dev_exts_str += " ";
+		}
+		for(const auto& layer : device_layers) {
+			dev_layers_str += layer;
+			dev_layers_str += " ";
+		}
+		log_debug("device extensions: %s", dev_exts_str);
+		log_debug("device layers: %s", dev_layers_str);
+		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			.pNext = nullptr,
