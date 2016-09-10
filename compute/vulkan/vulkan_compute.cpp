@@ -224,7 +224,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			.queueCreateInfoCount = queue_family_count,
 			.pQueueCreateInfos = queue_create_info.data(),
 			.enabledLayerCount = (uint32_t)size(device_layers),
-			.ppEnabledLayerNames = device_layers.data(),
+			.ppEnabledLayerNames = size(device_layers) > 0 ? device_layers.data() : nullptr,
 			.enabledExtensionCount = (uint32_t)size(device_extensions),
 			.ppEnabledExtensionNames = device_extensions,
 			.pEnabledFeatures = &features // enable all that is supported

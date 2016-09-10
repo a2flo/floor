@@ -545,7 +545,9 @@ void floor::destroy() {
 	if(!console_only) {
 		release_context();
 		
-		SDL_GL_DeleteContext(config.ctx);
+		if(config.ctx != nullptr) {
+			SDL_GL_DeleteContext(config.ctx);
+		}
 		SDL_DestroyWindow(config.wnd);
 	}
 	SDL_Quit();
@@ -597,18 +599,24 @@ void floor::init_internal(const bool use_gl33
 		config.flags |= SDL_WINDOW_SHOWN;
 #endif
 		
+		if(config.backend == "vulkan") {
+			config.flags &= ~uint32_t(SDL_WINDOW_OPENGL);
+		}
+		
 		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
 		
 		// disable hidpi mode?
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
 		
-		// gl attributes
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+		if(config.backend != "vulkan") {
+			// gl attributes
+			SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+			SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+			SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+			SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+			SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+		}
 		
 		// detect x11 forwarding, and if detected, don't set/request any specific opengl version
 #if !defined(FLOOR_IOS)
@@ -625,7 +633,7 @@ void floor::init_internal(const bool use_gl33
 #endif
 		
 #if !defined(FLOOR_IOS)
-		if(!ignore_gl_version) {
+		if(!ignore_gl_version && config.backend != "vulkan") {
 			if(use_gl33) {
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
@@ -684,115 +692,119 @@ void floor::init_internal(const bool use_gl33
 		SDL_ShowWindow(config.wnd);
 #endif
 		
-		config.ctx = SDL_GL_CreateContext(config.wnd);
-		if(config.ctx == nullptr) {
-			log_error("can't create opengl context: %s", SDL_GetError());
-			exit(1);
-		}
+		if(config.backend != "vulkan") {
+			config.ctx = SDL_GL_CreateContext(config.wnd);
+			if(config.ctx == nullptr) {
+				log_error("can't create opengl context: %s", SDL_GetError());
+				exit(1);
+			}
 #if !defined(FLOOR_IOS)
-		// has to be set after context creation
-		if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-			log_error("error setting the gl swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
-			SDL_ClearError();
-		}
-		
-		// enable multi-threaded opengl context when on os x
+			// has to be set after context creation
+			if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
+				log_error("error setting the gl swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
+				SDL_ClearError();
+			}
+			
+			// enable multi-threaded opengl context when on os x
 #if defined(__APPLE__) && 0
-		CGLContextObj cgl_ctx = CGLGetCurrentContext();
-		CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
-		if(cgl_err != kCGLNoError) {
-			log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
-					  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
-		}
-		else {
-			log_debug("multi-threaded opengl context enabled!");
-		}
+			CGLContextObj cgl_ctx = CGLGetCurrentContext();
+			CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
+			if(cgl_err != kCGLNoError) {
+				log_error("unable to set multi-threaded opengl context (%X: %X): %s!",
+						  (size_t)cgl_ctx, cgl_err, CGLErrorString(cgl_err));
+			}
+			else {
+				log_debug("multi-threaded opengl context enabled!");
+			}
 #endif
 #endif
+		}
 	}
 	acquire_context();
 	
 	if(!console_only) {
 		log_debug("window and opengl context created and acquired!");
 		
-		// initialize opengl functions (get function pointers) on non-apple platforms
+		if(config.backend != "vulkan") {
+			// initialize opengl functions (get function pointers) on non-apple platforms
 #if !defined(__APPLE__)
-		init_gl_funcs();
+			init_gl_funcs();
 #endif
-		
+			
 #if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
-		if(is_gl_version(3, 0)) {
-			// create and bind vao
-			glGenVertexArrays(1, &global_vao);
-			glBindVertexArray(global_vao);
-		}
-#endif
-		
-		// get supported opengl extensions
-#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
-#if !defined(__APPLE__)
-		if(glGetStringi != nullptr)
-#endif
-		{
-			int ext_count = 0;
-			glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
-			for(int i = 0; i < ext_count; ++i) {
-				gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
+			if(is_gl_version(3, 0)) {
+				// create and bind vao
+				glGenVertexArrays(1, &global_vao);
+				glBindVertexArray(global_vao);
 			}
-		}
+#endif
+			
+			// get supported opengl extensions
+#if !defined(FLOOR_IOS) || defined(PLATFORM_X64)
+#if !defined(__APPLE__)
+			if(glGetStringi != nullptr)
+#endif
+			{
+				int ext_count = 0;
+				glGetIntegerv(GL_NUM_EXTENSIONS, &ext_count);
+				for(int i = 0; i < ext_count; ++i) {
+					gl_extensions.emplace((const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i));
+				}
+			}
 #else
-		const string exts = (const char*)glGetString(GL_EXTENSIONS);
-		for(size_t pos = 0; (pos = exts.find("GL_", pos)) != string::npos; pos++) {
-			gl_extensions.emplace(exts.substr(pos, exts.find(" ", pos) - pos));
-		}
-#endif
-		
-		// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
-		const char* gl_version = (const char*)glGetString(GL_VERSION);
-		if(gl_version != nullptr) {
-			if(gl_version[0] > '4' || (gl_version[0] == '4' && gl_version[2] >= '3')) {
-				gl_extensions.emplace("GL_ARB_copy_image");
+			const string exts = (const char*)glGetString(GL_EXTENSIONS);
+			for(size_t pos = 0; (pos = exts.find("GL_", pos)) != string::npos; pos++) {
+				gl_extensions.emplace(exts.substr(pos, exts.find(" ", pos) - pos));
 			}
-		}
-		
-		// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
-#if defined(FLOOR_IOS)
-		darwin_helper::compile_shaders();
-		log_debug("iOS blit shader compiled");
 #endif
-		
-		// make an early clear
-		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		swap();
-		evt->handle_events(); // this will effectively create/open the window on some platforms
-		
-		//
-		int tmp = 0;
-		SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
-		log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
-		
-		// print out some opengl informations
-		gl_vendor = (const char*)glGetString(GL_VENDOR);
-		log_debug("vendor: %s", gl_vendor);
-		log_debug("renderer: %s", glGetString(GL_RENDERER));
-		log_debug("version: %s", glGetString(GL_VERSION));
-		
-		if(SDL_GetCurrentVideoDriver() == nullptr) {
-			log_error("couldn't get video driver: %s!", SDL_GetError());
+			
+			// make sure GL_ARB_copy_image is explicitly set when gl version is >= 4.3
+			const char* gl_version = (const char*)glGetString(GL_VERSION);
+			if(gl_version != nullptr) {
+				if(gl_version[0] > '4' || (gl_version[0] == '4' && gl_version[2] >= '3')) {
+					gl_extensions.emplace("GL_ARB_copy_image");
+				}
+			}
+			
+			// on iOS/GLES we need a simple "blit shader" to draw the opencl framebuffer
+#if defined(FLOOR_IOS)
+			darwin_helper::compile_shaders();
+			log_debug("iOS blit shader compiled");
+#endif
+			
+			// make an early clear
+			glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			swap();
+			evt->handle_events(); // this will effectively create/open the window on some platforms
+			
+			//
+			int tmp = 0;
+			SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &tmp);
+			log_debug("double buffering %s", tmp == 1 ? "enabled" : "disabled");
+			
+			// print out some opengl informations
+			gl_vendor = (const char*)glGetString(GL_VENDOR);
+			log_debug("vendor: %s", gl_vendor);
+			log_debug("renderer: %s", glGetString(GL_RENDERER));
+			log_debug("version: %s", glGetString(GL_VERSION));
+			
+			if(SDL_GetCurrentVideoDriver() == nullptr) {
+				log_error("couldn't get video driver: %s!", SDL_GetError());
+			}
+			else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
+			
+			// initialize ogl
+			init_gl();
+			log_debug("opengl initialized");
+			
+			// resize stuff
+			resize_window();
 		}
-		else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
 		
 		evt->set_ldouble_click_time((unsigned int)config.ldouble_click_time);
 		evt->set_rdouble_click_time((unsigned int)config.rdouble_click_time);
 		evt->set_mdouble_click_time((unsigned int)config.mdouble_click_time);
-		
-		// initialize ogl
-		init_gl();
-		log_debug("opengl initialized");
-		
-		// resize stuff
-		resize_window();
 		
 		// retrieve dpi info
 		if(config.dpi == 0) {
