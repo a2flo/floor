@@ -87,7 +87,7 @@ atomic<bool> floor::reload_kernels_flag { false };
 bool floor::init(const init_state& state) {
 	// return if already initialized
 	if(floor_initialized.exchange(true)) {
-		return false;
+		return true;
 	}
 	
 	// sanity check
