@@ -72,7 +72,7 @@ public:
 		
 		//! if true and using the OpenGL renderer, this will try to create a OpenGL 3.3+ context
 		//! NOTE: will create a 3.3+ *core* context on OS X
-		bool use_opengl_33 { false };
+		bool use_opengl_33 { true };
 		
 		//! min Vulkan API version that should be used
 		uint3 vulkan_api_version { 1, 0, 5 };
