@@ -267,7 +267,7 @@ FLOOR_IGNORE_WARNING(direct-ivar-access)
 FLOOR_POP_WARNINGS()
 }
 
-size_t darwin_helper::get_dpi(SDL_Window* wnd
+uint32_t darwin_helper::get_dpi(SDL_Window* wnd
 #if defined(FLOOR_IOS)
 							  floor_unused
 #endif
@@ -278,7 +278,7 @@ size_t darwin_helper::get_dpi(SDL_Window* wnd
 	const CGSize display_phys_size(CGDisplayScreenSize(CGMainDisplayID()));
 	const float2 display_dpi((display_res.x / (float)display_phys_size.width) * 25.4f,
 							 (display_res.y / (float)display_phys_size.height) * 25.4f);
-	return (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
+	return (uint32_t)floorf(std::max(display_dpi.x, display_dpi.y));
 #else // on iOS there is now way of doing this properly, so it must be hardcoded for each device type
 	if([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone) {
 		// iphone / ipod touch: all supported devices have 326 dpi
@@ -383,7 +383,7 @@ size_t darwin_helper::get_system_version() {
 		// mimic the compiled version string:
 		// OS X <= 10.9:   10xy,   xx = major, y = minor
 		// OS X >= 10.10:  10xxyy, xx = major, y = minor
-		// iOS:            xxyyy,  xx = major, y = minor
+		// iOS:            xxyy00,  xx = major, y = minor
 		size_t condensed_version;
 #if !defined(FLOOR_IOS)
 		if(major_version <= 9) { // 1000 - 1090
@@ -407,10 +407,10 @@ size_t darwin_helper::get_system_version() {
 	// just return lowest supported version
 #if !defined(FLOOR_IOS)
 	log_error("unable to retrieve OS X version!");
-	return 1090;
+	return 101100;
 #else
 	log_error("unable to retrieve iOS version!");
-	return 70000;
+	return 90000;
 #endif
 }
 

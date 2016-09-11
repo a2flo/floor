@@ -46,7 +46,7 @@
 class darwin_helper {
 public:
 	// OS X and iOS
-	static size_t get_dpi(SDL_Window* wnd);
+	static uint32_t get_dpi(SDL_Window* wnd);
 	static float get_scale_factor(SDL_Window* wnd);
 	static size_t get_system_version();
 	static size_t get_compiled_system_version();

@@ -36,7 +36,8 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	vulkan_compute(const vector<string> whitelist = {});
+	vulkan_compute(const bool enable_renderer = false,
+				   const vector<string> whitelist = {});
 	
 	~vulkan_compute() override;
 	
@@ -146,8 +147,54 @@ public:
 	shared_ptr<compute_queue> get_device_default_queue(shared_ptr<compute_device> dev) const;
 	shared_ptr<compute_queue> get_device_default_queue(const compute_device* dev) const;
 	
+	//! returns the used screen image format
+	VkFormat get_screen_format() const {
+		return screen.format;
+	}
+	
+	//! returns the allocated swapchain image count
+	uint32_t get_swapchain_image_count() const {
+		return screen.image_count;
+	}
+	
+	//! returns the swapchain image-view at the specified index
+	const VkImageView& get_swapchain_image_view(const uint32_t& idx) const {
+		return screen.swapchain_image_views[idx];
+	}
+	
+	struct drawable_image_info {
+		const uint32_t index;
+		const uint2 image_size;
+		VkImage image;
+		VkSemaphore sema;
+	};
+	
+	//! acquires the next drawable image
+	//! NOTE: will block for now
+	pair<bool, drawable_image_info> acquire_next_image();
+	
+	//! presents the drawable image that has previously been acquired
+	//! NOTE: will block for now
+	bool present_image(const drawable_image_info& drawable);
+	
 protected:
 	VkInstance ctx { nullptr };
+	
+	bool enable_renderer { false };
+	struct screen_data {
+		uint2 size;
+		uint32_t image_count { 0 };
+		uint32_t image_index { 0 };
+		VkSurfaceKHR surface { nullptr };
+		VkSwapchainKHR swapchain { nullptr };
+		VkFormat format { VK_FORMAT_UNDEFINED };
+		VkColorSpaceKHR color_space { VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
+		vector<VkImage> swapchain_images;
+		vector<VkImageView> swapchain_image_views;
+		vector<VkSemaphore> render_semas;
+		vulkan_device* render_device { nullptr };
+	} screen;
+	bool init_renderer();
 	
 	// NOTE: these match up 1:1
 	vector<VkPhysicalDevice> physical_devices;

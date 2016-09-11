@@ -36,7 +36,7 @@ public:
 	//////////////////////////////////////////
 	// init / context creation
 	
-	opencl_compute(const uint64_t platform_index = ~0ull,
+	opencl_compute(const uint32_t platform_index = ~0u,
 				   const bool gl_sharing = false,
 				   const vector<string> whitelist = {});
 	

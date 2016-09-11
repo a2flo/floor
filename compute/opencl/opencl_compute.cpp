@@ -29,11 +29,17 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 
-opencl_compute::opencl_compute(const uint64_t platform_index_,
-							   const bool gl_sharing,
+opencl_compute::opencl_compute(const uint32_t platform_index_,
+							   const bool gl_sharing_,
 							   const vector<string> whitelist) : compute_context() {
 	// if no platform was specified, use the one in the config (or default one, which is 0)
 	const auto platform_index = (platform_index_ == ~0u ? floor::get_opencl_platform() : platform_index_);
+	
+	// disable gl sharing if the opengl renderer isn't used
+	bool gl_sharing = gl_sharing_;
+	if(gl_sharing && floor::get_renderer() != floor::RENDERER::OPENGL) {
+		gl_sharing = false;
+	}
 	
 	// get platforms
 	cl_uint platform_count = 0;

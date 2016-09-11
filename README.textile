@@ -3,11 +3,11 @@
 
 *Requirements:*
 * OS:
-** Windows: NT 6.0+ (lib is x86/32-bit only here)
-** OS X: 10.11+ (lib is x64/64-bit only here)
+** Windows: NT 6.0+ (MSVC: x86/32-bit only, MinGW/MSYS2: x64/64-bit only)
+** OS X: 10.11+ (x64/64-bit only)
 ** iOS: 9.0+ (32-bit and 64-bit)
 ** Linux: any current x64 distribution
-** FreeBSD: 10.0+ (lib is x64/64-bit only here)
+** FreeBSD: 10.0+ (x64/64-bit only)
 ** other Unix: if x64 and other requirements are met
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org / "libc++":http://libcxx.llvm.org 3.5+
@@ -15,13 +15,13 @@
 ** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/vs-2015-product-editions
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
-** "SDL2":http://www.libsdl.org 2.0.4+ is recommended, earlier versions might work
+** "SDL2":http://www.libsdl.org 2.0.4+
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
 ** (opt) OpenCL: requires OpenCL 1.2+ SDK and CPU/GPU drivers ("Intel":https://software.intel.com/en-us/intel-opencl, "AMD":http://developer.amd.com/tools-and-sdks/opencl-zone/amd-accelerated-parallel-processing-app-sdk)
 ** (opt) CUDA: requires sm_20+/Fermi+ GPU and CUDA 7.5+ drivers (CUDA SDK not required!)
 ** (opt) Metal: requires iOS 9.0+ and A7+ CPU/GPU, or OS X 10.11+ and appropriate GPU
 ** (opt) Host Compute: requires just the compiler/toolchain that is stated above
-** (opt) Vulkan: requires "Vulkan headers":https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/tree/master/include/vulkan and "ICD loader / SDK":https://vulkan.lunarg.com
+** (opt) Vulkan: requires 1.0.24+ "Vulkan headers":https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/tree/master/include/vulkan and "ICD loader / SDK":https://vulkan.lunarg.com
 ** (opt) networking: requires "asio":http://think-async.com/Asio headers and "OpenSSL":https://www.openssl.org 1.0.1+
 ** (opt) audio/OpenAL: requires "OpenAL Soft":http://kcat.strangesoft.net/openal.html
 
@@ -62,7 +62,7 @@
 * open floor.sln and build (lib and include paths might need to be modified)
 * some notes:
 ** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
-** "SDL2":https://buildbot.libsdl.org/sdl-builds/sdl-visualstudio/?C=M;O=D is a required dependency
+** SDL2 is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
 ** audio (openal) and use of exceptions are disabled by default (and not supported)

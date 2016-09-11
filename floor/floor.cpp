@@ -31,16 +31,33 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-// init statics
-static atomic<bool> floor_initialized { false };
-event* floor::evt = nullptr;
-bool floor::console_only = false;
-shared_ptr<compute_context> floor::compute_ctx;
-unordered_set<string> floor::gl_extensions;
-
+//// init statics
 struct floor::floor_config floor::config;
 json::document floor::config_doc;
 
+// globals
+static atomic<bool> floor_initialized { false };
+unique_ptr<event> floor::evt;
+shared_ptr<compute_context> floor::compute_ctx;
+floor::RENDERER floor::renderer { floor::RENDERER::DEFAULT };
+SDL_Window* floor::window { nullptr };
+
+// OpenGL
+SDL_GLContext floor::opengl_ctx { nullptr };
+unordered_set<string> floor::gl_extensions;
+bool floor::use_gl_context { false };
+uint32_t floor::global_vao { 0u };
+string floor::gl_vendor { "" };
+
+// Vulkan
+shared_ptr<vulkan_compute> floor::vulkan_ctx;
+uint3 floor::vulkan_api_version;
+
+// for use with acquire_context/release_context
+recursive_mutex floor::ctx_lock;
+atomic<uint32_t> floor::ctx_active_locks { 0 };
+
+// path variables
 string floor::datapath = "";
 string floor::rel_datapath = "";
 string floor::callpath = "";
@@ -48,55 +65,69 @@ string floor::kernelpath = "";
 string floor::abs_bin_path = "";
 string floor::config_name = "config.json";
 
-unsigned int floor::fps = 0;
-unsigned int floor::fps_counter = 0;
-unsigned int floor::fps_time = 0;
+// fps counting
+uint32_t floor::fps = 0;
+uint32_t floor::fps_counter = 0;
+uint32_t floor::fps_time = 0;
 float floor::frame_time = 0.0f;
-unsigned int floor::frame_time_sum = 0;
-unsigned int floor::frame_time_counter = 0;
+uint32_t floor::frame_time_sum = 0;
+uint32_t floor::frame_time_counter = 0;
 bool floor::new_fps_count = false;
 
-bool floor::cursor_visible = true;
-
+// window event handlers
 event::handler floor::event_handler_fnctr { &floor::event_handler };
 
+// misc
+string floor::app_name { "libfloor" };
+uint32_t floor::app_version { 1 };
+bool floor::cursor_visible = true;
+bool floor::console_only = false;
 atomic<bool> floor::reload_kernels_flag { false };
-bool floor::use_gl_context { true };
-uint32_t floor::global_vao { 0u };
-string floor::gl_vendor { "" };
 
-/*! this is used to set an absolute data path depending on call path (path from where the binary is called/started),
- *! which is mostly needed when the binary is opened via finder under os x or any file manager under linux
- */
-void floor::init(const char* callpath_, const char* datapath_,
-				 const bool console_only_, const string config_name_,
-				 const bool use_gl33_, const unsigned int window_flags) {
+bool floor::init(const init_state& state) {
 	// return if already initialized
 	if(floor_initialized.exchange(true)) {
-		return;
+		return false;
 	}
+	
+	// sanity check
+#if defined(__APPLE__)
+	if(state.renderer == RENDERER::VULKAN) {
+		cerr << "Vulkan is not supported on OS X / iOS" << endl;
+		return false;
+	}
+#endif
+#if defined(FLOOR_NO_VULKAN)
+	if(state.renderer == RENDERER::VULKAN) {
+		cerr << "can't use the Vulkan renderer when libfloor was compiled without Vulkan support" << endl;
+		return false;
+	}
+#endif
 	
 	//
 	register_segfault_handler();
 	
-	floor::callpath = callpath_;
-	floor::datapath = callpath_;
-	floor::rel_datapath = datapath_;
-	floor::abs_bin_path = callpath_;
-	floor::config_name = config_name_;
-	floor::console_only = console_only_;
+	floor::callpath = state.call_path;
+	floor::datapath = state.call_path;
+	floor::rel_datapath = state.data_path;
+	floor::abs_bin_path = state.call_path;
+	floor::config_name = state.config_name;
+	floor::console_only = state.console_only;
+	floor::app_name = state.app_name;
+	floor::app_version = state.app_version;
+	floor::vulkan_api_version = state.vulkan_api_version;
 	
 	// get working directory
 	char working_dir[16384];
 	memset(working_dir, 0, 16384);
 	if(getcwd(working_dir, 16383) == nullptr) {
-		cerr << "failed to retrieve current working directory" << endl;
-		exit(1);
+		cerr << "failed to retrieve the current working directory" << endl;
+		return false;
 	}
 	
 	// no '/' -> relative path
 	if(rel_datapath[0] != '/') {
-		datapath = datapath.substr(0, datapath.rfind(FLOOR_OS_DIR_SLASH)+1) + rel_datapath;
+		datapath = datapath.substr(0, datapath.rfind(FLOOR_OS_DIR_SLASH) + 1) + rel_datapath;
 	}
 	// absolute path
 	else datapath = rel_datapath;
@@ -107,9 +138,9 @@ void floor::init(const char* callpath_, const char* datapath_,
 		if(abs_bin_path.size() > 2 && abs_bin_path[0] == '.' && abs_bin_path[1] == '/') {
 			direct_rel_path = true;
 		}
-		abs_bin_path = FLOOR_OS_DIR_SLASH + abs_bin_path.substr(direct_rel_path ? 2 : 0,
-																abs_bin_path.rfind(FLOOR_OS_DIR_SLASH) + 1
-																- (direct_rel_path ? 2 : 0));
+		abs_bin_path = (FLOOR_OS_DIR_SLASH +
+						abs_bin_path.substr(direct_rel_path ? 2 : 0,
+											abs_bin_path.rfind(FLOOR_OS_DIR_SLASH) + 1 - (direct_rel_path ? 2 : 0)));
 		abs_bin_path = working_dir + abs_bin_path; // just add the working dir -> done
 	}
 	// else: we already have the absolute path
@@ -117,7 +148,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 #if defined(CYGWIN)
 	callpath = "./";
 	datapath = callpath_;
-	datapath = datapath.substr(0, datapath.rfind("/")+1) + rel_datapath;
+	datapath = datapath.substr(0, datapath.rfind("/") + 1) + rel_datapath;
 #endif
 	
 	// create
@@ -135,11 +166,11 @@ void floor::init(const char* callpath_, const char* datapath_,
 		datapath.erase(strip_pos, 3);
 	}
 	
-	bool add_bin_path = (working_dir == datapath.substr(0, datapath.length()-1)) ? false : true;
+	bool add_bin_path = (working_dir == datapath.substr(0, datapath.length() - 1)) ? false : true;
 	if(!add_bin_path) datapath = working_dir + string("\\") + (add_bin_path ? datapath : "");
 	else {
-		if(datapath[datapath.length()-1] == '/') {
-			datapath = datapath.substr(0, datapath.length()-1);
+		if(datapath[datapath.length() - 1] == '/') {
+			datapath = datapath.substr(0, datapath.length() - 1);
 		}
 		datapath += string("\\");
 	}
@@ -151,7 +182,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 	// check if datapath contains a 'MacOS' string (indicates that the binary is called from within an OS X .app or via complete path from the shell)
 	if(datapath.find("MacOS") != string::npos) {
 		// if so, add "../../../" to the datapath, since we have to relocate the datapath if the binary is inside an .app
-		datapath.insert(datapath.find("MacOS")+6, "../../../");
+		datapath.insert(datapath.find("MacOS") + 6, "../../../");
 	}
 #else
 	datapath = datapath_;
@@ -203,12 +234,12 @@ void floor::init(const char* callpath_, const char* datapath_,
 	};
 	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths, vulkan_toolchain_paths;
 	if(config_doc.valid) {
-		config.width = config_doc.get<uint64_t>("screen.width", 1280);
-		config.height = config_doc.get<uint64_t>("screen.height", 720);
+		config.width = config_doc.get<uint32_t>("screen.width", 1280);
+		config.height = config_doc.get<uint32_t>("screen.height", 720);
 		config.fullscreen = config_doc.get<bool>("screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
 		config.stereo = config_doc.get<bool>("screen.stereo", false);
-		config.dpi = config_doc.get<uint64_t>("screen.dpi", 0);
+		config.dpi = config_doc.get<uint32_t>("screen.dpi", 0);
 		config.hidpi = config_doc.get<bool>("screen.hidpi", false);
 		
 		config.audio_disabled = config_doc.get<bool>("audio.disabled", true);
@@ -216,7 +247,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.sound_volume = const_math::clamp(config_doc.get<float>("audio.sound", 1.0f), 0.0f, 1.0f);
 		config.audio_device_name = config_doc.get<string>("audio.device", "");
 		
-		config.verbosity = config_doc.get<uint64_t>("logging.verbosity", (size_t)logger::LOG_TYPE::UNDECORATED);
+		config.verbosity = config_doc.get<uint32_t>("logging.verbosity", (uint32_t)logger::LOG_TYPE::UNDECORATED);
 		config.separate_msg_file = config_doc.get<bool>("logging.separate_msg_file", false);
 		config.append_mode = config_doc.get<bool>("logging.append_mode", false);
 		config.log_use_time = config_doc.get<bool>("logging.use_time", true);
@@ -229,10 +260,10 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.near_far_plane.y = config_doc.get<float>("projection.far", 1000.0f);
 		config.upscaling = config_doc.get<float>("projection.upscaling", 1.0f);
 		
-		config.key_repeat = config_doc.get<uint64_t>("input.key_repeat", 200);
-		config.ldouble_click_time = config_doc.get<uint64_t>("input.ldouble_click_time", 200);
-		config.mdouble_click_time = config_doc.get<uint64_t>("input.mdouble_click_time", 200);
-		config.rdouble_click_time = config_doc.get<uint64_t>("input.rdouble_click_time", 200);
+		config.key_repeat = config_doc.get<uint32_t>("input.key_repeat", 200);
+		config.ldouble_click_time = config_doc.get<uint32_t>("input.ldouble_click_time", 200);
+		config.mdouble_click_time = config_doc.get<uint32_t>("input.mdouble_click_time", 200);
+		config.rdouble_click_time = config_doc.get<uint32_t>("input.rdouble_click_time", 200);
 		
 		config.backend = config_doc.get<string>("compute.backend", "");
 		config.gl_sharing = config_doc.get<bool>("compute.gl_sharing", false);
@@ -271,7 +302,7 @@ void floor::init(const char* callpath_, const char* datapath_,
 		if(!config_toolchain_paths.empty()) default_toolchain_paths = config_toolchain_paths;
 		
 		opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
-		config.opencl_platform = config_doc.get<uint64_t>("compute.opencl.platform", 0);
+		config.opencl_platform = config_doc.get<uint32_t>("compute.opencl.platform", 0);
 		config.opencl_verify_spir = config_doc.get<bool>("compute.opencl.verify_spir", false);
 		config.opencl_validate_spirv = config_doc.get<bool>("compute.opencl.validate_spirv", false);
 		config.opencl_force_spirv_check = config_doc.get<bool>("compute.opencl.force_spirv", false);
@@ -291,9 +322,9 @@ void floor::init(const char* callpath_, const char* datapath_,
 		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
 		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
 		config.cuda_force_ptx = config_doc.get<string>("compute.cuda.force_ptx", "");
-		config.cuda_max_registers = (uint32_t)config_doc.get<uint64_t>("compute.cuda.max_registers", 32);
+		config.cuda_max_registers = config_doc.get<uint32_t>("compute.cuda.max_registers", 32);
 		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
-		config.cuda_jit_opt_level = (uint32_t)config_doc.get<uint64_t>("compute.cuda.jit_opt_level", 4);
+		config.cuda_jit_opt_level = config_doc.get<uint32_t>("compute.cuda.jit_opt_level", 4);
 		config.cuda_use_internal_api = config_doc.get<bool>("compute.cuda.use_internal_api", true);
 		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
 		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
@@ -509,17 +540,61 @@ void floor::init(const char* callpath_, const char* datapath_,
 	}
 	
 	// init logger and print out floor info
-	logger::init((size_t)config.verbosity, config.separate_msg_file, config.append_mode,
+	logger::init((uint32_t)config.verbosity, config.separate_msg_file, config.append_mode,
 				 config.log_use_time, config.log_use_color,
 				 config.log_filename, config.msg_filename);
-	log_debug("%s", (FLOOR_VERSION_STRING).c_str());
+	log_debug((FLOOR_VERSION_STRING).c_str());
+	
+	// choose the renderer
+	if(state.renderer == RENDERER::DEFAULT) {
+		// try to use Vulkan if the compute backend is Vulkan and the toolchain exists
+#if !defined(__APPLE__)
+		if(config.backend == "vulkan") {
+			if(!config.vulkan_toolchain_exists) {
+				log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
+				renderer = RENDERER::OPENGL;
+			}
+			else {
+				renderer = RENDERER::VULKAN;
+			}
+		}
+		else
+#endif // always default to OpenGL on OS X / iOS
+		{
+			renderer = RENDERER::OPENGL;
+		}
+	}
+	else if(state.renderer == RENDERER::OPENGL) {
+		renderer = RENDERER::OPENGL;
+	}
+	else if(state.renderer == RENDERER::VULKAN) {
+		// Vulkan was explicitly requested, still need to check if the toolchain exists
+#if !defined(__APPLE__)
+		if(!config.vulkan_toolchain_exists) {
+			log_error("tried to use the Vulkan renderer, but toolchain doesn't exist - using OpenGL now");
+			renderer = RENDERER::OPENGL;
+		}
+		else {
+			renderer = RENDERER::VULKAN;
+		}
+#else
+		// obviously can't use Vulkan on OS X / iOS
+		log_error("Vulkan renderer is not available on OS X / iOS - using OpenGL now");
+		renderer = RENDERER::OPENGL;
+#endif
+	}
+	else {
+		renderer = RENDERER::NONE;
+	}
+	assert(renderer != RENDERER::DEFAULT && "must have selected a renderer");
+	use_gl_context = (renderer == RENDERER::OPENGL);
 	
 	//
-	evt = new event();
+	evt = make_unique<event>();
 	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
-	init_internal(use_gl33_, window_flags);
+	return init_internal(state);
 }
 
 void floor::destroy() {
@@ -537,18 +612,21 @@ void floor::destroy() {
 	
 	evt->remove_event_handler(event_handler_fnctr);
 	
+	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
-	if(evt != nullptr) delete evt;
+	if(evt != nullptr) {
+		evt = nullptr;
+	}
 	
 	if(!console_only) {
 		release_context();
 		
-		if(config.ctx != nullptr) {
-			SDL_GL_DeleteContext(config.ctx);
+		if(opengl_ctx != nullptr) {
+			SDL_GL_DeleteContext(opengl_ctx);
 		}
-		SDL_DestroyWindow(config.wnd);
+		SDL_DestroyWindow(window);
 	}
 	SDL_Quit();
 	
@@ -556,27 +634,26 @@ void floor::destroy() {
 	floor_initialized = false;
 }
 
-void floor::init_internal(const bool use_gl33
-#if defined(FLOOR_IOS)
-						  floor_unused // only used on desktop platforms
-#endif
-						  , const unsigned int window_flags) {
+bool floor::init_internal(const init_state& state) {
 	log_debug("initializing floor");
 
 	// initialize sdl
 	if(SDL_Init(console_only ? 0 : SDL_INIT_VIDEO) == -1) {
 		log_error("failed to initialize SDL: %s", SDL_GetError());
-		exit(1);
+		return false;
 	}
 	else {
-		log_debug("sdl initialized");
+		log_debug("SDL initialized");
 	}
 	atexit(SDL_Quit);
 
 	// only initialize opengl/opencl and create a window when not in console-only mode
 	if(!console_only) {
 		// set window creation flags
-		config.flags = window_flags;
+		config.flags = state.window_flags;
+		if(renderer == RENDERER::OPENGL) {
+			config.flags |= SDL_WINDOW_OPENGL;
+		}
 		
 		config.flags |= SDL_WINDOW_ALLOW_HIGHDPI; // allow by default, disable later if necessary
 #if !defined(FLOOR_IOS)
@@ -591,17 +668,11 @@ void floor::init_internal(const bool use_gl33
 			log_debug("fullscreen disabled");
 		}
 #else
-		// always set fullscreen + borderless on iOS
-		config.flags |= SDL_WINDOW_OPENGL;
-		config.flags |= SDL_WINDOW_FULLSCREEN;
-		config.flags |= SDL_WINDOW_BORDERLESS;
-		config.flags |= SDL_WINDOW_RESIZABLE;
+		// always set shown
+		// NOTE: init_state::window_flags defaults to fullscreen/borderless/resizable on iOS,
+		//       but let the user decide if those should be used
 		config.flags |= SDL_WINDOW_SHOWN;
 #endif
-		
-		if(config.backend == "vulkan") {
-			config.flags &= ~uint32_t(SDL_WINDOW_OPENGL);
-		}
 		
 		log_debug("vsync %s", config.vsync ? "enabled" : "disabled");
 		
@@ -609,7 +680,7 @@ void floor::init_internal(const bool use_gl33
 		SDL_SetHint("SDL_VIDEO_HIGHDPI_DISABLED", config.hidpi ? "0" : "1");
 		log_debug("hidpi %s", config.hidpi ? "enabled" : "disabled");
 		
-		if(config.backend != "vulkan") {
+		if(renderer == RENDERER::OPENGL) {
 			// gl attributes
 			SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 			SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -633,8 +704,8 @@ void floor::init_internal(const bool use_gl33
 #endif
 		
 #if !defined(FLOOR_IOS)
-		if(!ignore_gl_version && config.backend != "vulkan") {
-			if(use_gl33) {
+		if(!ignore_gl_version && renderer == RENDERER::OPENGL) {
+			if(state.use_opengl_33) {
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 #if defined(__APPLE__) // must request a core context on os x, doesn't matter on other platforms
@@ -648,16 +719,18 @@ void floor::init_internal(const bool use_gl33
 			}
 		}
 #else
+		if(renderer == RENDERER::OPENGL) {
 #if defined(PLATFORM_X32)
-		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #else
-		SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles3");
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+			SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles3");
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #endif
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+			SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		}
 		
 		//
 		SDL_DisplayMode fullscreen_mode;
@@ -669,43 +742,45 @@ void floor::init_internal(const bool use_gl33
 		
 		// create screen
 #if !defined(FLOOR_IOS)
-		config.wnd = SDL_CreateWindow("floor", windows_pos.x, windows_pos.y, (int)config.width, (int)config.height, config.flags);
+		window = SDL_CreateWindow(app_name.c_str(), windows_pos.x, windows_pos.y, (int)config.width, (int)config.height, config.flags);
 #else
-		config.wnd = SDL_CreateWindow("floor", 0, 0, (int)config.width, (int)config.height, config.flags);
+		window = SDL_CreateWindow(app_name.c_str(), 0, 0, (int)config.width, (int)config.height, config.flags);
 #endif
-		if(config.wnd == nullptr) {
+		if(window == nullptr) {
 			log_error("can't create window: %s", SDL_GetError());
-			exit(1);
+			return false;
 		}
 		else {
-			SDL_GetWindowSize(config.wnd, (int*)&config.width, (int*)&config.height);
+			SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
 			log_debug("video mode set: w%u h%u", config.width, config.height);
 		}
 		
 #if defined(FLOOR_IOS)
-		if(SDL_SetWindowDisplayMode(config.wnd, &fullscreen_mode) < 0) {
+		if(SDL_SetWindowDisplayMode(window, &fullscreen_mode) < 0) {
 			log_error("can't set up fullscreen display mode: %s", SDL_GetError());
-			exit(1);
+			return false;
 		}
-		SDL_GetWindowSize(config.wnd, (int*)&config.width, (int*)&config.height);
+		SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
 		log_debug("fullscreen mode set: w%u h%u", config.width, config.height);
-		SDL_ShowWindow(config.wnd);
+		SDL_ShowWindow(window);
 #endif
 		
-		if(config.backend != "vulkan") {
-			config.ctx = SDL_GL_CreateContext(config.wnd);
-			if(config.ctx == nullptr) {
-				log_error("can't create opengl context: %s", SDL_GetError());
-				exit(1);
+		if(renderer == RENDERER::OPENGL) {
+			opengl_ctx = SDL_GL_CreateContext(window);
+			if(opengl_ctx == nullptr) {
+				log_error("can't create OpenGL context: %s", SDL_GetError());
+				return false;
 			}
+			
 #if !defined(FLOOR_IOS)
 			// has to be set after context creation
 			if(SDL_GL_SetSwapInterval(config.vsync ? 1 : 0) == -1) {
-				log_error("error setting the gl swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
+				log_error("error setting the OpenGL swap interval to %v (vsync): %s", config.vsync, SDL_GetError());
 				SDL_ClearError();
 			}
 			
 			// enable multi-threaded opengl context when on os x
+			// TODO: did this ever actually work?
 #if defined(__APPLE__) && 0
 			CGLContextObj cgl_ctx = CGLGetCurrentContext();
 			CGLError cgl_err = CGLEnable(cgl_ctx, kCGLCEMPEngine);
@@ -719,13 +794,32 @@ void floor::init_internal(const bool use_gl33
 #endif
 #endif
 		}
+#if !defined(FLOOR_NO_VULKAN)
+		else if(renderer == RENDERER::VULKAN) {
+			// create the vulkan context
+			vulkan_ctx = make_shared<vulkan_compute>(true, config.vulkan_whitelist);
+			if(vulkan_ctx == nullptr ||
+			   !vulkan_ctx->is_supported()) {
+				log_error("failed to create the Vulkan renderer context");
+				renderer = RENDERER::NONE;
+				vulkan_ctx = nullptr;
+			}
+		}
+#endif
 	}
 	acquire_context();
 	
 	if(!console_only) {
-		log_debug("window and opengl context created and acquired!");
+		log_debug("window %screated and acquired!",
+				  renderer == RENDERER::OPENGL ? "and OpenGL context " :
+				  renderer == RENDERER::VULKAN ? "and Vulkan context " : "");
 		
-		if(config.backend != "vulkan") {
+		if(SDL_GetCurrentVideoDriver() == nullptr) {
+			log_error("couldn't get video driver: %s!", SDL_GetError());
+		}
+		else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
+		
+		if(renderer == RENDERER::OPENGL) {
 			// initialize opengl functions (get function pointers) on non-apple platforms
 #if !defined(__APPLE__)
 			init_gl_funcs();
@@ -789,44 +883,39 @@ void floor::init_internal(const bool use_gl33
 			log_debug("renderer: %s", glGetString(GL_RENDERER));
 			log_debug("version: %s", glGetString(GL_VERSION));
 			
-			if(SDL_GetCurrentVideoDriver() == nullptr) {
-				log_error("couldn't get video driver: %s!", SDL_GetError());
-			}
-			else log_debug("video driver: %s", SDL_GetCurrentVideoDriver());
-			
 			// initialize ogl
 			init_gl();
-			log_debug("opengl initialized");
+			log_debug("OpenGL initialized");
 			
 			// resize stuff
-			resize_window();
+			resize_gl_window();
 		}
+		// NOTE: vulkan has already been initialized at this point
 		
-		evt->set_ldouble_click_time((unsigned int)config.ldouble_click_time);
-		evt->set_rdouble_click_time((unsigned int)config.rdouble_click_time);
-		evt->set_mdouble_click_time((unsigned int)config.mdouble_click_time);
+		evt->set_ldouble_click_time(config.ldouble_click_time);
+		evt->set_rdouble_click_time(config.rdouble_click_time);
+		evt->set_mdouble_click_time(config.mdouble_click_time);
 		
 		// retrieve dpi info
 		if(config.dpi == 0) {
 #if defined(__APPLE__)
-			config.dpi = darwin_helper::get_dpi(config.wnd);
-#elif defined(__WINDOWS__)
-			HDC hdc = wglGetCurrentDC();
-			const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
-			const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
-			const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
-									 (float(display_res.y) / display_phys_size.y) * 25.4f);
-			config.dpi = (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
-#else // x11
+			config.dpi = darwin_helper::get_dpi(window);
+#else
 			SDL_SysWMinfo wm_info;
 			SDL_VERSION(&wm_info.version);
-			if(SDL_GetWindowWMInfo(config.wnd, &wm_info) == 1) {
+			if(SDL_GetWindowWMInfo(window, &wm_info) == 1) {
+#if defined(__WINDOWS__)
+				HDC hdc = wm_info.info.win.hdc;
+				const size2 display_res((size_t)GetDeviceCaps(hdc, HORZRES), (size_t)GetDeviceCaps(hdc, VERTRES));
+				const float2 display_phys_size(GetDeviceCaps(hdc, HORZSIZE), GetDeviceCaps(hdc, VERTSIZE));
+#else // x11
 				Display* display = wm_info.info.x11.display;
 				const size2 display_res((size_t)DisplayWidth(display, 0), (size_t)DisplayHeight(display, 0));
 				const float2 display_phys_size(DisplayWidthMM(display, 0), DisplayHeightMM(display, 0));
+#endif
 				const float2 display_dpi((float(display_res.x) / display_phys_size.x) * 25.4f,
 										 (float(display_res.y) / display_phys_size.y) * 25.4f);
-				config.dpi = (size_t)floorf(std::max(display_dpi.x, display_dpi.y));
+				config.dpi = (uint32_t)floorf(std::max(display_dpi.x, display_dpi.y));
 			}
 #endif
 		}
@@ -902,8 +991,13 @@ void floor::init_internal(const bool use_gl33
 					break;
 				case COMPUTE_TYPE::VULKAN:
 #if !defined(FLOOR_NO_VULKAN)
-					log_debug("initializing Vulkan ...");
-					compute_ctx = make_shared<vulkan_compute>(config.vulkan_whitelist);
+					if(vulkan_ctx != nullptr) {
+						compute_ctx = vulkan_ctx;
+					}
+					else {
+						log_debug("initializing Vulkan ...");
+						compute_ctx = make_shared<vulkan_compute>(false, config.vulkan_whitelist);
+					}
 #endif
 					break;
 				default: break;
@@ -936,17 +1030,19 @@ void floor::init_internal(const bool use_gl33
 #endif
 	
 	release_context();
+	
+	return true;
 }
 
 void floor::set_screen_size(const uint2& screen_size) {
 	if(screen_size.x == config.width && screen_size.y == config.height) return;
 	config.width = screen_size.x;
 	config.height = screen_size.y;
-	SDL_SetWindowSize(config.wnd, (int)config.width, (int)config.height);
+	SDL_SetWindowSize(window, (int)config.width, (int)config.height);
 	
 	SDL_Rect bounds;
 	SDL_GetDisplayBounds(0, &bounds);
-	SDL_SetWindowPosition(config.wnd,
+	SDL_SetWindowPosition(window,
 						  bounds.x + (bounds.w - int(config.width)) / 2,
 						  bounds.y + (bounds.h - int(config.height)) / 2);
 }
@@ -954,13 +1050,13 @@ void floor::set_screen_size(const uint2& screen_size) {
 void floor::set_fullscreen(const bool& state) {
 	if(state == config.fullscreen) return;
 	config.fullscreen = state;
-	if(SDL_SetWindowFullscreen(config.wnd, (SDL_bool)state) != 0) {
+	if(SDL_SetWindowFullscreen(window, (SDL_bool)state) != 0) {
 		log_error("failed to %s fullscreen: %s!",
 				  (state ? "enable" : "disable"), SDL_GetError());
 	}
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
 				   make_shared<window_resize_event>(SDL_GetTicks(),
-													size2(size_t(config.width), size_t(config.height))));
+													uint2(config.width, config.height)));
 	// TODO: border?
 }
 
@@ -968,41 +1064,41 @@ void floor::set_vsync(const bool& state) {
 	if(state == config.vsync) return;
 	config.vsync = state;
 #if !defined(FLOOR_IOS)
-	SDL_GL_SetSwapInterval(config.vsync ? 1 : 0);
+	if(opengl_ctx != nullptr) {
+		SDL_GL_SetSwapInterval(config.vsync ? 1 : 0);
+	}
 #endif
 }
 
-/*! starts drawing the window
- */
-void floor::start_draw() {
+void floor::start_frame() {
 	acquire_context();
 }
 
-/*! stops drawing the window
- */
-void floor::stop_draw(const bool window_swap) {
-	GLenum error = glGetError();
-	switch(error) {
-		case GL_NO_ERROR:
-			break;
-		case GL_INVALID_ENUM:
-			log_error("OpenGL error: invalid enum!");
-			break;
-		case GL_INVALID_VALUE:
-			log_error("OpenGL error: invalid value!");
-			break;
-		case GL_INVALID_OPERATION:
-			log_error("OpenGL error: invalid operation!");
-			break;
-		case GL_OUT_OF_MEMORY:
-			log_error("OpenGL error: out of memory!");
-			break;
-		case GL_INVALID_FRAMEBUFFER_OPERATION:
-			log_error("OpenGL error: invalid framebuffer operation!");
-			break;
-		default:
-			log_error("unknown OpenGL error: %u!");
-			break;
+void floor::end_frame(const bool window_swap) {
+	if(renderer == RENDERER::OPENGL) {
+		GLenum error = glGetError();
+		switch(error) {
+			case GL_NO_ERROR:
+				break;
+			case GL_INVALID_ENUM:
+				log_error("OpenGL error: invalid enum!");
+				break;
+			case GL_INVALID_VALUE:
+				log_error("OpenGL error: invalid value!");
+				break;
+			case GL_INVALID_OPERATION:
+				log_error("OpenGL error: invalid operation!");
+				break;
+			case GL_OUT_OF_MEMORY:
+				log_error("OpenGL error: out of memory!");
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				log_error("OpenGL error: invalid framebuffer operation!");
+				break;
+			default:
+				log_error("unknown OpenGL error: %u!", error);
+				break;
+		}
 	}
 	
 	// optional window swap (client code might want to swap the window by itself)
@@ -1038,13 +1134,13 @@ void floor::stop_draw(const bool window_swap) {
  *  @param caption the window caption
  */
 void floor::set_caption(const string& caption) {
-	SDL_SetWindowTitle(config.wnd, caption.c_str());
+	SDL_SetWindowTitle(window, caption.c_str());
 }
 
 /*! returns the window caption
  */
 string floor::get_caption() {
-	return SDL_GetWindowTitle(config.wnd);
+	return SDL_GetWindowTitle(window);
 }
 
 /*! opengl initialization function
@@ -1065,7 +1161,7 @@ void floor::init_gl() {
 
 /* function to reset our viewport after a window resize
  */
-void floor::resize_window() {
+void floor::resize_gl_window() {
 	// set the viewport
 	glViewport(0, 0, (GLsizei)config.width, (GLsizei)config.height);
 }
@@ -1087,7 +1183,7 @@ bool floor::get_cursor_visible() {
 /*! returns a pointer to the event class
  */
 event* floor::get_event() {
-	return floor::evt;
+	return floor::evt.get();
 }
 
 /*! sets the data path
@@ -1139,7 +1235,7 @@ string floor::strip_data_path(const string& str) {
 	return core::find_and_replace(str, datapath, "");
 }
 
-unsigned int floor::get_fps() {
+uint32_t floor::get_fps() {
 	new_fps_count = false;
 	return floor::fps;
 }
@@ -1164,75 +1260,75 @@ bool floor::get_stereo() {
 	return config.stereo;
 }
 
-unsigned int floor::get_width() {
-	return (unsigned int)config.width;
+uint32_t floor::get_width() {
+	return config.width;
 }
 
-unsigned int floor::get_height() {
-	return (unsigned int)config.height;
+uint32_t floor::get_height() {
+	return config.height;
 }
 
 uint2 floor::get_screen_size() {
-	return uint2((unsigned int)config.width, (unsigned int)config.height);
+	return uint2(config.width, config.height);
 }
 
-unsigned int floor::get_physical_width() {
-	unsigned int ret = (unsigned int)config.width;
+uint32_t floor::get_physical_width() {
+	uint32_t ret = config.width;
 #if defined(__APPLE__) // only supported on osx and ios right now
 	ret = uint32_t(double(ret) *
 				   (config.hidpi ?
-					double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+					double(darwin_helper::get_scale_factor(window)) : 1.0));
 #endif
 	return ret;
 }
 
-unsigned int floor::get_physical_height() {
-	unsigned int ret = (unsigned int)config.height;
+uint32_t floor::get_physical_height() {
+	uint32_t ret = config.height;
 #if defined(__APPLE__) // only supported on osx and ios right now
 	ret = uint32_t(double(ret) *
 				   (config.hidpi ?
-					double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+					double(darwin_helper::get_scale_factor(window)) : 1.0));
 #endif
 	return ret;
 }
 
 uint2 floor::get_physical_screen_size() {
-	uint2 ret { (unsigned int)config.width, (unsigned int)config.height };
+	uint2 ret { config.width, config.height };
 #if defined(__APPLE__) // only supported on osx and ios right now
 	ret = uint2(double2(ret) *
 				(config.hidpi ?
-				 double(darwin_helper::get_scale_factor(config.wnd)) : 1.0));
+				 double(darwin_helper::get_scale_factor(window)) : 1.0));
 #endif
 	return ret;
 }
 
-unsigned int floor::get_key_repeat() {
-	return (unsigned int)config.key_repeat;
+uint32_t floor::get_key_repeat() {
+	return config.key_repeat;
 }
 
-unsigned int floor::get_ldouble_click_time() {
-	return (unsigned int)config.ldouble_click_time;
+uint32_t floor::get_ldouble_click_time() {
+	return config.ldouble_click_time;
 }
 
-unsigned int floor::get_mdouble_click_time() {
-	return (unsigned int)config.mdouble_click_time;
+uint32_t floor::get_mdouble_click_time() {
+	return config.mdouble_click_time;
 }
 
-unsigned int floor::get_rdouble_click_time() {
-	return (unsigned int)config.rdouble_click_time;
+uint32_t floor::get_rdouble_click_time() {
+	return config.rdouble_click_time;
 }
 
 SDL_Window* floor::get_window() {
-	return config.wnd;
+	return window;
 }
 
-unsigned int floor::get_window_flags() {
+uint32_t floor::get_window_flags() {
 	return config.flags;
 }
 
 uint32_t floor::get_window_refresh_rate() {
 	// SDL_GetWindowDisplayMode is useless/broken, so get the display index + retrieve the mode that way instead
-	const auto display_index = SDL_GetWindowDisplayIndex(config.wnd);
+	const auto display_index = SDL_GetWindowDisplayIndex(window);
 	if(display_index < 0) {
 		log_error("failed to retrieve window display index");
 		return 60;
@@ -1243,12 +1339,16 @@ uint32_t floor::get_window_refresh_rate() {
 			log_error("failed to retrieve current display mode (for display #%u)", display_index);
 			return 60;
 		}
-		return (uint32_t)mode.refresh_rate;
+		return (mode.refresh_rate < 0 ? 60 : uint32_t(mode.refresh_rate));
 	}
 }
 
-SDL_GLContext floor::get_context() {
-	return config.ctx;
+SDL_GLContext floor::get_opengl_context() {
+	return opengl_ctx;
+}
+
+shared_ptr<vulkan_compute> floor::get_vulkan_context() {
+	return vulkan_ctx;
 }
 
 const string floor::get_version() {
@@ -1256,7 +1356,9 @@ const string floor::get_version() {
 }
 
 void floor::swap() {
-	SDL_GL_SwapWindow(config.wnd);
+	if(opengl_ctx != nullptr) {
+		SDL_GL_SwapWindow(window);
+	}
 }
 
 void floor::reload_kernels() {
@@ -1271,14 +1373,14 @@ void floor::set_fov(const float& fov) {
 	if(const_math::is_equal(config.fov, fov)) return;
 	config.fov = fov;
 	evt->add_event(EVENT_TYPE::WINDOW_RESIZE,
-				   make_shared<window_resize_event>(SDL_GetTicks(), size2(size_t(config.width), size_t(config.height))));
+				   make_shared<window_resize_event>(SDL_GetTicks(), uint2(config.width, config.height)));
 }
 
 const float2& floor::get_near_far_plane() {
 	return config.near_far_plane;
 }
 
-const uint64_t& floor::get_dpi() {
+const uint32_t& floor::get_dpi() {
 	return config.dpi;
 }
 
@@ -1294,12 +1396,12 @@ void floor::acquire_context() {
 	// note: the context lock is recursive, so one thread can lock
 	// it multiple times. however, SDL_GL_MakeCurrent should only
 	// be called once (this is the purpose of ctx_active_locks).
-	config.ctx_lock.lock();
+	ctx_lock.lock();
 	// note: not a race, since there can only be one active gl thread
-	const unsigned int cur_active_locks = config.ctx_active_locks++;
-	if(use_gl_context) {
-		if(cur_active_locks == 0 && config.ctx != nullptr) {
-			if(SDL_GL_MakeCurrent(config.wnd, config.ctx) != 0) {
+	const uint32_t cur_active_locks = ctx_active_locks++;
+	if(use_gl_context && opengl_ctx != nullptr) {
+		if(cur_active_locks == 0) {
+			if(SDL_GL_MakeCurrent(window, opengl_ctx) != 0) {
 				log_error("couldn't make gl context current: %s!", SDL_GetError());
 				return;
 			}
@@ -1312,16 +1414,14 @@ void floor::acquire_context() {
 
 void floor::release_context() {
 	// only call SDL_GL_MakeCurrent with nullptr, when this is the last lock
-	const unsigned int cur_active_locks = --config.ctx_active_locks;
-	if(use_gl_context) {
-		if(cur_active_locks == 0 && config.ctx != nullptr) {
-			if(SDL_GL_MakeCurrent(config.wnd, nullptr) != 0) {
-				log_error("couldn't release current gl context: %s!", SDL_GetError());
-				return;
-			}
+	const uint32_t cur_active_locks = --ctx_active_locks;
+	if(use_gl_context && opengl_ctx != nullptr && cur_active_locks == 0) {
+		if(SDL_GL_MakeCurrent(window, nullptr) != 0) {
+			log_error("couldn't release current gl context: %s!", SDL_GetError());
+			return;
 		}
 	}
-	config.ctx_lock.unlock();
+	ctx_lock.unlock();
 }
 void floor::set_use_gl_context(const bool& state) {
 	use_gl_context = state;
@@ -1336,7 +1436,7 @@ bool floor::event_handler(EVENT_TYPE type, shared_ptr<event_object> obj) {
 		const window_resize_event& wnd_evt = (const window_resize_event&)*obj;
 		config.width = wnd_evt.size.x;
 		config.height = wnd_evt.size.y;
-		resize_window();
+		resize_gl_window();
 		return true;
 	}
 	else if(type == EVENT_TYPE::KERNEL_RELOAD) {
@@ -1355,7 +1455,7 @@ const float& floor::get_upscaling() {
 
 float floor::get_scale_factor() {
 #if defined(__APPLE__)
-	return darwin_helper::get_scale_factor(config.wnd);
+	return darwin_helper::get_scale_factor(window);
 #else
 	return config.upscaling; // TODO: get this from somewhere ...
 #endif
@@ -1451,7 +1551,7 @@ const uint32_t& floor::get_opencl_toolchain_version() {
 const vector<string>& floor::get_opencl_whitelist() {
 	return config.opencl_whitelist;
 }
-const uint64_t& floor::get_opencl_platform() {
+const uint32_t& floor::get_opencl_platform() {
 	return config.opencl_platform;
 }
 bool floor::get_opencl_verify_spir() {
@@ -1615,11 +1715,27 @@ bool floor::is_console_only() {
 
 bool floor::is_gl_version(const uint32_t& major, const uint32_t& minor) {
 	const char* version = (const char*)glGetString(GL_VERSION);
-	if((uint32_t)(version[0] - '0') > major) return true;
-	else if((uint32_t)(version[0] - '0') == major && (uint32_t)(version[2] - '0') >= minor) return true;
+	if(uint32_t(version[0] - '0') > major) return true;
+	else if(uint32_t(version[0] - '0') == major && uint32_t(version[2] - '0') >= minor) return true;
 	return false;
 }
 
 const string& floor::get_gl_vendor() {
 	return gl_vendor;
+}
+
+const uint3& floor::get_vulkan_api_version() {
+	return vulkan_api_version;
+}
+
+const string& floor::get_app_name() {
+	return app_name;
+}
+
+const uint32_t& floor::get_app_version() {
+	return app_version;
+}
+
+floor::RENDERER floor::get_renderer() {
+	return renderer;
 }

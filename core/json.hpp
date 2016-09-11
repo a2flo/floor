@@ -91,6 +91,22 @@ public:
 			}
 			return { true, *(uint64_t*)&int_number };
 		}
+		template <typename T, enable_if_t<is_same<T, int32_t>::value>* = nullptr>
+		pair<bool, int32_t> get() const {
+			if(type != VALUE_TYPE::INT_NUMBER) {
+				return { false, 0 };
+			}
+			return { true, int32_t(int_number < 0 ?
+								   std::max(int_number, int64_t(INT32_MIN)) :
+								   std::min(int_number, int64_t(INT32_MAX))) };
+		}
+		template <typename T, enable_if_t<is_same<T, uint32_t>::value>* = nullptr>
+		pair<bool, uint32_t> get() const {
+			if(type != VALUE_TYPE::INT_NUMBER) {
+				return { false, 0 };
+			}
+			return { true, uint32_t(std::min(*(uint64_t*)&int_number, uint64_t(UINT32_MAX))) };
+		}
 		template <typename T, enable_if_t<is_same<T, float>::value>* = nullptr>
 		pair<bool, float> get() const {
 			if(type != VALUE_TYPE::FP_NUMBER) {
@@ -214,6 +230,12 @@ template<> struct json::document::default_value<uint64_t> {
 template<> struct json::document::default_value<int64_t> {
 	static constexpr int64_t def() { return 0ll; }
 };
+template<> struct json::document::default_value<uint32_t> {
+	static constexpr uint32_t def() { return 0u; }
+};
+template<> struct json::document::default_value<int32_t> {
+	static constexpr int32_t def() { return 0; }
+};
 template<> struct json::document::default_value<bool> {
 	static constexpr bool def() { return false; }
 };
@@ -229,6 +251,8 @@ template<> float json::document::get<float>(const string& path, const float defa
 template<> double json::document::get<double>(const string& path, const double default_value) const;
 template<> uint64_t json::document::get<uint64_t>(const string& path, const uint64_t default_value) const;
 template<> int64_t json::document::get<int64_t>(const string& path, const int64_t default_value) const;
+template<> uint32_t json::document::get<uint32_t>(const string& path, const uint32_t default_value) const;
+template<> int32_t json::document::get<int32_t>(const string& path, const int32_t default_value) const;
 template<> bool json::document::get<bool>(const string& path, const bool default_value) const;
 template<> json::json_object json::document::get<json::json_object>(const string& path, const json::json_object default_value) const;
 template<> json::json_array json::document::get<json::json_array>(const string& path, const json::json_array default_value) const;

@@ -31,34 +31,86 @@
 
 class floor {
 public:
-	static void init(const char* callpath, const char* datapath,
-					 const bool console_only = false, const string config_name = "config.json",
-					 const bool use_gl33 = false,
-					 // sdl window creation flags
-					 // note: fullscreen, borderless and hidpi flags will be set automatically depending on the config settings
+	//! renderer backend that should be used and initialized
+	enum class RENDERER : uint32_t {
+		//! don't create any renderer
+		NONE = 0,
+		
+		//! selects the renderer based on the config and OS
+		DEFAULT = 1,
+		
+		//! use the OpenGL 2.0 or 3.3+ renderer, or the OpenGL ES 2.0 or 3.0 renderer,
+		//! based on the OS and init_state
+		OPENGL = 2,
+		
+		//! use the Vulkan 1.0+ renderer
+		VULKAN = 3,
+	};
+	
+	struct init_state {
+		//! call path of the application binary, should generally be argv[0]
+		const char* call_path;
+		
+		//! floor data path
+		const char* data_path;
+		
+		//! application name
+		const char* app_name { "libfloor" };
+		
+		//! application version
+		uint32_t app_version { 1 };
+		
+		//! floor config file name that must be located in the data path
+		//! NOTE: the local/user config will be used if a file with the specified name + ".local" exists
+		const char* config_name { "config.json" };
+		
+		//! if true, will not create a window and will not create an OpenGL context or Vulkan surface/swapchain
+		bool console_only { false };
+		
+		//! renderer backend that should be used and initialized
+		RENDERER renderer { RENDERER::DEFAULT };
+		
+		//! if true and using the OpenGL renderer, this will try to create a OpenGL 3.3+ context
+		//! NOTE: will create a 3.3+ *core* context on OS X
+		bool use_opengl_33 { false };
+		
+		//! min Vulkan API version that should be used
+		uint3 vulkan_api_version { 1, 0, 5 };
+		
+		//! SDL window creation flags
+		//! NOTE: fullscreen, borderless and hidpi flags will be set automatically depending on the config
+		//! NOTE: SDL_WINDOW_OPENGL will be set automatically if use_opengl is true
+		uint32_t window_flags {
 #if !defined(FLOOR_IOS)
-					 const unsigned int window_flags = (SDL_WINDOW_OPENGL |
-														SDL_WINDOW_RESIZABLE)
+			SDL_WINDOW_RESIZABLE
 #else
-					 const unsigned int window_flags = (SDL_WINDOW_OPENGL |
-														SDL_WINDOW_RESIZABLE |
-														SDL_WINDOW_BORDERLESS |
-														SDL_WINDOW_FULLSCREEN)
+			SDL_WINDOW_RESIZABLE |
+			SDL_WINDOW_BORDERLESS |
+			SDL_WINDOW_FULLSCREEN
 #endif
-	);
+		};
+	};
+	static bool init(const init_state& state);
 	static void destroy();
 	
 	// graphic control functions
-	static void start_draw();
-	static void stop_draw(const bool window_swap = true);
-	static void init_gl();
-	static void resize_window();
+	static RENDERER get_renderer();
+	static void start_frame();
+	static void end_frame(const bool window_swap = true);
 	static void swap();
-	static const string get_version();
-	static bool has_opengl_extension(const char* ext_name);
 	static bool is_console_only();
+	
+	// OpenGL-only
+	static SDL_GLContext get_opengl_context();
+	static void init_gl();
+	static void resize_gl_window();
+	static bool has_opengl_extension(const char* ext_name);
 	static bool is_gl_version(const uint32_t& major, const uint32_t& minor);
 	static const string& get_gl_vendor();
+	
+	// Vulkan-only
+	static shared_ptr<vulkan_compute> get_vulkan_context();
+	static const uint3& get_vulkan_api_version();
 	
 	// class return functions
 	static event* get_event();
@@ -69,6 +121,10 @@ public:
 
 	static void set_cursor_visible(const bool& state);
 	static bool get_cursor_visible();
+	
+	static const string get_version();
+	static const string& get_app_name();
+	static const uint32_t& get_app_version();
 	
 	static void set_data_path(const char* data_path = "../data/");
 	static string get_data_path();
@@ -89,7 +145,7 @@ public:
 	static const bool& get_use_gl_context();
 	
 	// fps functions
-	static unsigned int get_fps();
+	static uint32_t get_fps();
 	static float get_frame_time();
 	static bool is_new_fps_count();
 
@@ -98,15 +154,14 @@ public:
 	
 	// screen/window
 	static SDL_Window* get_window();
-	static unsigned int get_window_flags();
+	static uint32_t get_window_flags();
 	static uint32_t get_window_refresh_rate();
-	static SDL_GLContext get_context();
 	static bool get_fullscreen();
 	static void set_fullscreen(const bool& state);
 	static bool get_vsync();
 	static void set_vsync(const bool& state);
 	static bool get_stereo();
-	static const uint64_t& get_dpi();
+	static const uint32_t& get_dpi();
 	static bool get_hidpi();
 	
 	//! gets the logical window width
@@ -143,10 +198,10 @@ public:
 	static float get_scale_factor();
 	
 	// input
-	static unsigned int get_key_repeat();
-	static unsigned int get_ldouble_click_time();
-	static unsigned int get_mdouble_click_time();
-	static unsigned int get_rdouble_click_time();
+	static uint32_t get_key_repeat();
+	static uint32_t get_ldouble_click_time();
+	static uint32_t get_mdouble_click_time();
+	static uint32_t get_rdouble_click_time();
 	
 	// compute
 	static const string& get_compute_backend();
@@ -169,7 +224,7 @@ public:
 	static const string& get_opencl_base_path();
 	static const uint32_t& get_opencl_toolchain_version();
 	static const vector<string>& get_opencl_whitelist();
-	static const uint64_t& get_opencl_platform();
+	static const uint32_t& get_opencl_platform();
 	static bool get_opencl_verify_spir();
 	static bool get_opencl_validate_spirv();
 	static bool get_opencl_force_spirv_check();
@@ -226,7 +281,8 @@ public:
 	// host
 	static const string& get_execution_model();
 	
-	// compute (opencl/cuda/metal/host)
+	//! returns the default compute/graphics context (CUDA/Host/Metal/OpenCL/Vulkan)
+	//! NOTE: if floor was initialized with Vulkan, this will return the same context
 	static shared_ptr<compute_context> get_compute_context();
 	
 protected:
@@ -235,16 +291,11 @@ protected:
 	~floor() = delete;
 	floor& operator=(const floor&) = delete;
 	
-	static event* evt;
-	static bool console_only;
-	static shared_ptr<compute_context> compute_ctx;
-	static unordered_set<string> gl_extensions;
-	
-	static void init_internal(const bool use_gl33, const unsigned int window_flags);
+	static bool init_internal(const init_state& state);
 	
 	static struct floor_config {
 		// screen
-		uint64_t width = 1280, height = 720, dpi = 0;
+		uint32_t width = 1280, height = 720, dpi = 0;
 		bool fullscreen = false, vsync = false, stereo = false, hidpi = false;
 		
 		// audio
@@ -253,7 +304,7 @@ protected:
 		string audio_device_name = "";
 		
 		// logging
-		uint64_t verbosity = (size_t)logger::LOG_TYPE::UNDECORATED;
+		uint32_t verbosity = (uint32_t)logger::LOG_TYPE::UNDECORATED;
 		bool separate_msg_file = false;
 		bool append_mode = false;
 		bool log_use_time = true;
@@ -267,10 +318,10 @@ protected:
 		float upscaling = 1.0f;
 		
 		// input
-		uint64_t key_repeat = 200;
-		uint64_t ldouble_click_time = 200;
-		uint64_t mdouble_click_time = 200;
-		uint64_t rdouble_click_time = 200;
+		uint32_t key_repeat = 200;
+		uint32_t ldouble_click_time = 200;
+		uint32_t mdouble_click_time = 200;
+		uint32_t rdouble_click_time = 200;
 		
 		// compute
 		string backend = "";
@@ -293,7 +344,7 @@ protected:
 		bool opencl_toolchain_exists = false;
 		uint32_t opencl_toolchain_version = 0;
 		string opencl_base_path = "";
-		uint64_t opencl_platform = 0;
+		uint32_t opencl_platform = 0;
 		bool opencl_verify_spir = false;
 		bool opencl_validate_spirv = false;
 		bool opencl_force_spirv_check = false;
@@ -356,13 +407,30 @@ protected:
 		string vulkan_spirv_validator = "spirv-val";
 
 		// sdl
-		SDL_Window* wnd = nullptr;
-		SDL_GLContext ctx = nullptr;
-		unsigned int flags = 0;
-		recursive_mutex ctx_lock;
-		atomic<unsigned int> ctx_active_locks { 0 };
+		uint32_t flags = 0;
 	} config;
 	static json::document config_doc;
+	
+	// globals
+	static unique_ptr<event> evt;
+	static shared_ptr<compute_context> compute_ctx;
+	static RENDERER renderer;
+	static SDL_Window* window;
+	
+	// OpenGL
+	static SDL_GLContext opengl_ctx;
+	static unordered_set<string> gl_extensions;
+	static bool use_gl_context;
+	static uint32_t global_vao;
+	static string gl_vendor;
+	
+	// Vulkan
+	static shared_ptr<vulkan_compute> vulkan_ctx;
+	static uint3 vulkan_api_version;
+	
+	// for use with acquire_context/release_context
+	static recursive_mutex ctx_lock;
+	static atomic<uint32_t> ctx_active_locks;
 	
 	// path variables
 	static string datapath;
@@ -373,26 +441,24 @@ protected:
 	static string config_name;
 
 	// fps counting
-	static unsigned int fps;
-	static unsigned int fps_counter;
-	static unsigned int fps_time;
+	static uint32_t fps;
+	static uint32_t fps_counter;
+	static uint32_t fps_time;
 	static float frame_time;
-	static unsigned int frame_time_sum;
-	static unsigned int frame_time_counter;
+	static uint32_t frame_time_sum;
+	static uint32_t frame_time_counter;
 	static bool new_fps_count;
-	
-	// cursor
-	static bool cursor_visible;
 	
 	// window event handlers
 	static event::handler event_handler_fnctr;
 	static bool event_handler(EVENT_TYPE type, shared_ptr<event_object> obj);
 	
 	// misc
+	static string app_name;
+	static uint32_t app_version;
+	static bool console_only;
+	static bool cursor_visible;
 	static atomic<bool> reload_kernels_flag;
-	static bool use_gl_context;
-	static uint32_t global_vao;
-	static string gl_vendor;
 
 };
 

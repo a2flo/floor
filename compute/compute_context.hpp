@@ -35,6 +35,12 @@
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
 
+class cuda_compute;
+class host_compute;
+class metal_compute;
+class opengl_compute;
+class vulkan_compute;
+
 //! pure abstract base class that provides the interface for all compute implementations (opencl, cuda, ...)
 class compute_context {
 public:

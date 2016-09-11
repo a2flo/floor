@@ -1000,6 +1000,14 @@ template<> int64_t json::document::get<int64_t>(const string& path, const int64_
 	const auto ret = extract_value<int64_t>(*this, path);
 	return (ret.first ? ret.second : default_value);
 }
+template<> uint32_t json::document::get<uint32_t>(const string& path, const uint32_t default_value) const {
+	const auto ret = extract_value<uint32_t>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
+template<> int32_t json::document::get<int32_t>(const string& path, const int32_t default_value) const {
+	const auto ret = extract_value<int32_t>(*this, path);
+	return (ret.first ? ret.second : default_value);
+}
 template<> bool json::document::get<bool>(const string& path, const bool default_value) const {
 	const auto ret = extract_value<bool>(*this, path);
 	return (ret.first ? ret.second : default_value);

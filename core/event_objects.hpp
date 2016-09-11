@@ -26,7 +26,7 @@
 #include <floor/math/vector_lib.hpp>
 
 // general/global event types
-enum class EVENT_TYPE : unsigned int {
+enum class EVENT_TYPE : uint32_t {
 	__MOUSE_EVENT	= (1u << 31u),
 	__KEY_EVENT		= (1u << 30u),
 	__TOUCH_EVENT	= (1u << 29u),
@@ -83,26 +83,26 @@ enum_class_hash(EVENT_TYPE)
 
 //
 struct event_object {
-	const unsigned int time;
-	event_object(const unsigned int& time_) : time(time_) {}
+	const uint32_t time;
+	event_object(const uint32_t& time_) : time(time_) {}
 };
 template<EVENT_TYPE event_type> struct event_object_base : public event_object {
 	const EVENT_TYPE type;
-	event_object_base(const unsigned int& time_) : event_object(time_), type(event_type) {}
+	event_object_base(const uint32_t& time_) : event_object(time_), type(event_type) {}
 };
 
 // mouse events
 template<EVENT_TYPE event_type> struct mouse_event_base : public event_object_base<event_type> {
 	const int2 position;
 	const float pressure;
-	mouse_event_base(const unsigned int& time_, const int2& position_, const float& pressure_) :
+	mouse_event_base(const uint32_t& time_, const int2& position_, const float& pressure_) :
 	event_object_base<event_type>(time_), position(position_), pressure(pressure_) {}
 };
 
 template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_type> struct mouse_click_event : public event_object_base<event_type> {
 	shared_ptr<mouse_event_base<down_event_type>> down;
 	shared_ptr<mouse_event_base<up_event_type>> up;
-	mouse_click_event(const unsigned int& time_,
+	mouse_click_event(const uint32_t& time_,
 					  shared_ptr<event_object> down_evt,
 					  shared_ptr<event_object> up_evt)
 	: event_object_base<event_type>(time_),
@@ -112,7 +112,7 @@ template<EVENT_TYPE event_type, EVENT_TYPE down_event_type, EVENT_TYPE up_event_
 
 template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_event_base<event_type> {
 	const int2 move;
-	mouse_move_event_base(const unsigned int& time_,
+	mouse_move_event_base(const uint32_t& time_,
 						  const int2& position_,
 						  const int2& move_,
 						  const float& pressure_)
@@ -120,10 +120,10 @@ template<EVENT_TYPE event_type> struct mouse_move_event_base : public mouse_even
 };
 
 template<EVENT_TYPE event_type> struct mouse_wheel_event_base : public mouse_event_base<event_type> {
-	const unsigned int amount;
-	mouse_wheel_event_base(const unsigned int& time_,
+	const uint32_t amount;
+	mouse_wheel_event_base(const uint32_t& time_,
 						   const int2& position_,
-						   const unsigned int& amount_)
+						   const uint32_t& amount_)
 	: mouse_event_base<event_type>(time_, position_, 0.0f), amount(amount_) {}
 };
 
@@ -153,9 +153,9 @@ typedef mouse_wheel_event_base<EVENT_TYPE::MOUSE_WHEEL_DOWN> mouse_wheel_down_ev
 
 // key events
 template<EVENT_TYPE event_type> struct key_event : public event_object_base<event_type> {
-	const unsigned int key;
-	key_event(const unsigned int& time_,
-			  const unsigned int& key_) :
+	const uint32_t key;
+	key_event(const uint32_t& time_,
+			  const uint32_t& key_) :
 	event_object_base<event_type>(time_), key(key_) {}
 };
 typedef key_event<EVENT_TYPE::KEY_DOWN> key_down_event;
@@ -167,20 +167,20 @@ typedef key_event<EVENT_TYPE::UNICODE_INPUT> unicode_input_event;
 template<EVENT_TYPE event_type> struct touch_event_base : public event_object_base<event_type> {
 	const float2 normalized_position;
 	const float pressure;
-	const unsigned long long int id;
-	touch_event_base(const unsigned int& time_,
+	const uint64_t id;
+	touch_event_base(const uint32_t& time_,
 					 const float2& norm_position_,
 					 const float& pressure_,
-					 const unsigned long long int& id_) :
+					 const uint64_t& id_) :
 	event_object_base<event_type>(time_), normalized_position(norm_position_), pressure(pressure_), id(id_) {}
 };
 template<EVENT_TYPE event_type> struct touch_move_event_base : public touch_event_base<event_type> {
 	const float2 normalized_move;
-	touch_move_event_base(const unsigned int& time_,
+	touch_move_event_base(const uint32_t& time_,
 						  const float2& position_,
 						  const float2& move_,
 						  const float& pressure_,
-						  const unsigned long long int& id_) :
+						  const uint64_t& id_) :
 	touch_event_base<event_type>(time_, position_, pressure_, id_), normalized_move(move_) {}
 };
 typedef touch_event_base<EVENT_TYPE::FINGER_DOWN> finger_down_event;
@@ -194,19 +194,19 @@ typedef event_object_base<EVENT_TYPE::SHADER_RELOAD> shader_reload_event;
 
 struct clipboard_update_event : public event_object_base<EVENT_TYPE::CLIPBOARD_UPDATE> {
 	const string text;
-	clipboard_update_event(const unsigned int& time_, const string& text_) : event_object_base(time_), text(text_) {}
+	clipboard_update_event(const uint32_t& time_, const string& text_) : event_object_base(time_), text(text_) {}
 };
 
 template<EVENT_TYPE event_type> struct window_resize_event_base : public event_object_base<event_type> {
-	const size2 size;
-	window_resize_event_base(const unsigned int& time_, const size2& size_) : event_object_base<event_type>(time_), size(size_) {}
+	const uint2 size;
+	window_resize_event_base(const uint32_t& time_, const uint2& size_) : event_object_base<event_type>(time_), size(size_) {}
 };
 typedef window_resize_event_base<EVENT_TYPE::WINDOW_RESIZE> window_resize_event;
 
 // audio store events
 struct audio_store_load_event : public event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD> {
 	const string identifier;
-	audio_store_load_event(const unsigned int& time_, const string& identifier_)
+	audio_store_load_event(const uint32_t& time_, const string& identifier_)
 	: event_object_base<EVENT_TYPE::AUDIO_STORE_LOAD>(time_), identifier(identifier_) {}
 };
 

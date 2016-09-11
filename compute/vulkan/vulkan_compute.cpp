@@ -43,34 +43,38 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportF
 }
 #endif
 
-vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context() {
+vulkan_compute::vulkan_compute(const bool enable_renderer_, const vector<string> whitelist) :
+compute_context(), enable_renderer(enable_renderer_) {
 	// create a vulkan instance (context)
+	const auto min_vulkan_api_version = floor::get_vulkan_api_version();
 	const VkApplicationInfo app_info {
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.pNext = nullptr,
-		.pApplicationName = "floor app", // TODO: add setter/getter to floor::
-		.applicationVersion = 1, // TODO: add setter/getter to floor::
-		.pEngineName = "floor",
+		.pApplicationName = floor::get_app_name().c_str(),
+		.applicationVersion = floor::get_app_version(),
+		.pEngineName = "libfloor",
 		.engineVersion = FLOOR_VERSION_U32,
-		// TODO/NOTE: even though the spec allows setting this to 0, nvidias current driver requires VK_API_VERSION / VK_MAKE_VERSION(1, 0, 3)
-		.apiVersion = VK_MAKE_VERSION(1, 0, 5),
+		.apiVersion = VK_MAKE_VERSION(min_vulkan_api_version.x, min_vulkan_api_version.y, min_vulkan_api_version.z),
 	};
 	
 	// TODO: query exts
 	// NOTE: even without surface/xlib extension, this isn't able to start without an x session / headless right now (at least on nvidia drivers)
-	static constexpr const char* instance_extensions[] {
-		VK_KHR_SURFACE_EXTENSION_NAME,
+	vector<const char*> instance_extensions {
 #if defined(FLOOR_DEBUG)
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
+	};
+	if(enable_renderer) {
+		instance_extensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
-		VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+		instance_extensions.emplace_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(SDL_VIDEO_DRIVER_X11)
 		// SDL only supports xlib
-		VK_KHR_XLIB_SURFACE_EXTENSION_NAME,
+		instance_extensions.emplace_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
 #endif
-	};
-	static const vector<const char*> instance_layers {
+	}
+	
+	const vector<const char*> instance_layers {
 #if defined(FLOOR_DEBUG)
 		"VK_LAYER_LUNARG_standard_validation",
 #endif
@@ -85,8 +89,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		inst_layers_str += layer;
 		inst_layers_str += " ";
 	}
-	log_debug("instance extensions: %s", inst_exts_str);
-	log_debug("instance layers: %s", inst_layers_str);
+	log_debug("using instance extensions: %s", inst_exts_str);
+	log_debug("using instance layers: %s", inst_layers_str);
 
 	const VkInstanceCreateInfo instance_info {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -95,8 +99,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		.pApplicationInfo = &app_info,
 		.enabledLayerCount = (uint32_t)size(instance_layers),
 		.ppEnabledLayerNames = size(instance_layers) > 0 ? instance_layers.data() : nullptr,
-		.enabledExtensionCount = size(instance_extensions),
-		.ppEnabledExtensionNames = instance_extensions,
+		.enabledExtensionCount = (uint32_t)size(instance_extensions),
+		.ppEnabledExtensionNames = size(instance_extensions) > 0 ? instance_extensions.data() : nullptr,
 	};
 	VK_CALL_RET(vkCreateInstance(&instance_info, nullptr, &ctx), "failed to create vulkan instance");
 	
@@ -196,14 +200,15 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		}
 		
 		// create device
-		static const vector<const char*> device_layers {
+		const vector<const char*> device_layers {
 #if defined(FLOOR_DEBUG)
 			"VK_LAYER_LUNARG_standard_validation",
 #endif
 		};
-		static constexpr const char* device_extensions[] {
-			VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		};
+		vector<const char*> device_extensions;
+		if(enable_renderer) {
+			device_extensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+		}
 		
 		string dev_exts_str = "", dev_layers_str = "";
 		for(const auto& ext : device_extensions) {
@@ -214,8 +219,8 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			dev_layers_str += layer;
 			dev_layers_str += " ";
 		}
-		log_debug("device extensions: %s", dev_exts_str);
-		log_debug("device layers: %s", dev_layers_str);
+		log_debug("using device extensions: %s", dev_exts_str);
+		log_debug("using device layers: %s", dev_layers_str);
 		
 		const VkDeviceCreateInfo dev_info {
 			.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
@@ -226,7 +231,7 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 			.enabledLayerCount = (uint32_t)size(device_layers),
 			.ppEnabledLayerNames = size(device_layers) > 0 ? device_layers.data() : nullptr,
 			.enabledExtensionCount = (uint32_t)size(device_extensions),
-			.ppEnabledExtensionNames = device_extensions,
+			.ppEnabledExtensionNames = size(device_extensions) > 0 ? device_extensions.data() : nullptr,
 			.pEnabledFeatures = &features // enable all that is supported
 		};
 		
@@ -419,8 +424,6 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 		if(!queried_devices.empty()) log_warn("no devices left after applying whitelist!");
 		return;
 	}
-	// else: success, we have at least one device
-	supported = true;
 	
 	// already create command queues for all devices, these will serve as the default queues and the ones returned
 	// when first calling create_queue for a device (a second call will then create an actual new one)
@@ -433,6 +436,16 @@ vulkan_compute::vulkan_compute(const vector<string> whitelist) : compute_context
 	
 	// workaround non-existent fastest device selection
 	fastest_device = devices[0];
+	
+	// init renderer
+	if(enable_renderer) {
+		if(!init_renderer()) {
+			return;
+		}
+	}
+	
+	// successfully initialized everything and we have at least one device
+	supported = true;
 }
 
 vulkan_compute::~vulkan_compute() {
@@ -442,6 +455,314 @@ vulkan_compute::~vulkan_compute() {
 		destroy_debug_report_callback(ctx, debug_callback, nullptr);
 	}
 #endif
+}
+
+bool vulkan_compute::init_renderer() {
+	// TODO: support window resizing
+	screen.size = floor::get_physical_screen_size();
+	
+	// will always use the "fastest" device for now
+	// TODO: config option to select the rendering device
+	auto vk_device = (vulkan_device*)fastest_device.get();
+	auto vk_queue = (vulkan_queue*)get_device_default_queue(vk_device).get();
+	screen.render_device = vk_device;
+	
+	// query SDL window / video driver info that we need to create a vulkan surface
+	SDL_SysWMinfo wm_info;
+	SDL_VERSION(&wm_info.version);
+	if(!SDL_GetWindowWMInfo(floor::get_window(), &wm_info)) {
+		log_error("failed to retrieve window info: %s", SDL_GetError());
+		return false;
+	}
+	
+#if defined(SDL_VIDEO_DRIVER_WINDOWS)
+	const VkWin32SurfaceCreateInfoKHR surf_create_info {
+		.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+		.pNext = nullptr,
+		.flags = 0,
+		.hinstance = GetModuleHandle(nullptr),
+		.hwnd = wm_info.info.win.window,
+	};
+	VK_CALL_RET(vkCreateWin32SurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
+				"failed to create win32 surface", false);
+#elif defined(SDL_VIDEO_DRIVER_X11)
+	const VkXlibSurfaceCreateInfoKHR surf_create_info {
+		.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+		.pNext = nullptr,
+		.flags = 0,
+		.dpy = wm_info.info.x11.display,
+		.window = wm_info.info.x11.window,
+	};
+	VK_CALL_RET(vkCreateXlibSurfaceKHR(ctx, &surf_create_info, nullptr, &screen.surface),
+				"failed to create xlib surface", false);
+#else
+	log_error("unsupported video driver");
+	return false;
+#endif
+	// TODO: vkDestroySurfaceKHR
+	// TODO: vkGetPhysicalDeviceXlibPresentationSupportKHR/vkGetPhysicalDeviceWin32PresentationSupportKHR
+	
+	// verify if surface is actually usable
+	VkBool32 supported = false;
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceSupportKHR(vk_device->physical_device, vk_queue->get_family_index(),
+													 screen.surface, &supported),
+				"failed to query surface presentability", false);
+	if(!supported) {
+		log_error("surface is not presentable");
+		return false;
+	}
+	
+	// query formats and try to use VK_FORMAT_B8G8R8A8_UNORM if possible
+	uint32_t format_count = 0;
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, nullptr),
+				"failed to query presentable surface formats count", false);
+	if(format_count == 0) {
+		log_error("surface doesn't support any formats");
+		return false;
+	}
+	vector<VkSurfaceFormatKHR> formats(format_count);
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceFormatsKHR(vk_device->physical_device, screen.surface, &format_count, formats.data()),
+				"failed to query presentable surface formats", false);
+	screen.format = formats[0].format;
+	screen.color_space = formats[0].colorSpace;
+	for(const auto& format : formats) {
+		// use VK_FORMAT_B8G8R8A8_UNORM if we can
+		if(format.format == VK_FORMAT_B8G8R8A8_UNORM) {
+			screen.format = VK_FORMAT_B8G8R8A8_UNORM;
+			screen.color_space = format.colorSpace;
+			break;
+		}
+	}
+	
+	//
+	VkSurfaceCapabilitiesKHR surface_caps;
+	VK_CALL_RET(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_device->physical_device, screen.surface, &surface_caps),
+				"failed to query surface capabilities", false);
+	VkExtent2D surface_size = surface_caps.currentExtent;
+	if(surface_size.width == 0xFFFFFFFFu) {
+		surface_size.width = screen.size.x;
+		surface_size.height = screen.size.y;
+	}
+	
+	// try using triple buffering
+	if(surface_caps.minImageCount < 3) {
+		surface_caps.minImageCount = 3;
+	}
+	
+	// choose present mode (vsync is always supported)
+	VkPresentModeKHR present_mode = VK_PRESENT_MODE_FIFO_KHR;
+	if(!floor::get_vsync()) {
+		uint32_t mode_count = 0;
+		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, nullptr),
+					"failed to query surface present mode count", false);
+		vector<VkPresentModeKHR> present_modes(mode_count);
+		VK_CALL_RET(vkGetPhysicalDeviceSurfacePresentModesKHR(vk_device->physical_device, screen.surface, &mode_count, present_modes.data()),
+					"failed to query surface present modes", false);
+		if(find(present_modes.begin(), present_modes.end(), VK_PRESENT_MODE_IMMEDIATE_KHR) != present_modes.end()) {
+			present_mode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		}
+	}
+	
+	// swap chain creation
+	const VkSwapchainCreateInfoKHR swapchain_create_info {
+		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+		.pNext = nullptr,
+		.flags = 0,
+		.surface = screen.surface,
+		.minImageCount = surface_caps.minImageCount,
+		.imageFormat = screen.format,
+		.imageColorSpace = screen.color_space,
+		.imageExtent = surface_size,
+		.imageArrayLayers = 1,
+		.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+		// TODO: handle separate present queue (must be VK_SHARING_MODE_CONCURRENT then + specify queues)
+		.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE,
+		.queueFamilyIndexCount = 0,
+		.pQueueFamilyIndices = nullptr,
+		// TODO: VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR?
+		.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+		// TODO: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR?
+		.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		.presentMode = present_mode,
+		// TODO: true for better perf, but can't exec frag shaders on clipped pixels
+		.clipped = false,
+		.oldSwapchain = nullptr,
+	};
+	VK_CALL_RET(vkCreateSwapchainKHR(vk_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
+				"failed to create swapchain", false);
+	// TODO: vkDestroySwapchainKHR
+	
+	// get all swapchain images + create views
+	screen.image_count = 0;
+	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, nullptr),
+				"failed to query swapchain image count", false);
+	screen.swapchain_images.resize(screen.image_count);
+	screen.swapchain_image_views.resize(screen.image_count);
+	screen.render_semas.resize(screen.image_count);
+	VK_CALL_RET(vkGetSwapchainImagesKHR(vk_device->device, screen.swapchain, &screen.image_count, screen.swapchain_images.data()),
+				"failed to retrieve swapchain images", false);
+	
+	VkImageViewCreateInfo image_view_create_info {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.image = nullptr,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = screen.format,
+		// actually want RGBA here (not BGRA)
+		.components = {
+			VK_COMPONENT_SWIZZLE_R,
+			VK_COMPONENT_SWIZZLE_G,
+			VK_COMPONENT_SWIZZLE_B,
+			VK_COMPONENT_SWIZZLE_A
+		},
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		},
+	};
+	for(uint32_t i = 0; i < screen.image_count; ++i) {
+		image_view_create_info.image = screen.swapchain_images[i];
+		VK_CALL_RET(vkCreateImageView(vk_device->device, &image_view_create_info, nullptr, &screen.swapchain_image_views[i]),
+					"image view creation failed", false);
+	}
+	
+	return true;
+}
+
+pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
+	const drawable_image_info dummy_ret {
+		.index = ~0u,
+		.image_size = 0u,
+		.image = nullptr,
+		.sema = nullptr,
+	};
+	
+	// create new sema and acquire image
+	const VkSemaphoreCreateInfo sema_create_info {
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+	};
+	VkSemaphore sema { nullptr };
+	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
+				"failed to create semaphore", { false, dummy_ret });
+	
+	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
+									  nullptr, &screen.image_index),
+				"failed to acquire next presentable image", { false, dummy_ret });
+	screen.render_semas[screen.image_index] = sema;
+	
+	// transition image
+	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
+	auto cmd_buffer = vk_queue->make_command_buffer("image drawable transition");
+	const VkCommandBufferBeginInfo begin_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr,
+	};
+	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+				"failed to begin command buffer", { false, dummy_ret });
+	
+	const VkImageMemoryBarrier image_barrier {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.pNext = nullptr,
+		.srcAccessMask = 0,
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = screen.swapchain_images[screen.image_index],
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		},
+	};
+	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+						 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+	
+	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
+				"failed to end command buffer", { false, dummy_ret });
+	vk_queue->submit_command_buffer(cmd_buffer, true, // TODO: don't block?
+									&screen.render_semas[screen.image_index], 1,
+									VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+	
+	return {
+		true,
+		{
+			.index = screen.image_index,
+			.image_size = screen.size,
+			.image = screen.swapchain_images[screen.image_index],
+			.sema = sema,
+		}
+	};
+}
+
+bool vulkan_compute::present_image(const drawable_image_info& drawable) {
+	// transition to present mode
+	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
+	auto cmd_buffer = vk_queue->make_command_buffer("image present transition");
+	const VkCommandBufferBeginInfo begin_info {
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = nullptr,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = nullptr,
+	};
+	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+				"failed to begin command buffer", false);
+	
+	const VkImageMemoryBarrier present_image_barrier {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.pNext = nullptr,
+		.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+		.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = drawable.image,
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		},
+	};
+	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+						 0, 0, nullptr, 0, nullptr, 1, &present_image_barrier);
+	
+	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
+				"failed to end command buffer", false);
+	vk_queue->submit_command_buffer(cmd_buffer, true); // TODO: don't block?
+	
+	// present
+	const VkPresentInfoKHR present_info {
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.pNext = nullptr,
+		.waitSemaphoreCount = 0,
+		.pWaitSemaphores = nullptr,
+		.swapchainCount = 1,
+		.pSwapchains = &screen.swapchain,
+		.pImageIndices = &drawable.index,
+		.pResults = nullptr,
+	};
+	VK_CALL_RET(vkQueuePresentKHR((VkQueue)vk_queue->get_queue_ptr(), &present_info),
+				"failed to present", false);
+	
+	// cleanup
+	vkDestroySemaphore(screen.render_device->device, screen.render_semas[drawable.index], nullptr);
+	screen.render_semas[drawable.index] = nullptr;
+	
+	return true;
 }
 
 shared_ptr<compute_queue> vulkan_compute::create_queue(shared_ptr<compute_device> dev) {
