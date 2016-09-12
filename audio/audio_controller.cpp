@@ -87,9 +87,11 @@ void audio_controller::destroy() {
 	audio_store::destroy();
 	
 	//
-	AL_CLEAR_ERROR();
-	AL(alDeleteAuxiliaryEffectSlots((ALsizei)effect_slots.size(), &effect_slots[0]));
-	effect_slots.clear();
+	if(!effect_slots.empty()) {
+		AL_CLEAR_ERROR();
+		AL(alDeleteAuxiliaryEffectSlots((ALsizei)effect_slots.size(), &effect_slots[0]));
+		effect_slots.clear();
+	}
 	
 	//
 	if(context != nullptr) {

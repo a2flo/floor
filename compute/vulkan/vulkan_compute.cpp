@@ -455,6 +455,20 @@ vulkan_compute::~vulkan_compute() {
 		destroy_debug_report_callback(ctx, debug_callback, nullptr);
 	}
 #endif
+	
+	if(!screen.swapchain_image_views.empty()) {
+		for(auto& image_view : screen.swapchain_image_views) {
+			vkDestroyImageView(screen.render_device->device, image_view, nullptr);
+		}
+	}
+	
+	if(screen.swapchain != nullptr) {
+		vkDestroySwapchainKHR(screen.render_device->device, screen.swapchain, nullptr);
+	}
+	
+	if(screen.surface != nullptr) {
+		vkDestroySurfaceKHR(ctx, screen.surface, nullptr);
+	}
 }
 
 bool vulkan_compute::init_renderer() {
@@ -499,7 +513,6 @@ bool vulkan_compute::init_renderer() {
 	log_error("unsupported video driver");
 	return false;
 #endif
-	// TODO: vkDestroySurfaceKHR
 	// TODO: vkGetPhysicalDeviceXlibPresentationSupportKHR/vkGetPhysicalDeviceWin32PresentationSupportKHR
 	
 	// verify if surface is actually usable
@@ -590,7 +603,6 @@ bool vulkan_compute::init_renderer() {
 	};
 	VK_CALL_RET(vkCreateSwapchainKHR(vk_device->device, &swapchain_create_info, nullptr, &screen.swapchain),
 				"failed to create swapchain", false);
-	// TODO: vkDestroySwapchainKHR
 	
 	// get all swapchain images + create views
 	screen.image_count = 0;

@@ -36,7 +36,14 @@ struct floor::floor_config floor::config;
 json::document floor::config_doc;
 
 // globals
-static atomic<bool> floor_initialized { false };
+enum class FLOOR_INIT_STATUS : uint32_t {
+	UNINITIALIZED = 0,
+	IN_PROGRESS = 1,
+	DESTROYING = 2,
+	SUCCESSFUL = 3,
+	FAILURE = 4,
+};
+static atomic<FLOOR_INIT_STATUS> floor_init_status { FLOOR_INIT_STATUS::UNINITIALIZED };
 unique_ptr<event> floor::evt;
 shared_ptr<compute_context> floor::compute_ctx;
 floor::RENDERER floor::renderer { floor::RENDERER::DEFAULT };
@@ -86,20 +93,28 @@ atomic<bool> floor::reload_kernels_flag { false };
 
 bool floor::init(const init_state& state) {
 	// return if already initialized
-	if(floor_initialized.exchange(true)) {
-		return true;
+	FLOOR_INIT_STATUS expected_init { FLOOR_INIT_STATUS::UNINITIALIZED };
+	if(!floor_init_status.compare_exchange_strong(expected_init, FLOOR_INIT_STATUS::IN_PROGRESS)) {
+		// wait while someone else is initializing libfloor
+		while(floor_init_status == FLOOR_INIT_STATUS::IN_PROGRESS) {
+			this_thread::sleep_for(5ms);
+		}
+		return (floor_init_status == FLOOR_INIT_STATUS::SUCCESSFUL);
 	}
+	// else: we're now IN_PROGRESS
 	
 	// sanity check
 #if defined(__APPLE__)
 	if(state.renderer == RENDERER::VULKAN) {
 		cerr << "Vulkan is not supported on OS X / iOS" << endl;
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
 #endif
 #if defined(FLOOR_NO_VULKAN)
 	if(state.renderer == RENDERER::VULKAN) {
 		cerr << "can't use the Vulkan renderer when libfloor was compiled without Vulkan support" << endl;
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
 #endif
@@ -122,6 +137,7 @@ bool floor::init(const init_state& state) {
 	memset(working_dir, 0, 16384);
 	if(getcwd(working_dir, 16383) == nullptr) {
 		cerr << "failed to retrieve the current working directory" << endl;
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
 		return false;
 	}
 	
@@ -594,15 +610,34 @@ bool floor::init(const init_state& state) {
 	evt->add_internal_event_handler(event_handler_fnctr, EVENT_TYPE::WINDOW_RESIZE, EVENT_TYPE::KERNEL_RELOAD);
 	
 	//
-	return init_internal(state);
+	const auto successful_init = init_internal(state);
+	floor_init_status = (successful_init ? FLOOR_INIT_STATUS::SUCCESSFUL : FLOOR_INIT_STATUS::FAILURE);
+	return successful_init;
 }
 
 void floor::destroy() {
-	// only destroy if initialized
-	if(!floor_initialized) return;
+	// only destroy if initialized (either successful or failure)
+	FLOOR_INIT_STATUS expected_init { FLOOR_INIT_STATUS::SUCCESSFUL };
+	if(!floor_init_status.compare_exchange_strong(expected_init, FLOOR_INIT_STATUS::DESTROYING)) {
+		// immediate return if in any of these states (should not have been calling destroy!)
+		if(expected_init == FLOOR_INIT_STATUS::DESTROYING ||
+		   expected_init == FLOOR_INIT_STATUS::IN_PROGRESS ||
+		   expected_init == FLOOR_INIT_STATUS::UNINITIALIZED) {
+			return;
+		}
+		
+		expected_init = FLOOR_INIT_STATUS::FAILURE;
+		if(!floor_init_status.compare_exchange_strong(expected_init, FLOOR_INIT_STATUS::DESTROYING)) {
+			// wasn't in either status, abort
+			return;
+		}
+	}
 	log_debug("destroying floor ...");
 	
-	if(!console_only) acquire_context();
+	if(!console_only) {
+		use_gl_context = false;
+		acquire_context();
+	}
 	
 #if !defined(FLOOR_NO_OPENAL)
 	if(!config.audio_disabled) {
@@ -610,13 +645,12 @@ void floor::destroy() {
 	}
 #endif
 	
-	evt->remove_event_handler(event_handler_fnctr);
-	
 	vulkan_ctx = nullptr;
 	compute_ctx = nullptr;
 	
 	// delete this at the end, b/c other classes will remove event handlers
 	if(evt != nullptr) {
+		evt->remove_event_handler(event_handler_fnctr);
 		evt = nullptr;
 	}
 	
@@ -625,13 +659,17 @@ void floor::destroy() {
 		
 		if(opengl_ctx != nullptr) {
 			SDL_GL_DeleteContext(opengl_ctx);
+			opengl_ctx = nullptr;
 		}
-		SDL_DestroyWindow(window);
+		if(window != nullptr) {
+			SDL_DestroyWindow(window);
+			window = nullptr;
+		}
 	}
 	SDL_Quit();
 	
 	log_debug("floor destroyed!");
-	floor_initialized = false;
+	floor_init_status = FLOOR_INIT_STATUS::UNINITIALIZED;
 }
 
 bool floor::init_internal(const init_state& state) {

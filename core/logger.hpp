@@ -75,6 +75,9 @@ public:
 	//! returns the current logger verbosity level
 	static LOG_TYPE get_verbosity();
 	
+	//! returns true if the logger was initialized
+	static bool is_initialized();
+	
 protected:
 	// static class
 	logger(const logger&) = delete;

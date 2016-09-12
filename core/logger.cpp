@@ -43,6 +43,8 @@ static safe_mutex log_store_lock;
 static vector<pair<logger::LOG_TYPE, string>> log_store GUARDED_BY(log_store_lock), log_output_store;
 static bool log_use_time { true };
 static bool log_use_color { true };
+static atomic<bool> log_initialized { false };
+static atomic<bool> log_destroying { false };
 
 class logger_thread final : thread_base {
 public:
@@ -148,16 +150,16 @@ void logger_thread::run() {
 }
 
 void logger::init(const size_t verbosity,
-					 const bool separate_msg_file,
-					 const bool append_mode,
-					 const bool use_time,
-					 const bool use_color,
-					 const string log_filename_,
-					 const string msg_filename_) {
+				  const bool separate_msg_file,
+				  const bool append_mode,
+				  const bool use_time,
+				  const bool use_color,
+				  const string log_filename_,
+				  const string msg_filename_) {
 	// only allow single init
-	static bool initialized = false;
-	if(initialized) return;
-	initialized = true;
+	if(log_initialized.exchange(true)) {
+		return;
+	}
 	
 	// always call destroy on program exit
 	atexit([] { logger::destroy(); });
@@ -208,13 +210,18 @@ void logger::init(const size_t verbosity,
 }
 
 void logger::destroy() {
+	if(!log_initialized) return;
+	
 	// only allow single destroy
-	static bool destroyed = false;
-	if(destroyed) return;
-	destroyed = true;
+	if(log_destroying.exchange(true)) {
+		return;
+	}
 	
 	log_msg("killing logger ...");
-	log_thread.reset();
+	log_thread = nullptr;
+	
+	log_initialized = false;
+	log_destroying = false;
 }
 
 void logger::flush() {
@@ -311,4 +318,8 @@ void logger::set_verbosity(const LOG_TYPE& verbosity) {
 
 logger::LOG_TYPE logger::get_verbosity() {
 	return log_verbosity;
+}
+
+bool logger::is_initialized() {
+	return log_initialized;
 }
