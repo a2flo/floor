@@ -37,7 +37,7 @@ vulkan_image::vulkan_image(const vulkan_device* device,
 						   const opengl_image_info* gl_image_info) :
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
-vulkan_memory(device, (const void**)&image, true) {
+vulkan_memory(device, &image) {
 	// TODO: handle the remaining flags + host ptr
 	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
 		// TODO: flag?

@@ -37,6 +37,9 @@
     <Filter Include="compute\metal">
       <UniqueIdentifier>{a35d6fa4-2f75-435e-9c13-f9fc67e6c885}</UniqueIdentifier>
     </Filter>
+    <Filter Include="compute\vulkan">
+      <UniqueIdentifier>{6d2f6320-fcb0-4a14-a98a-0f6fd2b768f4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compute\compute_context.cpp">
@@ -200,6 +203,30 @@
     </ClCompile>
     <ClCompile Include="constexpr\soft_f16.cpp">
       <Filter>constexpr</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_buffer.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_compute.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_device.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_image.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_kernel.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_memory.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_program.cpp">
+      <Filter>compute\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="compute\vulkan\vulkan_queue.cpp">
+      <Filter>compute\vulkan</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -490,6 +517,33 @@
     </ClInclude>
     <ClInclude Include="constexpr\soft_f16.hpp">
       <Filter>constexpr</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_buffer.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_common.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_compute.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_device.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_image.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_kernel.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_memory.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_program.hpp">
+      <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\vulkan\vulkan_queue.hpp">
+      <Filter>compute\vulkan</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -64,6 +64,7 @@
 ** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
 ** SDL2 is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
+** the Vulkan SDK must be installed
 ** it is necessary to add the parent directory of where floor is located to the include paths
 ** audio (openal) and use of exceptions are disabled by default (and not supported)
 ** networking (asio/openssl) is supported optionally and can be enabled through using the "_net" build configurations

@@ -71,28 +71,28 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <TargetName>$(ProjectName)d</TargetName>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
+    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
     <OutDir>$(SolutionDir)bin\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -268,6 +268,14 @@
     <ClCompile Include="compute\opencl\opencl_kernel.cpp" />
     <ClCompile Include="compute\opencl\opencl_program.cpp" />
     <ClCompile Include="compute\opencl\opencl_queue.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_buffer.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_compute.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_device.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_image.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_kernel.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_memory.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_program.cpp" />
+    <ClCompile Include="compute\vulkan\vulkan_queue.cpp" />
     <ClCompile Include="constexpr\soft_f16.cpp" />
     <ClCompile Include="core\core.cpp" />
     <ClCompile Include="core\event.cpp" />
@@ -335,6 +343,15 @@
     <ClInclude Include="compute\opencl\opencl_kernel.hpp" />
     <ClInclude Include="compute\opencl\opencl_program.hpp" />
     <ClInclude Include="compute\opencl\opencl_queue.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_buffer.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_common.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_compute.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_device.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_image.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_kernel.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_memory.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_program.hpp" />
+    <ClInclude Include="compute\vulkan\vulkan_queue.hpp" />
     <ClInclude Include="constexpr\const_array.hpp" />
     <ClInclude Include="constexpr\const_math.hpp" />
     <ClInclude Include="constexpr\const_string.hpp" />

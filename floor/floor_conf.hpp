@@ -21,7 +21,6 @@
 
 // when building on windows, always disable these for now
 #if defined(_MSC_VER)
-#define FLOOR_NO_VULKAN 1
 #define FLOOR_NO_OPENAL 1
 #define FLOOR_NO_EXCEPTIONS 1
 #if !defined(FLOOR_MSVC_NET) // optional, must be enabled explicitly

@@ -33,14 +33,23 @@ class compute_queue;
 class vulkan_memory {
 public:
 	vulkan_memory(const vulkan_device* device,
-				  const void** object,
+				  const uint64_t* object,
 				  // if false: is buffer
 				  const bool is_image) noexcept;
+
+	vulkan_memory(const vulkan_device* device_,
+				  const VkBuffer* buffer) noexcept :
+	vulkan_memory(device_, (const uint64_t*)buffer, false) {}
+
+	vulkan_memory(const vulkan_device* device_,
+				  const VkImage* image) noexcept :
+	vulkan_memory(device_, (const uint64_t*)image, true) {}
+
 	virtual ~vulkan_memory() noexcept;
 	
 protected:
 	const vulkan_device* device;
-	const void** object { nullptr };
+	const uint64_t* object { nullptr };
 	VkDeviceMemory mem { nullptr };
 	const bool is_image { false };
 	

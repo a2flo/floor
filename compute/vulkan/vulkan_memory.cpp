@@ -25,7 +25,7 @@
 #include <floor/compute/vulkan/vulkan_queue.hpp>
 #include <floor/compute/vulkan/vulkan_image.hpp>
 
-vulkan_memory::vulkan_memory(const vulkan_device* device_, const void** object_, const bool is_image_) noexcept :
+vulkan_memory::vulkan_memory(const vulkan_device* device_, const uint64_t* object_, const bool is_image_) noexcept :
 device(device_), object(object_), is_image(is_image_) {
 }
 
@@ -64,7 +64,7 @@ bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, void* da
 void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue> cqueue,
 													   const COMPUTE_MEMORY_MAP_FLAG flags,
 													   const size_t size, const size_t offset) {
-	if(*object == nullptr) return nullptr;
+	if(*object == 0) return nullptr;
 	
 	const bool blocking_map = has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(flags);
 	bool does_read = false, does_write = false;
@@ -197,7 +197,7 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 }
 
 void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) {
-	if(*object == nullptr) return;
+	if(*object == 0) return;
 	if(mapped_ptr == nullptr) return;
 	
 	auto vulkan_dev = device->device;

@@ -34,6 +34,54 @@
 #define VK_USE_PLATFORM_XLIB_KHR 1
 #endif
 
+#if defined(PLATFORM_X32)
+// vulkan non-dispatchable objects are by default simple uint64_t values, which means
+// that they can't be treated as pointers (e.g. no nullptr init, no ptr comparisons)
+// -> fix this by providing a simple pointer like wrapper around a uint64_t
+template <uint32_t id>
+struct floor_vulkan_non_dispatchable_object {
+	uint64_t obj;
+	constexpr floor_vulkan_non_dispatchable_object() noexcept {}
+	constexpr floor_vulkan_non_dispatchable_object(nullptr_t) noexcept : obj(0) {}
+	constexpr floor_vulkan_non_dispatchable_object(const uint64_t& obj_) noexcept : obj(obj_) {}
+	constexpr floor_vulkan_non_dispatchable_object(const floor_vulkan_non_dispatchable_object& obj_) noexcept : obj(obj_.obj) {}
+	constexpr floor_vulkan_non_dispatchable_object(floor_vulkan_non_dispatchable_object&& obj_) noexcept : obj(obj_.obj) {}
+
+	constexpr auto operator=(nullptr_t) {
+		obj = 0;
+		return *this;
+	}
+	constexpr auto operator=(const floor_vulkan_non_dispatchable_object& obj_) {
+		obj = obj_.obj;
+		return *this;
+	}
+	constexpr auto operator=(floor_vulkan_non_dispatchable_object&& obj_) {
+		obj = obj_.obj;
+		return *this;
+	}
+
+	constexpr bool operator==(nullptr_t) const {
+		return (obj == 0);
+	}
+	constexpr bool operator==(const floor_vulkan_non_dispatchable_object& obj_) const {
+		return (obj == obj_.obj);
+	}
+
+	constexpr bool operator!=(nullptr_t) const {
+		return (obj != 0);
+	}
+	constexpr bool operator!=(const floor_vulkan_non_dispatchable_object& obj_) const {
+		return (obj != obj_.obj);
+	}
+
+	constexpr explicit operator uint64_t() const {
+		return obj;
+	}
+};
+static_assert(sizeof(floor_vulkan_non_dispatchable_object<0>) == sizeof(uint64_t), "invalid size");
+#define VK_DEFINE_NON_DISPATCHABLE_HANDLE(object) typedef floor_vulkan_non_dispatchable_object<__LINE__> object;
+#endif
+
 #include <vulkan/vulkan.h>
 
 #if VK_HEADER_VERSION < 24

@@ -34,7 +34,7 @@ vulkan_buffer::vulkan_buffer(const vulkan_device* device,
 							 const uint32_t opengl_type_,
 							 const uint32_t external_gl_object_) :
 compute_buffer(device, size_, host_ptr_, flags_, opengl_type_, external_gl_object_),
-vulkan_memory(device, (const void**)&buffer, false) {
+vulkan_memory(device, &buffer) {
 	if(size < min_multiple()) return;
 	
 	// TODO: handle the remaining flags + host ptr
