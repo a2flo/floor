@@ -4751,7 +4751,7 @@ index dd80390..5505e4d 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12..6f2c946 100644
+index 183ee12..6b6ad02 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4764,7 +4764,7 @@ index 183ee12..6f2c946 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -436,185 +439,1750 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -436,185 +439,1778 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -5330,6 +5330,10 @@ index 183ee12..6f2c946 100644
 +	SmallVector<llvm::Metadata*, 8> stage_infos;
 +	stage_infos.push_back(llvm::MDString::get(Context, FD->getName()));
 +	
++	static const std::string prefix_builtin = "builtin:";
++	static const std::string prefix_stage = "stage:";
++	static const std::string prefix_arg = "arg:";
++	
 +	//
 +	const auto handle_stage_input_output = [&Context, &CGM, &stage_infos,
 +											&is_kernel, &is_vertex, &is_fragment,
@@ -5379,10 +5383,10 @@ index 183ee12..6f2c946 100644
 +					
 +					if(is_vertex_io) {
 +						if(field.hasAttr<GraphicsVertexPositionAttr>()) {
-+							stage_infos.push_back(llvm::MDString::get(Context, "position"));
++							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "position"));
 +						}
 +						else if(field.hasAttr<GraphicsPointSizeAttr>()) {
-+							stage_infos.push_back(llvm::MDString::get(Context, "point_size"));
++							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "point_size"));
 +						}
 +						else {
 +							stage_infos.push_back(llvm::MDString::get(Context, "none"));
@@ -5390,7 +5394,7 @@ index 183ee12..6f2c946 100644
 +					}
 +					else if(is_fragment_io) {
 +						if(field.hasAttr<GraphicsFBOColorLocationAttr>()) {
-+							stage_infos.push_back(llvm::MDString::get(Context, "fbo_output:" + std::to_string(field.getAttr<GraphicsFBOColorLocationAttr>()->getEvalLocation())));
++							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:" + std::to_string(field.getAttr<GraphicsFBOColorLocationAttr>()->getEvalLocation())));
 +						}
 +						else if(field.hasAttr<GraphicsFBODepthTypeAttr>()) {
 +							const auto depth_attr = field.getAttr<GraphicsFBODepthTypeAttr>();
@@ -5416,7 +5420,7 @@ index 183ee12..6f2c946 100644
 +								}
 +								else break;
 +							}
-+							stage_infos.push_back(llvm::MDString::get(Context, "fbo_output:" + std::to_string(fbo_location)));
++							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:" + std::to_string(fbo_location)));
 +							++fbo_location;
 +						}
 +					}
@@ -5429,10 +5433,10 @@ index 183ee12..6f2c946 100644
 +			else {
 +				// stage defaults (can only be those)
 +				if(is_vertex_io) {
-+					stage_infos.push_back(llvm::MDString::get(Context, "position"));
++					stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "position"));
 +				}
 +				else if(is_fragment_io) {
-+					stage_infos.push_back(llvm::MDString::get(Context, "fbo_output:0"));
++					stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:0"));
 +				}
 +			}
 +		}
@@ -5440,10 +5444,10 @@ index 183ee12..6f2c946 100644
 +			// TODO: anything else?
 +			// stage defaults (can only be those)
 +			if(is_vertex_io) {
-+				stage_infos.push_back(llvm::MDString::get(Context, "position"));
++				stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "position"));
 +			}
 +			else if(is_fragment_io) {
-+				stage_infos.push_back(llvm::MDString::get(Context, "fbo_output:0"));
++				stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:0"));
 +			}
 +		}
 +		else return;
@@ -5460,15 +5464,39 @@ index 183ee12..6f2c946 100644
 +		if(parm->hasAttr<GraphicsStageInputAttr>()) {
 +			handle_stage_input_output(clang_type, llvm_type, false, &arg_idx);
 +		}
-+		// aggregate image (only needed to maintain the proper arg index here)
++		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto agg_images = get_aggregate_image_fields(clang_type->getAsCXXRecordDecl());
 +			for(const auto& img : agg_images) {
++				auto access_attr = img->getAttr<ImageAccessAttr>();
++				std::string access_str = "read";
++				if(access_attr && access_attr->isWriteOnly()) {
++					access_str = "write";
++				}
++				else if(access_attr && access_attr->isReadWrite()) {
++					assert(false && "read/write is not support");
++				}
++				
++				auto data_type = img->getAttr<FloorImageDataTypeAttr>();
++				std::string sample_type_str = "float";
++				if(data_type) {
++					const auto canon_data_type = data_type->getImageDataType().getCanonicalType();
++					if(canon_data_type->isIntegerType()) sample_type_str = "int";
++					if(canon_data_type->isUnsignedIntegerType()) sample_type_str = "uint";
++					// else: just assume float
++				}
++				
++				stage_infos.push_back(llvm::MDString::get(Context, prefix_arg + access_str + ":" + sample_type_str));
++				
 +				// next llvm arg
 +				++arg_idx;
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
++		}
++		// anything else
++		else {
++			stage_infos.push_back(llvm::MDString::get(Context, "none"));
 +		}
 +		
 +		// next llvm arg
@@ -5477,16 +5505,16 @@ index 183ee12..6f2c946 100644
 +	
 +	// add fixed input
 +	if(is_kernel) {
-+		stage_infos.push_back(llvm::MDString::get(Context, "global_invocation_id"));
-+		stage_infos.push_back(llvm::MDString::get(Context, "local_invocation_id"));
-+		stage_infos.push_back(llvm::MDString::get(Context, "workgroup_id"));
-+		stage_infos.push_back(llvm::MDString::get(Context, "num_workgroups"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "global_invocation_id"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "local_invocation_id"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "workgroup_id"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "num_workgroups"));
 +	}
 +	else if(is_vertex) {
-+		stage_infos.push_back(llvm::MDString::get(Context, "vertex_index"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "vertex_index"));
 +	}
 +	else if(is_fragment) {
-+		stage_infos.push_back(llvm::MDString::get(Context, "point_coord"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "point_coord"));
 +	}
 +	
 +	// handle return value
@@ -6660,7 +6688,7 @@ index 183ee12..6f2c946 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -632,6 +2200,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -632,6 +2228,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
          llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
      Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, attrMDArgs));
    }
@@ -6715,7 +6743,7 @@ index 183ee12..6f2c946 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -661,6 +2277,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -661,6 +2305,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6723,7 +6751,7 @@ index 183ee12..6f2c946 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -711,7 +2328,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -711,7 +2356,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // attribute to all functions that are not marked AlwaysInline, or
    // to all functions that are not marked inline or implicitly inline
    // in the case of -finline-hint-functions.
@@ -6732,7 +6760,7 @@ index 183ee12..6f2c946 100644
      const CodeGenOptions& CodeGenOpts = CGM.getCodeGenOpts();
      if (!CodeGenOpts.NoInline) {
        for (auto RI : FD->redecls())
-@@ -732,16 +2349,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -732,16 +2377,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    Fn->addFnAttr("no-jump-tables",
                  llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
  
@@ -6761,7 +6789,7 @@ index 183ee12..6f2c946 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -758,7 +2383,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -758,7 +2411,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6770,7 +6798,7 @@ index 183ee12..6f2c946 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -822,7 +2447,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -822,7 +2475,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6788,7 +6816,7 @@ index 183ee12..6f2c946 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -864,11 +2498,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -864,11 +2526,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -6804,7 +6832,7 @@ index 183ee12..6f2c946 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1034,7 +2668,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1034,7 +2696,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&

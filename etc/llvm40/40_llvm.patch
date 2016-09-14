@@ -1210,10 +1210,10 @@ index 91f43d3..8ca6164 100644
  
  /// \brief Root of the metadata hierarchy.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index a411273..97312ac 100644
+index a411273..206257d 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -345,6 +345,23 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
+@@ -345,6 +345,24 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
  void initializeWinEHPreparePass(PassRegistry&);
  void initializeWriteBitcodePassPass(PassRegistry &);
  void initializeXRayInstrumentationPass(PassRegistry &);
@@ -1230,6 +1230,7 @@ index a411273..97312ac 100644
 +void initializeSPIRFinalPass(PassRegistry&);
 +void initializeSPIRImagePass(PassRegistry&);
 +void initializeCFGStructurizationPass(PassRegistry&);
++void initializeVulkanImagePass(PassRegistry&);
 +void initializeVulkanFinalPass(PassRegistry&);
 +void initializeVulkanFinalModuleCleanupPass(PassRegistry&);
 +void initializePropagateRangeInfoPass(PassRegistry&);
@@ -1238,7 +1239,7 @@ index a411273..97312ac 100644
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index 16c5f5c..2c2934f 100644
+index 16c5f5c..7e03495 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -99,6 +99,7 @@ namespace {
@@ -1249,7 +1250,7 @@ index 16c5f5c..2c2934f 100644
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
-@@ -211,6 +212,21 @@ namespace {
+@@ -211,6 +212,22 @@ namespace {
        X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
        (void) llvm::AreStatisticsEnabled();
        (void) llvm::sys::RunningOnValgrind();
@@ -1265,6 +1266,7 @@ index 16c5f5c..2c2934f 100644
 +      (void) llvm::createSPIRFinalPass();
 +      (void) llvm::createSPIRImagePass(0, false);
 +      (void) llvm::createCFGStructurizationPass();
++      (void) llvm::createVulkanImagePass();
 +      (void) llvm::createVulkanFinalPass();
 +      (void) llvm::createVulkanFinalModuleCleanupPass();
 +      (void) llvm::createPropagateRangeInfoPass();
@@ -2342,10 +2344,10 @@ index adc4179..ad2a706 100644
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..1820b40 100644
+index 167cc94..9c58e53 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -32,6 +32,89 @@ class TargetMachine;
+@@ -32,6 +32,95 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2414,6 +2416,12 @@ index 167cc94..1820b40 100644
 +
 +//===----------------------------------------------------------------------===//
 +//
++// VulkanImage - This pass applies SPIR-V-specific floor image transformations.
++//
++FunctionPass *createVulkanImagePass(const uint32_t image_capabilities = 0);
++
++//===----------------------------------------------------------------------===//
++//
 +// VulkanFinal - This pass fixes Vulkan/SPIR-V issues.
 +//
 +FunctionPass *createVulkanFinalPass();
@@ -2437,10 +2445,10 @@ index 167cc94..1820b40 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..4d33ac6
+index 0000000..41c72d2
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,386 @@
+@@ -0,0 +1,389 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2709,15 +2717,14 @@ index 0000000..4d33ac6
 +
 +// compare function used by depth compare reads
 +enum class COMPARE_FUNCTION : uint32_t {
-+	NONE				= 0u,
-+	LESS_OR_EQUAL		= 1u,
-+	GREATER_OR_EQUAL	= 2u,
-+	LESS				= 3u,
++	NEVER				= 0u,
++	LESS				= 1u,
++	EQUAL				= 2u,
++	LESS_OR_EQUAL		= 3u,
 +	GREATER				= 4u,
-+	EQUAL				= 5u,
-+	NOT_EQUAL			= 6u,
++	NOT_EQUAL			= 5u,
++	GREATER_OR_EQUAL	= 6u,
 +	ALWAYS				= 7u,
-+	NEVER				= 8u,
 +	__MAX_COMPARE_FUNCTION
 +};
 +
@@ -2730,12 +2737,16 @@ index 0000000..4d33ac6
 +	DEPTH_WRITE				= (1u << 2u),
 +	MSAA_READ				= (1u << 3u),
 +	MSAA_WRITE				= (1u << 4u),
-+	CUBE_READ				= (1u << 5u),
-+	CUBE_WRITE				= (1u << 6u),
-+	MIPMAP_READ				= (1u << 7u),
-+	MIPMAP_WRITE			= (1u << 8u),
-+	OFFSET_READ				= (1u << 9u),
-+	OFFSET_WRITE			= (1u << 10u),
++	MSAA_ARRAY_READ			= (1u << 5u),
++	MSAA_ARRAY_WRITE		= (1u << 6u),
++	CUBE_READ				= (1u << 7u),
++	CUBE_WRITE				= (1u << 8u),
++	CUBE_ARRAY_READ			= (1u << 9u),
++	CUBE_ARRAY_WRITE		= (1u << 10u),
++	MIPMAP_READ				= (1u << 11u),
++	MIPMAP_WRITE			= (1u << 12u),
++	OFFSET_READ				= (1u << 13u),
++	OFFSET_WRITE			= (1u << 14u),
 +	
 +	DEPTH_COMPARE			= (1u << 16u),
 +	GATHER					= (1u << 17u),
@@ -12164,10 +12175,10 @@ index 0000000..08dc3a1
 +ModulePass *llvm::createOCL20To12() { return new OCL20To12(); }
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 0000000..9cf4ef3
+index 0000000..e290fe2
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
-@@ -0,0 +1,1493 @@
+@@ -0,0 +1,1513 @@
 +//===- OCL20ToSPIRV.cpp - Transform OCL20/GLSL to SPIR-V builtins - C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -12207,6 +12218,8 @@ index 0000000..9cf4ef3
 +//===----------------------------------------------------------------------===//
 +#define DEBUG_TYPE "cl20tospv"
 +
++#include "SPIRVFunction.h"
++#include "SPIRVInstruction.h"
 +#include "SPIRVInternal.h"
 +#include "OCLUtil.h"
 +#include "OCLTypeToSPIRV.h"
@@ -12375,6 +12388,9 @@ index 0000000..9cf4ef3
 +  void visitCallReadImageWithSampler(CallInst *CI, StringRef MangledName,
 +                                     const std::string &DemangledName);
 +
++  void visitCallReadImageWithSamplerGLSL(CallInst *CI, StringRef MangledName,
++                                         const std::string &DemangledName);
++
 +  /// Transform read_image with msaa image arguments.
 +  /// Sample argument must be acoded as Image Operand.
 +  void visitCallReadImageMSAA(CallInst *CI, StringRef MangledName,
@@ -12506,15 +12522,21 @@ index 0000000..9cf4ef3
 +
 +  DEBUG(dbgs() << "Enter OCL20ToSPIRV:\n");
 +
-+  // as of now, Vulkan/SPIR-V/GLSL doesn't know constant/UniformConstant
-+  // values/object,
-+  // so replace all uses of the constant address space with the Function storage
-+  // class
-+  // NOTE: SPIRVWriter will also move all global constant vars to the inside of
-+  // their
-+  //       respective functions (users)
++  // language specific handling
 +  if (SrcLang == spv::SourceLanguageGLSL) {
++    // as of now, Vulkan/SPIR-V/GLSL doesn't know constant/UniformConstant
++    // values/object, so replace all uses of the constant address space with the
++    // Function storage class
++    // NOTE: SPIRVWriter will also move all global constant vars to the inside
++    // of their respective functions (users)
 +    SPIRSPIRVAddrSpaceMap::replace(SPIRAS_Constant, StorageClassFunction);
++
++    // add shader image caps
++    SPIRVImageInstBase::addCap(spv::CapabilityShader);
++    SPIRVImageQueryInstBase::addCap(spv::CapabilityImageQuery);
++  } else {
++    // set kernel image caps
++    SPIRVImageInstBase::addCap(spv::CapabilityImageBasic);
 +  }
 +
 +  transWorkItemBuiltinsToVariables();
@@ -12622,7 +12644,10 @@ index 0000000..9cf4ef3
 +  }
 +  if (DemangledName.find(kOCLBuiltinName::ReadImage) == 0) {
 +    if (MangledName.find(kMangledName::Sampler) != StringRef::npos) {
-+      visitCallReadImageWithSampler(&CI, MangledName, DemangledName);
++      if (SrcLang != spv::SourceLanguageGLSL)
++        visitCallReadImageWithSampler(&CI, MangledName, DemangledName);
++      else
++        visitCallReadImageWithSamplerGLSL(&CI, MangledName, DemangledName);
 +      return;
 +    }
 +    if (MangledName.find("msaa") != StringRef::npos) {
@@ -13279,6 +13304,12 @@ index 0000000..9cf4ef3
 +      &Attrs);
 +}
 +
++void OCL20ToSPIRV::visitCallReadImageWithSamplerGLSL(
++    CallInst *CI, StringRef MangledName, const std::string &DemangledName) {
++  // NOTE: we'll be handling this in SPIRVWriter, not here, because we need
++  // information that is only available there
++}
++
 +void OCL20ToSPIRV::visitCallGetImageSize(CallInst *CI, StringRef MangledName,
 +                                         const std::string &DemangledName) {
 +  AttributeSet Attrs = CI->getCalledFunction()->getAttributes();
@@ -13910,10 +13941,10 @@ index 0000000..bb78cc8
 +ModulePass *llvm::createOCL21ToSPIRV() { return new OCL21ToSPIRV(); }
 diff --git a/lib/SPIRV/OCLTypeToSPIRV.cpp b/lib/SPIRV/OCLTypeToSPIRV.cpp
 new file mode 100644
-index 0000000..f8b8387
+index 0000000..f438ce5
 --- /dev/null
 +++ b/lib/SPIRV/OCLTypeToSPIRV.cpp
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,341 @@
 +//===- OCLTypeToSPIRV.cpp - Adapt types from OCL for SPIRV ------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -13976,8 +14007,7 @@ index 0000000..f8b8387
 +
 +char OCLTypeToSPIRV::ID = 0;
 +
-+OCLTypeToSPIRV::OCLTypeToSPIRV()
-+    : ModulePass(ID), M(nullptr), Ctx(nullptr), CLVer(0) {
++OCLTypeToSPIRV::OCLTypeToSPIRV() : ModulePass(ID), M(nullptr), Ctx(nullptr) {
 +  initializeOCLTypeToSPIRVPass(*PassRegistry::getPassRegistry());
 +}
 +
@@ -14258,10 +14288,10 @@ index 0000000..f8b8387
 +ModulePass *llvm::createOCLTypeToSPIRV() { return new OCLTypeToSPIRV(); }
 diff --git a/lib/SPIRV/OCLTypeToSPIRV.h b/lib/SPIRV/OCLTypeToSPIRV.h
 new file mode 100644
-index 0000000..c8a22f7
+index 0000000..1db09b4
 --- /dev/null
 +++ b/lib/SPIRV/OCLTypeToSPIRV.h
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,84 @@
 +//===- OCLTypeToSPIRV.h - Adapt types from OCL for SPIRV --------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -14331,7 +14361,6 @@ index 0000000..c8a22f7
 +private:
 +  Module *M;
 +  LLVMContext *Ctx;
-+  unsigned CLVer;
 +  std::map<Value *, Type *> AdaptedTy; // Adapted types for values
 +  std::set<Function *> WorkSet;        // Functions to be adapted
 +
@@ -15578,10 +15607,10 @@ index 0000000..b876bd1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..0d00b25
+index 0000000..91d333b
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,932 @@
+@@ -0,0 +1,938 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -15826,6 +15855,7 @@ index 0000000..0d00b25
 +  add("read_only", AccessQualifierReadOnly);
 +  add("write_only", AccessQualifierWriteOnly);
 +  add("read_write", AccessQualifierReadWrite);
++  add("", AccessQualifierNone);
 +}
 +typedef SPIRVMap<std::string, SPIRVAccessQualifierKind>
 +    SPIRSPIRVAccessQualifierMap;
@@ -16436,6 +16466,11 @@ index 0000000..0d00b25
 +/// Translates OpenCL image type names to SPIR-V.
 +/// E.g. %opencl.image1d_rw_t -> %spirv.Image._void_0_0_0_0_0_0_2
 +Type *getSPIRVImageTypeFromOCL(Module *M, Type *T);
++
++/// Translates GLSL image type names to SPIR-V.
++Type *getSPIRVImageTypeFromGLSL(Module *M, Type *T, const char *sample_type,
++                                const bool is_storage,
++                                const spv::ImageFormat format);
 +
 +/// Get LLVM type for sampled type of SPIR-V image type by postfix.
 +Type *getLLVMTypeForSPIRVImageSampledTypePostfix(StringRef Postfix,
@@ -17740,7 +17775,7 @@ index 0000000..6ca20f3
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..a6f5558
+index 0000000..ab9d05c
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
 @@ -0,0 +1,2731 @@
@@ -17888,12 +17923,14 @@ index 0000000..a6f5558
 +  return MDNode::get(*Context, ValueVec);
 +}
 +
++#if 0 // unused?
 +static MDNode *getMDString(LLVMContext *Context, const std::string &Str) {
 +  std::vector<Metadata *> ValueVec;
 +  if (!Str.empty())
 +    ValueVec.push_back(MDString::get(*Context, Str));
 +  return MDNode::get(*Context, ValueVec);
 +}
++#endif
 +
 +static void addOCLVersionMetadata(LLVMContext *Context, Module *M,
 +                                  const std::string &MDName, unsigned Major,
@@ -19817,6 +19854,8 @@ index 0000000..a6f5558
 +    case AccessQualifierReadWrite:
 +      Suffix = "_read_write";
 +      break;
++    case AccessQualifierNone:
++      llvm_unreachable("invalid access qualifier");
 +    }
 +  }
 +
@@ -19863,20 +19902,16 @@ index 0000000..a6f5558
 +  case AddressingModelPhysical64:
 +    M->setTargetTriple(SPIR_TARGETTRIPLE64);
 +    M->setDataLayout(SPIR_DATALAYOUT64);
-+    break;
++    return true;
 +  case AddressingModelPhysical32:
 +    M->setTargetTriple(SPIR_TARGETTRIPLE32);
 +    M->setDataLayout(SPIR_DATALAYOUT32);
-+    break;
++    return true;
 +  case AddressingModelLogical:
 +    // Do not set target triple and data layout
-+    break;
-+  default:
-+    SPIRVCKRT(0, InvalidAddressingModel,
-+              "Actual addressing mode is " +
-+                  (unsigned)BM->getAddressingModel());
++    return true;
 +  }
-+  return true;
++  llvm_unreachable("invalid addressing model");
 +}
 +
 +bool SPIRVToLLVM::transDecoration(SPIRVValue *BV, Value *V) {
@@ -21272,10 +21307,10 @@ index 0000000..fd1ee17
 +ModulePass *llvm::createSPIRVToOCL20() { return new SPIRVToOCL20(); }
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..956aff5
+index 0000000..c6ec732
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1374 @@
+@@ -0,0 +1,1408 @@
 +//===- SPIRVUtil.cpp - SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -22649,13 +22684,47 @@ index 0000000..956aff5
 +    Acc = getAccessQualifier(ImageTypeName);
 +  return getOrCreateOpaquePtrType(M, mapOCLTypeNameToSPIRV(ImageTypeName, Acc));
 +}
++
++/// Translates GLSL image type names to SPIR-V.
++Type *getSPIRVImageTypeFromGLSL(Module *M, Type *ImageTy,
++                                const char *sample_type, const bool is_storage,
++                                const spv::ImageFormat format) {
++  assert(isOCLImageType(ImageTy) && "invalid image type");
++  auto Name = ImageTy->getPointerElementType()->getStructName();
++  assert(Name.startswith(kSPR2TypeName::ImagePrefix) && "invalid image type");
++
++  std::string BaseTy;
++  std::string Postfixes;
++  raw_string_ostream OS(Postfixes);
++  OS << kSPIRVTypeName::PostfixDelim;
++
++  SmallVector<StringRef, 4> SubStrs;
++  const char Delims[] = {kSPR2TypeName::Delimiter, 0};
++  Name.split(SubStrs, Delims);
++  std::string ImageTyName = SubStrs[1].str();
++  if (hasAccessQualifiedName(Name))
++    ImageTyName.erase(ImageTyName.size() - 5, 3);
++  auto Desc = map<SPIRVTypeImageDescriptor>(ImageTyName);
++  Desc.Sampled = (is_storage ? 2 : 1);
++  Desc.Format = format;
++  DEBUG(dbgs() << "[trans image type] " << SubStrs[1] << " => "
++               << "(" << (unsigned)Desc.Dim << ", " << Desc.Depth << ", "
++               << Desc.Arrayed << ", " << Desc.MS << ", " << Desc.Sampled
++               << ", " << Desc.Format << ")\n");
++
++  BaseTy = kSPIRVTypeName::Image;
++  OS << getSPIRVImageTypePostfixes(sample_type, Desc, spv::AccessQualifierNone);
++  auto spirv_type_name = getSPIRVTypeName(BaseTy, OS.str());
++
++  return getOrCreateOpaquePtrType(M, spirv_type_name);
++}
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..791b84c
+index 0000000..220ee80
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2708 @@
+@@ -0,0 +1,2894 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -22971,23 +23040,30 @@ index 0000000..791b84c
 +    bool is_uniform{false};
 +    bool is_input{false};
 +    bool is_builtin{false};
++    bool is_image{false};
 +    bool is_read_only{false};
 +    bool is_write_only{false};
 +  };
 +
-+  GlobalVariable *
-+  emitShaderGlobal(const Function &F, SPIRVFunction *spirv_func,
-+                   const std::string &var_name, llvm::Type *llvm_type,
-+                   uint32_t address_space,
-+                   const spirv_global_io_type global_type,
-+                   SPIRVVariable **created_spirv_var = nullptr,
-+                   spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition);
++  GlobalVariable *emitShaderGlobal(
++      const Function &F, SPIRVFunction *spirv_func, const std::string &var_name,
++      llvm::Type *llvm_type, uint32_t address_space,
++      const spirv_global_io_type global_type, const std::string &md_info,
++      SPIRVVariable **created_spirv_var = nullptr,
++      spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition);
 +
 +  SPIRVVariable *
 +  emitShaderSPIRVGlobal(SPIRVFunction *spirv_func, const GlobalVariable &GV,
 +                        const std::string &var_name, uint32_t address_space,
 +                        const spirv_global_io_type global_type,
++                        const std::string &md_info,
 +                        spv::BuiltIn builtin = spv::BuiltIn::BuiltInPosition);
++
++  SPIRVVariable *immutable_samplers{nullptr};
++  std::pair<SPIRVInstruction *, Op>
++  transVulkanImageFunction(CallInst *CI, SPIRVBasicBlock *BB,
++                           const std::string &DemangledName,
++                           const std::string &MangledName);
 +};
 +
 +SPIRVValue *LLVMToSPIRV::getTranslatedValue(Value *V) {
@@ -23194,9 +23270,13 @@ index 0000000..791b84c
 +        PipeT->setPipeAcessQualifier(SPIRSPIRVAccessQualifierMap::map(Acc));
 +        return mapType(T, PipeT);
 +      } else if (STName.find(kSPR2TypeName::ImagePrefix) == 0) {
-+        assert(AddrSpc == SPIRAS_Global);
-+        auto SPIRVImageTy = getSPIRVImageTypeFromOCL(M, T);
-+        return mapType(T, transSPIRVOpaqueType(SPIRVImageTy));
++        if (SrcLang != SourceLanguageGLSL) {
++          assert(AddrSpc == SPIRAS_Global);
++          auto SPIRVImageTy = getSPIRVImageTypeFromOCL(M, T);
++          return mapType(T, transSPIRVOpaqueType(SPIRVImageTy));
++        } else {
++          assert(false && "should not be here");
++        }
 +      } else if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
 +        return transSPIRVOpaqueType(T);
 +      else if (OCLOpaqueTypeOpCodeMap::find(STName, &OpCode)) {
@@ -23322,9 +23402,12 @@ index 0000000..791b84c
 +      Ops.push_back(atoi(Postfixes[I].c_str()));
 +    SPIRVTypeImageDescriptor Desc(static_cast<SPIRVImageDimKind>(Ops[0]),
 +                                  Ops[1], Ops[2], Ops[3], Ops[4], Ops[5]);
-+    return mapType(T,
-+                   BM->addImageType(SampledT, Desc,
-+                                    static_cast<spv::AccessQualifier>(Ops[6])));
++    auto spirv_image_type =
++        (static_cast<spv::AccessQualifier>(Ops[6]) != spv::AccessQualifierNone
++             ? BM->addImageType(SampledT, Desc,
++                                static_cast<spv::AccessQualifier>(Ops[6]))
++             : BM->addImageType(SampledT, Desc));
++    return mapType(T, spirv_image_type);
 +  } else if (TN == kSPIRVTypeName::SampledImg) {
 +    return mapType(
 +        T, BM->addSampledImageType(static_cast<SPIRVTypeImage *>(
@@ -23346,6 +23429,10 @@ index 0000000..791b84c
 +SPIRVFunction *LLVMToSPIRV::transFunctionDecl(Function *F) {
 +  // skip any floor.* functions, these shouldn't be here
 +  if (F->getName().startswith("floor."))
++    return nullptr;
++
++  // ignore any non-entry-point functions
++  if (F->getCallingConv() == CallingConv::FLOOR_FUNC)
 +    return nullptr;
 +
 +  // return already translated value
@@ -24157,6 +24244,23 @@ index 0000000..791b84c
 +}
 +
 +bool LLVMToSPIRV::transGlobalVariables() {
++  // add global fixed/immutable samplers array that is always present
++  if (SrcLang == spv::SourceLanguageGLSL) {
++    auto samplers_type = BM->addPointerType(
++        spv::StorageClassUniformConstant,
++        BM->addArrayType(BM->addSamplerType(),
++                         BM->getLiteralAsConstant(32, false)));
++    immutable_samplers = static_cast<SPIRVVariable *>(
++        BM->addVariable(samplers_type, true, spv::LinkageTypeInternal, nullptr,
++                        "vulkan.immutable_samplers",
++                        spv::StorageClassUniformConstant, nullptr));
++    BM->setName(immutable_samplers, "vulkan.immutable_samplers");
++    immutable_samplers->addDecorate(
++        new SPIRVDecorate(DecorationDescriptorSet, immutable_samplers, 0));
++    immutable_samplers->addDecorate(
++        new SPIRVDecorate(DecorationBinding, immutable_samplers, 0));
++  }
++
 +  for (auto I = M->global_begin(), E = M->global_end(); I != E; ++I) {
 +    // ignore any special vulkan globals used by functions (these will be
 +    // handled when translating the functions)
@@ -24291,13 +24395,16 @@ index 0000000..791b84c
 +SPIRVVariable *LLVMToSPIRV::emitShaderSPIRVGlobal(
 +    SPIRVFunction *spirv_func, const GlobalVariable &GV,
 +    const std::string &var_name, uint32_t address_space,
-+    const spirv_global_io_type global_type, spv::BuiltIn builtin) {
++    const spirv_global_io_type global_type, const std::string &md_info,
++    spv::BuiltIn builtin) {
 +  spv::StorageClass storage_class = spv::StorageClassUniform;
 +  if (global_type.is_builtin) {
 +    storage_class = (global_type.is_input ? spv::StorageClassInput
 +                                          : spv::StorageClassOutput);
 +  } else if (global_type.is_input) {
 +    storage_class = spv::StorageClassInput;
++  } else if (global_type.is_image) {
++    storage_class = spv::StorageClassUniformConstant;
 +  } else if (global_type.is_uniform) {
 +    storage_class = spv::StorageClassUniform;
 +  } else {
@@ -24308,42 +24415,58 @@ index 0000000..791b84c
 +  if (global_type.is_uniform) {
 +    assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
 +    auto elem_type = GV.getType()->getPointerElementType();
-+    auto spirv_elem_type = transType(elem_type);
-+    if (!global_type.is_constant) {
-+      // this is a SSBO with an unknown size, switch out the top pointer
-+      // type with a runtime array type
-+      auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
-+      std::string enclosing_type_name = "enclose.";
-+      if (elem_type->isStructTy()) {
-+        enclosing_type_name += elem_type->getStructName().str();
++
++    // -> uniform blocks or SSBOs
++    if (!global_type.is_image) {
++      auto spirv_elem_type = transType(elem_type);
++      if (!global_type.is_constant) {
++        // this is a SSBO with an unknown size, switch out the top pointer
++        // type with a runtime array type
++        auto rtarr_type = BM->addRuntimeArrayType(spirv_elem_type);
++        std::string enclosing_type_name = "enclose.";
++        if (elem_type->isStructTy()) {
++          enclosing_type_name += elem_type->getStructName().str();
++        } else {
++          std::string type_str = "";
++          llvm::raw_string_ostream type_stream(type_str);
++          elem_type->print(type_stream, false, true);
++          enclosing_type_name += type_stream.str();
++        }
++        auto enclosing_type = BM->openStructType(1, enclosing_type_name);
++        enclosing_type->setMemberType(0, rtarr_type);
++        BM->closeStructType(enclosing_type, false);
++        mapped_type =
++            BM->addPointerType(spv::StorageClassUniform, enclosing_type);
++
++        // add required deco
++        enclosing_type->addDecorate(
++            new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
++        enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
++        rtarr_type->addDecorate(spv::DecorationArrayStride,
++                                M->getDataLayout().getTypeStoreSize(elem_type));
 +      } else {
-+        std::string type_str = "";
-+        llvm::raw_string_ostream type_stream(type_str);
-+        elem_type->print(type_stream, false, true);
-+        enclosing_type_name += type_stream.str();
++        assert(elem_type->isStructTy() && "uniform type must be a struct");
++
++        mapped_type = transType(GV.getType());
++
++        // deco
++        spirv_elem_type->addDecorate(
++            new SPIRVDecorate(DecorationBlock, spirv_elem_type));
 +      }
-+      auto enclosing_type = BM->openStructType(1, enclosing_type_name);
-+      enclosing_type->setMemberType(0, rtarr_type);
-+      BM->closeStructType(enclosing_type, false);
-+      mapped_type =
-+          BM->addPointerType(spv::StorageClassUniform, enclosing_type);
-+
-+      // add required deco
-+      enclosing_type->addDecorate(
-+          new SPIRVDecorate(DecorationBufferBlock, enclosing_type));
-+      enclosing_type->addMemberDecorate(0, spv::DecorationOffset, 0);
-+      rtarr_type->addDecorate(spv::DecorationArrayStride,
-+                              M->getDataLayout().getTypeStoreSize(elem_type));
-+    } else {
-+      assert(elem_type->isStructTy() && "uniform type must be a struct");
-+
-+      mapped_type = transType(GV.getType());
-+
-+      // deco
-+      spirv_elem_type->addDecorate(
-+          new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++      decorateComposite(elem_type, spirv_elem_type);
 +    }
-+    decorateComposite(elem_type, spirv_elem_type);
++    // -> images
++    else {
++      auto split_pos = md_info.find(':');
++      auto access_type = md_info.substr(0, split_pos);
++      auto sample_type = md_info.substr(split_pos + 1);
++      // TODO: handle storage images with format
++      auto SPIRVImageTy = getSPIRVImageTypeFromGLSL(
++          M, GV.getType(), sample_type.c_str(), access_type == "write",
++          spv::ImageFormatUnknown);
++      mapped_type = BM->addPointerType(spv::StorageClassUniformConstant,
++                                       transSPIRVOpaqueType(SPIRVImageTy));
++    }
 +  } else {
 +    mapped_type = transType(GV.getType());
 +  }
@@ -24363,7 +24486,8 @@ index 0000000..791b84c
 +  }
 +
 +  // set non-readable/-writable deco on SSBOs
-+  if (global_type.is_uniform && !global_type.is_constant) {
++  if (global_type.is_uniform && !global_type.is_constant &&
++      !global_type.is_image) {
 +    if (global_type.is_read_only) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonWritable, BVar));
 +    } else if (global_type.is_write_only) {
@@ -24377,8 +24501,8 @@ index 0000000..791b84c
 +GlobalVariable *LLVMToSPIRV::emitShaderGlobal(
 +    const Function &F, SPIRVFunction *spirv_func, const std::string &var_name,
 +    llvm::Type *llvm_type, uint32_t address_space,
-+    const spirv_global_io_type global_type, SPIRVVariable **created_spirv_var,
-+    spv::BuiltIn builtin) {
++    const spirv_global_io_type global_type, const std::string &md_info,
++    SPIRVVariable **created_spirv_var, spv::BuiltIn builtin) {
 +  std::string name_type = ".";
 +  if (global_type.is_builtin) {
 +    name_type = (global_type.is_input ? ".vulkan_builtin_input."
@@ -24395,8 +24519,8 @@ index 0000000..791b84c
 +                         nullptr, GlobalValue::NotThreadLocal, address_space);
 +
 +  // also add the SPIR-V global
-+  auto spirv_var = emitShaderSPIRVGlobal(spirv_func, *GV, var_name,
-+                                         address_space, global_type, builtin);
++  auto spirv_var = emitShaderSPIRVGlobal(
++      spirv_func, *GV, var_name, address_space, global_type, md_info, builtin);
 +  if (created_spirv_var != nullptr) {
 +    *created_spirv_var = spirv_var;
 +  }
@@ -24460,6 +24584,10 @@ index 0000000..791b84c
 +void LLVMToSPIRV::transFunction(Function *F) {
 +  // again, ignore any floor.* functions
 +  if (F->getName().startswith("floor."))
++    return;
++
++  // ignore any non-entry-point functions
++  if (F->getCallingConv() == CallingConv::FLOOR_FUNC)
 +    return;
 +
 +  auto spirv_func = transFunctionDecl(F);
@@ -24720,19 +24848,19 @@ index 0000000..791b84c
 +    switch (stage) { // put each stage into a different set
 +    case VULKAN_STAGE::KERNEL:
 +    case VULKAN_STAGE::VERTEX:
-+      desc_set = 0;
-+      break;
-+    case VULKAN_STAGE::FRAGMENT:
 +      desc_set = 1;
 +      break;
-+    case VULKAN_STAGE::GEOMETRY:
++    case VULKAN_STAGE::FRAGMENT:
 +      desc_set = 2;
 +      break;
-+    case VULKAN_STAGE::TESSELLATION_CONTROL:
++    case VULKAN_STAGE::GEOMETRY:
 +      desc_set = 3;
 +      break;
-+    case VULKAN_STAGE::TESSELLATION_EVALUATION:
++    case VULKAN_STAGE::TESSELLATION_CONTROL:
 +      desc_set = 4;
++      break;
++    case VULKAN_STAGE::TESSELLATION_EVALUATION:
++      desc_set = 5;
 +      break;
 +    default:
 +      llvm_unreachable("invalid stage");
@@ -24740,6 +24868,16 @@ index 0000000..791b84c
 +    for (Argument &arg : F->args()) {
 +      llvm::Type *arg_type = arg.getType();
 +      const auto arg_name = arg.getName();
++
++      const auto md_prefix_split_pos = md_data_input[input_arg_idx].find(':');
++      const std::string md_prefix =
++          (md_prefix_split_pos != std::string::npos
++               ? md_data_input[input_arg_idx].substr(0, md_prefix_split_pos)
++               : "");
++      const std::string md_info =
++          (md_prefix_split_pos != std::string::npos
++               ? md_data_input[input_arg_idx].substr(md_prefix_split_pos + 1)
++               : md_data_input[input_arg_idx]);
 +
 +      if (arg_type->isPointerTy() &&
 +          arg_type->getPointerAddressSpace() != SPIRAS_Input) {
@@ -24750,20 +24888,28 @@ index 0000000..791b84c
 +        if (arg.onlyReadsMemory() &&
 +            (arg.hasAttribute(Attribute::Dereferenceable) ||
 +             arg.hasAttribute(Attribute::DereferenceableOrNull))) {
-+          // -> Block uniform (TODO: could also make this a push constant later
-+          // on)
++          // -> Block uniform
++          // (TODO: could also make this a push constant later on)
 +          spirv_global_io_type global_type;
 +          global_type.is_constant = true;
 +          global_type.is_uniform = true;
 +          global_type.is_read_only = true;
 +          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
-+                                     SPIRAS_Uniform, global_type, &uniform_var);
++                                     SPIRAS_Uniform, global_type, md_info,
++                                     &uniform_var);
 +          arg.replaceAllUsesWith(GV);
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Uniform) {
 +          // all image types are opaque/unsized
 +          if (!elem_type->isSized()) {
-+            // -> TODO: image
-+            errs() << "images are not handled yet\n";
++            // -> image
++            spirv_global_io_type global_type;
++            global_type.is_image = true;
++            global_type.is_constant = true;
++            global_type.is_uniform = true;
++            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
++                                       elem_type, SPIRAS_Uniform, global_type,
++                                       md_info, &uniform_var);
++            arg.replaceAllUsesWith(GV);
 +          } else {
 +            // -> BufferBlock uniform (SSBO)
 +            spirv_global_io_type global_type;
@@ -24772,9 +24918,9 @@ index 0000000..791b84c
 +            global_type.is_write_only =
 +                (!global_type.is_read_only ? is_write_only_arg(*F, arg)
 +                                           : false);
-+            auto GV =
-+                emitShaderGlobal(*F, spirv_func, arg_name.str(), elem_type,
-+                                 SPIRAS_Uniform, global_type, &uniform_var);
++            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
++                                       elem_type, SPIRAS_Uniform, global_type,
++                                       md_info, &uniform_var);
 +            arg.replaceAllUsesWith(GV);
 +          }
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Local) {
@@ -24793,14 +24939,13 @@ index 0000000..791b84c
 +            new SPIRVDecorate(DecorationBinding, uniform_var, uniform_arg_idx));
 +        ++uniform_arg_idx;
 +      } else {
-+        if (md_data_input[input_arg_idx] != "none") {
++        if (md_prefix == "builtin") {
 +          // -> special input variable
 +          // transform function parameter to in-function alloca + input
 +          // annotation
-+          const auto builtin = get_builtin(md_data_input[input_arg_idx]);
++          const auto builtin = get_builtin(md_info);
 +          if (!builtin.second) {
-+            errs() << "unknown builtin: " << md_data_input[input_arg_idx]
-+                   << "\n";
++            errs() << "unknown builtin: " << md_info << "\n";
 +          }
 +
 +          const auto is_valid =
@@ -24812,32 +24957,36 @@ index 0000000..791b84c
 +            global_type.is_builtin = true;
 +            auto repl_var = emitShaderGlobal(
 +                *F, spirv_func, arg_name, elem_type, SPIRAS_Input, global_type,
-+                nullptr, builtin.first);
++                md_info, nullptr, builtin.first);
 +            arg.replaceAllUsesWith(repl_var);
 +          } else {
 +            // TODO: should catch this earlier
 +            if (arg.getNumUses() > 0) {
-+              errs() << "input builtin \"" << md_data_input[input_arg_idx]
++              errs() << "input builtin \"" << md_info
 +                     << "\" can not be used in stage \""
 +                     << vulkan_stage_to_string(stage) << "\"\n";
 +            }
 +          }
-+        } else {
++        } else if (md_prefix == "stage" || md_prefix == "") {
 +          // -> stage input
 +          spirv_global_io_type global_type;
 +          global_type.is_input = true;
 +          global_type.is_read_only = true;
 +          auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
-+                                           SPIRAS_Input, global_type);
++                                           SPIRAS_Input, global_type, md_info);
 +          // only emit load if there actually is a user
 +          if (arg.getNumUses() > 0) {
 +            LoadInst *load_repl_var = new LoadInst(repl_var, arg_name, false,
 +                                                   &*next(F->front().begin()));
 +            arg.replaceAllUsesWith(load_repl_var);
 +          }
++        } else {
++          assert(false && "unknown or unhandled input");
 +        }
-+        ++input_arg_idx;
 +      }
++
++      // used by all arg types
++      ++input_arg_idx;
 +    }
 +
 +    // handle return value / output
@@ -24854,47 +25003,69 @@ index 0000000..791b84c
 +      if (GV.hasName() &&
 +          GV.getName().find(output_var_name_stub) != std::string::npos) {
 +        auto output_name = GV.getName().split(".vulkan_output.").second;
-+        const auto is_fbo_output = (md_data_output[output_arg_idx].find(
-+                                        "fbo_output:") != std::string::npos);
-+        if (!is_fbo_output && md_data_output[output_arg_idx] != "none") {
-+          const auto builtin = get_builtin(md_data_output[output_arg_idx]);
-+          if (!builtin.second) {
-+            errs() << "unknown builtin: " << md_data_output[output_arg_idx]
-+                   << "\n";
-+          }
 +
-+          const auto is_valid = is_builtin_valid_in_stage(builtin.first, stage,
-+                                                          false /* output */);
-+          if (is_valid) {
++        const auto md_prefix_split_pos =
++            md_data_output[output_arg_idx].find(':');
++        const std::string md_prefix =
++            (md_prefix_split_pos != std::string::npos
++                 ? md_data_output[output_arg_idx].substr(0, md_prefix_split_pos)
++                 : "");
++        const std::string md_info =
++            (md_prefix_split_pos != std::string::npos
++                 ? md_data_output[output_arg_idx].substr(md_prefix_split_pos +
++                                                         1)
++                 : md_data_output[output_arg_idx]);
++
++        if (md_prefix != "") {
++          // -> fbo
++          if (md_prefix == "stage" &&
++              md_info.find("fbo_output:") != std::string::npos) {
 +            spirv_global_io_type global_type;
-+            global_type.is_builtin = true;
 +            global_type.is_write_only = true;
-+            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
-+                                  global_type, builtin.first);
-+          } else {
-+            // TODO: should catch this earlier
-+            errs() << "output builtin \"" << md_data_output[output_arg_idx]
-+                   << "\" can not be used in stage \""
-+                   << vulkan_stage_to_string(stage) << "\"\n";
-+          }
-+        } else if (is_fbo_output) {
-+          spirv_global_io_type global_type;
-+          global_type.is_write_only = true;
-+          auto fbo_output_var = emitShaderSPIRVGlobal(
-+              spirv_func, GV, output_name, SPIRAS_Output, global_type);
++            auto fbo_output_var =
++                emitShaderSPIRVGlobal(spirv_func, GV, output_name,
++                                      SPIRAS_Output, global_type, md_info);
 +
-+          // extract location idx + add the resp. decoration
-+          const auto location_str = md_data_output[output_arg_idx].substr(
-+              md_data_output[output_arg_idx].rfind(':'));
-+          const auto location = (uint32_t)strtoull(
-+              md_data_output[output_arg_idx].c_str(), nullptr, 10);
-+          fbo_output_var->addDecorate(
-+              new SPIRVDecorate(DecorationLocation, fbo_output_var, location));
-+        } else {
++            // extract location idx + add the resp. decoration
++            const auto location_str = md_info.substr(md_info.rfind(':'));
++            const auto location =
++                (uint32_t)strtoull(location_str.c_str(), nullptr, 10);
++            fbo_output_var->addDecorate(new SPIRVDecorate(
++                DecorationLocation, fbo_output_var, location));
++          }
++          // -> builtin
++          else if (md_prefix == "builtin" || md_prefix == "stage") {
++            const auto builtin = get_builtin(md_info);
++            if (!builtin.second) {
++              errs() << "unknown builtin: " << md_info << "\n";
++            }
++
++            const auto is_valid = is_builtin_valid_in_stage(
++                builtin.first, stage, false /* output */);
++            if (is_valid) {
++              spirv_global_io_type global_type;
++              global_type.is_builtin = true;
++              global_type.is_write_only = true;
++              emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                    global_type, md_info, builtin.first);
++            } else {
++              // TODO: should catch this earlier
++              errs() << "output builtin \"" << md_info
++                     << "\" can not be used in stage \""
++                     << vulkan_stage_to_string(stage) << "\"\n";
++            }
++          }
++          // -> unknown or unhandled yet
++          else {
++            assert(false && "unknown or unhandled output");
++          }
++        }
++        // -> normal output
++        else {
 +          spirv_global_io_type global_type;
 +          global_type.is_write_only = true;
 +          emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
-+                                global_type);
++                                global_type, md_info);
 +        }
 +        ++output_arg_idx;
 +      }
@@ -25080,12 +25251,27 @@ index 0000000..791b84c
 +                                const std::string &MangledName, CallInst *CI,
 +                                SPIRVBasicBlock *BB) {
 +  SmallVector<std::string, 2> Dec;
-+  auto OC = getSPIRVFuncOC(DemangledName, &Dec);
++  Op OC = OpNop;
++  SPIRVInstruction *Inst = nullptr;
 +
-+  if (OC == OpNop)
-+    return nullptr;
++  // special handling for Vulkan/SPIR-V image read/write
++  if (SrcLang == spv::SourceLanguageGLSL &&
++      (DemangledName.find(kOCLBuiltinName::ReadImage) == 0 ||
++       DemangledName.find(kOCLBuiltinName::WriteImage) == 0)) {
++    auto inst_op = transVulkanImageFunction(CI, BB, DemangledName, MangledName);
++    assert(inst_op.first != nullptr && inst_op.second != OpNop &&
++           "failed to translate image read/write function");
++    Inst = inst_op.first;
++    OC = inst_op.second;
++  } else {
++    OC = getSPIRVFuncOC(DemangledName, &Dec);
 +
-+  auto Inst = transBuiltinToInstWithoutDecoration(OC, CI, BB);
++    if (OC == OpNop)
++      return nullptr;
++
++    Inst = transBuiltinToInstWithoutDecoration(OC, CI, BB);
++  }
++
 +  addDecorations(Inst, Dec);
 +  return Inst;
 +}
@@ -25233,9 +25419,78 @@ index 0000000..791b84c
 +  return OC;
 +}
 +
++std::pair<SPIRVInstruction *, Op>
++LLVMToSPIRV::transVulkanImageFunction(CallInst *CI, SPIRVBasicBlock *BB,
++                                      const std::string &DemangledName,
++                                      const std::string &MangledName) {
++  // TODO: use OpImageSampleImplicitLod in fragment shaders if possible
++  // const bool is_fragment = (CI->getParent()->getParent()->getCallingConv() ==
++  //                          CallingConv::FLOOR_FRAGMENT);
++
++  auto args = getArguments(CI);
++  auto img_arg = args[0];
++  auto spirv_img = getSPIRVValue(img_arg);
++  assert(spirv_img != nullptr && "invalid image");
++
++  if (DemangledName.find("read_image") == 0) {
++    // TODO: try to "cache" these things (no dupes)
++
++    // load the image
++    const std::vector<SPIRVWord> access; // empty access for image/sampler load
++    auto loaded_img = BM->addLoadInst(spirv_img, access, BB);
++    auto spirv_img_type = (SPIRVTypeImage *)loaded_img->getType();
++
++    // retrieve the sampler idx + load the sampler
++    auto sampler_idx_arg = dyn_cast<ConstantInt>(args[1]);
++    assert(sampler_idx_arg != nullptr && "sampler must be a constant int");
++    std::vector<SPIRVValue *> indices{
++        BM->getLiteralAsConstant(sampler_idx_arg->getZExtValue(), false)};
++
++    auto sampler_ptr = BM->addAccessChainInst(
++        BM->addPointerType(spv::StorageClassUniformConstant,
++                           BM->addSamplerType()),
++        immutable_samplers, indices, BB, true);
++    auto loaded_sampler = BM->addLoadInst(sampler_ptr, access, BB);
++
++    // create the sampled image
++    std::vector<SPIRVWord> sampled_img_ops{
++        loaded_img->getId(), loaded_sampler->getId(),
++    };
++    auto sampled_img =
++        BM->addInstTemplate(OpSampledImage, sampled_img_ops, BB,
++                            BM->addSampledImageType(spirv_img_type));
++
++    // args
++    auto coords_arg = transValue(args[2], BB);
++
++    // TODO: cache float literals as is done for int/uints
++    // TODO: should already create all args in VulkanImage!
++    auto lod_arg = BM->addFloatConstant(
++        (SPIRVTypeFloat *)transType(llvm::Type::getFloatTy(CI->getContext())),
++        0.0f);
++
++    // create the image read
++    std::vector<SPIRVWord> sample_ops{
++        sampled_img->getId(), coords_arg->getId(), spv::ImageOperandsLodMask,
++        lod_arg->getId(),
++    };
++    auto read_sample = BM->addInstTemplate(OpImageSampleExplicitLod, sample_ops,
++                                           BB, getSPIRVType(CI->getType()));
++    return {read_sample, read_sample->getOpCode()};
++  } else if (DemangledName.find("write_image") == 0) {
++    // TODO: handle image writes
++  }
++
++  return {nullptr, OpNop};
++}
++
 +SPIRVInstruction *
 +LLVMToSPIRV::transBuiltinToInstWithoutDecoration(Op OC, CallInst *CI,
 +                                                 SPIRVBasicBlock *BB) {
++  // TODO: handle image query stuff
++  assert(!(SrcLang == spv::SourceLanguageGLSL && isImageOpCode(OC)) &&
++         "should not be here");
++
 +  if (isGroupOpCode(OC))
 +    BM->addCapability(CapabilityGroups);
 +  switch (OC) {
@@ -27025,7 +27280,7 @@ index 0000000..151779f
 +#endif /* SPIRVDECORATE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.cpp b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
 new file mode 100644
-index 0000000..d4d3b3d
+index 0000000..fb4f304
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
 @@ -0,0 +1,548 @@
@@ -27251,7 +27506,7 @@ index 0000000..d4d3b3d
 +
 +void SPIRVEntry::addDecorate(const SPIRVDecorate *Dec) {
 +  auto Kind = Dec->getDecorateKind();
-+  Decorates.insert(std::make_pair(Dec->getDecorateKind(), Dec));
++  Decorates.insert(std::make_pair(Kind, Dec));
 +  Module->addDecorate(Dec);
 +  SPIRVDBG(spvdbgs() << "[addDecorate] " << *Dec << '\n';)
 +}
@@ -29602,10 +29857,10 @@ index 0000000..014f398
 +#endif /* SPIRVFUNCTION_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp b/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp
 new file mode 100644
-index 0000000..ed2019d
+index 0000000..dcffc52
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp
-@@ -0,0 +1,222 @@
+@@ -0,0 +1,224 @@
 +//===- SPIRVInstruction.cpp - Class to represent SPIR-V instruction - C++ -===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -29652,6 +29907,8 @@ index 0000000..ed2019d
 +#include <unordered_set>
 +
 +namespace SPIRV {
++std::vector<Capability> SPIRVImageInstBase::image_caps;
++std::vector<Capability> SPIRVImageQueryInstBase::image_query_caps;
 +
 +// Complete constructor for instruction with type and id
 +SPIRVInstruction::SPIRVInstruction(unsigned TheWordCount, Op TheOC,
@@ -29830,10 +30087,10 @@ index 0000000..ed2019d
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..ad367a0
+index 0000000..6a27a9a
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2004 @@
+@@ -0,0 +1,2032 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ --===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -31802,9 +32059,31 @@ index 0000000..ad367a0
 +#undef _SPIRV_OP
 +
 +class SPIRVImageInstBase : public SPIRVInstTemplateBase {
++protected:
++  // Kernel and Shader image caps differ, so this needs to be handled externally
++  static std::vector<Capability> image_caps;
++
 +public:
-+  SPIRVCapVec getRequiriedCapability() const {
-+    return getVec(CapabilityImageBasic);
++  SPIRVCapVec getRequiriedCapability() const { return image_caps; }
++  static void addCap(const Capability cap) {
++    image_caps.emplace_back(cap);
++    std::sort(image_caps.begin(), image_caps.end());
++    image_caps.erase(std::unique(image_caps.begin(), image_caps.end()),
++                     image_caps.end());
++  }
++};
++class SPIRVImageQueryInstBase : public SPIRVInstTemplateBase {
++protected:
++  static std::vector<Capability> image_query_caps;
++
++public:
++  SPIRVCapVec getRequiriedCapability() const { return image_query_caps; }
++  static void addCap(const Capability cap) {
++    image_query_caps.emplace_back(cap);
++    std::sort(image_query_caps.begin(), image_query_caps.end());
++    image_query_caps.erase(
++        std::unique(image_query_caps.begin(), image_query_caps.end()),
++        image_query_caps.end());
 +  }
 +};
 +
@@ -31816,6 +32095,12 @@ index 0000000..ad367a0
 +_SPIRV_OP(ImageSampleExplicitLod, true, 7, true, 2)
 +_SPIRV_OP(ImageRead, true, 5, true, 2)
 +_SPIRV_OP(ImageWrite, false, 4, true, 3)
++#undef _SPIRV_OP
++
++#define _SPIRV_OP(x, ...)                                                      \
++  typedef SPIRVInstTemplate<SPIRVImageQueryInstBase, Op##x, __VA_ARGS__>       \
++      SPIRV##x;
++// ImageQuery instructions
 +_SPIRV_OP(ImageQueryFormat, true, 4)
 +_SPIRV_OP(ImageQueryOrder, true, 4)
 +_SPIRV_OP(ImageQuerySizeLod, true, 5)
@@ -32809,10 +33094,10 @@ index 0000000..d1a24ba
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..2287563
+index 0000000..c6db9d2
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1681 @@
+@@ -0,0 +1,1680 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -32876,7 +33161,7 @@ index 0000000..2287563
 +class SPIRVModuleImpl : public SPIRVModule {
 +public:
 +  SPIRVModuleImpl()
-+      : SPIRVModule(), NextId(1), BoolType(NULL), SPIRVVersion(SPIRV_1_0),
++      : SPIRVModule(), NextId(1), SPIRVVersion(SPIRV_1_0),
 +        GeneratorId(SPIRVGEN_KhronosLLVMSPIRVTranslator), GeneratorVer(0),
 +        InstSchema(SPIRVISCH_Default), SrcLang(SourceLanguageOpenCL_C),
 +        SrcLangVer(102000) {
@@ -33161,7 +33446,6 @@ index 0000000..2287563
 +private:
 +  SPIRVErrorLog ErrLog;
 +  SPIRVId NextId;
-+  SPIRVTypeInt *BoolType;
 +  SPIRVWord SPIRVVersion;
 +  unsigned short GeneratorId;
 +  unsigned short GeneratorVer;
@@ -35380,10 +35664,10 @@ index 0000000..d6c1b6d
 +#endif /* SPIRVNAMEMAPENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCode.h b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 new file mode 100644
-index 0000000..c2c61b3
+index 0000000..9b58666
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
-@@ -0,0 +1,157 @@
+@@ -0,0 +1,165 @@
 +//===- SPIRVOpCode.h - Class to represent SPIR-V Operation Codes -*- C++ -*-==//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35502,6 +35786,14 @@ index 0000000..c2c61b3
 +
 +inline bool isAccessChainOpCode(Op OpCode) {
 +  return OpCode == OpAccessChain || OpCode == OpInBoundsAccessChain;
++}
++
++inline bool isImageOpCode(Op OpCode) {
++  return (((unsigned)OpCode >= OpSampledImage &&
++           (unsigned)OpCode <= OpImageQuerySamples) ||
++          ((unsigned)OpCode >= OpImageSparseSampleImplicitLod &&
++           (unsigned)OpCode <= OpImageSparseTexelsResident) ||
++          OpCode == OpImageTexelPointer || OpCode == OpImageSparseRead);
 +}
 +
 +inline bool hasExecScope(Op OpCode) {
@@ -36549,10 +36841,10 @@ index 0000000..228c206
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.h b/lib/SPIRV/libSPIRV/SPIRVType.h
 new file mode 100644
-index 0000000..bd354c6
+index 0000000..1dd8d65
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.h
-@@ -0,0 +1,779 @@
+@@ -0,0 +1,790 @@
 +//===- SPIRVType.h - Class to represent a SPIR-V Type -----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36994,36 +37286,40 @@ index 0000000..bd354c6
 +  SPIRVTypeImage(SPIRVModule *M, SPIRVId TheId, SPIRVId TheSampledType,
 +                 const SPIRVTypeImageDescriptor &TheDesc)
 +      : SPIRVType(M, FixedWC, OC, TheId), SampledType(TheSampledType),
-+        Desc(TheDesc) {
++        Desc(TheDesc), Acc(spv::AccessQualifierNone) {
 +    validate();
 +  }
 +  SPIRVTypeImage(SPIRVModule *M, SPIRVId TheId, SPIRVId TheSampledType,
 +                 const SPIRVTypeImageDescriptor &TheDesc,
 +                 SPIRVAccessQualifierKind TheAcc)
 +      : SPIRVType(M, FixedWC + 1, OC, TheId), SampledType(TheSampledType),
-+        Desc(TheDesc) {
-+    Acc.push_back(TheAcc);
++        Desc(TheDesc), Acc(TheAcc) {
 +    validate();
 +  }
 +  SPIRVTypeImage() : SPIRVType(OC), SampledType(SPIRVID_INVALID), Desc() {}
 +  const SPIRVTypeImageDescriptor &getDescriptor() const { return Desc; }
 +  bool isOCLImage() const { return Desc.Sampled == 0 && Desc.Format == 0; }
-+  bool hasAccessQualifier() const { return !Acc.empty(); }
++  bool hasAccessQualifier() const { return Acc != spv::AccessQualifierNone; }
 +  SPIRVAccessQualifierKind getAccessQualifier() const {
 +    assert(hasAccessQualifier());
-+    return Acc[0];
++    return Acc;
 +  }
 +  SPIRVCapVec getRequiredCapability() const {
 +    SPIRVCapVec CV;
-+    CV.push_back(CapabilityImageBasic);
-+    if (Desc.Dim == 1)
++    if (Module->getSourceLanguage(nullptr) != spv::SourceLanguageGLSL) {
++      CV.push_back(CapabilityImageBasic);
++      if (Acc != spv::AccessQualifierNone && Acc == AccessQualifierReadWrite)
++        CV.push_back(CapabilityImageReadWrite);
++      if (Desc.MS)
++        CV.push_back(CapabilityImageMipmap);
++    } else {
++      if (Desc.MS)
++        CV.push_back(CapabilityImageMSArray);
++    }
++    if (Desc.Dim == spv::Dim1D)
 +      CV.push_back(CapabilitySampled1D);
-+    else if (Desc.Dim == 5)
++    else if (Desc.Dim == spv::DimBuffer)
 +      CV.push_back(CapabilitySampledBuffer);
-+    if (Acc.size() > 0 && Acc[0] == AccessQualifierReadWrite)
-+      CV.push_back(CapabilityImageReadWrite);
-+    if (Desc.MS)
-+      CV.push_back(CapabilityImageMipmap);
 +    return CV;
 +  }
 +  SPIRVType *getSampledType() const { return get<SPIRVType>(SampledType); }
@@ -37033,30 +37329,37 @@ index 0000000..bd354c6
 +  }
 +
 +protected:
-+  _SPIRV_DEF_ENCDEC9(Id, SampledType, Desc.Dim, Desc.Depth, Desc.Arrayed,
-+                     Desc.MS, Desc.Sampled, Desc.Format, Acc)
-+  // The validation assumes OpenCL image or sampler type.
++  void encode(spv_ostream &O) const {
++    getEncoder(O) << Id << SampledType << Desc.Dim << Desc.Depth << Desc.Arrayed
++                  << Desc.MS << Desc.Sampled << Desc.Format;
++    if (Acc != spv::AccessQualifierNone)
++      getEncoder(O) << Acc;
++  }
++  void decode(std::istream &I) {
++    getDecoder(I) >> Id >> SampledType >> Desc.Dim >> Desc.Depth >>
++        Desc.Arrayed >> Desc.MS >> Desc.Sampled >> Desc.Format;
++    // TODO: test this
++    if (WordCount >= 10)
++      getDecoder(I) >> Acc;
++    else
++      Acc = spv::AccessQualifierNone;
++  }
 +  void validate() const {
 +    assert(OpCode == OC);
-+    assert(WordCount == FixedWC + Acc.size());
-+    assert(SampledType != SPIRVID_INVALID && "Invalid sampled type");
-+    assert(Desc.Dim <= 5);
++    assert(WordCount == FixedWC + (Acc != spv::AccessQualifierNone ? 1 : 0));
++    assert(Desc.Dim < DimMax);
 +    assert(Desc.Depth <= 1);
 +    assert(Desc.Arrayed <= 1);
 +    assert(Desc.MS <= 1);
-+    assert(Desc.Sampled == 0); // For OCL only
-+    assert(Desc.Format == 0);  // For OCL only
-+    assert(Acc.size() <= 1);
++    assert(Desc.Sampled <= 1);
++    assert(Desc.Format < ImageFormatMax);
 +  }
-+  void setWordCount(SPIRVWord TheWC) {
-+    WordCount = TheWC;
-+    Acc.resize(WordCount - FixedWC);
-+  }
++  void setWordCount(SPIRVWord TheWC) { WordCount = TheWC; }
 +
 +private:
 +  SPIRVId SampledType;
 +  SPIRVTypeImageDescriptor Desc;
-+  std::vector<SPIRVAccessQualifierKind> Acc;
++  SPIRVAccessQualifierKind Acc;
 +};
 +
 +class SPIRVTypeSampler : public SPIRVType {
@@ -38287,10 +38590,10 @@ index 0000000..a51d843
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 0000000..5cc60e5
+index 0000000..843a5a3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
-@@ -0,0 +1,907 @@
+@@ -0,0 +1,911 @@
 +// Copyright (c) 2014-2016 The Khronos Group Inc.
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38440,6 +38743,7 @@ index 0000000..5cc60e5
 +    DimRect = 4,
 +    DimBuffer = 5,
 +    DimSubpassData = 6,
++    DimMax,
 +};
 +
 +enum SamplerAddressingMode {
@@ -38496,6 +38800,7 @@ index 0000000..5cc60e5
 +    ImageFormatRg8ui = 37,
 +    ImageFormatR16ui = 38,
 +    ImageFormatR8ui = 39,
++    ImageFormatMax,
 +};
 +
 +enum ImageChannelOrder {
@@ -38598,6 +38903,8 @@ index 0000000..5cc60e5
 +    AccessQualifierReadOnly = 0,
 +    AccessQualifierWriteOnly = 1,
 +    AccessQualifierReadWrite = 2,
++    // used by Vulkan/SPIR-V, which can't have access qualifiers
++    AccessQualifierNone = 0x7FFFFFFF,
 +};
 +
 +enum FunctionParameterAttribute {
@@ -41870,7 +42177,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..0aed168 100644
+index 71e479a..65507bb 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -41960,7 +42267,7 @@ index 71e479a..0aed168 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -458,6 +503,28 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -458,6 +503,35 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -41971,7 +42278,14 @@ index 71e479a..0aed168 100644
 +  if(EnableCUDAPasses || EnableMetalPasses || EnableSPIRPasses) {
 +    if(EnableCUDAPasses) MPM.add(createCUDAImagePass(floor_image_capabilities));
 +    if(EnableMetalPasses) MPM.add(createMetalImagePass(floor_image_capabilities));
-+    if(EnableSPIRPasses) MPM.add(createSPIRImagePass(floor_image_capabilities, EnableSPIRIntelWorkarounds));
++    if(EnableSPIRPasses) {
++      if(!EnableVulkanPasses) {
++        MPM.add(createSPIRImagePass(floor_image_capabilities, EnableSPIRIntelWorkarounds));
++      }
++      else {
++        MPM.add(createVulkanImagePass(floor_image_capabilities));
++      }
++    }
 +
 +    // and cleanup afterwards, including loop and unrolling related things
 +    MPM.add(createTailCallEliminationPass());
@@ -41989,7 +42303,7 @@ index 71e479a..0aed168 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -626,6 +693,45 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +700,45 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -43176,10 +43490,10 @@ index 0000000..b3befb0
 +INITIALIZE_PASS_END(CFGStructurization, "CFGStructurization", "CFGStructurization Pass", false, false)
 +
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 9f04344..2500b89 100644
+index 9f04344..d415f27 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
-@@ -1,4 +1,17 @@
+@@ -1,4 +1,18 @@
  add_llvm_library(LLVMScalarOpts
 +  AddressSpaceFix.cpp
 +  CUDAImage.cpp
@@ -43190,6 +43504,7 @@ index 9f04344..2500b89 100644
 +  StructuralAnalysis.cpp
 +  StructuralTransform.cpp
 +  VulkanFinal.cpp
++  VulkanImage.cpp
 +  FloorImage.cpp
 +  MetalImage.cpp
 +  SPIRImage.cpp
@@ -43321,10 +43636,10 @@ index 0000000..9f08fe5
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..2171e45
+index 0000000..a31359d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
-@@ -0,0 +1,643 @@
+@@ -0,0 +1,642 @@
 +//===- CUDAImage.cpp - CUDA-specific floor image transformations ----------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -43677,11 +43992,10 @@ index 0000000..2171e45
 +				constraints_str += ",f";
 +				compare_str = "$" + std::to_string(asm_arg_idx++);
 +				
-+				// directly skip/eval NONE/NEVER and ALWAYS compare functions
++				// directly skip/eval NEVER and ALWAYS compare functions
 +				// while this would be DCE'ed anyways, this is somewhat cleaner
 +				// NOTE: we still want all of the usual error messages and checking, which is why we're not doing this earlier
-+				if(compare_function == COMPARE_FUNCTION::NONE ||
-+				   compare_function == COMPARE_FUNCTION::NEVER) {
++				if(compare_function == COMPARE_FUNCTION::NEVER) {
 +					compare_override = ConstantFP::get(builder->getFloatTy(), 0.0f);
 +				}
 +				else if(compare_function == COMPARE_FUNCTION::ALWAYS) {
@@ -43970,10 +44284,10 @@ index 0000000..2171e45
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..2b58a8c
+index 0000000..b0dfcd3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,450 @@
+@@ -0,0 +1,449 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44390,7 +44704,6 @@ index 0000000..2b58a8c
 +	llvm::Constant* true_val = ConstantFP::get(builder->getFloatTy(), 1.0f);
 +	
 +	switch(compare_function) {
-+		case COMPARE_FUNCTION::NONE:
 +		case COMPARE_FUNCTION::NEVER:
 +			insert_value = false_val;
 +			break;
@@ -46456,7 +46769,7 @@ index 0000000..4bebcc8
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..b094838
+index 0000000..760bdc1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,657 @@
@@ -46710,7 +47023,7 @@ index 0000000..b094838
 +			
 +			// get geom string / mangled name + flags
 +			std::string geom;
-+			bool is_array = false, is_msaa = false, is_depth = false, is_cube = false;
++			bool is_array = false, is_msaa = false, is_depth = false;
 +			switch(image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
@@ -46725,15 +47038,16 @@ index 0000000..b094838
 +				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "18ocl_imagecubedepth"; is_depth = true; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "23ocl_imagecubearraydepth"; is_depth = true; is_cube = true; is_array = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "13ocl_imagecube"; is_cube = true; break;
-+				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "18ocl_imagecubearray"; is_cube = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:
++					ctx->emitError(&I, "unsupported image type");
++					return;
 +				default:
 +					ctx->emitError(&I, "unknown or incorrect image type");
 +					return;
 +			}
-+			// TODO: properly handle cube images in vulkan mode (+error in opencl mode)
 +			
 +			// -> caps check
 +			if(is_lod_or_bias) {
@@ -47030,7 +47344,6 @@ index 0000000..b094838
 +			// -> geom
 +			std::string geom;
 +			bool is_array = false, is_depth = false;
-+			// TODO: vulkan/spir-v can write cube, depth, msaa images
 +			switch(image_type) {
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
 +				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
@@ -47118,10 +47431,10 @@ index 0000000..b094838
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index b1d2420..c5dc40f 100644
+index b1d2420..3a96ba9 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -96,6 +96,58 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -96,6 +96,62 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -47163,6 +47476,10 @@ index b1d2420..c5dc40f 100644
 +
 +void LLVMAddCFGStructurizationPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createCFGStructurizationPass());
++}
++
++void LLVMAddVulkanImagePass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createVulkanImagePass());
 +}
 +
 +void LLVMAddVulkanFinalPass(LLVMPassManagerRef PM) {
@@ -50536,6 +50853,537 @@ index 0000000..40887e4
 +}
 +INITIALIZE_PASS_BEGIN(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
+diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
+new file mode 100644
+index 0000000..e643ac3
+--- /dev/null
++++ b/lib/Transforms/Scalar/VulkanImage.cpp
+@@ -0,0 +1,525 @@
++//===- VulkanImage.cpp - SPIR-specific floor image transformations --------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// This pass implements the SPIR-V-specific floor image transformations, i.e.
++// floor.opaque.<read/write function>.* -> SPIR-V image function call
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Statistic.h"
++#include "llvm/ADT/STLExtras.h"
++#include "llvm/ADT/SetVector.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/IR/CFG.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/Transforms/Scalar/FloorImage.h"
++#include <unordered_map>
++using namespace llvm;
++
++#define DEBUG_TYPE "VulkanImage"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace {
++	struct VulkanImage : public FloorImageBasePass {
++		static char ID; // Pass identification, replacement for typeid
++		
++		VulkanImage(const uint32_t image_capabilities_ = 0) :
++		FloorImageBasePass(ID, IMAGE_TYPE_ID::OPAQUE, image_capabilities_) {
++			initializeVulkanImagePass(*PassRegistry::getPassRegistry());
++		}
++		
++		llvm::Value* get_or_create_spirv_function(std::string func_name,
++												  llvm::Type* ret_type,
++												  const SmallVector<llvm::Type*, 8>& func_arg_types,
++												  const bool is_readnone = false) {
++			const auto func_type = llvm::FunctionType::get(ret_type, func_arg_types, false);
++			auto func = M->getFunction(func_name);
++			if(func == nullptr) { // only do this once
++				func = dyn_cast<Function>(M->getOrInsertFunction(func_name, func_type,
++																 is_readnone ?
++																 nounwind_readnone_attr :
++																 nounwind_attr));
++				func->setCallingConv(CallingConv::FLOOR_FUNC);
++				// TODO: any other flags here?
++			}
++			return func;
++		}
++		
++		SmallVector<llvm::Value*, 3> get_image_dim(llvm::Value* img_handle_arg,
++												   llvm::Type* coord_type,
++												   const std::string& geom) {
++			// NOTE: ImageQuery cap is a required cap in Vulkan, so this is okay
++			// TODO: check if this actually gets added ...
++			
++			SmallVector<llvm::Value*, 3> ret;
++			
++			static const char* img_dim_funcs[] {
++				"_Z15get_image_width",
++				"_Z16get_image_height",
++				"_Z15get_image_depth"
++			};
++			
++			const auto dim = coord_type->getVectorNumElements();
++			SmallVector<llvm::Type*, 8> get_dim_arg_types;
++			SmallVector<llvm::Value*, 8> get_dim_func_args;
++			get_dim_arg_types.push_back(img_handle_arg->getType());
++			get_dim_func_args.push_back(img_handle_arg);
++			for(uint32_t i = 0; i < dim; ++i) {
++				auto get_dim_func = get_or_create_spirv_function(img_dim_funcs[i] + geom,
++																 builder->getInt32Ty(),
++																 get_dim_arg_types);
++				llvm::CallInst* get_dim_call = builder->CreateCall(get_dim_func, get_dim_func_args);
++				get_dim_call->setDoesNotAccessMemory();
++				get_dim_call->setCallingConv(CallingConv::FLOOR_FUNC);
++				ret.push_back(get_dim_call);
++				// TODO: any other flags here?
++			}
++			
++			return ret;
++		}
++		
++		void handle_vk_coord(Instruction& I,
++							 llvm::Value* coord_arg,
++							 llvm::Value* layer_arg,
++							 const bool is_array,
++							 const bool is_msaa,
++							 const bool must_have_int_args,
++							 std::string& vk_func_name,
++							 SmallVector<llvm::Type*, 8>& func_arg_types,
++							 SmallVector<llvm::Value*, 8>& func_args) {
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			const auto coord_dim = coord_vec_type->getNumElements();
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			const auto is_int_coord = coord_type->isIntegerTy();
++			
++			if(must_have_int_args && !is_int_coord) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			auto vk_coord_dim = coord_dim + (is_array ? 1 : 0);
++			assert(vk_coord_dim <= 4 && "can't have a coord vector type with dim > 4");
++			const auto vk_coord_scalar_type = (is_int_coord ? llvm::Type::getInt32Ty(*ctx) : llvm::Type::getFloatTy(*ctx));
++			const auto vk_coord_type = (vk_coord_dim == 1 ?
++										vk_coord_scalar_type :
++										llvm::VectorType::get(vk_coord_scalar_type, vk_coord_dim));
++			
++			// start with the specified coord arg, there are some cases where we can just use it without rebuilding
++			auto vk_coord_arg = coord_arg;
++			if(vk_coord_type != coord_vec_type) {
++				if(vk_coord_dim == 1) {
++					// just a scalar
++					vk_coord_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(0));
++				}
++				else {
++					// create a new tmp coord, then copy coord elements (keep unused undef)
++					vk_coord_arg = UndefValue::get(vk_coord_type);
++					uint32_t coord_idx = 0;
++					for(; coord_idx < coord_dim; ++coord_idx) {
++						vk_coord_arg = builder->CreateInsertElement(vk_coord_arg,
++																	builder->CreateExtractElement(coord_arg,
++																								  builder->getInt32(coord_idx)),
++																	builder->getInt32(coord_idx));
++					}
++					
++					// need to pull the layer index into the coordinate, including possible int -> float conversion
++					if(is_array) {
++						auto layer = layer_arg;
++						if(!is_int_coord) {
++							// need to convert
++							layer = builder->CreateUIToFP(layer_arg, vk_coord_scalar_type);
++						}
++						vk_coord_arg = builder->CreateInsertElement(vk_coord_arg, layer, builder->getInt32(coord_idx++));
++					}
++				}
++			}
++			func_arg_types.push_back(vk_coord_arg->getType());
++			func_args.push_back(vk_coord_arg);
++			
++			if(vk_coord_dim > 1) {
++				vk_func_name += "Dv" + std::to_string(vk_coord_dim) + "_";
++			}
++			vk_func_name += (is_int_coord ? "i" : "f");
++		}
++		
++		void handle_read_image(Instruction& I,
++							   const StringRef& func_name,
++							   llvm::Value* img_handle_arg,
++							   const COMPUTE_IMAGE_TYPE& image_type,
++							   llvm::ConstantInt* const_sampler_arg,
++							   llvm::Value* dyn_sampler_arg,
++							   llvm::Value* coord_arg,
++							   llvm::Value* layer_arg,
++							   llvm::Value* sample_arg,
++							   llvm::Value* offset_arg,
++							   const SmallVector<llvm::Value*, 3>& offset_elems,
++							   const bool is_offset,
++							   llvm::Value* lod_or_bias_arg,
++							   const bool is_lod_or_bias, // true: lod, false: bias
++							   llvm::Value* dpdx_arg,
++							   llvm::Value* dpdy_arg,
++							   const bool is_gradient,
++							   const COMPARE_FUNCTION& compare_function,
++							   llvm::Value* compare_value_arg,
++							   const bool is_compare) override {
++			SmallVector<llvm::Type*, 8> func_arg_types;
++			SmallVector<llvm::Value*, 8> func_args;
++			
++			// must be constant/constexpr for now
++			if(const_sampler_arg == nullptr) {
++				ctx->emitError(&I, "sampler must be a constant");
++				return;
++			}
++			auto sampler_arg = const_sampler_arg;
++			
++			// TODO read:
++			// float coords -> explicit lo (!fs) or implicit lod (if fragment shader)
++			// int coords -> texel fetch
++			
++			// get geom string / mangled name + flags
++			std::string geom;
++			bool is_array = false, is_msaa = false, is_depth = false, is_cube = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "18ocl_imagecubedepth"; is_depth = true; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "23ocl_imagecubearraydepth"; is_depth = true; is_cube = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "13ocl_imagecube"; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "18ocl_imagecubearray"; is_cube = true; is_array = true; break;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			// TODO: properly handle cube images in vulkan mode
++			
++			// -> return data and vulkan function name
++			// NOTE: we don't have a c++ mangling support in here, so do it manually
++			// (this is actually easy enough, since everything is very static)
++			std::string vk_func_name;
++			llvm::Type* ret_type;
++			if(func_name.endswith("float")) {
++				vk_func_name = "_Z11read_imagef";
++				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
++			}
++			else if(func_name.endswith("int")) {
++				vk_func_name = "_Z11read_imagei";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("uint")) {
++				vk_func_name = "_Z12read_imageui";
++				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
++			}
++			else if(func_name.endswith("half")) {
++				vk_func_name = "_Z11read_imageh";
++				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
++			}
++			// unknown -> ignore
++			else return;
++			
++			// -> geom
++			vk_func_name += geom;
++			
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			if(is_depth) {
++				// depth return type is always a float
++				ret_type = llvm::Type::getFloatTy(*ctx);
++			}
++			
++			// except for msaa, we always have a sampler
++			if(!is_msaa) {
++				vk_func_name += "11ocl_sampler";
++				func_arg_types.push_back(sampler_arg->getType());
++				func_args.push_back(sampler_arg);
++			}
++			
++			// -> offset
++			// opencl has no offset support, so always add it
++			llvm::Value* offset_coord_arg = coord_arg;
++			// TODO: !
++			
++			// -> coord
++			handle_vk_coord(I,
++							offset_coord_arg,
++							layer_arg,
++							is_array,
++							is_msaa,
++							false, // can have either int or float coords
++							vk_func_name,
++							func_arg_types,
++							func_args);
++			
++			// -> sample
++			if(is_msaa) {
++				if(!sample_arg->getType()->isIntegerTy()) {
++					ctx->emitError(&I, "msaa sample index must be integer");
++					return;
++				}
++				
++				vk_func_name += "i";
++				func_arg_types.push_back(sample_arg->getType());
++				func_args.push_back(sample_arg);
++			}
++			
++			// -> gradient
++			if(is_gradient) {
++				// gradient coord_dim must be equal to image coord dim (- layer)
++				const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++				if(coord_dim == 1) {
++					// extract scalar
++					vk_func_name += "ff";
++					func_arg_types.push_back(builder->getFloatTy());
++					func_args.push_back(builder->CreateExtractElement(dpdx_arg, builder->getInt32(0)));
++					func_arg_types.push_back(builder->getFloatTy());
++					func_args.push_back(builder->CreateExtractElement(dpdy_arg, builder->getInt32(0)));
++				}
++				else if(coord_dim == 2) {
++					// just pass-through
++					vk_func_name += "Dv2_fDv2_f";
++					func_arg_types.push_back(dpdx_arg->getType());
++					func_args.push_back(dpdx_arg);
++					func_arg_types.push_back(dpdy_arg->getType());
++					func_args.push_back(dpdy_arg);
++				}
++				else if(coord_dim == 3) {
++					// just pass-through
++					vk_func_name += "Dv3_fDv3_f";
++					func_arg_types.push_back(dpdx_arg->getType());
++					func_args.push_back(dpdx_arg);
++					func_arg_types.push_back(dpdy_arg->getType());
++					func_args.push_back(dpdy_arg);
++				}
++				else llvm_unreachable("invalid coord dim");
++			}
++			
++			// -> lod
++			if(is_lod_or_bias) {
++				vk_func_name += "f";
++				
++				auto lod = lod_or_bias_arg;
++				if(lod_or_bias_arg->getType()->isIntegerTy()) {
++					// only float is supported, convert it // TODO: incorrect
++					lod = builder->CreateSIToFP(lod_or_bias_arg, builder->getFloatTy());
++				}
++				func_arg_types.push_back(lod->getType());
++				func_args.push_back(lod);
++			}
++			
++			// TODO: bias supported in fragment shader
++			
++			// TODO: depth compare
++			
++			// create the vulkan call
++			auto read_func = get_or_create_spirv_function(vk_func_name, ret_type, func_arg_types, true);
++			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
++			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
++			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			
++			// if this is a depth read/sample, the return type is a float -> create a float4
++			llvm::Value* read_call_result = read_call;
++			if(is_depth) {
++				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
++				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
++				// NOTE: rest of vector is undef/zero (and will be stripped away again anyways)
++			}
++			
++			//
++			I.replaceAllUsesWith(read_call_result);
++			I.eraseFromParent();
++		}
++		
++		void handle_write_image(Instruction& I,
++								const StringRef& func_name,
++								llvm::Value* img_handle_arg,
++								const COMPUTE_IMAGE_TYPE& image_type,
++								const COMPUTE_IMAGE_TYPE& format_type,
++								const COMPUTE_IMAGE_TYPE& data_type,
++								const bool& is_normalized,
++								const uint32_t& image_channel_count,
++								llvm::Value* coord_arg,
++								llvm::Value* layer_arg,
++								llvm::Value* lod_arg,
++								const bool is_lod,
++								llvm::Value* data_arg) override {
++			SmallVector<llvm::Type*, 8> func_arg_types;
++			SmallVector<llvm::Value*, 8> func_args;
++			
++			//// more arg checking
++			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
++			if(!coord_vec_type) {
++				ctx->emitError(&I, "invalid image coordinate argument (cast to vector failed)");
++				return;
++			}
++			
++			const auto coord_type = coord_vec_type->getElementType();
++			if(!coord_type->isIntegerTy()) {
++				ctx->emitError(&I, "coordinate type must be integer");
++				return;
++			}
++			
++			std::string vk_func_name, dtype;
++			if(func_name.endswith("float")) {
++				vk_func_name = "_Z12write_imagef";
++				dtype = "f";
++			}
++			else if(func_name.endswith("int")) {
++				vk_func_name = "_Z12write_imagei";
++				dtype = "i";
++			}
++			else if(func_name.endswith("uint")) {
++				vk_func_name = "_Z13write_imageui";
++				dtype = "j";
++			}
++			else if(func_name.endswith("half")) {
++				vk_func_name = "_Z12write_imageh";
++				dtype = "h";
++			}
++			// unknown -> ignore
++			else return;
++			
++			//// func replacement
++			// -> geom
++			std::string geom;
++			bool is_array = false, is_msaa = false, is_depth = false, is_cube = false;
++			switch(image_type) {
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D:					geom = "11ocl_image1d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_ARRAY:			geom = "16ocl_image1darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_1D_BUFFER:			geom = "17ocl_image1dbuffer"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH:
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_STENCIL:		geom = "16ocl_image2ddepth"; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D:					geom = "11ocl_image2d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY:			geom = "21ocl_image2darraydepth"; is_array = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY:			geom = "16ocl_image2darray"; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA:			geom = "20ocl_image2dmsaadepth"; is_msaa = true; is_depth = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA:				geom = "15ocl_image2dmsaa"; is_msaa = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_3D:					geom = "11ocl_image3d"; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY:	geom = "25ocl_image2darraymsaadepth"; is_msaa = true; is_depth = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY:		geom = "20ocl_image2darraymsaa"; is_msaa = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE:			geom = "18ocl_imagecubedepth"; is_depth = true; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY:	geom = "23ocl_imagecubearraydepth"; is_depth = true; is_cube = true; is_array = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE:				geom = "13ocl_imagecube"; is_cube = true; break;
++				case COMPUTE_IMAGE_TYPE::IMAGE_CUBE_ARRAY:			geom = "18ocl_imagecubearray"; is_cube = true; is_array = true; break;
++				default:
++					ctx->emitError(&I, "unknown or incorrect image type");
++					return;
++			}
++			vk_func_name += geom;
++			
++			// TODO: vulkan/spir-v can write cube, depth, msaa images
++			
++			func_arg_types.push_back(img_handle_arg->getType());
++			func_args.push_back(img_handle_arg);
++			
++			// -> coord
++			handle_vk_coord(I,
++							coord_arg,
++							layer_arg,
++							is_array,
++							is_msaa,
++							true, // must always have int coords for writes
++							vk_func_name,
++							func_arg_types,
++							func_args);
++			
++			// -> lod
++			if(is_lod) {
++				// always int
++				vk_func_name += "i";
++				func_arg_types.push_back(lod_arg->getType());
++				func_args.push_back(lod_arg);
++			}
++			
++			// -> data
++			// data is always a vector4, unless we're writing depth // TODO: correct?
++			if(!is_depth) {
++				vk_func_name += "Dv4_";
++				func_arg_types.push_back(data_arg->getType());
++				func_args.push_back(data_arg);
++			}
++			else {
++				// extract and use depth elem
++				auto depth_arg = builder->CreateExtractElement(data_arg, builder->getInt32(0));
++				func_arg_types.push_back(depth_arg->getType());
++				func_args.push_back(depth_arg);
++			}
++			vk_func_name += dtype;
++			
++			// create the vulkan call
++			auto write_func = get_or_create_spirv_function(vk_func_name, builder->getVoidTy(), func_arg_types, false);
++			llvm::CallInst* write_call = builder->CreateCall(write_func, func_args);
++			write_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
++			write_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			
++			//
++			I.replaceAllUsesWith(write_call);
++			I.eraseFromParent();
++			
++		}
++		
++	};
++}
++
++char VulkanImage::ID = 0;
++INITIALIZE_PASS_BEGIN(VulkanImage, "VulkanImage", "VulkanImage Pass", false, false)
++INITIALIZE_PASS_END(VulkanImage, "VulkanImage", "VulkanImage Pass", false, false)
++
++FunctionPass *llvm::createVulkanImagePass(const uint32_t image_capabilities) {
++	return new VulkanImage(image_capabilities);
++}
 diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
 index b654b8c..56c4ad3 100644
 --- a/tools/CMakeLists.txt
