@@ -19,7 +19,7 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
 #define __FLOOR_COMPUTE_DEVICE_OPENCL_IMAGE_HPP__
 
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 
 namespace opencl_image {
 	//////////////////////////////////////////

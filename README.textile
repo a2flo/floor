@@ -75,14 +75,11 @@
 * sudo ln -sf /path/to/floor/bin /opt/floor/lib
 * alternatively: copy these files/folders there
 
-*Installation (Windows / VS):*
+*Installation (Windows):*
 * create a "%%ProgramFiles%%/floor" folder (C:/Program Files/floor)
 * inside this folder:
-** create a "lib" folder and copy floor.lib/floord.lib there
+** create a "lib" folder and copy floor.lib/floord.lib (MSVC) / libfloor_static.a/libfloord_static.a (MinGW/MSYS2) there
 ** create an "include" folder and copy the original "floor" folder in there (containing all floor source code)
-
-*Installation (Windows / MSYS2):*
-* WIP, currently unsupported due to gcc/clang incompatibilities (expecting it to be /opt/floor, then same as Unix)
 
 *Misc Hints:*
 * when using X11 forwarding, set these env variables:

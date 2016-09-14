@@ -42,9 +42,10 @@ typename vulkan_kernel::kernel_map_type::const_iterator vulkan_kernel::get_kerne
 
 shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue, const vulkan_kernel_entry& entry, bool& success) {
 	success = false;
+	auto vk_dev = (vulkan_device*)queue->get_device().get();
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
 		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer("kernel encoder"),
-		.device = (vulkan_device*)(queue->get_device().get()),
+		.device = vk_dev,
 	});
 	
 	if(encoder->cmd_buffer.cmd_buffer == nullptr) {
@@ -63,8 +64,23 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 	
 	vkCmdBindPipeline(encoder->cmd_buffer.cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, entry.pipeline);
 	
-	// allocate #args write descriptor sets
-	encoder->write_descs.resize(entry.info->args.size());
+	// allocate #args write descriptor sets + 1 for the fixed sampler set
+	encoder->write_descs.resize(entry.info->args.size() + 1);
+	
+	// fixed sampler set
+	{
+		auto& write_desc = encoder->write_descs[0];
+		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write_desc.pNext = nullptr;
+		write_desc.dstSet = vk_dev->fixed_sampler_desc_set;
+		write_desc.dstBinding = 0;
+		write_desc.dstArrayElement = 0;
+		write_desc.descriptorCount = (uint32_t)vk_dev->fixed_sampler_set.size();
+		write_desc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+		write_desc.pImageInfo = vk_dev->fixed_sampler_image_info.data();
+		write_desc.pBufferInfo = nullptr;
+		write_desc.pTexelBufferView = nullptr;
+	}
 
 	success = true;
 	return encoder;
@@ -73,28 +89,30 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 									 compute_queue* queue,
 									 const vulkan_kernel_entry& entry,
-									 const uint32_t& work_dim floor_unused,
+									 const uint32_t&,
 									 const uint3& grid_dim,
 									 const uint3& block_dim floor_unused /* unused for now, until dyn local size is possible */) const {
-	// TODO: vkCmdPushConstants
+	auto vk_dev = (vulkan_device*)queue->get_device().get();
 	
-	if(entry.desc_set != nullptr) {
-		// set/write/update descriptors
-		const auto write_desc_count = (uint32_t)encoder->write_descs.size();
-		vkUpdateDescriptorSets(((vulkan_device*)((vulkan_queue*)queue)->get_device().get())->device,
-							   write_desc_count, (write_desc_count > 0 ? encoder->write_descs.data() : nullptr),
-							   0, nullptr);
-		
-		// final desc set binding after all parameters have been updated/set
-		vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
-								VK_PIPELINE_BIND_POINT_COMPUTE,
-								entry.pipeline_layout,
-								0,
-								1,
-								&entry.desc_set,
-								(uint32_t)encoder->dyn_offsets.size(),
-								encoder->dyn_offsets.data());
-	}
+	// set/write/update descriptors
+	vkUpdateDescriptorSets(vk_dev->device,
+						   (uint32_t)encoder->write_descs.size(), encoder->write_descs.data(),
+						   // never copy (bad for performance)
+						   0, nullptr);
+	
+	// final desc set binding after all parameters have been updated/set
+	const VkDescriptorSet desc_sets[2] {
+		vk_dev->fixed_sampler_desc_set,
+		entry.desc_set,
+	};
+	vkCmdBindDescriptorSets(encoder->cmd_buffer.cmd_buffer,
+							VK_PIPELINE_BIND_POINT_COMPUTE,
+							entry.pipeline_layout,
+							0,
+							(entry.desc_set != nullptr ? 2 : 1),
+							desc_sets,
+							(uint32_t)encoder->dyn_offsets.size(),
+							encoder->dyn_offsets.data());
 	
 	// set dims + pipeline
 	// TODO: check if grid_dim matches compute shader defintion
@@ -125,11 +143,11 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_ke
 void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 										const vulkan_kernel_entry& entry,
 										const uint32_t num, const compute_buffer* arg) const {
-	auto& write_desc = encoder->write_descs[num];
+	auto& write_desc = encoder->write_descs[num + 1];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
 	write_desc.dstSet = entry.desc_set;
-	write_desc.dstBinding = num; // TODO: need to differentiate images, buffers, others?
+	write_desc.dstBinding = num;
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = 1;
 	write_desc.descriptorType = entry.desc_types[num];
@@ -141,10 +159,20 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 	encoder->dyn_offsets.emplace_back(0);
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder floor_unused,
-										const vulkan_kernel_entry& entry floor_unused,
-										const uint32_t num floor_unused, const compute_image* arg floor_unused) const {
-	// TODO: implement this
+void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
+										const vulkan_kernel_entry& entry,
+										const uint32_t num, const compute_image* arg) const {
+	auto& write_desc = encoder->write_descs[num + 1];
+	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write_desc.pNext = nullptr;
+	write_desc.dstSet = entry.desc_set;
+	write_desc.dstBinding = num;
+	write_desc.dstArrayElement = 0;
+	write_desc.descriptorCount = 1;
+	write_desc.descriptorType = entry.desc_types[num];
+	write_desc.pImageInfo = ((vulkan_image*)arg)->get_vulkan_image_info();
+	write_desc.pBufferInfo = nullptr;
+	write_desc.pTexelBufferView = nullptr;
 }
 
 #endif

@@ -324,6 +324,8 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->max_image_2d_dim = { (uint32_t)[dev_spi maxTextureWidth2D], (uint32_t)[dev_spi maxTextureHeight2D] };
 		device->max_image_3d_dim = { (uint32_t)[dev_spi maxTextureWidth3D], (uint32_t)[dev_spi maxTextureHeight3D], (uint32_t)[dev_spi maxTextureDepth3D] };
 		device->image_cube_write_support = true;
+		device->image_cube_array_support = true;
+		device->image_cube_array_write_support = true;
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
 		device->max_group_size = { 0xFFFFFFFFu };

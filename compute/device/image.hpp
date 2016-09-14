@@ -94,7 +94,8 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_METAL)
 	constexpr metal_image::sampler::COMPARE_FUNCTION compare_function_floor_to_metal(const COMPARE_FUNCTION& func) {
 		switch(func) {
-			case COMPARE_FUNCTION::NONE: return metal_image::sampler::COMPARE_FUNCTION::NONE;
+			// map never to none (metal handles these separately, but there is no point to it)
+			case COMPARE_FUNCTION::NEVER: return metal_image::sampler::COMPARE_FUNCTION::NONE;
 			case COMPARE_FUNCTION::LESS: return metal_image::sampler::COMPARE_FUNCTION::LESS;
 			case COMPARE_FUNCTION::LESS_OR_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::LESS_EQUAL;
 			case COMPARE_FUNCTION::GREATER: return metal_image::sampler::COMPARE_FUNCTION::GREATER;
@@ -102,7 +103,6 @@ namespace floor_image {
 			case COMPARE_FUNCTION::EQUAL: return metal_image::sampler::COMPARE_FUNCTION::EQUAL;
 			case COMPARE_FUNCTION::NOT_EQUAL: return metal_image::sampler::COMPARE_FUNCTION::NOT_EQUAL;
 			case COMPARE_FUNCTION::ALWAYS: return metal_image::sampler::COMPARE_FUNCTION::ALWAYS;
-			case COMPARE_FUNCTION::NEVER: return metal_image::sampler::COMPARE_FUNCTION::NEVER;
 		}
 		floor_unreachable();
 	}
@@ -112,18 +112,29 @@ namespace floor_image {
 #if !defined(FLOOR_METAL_ADDRESS_MODE)
 #define FLOOR_METAL_ADDRESS_MODE metal_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE
 #endif
+#if !defined(FLOOR_VULKAN_ADDRESS_MODE)
+#define FLOOR_VULKAN_ADDRESS_MODE vulkan_image::sampler::CLAMP_TO_EDGE
+#endif
 	
 	//! backend specific default sampler (for integral and floating point coordinates)
-	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION = COMPARE_FUNCTION::NONE, typename = void>
+	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION = COMPARE_FUNCTION::NEVER, typename = void>
 	struct default_sampler {};
 	template <typename coord_type, bool sample_linear, COMPARE_FUNCTION compare_function>
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<is_int_coord<coord_type>() && !sample_linear>> { // int (nearest)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			return (vulkan_image::sampler {
+				vulkan_image::sampler::NEAREST,
+				FLOOR_VULKAN_ADDRESS_MODE,
+				vulkan_image::sampler::PIXEL,
+				(vulkan_image::sampler::COMPARE_FUNCTION)(uint32_t(compare_function) <<
+														  vulkan_image::sampler::__COMPARE_FUNCTION_SHIFT)
+			}).value;
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
 				FLOOR_METAL_ADDRESS_MODE,
@@ -139,10 +150,18 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<!is_int_coord<coord_type>() && !sample_linear>> { // float (nearest)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE,
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::NEAREST);
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			return (vulkan_image::sampler {
+				vulkan_image::sampler::NEAREST,
+				FLOOR_VULKAN_ADDRESS_MODE,
+				vulkan_image::sampler::NORMALIZED,
+				(vulkan_image::sampler::COMPARE_FUNCTION)(uint32_t(compare_function) <<
+														  vulkan_image::sampler::__COMPARE_FUNCTION_SHIFT)
+			}).value;
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
 				FLOOR_METAL_ADDRESS_MODE,
@@ -158,10 +177,18 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<is_int_coord<coord_type>() && sample_linear>> { // int (linear)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
 					opencl_image::sampler::COORD_MODE::PIXEL |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			return (vulkan_image::sampler {
+				vulkan_image::sampler::LINEAR,
+				FLOOR_VULKAN_ADDRESS_MODE,
+				vulkan_image::sampler::PIXEL,
+				(vulkan_image::sampler::COMPARE_FUNCTION)(uint32_t(compare_function) <<
+														  vulkan_image::sampler::__COMPARE_FUNCTION_SHIFT)
+			}).value;
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
 				FLOOR_METAL_ADDRESS_MODE,
@@ -177,10 +204,18 @@ namespace floor_image {
 	struct default_sampler<coord_type, sample_linear, compare_function,
 						   enable_if_t<!is_int_coord<coord_type>() && sample_linear>> { // float (linear)
 		static constexpr auto value() {
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 			return (opencl_image::sampler::ADDRESS_MODE::CLAMP_TO_EDGE |
 					opencl_image::sampler::COORD_MODE::NORMALIZED |
 					opencl_image::sampler::FILTER_MODE::LINEAR);
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			return (vulkan_image::sampler {
+				vulkan_image::sampler::LINEAR,
+				FLOOR_VULKAN_ADDRESS_MODE,
+				vulkan_image::sampler::NORMALIZED,
+				(vulkan_image::sampler::COMPARE_FUNCTION)(uint32_t(compare_function) <<
+														  vulkan_image::sampler::__COMPARE_FUNCTION_SHIFT)
+			}).value;
 #elif defined(FLOOR_COMPUTE_METAL)
 			return (metal_sampler_t)(metal_image::sampler {
 				FLOOR_METAL_ADDRESS_MODE,
@@ -195,8 +230,10 @@ namespace floor_image {
 #endif
 	
 	//! backend specific sampler type
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 	typedef sampler_t sampler_type;
+#elif defined(FLOOR_COMPUTE_VULKAN)
+	typedef decltype(vulkan_image::sampler::value) sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
 	typedef metal_sampler_t sampler_type;
 #endif
@@ -403,7 +440,7 @@ namespace floor_image {
 		//! NOTE: while this is an internal function, it might be useful for anyone insane enough to use it directly on the outside
 		//!       -> this is a public function and not protected
 		template <bool sample_linear, bool is_lod = false, bool is_gradient = false, bool is_compare = false,
-				  COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE,
+				  COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER,
 				  typename coord_type, typename offset_vec_type, typename lod_type = int32_t,
 				  typename gradient_vec_type = typename gradient_vec_type_for_image_type<image_type>::type>
 		floor_inline_always auto read_internal(const coord_type& coord,
@@ -493,8 +530,7 @@ namespace floor_image {
 																			sample_linear ? cuda_sampler::LINEAR : cuda_sampler::NEAREST,
 																			(!is_compare ||
 																			 compare_function == COMPARE_FUNCTION::ALWAYS ||
-																			 compare_function == COMPARE_FUNCTION::NEVER ||
-																			 compare_function == COMPARE_FUNCTION::NONE) ?
+																			 compare_function == COMPARE_FUNCTION::NEVER) ?
 																			cuda_sampler::NONE : (cuda_sampler::COMPARE_FUNCTION)compare_function);
 			if constexpr(is_float) {
 				return fit_output(cuda_image::read_image_float(r_img_obj[cuda_tex_idx], image_type, converted_coord, layer, sample, offset,
@@ -944,6 +980,8 @@ namespace floor_image {
 			return write_internal<true>(coord, layer, lod, data);
 		}
 		
+		// TODO: msaa write functions (supported by vulkan)
+		
 	};
 	
 }
@@ -1040,13 +1078,11 @@ image<COMPUTE_IMAGE_TYPE::IMAGE_2D | ext_type | floor_image::from_sample_type<sa
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_array =
 image<COMPUTE_IMAGE_TYPE::IMAGE_2D_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
 
-// NOTE: not supported by anyone
-//template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa =
-//image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa =
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
 
-// NOTE: not supported by anyone
-//template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa_array =
-//image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
+template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_msaa_array =
+image<COMPUTE_IMAGE_TYPE::IMAGE_2D_MSAA_ARRAY | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_cube =
 image<COMPUTE_IMAGE_TYPE::IMAGE_CUBE | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;
@@ -1084,19 +1120,17 @@ image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_CUBE_ARRAY | ext_type |
 	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
 	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
-// NOTE: not supported by anyone
-//template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa =
-//image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA | ext_type |
-//	   // always single channel
-//	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-//	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa =
+image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA | ext_type |
+	   // always single channel
+	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
+	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
-// NOTE: not supported by anyone
-//template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa_array =
-//image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY | ext_type |
-//	   // always single channel
-//	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
-//	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
+template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_2d_depth_msaa_array =
+image<(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_MSAA_ARRAY | ext_type |
+	   // always single channel
+	   COMPUTE_IMAGE_TYPE::FLAG_FIXED_CHANNELS |
+	   (floor_image::from_sample_type<sample_type>::type() & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK)), write_only>;
 
 template <typename sample_type, bool write_only = false, COMPUTE_IMAGE_TYPE ext_type = COMPUTE_IMAGE_TYPE::NONE> using image_3d =
 image<COMPUTE_IMAGE_TYPE::IMAGE_3D | ext_type | floor_image::from_sample_type<sample_type>::type(), write_only>;

@@ -920,7 +920,6 @@ FLOOR_IGNORE_WARNING(float-equal)
 															   const float compare_value,
 															   const float1& depth_value) {
 		switch(compare_function) {
-			case COMPARE_FUNCTION::NONE:
 			case COMPARE_FUNCTION::NEVER: return 0.0f;
 			case COMPARE_FUNCTION::ALWAYS: return 1.0f;
 			case COMPARE_FUNCTION::LESS_OR_EQUAL: return (compare_value <= depth_value.x ? 1.0f : 0.0f);

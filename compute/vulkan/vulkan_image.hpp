@@ -56,10 +56,12 @@ public:
 	const VkImage& get_vulkan_image() const {
 		return image;
 	}
+	const VkDescriptorImageInfo* get_vulkan_image_info() const { return &image_info; }
 	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
+	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

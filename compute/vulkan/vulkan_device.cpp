@@ -22,8 +22,25 @@ vulkan_device::vulkan_device() : compute_device() {
 	// init statically known info
 	local_mem_dedicated = true;
 	
+	// enable all the things
 	image_support = true;
-	// others: must be determined later
+	image_depth_support = true;
+	image_depth_write_support = true;
+	image_msaa_support = true;
+	image_msaa_write_support = true;
+	image_msaa_array_support = false; // determined later
+	image_msaa_array_write_support = false;
+	image_cube_support = true;
+	image_cube_write_support = true;
+	image_cube_array_support = false; // determined later
+	image_cube_array_write_support = false;
+	image_mipmap_support = true;
+	image_mipmap_write_support = true;
+	image_offset_read_support = true;
+	image_offset_write_support = true;
+	image_depth_compare_support = true;
+	image_gather_support = false; // for now (needs floor support)
+	image_read_write_support = false;
 	
 	// for now, always assume 32-bit (don't want to heavily rely on Int64 cap)
 	bitness = 32;

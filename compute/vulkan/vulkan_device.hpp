@@ -69,6 +69,31 @@ public:
 	//! memory type index for (potentially uncached) host + device-visible memory allocation
 	uint32_t host_mem_uncached_index { ~0u };
 	
+	// put these at the end, b/c they are rather large
+#if !defined(FLOOR_NO_VULKAN)
+	//! fixed sampler descriptor set
+	//! NOTE: this is allocated once at context creation
+	VkDescriptorSetLayout fixed_sampler_desc_set_layout { nullptr };
+	VkDescriptorPool fixed_sampler_desc_pool { nullptr };
+	VkDescriptorSet fixed_sampler_desc_set { nullptr };
+	
+	//! fixed sampler set
+	//! NOTE: this is allocated once at context creation
+	vector<VkSampler> fixed_sampler_set;
+	
+	//! fixed sampler descriptor image infos, used to to update + bind the descriptor set
+	//! NOTE: this solely consists of { nullptr, nullptr, 0 } objects, but is sadly necessary when updating/setting
+	//!       the descriptor set (.sampler is ignored if immutable samplers are used, others are ignored anyways)
+	vector<VkDescriptorImageInfo> fixed_sampler_image_info;
+#else
+	uint64_t _fixed_sampler_desc_set_layout;
+	uint64_t _fixed_sampler_desc_pool;
+	uint64_t _fixed_sampler_desc_set;
+	vector<uint64_t> _fixed_sampler_set;
+	struct _dummy_desc_img_info { void* _a; void* _b; uint32_t _c; };
+	vector<_dummy_desc_img_info> _fixed_sampler_image_info;
+#endif
+	
 };
 
 FLOOR_POP_WARNINGS()

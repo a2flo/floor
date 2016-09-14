@@ -28,6 +28,7 @@
 #include <floor/compute/llvm_compute.hpp>
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
+#include <floor/compute/device/sampler.hpp>
 
 #if defined(FLOOR_DEBUG)
 static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportFlagsEXT flags floor_unused,
@@ -330,12 +331,20 @@ compute_context(), enable_renderer(enable_renderer_) {
 #endif
 		device->max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device->max_global_size = device->max_local_size * device->max_group_size;
+		device->max_push_constants_size = limits.maxPushConstantsSize;
 		
 		device->max_image_1d_dim = limits.maxImageDimension1D;
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
-		device->max_push_constants_size = limits.maxPushConstantsSize;
+		
+		device->image_msaa_array_support = features.shaderStorageImageMultisample;
+		device->image_msaa_array_write_support = device->image_msaa_array_support;
+		device->image_cube_array_support = features.imageCubeArray;
+		device->image_cube_array_write_support = device->image_cube_array_support;
+		
+		device->anisotropic_support = features.samplerAnisotropy;
+		device->max_anisotropy = (device->anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
 
 		// retrieve memory info
 		device->mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
@@ -433,6 +442,9 @@ compute_context(), enable_renderer(enable_renderer_) {
 		// reset idx to 0 so that the first user request gets the same queue
 		((vulkan_device*)dev.get())->cur_queue_idx = 0;
 	}
+	
+	// create fixed sampler sets for all devices
+	create_fixed_sampler_set();
 	
 	// workaround non-existent fastest device selection
 	fastest_device = devices[0];
@@ -988,6 +1000,139 @@ shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(
 																				llvm_compute::program_data program,
 																				const llvm_compute::TARGET) {
 	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program));
+}
+
+void vulkan_compute::create_fixed_sampler_set() const {
+	union vulkan_fixed_sampler {
+		struct {
+			//! nearest or linear, includes mip-map filtering
+			uint32_t filter : 1;
+			//! 0 = clamp to edge, 1 = repeat
+			uint32_t address_mode : 1;
+			//! -> sampler.hpp: never, less, equal, less or equal, greater, not equal, greater or equal, always
+			// TODO: get rid of always, b/c the compiler takes care of these (never as well, but we need a way to signal "no depth compare")
+			uint32_t compare_mode : 3;
+			//! unused
+			uint32_t _unused : 27;
+		};
+		uint32_t value;
+	};
+	static_assert(sizeof(vulkan_fixed_sampler) == 4, "invalid sampler size");
+	static_assert(uint32_t(VK_COMPARE_OP_NEVER) == uint32_t(COMPARE_FUNCTION::NEVER) &&
+				  uint32_t(VK_COMPARE_OP_LESS) == uint32_t(COMPARE_FUNCTION::LESS) &&
+				  uint32_t(VK_COMPARE_OP_EQUAL) == uint32_t(COMPARE_FUNCTION::EQUAL) &&
+				  uint32_t(VK_COMPARE_OP_LESS_OR_EQUAL) == uint32_t(COMPARE_FUNCTION::LESS_OR_EQUAL) &&
+				  uint32_t(VK_COMPARE_OP_GREATER) == uint32_t(COMPARE_FUNCTION::GREATER) &&
+				  uint32_t(VK_COMPARE_OP_NOT_EQUAL) == uint32_t(COMPARE_FUNCTION::NOT_EQUAL) &&
+				  uint32_t(VK_COMPARE_OP_GREATER_OR_EQUAL) == uint32_t(COMPARE_FUNCTION::GREATER_OR_EQUAL) &&
+				  uint32_t(VK_COMPARE_OP_ALWAYS) == uint32_t(COMPARE_FUNCTION::ALWAYS),
+				  "failed depth compare function sanity check");
+	
+	// 5 bits -> 32 combinations
+	static constexpr const uint32_t max_combinations { 32 };
+	
+	for(auto& dev : devices) {
+		auto vk_dev = (vulkan_device*)dev.get();
+		vk_dev->fixed_sampler_set.resize(max_combinations, nullptr);
+		vk_dev->fixed_sampler_image_info.resize(max_combinations,
+												VkDescriptorImageInfo { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED });
+	}
+
+	// create the samplers for all devices
+	for(uint32_t combination = 0; combination < max_combinations; ++combination) {
+		const vulkan_fixed_sampler smplr { .value = combination };
+		const VkFilter filter = (smplr.filter == 0 ? VK_FILTER_NEAREST : VK_FILTER_LINEAR);
+		const VkSamplerMipmapMode mipmap_filter = (smplr.filter == 0 ?
+												   VK_SAMPLER_MIPMAP_MODE_NEAREST : VK_SAMPLER_MIPMAP_MODE_LINEAR);
+		const VkSamplerAddressMode address_mode = (smplr.address_mode == 0 ?
+												   VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE : VK_SAMPLER_ADDRESS_MODE_REPEAT);
+		VkSamplerCreateInfo sampler_create_info {
+			.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.magFilter = filter,
+			.minFilter = filter,
+			.mipmapMode = mipmap_filter,
+			.addressModeU = address_mode,
+			.addressModeV = address_mode,
+			.addressModeW = address_mode,
+			.mipLodBias = 0.0f,
+			// always enable anisotropic filtering when using linear filtering
+			.anisotropyEnable = (smplr.filter != 0),
+			.maxAnisotropy = 0.0f,
+			.compareEnable = (smplr.compare_mode != 0),
+			// NOTE: this matches 1:1, we will filter out NEVER/NONE and ALWAYS read ops in the compiler
+			.compareOp = (VkCompareOp)smplr.compare_mode,
+			.minLod = 0.0f,
+			.maxLod = 32.0f,
+			// TODO: do we need to differentiate between float and int?
+			.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			.unnormalizedCoordinates = false,
+		};
+		
+		for(auto& dev : devices) {
+			auto vk_dev = (vulkan_device*)dev.get();
+			if(sampler_create_info.anisotropyEnable) {
+				sampler_create_info.anisotropyEnable = vk_dev->anisotropic_support;
+				sampler_create_info.maxAnisotropy = vk_dev->max_anisotropy;
+			}
+			
+			VK_CALL_CONT(vkCreateSampler(vk_dev->device, &sampler_create_info, nullptr, &vk_dev->fixed_sampler_set[combination]),
+						 "failed to create sampler (#" + to_string(combination) + ")");
+		}
+	}
+	
+	// create the descriptor set for all devices
+	VkDescriptorSetLayoutBinding fixed_samplers_desc_set_layout {
+		.binding = 0,
+		.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+		.descriptorCount = max_combinations,
+		.stageFlags = VK_SHADER_STAGE_ALL,
+		.pImmutableSamplers = nullptr,
+	};
+	const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.bindingCount = 1,
+		.pBindings = &fixed_samplers_desc_set_layout,
+	};
+	for(auto& dev : devices) {
+		auto vk_dev = (vulkan_device*)dev.get();
+		fixed_samplers_desc_set_layout.pImmutableSamplers = vk_dev->fixed_sampler_set.data();
+		VK_CALL_CONT(vkCreateDescriptorSetLayout(vk_dev->device, &desc_set_layout_info, nullptr,
+												 &vk_dev->fixed_sampler_desc_set_layout),
+					 "failed to create fixed sampler set descriptor set layout");
+		
+		// TODO: use device global desc pool allocation once this is in place
+		const VkDescriptorPoolSize desc_pool_size {
+			.type = VK_DESCRIPTOR_TYPE_SAMPLER,
+			.descriptorCount = max_combinations,
+		};
+		const VkDescriptorPoolCreateInfo desc_pool_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.maxSets = 1,
+			.poolSizeCount = 1,
+			.pPoolSizes = &desc_pool_size,
+		};
+		VK_CALL_CONT(vkCreateDescriptorPool(vk_dev->device, &desc_pool_info, nullptr, &vk_dev->fixed_sampler_desc_pool),
+					 "failed to create fixed sampler set descriptor pool");
+		
+		// allocate descriptor set
+		const VkDescriptorSetAllocateInfo desc_set_alloc_info {
+			.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+			.pNext = nullptr,
+			.descriptorPool = vk_dev->fixed_sampler_desc_pool,
+			.descriptorSetCount = 1,
+			.pSetLayouts = &vk_dev->fixed_sampler_desc_set_layout,
+		};
+		VK_CALL_CONT(vkAllocateDescriptorSets(vk_dev->device, &desc_set_alloc_info, &vk_dev->fixed_sampler_desc_set),
+					 "failed to allocate fixed sampler set descriptor set");
+	}
+	
+	// TODO: cleanup!
 }
 
 #endif

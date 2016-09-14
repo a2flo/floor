@@ -30,8 +30,10 @@ metal_device::metal_device() : compute_device() {
 	image_depth_write_support = false;
 	image_msaa_support = true;
 	image_msaa_write_support = false;
+	image_msaa_array_support = false; // doesn't exist
+	image_msaa_array_write_support = false;
 	image_cube_support = true;
-	// image_cube_write_support decided later
+	// image_cube_write_support, image_cube_array* decided later
 	image_mipmap_support = true;
 	image_mipmap_write_support = true;
 	image_offset_read_support = true;

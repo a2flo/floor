@@ -49,6 +49,10 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// TODO: make sure that _all_ of this is synchronized
 					
+					const VkShaderStageFlagBits stage = (info.type == llvm_compute::function_info::FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
+														 info.type == llvm_compute::function_info::FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
+														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
+					
 					// create function + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
 					vector<VkDescriptorType> descriptor_types(info.args.size());
@@ -57,8 +61,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i) {
 						bindings[binding_idx].binding = binding_idx;
 						bindings[binding_idx].descriptorCount = 1;
-						bindings[binding_idx].stageFlags = VK_SHADER_STAGE_ALL;
-						bindings[binding_idx].pImmutableSamplers = nullptr; // TODO: use this?
+						bindings[binding_idx].stageFlags = stage;
+						bindings[binding_idx].pImmutableSamplers = nullptr;
 						
 						switch(info.args[i].address_space) {
 							// image
@@ -81,7 +85,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 															 .binding = binding_idx,
 															 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
 															 .descriptorCount = 1,
-															 .stageFlags = VK_SHADER_STAGE_ALL,
+															 .stageFlags = stage,
 															 .pImmutableSamplers = nullptr,
 														 });
 										++read_image_desc;
@@ -151,6 +155,9 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						
 						// create descriptor pool + descriptors
 						// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
+						//       -> create a descriptor allocation handler, start with a large vkCreateDescriptorPool,
+						//          then create new ones if allocation fails (due to fragmentation)
+						//          DO NOT use VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
 						const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
 													 (uniform_desc > 0 ? 1 : 0) +
 													 (read_image_desc > 0 ? 1 : 0) +
@@ -207,9 +214,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = nullptr,
 						.flags = 0,
-						.stage = (info.type == llvm_compute::function_info::FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
-								  info.type == llvm_compute::function_info::FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
-								  VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */),
+						.stage = stage,
 						.module = prog.second.program,
 						.pName = func_name.c_str(),
 						// TODO: use this later on to set dynamic local / work-group sizes
@@ -220,12 +225,16 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// vertex/fragment/etc graphics pipelines would need much more information (which ones to combine to begin with)
 					if(info.type == llvm_compute::function_info::FUNCTION_TYPE::KERNEL) {
 						// create the pipeline layout
+						const VkDescriptorSetLayout layouts[2] {
+							prog.first->fixed_sampler_desc_set_layout,
+							entry.desc_set_layout,
+						};
 						const VkPipelineLayoutCreateInfo pipeline_layout_info {
 							.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 							.pNext = nullptr,
 							.flags = 0,
-							.setLayoutCount = (entry.desc_set_layout != nullptr ? 1u : 0u),
-							.pSetLayouts = (entry.desc_set_layout != nullptr ? &entry.desc_set_layout : nullptr),
+							.setLayoutCount = (entry.desc_set_layout != nullptr ? 2u : 1u),
+							.pSetLayouts = layouts,
 							.pushConstantRangeCount = 0,
 							.pPushConstantRanges = nullptr,
 						};

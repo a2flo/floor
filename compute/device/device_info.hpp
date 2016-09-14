@@ -249,6 +249,16 @@ namespace device_info {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MSAA_WRITE_SUPPORT != 0);
 	}
 	
+	//! returns true if msaa array images are supported
+	constexpr bool has_image_msaa_array_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MSAA_ARRAY_SUPPORT != 0);
+	}
+	
+	//! returns true if writing msaa array images is supported
+	constexpr bool has_image_msaa_array_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_MSAA_ARRAY_WRITE_SUPPORT != 0);
+	}
+	
 	//! returns true if cube map images are supported
 	constexpr bool has_image_cube_support() {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_SUPPORT != 0);
@@ -257,6 +267,16 @@ namespace device_info {
 	//! returns true if writing cube map images is supported
 	constexpr bool has_image_cube_write_support() {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_WRITE_SUPPORT != 0);
+	}
+	
+	//! returns true if cube map array images are supported
+	constexpr bool has_image_cube_array_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_ARRAY_SUPPORT != 0);
+	}
+	
+	//! returns true if writing cube map array images is supported
+	constexpr bool has_image_cube_array_write_support() {
+		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_CUBE_ARRAY_WRITE_SUPPORT != 0);
 	}
 	
 	//! returns true if mip-map images are supported

@@ -355,6 +355,11 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 				"failed to end command buffer", false);
 	vk_queue->submit_command_buffer(cmd_buffer);
 	
+	// update image desc info
+	image_info.sampler = nullptr;
+	image_info.imageView = image_view;
+	image_info.imageLayout = final_layout; // TODO: need to keep track of this
+	
 	// buffer init from host data pointer
 	if(copy_host_data &&
 	   host_ptr != nullptr &&

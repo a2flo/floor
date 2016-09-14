@@ -152,10 +152,18 @@ public:
 	bool image_msaa_support { false };
 	//! true if writing msaa images is supported
 	bool image_msaa_write_support { false };
+	//! true if msaa array images are supported
+	bool image_msaa_array_support { false };
+	//! true if writing msaa array images is supported
+	bool image_msaa_array_write_support { false };
 	//! true if cube map images are supported
 	bool image_cube_support { false };
 	//! true if writing cube map images is supported
 	bool image_cube_write_support { false };
+	//! true if cube map array images are supported
+	bool image_cube_array_support { false };
+	//! true if writing cube map array images is supported
+	bool image_cube_array_write_support { false };
 	//! true if mip-map images are supported
 	bool image_mipmap_support { false };
 	//! true if writing mip-map images is supported
@@ -170,6 +178,11 @@ public:
 	bool image_gather_support { false };
 	//! true if images that can both be read and written are supported
 	bool image_read_write_support { false };
+	
+	//! true if anisotropic filtering is supported
+	bool anisotropic_support { false };
+	//! max anisotropy that is supported
+	float max_anisotropy { 0.0f };
 	
 	//! kernel parameter workaround (uses constant buffer instead of direct kernel parameter)
 	bool param_workaround { false };

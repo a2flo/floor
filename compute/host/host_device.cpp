@@ -53,8 +53,12 @@ host_device::host_device() : compute_device() {
 	image_depth_write_support = true;
 	image_msaa_support = false; // not implementable with opengl
 	image_msaa_write_support = false;
+	image_msaa_array_support = false;
+	image_msaa_array_write_support = false;
 	image_cube_support = true;
 	image_cube_write_support = true;
+	image_cube_array_support = true;
+	image_cube_array_write_support = true;
 	image_mipmap_support = true;
 	image_mipmap_write_support = true;
 	image_offset_read_support = true;

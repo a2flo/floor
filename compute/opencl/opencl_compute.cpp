@@ -300,8 +300,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 			device->image_depth_write_support = device->image_depth_support;
 			device->image_msaa_support = core::contains(device->extensions, "cl_khr_gl_msaa_sharing");
 			device->image_msaa_write_support = false; // always false
+			device->image_msaa_array_support = device->image_msaa_support;
+			device->image_msaa_array_write_support = false; // always false
 			device->image_cube_support = false; // nope
 			device->image_cube_write_support = false;
+			device->image_cube_array_support = false;
+			device->image_cube_array_write_support = false;
 			device->image_mipmap_support = core::contains(device->extensions, "cl_khr_mipmap_image");
 			device->image_mipmap_write_support = core::contains(device->extensions, "cl_khr_mipmap_image_writes");
 			device->image_offset_read_support = false; // never

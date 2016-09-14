@@ -20,16 +20,16 @@
 #define __FLOOR_COMPUTE_DEVICE_SAMPLER_HPP__
 
 //! depth compare functions
+//! NOTE: this is the order used by CUDA, host-side Metal and Vulkan
 enum class COMPARE_FUNCTION : uint32_t {
-	NONE				= 0u,
-	LESS_OR_EQUAL		= 1u,
-	GREATER_OR_EQUAL	= 2u,
-	LESS				= 3u,
+	NEVER				= 0u,
+	LESS				= 1u,
+	EQUAL				= 2u,
+	LESS_OR_EQUAL		= 3u,
 	GREATER				= 4u,
-	EQUAL				= 5u,
-	NOT_EQUAL			= 6u,
+	NOT_EQUAL			= 5u,
+	GREATER_OR_EQUAL	= 6u,
 	ALWAYS				= 7u,
-	NEVER				= 8u,
 };
 
 //! preliminary/wip sampler type

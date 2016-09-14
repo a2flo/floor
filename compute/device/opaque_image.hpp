@@ -25,8 +25,10 @@ namespace opaque_image {
 	//////////////////////////////////////////
 	// opaque image function wrappers/forwarders (opencl/metal)
 	
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL)
 	typedef sampler_t sampler_type;
+#elif defined(FLOOR_COMPUTE_VULKAN)
+	typedef decltype(vulkan_image::sampler::value) sampler_type;
 #elif defined(FLOOR_COMPUTE_METAL)
 	typedef metal_sampler_t sampler_type;
 #endif
@@ -36,77 +38,77 @@ namespace opaque_image {
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i1"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i1"); \
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f1"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f1"); \
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i2"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i2"); \
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f2"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f2"); \
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i3"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.i3"); \
 	const_func clang_float4 read_image_float(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 											 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 											 clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f3"); \
+											 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".float.f3"); \
 	\
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i1"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i1"); \
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f1"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f1"); \
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i2"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i2"); \
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f2"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f2"); \
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i3"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.i3"); \
 	const_func clang_int4 read_image_int(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 										 int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										 clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f3"); \
+										 COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".int.f3"); \
 	\
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i1"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i1"); \
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float1 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int1 offset = { 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float1 dpdx = { 0.0f }, clang_float1 dpdy = { 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f1"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f1"); \
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i2"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i2"); \
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float2 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int2 offset = { 0, 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float2 dpdx = { 0.0f, 0.0f }, clang_float2 dpdy = { 0.0f, 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f2"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f2"); \
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_int3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i3"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.i3"); \
 	const_func clang_uint4 read_image_uint(image_type img, sampler_type smplr, COMPUTE_IMAGE_TYPE type, clang_float3 coord, uint32_t layer = 0, uint32_t sample = 0, clang_int3 offset = { 0, 0, 0 }, \
 										   int32_t lod_i = 0, float lod_or_bias_f = 0.0f, bool is_lod = false, bool is_lod_float = false, bool is_bias = true, \
 										   clang_float3 dpdx = { 0.0f, 0.0f, 0.0f }, clang_float3 dpdy = { 0.0f, 0.0f, 0.0f }, bool is_gradient = false, \
-										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NONE, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f3"); \
+										   COMPARE_FUNCTION compare_function = COMPARE_FUNCTION::NEVER, float compare_value = 0.0f, bool is_compare = false) asm("floor.opaque.read_image." #image_type ".uint.f3"); \
 	\
 	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int1 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.opaque.write_image." #image_type ".float.i1"); \
 	void write_image_float(image_type img, COMPUTE_IMAGE_TYPE type, clang_int2 coord, uint32_t layer, uint32_t lod, bool is_lod, clang_float4 data) asm("floor.opaque.write_image." #image_type ".float.i2"); \

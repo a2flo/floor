@@ -68,9 +68,8 @@ static_assert(sizeof(_cu_context) == 0x1F10, "invalid _cu_context size");
 #endif
 
 union CU_SAMPLER_TYPE {
-	// same as metal
+	// same as host-side metal and vulkan
 	enum class COMPARE_FUNCTION : uint32_t {
-		NONE				= 0,
 		NEVER				= 0,
 		LESS				= 1,
 		EQUAL				= 2,

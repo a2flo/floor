@@ -213,6 +213,9 @@ protected:
 	VkDebugReportCallbackEXT debug_callback;
 #endif
 	
+	// creates the fixed sampler set for all devices
+	void create_fixed_sampler_set() const;
+	
 };
 
 #endif
