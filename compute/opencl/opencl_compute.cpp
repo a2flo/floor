@@ -945,6 +945,10 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	else {
 		size_t code_size = 0;
 		auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
+		if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
+			// cleanup if file exists
+			core::system("rm " + program.data_or_filename);
+		}
 		if(code == nullptr) return ret; // already prints an error
 		
 		ret.program = cl_create_program_with_il(ctx, code.get(), code_size, &create_err);

@@ -944,6 +944,10 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	
 	size_t code_size = 0;
 	auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
+	if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
+		// cleanup if file exists
+		core::system("rm " + program.data_or_filename);
+	}
 	if(code == nullptr) return ret; // already prints an error
 	
 	// create module
@@ -956,12 +960,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	};
 	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &ret.program),
 				"failed to create shader module (\"" + program.data_or_filename + "\") for device \"" + dev->name + "\"", ret);
-	
-	// cleanup
-	if(!floor::get_compute_keep_binaries()) {
-		core::system("rm " + program.data_or_filename);
-	}
-	
+
 	ret.valid = true;
 	return ret;
 }
@@ -1079,6 +1078,8 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			
 			VK_CALL_CONT(vkCreateSampler(vk_dev->device, &sampler_create_info, nullptr, &vk_dev->fixed_sampler_set[combination]),
 						 "failed to create sampler (#" + to_string(combination) + ")");
+			
+			vk_dev->fixed_sampler_image_info[combination].sampler = vk_dev->fixed_sampler_set[combination];
 		}
 	}
 	

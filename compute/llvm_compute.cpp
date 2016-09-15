@@ -121,6 +121,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
 	uint32_t bitness = device->bitness; // can be overwritten by target
+	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
 	switch(options.target) {
 		case TARGET::SPIR:
@@ -210,11 +211,13 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
 			bitness = 32; // always 32-bit for now
+			output_file_type = "spv";
 			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x vulkan -std=vulkan1.0" \
+				" -llvm-spirv" \
 				" -target spir-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -232,6 +235,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			break;
 		case TARGET::SPIRV_OPENCL:
 			toolchain_version = floor::get_opencl_toolchain_version();
+			output_file_type = "spv";
 			const auto cl_device = (const opencl_device*)device.get();
 			if(cl_device->spirv_version == SPIRV_VERSION::NONE) {
 				log_error("SPIR-V is not supported by this device!");
@@ -243,6 +247,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 				// compile to the max opencl standard that is supported by the device
 				" -x cl -Xclang -cl-std=CL" + cl_version_to_string(cl_device->cl_version) +
 				" -target " + (bitness == 32 ? "spir-unknown-unknown" : "spir64-unknown-unknown") +
+				" -llvm-spirv" \
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
 				" -Xclang -cl-mad-enable" \
@@ -532,7 +537,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	};
 	
 	// add generic flags/options that are always used
-	auto compiled_file_or_code = core::create_tmp_file_name("", ".bc");
+	auto compiled_file_or_code = core::create_tmp_file_name("", '.' + output_file_type);
 	clang_cmd += {
 #if defined(FLOOR_DEBUG)
 		" -DFLOOR_DEBUG"
@@ -654,42 +659,15 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	}
 	else if(options.target == TARGET::SPIRV_VULKAN ||
 			options.target == TARGET::SPIRV_OPENCL) {
-		const auto encoder = (options.target == TARGET::SPIRV_VULKAN ?
-							  floor::get_vulkan_spirv_encoder() : floor::get_opencl_spirv_encoder());
-		const auto as = (options.target == TARGET::SPIRV_VULKAN ?
-						 floor::get_vulkan_as() : floor::get_opencl_as());
 		const auto validate = (options.target == TARGET::SPIRV_VULKAN ?
 							   floor::get_vulkan_validate_spirv() : floor::get_opencl_validate_spirv());
 		const auto validator = (options.target == TARGET::SPIRV_VULKAN ?
 								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
-		// run llvm-spirv for llvm bc -> spir-v binary conversion
-		auto spirv_bin = core::create_tmp_file_name("spirv", ".spv");
-		const string spirv_encoder_cmd {
-			"\"" + encoder + "\" -o " + spirv_bin + " " + compiled_file_or_code
-#if !defined(_MSC_VER)
-			+ " 2>&1"
-#endif
-		};
-		if(floor::get_compute_log_commands() &&
-		   !options.silence_debug_output) {
-			log_debug("spir-v encoder cmd: %s", spirv_encoder_cmd);
-		}
-		string spirv_encoder_output = "";
-		core::system(spirv_encoder_cmd, spirv_encoder_output);
-		if(!options.silence_debug_output) {
-			if(spirv_encoder_output == "") {
-				log_msg("spir-v encoder: done");
-			}
-			else {
-				log_error("spir-v encoder: %s", spirv_encoder_output);
-			}
-		}
-		
 		// run spirv-val if specified
 		if(validate) {
 			const string spirv_validator_cmd {
-				"\"" + validator + "\" " + spirv_bin
+				"\"" + validator + "\" " + compiled_file_or_code
 #if !defined(_MSC_VER)
 				+ " 2>&1"
 #endif
@@ -709,13 +687,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 			}
 		}
 		
-		// cleanup
-		if(!floor::get_compute_keep_temp()) {
-			core::system("rm " + compiled_file_or_code);
-		}
-		
-		// always directly use the encoded spir-v binary (no read back + write again)
-		compiled_file_or_code.swap(spirv_bin);
+		// NOTE: will cleanup the binary in opencl_compute/vulkan_compute
 	}
 	
 	return { true, compiled_file_or_code, functions, options };
