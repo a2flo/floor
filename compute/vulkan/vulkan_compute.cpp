@@ -25,7 +25,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
 #include <floor/floor/floor_version.hpp>
 #include <floor/compute/device/sampler.hpp>
@@ -906,10 +906,10 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 	// compile the source file for all devices in the context
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::SPIRV_VULKAN;
+	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_compute::compile_program_file(dev, file_name, options)));
+								  create_vulkan_program(dev, llvm_toolchain::compile_program_file(dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
@@ -924,16 +924,16 @@ shared_ptr<compute_program> vulkan_compute::add_program_source(const string& sou
 	// compile the source code for all devices in the context
 	vulkan_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::SPIRV_VULKAN;
+	options.target = llvm_toolchain::TARGET::SPIRV_VULKAN;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((vulkan_device*)dev.get(),
-								  create_vulkan_program(dev, llvm_compute::compile_program(dev, source_code, options)));
+								  create_vulkan_program(dev, llvm_toolchain::compile_program(dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
 vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(shared_ptr<compute_device> device,
-																		   llvm_compute::program_data program) {
+																		   llvm_toolchain::program_data program) {
 	vulkan_program::vulkan_program_entry ret;
 	ret.functions = program.functions;
 	const auto dev = (const vulkan_device*)device.get();
@@ -943,7 +943,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	}
 	
 	size_t code_size = 0;
-	auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
+	auto code = llvm_toolchain::load_spirv_binary(program.data_or_filename, code_size);
 	if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
 		// cleanup if file exists
 		core::system("rm " + program.data_or_filename);
@@ -966,9 +966,9 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 }
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
-																		 const vector<llvm_compute::function_info>& functions) {
+																		 const vector<llvm_toolchain::function_info>& functions) {
 	size_t code_size = 0;
-	auto code = llvm_compute::load_spirv_binary(file_name, code_size);
+	auto code = llvm_toolchain::load_spirv_binary(file_name, code_size);
 	if(code == nullptr) return {};
 	
 	const VkShaderModuleCreateInfo module_info {
@@ -996,8 +996,8 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 }
 
 shared_ptr<compute_program::program_entry> vulkan_compute::create_program_entry(shared_ptr<compute_device> device,
-																				llvm_compute::program_data program,
-																				const llvm_compute::TARGET) {
+																				llvm_toolchain::program_data program,
+																				const llvm_toolchain::TARGET) {
 	return make_shared<vulkan_program::vulkan_program_entry>(create_vulkan_program(device, program));
 }
 

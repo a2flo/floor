@@ -24,7 +24,7 @@
 #if !defined(FLOOR_NO_CUDA)
 
 #include <floor/compute/compute_program.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/flat_map.hpp>
 
 FLOOR_PUSH_WARNINGS()

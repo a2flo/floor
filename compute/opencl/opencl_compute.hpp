@@ -125,19 +125,19 @@ public:
 												   compile_options options = {}) override REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-															 const vector<llvm_compute::function_info>& functions) override REQUIRES(!programs_lock);
+															 const vector<llvm_toolchain::function_info>& functions) override REQUIRES(!programs_lock);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	opencl_program::opencl_program_entry create_opencl_program(shared_ptr<compute_device> device,
-															   llvm_compute::program_data program,
-															   const llvm_compute::TARGET& target);
+															   llvm_toolchain::program_data program,
+															   const llvm_toolchain::TARGET& target);
 	
 	//! NOTE: for internal purposes (not exposed by other backends)
 	shared_ptr<opencl_program> add_program(opencl_program::program_map_type&& prog_map) REQUIRES(!programs_lock);
 	
 	shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																	llvm_compute::program_data program,
-																	const llvm_compute::TARGET target) override REQUIRES(!programs_lock);
+																	llvm_toolchain::program_data program,
+																	const llvm_toolchain::TARGET target) override REQUIRES(!programs_lock);
 	
 	//////////////////////////////////////////
 	// opencl specific functions

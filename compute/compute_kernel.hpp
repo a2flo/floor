@@ -25,7 +25,7 @@
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/flat_map.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 
@@ -37,7 +37,7 @@ public:
 	virtual ~compute_kernel() = 0;
 	
 	struct kernel_entry {
-		const llvm_compute::function_info* info { nullptr };
+		const llvm_toolchain::function_info* info { nullptr };
 		uint32_t max_total_local_size { 0u };
 		uint3 max_local_size;
 	};

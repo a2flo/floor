@@ -31,7 +31,7 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
 
 #if (defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__))
@@ -300,14 +300,14 @@ shared_ptr<compute_program> host_compute::add_program_source(const string& sourc
 }
 
 shared_ptr<compute_program> host_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																	   const vector<llvm_compute::function_info>& functions floor_unused) {
+																	   const vector<llvm_toolchain::function_info>& functions floor_unused) {
 	log_error("not supported by host_compute!");
 	return {};
 }
 
 shared_ptr<compute_program::program_entry> host_compute::create_program_entry(shared_ptr<compute_device> device floor_unused,
-																			  llvm_compute::program_data program,
-																			  const llvm_compute::TARGET) {
+																			  llvm_toolchain::program_data program,
+																			  const llvm_toolchain::TARGET) {
 	return make_shared<compute_program::program_entry>(compute_program::program_entry { program.functions, true });
 }
 

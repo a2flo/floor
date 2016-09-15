@@ -22,7 +22,7 @@
 #include <unordered_set>
 
 #include <floor/core/logger.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/compute_common.hpp>
 #include <floor/compute/compute_buffer.hpp>
 #include <floor/compute/compute_image.hpp>
@@ -188,8 +188,8 @@ public:
 	//////////////////////////////////////////
 	// program/function functionality
 	
-	//! alias the llvm_compute compile_options (for now)
-	using compile_options = llvm_compute::compile_options;
+	//! alias the llvm_toolchain compile_options (for now)
+	using compile_options = llvm_toolchain::compile_options;
 	
 	//! adds and compiles a program and its functions from a file
 	virtual shared_ptr<compute_program> add_program_file(const string& file_name,
@@ -209,14 +209,14 @@ public:
 	
 	//! adds a precompiled program and its functions, using the provided file name and function infos
 	virtual shared_ptr<compute_program> add_precompiled_program_file(const string& file_name,
-																	 const vector<llvm_compute::function_info>& functions) = 0;
+																	 const vector<llvm_toolchain::function_info>& functions) = 0;
 	
 	//! creates a program entry from pre-existing program data and function information on the specified device
 	//! NOTE: this is intended for rolling custom or semi-custom compilation, for normal code use the add_program_* functions
 	//! NOTE: this usually leads to final program compilation on most compute platforms (but not all!)
 	virtual shared_ptr<compute_program::program_entry> create_program_entry(shared_ptr<compute_device> device,
-																			llvm_compute::program_data program,
-																			const llvm_compute::TARGET target) = 0;
+																			llvm_toolchain::program_data program,
+																			const llvm_toolchain::TARGET target) = 0;
 	
 protected:
 	//! platform vendor enum (set after initialization)

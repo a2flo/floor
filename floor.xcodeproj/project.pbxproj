@@ -100,6 +100,9 @@
 		5C3E82D11BAC20130096D7A5 /* asio_error_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */; };
 		5C3E82D21BAC20130096D7A5 /* asio_error_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */; };
 		5C3EA9D91D89632000EC932F /* vulkan_image.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9D81D89632000EC932F /* vulkan_image.hpp */; };
+		5C3EA9DF1D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
+		5C3EA9E01D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
+		5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -145,9 +148,6 @@
 		5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173CA18D8AE0700DDF097 /* audio_source.hpp */; };
 		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
-		5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7800FE19D5BC4000853135 /* llvm_compute.cpp */; };
-		5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7800FE19D5BC4000853135 /* llvm_compute.cpp */; };
-		5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7800FF19D5BC4000853135 /* llvm_compute.hpp */; };
 		5C8461481A914759004D4745 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 		5C8461491A914759004D4745 /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
 		5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
@@ -361,6 +361,8 @@
 		5C3E82CE1BAC20130096D7A5 /* asio_error_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = asio_error_handler.cpp; sourceTree = "<group>"; };
 		5C3E82CF1BAC20130096D7A5 /* asio_error_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = asio_error_handler.hpp; sourceTree = "<group>"; };
 		5C3EA9D81D89632000EC932F /* vulkan_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_image.hpp; path = device/vulkan_image.hpp; sourceTree = "<group>"; };
+		5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_toolchain.cpp; sourceTree = "<group>"; };
+		5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_toolchain.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A718F953590039BFD4 /* lang_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = lang_context.hpp; sourceTree = "<group>"; };
@@ -399,8 +401,6 @@
 		5C7173C218D7288900DDF097 /* audio_controller.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_controller.hpp; path = audio/audio_controller.hpp; sourceTree = "<group>"; };
 		5C7173CA18D8AE0700DDF097 /* audio_source.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_source.hpp; path = audio/audio_source.hpp; sourceTree = "<group>"; };
 		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
-		5C7800FE19D5BC4000853135 /* llvm_compute.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_compute.cpp; sourceTree = "<group>"; };
-		5C7800FF19D5BC4000853135 /* llvm_compute.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_compute.hpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C84613B1A914758004D4745 /* metal_queue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_queue.mm; path = metal/metal_queue.mm; sourceTree = "<group>"; };
@@ -838,8 +838,8 @@
 				5CEEA6D51A4EE171005239DA /* compute_program.hpp */,
 				5CEB9F651A4BF91B00EC3543 /* compute_queue.cpp */,
 				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
-				5C7800FE19D5BC4000853135 /* llvm_compute.cpp */,
-				5C7800FF19D5BC4000853135 /* llvm_compute.hpp */,
+				5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */,
+				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
 				5C6008A91AB6D68900BC7012 /* device */,
 				5CD2175219E985D80049D6AE /* cuda */,
 				5C20C8B31B4139140005F5EA /* host */,
@@ -985,6 +985,7 @@
 				5C5383DB1A61FEF5007AEDD7 /* cuda_common.hpp in Headers */,
 				5C8FD0C41AD38F8B00215230 /* compute_image.hpp in Headers */,
 				5C5DA0C119CD39B7009CBCA2 /* soft_i128.hpp in Headers */,
+				5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */,
 				5C8FD0CF1AD38FAA00215230 /* cuda_image.hpp in Headers */,
 				5C366DDD19A64FF2006D1D09 /* const_string.hpp in Headers */,
 				5C1091AA17D1153E007F536E /* event.hpp in Headers */,
@@ -1010,7 +1011,6 @@
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
 				5C8FD0D31AD3947200215230 /* compute_memory.hpp in Headers */,
 				5CD2176719EAA8800049D6AE /* opencl_device.hpp in Headers */,
-				5C78010219D5BC4000853135 /* llvm_compute.hpp in Headers */,
 				5C2B87E01C73893E00F11EA5 /* vulkan_image.hpp in Headers */,
 				5CEEA6D81A4EE171005239DA /* compute_program.hpp in Headers */,
 				5C1091A717D1153E007F536E /* core.hpp in Headers */,
@@ -1262,11 +1262,11 @@
 				5C0416F91B60048100370253 /* json.cpp in Sources */,
 				5CEEA6CF1A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5C20C8C61B4139260005F5EA /* host_compute.cpp in Sources */,
-				5C78010019D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5C34F17E1C29BB9300C8F645 /* metal_device.cpp in Sources */,
 				5C10920017D14C95007F536E /* floor.cpp in Sources */,
 				5CEEA6DB1A4EE1A5005239DA /* opencl_program.cpp in Sources */,
 				5CBFEFF61A52D49300915FDE /* opencl_buffer.cpp in Sources */,
+				5C3EA9DF1D8B151300EC932F /* llvm_toolchain.cpp in Sources */,
 				5C5383E81A641B1E007AEDD7 /* cuda_device.cpp in Sources */,
 				5C7173C318D7288900DDF097 /* audio_controller.cpp in Sources */,
 				5C8FD0C71AD38F9700215230 /* opencl_image.cpp in Sources */,
@@ -1312,6 +1312,7 @@
 				5C2DA5BC1B9ECAA200FA6F23 /* compute_context.cpp in Sources */,
 				5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */,
 				5C0416FA1B60048100370253 /* json.cpp in Sources */,
+				5C3EA9E01D8B151300EC932F /* llvm_toolchain.cpp in Sources */,
 				5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */,
 				5CE0BDDE19BB2A75000B28B3 /* quaternion.cpp in Sources */,
 				5C4A85B318F953590039BFD4 /* source_types.cpp in Sources */,
@@ -1338,7 +1339,6 @@
 				5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */,
 				5CD2176219EA9D620049D6AE /* compute_device.cpp in Sources */,
 				5CBE41DC1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
-				5C78010119D5BC4000853135 /* llvm_compute.cpp in Sources */,
 				5CEB9F681A4BF91B00EC3543 /* compute_buffer.cpp in Sources */,
 				5CEEA6D01A4EA2C0005239DA /* opencl_kernel.cpp in Sources */,
 				5CD2175C19E985D80049D6AE /* opencl_compute.cpp in Sources */,

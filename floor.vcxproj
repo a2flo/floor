@@ -259,7 +259,7 @@
     <ClCompile Include="compute\host\host_kernel.cpp" />
     <ClCompile Include="compute\host\host_program.cpp" />
     <ClCompile Include="compute\host\host_queue.cpp" />
-    <ClCompile Include="compute\llvm_compute.cpp" />
+    <ClCompile Include="compute\llvm_toolchain.cpp" />
     <ClCompile Include="compute\metal\metal_device.cpp" />
     <ClCompile Include="compute\opencl\opencl_buffer.cpp" />
     <ClCompile Include="compute\opencl\opencl_compute.cpp" />
@@ -326,7 +326,7 @@
     <ClInclude Include="compute\host\host_kernel.hpp" />
     <ClInclude Include="compute\host\host_program.hpp" />
     <ClInclude Include="compute\host\host_queue.hpp" />
-    <ClInclude Include="compute\llvm_compute.hpp" />
+    <ClInclude Include="compute\llvm_toolchain.hpp" />
     <ClInclude Include="compute\metal\metal_buffer.hpp" />
     <ClInclude Include="compute\metal\metal_common.hpp" />
     <ClInclude Include="compute\metal\metal_compute.hpp" />

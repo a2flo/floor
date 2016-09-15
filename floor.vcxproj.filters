@@ -66,7 +66,7 @@
     <ClCompile Include="compute\compute_queue.cpp">
       <Filter>compute</Filter>
     </ClCompile>
-    <ClCompile Include="compute\llvm_compute.cpp">
+    <ClCompile Include="compute\llvm_toolchain.cpp">
       <Filter>compute</Filter>
     </ClCompile>
     <ClCompile Include="compute\cuda\cuda_buffer.cpp">
@@ -257,7 +257,7 @@
     <ClInclude Include="compute\compute_queue.hpp">
       <Filter>compute</Filter>
     </ClInclude>
-    <ClInclude Include="compute\llvm_compute.hpp">
+    <ClInclude Include="compute\llvm_toolchain.hpp">
       <Filter>compute</Filter>
     </ClInclude>
     <ClInclude Include="compute\cuda\cuda_buffer.hpp">

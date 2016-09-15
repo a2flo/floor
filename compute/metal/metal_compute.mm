@@ -29,7 +29,7 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/compute/metal/metal_buffer.hpp>
 #include <floor/compute/metal/metal_image.hpp>
 #include <floor/compute/metal/metal_device.hpp>
@@ -500,7 +500,7 @@ static shared_ptr<metal_program> add_metal_program(metal_program::program_map_ty
 }
 
 static metal_program::metal_program_entry create_metal_program(const metal_device* device floor_unused_on_ios,
-															   llvm_compute::program_data program) {
+															   llvm_toolchain::program_data program) {
 	metal_program::metal_program_entry ret;
 	ret.functions = program.functions;
 	
@@ -579,11 +579,11 @@ shared_ptr<compute_program> metal_compute::add_program_file(const string& file_n
 	// compile the source file for all devices in the context
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::AIR;
+	options.target = llvm_toolchain::TARGET::AIR;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((metal_device*)dev.get(),
 								  create_metal_program((metal_device*)dev.get(),
-													   llvm_compute::compile_program_file(dev, file_name, options)));
+													   llvm_toolchain::compile_program_file(dev, file_name, options)));
 	}
 	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
@@ -598,17 +598,17 @@ shared_ptr<compute_program> metal_compute::add_program_source(const string& sour
 	// compile the source code for all devices in the context
 	metal_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::AIR;
+	options.target = llvm_toolchain::TARGET::AIR;
 	for(const auto& dev : devices) {
 		prog_map.insert_or_assign((metal_device*)dev.get(),
 								  create_metal_program((metal_device*)dev.get(),
-													   llvm_compute::compile_program(dev, source_code, options)));
+													   llvm_toolchain::compile_program(dev, source_code, options)));
 	}
 	return add_metal_program(move(prog_map), &programs, programs_lock);
 }
 
 shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const string& file_name,
-																		const vector<llvm_compute::function_info>& functions) {
+																		const vector<llvm_toolchain::function_info>& functions) {
 	log_debug("loading mtllib: %s", file_name);
 	
 	// assume pre-compiled program is the same for all devices
@@ -635,8 +635,8 @@ shared_ptr<compute_program> metal_compute::add_precompiled_program_file(const st
 }
 
 shared_ptr<compute_program::program_entry> metal_compute::create_program_entry(shared_ptr<compute_device> device,
-																			   llvm_compute::program_data program,
-																			   const llvm_compute::TARGET) {
+																			   llvm_toolchain::program_data program,
+																			   const llvm_toolchain::TARGET) {
 	return make_shared<metal_program::metal_program_entry>(create_metal_program((metal_device*)device.get(), program));
 }
 

@@ -49,8 +49,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// TODO: make sure that _all_ of this is synchronized
 					
-					const VkShaderStageFlagBits stage = (info.type == llvm_compute::function_info::FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
-														 info.type == llvm_compute::function_info::FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
+					const VkShaderStageFlagBits stage = (info.type == llvm_toolchain::function_info::FUNCTION_TYPE::VERTEX ? VK_SHADER_STAGE_VERTEX_BIT :
+														 info.type == llvm_toolchain::function_info::FUNCTION_TYPE::FRAGMENT ? VK_SHADER_STAGE_FRAGMENT_BIT :
 														 VK_SHADER_STAGE_COMPUTE_BIT /* should notice anything else earlier */);
 					
 					// create function + device specific descriptor set layout
@@ -66,17 +66,17 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						
 						switch(info.args[i].address_space) {
 							// image
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::IMAGE:
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::IMAGE:
 								switch(info.args[i].image_access) {
-									case llvm_compute::function_info::ARG_IMAGE_ACCESS::READ:
+									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 										++read_image_desc;
 										break;
-									case llvm_compute::function_info::ARG_IMAGE_ACCESS::WRITE:
+									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 										++write_image_desc;
 										break;
-									case llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
+									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
 										// need to add both a sampled one and a storage one
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 										++binding_idx;
@@ -92,20 +92,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										++write_image_desc;
 										break;
 									}
-									case llvm_compute::function_info::ARG_IMAGE_ACCESS::NONE:
+									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::NONE:
 										log_error("unknown image access type");
 										valid_desc = false;
 										break;
 								}
 								break;
 							// buffer and param (there are no proper constant parameters)
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::GLOBAL:
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::CONSTANT:
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::GLOBAL:
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::CONSTANT:
 								// TODO/NOTE: for now, this is always a buffer, later on it might make sense to fit as much as possible
 								//            into push constants (will require compiler support of course + device specific binary)
 								// NOTE: min push constants size is at least 128 bytes
 								// alternatively: put it into a ubo
-								if(info.args[i].special_type == llvm_compute::function_info::SPECIAL_TYPE::SSBO) {
+								if(info.args[i].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::SSBO) {
 									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 									++ssbo_desc;
 								}
@@ -114,12 +114,12 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									++uniform_desc;
 								}
 								break;
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::LOCAL:
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::LOCAL:
 								log_error("arg with a local address space is not supported");
 								valid_desc = false;
 								break;
-							case llvm_compute::function_info::ARG_ADDRESS_SPACE::UNKNOWN:
-								if(info.args[i].special_type == llvm_compute::function_info::SPECIAL_TYPE::STAGE_INPUT) {
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::UNKNOWN:
+								if(info.args[i].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
 									// ignore + compact
 									bindings.pop_back();
 									continue;
@@ -223,7 +223,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					
 					// we can only actually create compute pipelines here, because they can exist on their own
 					// vertex/fragment/etc graphics pipelines would need much more information (which ones to combine to begin with)
-					if(info.type == llvm_compute::function_info::FUNCTION_TYPE::KERNEL) {
+					if(info.type == llvm_toolchain::function_info::FUNCTION_TYPE::KERNEL) {
 						// create the pipeline layout
 						const VkDescriptorSetLayout layouts[2] {
 							prog.first->fixed_sampler_desc_set_layout,

@@ -24,7 +24,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 
 #include <floor/compute/compute_program.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)

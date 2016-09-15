@@ -20,7 +20,7 @@
 
 #if !defined(FLOOR_NO_CUDA)
 
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
 
 cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
@@ -418,11 +418,11 @@ shared_ptr<compute_program> cuda_compute::add_program_file(const string& file_na
 	// compile the source file for all devices in the context
 	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::PTX;
+	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
 		const auto cuda_dev = (cuda_device*)dev.get();
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_compute::compile_program_file(dev, file_name, options)));
+								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program_file(dev, file_name, options)));
 	}
 	return add_program(move(prog_map));
 }
@@ -437,17 +437,17 @@ shared_ptr<compute_program> cuda_compute::add_program_source(const string& sourc
 	// compile the source code for all devices in the context
 	cuda_program::program_map_type prog_map;
 	prog_map.reserve(devices.size());
-	options.target = llvm_compute::TARGET::PTX;
+	options.target = llvm_toolchain::TARGET::PTX;
 	for(const auto& dev : devices) {
 		const auto cuda_dev = (cuda_device*)dev.get();
 		prog_map.insert_or_assign(cuda_dev,
-								  create_cuda_program(cuda_dev, llvm_compute::compile_program(dev, source_code, options)));
+								  create_cuda_program(cuda_dev, llvm_toolchain::compile_program(dev, source_code, options)));
 	}
 	return add_program(move(prog_map));
 }
 
 cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_device* device,
-																   llvm_compute::program_data program) {
+																   llvm_toolchain::program_data program) {
 	const auto& force_sm = floor::get_cuda_force_driver_sm();
 	const auto& sm = device->sm;
 	const uint32_t sm_version = (force_sm.empty() ? sm.x * 10 + sm.y : stou(force_sm));
@@ -535,7 +535,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		};
 		static_assert(option_count == size(jit_option_values), "mismatching option count");
 		
-		// TODO: print out llvm_compute log
+		// TODO: print out llvm_toolchain log
 		cu_link_state link_state;
 		void* cubin_ptr = nullptr;
 		size_t cubin_size = 0;
@@ -592,15 +592,15 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 }
 
 shared_ptr<compute_program> cuda_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																	   const vector<llvm_compute::function_info>& functions floor_unused) {
+																	   const vector<llvm_toolchain::function_info>& functions floor_unused) {
 	// TODO: !
 	log_error("not yet supported by cuda_compute!");
 	return {};
 }
 
 shared_ptr<compute_program::program_entry> cuda_compute::create_program_entry(shared_ptr<compute_device> device,
-																			  llvm_compute::program_data program,
-																			  const llvm_compute::TARGET) {
+																			  llvm_toolchain::program_data program,
+																			  const llvm_toolchain::TARGET) {
 	return make_shared<cuda_program::cuda_program_entry>(create_cuda_program((cuda_device*)device.get(), program));
 }
 

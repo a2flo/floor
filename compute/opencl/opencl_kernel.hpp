@@ -160,7 +160,7 @@ protected:
 		++arg_idx;
 		
 		// legacy s/w read/write image -> set it twice
-		if(entry.info->args[total_idx].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE &&
+		if(entry.info->args[total_idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE &&
 		   !handler->device->image_read_write_support) {
 			CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
 									   &((opencl_image*)arg)->get_cl_image()),

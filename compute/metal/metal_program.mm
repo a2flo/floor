@@ -22,7 +22,7 @@
 
 #include <floor/compute/metal/metal_kernel.hpp>
 #include <floor/compute/metal/metal_device.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/core.hpp>
 
 metal_program::metal_program(program_map_type&& programs_) : programs(move(programs_)) {

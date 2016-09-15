@@ -26,7 +26,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
 #include <floor/core/file_io.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
 
 opencl_compute::opencl_compute(const uint32_t platform_index_,
@@ -884,9 +884,9 @@ shared_ptr<compute_program> opencl_compute::add_program_file(const string& file_
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR);
+						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program_file(dev, file_name, options),
+								  create_opencl_program(dev, llvm_toolchain::compile_program_file(dev, file_name, options),
 														options.target));
 	}
 	return add_program(move(prog_map));
@@ -904,17 +904,17 @@ shared_ptr<compute_program> opencl_compute::add_program_source(const string& sou
 	prog_map.reserve(devices.size());
 	for(const auto& dev : devices) {
 		options.target = (((const opencl_device*)dev.get())->spirv_version != SPIRV_VERSION::NONE ?
-						  llvm_compute::TARGET::SPIRV_OPENCL : llvm_compute::TARGET::SPIR);
+						  llvm_toolchain::TARGET::SPIRV_OPENCL : llvm_toolchain::TARGET::SPIR);
 		prog_map.insert_or_assign((opencl_device*)dev.get(),
-								  create_opencl_program(dev, llvm_compute::compile_program(dev, source_code, options),
+								  create_opencl_program(dev, llvm_toolchain::compile_program(dev, source_code, options),
 														options.target));
 	}
 	return add_program(move(prog_map));
 }
 
 opencl_program::opencl_program_entry opencl_compute::create_opencl_program(shared_ptr<compute_device> device,
-																		   llvm_compute::program_data program,
-																		   const llvm_compute::TARGET& target) {
+																		   llvm_toolchain::program_data program,
+																		   const llvm_toolchain::TARGET& target) {
 	opencl_program::opencl_program_entry ret;
 	ret.functions = program.functions;
 	const auto cl_dev = (const opencl_device*)device.get();
@@ -925,7 +925,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	
 	// create the program object ...
 	cl_int create_err = CL_SUCCESS;
-	if(target != llvm_compute::TARGET::SPIRV_OPENCL) {
+	if(target != llvm_toolchain::TARGET::SPIRV_OPENCL) {
 		// opencl api handling
 		const size_t length = program.data_or_filename.size();
 		const unsigned char* binary_ptr = (const unsigned char*)program.data_or_filename.data();
@@ -944,7 +944,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	}
 	else {
 		size_t code_size = 0;
-		auto code = llvm_compute::load_spirv_binary(program.data_or_filename, code_size);
+		auto code = llvm_toolchain::load_spirv_binary(program.data_or_filename, code_size);
 		if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
 			// cleanup if file exists
 			core::system("rm " + program.data_or_filename);
@@ -963,7 +963,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	
 	// ... and build it
 	const string build_options {
-		(target == llvm_compute::TARGET::SPIR ? " -x spir -spir-std=1.2" : "")
+		(target == llvm_toolchain::TARGET::SPIR ? " -x spir -spir-std=1.2" : "")
 	};
 	CL_CALL_ERR_PARAM_RET(clBuildProgram(ret.program,
 										 1, &cl_dev->device_id,
@@ -992,15 +992,15 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 }
 
 shared_ptr<compute_program> opencl_compute::add_precompiled_program_file(const string& file_name floor_unused,
-																		 const vector<llvm_compute::function_info>& functions floor_unused) {
+																		 const vector<llvm_toolchain::function_info>& functions floor_unused) {
 	// TODO: !
 	log_error("not yet supported by opencl_compute!");
 	return {};
 }
 
 shared_ptr<compute_program::program_entry> opencl_compute::create_program_entry(shared_ptr<compute_device> device,
-																				llvm_compute::program_data program,
-																				const llvm_compute::TARGET target) {
+																				llvm_toolchain::program_data program,
+																				const llvm_toolchain::TARGET target) {
 	return make_shared<opencl_program::opencl_program_entry>(create_opencl_program(device, program, target));
 }
 

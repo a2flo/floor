@@ -16,14 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef __FLOOR_LLVM_COMPUTE_HPP__
-#define __FLOOR_LLVM_COMPUTE_HPP__
+#ifndef __FLOOR_LLVM_TOOLCHAIN_HPP__
+#define __FLOOR_LLVM_TOOLCHAIN_HPP__
 
 #include <floor/core/essentials.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <memory>
 
-class llvm_compute {
+class llvm_toolchain {
 public:
 	//! compilation target platform
 	enum class TARGET {
@@ -155,7 +155,7 @@ public:
 	//! compilation options that will either be passed through to the compiler or enable/disable internal behavior
 	struct compile_options {
 		//! the compilation target platform
-		//! NOTE: unless calling llvm_compute directly, this does not have to be set (i.e. this is handled by each backend)
+		//! NOTE: unless calling llvm_toolchain directly, this does not have to be set (i.e. this is handled by each backend)
 		TARGET target { TARGET::SPIR };
 		
 		//! options that are directly passed through to the compiler
@@ -209,7 +209,7 @@ public:
 	//! creates the internal floor function info representation from the specified floor function info,
 	//! returns true on success
 	static bool create_floor_function_info(const string& ffi_file_name,
-										   vector<llvm_compute::function_info>& functions,
+										   vector<llvm_toolchain::function_info>& functions,
 										   const uint32_t toolchain_version);
 	
 	//! loads a spir-v binary from the file specified by file_name,
@@ -219,9 +219,9 @@ public:
 	
 protected:
 	// static class
-	llvm_compute(const llvm_compute&) = delete;
-	~llvm_compute() = delete;
-	llvm_compute& operator=(const llvm_compute&) = delete;
+	llvm_toolchain(const llvm_toolchain&) = delete;
+	~llvm_toolchain() = delete;
+	llvm_toolchain& operator=(const llvm_toolchain&) = delete;
 	
 };
 

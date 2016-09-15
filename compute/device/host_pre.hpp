@@ -55,7 +55,7 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 // limits
 #include <floor/compute/device/host_limits.hpp>
 
-// these would usually be set through llvm_compute at compile-time
+// these would usually be set through llvm_toolchain at compile-time
 
 // toolchain version is just (MAJOR * 10000 + MINOR * 100 + PATCHLEVEL), e.g. 30502 for clang v3.5.2
 #if !defined(__apple_build_version__)

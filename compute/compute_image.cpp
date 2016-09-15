@@ -20,7 +20,7 @@
 #include <floor/compute/compute_image.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <floor/compute/compute_context.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/core/logger.hpp>
 
 safe_mutex compute_image::minify_programs_mtx;
@@ -785,7 +785,7 @@ void compute_image::build_mip_map_minification_program() const {
 	// build mip-map minify kernels (do so in a separate thread so that we don't hold up anything)
 	task::spawn([this, ctx = dev->context]() {
 		auto prog = make_unique<minify_program>();
-		const llvm_compute::compile_options options {
+		const llvm_toolchain::compile_options options {
 			// suppress any debug output for this, we only want to have console/log output if something goes wrong
 			.silence_debug_output = true
 		};

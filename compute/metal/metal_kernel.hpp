@@ -26,7 +26,7 @@
 #include <floor/core/logger.hpp>
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/compute_buffer.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_METAL_KERNEL_IMPL 1

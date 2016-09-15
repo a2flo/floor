@@ -27,7 +27,7 @@
 #include <floor/threading/atomic_spin_lock.hpp>
 #include <floor/compute/cuda/cuda_buffer.hpp>
 #include <floor/compute/cuda/cuda_image.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 
 // the amount of macro voodoo is too damn high ...
 #define FLOOR_CUDA_KERNEL_IMPL 1
@@ -161,19 +161,19 @@ protected:
 		
 #if defined(FLOOR_DEBUG)
 		// sanity checks
-		if(entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::NONE) {
+		if(entry.info->args[num].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::NONE) {
 			log_error("no image access qualifier specified!");
 			return;
 		}
-		if(entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ ||
-		   entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if(entry.info->args[num].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ ||
+		   entry.info->args[num].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 			if(cu_img->get_cuda_textures()[0] == 0) {
 				log_error("image is set to be readable, but texture objects don't exist!");
 				return;
 			}
 		}
-		if(entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::WRITE ||
-		   entry.info->args[num].image_access == llvm_compute::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if(entry.info->args[num].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
+		   entry.info->args[num].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 			if(cu_img->get_cuda_surfaces()[0] == 0) {
 				log_error("image is set to be writable, but surface object doesn't exist!");
 				return;

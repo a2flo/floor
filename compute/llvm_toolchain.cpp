@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 #include <floor/floor/floor.hpp>
 #include <regex>
 #include <climits>
@@ -29,9 +29,9 @@
 #include <floor/darwin/darwin_helper.hpp>
 #endif
 
-bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
-											  vector<llvm_compute::function_info>& functions,
-											  const uint32_t toolchain_version floor_unused) {
+bool llvm_toolchain::create_floor_function_info(const string& ffi_file_name,
+												vector<llvm_toolchain::function_info>& functions,
+												const uint32_t toolchain_version floor_unused) {
 	string ffi = "";
 	if(!file_io::file_to_string(ffi_file_name, ffi)) {
 		log_error("failed to retrieve floor function info from \"%s\"", ffi_file_name);
@@ -74,22 +74,22 @@ bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
 				log_error("invalid arg info (in %s): %s", ffi_file_name, tokens[i]);
 			}
 			
-			info.args.emplace_back(llvm_compute::function_info::arg_info {
+			info.args.emplace_back(llvm_toolchain::function_info::arg_info {
 				.size			= (uint32_t)
-				((data & uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_MASK)) >>
-				 uint64_t(llvm_compute::FLOOR_METADATA::ARG_SIZE_SHIFT)),
-				.address_space	= (llvm_compute::function_info::ARG_ADDRESS_SPACE)
-				((data & uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
-				 uint64_t(llvm_compute::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
-				.image_type		= (llvm_compute::function_info::ARG_IMAGE_TYPE)
-				((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
-				 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
-				.image_access	= (llvm_compute::function_info::ARG_IMAGE_ACCESS)
-				((data & uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
-				 uint64_t(llvm_compute::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
-				.special_type	= (llvm_compute::function_info::SPECIAL_TYPE)
-				((data & uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
-				 uint64_t(llvm_compute::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
+				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::ARG_SIZE_MASK)) >>
+				 uint64_t(llvm_toolchain::FLOOR_METADATA::ARG_SIZE_SHIFT)),
+				.address_space	= (llvm_toolchain::function_info::ARG_ADDRESS_SPACE)
+				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::ADDRESS_SPACE_MASK)) >>
+				 uint64_t(llvm_toolchain::FLOOR_METADATA::ADDRESS_SPACE_SHIFT)),
+				.image_type		= (llvm_toolchain::function_info::ARG_IMAGE_TYPE)
+				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_TYPE_MASK)) >>
+				 uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_TYPE_SHIFT)),
+				.image_access	= (llvm_toolchain::function_info::ARG_IMAGE_ACCESS)
+				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_ACCESS_MASK)) >>
+				 uint64_t(llvm_toolchain::FLOOR_METADATA::IMAGE_ACCESS_SHIFT)),
+				.special_type	= (llvm_toolchain::function_info::SPECIAL_TYPE)
+				((data & uint64_t(llvm_toolchain::FLOOR_METADATA::SPECIAL_TYPE_MASK)) >>
+				 uint64_t(llvm_toolchain::FLOOR_METADATA::SPECIAL_TYPE_SHIFT)),
 			});
 		}
 		
@@ -99,23 +99,23 @@ bool llvm_compute::create_floor_function_info(const string& ffi_file_name,
 	return true;
 }
 
-llvm_compute::program_data llvm_compute::compile_program(shared_ptr<compute_device> device,
-														 const string& code,
-														 const compile_options options) {
+llvm_toolchain::program_data llvm_toolchain::compile_program(shared_ptr<compute_device> device,
+															 const string& code,
+															 const compile_options options) {
 	const string printable_code { "printf \"" + core::str_hex_escape(code) + "\" | " };
 	return compile_input("-", printable_code, device, options);
 }
 
-llvm_compute::program_data llvm_compute::compile_program_file(shared_ptr<compute_device> device,
-															  const string& filename,
-															  const compile_options options) {
+llvm_toolchain::program_data llvm_toolchain::compile_program_file(shared_ptr<compute_device> device,
+																  const string& filename,
+																  const compile_options options) {
 	return compile_input("\"" + filename + "\"", "", device, options);
 }
 
-llvm_compute::program_data llvm_compute::compile_input(const string& input,
-													   const string& cmd_prefix,
-													   shared_ptr<compute_device> device,
-													   const compile_options options) {
+llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
+														   const string& cmd_prefix,
+														   shared_ptr<compute_device> device,
+														   const compile_options options) {
 	// create the initial clang compilation command
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
@@ -693,7 +693,7 @@ llvm_compute::program_data llvm_compute::compile_input(const string& input,
 	return { true, compiled_file_or_code, functions, options };
 }
 
-unique_ptr<uint32_t[]> llvm_compute::load_spirv_binary(const string& file_name, size_t& code_size) {
+unique_ptr<uint32_t[]> llvm_toolchain::load_spirv_binary(const string& file_name, size_t& code_size) {
 	unique_ptr<uint32_t[]> code;
 	{
 		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);

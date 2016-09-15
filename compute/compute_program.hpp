@@ -23,7 +23,7 @@
 #include <vector>
 #include <floor/math/vector_lib.hpp>
 #include <floor/compute/compute_kernel.hpp>
-#include <floor/compute/llvm_compute.hpp>
+#include <floor/compute/llvm_toolchain.hpp>
 
 class compute_program {
 public:
@@ -44,7 +44,7 @@ public:
 	
 	//! stores a program + function infos for an individual device
 	struct program_entry {
-		vector<llvm_compute::function_info> functions;
+		vector<llvm_toolchain::function_info> functions;
 		bool valid { false };
 	};
 	
