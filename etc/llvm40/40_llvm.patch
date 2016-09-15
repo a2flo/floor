@@ -2136,10 +2136,10 @@ index 0000000..3a51e3a
 +#endif // __SPIR_VALIDATION_H__
 diff --git a/include/llvm/Support/SPIRV.h b/include/llvm/Support/SPIRV.h
 new file mode 100644
-index 0000000..d340108
+index 0000000..86e00d6
 --- /dev/null
 +++ b/include/llvm/Support/SPIRV.h
-@@ -0,0 +1,162 @@
+@@ -0,0 +1,166 @@
 +//===- SPIRV.h – Read and write SPIR-V binary -------------------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2296,6 +2296,10 @@ index 0000000..d340108
 +/// Create and return a pass that writes the module to the specified
 +/// ostream.
 +ModulePass *createSPIRVWriterPass(llvm::raw_ostream &Str);
++
++/// Create and return a pass that writes the module to the specified
++/// ostream.
++ModulePass *createSPIRVContainerWriterPass(llvm::raw_ostream &Str);
 +
 +} // namespace llvm
 +
@@ -10411,10 +10415,10 @@ index 50bf690..8091ca1 100644
   Target
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
 new file mode 100644
-index 0000000..50b991d
+index 0000000..c495314
 --- /dev/null
 +++ b/lib/SPIRV/CMakeLists.txt
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,45 @@
 +include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/libSPIRV
 +  ${CMAKE_CURRENT_SOURCE_DIR}/Mangler
 +  ${CMAKE_CURRENT_SOURCE_DIR}/..)
@@ -10455,6 +10459,7 @@ index 0000000..50b991d
 +  SPIRVUtil.cpp
 +  SPIRVWriter.cpp
 +  SPIRVWriterPass.cpp
++  SPIRVContainerWriterPass.cpp
 +  TransOCLMD.cpp
 +  )
 +
@@ -15605,6 +15610,119 @@ index 0000000..b876bd1
 +}
 +
 +} // namespace SPIRV
+diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
+new file mode 100644
+index 0000000..2a3578c
+--- /dev/null
++++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
+@@ -0,0 +1,51 @@
++//===- SPIRVContainerWriterPass.cpp - SPIRV writing pass ------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// SPIRVContainerWriterPass implementation.
++//
++//===----------------------------------------------------------------------===//
++
++#include "SPIRVContainerWriterPass.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/PassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/SPIRV.h"
++using namespace llvm;
++
++PreservedAnalyses SPIRVContainerWriterPass::run(Module &M) {
++  // FIXME: at the moment LLVM/SPIR-V translation errors are ignored.
++  std::string err;
++  WriteSPIRV(&M, OS, err);
++  return PreservedAnalyses::all();
++}
++
++namespace {
++class WriteSPIRVContainerPass : public ModulePass {
++  raw_ostream &OS; // raw_ostream to print on
++public:
++  static char ID; // Pass identification, replacement for typeid
++  explicit WriteSPIRVContainerPass(raw_ostream &o) : ModulePass(ID), OS(o) {}
++
++  const char *getPassName() const override { return "SPIR-V Container Writer"; }
++
++  bool runOnModule(Module &M) override {
++    // FIXME: at the moment LLVM/SPIR-V translation errors are ignored.
++    // TODO: split up module
++    std::string err;
++    WriteSPIRV(&M, OS, err);
++    return false;
++  }
++};
++}
++
++char WriteSPIRVContainerPass::ID = 0;
++
++ModulePass *llvm::createSPIRVContainerWriterPass(raw_ostream &Str) {
++  return new WriteSPIRVContainerPass(Str);
++}
+diff --git a/lib/SPIRV/SPIRVContainerWriterPass.h b/lib/SPIRV/SPIRVContainerWriterPass.h
+new file mode 100644
+index 0000000..701588c
+--- /dev/null
++++ b/lib/SPIRV/SPIRVContainerWriterPass.h
+@@ -0,0 +1,50 @@
++//===-SPIRVContainerWriterPass.h - SPIR-V container writing pass -- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++/// \file
++///
++/// This file provides a SPIR-V container writing pass.
++///
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_SPIRVCONTAINERWRITERPASS_H
++#define LLVM_SPIRVCONTAINERWRITERPASS_H
++
++#include "llvm/ADT/StringRef.h"
++
++namespace llvm {
++class Module;
++class ModulePass;
++class raw_ostream;
++class PreservedAnalyses;
++
++/// \brief Create and return a pass that writes the module to the specified
++/// ostream. Note that this pass is designed for use with the legacy pass
++/// manager.
++ModulePass *createSPIRVContainerWriterPass(raw_ostream &Str);
++
++/// \brief Pass for writing a module of IR out to a SPIR-V container file.
++///
++/// Note that this is intended for use with the new pass manager. To construct
++/// a pass for the legacy pass manager, use the function above.
++class SPIRVContainerWriterPass {
++  raw_ostream &OS;
++
++public:
++  /// \brief Construct a SPIRV writer pass around a particular output stream.
++  explicit SPIRVContainerWriterPass(raw_ostream &OS) : OS(OS) {}
++
++  /// \brief Run the SPIRV writer pass, and output the module to the selected
++  /// output stream.
++  PreservedAnalyses run(Module &M);
++
++  static StringRef name() { return "SPIRVContainerWriterPass"; }
++};
++}
++
++#endif
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
 index 0000000..91d333b
