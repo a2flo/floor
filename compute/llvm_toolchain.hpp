@@ -212,11 +212,6 @@ public:
 										   vector<llvm_toolchain::function_info>& functions,
 										   const uint32_t toolchain_version);
 	
-	//! loads a spir-v binary from the file specified by file_name,
-	//! returning the read code + setting code_size to the amount of bytes
-	//! TODO: add proper helper class
-	static unique_ptr<uint32_t[]> load_spirv_binary(const string& file_name, size_t& code_size);
-	
 protected:
 	// static class
 	llvm_toolchain(const llvm_toolchain&) = delete;

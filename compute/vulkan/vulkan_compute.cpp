@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_VULKAN)
 #include <floor/core/platform.hpp>
 #include <floor/compute/vulkan/vulkan_compute.hpp>
+#include <floor/compute/spirv_handler.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
 #include <floor/core/core.hpp>
@@ -942,24 +943,34 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 		return ret;
 	}
 	
-	size_t code_size = 0;
-	auto code = llvm_toolchain::load_spirv_binary(program.data_or_filename, code_size);
+	auto container = spirv_handler::load_container(program.data_or_filename);
 	if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
 		// cleanup if file exists
 		core::system("rm " + program.data_or_filename);
 	}
-	if(code == nullptr) return ret; // already prints an error
+	if(!container.valid) return ret; // already prints an error
 	
-	// create module
-	const VkShaderModuleCreateInfo module_info {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.pNext = nullptr,
-		.flags = 0,
-		.codeSize = code_size,
-		.pCode = code.get(),
-	};
-	VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &ret.program),
-				"failed to create shader module (\"" + program.data_or_filename + "\") for device \"" + dev->name + "\"", ret);
+	// create modules
+	ret.programs.reserve(container.entries.size());
+	for(const auto& entry : container.entries) {
+		// map functions (names) to the module index
+		const auto mod_idx = (uint32_t)ret.programs.size();
+		for(const auto& func_name : entry.function_names) {
+			ret.func_to_mod_map.emplace(func_name, mod_idx);
+		}
+		
+		const VkShaderModuleCreateInfo module_info {
+			.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+			.pNext = nullptr,
+			.flags = 0,
+			.codeSize = entry.data_word_count * 4,
+			.pCode = &container.spirv_data[entry.data_offset],
+		};
+		VkShaderModule module { nullptr };
+		VK_CALL_RET(vkCreateShaderModule(dev->device, &module_info, nullptr, &module),
+					"failed to create shader module (\"" + program.data_or_filename + "\") for device \"" + dev->name + "\"", ret);
+		ret.programs.emplace_back(module);
+	}
 
 	ret.valid = true;
 	return ret;
@@ -967,8 +978,9 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 
 shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const string& file_name,
 																		 const vector<llvm_toolchain::function_info>& functions) {
+	// TODO: allow spir-v container?
 	size_t code_size = 0;
-	auto code = llvm_toolchain::load_spirv_binary(file_name, code_size);
+	auto code = spirv_handler::load_binary(file_name, code_size);
 	if(code == nullptr) return {};
 	
 	const VkShaderModuleCreateInfo module_info {
@@ -986,8 +998,10 @@ shared_ptr<compute_program> vulkan_compute::add_precompiled_program_file(const s
 		vulkan_program::vulkan_program_entry entry;
 		entry.functions = functions;
 		
-		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &entry.program),
+		VkShaderModule module { nullptr };
+		VK_CALL_CONT(vkCreateShaderModule(((vulkan_device*)dev.get())->device, &module_info, nullptr, &module),
 					 "failed to create shader module (\"" + file_name + "\") for device \"" + dev->name + "\"");
+		entry.programs.emplace_back(module);
 		entry.valid = true;
 		
 		prog_map.insert_or_assign((vulkan_device*)dev.get(), entry);

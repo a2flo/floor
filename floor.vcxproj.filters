@@ -69,6 +69,9 @@
     <ClCompile Include="compute\llvm_toolchain.cpp">
       <Filter>compute</Filter>
     </ClCompile>
+    <ClCompile Include="compute\spirv_handler.cpp">
+      <Filter>compute</Filter>
+    </ClCompile>
     <ClCompile Include="compute\cuda\cuda_buffer.cpp">
       <Filter>compute\cuda</Filter>
     </ClCompile>
@@ -258,6 +261,9 @@
       <Filter>compute</Filter>
     </ClInclude>
     <ClInclude Include="compute\llvm_toolchain.hpp">
+      <Filter>compute</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\spirv_handler.hpp">
       <Filter>compute</Filter>
     </ClInclude>
     <ClInclude Include="compute\cuda\cuda_buffer.hpp">

@@ -21,6 +21,7 @@
 #if !defined(FLOOR_NO_OPENCL)
 #define FLOOR_OPENCL_INFO_FUNCS 1
 #include <floor/compute/opencl/opencl_compute.hpp>
+#include <floor/compute/spirv_handler.hpp>
 #include <floor/core/platform.hpp>
 #include <floor/core/gl_support.hpp>
 #include <floor/core/logger.hpp>
@@ -944,7 +945,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	}
 	else {
 		size_t code_size = 0;
-		auto code = llvm_toolchain::load_spirv_binary(program.data_or_filename, code_size);
+		auto code = spirv_handler::load_binary(program.data_or_filename, code_size);
 		if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
 			// cleanup if file exists
 			core::system("rm " + program.data_or_filename);

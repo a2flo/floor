@@ -209,13 +209,20 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					}
 					// else: no descriptors entry.desc_* already nullptr
 					
+					// find spir-v module index for this function
+					const auto mod_iter = prog.second.func_to_mod_map.find(func_name);
+					if(mod_iter == prog.second.func_to_mod_map.end()) {
+						log_error("did not find a module mapping for function \"%s\"", func_name);
+						continue;
+					}
+					
 					// stage info, can be used here or at a later point
 					entry.stage_info = VkPipelineShaderStageCreateInfo {
 						.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 						.pNext = nullptr,
 						.flags = 0,
 						.stage = stage,
-						.module = prog.second.program,
+						.module = prog.second.programs[mod_iter->second],
 						.pName = func_name.c_str(),
 						// TODO: use this later on to set dynamic local / work-group sizes
 						.pSpecializationInfo = nullptr,

@@ -103,6 +103,9 @@
 		5C3EA9DF1D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
 		5C3EA9E01D8B151300EC932F /* llvm_toolchain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */; };
 		5C3EA9E11D8B151300EC932F /* llvm_toolchain.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */; };
+		5C3EA9E41D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
+		5C3EA9E51D8B373000EC932F /* spirv_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */; };
+		5C3EA9E61D8B373000EC932F /* spirv_handler.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */; };
 		5C4A85A318F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A418F9527E0039BFD4 /* grammar.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C4A85A118F9527E0039BFD4 /* grammar.cpp */; };
 		5C4A85A518F9527E0039BFD4 /* grammar.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C4A85A218F9527E0039BFD4 /* grammar.hpp */; };
@@ -363,6 +366,8 @@
 		5C3EA9D81D89632000EC932F /* vulkan_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_image.hpp; path = device/vulkan_image.hpp; sourceTree = "<group>"; };
 		5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = llvm_toolchain.cpp; sourceTree = "<group>"; };
 		5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = llvm_toolchain.hpp; sourceTree = "<group>"; };
+		5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = spirv_handler.cpp; sourceTree = "<group>"; };
+		5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = spirv_handler.hpp; sourceTree = "<group>"; };
 		5C4A85A118F9527E0039BFD4 /* grammar.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = grammar.cpp; sourceTree = "<group>"; };
 		5C4A85A218F9527E0039BFD4 /* grammar.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = grammar.hpp; sourceTree = "<group>"; };
 		5C4A85A718F953590039BFD4 /* lang_context.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = lang_context.hpp; sourceTree = "<group>"; };
@@ -840,6 +845,8 @@
 				5CEB9F661A4BF91B00EC3543 /* compute_queue.hpp */,
 				5C3EA9DD1D8B151300EC932F /* llvm_toolchain.cpp */,
 				5C3EA9DE1D8B151300EC932F /* llvm_toolchain.hpp */,
+				5C3EA9E21D8B373000EC932F /* spirv_handler.cpp */,
+				5C3EA9E31D8B373000EC932F /* spirv_handler.hpp */,
 				5C6008A91AB6D68900BC7012 /* device */,
 				5CD2175219E985D80049D6AE /* cuda */,
 				5C20C8B31B4139140005F5EA /* host */,
@@ -1006,6 +1013,7 @@
 				5C4A85B118F953590039BFD4 /* lexer.hpp in Headers */,
 				5CD2175D19E985D80049D6AE /* opencl_compute.hpp in Headers */,
 				5C1091B017D1153E007F536E /* logger.hpp in Headers */,
+				5C3EA9E61D8B373000EC932F /* spirv_handler.hpp in Headers */,
 				5CEEA6D31A4EA425005239DA /* opencl_common.hpp in Headers */,
 				5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */,
 				5C1091AB17D1153E007F536E /* event_objects.hpp in Headers */,
@@ -1211,6 +1219,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5CE0BDCC19BA432C000B28B3 /* vector_lib.cpp in Sources */,
+				5C3EA9E41D8B373000EC932F /* spirv_handler.cpp in Sources */,
 				5CE0BDCF19BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CF040B91A97CC1B00D93EE3 /* metal_compute.mm in Sources */,
 				5CBE41DB1B31B48600AE0E5F /* darwin_helper.mm in Sources */,
@@ -1298,6 +1307,7 @@
 				5C266C391B4E84C90055F511 /* host_kernel.cpp in Sources */,
 				5C266C3A1B4E84C90055F511 /* host_program.cpp in Sources */,
 				5C266C3B1B4E84C90055F511 /* host_queue.cpp in Sources */,
+				5C3EA9E51D8B373000EC932F /* spirv_handler.cpp in Sources */,
 				5CE0BDD019BA46E3000B28B3 /* vector.cpp in Sources */,
 				5CC330CE1AEA0E8000836CC4 /* gl_shader.cpp in Sources */,
 				5CEEA6DC1A4EE1A5005239DA /* opencl_program.cpp in Sources */,

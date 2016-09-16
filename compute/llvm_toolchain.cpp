@@ -211,13 +211,13 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		case TARGET::SPIRV_VULKAN:
 			toolchain_version = floor::get_vulkan_toolchain_version();
 			bitness = 32; // always 32-bit for now
-			output_file_type = "spv";
+			output_file_type = "spvc";
 			
 			// still compiling this as opencl for now
 			clang_cmd += {
 				"\"" + floor::get_vulkan_compiler() + "\"" +
 				" -x vulkan -std=vulkan1.0" \
-				" -llvm-spirv" \
+				" -llvm-spirv-container" \
 				" -target spir-unknown-unknown-vulkan" +
 				" -Xclang -cl-sampler-type -Xclang i32" \
 				" -Xclang -cl-kernel-arg-info" \
@@ -665,7 +665,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
 		// run spirv-val if specified
-		if(validate) {
+		if(validate &&
+		   // TODO: add spir-v container support to the validator, or make it otherwise possible
+		   options.target != TARGET::SPIRV_VULKAN) {
 			const string spirv_validator_cmd {
 				"\"" + validator + "\" " + compiled_file_or_code
 #if !defined(_MSC_VER)
@@ -691,30 +693,4 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	}
 	
 	return { true, compiled_file_or_code, functions, options };
-}
-
-unique_ptr<uint32_t[]> llvm_toolchain::load_spirv_binary(const string& file_name, size_t& code_size) {
-	unique_ptr<uint32_t[]> code;
-	{
-		file_io binary(file_name, file_io::OPEN_TYPE::READ_BINARY);
-		if(!binary.is_open()) {
-			log_error("failed to load spir-v binary (\"%s\")", file_name);
-			return {};
-		}
-		
-		code_size = (size_t)binary.get_filesize();
-		if(code_size % 4u != 0u) {
-			log_error("invalid spir-v binary size %u (\"%s\"): must be a multiple of 4!", code_size, file_name);
-			return {};
-		}
-		
-		code = make_unique<uint32_t[]>(code_size / 4u);
-		binary.get_block((char*)code.get(), (streamsize)code_size);
-		const auto read_size = binary.get_filestream()->gcount();
-		if(read_size != (decltype(read_size))code_size) {
-			log_error("failed to read spir-v binary (\"%s\"): expected %u bytes, but only read %u bytes", file_name, code_size, read_size);
-			return {};
-		}
-	}
-	return code;
 }

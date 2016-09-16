@@ -34,7 +34,8 @@ class vulkan_program final : public compute_program {
 public:
 	//! stores a vulkan program + function infos for an individual device
 	struct vulkan_program_entry : program_entry {
-		VkShaderModule program { nullptr };
+		vector<VkShaderModule> programs;
+		unordered_map<string, uint32_t> func_to_mod_map;
 	};
 	
 	//! lookup map that contains the corresponding vulkan program for multiple devices
