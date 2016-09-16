@@ -87,8 +87,9 @@ event::handler floor::event_handler_fnctr { &floor::event_handler };
 // misc
 string floor::app_name { "libfloor" };
 uint32_t floor::app_version { 1 };
-bool floor::cursor_visible = true;
 bool floor::console_only = false;
+bool floor::cursor_visible = true;
+bool floor::x11_forwarding = false;
 atomic<bool> floor::reload_kernels_flag { false };
 
 bool floor::init(const init_state& state) {
@@ -212,6 +213,7 @@ bool floor::init(const init_state& state) {
 	
 	kernelpath = "kernels/";
 	cursor_visible = true;
+	x11_forwarding = false;
 	
 	fps = 0;
 	fps_counter = 0;
@@ -687,6 +689,17 @@ bool floor::init_internal(const init_state& state) {
 
 	// only initialize opengl/opencl and create a window when not in console-only mode
 	if(!console_only) {
+		// detect x11 forwarding
+#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
+		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
+		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
+			if(getenv("SSH_CONNECTION") != nullptr) {
+				x11_forwarding = true;
+				log_debug("detected X11 forwarding");
+			}
+		}
+#endif
+		
 		// set window creation flags
 		config.flags = state.window_flags;
 		if(renderer == RENDERER::OPENGL) {
@@ -727,19 +740,8 @@ bool floor::init_internal(const init_state& state) {
 			SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		}
 		
-		// detect x11 forwarding, and if detected, don't set/request any specific opengl version
-#if !defined(FLOOR_IOS)
-		bool ignore_gl_version = false;
-#endif
-#if !defined(__WINDOWS__) && !defined(FLOOR_IOS)
-		const char* cur_video_driver = SDL_GetCurrentVideoDriver();
-		if(cur_video_driver != nullptr && string(cur_video_driver) == "x11") {
-			const char* env_ssh_connection = getenv("SSH_CONNECTION");
-			if(env_ssh_connection != nullptr) {
-				ignore_gl_version = true;
-			}
-		}
-#endif
+		// if x11 forwarding, don't set/request any specific opengl version
+		const bool ignore_gl_version = x11_forwarding;
 		
 #if !defined(FLOOR_IOS)
 		if(!ignore_gl_version && renderer == RENDERER::OPENGL) {
@@ -1776,4 +1778,8 @@ const uint32_t& floor::get_app_version() {
 
 floor::RENDERER floor::get_renderer() {
 	return renderer;
+}
+
+bool floor::is_x11_forwarding() {
+	return x11_forwarding;
 }

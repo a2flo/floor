@@ -204,7 +204,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.height = dim_count >= 2 ? image_dim.y : 1,
 		.depth = dim_count >= 3 ? image_dim.z : 1,
 	};
-	uint32_t layer_count = (!is_array ? 1 : (dim_count == 1 ? image_dim.y : image_dim.z));
+	layer_count = (!is_array ? 1 : (dim_count == 1 ? image_dim.y : image_dim.z));
 	if(is_cube) {
 		if(extent.width != extent.height) {
 			log_error("cube map width and height must be equal");
@@ -326,34 +326,10 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	VK_CALL_RET(vkCreateImageView(vulkan_dev, &image_view_create_info, nullptr, &image_view),
 				"image view creation failed", false);
 	
-	// transition to general layout
-	const VkImageMemoryBarrier image_barrier {
-		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-		.pNext = nullptr,
-		.srcAccessMask = 0, // TODO: ?
-		.dstAccessMask = dst_access_flags,
-		.oldLayout = initial_layout,
-		.newLayout = final_layout,
-		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image,
-		.subresourceRange = sub_rsrc_range,
-	};
-	auto vk_queue = (vulkan_queue*)queue_or_default_compute_queue(cqueue).get();
-	auto cmd_buffer = vk_queue->make_command_buffer("image init transition");
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", false);
-	vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-						 0 /* VK_DEPENDENCY_BY_REGION_BIT? */, 0, nullptr, 0, nullptr, 1, &image_barrier);
-	VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer),
-				"failed to end command buffer", false);
-	vk_queue->submit_command_buffer(cmd_buffer);
+	// transition to general layout or color attachment layout (if render target)
+	cur_access_mask = 0; // TODO: ?
+	image_info.imageLayout = initial_layout;
+	transition(nullptr, dst_access_flags, final_layout, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	
 	// update image desc info
 	image_info.sampler = nullptr;
@@ -426,8 +402,8 @@ void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer h
 			dim_count >= 3 ? image_dim.z : 1,
 		},
 	};
-	// TODO: use VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, b/c of perf
-	vkCmdCopyImageToBuffer(cmd_buffer, image, VK_IMAGE_LAYOUT_GENERAL, host_buffer, 1, &region);
+	// TODO: transition to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, b/c of perf
+	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
 void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
@@ -451,8 +427,8 @@ void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer h
 			dim_count >= 3 ? image_dim.z : 1,
 		},
 	};
-	// TODO: use VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, b/c of perf
-	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, VK_IMAGE_LAYOUT_GENERAL, 1, &region);
+	// TODO: transition to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, b/c of perf
+	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, image_info.imageLayout, 1, &region);
 }
 
 bool vulkan_image::acquire_opengl_object(shared_ptr<compute_queue>) {
@@ -463,6 +439,61 @@ bool vulkan_image::acquire_opengl_object(shared_ptr<compute_queue>) {
 bool vulkan_image::release_opengl_object(shared_ptr<compute_queue>) {
 	log_error("not supported by vulkan");
 	return false;
+}
+
+void vulkan_image::transition(VkCommandBuffer cmd_buffer,
+							  const VkAccessFlags dst_access,
+							  const VkImageLayout new_layout,
+							  const VkPipelineStageFlags src_stage_mask,
+							  const VkPipelineStageFlags dst_stage_mask,
+							  const uint32_t dst_queue_idx) {
+	// TODO: handle non-color
+	const VkImageMemoryBarrier image_barrier {
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.pNext = nullptr,
+		.srcAccessMask = cur_access_mask,
+		.dstAccessMask = dst_access,
+		.oldLayout = image_info.imageLayout,
+		.newLayout = new_layout,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, // TODO: use something appropriate here
+		.dstQueueFamilyIndex = dst_queue_idx,
+		.image = image,
+		.subresourceRange = {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = mip_level_count,
+			.baseArrayLayer = 0,
+			.layerCount = layer_count,
+		},
+	};
+	
+	if(cmd_buffer == nullptr) {
+		auto dev_queue = queue_or_default_compute_queue(nullptr);
+		auto vk_queue = (vulkan_queue*)dev_queue.get();
+		auto cmd = vk_queue->make_command_buffer("image transition");
+		const VkCommandBufferBeginInfo begin_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.pNext = nullptr,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+			.pInheritanceInfo = nullptr,
+		};
+		VK_CALL_RET(vkBeginCommandBuffer(cmd.cmd_buffer, &begin_info),
+					"failed to begin command buffer");
+		
+		vkCmdPipelineBarrier(cmd.cmd_buffer, src_stage_mask, dst_stage_mask,
+							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+		
+		VK_CALL_RET(vkEndCommandBuffer(cmd.cmd_buffer),
+					"failed to end command buffer");
+		vk_queue->submit_command_buffer(cmd);
+	}
+	else {
+		vkCmdPipelineBarrier(cmd_buffer, src_stage_mask, dst_stage_mask,
+							 0, 0, nullptr, 0, nullptr, 1, &image_barrier);
+	}
+	
+	cur_access_mask = dst_access;
+	image_info.imageLayout = new_layout;
 }
 
 #endif

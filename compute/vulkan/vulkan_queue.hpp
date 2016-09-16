@@ -44,9 +44,9 @@ public:
 	}
 	
 	struct command_buffer {
-		VkCommandBuffer cmd_buffer;
-		const uint32_t index;
-		const char* name;
+		VkCommandBuffer cmd_buffer { nullptr };
+		const uint32_t index { ~0u };
+		const char* name { nullptr };
 	};
 	command_buffer make_command_buffer(const char* name = nullptr) REQUIRES(!cmd_buffers_lock);
 	

@@ -91,7 +91,7 @@ vulkan_queue::command_buffer vulkan_queue::make_command_buffer(const char* name)
 		floor_unreachable();
 	}
 	log_error("all command buffers are currently in use (implementation limitation right now)");
-	return { nullptr, ~0u, nullptr };
+	return {};
 }
 
 pair<VkFence, uint32_t> vulkan_queue::acquire_fence() {

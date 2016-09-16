@@ -166,7 +166,6 @@ public:
 		const uint32_t index;
 		const uint2 image_size;
 		VkImage image;
-		VkSemaphore sema;
 	};
 	
 	//! acquires the next drawable image
@@ -193,6 +192,8 @@ protected:
 		vector<VkImageView> swapchain_image_views;
 		vector<VkSemaphore> render_semas;
 		vulkan_device* render_device { nullptr };
+		bool x11_forwarding { false };
+		shared_ptr<vulkan_image> x11_screen;
 	} screen;
 	bool init_renderer();
 	

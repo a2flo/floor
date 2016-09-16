@@ -140,6 +140,8 @@ public:
 	static void acquire_context();
 	static void release_context();
 	
+	static bool is_x11_forwarding();
+	
 	// set to false to not acquire/release the gl context in acquire/release_context()
 	static void set_use_gl_context(const bool& state);
 	static const bool& get_use_gl_context();
@@ -458,6 +460,7 @@ protected:
 	static uint32_t app_version;
 	static bool console_only;
 	static bool cursor_visible;
+	static bool x11_forwarding;
 	static atomic<bool> reload_kernels_flag;
 
 };

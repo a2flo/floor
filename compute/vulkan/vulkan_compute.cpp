@@ -47,6 +47,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportF
 
 vulkan_compute::vulkan_compute(const bool enable_renderer_, const vector<string> whitelist) :
 compute_context(), enable_renderer(enable_renderer_) {
+	if(enable_renderer) {
+		screen.x11_forwarding = floor::is_x11_forwarding();
+	}
+	
 	// create a vulkan instance (context)
 	const auto min_vulkan_api_version = floor::get_vulkan_api_version();
 	const VkApplicationInfo app_info {
@@ -66,7 +70,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 #endif
 	};
-	if(enable_renderer) {
+	if(enable_renderer && !screen.x11_forwarding) {
 		instance_extensions.emplace_back(VK_KHR_SURFACE_EXTENSION_NAME);
 #if defined(SDL_VIDEO_DRIVER_WINDOWS)
 		instance_extensions.emplace_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
@@ -208,7 +212,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 #endif
 		};
 		vector<const char*> device_extensions;
-		if(enable_renderer) {
+		if(enable_renderer && !screen.x11_forwarding) {
 			device_extensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 		}
 		
@@ -469,19 +473,26 @@ vulkan_compute::~vulkan_compute() {
 	}
 #endif
 	
-	if(!screen.swapchain_image_views.empty()) {
-		for(auto& image_view : screen.swapchain_image_views) {
-			vkDestroyImageView(screen.render_device->device, image_view, nullptr);
+	if(!screen.x11_forwarding) {
+		if(!screen.swapchain_image_views.empty()) {
+			for(auto& image_view : screen.swapchain_image_views) {
+				vkDestroyImageView(screen.render_device->device, image_view, nullptr);
+			}
+		}
+		
+		if(screen.swapchain != nullptr) {
+			vkDestroySwapchainKHR(screen.render_device->device, screen.swapchain, nullptr);
+		}
+		
+		if(screen.surface != nullptr) {
+			vkDestroySurfaceKHR(ctx, screen.surface, nullptr);
 		}
 	}
-	
-	if(screen.swapchain != nullptr) {
-		vkDestroySwapchainKHR(screen.render_device->device, screen.swapchain, nullptr);
+	else {
+		screen.x11_screen = nullptr;
 	}
 	
-	if(screen.surface != nullptr) {
-		vkDestroySurfaceKHR(ctx, screen.surface, nullptr);
-	}
+	// TODO: destroy all else
 }
 
 bool vulkan_compute::init_renderer() {
@@ -493,6 +504,30 @@ bool vulkan_compute::init_renderer() {
 	auto vk_device = (vulkan_device*)fastest_device.get();
 	auto vk_queue = (vulkan_queue*)get_device_default_queue(vk_device).get();
 	screen.render_device = vk_device;
+	
+	// with X11 forwarding we can't do any of this, because DRI* is not available
+	// -> emulate the behavior
+	if(screen.x11_forwarding) {
+		screen.image_count = 1;
+		screen.format = VK_FORMAT_B8G8R8A8_UNORM;
+		screen.color_space = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		screen.x11_screen = static_pointer_cast<vulkan_image>(create_image(fastest_device, screen.size,
+																		   COMPUTE_IMAGE_TYPE::IMAGE_2D |
+																		   COMPUTE_IMAGE_TYPE::BGRA8UI_NORM |
+																		   COMPUTE_IMAGE_TYPE::READ_WRITE |
+																		   COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET,
+																		   COMPUTE_MEMORY_FLAG::READ_WRITE |
+																		   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE));
+		if(!screen.x11_screen) {
+			log_error("failed to create image/render-target for x11 forwarding");
+			return false;
+		}
+		
+		screen.swapchain_images.emplace_back(screen.x11_screen->get_vulkan_image());
+		screen.swapchain_image_views.emplace_back(screen.x11_screen->get_vulkan_image_view());
+		
+		return true;
+	}
 	
 	// query SDL window / video driver info that we need to create a vulkan surface
 	SDL_SysWMinfo wm_info;
@@ -659,11 +694,24 @@ bool vulkan_compute::init_renderer() {
 }
 
 pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_image() {
+	if(screen.x11_forwarding) {
+		screen.x11_screen->transition(nullptr /* create a cmd buffer */,
+									  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+									  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+		return {
+			true,
+			{
+				.index = 0u,
+				.image_size = screen.size,
+				.image = screen.x11_screen->get_vulkan_image(),
+			}
+		};
+	}
+	
 	const drawable_image_info dummy_ret {
 		.index = ~0u,
 		.image_size = 0u,
 		.image = nullptr,
-		.sema = nullptr,
 	};
 	
 	// create new sema and acquire image
@@ -672,14 +720,14 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 		.pNext = nullptr,
 		.flags = 0,
 	};
-	VkSemaphore sema { nullptr };
-	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
+	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr,
+								  &screen.render_semas[screen.image_index]),
 				"failed to create semaphore", { false, dummy_ret });
 	
-	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
+	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX,
+									  screen.render_semas[screen.image_index],
 									  nullptr, &screen.image_index),
 				"failed to acquire next presentable image", { false, dummy_ret });
-	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
 	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
@@ -726,14 +774,45 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 			.index = screen.image_index,
 			.image_size = screen.size,
 			.image = screen.swapchain_images[screen.image_index],
-			.sema = sema,
 		}
 	};
 }
 
 bool vulkan_compute::present_image(const drawable_image_info& drawable) {
+	auto dev_queue = get_device_default_queue(screen.render_device);
+	auto vk_queue = (vulkan_queue*)dev_queue.get();
+	
+	if(screen.x11_forwarding) {
+		screen.x11_screen->transition(nullptr /* create a cmd buffer */,
+									  VK_ACCESS_TRANSFER_READ_BIT,
+									  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+									  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+		
+		// grab the current image buffer data (read-only + blocking) ...
+		auto img_data = (uchar4*)screen.x11_screen->map(dev_queue,
+														COMPUTE_MEMORY_MAP_FLAG::READ |
+														COMPUTE_MEMORY_MAP_FLAG::BLOCK);
+		
+		// ... and blit it into the window
+		const auto wnd_surface = SDL_GetWindowSurface(floor::get_window());
+		SDL_LockSurface(wnd_surface);
+		const uint2 render_dim = screen.size.minned(floor::get_physical_screen_size());
+		const uint2 scale = render_dim / screen.size;
+		for(uint32_t y = 0; y < screen.size.y; ++y) {
+			uint32_t* px_ptr = (uint32_t*)wnd_surface->pixels + ((size_t)wnd_surface->pitch / sizeof(uint32_t)) * y;
+			uint32_t img_idx = screen.size.x * y * scale.y;
+			for(uint32_t x = 0; x < screen.size.x; ++x, img_idx += scale.x) {
+				*px_ptr++ = SDL_MapRGB(wnd_surface->format, img_data[img_idx].z, img_data[img_idx].y, img_data[img_idx].x);
+			}
+		}
+		screen.x11_screen->unmap(dev_queue, img_data);
+		
+		SDL_UnlockSurface(wnd_surface);
+		SDL_UpdateWindowSurface(floor::get_window());
+		return true;
+	}
+	
 	// transition to present mode
-	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
 	auto cmd_buffer = vk_queue->make_command_buffer("image present transition");
 	const VkCommandBufferBeginInfo begin_info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,

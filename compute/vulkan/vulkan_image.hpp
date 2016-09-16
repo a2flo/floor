@@ -52,16 +52,33 @@ public:
 	
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr) override;
 	
+	//! transitions this image into a new 'layout', with specified 'access', at src/dst stage
+	//! NOTE: if cmd_buffer is nullptr, a new one will be created and enqueued/submitted in the end
+	void transition(VkCommandBuffer cmd_buffer,
+					const VkAccessFlags dst_access,
+					const VkImageLayout new_layout,
+					const VkPipelineStageFlags src_stage_mask,
+					const VkPipelineStageFlags dst_stage_mask,
+					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
+	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
 		return image;
 	}
+	
+	//! returns the vulkan specific image view object
+	const VkImageView& get_vulkan_image_view() const {
+		return image_view;
+	}
+	
 	const VkDescriptorImageInfo* get_vulkan_image_info() const { return &image_info; }
 	
 protected:
 	VkImage image { nullptr };
 	VkImageView image_view { nullptr };
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
+	VkAccessFlags cur_access_mask { 0 };
+	uint32_t layer_count { 1u };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
