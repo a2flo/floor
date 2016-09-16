@@ -17,6 +17,8 @@
  */
 
 #include <floor/compute/spirv_handler.hpp>
+#include <floor/core/logger.cpp>
+#include <floor/core/file_io.hpp>
 
 #if !defined(FLOOR_CXX17)
 const uint32_t spirv_handler::container_version; // need linkage (< c++17)
