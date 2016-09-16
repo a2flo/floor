@@ -15612,10 +15612,10 @@ index 0000000..b876bd1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 new file mode 100644
-index 0000000..2a3578c
+index 0000000..dbcf810
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,179 @@
 +//===- SPIRVContainerWriterPass.cpp - SPIRV writing pass ------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -15625,7 +15625,42 @@ index 0000000..2a3578c
 +//
 +//===----------------------------------------------------------------------===//
 +//
-+// SPIRVContainerWriterPass implementation.
++// SPIRVContainerWriterPass implementation: this is used to split up (clone) a
++// LLVM module into individual per-entry-point modules, which is necessary for
++// SPIR-V shaders, because we can't generally have globals that use the same
++// descriptor set index and binding index with different layouts, even if an
++// entry point only makes specific use of a valid set of descriptors.
++// This will then combine all SPIR-V binaries/modules into a single container
++// file, with some additional helpful metadata (function names and types per
++// SPIR-V module).
++//
++// TODO: in the future, it might make sense to specify a specific pipeline in
++// the source (set of shader functions), for which we can then guarantee (or
++// enforce) that only a valid set of descriptors is being used. This would then
++// allow these shaders to be emitted in one single SPIR-V module.
++//
++//
++// #### SPIR-V container file format ####
++// ## header
++// char[4]: identfifier "SPVC"
++// uint32_t: version (currently 1)
++// uint32_t: entry_count
++//
++// ## header entries [entry_count]
++// uint32_t: function_entry_count
++// uint32_t[function_entry_count]: function types
++// char[function_entry_count][]: function names (all \0 terminated)
++// uint32_t: SPIR-V binary word count (word == uint32_t)
++//
++// ## binary entries [entry_count]
++// uint32_t[header_entry[i].word_count]: SPIR-V binary
++//
++// ####
++//
++// function type (enum):
++//  * compute/kernel: 1
++//  * vertex: 2
++//  * fragment: 3
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -15634,12 +15669,108 @@ index 0000000..2a3578c
 +#include "llvm/IR/PassManager.h"
 +#include "llvm/Pass.h"
 +#include "llvm/Support/SPIRV.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++#include <string>
++#include <unordered_map>
 +using namespace llvm;
 +
++static bool write_container(Module &M, raw_ostream &OS) {
++  bool success = true;
++
++  // header
++  static constexpr const uint32_t container_version{1u};
++  OS.write("SPVC", 4);
++  OS.write((const char *)&container_version, sizeof(container_version));
++
++  // gather entry point functions that we want to clone/emit
++  std::unordered_map<std::string, uint32_t> clone_functions;
++  for (auto &F : M) {
++    if (F.getCallingConv() != CallingConv::FLOOR_KERNEL &&
++        F.getCallingConv() != CallingConv::FLOOR_VERTEX &&
++        F.getCallingConv() != CallingConv::FLOOR_FRAGMENT) {
++      continue;
++    }
++    clone_functions.emplace(F.getName().str(), F.getCallingConv());
++  }
++  // entry count
++  const auto entry_count = uint32_t(clone_functions.size());
++  OS.write((const char *)&entry_count, sizeof(entry_count));
++
++  // we need a separate stream for the actual spir-v data, since we need to know
++  // the size of each spir-v module/file (no way to know this beforehand)
++  std::string spirv_data{""};
++  raw_string_ostream spirv_stream(spirv_data);
++
++  for (const auto &entry : clone_functions) {
++    // clone the module with the current entry point function and any global
++    // vars that we need
++    ValueToValueMapTy VMap;
++    auto cloned_mod = CloneModule(&M, VMap, [&entry](const GlobalValue *GV) {
++      if (isa<Function>(GV) && GV->hasName() && GV->getName() == entry.first) {
++        return true;
++      }
++      // TODO: only clone global vars if they are needed in a specific function
++      if (isa<GlobalVariable>(GV)) {
++        return true;
++      }
++      return false;
++    });
++
++    // function entry count
++    const uint32_t function_entry_count = 1u;
++    OS.write((const char *)&function_entry_count, sizeof(function_entry_count));
++
++    // function types
++    uint32_t function_type = 0;
++    switch (entry.second) {
++    case CallingConv::FLOOR_KERNEL:
++      function_type = 1;
++      break;
++    case CallingConv::FLOOR_VERTEX:
++      function_type = 2;
++      break;
++    case CallingConv::FLOOR_FRAGMENT:
++      function_type = 3;
++      break;
++    default:
++      llvm_unreachable("invalid function type");
++    }
++    OS.write((const char *)&function_type, sizeof(function_type));
++
++    // function names
++    OS << entry.first.c_str() << '\0';
++
++    // spir-v binary
++    const auto cur_pos = spirv_stream.tell();
++    std::string err;
++    const auto module_success = WriteSPIRV(cloned_mod.get(), spirv_stream, err);
++    auto module_size = uint32_t(spirv_stream.tell() - cur_pos);
++    if (module_size % 4 != 0) {
++      success = false;
++      errs() << "SPIR-V data size is not a multiple of 4\n";
++    }
++
++    // write the SPIR-V data word count
++    module_size /= 4;
++    OS.write((const char *)&module_size, sizeof(module_size));
++
++    // emit error if unsuccessful (still continue though)
++    success &= module_success;
++    if (!module_success) {
++      errs() << "failed to write/translate module for \"" << entry.first
++             << "\": " << err << "\n";
++    }
++  }
++
++  // all header entries written -> write actual spir-v data
++  spirv_stream.flush();
++  OS.write(spirv_data.c_str(), spirv_data.size());
++
++  return success;
++}
++
 +PreservedAnalyses SPIRVContainerWriterPass::run(Module &M) {
-+  // FIXME: at the moment LLVM/SPIR-V translation errors are ignored.
-+  std::string err;
-+  WriteSPIRV(&M, OS, err);
++  write_container(M, OS);
 +  return PreservedAnalyses::all();
 +}
 +
@@ -15653,10 +15784,7 @@ index 0000000..2a3578c
 +  const char *getPassName() const override { return "SPIR-V Container Writer"; }
 +
 +  bool runOnModule(Module &M) override {
-+    // FIXME: at the moment LLVM/SPIR-V translation errors are ignored.
-+    // TODO: split up module
-+    std::string err;
-+    WriteSPIRV(&M, OS, err);
++    write_container(M, OS);
 +    return false;
 +  }
 +};
@@ -22839,10 +22967,10 @@ index 0000000..c6ec732
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..220ee80
+index 0000000..1ae804e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2894 @@
+@@ -0,0 +1,2899 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23545,6 +23673,11 @@ index 0000000..220ee80
 +}
 +
 +SPIRVFunction *LLVMToSPIRV::transFunctionDecl(Function *F) {
++  // we don't actually want to translate/emit function declarations when the
++  // function only is a declaration, not a definition
++  if (F->isDeclaration())
++    return nullptr;
++
 +  // skip any floor.* functions, these shouldn't be here
 +  if (F->getName().startswith("floor."))
 +    return nullptr;
