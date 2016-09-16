@@ -17,7 +17,7 @@
  */
 
 #include <floor/compute/spirv_handler.hpp>
-#include <floor/core/logger.cpp>
+#include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
 
 #if !defined(FLOOR_CXX17)
