@@ -720,14 +720,14 @@ pair<bool, vulkan_compute::drawable_image_info> vulkan_compute::acquire_next_ima
 		.pNext = nullptr,
 		.flags = 0,
 	};
-	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr,
-								  &screen.render_semas[screen.image_index]),
+	VkSemaphore sema { nullptr };
+	VK_CALL_RET(vkCreateSemaphore(screen.render_device->device, &sema_create_info, nullptr, &sema),
 				"failed to create semaphore", { false, dummy_ret });
 	
-	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX,
-									  screen.render_semas[screen.image_index],
+	VK_CALL_RET(vkAcquireNextImageKHR(screen.render_device->device, screen.swapchain, UINT64_MAX, sema,
 									  nullptr, &screen.image_index),
 				"failed to acquire next presentable image", { false, dummy_ret });
+	screen.render_semas[screen.image_index] = sema;
 	
 	// transition image
 	auto vk_queue = (vulkan_queue*)get_device_default_queue(screen.render_device).get();
