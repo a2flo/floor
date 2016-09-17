@@ -30,18 +30,21 @@ public:
 	
 	// #### SPIR-V container file format ####
 	// ## header
-	// char[4]: identfifier "SPVC"
-	// uint32_t: version (currently 1)
+	// char[4]: identifier "SPVC"
+	// uint32_t: version (currently 2)
 	// uint32_t: entry_count
 	//
 	// ## header entries [entry_count]
 	// uint32_t: function_entry_count
-	// uint32_t[function_entry_count]: function types
-	// char[function_entry_count][]: function names (all \0 terminated)
 	// uint32_t: SPIR-V binary word count (word == uint32_t)
 	//
 	// ## binary entries [entry_count]
 	// uint32_t[header_entry[i].word_count]: SPIR-V binary
+	//
+	// ## additional metadata [entry_count]
+	// uint32_t[function_entry_count]: function types
+	// char[function_entry_count][]: function names (always \0 terminated, with \0 padding to achieve
+	//                                               4-byte/uint32_t alignment)
 	
 	struct container {
 		struct entry {
@@ -54,7 +57,7 @@ public:
 		unique_ptr<uint32_t[]> spirv_data;
 		bool valid { false };
 	};
-	static constexpr const uint32_t container_version { 1u };
+	static constexpr const uint32_t container_version { 2u };
 	
 	//! loads a SPIR-V container file and processes it into a usable 'container' object
 	static container load_container(const string& file_name);

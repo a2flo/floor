@@ -57,8 +57,20 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 		return {};
 	}
 	
+	// reasonable size asumption
+	if(data.size() >= 0x80000000) {
+		log_error("container too large");
+		return {};
+	}
+	if(data.size() < 8) {
+		log_error("container too small");
+		return {};
+	}
+	const auto data_size = (uint32_t)data.size();
+	
 	// check header and version
 	const char* data_ptr = data.data();
+	const char* data_end_ptr = data_ptr + data_size;
 	if(memcmp(data_ptr, "SPVC", 4) != 0) {
 		log_error("invalid spir-v container header (in \"%s\")", file_name);
 		return {};
@@ -75,6 +87,14 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 	memcpy(&entry_count, data_ptr, sizeof(entry_count));
 	data_ptr += sizeof(entry_count);
 	
+	const auto expected_header_entries_size = entry_count * sizeof(uint32_t) * 2;
+	uint32_t cur_size = 8; // header
+	if(cur_size + expected_header_entries_size > data_size) {
+		log_error("invalid header entries size");
+		return {};
+	}
+	cur_size += expected_header_entries_size;
+	
 	// header entries
 	container ret;
 	ret.entries.resize(entry_count);
@@ -86,19 +106,8 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 		uint32_t function_entry_count = 0;
 		memcpy(&function_entry_count, data_ptr, sizeof(function_entry_count));
 		data_ptr += sizeof(function_entry_count);
-		
-		//
-		const auto func_types_size = function_entry_count * sizeof(llvm_toolchain::function_info::FUNCTION_TYPE);
 		entry.function_types.resize(function_entry_count);
-		memcpy(entry.function_types.data(), data_ptr, func_types_size);
-		data_ptr += func_types_size;
-		
-		//
 		entry.function_names.resize(function_entry_count);
-		for(uint32_t j = 0; j < function_entry_count; ++j) {
-			entry.function_names[j] = data_ptr; // strings are \0 terminated
-			data_ptr += entry.function_names[j].size() + 1;
-		}
 		
 		//
 		entry.data_word_count = 0;
@@ -110,9 +119,49 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 		running_offset += entry.data_word_count;
 	}
 	
-	// get the final and actual spir-v data in one big chunk
+	// get the actual spir-v data in one big chunk
+	const auto spirv_data_size = running_offset * sizeof(uint32_t);
+	if(cur_size + spirv_data_size > data_size) {
+		log_error("invalid spir-v data size");
+		return {};
+	}
 	ret.spirv_data = make_unique<uint32_t[]>(running_offset);
-	memcpy(ret.spirv_data.get(), data_ptr, running_offset * sizeof(uint32_t));
+	memcpy(ret.spirv_data.get(), data_ptr, spirv_data_size);
+	data_ptr += spirv_data_size;
+	cur_size += spirv_data_size;
+	
+	// get the per-entry/module metadata
+	for(auto& entry : ret.entries) {
+		const auto function_entry_count = (uint32_t)entry.function_types.size();
+		
+		//
+		const auto func_types_size = function_entry_count * sizeof(llvm_toolchain::function_info::FUNCTION_TYPE);
+		if(cur_size + func_types_size > data_size) {
+			log_error("invalid function types size");
+			return {};
+		}
+		memcpy(entry.function_types.data(), data_ptr, func_types_size);
+		data_ptr += func_types_size;
+		cur_size += func_types_size;
+		
+		//
+		for(uint32_t i = 0; i < function_entry_count; ++i) {
+			if(find(data_ptr, data_end_ptr, '\0') == data_end_ptr) {
+				log_error("function name has no terminator");
+				return {};
+			}
+			entry.function_names[i] = data_ptr; // string is \0 terminated
+			
+			auto padded_len = (uint32_t)entry.function_names[i].size();
+			padded_len += 4u - (padded_len % 4u);
+			if(cur_size + padded_len > data_size) {
+				log_error("invalid function name size (not padded?)");
+				return {};
+			}
+			data_ptr += padded_len;
+			cur_size += padded_len;
+		}
+	}
 	
 	// done
 	ret.valid = true;
