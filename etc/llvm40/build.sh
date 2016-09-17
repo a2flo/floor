@@ -115,6 +115,9 @@ cd ..
 rm -Rf SPIRV-Tools 2>/dev/null
 git clone git://github.com/a2flo/SPIRV-Tools.git
 git clone git://github.com/KhronosGroup/SPIRV-Headers.git SPIRV-Tools/external/spirv-headers
+cd SPIRV-Tools/external/spirv-headers
+git reset --hard 33d41376d378761ed3a4c791fc4b647761897f26
+cd ../../../
 
 # patch
 cd llvm
