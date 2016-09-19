@@ -36,10 +36,10 @@ public:
 	//
 	// ## header entries [entry_count]
 	// uint32_t: function_entry_count
-	// uint32_t: SPIR-V binary word count (word == uint32_t)
+	// uint32_t: SPIR-V module word count (word == uint32_t)
 	//
-	// ## binary entries [entry_count]
-	// uint32_t[header_entry[i].word_count]: SPIR-V binary
+	// ## module entries [entry_count]
+	// uint32_t[header_entry[i].word_count]: SPIR-V module
 	//
 	// ## additional metadata [entry_count]
 	// uint32_t[function_entry_count]: function types

@@ -34,7 +34,7 @@ namespace compute_algorithm {
 		T shfled_var;
 #pragma unroll
 		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
-			if(is_floating_point<T>::value) {
+			if constexpr(is_floating_point<T>::value) {
 				asm volatile("shfl.bfly.b32 %0, %1, %2, %3;"
 							 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
 			}

@@ -48,6 +48,12 @@ public:
 			KERNEL							= (1u),
 			VERTEX							= (2u),
 			FRAGMENT						= (3u),
+			//! NOTE: unsupported right now
+			GEOMETRY						= (4u),
+			//! NOTE: unsupported right now
+			TESSELLATION_CONTROL			= (5u),
+			//! NOTE: unsupported right now
+			TESSELLATION_EVALUATION			= (6u),
 		};
 		FUNCTION_TYPE type { FUNCTION_TYPE::NONE };
 		

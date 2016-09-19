@@ -665,9 +665,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 								floor::get_vulkan_spirv_validator() : floor::get_opencl_spirv_validator());
 		
 		// run spirv-val if specified
-		if(validate &&
-		   // TODO: add spir-v container support to the validator, or make it otherwise possible
-		   options.target != TARGET::SPIRV_VULKAN) {
+		if(validate) {
 			const string spirv_validator_cmd {
 				"\"" + validator + "\" " + compiled_file_or_code
 #if !defined(_MSC_VER)
