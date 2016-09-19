@@ -10712,7 +10712,7 @@ index 0000000..d3acff9
 +#endif //__FUNCTION_DESCRIPTOR_H__
 diff --git a/lib/SPIRV/Mangler/Mangler.cpp b/lib/SPIRV/Mangler/Mangler.cpp
 new file mode 100644
-index 0000000..505fd30
+index 0000000..98172fb
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/Mangler.cpp
 @@ -0,0 +1,201 @@
@@ -10890,7 +10890,7 @@ index 0000000..505fd30
 +//
 +// NameMangler
 +//
-+NameMangler::NameMangler(SPIRversion version) : m_spir_version(version){};
++NameMangler::NameMangler(SPIRversion version) : m_spir_version(version){}
 +
 +MangleError NameMangler::mangle(const FunctionDescriptor &fd,
 +                                std::string &mangledName) {
@@ -15612,10 +15612,10 @@ index 0000000..b876bd1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 new file mode 100644
-index 0000000..bfed6cc
+index 0000000..f538e78
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,231 @@
 +//===- SPIRVContainerWriterPass.cpp - SPIRV writing pass ------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -15648,14 +15648,15 @@ index 0000000..bfed6cc
 +//
 +// ## header entries [entry_count]
 +// uint32_t: function_entry_count
-+// uint32_t: SPIR-V binary word count (word == uint32_t)
++// uint32_t: SPIR-V module word count (word == uint32_t)
 +//
-+// ## binary entries [entry_count]
-+// uint32_t[header_entry[i].word_count]: SPIR-V binary
++// ## module entries [entry_count]
++// uint32_t[header_entry[i].word_count]: SPIR-V module
 +//
 +// ## additional metadata [entry_count]
 +// uint32_t[function_entry_count]: function types
-+// char[function_entry_count][]: function names (always \0 terminated, with \0 padding to achieve
++// char[function_entry_count][]: function names (always \0 terminated, with \0
++//                                               padding to achieve
 +//                                               4-byte/uint32_t alignment)
 +//
 +// ####
@@ -15664,6 +15665,9 @@ index 0000000..bfed6cc
 +//  * compute/kernel: 1
 +//  * vertex: 2
 +//  * fragment: 3
++//  * geometry: 4
++//  * tessellation control: 5
++//  * tessellation evaluation: 6
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -15676,8 +15680,32 @@ index 0000000..bfed6cc
 +#include "llvm/Support/SPIRV.h"
 +#include "llvm/Transforms/Utils/Cloning.h"
 +#include <string>
-+#include <unordered_map>
++#include <unordered_set>
 +using namespace llvm;
++
++static bool is_used_in_function(const Function *F, const GlobalVariable *GV) {
++  // always flag certain builtin constants as used
++  switch (F->getCallingConv()) {
++  case CallingConv::FLOOR_KERNEL:
++    if (GV->getName().find(".vulkan_constant.workgroup_size") !=
++        StringRef::npos)
++      return true;
++    break;
++  case CallingConv::FLOOR_VERTEX:
++    break;
++  case CallingConv::FLOOR_FRAGMENT:
++    break;
++  }
++
++  for (const auto &user : GV->users()) {
++    if (const auto instr = cast<Instruction>(user)) {
++      if (instr->getParent()->getParent() == F) {
++        return true;
++      }
++    }
++  }
++  return false;
++}
 +
 +static bool write_container(Module &M, raw_ostream &OS) {
 +  bool success = true;
@@ -15688,14 +15716,14 @@ index 0000000..bfed6cc
 +  OS.write((const char *)&container_version, sizeof(container_version));
 +
 +  // gather entry point functions that we want to clone/emit
-+  std::unordered_map<std::string, uint32_t> clone_functions;
-+  for (auto &F : M) {
++  std::unordered_set<const Function *> clone_functions;
++  for (const auto &F : M) {
 +    if (F.getCallingConv() != CallingConv::FLOOR_KERNEL &&
 +        F.getCallingConv() != CallingConv::FLOOR_VERTEX &&
 +        F.getCallingConv() != CallingConv::FLOOR_FRAGMENT) {
 +      continue;
 +    }
-+    clone_functions.emplace(F.getName().str(), F.getCallingConv());
++    clone_functions.emplace(&F);
 +  }
 +  // entry count
 +  const auto entry_count = uint32_t(clone_functions.size());
@@ -15706,17 +15734,17 @@ index 0000000..bfed6cc
 +  std::string spirv_data{""};
 +  raw_string_ostream spirv_stream(spirv_data);
 +
-+  for (const auto &entry : clone_functions) {
++  for (const auto &func : clone_functions) {
 +    // clone the module with the current entry point function and any global
 +    // vars that we need
 +    ValueToValueMapTy VMap;
-+    auto cloned_mod = CloneModule(&M, VMap, [&entry](const GlobalValue *GV) {
-+      if (isa<Function>(GV) && GV->hasName() && GV->getName() == entry.first) {
++    auto cloned_mod = CloneModule(&M, VMap, [&func](const GlobalValue *GV) {
++      if (GV == func) {
 +        return true;
 +      }
-+      // TODO: only clone global vars if they are needed in a specific function
-+      if (isa<GlobalVariable>(GV)) {
-+        return true;
++      // only clone global vars if they are needed in a specific function
++      if (const GlobalVariable *GVar = dyn_cast<GlobalVariable>(GV)) {
++        return is_used_in_function(func, GVar);
 +      }
 +      return false;
 +    });
@@ -15742,7 +15770,7 @@ index 0000000..bfed6cc
 +    // emit error if unsuccessful (still continue though)
 +    success &= module_success;
 +    if (!module_success) {
-+      errs() << "failed to write/translate module for \"" << entry.first
++      errs() << "failed to write/translate module for \"" << func->getName()
 +             << "\": " << err << "\n";
 +    }
 +  }
@@ -15752,10 +15780,10 @@ index 0000000..bfed6cc
 +  OS.write(spirv_data.c_str(), spirv_data.size());
 +
 +  // write per-module metadata
-+  for (const auto &entry : clone_functions) {
++  for (const auto &func : clone_functions) {
 +    // function types
 +    uint32_t function_type = 0;
-+    switch (entry.second) {
++    switch (func->getCallingConv()) {
 +    case CallingConv::FLOOR_KERNEL:
 +      function_type = 1;
 +      break;
@@ -15771,9 +15799,10 @@ index 0000000..bfed6cc
 +    OS.write((const char *)&function_type, sizeof(function_type));
 +
 +    // function names
-+    const auto name_len = (uint32_t)entry.first.size();
++    const auto name = func->getName().str();
++    const auto name_len = (uint32_t)name.size();
 +    const auto name_padding = 4u - (name_len % 4u);
-+    OS << entry.first.c_str();
++    OS << name.c_str();
 +    switch (name_padding) {
 +    case 4:
 +      OS << '\0';
@@ -15876,7 +15905,7 @@ index 0000000..701588c
 +#endif
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..91d333b
+index 0000000..8781a5e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
 @@ -0,0 +1,938 @@
@@ -15959,10 +15988,10 @@ index 0000000..91d333b
 +#define LLVM_MEMCPY "llvm.memcpy"
 +
 +namespace kOCLTypeQualifierName {
-+const static char *Const = "const";
-+const static char *Volatile = "volatile";
-+const static char *Restrict = "restrict";
-+const static char *Pipe = "pipe";
++__attribute__((used)) const static char *Const = "const";
++__attribute__((used)) const static char *Volatile = "volatile";
++__attribute__((used)) const static char *Restrict = "restrict";
++__attribute__((used)) const static char *Pipe = "pipe";
 +}
 +
 +template <> inline void SPIRVMap<unsigned, Op>::init() {
@@ -18044,10 +18073,10 @@ index 0000000..6ca20f3
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..ab9d05c
+index 0000000..d09a121
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
-@@ -0,0 +1,2731 @@
+@@ -0,0 +1,2732 @@
 +//===- SPIRVReader.cpp - Converts SPIR-V to LLVM ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -18234,7 +18263,8 @@ index 0000000..ab9d05c
 +public:
 +  SPIRVToLLVMDbgTran(SPIRVModule *TBM, Module *TM)
 +      : BM(TBM), M(TM), SpDbg(BM), Builder(*M) {
-+    Enable = BM->hasDebugInfo();
++    // TODO: OpLines are all over the place now -> better hasDebugInfo()
++    Enable = true; // always enable for now
 +  }
 +
 +  void createCompileUnit() {
@@ -21576,10 +21606,10 @@ index 0000000..fd1ee17
 +ModulePass *llvm::createSPIRVToOCL20() { return new SPIRVToOCL20(); }
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..c6ec732
+index 0000000..e42c2cf
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1408 @@
+@@ -0,0 +1,1410 @@
 +//===- SPIRVUtil.cpp - SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -22193,6 +22223,7 @@ index 0000000..c6ec732
 +  }
 +  auto NewCI = addCallInst(M, NewName, CI->getType(), Args, Attrs, CI, Mangle,
 +                           InstName, TakeFuncName);
++  NewCI->setDebugLoc(CI->getDebugLoc());
 +  DEBUG(dbgs() << " => " << *NewCI << '\n');
 +  CI->replaceAllUsesWith(NewCI);
 +  CI->dropAllReferences();
@@ -22220,6 +22251,7 @@ index 0000000..c6ec732
 +                           InstName + ".tmp", TakeFuncName);
 +  auto NewI = RetMutate(NewCI);
 +  NewI->takeName(CI);
++  NewI->setDebugLoc(CI->getDebugLoc());
 +  DEBUG(dbgs() << " => " << *NewI << '\n');
 +  CI->replaceAllUsesWith(NewI);
 +  CI->dropAllReferences();
@@ -22990,10 +23022,10 @@ index 0000000..c6ec732
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..1ae804e
+index 0000000..83962ac
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2899 @@
+@@ -0,0 +1,2925 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23126,28 +23158,45 @@ index 0000000..1ae804e
 +  void setModule(Module *Mod) { M = Mod; }
 +  void setSPIRVModule(SPIRVModule *SMod) { BM = SMod; }
 +
-+  void transDbgInfo(Value *V, SPIRVValue *BV) {
++  SPIRVInstruction *transDbgInfo(Value *V, SPIRVBasicBlock *BB) {
 +    if (auto I = dyn_cast<Instruction>(V)) {
++      if (BB == nullptr)
++        return nullptr;
 +      auto DL = I->getDebugLoc();
 +      if (DL) {
 +        DILocation *DIL = DL.get();
-+        auto File = BM->getString(DIL->getFilename().str());
-+        // TODO: SPIR-V rev.31 cannot add debug info for instructions without
-+        // ids.
-+        // This limitation needs to be addressed.
-+        if (!BV->hasId())
-+          return;
-+        BM->addLine(BV, File, DIL->getLine(), DIL->getColumn());
++
++        // for now, always try to emit debug line info at the source .cpp file
++        // TODO: add an option to specifically exclude certain files (e.g.
++        // libfloor header files)
++        for (;;) {
++          if (DIL->getFilename().endswith("cpp"))
++            break;
++          auto IDIL = DIL->getInlinedAt();
++          if (IDIL == nullptr)
++            break;
++          DIL = IDIL;
++        }
++
++        // always use an absolute file path
++        auto file_name = DIL->getFilename().str();
++        if (!file_name.empty() && file_name[0] != '/') {
++          file_name = DIL->getDirectory().str() + "/" + file_name;
++        }
++        auto File = BM->getString(file_name);
++
++        return BM->addLine(File, DIL->getLine(), DIL->getColumn(), BB);
 +      }
 +    }
 +#if 0 // TODO: subprogram <-> cu changes
 +	else if (auto F = dyn_cast<Function>(V)) {
 +      if (auto DIS = getDISubprogram(F)) {
 +        auto File = BM->getString(DIS->getFilename().str());
-+        BM->addLine(BV, File, DIS->getLine(), 0);
++        return BM->addLine(File, DIS->getLine(), 0, BB);
 +      }
 +	}
 +#endif
++    return nullptr;
 +  }
 +
 +private:
@@ -23210,7 +23259,7 @@ index 0000000..1ae804e
 +                                          bool CreateForward = true);
 +
 +  typedef DenseMap<Type *, SPIRVType *> LLVMToSPIRVTypeMap;
-+  typedef DenseMap<Value *, SPIRVValue *> LLVMToSPIRVValueMap;
++  typedef DenseMap<const Value *, SPIRVValue *> LLVMToSPIRVValueMap;
 +
 +private:
 +  Module *M;
@@ -23230,7 +23279,7 @@ index 0000000..1ae804e
 +    return BT;
 +  }
 +
-+  SPIRVValue *mapValue(Value *V, SPIRVValue *BV) {
++  SPIRVValue *mapValue(const Value *V, SPIRVValue *BV) {
 +    auto Loc = ValueMap.find(V);
 +    if (Loc != ValueMap.end()) {
 +      if (Loc->second == BV)
@@ -23716,12 +23765,12 @@ index 0000000..1ae804e
 +  // all shader/glsl entry points need special handling compared to normal and
 +  // kernel functions
 +  const auto entry_point_type = oclGetEntryPointType(F, SrcLang);
++  SPIRVFunction *BF = nullptr;
 +  if (entry_point_type == spv::ExecutionModel::ExecutionModelKernel ||
 +      entry_point_type == spv::ExecutionModel::ExecutionModelInvalid) {
 +    SPIRVTypeFunction *BFT = static_cast<SPIRVTypeFunction *>(
 +        transType(getAnalysis<OCLTypeToSPIRV>().getAdaptedType(F)));
-+    SPIRVFunction *BF =
-+        static_cast<SPIRVFunction *>(mapValue(F, BM->addFunction(BFT)));
++    BF = static_cast<SPIRVFunction *>(mapValue(F, BM->addFunction(BFT)));
 +    BF->setFunctionControlMask(transFunctionControlMask(F));
 +    if (F->hasName())
 +      BM->setName(BF, F->getName());
@@ -23758,7 +23807,6 @@ index 0000000..1ae804e
 +      BF->addDecorate(DecorationFuncParamAttr, FunctionParameterAttributeZext);
 +    if (Attrs.hasAttribute(AttributeSet::ReturnIndex, Attribute::SExt))
 +      BF->addDecorate(DecorationFuncParamAttr, FunctionParameterAttributeSext);
-+    DbgTran.transDbgInfo(F, BF);
 +    SPIRVDBG(dbgs() << "[transFunction (kernel)] " << *F << " => ";
 +             spvdbgs() << *BF << '\n';)
 +    return BF;
@@ -23768,17 +23816,16 @@ index 0000000..1ae804e
 +        llvm::FunctionType::get(llvm::Type::getVoidTy(*Ctx), false);
 +    SPIRVTypeFunction *BFT =
 +        static_cast<SPIRVTypeFunction *>(transType(shader_func_type));
-+    SPIRVFunction *BF =
-+        static_cast<SPIRVFunction *>(mapValue(F, BM->addFunction(BFT)));
++    BF = static_cast<SPIRVFunction *>(mapValue(F, BM->addFunction(BFT)));
 +    assert(F->hasName() && "entry point function must have a name");
 +    BM->setName(BF, F->getName());
 +    BM->addEntryPoint(entry_point_type, BF->getId());
 +    // NOTE: not handling/adding function parameters here
-+    DbgTran.transDbgInfo(F, BF);
 +    SPIRVDBG(dbgs() << "[transFunction (shader)] " << *F << " => ";
 +             spvdbgs() << *BF << '\n';)
-+    return BF;
 +  }
++  DbgTran.transDbgInfo(F, nullptr);
++  return BF;
 +}
 +
 +SPIRVValue *LLVMToSPIRV::transConstant(Value *V) {
@@ -23904,6 +23951,8 @@ index 0000000..1ae804e
 +          isa<CastInst>(V) || BB) &&
 +         "Invalid SPIRV BB");
 +
++  DbgTran.transDbgInfo(V, BB);
++  // TODO: OpNoLine when no debug info and currently in scope of OpLine
 +  auto BV = transValueWithoutDecoration(V, BB, CreateForward);
 +  std::string name = V->getName();
 +  if (!name.empty()) // Don't erase the name, which BM might already have
@@ -24282,7 +24331,6 @@ index 0000000..1ae804e
 +  if ((isa<AtomicCmpXchgInst>(V) && cast<AtomicCmpXchgInst>(V)->isVolatile()) ||
 +      (isa<AtomicRMWInst>(V) && cast<AtomicRMWInst>(V)->isVolatile()))
 +    BV->setVolatile(true);
-+  DbgTran.transDbgInfo(V, BV);
 +  return true;
 +}
 +
@@ -24535,17 +24583,24 @@ index 0000000..1ae804e
 +        new SPIRVDecorate(DecorationBinding, immutable_samplers, 0));
 +  }
 +
-+  for (auto I = M->global_begin(), E = M->global_end(); I != E; ++I) {
++  for (auto &GV : M->globals()) {
 +    // ignore any special vulkan globals used by functions (these will be
 +    // handled when translating the functions)
-+    if (I->hasName() && I->getName().find(".vulkan") != std::string::npos)
++    if (GV.hasName() && GV.getName().find(".vulkan") != std::string::npos)
 +      continue;
 +    // ignore any globals that need to be put into functions (map to function
 +    // storage class), these are handled later
 +    if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
-+            I->getType()->getAddressSpace())) == spv::StorageClassFunction)
++            GV.getType()->getAddressSpace())) == spv::StorageClassFunction)
 +      continue;
-+    if (!transValue(&*I, nullptr))
++    // ignore external globals
++    if (GV.getLinkage() == GlobalValue::ExternalLinkage ||
++        GV.getLinkage() == GlobalValue::AvailableExternallyLinkage ||
++        GV.getLinkage() == GlobalValue::PrivateLinkage ||
++        GV.getLinkage() == GlobalValue::ExternalWeakLinkage)
++      continue;
++
++    if (!transValue(&GV, nullptr))
 +      return false;
 +  }
 +  return true;
@@ -24749,7 +24804,7 @@ index 0000000..1ae804e
 +      BM->addVariable(mapped_type, false, spv::LinkageTypeInternal, nullptr,
 +                      GV.getName(), storage_class, nullptr));
 +  BM->setName(BVar, GV.getName().str());
-+  mapValue((Value *)&GV, BVar);
++  mapValue((const Value *)&GV, BVar);
 +
 +  if (global_type.is_builtin) {
 +    BVar->setBuiltin(builtin);
@@ -25542,6 +25597,9 @@ index 0000000..1ae804e
 +
 +    if (OC == OpNop)
 +      return nullptr;
++
++    // keep debug info
++    DbgTran.transDbgInfo(CI, BB);
 +
 +    Inst = transBuiltinToInstWithoutDecoration(OC, CI, BB);
 +  }
@@ -27554,10 +27612,10 @@ index 0000000..151779f
 +#endif /* SPIRVDECORATE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.cpp b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
 new file mode 100644
-index 0000000..fb4f304
+index 0000000..256febb
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
-@@ -0,0 +1,548 @@
+@@ -0,0 +1,514 @@
 +//===- SPIRVEntry.cpp - Base Class for SPIR-V Entities ----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -27800,20 +27858,6 @@ index 0000000..fb4f304
 +  SPIRVDBG(spvdbgs() << "[takeDecorates] " << Id << '\n';)
 +}
 +
-+void SPIRVEntry::setLine(SPIRVLine *L) {
-+  Line = L;
-+  L->setTargetId(Id);
-+  SPIRVDBG(spvdbgs() << "[setLine] " << *L << '\n';)
-+}
-+
-+void SPIRVEntry::takeLine(SPIRVEntry *E) {
-+  Line = E->Line;
-+  if (Line == nullptr)
-+    return;
-+  Line->setTargetId(Id);
-+  E->Line = nullptr;
-+}
-+
 +void SPIRVEntry::addMemberDecorate(const SPIRVMemberDecorate *Dec) {
 +  assert(canHaveMemberDecorates() &&
 +         MemberDecorates.find(Dec->getPair()) == MemberDecorates.end());
@@ -27844,7 +27888,6 @@ index 0000000..fb4f304
 +  Module->setName(this, E->getName());
 +  takeDecorates(E);
 +  takeMemberDecorates(E);
-+  takeLine(E);
 +  if (OpCode == OpFunction)
 +    static_cast<SPIRVFunction *>(this)->takeExecutionModes(E);
 +}
@@ -27993,25 +28036,6 @@ index 0000000..fb4f304
 +_SPIRV_IMP_ENCDEC2(SPIRVString, Id, Str)
 +_SPIRV_IMP_ENCDEC3(SPIRVMemberName, Target, MemberNumber, Str)
 +
-+void SPIRVLine::encode(spv_ostream &O) const {
-+  getEncoder(O) << Target << FileName << Line << Column;
-+}
-+
-+void SPIRVLine::decode(std::istream &I) {
-+  getDecoder(I) >> Target >> FileName >> Line >> Column;
-+  Module->addLine(getOrCreateTarget(), get<SPIRVString>(FileName), Line,
-+                  Column);
-+}
-+
-+void SPIRVLine::validate() const {
-+  assert(OpCode == OpLine);
-+  assert(WordCount == 5);
-+  assert(get<SPIRVEntry>(Target));
-+  assert(get<SPIRVEntry>(FileName)->getOpCode() == OpString);
-+  assert(Line != SPIRVWORD_MAX);
-+  assert(Column != SPIRVWORD_MAX);
-+}
-+
 +void SPIRVMemberName::validate() const {
 +  assert(OpCode == OpMemberName);
 +  assert(WordCount == getSizeInWords(Str) + FixedWC);
@@ -28108,10 +28132,10 @@ index 0000000..fb4f304
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..74b7311
+index 0000000..bf6c941
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,768 @@
+@@ -0,0 +1,728 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -28417,7 +28441,6 @@ index 0000000..74b7311
 +  void eraseMemberDecorate(SPIRVWord MemberNumber, Decoration Kind);
 +  void setHasNoId() { Attrib |= SPIRVEA_NOID; }
 +  void setId(SPIRVId TheId) { Id = TheId; }
-+  void setLine(SPIRVLine *);
 +  void setLinkageType(SPIRVLinkageTypeKind);
 +  void setModule(SPIRVModule *TheModule);
 +  void setName(const std::string &TheName);
@@ -28425,7 +28448,6 @@ index 0000000..74b7311
 +  void takeAnnotations(SPIRVForward *);
 +  void takeDecorates(SPIRVEntry *);
 +  void takeMemberDecorates(SPIRVEntry *);
-+  void takeLine(SPIRVEntry *);
 +
 +  /// After a SPIRV entry is created during reading SPIRV binary by default
 +  /// constructor, this function is called to allow the SPIRV entry to resize
@@ -28623,44 +28645,6 @@ index 0000000..74b7311
 +  std::string Str;
 +};
 +
-+class SPIRVLine : public SPIRVAnnotation<OpLine> {
-+public:
-+  static const SPIRVWord WC = 5;
-+  // Complete constructor
-+  SPIRVLine(const SPIRVEntry *TheTarget, SPIRVId TheFileName, SPIRVWord TheLine,
-+            SPIRVWord TheColumn)
-+      : SPIRVAnnotation(TheTarget, WC), FileName(TheFileName), Line(TheLine),
-+        Column(TheColumn) {
-+    validate();
-+  }
-+  // Incomplete constructor
-+  SPIRVLine()
-+      : FileName(SPIRVID_INVALID), Line(SPIRVWORD_MAX), Column(SPIRVWORD_MAX) {}
-+
-+  SPIRVWord getColumn() const { return Column; }
-+
-+  void setColumn(SPIRVWord column) { Column = column; }
-+
-+  SPIRVId getFileName() const { return FileName; }
-+
-+  const std::string &getFileNameStr() const {
-+    return get<SPIRVString>(FileName)->getStr();
-+  }
-+
-+  void setFileName(SPIRVId fileName) { FileName = fileName; }
-+
-+  SPIRVWord getLine() const { return Line; }
-+
-+  void setLine(SPIRVWord line) { Line = line; }
-+
-+protected:
-+  _SPIRV_DCL_ENCDEC
-+  void validate() const;
-+  SPIRVId FileName;
-+  SPIRVWord Line;
-+  SPIRVWord Column;
-+};
-+
 +class SPIRVExecutionMode : public SPIRVAnnotation<OpExecutionMode> {
 +public:
 +  // Complete constructor for LocalSize, LocalSizeHint
@@ -28805,9 +28789,9 @@ index 0000000..74b7311
 +// to be implemented.
 +// Each time a new class is implemented, remove the corresponding typedef.
 +// This is also an indication of how much work is left.
-+#define _SPIRV_OP(x, ...) typedef SPIRVEntryOpCodeOnly<Op##x> SPIRV##x;
++#define _SPIRV_OP(x) typedef SPIRVEntryOpCodeOnly<Op##x> SPIRV##x;
 +_SPIRV_OP(Nop)
-+_SPIRV_OP(SourceContinued, 2)
++_SPIRV_OP(SourceContinued)
 +_SPIRV_OP(TypeMatrix)
 +_SPIRV_OP(SpecConstantTrue)
 +_SPIRV_OP(SpecConstantFalse)
@@ -28858,19 +28842,19 @@ index 0000000..74b7311
 +_SPIRV_OP(EndStreamPrimitive)
 +_SPIRV_OP(LifetimeStart)
 +_SPIRV_OP(LifetimeStop)
-+_SPIRV_OP(ImageSparseSampleImplicitLod, 305)
-+_SPIRV_OP(ImageSparseSampleExplicitLod, 306)
-+_SPIRV_OP(ImageSparseSampleDrefImplicitLod, 307)
-+_SPIRV_OP(ImageSparseSampleDrefExplicitLod, 308)
-+_SPIRV_OP(ImageSparseSampleProjImplicitLod, 309)
-+_SPIRV_OP(ImageSparseSampleProjExplicitLod, 310)
-+_SPIRV_OP(ImageSparseSampleProjDrefImplicitLod, 311)
-+_SPIRV_OP(ImageSparseSampleProjDrefExplicitLod, 312)
-+_SPIRV_OP(ImageSparseFetch, 313)
-+_SPIRV_OP(ImageSparseGather, 314)
-+_SPIRV_OP(ImageSparseDrefGather, 315)
-+_SPIRV_OP(ImageSparseTexelsResident, 316)
-+_SPIRV_OP(NoLine, 317)
++_SPIRV_OP(ImageSparseSampleImplicitLod)
++_SPIRV_OP(ImageSparseSampleExplicitLod)
++_SPIRV_OP(ImageSparseSampleDrefImplicitLod)
++_SPIRV_OP(ImageSparseSampleDrefExplicitLod)
++_SPIRV_OP(ImageSparseSampleProjImplicitLod)
++_SPIRV_OP(ImageSparseSampleProjExplicitLod)
++_SPIRV_OP(ImageSparseSampleProjDrefImplicitLod)
++_SPIRV_OP(ImageSparseSampleProjDrefExplicitLod)
++_SPIRV_OP(ImageSparseFetch)
++_SPIRV_OP(ImageSparseGather)
++_SPIRV_OP(ImageSparseDrefGather)
++_SPIRV_OP(ImageSparseTexelsResident)
++_SPIRV_OP(NoLine)
 +_SPIRV_OP(TypeNamedBarrier)
 +_SPIRV_OP(NamedBarrierInitialize)
 +_SPIRV_OP(MemoryNamedBarrier)
@@ -30361,10 +30345,10 @@ index 0000000..dcffc52
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..6a27a9a
+index 0000000..95ba7b3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2032 @@
+@@ -0,0 +1,2081 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ --===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -31297,6 +31281,55 @@ index 0000000..6a27a9a
 +    assert(WordCount == 3);
 +    assert(OpCode == OC);
 +  }
++};
++
++class SPIRVLine : public SPIRVInstruction {
++public:
++  static const Op OC = OpLine;
++  // Complete constructor
++  SPIRVLine(SPIRVId TheFileName, SPIRVWord TheLine, SPIRVWord TheColumn,
++            SPIRVBasicBlock *TheBB)
++      : SPIRVInstruction(4, OC, TheBB), FileName(TheFileName), Line(TheLine),
++        Column(TheColumn) {
++    setHasNoId();
++    setHasNoType();
++    validate();
++  }
++  // Incomplete constructor
++  SPIRVLine()
++      : FileName(SPIRVID_INVALID), Line(SPIRVWORD_MAX), Column(SPIRVWORD_MAX) {
++    setHasNoId();
++    setHasNoType();
++  }
++
++  SPIRVWord getColumn() const { return Column; }
++
++  void setColumn(SPIRVWord column) { Column = column; }
++
++  SPIRVId getFileName() const { return FileName; }
++
++  const std::string &getFileNameStr() const {
++    return get<SPIRVString>(FileName)->getStr();
++  }
++
++  void setFileName(SPIRVId fileName) { FileName = fileName; }
++
++  SPIRVWord getLine() const { return Line; }
++
++  void setLine(SPIRVWord line) { Line = line; }
++
++protected:
++  _SPIRV_DEF_ENCDEC3(FileName, Line, Column)
++  void validate() const {
++    assert(OpCode == OpLine);
++    assert(WordCount == 4);
++    assert(get<SPIRVEntry>(FileName)->getOpCode() == OpString);
++    assert(Line != SPIRVWORD_MAX);
++    assert(Column != SPIRVWORD_MAX);
++  }
++  SPIRVId FileName;
++  SPIRVWord Line;
++  SPIRVWord Column;
 +};
 +
 +class SPIRVPhi : public SPIRVInstruction {
@@ -32399,10 +32432,10 @@ index 0000000..6a27a9a
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 0000000..d1a24ba
+index 0000000..b77bcc1
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
-@@ -0,0 +1,963 @@
+@@ -0,0 +1,967 @@
 +//===- SPIRVIsValidEnum.h - SPIR-V isValid enums ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -32454,8 +32487,10 @@ index 0000000..d1a24ba
 +#include "spirv.hpp"
 +#include "SPIRVEnum.h"
 +
++#if defined(__clang__)
 +#pragma clang diagnostic push
 +#pragma clang diagnostic ignored "-Wcovered-switch-default"
++#endif
 +
 +using namespace spv;
 +
@@ -33363,15 +33398,17 @@ index 0000000..d1a24ba
 +
 +} /* namespace SPIRV */
 +
++#if defined(__clang__)
 +#pragma clang diagnostic pop
++#endif
 +
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..c6db9d2
+index 0000000..b2cef11
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1680 @@
+@@ -0,0 +1,1671 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -33449,7 +33486,6 @@ index 0000000..c6db9d2
 +  bool exist(SPIRVId, SPIRVEntry **) const;
 +  SPIRVId getId(SPIRVId Id = SPIRVID_INVALID, unsigned Increment = 1);
 +  virtual SPIRVEntry *getEntry(SPIRVId Id) const;
-+  bool hasDebugInfo() const { return !LineVec.empty(); }
 +
 +  // Error handling functions
 +  SPIRVErrorLog &getErrorLog() { return ErrLog; }
@@ -33539,8 +33575,8 @@ index 0000000..c6db9d2
 +                                         const std::string &Name);
 +  virtual void addUnknownStructField(SPIRVTypeStruct *Struct, unsigned I,
 +                                     SPIRVId ID);
-+  virtual SPIRVLine *addLine(SPIRVEntry *E, SPIRVString *FileName,
-+                             SPIRVWord Line, SPIRVWord Column);
++  virtual SPIRVInstruction *addLine(SPIRVString *FileName, SPIRVWord Line,
++                                    SPIRVWord Column, SPIRVBasicBlock* BB);
 +  virtual void addCapability(SPIRVCapabilityKind);
 +  virtual void addCapabilityInternal(SPIRVCapabilityKind);
 +  virtual const SPIRVDecorateGeneric *addDecorate(const SPIRVDecorateGeneric *);
@@ -33742,7 +33778,6 @@ index 0000000..c6db9d2
 +  typedef std::vector<SPIRVVariable *> SPIRVVariableVec;
 +  typedef std::vector<SPIRVString *> SPIRVStringVec;
 +  typedef std::vector<SPIRVMemberName *> SPIRVMemberNameVec;
-+  typedef std::vector<SPIRVLine *> SPIRVLineVec;
 +  typedef std::vector<SPIRVDecorationGroup *> SPIRVDecGroupVec;
 +  typedef std::vector<SPIRVGroupDecorateGeneric *> SPIRVGroupDecVec;
 +  typedef std::map<SPIRVId, SPIRVExtInstSetKind> SPIRVIdToBuiltinSetMap;
@@ -33763,7 +33798,6 @@ index 0000000..c6db9d2
 +  SPIRVIdSet NamedId;
 +  SPIRVStringVec StringVec;
 +  SPIRVMemberNameVec MemberNameVec;
-+  SPIRVLineVec LineVec;
 +  SPIRVDecorateSet DecorateSet;
 +  SPIRVDecGroupVec DecGroupVec;
 +  SPIRVGroupDecVec GroupDecVec;
@@ -33796,11 +33830,10 @@ index 0000000..c6db9d2
 +    delete C.second;
 +}
 +
-+SPIRVLine *SPIRVModuleImpl::addLine(SPIRVEntry *E, SPIRVString *FileName,
-+                                    SPIRVWord Line, SPIRVWord Column) {
-+  auto L = add(new SPIRVLine(E, FileName->getId(), Line, Column));
-+  E->setLine(L);
-+  return L;
++SPIRVInstruction *SPIRVModuleImpl::addLine(SPIRVString *FileName,
++                                           SPIRVWord Line, SPIRVWord Column,
++                                           SPIRVBasicBlock* BB) {
++  return BB->addInstruction(new SPIRVLine(FileName->getId(), Line, Column, BB));
 +}
 +
 +// Creates decoration group and group decorates from decorates shared by
@@ -33912,9 +33945,6 @@ index 0000000..c6db9d2
 +    break;
 +  case OpMemberName:
 +    addTo(MemberNameVec, E);
-+    break;
-+  case OpLine:
-+    addTo(LineVec, E);
 +    break;
 +  case OpVariable: {
 +    auto BV = static_cast<SPIRVVariable *>(E);
@@ -34550,8 +34580,6 @@ index 0000000..c6db9d2
 +        addIntegerConstant((SPIRVTypeInt *)Indices[0]->getType(), 0));
 +  } else if (Indices.size() > 1) {
 +    // if it's not a run-time array access, remove the first (0) index
-+    // TODO: actually make this work for double-GEPs by fusing these with their
-+    // users
 +    Indices.erase(Indices.begin());
 +  }
 +  return addInstruction(
@@ -34803,7 +34831,7 @@ index 0000000..c6db9d2
 +    M.getEntry(I)->encodeName(O);
 +  }
 +
-+  O << MI.MemberNameVec << MI.LineVec << MI.DecGroupVec << MI.DecorateSet
++  O << MI.MemberNameVec << MI.DecGroupVec << MI.DecorateSet
 +    << MI.GroupDecVec << MI.ForwardPointerVec
 +    << TopologicalSort(MI.TypeVec, MI.ConstVec, MI.VariableVec,
 +                       MI.ForwardPointerVec)
@@ -35054,10 +35082,10 @@ index 0000000..c6db9d2
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..71db2cc
+index 0000000..06996d3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,401 @@
+@@ -0,0 +1,400 @@
 +//===- SPIRVModule.h - Class to represent a SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35162,7 +35190,6 @@ index 0000000..71db2cc
 +    return static_cast<T *>(getEntry(Id));
 +  }
 +  virtual SPIRVEntry *getEntry(SPIRVId) const = 0;
-+  virtual bool hasDebugInfo() const = 0;
 +
 +  // Error handling functions
 +  virtual SPIRVErrorLog &getErrorLog() = 0;
@@ -35237,8 +35264,8 @@ index 0000000..71db2cc
 +                                         const std::string &Name) = 0;
 +  virtual void addUnknownStructField(SPIRVTypeStruct *, unsigned idx,
 +                                     SPIRVId id) = 0;
-+  virtual SPIRVLine *addLine(SPIRVEntry *E, SPIRVString *FileName,
-+                             SPIRVWord Line, SPIRVWord Column) = 0;
++  virtual SPIRVInstruction *addLine(SPIRVString *FileName, SPIRVWord Line,
++                                    SPIRVWord Column, SPIRVBasicBlock* BB) = 0;
 +  virtual const SPIRVDecorateGeneric *
 +  addDecorate(const SPIRVDecorateGeneric *) = 0;
 +  virtual SPIRVDecorationGroup *addDecorationGroup() = 0;
@@ -46724,10 +46751,10 @@ index 0000000..9366898
 +
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..4bebcc8
+index 0000000..8377337
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
-@@ -0,0 +1,313 @@
+@@ -0,0 +1,317 @@
 +//===- SPIRFinal.cpp - OpenCL/SPIR fixes ----------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -46881,11 +46908,14 @@ index 0000000..4bebcc8
 +			llvm::Value* dst_vec = UndefValue::get(si_type);
 +			
 +			// iterate over all vector components, emit a scalar instruction and insert into a new vector
++			auto DL = I.getDebugLoc();
 +			for(uint32_t i = 0; i < dim; ++i) {
 +				auto scalar = builder->CreateExtractElement(src_vec, builder->getInt32(i));
 +				dst_vec = builder->CreateInsertElement(dst_vec,
 +													   builder->CreateCast(cast_op, scalar, si_scalar_type),
 +													   builder->getInt32(i));
++				((ExtractElementInst*)scalar)->setDebugLoc(DL);
++				((InsertElementInst*)dst_vec)->setDebugLoc(DL);
 +			}
 +			
 +			// finally, replace all uses with the new vector and remove the old vec instruction
@@ -46940,7 +46970,8 @@ index 0000000..4bebcc8
 +			if(ashr && ashr->isExact()) {
 +				// -> replace with a non-exact version
 +				builder->SetInsertPoint(&O);
-+				auto* new_ashr = builder->CreateAShr(O.getOperand(0), O.getOperand(1));
++				auto new_ashr = builder->CreateAShr(O.getOperand(0), O.getOperand(1));
++				((Instruction*)new_ashr)->setDebugLoc(O.getDebugLoc());
 +				O.replaceAllUsesWith(new_ashr);
 +				O.eraseFromParent();
 +				was_modified = true;
@@ -50575,10 +50606,10 @@ index 0000000..cadb3f0
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..40887e4
+index 0000000..92d0449
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,548 @@
+@@ -0,0 +1,556 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -50842,6 +50873,7 @@ index 0000000..40887e4
 +									   if(isa<LoadInst>(instr)) {
 +										   auto elem_gep = llvm::GetElementPtrInst::CreateInBounds(&arg, idx_list, "", instr);
 +										   auto repl_instr = new LoadInst(elem_gep, instr->getName(), false, instr);
++										   repl_instr->setDebugLoc(instr->getDebugLoc());
 +										   instr->replaceAllUsesWith(repl_instr);
 +										   instr->eraseFromParent();
 +									   }
@@ -51039,6 +51071,11 @@ index 0000000..40887e4
 +			const auto ret_type = ret_val->getType();
 +			if(ret_val == nullptr) return;
 +			
++			DebugLoc DL;
++			if(auto ret_instr = dyn_cast<Instruction>(ret_val)) {
++				DL = ret_instr->getDebugLoc();
++			}
++			
 +			const auto get_output_var = [this](uint32_t& idx) -> GlobalValue* {
 +				const auto name = func->getName().str() + ".vulkan_output." + std::to_string(idx++);
 +				auto output_var = M->getNamedValue(name);
@@ -51059,14 +51096,16 @@ index 0000000..40887e4
 +					
 +					SmallVector<uint32_t, 1> idx_list { ret_idx - 1 };
 +					auto st_extract = ExtractValueInst::Create(ret_val, idx_list, "ret.extract", &RI);
-+					new StoreInst(st_extract, output_var, false, &RI);
++					auto st = new StoreInst(st_extract, output_var, false, &RI);
++					if(DL) st->setDebugLoc(DL);
 +				}
 +			}
 +			else {
 +				// else: array, scalars, vectors -> direct store
 +				auto output_var = get_output_var(ret_idx);
 +				if(output_var == nullptr) return;
-+				new StoreInst(ret_val, output_var, false, &RI);
++				auto st = new StoreInst(ret_val, output_var, false, &RI);
++				if(DL) st->setDebugLoc(DL);
 +			}
 +			
 +			// clear return
