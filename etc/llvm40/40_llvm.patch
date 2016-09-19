@@ -15612,7 +15612,7 @@ index 0000000..b876bd1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 new file mode 100644
-index 0000000..f538e78
+index 0000000..183e0b2
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 @@ -0,0 +1,231 @@
@@ -15698,7 +15698,7 @@ index 0000000..f538e78
 +  }
 +
 +  for (const auto &user : GV->users()) {
-+    if (const auto instr = cast<Instruction>(user)) {
++    if (const auto instr = dyn_cast<Instruction>(user)) {
 +      if (instr->getParent()->getParent() == F) {
 +        return true;
 +      }
@@ -23022,7 +23022,7 @@ index 0000000..e42c2cf
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..83962ac
+index 0000000..975b1e9
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -0,0 +1,2925 @@
@@ -25452,7 +25452,7 @@ index 0000000..83962ac
 +            GV.getType()->getAddressSpace())) == spv::StorageClassFunction) {
 +      bool is_used_in_function = false;
 +      for (const auto &user : GV.users()) {
-+        if (const auto instr = cast<Instruction>(user)) {
++        if (const auto instr = dyn_cast<Instruction>(user)) {
 +          if (instr->getParent()->getParent() == F) {
 +            is_used_in_function = true;
 +            break;
