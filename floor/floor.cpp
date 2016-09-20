@@ -254,6 +254,8 @@ bool floor::init(const init_state& state) {
 	if(config_doc.valid) {
 		config.width = config_doc.get<uint32_t>("screen.width", 1280);
 		config.height = config_doc.get<uint32_t>("screen.height", 720);
+		config.position.x = config_doc.get<int32_t>("screen.position.x", SDL_WINDOWPOS_UNDEFINED);
+		config.position.y = config_doc.get<int32_t>("screen.position.y", SDL_WINDOWPOS_UNDEFINED);
 		config.fullscreen = config_doc.get<bool>("screen.fullscreen", false);
 		config.vsync = config_doc.get<bool>("screen.vsync", false);
 		config.stereo = config_doc.get<bool>("screen.stereo", false);
@@ -708,11 +710,18 @@ bool floor::init_internal(const init_state& state) {
 		
 		config.flags |= SDL_WINDOW_ALLOW_HIGHDPI; // allow by default, disable later if necessary
 #if !defined(FLOOR_IOS)
-		int2 windows_pos(SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+		auto window_pos = state.window_position;
+		if(config.position.x != SDL_WINDOWPOS_UNDEFINED) {
+			window_pos.x = config.position.x;
+		}
+		if(config.position.y != SDL_WINDOWPOS_UNDEFINED) {
+			window_pos.y = config.position.y;
+		}
+		
 		if(config.fullscreen) {
 			config.flags |= SDL_WINDOW_FULLSCREEN;
 			config.flags |= SDL_WINDOW_BORDERLESS;
-			windows_pos.set(0, 0);
+			window_pos = 0;
 			log_debug("fullscreen enabled");
 		}
 		else {
@@ -782,7 +791,7 @@ bool floor::init_internal(const init_state& state) {
 		
 		// create screen
 #if !defined(FLOOR_IOS)
-		window = SDL_CreateWindow(app_name.c_str(), windows_pos.x, windows_pos.y, (int)config.width, (int)config.height, config.flags);
+		window = SDL_CreateWindow(app_name.c_str(), window_pos.x, window_pos.y, (int)config.width, (int)config.height, config.flags);
 #else
 		window = SDL_CreateWindow(app_name.c_str(), 0, 0, (int)config.width, (int)config.height, config.flags);
 #endif

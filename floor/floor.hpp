@@ -89,6 +89,13 @@ public:
 			SDL_WINDOW_FULLSCREEN
 #endif
 		};
+		
+		//! the position the window should be created at
+		//! NOTE: this can be overwritten by the config
+		int2 window_position {
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED
+		};
 	};
 	static bool init(const init_state& state);
 	static void destroy();
@@ -298,6 +305,7 @@ protected:
 	static struct floor_config {
 		// screen
 		uint32_t width = 1280, height = 720, dpi = 0;
+		int2 position { SDL_WINDOWPOS_UNDEFINED };
 		bool fullscreen = false, vsync = false, stereo = false, hidpi = false;
 		
 		// audio

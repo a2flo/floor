@@ -402,7 +402,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 		}
 		if(device->device_mem_index == device->host_mem_cached_index ||
 		   device->device_mem_index == device->host_mem_uncached_index) {
-			device->unified_memory = true;
+			//device->unified_memory = true; // TODO: -> vulkan_memory.cpp
 		}
 		
 		log_msg("max mem alloc: %u bytes / %u MB",

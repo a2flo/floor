@@ -180,11 +180,38 @@ void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue>
 			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
 		}
 		else {
-			// TODO
+			// TODO: make this actually work
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("dev -> host memory barrier");
+			const VkCommandBufferBeginInfo begin_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+				.pNext = nullptr,
+				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+				.pInheritanceInfo = nullptr,
+			};
+			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+						"failed to begin command buffer", nullptr);
+			
+			const VkBufferMemoryBarrier buffer_barrier {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				.pNext = nullptr,
+				.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT,
+				.dstAccessMask = VK_ACCESS_HOST_READ_BIT | (does_write ? VK_ACCESS_HOST_WRITE_BIT : 0),
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.buffer = mapping.buffer,
+				.offset = mapping.offset,
+				.size = mapping.size,
+			};
+			
+			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT,
+								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+			
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer", nullptr);
+			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, blocking_map);
 		}
 	}
 	
-	// TODO: use vkFlushMappedMemoryRanges/vkInvalidateMappedMemoryRanges if possible
+	// TODO: use vkFlushMappedMemoryRanges/vkInvalidateMappedMemoryRanges if necessary (non-coherent)
 	
 	// map the host buffer
 	void* __attribute__((aligned(128))) host_ptr { nullptr };
@@ -242,15 +269,51 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 				((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
 			} while(false);
 		}
-		else {
-			// TODO: flush?
-		}
 	}
 	
 	// unmap
 	// TODO/NOTE: we can only unmap the whole buffer with vulkan, not individual mappings ... -> can only unmap if this is the last mapping (if unified_memory, if the buffer was just created/allocated for this, then it doesn't matter)
 	// also: TODO: SYNC!
 	vkUnmapMemory(vulkan_dev, iter->second.mem);
+	
+	// barrier after unmap when using unified memory
+	// TODO: make this actually work
+	if(has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+	   has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags)) {
+		if(device->unified_memory && !is_image) {
+			auto cmd_buffer = ((vulkan_queue*)cqueue.get())->make_command_buffer("host -> dev memory barrier");
+			const VkCommandBufferBeginInfo begin_info {
+				.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+				.pNext = nullptr,
+				.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+				.pInheritanceInfo = nullptr,
+			};
+			VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+						"failed to begin command buffer");
+			
+			const VkBufferMemoryBarrier buffer_barrier {
+				.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER,
+				.pNext = nullptr,
+				.srcAccessMask = (VK_ACCESS_HOST_WRITE_BIT |
+								  (has_flag<COMPUTE_MEMORY_MAP_FLAG::READ>(iter->second.flags) ? VK_ACCESS_HOST_READ_BIT : 0)),
+				.dstAccessMask = (VK_ACCESS_MEMORY_READ_BIT |
+								  VK_ACCESS_MEMORY_WRITE_BIT |
+								  VK_ACCESS_SHADER_READ_BIT |
+								  VK_ACCESS_SHADER_WRITE_BIT),
+				.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+				.buffer = iter->second.buffer,
+				.offset = iter->second.offset,
+				.size = iter->second.size,
+			};
+			
+			vkCmdPipelineBarrier(cmd_buffer.cmd_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+								 0, 0, nullptr, 1, &buffer_barrier, 0, nullptr);
+			
+			VK_CALL_RET(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");
+			((vulkan_queue*)cqueue.get())->submit_command_buffer(cmd_buffer, has_flag<COMPUTE_MEMORY_MAP_FLAG::BLOCK>(iter->second.flags));
+		}
+	}
 	
 	// delete host buffer
 	if(!device->unified_memory || is_image) {
