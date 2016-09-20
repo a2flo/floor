@@ -23022,10 +23022,10 @@ index 0000000..e42c2cf
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..975b1e9
+index 0000000..a4bdfb8
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2925 @@
+@@ -0,0 +1,2940 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23745,17 +23745,18 @@ index 0000000..975b1e9
 +}
 +
 +SPIRVFunction *LLVMToSPIRV::transFunctionDecl(Function *F) {
-+  // we don't actually want to translate/emit function declarations when the
-+  // function only is a declaration, not a definition
-+  if (F->isDeclaration())
++  // don't translate/emit entry point declarations when the function only is a
++  // declaration, not a definition
++  if (F->isDeclaration() && F->getCallingConv() != CallingConv::FLOOR_FUNC)
 +    return nullptr;
 +
 +  // skip any floor.* functions, these shouldn't be here
 +  if (F->getName().startswith("floor."))
 +    return nullptr;
 +
-+  // ignore any non-entry-point functions
-+  if (F->getCallingConv() == CallingConv::FLOOR_FUNC)
++  // ignore any non-entry-point functions in shader mode
++  if (SrcLang == spv::SourceLanguageGLSL &&
++      F->getCallingConv() == CallingConv::FLOOR_FUNC)
 +    return nullptr;
 +
 +  // return already translated value
@@ -24462,7 +24463,21 @@ index 0000000..975b1e9
 +
 +  // TODO: put this into an extra function + use lut
 +  if (MangledName.startswith("floor.")) {
-+    if (MangledName == "floor.discard_fragment") {
++    // keep debug info
++    DbgTran.transDbgInfo(CI, BB);
++
++    if (MangledName == "floor.dfdx.f32" || MangledName == "floor.dfdy.f32" ||
++        MangledName == "floor.fwidth.f32") {
++      auto OC = spv::OpDPdx;
++      if (MangledName == "floor.dfdy.f32")
++        OC = spv::OpDPdy;
++      if (MangledName == "floor.fwidth.f32")
++        OC = spv::OpFwidth;
++      assert(CI->getArgOperand(0)->getType() == CI->getType() &&
++             "invalid derivative type");
++      return BM->addDerivativeInst(OC, transValue(CI->getArgOperand(0), BB),
++                                   BB);
++    } else if (MangledName == "floor.discard_fragment") {
 +      // since "discard" can't be modelled as a single noreturn +
 +      // unreachable-after-call instruction right now, but must add an
 +      // "additional" unreachable instead, we need to get rid of (ignore) the
@@ -28132,10 +28147,10 @@ index 0000000..256febb
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..bf6c941
+index 0000000..098cb0e
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,728 @@
+@@ -0,0 +1,719 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -28827,15 +28842,6 @@ index 0000000..bf6c941
 +_SPIRV_OP(BitFieldUExtract)
 +_SPIRV_OP(BitReverse)
 +_SPIRV_OP(BitCount)
-+_SPIRV_OP(DPdx)
-+_SPIRV_OP(DPdy)
-+_SPIRV_OP(Fwidth)
-+_SPIRV_OP(DPdxFine)
-+_SPIRV_OP(DPdyFine)
-+_SPIRV_OP(FwidthFine)
-+_SPIRV_OP(DPdxCoarse)
-+_SPIRV_OP(DPdyCoarse)
-+_SPIRV_OP(FwidthCoarse)
 +_SPIRV_OP(EmitVertex)
 +_SPIRV_OP(EndPrimitive)
 +_SPIRV_OP(EmitStreamVertex)
@@ -30345,10 +30351,10 @@ index 0000000..dcffc52
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..95ba7b3
+index 0000000..cd70d75
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2081 @@
+@@ -0,0 +1,2112 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ --===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -31630,6 +31636,37 @@ index 0000000..95ba7b3
 +_SPIRV_OP(SignBitSet)
 +_SPIRV_OP(Any)
 +_SPIRV_OP(All)
++#undef _SPIRV_OP
++
++template <Op OC_> class SPIRVDerivativeInst : public SPIRVInstruction {
++public:
++  const static Op OC = OC_;
++  // Complete constructor
++  SPIRVDerivativeInst(SPIRVId TheId, SPIRVValue *PVal, SPIRVBasicBlock *TheBB)
++      : SPIRVInstruction(4, OC, PVal->getType(), TheId, TheBB),
++        PId(PVal->getId()) {
++    validate();
++    assert(TheBB && "Invalid BB");
++  }
++  // Incomplete constructor
++  SPIRVDerivativeInst() : SPIRVInstruction(OC), PId(SPIRVID_INVALID) {}
++
++protected:
++  _SPIRV_DEF_ENCDEC3(Type, Id, PId)
++  void validate() const { SPIRVInstruction::validate(); }
++  SPIRVId PId;
++};
++
++#define _SPIRV_OP(x) typedef SPIRVDerivativeInst<Op##x> SPIRV##x;
++_SPIRV_OP(DPdx)
++_SPIRV_OP(DPdy)
++_SPIRV_OP(Fwidth)
++_SPIRV_OP(DPdxFine)
++_SPIRV_OP(DPdyFine)
++_SPIRV_OP(FwidthFine)
++_SPIRV_OP(DPdxCoarse)
++_SPIRV_OP(DPdyCoarse)
++_SPIRV_OP(FwidthCoarse)
 +#undef _SPIRV_OP
 +
 +class SPIRVAccessChainBase : public SPIRVInstTemplateBase {
@@ -33405,10 +33442,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..b2cef11
+index 0000000..9112ee4
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1671 @@
+@@ -0,0 +1,1700 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -33457,6 +33494,7 @@ index 0000000..b2cef11
 +#include "SPIRVFunction.h"
 +#include "SPIRVInstruction.h"
 +#include "SPIRVStream.h"
++#include "llvm/Support/ErrorHandling.h"
 +
 +#include <set>
 +#include <unordered_map>
@@ -33576,7 +33614,7 @@ index 0000000..b2cef11
 +  virtual void addUnknownStructField(SPIRVTypeStruct *Struct, unsigned I,
 +                                     SPIRVId ID);
 +  virtual SPIRVInstruction *addLine(SPIRVString *FileName, SPIRVWord Line,
-+                                    SPIRVWord Column, SPIRVBasicBlock* BB);
++                                    SPIRVWord Column, SPIRVBasicBlock *BB);
 +  virtual void addCapability(SPIRVCapabilityKind);
 +  virtual void addCapabilityInternal(SPIRVCapabilityKind);
 +  virtual const SPIRVDecorateGeneric *addDecorate(const SPIRVDecorateGeneric *);
@@ -33748,6 +33786,8 @@ index 0000000..b2cef11
 +                                             SPIRVBasicBlock *BB);
 +  virtual SPIRVInstruction *addSelectionMergeInst(SPIRVBasicBlock *merge,
 +                                                  SPIRVBasicBlock *BB);
++  virtual SPIRVInstruction *addDerivativeInst(Op op, SPIRVValue *p,
++                                              SPIRVBasicBlock *BB);
 +
 +  // I/O functions
 +  friend spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M);
@@ -33832,7 +33872,7 @@ index 0000000..b2cef11
 +
 +SPIRVInstruction *SPIRVModuleImpl::addLine(SPIRVString *FileName,
 +                                           SPIRVWord Line, SPIRVWord Column,
-+                                           SPIRVBasicBlock* BB) {
++                                           SPIRVBasicBlock *BB) {
 +  return BB->addInstruction(new SPIRVLine(FileName->getId(), Line, Column, BB));
 +}
 +
@@ -34676,6 +34716,32 @@ index 0000000..b2cef11
 +      new SPIRVSelectionMerge(merge, spv::SelectionControlMaskNone, BB), BB);
 +}
 +
++SPIRVInstruction *SPIRVModuleImpl::addDerivativeInst(Op op, SPIRVValue *p,
++                                                     SPIRVBasicBlock *BB) {
++  switch (op) {
++  case spv::OpDPdx:
++    return addInstruction(new SPIRVDPdx(getId(), p, BB), BB);
++  case spv::OpDPdxFine:
++    return addInstruction(new SPIRVDPdxFine(getId(), p, BB), BB);
++  case spv::OpDPdxCoarse:
++    return addInstruction(new SPIRVDPdxCoarse(getId(), p, BB), BB);
++  case spv::OpDPdy:
++    return addInstruction(new SPIRVDPdy(getId(), p, BB), BB);
++  case spv::OpDPdyFine:
++    return addInstruction(new SPIRVDPdyFine(getId(), p, BB), BB);
++  case spv::OpDPdyCoarse:
++    return addInstruction(new SPIRVDPdyCoarse(getId(), p, BB), BB);
++  case spv::OpFwidth:
++    return addInstruction(new SPIRVFwidth(getId(), p, BB), BB);
++  case spv::OpFwidthFine:
++    return addInstruction(new SPIRVFwidthFine(getId(), p, BB), BB);
++  case spv::OpFwidthCoarse:
++    return addInstruction(new SPIRVFwidthCoarse(getId(), p, BB), BB);
++  default:
++    llvm_unreachable("invalid derivative opcode");
++  }
++}
++
 +template <class T>
 +spv_ostream &operator<<(spv_ostream &O, const std::vector<T *> &V) {
 +  for (auto &I : V)
@@ -34831,8 +34897,8 @@ index 0000000..b2cef11
 +    M.getEntry(I)->encodeName(O);
 +  }
 +
-+  O << MI.MemberNameVec << MI.DecGroupVec << MI.DecorateSet
-+    << MI.GroupDecVec << MI.ForwardPointerVec
++  O << MI.MemberNameVec << MI.DecGroupVec << MI.DecorateSet << MI.GroupDecVec
++    << MI.ForwardPointerVec
 +    << TopologicalSort(MI.TypeVec, MI.ConstVec, MI.VariableVec,
 +                       MI.ForwardPointerVec)
 +    << SPIRVNL() << MI.FuncVec;
@@ -35082,10 +35148,10 @@ index 0000000..b2cef11
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..06996d3
+index 0000000..9dda15c
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,400 @@
+@@ -0,0 +1,402 @@
 +//===- SPIRVModule.h - Class to represent a SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35265,7 +35331,7 @@ index 0000000..06996d3
 +  virtual void addUnknownStructField(SPIRVTypeStruct *, unsigned idx,
 +                                     SPIRVId id) = 0;
 +  virtual SPIRVInstruction *addLine(SPIRVString *FileName, SPIRVWord Line,
-+                                    SPIRVWord Column, SPIRVBasicBlock* BB) = 0;
++                                    SPIRVWord Column, SPIRVBasicBlock *BB) = 0;
 +  virtual const SPIRVDecorateGeneric *
 +  addDecorate(const SPIRVDecorateGeneric *) = 0;
 +  virtual SPIRVDecorationGroup *addDecorationGroup() = 0;
@@ -35446,6 +35512,8 @@ index 0000000..06996d3
 +                                             SPIRVBasicBlock *BB) = 0;
 +  virtual SPIRVInstruction *addSelectionMergeInst(SPIRVBasicBlock *merge,
 +                                                  SPIRVBasicBlock *BB) = 0;
++  virtual SPIRVInstruction *addDerivativeInst(Op op, SPIRVValue *p,
++                                              SPIRVBasicBlock *BB) = 0;
 +
 +  // I/O functions
 +  friend spv_ostream &operator<<(spv_ostream &O, SPIRVModule &M);
