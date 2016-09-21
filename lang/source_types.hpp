@@ -171,16 +171,16 @@ enum class SOURCE_TOKEN_TYPE : uint32_t {
 	__SUB_TYPE_MASK				= (0xFFFFu)
 };
 constexpr SOURCE_TOKEN_TYPE operator&(const SOURCE_TOKEN_TYPE& e0, const SOURCE_TOKEN_TYPE& e1) {
-	return (SOURCE_TOKEN_TYPE)((typename underlying_type<SOURCE_TOKEN_TYPE>::type)e0 &
-							   (typename underlying_type<SOURCE_TOKEN_TYPE>::type)e1);
+	return (SOURCE_TOKEN_TYPE)((underlying_type_t<SOURCE_TOKEN_TYPE>)e0 &
+							   (underlying_type_t<SOURCE_TOKEN_TYPE>)e1);
 }
 constexpr SOURCE_TOKEN_TYPE& operator&=(SOURCE_TOKEN_TYPE& e0, const SOURCE_TOKEN_TYPE& e1) {
 	e0 = e0 & e1;
 	return e0;
 }
 constexpr SOURCE_TOKEN_TYPE operator|(const SOURCE_TOKEN_TYPE& e0, const SOURCE_TOKEN_TYPE& e1) {
-	return (SOURCE_TOKEN_TYPE)((typename underlying_type<SOURCE_TOKEN_TYPE>::type)e0 |
-							   (typename underlying_type<SOURCE_TOKEN_TYPE>::type)e1);
+	return (SOURCE_TOKEN_TYPE)((underlying_type_t<SOURCE_TOKEN_TYPE>)e0 |
+							   (underlying_type_t<SOURCE_TOKEN_TYPE>)e1);
 }
 constexpr SOURCE_TOKEN_TYPE& operator|=(SOURCE_TOKEN_TYPE& e0, const SOURCE_TOKEN_TYPE& e1) {
 	e0 = e0 | e1;

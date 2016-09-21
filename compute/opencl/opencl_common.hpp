@@ -466,7 +466,7 @@ F(cl_event, cl_profiling_info, clGetEventProfilingInfo, FLOOR_CI_NO_ADD, FLOOR_C
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   !is_vector<typename cl_info_type<info_type>::type>::value && \
+					   !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \
@@ -477,7 +477,7 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additiona
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
 					   is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   !is_vector<typename cl_info_type<info_type>::type>::value && \
+					   !ext::is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	size_t buf_size = 0; \
@@ -489,7 +489,7 @@ typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additiona
 template <cl_uint info_type, \
 		  enable_if_t<(cl_is_valid_info_type<obj_type, info_type>::value && \
 					   !is_same<typename cl_info_type<info_type>::type, string>::value && \
-					   is_vector<typename cl_info_type<info_type>::type>::value && \
+					   ext::is_vector<typename cl_info_type<info_type>::type>::value && \
 					   make_const_string(#cl_info_typename).hash() == cl_info_type<info_type>::info_hash), int> = 0> \
 typename cl_info_type<info_type>::type cl_get_info(const obj_type& obj additional_args() additional_input_args() ) { \
 	typedef typename cl_info_type<info_type>::type ret_type; \

@@ -180,7 +180,20 @@ public:
 #if !defined(_MSC_VER)
 	template <typename vec_type, typename = void> struct clang_vector_type_spec {};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<vec_type::has_clang_vector_type()>> {
-		typedef scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
+		// special handling for half/fp16 types
+#if !defined(FLOOR_GRAPHICS_HOST)
+		typedef scalar_type clang_scalar_type;
+#else
+		typedef conditional_t<!is_same<scalar_type, half>(), scalar_type,
+#if FLOOR_HAS_NATIVE_FP16 == 1
+							  __fp16
+#else
+							  uint16_t
+#endif
+							  > clang_scalar_type;
+#endif
+		
+		typedef clang_scalar_type clang_vector_type __attribute__((ext_vector_type(FLOOR_VECTOR_WIDTH)));
 	};
 	template <typename vec_type> struct clang_vector_type_spec<vec_type, enable_if_t<!vec_type::has_clang_vector_type()>> {
 		// would usually use void here, but this makes certain use cases impossible (no void&), even if it is disabled
@@ -196,7 +209,7 @@ public:
 	
 	//! type of the scalar interpolator when doing linear/cubic/catmull-rom interpolation
 	//! NOTE: defaults to float for all non-floating-point types
-	typedef conditional_t<is_floating_point<decayed_scalar_type>::value, decayed_scalar_type, float> interpolation_scalar_type;
+	typedef conditional_t<ext::is_floating_point_v<decayed_scalar_type>, decayed_scalar_type, float> interpolation_scalar_type;
 	//! type of the vector interpolator when doing linear/cubic/catmull-rom interpolation
 	typedef FLOOR_VECNAME<interpolation_scalar_type> interpolation_vector_type;
 	
@@ -441,13 +454,13 @@ public:
 	__attribute__((enable_if(index >= FLOOR_VECTOR_WIDTH, "index out of bounds"), unavailable("index out of bounds")));
 	
 	//! c array style access (not enabled if scalar_type is a reference)
-	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
+	template <typename ptr_base_type = scalar_type, enable_if_t<!is_reference<ptr_base_type>::value>* = nullptr>
 	const ptr_base_type* data() const {
 		return (ptr_base_type*)this;
 	}
 	
 	//! c array style access (not enabled if scalar_type is a reference)
-	template <typename ptr_base_type = scalar_type, typename enable_if<!is_reference<ptr_base_type>::value, int>::type = 0>
+	template <typename ptr_base_type = scalar_type, enable_if_t<!is_reference<ptr_base_type>::value>* = nullptr>
 	ptr_base_type* data() {
 		return (ptr_base_type*)this;
 	}
@@ -782,23 +795,23 @@ public:
 	//! component-wise bit-wise OR
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(|, bit_or, typename const_math::integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(|, bit_or, ext::integral_eqv_t<decayed_scalar_type>)
 	//! component-wise bit-wise AND
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(&, bit_and, typename const_math::integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(&, bit_and, ext::integral_eqv_t<decayed_scalar_type>)
 	//! component-wise bit-wise XOR
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(^, bit_xor, typename const_math::integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(^, bit_xor, ext::integral_eqv_t<decayed_scalar_type>)
 	//! component-wise left shift
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(<<, bit_left_shift, typename const_math::integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(<<, bit_left_shift, ext::integral_eqv_t<decayed_scalar_type>)
 	//! component-wise right shift
 	//! NOTE: if this is a floating point type vector, the second argument is the unsigned integral equivalent type
 	//! (e.g. float -> uint32_t) and this function is _not_ constexpr due to the necessary reinterpret_cast
-	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(>>, bit_right_shift, typename const_math::integral_eqv<decayed_scalar_type>::type)
+	FLOOR_VEC_OP_FUNC_SPEC_ARG_TYPE(>>, bit_right_shift, ext::integral_eqv_t<decayed_scalar_type>)
 	//! component-wise bit-wise complement
 	FLOOR_VEC_UNARY_OP_FUNC(~, unary_complement)
 	
@@ -812,25 +825,25 @@ public:
 	}
 	
 	//! returns true if all components are finite values
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr bool is_finite() const {
 		return FLOOR_VEC_EXPAND_ENCLOSED(&&, __builtin_isfinite FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT);
 	}
 	
 	//! returns true if any component is NaN
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr bool is_nan() const {
 		return FLOOR_VEC_EXPAND_ENCLOSED(||, __builtin_isnan FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT);
 	}
 	
 	//! returns true if any component is inf
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr bool is_inf() const {
 		return FLOOR_VEC_EXPAND_ENCLOSED(||, __builtin_isinf FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT);
 	}
 	
 	//! returns true if all components are normal
-	template <typename fp_type = scalar_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr bool is_normal() const {
 		return FLOOR_VEC_EXPAND_ENCLOSED(&&, __builtin_isnormal FLOOR_PAREN_LEFT, FLOOR_PAREN_RIGHT);
 	}
@@ -968,7 +981,7 @@ public:
 	
 	//! sets the components of this vector to their fractional part
 	//! (e.g. { 1.2f, 3.8f } -> { 0.2f, 0.8f }
-	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr vector_type& fractional() {
 		x = vector_helper<decayed_scalar_type>::fractional(x);
 #if FLOOR_VECTOR_WIDTH >= 2
@@ -984,7 +997,7 @@ public:
 	}
 	
 	//! returns a vector which components are set to the fractional part of the components of this vector
-	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr vector_type fractionaled() const {
 		return {
 			vector_helper<decayed_scalar_type>::fractional(x),
@@ -1367,19 +1380,19 @@ public:
 	}
 	
 	//! returns true if any component is true
-	template <class B = scalar_type, class = typename enable_if<is_same<B, bool>::value>::type>
+	template <class B = scalar_type, enable_if_t<is_same<B, bool>::value>* = nullptr>
 	constexpr bool any() const {
 		return FLOOR_VEC_EXPAND(||);
 	}
 	
 	//! returns true if all components are true
-	template <class B = scalar_type, class = typename enable_if<is_same<B, bool>::value>::type>
+	template <class B = scalar_type, enable_if_t<is_same<B, bool>::value>* = nullptr>
 	constexpr bool all() const {
 		return FLOOR_VEC_EXPAND(&&);
 	}
 	
 	//! returns true if all components are false
-	template <class B = scalar_type, class = typename enable_if<is_same<B, bool>::value>::type>
+	template <class B = scalar_type, enable_if_t<is_same<B, bool>::value>* = nullptr>
 	constexpr bool none() const {
 		return !FLOOR_VEC_EXPAND(||);
 	}
@@ -1915,7 +1928,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! sign: -1, no sign: 1
 	template <typename signed_type = decayed_scalar_type,
-			  enable_if_t<is_signed<signed_type>::value>* = nullptr>
+			  enable_if_t<ext::is_signed_v<signed_type>>* = nullptr>
 	constexpr signed_vector_type sign() const {
 		// signed version
 		return {
@@ -1925,7 +1938,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all 1
 	template <typename signed_type = decayed_scalar_type,
-			  enable_if_t<!is_signed<signed_type>::value>* = nullptr>
+			  enable_if_t<!ext::is_signed_v<signed_type>>* = nullptr>
 	constexpr signed_vector_type sign() const {
 		// unsigned version
 		return { (signed_type)1 };
@@ -1934,7 +1947,7 @@ public:
 	//! returns a bool vector with each component representing the sign of the corresponding component in this vector:
 	//! true: sign, false: no sign
 	template <typename signed_type = decayed_scalar_type,
-			  enable_if_t<is_signed<signed_type>::value>* = nullptr>
+			  enable_if_t<ext::is_signed_v<signed_type>>* = nullptr>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// signed version
 		return { FLOOR_VEC_EXPAND_ENCLOSED(FLOOR_COMMA, , < (scalar_type)0) };
@@ -1942,7 +1955,7 @@ public:
 	//! returns an int vector with each component representing the sign of the corresponding component in this vector:
 	//! uint -> all false
 	template <typename signed_type = decayed_scalar_type,
-			  enable_if_t<!is_signed<signed_type>::value>* = nullptr>
+			  enable_if_t<!ext::is_signed_v<signed_type>>* = nullptr>
 	constexpr FLOOR_VECNAME<bool> signbit() const {
 		// unsigned version
 		return { false };
@@ -1976,25 +1989,25 @@ public:
 	
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! returns a randomized vector using a uniform distribution with each component in [0, max]
-	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type = scalar_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static vector_type random(const scalar_type max = numeric_limits<int_type>::max()) {
 		uniform_int_distribution<int_type> dist((int_type)0, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [min, max]
-	template <typename int_type = scalar_type, enable_if_t<is_integral<int_type>::value>* = nullptr>
+	template <typename int_type = scalar_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static vector_type random(const scalar_type min, const scalar_type max) {
 		uniform_int_distribution<int_type> dist(min, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [0, max)
-	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static vector_type random(const scalar_type max = (scalar_type)1) {
 		uniform_real_distribution<fp_type> dist((fp_type)0, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };
 	}
 	//! returns a randomized vector using a uniform distribution with each component in [min, max)
-	template <typename fp_type = scalar_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type = scalar_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static vector_type random(const scalar_type min, const scalar_type max) {
 		uniform_real_distribution<fp_type> dist(min, max);
 		return { FLOOR_VEC_EXPAND_NO_ELEMS(dist(floor_vector_rand::vec_gen) FLOOR_COMMA) };

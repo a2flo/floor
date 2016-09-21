@@ -32,10 +32,17 @@
 // visibility default: function name is publicly visible and can be retrieved at runtime
 // dllexport (windows only): necessary, so that the function can be retrieved via GetProcAddress
 #if !defined(__WINDOWS__)
-#define kernel extern "C" inline __attribute__((used, visibility("default")))
+#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default")))
 #else
-#define kernel extern "C" inline __attribute__((used, visibility("default"))) __declspec(dllexport)
+#define FLOOR_ENTRY_POINT_SPEC inline __attribute__((used, visibility("default"))) __declspec(dllexport)
 #endif
+#define FLOOR_ENTRY_POINT_SPEC_C extern "C" FLOOR_ENTRY_POINT_SPEC
+
+// NOTE: kernel always returns void -> can use extern "C"
+//       shaders can return complex return types -> must use C++ mangling
+#define kernel FLOOR_ENTRY_POINT_SPEC_C
+#define vertex FLOOR_ENTRY_POINT_SPEC
+#define fragment FLOOR_ENTRY_POINT_SPEC
 
 // workaround use of "global" in locale header by including it before killing global
 #include <locale>

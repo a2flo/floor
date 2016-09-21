@@ -32,14 +32,8 @@ template <class T, size_t N> floor_inline_always constexpr size_t size(const T (
 }
 #endif
 
-// vector and string are not supported on compute
+// string is not supported on compute
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
-
-// minor type_trait extension
-#if !defined(FLOOR_HAS_IS_VECTOR)
-template <typename any_type> struct is_vector : public false_type {};
-template <typename... vec_params> struct is_vector<vector<vec_params...>> : public true_type {};
-#endif
 
 // for whatever reason there is no "string to 32-bit uint" conversion function in the standard
 #if !defined(FLOOR_NO_STOU)

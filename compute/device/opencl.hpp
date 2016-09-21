@@ -84,15 +84,6 @@ const_func float copysign(float x, float y);
 const_func float fmin(float x, float y);
 const_func float fmax(float x, float y);
 
-const_func int8_t abs(int8_t x);
-const_func int16_t abs(int16_t x);
-const_func int32_t abs(int32_t x);
-const_func int64_t abs(int64_t x);
-const_func uint8_t abs(uint8_t x);
-const_func uint16_t abs(uint16_t x);
-const_func uint32_t abs(uint32_t x);
-const_func uint64_t abs(uint64_t x);
-
 const_func half fmod(half x, half y);
 const_func half sqrt(half x);
 const_func half rsqrt(half x);;
@@ -157,6 +148,21 @@ const_func double pow(double x, double y);
 const_func double copysign(double x, double y);
 const_func double fmin(double x, double y);
 const_func double fmax(double x, double y);
+#endif
+
+const_func int8_t abs(int8_t x);
+const_func int16_t abs(int16_t x);
+const_func int32_t abs(int32_t x);
+const_func int64_t abs(int64_t x);
+const_func uint8_t abs(uint8_t x);
+const_func uint16_t abs(uint16_t x);
+const_func uint32_t abs(uint32_t x);
+const_func uint64_t abs(uint64_t x);
+
+floor_inline_always const_func half abs(half x) { return fabs(x); }
+floor_inline_always const_func float abs(float x) { return fabs(x); }
+#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+floor_inline_always const_func double abs(double x) { return fabs(x); }
 #endif
 
 // to not break constexpr-ness of std::min/max, these need a different name, but still forward to the correct runtime function
@@ -250,13 +256,6 @@ namespace std {
 	using ::pow;
 	using ::copysign;
 	using ::abs;
-	
-	const_func floor_inline_always half abs(half x) { return fabs(x); }
-	const_func floor_inline_always float abs(float x) { return fabs(x); }
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-	const_func floor_inline_always double abs(double x) { return fabs(x); }
-#endif
-	
 }
 
 // NOTE: not supported with vulkan

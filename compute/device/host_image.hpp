@@ -68,7 +68,7 @@ namespace host_image_impl {
 		// clamps input coordinates to image_dim (image_clamp_dim/image_float_clamp_dim) and converts them to uint vectors
 		//! int/uint coordinates, non cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>() &&
+				  enable_if_t<(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
@@ -81,7 +81,7 @@ namespace host_image_impl {
 		
 		//! int/uint coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(!is_floating_point<typename coord_type::decayed_scalar_type>() &&
+				  enable_if_t<(!ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
@@ -94,7 +94,7 @@ namespace host_image_impl {
 		
 		//! float coordinates, non cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>::value &&
+				  enable_if_t<(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
 							   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,
@@ -112,7 +112,7 @@ namespace host_image_impl {
 		
 		//! float coordinates, cube map
 		template <typename coord_type, COMPUTE_IMAGE_TYPE type = fixed_image_type,
-				  enable_if_t<(is_floating_point<typename coord_type::decayed_scalar_type>() &&
+				  enable_if_t<(ext::is_floating_point_v<typename coord_type::decayed_scalar_type> &&
 							   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type))>* = nullptr>
 		floor_inline_always static auto process_coord(const image_level_info& level_info,
 													  const coord_type& coord,

@@ -92,21 +92,21 @@ protected:
 		typedef U type;
 	};
 	template <typename U> struct enum_helper_type<true, U> {
-		typedef typename underlying_type<U>::type type;
+		typedef underlying_type_t<U> type;
 	};
 	//! handles the log format
 	//! only %x, %X and %Y are supported at the moment, in all other cases the standard ostream operator<< is used!
 	template <typename T> static void handle_format(stringstream& buffer, const char& format, T&& value) {
-		typedef typename decay<T>::type decayed_type;
-		typedef typename conditional<is_enum<decayed_type>::value,
-									 typename enum_helper_type<is_enum<decayed_type>::value, decayed_type>::type,
-									 typename conditional<is_pointer<decayed_type>::value &&
-														  !is_same<decayed_type, char*>::value &&
-														  !is_same<decayed_type, const char*>::value &&
-														  !is_same<decayed_type, unsigned char*>::value &&
-														  !is_same<decayed_type, const unsigned char*>::value,
-														  size_t,
-														  decayed_type>::type>::type print_type;
+		typedef decay_t<T> decayed_type;
+		typedef conditional_t<is_enum<decayed_type>::value,
+							  typename enum_helper_type<is_enum<decayed_type>::value, decayed_type>::type,
+							  conditional_t<(is_pointer<decayed_type>::value &&
+											 !is_same<decayed_type, char*>::value &&
+											 !is_same<decayed_type, const char*>::value &&
+											 !is_same<decayed_type, unsigned char*>::value &&
+											 !is_same<decayed_type, const unsigned char*>::value),
+											 size_t,
+											 decayed_type>> print_type;
 		
 		switch(format) {
 			case 'x':

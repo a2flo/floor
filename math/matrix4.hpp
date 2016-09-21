@@ -526,7 +526,7 @@ public:
 	//! returns a perspective projection matrix according to the specified parameters
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far) {
-		typedef typename conditional<is_floating_point<scalar_type>::value, scalar_type, float>::type fp_type;
+		typedef conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float> fp_type;
 		const fp_type f {
 			(fp_type)1 / vector_helper<fp_type>::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};

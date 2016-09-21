@@ -185,6 +185,7 @@ _LIBCPP_END_NAMESPACE_STD
 
 // c++ stl "extensions"
 #include <floor/core/cpp_ext.hpp>
+#include <floor/constexpr/ext_traits.hpp>
 
 // compute implementation specific headers
 #if defined(FLOOR_COMPUTE_CUDA)
@@ -412,6 +413,13 @@ template <typename T> using param = const T&;
 #include <floor/compute/device/metal_post.hpp>
 #elif defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/vulkan_post.hpp>
+#endif
+
+// graphics builtin/id handling
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
+#define vertex_id get_vertex_id()
+#define instance_id get_instance_id()
+#define point_coord get_point_coord()
 #endif
 
 #endif

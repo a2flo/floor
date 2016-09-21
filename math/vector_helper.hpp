@@ -65,7 +65,7 @@ template <typename T> struct inf_helper {
 //! base class
 template <typename T> class vector_helper {
 public:
-	typedef typename const_math::integral_eqv<T>::type integral_type;
+	typedef ext::integral_eqv_t<T> integral_type;
 	
 	// these have no implementation in here
 	static constexpr T min(const T& lhs, const T& rhs);
@@ -148,9 +148,9 @@ static func_constexpr auto func_name (const scalar_type& a, const scalar_type& b
 template <> class vector_helper<vh_type> { \
 public: \
 	typedef vh_type scalar_type; \
-	typedef typename const_math::signed_eqv<vh_type>::type signed_type; \
-	typedef typename const_math::sized_unsigned_int_eqv<vh_type>::type sized_unsigned_type; \
-	typedef typename const_math::integral_eqv<vh_type>::type integral_type; \
+	typedef ext::signed_eqv_t<vh_type> signed_type; \
+	typedef ext::sized_unsigned_int_eqv_t<vh_type> sized_unsigned_type; \
+	typedef ext::integral_eqv_t<vh_type> integral_type; \
 	static constexpr const scalar_type scalar_zero { (scalar_type)0 }; \
 	static constexpr const scalar_type scalar_one { (scalar_type)1 }; \
 	static constexpr const scalar_type scalar_nan { nan_helper<scalar_type>::scalar_nan }; \
@@ -337,13 +337,13 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
-F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
-F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs ^ rhs) \
-F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs << rhs) \
-F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs >> rhs) \
+F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs & rhs) \
+F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs | rhs) \
+F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs ^ rhs) \
+F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs << rhs) \
+F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0f ? 0.0f : 1.0f)) \
-F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - math::__abs(val))) \
+F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - float(math::__abs(val)))) \
 F1(clz, constexpr, math::__clz(val)) \
 F1(ctz, constexpr, math::__ctz(val)) \
 F1(popcount, constexpr, math::__popcount(val)) \
@@ -960,7 +960,7 @@ FLOOR_VH_IMPL_DEF_DOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FU
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 FLOOR_VH_IMPL_DEF_LDOUBLE(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 FLOOR_VH_IMPL_DEF_HALF(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)
 #endif
 FLOOR_VH_IMPL_DEF_INT32(FLOOR_VH_FUNC_IMPL_1, FLOOR_VH_FUNC_IMPL_2, FLOOR_VH_FUNC_IMPL_2_INT, FLOOR_VH_FUNC_IMPL_3)

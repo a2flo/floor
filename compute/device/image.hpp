@@ -47,8 +47,8 @@ namespace floor_image {
 	
 	//! returns true if coord_type is an int/integral type (int, int2, int3, ...), false if float (or anything else)
 	template <typename coord_type, bool ret_value = ((is_floor_vector<coord_type>::value &&
-													  is_integral<typename coord_type::decayed_scalar_type>::value) ||
-													 (is_fundamental<coord_type>::value && is_integral<coord_type>::value))>
+													  ext::is_integral_v<typename coord_type::decayed_scalar_type>) ||
+													 (ext::is_fundamental_v<coord_type> && ext::is_integral_v<coord_type>))>
 	static constexpr bool is_int_coord() {
 		return ret_value;
 	}
@@ -372,33 +372,32 @@ namespace floor_image {
 		//! convert any coordinate vector type to int* or float* clang vector types
 		template <typename coord_type>
 		static auto convert_coord(const coord_type& coord) {
-			return (vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim()> {
+			return (vector_n<conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>, coord_type::dim()> {
 				coord
 			}).to_clang_vector();
 		}
 		
 		//! convert any fundamental (single value) coordinate type to int or float
-		template <typename coord_type,
-				  enable_if_t<is_fundamental<coord_type>::value>>
+		template <typename coord_type, enable_if_t<ext::is_fundamental_v<coord_type>>>
 		static auto convert_coord(const coord_type& coord) {
-			return conditional_t<is_integral<coord_type>::value, int, float> { coord };
+			return conditional_t<ext::is_integral_v<coord_type>, int, float> { coord };
 		}
 #else // host-compute
 		//! convert any coordinate vector type to floor int{1,2,3,4} or float{1,2,3,4} vectors
 		template <typename coord_type>
 		static auto convert_coord(const coord_type& coord) {
 #if defined(FLOOR_CXX17)
-			if constexpr(!is_fundamental<coord_type>::value) {
-				return vector_n<conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>, coord_type::dim()> { coord };
+			if constexpr(!ext::is_fundamental_v<coord_type>) {
+				return vector_n<conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>, coord_type::dim()> { coord };
 			}
 			else {
-				return vector_n<conditional_t<is_integral<coord_type>::value, int, float>, 1> { coord };
+				return vector_n<conditional_t<ext::is_integral_v<coord_type>, int, float>, 1> { coord };
 			}
 #else
-			typedef conditional_t<is_fundamental<coord_type>::value,
-								  conditional_t<is_integral<coord_type>::value, int, float>,
-								  conditional_t<is_integral<typename coord_type::decayed_scalar_type>::value, int, float>> scalar_type;
-			return vector_n<scalar_type, __builtin_choose_expr(is_fundamental<coord_type>::value, 1, coord_type::dim())> {
+			typedef conditional_t<ext::is_fundamental_v<coord_type>,
+								  conditional_t<ext::is_integral_v<coord_type>, int, float>,
+								  conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>> scalar_type;
+			return vector_n<scalar_type, __builtin_choose_expr(ext::is_fundamental_v<coord_type>, 1, coord_type::dim())> {
 				coord
 			};
 #endif
@@ -406,7 +405,7 @@ namespace floor_image {
 #endif
 		
 		//! converts any fundamental (single value) type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
-		template <typename expected_scalar_type, typename data_type, enable_if_t<is_fundamental<data_type>::value>* = nullptr>
+		template <typename expected_scalar_type, typename data_type, enable_if_t<ext::is_fundamental_v<data_type>>* = nullptr>
 		static auto convert_data(const data_type& data) {
 			using scalar_type = data_type;
 			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");
@@ -414,7 +413,7 @@ namespace floor_image {
 		}
 		
 		//! converts any vector* type to a vector4 type (which can then be converted to a corresponding clang_*4 type)
-		template <typename expected_scalar_type, typename data_type, enable_if_t<!is_fundamental<data_type>::value>* = nullptr>
+		template <typename expected_scalar_type, typename data_type, enable_if_t<!ext::is_fundamental_v<data_type>>* = nullptr>
 		static auto convert_data(const data_type& data) {
 			using scalar_type = typename data_type::decayed_scalar_type;
 			static_assert(is_same<scalar_type, expected_scalar_type>::value, "invalid data type");

@@ -23,9 +23,9 @@
 
 //! simple timer class based on std chrono functionality and capable of using arbitrary duration types (defaults to ms)
 //! NOTE: timer needs a monotonic/steady clock, uses high_resolution_clock as a default if it is steady, otherwise uses steady_clock
-template <class clock_type = typename conditional<chrono::high_resolution_clock::is_steady,
-												  chrono::high_resolution_clock,
-												  chrono::steady_clock>::type>
+template <class clock_type = conditional_t<chrono::high_resolution_clock::is_steady,
+										   chrono::high_resolution_clock,
+										   chrono::steady_clock>>
 class floor_timer_t {
 public:
 	//! "starts" the timer: returns the current time_point of a monotonic clock
@@ -51,9 +51,9 @@ protected:
 using floor_timer = floor_timer_t<>;
 
 //! multi-timer, can add multiple incrementally timed entries, each entry with its own name, will compute total at the end
-template <class clock_type = typename conditional<chrono::high_resolution_clock::is_steady,
-												  chrono::high_resolution_clock,
-												  chrono::steady_clock>::type>
+template <class clock_type = conditional_t<chrono::high_resolution_clock::is_steady,
+										   chrono::high_resolution_clock,
+										   chrono::steady_clock>>
 class floor_multi_timer_t {
 public:
 	floor_multi_timer_t() { add("start", false); }

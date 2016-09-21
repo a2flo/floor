@@ -61,6 +61,44 @@ floor_inline_always __attribute__((const)) static uint32_t get_work_dim() {
 	return floor_work_dim;
 }
 
+#if defined(FLOOR_GRAPHICS_HOST)
+// NOTE: not supported
+floor_inline_always __attribute__((const)) static uint32_t get_vertex_id() {
+	return 0;
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) static uint32_t get_instance_id() {
+	return 0;
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float2 get_point_coord() {
+	return {};
+}
+// NOTE: not supported
+floor_inline_always void discard_fragment() /*__attribute__((noreturn))*/ {
+	// TODO: exit current fiber instead of returning here
+	return;
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float dfdx(float) { return 0.0f; }
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float dfdy(float) { return 0.0f; }
+// NOTE: not supported
+floor_inline_always __attribute__((const)) float fwidth(float) { return 0.0f; }
+// NOTE: not supported
+floor_inline_always __attribute__((const)) pair<float, float> dfdx_dfdy_gradient(const float& p) {
+	return { { dfdx(p) }, { dfdy(p) } };
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) pair<float2, float2> dfdx_dfdy_gradient(const float2& p) {
+	return { { dfdx(p.x), dfdx(p.y) }, { dfdy(p.x), dfdy(p.y) } };
+}
+// NOTE: not supported
+floor_inline_always __attribute__((const)) pair<float3, float3> dfdx_dfdy_gradient(const float3& p) {
+	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdy(p.z) } };
+}
+#endif
+
 // math functions
 #include <cmath>
 namespace std {

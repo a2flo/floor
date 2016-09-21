@@ -30,17 +30,12 @@ const_func uint32_t get_vertex_id() asm("floor.builtin.vertex_id.i32");
 // returns the instance id inside a vertex shader
 const_func uint32_t get_instance_id() asm("floor.builtin.instance_id.i32");
 
-#define vertex_id get_vertex_id()
-#define instance_id get_instance_id()
-
 //////////////////////////////////////////
 // fragment shader
 //! returns the normalized (in [0, 1]) point coordinate (clang_float2 version)
 const_func clang_float2 get_point_coord_cf2() asm("floor.builtin.point_coord.float2");
 //! returns the normalized (in [0, 1]) point coordinate
 floor_inline_always const_func float2 get_point_coord() { return float2::from_clang_vector(get_point_coord_cf2()); }
-
-#define point_coord get_point_coord()
 
 //! discards the current fragment
 void discard_fragment() __attribute__((noreturn)) asm("floor.discard_fragment");
@@ -61,7 +56,7 @@ floor_inline_always const_func pair<float2, float2> dfdx_dfdy_gradient(const flo
 }
 //! computes the partial deriviate of p with respect to the screen-space (x, y) coordinate
 floor_inline_always const_func pair<float3, float3> dfdx_dfdy_gradient(const float3& p) {
-	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdx(p.z) } };
+	return { { dfdx(p.x), dfdx(p.y), dfdx(p.z) }, { dfdy(p.x), dfdy(p.y), dfdy(p.z) } };
 }
 
 #endif

@@ -21,8 +21,8 @@
 
 #define enum_class_bitwise_or(enum_class) \
 floor_inline_always friend constexpr enum_class operator|(const enum_class& e0, const enum_class& e1) { \
-	return (enum_class)((typename underlying_type<enum_class>::type)e0 | \
-						(typename underlying_type<enum_class>::type)e1); \
+	return (enum_class)((underlying_type_t<enum_class>)e0 | \
+						(underlying_type_t<enum_class>)e1); \
 } \
 floor_inline_always friend constexpr enum_class& operator|=(enum_class& e0, const enum_class& e1) { \
 	e0 = e0 | e1; \
@@ -31,8 +31,8 @@ floor_inline_always friend constexpr enum_class& operator|=(enum_class& e0, cons
 
 #define enum_class_bitwise_and(enum_class) \
 floor_inline_always friend constexpr enum_class operator&(const enum_class& e0, const enum_class& e1) { \
-	return (enum_class)((typename underlying_type<enum_class>::type)e0 & \
-						(typename underlying_type<enum_class>::type)e1); \
+	return (enum_class)((underlying_type_t<enum_class>)e0 & \
+						(underlying_type_t<enum_class>)e1); \
 } \
 floor_inline_always friend constexpr enum_class& operator&=(enum_class& e0, const enum_class& e1) { \
 	e0 = e0 & e1; \
@@ -41,8 +41,8 @@ floor_inline_always friend constexpr enum_class& operator&=(enum_class& e0, cons
 
 #define enum_class_bitwise_or_global(enum_class) \
 floor_inline_always constexpr enum_class operator|(const enum_class& e0, const enum_class& e1) { \
-	return (enum_class)((typename underlying_type<enum_class>::type)e0 | \
-						(typename underlying_type<enum_class>::type)e1); \
+	return (enum_class)((underlying_type_t<enum_class>)e0 | \
+						(underlying_type_t<enum_class>)e1); \
 } \
 floor_inline_always constexpr enum_class& operator|=(enum_class& e0, const enum_class& e1) { \
 	e0 = e0 | e1; \
@@ -51,8 +51,8 @@ floor_inline_always constexpr enum_class& operator|=(enum_class& e0, const enum_
 
 #define enum_class_bitwise_and_global(enum_class) \
 floor_inline_always constexpr enum_class operator&(const enum_class& e0, const enum_class& e1) { \
-	return (enum_class)((typename underlying_type<enum_class>::type)e0 & \
-						(typename underlying_type<enum_class>::type)e1); \
+	return (enum_class)((underlying_type_t<enum_class>)e0 & \
+						(underlying_type_t<enum_class>)e1); \
 } \
 floor_inline_always constexpr enum_class& operator&=(enum_class& e0, const enum_class& e1) { \
 	e0 = e0 & e1; \
@@ -61,20 +61,20 @@ floor_inline_always constexpr enum_class& operator&=(enum_class& e0, const enum_
 
 #define enum_class_bitwise_complement(enum_class) \
 floor_inline_always friend constexpr enum_class operator~(const enum_class& e0) { \
-	return (enum_class)(~((typename underlying_type<enum_class>::type)e0)); \
+	return (enum_class)(~((underlying_type_t<enum_class>)e0)); \
 }
 
 #define enum_class_bitwise_complement_global(enum_class) \
 floor_inline_always constexpr enum_class operator~(const enum_class& e0) { \
-	return (enum_class)(~((typename underlying_type<enum_class>::type)e0)); \
+	return (enum_class)(~((underlying_type_t<enum_class>)e0)); \
 }
 
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 #define enum_class_hash(enum_class) \
 namespace std { \
-	template <> struct hash<enum_class> : public hash<typename underlying_type<enum_class>::type> { \
+	template <> struct hash<enum_class> : public hash<underlying_type_t<enum_class>> { \
 		size_t operator()(enum_class type) const noexcept { \
-			return hash<typename underlying_type<enum_class>::type>::operator()((typename underlying_type<enum_class>::type)type); \
+			return hash<underlying_type_t<enum_class>>::operator()((underlying_type_t<enum_class>)type); \
 		} \
 	}; \
 }

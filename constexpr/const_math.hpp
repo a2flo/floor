@@ -33,6 +33,8 @@
 #endif
 #include <floor/core/essentials.hpp>
 #include <floor/constexpr/soft_i128.hpp>
+#include <floor/constexpr/soft_f16.hpp>
+#include <floor/constexpr/ext_traits.hpp>
 #include <floor/math/constants.hpp>
 using namespace std;
 
@@ -42,154 +44,135 @@ FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(float-equal)
 
 namespace const_math {
-	//! the equivalent/corresponding unsigned integer type to sizeof(T)
-	template <typename T, typename = void> struct sized_unsigned_int_eqv;
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 1>> {
-		typedef uint8_t type;
-	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 2>> {
-		typedef uint16_t type;
-	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 4>> {
-		typedef uint32_t type;
-	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<sizeof(T) == 8>> {
-		typedef uint64_t type;
-	};
-	template <typename T> struct sized_unsigned_int_eqv<T, enable_if_t<(sizeof(T) > 8)>> {
-		typedef __uint128_t type;
-	};
-	
-	//! the signed equivalent to T
-	template <typename T, typename = void> struct signed_eqv;
-	template <> struct signed_eqv<bool> {
-		typedef bool type;
-	};
-	template <typename fp_type>
-	struct signed_eqv<fp_type, enable_if_t<is_floating_point<fp_type>::value>> {
-		typedef fp_type type;
-	};
-	template <typename int_type>
-	struct signed_eqv<int_type, enable_if_t<(is_integral<int_type>::value &&
-											 is_signed<int_type>::value &&
-											 !is_same<int_type, __int128_t>::value)>> {
-		typedef int_type type;
-	};
-	template <typename uint_type>
-	struct signed_eqv<uint_type, enable_if_t<(is_integral<uint_type>::value &&
-											  is_unsigned<uint_type>::value &&
-											  sizeof(uint_type) <= 8)>> {
-		typedef make_signed_t<uint_type> type;
-	};
-	template <typename uint_type>
-	struct signed_eqv<uint_type, enable_if_t<(is_integral<uint_type>::value &&
-											  is_unsigned<uint_type>::value &&
-											  !is_same<uint_type, __uint128_t>::value &&
-											  sizeof(uint_type) == 16)>> {
-		typedef __int128_t type;
-	};
-	// is_integral is not specialized for __int128_t and __uint128_t
-	template <typename int128_type>
-	struct signed_eqv<int128_type, enable_if_t<(is_same<int128_type, __int128_t>::value ||
-												is_same<int128_type, __uint128_t>::value)>> {
-		typedef __int128_t type;
-	};
-	
-	//! the integral equivalent to T
-	template <typename T, typename = void> struct integral_eqv;
-	template <> struct integral_eqv<bool> {
-		typedef bool type;
-	};
-	template <typename fp_type>
-	struct integral_eqv<fp_type, enable_if_t<is_floating_point<fp_type>::value>> {
-		typedef typename sized_unsigned_int_eqv<fp_type>::type type;
-	};
-	template <typename int_type>
-	struct integral_eqv<int_type, enable_if_t<(is_integral<int_type>::value &&
-											   !is_same<int_type, __int128_t>::value &&
-											   !is_same<int_type, __uint128_t>::value)>> {
-		typedef int_type type;
-	};
-	// is_integral is not specialized for __int128_t and __uint128_t
-	template <typename int128_type>
-	struct integral_eqv<int128_type, enable_if_t<(is_same<int128_type, __int128_t>::value ||
-												  is_same<int128_type, __uint128_t>::value)>> {
-		typedef int128_type type;
-	};
-	
 	//! converts the input radian value to degrees
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type rad_to_deg(const fp_type& val) {
 		return _180_DIV_PI<fp_type> * val;
 	}
 	//! converts the input radian value to degrees (for non floating point types)
-	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
+	template <typename any_type, enable_if_t<!ext::is_floating_point_v<any_type>>* = nullptr>
 	constexpr any_type rad_to_deg(const any_type& val) {
 		return any_type(_180_DIV_PI<> * (max_fp_type)val);
 	}
 	
 	//! converts the input degrees value to radian
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type deg_to_rad(const fp_type& val) {
 		return PI_DIV_180<fp_type> * val;
 	}
 	//! converts the input degrees value to radian (for non floating point types)
-	template <typename any_type, typename enable_if<!is_floating_point<any_type>::value, int>::type = 0>
+	template <typename any_type, enable_if_t<!ext::is_floating_point_v<any_type>>* = nullptr>
 	constexpr any_type deg_to_rad(const any_type& val) {
 		return any_type(PI_DIV_180<> * (max_fp_type)val);
 	}
 	
 	//! tests if two values are equal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs) {
 		return (lhs > (rhs - arithmetic_type(EPSILON<>)) && lhs < (rhs + arithmetic_type(EPSILON<>)));
 	}
 	
 	//! tests if two values are unequal +/- a fixed epsilon (0.00001 / const_math::EPSILON<>)
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_unequal(const arithmetic_type& lhs, const arithmetic_type& rhs) {
 		return (lhs < (rhs - arithmetic_type(EPSILON<>)) || lhs > (rhs + arithmetic_type(EPSILON<>)));
 	}
 	
 	//! tests if two values are equal +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (lhs > (rhs - epsilon) && lhs < (rhs + epsilon));
 	}
 	
 	//! tests if two values are unequal +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_unequal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (lhs < (rhs - epsilon) || lhs > (rhs + epsilon));
 	}
 	
 	//! tests if the first value is less than the second value +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_less(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (lhs < (rhs + epsilon));
 	}
 	
 	//! tests if the first value is less than or equal to the second value +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_less_or_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (is_less(lhs, rhs, epsilon) || is_equal(lhs, rhs, epsilon));
 	}
 	
 	//! tests if the first value is greater than the second value +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_greater(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (lhs > (rhs - epsilon));
 	}
 	
 	//! tests if the first value is greater than or equal to the second value +/- a specified epsilon
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr bool is_greater_or_equal(const arithmetic_type& lhs, const arithmetic_type& rhs, const arithmetic_type& epsilon) {
 		return (is_greater(lhs, rhs, epsilon) || is_equal(lhs, rhs, epsilon));
 	}
 	
+	//! tests if the specified floating point value is infinite
+	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isinf(fp_type val) {
+		return __builtin_isinf(val);
+	}
+	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isinf(fp_type val) {
+#if defined(FLOOR_GRAPHICS_HOST)
+		return val.isinf();
+#else
+		return __builtin_isinf(val);
+#endif
+	}
+	
+	//! tests if the specified floating point value is NaN
+	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isnan(fp_type val) {
+		return __builtin_isnan(val);
+	}
+	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isnan(fp_type val) {
+#if defined(FLOOR_GRAPHICS_HOST)
+		return val.isnan();
+#else
+		return __builtin_isnan(val);
+#endif
+	}
+	
+	//! tests if the specified floating point value is normal
+	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isnormal(fp_type val) {
+		return __builtin_isnormal(val);
+	}
+	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isnormal(fp_type val) {
+#if defined(FLOOR_GRAPHICS_HOST)
+		return val.isnormal();
+#else
+		return __builtin_isnormal(val);
+#endif
+	}
+	
+	//! tests if the specified floating point value is finite
+	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isfinite(fp_type val) {
+		return __builtin_isfinite(val);
+	}
+	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
+	constexpr bool isfinite(fp_type val) {
+#if defined(FLOOR_GRAPHICS_HOST)
+		return val.isfinite();
+#else
+		return __builtin_isfinite(val);
+#endif
+	}
+	
 	//! decomposes a floating point value into <fp_type in [1, 2), 2^exp>
 	//! NOTE: this doesn't handle infinity, NaNs or denormals
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr pair<fp_type, int32_t> decompose_fp(fp_type in_val) {
 		// get the min/max exponent (2^exp) that is representable by this fp type
 		// note that these functions are defined as "one more than the actual exponent" => sub 1
@@ -237,32 +220,26 @@ namespace const_math {
 	}
 	
 	//! computes |x|, the absolute value of x
-	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
-																	is_same<arithmetic_type, __int128_t>::value ||
-																	is_same<arithmetic_type, __uint128_t>::value)>::type>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type abs(arithmetic_type val) {
 		return (val < (arithmetic_type)0 ? -val : val);
 	}
 	
 	//! computes min(x, y), returning x if x <= y, else y
-	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
-																	is_same<arithmetic_type, __int128_t>::value ||
-																	is_same<arithmetic_type, __uint128_t>::value)>::type>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type min(arithmetic_type x, arithmetic_type y) {
 		return (x <= y ? x : y);
 	}
 	
 	//! computes max(x, y), returning x if x >= y, else y
-	template <typename arithmetic_type, class = typename enable_if<(is_arithmetic<arithmetic_type>::value ||
-																	is_same<arithmetic_type, __int128_t>::value ||
-																	is_same<arithmetic_type, __uint128_t>::value)>::type>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type max(arithmetic_type x, arithmetic_type y) {
 		return (x >= y ? x : y);
 	}
 	
 	//! computes round(val), the nearest integer value to val
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type round(fp_type val) {
 		// add 0.5 for positive values, substract 0.5 for negative values,
 		// then cast to int for rounding and back to fp_type again
@@ -272,7 +249,7 @@ namespace const_math {
 	
 	//! computes ⌊val⌋, the largest integer value not greater than val
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type floor(fp_type val) {
 		// casting to int truncates the value, which is floor(val) for positive values,
 		// but we have to substract 1 for negative values (unless val is already floored == recasted int val)
@@ -283,7 +260,7 @@ namespace const_math {
 	
 	//! computes ⌈val⌉, the smallest integer value not less than val
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type ceil(fp_type val) {
 		// casting to int truncates the value, which is ceil(val) for negative values,
 		// but we have to add 1 for positive values (unless val is already ceiled == recasted int val)
@@ -294,7 +271,7 @@ namespace const_math {
 	
 	//! computes trunc(val), val rounded towards 0, or "drop the fractional part"
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type trunc(fp_type val) {
 		// this is basically the standard int cast
 		return (fp_type)(int64_t)val;
@@ -302,21 +279,21 @@ namespace const_math {
 	
 	//! this function only exists for completeness reasons and will always compute floor(x)
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type rint(fp_type val) {
 		return const_math::floor(val);
 	}
 	
 	//! computes x % y, the remainder of the division x / y (aka modulo)
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type fmod(fp_type x, fp_type y) {
 		return x - y * const_math::trunc(x / y);
 	}
 	
 	//! decomposes val into its integral and fractional part, fractional is returned, integral is stored in "dst_integral"
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type modf(fp_type val, fp_type* dst_integral) {
 		const auto truncated = const_math::trunc(val);
 		*dst_integral = truncated;
@@ -325,7 +302,7 @@ namespace const_math {
 	
 	//! returns the fractional part of val
 	//! NOTE: not precise for huge values that don't fit into a 64-bit int!
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type fractional(fp_type val) {
 		return val - const_math::trunc(val);
 	}
@@ -402,7 +379,7 @@ namespace const_math {
 #endif
 	
 	//! computes base^exponent, base to the power of exponent (with an integer exponent)
-	template <typename arithmetic_type, typename enable_if<is_arithmetic<arithmetic_type>::value, int>::type = 0>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type pow(const arithmetic_type base, const int32_t exponent) {
 		arithmetic_type ret = (arithmetic_type)1;
 		for(int32_t i = 0; i < exponent; ++i) {
@@ -412,7 +389,7 @@ namespace const_math {
 	}
 	
 	//! computes e^val, the exponential function value of val
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type exp(fp_type val) {
 		// convert to largest float type + div with ln(2) so that we can compute 2^x instead: e^x == 2^(x / ln(2))
 		const auto abs_val = const_math::abs(val);
@@ -471,7 +448,7 @@ namespace const_math {
 	}
 	
 	//! computes exp2(val) == 2^val == exp(val * ln(2))
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type exp2(fp_type val) {
 		return fp_type(exp(max_fp_type(val) * const_math::LN_2<>));
 	}
@@ -479,7 +456,7 @@ namespace const_math {
 	//! makes use of log(x * y) = log(x) + log(y) by decomposing val into a value in [1, 2) and its 2^x exponent,
 	//! then easily computing log(val in [1, 2)) which converges quickly, and log2(2^x) == x for its exponent
 	//! NOTE: returns { false, error ret value, ... } if val is an invalid value, { true, ..., log(val in [1, 2)), exponent } if valid
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr auto partial_ln_and_log2(fp_type val) {
 		struct ln_ret {
 			bool valid;
@@ -490,8 +467,8 @@ namespace const_math {
 		if(val == (fp_type)0 || val == -(fp_type)0) return ln_ret { false, -numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
 		if(val == (fp_type)1) return ln_ret { false, (fp_type)0, 0.0_fp, 0.0_fp };
 		if(val < (fp_type)0) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
-		if(__builtin_isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
-		if(__builtin_isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
+		if(isinf(val)) return ln_ret { false, numeric_limits<fp_type>::infinity(), 0.0_fp, 0.0_fp };
+		if(isnan(val)) return ln_ret { false, numeric_limits<fp_type>::quiet_NaN(), 0.0_fp, 0.0_fp };
 		
 		// decompose into [1, 2) part and 2^x part
 		const auto decomp = const_math::decompose_fp(val);
@@ -517,7 +494,7 @@ namespace const_math {
 	}
 	
 	//! computes ln(val), the natural logarithm of val
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type log(fp_type val) {
 		const auto ret = partial_ln_and_log2(val);
 		if(!ret.valid) return ret.invalid_ret;
@@ -526,7 +503,7 @@ namespace const_math {
 	}
 	
 	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type log2(fp_type val) {
 		const auto ret = partial_ln_and_log2(val);
 		if(!ret.valid) return ret.invalid_ret;
@@ -535,7 +512,7 @@ namespace const_math {
 	}
 	
 	//! computes base^exponent, base to the power of exponent
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type pow(const fp_type base, const fp_type exponent) {
 		return const_math::exp(exponent * const_math::log(base));
 	}
@@ -564,10 +541,11 @@ namespace const_math {
 	
 	//! computes the square root and inverse/reciprocal square root of val
 	//! return pair: <square root, inverse/reciprocal square root>
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr pair<fp_type, fp_type> sqrt_and_rsqrt(fp_type val) {
 		// make sure this is IEC559/IEEE-754 compliant
-		static_assert(numeric_limits<fp_type>::is_iec559, "compiler or target is not IEC559/IEEE-754 compliant!");
+		static_assert(numeric_limits<fp_type>::is_iec559 || is_same<fp_type, half>(),
+					  "compiler or target is not IEC559/IEEE-754 compliant!");
 		
 		// handle special cases (need to resort to built-ins, because the c functions aren't constexpr):
 		// * return unmodified +/- 0 (and NaN for "1 / 0")
@@ -576,15 +554,15 @@ namespace const_math {
 		}
 		
 		// * return unmodified +inf (note: support for __builtin_isinf_sign is problematic)
-		if(__builtin_isinf(val) && val > (fp_type)0) {
+		if(isinf(val) && val > (fp_type)0) {
 			return { val, (fp_type)0 };
 		}
 		// * return NaN if val is NaN, -infinity or negative
-		if(__builtin_isnan(val) || __builtin_isinf(val) || val < -(fp_type)0) {
+		if(isnan(val) || isinf(val) || val < -(fp_type)0) {
 			return { numeric_limits<fp_type>::quiet_NaN(), numeric_limits<fp_type>::quiet_NaN() };
 		}
 		// * return 0 if val is a denormal
-		if(!__builtin_isnormal(val)) {
+		if(!isnormal(val)) {
 			return { (fp_type)0, (fp_type)0 };
 		}
 		
@@ -654,19 +632,19 @@ namespace const_math {
 	}
 	
 	//! computes the square root of val
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type sqrt(fp_type val) {
 		return sqrt_and_rsqrt(val).first;
 	}
 	
 	//! computes the inverse/reciprocal square root of val
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type rsqrt(fp_type val) {
 		return sqrt_and_rsqrt(val).second;
 	}
 	
 	//! computes cos(x), the cosine of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type cos(fp_type rad_angle) {
 		// ref: https://en.wikipedia.org/wiki/Trigonometric_functions#Series_definitions
 		// sum(k = 0 to inf): (-1)^k * x^(2*k) / (2*k)!
@@ -689,19 +667,19 @@ namespace const_math {
 	}
 	
 	//! computes sin(x), the sine of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type sin(fp_type rad_angle) {
 		return (fp_type)const_math::cos(PI_DIV_2<> - (max_fp_type)rad_angle);
 	}
 	
 	//! computes tan(x), the tangent of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type tan(fp_type rad_angle) {
 		return (fp_type)(const_math::sin((max_fp_type)rad_angle) / const_math::cos((max_fp_type)rad_angle));
 	}
 	
 	//! computes asin(x), the inverse sine / arcsine of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type asin(fp_type val) {
 		// ref: https://en.wikipedia.org/wiki/Inverse_trigonometric_functions#Infinite_series
 		// sum(k = 0 to inf): ((2*k over k) * x^(1 + 2*k)) / (4^k * (1 + 2*k))
@@ -719,7 +697,7 @@ namespace const_math {
 		if(val < (fp_type)-1 || val > (fp_type)1) {
 			return numeric_limits<fp_type>::quiet_NaN();
 		}
-		if(__builtin_isnan(val)) {
+		if(isnan(val)) {
 			return val;
 		}
 		
@@ -749,20 +727,20 @@ namespace const_math {
 	}
 	
 	//! computes acos(x), the inverse cosine / arccosine of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type acos(fp_type val) {
 		return (fp_type)(PI_DIV_2<> - const_math::asin((max_fp_type)val));
 	}
 	
 	//! computes atan(x), the inverse tangent / arctangent of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type atan(fp_type val) {
 		const max_fp_type ldbl_val = (max_fp_type)val;
 		return (fp_type)const_math::asin(ldbl_val / const_math::sqrt(ldbl_val * ldbl_val + 1.0_fp));
 	}
 	
 	//! computes atan2(y, x), the arctangent with two arguments
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type atan2(fp_type y, fp_type x) {
 		// ref: https://en.wikipedia.org/wiki/Atan2
 		const max_fp_type ldbl_x = (max_fp_type)x;
@@ -792,21 +770,21 @@ namespace const_math {
 	}
 	
 	//! computes sinh(x), the hyperbolic sine of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type sinh(fp_type rad_angle) {
 		const auto ldbl_val = (max_fp_type)rad_angle;
 		return fp_type(0.5_fp * (const_math::exp(ldbl_val) - const_math::exp(-ldbl_val)));
 	}
 	
 	//! computes cosh(x), the hyperbolic cosine of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type cosh(fp_type rad_angle) {
 		const auto ldbl_val = (max_fp_type)rad_angle;
 		return fp_type(0.5_fp * (const_math::exp(ldbl_val) + const_math::exp(-ldbl_val)));
 	}
 	
 	//! computes tanh(x), the hyperbolic tangent of the radian angle x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type tanh(fp_type rad_angle) {
 		const auto ldbl_val = (max_fp_type)rad_angle;
 		const auto exp_pos = const_math::exp(ldbl_val);
@@ -815,44 +793,40 @@ namespace const_math {
 	}
 	
 	//! computes asinh(x), the inverse hyperbolic sine of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type asinh(fp_type val) {
 		const auto ldbl_val = (max_fp_type)val;
 		return (fp_type)const_math::log(ldbl_val + const_math::sqrt(ldbl_val * ldbl_val + 1.0_fp));
 	}
 	
 	//! computes acosh(x), the inverse hyperbolic cosine of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type acosh(fp_type val) {
 		const auto ldbl_val = (max_fp_type)val;
 		return (fp_type)const_math::log(ldbl_val + const_math::sqrt(ldbl_val * ldbl_val - 1.0_fp));
 	}
 	
 	//! computes atanh(x), the inverse hyperbolic tangent of x
-	template <typename fp_type, class = typename enable_if<is_floating_point<fp_type>::value>::type>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type atanh(fp_type val) {
 		const auto ldbl_val = (max_fp_type)val;
 		return (fp_type)(0.5_fp * const_math::log((1.0_fp + ldbl_val) / (1.0_fp - ldbl_val)));
 	}
 	
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
-													 is_same<arithmetic_type, __int128_t>() ||
-													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& min, const arithmetic_type& max) {
 		return (val > max ? max : (val < min ? min : val));
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
-													 is_same<arithmetic_type, __int128_t>() ||
-													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	constexpr arithmetic_type clamp(const arithmetic_type& val, const arithmetic_type& max) {
 		return (val > max ? max : (val < (arithmetic_type)0 ? (arithmetic_type)0 : val));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ?
 				(max - const_math::fmod(const_math::abs(val), max)) :
@@ -860,23 +834,21 @@ namespace const_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<((is_integral<int_type>() &&
-											   is_signed<int_type>()) ||
-											  is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type, enable_if_t<(ext::is_integral_v<int_type> &&
+											  ext::is_signed_v<int_type>)>* = nullptr>
 	constexpr int_type wrap(const int_type& val, const int_type& max) {
 		return (val < (int_type)0 ? (max - (const_math::abs(val) % max)) : (val % max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, enable_if_t<((is_integral<uint_type>() &&
-												is_unsigned<uint_type>()) ||
-											   is_same<uint_type, __uint128_t>())>* = nullptr>
+	template <typename uint_type, enable_if_t<(ext::is_integral_v<uint_type> &&
+											   ext::is_unsigned_v<uint_type>)>* = nullptr>
 	constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
 		return (val % max);
 	}
 	
 	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type interpolate(const fp_type& a, const fp_type& b, const fp_type& t) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) || defined(FLOOR_COMPUTE_INFO_HAS_FMA_0)
 		return ((b - a) * t + a);
@@ -887,14 +859,14 @@ namespace const_math {
 	
 	//! computes the linear interpolation between a and b (with t = 0 -> a, t = 1 -> b)
 	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
-	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
-																is_floating_point<fp_type>::value)>* = nullptr>
+	template <typename any_type, typename fp_type, enable_if_t<(!ext::is_floating_point_v<any_type> &&
+																ext::is_floating_point_v<fp_type>)>* = nullptr>
 	constexpr any_type interpolate(const any_type& a, const any_type& b, const fp_type& t) {
 		return any_type(fp_type(b - a) * t) + a;
 	}
 	
 	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type cubic_interpolate(const fp_type& a_prev,
 										const fp_type& a,
 										const fp_type& b,
@@ -920,8 +892,8 @@ namespace const_math {
 	
 	//! computes the cubic interpolation between a and b, requiring the "point" prior to a and the "point" after b
 	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
-	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
-																is_floating_point<fp_type>::value)>* = nullptr>
+	template <typename any_type, typename fp_type, enable_if_t<(!ext::is_floating_point_v<any_type> &&
+																ext::is_floating_point_v<fp_type>)>* = nullptr>
 	constexpr any_type cubic_interpolate(const any_type& a_prev,
 										 const any_type& a,
 										 const any_type& b,
@@ -941,7 +913,7 @@ namespace const_math {
 	}
 	
 	//! computes the cubic catmull-rom interpolation between a and b, requiring the "point" prior to a and the "point" after b
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type catmull_rom_interpolate(const fp_type& a_prev,
 											  const fp_type& a,
 											  const fp_type& b,
@@ -964,8 +936,8 @@ namespace const_math {
 	
 	//! computes the cubic catmull-rom interpolation between a and b, requiring the "point" prior to a and the "point" after b
 	//! NOTE: to be used with non-floating-point types, the interpolator must be a floating point type still
-	template <typename any_type, typename fp_type, enable_if_t<(!is_floating_point<any_type>::value &&
-																is_floating_point<fp_type>::value)>* = nullptr>
+	template <typename any_type, typename fp_type, enable_if_t<(!ext::is_floating_point_v<any_type> &&
+																ext::is_floating_point_v<fp_type>)>* = nullptr>
 	constexpr any_type catmull_rom_interpolate(const any_type& a_prev,
 											   const any_type& a,
 											   const any_type& b,
@@ -982,7 +954,7 @@ namespace const_math {
 	}
 	
 	//! computes the least common multiple of v1 and v2
-	template <typename int_type, typename enable_if<is_integral<int_type>::value && is_signed<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type> && ext::is_signed_v<int_type>>* = nullptr>
 	constexpr int_type lcm(int_type v1, int_type v2) {
 		int_type lcm_ = 1, div = 2;
 		while(v1 != 1 || v2 != 1) {
@@ -997,13 +969,13 @@ namespace const_math {
 	}
 	
 	//! computes the greatest common divisor of v1 and v2
-	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	constexpr int_type gcd(const int_type& v1, const int_type& v2) {
 		return ((v1 * v2) / const_math::lcm(v1, v2));
 	}
 	
 	//! returns the nearest power of two value of num (only numerical upwards)
-	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	constexpr int_type next_pot(const int_type& num) {
 		int_type tmp = 2;
 		for(size_t i = 0; i < ((sizeof(int_type) * 8) - 1); ++i) {
@@ -1014,7 +986,7 @@ namespace const_math {
 	}
 	
 	//! computes the width of an integer value (e.g. 7 = 1, 42 = 2, 987654 = 6)
-	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	constexpr uint32_t int_width(const int_type& num) {
 		uint32_t width = 1;
 		auto val = const_math::abs(num);
@@ -1026,14 +998,14 @@ namespace const_math {
 	}
 	
 	//! returns 'a' with the sign of 'b', essentially "sign(b) * abs(a)"
-	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type copysign(const fp_type& a, const fp_type& b) {
 		return (b < fp_type(0) ? fp_type(-1) : fp_type(1)) * const_math::abs(a);
 	}
 	
 	//! computes the fused-multiply-add (a * b) + c, "as if to infinite precision and rounded only once to fit the result type"
 	//! note: all arguments are cast to long double, then used to do the computation and then cast back to the return type
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type fma(fp_type mul_a, fp_type mul_b, fp_type add_c) {
 		max_fp_type ldbl_a = (max_fp_type)mul_a;
 		max_fp_type ldbl_b = (max_fp_type)mul_b;
@@ -1067,18 +1039,23 @@ namespace const_math {
 #endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>
 	floor_inline_always static fp_type native_rsqrt(fp_type a) {
 		return fp_type(1.0_fp) / std::sqrt(a);
 	}
+	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
+	template <typename fp_type, enable_if_t<(is_same<fp_type, half>())>* = nullptr>
+	floor_inline_always static fp_type native_rsqrt(fp_type a) {
+		return fp_type(1.0_fp) / std::sqrt((float)a);
+	}
 #elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	floor_inline_always static fp_type native_fma(fp_type a, fp_type b, fp_type c) {
 		return ::fma(a, b, c);
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	floor_inline_always static fp_type native_rsqrt(fp_type a) {
 		return ::rsqrt(a);
 	}
@@ -1086,8 +1063,15 @@ namespace const_math {
 #error "unsupported target"
 #endif
 	
+#if defined(FLOOR_GRAPHICS_HOST)
+	//! forward half to float fma
+	floor_inline_always floor_used static half native_fma(half a, half b, half c) {
+		return (half)native_fma(float(a), float(b), float(c));
+	}
+#endif
+	
 	//! creates a "(1 << val) - 1" / "2^N - 1" bit mask (for 0 < N <= 64)
-	template <typename uint_type, typename enable_if<is_integral<uint_type>::value && is_unsigned<uint_type>::value, int>::type = 0>
+	template <typename uint_type, enable_if_t<ext::is_integral_v<uint_type> && ext::is_unsigned_v<uint_type>>* = nullptr>
 	constexpr uint_type bit_mask(const uint_type& val) {
 		return (uint_type)(~(((~0ull) << ((unsigned long long int)val - 1ull)) << 1ull));
 	}
@@ -1123,24 +1107,23 @@ namespace const_math {
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int clz(const uint_type& val) {
 		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
 	}
 	//! count leading zeros
-	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
-											  is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type> && ext::is_signed_v<int_type>>* = nullptr>
 	constexpr int clz(const int_type& val) {
 		// can't abs(min int val), so handle it separately
 		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
 			return sizeof(int_type) - 1;
 		}
 		// for leading zeros, clz(val with val < 0) == clz(~(-val))
-		return clz(~(typename sized_unsigned_int_eqv<int_type>::type)-val);
+		return clz(~(ext::sized_unsigned_int_eqv_t<int_type>)-val);
 	}
 	//! count leading zeros
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr int clz(const fp_type& val floor_unused) {
 		return 0; // TODO: implement this?
 	}
@@ -1176,24 +1159,23 @@ namespace const_math {
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int ctz(const uint_type& val) {
 		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
 	}
 	//! count trailing zeros
-	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
-											  is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type> && ext::is_signed_v<int_type>>* = nullptr>
 	constexpr int ctz(const int_type& val) {
 		// can't abs(min int val), so handle it separately
 		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
 			return sizeof(int_type) - 1;
 		}
 		// for trailing zeros, ctz(-val) == ctz(val)
-		return ctz((typename sized_unsigned_int_eqv<int_type>::type)-val);
+		return ctz((ext::sized_unsigned_int_eqv_t<int_type>)-val);
 	}
 	//! count trailing zeros
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr int ctz(const fp_type& val floor_unused) {
 		return 0; // TODO: implement this?
 	}
@@ -1227,22 +1209,21 @@ namespace const_math {
 	template <typename uint_type, enable_if_t<(is_same<uint_type, __uint128_t>())>* = nullptr>
 	constexpr int popcount(const uint_type& val) {
 		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFFFFFFFFFFFFFFull));
 		return popcount(upper) + popcount(lower);
 	}
 	//! count 1-bits
-	template <typename int_type, enable_if_t<((is_integral<int_type>() && is_signed<int_type>()) ||
-											  is_same<int_type, __int128_t>())>* = nullptr>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type> && ext::is_signed_v<int_type>>* = nullptr>
 	constexpr int popcount(const int_type& val) {
 		// can't abs(min int val), so handle it separately
 		if(val == int_type(1) << int_type(sizeof(int_type) - 1)) {
 			return sizeof(int_type);
 		}
 		// for popcount, popcount(val with val < 0) == popcount(~(-val))
-		return popcount(~(typename sized_unsigned_int_eqv<int_type>::type)-val);
+		return popcount(~(ext::sized_unsigned_int_eqv_t<int_type>)-val);
 	}
 	//! count 1-bits
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr int popcount(const fp_type& val floor_unused) {
 		return 0; // TODO: implement this?
 	}
@@ -1669,39 +1650,39 @@ namespace math {
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, long double)
 #endif
 	
-	// non-standard and metal/vulkan-only for now
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+	// non-standard and metal/vulkan/host-only for now
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, half)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, half)
-	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, std::fmod, half)
-	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, std::sqrt, half)
+	FLOOR_CONST_SELECT_2(fmod, const_math::fmod, ::fmod, half)
+	FLOOR_CONST_SELECT_1(sqrt, const_math::sqrt, ::sqrt, half)
 	FLOOR_CONST_SELECT_1(rsqrt, const_math::rsqrt, const_math::native_rsqrt, half)
-	FLOOR_CONST_SELECT_1(abs, const_math::abs, std::fabs, half)
-	FLOOR_CONST_SELECT_1(floor, const_math::floor, std::floor, half)
-	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, std::ceil, half)
-	FLOOR_CONST_SELECT_1(round, const_math::round, std::round, half)
-	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, std::trunc, half)
-	FLOOR_CONST_SELECT_1(rint, const_math::rint, std::rint, half)
-	FLOOR_CONST_SELECT_1(sin, const_math::sin, std::sin, half)
-	FLOOR_CONST_SELECT_1(cos, const_math::cos, std::cos, half)
-	FLOOR_CONST_SELECT_1(tan, const_math::tan, std::tan, half)
-	FLOOR_CONST_SELECT_1(asin, const_math::asin, std::asin, half)
-	FLOOR_CONST_SELECT_1(acos, const_math::acos, std::acos, half)
-	FLOOR_CONST_SELECT_1(atan, const_math::atan, std::atan, half)
-	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, std::atan2, half)
-	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, std::sinh, half)
-	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, std::cosh, half)
-	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, std::tanh, half)
-	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, std::asinh, half)
-	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, std::acosh, half)
-	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, std::atanh, half)
+	FLOOR_CONST_SELECT_1(abs, const_math::abs, ::abs, half)
+	FLOOR_CONST_SELECT_1(floor, const_math::floor, ::floor, half)
+	FLOOR_CONST_SELECT_1(ceil, const_math::ceil, ::ceil, half)
+	FLOOR_CONST_SELECT_1(round, const_math::round, ::round, half)
+	FLOOR_CONST_SELECT_1(trunc, const_math::trunc, ::trunc, half)
+	FLOOR_CONST_SELECT_1(rint, const_math::rint, ::rint, half)
+	FLOOR_CONST_SELECT_1(sin, const_math::sin, ::sin, half)
+	FLOOR_CONST_SELECT_1(cos, const_math::cos, ::cos, half)
+	FLOOR_CONST_SELECT_1(tan, const_math::tan, ::tan, half)
+	FLOOR_CONST_SELECT_1(asin, const_math::asin, ::asin, half)
+	FLOOR_CONST_SELECT_1(acos, const_math::acos, ::acos, half)
+	FLOOR_CONST_SELECT_1(atan, const_math::atan, ::atan, half)
+	FLOOR_CONST_SELECT_2(atan2, const_math::atan2, ::atan2, half)
+	FLOOR_CONST_SELECT_1(sinh, const_math::sinh, ::sinh, half)
+	FLOOR_CONST_SELECT_1(cosh, const_math::cosh, ::cosh, half)
+	FLOOR_CONST_SELECT_1(tanh, const_math::tanh, ::tanh, half)
+	FLOOR_CONST_SELECT_1(asinh, const_math::asinh, ::asinh, half)
+	FLOOR_CONST_SELECT_1(acosh, const_math::acosh, ::acosh, half)
+	FLOOR_CONST_SELECT_1(atanh, const_math::atanh, ::atanh, half)
 	FLOOR_CONST_SELECT_3(fma, const_math::fma, const_math::native_fma, half)
-	FLOOR_CONST_SELECT_1(exp, const_math::exp, std::exp, half)
-	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, std::exp2, half)
-	FLOOR_CONST_SELECT_1(log, const_math::log, std::log, half)
-	FLOOR_CONST_SELECT_1(log2, const_math::log2, std::log2, half)
-	FLOOR_CONST_SELECT_2(pow, const_math::pow, std::pow, half)
-	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, std::copysign, half)
+	FLOOR_CONST_SELECT_1(exp, const_math::exp, ::exp, half)
+	FLOOR_CONST_SELECT_1(exp2, const_math::exp2, ::exp2, half)
+	FLOOR_CONST_SELECT_1(log, const_math::log, ::log, half)
+	FLOOR_CONST_SELECT_1(log2, const_math::log2, ::log2, half)
+	FLOOR_CONST_SELECT_2(pow, const_math::pow, ::pow, half)
+	FLOOR_CONST_SELECT_2(copysign, const_math::copysign, ::copysign, half)
 	
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, half)
 	FLOOR_CONST_SELECT_2(clamp, const_math::clamp, rt_math::clamp, half)

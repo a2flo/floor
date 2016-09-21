@@ -202,7 +202,8 @@ bool floor::init(const init_state& state) {
 		datapath.insert(datapath.find("MacOS") + 6, "../../../");
 	}
 #else
-	datapath = datapath_;
+	// reset
+	datapath = state.data_path;
 	rel_datapath = datapath;
 #endif
 #endif
@@ -749,11 +750,10 @@ bool floor::init_internal(const init_state& state) {
 			SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 		}
 		
-		// if x11 forwarding, don't set/request any specific opengl version
-		const bool ignore_gl_version = x11_forwarding;
-		
 #if !defined(FLOOR_IOS)
-		if(!ignore_gl_version && renderer == RENDERER::OPENGL) {
+		// if x11 forwarding, don't set/request any specific opengl version,
+		// otherwise try to use opengl 3.3+ (core) or 2.0
+		if(!x11_forwarding && renderer == RENDERER::OPENGL) {
 			if(state.use_opengl_33) {
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 				SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);

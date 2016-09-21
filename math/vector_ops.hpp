@@ -198,14 +198,14 @@
 
 // TODO
 #define FLOOR_VEC_UNARY_OP_NON_CONST(op) \
-	template <typename non_bool_type = scalar_type, class = typename enable_if<!is_same<non_bool_type, bool>::value>::type> \
+	template <typename non_bool_type = scalar_type, enable_if_t<!is_same<non_bool_type, bool>::value>* = nullptr> \
 	constexpr vector_type operator op () { \
 		return { FLOOR_VEC_UNARY_OP_EXPAND(op, this->, FLOOR_COMMA) }; \
 	}
 
 // TODO
 #define FLOOR_VEC_UNARY_POSTFIX_OP(op) \
-	template <typename non_bool_type = scalar_type, class = typename enable_if<!is_same<non_bool_type, bool>::value>::type> \
+	template <typename non_bool_type = scalar_type, enable_if_t<!is_same<non_bool_type, bool>::value>* = nullptr> \
 	constexpr vector_type operator op (int) { \
 		return { FLOOR_VEC_OP_EXPAND(this->, op, FLOOR_NOP, FLOOR_COMMA, FLOOR_VEC_RHS_NOP) }; \
 	}

@@ -93,6 +93,14 @@
 #define FLOOR_COMPUTE_HOST 1
 #endif
 
+// if host-based compute is enabled, enable host-based graphics as well
+// NOTE: right now this can only be enabled for apple platforms due to constexpr requirements
+#if defined(FLOOR_COMPUTE_HOST) && FLOOR_COMPUTE_HOST == 1
+#if defined(__APPLE__)
+#define FLOOR_GRAPHICS_HOST 1
+#endif
+#endif
+
 // compat with compute device code
 #if !defined(constant) && !defined(FLOOR_COMPUTE)
 #define constant

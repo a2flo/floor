@@ -174,6 +174,7 @@
 		5C92FC5A1CEC16FB00644959 /* mip_map_minify.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */; };
 		5CA3FF051B16475C006E3D81 /* const_array.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF041B16475C006E3D81 /* const_array.hpp */; };
 		5CA3FF071B17B9B0006E3D81 /* cpp_ext.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */; };
+		5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5CAC7FB91D91D14D00994062 /* ext_traits.hpp */; };
 		5CAEC243186799BE00BEC3A3 /* core.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10916D17D1153E007F536E /* core.cpp */; };
 		5CAEC244186799BE00BEC3A3 /* event.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917017D1153E007F536E /* event.cpp */; };
 		5CAEC245186799BE00BEC3A3 /* file_io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C10917317D1153E007F536E /* file_io.cpp */; };
@@ -437,6 +438,7 @@
 		5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = mip_map_minify.hpp; path = device/mip_map_minify.hpp; sourceTree = "<group>"; };
 		5CA3FF041B16475C006E3D81 /* const_array.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = const_array.hpp; sourceTree = "<group>"; };
 		5CA3FF061B17B9B0006E3D81 /* cpp_ext.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = cpp_ext.hpp; sourceTree = "<group>"; };
+		5CAC7FB91D91D14D00994062 /* ext_traits.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = ext_traits.hpp; sourceTree = "<group>"; };
 		5CAF42921B15C04D00316FBB /* logger.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = logger.hpp; path = device/logger.hpp; sourceTree = "<group>"; };
 		5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; name = opaque_image_map.hpp; path = device/opaque_image_map.hpp; sourceTree = "<group>"; };
 		5CBBFF571BC2B786001813E0 /* image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = image.hpp; path = device/image.hpp; sourceTree = "<group>"; };
@@ -746,6 +748,7 @@
 				5CA3FF041B16475C006E3D81 /* const_array.hpp */,
 				5C366DDA19A64FF2006D1D09 /* const_math.hpp */,
 				5C366DDB19A64FF2006D1D09 /* const_string.hpp */,
+				5CAC7FB91D91D14D00994062 /* ext_traits.hpp */,
 				5CCAC0151D3F3FAD006A4C1A /* soft_f16.cpp */,
 				5CCAC0161D3F3FAD006A4C1A /* soft_f16.hpp */,
 				5C5DA0C019CD39B7009CBCA2 /* soft_i128.hpp */,
@@ -1064,6 +1067,7 @@
 				5CEB9F6C1A4BF91B00EC3543 /* compute_kernel.hpp in Headers */,
 				5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */,
 				5C5419021CD1C915003BD2CA /* host_limits.hpp in Headers */,
+				5CAC7FBA1D91D14D00994062 /* ext_traits.hpp in Headers */,
 				5C5383E91A641B1E007AEDD7 /* cuda_device.hpp in Headers */,
 				5CE843B11B28CE1E00D8B961 /* device_info.hpp in Headers */,
 				5C0416FB1B60048100370253 /* json.hpp in Headers */,

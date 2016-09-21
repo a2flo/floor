@@ -42,17 +42,17 @@ struct alignas(16) i128 {
 	constexpr i128(i128&&) noexcept = default;
 	
 	//! construction from smaller unsigned integral type
-	template <typename int_type, typename enable_if<(is_integral<int_type>::value &&
-													 !is_signed<int_type>::value &&
-													 sizeof(int_type) <= 8), int>::type = 0>
+	template <typename int_type, enable_if_t<(is_integral<int_type>::value &&
+											  !is_signed<int_type>::value &&
+											  sizeof(int_type) <= 8)>* = nullptr>
 	constexpr i128(const int_type& val) noexcept : hi(0), lo(val) {}
 	//! construction from smaller signed integral type
-	template <typename int_type, typename enable_if<(is_integral<int_type>::value &&
-													 is_signed<int_type>::value &&
-													 sizeof(int_type) <= 8), int>::type = 0>
+	template <typename int_type, enable_if_t<(is_integral<int_type>::value &&
+											  is_signed<int_type>::value &&
+											  sizeof(int_type) <= 8)>* = nullptr>
 	constexpr i128(const int_type& val) noexcept : hi(val < (int_type)0 ? (i64_type)~0ull : 0), lo((ui64_type)val) {}
 	//! construction from floating point type
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<is_floating_point<fp_type>::value>* = nullptr>
 	constexpr i128(const fp_type& val) noexcept : hi(val < (fp_type)0 ? (i64_type)~0ull : 0), lo((ui64_type)val) {}
 	
 	//! hi/lo construction

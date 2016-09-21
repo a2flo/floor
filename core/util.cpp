@@ -28,6 +28,6 @@ const char* floor_exception::what() const noexcept {
 
 // from event_objects.h:
 EVENT_TYPE operator&(const EVENT_TYPE& e0, const EVENT_TYPE& e1) {
-	return (EVENT_TYPE)((typename underlying_type<EVENT_TYPE>::type)e0 &
-						(typename underlying_type<EVENT_TYPE>::type)e1);
+	return (EVENT_TYPE)((underlying_type_t<EVENT_TYPE>)e0 &
+						(underlying_type_t<EVENT_TYPE>)e1);
 }

@@ -181,7 +181,7 @@ namespace std {
 #endif
 	
 	// asin/acos/atan s/w computation
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type asin(fp_type a) {
 		// nvidia hardware does not provide hardware instruction to compute asin/acos/atan,
 		// so that these must be computed in software.
@@ -221,13 +221,13 @@ namespace std {
 						a);
 	}
 	
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type acos(fp_type a) { return const_math::PI_DIV_2<fp_type> - asin(a); }
 	
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type atan(fp_type a) { return asin(a * rsqrt(a * a + fp_type(1.0))); }
 	
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type atan2(fp_type y, fp_type x) {
 		if(x > fp_type(0.0)) {
 			return atan(y / x);
@@ -242,31 +242,31 @@ namespace std {
 		}
 	}
 	
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type sinh(fp_type a) {
 		const auto exp_a = exp(a);
 		return fp_type(0.5) * (exp_a - fp_type(1.0) / exp_a); // TODO: check if approx rcp is good enough
 	}
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type cosh(fp_type a) {
 		const auto exp_a = exp(a);
 		return fp_type(0.5) * (exp_a + fp_type(1.0) / exp_a);
 	}
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type tanh(fp_type a) {
 		const auto exp_pos = exp(a);
 		const auto exp_neg = fp_type(1.0) / exp_pos;
 		return (exp_pos - exp_neg) / (exp_pos + exp_neg);
 	}
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type asinh(fp_type a) {
 		return log(a + sqrt(fma(a, a, fp_type(1.0))));
 	}
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type acosh(fp_type a) {
 		return log(a + sqrt(fma(a, a, fp_type(-1.0))));
 	}
-	template <typename fp_type, typename = enable_if_t<is_floating_point<fp_type>::value>>
+	template <typename fp_type, typename = enable_if_t<ext::is_floating_point_v<fp_type>>>
 	const_func floor_inline_always fp_type atanh(fp_type a) {
 		return fp_type(0.5) * log((fp_type(1.0) + a) / (fp_type(1.0) - a));
 	}
@@ -325,13 +325,13 @@ extern "C" {
 };
 
 // floating point types are always cast to double
-template <typename T, enable_if_t<is_floating_point<decay_t<T>>::value>* = nullptr>
+template <typename T, enable_if_t<ext::is_floating_point_v<decay_t<T>>>* = nullptr>
 constexpr size_t printf_arg_size() { return 8; }
 // integral types < 4 bytes are always cast to a 4 byte integral type
-template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) <= 4>* = nullptr>
+template <typename T, enable_if_t<ext::is_integral_v<decay_t<T>> && sizeof(decay_t<T>) <= 4>* = nullptr>
 constexpr size_t printf_arg_size() { return 4; }
 // remaining 8 byte integral types
-template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) == 8>* = nullptr>
+template <typename T, enable_if_t<ext::is_integral_v<decay_t<T>> && sizeof(decay_t<T>) == 8>* = nullptr>
 constexpr size_t printf_arg_size() { return 8; }
 // pointers are always 8 bytes (64-bit support only), this includes any kind of char* or char[]
 template <typename T, enable_if_t<is_pointer<decay_t<T>>::value>* = nullptr>
@@ -357,21 +357,21 @@ constexpr size_t printf_args_total_size() {
 template <typename... Args> floor_inline_always constexpr static void printf_args_apply(Args&&...) {}
 
 // casts and copies the printf argument to the correct "va_list"/buffer position + handles necessary alignment
-template <typename T, enable_if_t<is_floating_point<decay_t<T>>::value>* = nullptr>
+template <typename T, enable_if_t<ext::is_floating_point_v<decay_t<T>>>* = nullptr>
 floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
 	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
 	*(double*)*args_buf = (double)arg;
 	*args_buf += 8;
 	return 0;
 }
-template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) <= 4>* = nullptr>
+template <typename T, enable_if_t<ext::is_integral_v<decay_t<T>> && sizeof(decay_t<T>) <= 4>* = nullptr>
 floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
-	typedef conditional_t<is_signed<decay_t<T>>::value, int32_t, uint32_t> int_storage_type;
+	typedef conditional_t<ext::is_signed_v<decay_t<T>>, int32_t, uint32_t> int_storage_type;
 	*(int_storage_type*)*args_buf = (int_storage_type)arg;
 	*args_buf += 4;
 	return 0;
 }
-template <typename T, enable_if_t<is_integral<decay_t<T>>::value && sizeof(decay_t<T>) == 8>* = nullptr>
+template <typename T, enable_if_t<ext::is_integral_v<decay_t<T>> && sizeof(decay_t<T>) == 8>* = nullptr>
 floor_inline_always static int printf_arg_copy(T&& arg, uint8_t** args_buf) {
 	if(size_t(*args_buf) % 8ull != 0) *args_buf += 4;
 	*(decay_t<T>*)*args_buf = arg;

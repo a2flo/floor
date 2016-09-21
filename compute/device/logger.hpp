@@ -96,22 +96,22 @@ public:
 		// will error on unhandled types later on
 		static constexpr ARG_TYPE type() { return ARG_TYPE::INVALID; }
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<(is_integral<T>::value &&
-																 is_signed<T>::value &&
+	template <typename T> struct handle_arg_type<T, enable_if_t<(ext::is_integral_v<T> &&
+																 ext::is_signed_v<T> &&
 																 !is_pointer<T>::value)>> {
 		static constexpr ARG_TYPE type() {
 			return (sizeof(T) <= 4 ? ARG_TYPE::INT32 : ARG_TYPE::INT64);
 		}
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<(is_integral<T>::value &&
-																 !is_signed<T>::value &&
+	template <typename T> struct handle_arg_type<T, enable_if_t<(ext::is_integral_v<T> &&
+																 !ext::is_signed_v<T> &&
 																 !is_pointer<T>::value)>> {
 		static constexpr ARG_TYPE type() {
 			return (sizeof(T) <= 4 ? ARG_TYPE::UINT32 : ARG_TYPE::UINT64);
 		}
 	};
-	template <typename T> struct handle_arg_type<T, enable_if_t<is_floating_point<T>::value>> {
-		static constexpr ARG_TYPE type() { return (sizeof(T) == 4 ? ARG_TYPE::FLOAT : ARG_TYPE::DOUBLE); }
+	template <typename T> struct handle_arg_type<T, enable_if_t<ext::is_floating_point_v<T>>> {
+		static constexpr ARG_TYPE type() { return (sizeof(T) <= 4 ? ARG_TYPE::FLOAT : ARG_TYPE::DOUBLE); }
 	};
 	template <typename T> struct handle_arg_type<T, enable_if_t<(is_pointer<T>::value &&
 																 (is_same<T, char*>::value ||

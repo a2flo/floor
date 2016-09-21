@@ -23,6 +23,7 @@
 #include <floor/math/vector_lib.hpp>
 #include <floor/math/matrix4.hpp>
 #include <floor/core/file_io.hpp>
+#include <floor/constexpr/ext_traits.hpp>
 #include <random>
 
 class core {
@@ -43,28 +44,28 @@ public:
 	static void set_random_seed(const unsigned int& seed);
 	
 	//! random number in [0, max]
-	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static int_type rand(int_type max = numeric_limits<int_type>::max()) {
 		uniform_int_distribution<int_type> dist((int_type)0, max);
 		return dist(gen);
 	}
 	
 	//! random number in [min, max]
-	template <typename int_type, typename enable_if<is_integral<int_type>::value, int>::type = 0>
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
 	static int_type rand(const int_type& min, const int_type& max) {
 		uniform_int_distribution<int_type> dist(min, max);
 		return dist(gen);
 	}
 	
 	//! random number in [0, max)
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static fp_type rand(fp_type max = numeric_limits<fp_type>::max()) {
 		uniform_real_distribution<fp_type> dist((fp_type)0, max);
 		return dist(gen);
 	}
 	
 	//! random number in [min, max)
-	template <typename fp_type, typename enable_if<is_floating_point<fp_type>::value, int>::type = 0>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static fp_type rand(const fp_type& min, const fp_type& max) {
 		uniform_real_distribution<fp_type> dist(min, max);
 		return dist(gen);

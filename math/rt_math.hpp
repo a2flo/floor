@@ -37,6 +37,7 @@
 #endif
 #include <floor/core/essentials.hpp>
 #include <floor/constexpr/soft_i128.hpp>
+#include <floor/constexpr/soft_f16.hpp>
 #include <floor/math/constants.hpp>
 using namespace std;
 
@@ -60,7 +61,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 					 || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 					 || is_same<rt_type, half>()
 #endif
 					 ) {
@@ -82,7 +83,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 									  || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 									  || is_same<rt_type, half>()
 #endif
 									  ),
@@ -110,7 +111,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 					 || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 					 || is_same<rt_type, half>()
 #endif
 					 ) {
@@ -132,7 +133,7 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 									  || is_same<rt_type, double>()
 #endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
 									  || is_same<rt_type, half>()
 #endif
 									  ),
@@ -142,9 +143,7 @@ namespace rt_math {
 	}
 	
 	//! clamps val to the range [min, max]
-	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
-													 is_same<arithmetic_type, __int128_t>() ||
-													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
 															   const arithmetic_type& min_,
 															   const arithmetic_type& max_) {
@@ -152,23 +151,21 @@ namespace rt_math {
 	}
 	
 	//! clamps val to the range [0, max]
-	template <typename arithmetic_type, enable_if_t<(is_arithmetic<arithmetic_type>() ||
-													 is_same<arithmetic_type, __int128_t>() ||
-													 is_same<arithmetic_type, __uint128_t>())>* = nullptr>
+	template <typename arithmetic_type, enable_if_t<ext::is_arithmetic_v<arithmetic_type>>* = nullptr>
 	static floor_inline_always constexpr arithmetic_type clamp(const arithmetic_type& val,
 															   const arithmetic_type& max_) {
 		return min(max(val, (arithmetic_type)0), max_);
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static floor_inline_always fp_type wrap(const fp_type& val, const fp_type& max) {
 		return (val < (fp_type)0 ? (max - fmod(abs(val), max)) : fmod(val, max));
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename int_type, enable_if_t<((is_integral<int_type>() &&
-											   is_signed<int_type>()) &&
+	template <typename int_type, enable_if_t<(ext::is_integral_v<int_type> &&
+											  ext::is_signed_v<int_type> &&
 											  !is_same<int_type, __int128_t>())>* = nullptr>
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST) // needed for libstdc++
@@ -180,22 +177,21 @@ namespace rt_math {
 	}
 	
 	//! wraps val to the range [0, max]
-	template <typename uint_type, enable_if_t<((is_integral<uint_type>() &&
-												is_unsigned<uint_type>()) ||
-											   is_same<uint_type, __uint128_t>())>* = nullptr>
-	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
-		return (val % max);
-	}
-	
-	//! wraps val to the range [0, max]
 	template <typename int_type, enable_if_t<(is_same<int_type, __int128_t>())>* = nullptr>
 	static floor_inline_always constexpr int_type wrap(const int_type& val, const int_type& max) {
 		// no std::abs or __builtin_abs for __int128_t
 		return (val < (int_type)0 ? (max - ((val < (int_type)0 ? -val : val) % max)) : (val % max));
 	}
 	
+	//! wraps val to the range [0, max]
+	template <typename uint_type, enable_if_t<(ext::is_integral_v<uint_type> &&
+											   ext::is_unsigned_v<uint_type>)>* = nullptr>
+	static floor_inline_always constexpr uint_type wrap(const uint_type& val, const uint_type& max) {
+		return (val % max);
+	}
+	
 	//! returns the fractional part of val
-	template <typename fp_type, enable_if_t<(is_floating_point<fp_type>())>* = nullptr>
+	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	static floor_inline_always fp_type fractional(const fp_type& val) {
 		return (val - trunc(val));
 	}
@@ -388,5 +384,43 @@ namespace rt_math {
 	}
 	
 }
+
+// -> "std::" s/w half/fp16 math functions (simply forward to float functions)
+// (don't define for backends that have h/w support)
+#if !defined(FLOOR_COMPUTE_OPENCL) && !defined(FLOOR_COMPUTE_METAL) && !defined(FLOOR_COMPUTE_VULKAN)
+#define FLOOR_HALF_SW_FUNC_1(func) static floor_inline_always auto func(half x) { return (half)std::func(float(x)); }
+#define FLOOR_HALF_SW_FUNC_2(func) static floor_inline_always auto func(half x, half y) { return (half)std::func(float(x), float(y)); }
+#define FLOOR_HALF_SW_FUNC_3(func) static floor_inline_always auto func(half x, half y, half z) { return (half)std::func(float(x), float(y), float(z)); }
+FLOOR_HALF_SW_FUNC_2(fmod)
+FLOOR_HALF_SW_FUNC_1(sqrt)
+FLOOR_HALF_SW_FUNC_1(abs)
+FLOOR_HALF_SW_FUNC_1(floor)
+FLOOR_HALF_SW_FUNC_1(ceil)
+FLOOR_HALF_SW_FUNC_1(round)
+FLOOR_HALF_SW_FUNC_1(trunc)
+FLOOR_HALF_SW_FUNC_1(rint)
+FLOOR_HALF_SW_FUNC_1(sin)
+FLOOR_HALF_SW_FUNC_1(cos)
+FLOOR_HALF_SW_FUNC_1(tan)
+FLOOR_HALF_SW_FUNC_1(asin)
+FLOOR_HALF_SW_FUNC_1(acos)
+FLOOR_HALF_SW_FUNC_1(atan)
+FLOOR_HALF_SW_FUNC_2(atan2)
+FLOOR_HALF_SW_FUNC_1(sinh)
+FLOOR_HALF_SW_FUNC_1(cosh)
+FLOOR_HALF_SW_FUNC_1(tanh)
+FLOOR_HALF_SW_FUNC_1(asinh)
+FLOOR_HALF_SW_FUNC_1(acosh)
+FLOOR_HALF_SW_FUNC_1(atanh)
+FLOOR_HALF_SW_FUNC_1(exp)
+FLOOR_HALF_SW_FUNC_1(exp2)
+FLOOR_HALF_SW_FUNC_1(log)
+FLOOR_HALF_SW_FUNC_1(log2)
+FLOOR_HALF_SW_FUNC_2(pow)
+FLOOR_HALF_SW_FUNC_2(copysign)
+#undef FLOOR_HALF_SW_FUNC_1
+#undef FLOOR_HALF_SW_FUNC_2
+#undef FLOOR_HALF_SW_FUNC_3
+#endif
 
 #endif
