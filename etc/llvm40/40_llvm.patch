@@ -1273,6 +1273,80 @@ index 16c5f5c..7e03495 100644
      }
    } ForcePassLinking; // Force link by creating a global definition.
  }
+diff --git a/include/llvm/SPIRV/VulkanSampling.h b/include/llvm/SPIRV/VulkanSampling.h
+new file mode 100644
+index 0000000..524c41c
+--- /dev/null
++++ b/include/llvm/SPIRV/VulkanSampling.h
+@@ -0,0 +1,68 @@
++//===- VulkanSampling.h - Vulkan-specific sampler/image info --------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// TODO
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_SPIRV_VULKAN_SAMPLING_H
++#define LLVM_SPIRV_VULKAN_SAMPLING_H
++
++namespace vulkan_sampling {
++	// vulkan immutable/fixed sampler type
++	// -> libfloor: device/vulkan_image.hpp
++	struct sampler {
++		enum FILTER_MODE : uint32_t {
++			__FILTER_MODE_MASK			= (0x00000001u),
++			__FILTER_MODE_SHIFT			= (0u),
++			NEAREST						= (0u << __FILTER_MODE_SHIFT),
++			LINEAR						= (1u << __FILTER_MODE_SHIFT),
++		};
++		enum ADDRESS_MODE : uint32_t {
++			__ADDRESS_MODE_MASK			= (0x00000002u),
++			__ADDRESS_MODE_SHIFT		= (1u),
++			CLAMP_TO_EDGE				= (0u << __ADDRESS_MODE_SHIFT),
++			REPEAT						= (1u << __ADDRESS_MODE_SHIFT),
++		};
++		enum COMPARE_FUNCTION : uint32_t {
++			__COMPARE_FUNCTION_MASK		= (0x0000001Cu),
++			__COMPARE_FUNCTION_SHIFT	= (2u),
++			NEVER						= (0u << __COMPARE_FUNCTION_SHIFT),
++			LESS						= (1u << __COMPARE_FUNCTION_SHIFT),
++			EQUAL						= (2u << __COMPARE_FUNCTION_SHIFT),
++			LESS_OR_EQUAL				= (3u << __COMPARE_FUNCTION_SHIFT),
++			GREATER						= (4u << __COMPARE_FUNCTION_SHIFT),
++			NOT_EQUAL					= (5u << __COMPARE_FUNCTION_SHIFT),
++			GREATER_OR_EQUAL			= (6u << __COMPARE_FUNCTION_SHIFT),
++			ALWAYS						= (7u << __COMPARE_FUNCTION_SHIFT),
++		};
++		// NOTE: this should be the MSB, because we won't actually be creating samplers for pixel addressing
++		enum COORD_MODE : uint32_t {
++			__COORD_MODE_MASK			= (0x00000020u),
++			__COORD_MODE_SHIFT			= (5u),
++			NORMALIZED					= (0u << __COORD_MODE_SHIFT),
++			PIXEL						= (1u << __COORD_MODE_SHIFT),
++		};
++		
++		uint32_t value;
++	};
++	
++	enum class LOD_TYPE : uint32_t {
++		NO_LOD = 0,
++		IMPLICIT_LOD = 1, // fragment shader only
++		IMPLICIT_LOD_WITH_BIAS = 2, // fragment shader only
++		EXPLICIT_LOD = 3,
++		GRADIENT = 4,
++		__MAX_LOD_TYPE = GRADIENT,
++		INVALID = ~0u,
++	};
++	
++}
++
++#endif
 diff --git a/include/llvm/SPIRVerifier/SpirErrors.h b/include/llvm/SPIRVerifier/SpirErrors.h
 new file mode 100644
 index 0000000..88bd695
@@ -2449,10 +2523,10 @@ index 167cc94..9c58e53 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..41c72d2
+index 0000000..c4cbf327
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
-@@ -0,0 +1,389 @@
+@@ -0,0 +1,390 @@
 +//===-- FloorImage.h - base class for image transformations------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2827,6 +2901,7 @@ index 0000000..41c72d2
 +		Instruction* alloca_insert { nullptr };
 +		std::shared_ptr<IRBuilder<>> builder;
 +		bool was_modified { false };
++		bool is_fragment_shader { false };
 +		IMAGE_CAPABILITY image_capabilities { IMAGE_CAPABILITY::NONE };
 +		
 +		llvm::AttributeSet nounwind_readnone_attr;
@@ -20811,10 +20886,10 @@ index 0000000..d09a121
 +}
 diff --git a/lib/SPIRV/SPIRVRegularizeLLVM.cpp b/lib/SPIRV/SPIRVRegularizeLLVM.cpp
 new file mode 100644
-index 0000000..ff2e7b9
+index 0000000..1d2b6d6
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVRegularizeLLVM.cpp
-@@ -0,0 +1,214 @@
+@@ -0,0 +1,249 @@
 +//===- SPIRVRegularizeLLVM.cpp - Regularize LLVM for SPIR-V ------- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -20861,6 +20936,7 @@ index 0000000..ff2e7b9
 +
 +#include "llvm/ADT/StringSwitch.h"
 +#include "llvm/ADT/Triple.h"
++#include "llvm/IR/Dominators.h"
 +#include "llvm/IR/InstVisitor.h"
 +#include "llvm/IR/Instructions.h"
 +#include "llvm/IR/IRBuilder.h"
@@ -20923,6 +20999,35 @@ index 0000000..ff2e7b9
 +  return true;
 +}
 +
++// final cleanup: sort BBs according to the DT
++void sort_bbs(Function *F) {
++  // dominator fixes: reorder blocks
++  // NOTE: obviously only necessary when there are more than 2 blocks
++  if (F->getBasicBlockList().size() <= 2)
++    return;
++
++  DominatorTree DT;
++  DT.recalculate(*F);
++
++  // use the dominator tree order to sort the bbs, i.e. with the DT we already
++  // know the sorted order,
++  // we just need to physically move the blocks according to it
++  std::vector<BasicBlock *> sorted_blocks;
++  const std::function<void(const DomTreeNodeBase<BasicBlock> &)> sort_recurse =
++      [&sort_recurse, &sorted_blocks](const DomTreeNodeBase<BasicBlock> &node) {
++        sorted_blocks.emplace_back(node.getBlock());
++        for (const auto &child : node) {
++          sort_recurse(*child);
++        }
++      };
++  sort_recurse(*DT.getRootNode());
++
++  // move blocks in reverse order (not moving entry of course)
++  for (size_t i = 0, count = sorted_blocks.size(); i < count - 2; ++i) {
++    sorted_blocks[count - i - 2]->moveBefore(sorted_blocks[count - i - 1]);
++  }
++}
++
 +/// Remove entities not representable by SPIR-V
 +bool SPIRVRegularizeLLVM::regularize() {
 +  LLVMContext *Context = &M->getContext();
@@ -20969,6 +21074,11 @@ index 0000000..ff2e7b9
 +        }
 +      }
 +    }
++  }
++
++  // sort BBs according to DT
++  for (auto &F : *M) {
++    sort_bbs(&F);
 +  }
 +
 +  std::string Err;
@@ -21606,10 +21716,10 @@ index 0000000..fd1ee17
 +ModulePass *llvm::createSPIRVToOCL20() { return new SPIRVToOCL20(); }
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..e42c2cf
+index 0000000..4e57ba3
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1410 @@
+@@ -0,0 +1,1413 @@
 +//===- SPIRVUtil.cpp - SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -21781,6 +21891,9 @@ index 0000000..e42c2cf
 +      SignPrefix = "u";
 +    auto W = Ty->getBitWidth();
 +    switch (W) {
++    case 1:
++      Stem = "bool";
++      break;
 +    case 8:
 +      Stem = "char";
 +      break;
@@ -23022,10 +23135,10 @@ index 0000000..e42c2cf
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..a4bdfb8
+index 0000000..eebcd85
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,2940 @@
+@@ -0,0 +1,3026 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23099,6 +23212,7 @@ index 0000000..a4bdfb8
 +#include "llvm/Pass.h"
 +#include "llvm/PassSupport.h"
 +#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/SPIRV/VulkanSampling.h"
 +#include "llvm/Support/Casting.h"
 +#include "llvm/Support/CommandLine.h"
 +#include "llvm/Support/Debug.h"
@@ -25320,8 +25434,8 @@ index 0000000..a4bdfb8
 +                                           SPIRAS_Input, global_type, md_info);
 +          // only emit load if there actually is a user
 +          if (arg.getNumUses() > 0) {
-+            LoadInst *load_repl_var = new LoadInst(repl_var, arg_name, false,
-+                                                   &*next(F->front().begin()));
++            LoadInst *load_repl_var =
++                new LoadInst(repl_var, arg_name, false, &*(F->front().begin()));
 +            arg.replaceAllUsesWith(load_repl_var);
 +          }
 +        } else {
@@ -25534,26 +25648,25 @@ index 0000000..a4bdfb8
 +  if (!transGlobalVariables())
 +    return false;
 +
-+  for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
-+    Function *F = &*I;
-+    auto FT = F->getFunctionType();
++  for (auto &F : *M) {
++    auto FT = F.getFunctionType();
 +    std::map<unsigned, Type *> ChangedType;
-+    oclGetMutatedArgumentTypesByBuiltin(FT, ChangedType, F);
-+    mutateFuncArgType(ChangedType, F);
++    oclGetMutatedArgumentTypesByBuiltin(FT, ChangedType, &F);
++    mutateFuncArgType(ChangedType, &F);
 +  }
 +
 +  // SPIR-V logical layout requires all function declarations go before
 +  // function definitions.
 +  std::vector<Function *> Decls, Defs;
-+  for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
-+    if (isBuiltinTransToInst(&*I) || isBuiltinTransToExtInst(&*I) ||
-+        I->getName().startswith(SPCV_CAST) ||
-+        I->getName().startswith(LLVM_MEMCPY))
++  for (auto &F : *M) {
++    if (isBuiltinTransToInst(&F) || isBuiltinTransToExtInst(&F) ||
++        F.getName().startswith(SPCV_CAST) ||
++        F.getName().startswith(LLVM_MEMCPY))
 +      continue;
-+    if (I->isDeclaration())
-+      Decls.push_back(&*I);
++    if (F.isDeclaration())
++      Decls.push_back(&F);
 +    else
-+      Defs.push_back(&*I);
++      Defs.push_back(&F);
 +  }
 +  for (auto I : Decls)
 +    transFunctionDecl(I);
@@ -25770,9 +25883,17 @@ index 0000000..a4bdfb8
 +LLVMToSPIRV::transVulkanImageFunction(CallInst *CI, SPIRVBasicBlock *BB,
 +                                      const std::string &DemangledName,
 +                                      const std::string &MangledName) {
-+  // TODO: use OpImageSampleImplicitLod in fragment shaders if possible
-+  // const bool is_fragment = (CI->getParent()->getParent()->getCallingConv() ==
-+  //                          CallingConv::FLOOR_FRAGMENT);
++  // NOTE: argument validity checking has already been done in VulkanImage
++  //
++  // read(image, sampler_idx, coord_with_layer,
++  //      lod_type, [lod_arg_0], [lod_arg_1],
++  //      bool is_offset, [offset],
++  //      [sample_idx],
++  //      [compare_val])
++  //
++  // write(TODO...)
++
++  // TODO: try to "cache" these things (no dupes)
 +
 +  auto args = getArguments(CI);
 +  auto img_arg = args[0];
@@ -25780,8 +25901,6 @@ index 0000000..a4bdfb8
 +  assert(spirv_img != nullptr && "invalid image");
 +
 +  if (DemangledName.find("read_image") == 0) {
-+    // TODO: try to "cache" these things (no dupes)
-+
 +    // load the image
 +    const std::vector<SPIRVWord> access; // empty access for image/sampler load
 +    auto loaded_img = BM->addLoadInst(spirv_img, access, BB);
@@ -25790,8 +25909,14 @@ index 0000000..a4bdfb8
 +    // retrieve the sampler idx + load the sampler
 +    auto sampler_idx_arg = dyn_cast<ConstantInt>(args[1]);
 +    assert(sampler_idx_arg != nullptr && "sampler must be a constant int");
++    const vulkan_sampling::sampler sampler_val{
++        (uint32_t)sampler_idx_arg->getZExtValue()};
++    const bool is_fetch =
++        ((sampler_val.value &
++          vulkan_sampling::sampler::COORD_MODE::__COORD_MODE_MASK) ==
++         vulkan_sampling::sampler::COORD_MODE::PIXEL);
 +    std::vector<SPIRVValue *> indices{
-+        BM->getLiteralAsConstant(sampler_idx_arg->getZExtValue(), false)};
++        BM->getLiteralAsConstant(sampler_val.value, false)};
 +
 +    auto sampler_ptr = BM->addAccessChainInst(
 +        BM->addPointerType(spv::StorageClassUniformConstant,
@@ -25807,22 +25932,96 @@ index 0000000..a4bdfb8
 +        BM->addInstTemplate(OpSampledImage, sampled_img_ops, BB,
 +                            BM->addSampledImageType(spirv_img_type));
 +
-+    // args
-+    auto coords_arg = transValue(args[2], BB);
++    std::vector<SPIRVWord> read_operands{sampled_img->getId()};
++    std::vector<SPIRVWord> image_operands;
++    spv::Op read_opcode = spv::OpNop;
++    uint32_t operands_mask = spv::ImageOperandsMaskNone;
 +
-+    // TODO: cache float literals as is done for int/uints
-+    // TODO: should already create all args in VulkanImage!
-+    auto lod_arg = BM->addFloatConstant(
-+        (SPIRVTypeFloat *)transType(llvm::Type::getFloatTy(CI->getContext())),
-+        0.0f);
++    // coords
++    auto coords_arg = transValue(args[2], BB);
++    read_operands.emplace_back(coords_arg->getId());
++
++    // lod type and args
++    auto lod_type_arg = dyn_cast<ConstantInt>(args[3]);
++    uint32_t arg_idx = 4; // from here on: arg count and indices are variable
++    assert(lod_type_arg != nullptr && "lod type must be a constant int");
++    auto lod_type = (vulkan_sampling::LOD_TYPE)lod_type_arg->getZExtValue();
++    assert(lod_type <= vulkan_sampling::LOD_TYPE::__MAX_LOD_TYPE &&
++           "invalid lod type");
++    switch (lod_type) {
++    case vulkan_sampling::LOD_TYPE::NO_LOD:
++      read_opcode = spv::OpImageFetch;
++      break;
++    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD:
++      read_opcode = spv::OpImageSampleImplicitLod;
++      break;
++    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS:
++      read_opcode = spv::OpImageSampleImplicitLod;
++      operands_mask |= spv::ImageOperandsBiasMask;
++      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      break;
++    case vulkan_sampling::LOD_TYPE::EXPLICIT_LOD:
++      read_opcode =
++          (!is_fetch ? spv::OpImageSampleExplicitLod : spv::OpImageFetch);
++      operands_mask |= spv::ImageOperandsLodMask;
++      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      break;
++    case vulkan_sampling::LOD_TYPE::GRADIENT:
++      read_opcode =
++          (!is_fetch ? spv::OpImageSampleExplicitLod : spv::OpImageFetch);
++      operands_mask |= spv::ImageOperandsGradMask;
++      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      break;
++    default:
++      llvm_unreachable("invalid lod type");
++    }
++
++    // offset
++    auto is_offset_arg = dyn_cast<ConstantInt>(args[arg_idx++]);
++    assert(is_offset_arg != nullptr && "is_offset flag must be a constant int");
++    if (!is_offset_arg->isZero()) {
++      auto offset_arg = args[arg_idx++];
++      // operands_mask |= spv::ImageOperandsConstOffsetMask; // TODO: !
++      operands_mask |= spv::ImageOperandsOffsetMask;
++      image_operands.emplace_back(transValue(offset_arg, BB)->getId());
++      BM->addCapability(spv::CapabilityImageGatherExtended); // TODO: only if non-const
++    }
++
++    // sample idx
++    if (DemangledName.find("msaa") != std::string::npos) {
++      auto sample_idx_arg = args[arg_idx++];
++      operands_mask |= spv::ImageOperandsSampleMask;
++      image_operands.emplace_back(transValue(sample_idx_arg, BB)->getId());
++    }
++
++    // depth compare
++    if (arg_idx < args.size()) {
++      auto compare_arg = args[arg_idx++];
++
++      // must switch out the opcode
++      assert((read_opcode == spv::OpImageSampleImplicitLod ||
++              read_opcode == spv::OpImageSampleExplicitLod) &&
++             "invalid read opcode");
++      read_opcode =
++          (spv::OpImageSampleImplicitLod ? spv::OpImageSampleDrefImplicitLod
++                                         : spv::OpImageSampleDrefExplicitLod);
++      read_operands.emplace_back(transValue(compare_arg, BB)->getId());
++    }
++
++    // sanity check
++    assert(arg_idx == args.size() && "unhandled args");
 +
 +    // create the image read
-+    std::vector<SPIRVWord> sample_ops{
-+        sampled_img->getId(), coords_arg->getId(), spv::ImageOperandsLodMask,
-+        lod_arg->getId(),
-+    };
-+    auto read_sample = BM->addInstTemplate(OpImageSampleExplicitLod, sample_ops,
-+                                           BB, getSPIRVType(CI->getType()));
++    if (operands_mask != spv::ImageOperandsMaskNone) {
++      // must only be emitted if mask != None + operands are ordered
++      read_operands.emplace_back(operands_mask);
++      for (const auto &id : image_operands) {
++        read_operands.emplace_back(id);
++      }
++    }
++    auto read_sample = BM->addInstTemplate(read_opcode, read_operands, BB,
++                                           getSPIRVType(CI->getType()));
 +    return {read_sample, read_sample->getOpCode()};
 +  } else if (DemangledName.find("write_image") == 0) {
 +    // TODO: handle image writes
@@ -28147,10 +28346,10 @@ index 0000000..256febb
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..098cb0e
+index 0000000..d5db471
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,719 @@
+@@ -0,0 +1,716 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -28815,13 +29014,10 @@ index 0000000..098cb0e
 +_SPIRV_OP(Image)
 +_SPIRV_OP(ImageTexelPointer)
 +_SPIRV_OP(CompositeConstruct)
-+_SPIRV_OP(ImageSampleDrefImplicitLod)
-+_SPIRV_OP(ImageSampleDrefExplicitLod)
 +_SPIRV_OP(ImageSampleProjImplicitLod)
 +_SPIRV_OP(ImageSampleProjExplicitLod)
 +_SPIRV_OP(ImageSampleProjDrefImplicitLod)
 +_SPIRV_OP(ImageSampleProjDrefExplicitLod)
-+_SPIRV_OP(ImageFetch)
 +_SPIRV_OP(ImageGather)
 +_SPIRV_OP(ImageDrefGather)
 +_SPIRV_OP(QuantizeToF16)
@@ -30351,10 +30547,10 @@ index 0000000..dcffc52
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..cd70d75
+index 0000000..6d10308
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2112 @@
+@@ -0,0 +1,2115 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ --===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -32437,6 +32633,9 @@ index 0000000..cd70d75
 +_SPIRV_OP(SampledImage, true, 5)
 +_SPIRV_OP(ImageSampleImplicitLod, true, 5, true)
 +_SPIRV_OP(ImageSampleExplicitLod, true, 7, true, 2)
++_SPIRV_OP(ImageSampleDrefImplicitLod, true, 6, true)
++_SPIRV_OP(ImageSampleDrefExplicitLod, true, 8, true)
++_SPIRV_OP(ImageFetch, true, 5, true)
 +_SPIRV_OP(ImageRead, true, 5, true, 2)
 +_SPIRV_OP(ImageWrite, false, 4, true, 3)
 +#undef _SPIRV_OP
@@ -37210,7 +37409,7 @@ index 0000000..228c206
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.h b/lib/SPIRV/libSPIRV/SPIRVType.h
 new file mode 100644
-index 0000000..1dd8d65
+index 0000000..bf8588b
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.h
 @@ -0,0 +1,790 @@
@@ -37720,7 +37919,7 @@ index 0000000..1dd8d65
 +    assert(Desc.Depth <= 1);
 +    assert(Desc.Arrayed <= 1);
 +    assert(Desc.MS <= 1);
-+    assert(Desc.Sampled <= 1);
++    assert(Desc.Sampled <= 2);
 +    assert(Desc.Format < ImageFormatMax);
 +  }
 +  void setWordCount(SPIRVWord TheWC) { WordCount = TheWC; }
@@ -43311,10 +43510,10 @@ index 0000000..23be65f
 +}
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 0000000..b3befb0
+index 0000000..9c01313d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
-@@ -0,0 +1,543 @@
+@@ -0,0 +1,501 @@
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -43337,7 +43536,6 @@ index 0000000..b3befb0
 +#include "llvm/Analysis/AliasAnalysis.h"
 +#include "llvm/Analysis/BasicAliasAnalysis.h"
 +#include "llvm/Analysis/GlobalsModRef.h"
-+#include "llvm/Analysis/PostDominators.h"
 +#include "llvm/Analysis/LoopInfo.h"
 +#include "llvm/IR/CFG.h"
 +#include "llvm/IR/CallSite.h"
@@ -43415,44 +43613,6 @@ index 0000000..b3befb0
 +
 +		void getAnalysisUsage(AnalysisUsage &AU) const override {
 +			AU.addRequired<DominatorTreeWrapperPass>();
-+		}
-+		
-+		void sort_bbs() {
-+			// dominator fixes: reorder blocks
-+			// NOTE: obviously only necessary when there are more than 2 blocks
-+			if(func->getBasicBlockList().size() <= 2) return;
-+			
-+			if(was_modified) {
-+				DT->recalculate(*func);
-+			}
-+			
-+			DBG(errs() << "\n> bbs before:\n";
-+				for(BasicBlock& bb : func->getBasicBlockList()) {
-+					errs() << "\t" << bb.getName() << "\n";
-+				})
-+			
-+			// use the dominator tree order to sort the bbs, i.e. with the DT we already know the sorted order,
-+			// we just need to physically move the blocks according to it
-+			std::vector<BasicBlock*> sorted_blocks;
-+			const std::function<void(const DomTreeNodeBase<BasicBlock>&)> sort_recurse = [&sort_recurse, &sorted_blocks](const DomTreeNodeBase<BasicBlock>& node) {
-+				sorted_blocks.emplace_back(node.getBlock());
-+				for(const auto& child : node) {
-+					sort_recurse(*child);
-+				}
-+			};
-+			sort_recurse(*DT->getRootNode());
-+			
-+			DBG(DT->print(errs());)
-+			
-+			// move blocks in reverse order (not moving entry of course)
-+			for(size_t i = 0, count = sorted_blocks.size(); i < count - 2; ++i) {
-+				sorted_blocks[count - i - 2]->moveBefore(sorted_blocks[count - i - 1]);
-+			}
-+			
-+			DBG(errs() << "> bbs after:\n";
-+				for(BasicBlock& bb : func->getBasicBlockList()) {
-+					errs() << "\t" << bb.getName() << "\n";
-+				})
 +		}
 +		
 +		// returns true if the BB only contains a terminator and doesn't have a successor
@@ -43799,9 +43959,6 @@ index 0000000..b3befb0
 +					};
 +				create_cfg_merge_tree(merge_tree, merge_bb, 0, 0);
 +			}
-+			
-+			// final cleanup: sort BBs according to the DT
-+			sort_bbs();
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -44653,10 +44810,10 @@ index 0000000..a31359d
 +}
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..b0dfcd3
+index 0000000..42b30a3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
-@@ -0,0 +1,449 @@
+@@ -0,0 +1,450 @@
 +//===- FloorImage.cpp - base class for image transformations --------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44743,6 +44900,7 @@ index 0000000..b0dfcd3
 +	
 +	// visit everything in this function
 +	DBG(errs() << "in func: "; errs().write_escaped(F.getName()) << '\n';)
++	is_fragment_shader = (F.getCallingConv() == CallingConv::FLOOR_FRAGMENT);
 +	visit(F);
 +	
 +	return was_modified;
@@ -51236,11 +51394,11 @@ index 0000000..92d0449
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..e643ac3
+index 0000000..eb6efd6
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,525 @@
-+//===- VulkanImage.cpp - SPIR-specific floor image transformations --------===//
+@@ -0,0 +1,652 @@
++//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
 +//
@@ -51285,6 +51443,7 @@ index 0000000..e643ac3
 +#include "llvm/Support/Debug.h"
 +#include "llvm/Support/ErrorHandling.h"
 +#include "llvm/Support/raw_ostream.h"
++#include "llvm/SPIRV/VulkanSampling.h"
 +#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 +#include "llvm/Transforms/IPO.h"
 +#include "llvm/Transforms/Scalar.h"
@@ -51364,6 +51523,7 @@ index 0000000..e643ac3
 +							 llvm::Value* layer_arg,
 +							 const bool is_array,
 +							 const bool is_msaa,
++							 // must have: true: int coords, false: float coords
 +							 const bool must_have_int_args,
 +							 std::string& vk_func_name,
 +							 SmallVector<llvm::Type*, 8>& func_arg_types,
@@ -51377,25 +51537,41 @@ index 0000000..e643ac3
 +			
 +			const auto coord_type = coord_vec_type->getElementType();
 +			const auto is_int_coord = coord_type->isIntegerTy();
-+			
-+			if(must_have_int_args && !is_int_coord) {
-+				ctx->emitError(&I, "coordinate type must be integer");
++			if(!is_int_coord && !coord_type->isFloatTy()) {
++				ctx->emitError(&I, "invalid coordinate type (neither int nor float)");
 +				return;
 +			}
 +			
 +			auto vk_coord_dim = coord_dim + (is_array ? 1 : 0);
 +			assert(vk_coord_dim <= 4 && "can't have a coord vector type with dim > 4");
-+			const auto vk_coord_scalar_type = (is_int_coord ? llvm::Type::getInt32Ty(*ctx) : llvm::Type::getFloatTy(*ctx));
++			const auto vk_coord_scalar_type = (must_have_int_args ? llvm::Type::getInt32Ty(*ctx) : llvm::Type::getFloatTy(*ctx));
 +			const auto vk_coord_type = (vk_coord_dim == 1 ?
 +										vk_coord_scalar_type :
 +										llvm::VectorType::get(vk_coord_scalar_type, vk_coord_dim));
++			
++			//
++			bool convert_to_int = false, convert_to_float = false;
++			if(must_have_int_args && !is_int_coord) {
++				convert_to_int = true;
++			}
++			else if(!must_have_int_args && is_int_coord) {
++				convert_to_float = true;
++			}
++			const auto convert_val = [&convert_to_int, &convert_to_float,
++									  &vk_coord_scalar_type, this](llvm::Value* val) {
++				return (convert_to_int ?
++						builder->CreateFPToSI(val, vk_coord_scalar_type) :
++						(convert_to_float ?
++						 builder->CreateSIToFP(val, vk_coord_scalar_type) :
++						 val));
++			};
 +			
 +			// start with the specified coord arg, there are some cases where we can just use it without rebuilding
 +			auto vk_coord_arg = coord_arg;
 +			if(vk_coord_type != coord_vec_type) {
 +				if(vk_coord_dim == 1) {
 +					// just a scalar
-+					vk_coord_arg = builder->CreateExtractElement(coord_arg, builder->getInt32(0));
++					vk_coord_arg = convert_val(builder->CreateExtractElement(coord_arg, builder->getInt32(0)));
 +				}
 +				else {
 +					// create a new tmp coord, then copy coord elements (keep unused undef)
@@ -51403,15 +51579,15 @@ index 0000000..e643ac3
 +					uint32_t coord_idx = 0;
 +					for(; coord_idx < coord_dim; ++coord_idx) {
 +						vk_coord_arg = builder->CreateInsertElement(vk_coord_arg,
-+																	builder->CreateExtractElement(coord_arg,
-+																								  builder->getInt32(coord_idx)),
++																	convert_val(builder->CreateExtractElement(coord_arg,
++																											  builder->getInt32(coord_idx))),
 +																	builder->getInt32(coord_idx));
 +					}
 +					
 +					// need to pull the layer index into the coordinate, including possible int -> float conversion
 +					if(is_array) {
 +						auto layer = layer_arg;
-+						if(!is_int_coord) {
++						if(!must_have_int_args) {
 +							// need to convert
 +							layer = builder->CreateUIToFP(layer_arg, vk_coord_scalar_type);
 +						}
@@ -51425,7 +51601,7 @@ index 0000000..e643ac3
 +			if(vk_coord_dim > 1) {
 +				vk_func_name += "Dv" + std::to_string(vk_coord_dim) + "_";
 +			}
-+			vk_func_name += (is_int_coord ? "i" : "f");
++			vk_func_name += (must_have_int_args ? "i" : "f");
 +		}
 +		
 +		void handle_read_image(Instruction& I,
@@ -51451,16 +51627,25 @@ index 0000000..e643ac3
 +			SmallVector<llvm::Type*, 8> func_arg_types;
 +			SmallVector<llvm::Value*, 8> func_args;
 +			
++			// NOTE: read call will be constructed as follows ([arg] are optional args):
++			// read(image, sampler_idx, coord_with_layer,
++			//      lod_type, [lod_arg_0], [lod_arg_1],
++			//      bool is_offset, [offset],
++			//      [sample_idx],
++			//      [compare_val])
++			// -> this will use cxx mangling, since we still need to differentiate the calls later on
++			
++			// TODO: properly handle cube images -> must either use explicit/implicit sampling or read, not fetch
++			// TODO: properly handle depth compare -> must use explicit/implicit sampling, not fetch
++			
 +			// must be constant/constexpr for now
 +			if(const_sampler_arg == nullptr) {
 +				ctx->emitError(&I, "sampler must be a constant");
 +				return;
 +			}
-+			auto sampler_arg = const_sampler_arg;
-+			
-+			// TODO read:
-+			// float coords -> explicit lo (!fs) or implicit lod (if fragment shader)
-+			// int coords -> texel fetch
++			const vulkan_sampling::sampler sampler_val { (uint32_t)const_sampler_arg->getZExtValue() };
++			const auto is_fetch = ((sampler_val.value & vulkan_sampling::sampler::COORD_MODE::__COORD_MODE_MASK) ==
++								   vulkan_sampling::sampler::COORD_MODE::PIXEL);
 +			
 +			// get geom string / mangled name + flags
 +			std::string geom;
@@ -51487,7 +51672,6 @@ index 0000000..e643ac3
 +					ctx->emitError(&I, "unknown or incorrect image type");
 +					return;
 +			}
-+			// TODO: properly handle cube images in vulkan mode
 +			
 +			// -> return data and vulkan function name
 +			// NOTE: we don't have a c++ mangling support in here, so do it manually
@@ -51513,41 +51697,174 @@ index 0000000..e643ac3
 +			// unknown -> ignore
 +			else return;
 +			
-+			// -> geom
++			// -> geom/image
 +			vk_func_name += geom;
-+			
 +			func_arg_types.push_back(img_handle_arg->getType());
 +			func_args.push_back(img_handle_arg);
 +			
-+			if(is_depth) {
-+				// depth return type is always a float
-+				ret_type = llvm::Type::getFloatTy(*ctx);
-+			}
-+			
-+			// except for msaa, we always have a sampler
-+			if(!is_msaa) {
-+				vk_func_name += "11ocl_sampler";
-+				func_arg_types.push_back(sampler_arg->getType());
-+				func_args.push_back(sampler_arg);
-+			}
-+			
-+			// -> offset
-+			// opencl has no offset support, so always add it
-+			llvm::Value* offset_coord_arg = coord_arg;
-+			// TODO: !
++			// -> sampler
++			vk_func_name += "i";
++			func_arg_types.push_back(const_sampler_arg->getType());
++			func_args.push_back(const_sampler_arg);
 +			
 +			// -> coord
 +			handle_vk_coord(I,
-+							offset_coord_arg,
++							coord_arg,
 +							layer_arg,
 +							is_array,
 +							is_msaa,
-+							false, // can have either int or float coords
++							// fetch: always int coords, sample: always float coords
++							is_fetch,
 +							vk_func_name,
 +							func_arg_types,
 +							func_args);
 +			
-+			// -> sample
++			// -> lod / bias / gradient
++			vulkan_sampling::LOD_TYPE lod_type = vulkan_sampling::LOD_TYPE::INVALID;
++			const auto const_fp_lod_or_bias = dyn_cast<ConstantFP>(lod_or_bias_arg);
++			if(!is_msaa) {
++				// -> gradient
++				if(is_gradient) {
++					lod_type = vulkan_sampling::LOD_TYPE::GRADIENT;
++				}
++				// -> lod / bias
++				else {
++					// -> lod
++					if(is_lod_or_bias) {
++						lod_type = vulkan_sampling::LOD_TYPE::EXPLICIT_LOD;
++					}
++					// -> bias
++					else {
++						// if this is inside a fragment shader and this isn't a fetch, use implicit lod
++						if(is_fragment_shader && !is_fetch) {
++							// if bias is 0, only use implicit lod as-is
++							// NOTE: also makes sure that bias is a float value
++							if(const_fp_lod_or_bias != nullptr &&
++							   const_fp_lod_or_bias->isZero()) {
++								lod_type = vulkan_sampling::LOD_TYPE::IMPLICIT_LOD;
++							}
++							// if bias is != 0 and we're not in fetch mode, specify the bias
++							else if(!is_fetch && lod_or_bias_arg->getType()->isFloatTy()) {
++								lod_type = vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS;
++							}
++							// else: convert to explicit lod
++							else {
++								lod_type = vulkan_sampling::LOD_TYPE::EXPLICIT_LOD;
++							}
++						}
++						// for all others: convert to an explicit lod
++						else {
++							lod_type = vulkan_sampling::LOD_TYPE::EXPLICIT_LOD;
++						}
++					}
++				}
++			}
++			else {
++				// msaa allows no lod
++				lod_type = vulkan_sampling::LOD_TYPE::NO_LOD;
++			}
++			assert(lod_type != vulkan_sampling::LOD_TYPE::INVALID && "invalid lod type");
++			
++			vk_func_name += "11ocl_sampler"; // technically "i"
++			auto lod_type_arg = ConstantInt::get(Type::getInt32Ty(*ctx), (uint32_t)lod_type);
++			func_arg_types.push_back(lod_type_arg->getType());
++			func_args.push_back(lod_type_arg);
++			
++			const auto is_int_lod = (is_fetch);
++			switch(lod_type) {
++				case vulkan_sampling::LOD_TYPE::NO_LOD:
++				case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD:
++					// nothing to emit here
++					break;
++				case vulkan_sampling::LOD_TYPE::GRADIENT: {
++					// gradient coord_dim must be equal to image coord dim (- layer)
++					const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++					if(coord_dim == 1) {
++						// extract scalar
++						vk_func_name += "ff";
++						func_arg_types.push_back(builder->getFloatTy());
++						func_args.push_back(builder->CreateExtractElement(dpdx_arg, builder->getInt32(0)));
++						func_arg_types.push_back(builder->getFloatTy());
++						func_args.push_back(builder->CreateExtractElement(dpdy_arg, builder->getInt32(0)));
++					}
++					else if(coord_dim == 2) {
++						// just pass-through
++						vk_func_name += "Dv2_fDv2_f";
++						func_arg_types.push_back(dpdx_arg->getType());
++						func_args.push_back(dpdx_arg);
++						func_arg_types.push_back(dpdy_arg->getType());
++						func_args.push_back(dpdy_arg);
++					}
++					else if(coord_dim == 3) {
++						// just pass-through
++						vk_func_name += "Dv3_fDv3_f";
++						func_arg_types.push_back(dpdx_arg->getType());
++						func_args.push_back(dpdx_arg);
++						func_arg_types.push_back(dpdy_arg->getType());
++						func_args.push_back(dpdy_arg);
++					}
++					else llvm_unreachable("invalid coord dim");
++					
++					break;
++				}
++				case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS:
++					vk_func_name += "f";
++					func_arg_types.push_back(lod_or_bias_arg->getType());
++					func_args.push_back(lod_or_bias_arg);
++					break;
++				case vulkan_sampling::LOD_TYPE::EXPLICIT_LOD: {
++					Value* lod = nullptr;
++					if(is_int_lod && lod_or_bias_arg->getType()->isFloatTy()) {
++						// convert to int
++						lod = builder->CreateFPToSI(lod_or_bias_arg, llvm::Type::getInt32Ty(*ctx));
++					}
++					else if(!is_int_lod && lod_or_bias_arg->getType()->isIntegerTy()) {
++						// convert to float
++						lod = builder->CreateSIToFP(lod_or_bias_arg, llvm::Type::getFloatTy(*ctx));
++					}
++					else lod = lod_or_bias_arg;
++					
++					vk_func_name += (is_int_lod ? "i" : "f");
++					func_arg_types.push_back(lod->getType());
++					func_args.push_back(lod);
++					break;
++				}
++				default: llvm_unreachable("invalid lod type");
++			}
++			
++			// -> offset
++			vk_func_name += "b";
++			const auto is_offset_arg = (is_offset ? ConstantInt::getTrue(*ctx) : ConstantInt::getFalse(*ctx));
++			func_arg_types.push_back(is_offset_arg->getType());
++			func_args.push_back(is_offset_arg);
++			
++			if(is_offset) {
++				// offset coord_dim must be equal to image coord dim (- layer)
++				const auto coord_dim = coord_arg->getType()->getVectorNumElements();
++				if(coord_dim == 1) {
++					// extract scalar
++					vk_func_name += "i";
++					auto extracted_arg = builder->CreateExtractElement(offset_arg, builder->getInt32(0));
++					func_arg_types.push_back(extracted_arg->getType());
++					func_args.push_back(extracted_arg);
++				}
++				else if(coord_dim == 2) {
++					// just pass-through
++					vk_func_name += "Dv2_i";
++					func_arg_types.push_back(offset_arg->getType());
++					func_args.push_back(offset_arg);
++				}
++				else if(coord_dim == 3) {
++					// just pass-through
++					vk_func_name += "Dv3_i";
++					func_arg_types.push_back(offset_arg->getType());
++					func_args.push_back(offset_arg);
++				}
++				else llvm_unreachable("invalid coord dim");
++			}
++			// else: no arg
++			
++			// -> sample idx
 +			if(is_msaa) {
 +				if(!sample_arg->getType()->isIntegerTy()) {
 +					ctx->emitError(&I, "msaa sample index must be integer");
@@ -51559,64 +51876,32 @@ index 0000000..e643ac3
 +				func_args.push_back(sample_arg);
 +			}
 +			
-+			// -> gradient
-+			if(is_gradient) {
-+				// gradient coord_dim must be equal to image coord dim (- layer)
-+				const auto coord_dim = coord_arg->getType()->getVectorNumElements();
-+				if(coord_dim == 1) {
-+					// extract scalar
-+					vk_func_name += "ff";
-+					func_arg_types.push_back(builder->getFloatTy());
-+					func_args.push_back(builder->CreateExtractElement(dpdx_arg, builder->getInt32(0)));
-+					func_arg_types.push_back(builder->getFloatTy());
-+					func_args.push_back(builder->CreateExtractElement(dpdy_arg, builder->getInt32(0)));
++			// -> depth compare
++			if(is_depth && is_compare) {
++				if(!compare_value_arg->getType()->isFloatTy()) {
++					ctx->emitError(&I, "compare value must be float");
++					return;
 +				}
-+				else if(coord_dim == 2) {
-+					// just pass-through
-+					vk_func_name += "Dv2_fDv2_f";
-+					func_arg_types.push_back(dpdx_arg->getType());
-+					func_args.push_back(dpdx_arg);
-+					func_arg_types.push_back(dpdy_arg->getType());
-+					func_args.push_back(dpdy_arg);
-+				}
-+				else if(coord_dim == 3) {
-+					// just pass-through
-+					vk_func_name += "Dv3_fDv3_f";
-+					func_arg_types.push_back(dpdx_arg->getType());
-+					func_args.push_back(dpdx_arg);
-+					func_arg_types.push_back(dpdy_arg->getType());
-+					func_args.push_back(dpdy_arg);
-+				}
-+				else llvm_unreachable("invalid coord dim");
-+			}
-+			
-+			// -> lod
-+			if(is_lod_or_bias) {
-+				vk_func_name += "f";
 +				
-+				auto lod = lod_or_bias_arg;
-+				if(lod_or_bias_arg->getType()->isIntegerTy()) {
-+					// only float is supported, convert it // TODO: incorrect
-+					lod = builder->CreateSIToFP(lod_or_bias_arg, builder->getFloatTy());
-+				}
-+				func_arg_types.push_back(lod->getType());
-+				func_args.push_back(lod);
++				// return type is always a scalar float
++				ret_type = Type::getFloatTy(*ctx);
++				
++				vk_func_name += "f";
++				func_arg_types.push_back(compare_value_arg->getType());
++				func_args.push_back(compare_value_arg);
 +			}
-+			
-+			// TODO: bias supported in fragment shader
-+			
-+			// TODO: depth compare
 +			
 +			// create the vulkan call
++			// NOTE: always returns a vector4
 +			auto read_func = get_or_create_spirv_function(vk_func_name, ret_type, func_arg_types, true);
 +			llvm::CallInst* read_call = builder->CreateCall(read_func, func_args);
 +			read_call->setDoesNotAccessMemory(); // all reads are readnone (can be optimized away if unused)
 +			read_call->setDebugLoc(I.getDebugLoc()); // keep debug loc
 +			read_call->setCallingConv(CallingConv::FLOOR_FUNC);
 +			
-+			// if this is a depth read/sample, the return type is a float -> create a float4
++			// if this is a depth compare, the return type is a float -> create a float4
 +			llvm::Value* read_call_result = read_call;
-+			if(is_depth) {
++			if(is_depth && is_compare) {
 +				read_call_result = UndefValue::get(llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4));
 +				read_call_result = builder->CreateInsertElement(read_call_result, read_call, builder->getInt32(0));
 +				// NOTE: rest of vector is undef/zero (and will be stripped away again anyways)
