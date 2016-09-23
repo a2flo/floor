@@ -2210,10 +2210,10 @@ index 0000000..3a51e3a
 +#endif // __SPIR_VALIDATION_H__
 diff --git a/include/llvm/Support/SPIRV.h b/include/llvm/Support/SPIRV.h
 new file mode 100644
-index 0000000..86e00d6
+index 0000000..ab44e32
 --- /dev/null
 +++ b/include/llvm/Support/SPIRV.h
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,171 @@
 +//===- SPIRV.h – Read and write SPIR-V binary -------------------*- C++ -*-===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -2276,6 +2276,7 @@ index 0000000..86e00d6
 +void initializeSPIRVRegularizeLLVMPass(PassRegistry&);
 +void initializeSPIRVToOCL20Pass(PassRegistry&);
 +void initializeTransOCLMDPass(PassRegistry&);
++void initializeLLVMToSPIRVTransformationsPass(PassRegistry&);
 +}
 +
 +#include "llvm/IR/Module.h"
@@ -2366,6 +2367,10 @@ index 0000000..86e00d6
 +/// Create a pass for translating SPIR 1.2/2.0 metadata to SPIR-V friendly
 +/// metadata.
 +ModulePass *createTransOCLMD();
++
++/// Create a pass that transforms certain IR to constructs that are better, or
++/// more easily, representable in SPIR-V.
++ModulePass *createLLVMToSPIRVTransformations();
 +
 +/// Create and return a pass that writes the module to the specified
 +/// ostream.
@@ -10490,10 +10495,10 @@ index 50bf690..8091ca1 100644
   Target
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
 new file mode 100644
-index 0000000..c495314
+index 0000000..fa9b2dd
 --- /dev/null
 +++ b/lib/SPIRV/CMakeLists.txt
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,46 @@
 +include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/libSPIRV
 +  ${CMAKE_CURRENT_SOURCE_DIR}/Mangler
 +  ${CMAKE_CURRENT_SOURCE_DIR}/..)
@@ -10520,6 +10525,7 @@ index 0000000..c495314
 +  Mangler/Mangler.cpp
 +  Mangler/ManglingUtils.cpp
 +  Mangler/ParameterType.cpp
++  LLVMToSPIRVTransformations.cpp
 +  OCL20To12.cpp
 +  OCL20ToSPIRV.cpp
 +  OCL21ToSPIRV.cpp
@@ -10568,6 +10574,214 @@ index 0000000..539b617
 +parent = Libraries
 +required_libraries = Core Support Analysis IPO
 +
+diff --git a/lib/SPIRV/LLVMToSPIRVTransformations.cpp b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
+new file mode 100644
+index 0000000..242fe2f
+--- /dev/null
++++ b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
+@@ -0,0 +1,202 @@
++//===- LLVMToSPIRVTransformations.cpp -------------------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// TODO
++//
++//===----------------------------------------------------------------------===//
++
++#include "SPIRVInternal.h"
++#include "llvm/ADT/SmallVector.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/IR/CallSite.h"
++#include "llvm/IR/CallingConv.h"
++#include "llvm/IR/ConstantRange.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/DebugInfo.h"
++#include "llvm/IR/DerivedTypes.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/InlineAsm.h"
++#include "llvm/IR/InstIterator.h"
++#include "llvm/IR/InstVisitor.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/IRBuilder.h"
++#include "llvm/IR/LLVMContext.h"
++#include "llvm/IR/Metadata.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/CommandLine.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/ErrorHandling.h"
++#include "llvm/Support/raw_ostream.h"
++#include <vector>
++using namespace llvm;
++using namespace SPIRV;
++
++#define DEBUG_TYPE "LLVMToSPIRVTransformations"
++
++#if 1
++#define DBG(x)
++#else
++#define DBG(x) x
++#endif
++
++namespace SPIRV {
++struct LLVMToSPIRVTransformations : public ModulePass,
++                                    InstVisitor<LLVMToSPIRVTransformations> {
++  static char ID; // Pass identification, replacement for typeid
++
++  Module *M{nullptr};
++  LLVMContext *ctx{nullptr};
++  bool was_modified{false};
++
++  // used by composite construction replacement
++  // we keep this both as an unordered_set for fast lookup and in a vector,
++  // because erasing must happen in reverse use order
++  std::unordered_set<Instruction *> kill_set;
++  std::vector<Instruction *> kill_list;
++
++  LLVMToSPIRVTransformations() : ModulePass(ID) {
++    initializeLLVMToSPIRVTransformationsPass(*PassRegistry::getPassRegistry());
++  }
++
++  const char *getPassName() const override {
++    return "LLVM to SPIR-V transformations";
++  }
++
++  bool runOnModule(Module &Mod) override {
++    M = &Mod;
++    ctx = &M->getContext();
++    was_modified = false;
++
++    //
++    for (auto &F : *M) {
++      runOnFunction(F);
++    }
++
++    return was_modified;
++  }
++
++  void runOnFunction(Function &F) {
++    kill_set.clear();
++    kill_list.clear();
++    visit(F);
++    for (auto iter = kill_list.rbegin(); iter != kill_list.rend(); ++iter) {
++      (*iter)->eraseFromParent();
++    }
++  }
++
++  // InstVisitor overrides
++  using InstVisitor<LLVMToSPIRVTransformations>::visit;
++  void visit(Instruction &I) {
++    InstVisitor<LLVMToSPIRVTransformations>::visit(I);
++  }
++
++  // vector insert
++  void visitInsertElement(InsertElementInst &I) {
++    if (kill_set.count(&I) > 0) {
++      return;
++    }
++
++    // sanity check
++    if (!I.getType()->isVectorTy()) {
++      return;
++    }
++
++    // only continue this if the first object to insert into is undef
++    if (!isa<UndefValue>(I.getOperand(0))) {
++      return;
++    }
++
++    const auto vec_type = I.getType();
++    const auto elem_type = vec_type->getVectorElementType();
++    const auto elem_count = vec_type->getVectorNumElements();
++
++    bool replace = true;
++    std::vector<InsertElementInst *> insert_elems{&I};
++    std::vector<Value *> elems{I.getOperand(1)};
++    InsertElementInst *cur_insert = &I;
++    for (uint32_t i = 1;; ++i) {
++      // abort if the index isn't constant or is not contiguous in 0..#elems-1
++      // NOTE: we do except that LLVM has ordered these
++      auto idx = dyn_cast<ConstantInt>(cur_insert->getOperand(2));
++      if (idx == nullptr || idx->getZExtValue() != (i - 1)) {
++        replace = false;
++        break;
++      }
++
++      // done here
++      if (i == elem_count) {
++        break;
++      }
++
++      // abort if not exactly 1 use (this isn't a straight chain of inserts)
++      if (cur_insert->getNumUses() != 1) {
++        replace = false;
++        break;
++      }
++
++      //
++      cur_insert = dyn_cast<InsertElementInst>(*cur_insert->users().begin());
++      if (cur_insert == nullptr) {
++        replace = false;
++        break;
++      }
++      insert_elems.emplace_back(cur_insert);
++      elems.emplace_back(cur_insert->getOperand(1));
++    }
++    if (!replace)
++      return;
++
++    // we need to create a unique function name for this type
++    std::string func_name =
++        "floor.composite_construct.llvm." + std::to_string(elem_count) + "x";
++    raw_string_ostream func_name_stream(func_name);
++    elem_type->print(func_name_stream);
++    func_name_stream.flush();
++
++    // create composite construct at the last InsertElementInst + replace all
++    // its uses
++    std::vector<Type *> param_types(elem_count, elem_type);
++    const auto func_type =
++        llvm::FunctionType::get(vec_type, param_types, false);
++    llvm::CallInst *CI =
++        CallInst::Create(M->getOrInsertFunction(func_name, func_type), elems,
++                         (I.hasName() ? I.getName() + ".composite_construct"
++                                      : "composite_construct"),
++                         cur_insert);
++    CI->setCallingConv(CallingConv::FLOOR_FUNC);
++    CI->setDebugLoc(I.getDebugLoc()); // keep debug loc of first insert
++    cur_insert->replaceAllUsesWith(CI);
++
++    // add all replaced InsertElementInsts to the kill list
++    for (auto &instr : insert_elems) {
++      kill_list.emplace_back(instr);
++      kill_set.emplace(instr);
++    }
++
++    was_modified = true;
++  }
++
++  // aggregate insert
++  void visitInsertValue(InsertValueInst &) {
++    // TODO: implement this
++  }
++};
++
++char LLVMToSPIRVTransformations::ID = 0;
++}
++
++ModulePass *llvm::createLLVMToSPIRVTransformations() {
++  return new LLVMToSPIRVTransformations();
++}
++INITIALIZE_PASS(LLVMToSPIRVTransformations, "LLVM to SPIR-V transformations",
++                "LLVM to SPIR-V transformations", false, false)
 diff --git a/lib/SPIRV/Makefile b/lib/SPIRV/Makefile
 new file mode 100644
 index 0000000..4bd2edd
@@ -12255,10 +12469,10 @@ index 0000000..08dc3a1
 +ModulePass *llvm::createOCL20To12() { return new OCL20To12(); }
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 0000000..e290fe2
+index 0000000..a6966f1
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
-@@ -0,0 +1,1513 @@
+@@ -0,0 +1,1530 @@
 +//===- OCL20ToSPIRV.cpp - Transform OCL20/GLSL to SPIR-V builtins - C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -12468,8 +12682,8 @@ index 0000000..e290fe2
 +  void visitCallReadImageWithSampler(CallInst *CI, StringRef MangledName,
 +                                     const std::string &DemangledName);
 +
-+  void visitCallReadImageWithSamplerGLSL(CallInst *CI, StringRef MangledName,
-+                                         const std::string &DemangledName);
++  void visitCallReadImageWithSamplerShader(CallInst *CI, StringRef MangledName,
++                                           const std::string &DemangledName);
 +
 +  /// Transform read_image with msaa image arguments.
 +  /// Sample argument must be acoded as Image Operand.
@@ -12479,6 +12693,9 @@ index 0000000..e290fe2
 +  /// Transform {read|write}_image without sampler arguments.
 +  void visitCallReadWriteImage(CallInst *CI, StringRef MangledName,
 +                               const std::string &DemangledName);
++
++  void visitCallWriteImageShader(CallInst *CI, StringRef MangledName,
++                                 const std::string &DemangledName);
 +
 +  /// Transform to_{global|local|private}.
 +  ///
@@ -12727,7 +12944,7 @@ index 0000000..e290fe2
 +      if (SrcLang != spv::SourceLanguageGLSL)
 +        visitCallReadImageWithSampler(&CI, MangledName, DemangledName);
 +      else
-+        visitCallReadImageWithSamplerGLSL(&CI, MangledName, DemangledName);
++        visitCallReadImageWithSamplerShader(&CI, MangledName, DemangledName);
 +      return;
 +    }
 +    if (MangledName.find("msaa") != StringRef::npos) {
@@ -12737,7 +12954,14 @@ index 0000000..e290fe2
 +  }
 +  if (DemangledName.find(kOCLBuiltinName::ReadImage) == 0 ||
 +      DemangledName.find(kOCLBuiltinName::WriteImage) == 0) {
-+    visitCallReadWriteImage(&CI, MangledName, DemangledName);
++    if (SrcLang != spv::SourceLanguageGLSL)
++      visitCallReadWriteImage(&CI, MangledName, DemangledName);
++    else {
++      assert(DemangledName.find(kOCLBuiltinName::ReadImage) ==
++                 std::string::npos &&
++             "should not be here");
++      visitCallWriteImageShader(&CI, MangledName, DemangledName);
++    }
 +    return;
 +  }
 +  if (DemangledName == kOCLBuiltinName::ToGlobal ||
@@ -13384,7 +13608,7 @@ index 0000000..e290fe2
 +      &Attrs);
 +}
 +
-+void OCL20ToSPIRV::visitCallReadImageWithSamplerGLSL(
++void OCL20ToSPIRV::visitCallReadImageWithSamplerShader(
 +    CallInst *CI, StringRef MangledName, const std::string &DemangledName) {
 +  // NOTE: we'll be handling this in SPIRVWriter, not here, because we need
 +  // information that is only available there
@@ -13555,6 +13779,13 @@ index 0000000..e290fe2
 +  }
 +
 +  transBuiltin(CI, Info);
++}
++
++void OCL20ToSPIRV::visitCallWriteImageShader(CallInst *CI,
++                                             StringRef MangledName,
++                                             const std::string &DemangledName) {
++  // NOTE: we'll be handling this in SPIRVWriter, not here, because we need
++  // information that is only available there
 +}
 +
 +void OCL20ToSPIRV::visitCallToAddr(CallInst *CI, StringRef MangledName,
@@ -23135,10 +23366,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..eebcd85
+index 0000000..fa6f776
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3026 @@
+@@ -0,0 +1,3098 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -24580,8 +24811,16 @@ index 0000000..eebcd85
 +    // keep debug info
 +    DbgTran.transDbgInfo(CI, BB);
 +
-+    if (MangledName == "floor.dfdx.f32" || MangledName == "floor.dfdy.f32" ||
-+        MangledName == "floor.fwidth.f32") {
++    if (MangledName.startswith("floor.composite_construct.")) {
++      std::vector<SPIRVWord> Constituents;
++      for (const auto &elem : CI->arg_operands()) {
++        Constituents.emplace_back(transValue(elem, BB)->getId());
++      }
++      return BM->addCompositeConstructInst(transType(CI->getType()),
++                                           Constituents, BB);
++    } else if (MangledName == "floor.dfdx.f32" ||
++               MangledName == "floor.dfdy.f32" ||
++               MangledName == "floor.fwidth.f32") {
 +      auto OC = spv::OpDPdx;
 +      if (MangledName == "floor.dfdy.f32")
 +        OC = spv::OpDPdy;
@@ -24915,13 +25154,17 @@ index 0000000..eebcd85
 +    }
 +    // -> images
 +    else {
-+      auto split_pos = md_info.find(':');
-+      auto access_type = md_info.substr(0, split_pos);
-+      auto sample_type = md_info.substr(split_pos + 1);
-+      // TODO: handle storage images with format
-+      auto SPIRVImageTy = getSPIRVImageTypeFromGLSL(
-+          M, GV.getType(), sample_type.c_str(), access_type == "write",
-+          spv::ImageFormatUnknown);
++      const auto split_pos = md_info.find(':');
++      const auto access_type = md_info.substr(0, split_pos);
++      const auto sample_type = md_info.substr(split_pos + 1);
++      const bool is_write = (access_type == "write");
++      if (is_write) {
++        // TODO: handle storage images with format
++        BM->addCapability(spv::CapabilityStorageImageWriteWithoutFormat);
++      }
++      auto SPIRVImageTy =
++          getSPIRVImageTypeFromGLSL(M, GV.getType(), sample_type.c_str(),
++                                    is_write, spv::ImageFormatUnknown);
 +      mapped_type = BM->addPointerType(spv::StorageClassUniformConstant,
 +                                       transSPIRVOpaqueType(SPIRVImageTy));
 +    }
@@ -25891,21 +26134,26 @@ index 0000000..eebcd85
 +  //      [sample_idx],
 +  //      [compare_val])
 +  //
-+  // write(TODO...)
++  // write(image, coord_with_layer, data,
++  //       // NOTE: only explicit lod or no lod
++  //       lod_type, [lod_arg_0])
 +
-+  // TODO: try to "cache" these things (no dupes)
++  // TODO: try to "cache" these things (image loads and sampler stuff)
 +
 +  auto args = getArguments(CI);
 +  auto img_arg = args[0];
 +  auto spirv_img = getSPIRVValue(img_arg);
 +  assert(spirv_img != nullptr && "invalid image");
 +
-+  if (DemangledName.find("read_image") == 0) {
-+    // load the image
-+    const std::vector<SPIRVWord> access; // empty access for image/sampler load
-+    auto loaded_img = BM->addLoadInst(spirv_img, access, BB);
-+    auto spirv_img_type = (SPIRVTypeImage *)loaded_img->getType();
++  // load the image
++  const std::vector<SPIRVWord> access; // empty access for image/sampler load
++  auto loaded_img = BM->addLoadInst(spirv_img, access, BB);
++  auto spirv_img_type = (SPIRVTypeImage *)loaded_img->getType();
 +
++  std::vector<SPIRVWord> image_operands;
++  uint32_t operands_mask = spv::ImageOperandsMaskNone;
++
++  if (DemangledName.find("read_image") == 0) {
 +    // retrieve the sampler idx + load the sampler
 +    auto sampler_idx_arg = dyn_cast<ConstantInt>(args[1]);
 +    assert(sampler_idx_arg != nullptr && "sampler must be a constant int");
@@ -25933,9 +26181,7 @@ index 0000000..eebcd85
 +                            BM->addSampledImageType(spirv_img_type));
 +
 +    std::vector<SPIRVWord> read_operands{sampled_img->getId()};
-+    std::vector<SPIRVWord> image_operands;
 +    spv::Op read_opcode = spv::OpNop;
-+    uint32_t operands_mask = spv::ImageOperandsMaskNone;
 +
 +    // coords
 +    auto coords_arg = transValue(args[2], BB);
@@ -25982,10 +26228,13 @@ index 0000000..eebcd85
 +    assert(is_offset_arg != nullptr && "is_offset flag must be a constant int");
 +    if (!is_offset_arg->isZero()) {
 +      auto offset_arg = args[arg_idx++];
-+      // operands_mask |= spv::ImageOperandsConstOffsetMask; // TODO: !
-+      operands_mask |= spv::ImageOperandsOffsetMask;
++      if (isa<Constant>(offset_arg)) {
++        operands_mask |= spv::ImageOperandsConstOffsetMask;
++      } else {
++        operands_mask |= spv::ImageOperandsOffsetMask;
++        BM->addCapability(spv::CapabilityImageGatherExtended);
++      }
 +      image_operands.emplace_back(transValue(offset_arg, BB)->getId());
-+      BM->addCapability(spv::CapabilityImageGatherExtended); // TODO: only if non-const
 +    }
 +
 +    // sample idx
@@ -26021,10 +26270,63 @@ index 0000000..eebcd85
 +      }
 +    }
 +    auto read_sample = BM->addInstTemplate(read_opcode, read_operands, BB,
-+                                           getSPIRVType(CI->getType()));
++                                           transType(CI->getType()));
 +    return {read_sample, read_sample->getOpCode()};
 +  } else if (DemangledName.find("write_image") == 0) {
-+    // TODO: handle image writes
++    std::vector<SPIRVWord> write_operands{loaded_img->getId()};
++
++    // coords
++    auto coords_arg = transValue(args[1], BB);
++    write_operands.emplace_back(coords_arg->getId());
++
++    // data
++    auto data_arg = transValue(args[2], BB);
++    write_operands.emplace_back(data_arg->getId());
++
++    // lod type and args
++    auto lod_type_arg = dyn_cast<ConstantInt>(args[3]);
++    uint32_t arg_idx = 4; // from here on: arg count and indices are variable
++    assert(lod_type_arg != nullptr && "lod type must be a constant int");
++    auto lod_type = (vulkan_sampling::LOD_TYPE)lod_type_arg->getZExtValue();
++    assert(lod_type <= vulkan_sampling::LOD_TYPE::__MAX_LOD_TYPE &&
++           "invalid lod type");
++    switch (lod_type) {
++    case vulkan_sampling::LOD_TYPE::NO_LOD:
++      // nop
++      break;
++    case vulkan_sampling::LOD_TYPE::EXPLICIT_LOD:
++      operands_mask |= spv::ImageOperandsLodMask;
++      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      break;
++    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD:
++    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS:
++    case vulkan_sampling::LOD_TYPE::GRADIENT:
++    default:
++      llvm_unreachable("invalid lod type");
++    }
++
++    // sample idx
++    if (DemangledName.find("msaa") != std::string::npos) {
++      // TODO: !
++      // auto sample_idx_arg = args[arg_idx++];
++      // operands_mask |= spv::ImageOperandsSampleMask;
++      // image_operands.emplace_back(transValue(sample_idx_arg, BB)->getId());
++    }
++
++    // sanity check
++    assert(arg_idx == args.size() && "unhandled args");
++
++    // create the image write
++    if (operands_mask != spv::ImageOperandsMaskNone) {
++      // must only be emitted if mask != None + operands are ordered
++      write_operands.emplace_back(operands_mask);
++      for (const auto &id : image_operands) {
++        write_operands.emplace_back(id);
++      }
++    }
++    auto write_sample =
++        BM->addInstTemplate(spv::OpImageWrite, write_operands, BB, nullptr);
++    return {write_sample, write_sample->getOpCode()};
 +  }
 +
 +  return {nullptr, OpNop};
@@ -26140,6 +26442,7 @@ index 0000000..eebcd85
 +  PassMgr.add(createSPIRVLowerOCLBlocks());
 +  PassMgr.add(createOCLTypeToSPIRV());
 +  PassMgr.add(createOCL20ToSPIRV());
++  PassMgr.add(createLLVMToSPIRVTransformations());
 +  PassMgr.add(createSPIRVRegularizeLLVM());
 +  PassMgr.add(createSPIRVLowerConstExpr());
 +  PassMgr.add(createSPIRVLowerBool());
@@ -28346,10 +28649,10 @@ index 0000000..256febb
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..d5db471
+index 0000000..cfa525d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,716 @@
+@@ -0,0 +1,715 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -29013,7 +29316,6 @@ index 0000000..d5db471
 +_SPIRV_OP(SpecConstantComposite)
 +_SPIRV_OP(Image)
 +_SPIRV_OP(ImageTexelPointer)
-+_SPIRV_OP(CompositeConstruct)
 +_SPIRV_OP(ImageSampleProjImplicitLod)
 +_SPIRV_OP(ImageSampleProjExplicitLod)
 +_SPIRV_OP(ImageSampleProjDrefImplicitLod)
@@ -30547,10 +30849,10 @@ index 0000000..dcffc52
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..6d10308
+index 0000000..8d6fda7
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
-@@ -0,0 +1,2115 @@
+@@ -0,0 +1,2151 @@
 +//===- SPIRVInstruction.h - Class to represent SPIRV instruction -*- C++ --===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -32047,6 +32349,42 @@ index 0000000..6d10308
 +    GLSLExtOpKind ExtOpGLSL;
 +  };
 +  SPIRVExtInstSetKind ExtSetKind;
++};
++
++class SPIRVCompositeConstruct : public SPIRVInstruction {
++public:
++  const static Op OC = OpCompositeConstruct;
++  const static SPIRVWord FixedWordCount = 3;
++  // Complete constructor
++  SPIRVCompositeConstruct(SPIRVType *TheType, SPIRVId TheId,
++                          const std::vector<SPIRVWord> &TheConstituents,
++                          SPIRVBasicBlock *TheBB)
++      : SPIRVInstruction(TheConstituents.size() + FixedWordCount, OC, TheType,
++                         TheId, TheBB),
++        Constituents(TheConstituents) {
++    validate();
++    assert(TheBB && "Invalid BB");
++  }
++  // Incomplete constructor
++  SPIRVCompositeConstruct() : SPIRVInstruction(OC) {}
++
++  const std::vector<SPIRVWord> &getConstituents() const { return Constituents; }
++
++protected:
++  void setWordCount(SPIRVWord TheWordCount) {
++    SPIRVEntry::setWordCount(TheWordCount);
++    Constituents.resize(TheWordCount - FixedWordCount);
++  }
++  _SPIRV_DEF_ENCDEC3(Type, Id, Constituents)
++  // ToDo: validate the object type is consistent with the base type and indices
++  // need to trace through the base type for struct types
++  void validate() const {
++    SPIRVInstruction::validate();
++    assert(OpCode == OC);
++    assert(WordCount == Constituents.size() + FixedWordCount);
++    assert(Type->isTypeArray() || Type->isTypeStruct() || Type->isTypeVector());
++  }
++  std::vector<SPIRVWord> Constituents;
 +};
 +
 +class SPIRVCompositeExtract : public SPIRVInstruction {
@@ -33641,10 +33979,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..9112ee4
+index 0000000..3d08817
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1700 @@
+@@ -0,0 +1,1712 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -33917,6 +34255,10 @@ index 0000000..9112ee4
 +  addLoadInst(SPIRVValue *, const std::vector<SPIRVWord> &, SPIRVBasicBlock *);
 +  virtual SPIRVInstruction *addPhiInst(SPIRVType *, std::vector<SPIRVValue *>,
 +                                       SPIRVBasicBlock *);
++  virtual SPIRVInstruction *
++  addCompositeConstructInst(SPIRVType *CompositeType,
++                            const std::vector<SPIRVWord> &Constituents,
++                            SPIRVBasicBlock *BB);
 +  virtual SPIRVInstruction *
 +  addCompositeExtractInst(SPIRVType *, SPIRVValue *,
 +                          const std::vector<SPIRVWord> &, SPIRVBasicBlock *);
@@ -34836,6 +35178,14 @@ index 0000000..9112ee4
 +                        BB);
 +}
 +
++SPIRVInstruction *SPIRVModuleImpl::addCompositeConstructInst(
++    SPIRVType *CompositeType, const std::vector<SPIRVWord> &Constituents,
++    SPIRVBasicBlock *BB) {
++  return addInstruction(
++      new SPIRVCompositeConstruct(CompositeType, getId(), Constituents, BB),
++      BB);
++}
++
 +SPIRVInstruction *
 +SPIRVModuleImpl::addCompositeExtractInst(SPIRVType *Type, SPIRVValue *TheVector,
 +                                         const std::vector<SPIRVWord> &Indices,
@@ -35347,10 +35697,10 @@ index 0000000..9112ee4
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..9dda15c
+index 0000000..63c1338
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,402 @@
+@@ -0,0 +1,406 @@
 +//===- SPIRVModule.h - Class to represent a SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35636,6 +35986,10 @@ index 0000000..9dda15c
 +  virtual SPIRVInstruction *addCallInst(SPIRVFunction *,
 +                                        const std::vector<SPIRVWord> &,
 +                                        SPIRVBasicBlock *) = 0;
++  virtual SPIRVInstruction *
++  addCompositeConstructInst(SPIRVType *CompositeType,
++                            const std::vector<SPIRVWord> &Constituents,
++                            SPIRVBasicBlock *BB) = 0;
 +  virtual SPIRVInstruction *
 +  addCompositeExtractInst(SPIRVType *, SPIRVValue *,
 +                          const std::vector<SPIRVWord> &,
@@ -51394,10 +51748,10 @@ index 0000000..92d0449
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..eb6efd6
+index 0000000..7c04f1b
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,652 @@
+@@ -0,0 +1,657 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -51703,7 +52057,7 @@ index 0000000..eb6efd6
 +			func_args.push_back(img_handle_arg);
 +			
 +			// -> sampler
-+			vk_func_name += "i";
++			vk_func_name += "11ocl_sampler"; // technically "i"
 +			func_arg_types.push_back(const_sampler_arg->getType());
 +			func_args.push_back(const_sampler_arg);
 +			
@@ -51765,7 +52119,7 @@ index 0000000..eb6efd6
 +			}
 +			assert(lod_type != vulkan_sampling::LOD_TYPE::INVALID && "invalid lod type");
 +			
-+			vk_func_name += "11ocl_sampler"; // technically "i"
++			vk_func_name += "i";
 +			auto lod_type_arg = ConstantInt::get(Type::getInt32Ty(*ctx), (uint32_t)lod_type);
 +			func_arg_types.push_back(lod_type_arg->getType());
 +			func_args.push_back(lod_type_arg);
@@ -51928,6 +52282,11 @@ index 0000000..eb6efd6
 +			SmallVector<llvm::Type*, 8> func_arg_types;
 +			SmallVector<llvm::Value*, 8> func_args;
 +			
++			// NOTE: write call will be constructed as follows ([arg] are optional args):
++			// write(image, coord_with_layer, data,
++			//       // NOTE: only explicit lod or no lod
++			//       lod_type, [lod_arg_0])
++			
 +			//// more arg checking
 +			auto coord_vec_type = dyn_cast_or_null<VectorType>(coord_arg->getType());
 +			if(!coord_vec_type) {
@@ -51989,7 +52348,7 @@ index 0000000..eb6efd6
 +			}
 +			vk_func_name += geom;
 +			
-+			// TODO: vulkan/spir-v can write cube, depth, msaa images
++			// TODO: vulkan/spir-v can write cube, depth, msaa images ?
 +			
 +			func_arg_types.push_back(img_handle_arg->getType());
 +			func_args.push_back(img_handle_arg);
@@ -52005,7 +52364,19 @@ index 0000000..eb6efd6
 +							func_arg_types,
 +							func_args);
 +			
++			// -> data
++			// data is always a vector4
++			vk_func_name += "Dv4_" + dtype;
++			func_arg_types.push_back(data_arg->getType());
++			func_args.push_back(data_arg);
++			
 +			// -> lod
++			vk_func_name += "i";
++			func_arg_types.push_back(Type::getInt32Ty(*ctx));
++			func_args.push_back(ConstantInt::get(Type::getInt32Ty(*ctx),
++												 uint32_t(is_lod ?
++														  vulkan_sampling::LOD_TYPE::EXPLICIT_LOD :
++														  vulkan_sampling::LOD_TYPE::NO_LOD)));
 +			if(is_lod) {
 +				// always int
 +				vk_func_name += "i";
@@ -52013,20 +52384,8 @@ index 0000000..eb6efd6
 +				func_args.push_back(lod_arg);
 +			}
 +			
-+			// -> data
-+			// data is always a vector4, unless we're writing depth // TODO: correct?
-+			if(!is_depth) {
-+				vk_func_name += "Dv4_";
-+				func_arg_types.push_back(data_arg->getType());
-+				func_args.push_back(data_arg);
-+			}
-+			else {
-+				// extract and use depth elem
-+				auto depth_arg = builder->CreateExtractElement(data_arg, builder->getInt32(0));
-+				func_arg_types.push_back(depth_arg->getType());
-+				func_args.push_back(depth_arg);
-+			}
-+			vk_func_name += dtype;
++			// -> sample idx
++			// TODO: !
 +			
 +			// create the vulkan call
 +			auto write_func = get_or_create_spirv_function(vk_func_name, builder->getVoidTy(), func_arg_types, false);
