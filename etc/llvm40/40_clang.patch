@@ -9446,7 +9446,7 @@ index 3788b18..36dc577 100644
          // We parsed '(' type-name ')' and the thing after it wasn't a '{'.
  
 diff --git a/lib/Parse/ParsePragma.cpp b/lib/Parse/ParsePragma.cpp
-index bff5d11..ff9a968 100644
+index bff5d11..72b3468 100644
 --- a/lib/Parse/ParsePragma.cpp
 +++ b/lib/Parse/ParsePragma.cpp
 @@ -467,6 +467,7 @@ void Parser::HandlePragmaOpenCLExtension() {
@@ -9472,6 +9472,19 @@ index bff5d11..ff9a968 100644
     else if (Supp.is_##nm##_supported_core(CLVer)) \
       PP.Diag(NameLoc, diag::warn_pragma_extension_is_core) << ename; \
     else \
+@@ -2104,12 +2105,6 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
+     if (ParseLoopHintValue(PP, Tok, PragmaName, Option, ValueInParens, *Info))
+       return;
+ 
+-    // In CUDA, the argument to '#pragma unroll' should not be contained in
+-    // parentheses.
+-    if (PP.getLangOpts().CUDA && ValueInParens)
+-      PP.Diag(Info->Toks[0].getLocation(),
+-              diag::warn_pragma_unroll_cuda_value_in_parens);
+-
+     if (Tok.isNot(tok::eod)) {
+       PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+           << "unroll";
 diff --git a/lib/Parse/ParseStmtAsm.cpp b/lib/Parse/ParseStmtAsm.cpp
 index 1f63dc2..033435d 100644
 --- a/lib/Parse/ParseStmtAsm.cpp
@@ -11456,6 +11469,19 @@ index 72ad9a4..e085eee 100644
    // (CUDA B.1): Check for invalid calls between targets.
    if (getLangOpts().CUDA)
      if (const FunctionDecl *Caller = dyn_cast<FunctionDecl>(CurContext))
+diff --git a/lib/Sema/SemaStmtAttr.cpp b/lib/Sema/SemaStmtAttr.cpp
+index 87fd889..36fef5c 100644
+--- a/lib/Sema/SemaStmtAttr.cpp
++++ b/lib/Sema/SemaStmtAttr.cpp
+@@ -92,7 +92,7 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
+     } else {
+       // #pragma unroll
+       Option = LoopHintAttr::Unroll;
+-      State = LoopHintAttr::Enable;
++      State = LoopHintAttr::Full;
+     }
+   } else {
+     // #pragma clang loop ...
 diff --git a/lib/Sema/SemaTemplateDeduction.cpp b/lib/Sema/SemaTemplateDeduction.cpp
 index f8e825f..4d7ebe7 100644
 --- a/lib/Sema/SemaTemplateDeduction.cpp
