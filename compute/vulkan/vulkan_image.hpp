@@ -61,6 +61,11 @@ public:
 					const VkPipelineStageFlags dst_stage_mask,
 					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
 	
+	//! transition for shader read (if not already in this mode)
+	void transition_read(VkCommandBuffer cmd_buffer);
+	//! transition for shader write (if not already in this mode)
+	void transition_write(VkCommandBuffer cmd_buffer);
+	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
 		return image;
@@ -71,7 +76,15 @@ public:
 		return image_view;
 	}
 	
-	const VkDescriptorImageInfo* get_vulkan_image_info() const { return &image_info; }
+	//! returns the image descriptor info of this image
+	const VkDescriptorImageInfo* get_vulkan_image_info() const {
+		return &image_info;
+	}
+	
+	//! returns the vulkan image format that is used for this image
+	VkFormat get_vulkan_format() const {
+		return vk_format;
+	}
 	
 protected:
 	VkImage image { nullptr };
@@ -79,12 +92,14 @@ protected:
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
 	VkAccessFlags cur_access_mask { 0 };
 	uint32_t layer_count { 1u };
+	VkImageUsageFlags usage { 0 };
+	VkFormat vk_format { VK_FORMAT_UNDEFINED };
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);
 	
 	void image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
-	void image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) override;
+	void image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) override;
 	
 };
 

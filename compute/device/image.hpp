@@ -770,6 +770,7 @@ namespace floor_image {
 		// depth compare functions:
 		// * metal: has full support for this
 		// * host-compute: has full support for this
+		// * vulkan: has full support for this
 		// * cuda: technically supports depth compare ptx instructions, but no way to set the compare function?! (using s/w compare for now)
 		// * opencl/spir: doesn't have support for this, compare will be performed in s/w
 		

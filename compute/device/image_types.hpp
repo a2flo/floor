@@ -67,7 +67,7 @@ enum class COMPUTE_IMAGE_TYPE : uint32_t {
 	LAYOUT_R				= LAYOUT_RGBA,
 	LAYOUT_RG				= LAYOUT_RGBA,
 	LAYOUT_RGB				= LAYOUT_RGBA,
-	LAYOUT_BGR				= LAYOUT_ABGR,
+	LAYOUT_BGR				= LAYOUT_BGRA,
 	
 	//! bits 16-17: dimensionality
 	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data

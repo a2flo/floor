@@ -38,10 +38,33 @@ vulkan_image::vulkan_image(const vulkan_device* device,
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
 			  opengl_type_, external_gl_object_, gl_image_info),
 vulkan_memory(device, &image) {
-	// TODO: handle the remaining flags + host ptr
-	if(host_ptr_ != nullptr && !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		// TODO: flag?
+	usage = 0;
+	switch(flags & COMPUTE_MEMORY_FLAG::READ_WRITE) {
+		case COMPUTE_MEMORY_FLAG::READ:
+			usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+			break;
+		case COMPUTE_MEMORY_FLAG::WRITE:
+			usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+			break;
+		case COMPUTE_MEMORY_FLAG::READ_WRITE:
+			usage |= VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+			break;
+		// all possible cases handled
+		default: floor_unreachable();
 	}
+	
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+		}
+		else {
+			usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		}
+	}
+	
+	// always need this for now
+	usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 	
 	// actually create the image
 	if(!create_internal(true, nullptr)) {
@@ -86,6 +109,8 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		{ COMPUTE_IMAGE_TYPE::RG32UI, VK_FORMAT_R32G32_UINT },
 		{ COMPUTE_IMAGE_TYPE::RG32I, VK_FORMAT_R32G32_SINT },
 		{ COMPUTE_IMAGE_TYPE::RG32F, VK_FORMAT_R32G32_SFLOAT },
+#if 0 // 3-channel formats are not supported by AMD and NVIDIA, so always use 4-channel formats instead
+      // TODO: do this dynamically
 		// RGB
 		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, VK_FORMAT_R8G8B8_UNORM },
 		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, VK_FORMAT_R8G8B8_SNORM },
@@ -104,6 +129,26 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		{ COMPUTE_IMAGE_TYPE::BGR8I_NORM, VK_FORMAT_B8G8R8_SNORM },
 		{ COMPUTE_IMAGE_TYPE::BGR8UI, VK_FORMAT_B8G8R8_UINT },
 		{ COMPUTE_IMAGE_TYPE::BGR8I, VK_FORMAT_B8G8R8_SINT },
+#else
+		// RGB
+		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, VK_FORMAT_R8G8B8A8_UNORM },
+		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, VK_FORMAT_R8G8B8A8_SNORM },
+		{ COMPUTE_IMAGE_TYPE::RGB8UI, VK_FORMAT_R8G8B8A8_UINT },
+		{ COMPUTE_IMAGE_TYPE::RGB8I, VK_FORMAT_R8G8B8A8_SINT },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI_NORM, VK_FORMAT_R16G16B16A16_UNORM },
+		{ COMPUTE_IMAGE_TYPE::RGB16I_NORM, VK_FORMAT_R16G16B16A16_SNORM },
+		{ COMPUTE_IMAGE_TYPE::RGB16UI, VK_FORMAT_R16G16B16A16_UINT },
+		{ COMPUTE_IMAGE_TYPE::RGB16I, VK_FORMAT_R16G16B16A16_SINT },
+		{ COMPUTE_IMAGE_TYPE::RGB16F, VK_FORMAT_R16G16B16A16_SFLOAT },
+		{ COMPUTE_IMAGE_TYPE::RGB32UI, VK_FORMAT_R32G32B32A32_UINT },
+		{ COMPUTE_IMAGE_TYPE::RGB32I, VK_FORMAT_R32G32B32A32_SINT },
+		{ COMPUTE_IMAGE_TYPE::RGB32F, VK_FORMAT_R32G32B32A32_SFLOAT },
+		// BGR
+		{ COMPUTE_IMAGE_TYPE::BGR8UI_NORM, VK_FORMAT_B8G8R8A8_UNORM },
+		{ COMPUTE_IMAGE_TYPE::BGR8I_NORM, VK_FORMAT_B8G8R8A8_SNORM },
+		{ COMPUTE_IMAGE_TYPE::BGR8UI, VK_FORMAT_B8G8R8A8_UINT },
+		{ COMPUTE_IMAGE_TYPE::BGR8I, VK_FORMAT_B8G8R8A8_SINT },
+#endif
 		// RGBA
 		{ COMPUTE_IMAGE_TYPE::RGBA8UI_NORM, VK_FORMAT_R8G8B8A8_UNORM },
 		{ COMPUTE_IMAGE_TYPE::RGBA8I_NORM, VK_FORMAT_R8G8B8A8_SNORM },
@@ -194,7 +239,10 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		log_error("unsupported image format: %X", image_type);
 		return false;
 	}
-	const VkFormat vk_format = vulkan_format->second;
+	vk_format = vulkan_format->second;
+	
+	// set shim format info if necessary
+	set_shim_type_info();
 	
 	// dim handling
 	const VkImageType vk_image_type = (dim_count == 1 ? VK_IMAGE_TYPE_1D :
@@ -217,19 +265,14 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	const VkImageLayout initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
 	VkImageLayout final_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
-	// TODO: optimize for VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, handle render targets via additional image transfer?
-	VkImageUsageFlags usage = (VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-							   VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-							   VK_IMAGE_USAGE_SAMPLED_BIT); // TODO: VK_IMAGE_USAGE_STORAGE_BIT?
+	// TODO: handle render targets via additional image transfer?
 	VkAccessFlags dst_access_flags = 0;
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		if(!is_depth) {
-			usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			final_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			dst_access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		}
 		else {
-			usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 			final_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 			dst_access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 		}
@@ -344,7 +387,9 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			log_error("can't initialize a render target with host data!");
 		}
 		else {
-			if(!write_memory_data(cqueue, host_ptr, image_data_size, 0,
+			if(!write_memory_data(cqueue, host_ptr,
+								  (shim_image_type != image_type ? shim_image_data_size : image_data_size), 0,
+								  (shim_image_type != image_type ? image_data_size : 0),
 								  "failed to initialize image with host data (map failed)")) {
 				return false;
 			}
@@ -373,7 +418,8 @@ void vulkan_image::zero(shared_ptr<compute_queue> cqueue floor_unused) {
 
 void* __attribute__((aligned(128))) vulkan_image::map(shared_ptr<compute_queue> cqueue,
 													  const COMPUTE_MEMORY_MAP_FLAG flags_) {
-	return vulkan_memory::map(cqueue, flags_, image_data_size, 0);
+	return vulkan_memory::map(cqueue, flags_, (image_type == shim_image_type ?
+											   image_data_size : shim_image_data_size), 0);
 }
 
 void vulkan_image::unmap(shared_ptr<compute_queue> cqueue,
@@ -402,33 +448,63 @@ void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer h
 			dim_count >= 3 ? image_dim.z : 1,
 		},
 	};
-	// TODO: transition to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, b/c of perf
+	// transition to src-optimal, b/c of perf
+	transition(cmd_buffer,
+			   VK_ACCESS_TRANSFER_READ_BIT,
+			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT);
 	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
-void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
-	// TODO: mip-mapping, array/layer support, depth/stencil support
+void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) {
+	// TODO: depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
-	const VkImageSubresourceLayers img_sub_rsrc_layers {
-		.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-		.mipLevel = 0,
-		.baseArrayLayer = 0,
-		.layerCount = 1,
-	};
-	const VkBufferImageCopy region {
-		.bufferOffset = 0,
-		.bufferRowLength = 0, // tightly packed
-		.bufferImageHeight = 0, // tightly packed
-		.imageSubresource = img_sub_rsrc_layers,
-		.imageOffset = { 0, 0, 0 },
-		.imageExtent = {
-			image_dim.x,
-			dim_count >= 2 ? image_dim.y : 1,
-			dim_count >= 3 ? image_dim.z : 1,
-		},
-	};
-	// TODO: transition to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, b/c of perf
-	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, image_info.imageLayout, 1, &region);
+	const bool is_compressed = image_compressed(image_type);
+	
+	// transition to dst-optimal, b/c of perf
+	transition(cmd_buffer,
+			   VK_ACCESS_TRANSFER_WRITE_BIT,
+			   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+	
+	// RGB -> RGBA data conversion if necessary
+	if(image_type != shim_image_type) {
+		rgb_to_rgba_inplace(image_type, shim_image_type, (uint8_t*)data);
+	}
+	
+	vector<VkBufferImageCopy> regions;
+	regions.reserve(mip_level_count);
+	uint64_t buffer_offset = 0;
+	apply_on_levels([this, &regions, &buffer_offset,
+					 &cmd_buffer, &host_buffer,
+					 &is_compressed, &dim_count](const uint32_t& level,
+												 const uint4& mip_image_dim,
+												 const uint32_t&,
+												 const uint32_t& level_data_size) {
+		const VkImageSubresourceLayers img_sub_rsrc_layers {
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = level,
+			.baseArrayLayer = 0,
+			.layerCount = layer_count,
+		};
+		regions.emplace_back(VkBufferImageCopy {
+			.bufferOffset = buffer_offset,
+			.bufferRowLength = 0, // tightly packed
+			.bufferImageHeight = 0, // tightly packed
+			.imageSubresource = img_sub_rsrc_layers,
+			.imageOffset = { 0, 0, 0 },
+			.imageExtent = {
+				max(mip_image_dim.x, 1u),
+				dim_count >= 2 ? max(mip_image_dim.y, 1u) : 1,
+				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
+			},
+		});
+		buffer_offset += level_data_size;
+		return true;
+	}, shim_image_type);
+	
+	vkCmdCopyBufferToImage(cmd_buffer, host_buffer, image, image_info.imageLayout,
+						   (uint32_t)regions.size(), regions.data());
 }
 
 bool vulkan_image::acquire_opengl_object(shared_ptr<compute_queue>) {
@@ -447,7 +523,15 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 							  const VkPipelineStageFlags src_stage_mask,
 							  const VkPipelineStageFlags dst_stage_mask,
 							  const uint32_t dst_queue_idx) {
-	// TODO: handle non-color
+	VkImageAspectFlags aspect_mask = 0;
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+		aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(image_type)) {
+			aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+	}
+	else aspect_mask = VK_IMAGE_ASPECT_COLOR_BIT;
+	
 	const VkImageMemoryBarrier image_barrier {
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.pNext = nullptr,
@@ -459,7 +543,7 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 		.dstQueueFamilyIndex = dst_queue_idx,
 		.image = image,
 		.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.aspectMask = aspect_mask,
 			.baseMipLevel = 0,
 			.levelCount = mip_level_count,
 			.baseArrayLayer = 0,
@@ -494,6 +578,24 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 	
 	cur_access_mask = dst_access;
 	image_info.imageLayout = new_layout;
+}
+
+void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
+	if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		return;
+	}
+	transition(cmd_buffer, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+			   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+}
+
+void vulkan_image::transition_write(VkCommandBuffer cmd_buffer) {
+	// TODO: handler render targets / attachments?
+	if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL) {
+		return;
+	}
+	// TODO: handle read/write
+	transition(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+			   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 }
 
 #endif

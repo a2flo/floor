@@ -413,6 +413,8 @@ template <typename T> using param = const T&;
 #include <floor/compute/device/metal_post.hpp>
 #elif defined(FLOOR_COMPUTE_VULKAN)
 #include <floor/compute/device/vulkan_post.hpp>
+#elif defined(FLOOR_COMPUTE_HOST)
+#include <floor/compute/device/host_post.hpp>
 #endif
 
 // graphics builtin/id handling

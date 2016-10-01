@@ -68,7 +68,8 @@ protected:
 	
 	//! overwrites memory data with the host data pointed to by data, with the specified size/offset
 	bool write_memory_data(shared_ptr<compute_queue> cqueue,
-						   void* data, const size_t& size, const size_t& offset,
+						   const void* data, const size_t& size, const size_t& offset,
+						   const size_t non_shim_input_size = 0,
 						   const char* error_msg_on_failure = nullptr);
 	
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
@@ -78,7 +79,7 @@ protected:
 	void unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((aligned(128))) mapped_ptr);
 	
 	virtual void image_copy_dev_to_host(VkCommandBuffer, VkBuffer) {}
-	virtual void image_copy_host_to_dev(VkCommandBuffer, VkBuffer) {}
+	virtual void image_copy_host_to_dev(VkCommandBuffer, VkBuffer, void*) {}
 	
 };
 

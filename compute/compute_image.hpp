@@ -165,6 +165,9 @@ public:
 		return generate_mip_maps;
 	}
 	
+	//! for debugging purposes: dump COMPUTE_IMAGE_TYPE information into a human-readable string
+	static string image_type_to_string(const COMPUTE_IMAGE_TYPE& type);
+	
 protected:
 	const uint4 image_dim;
 	const COMPUTE_IMAGE_TYPE image_type;
@@ -188,12 +191,23 @@ protected:
 	uint32_t gl_format { 0u };
 	uint32_t gl_type { 0u };
 	
+	// for use with 3-channel image "emulation" through a corresponding 4-channel image
+	void set_shim_type_info();
+	COMPUTE_IMAGE_TYPE shim_image_type;
+	size_t shim_image_data_size { 0 };
 	
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
 	uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 						 const COMPUTE_IMAGE_TYPE& rgba_type,
 						 const uint8_t* rgb_data,
 						 const bool ignore_mip_levels = false);
+	
+	//! in-place converts RGB data to RGBA data
+	//! NOTE: 'rgb_to_rgba_data' must point to sufficient enough memory that can hold the RGBA data
+	void rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
+							 const COMPUTE_IMAGE_TYPE& rgba_type,
+							 uint8_t* rgb_to_rgba_data,
+							 const bool ignore_mip_levels = false);
 	
 	//! converts RGBA data to RGB data. if "dst_rgb_data" is non-null, the RGB data is directly written to it and no memory is
 	//! allocated and nullptr is returned. otherwise RGB image data is allocated and an owning pointer to it is returned.

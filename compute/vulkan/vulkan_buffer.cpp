@@ -97,7 +97,7 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 	if(copy_host_data &&
 	   host_ptr != nullptr &&
 	   !has_flag<COMPUTE_MEMORY_FLAG::NO_INITIAL_COPY>(flags)) {
-		if(!write_memory_data(cqueue, host_ptr, size, 0,
+		if(!write_memory_data(cqueue, host_ptr, size, 0, 0,
 							  "failed to initialize buffer with host data (map failed)")) {
 			return false;
 		}
@@ -129,11 +129,15 @@ void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, 
 	write(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::write(shared_ptr<compute_queue> cqueue floor_unused, const void* src floor_unused,
-						  const size_t size_ floor_unused, const size_t offset floor_unused) {
+void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const void* src,
+						  const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
-	// TODO: implement this
+	const size_t write_size = (size_ == 0 ? size : size_);
+	if(!write_check(size, write_size, offset)) return;
+	
+	GUARD(lock);
+	write_memory_data(cqueue, src, write_size, offset, 0, "failed to write buffer");
 }
 
 void vulkan_buffer::copy(shared_ptr<compute_queue> cqueue floor_unused,

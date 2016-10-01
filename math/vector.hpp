@@ -2139,6 +2139,25 @@ public:
 		};
 	}
 	
+	//! explicitly reinterprets this vector (its components) as "dst_scalar_type"
+	template <typename dst_scalar_type>
+	constexpr auto reinterpret() const {
+		static_assert(sizeof(dst_scalar_type) <= sizeof(scalar_type),
+					  "reinterpret type size must <= the current type size");
+		return FLOOR_VECNAME<dst_scalar_type> {
+			*((dst_scalar_type*)&x),
+#if FLOOR_VECTOR_WIDTH >= 2
+			*((dst_scalar_type*)&y),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			*((dst_scalar_type*)&z),
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			*((dst_scalar_type*)&w),
+#endif
+		};
+	}
+	
 };
 
 // cleanup macros

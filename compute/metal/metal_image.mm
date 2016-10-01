@@ -299,7 +299,6 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	desc = [[MTLTextureDescriptor alloc] init];
 	
 	const auto dim_count = image_dim_count(image_type);
-	const auto channel_count = image_channel_count(image_type);
 	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const bool is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type);
@@ -466,14 +465,8 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	}
 	[desc setPixelFormat:metal_format->second];
 	
-	// set shim format to the corresponding 4-channel format
-	// compressed images will always be used in their original state, even if they are RGB
-	if(channel_count == 3 && !is_compressed) {
-		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
-		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, 1, generate_mip_maps);
-	}
-	// == original type if not 3-channel -> 4-channel emulation
-	else shim_image_type = image_type;
+	// set shim format info if necessary
+	set_shim_type_info();
 	
 	// misc options
 	[desc setMipmapLevelCount:mip_level_count];

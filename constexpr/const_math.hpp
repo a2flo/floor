@@ -514,7 +514,7 @@ namespace const_math {
 	//! computes base^exponent, base to the power of exponent
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type pow(const fp_type base, const fp_type exponent) {
-		return const_math::exp(exponent * const_math::log(base));
+		return (base != fp_type(0) ? const_math::exp(exponent * const_math::log(base)) : fp_type(0));
 	}
 	
 	//! returns the amount of halley iterations needed for a certain precision (type)

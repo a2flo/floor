@@ -94,7 +94,7 @@ public:
 		
 		enum class SPECIAL_TYPE : uint32_t {
 			NONE							= (0u),
-			//! graphics-only: vertex/fragment shader stage input
+			//! graphics-only: shader stage input
 			STAGE_INPUT						= (1u),
 			//! vulkan-only: constant parameter fast path
 			PUSH_CONSTANT					= (2u),
@@ -105,7 +105,7 @@ public:
 		struct arg_info {
 			uint32_t size;
 			
-			//! NOTE: this will only be correct for OpenCL and Metal, CUDA uses a different approach,
+			//! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,
 			//! although some arguments might be marked with an address space nonetheless.
 			ARG_ADDRESS_SPACE address_space { ARG_ADDRESS_SPACE::GLOBAL };
 			

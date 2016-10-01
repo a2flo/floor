@@ -119,7 +119,7 @@ protected:
 	}
 	
 	//! actual kernel argument setter
-	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
+	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
 	floor_inline_always void set_kernel_argument(uint32_t& total_idx, uint32_t& arg_idx,
 												 arg_handler* handler,
 												 const opencl_kernel_entry& entry,

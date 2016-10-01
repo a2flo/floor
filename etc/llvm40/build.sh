@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 PRERELEASE=
 BASE_RELEASE=4.0.0

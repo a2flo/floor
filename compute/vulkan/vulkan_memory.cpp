@@ -41,13 +41,13 @@ shared_ptr<compute_queue> vulkan_memory::queue_or_default_compute_queue(shared_p
 	return ((vulkan_compute*)device->context)->get_device_default_queue(device);
 }
 
-bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, void* data, const size_t& size, const size_t& offset,
-									  const char* error_msg_on_failure) {
+bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, const void* data, const size_t& size, const size_t& offset,
+									  const size_t non_shim_input_size, const char* error_msg_on_failure) {
 	// we definitively need a queue for this (use specified one if possible, otherwise use the default queue)
 	auto map_queue = queue_or_default_compute_queue(cqueue);
 	auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
 	if(mapped_ptr != nullptr) {
-		memcpy(mapped_ptr, data, size);
+		memcpy(mapped_ptr, data, (non_shim_input_size == 0 ? size : non_shim_input_size));
 		unmap(map_queue, mapped_ptr);
 	}
 	else {
@@ -262,7 +262,7 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 					vkCmdCopyBuffer(cmd_buffer.cmd_buffer, iter->second.buffer, (VkBuffer)*object, 1, &region);
 				}
 				else {
-					image_copy_host_to_dev(cmd_buffer.cmd_buffer, iter->second.buffer);
+					image_copy_host_to_dev(cmd_buffer.cmd_buffer, iter->second.buffer, mapped_ptr);
 				}
 				
 				VK_CALL_BREAK(vkEndCommandBuffer(cmd_buffer.cmd_buffer), "failed to end command buffer");

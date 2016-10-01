@@ -141,18 +141,19 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// move descriptor types to the kernel entry, we'll need these when setting function args
 					entry.desc_types = move(descriptor_types);
 					
+					// always create a descriptor set layout, even when it's empty (we still need to be able to set/skip it later on)
+					const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
+						.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+						.pNext = nullptr,
+						.flags = 0,
+						.bindingCount = (uint32_t)bindings.size(),
+						.pBindings = (!bindings.empty() ? bindings.data() : nullptr),
+					};
+					VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
+								 "failed to create descriptor set layout");
+					// TODO: vkDestroyDescriptorSetLayout cleanup
+					
 					if(!bindings.empty()) {
-						const VkDescriptorSetLayoutCreateInfo desc_set_layout_info {
-							.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-							.pNext = nullptr,
-							.flags = 0,
-							.bindingCount = (uint32_t)bindings.size(),
-							.pBindings = bindings.data(),
-						};
-						VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
-									 "failed to create descriptor set layout");
-						// TODO: vkDestroyDescriptorSetLayout cleanup
-						
 						// create descriptor pool + descriptors
 						// TODO: think about how this can be properly handled (creating a pool per function per device is probably not a good idea)
 						//       -> create a descriptor allocation handler, start with a large vkCreateDescriptorPool,
@@ -240,7 +241,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 							.pNext = nullptr,
 							.flags = 0,
-							.setLayoutCount = (entry.desc_set_layout != nullptr ? 2u : 1u),
+							.setLayoutCount = 2u,
 							.pSetLayouts = layouts,
 							.pushConstantRangeCount = 0,
 							.pPushConstantRanges = nullptr,

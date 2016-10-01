@@ -745,10 +745,31 @@ uint8_t* compute_image::rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,
 	memset(rgba_data_ptr, 0xFF, rgba_size); // opaque
 	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
 		memcpy(&rgba_data_ptr[i * rgba_bytes_per_pixel],
-			   &((const uint8_t*)rgb_data)[rgb_bytes_per_pixel * i],
+			   &((const uint8_t*)rgb_data)[i * rgb_bytes_per_pixel],
 			   rgb_bytes_per_pixel);
 	}
 	return rgba_data_ptr;
+}
+
+void compute_image::rgb_to_rgba_inplace(const COMPUTE_IMAGE_TYPE& rgb_type,
+										const COMPUTE_IMAGE_TYPE& rgba_type,
+										uint8_t* rgb_to_rgba_data,
+										const bool ignore_mip_levels) {
+	// need to copy/convert the RGB host data to RGBA
+	const auto rgba_size = image_data_size_from_types(image_dim, rgba_type, 1, ignore_mip_levels);
+	const auto rgb_bytes_per_pixel = image_bytes_per_pixel(rgb_type);
+	const auto rgba_bytes_per_pixel = image_bytes_per_pixel(rgba_type);
+	const auto alpha_size = rgba_bytes_per_pixel / 4;
+	
+	// this needs to happen in reverse, otherwise we'd be overwriting the following RGB data
+	for(size_t count = rgba_size / rgba_bytes_per_pixel, i = count - 1; ; --i) {
+		for(size_t j = 0; j < rgb_bytes_per_pixel; ++j) {
+			rgb_to_rgba_data[i * rgba_bytes_per_pixel + j] = rgb_to_rgba_data[i * rgb_bytes_per_pixel + j];
+		}
+		memset(&rgb_to_rgba_data[(i + 1) * rgba_bytes_per_pixel] - alpha_size, 0xFF, alpha_size); // opaque
+		
+		if(i == 0) break;
+	}
 }
 
 uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
@@ -765,7 +786,7 @@ uint8_t* compute_image::rgba_to_rgb(const COMPUTE_IMAGE_TYPE& rgba_type,
 	uint8_t* rgb_data_ptr = (dst_rgb_data != nullptr ? dst_rgb_data : new uint8_t[rgb_size]);
 	for(size_t i = 0, count = rgba_size / rgba_bytes_per_pixel; i < count; ++i) {
 		memcpy(&rgb_data_ptr[i * rgb_bytes_per_pixel],
-			   &((const uint8_t*)rgba_data)[rgba_bytes_per_pixel * i],
+			   &((const uint8_t*)rgba_data)[i * rgba_bytes_per_pixel],
 			   rgb_bytes_per_pixel);
 	}
 	return (dst_rgb_data != nullptr ? nullptr : rgb_data_ptr);
@@ -915,4 +936,118 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) con
 		// done
 		return;
 	}
+}
+
+string compute_image::image_type_to_string(const COMPUTE_IMAGE_TYPE& type) {
+	stringstream ret;
+	
+	// base type
+	const auto dim = image_dim_count(type);
+	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
+	const auto is_depth = has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type);
+	const auto is_stencil = has_flag<COMPUTE_IMAGE_TYPE::FLAG_STENCIL>(type);
+	const auto is_msaa = has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(type);
+	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(type);
+	const auto is_buffer = has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(type);
+	
+	if(!is_cube) ret << dim << "D ";
+	else ret << "Cube ";
+	
+	if(is_depth) ret << "Depth ";
+	if(is_stencil) ret << "Stencil ";
+	if(is_msaa) ret << "MSAA ";
+	if(is_array) ret << "Array ";
+	if(is_buffer) ret << "Buffer ";
+	
+	// channel count and layout
+	const auto channel_count = image_channel_count(type);
+	const auto layout_idx = (uint32_t(type & COMPUTE_IMAGE_TYPE::__LAYOUT_MASK) >> uint32_t(COMPUTE_IMAGE_TYPE::__LAYOUT_SHIFT));
+	static const char layout_strs[4][5] {
+		"RGBA",
+		"BGRA",
+		"ABGR",
+		"ARGB",
+	};
+	for(uint32_t i = 0; i < channel_count; ++i) {
+		ret << layout_strs[layout_idx][i];
+	}
+	ret << " ";
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_SRGB>(type)) ret << "sRGB ";
+	
+	// data type
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type)) ret << "normalized ";
+	switch(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) {
+		case COMPUTE_IMAGE_TYPE::INT: ret << "int "; break;
+		case COMPUTE_IMAGE_TYPE::UINT: ret << "uint "; break;
+		case COMPUTE_IMAGE_TYPE::FLOAT: ret << "float "; break;
+		default: ret << "INVALID-DATA-TYPE "; break;
+	}
+	
+	// access
+	if(has_flag<COMPUTE_IMAGE_TYPE::READ_WRITE>(type)) ret << "read/write ";
+	else if(has_flag<COMPUTE_IMAGE_TYPE::READ>(type)) ret << "read-only ";
+	else if(has_flag<COMPUTE_IMAGE_TYPE::WRITE>(type)) ret << "write-only ";
+	
+	// compression
+	if(image_compressed(type)) {
+		switch(type & COMPUTE_IMAGE_TYPE::__COMPRESSION_MASK) {
+			case COMPUTE_IMAGE_TYPE::BC1: ret << "BC1 "; break;
+			case COMPUTE_IMAGE_TYPE::BC2: ret << "BC2 "; break;
+			case COMPUTE_IMAGE_TYPE::BC3: ret << "BC3 "; break;
+			case COMPUTE_IMAGE_TYPE::RGTC: ret << "RGTC/BC4/BC5 "; break;
+			case COMPUTE_IMAGE_TYPE::BPTC: ret << "BPTC/BC6/BC7 "; break;
+			case COMPUTE_IMAGE_TYPE::PVRTC: ret << "PVRTC "; break;
+			case COMPUTE_IMAGE_TYPE::PVRTC2: ret << "PVRTC2 "; break;
+			case COMPUTE_IMAGE_TYPE::EAC: ret << "EAC/ETC1 "; break;
+			case COMPUTE_IMAGE_TYPE::ETC2: ret << "ETC2 "; break;
+			case COMPUTE_IMAGE_TYPE::ASTC: ret << "ASTC "; break;
+			default: ret << "INVALID-COMPRESSION-TYPE "; break;
+		}
+	}
+	
+	// format
+	switch(type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) {
+		case COMPUTE_IMAGE_TYPE::FORMAT_1: ret << "1bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_2: ret << "2bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_3_3_2: ret << "3/3/2"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4: ret << "4bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4_2_0: ret << "4/2/0"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4_1_1: ret << "4/1/1"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_4_2_2: ret << "4/2/2"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5: ret << "5/5/5"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_5_5_ALPHA_1: ret << "5/5/5/A1"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_5_6_5: ret << "5/6/5"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_8: ret << "8bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_9_9_9_EXP_5: ret << "9/9/9/E5"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_10: ret << "10/10/10"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_10_10_10_ALPHA_2: ret << "10/10/10/A2"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_11_11_10: ret << "11/11/10"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12: ret << "12/12/12"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_12_12_12_12: ret << "12/12/12/12"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_16: ret << "16bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_16_8: ret << "16/8"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24: ret << "24"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_24_8: ret << "24/8"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_32: ret << "32bpc"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_32_8: ret << "32/8"; break;
+		case COMPUTE_IMAGE_TYPE::FORMAT_64: ret << "64bpc"; break;
+		default: ret << "INVALID-FORMAT"; break;
+	}
+	
+	// other
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(type)) ret << " mip-mapped";
+	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(type)) ret << " render-target";
+	
+	return ret.str();
+}
+
+void compute_image::set_shim_type_info() {
+	// set shim format to the corresponding 4-channel format
+	// compressed images will always be used in their original state, even if they are RGB
+	if(image_channel_count(image_type) == 3 && !image_compressed(image_type)) {
+		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
+		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, 1, generate_mip_maps);
+	}
+	// == original type if not 3-channel -> 4-channel emulation
+	else shim_image_type = image_type;
 }

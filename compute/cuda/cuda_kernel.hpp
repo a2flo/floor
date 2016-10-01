@@ -125,7 +125,7 @@ protected:
 	floor_inline_always void set_kernel_arguments(const uint8_t, const kernel_entry&, void**, uint8_t*&) const {}
 	
 	//! actual kernel argument setter
-	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
+	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&,
 												 void** param, uint8_t*& data, T&& arg) const {
 		*param = data;

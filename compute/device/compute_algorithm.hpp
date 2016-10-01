@@ -200,7 +200,6 @@ namespace compute_algorithm {
 			local_barrier();
 		}
 		
-#if defined(FLOOR_CXX17)
 		// inclusive
 		if constexpr(inclusive) {
 			return value; // value == lmem[side_idx + lid] at this point
@@ -211,11 +210,6 @@ namespace compute_algorithm {
 			local_barrier();
 			return ret;
 		}
-#else
-		return __builtin_choose_expr(inclusive,
-									 value,
-									 (value = (lid == 0 ? zero_val : lmem[side_idx + lid - 1]), local_barrier(), value));
-#endif
 #else // -> host-compute
 		lmem[inclusive ? lid : lid + 1] = value;
 		local_barrier();

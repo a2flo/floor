@@ -249,15 +249,16 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->max_image_2d_dim = { 8192, 8192 };
 				break;
 			
-			// A9/A9X
+			// A9/A9X and A10
 			default:
-				log_warn("unknown device family (%u), defaulting to family 3 (A9)", device->family);
+				log_warn("unknown device family (%u), defaulting to family 3 (A9/A10)", device->family);
 				floor_fallthrough;
 			case 8:
 			case 5:
 				device->family_version = (device->family == 5 ? 1 : 2);
 				device->family = 3;
-				if(device->name.find("A9X") != string::npos) {
+				if(device->name.find("A9X") != string::npos ||
+				   device->name.find("A10") != string::npos) {
 					device->units = 12; // GT7800/7900?
 				}
 				else {

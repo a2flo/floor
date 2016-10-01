@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 RELEASE=4.0.0
 RELEASE_VERSION_NAME=40000

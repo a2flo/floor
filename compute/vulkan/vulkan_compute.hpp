@@ -209,9 +209,9 @@ protected:
 	vector<shared_ptr<vulkan_program>> programs GUARDED_BY(programs_lock);
 	
 #if defined(FLOOR_DEBUG)
-	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback;
-	PFN_vkDestroyDebugReportCallbackEXT destroy_debug_report_callback;
-	VkDebugReportCallbackEXT debug_callback;
+	PFN_vkCreateDebugReportCallbackEXT create_debug_report_callback { nullptr };
+	PFN_vkDestroyDebugReportCallbackEXT destroy_debug_report_callback { nullptr };
+	VkDebugReportCallbackEXT debug_callback { nullptr };
 #endif
 	
 	// creates the fixed sampler set for all devices

@@ -22,7 +22,86 @@
 #if defined(FLOOR_COMPUTE_METAL)
 
 // NOTE: very wip
-// TODO: frag coord/position?
+
+//////////////////////////////////////////
+// general
+
+const_func uint32_t pack_snorm_4x8_clang(clang_float4) asm("air.pack.snorm4x8.v4f32");
+const_func uint32_t pack_unorm_4x8_clang(clang_float4) asm("air.pack.unorm4x8.v4f32");
+const_func uint32_t pack_snorm_2x16_clang(clang_float2) asm("air.pack.snorm2x16.v2f32");
+const_func uint32_t pack_unorm_2x16_clang(clang_float2) asm("air.pack.unorm2x16.v2f32");
+const_func uint32_t pack_half_2x16_clang(clang_half2) asm("air.pack.snorm2x16.v2f16");
+const_func clang_float4 unpack_snorm_4x8_clang(uint32_t) asm("air.unpack.snorm4x8.v4f32");
+const_func clang_float4 unpack_unorm_4x8_clang(uint32_t) asm("air.unpack.unorm4x8.v4f32");
+const_func clang_float2 unpack_snorm_2x16_clang(uint32_t) asm("air.unpack.snorm2x16.v2f32");
+const_func clang_float2 unpack_unorm_2x16_clang(uint32_t) asm("air.unpack.unorm2x16.v2f32");
+const_func clang_half2 unpack_half_2x16_clang(uint32_t) asm("air.unpack.snorm2x16.v2f16");
+// unavailable: pack_double_2x32, unpack_double_2x32
+
+//! clamps the input vector to [-1, 1], then converts and scales each component to an 8-bit signed integer in [-127, 127],
+//! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
+//! -> [comp-3][comp-2][comp-1][comp-0]
+const_func uint32_t pack_snorm_4x8(const float4& vec) {
+	return pack_snorm_4x8_clang(vec.to_clang_vector());
+}
+
+//! clamps the input vector to [0, 1], then converts and scales each component to an 8-bit unsigned integer in [0, 255],
+//! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
+//! -> [comp-3][comp-2][comp-1][comp-0]
+const_func uint32_t pack_unorm_4x8(const float4& vec) {
+	return pack_unorm_4x8_clang(vec.to_clang_vector());
+}
+
+//! clamps the input vector to [-1, 1], then converts and scales each component to an 16-bit signed integer in [-32767, 32767],
+//! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
+//! -> [comp-1][comp-0]
+const_func uint32_t pack_snorm_2x16(const float2& vec) {
+	return pack_snorm_2x16_clang(vec.to_clang_vector());
+}
+
+//! clamps the input vector to [0, 1], then converts and scales each component to an 16-bit unsigned integer in [0, 65535],
+//! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
+//! -> [comp-1][comp-0]
+const_func uint32_t pack_unorm_2x16(const float2& vec) {
+	return pack_unorm_2x16_clang(vec.to_clang_vector());
+}
+
+//! converts the input 32-bit single-precision float vector to a 16-bit half-precision float vector,
+//! returning a packed 32-bit unsigned integer, with vector components packed in ascending order from LSB to MSB
+//! -> [comp-1][comp-0]
+const_func uint32_t pack_half_2x16(const float2& vec) {
+	return pack_half_2x16_clang(half2(vec.x, vec.y).to_clang_vector());
+}
+
+//! unpacks the input 32-bit unsigned integer into 4 8-bit signed integers, then converts these [-127, 127]-ranged integers
+//! to normalized 32-bit single-precision float values in [-1, 1], returning them in a 4 component vector
+const_func float4 unpack_snorm_4x8(const uint32_t& val) {
+	return float4::from_clang_vector(unpack_snorm_4x8_clang(val));
+}
+
+//! unpacks the input 32-bit unsigned integer into 4 8-bit unsigned integers, then converts these [0, 255]-ranged integers
+//! to normalized 32-bit single-precision float values in [0, 1], returning them in a 4 component vector
+const_func float4 unpack_unorm_4x8(const uint32_t& val) {
+	return float4::from_clang_vector(unpack_unorm_4x8_clang(val));
+}
+
+//! unpacks the input 32-bit unsigned integer into 2 16-bit signed integers, then converts these [-32767, 32767]-ranged integers
+//! to normalized 32-bit single-precision float values in [-1, 1], returning them in a 2 component vector
+const_func float2 unpack_snorm_2x16(const uint32_t& val) {
+	return float2::from_clang_vector(unpack_snorm_2x16_clang(val));
+}
+
+//! unpacks the input 32-bit unsigned integer into 2 16-bit unsigned integers, then converts these [0, 65535]-ranged integers
+//! to normalized 32-bit single-precision float values in [0, 1], returning them in a 2 component vector
+const_func float2 unpack_unorm_2x16(const uint32_t& val) {
+	return float2::from_clang_vector(unpack_unorm_2x16_clang(val));
+}
+
+//! unpacks the input 32-bit unsigned integer into 2 16-bit half-precision float values, then converts these values
+//! to 32-bit single-precision float values, returning them in a 2 component vector
+const_func float2 unpack_half_2x16(const uint32_t& val) {
+	return (float2)half2::from_clang_vector(unpack_half_2x16_clang(val));
+}
 
 //////////////////////////////////////////
 // vertex shader

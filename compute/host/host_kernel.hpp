@@ -75,7 +75,7 @@ protected:
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::HOST; }
 	
-	template <typename T, enable_if_t<!is_pointer<T>::value>* = nullptr>
+	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
 	void* handle_kernel_arg(T&& obj) const { return (void*)&obj; }
 	
 	void* handle_kernel_arg(shared_ptr<compute_buffer> buffer) const;

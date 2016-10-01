@@ -76,10 +76,6 @@ protected:
 	MTLTextureUsage usage_options { MTLTextureUsageUnknown };
 	MTLStorageMode storage_options { MTLStorageModeShared };
 	
-	// for use with 3-channel image "emulation" through a corresponding 4-channel image
-	COMPUTE_IMAGE_TYPE shim_image_type;
-	size_t shim_image_data_size { 0 };
-	
 	struct metal_mapping {
 		const COMPUTE_MEMORY_MAP_FLAG flags;
 		const bool write_only;

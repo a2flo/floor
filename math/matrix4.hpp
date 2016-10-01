@@ -524,11 +524,28 @@ public:
 	}
 	
 	//! returns a perspective projection matrix according to the specified parameters
+	//! NOTE: this function will be selected if the fov parameter is constant (this is beneficial, because tan(x) calls are costly)
+	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
+										 const scalar_type z_near, const scalar_type z_far)
+	__attribute__((enable_if(fov == fov, "perspective with constant field-of-view"))) {
+		typedef conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float> fp_type;
+		const fp_type f {
+			(fp_type)1 / const_math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
+		};
+		return {
+			scalar_type(f) / scalar_type(aspect), scalar_type(0), scalar_type(0), scalar_type(0),
+			scalar_type(0), scalar_type(f), scalar_type(0), scalar_type(0),
+			scalar_type(0), scalar_type(0), (z_far + z_near) / (z_near - z_far), scalar_type(-1),
+			scalar_type(0), scalar_type(0), (scalar_type(2) * z_far * z_near) / (z_near - z_far), scalar_type(0)
+		};
+	}
+	
+	//! returns a perspective projection matrix according to the specified parameters
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
 										 const scalar_type z_near, const scalar_type z_far) {
 		typedef conditional_t<ext::is_floating_point_v<scalar_type>, scalar_type, float> fp_type;
 		const fp_type f {
-			(fp_type)1 / vector_helper<fp_type>::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
+			(fp_type)1 / math::tan(fp_type(fov) * const_math::PI_DIV_360<fp_type>)
 		};
 		return {
 			scalar_type(f) / scalar_type(aspect), scalar_type(0), scalar_type(0), scalar_type(0),
