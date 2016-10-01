@@ -4795,7 +4795,7 @@ index dd80390..4e3b676 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12..6b6ad02 100644
+index 183ee12..87b39b1 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4808,7 +4808,7 @@ index 183ee12..6b6ad02 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -436,185 +439,1778 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -436,185 +439,1789 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -5390,6 +5390,14 @@ index 183ee12..6b6ad02 100644
 +		const bool is_vertex_io = (is_return && is_vertex) || (!is_return && is_fragment);
 +		const bool is_fragment_io = (is_return && is_fragment);
 +		
++		const auto add_fbo_output = [&stage_infos, &Context](const QualType& type, const uint32_t location) {
++			const auto canon_data_type = type.getCanonicalType();
++			std::string output_type_str = "float";
++			if(canon_data_type->isIntegerType()) output_type_str = "int";
++			if(canon_data_type->isUnsignedIntegerType()) output_type_str = "uint";
++			stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:" + output_type_str + ":" + std::to_string(location)));
++		};
++		
 +		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +		if(cxx_rdecl) {
 +			if(!cxx_rdecl->hasAttr<VectorCompatAttr>()) {
@@ -5438,7 +5446,7 @@ index 183ee12..6b6ad02 100644
 +					}
 +					else if(is_fragment_io) {
 +						if(field.hasAttr<GraphicsFBOColorLocationAttr>()) {
-+							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:" + std::to_string(field.getAttr<GraphicsFBOColorLocationAttr>()->getEvalLocation())));
++							add_fbo_output(field.type, field.getAttr<GraphicsFBOColorLocationAttr>()->getEvalLocation());
 +						}
 +						else if(field.hasAttr<GraphicsFBODepthTypeAttr>()) {
 +							const auto depth_attr = field.getAttr<GraphicsFBODepthTypeAttr>();
@@ -5464,7 +5472,7 @@ index 183ee12..6b6ad02 100644
 +								}
 +								else break;
 +							}
-+							stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:" + std::to_string(fbo_location)));
++							add_fbo_output(field.type, fbo_location);
 +							++fbo_location;
 +						}
 +					}
@@ -5480,7 +5488,7 @@ index 183ee12..6b6ad02 100644
 +					stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "position"));
 +				}
 +				else if(is_fragment_io) {
-+					stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:0"));
++					add_fbo_output(clang_type, 0);
 +				}
 +			}
 +		}
@@ -5491,7 +5499,7 @@ index 183ee12..6b6ad02 100644
 +				stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "position"));
 +			}
 +			else if(is_fragment_io) {
-+				stage_infos.push_back(llvm::MDString::get(Context, prefix_stage + "fbo_output:0"));
++				add_fbo_output(clang_type, 0);
 +			}
 +		}
 +		else return;
@@ -5559,6 +5567,7 @@ index 183ee12..6b6ad02 100644
 +	}
 +	else if(is_fragment) {
 +		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "point_coord"));
++		stage_infos.push_back(llvm::MDString::get(Context, prefix_builtin + "frag_coord"));
 +	}
 +	
 +	// handle return value
@@ -6687,9 +6696,11 @@ index 183ee12..6b6ad02 100644
 +			  arg_types.push_back(llvm::Type::getInt32PtrTy(Context));
 +		  }
 +		  else if(FD->hasAttr<GraphicsFragmentShaderAttr>()) {
-+			  // only point coord for now
++			  // only point + frag coord for now
 +			  const auto pc_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(Context), 2)->getPointerTo();
 +			  arg_types.push_back(pc_vec_type);
++			  const auto fc_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(Context), 4)->getPointerTo();
++			  arg_types.push_back(fc_vec_type);
 +		  }
 +	  }
 +	  
@@ -6732,7 +6743,7 @@ index 183ee12..6b6ad02 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -632,6 +2228,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -632,6 +2239,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
          llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
      Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, attrMDArgs));
    }
@@ -6787,7 +6798,7 @@ index 183ee12..6b6ad02 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -661,6 +2305,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -661,6 +2316,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6795,7 +6806,7 @@ index 183ee12..6b6ad02 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -711,7 +2356,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -711,7 +2367,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // attribute to all functions that are not marked AlwaysInline, or
    // to all functions that are not marked inline or implicitly inline
    // in the case of -finline-hint-functions.
@@ -6804,7 +6815,7 @@ index 183ee12..6b6ad02 100644
      const CodeGenOptions& CodeGenOpts = CGM.getCodeGenOpts();
      if (!CodeGenOpts.NoInline) {
        for (auto RI : FD->redecls())
-@@ -732,16 +2377,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -732,16 +2388,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    Fn->addFnAttr("no-jump-tables",
                  llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
  
@@ -6833,7 +6844,7 @@ index 183ee12..6b6ad02 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -758,7 +2411,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -758,7 +2422,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6842,7 +6853,7 @@ index 183ee12..6b6ad02 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -822,7 +2475,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -822,7 +2486,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6860,7 +6871,7 @@ index 183ee12..6b6ad02 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -864,11 +2526,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -864,11 +2537,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -6876,7 +6887,7 @@ index 183ee12..6b6ad02 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1034,7 +2696,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1034,7 +2707,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&

@@ -2537,7 +2537,7 @@ index 167cc94..de64957 100644
  FunctionPass *createConstantPropagationPass();
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..c4cbf327
+index 0000000..a717de3
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
 @@ -0,0 +1,390 @@
@@ -2620,7 +2620,7 @@ index 0000000..c4cbf327
 +	LAYOUT_R				= LAYOUT_RGBA,
 +	LAYOUT_RG				= LAYOUT_RGBA,
 +	LAYOUT_RGB				= LAYOUT_RGBA,
-+	LAYOUT_BGR				= LAYOUT_ABGR,
++	LAYOUT_BGR				= LAYOUT_BGRA,
 +	
 +	//! bits 16-17: dimensionality
 +	//! NOTE: cube maps and arrays use the dimensionality of their underlying image data
@@ -23400,10 +23400,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..a03e3bd
+index 0000000..d9cd3e8
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3105 @@
+@@ -0,0 +1,3226 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23652,6 +23652,12 @@ index 0000000..a03e3bd
 +  SPIRVWord SrcLangVer;
 +  LLVMToSPIRVDbgTran DbgTran;
 +
++  // adds a SPIR-V float/int/uint scalar or vector type based on the LLVM type
++  // based on the 'is_signed' signedness - this is different to mapType and
++  // transType, because these won't handle signedness.
++  SPIRVType *addSignPreservingLLVMType(llvm::Type *type,
++                                       const bool is_signed = true);
++
 +  SPIRVType *mapType(Type *T, SPIRVType *BT) {
 +    TypeMap[T] = BT;
 +    SPIRVDBG(dbgs() << "[mapType] " << *T << " => "; spvdbgs() << *BT << '\n');
@@ -23738,6 +23744,7 @@ index 0000000..a03e3bd
 +    bool is_input{false};
 +    bool is_builtin{false};
 +    bool is_image{false};
++    bool is_fbo{false};
 +    bool is_read_only{false};
 +    bool is_write_only{false};
 +  };
@@ -24123,6 +24130,33 @@ index 0000000..a03e3bd
 +                   BM->addOpaqueGenericType(SPIRVOpaqueTypeOpCodeMap::map(TN)));
 +}
 +
++SPIRVType *LLVMToSPIRV::addSignPreservingLLVMType(llvm::Type *type,
++                                                  const bool is_signed) {
++  const auto add_scalar_uint_type = [this](llvm::Type *scalar_type) {
++    assert(scalar_type->isIntegerTy());
++    return BM->addIntegerType(cast<IntegerType>(scalar_type)->getBitWidth(),
++                              false);
++  };
++
++  if (type->isVectorTy()) {
++    auto elem_type = type->getVectorElementType();
++    auto elem_count = type->getVectorNumElements();
++    if (is_signed) {
++      return BM->addVectorType(transType(type), elem_count);
++    } else {
++      auto scalar_uint_type = add_scalar_uint_type(elem_type);
++      return BM->addVectorType(scalar_uint_type, elem_count);
++    }
++  } else {
++    assert(type->isFloatTy() || type->isIntegerTy());
++    if (is_signed) {
++      return transType(type);
++    } else {
++      return add_scalar_uint_type(type);
++    }
++  }
++}
++
 +SPIRVFunction *LLVMToSPIRV::transFunctionDecl(Function *F) {
 +  // don't translate/emit entry point declarations when the function only is a
 +  // declaration, not a definition
@@ -24369,6 +24403,7 @@ index 0000000..a03e3bd
 +
 +SPIRV::SPIRVInstruction *LLVMToSPIRV::transUnaryInst(UnaryInstruction *U,
 +                                                     SPIRVBasicBlock *BB) {
++  // TODO: properly handle int/uint conversions and type handling
 +  Op BOC = OpNop;
 +  if (auto Cast = dyn_cast<AddrSpaceCastInst>(U)) {
 +    if (Cast->getDestTy()->getPointerAddressSpace() == SPIRAS_Generic) {
@@ -24507,9 +24542,37 @@ index 0000000..a03e3bd
 +      MemoryAccess[0] |= MemoryAccessNontemporalMask;
 +    if (MemoryAccess.front() == 0)
 +      MemoryAccess.clear();
-+    return mapValue(V, BM->addStoreInst(transValue(ST->getPointerOperand(), BB),
-+                                        transValue(ST->getValueOperand(), BB),
-+                                        MemoryAccess, BB));
++    // check if we need to do int <-> uint casting
++    auto dst = transValue(ST->getPointerOperand(), BB);
++    auto src = transValue(ST->getValueOperand(), BB);
++    assert(dst->getType()->isTypePointer());
++    auto dst_elem_type =
++        ((SPIRVTypePointer *)dst->getType())->getPointerElementType();
++    auto src_elem_type = src->getType();
++    if (dst_elem_type != src_elem_type) {
++      bool emit_bitcast = false;
++      if (dst_elem_type->isTypeInt()) {
++        assert(src_elem_type->isTypeInt());
++        if (((SPIRVTypeInt *)dst_elem_type)->isSigned() !=
++            ((SPIRVTypeInt *)src_elem_type)->isSigned()) {
++          emit_bitcast = true;
++        }
++      } else if (dst_elem_type->isTypeVectorInt()) {
++        assert(src_elem_type->isTypeVectorInt());
++        if (((SPIRVTypeInt *)((SPIRVTypeVector *)dst_elem_type)
++                 ->getComponentType())
++                ->isSigned() !=
++            ((SPIRVTypeInt *)((SPIRVTypeVector *)src_elem_type)
++                 ->getComponentType())
++                ->isSigned()) {
++          emit_bitcast = true;
++        }
++      }
++      if (emit_bitcast) {
++        src = BM->addUnaryInst(spv::OpBitcast, dst_elem_type, src, BB);
++      }
++    }
++    return mapValue(V, BM->addStoreInst(dst, src, MemoryAccess, BB));
 +  }
 +
 +  if (LoadInst *LD = dyn_cast<LoadInst>(V)) {
@@ -24886,6 +24949,40 @@ index 0000000..a03e3bd
 +    } else if (MangledName == "floor.selection_merge") {
 +      return BM->addSelectionMergeInst(
 +          (SPIRVBasicBlock *)transValue(CI->getArgOperand(0), nullptr), BB);
++    } else if (MangledName.startswith("floor.pack_") ||
++               MangledName.startswith("floor.unpack_")) {
++      static const std::unordered_map<std::string, GLSLExtOpKind> pack_lut{
++          {"floor.pack_snorm_4x8", GLSLLIB::PackSnorm4x8},
++          {"floor.pack_unorm_4x8", GLSLLIB::PackUnorm4x8},
++          {"floor.pack_snorm_2x16", GLSLLIB::PackSnorm2x16},
++          {"floor.pack_unorm_2x16", GLSLLIB::PackUnorm2x16},
++          {"floor.pack_half_2x16", GLSLLIB::PackHalf2x16},
++          {"floor.pack_double_2x32", GLSLLIB::PackDouble2x32},
++          {"floor.unpack_snorm_4x8", GLSLLIB::UnpackSnorm4x8},
++          {"floor.unpack_unorm_4x8", GLSLLIB::UnpackUnorm4x8},
++          {"floor.unpack_snorm_2x16", GLSLLIB::UnpackSnorm2x16},
++          {"floor.unpack_unorm_2x16", GLSLLIB::UnpackUnorm2x16},
++          {"floor.unpack_half_2x16", GLSLLIB::UnpackHalf2x16},
++          {"floor.unpack_double_2x32", GLSLLIB::UnpackDouble2x32},
++      };
++      const auto ext_op = pack_lut.find(MangledName.str());
++      if (ext_op == pack_lut.end()) {
++        errs() << "unknown pack/unpack call: " << MangledName << "\n";
++        return nullptr;
++      }
++
++      SPIRVType *ret_type = nullptr;
++      if (MangledName.startswith("floor.pack_") &&
++          MangledName != "floor.pack_double_2x32") {
++        // enforce 32-bit unsigned integer return type
++        ret_type = BM->addIntegerType(32, false);
++      } else {
++        // otherwise, simply translate the return type
++        ret_type = transType(CI->getType());
++      }
++
++      return BM->addExtInst(ret_type, SPIRVEIS_GLSL, ext_op->second,
++                            transArguments(CI, BB), BB);
 +    }
 +    errs() << "unhandled floor func: " << MangledName << "\n";
 +  }
@@ -25150,6 +25247,7 @@ index 0000000..a03e3bd
 +  }
 +
 +  SPIRVType *mapped_type = nullptr;
++  uint32_t fbo_location = 0;
 +  if (global_type.is_uniform) {
 +    assert(GV.getType()->isPointerTy() && "uniform must be a pointer type");
 +    auto elem_type = GV.getType()->getPointerElementType();
@@ -25209,6 +25307,30 @@ index 0000000..a03e3bd
 +      mapped_type = BM->addPointerType(spv::StorageClassUniformConstant,
 +                                       transSPIRVOpaqueType(SPIRVImageTy));
 +    }
++  } else if (global_type.is_fbo) {
++    // extract location idx
++    const auto location_pos = md_info.rfind(':');
++    assert(location_pos != std::string::npos);
++    const auto location_str = md_info.substr(location_pos + 1);
++    fbo_location = (uint32_t)strtoull(location_str.c_str(), nullptr, 10);
++
++    // extract data type
++    const auto data_type_pos = md_info.rfind(':', location_pos - 1);
++    assert(data_type_pos != std::string::npos);
++    const auto data_type_str =
++        md_info.substr(data_type_pos + 1, location_pos - data_type_pos - 1);
++
++    // float and (signed) int can always be translated directly, unsigned int
++    // needs special treatment, b/c llvm doesn't differentiate ints and uints
++    if (data_type_str == "uint") {
++      assert(GV.getType()->isPointerTy());
++      mapped_type = BM->addPointerType(
++          storage_class, addSignPreservingLLVMType(
++                             GV.getType()->getPointerElementType(), false));
++    } else {
++      mapped_type = transType(GV.getType());
++    }
++
 +  } else {
 +    mapped_type = transType(GV.getType());
 +  }
@@ -25235,6 +25357,12 @@ index 0000000..a03e3bd
 +    } else if (global_type.is_write_only) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonReadable, BVar));
 +    }
++  }
++
++  // set fbo output location decoration
++  if (global_type.is_fbo) {
++    BVar->addDecorate(
++        new SPIRVDecorate(DecorationLocation, BVar, fbo_location));
 +  }
 +
 +  return BVar;
@@ -25764,16 +25892,9 @@ index 0000000..a03e3bd
 +              md_info.find("fbo_output:") != std::string::npos) {
 +            spirv_global_io_type global_type;
 +            global_type.is_write_only = true;
-+            auto fbo_output_var =
-+                emitShaderSPIRVGlobal(spirv_func, GV, output_name,
-+                                      SPIRAS_Output, global_type, md_info);
-+
-+            // extract location idx + add the resp. decoration
-+            const auto location_str = md_info.substr(md_info.rfind(':'));
-+            const auto location =
-+                (uint32_t)strtoull(location_str.c_str(), nullptr, 10);
-+            fbo_output_var->addDecorate(new SPIRVDecorate(
-+                DecorationLocation, fbo_output_var, location));
++            global_type.is_fbo = true;
++            emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
++                                  global_type, md_info);
 +          }
 +          // -> builtin
 +          else if (md_prefix == "builtin" || md_prefix == "stage") {
@@ -34020,10 +34141,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..3d08817
+index 0000000..e185c05
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1712 @@
+@@ -0,0 +1,1741 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -34077,6 +34198,16 @@ index 0000000..3d08817
 +#include <set>
 +#include <unordered_map>
 +#include <unordered_set>
++
++namespace std {
++template <>
++struct hash<pair<SPIRV::SPIRVType *, uint32_t>> : public hash<size_t> {
++  size_t operator()(const pair<SPIRV::SPIRVType *, uint32_t> &value) const
++      noexcept {
++    return (hash<uint32_t>()(value.second) ^ hash<void *>()(value.first));
++  }
++};
++}
 +
 +namespace SPIRV {
 +
@@ -34429,10 +34560,15 @@ index 0000000..3d08817
 +  SPIRVStringMap StrMap;
 +  SPIRVCapMap CapMap;
 +  SPIRVUnknownStructFieldMap UnknownStructFieldMap;
-+  std::map<unsigned, SPIRVTypeInt *> IntTypeMap;
-+  std::map<unsigned, SPIRVTypeInt *> SignedIntTypeMap;
-+  std::map<unsigned, SPIRVConstant *> LiteralMap;
-+  std::map<unsigned, SPIRVConstant *> SignedLiteralMap;
++  std::unordered_map<uint32_t, SPIRVTypeInt *> IntTypeMap;
++  std::unordered_map<uint32_t, SPIRVTypeInt *> SignedIntTypeMap;
++  std::unordered_map<uint32_t, SPIRVConstant *> LiteralMap;
++  std::unordered_map<uint32_t, SPIRVConstant *> SignedLiteralMap;
++  std::unordered_map<uint32_t, SPIRVTypeFloat *> FloatTypeMap;
++  std::unordered_map<std::pair<SPIRVType *, uint32_t>, SPIRVTypeVector *>
++      VectorTypeMap;
++  std::unordered_map<std::pair<SPIRVType *, uint32_t>, SPIRVTypePointer *>
++      PointerTypeMap;
 +
 +  void layoutEntry(SPIRVEntry *Entry);
 +};
@@ -34760,15 +34896,24 @@ index 0000000..3d08817
 +}
 +
 +SPIRVTypeFloat *SPIRVModuleImpl::addFloatType(unsigned BitWidth) {
-+  SPIRVTypeFloat *T = addType(new SPIRVTypeFloat(this, getId(), BitWidth));
++  auto Loc = FloatTypeMap.find(BitWidth);
++  if (Loc != FloatTypeMap.end())
++    return Loc->second;
++  auto Ty = new SPIRVTypeFloat(this, getId(), BitWidth);
++  FloatTypeMap[BitWidth] = Ty;
++  SPIRVTypeFloat *T = addType(Ty);
 +  return T;
 +}
 +
 +SPIRVTypePointer *
 +SPIRVModuleImpl::addPointerType(SPIRVStorageClassKind StorageClass,
 +                                SPIRVType *ElementType) {
-+  return addType(
-+      new SPIRVTypePointer(this, getId(), StorageClass, ElementType));
++  auto Loc = PointerTypeMap.find({ElementType, StorageClass});
++  if (Loc != PointerTypeMap.end())
++    return Loc->second;
++  auto Ty = new SPIRVTypePointer(this, getId(), StorageClass, ElementType);
++  PointerTypeMap[std::make_pair(ElementType, StorageClass)] = Ty;
++  return addType(Ty);
 +}
 +
 +SPIRVTypeFunction *SPIRVModuleImpl::addFunctionType(
@@ -34794,7 +34939,12 @@ index 0000000..3d08817
 +
 +SPIRVTypeVector *SPIRVModuleImpl::addVectorType(SPIRVType *CompType,
 +                                                SPIRVWord CompCount) {
-+  return addType(new SPIRVTypeVector(this, getId(), CompType, CompCount));
++  auto Loc = VectorTypeMap.find({CompType, CompCount});
++  if (Loc != VectorTypeMap.end())
++    return Loc->second;
++  auto Ty = new SPIRVTypeVector(this, getId(), CompType, CompCount);
++  VectorTypeMap[std::make_pair(CompType, CompCount)] = Ty;
++  return addType(Ty);
 +}
 +SPIRVType *SPIRVModuleImpl::addOpaqueGenericType(Op TheOpCode) {
 +  return addType(new SPIRVTypeOpaqueGeneric(TheOpCode, this, getId()));
@@ -35735,7 +35885,7 @@ index 0000000..3d08817
 +}
 +
 +#endif // _SPIRV_SUPPORT_TEXT_FMT
-+}
++} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
 index 0000000..63c1338
@@ -52099,10 +52249,10 @@ index 0000000..cadb3f0
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..92d0449
+index 0000000..05d5bdd
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,556 @@
+@@ -0,0 +1,569 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -52209,6 +52359,7 @@ index 0000000..92d0449
 +		
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
++		Argument* frag_coord { nullptr };
 +		
 +		std::unordered_set<Instruction*> unreachable_kill_list;
 +		
@@ -52261,8 +52412,10 @@ index 0000000..92d0449
 +			
 +			// add args if this is a fragment function
 +			if(is_fragment_func) {
-+				const auto vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 2)->getPointerTo(SPIRAS_Input);
-+				point_coord = new llvm::Argument(vec_type, "vulkan.point_coord", &F);
++				const auto pc_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 2)->getPointerTo(SPIRAS_Input);
++				point_coord = new llvm::Argument(pc_vec_type, "vulkan.point_coord", &F);
++				const auto fc_vec_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4)->getPointerTo(SPIRAS_Input);
++				frag_coord = new llvm::Argument(fc_vec_type, "vulkan.frag_coord", &F);
 +			}
 +			
 +			// handle return value / output
@@ -52472,6 +52625,16 @@ index 0000000..92d0449
 +				}
 +				
 +				I.replaceAllUsesWith(builder->CreateLoad(point_coord, "point_coord"));
++				I.eraseFromParent();
++				return;
++			}
++			else if(func_name == "floor.builtin.frag_coord.float4") {
++				if(frag_coord == nullptr) {
++					DBG(printf("failed to get frag_coord arg, probably not in a fragment function?\n"); fflush(stdout);)
++					return;
++				}
++				
++				I.replaceAllUsesWith(builder->CreateLoad(frag_coord, "frag_coord"));
 +				I.eraseFromParent();
 +				return;
 +			}
