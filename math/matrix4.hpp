@@ -523,6 +523,7 @@ public:
 		return rotation_named<axis>(const_math::deg_to_rad(deg_angle));
 	}
 	
+#if !defined(_MSC_VER) // duplicate name mangling issues
 	//! returns a perspective projection matrix according to the specified parameters
 	//! NOTE: this function will be selected if the fov parameter is constant (this is beneficial, because tan(x) calls are costly)
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
@@ -539,6 +540,7 @@ public:
 			scalar_type(0), scalar_type(0), (scalar_type(2) * z_far * z_near) / (z_near - z_far), scalar_type(0)
 		};
 	}
+#endif
 	
 	//! returns a perspective projection matrix according to the specified parameters
 	static constexpr matrix4 perspective(const scalar_type fov, const scalar_type aspect,
