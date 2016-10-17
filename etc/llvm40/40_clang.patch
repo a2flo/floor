@@ -149,7 +149,7 @@ index 03a61e9..af2c02c 100644
  
  //===- Binary Operations  -------------------------------------------------===//
 diff --git a/include/clang/AST/Type.h b/include/clang/AST/Type.h
-index 6bbba48..35385df 100644
+index 6bbba48..0aa28df 100644
 --- a/include/clang/AST/Type.h
 +++ b/include/clang/AST/Type.h
 @@ -429,10 +429,10 @@ public:
@@ -197,11 +197,12 @@ index 6bbba48..35385df 100644
    // Type Predicates: Check to see if this type is structurally the specified
    // type, ignoring typedefs and qualifiers.
    bool isFunctionType() const;
-@@ -1737,12 +1744,15 @@ public:
+@@ -1737,12 +1744,16 @@ public:
  
    bool isImageType() const;                     // Any OpenCL image type
  
 +  bool isAggregateImageType() const;            // struct/class containing only image*_t members
++  bool isArrayImageType() const;                // array of aggregate images
 +
    bool isSamplerT() const;                      // OpenCL sampler_t
    bool isEventT() const;                        // OpenCL event_t
@@ -213,7 +214,7 @@ index 6bbba48..35385df 100644
  
    bool isPipeType() const;                      // OpenCL pipe type
    bool isOpenCLSpecificType() const;            // Any OpenCL specific type
-@@ -3799,6 +3809,9 @@ public:
+@@ -3799,6 +3810,9 @@ public:
      attr_sysv_abi,
      attr_preserve_most,
      attr_preserve_all,
@@ -223,7 +224,7 @@ index 6bbba48..35385df 100644
      attr_ptr32,
      attr_ptr64,
      attr_sptr,
-@@ -5406,7 +5419,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
+@@ -5406,7 +5420,7 @@ inline FunctionType::ExtInfo getFunctionExtInfo(QualType t) {
  inline bool QualType::isMoreQualifiedThan(QualType other) const {
    Qualifiers MyQuals = getQualifiers();
    Qualifiers OtherQuals = other.getQualifiers();
@@ -232,7 +233,7 @@ index 6bbba48..35385df 100644
  }
  
  /// Determine whether this type is at last
-@@ -5420,7 +5433,7 @@ inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
+@@ -5420,7 +5434,7 @@ inline bool QualType::isAtLeastAsQualifiedAs(QualType other) const {
    if (getUnqualifiedType()->isVoidType())
      OtherQuals.removeUnaligned();
  
@@ -241,7 +242,7 @@ index 6bbba48..35385df 100644
  }
  
  /// If Type is a reference type (e.g., const
-@@ -5598,9 +5611,9 @@ inline bool Type::isObjCBuiltinType() const {
+@@ -5598,9 +5612,9 @@ inline bool Type::isObjCBuiltinType() const {
  }
  
  #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) \
@@ -254,7 +255,7 @@ index 6bbba48..35385df 100644
  #include "clang/Basic/OpenCLImageTypes.def"
  
  inline bool Type::isSamplerT() const {
-@@ -5627,6 +5640,11 @@ inline bool Type::isReserveIDT() const {
+@@ -5627,6 +5641,11 @@ inline bool Type::isReserveIDT() const {
    return isSpecificBuiltinType(BuiltinType::OCLReserveID);
  }
  
@@ -266,7 +267,7 @@ index 6bbba48..35385df 100644
  inline bool Type::isImageType() const {
  #define IMAGE_TYPE(ImgType, Id, SingletonId, Access, Suffix) is##Id##Type() ||
    return
-@@ -5640,7 +5658,8 @@ inline bool Type::isPipeType() const {
+@@ -5640,7 +5659,8 @@ inline bool Type::isPipeType() const {
  
  inline bool Type::isOpenCLSpecificType() const {
    return isSamplerT() || isEventT() || isImageType() || isClkEventT() ||
@@ -1958,7 +1959,7 @@ index 479ac44..c1fee1c 100644
  #include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index 4c1d4ec..52215f3 100644
+index 4c1d4ec..873b9f3 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1788,6 +1788,13 @@ bool Type::isFloatingType() const {
@@ -2067,7 +2068,7 @@ index 4c1d4ec..52215f3 100644
    case attr_inteloclbicc:
    case attr_preserve_most:
    case attr_preserve_all:
-@@ -3789,3 +3838,43 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -3789,3 +3838,66 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -2110,6 +2111,29 @@ index 4c1d4ec..52215f3 100644
 +  // check class/struct itself + all inherited base classes/structs
 +  const auto valid_and_has_image = isAggregateImageTypeRecurse(getAsCXXRecordDecl());
 +  return valid_and_has_image.first && valid_and_has_image.second;
++}
++
++bool Type::isArrayImageType() const {
++  // must be struct or class, union is not allowed
++  if(!isStructureOrClassType()) return false;
++
++  // must be a cxx rdecl
++  const auto decl = getAsCXXRecordDecl();
++  if(!decl) return false;
++
++  // must have definition
++  if(!decl->hasDefinition()) return false;
++
++  // must have exactly one field
++  const auto field_count = std::distance(decl->field_begin(), decl->field_end());
++  if(field_count != 1) return false;
++
++  // field must be an array
++  const QualType arr_field_type = decl->field_begin()->getType();
++  if(!arr_field_type->isArrayType()) return false;
++
++  // element type must be an aggregate image type
++  return arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType();
 +}
 diff --git a/lib/AST/TypePrinter.cpp b/lib/AST/TypePrinter.cpp
 index 065a2db..cae9edd 100644
@@ -4795,7 +4819,7 @@ index dd80390..4e3b676 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12..87b39b1 100644
+index 183ee12..8c2e911 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4808,7 +4832,7 @@ index 183ee12..87b39b1 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -436,185 +439,1789 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -436,185 +439,1762 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4832,9 +4856,6 @@ index 183ee12..87b39b1 100644
 -
 -  // MDNode for the kernel argument type names.
 -  SmallVector<llvm::Metadata *, 8> argTypeNames;
--
--  // MDNode for the kernel argument base type names.
--  SmallVector<llvm::Metadata *, 8> argBaseTypeNames;
 +// will recurse through the specified class/struct decl and its base classes,
 +// returning a vector containing all iterators to all contained fields
 +static std::vector<RecordDecl::field_iterator> get_aggregate_fields(const CXXRecordDecl* decl) {
@@ -4862,8 +4883,8 @@ index 183ee12..87b39b1 100644
 +	return ret;
 +}
  
--  // MDNode for the kernel argument type qualifiers.
--  SmallVector<llvm::Metadata *, 8> argTypeQuals;
+-  // MDNode for the kernel argument base type names.
+-  SmallVector<llvm::Metadata *, 8> argBaseTypeNames;
 +// will recurse through the specified class/struct decl and its base classes,
 +// returning a vector containing all iterators to all contained image types
 +// NOTE: will return an empty vector if not a proper aggregate image
@@ -4876,6 +4897,25 @@ index 183ee12..87b39b1 100644
 +		}
 +	}
 +	return ret;
++}
+ 
+-  // MDNode for the kernel argument type qualifiers.
+-  SmallVector<llvm::Metadata *, 8> argTypeQuals;
++static std::pair<FieldDecl*, uint32_t> get_array_image_info(const CXXRecordDecl* decl, const ASTContext& ASTCtx) {
++	const auto ret = get_aggregate_fields(decl);
++	if(ret.size() != 1) return { nullptr, 0 };
++	
++	FieldDecl* arr_field_decl = *ret[0];
++	const ConstantArrayType *CAT = ASTCtx.getAsConstantArrayType(arr_field_decl->getType());
++	if(!CAT) return { nullptr, 0 };
++	
++	auto img_cxx_rdecl = CAT->getElementType()->getAsCXXRecordDecl();
++	if(!img_cxx_rdecl) return { nullptr, 0 };
++	
++	auto img_fields = get_aggregate_fields(img_cxx_rdecl);
++	if(img_fields.size() != 1) return { nullptr, 0 };
++	
++	return { *img_fields[0], uint32_t(CAT->getSize().getZExtValue()) };
 +}
  
 -  // MDNode for the kernel argument names.
@@ -5507,10 +5547,39 @@ index 183ee12..87b39b1 100644
 +	
 +	//
 +	stage_infos.push_back(llvm::MDString::get(Context, "stage_input"));
++	
++	const auto add_image_arg = [&stage_infos,
++								&Context, &ASTCtx, &CGM](const clang::QualType& type,
++														 const ImageAccessAttr* access_attr,
++														 const FloorImageDataTypeAttr* data_type,
++														 const std::string& name,
++														 const uint32_t elem_count = 1) {
++		std::string access_str = "read";
++		if(access_attr && access_attr->isWriteOnly()) {
++			access_str = "write";
++		}
++		else if(access_attr && access_attr->isReadWrite()) {
++			assert(false && "read/write is not supported");
++		}
++		
++		std::string sample_type_str = "float";
++		if(data_type) {
++			const auto canon_data_type = data_type->getImageDataType().getCanonicalType();
++			if(canon_data_type->isIntegerType()) sample_type_str = "int";
++			if(canon_data_type->isUnsignedIntegerType()) sample_type_str = "uint";
++			// else: just assume float
++		}
++		
++		stage_infos.push_back(llvm::MDString::get(Context, (prefix_arg + access_str +
++															":" + std::to_string(elem_count) +
++															":" + sample_type_str)));
++	};
++	
 +	unsigned int arg_idx = 0;
 +	for(const auto& parm : FD->parameters()) {
 +		const auto clang_type = parm->getType();
 +		const auto llvm_type = next(Fn->getArgumentList().begin(), arg_idx)->getType();
++		const auto cxx_rdecl = clang_type->getAsCXXRecordDecl();
 +		
 +		// stage input
 +		if(parm->hasAttr<GraphicsStageInputAttr>()) {
@@ -5520,31 +5589,28 @@ index 183ee12..87b39b1 100644
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto agg_images = get_aggregate_image_fields(clang_type->getAsCXXRecordDecl());
 +			for(const auto& img : agg_images) {
-+				auto access_attr = img->getAttr<ImageAccessAttr>();
-+				std::string access_str = "read";
-+				if(access_attr && access_attr->isWriteOnly()) {
-+					access_str = "write";
-+				}
-+				else if(access_attr && access_attr->isReadWrite()) {
-+					assert(false && "read/write is not support");
-+				}
-+				
-+				auto data_type = img->getAttr<FloorImageDataTypeAttr>();
-+				std::string sample_type_str = "float";
-+				if(data_type) {
-+					const auto canon_data_type = data_type->getImageDataType().getCanonicalType();
-+					if(canon_data_type->isIntegerType()) sample_type_str = "int";
-+					if(canon_data_type->isUnsignedIntegerType()) sample_type_str = "uint";
-+					// else: just assume float
-+				}
-+				
-+				stage_infos.push_back(llvm::MDString::get(Context, prefix_arg + access_str + ":" + sample_type_str));
++				add_image_arg(img->getType(),
++							  img->getAttr<ImageAccessAttr>(),
++							  img->getAttr<FloorImageDataTypeAttr>(),
++							  parm->getName().str());
 +				
 +				// next llvm arg
 +				++arg_idx;
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
++		}
++		// image array
++		else if(clang_type->isArrayImageType()) {
++			const auto array_image_info = get_array_image_info(cxx_rdecl, ASTCtx);
++			if(array_image_info.first != nullptr &&
++			   array_image_info.second > 0) {
++				add_image_arg(array_image_info.first->getType(),
++							  array_image_info.first->getAttr<ImageAccessAttr>(),
++							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
++							  parm->getName().str(),
++							  array_image_info.second);
++			}
 +		}
 +		// anything else
 +		else {
@@ -5586,6 +5652,7 @@ index 183ee12..87b39b1 100644
 -    argNames.push_back(llvm::MDString::get(Context, parm->getName()));
 -  }
 +static void GenAIRMetadata(const FunctionDecl *FD, llvm::Function *Fn,
++						   const CGFunctionInfo &FnInfo,
 +						   CodeGenModule &CGM,llvm::LLVMContext &Context,
 +						   SmallVector <llvm::Metadata*, 5> &kernelMDArgs,
 +						   CGBuilderTy& Builder, ASTContext &ASTCtx) {
@@ -5616,6 +5683,7 @@ index 183ee12..87b39b1 100644
 +	};
 +	
 +	//
++	auto abi_arg_info_iter = FnInfo.arg_begin();
 +	unsigned int arg_idx = 0, buffer_idx = 0, tex_idx = 0;
 +	for(const auto& parm : FD->parameters()) {
 +		const auto clang_type = parm->getType();
@@ -5626,7 +5694,8 @@ index 183ee12..87b39b1 100644
 +									&Context, &ASTCtx, &CGM](const clang::QualType& type,
 +															 const ImageAccessAttr* access_attr,
 +															 const FloorImageDataTypeAttr* data_type,
-+															 const std::string& name) {
++															 const std::string& name,
++															 const uint32_t elem_count = 1) {
 +			SmallVector<llvm::Metadata*, 16> arg_info;
 +			
 +			// #0: param index
@@ -5636,9 +5705,9 @@ index 183ee12..87b39b1 100644
 +			// #2/#3: location_index (note: separate for buffers and textures)
 +			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(tex_idx)));
-+			++tex_idx;
-+			// #4: unknown? always 1
-+			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
++			tex_idx += elem_count;
++			// #4: index count/range
++			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(elem_count)));
 +			// #5: access type (sample = 0, read = 1 or write = 2)
 +			// note that "read" is essentially a subset of "sample" -> use "sample" for r/o
 +			if(access_attr && access_attr->isWriteOnly()) {
@@ -5655,120 +5724,55 @@ index 183ee12..87b39b1 100644
 +			// #6/#7: texture type
 +			arg_info.push_back(llvm::MDString::get(Context, "air.arg_type_name"));
 +			// proper type is necessary for metal debugging purposes
-+			std::string tex_type_name;
++			std::string tex_type_name = "";
++			if(elem_count > 1) {
++				tex_type_name += "array<";
++			}
 +			const auto builtin_type = type->getAs<BuiltinType>();
 +			if(!builtin_type) {
 +				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image type (not a builtin type)!"));
 +				return;
 +			}
 +			switch(builtin_type->getKind()) {
-+#if 0 // TODO: enable this again when using ro/wo/rw image types
-+				case BuiltinType::OCLImage1dRO:
-+				case BuiltinType::OCLImage1dWO:
-+				case BuiltinType::OCLImage1dRW:
-+					tex_type_name = "texture1d";
-+					break;
-+				case BuiltinType::OCLImage1dArrayRO:
-+				case BuiltinType::OCLImage1dArrayWO:
-+				case BuiltinType::OCLImage1dArrayRW:
-+					tex_type_name = "texture1d_array";
-+					break;
-+				case BuiltinType::OCLImage2dRO:
-+				case BuiltinType::OCLImage2dWO:
-+				case BuiltinType::OCLImage2dRW:
-+					tex_type_name = "texture2d";
-+					break;
-+				case BuiltinType::OCLImage2dArrayRO:
-+				case BuiltinType::OCLImage2dArrayWO:
-+				case BuiltinType::OCLImage2dArrayRW:
-+					tex_type_name = "texture2d_array";
-+					break;
-+				case BuiltinType::OCLImage2dDepthRO:
-+				case BuiltinType::OCLImage2dDepthWO:
-+				case BuiltinType::OCLImage2dDepthRW:
-+					tex_type_name = "depth2d";
-+					break;
-+				case BuiltinType::OCLImage2dArrayDepthRO:
-+				case BuiltinType::OCLImage2dArrayDepthWO:
-+				case BuiltinType::OCLImage2dArrayDepthRW:
-+					tex_type_name = "depth2d_array";
-+					break;
-+				case BuiltinType::OCLImage2dMSAARO:
-+				case BuiltinType::OCLImage2dMSAAWO:
-+				case BuiltinType::OCLImage2dMSAARW:
-+					tex_type_name = "texture2d_ms";
-+					break;
-+				case BuiltinType::OCLImage2dMSAADepthRO:
-+				case BuiltinType::OCLImage2dMSAADepthWO:
-+				case BuiltinType::OCLImage2dMSAADepthRW:
-+					tex_type_name = "depth2d_ms";
-+					break;
-+				case BuiltinType::OCLImage3dRO:
-+				case BuiltinType::OCLImage3dWO:
-+				case BuiltinType::OCLImage3dRW:
-+					tex_type_name = "texture3d";
-+					break;
-+				case BuiltinType::OCLImageCubeRO:
-+				case BuiltinType::OCLImageCubeWO:
-+				case BuiltinType::OCLImageCubeRW:
-+					tex_type_name = "texturecube";
-+					break;
-+				case BuiltinType::OCLImageCubeArrayRO:
-+				case BuiltinType::OCLImageCubeArrayWO:
-+				case BuiltinType::OCLImageCubeArrayRW:
-+					tex_type_name = "texturecube_array";
-+					break;
-+				case BuiltinType::OCLImageCubeDepthRO:
-+				case BuiltinType::OCLImageCubeDepthWO:
-+				case BuiltinType::OCLImageCubeDepthRW:
-+					tex_type_name = "depthcube";
-+					break;
-+				case BuiltinType::OCLImageCubeArrayDepthRO:
-+				case BuiltinType::OCLImageCubeArrayDepthWO:
-+				case BuiltinType::OCLImageCubeArrayDepthRW:
-+					tex_type_name = "depthcube_array";
-+					break;
-+#else
 +				case BuiltinType::OCLImage1d:
-+					tex_type_name = "texture1d";
++					tex_type_name += "texture1d";
 +					break;
 +				case BuiltinType::OCLImage1dArray:
-+					tex_type_name = "texture1d_array";
++					tex_type_name += "texture1d_array";
 +					break;
 +				case BuiltinType::OCLImage2d:
-+					tex_type_name = "texture2d";
++					tex_type_name += "texture2d";
 +					break;
 +				case BuiltinType::OCLImage2dArray:
-+					tex_type_name = "texture2d_array";
++					tex_type_name += "texture2d_array";
 +					break;
 +				case BuiltinType::OCLImage2dDepth:
-+					tex_type_name = "depth2d";
++					tex_type_name += "depth2d";
 +					break;
 +				case BuiltinType::OCLImage2dArrayDepth:
-+					tex_type_name = "depth2d_array";
++					tex_type_name += "depth2d_array";
 +					break;
 +				case BuiltinType::OCLImage2dMSAA:
-+					tex_type_name = "texture2d_ms";
++					tex_type_name += "texture2d_ms";
 +					break;
 +				case BuiltinType::OCLImage2dMSAADepth:
-+					tex_type_name = "depth2d_ms";
++					tex_type_name += "depth2d_ms";
 +					break;
 +				case BuiltinType::OCLImage3d:
-+					tex_type_name = "texture3d";
++					tex_type_name += "texture3d";
 +					break;
 +				case BuiltinType::OCLImageCube:
-+					tex_type_name = "texturecube";
++					tex_type_name += "texturecube";
 +					break;
 +				case BuiltinType::OCLImageCubeArray:
-+					tex_type_name = "texturecube_array";
++					tex_type_name += "texturecube_array";
 +					break;
 +				case BuiltinType::OCLImageCubeDepth:
-+					tex_type_name = "depthcube";
++					tex_type_name += "depthcube";
 +					break;
 +				case BuiltinType::OCLImageCubeArrayDepth:
-+					tex_type_name = "depthcube_array";
++					tex_type_name += "depthcube_array";
 +					break;
-+#endif
 +				default:
 +					CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image type!"));
 +					return;
@@ -5783,12 +5787,16 @@ index 183ee12..87b39b1 100644
 +				// else: just assume float
 +			}
 +			tex_type_name += sample_type_str;
-+			tex_type_name += ", ";
++			tex_type_name += ",";
 +			if(access_attr && access_attr->isReadOnly()) {
 +				tex_type_name += "sample";
 +			}
 +			else tex_type_name += "write";
 +			tex_type_name += ">";
++			
++			if(elem_count > 1) {
++				tex_type_name += ", " + std::to_string(elem_count) + ">";
++			}
 +			
 +			arg_info.push_back(llvm::MDString::get(Context, tex_type_name));
 +			
@@ -5819,7 +5827,7 @@ index 183ee12..87b39b1 100644
 +			arg_info.push_back(llvm::MDString::get(Context, "air.location_index"));
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(buffer_idx)));
 +			++buffer_idx;
-+			// #4: unknown? always 1
++			// #4: index count/range
 +			arg_info.push_back(llvm::ConstantAsMetadata::get(Builder.getInt32(1)));
 +			// #5: access (read/read_write, TODO: write?)
 +			const auto clang_pointee_type = clang_type->getPointeeType();
@@ -5901,10 +5909,10 @@ index 183ee12..87b39b1 100644
 +			const std::string base_name = parm->getName().str() + ".";
 +			unsigned int img_idx = 0;
 +			for(const auto& img : agg_images) {
-+				const auto img_type = img->getType();
-+				
-+				add_image_arg(img_type, img->getAttr<ImageAccessAttr>(),
-+							  img->getAttr<FloorImageDataTypeAttr>(), base_name + std::to_string(img_idx));
++				add_image_arg(img->getType(),
++							  img->getAttr<ImageAccessAttr>(),
++							  img->getAttr<FloorImageDataTypeAttr>(),
++							  base_name + std::to_string(img_idx));
 +				++img_idx;
 +				
 +				// next llvm arg
@@ -5912,6 +5920,22 @@ index 183ee12..87b39b1 100644
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
++		}
++		// image array
++		else if(clang_type->isArrayImageType()) {
++			const auto array_image_info = get_array_image_info(cxx_rdecl, ASTCtx);
++			if(array_image_info.first != nullptr &&
++			   array_image_info.second > 0) {
++				add_image_arg(array_image_info.first->getType(),
++							  array_image_info.first->getAttr<ImageAccessAttr>(),
++							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
++							  parm->getName().str(),
++							  array_image_info.second);
++			}
++			else {
++				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
++				return;
++			}
 +		}
 +		// stage input
 +		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
@@ -5964,9 +5988,27 @@ index 183ee12..87b39b1 100644
 +		}
 +		
 +		// next llvm arg
++		++abi_arg_info_iter;
 +		++arg_idx;
 +	}
 +	
++	// limits check
++	// https://developer.apple.com/metal/limits/
++	const bool is_osx = (CGM.getModule().getTargetTriple().find("macosx") != std::string::npos);
++	const uint32_t buf_limit = 31;
++	const uint32_t tex_limit = (is_osx ? 128 : 31);
++	if(buffer_idx > buf_limit) {
++		CGM.Error(FD->getSourceRange().getBegin(),
++				  StringRef("can't use more than " + std::to_string(buf_limit) + " buffers per function"));
++		return;
++	}
++	if(tex_idx > tex_limit) {
++		CGM.Error(FD->getSourceRange().getBegin(),
++				  StringRef("can't use more than " + std::to_string(tex_limit) + " images per function"));
++		return;
++	}
++	
++	//
 +	if(is_kernel) {
 +		// add id handling arg metadata
 +		// NOTE: the actual args are later added by MetalFinal + the order in here must match the order in MetalFinal
@@ -6272,6 +6314,7 @@ index 183ee12..87b39b1 100644
 +			STAGE_INPUT					= (1ull << __SPECIAL_TYPE_SHIFT),
 +			PUSH_CONSTANT				= (2ull << __SPECIAL_TYPE_SHIFT),
 +			SSBO						= (3ull << __SPECIAL_TYPE_SHIFT),
++			IMAGE_ARRAY					= (4ull << __SPECIAL_TYPE_SHIFT),
 +		};
 +		static const auto to_fas = [](const unsigned& addr_space) {
 +			if(addr_space == LangAS::opencl_global) {
@@ -6289,7 +6332,7 @@ index 183ee12..87b39b1 100644
 +		const auto compute_type_size = [this, &parm, &Fn](llvm::Type* type) {
 +			if(!type->isSized()) {
 +				auto err_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Fatal, "%0");
-+				CGM.getDiags().Report(parm->getSourceRange().getBegin(), err_diagID) << "parameter uses a type with an unknown size (NOTE: this can happen when internal vector type conversion/replacement has failed)";
++				CGM.getDiags().Report(parm->getSourceRange().getBegin(), err_diagID) << "parameter uses a type with an unknown size (NOTE: this can happen when internal vector/array type conversion/replacement has failed)";
 +				
 +				auto param_note_diagID = CGM.getDiags().getCustomDiagID(DiagnosticsEngine::Note, "LLVM type: %0");
 +				std::string param_type = "";
@@ -6325,72 +6368,6 @@ index 183ee12..87b39b1 100644
 +				return (FLOOR_ARG_INFO)~0ull;
 +			}
 +			switch(builtin_type->getKind()) {
-+#if 0 // TODO: enable this again when using ro/wo/rw image types
-+				case BuiltinType::OCLImage1dRO:
-+				case BuiltinType::OCLImage1dWO:
-+				case BuiltinType::OCLImage1dRW:
-+					return FLOOR_ARG_INFO::IMG_1D;
-+				case BuiltinType::OCLImage1dArrayRO:
-+				case BuiltinType::OCLImage1dArrayWO:
-+				case BuiltinType::OCLImage1dArrayRW:
-+					return FLOOR_ARG_INFO::IMG_1D_ARRAY;
-+				case BuiltinType::OCLImage1dBufferRO:
-+				case BuiltinType::OCLImage1dBufferWO:
-+				case BuiltinType::OCLImage1dBufferRW:
-+					return FLOOR_ARG_INFO::IMG_1D_BUFFER;
-+				case BuiltinType::OCLImage2dRO:
-+				case BuiltinType::OCLImage2dWO:
-+				case BuiltinType::OCLImage2dRW:
-+					return FLOOR_ARG_INFO::IMG_2D;
-+				case BuiltinType::OCLImage2dArrayRO:
-+				case BuiltinType::OCLImage2dArrayWO:
-+				case BuiltinType::OCLImage2dArrayRW:
-+					return FLOOR_ARG_INFO::IMG_2D_ARRAY;
-+				case BuiltinType::OCLImage2dDepthRO:
-+				case BuiltinType::OCLImage2dDepthWO:
-+				case BuiltinType::OCLImage2dDepthRW:
-+					return FLOOR_ARG_INFO::IMG_2D_DEPTH;
-+				case BuiltinType::OCLImage2dArrayDepthRO:
-+				case BuiltinType::OCLImage2dArrayDepthWO:
-+				case BuiltinType::OCLImage2dArrayDepthRW:
-+					return FLOOR_ARG_INFO::IMG_2D_ARRAY_DEPTH;
-+				case BuiltinType::OCLImage2dMSAARO:
-+				case BuiltinType::OCLImage2dMSAAWO:
-+				case BuiltinType::OCLImage2dMSAARW:
-+					return FLOOR_ARG_INFO::IMG_2D_MSAA;
-+				case BuiltinType::OCLImage2dArrayMSAARO:
-+				case BuiltinType::OCLImage2dArrayMSAAWO:
-+				case BuiltinType::OCLImage2dArrayMSAARW:
-+					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA;
-+				case BuiltinType::OCLImage2dMSAADepthRO:
-+				case BuiltinType::OCLImage2dMSAADepthWO:
-+				case BuiltinType::OCLImage2dMSAADepthRW:
-+					return FLOOR_ARG_INFO::IMG_2D_MSAA_DEPTH;
-+				case BuiltinType::OCLImage2dArrayMSAADepthRO:
-+				case BuiltinType::OCLImage2dArrayMSAADepthWO:
-+				case BuiltinType::OCLImage2dArrayMSAADepthRW:
-+					return FLOOR_ARG_INFO::IMG_2D_ARRAY_MSAA_DEPTH;
-+				case BuiltinType::OCLImage3dRO:
-+				case BuiltinType::OCLImage3dWO:
-+				case BuiltinType::OCLImage3dRW:
-+					return FLOOR_ARG_INFO::IMG_3D;
-+				case BuiltinType::OCLImageCubeRO:
-+				case BuiltinType::OCLImageCubeWO:
-+				case BuiltinType::OCLImageCubeRW:
-+					return FLOOR_ARG_INFO::IMG_CUBE;
-+				case BuiltinType::OCLImageCubeArrayRO:
-+				case BuiltinType::OCLImageCubeArrayWO:
-+				case BuiltinType::OCLImageCubeArrayRW:
-+					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY;
-+				case BuiltinType::OCLImageCubeDepthRO:
-+				case BuiltinType::OCLImageCubeDepthWO:
-+				case BuiltinType::OCLImageCubeDepthRW:
-+					return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
-+				case BuiltinType::OCLImageCubeArrayDepthRO:
-+				case BuiltinType::OCLImageCubeArrayDepthWO:
-+				case BuiltinType::OCLImageCubeArrayDepthRW:
-+					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
-+#else
 +				case BuiltinType::OCLImage1d:
 +					return FLOOR_ARG_INFO::IMG_1D;
 +				case BuiltinType::OCLImage1dArray:
@@ -6423,16 +6400,20 @@ index 183ee12..87b39b1 100644
 +					return FLOOR_ARG_INFO::IMG_CUBE_DEPTH;
 +				case BuiltinType::OCLImageCubeArrayDepth:
 +					return FLOOR_ARG_INFO::IMG_CUBE_ARRAY_DEPTH;
-+#endif
 +				default: break;
 +			}
 +			return (FLOOR_ARG_INFO)~0ull;
 +		};
 + 		const auto add_image_arg = [this, &info](const FLOOR_ARG_INFO& floor_img_type,
-+ 												 const FLOOR_ARG_INFO& access) {
++ 												 const FLOOR_ARG_INFO& access,
++												 const uint32_t elem_count = 1) {
 +			uint64_t arg_info = uint64_t(FLOOR_ARG_INFO::AS_IMAGE);
 +			arg_info |= uint64_t(floor_img_type);
 +			arg_info |= uint64_t(access);
++			if(elem_count > 1) {
++				arg_info |= elem_count;
++				arg_info |= uint64_t(FLOOR_ARG_INFO::IMAGE_ARRAY);
++			}
 +			info << arg_info << ",";
 +		};
 +		// anything that isn't a pointer or special type
@@ -6539,6 +6520,20 @@ index 183ee12..87b39b1 100644
 +			
 +			// 1 clang aggregate-image == 2 llvm image types -> inc index once more
 +			if(field_count == 2) ++arg_idx;
++		}
++		// image array
++		else if(clang_type->isArrayImageType()) {
++			const auto array_image_info = get_array_image_info(cxx_rdecl, getContext());
++			if(array_image_info.first != nullptr &&
++			   array_image_info.second > 0) {
++				add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
++							  get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
++							  array_image_info.second);
++			}
++			else {
++				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
++				return;
++			}
 +		}
 +		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
@@ -6648,7 +6643,9 @@ index 183ee12..87b39b1 100644
  }
  
  void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
-                                                llvm::Function *Fn)
+-                                               llvm::Function *Fn)
++                                               llvm::Function *Fn,
++                                               const CGFunctionInfo &FnInfo)
  {
 -  if (!FD->hasAttr<OpenCLKernelAttr>())
 +  if (!FD->hasAttr<ComputeKernelAttr>() &&
@@ -6716,7 +6713,7 @@ index 183ee12..87b39b1 100644
 +                         getContext());
 +
 +  if (CGM.getLangOpts().Metal)
-+    GenAIRMetadata(FD, Fn, CGM, Context, kernelMDArgs, Builder, getContext());
++    GenAIRMetadata(FD, Fn, FnInfo, CGM, Context, kernelMDArgs, Builder, getContext());
 +
 +  if (CGM.getLangOpts().Vulkan)
 +    GenVulkanMetadata(FD, Fn, CGM, Context, Builder, getContext());
@@ -6743,7 +6740,7 @@ index 183ee12..87b39b1 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -632,6 +2239,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -632,6 +2212,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
          llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
      Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, attrMDArgs));
    }
@@ -6798,7 +6795,7 @@ index 183ee12..87b39b1 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -661,6 +2316,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -661,6 +2289,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6806,7 +6803,7 @@ index 183ee12..87b39b1 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -711,7 +2367,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -711,7 +2340,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // attribute to all functions that are not marked AlwaysInline, or
    // to all functions that are not marked inline or implicitly inline
    // in the case of -finline-hint-functions.
@@ -6815,13 +6812,14 @@ index 183ee12..87b39b1 100644
      const CodeGenOptions& CodeGenOpts = CGM.getCodeGenOpts();
      if (!CodeGenOpts.NoInline) {
        for (auto RI : FD->redecls())
-@@ -732,16 +2388,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -732,16 +2361,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    Fn->addFnAttr("no-jump-tables",
                  llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
  
 -  if (getLangOpts().OpenCL) {
 -    // Add metadata for a kernel function.
 -    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
+-      EmitOpenCLKernelMetadata(FD, Fn);
 +  // emit compute metadata
 +  if (getLangOpts().OpenCL || getLangOpts().CUDA) {
 +    if(FD) {
@@ -6832,7 +6830,7 @@ index 183ee12..87b39b1 100644
 +    // opencl/spir, metal and vulkan specific metadata
 +    if (getLangOpts().OpenCL) {
 +      // Add metadata for a kernel function.
-       EmitOpenCLKernelMetadata(FD, Fn);
++      EmitOpenCLKernelMetadata(FD, Fn, FnInfo);
 +    }
    }
  
@@ -6844,7 +6842,7 @@ index 183ee12..87b39b1 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -758,7 +2422,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -758,7 +2395,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6853,7 +6851,7 @@ index 183ee12..87b39b1 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -822,7 +2486,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -822,7 +2459,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6871,7 +6869,7 @@ index 183ee12..87b39b1 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -864,11 +2537,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -864,11 +2510,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -6887,7 +6885,7 @@ index 183ee12..87b39b1 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1034,7 +2707,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1034,7 +2680,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -6897,13 +6895,18 @@ index 183ee12..87b39b1 100644
    else if (isa<CXXConversionDecl>(FD) &&
             cast<CXXConversionDecl>(FD)->isLambdaToBlockPointerConversion()) {
 diff --git a/lib/CodeGen/CodeGenFunction.h b/lib/CodeGen/CodeGenFunction.h
-index bb04371..21d3de5 100644
+index bb04371..ed21d18 100644
 --- a/lib/CodeGen/CodeGenFunction.h
 +++ b/lib/CodeGen/CodeGenFunction.h
-@@ -1188,6 +1188,11 @@ private:
+@@ -1186,8 +1186,14 @@ private:
+   /// - A node for the reqd_work_group_size(X,Y,Z) qualifier contains string 
+   ///   "reqd_work_group_size", and three 32-bit integers X, Y and Z.
    void EmitOpenCLKernelMetadata(const FunctionDecl *FD, 
-                                 llvm::Function *Fn);
- 
+-                                llvm::Function *Fn);
+-
++                                llvm::Function *Fn,
++                                const CGFunctionInfo &FnInfo);
++
 +  void EmitFloorKernelMetadata(const FunctionDecl *FD,
 +                               llvm::Function *Fn,
 +                               const FunctionArgList &Args,
@@ -6912,7 +6915,7 @@ index bb04371..21d3de5 100644
  public:
    CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext=false);
    ~CodeGenFunction();
-@@ -1341,6 +1346,11 @@ public:
+@@ -1341,6 +1347,11 @@ public:
                                          const DeclMapTy &ldm,
                                          bool IsLambdaConversionToBlock);
  
@@ -6924,7 +6927,7 @@ index bb04371..21d3de5 100644
    llvm::Constant *GenerateCopyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateDestroyHelperFunction(const CGBlockInfo &blockInfo);
    llvm::Constant *GenerateObjCAtomicSetterCopyHelperFunction(
-@@ -3263,14 +3273,16 @@ private:
+@@ -3263,14 +3274,16 @@ private:
    ///
    /// \param AI - The first function argument of the expansion.
    void ExpandTypeFromArgs(QualType Ty, LValue Dst,
@@ -7387,10 +7390,21 @@ index ed18156..246a936 100644
  }  // end namespace CodeGen
  }  // end namespace clang
 diff --git a/lib/CodeGen/CodeGenTypes.cpp b/lib/CodeGen/CodeGenTypes.cpp
-index ebe55c7..db15939 100644
+index ebe55c7..36096c6 100644
 --- a/lib/CodeGen/CodeGenTypes.cpp
 +++ b/lib/CodeGen/CodeGenTypes.cpp
-@@ -598,6 +598,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+@@ -381,6 +381,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
+ 
+   const Type *Ty = T.getTypePtr();
+ 
++  // intercept image arrays before RT conversion
++  if (Ty->isArrayImageType())
++    return ConvertArrayImageType(Ty);
++
+   // RecordTypes are cached and processed specially.
+   if (const RecordType *RT = dyn_cast<RecordType>(Ty))
+     return ConvertRecordDeclType(RT->getDecl());
+@@ -598,6 +602,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
    }
  
    case Type::BlockPointer: {
@@ -7401,8 +7415,39 @@ index ebe55c7..db15939 100644
      const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
      llvm::Type *PointeeType = ConvertTypeForMem(FTy);
      unsigned AS = Context.getTargetAddressSpace(FTy);
-@@ -720,7 +724,14 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+@@ -718,9 +726,45 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+   return Ty;
+ }
  
++llvm::ArrayType *CodeGenTypes::ConvertArrayImageType(const Type* Ty) {
++  // must be struct or class, union is not allowed
++  if(!Ty->isStructureOrClassType()) return nullptr;
++
++  // must be a cxx rdecl
++  const auto decl = Ty->getAsCXXRecordDecl();
++  if(!decl) return nullptr;
++
++  // must have definition
++  if(!decl->hasDefinition()) return nullptr;
++
++  // must have exactly one field
++  const auto field_count = std::distance(decl->field_begin(), decl->field_end());
++  if(field_count != 1) return nullptr;
++
++  // field must be an array
++  const QualType arr_field_type = decl->field_begin()->getType();
++  const ConstantArrayType *CAT = Context.getAsConstantArrayType(arr_field_type);
++  if(!CAT) return nullptr;
++
++  // must be an aggregate image with exactly one image
++  const auto agg_img_type = CAT->getElementType()->getAsCXXRecordDecl();
++  auto agg_img_fields = get_aggregate_scalar_fields(agg_img_type, agg_img_type, false, false);
++  if(agg_img_fields.size() != 1) return nullptr;
++
++  // got everything we need
++  return llvm::ArrayType::get(ConvertType(agg_img_fields[0].type), CAT->getSize().getZExtValue());
++}
++
  /// getCGRecordLayout - Return record layout info for the given record decl.
  const CGRecordLayout &
 -CodeGenTypes::getCGRecordLayout(const RecordDecl *RD) {
@@ -7417,7 +7462,7 @@ index ebe55c7..db15939 100644
    const Type *Key = Context.getTagDeclType(RD).getTypePtr();
  
    const CGRecordLayout *Layout = CGRecordLayouts.lookup(Key);
-@@ -768,3 +779,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -768,3 +812,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -7626,7 +7671,7 @@ index ebe55c7..db15939 100644
 +	return ret;
 +}
 diff --git a/lib/CodeGen/CodeGenTypes.h b/lib/CodeGen/CodeGenTypes.h
-index 00df10d..b4359f6 100644
+index 00df10d..5f59b88 100644
 --- a/lib/CodeGen/CodeGenTypes.h
 +++ b/lib/CodeGen/CodeGenTypes.h
 @@ -138,6 +138,10 @@ class CodeGenTypes {
@@ -7650,7 +7695,7 @@ index 00df10d..b4359f6 100644
  
    /// UpdateCompletedType - When we find the full definition for a TagDecl,
    /// replace the 'opaque' type we previously made for it if applicable.
-@@ -337,7 +342,57 @@ public:
+@@ -337,16 +342,69 @@ public:
    /// optional suffix and name the given LLVM type using it.
    void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
                           StringRef suffix);
@@ -7709,7 +7754,10 @@ index 00df10d..b4359f6 100644
  
  public:  // These are internal details of CGT that shouldn't be used externally.
    /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
-@@ -346,7 +401,8 @@ public:  // These are internal details of CGT that shouldn't be used externally.
+   llvm::StructType *ConvertRecordDeclType(const RecordDecl *TD);
+ 
++  llvm::ArrayType *ConvertArrayImageType(const Type* Ty);
++
    /// getExpandedTypes - Expand the type \arg Ty into the LLVM
    /// argument types it would be passed as. See ABIArgInfo::Expand.
    void getExpandedTypes(QualType Ty,
@@ -7720,7 +7768,7 @@ index 00df10d..b4359f6 100644
    /// IsZeroInitializable - Return whether a type can be
    /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 759e3d6..ad4403c 100644
+index 759e3d6..0496cf4 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -69,11 +69,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -8072,7 +8120,7 @@ index 759e3d6..ad4403c 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -5782,6 +5845,189 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -5782,6 +5845,195 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -8135,6 +8183,9 @@ index 759e3d6..ad4403c 100644
 +}
 +
 +ABIArgInfo AIRABIInfo::classifyArgumentType(QualType Ty) const {
++  if (Ty->isArrayImageType())
++    return getNaturalAlignIndirect(Ty);
++
 +  if (CodeGenFunction::hasAggregateEvaluationKind(Ty) &&
 +      Ty->isStructureOrClassType()) {
 +    return ABIArgInfo::getExpand();
@@ -8211,6 +8262,9 @@ index 759e3d6..ad4403c 100644
 +}
 +
 +ABIArgInfo VulkanABIInfo::classifyArgumentType(QualType Ty, unsigned int CC) const {
++  if (Ty->isArrayImageType())
++    return getNaturalAlignIndirect(Ty);
++
 +  // all shader inputs must either be scalar or vector types, or arrays thereof
 +  // -> expand all aggregates
 +  if (CodeGenFunction::hasAggregateEvaluationKind(Ty) &&
@@ -8262,7 +8316,7 @@ index 759e3d6..ad4403c 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5852,7 +6098,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -5852,7 +6104,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
    return (Ty->isAnyComplexType() ||
            Ty->isVectorType() ||
@@ -8271,7 +8325,7 @@ index 759e3d6..ad4403c 100644
  }
  
  bool SystemZABIInfo::isVectorArgumentType(QualType Ty) const {
-@@ -6350,7 +6596,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -6350,7 +6602,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::alignTo(Offset, Align);
    Offset = CurrOffset + llvm::alignTo(TySize, Align * 8) / 8;
  
@@ -8280,7 +8334,7 @@ index 759e3d6..ad4403c 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -6435,7 +6681,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6435,7 +6687,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -8289,7 +8343,7 @@ index 759e3d6..ad4403c 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -6588,7 +6834,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
+@@ -6588,7 +6840,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
    llvm::Function *F = cast<llvm::Function>(GV);
  
    if (M.getLangOpts().OpenCL) {
@@ -8298,7 +8352,7 @@ index 759e3d6..ad4403c 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -6668,7 +6914,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -6668,7 +6920,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -8307,7 +8361,7 @@ index 759e3d6..ad4403c 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -6706,7 +6952,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6706,7 +6958,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return getNaturalAlignIndirect(RetTy);
  
@@ -8316,7 +8370,7 @@ index 759e3d6..ad4403c 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -6824,7 +7070,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
+@@ -6824,7 +7076,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
      }
    }
  
@@ -8325,7 +8379,7 @@ index 759e3d6..ad4403c 100644
      // Structures with flexible arrays are always indirect.
      if (RT && RT->getDecl()->hasFlexibleArrayMember())
        return getIndirectResult(Ty, /*ByVal=*/true, State);
-@@ -6927,7 +7173,21 @@ public:
+@@ -6927,7 +7179,21 @@ public:
  
  }
  
@@ -8348,7 +8402,7 @@ index 759e3d6..ad4403c 100644
  
  void AMDGPUTargetCodeGenInfo::setTargetAttributes(
    const Decl *D,
-@@ -6953,7 +7213,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
+@@ -6953,7 +7219,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
  
    appendOpenCLVersionMD(M);
  }
@@ -8357,7 +8411,7 @@ index 759e3d6..ad4403c 100644
  
  unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
    return llvm::CallingConv::AMDGPU_KERNEL;
-@@ -7168,7 +7428,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -7168,7 +7434,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend();
  
    // Other non-aggregates go in registers.
@@ -8366,7 +8420,7 @@ index 759e3d6..ad4403c 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -7596,58 +7856,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
+@@ -7596,58 +7862,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
    }
  }
  
@@ -8425,7 +8479,7 @@ index 759e3d6..ad4403c 100644
  static bool appendType(SmallStringEnc &Enc, QualType QType,
                         const CodeGen::CodeGenModule &CGM,
                         TypeStringCache &TSC);
-@@ -8145,6 +8353,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8145,6 +8359,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return SetCGInfo(new XCoreTargetCodeGenInfo(Types));
    case llvm::Triple::spir:
    case llvm::Triple::spir64:

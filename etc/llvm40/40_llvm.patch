@@ -1194,7 +1194,7 @@ index ff55fcb..6720241 100644
    FunctionType *getFunctionType() const; // Return the FunctionType for me
  
 diff --git a/include/llvm/IR/Metadata.h b/include/llvm/IR/Metadata.h
-index 91f43d3..8ca6164 100644
+index 91f43d3..064acaa 100644
 --- a/include/llvm/IR/Metadata.h
 +++ b/include/llvm/IR/Metadata.h
 @@ -35,7 +35,10 @@ class Module;
@@ -1209,6 +1209,42 @@ index 91f43d3..8ca6164 100644
  };
  
  /// \brief Root of the metadata hierarchy.
+@@ -349,7 +352,7 @@ public:
+   LLVMContext &getContext() const { return V->getContext(); }
+ 
+   static void handleDeletion(Value *V);
+-  static void handleRAUW(Value *From, Value *To);
++  static void handleRAUW(Value *From, Value *To, const bool AllowASChange = false);
+ 
+ protected:
+   /// \brief Handle collisions after \a Value::replaceAllUsesWith().
+diff --git a/include/llvm/IR/Value.h b/include/llvm/IR/Value.h
+index f3a342d..5d82b75 100644
+--- a/include/llvm/IR/Value.h
++++ b/include/llvm/IR/Value.h
+@@ -265,7 +265,8 @@ public:
+   /// Go through the uses list for this definition and make each use point to
+   /// "V" instead of "this".  After this completes, 'this's use list is
+   /// guaranteed to be empty.
+-  void replaceAllUsesWith(Value *V);
++  /// If 'AllowASChange' is true, address space changes are valid.
++  void replaceAllUsesWith(Value *V, const bool AllowASChange = false);
+ 
+   /// replaceUsesOutsideBlock - Go through the uses list for this definition and
+   /// make each use point to "V" instead of "this" when the use is outside the
+diff --git a/include/llvm/IR/ValueHandle.h b/include/llvm/IR/ValueHandle.h
+index 3c28059..ba6ffa1 100644
+--- a/include/llvm/IR/ValueHandle.h
++++ b/include/llvm/IR/ValueHandle.h
+@@ -112,7 +112,7 @@ protected:
+ public:
+   // Callbacks made from Value.
+   static void ValueIsDeleted(Value *V);
+-  static void ValueIsRAUWd(Value *Old, Value *New);
++  static void ValueIsRAUWd(Value *Old, Value *New, const bool AllowASChange = false);
+ 
+ private:
+   // Internal implementation details.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
 index a411273..7e6b442 100644
 --- a/include/llvm/InitializePasses.h
@@ -10442,10 +10478,33 @@ index 5355f1a..90ca87e 100644
    std::copy(Args.begin(), Args.end(), op_begin());
  
 diff --git a/lib/IR/Metadata.cpp b/lib/IR/Metadata.cpp
-index ad95bff..7b24d49 100644
+index ad95bff..67e7258 100644
 --- a/lib/IR/Metadata.cpp
 +++ b/lib/IR/Metadata.cpp
-@@ -1382,6 +1382,11 @@ void GlobalObject::getAllMetadata(
+@@ -350,11 +350,20 @@ void ValueAsMetadata::handleDeletion(Value *V) {
+   delete MD;
+ }
+ 
+-void ValueAsMetadata::handleRAUW(Value *From, Value *To) {
++void ValueAsMetadata::handleRAUW(Value *From, Value *To, const bool AllowASChange) {
+   assert(From && "Expected valid value");
+   assert(To && "Expected valid value");
+   assert(From != To && "Expected changed value");
+-  assert(From->getType() == To->getType() && "Unexpected type change");
++  if (AllowASChange &&
++      From->getType()->isPointerTy() &&
++      To->getType()->isPointerTy()) {
++    assert(From->getType()->getPointerElementType() ==
++           To->getType()->getPointerElementType() &&
++           "unexpected type change");
++  } else {
++    assert(From->getType() == To->getType() &&
++           "unexpected type change");
++  }
+ 
+   LLVMContext &Context = From->getType()->getContext();
+   auto &Store = Context.pImpl->ValuesAsMetadata;
+@@ -1382,6 +1391,11 @@ void GlobalObject::getAllMetadata(
  void GlobalObject::clearMetadata() {
    if (!hasMetadata())
      return;
@@ -10457,7 +10516,7 @@ index ad95bff..7b24d49 100644
    getContext().pImpl->GlobalObjectMetadata.erase(this);
    setHasMetadataHashEntry(false);
  }
-@@ -1439,6 +1444,7 @@ void GlobalObject::addTypeMetadata(unsigned Offset, Metadata *TypeID) {
+@@ -1439,6 +1453,7 @@ void GlobalObject::addTypeMetadata(unsigned Offset, Metadata *TypeID) {
  
  void Function::setSubprogram(DISubprogram *SP) {
    setMetadata(LLVMContext::MD_dbg, SP);
@@ -10465,6 +10524,65 @@ index ad95bff..7b24d49 100644
  }
  
  DISubprogram *Function::getSubprogram() const {
+diff --git a/lib/IR/Value.cpp b/lib/IR/Value.cpp
+index be704a7..3963d1e 100644
+--- a/lib/IR/Value.cpp
++++ b/lib/IR/Value.cpp
+@@ -367,18 +367,26 @@ static bool contains(Value *Expr, Value *V) {
+ }
+ #endif // NDEBUG
+ 
+-void Value::replaceAllUsesWith(Value *New) {
++void Value::replaceAllUsesWith(Value *New, const bool AllowASChange) {
+   assert(New && "Value::replaceAllUsesWith(<null>) is invalid!");
+   assert(!contains(New, this) &&
+          "this->replaceAllUsesWith(expr(this)) is NOT valid!");
+-  assert(New->getType() == getType() &&
+-         "replaceAllUses of value with new value of different type!");
++  if (AllowASChange &&
++      New->getType()->isPointerTy() &&
++      getType()->isPointerTy()) {
++    assert(New->getType()->getPointerElementType() ==
++           getType()->getPointerElementType() &&
++           "replaceAllUses of value with new value of different type!");
++  } else {
++    assert(New->getType() == getType() &&
++           "replaceAllUses of value with new value of different type!");
++  }
+ 
+   // Notify all ValueHandles (if present) that this value is going away.
+   if (HasValueHandle)
+-    ValueHandleBase::ValueIsRAUWd(this, New);
++    ValueHandleBase::ValueIsRAUWd(this, New, AllowASChange);
+   if (isUsedByMetadata())
+-    ValueAsMetadata::handleRAUW(this, New);
++    ValueAsMetadata::handleRAUW(this, New, AllowASChange);
+ 
+   while (!use_empty()) {
+     Use &U = *UseList;
+@@ -816,11 +824,19 @@ void ValueHandleBase::ValueIsDeleted(Value *V) {
+   }
+ }
+ 
+-void ValueHandleBase::ValueIsRAUWd(Value *Old, Value *New) {
++void ValueHandleBase::ValueIsRAUWd(Value *Old, Value *New, const bool AllowASChange) {
+   assert(Old->HasValueHandle &&"Should only be called if ValueHandles present");
+   assert(Old != New && "Changing value into itself!");
+-  assert(Old->getType() == New->getType() &&
+-         "replaceAllUses of value with new value of different type!");
++  if (AllowASChange &&
++      Old->getType()->isPointerTy() &&
++      New->getType()->isPointerTy()) {
++    assert(Old->getType()->getPointerElementType() ==
++           New->getType()->getPointerElementType() &&
++           "replaceAllUses of value with new value of different type!");
++  } else {
++    assert(Old->getType() == New->getType() &&
++           "replaceAllUses of value with new value of different type!");
++  }
+ 
+   // Get the linked list base, which is guaranteed to exist since the
+   // HasValueHandle flag is set.
 diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
 index 189450d..c23675b 100644
 --- a/lib/IR/Verifier.cpp
@@ -23400,10 +23518,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..d9cd3e8
+index 0000000..200bcae
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3226 @@
+@@ -0,0 +1,3306 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23768,6 +23886,9 @@ index 0000000..d9cd3e8
 +  transVulkanImageFunction(CallInst *CI, SPIRVBasicBlock *BB,
 +                           const std::string &DemangledName,
 +                           const std::string &MangledName);
++
++  // function image arg -> image type map
++  std::unordered_map<const llvm::Value *, SPIRVType *> image_type_map;
 +};
 +
 +SPIRVValue *LLVMToSPIRV::getTranslatedValue(Value *V) {
@@ -23979,6 +24100,7 @@ index 0000000..d9cd3e8
 +          auto SPIRVImageTy = getSPIRVImageTypeFromOCL(M, T);
 +          return mapType(T, transSPIRVOpaqueType(SPIRVImageTy));
 +        } else {
++          errs() << "invalid trans type: " << *T << "\n";
 +          assert(false && "should not be here");
 +        }
 +      } else if (STName.startswith(kSPIRVTypeName::PrefixAndDelim))
@@ -24511,7 +24633,11 @@ index 0000000..d9cd3e8
 +  // always create a new undef variable for vulkan/glsl to workaround driver
 +  // issues
 +  if (isa<UndefValue>(V) && SrcLang == spv::SourceLanguageGLSL) {
-+    return BM->addUndefInst(transType(V->getType()), BB);
++    if (BB != nullptr) {
++      return BM->addUndefInst(transType(V->getType()), BB);
++    }
++    // if this isn't inside a BB (e.g. inside a constant), just use 0
++    return BM->addConstant(transType(V->getType()), 0);
 +  }
 +
 +  if (isa<Constant>(V)) {
@@ -24666,20 +24792,6 @@ index 0000000..d9cd3e8
 +    }
 +    return mapValue(
 +        V, BM->addPhiInst(transType(Phi->getType()), IncomingPairs, BB));
-+  }
-+
-+  if (auto Ext = dyn_cast<ExtractValueInst>(V)) {
-+    return mapValue(V, BM->addCompositeExtractInst(
-+                           transType(Ext->getType()),
-+                           transValue(Ext->getAggregateOperand(), BB),
-+                           Ext->getIndices(), BB));
-+  }
-+
-+  if (auto Ins = dyn_cast<InsertValueInst>(V)) {
-+    return mapValue(V, BM->addCompositeInsertInst(
-+                           transValue(Ins->getInsertedValueOperand(), BB),
-+                           transValue(Ins->getAggregateOperand(), BB),
-+                           Ins->getIndices(), BB));
 +  }
 +
 +  if (auto Ext = dyn_cast<ExtractValueInst>(V)) {
@@ -24942,6 +25054,20 @@ index 0000000..d9cd3e8
 +      // the llvm side, b/c it would badly break things)
 +      ignore_next_unreachable = true;
 +      return BM->addKillInst(BB);
++    } else if (MangledName == "floor.image_array_load") {
++      auto img = CI->getOperand(0);
++      const auto img_type_iter = image_type_map.find(img);
++      assert(img_type_iter != image_type_map.end() && "unknown image");
++
++      auto img_ptr_type = BM->addPointerType(spv::StorageClassUniformConstant,
++                                             img_type_iter->second);
++
++      auto img_array = transValue(CI->getOperand(0), BB);
++      const std::vector<SPIRVValue *> indices{
++          transValue(CI->getOperand(1), BB)};
++      auto gep =
++          BM->addAccessChainInst(img_ptr_type, img_array, indices, BB, true);
++      return BM->addLoadInst(gep, {}, BB);
 +    } else if (MangledName == "floor.loop_merge") {
 +      return BM->addLoopMergeInst(
 +          (SPIRVBasicBlock *)transValue(CI->getArgOperand(0), nullptr),
@@ -25295,17 +25421,47 @@ index 0000000..d9cd3e8
 +    else {
 +      const auto split_pos = md_info.find(':');
 +      const auto access_type = md_info.substr(0, split_pos);
-+      const auto sample_type = md_info.substr(split_pos + 1);
++      const auto next_split_pos = md_info.find(':', split_pos + 1);
++      const auto elem_count_str =
++          md_info.substr(split_pos + 1, next_split_pos - split_pos - 1);
++      const auto sample_type = md_info.substr(next_split_pos + 1);
 +      const bool is_write = (access_type == "write");
++
 +      if (is_write) {
 +        // TODO: handle storage images with format
 +        BM->addCapability(spv::CapabilityStorageImageWriteWithoutFormat);
 +      }
-+      auto SPIRVImageTy =
-+          getSPIRVImageTypeFromGLSL(M, GV.getType(), sample_type.c_str(),
-+                                    is_write, spv::ImageFormatUnknown);
-+      mapped_type = BM->addPointerType(spv::StorageClassUniformConstant,
-+                                       transSPIRVOpaqueType(SPIRVImageTy));
++
++      //
++      const auto elem_count = (uint32_t)std::stoull(elem_count_str);
++      llvm::Type *img_type = GV.getType();
++      if (elem_count > 1) {
++        // image array
++        assert(isa<PointerType>(img_type) && "must be a pointer type");
++        const auto img_array_type =
++            dyn_cast<ArrayType>(img_type->getPointerElementType());
++        assert(img_array_type != nullptr && "image type must be an array type");
++        assert(img_array_type->getNumElements() == elem_count &&
++               "invalid image array element count");
++        img_type = img_array_type->getArrayElementType();
++      }
++      //
++      auto SPIRVImageTy = getSPIRVImageTypeFromGLSL(
++          M, img_type, sample_type.c_str(), is_write, spv::ImageFormatUnknown);
++      auto transSPIRVImageTy = transSPIRVOpaqueType(SPIRVImageTy);
++
++      // cache it
++      image_type_map.emplace(&GV, transSPIRVImageTy);
++
++      //
++      auto ptr_img_type = transSPIRVImageTy;
++      if (elem_count > 1) {
++        ptr_img_type = BM->addArrayType(
++            transSPIRVImageTy, BM->getLiteralAsConstant(elem_count, false));
++      }
++
++      mapped_type =
++          BM->addPointerType(spv::StorageClassUniformConstant, ptr_img_type);
 +    }
 +  } else if (global_type.is_fbo) {
 +    // extract location idx
@@ -25363,6 +25519,21 @@ index 0000000..d9cd3e8
 +  if (global_type.is_fbo) {
 +    BVar->addDecorate(
 +        new SPIRVDecorate(DecorationLocation, BVar, fbo_location));
++  }
++
++  // automatically add the "flat" decoration on types that need it
++  if ((storage_class == spv::StorageClassOutput ||
++       storage_class == spv::StorageClassInput) &&
++      !global_type.is_fbo && !global_type.is_builtin) {
++    // I/O should always be a pointer type
++    if (GV.getType()->isPointerTy()) {
++      auto elem_type = GV.getType()->getPointerElementType();
++      if (elem_type->isIntegerTy() ||
++          (elem_type->isVectorTy() &&
++           elem_type->getVectorElementType()->isIntegerTy())) {
++        BVar->addDecorate(new SPIRVDecorate(DecorationFlat, BVar));
++      }
++    }
 +  }
 +
 +  return BVar;
@@ -25793,6 +25964,28 @@ index 0000000..d9cd3e8
 +                                       md_info, &uniform_var);
 +            arg.replaceAllUsesWith(GV);
 +          }
++        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Private &&
++                   arg_type->getPointerElementType()->isArrayTy()) {
++          auto array_type = cast<ArrayType>(arg_type->getPointerElementType());
++
++          auto img_ptr_type = array_type->getArrayElementType();
++          assert(img_ptr_type->isPointerTy() && "expected image pointer type");
++          auto img_type = img_ptr_type->getPointerElementType();
++          assert(img_type->isStructTy() && "expected image struct type");
++          auto st_img_type = cast<StructType>(img_type);
++          assert(st_img_type->getStructName().startswith("opencl.image") &&
++                 "expected image type");
++
++          // -> image array
++          spirv_global_io_type global_type;
++          global_type.is_image = true;
++          global_type.is_constant = true;
++          global_type.is_uniform = true;
++          auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(), array_type,
++                                     SPIRAS_Uniform, global_type, md_info,
++                                     &uniform_var);
++          // replace with address space change (private to uniform)
++          arg.replaceAllUsesWith(GV, true);
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Local) {
 +          // -> local memory (TODO: implement this)
 +          llvm_unreachable("local memory parameters are not yet implemented");
@@ -26307,9 +26500,14 @@ index 0000000..d9cd3e8
 +  auto spirv_img = getSPIRVValue(img_arg);
 +  assert(spirv_img != nullptr && "invalid image");
 +
-+  // load the image
-+  const std::vector<SPIRVWord> access; // empty access for image/sampler load
-+  auto loaded_img = BM->addLoadInst(spirv_img, access, BB);
++  SPIRVValue *loaded_img = nullptr;
++  if (!isa<CallInst>(img_arg)) {
++    // load the image (image function argument)
++    loaded_img = BM->addLoadInst(spirv_img, {}, BB);
++  } else {
++    // special call, image has already been loaded (e.g. image array load)
++    loaded_img = spirv_img;
++  }
 +  auto spirv_img_type = (SPIRVTypeImage *)loaded_img->getType();
 +
 +  std::vector<SPIRVWord> image_operands;
@@ -26332,7 +26530,7 @@ index 0000000..d9cd3e8
 +        BM->addPointerType(spv::StorageClassUniformConstant,
 +                           BM->addSamplerType()),
 +        immutable_samplers, indices, BB, true);
-+    auto loaded_sampler = BM->addLoadInst(sampler_ptr, access, BB);
++    auto loaded_sampler = BM->addLoadInst(sampler_ptr, {}, BB);
 +
 +    // create the sampled image
 +    std::vector<SPIRVWord> sampled_img_ops{
@@ -34141,10 +34339,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..e185c05
+index 0000000..950b360
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1741 @@
+@@ -0,0 +1,1777 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -34260,6 +34458,8 @@ index 0000000..e185c05
 +  getValueTypes(const std::vector<SPIRVId> &) const;
 +  SPIRVMemoryModelKind getMemoryModel() const { return MemoryModel; }
 +  virtual SPIRVConstant *getLiteralAsConstant(unsigned Literal, bool is_signed);
++  virtual SPIRVConstant *getLiteralAsConstant(float Literal);
++  virtual SPIRVConstant *getLiteralAsConstant(double Literal);
 +  unsigned getNumEntryPoints(SPIRVExecutionModelKind EM) const {
 +    auto Loc = EntryPointVec.find(EM);
 +    if (Loc == EntryPointVec.end())
@@ -34564,6 +34764,8 @@ index 0000000..e185c05
 +  std::unordered_map<uint32_t, SPIRVTypeInt *> SignedIntTypeMap;
 +  std::unordered_map<uint32_t, SPIRVConstant *> LiteralMap;
 +  std::unordered_map<uint32_t, SPIRVConstant *> SignedLiteralMap;
++  std::unordered_map<float, SPIRVConstant *> FloatLiteralMap;
++  std::unordered_map<double, SPIRVConstant *> DoubleLiteralMap;
 +  std::unordered_map<uint32_t, SPIRVTypeFloat *> FloatTypeMap;
 +  std::unordered_map<std::pair<SPIRVType *, uint32_t>, SPIRVTypeVector *>
 +      VectorTypeMap;
@@ -34691,6 +34893,28 @@ index 0000000..e185c05
 +  } else {
 +    SignedLiteralMap[Literal] = V;
 +  }
++  addConstant(V);
++  return V;
++}
++
++SPIRVConstant *SPIRVModuleImpl::getLiteralAsConstant(float Literal) {
++  auto Loc = FloatLiteralMap.find(Literal);
++  if (Loc != FloatLiteralMap.end())
++    return Loc->second;
++  auto Ty = addFloatType(32);
++  auto V = new SPIRVConstant(this, Ty, getId(), Literal);
++  FloatLiteralMap[Literal] = V;
++  addConstant(V);
++  return V;
++}
++
++SPIRVConstant *SPIRVModuleImpl::getLiteralAsConstant(double Literal) {
++  auto Loc = DoubleLiteralMap.find(Literal);
++  if (Loc != DoubleLiteralMap.end())
++    return Loc->second;
++  auto Ty = addFloatType(64);
++  auto V = new SPIRVConstant(this, Ty, getId(), Literal);
++  DoubleLiteralMap[Literal] = V;
 +  addConstant(V);
 +  return V;
 +}
@@ -35105,6 +35329,10 @@ index 0000000..e185c05
 +  }
 +  if (Ty->isTypeInt())
 +    return addIntegerConstant(static_cast<SPIRVTypeInt *>(Ty), V);
++  if (Ty->isTypeFloat(32))
++    return addFloatConstant(static_cast<SPIRVTypeFloat *>(Ty), *(float *)&V);
++  if (Ty->isTypeFloat(64))
++    return addDoubleConstant(static_cast<SPIRVTypeFloat *>(Ty), *(double *)&V);
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
 +
@@ -35118,10 +35346,16 @@ index 0000000..e185c05
 +}
 +
 +SPIRVValue *SPIRVModuleImpl::addFloatConstant(SPIRVTypeFloat *Ty, float V) {
++  if (Ty->getBitWidth() == 32) {
++    return getLiteralAsConstant(V);
++  }
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
 +
 +SPIRVValue *SPIRVModuleImpl::addDoubleConstant(SPIRVTypeFloat *Ty, double V) {
++  if (Ty->getBitWidth() == 64) {
++    return getLiteralAsConstant(V);
++  }
 +  return addConstant(new SPIRVConstant(this, Ty, getId(), V));
 +}
 +
@@ -35888,10 +36122,10 @@ index 0000000..e185c05
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..63c1338
+index 0000000..c81f1d5
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,406 @@
+@@ -0,0 +1,408 @@
 +//===- SPIRVModule.h - Class to represent a SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36031,6 +36265,8 @@ index 0000000..63c1338
 +  getValueTypes(const std::vector<SPIRVId> &) const = 0;
 +  virtual SPIRVConstant *getLiteralAsConstant(unsigned Literal,
 +                                              bool is_signed) = 0;
++  virtual SPIRVConstant *getLiteralAsConstant(float Literal) = 0;
++  virtual SPIRVConstant *getLiteralAsConstant(double Literal) = 0;
 +  virtual bool isEntryPoint(SPIRVExecutionModelKind, SPIRVId) const = 0;
 +  virtual unsigned short getGeneratorId() const = 0;
 +  virtual unsigned short getGeneratorVer() const = 0;
@@ -52824,10 +53060,10 @@ index 0000000..05d5bdd
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..7c04f1b
+index 0000000..9589494
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,657 @@
+@@ -0,0 +1,734 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53340,6 +53576,9 @@ index 0000000..7c04f1b
 +			//
 +			I.replaceAllUsesWith(read_call_result);
 +			I.eraseFromParent();
++			
++			//
++			simplify_image_handle(img_handle_arg);
 +		}
 +		
 +		void handle_write_image(Instruction& I,
@@ -53473,6 +53712,80 @@ index 0000000..7c04f1b
 +			I.replaceAllUsesWith(write_call);
 +			I.eraseFromParent();
 +			
++			//
++			simplify_image_handle(img_handle_arg);
++		}
++		
++		// in cases where the image handle is acquired through image arrays,
++		// replace any bitcast-gep-load or gep-load chains with a floor.image_array_load call
++		// this is necessary, because we need to handle these specially on the SPIR-V side
++		void simplify_image_handle(llvm::Value* img_handle) {
++			// directly abort if not a load (array element is always loaded)
++			LoadInst* LI = dyn_cast<LoadInst>(img_handle);
++			if(!LI) return;
++			
++			// array element ptr must have come from a GEP
++			GetElementPtrInst* array_elem_gep = dyn_cast<GetElementPtrInst>(LI->getPointerOperand());
++			if(!array_elem_gep) return;
++			
++			// GEP src pointer
++			auto src_ptr = array_elem_gep->getPointerOperand();
++			auto array_type_ = src_ptr->getType()->getPointerElementType();
++			if(!array_type_->isArrayTy()) return;
++			ArrayType* array_type = cast<ArrayType>(array_type_);
++			
++			// check if it started out from a bitcast (used by dynamic indexing)
++			BitCastInst* BC = dyn_cast<BitCastInst>(src_ptr);
++			ArrayType* src_array_type = nullptr;
++			Value* img_array = nullptr;
++			if(BC) {
++				// abort if bitcast src isn't [N * something]*
++				img_array = BC->getOperand(0);
++				auto src_array_ptr_type = BC->getSrcTy();
++				if(!src_array_ptr_type->isPointerTy() ||
++				   !src_array_ptr_type->getPointerElementType()->isArrayTy()) {
++					return;
++				}
++				src_array_type = cast<ArrayType>(src_array_ptr_type->getPointerElementType());
++				
++				// abort if array elem type is a pointer (we're expecting [N x %"class.floor_image::const_image"])
++				if(array_type->getArrayElementType()->isPointerTy()) {
++					return;
++				}
++			}
++			else {
++				// else: constant indexing (just a gep + load)
++				img_array = src_ptr;
++				src_array_type = array_type;
++			}
++			
++			// abort if not an opaque ptr type in an address space
++			// TODO: opaque type check?
++			if(!src_array_type->getArrayElementType()->isPointerTy() ||
++			   src_array_type->getArrayElementType()->getPointerAddressSpace() == 0) {
++				return;
++			}
++			
++			// create the call
++			const auto img_type = src_array_type->getArrayElementType();
++			const std::vector<Value*> params {
++				img_array,
++				// GEP ptr, 0, %idx, ... -> want third operand
++				array_elem_gep->getOperand(2)
++			};
++			const std::vector<Type*> param_types {
++				params[0]->getType(), params[1]->getType()
++			};
++			const auto func_type = llvm::FunctionType::get(img_type, param_types, false);
++			
++			auto CI = CallInst::Create(M->getOrInsertFunction("floor.image_array_load", func_type), params,
++									   "imgarrld" , LI);
++			
++			// if dynamic access (bitcast), then bitcast has the debug location, use gep location otherwise
++			CI->setDebugLoc(BC ? BC->getDebugLoc() : array_elem_gep->getDebugLoc());
++			
++			LI->replaceAllUsesWith(CI);
++			LI->eraseFromParent();
 +		}
 +		
 +	};
