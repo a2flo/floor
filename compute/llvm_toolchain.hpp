@@ -100,9 +100,12 @@ public:
 			PUSH_CONSTANT					= (2u),
 			//! vulkan-only: param is BufferBlock/storage (not Block/uniform)
 			SSBO							= (3u),
+			//! array of images
+			IMAGE_ARRAY						= (4u),
 		};
 		
 		struct arg_info {
+			//! sizeof(arg_type) if applicable, or array extent in case of IMAGE_ARRAY
 			uint32_t size;
 			
 			//! NOTE: this will only be correct for OpenCL/Metal/Vulkan, CUDA uses a different approach,

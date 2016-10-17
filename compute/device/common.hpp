@@ -158,6 +158,7 @@ using namespace std;
 #include <functional>
 #include <algorithm>
 #include <atomic>
+#include <array>
 
 // decay_as, same as decay, but also removes the address space
 template <typename T> struct decay_as { typedef decay_t<T> type; };
@@ -168,20 +169,6 @@ template <typename T> struct decay_as<__attribute__((constant_as)) T> { typedef 
 template <typename T> struct decay_as<__attribute__((generic_as)) T> { typedef decay_t<T> type; };
 #endif
 template <typename T> using decay_as_t = typename decay_as<T>::type;
-
-// will be using const_array instead of stl array
-#include <floor/constexpr/const_array.hpp>
-
-#if !defined(FLOOR_COMPUTE_HOST)
-_LIBCPP_BEGIN_NAMESPACE_STD
-
-// <array> replacement
-template <class data_type, size_t array_size> _LIBCPP_TYPE_VIS_ONLY struct array : const_array<data_type, array_size> {};
-
-_LIBCPP_END_NAMESPACE_STD
-#else
-#include <array>
-#endif
 
 // c++ stl "extensions"
 #include <floor/core/cpp_ext.hpp>

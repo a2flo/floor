@@ -819,6 +819,9 @@ void compute_image::build_mip_map_minification_program() const {
 			case COMPUTE_TYPE::OPENCL:
 				base_path = floor::get_opencl_base_path();
 				break;
+			case COMPUTE_TYPE::VULKAN:
+				base_path = floor::get_vulkan_base_path();
+				break;
 			case COMPUTE_TYPE::HOST:
 				// doesn't matter
 				break;

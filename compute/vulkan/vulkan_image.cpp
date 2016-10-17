@@ -327,7 +327,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 				view_type = (is_array ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D);
 			}
 			else {
-				view_type = (is_array ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_CUBE_ARRAY);
+				view_type = (is_array ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE);
 			}
 			break;
 		case 3:

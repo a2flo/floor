@@ -29,6 +29,7 @@ struct vulkan_kernel::vulkan_encoder {
 	vector<VkWriteDescriptorSet> write_descs;
 	vector<shared_ptr<compute_buffer>> constant_buffers;
 	vector<uint32_t> dyn_offsets;
+	vector<shared_ptr<vector<VkDescriptorImageInfo>>> image_array_info;
 	const VkPipeline pipeline { nullptr };
 	const VkPipelineLayout pipeline_layout { nullptr };
 };
@@ -346,6 +347,68 @@ void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
 	write_desc.pImageInfo = vk_img->get_vulkan_image_info();
 	write_desc.pBufferInfo = nullptr;
 	write_desc.pTexelBufferView = nullptr;
+}
+
+template <typename T, typename F>
+floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_encoder* encoder,
+														 const vulkan_kernel::vulkan_kernel_entry& entry,
+														 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+														 const vector<T>& image_array, F&& image_accessor) {
+	// transition images to appropriate layout
+	const auto img_access = entry.info->args[arg_idx].image_access;
+	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		for(auto& img : image_array) {
+			image_accessor(img)->transition_write(encoder->cmd_buffer.cmd_buffer);
+		}
+	}
+	else { // READ
+		for(auto& img : image_array) {
+			image_accessor(img)->transition_read(encoder->cmd_buffer.cmd_buffer);
+		}
+	}
+	
+	//
+	const auto elem_count = entry.info->args[arg_idx].size;
+#if defined(FLOOR_DEBUG)
+	if(elem_count != image_array.size()) {
+		log_error("invalid image array: expected %u elements, got %u elements", elem_count, image_array.size());
+		return;
+	}
+#endif
+	
+	// need to heap allocate this, because the actual write/update will happen later
+	auto image_info = make_shared<vector<VkDescriptorImageInfo>>(elem_count);
+	for(uint32_t i = 0; i < elem_count; ++i) {
+		memcpy(&(*image_info)[i], image_accessor(image_array[i])->get_vulkan_image_info(), sizeof(VkDescriptorImageInfo));
+	}
+	encoder->image_array_info.emplace_back(image_info);
+	
+	auto& write_desc = encoder->write_descs[num + 1];
+	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write_desc.pNext = nullptr;
+	write_desc.dstSet = entry.desc_set;
+	write_desc.dstBinding = binding_idx;
+	write_desc.dstArrayElement = 0;
+	write_desc.descriptorCount = elem_count;
+	write_desc.descriptorType = entry.desc_types[binding_idx];
+	write_desc.pImageInfo = image_info->data();
+	write_desc.pBufferInfo = nullptr;
+	write_desc.pTexelBufferView = nullptr;
+}
+
+void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+										const vector<shared_ptr<compute_image>>& arg) const {
+	set_image_array_argument(encoder, entry, num, arg_idx, binding_idx, arg,
+							 [](const shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
+}
+
+void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+										const vector<compute_image*>& arg) const {
+	set_image_array_argument(encoder, entry, num, arg_idx, binding_idx, arg,
+							 [](const compute_image* img) { return (vulkan_image*)img; });
 }
 
 #endif

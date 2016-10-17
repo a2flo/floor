@@ -35,11 +35,10 @@
 
 class vulkan_device;
 class vulkan_kernel final : public compute_kernel {
-protected:
+public:
 	// don't want to include vulkan_queue here
 	struct vulkan_encoder;
 	
-public:
 	struct vulkan_kernel_entry : kernel_entry {
 		VkPipeline pipeline { nullptr };
 		VkPipelineLayout pipeline_layout { nullptr };
@@ -295,6 +294,13 @@ protected:
 	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
 							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
 							 const compute_image* arg) const;
+	
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+							 const vector<shared_ptr<compute_image>>& arg) const;
+	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
+							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+							 const vector<compute_image*>& arg) const;
 	
 };
 

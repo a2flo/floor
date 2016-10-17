@@ -66,17 +66,34 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						
 						switch(info.args[i].address_space) {
 							// image
-							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::IMAGE:
+							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::IMAGE: {
+								const bool is_image_array = (info.args[i].special_type ==
+															 llvm_toolchain::function_info::SPECIAL_TYPE::IMAGE_ARRAY);
+								if(is_image_array) {
+									bindings[binding_idx].descriptorCount = info.args[i].size;
+								}
 								switch(info.args[i].image_access) {
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-										++read_image_desc;
+										if(is_image_array) {
+											read_image_desc += info.args[i].size;
+										}
+										else ++read_image_desc;
 										break;
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
 										++write_image_desc;
+										if(is_image_array) {
+											write_image_desc += info.args[i].size;
+										}
+										else ++write_image_desc;
 										break;
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
+										if(is_image_array) {
+											log_error("read/write image array not supported");
+											return;
+										}
+										
 										// need to add both a sampled one and a storage one
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
 										++binding_idx;
@@ -98,6 +115,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										break;
 								}
 								break;
+							}
 							// buffer and param (there are no proper constant parameters)
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::GLOBAL:
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::CONSTANT:

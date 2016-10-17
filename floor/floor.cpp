@@ -119,6 +119,13 @@ bool floor::init(const init_state& state) {
 		return false;
 	}
 #endif
+#if defined(FLOOR_NO_METAL)
+	if(state.renderer == RENDERER::METAL) {
+		cerr << "can't use the Metal renderer when libfloor was compiled without Metal support" << endl;
+		floor_init_status = FLOOR_INIT_STATUS::FAILURE;
+		return false;
+	}
+#endif
 	
 	//
 	register_segfault_handler();
@@ -601,6 +608,22 @@ bool floor::init(const init_state& state) {
 #else
 		// obviously can't use Vulkan on OS X / iOS
 		log_error("Vulkan renderer is not available on OS X / iOS - using OpenGL now");
+		renderer = RENDERER::OPENGL;
+#endif
+	}
+	else if(state.renderer == RENDERER::METAL) {
+		// Metal was explicitly requested, still need to check if the toolchain exists
+#if !defined(FLOOR_NO_METAL)
+		if(!config.metal_toolchain_exists) {
+			log_error("tried to use the Metal renderer, but toolchain doesn't exist - using OpenGL now");
+			renderer = RENDERER::OPENGL;
+		}
+		else {
+			renderer = RENDERER::METAL;
+		}
+#else
+		// obviously can't use Metal
+		log_error("Metal renderer is not available - using OpenGL now");
 		renderer = RENDERER::OPENGL;
 #endif
 	}

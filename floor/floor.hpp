@@ -45,6 +45,9 @@ public:
 		
 		//! use the Vulkan 1.0+ renderer
 		VULKAN = 3,
+		
+		//! use the Metal 1.1+ renderer
+		METAL = 4,
 	};
 	
 	struct init_state {

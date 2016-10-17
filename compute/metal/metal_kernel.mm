@@ -27,8 +27,6 @@
 struct metal_kernel::metal_encoder {
 	id <MTLCommandBuffer> cmd_buffer { nil };
 	id <MTLComputeCommandEncoder> encoder { nil };
-	unordered_set<metal_buffer*> buffers;
-	unordered_set<metal_image*> images;
 };
 
 metal_kernel::metal_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
@@ -54,7 +52,7 @@ typename metal_kernel::kernel_map_type::const_iterator metal_kernel::get_kernel(
 shared_ptr<metal_kernel::metal_encoder> metal_kernel::create_encoder(compute_queue* queue, const metal_kernel_entry& entry) const {
 	id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)queue)->make_command_buffer();
 	auto ret = make_shared<metal_encoder>(metal_encoder {
-		cmd_buffer, [cmd_buffer computeCommandEncoder], {}, {}
+		cmd_buffer, [cmd_buffer computeCommandEncoder]
 	});
 	[ret->encoder setComputePipelineState:(__bridge id <MTLComputePipelineState>)entry.kernel_state];
 	return ret;
@@ -71,7 +69,6 @@ void metal_kernel::set_kernel_argument(uint32_t&, uint32_t& buffer_idx, uint32_t
 	[encoder->encoder setBuffer:((metal_buffer*)arg)->get_metal_buffer()
 						 offset:0
 						atIndex:buffer_idx++];
-	encoder->buffers.emplace((metal_buffer*)arg);
 }
 
 void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t& texture_idx,
@@ -85,8 +82,38 @@ void metal_kernel::set_kernel_argument(uint32_t& total_idx, uint32_t&, uint32_t&
 		[encoder->encoder setTexture:((metal_image*)arg)->get_metal_image()
 							 atIndex:texture_idx++];
 	}
+}
+
+void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_idx,
+									   metal_encoder* encoder, const kernel_entry&,
+									   const vector<shared_ptr<compute_image>>& arg) const {
+	const auto count = arg.size();
+	if(count < 1) return;
 	
-	encoder->images.emplace((metal_image*)arg);
+	vector<id <MTLTexture>> mtl_img_array(count, nil);
+	for(size_t i = 0; i < count; ++i) {
+		mtl_img_array[i] = ((metal_image*)arg[i].get())->get_metal_image();
+	}
+	
+	[encoder->encoder setTextures:mtl_img_array.data()
+						withRange:NSRange { texture_idx, count }];
+	texture_idx += count;
+}
+
+void metal_kernel::set_kernel_argument(uint32_t&, uint32_t&, uint32_t& texture_idx,
+									   metal_encoder* encoder, const kernel_entry&,
+									   const vector<compute_image*>& arg) const {
+	const auto count = arg.size();
+	if(count < 1) return;
+	
+	vector<id <MTLTexture>> mtl_img_array(count, nil);
+	for(size_t i = 0; i < count; ++i) {
+		mtl_img_array[i] = ((metal_image*)arg[i])->get_metal_image();
+	}
+	
+	[encoder->encoder setTextures:mtl_img_array.data()
+						withRange:NSRange { texture_idx, count }];
+	texture_idx += count;
 }
 
 #endif

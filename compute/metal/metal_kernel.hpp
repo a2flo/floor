@@ -145,6 +145,13 @@ protected:
 							 metal_encoder* encoder, const kernel_entry& entry,
 							 const compute_image* arg) const;
 	
+	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+							 metal_encoder* encoder, const kernel_entry& entry,
+							 const vector<shared_ptr<compute_image>>& arg) const;
+	void set_kernel_argument(uint32_t& total_idx, uint32_t& buffer_idx, uint32_t& texture_idx,
+							 metal_encoder* encoder, const kernel_entry& entry,
+							 const vector<compute_image*>& arg) const;
+	
 };
 
 #endif
