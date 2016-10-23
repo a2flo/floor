@@ -396,6 +396,11 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		}
 	}
 	
+	// manually create mip-map chain
+	if(generate_mip_maps) {
+		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+	}
+	
 	return false;
 }
 
@@ -424,7 +429,20 @@ void* __attribute__((aligned(128))) vulkan_image::map(shared_ptr<compute_queue> 
 
 void vulkan_image::unmap(shared_ptr<compute_queue> cqueue,
 						 void* __attribute__((aligned(128))) mapped_ptr) {
-	return vulkan_memory::unmap(cqueue, mapped_ptr);
+	const auto iter = mappings.find(mapped_ptr);
+	if(iter == mappings.end()) {
+		log_error("invalid mapped pointer: %X", mapped_ptr);
+		return;
+	}
+	
+	vulkan_memory::unmap(cqueue, mapped_ptr);
+	
+	// manually create mip-map chain
+	if(generate_mip_maps &&
+	   (has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE>(iter->second.flags) ||
+		has_flag<COMPUTE_MEMORY_MAP_FLAG::WRITE_INVALIDATE>(iter->second.flags))) {
+		generate_mip_map_chain(queue_or_default_compute_queue(cqueue));
+	}
 }
 
 void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer host_buffer) {
@@ -469,7 +487,7 @@ void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer h
 	
 	// RGB -> RGBA data conversion if necessary
 	if(image_type != shim_image_type) {
-		rgb_to_rgba_inplace(image_type, shim_image_type, (uint8_t*)data);
+		rgb_to_rgba_inplace(image_type, shim_image_type, (uint8_t*)data, generate_mip_maps);
 	}
 	
 	vector<VkBufferImageCopy> regions;
@@ -581,21 +599,62 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 }
 
 void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
-	if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-		return;
+	// normal images
+	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+		if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+			return;
+		}
+		transition(cmd_buffer, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
-	transition(cmd_buffer, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-			   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	// attachments / render-targets
+	else {
+		VkImageLayout layout;
+		VkAccessFlags access_flags;
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			access_flags = VK_ACCESS_SHADER_READ_BIT;
+		}
+		else {
+			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+		}
+		if(image_info.imageLayout == layout &&
+		   cur_access_mask == access_flags) {
+			return;
+		}
+		
+		transition(cmd_buffer, access_flags, layout,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	}
 }
 
 void vulkan_image::transition_write(VkCommandBuffer cmd_buffer) {
-	// TODO: handler render targets / attachments?
-	if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL) {
-		return;
+	// normal images
+	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
+		if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL) {
+			return;
+		}
+		transition(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
-	// TODO: handle read/write
-	transition(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
-			   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	// attachments / render-targets
+	else {
+		VkImageLayout layout;
+		VkAccessFlags access_flags;
+		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
+			layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			access_flags = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		}
+		else {
+			layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			access_flags = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+		}
+		if(image_info.imageLayout == layout) return;
+		
+		transition(cmd_buffer, access_flags, layout,
+				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	}
 }
 
 #endif

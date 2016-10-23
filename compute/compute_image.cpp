@@ -1050,6 +1050,7 @@ void compute_image::set_shim_type_info() {
 	if(image_channel_count(image_type) == 3 && !image_compressed(image_type)) {
 		shim_image_type = (image_type & ~COMPUTE_IMAGE_TYPE::__CHANNELS_MASK) | COMPUTE_IMAGE_TYPE::RGBA;
 		shim_image_data_size = image_data_size_from_types(image_dim, shim_image_type, 1, generate_mip_maps);
+		shim_image_data_size_mip_maps = image_data_size_from_types(image_dim, shim_image_type, 1, false);
 	}
 	// == original type if not 3-channel -> 4-channel emulation
 	else shim_image_type = image_type;

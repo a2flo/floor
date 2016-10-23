@@ -44,33 +44,67 @@ typename vulkan_kernel::kernel_map_type::const_iterator vulkan_kernel::get_kerne
 }
 
 shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue,
-																		const vulkan_kernel_entry& entry,
+																		void* cmd_buffer_,
+																		const VkPipeline pipeline,
+																		const VkPipelineLayout pipeline_layout,
+																		const vector<const vulkan_kernel_entry*>& entries,
 																		bool& success) {
 	success = false;
+	if(entries.empty()) return {};
+	
+	// create a command buffer if none was specified
+	vulkan_queue::command_buffer cmd_buffer;
+	if(cmd_buffer_ == nullptr) {
+		cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer("encoder");
+		if(cmd_buffer.cmd_buffer == nullptr) return {}; // just abort
+		
+		// begin recording
+		const VkCommandBufferBeginInfo begin_info {
+			.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			.pNext = nullptr,
+			.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+			.pInheritanceInfo = nullptr,
+		};
+		VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
+					"failed to begin command buffer", {});
+		
+		vkCmdBindPipeline(cmd_buffer.cmd_buffer,
+						  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
+						  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
+						  pipeline);
+	}
+	else {
+		cmd_buffer = *(vulkan_queue::command_buffer*)cmd_buffer_;
+	}
+	
 	auto vk_dev = (vulkan_device*)queue->get_device().get();
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
-		.cmd_buffer = ((vulkan_queue*)queue)->make_command_buffer("kernel encoder"),
+		.cmd_buffer = cmd_buffer,
 		.device = vk_dev,
+		.pipeline = pipeline,
+		.pipeline_layout = pipeline_layout,
 	});
 	
-	if(encoder->cmd_buffer.cmd_buffer == nullptr) {
-		return {};
-	}
-
-	// begin recording
-	const VkCommandBufferBeginInfo begin_info {
-		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr,
-		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-		.pInheritanceInfo = nullptr,
-	};
-	VK_CALL_RET(vkBeginCommandBuffer(encoder->cmd_buffer.cmd_buffer, &begin_info),
-				"failed to begin command buffer", {});
-	
-	vkCmdBindPipeline(encoder->cmd_buffer.cmd_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, entry.pipeline);
+	vkCmdBindPipeline(encoder->cmd_buffer.cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	
 	// allocate #args write descriptor sets + 1 for the fixed sampler set
-	encoder->write_descs.resize(entry.info->args.size() + 1);
+	// NOTE: any stage_input arguments have to be ignored
+	size_t arg_count = 1;
+	for(const auto& entry : entries) {
+		if(entry == nullptr) continue;
+		for(const auto& arg : entry->info->args) {
+			if(arg.special_type != llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
+				++arg_count;
+				
+				// +1 for read/write images
+				if(arg.image_type != llvm_toolchain::function_info::ARG_IMAGE_TYPE::NONE &&
+				   arg.image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+					++arg_count;
+				}
+			}
+		}
+	}
+	encoder->write_descs.resize(arg_count);
 	
 	// fixed sampler set
 	{
@@ -86,7 +120,7 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 		write_desc.pBufferInfo = nullptr;
 		write_desc.pTexelBufferView = nullptr;
 	}
-
+	
 	success = true;
 	return encoder;
 }
@@ -132,60 +166,6 @@ void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 		// kill constant buffers after the kernel has finished execution
 		encoder->constant_buffers.clear();
 	});
-}
-
-shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_queue* queue,
-																		void* cmd_buffer,
-																		const VkPipeline pipeline,
-																		const VkPipelineLayout pipeline_layout,
-																		const vulkan_kernel_entry* vs_entry,
-																		const vulkan_kernel_entry* fs_entry,
-																		bool& success) {
-	success = false;
-	auto vk_dev = (vulkan_device*)queue->get_device().get();
-	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
-		.cmd_buffer = *(vulkan_queue::command_buffer*)cmd_buffer,
-		.device = vk_dev,
-		.pipeline = pipeline,
-		.pipeline_layout = pipeline_layout,
-	});
-	
-	vkCmdBindPipeline(encoder->cmd_buffer.cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	
-	// allocate #args write descriptor sets + 1 for the fixed sampler set
-	// NOTE: any stage_input arguments have to be ignored
-	size_t arg_count = 1;
-	for(const auto& arg : vs_entry->info->args) {
-		if(arg.special_type != llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
-			++arg_count;
-		}
-	}
-	if(fs_entry != nullptr) {
-		for(const auto& arg : fs_entry->info->args) {
-			if(arg.special_type != llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
-				++arg_count;
-			}
-		}
-	}
-	encoder->write_descs.resize(arg_count);
-	
-	// fixed sampler set
-	{
-		auto& write_desc = encoder->write_descs[0];
-		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		write_desc.pNext = nullptr;
-		write_desc.dstSet = vk_dev->fixed_sampler_desc_set;
-		write_desc.dstBinding = 0;
-		write_desc.dstArrayElement = 0;
-		write_desc.descriptorCount = (uint32_t)vk_dev->fixed_sampler_set.size();
-		write_desc.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-		write_desc.pImageInfo = vk_dev->fixed_sampler_image_info.data();
-		write_desc.pBufferInfo = nullptr;
-		write_desc.pTexelBufferView = nullptr;
-	}
-	
-	success = true;
-	return encoder;
 }
 
 void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
@@ -259,103 +239,136 @@ void vulkan_kernel::draw_internal(shared_ptr<vulkan_encoder> encoder,
 	retained_buffers.insert(retained_buffers.end(), encoder->constant_buffers.begin(), encoder->constant_buffers.end());
 }
 
-const vulkan_kernel::vulkan_kernel_entry* vulkan_kernel::handle_shader_arg(const vulkan_kernel_entry* vs_entry,
-																		   const vulkan_kernel_entry* fs_entry,
-																		   const uint32_t num,
-																		   uint32_t& shader_arg_idx,
-																		   uint32_t& binding_idx) const {
-	const auto vs_arg_count = vs_entry->info->args.size();
-	const auto is_fs = (num >= vs_arg_count && fs_entry != nullptr);
-	
-	// TODO: ideally, we want to skip stage_input for vertex shaders as well -> handle the vs to fs arg transition better
-	if(num == vs_arg_count) {
-		shader_arg_idx = 0;
-		binding_idx = 0;
-	}
-	
-	// skip stage_input arguments in fragment shaders
-	if(is_fs) {
-		for(;;) {
-			if(fs_entry->info->args[shader_arg_idx].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
-				++shader_arg_idx;
-				continue;
+const vulkan_kernel::vulkan_kernel_entry* vulkan_kernel::arg_pre_handler(const vector<const vulkan_kernel_entry*>& entries,
+																		 idx_handler& idx) const {
+	// make sure we have a usable entry
+	const vulkan_kernel_entry* entry = nullptr;
+	for(;;) {
+		// get the next non-nullptr entry or use the current one if it's valid
+		while(entries[idx.entry] == nullptr) {
+			++idx.entry;
+#if defined(FLOOR_DEBUG)
+			if(idx.entry >= entries.size()) {
+				log_error("shader/kernel entry out of bounds");
+				return nullptr;
 			}
-			break;
+#endif
 		}
+		entry = entries[idx.entry];
+		
+		// ignore any stage input args
+		while(idx.arg < entry->info->args.size() &&
+			  entry->info->args[idx.arg].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::STAGE_INPUT) {
+			++idx.arg;
+		}
+		
+		// have all args been specified for this entry?
+		if(idx.arg >= entry->info->args.size()) {
+			// get the next entry
+			++idx.entry;
+			// reset
+			idx.arg = 0;
+			idx.binding = 0;
+			continue;
+		}
+		break;
 	}
-	
-	return (!is_fs ? vs_entry : fs_entry);
+	return entry;
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-										const void* ptr, const size_t& size) const {
+void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+								 const vulkan_kernel_entry& entry,
+								 idx_handler& idx,
+								 const void* ptr, const size_t& size) const {
 	// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
 	// TODO: current limitation of this is that size must be a multiple of 4
 	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->device, size, (void*)ptr,
 																			COMPUTE_MEMORY_FLAG::READ |
 																			COMPUTE_MEMORY_FLAG::HOST_WRITE);
 	encoder->constant_buffers.push_back(constant_buffer);
-	set_kernel_argument(encoder, entry, num, arg_idx, binding_idx, constant_buffer.get());
+	set_argument(encoder, entry, idx, constant_buffer.get());
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
-										const vulkan_kernel_entry& entry,
-										const uint32_t num, const uint32_t arg_idx floor_unused, const uint32_t binding_idx,
-										const compute_buffer* arg) const {
-	auto& write_desc = encoder->write_descs[num + 1];
+void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+								 const vulkan_kernel_entry& entry,
+								 idx_handler& idx,
+								 const compute_buffer* arg) const {
+	auto& write_desc = encoder->write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
 	write_desc.dstSet = entry.desc_set;
-	write_desc.dstBinding = binding_idx;
+	write_desc.dstBinding = idx.binding;
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = 1;
-	write_desc.descriptorType = entry.desc_types[binding_idx];
+	write_desc.descriptorType = entry.desc_types[idx.binding];
 	write_desc.pImageInfo = nullptr;
 	write_desc.pBufferInfo = ((vulkan_buffer*)arg)->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
 	
 	// always offset 0 for now
 	encoder->dyn_offsets.emplace_back(0);
+	
+	idx.next();
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder,
-										const vulkan_kernel_entry& entry,
-										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-										const compute_image* arg) const {
+void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+								 const vulkan_kernel_entry& entry,
+								 idx_handler& idx,
+								 const compute_image* arg) const {
 	auto vk_img = (vulkan_image*)arg;
 	
 	// transition image to appropriate layout
-	const auto img_access = entry.info->args[arg_idx].image_access;
+	const auto img_access = entry.info->args[idx.arg].image_access;
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		// TODO: might need to handle read/write differently
 		vk_img->transition_write(encoder->cmd_buffer.cmd_buffer);
 	}
 	else { // READ
 		vk_img->transition_read(encoder->cmd_buffer.cmd_buffer);
 	}
 	
-	auto& write_desc = encoder->write_descs[num + 1];
-	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write_desc.pNext = nullptr;
-	write_desc.dstSet = entry.desc_set;
-	write_desc.dstBinding = binding_idx;
-	write_desc.dstArrayElement = 0;
-	write_desc.descriptorCount = 1;
-	write_desc.descriptorType = entry.desc_types[binding_idx];
-	write_desc.pImageInfo = vk_img->get_vulkan_image_info();
-	write_desc.pBufferInfo = nullptr;
-	write_desc.pTexelBufferView = nullptr;
+	{
+		auto& write_desc = encoder->write_descs[idx.write_desc];
+		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write_desc.pNext = nullptr;
+		write_desc.dstSet = entry.desc_set;
+		write_desc.dstBinding = idx.binding;
+		write_desc.dstArrayElement = 0;
+		write_desc.descriptorCount = 1;
+		write_desc.descriptorType = entry.desc_types[idx.binding];
+		write_desc.pImageInfo = vk_img->get_vulkan_image_info();
+		write_desc.pBufferInfo = nullptr;
+		write_desc.pTexelBufferView = nullptr;
+	}
+	
+	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		// next, but still the same arg
+		++idx.write_desc;
+		++idx.binding;
+		
+		auto& write_desc = encoder->write_descs[idx.write_desc];
+		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write_desc.pNext = nullptr;
+		write_desc.dstSet = entry.desc_set;
+		write_desc.dstBinding = idx.binding;
+		write_desc.dstArrayElement = 0;
+		write_desc.descriptorCount = 1;
+		write_desc.descriptorType = entry.desc_types[idx.binding];
+		write_desc.pImageInfo = vk_img->get_vulkan_image_info();
+		write_desc.pBufferInfo = nullptr;
+		write_desc.pTexelBufferView = nullptr;
+	}
+	
+	idx.next();
 }
 
 template <typename T, typename F>
 floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_encoder* encoder,
 														 const vulkan_kernel::vulkan_kernel_entry& entry,
-														 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+														 vulkan_kernel::idx_handler& idx,
 														 const vector<T>& image_array, F&& image_accessor) {
 	// transition images to appropriate layout
-	const auto img_access = entry.info->args[arg_idx].image_access;
+	const auto img_access = entry.info->args[idx.arg].image_access;
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
@@ -369,7 +382,7 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 	}
 	
 	//
-	const auto elem_count = entry.info->args[arg_idx].size;
+	const auto elem_count = entry.info->args[idx.arg].size;
 #if defined(FLOOR_DEBUG)
 	if(elem_count != image_array.size()) {
 		log_error("invalid image array: expected %u elements, got %u elements", elem_count, image_array.size());
@@ -384,31 +397,33 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 	}
 	encoder->image_array_info.emplace_back(image_info);
 	
-	auto& write_desc = encoder->write_descs[num + 1];
+	auto& write_desc = encoder->write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
 	write_desc.dstSet = entry.desc_set;
-	write_desc.dstBinding = binding_idx;
+	write_desc.dstBinding = idx.binding;
 	write_desc.dstArrayElement = 0;
 	write_desc.descriptorCount = elem_count;
-	write_desc.descriptorType = entry.desc_types[binding_idx];
+	write_desc.descriptorType = entry.desc_types[idx.binding];
 	write_desc.pImageInfo = image_info->data();
 	write_desc.pBufferInfo = nullptr;
 	write_desc.pTexelBufferView = nullptr;
+	
+	idx.next();
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-										const vector<shared_ptr<compute_image>>& arg) const {
-	set_image_array_argument(encoder, entry, num, arg_idx, binding_idx, arg,
-							 [](const shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
+void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+								 const vulkan_kernel_entry& entry,
+								 idx_handler& idx,
+								 const vector<shared_ptr<compute_image>>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](const shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
 }
 
-void vulkan_kernel::set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-										const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-										const vector<compute_image*>& arg) const {
-	set_image_array_argument(encoder, entry, num, arg_idx, binding_idx, arg,
-							 [](const compute_image* img) { return (vulkan_image*)img; });
+void vulkan_kernel::set_argument(vulkan_encoder* encoder,
+								 const vulkan_kernel_entry& entry,
+								 idx_handler& idx,
+								 const vector<compute_image*>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](const compute_image* img) { return (vulkan_image*)img; });
 }
 
 #endif

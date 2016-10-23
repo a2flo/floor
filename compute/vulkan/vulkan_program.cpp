@@ -133,7 +133,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								}
 								break;
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::LOCAL:
-								log_error("arg with a local address space is not supported");
+								log_error("arg with a local address space is not supported (#%u in %s)", i, func_name);
 								valid_desc = false;
 								break;
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::UNKNOWN:
@@ -168,7 +168,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.pBindings = (!bindings.empty() ? bindings.data() : nullptr),
 					};
 					VK_CALL_CONT(vkCreateDescriptorSetLayout(prog.first->device, &desc_set_layout_info, nullptr, &entry.desc_set_layout),
-								 "failed to create descriptor set layout");
+								 "failed to create descriptor set layout (" + func_name + ")");
 					// TODO: vkDestroyDescriptorSetLayout cleanup
 					
 					if(!bindings.empty()) {
@@ -213,7 +213,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.pPoolSizes = pool_sizes.data(),
 						};
 						VK_CALL_CONT(vkCreateDescriptorPool(prog.first->device, &desc_pool_info, nullptr, &entry.desc_pool),
-									 "failed to create descriptor pool");
+									 "failed to create descriptor pool (" + func_name + ")");
 						
 						// allocate descriptor set
 						const VkDescriptorSetAllocateInfo desc_set_alloc_info {
@@ -224,7 +224,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.pSetLayouts = &entry.desc_set_layout,
 						};
 						VK_CALL_CONT(vkAllocateDescriptorSets(prog.first->device, &desc_set_alloc_info, &entry.desc_set),
-									 "failed to allocate descriptor set");
+									 "failed to allocate descriptor set (" + func_name + ")");
 					}
 					// else: no descriptors entry.desc_* already nullptr
 					
@@ -265,7 +265,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.pPushConstantRanges = nullptr,
 						};
 						VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
-									 "failed to create pipeline layout");
+									 "failed to create pipeline layout (" + func_name + ")");
 						
 						// create the compute pipeline for this kernel + device
 						const VkComputePipelineCreateInfo pipeline_info {
@@ -278,7 +278,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 							.basePipelineIndex = 0,
 						};
 						VK_CALL_CONT(vkCreateComputePipelines(prog.first->device, nullptr, 1, &pipeline_info, nullptr, &entry.pipeline),
-									 "failed to create compute pipeline");
+									 "failed to create compute pipeline (" + func_name + ")");
 					}
 					
 					// success, insert into map

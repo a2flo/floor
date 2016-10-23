@@ -76,7 +76,8 @@ public:
 	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
-	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0) {
+	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
+	image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
 		// can't be both mip-mapped and a multi-sampled image
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_MIPMAPPED>(image_type) &&
 		   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
@@ -195,6 +196,11 @@ protected:
 	void set_shim_type_info();
 	COMPUTE_IMAGE_TYPE shim_image_type;
 	size_t shim_image_data_size { 0 };
+	
+	// when automatically generating mip-maps, we also need to store all mip-maps
+	// manually (thus != image_data_size), otherwise this is equal to image_data_size
+	const size_t image_data_size_mip_maps;
+	size_t shim_image_data_size_mip_maps { 0 };
 	
 	//! converts RGB data to RGBA data and returns the owning RGBA image data pointer
 	uint8_t* rgb_to_rgba(const COMPUTE_IMAGE_TYPE& rgb_type,

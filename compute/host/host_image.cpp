@@ -41,8 +41,7 @@ host_image::host_image(const host_device* device,
 					   const uint32_t external_gl_object_,
 					   const opengl_image_info* gl_image_info) :
 compute_image(device, image_dim_, image_type_, host_ptr_, flags_,
-			  opengl_type_, external_gl_object_, gl_image_info),
-image_data_size_mip_maps(image_data_size_from_types(image_dim, image_type, 1, false)) {
+			  opengl_type_, external_gl_object_, gl_image_info) {
 	// actually create the image
 	if(!create_internal(true, ((host_compute*)device->context)->get_main_queue())) {
 		return; // can't do much else

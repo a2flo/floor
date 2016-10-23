@@ -61,9 +61,9 @@ public:
 					const VkPipelineStageFlags dst_stage_mask,
 					const uint32_t dst_queue_idx = VK_QUEUE_FAMILY_IGNORED);
 	
-	//! transition for shader read (if not already in this mode)
+	//! transition for shader or attachment read (if not already in this mode)
 	void transition_read(VkCommandBuffer cmd_buffer);
-	//! transition for shader write (if not already in this mode)
+	//! transition for shader or attachment write (if not already in this mode)
 	void transition_write(VkCommandBuffer cmd_buffer);
 	
 	//! returns the vulkan specific image object/pointer

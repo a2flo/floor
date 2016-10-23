@@ -50,6 +50,25 @@ public:
 	};
 	typedef flat_map<vulkan_device*, vulkan_kernel_entry> kernel_map_type;
 	
+	struct idx_handler {
+		// actual argument index (directly corresponding to the c++ source code)
+		uint32_t arg { 0 };
+		// index into the descriptor set that will be updated/written
+		// NOTE: starts out at 1, because 0 is the fixed sampler set
+		uint32_t write_desc { 1 };
+		// binding index in the resp. descriptor set
+		uint32_t binding { 0 };
+		// current kernel/shader entry
+		uint32_t entry { 0 };
+		
+		// advances all indices by one
+		void next() {
+			++arg;
+			++write_desc;
+			++binding;
+		}
+	};
+	
 	vulkan_kernel(kernel_map_type&& kernels);
 	~vulkan_kernel() override;
 	
@@ -69,15 +88,22 @@ public:
 		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
 		
 		// create command buffer ("encoder") for this kernel execution
+		const vector<const vulkan_kernel_entry*> shader_entries {
+			&kernel_iter->second
+		};
 		bool encoder_success = false;
-		auto encoder = create_encoder(queue, kernel_iter->second, encoder_success);
+		auto encoder = create_encoder(queue, nullptr,
+									  kernel_iter->second.pipeline,
+									  kernel_iter->second.pipeline_layout,
+									  shader_entries, encoder_success);
 		if(!encoder_success) {
 			log_error("failed to create vulkan encoder / command buffer for kernel \"%s\"", kernel_iter->second.info->name);
 			return;
 		}
 		
-		// set and handle kernel arguments
-		set_kernel_arguments<0>(encoder.get(), kernel_iter->second, forward<Args>(args)...);
+		// set and handle arguments
+		idx_handler idx;
+		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
 		const uint3 grid_dim_overflow {
@@ -128,16 +154,20 @@ public:
 		
 		// create command buffer ("encoder") for this kernel execution
 		bool encoder_success = false;
+		const vector<const vulkan_kernel_entry*> shader_entries {
+			vertex_shader, fragment_shader
+		};
 		auto encoder = create_encoder(queue, cmd_buffer, pipeline, pipeline_layout,
-									  vertex_shader, fragment_shader, encoder_success);
+									  shader_entries, encoder_success);
 		if(!encoder_success) {
 			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
 					  vertex_shader->info->name);
 			return;
 		}
 		
-		// set and handle shader arguments
-		set_shader_arguments<0>(encoder.get(), vertex_shader, fragment_shader, 0, 0, forward<Args>(args)...);
+		// set and handle arguments
+		idx_handler idx;
+		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
 		draw_internal(encoder, queue, vertex_shader, fragment_shader, retained_buffers,
@@ -165,16 +195,20 @@ public:
 		
 		// create command buffer ("encoder") for this kernel execution
 		bool encoder_success = false;
+		const vector<const vulkan_kernel_entry*> shader_entries {
+			vertex_shader, fragment_shader
+		};
 		auto encoder = create_encoder(queue, cmd_buffer, pipeline, pipeline_layout,
-									  vertex_shader, fragment_shader, encoder_success);
+									  shader_entries, encoder_success);
 		if(!encoder_success) {
 			log_error("failed to create vulkan encoder / command buffer for shader \"%s\"",
 					  vertex_shader->info->name);
 			return;
 		}
 		
-		// set and handle shader arguments
-		set_shader_arguments<0>(encoder.get(), vertex_shader, fragment_shader, 0, 0, forward<Args>(args)...);
+		// set and handle arguments
+		idx_handler idx;
+		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
 		draw_internal(encoder, queue, vertex_shader, fragment_shader, retained_buffers,
@@ -193,16 +227,12 @@ protected:
 	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
-
-	shared_ptr<vulkan_encoder> create_encoder(compute_queue* queue,
-											  const vulkan_kernel_entry& entry,
-											  bool& success);
+	
 	shared_ptr<vulkan_encoder> create_encoder(compute_queue* queue,
 											  void* cmd_buffer,
 											  const VkPipeline pipeline,
 											  const VkPipelineLayout pipeline_layout,
-											  const vulkan_kernel_entry* vs_entry,
-											  const vulkan_kernel_entry* fs_entry,
+											  const vector<const vulkan_kernel_entry*>& entries,
 											  bool& success);
 	
 	void execute_internal(shared_ptr<vulkan_encoder> encoder,
@@ -220,87 +250,72 @@ protected:
 					   const vector<multi_draw_entry>* draw_entries,
 					   const vector<multi_draw_indexed_entry>* draw_indexed_entries) const;
 	
-	const vulkan_kernel_entry* handle_shader_arg(const vulkan_kernel_entry* vs_entry,
-												 const vulkan_kernel_entry* fs_entry,
-												 const uint32_t num,
-												 uint32_t& shader_arg_idx,
-												 uint32_t& binding_idx) const;
+	//! returns the entry for the current indices and makes sure that stage_input args are ignored
+	const vulkan_kernel_entry* arg_pre_handler(const vector<const vulkan_kernel_entry*>& entries,
+											   idx_handler& idx) const;
 	
-	// TODO: clean up id / arg / binding handling
+	//! terminator
+	floor_inline_always void set_arguments(vulkan_encoder*,
+										   const vector<const vulkan_kernel_entry*>&,
+										   idx_handler&) const {}
 	
-	//! handle kernel call terminator
-	template <uint32_t num>
-	floor_inline_always void set_kernel_arguments(vulkan_encoder*, const vulkan_kernel_entry&) const {}
-	
-	//! set kernel argument and recurse
-	template <uint32_t num, typename T, typename... Args>
-	floor_inline_always void set_kernel_arguments(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-												  T&& arg, Args&&... args) const {
-		set_kernel_argument(encoder, entry, num, num, num, forward<T>(arg));
-		set_kernel_arguments<num + 1>(encoder, entry, forward<Args>(args)...);
+	//! set argument and recurse
+	template <typename T, typename... Args>
+	floor_inline_always void set_arguments(vulkan_encoder* encoder,
+										   const vector<const vulkan_kernel_entry*>& entries,
+										   idx_handler& idx,
+										   T&& arg, Args&&... args) const {
+		auto entry = arg_pre_handler(entries, idx);
+		set_argument(encoder, *entry, idx, forward<T>(arg));
+		set_arguments(encoder, entries, idx, forward<Args>(args)...);
 	}
 	
-	//! handle shader call terminator
-	template <uint32_t num>
-	floor_inline_always void set_shader_arguments(vulkan_encoder*,
-												  const vulkan_kernel_entry*,
-												  const vulkan_kernel_entry*,
-												  uint32_t, uint32_t) const {}
-	
-	//! set shader argument and recurse
-	template <uint32_t num, typename T, typename... Args>
-	floor_inline_always void set_shader_arguments(vulkan_encoder* encoder,
-												  const vulkan_kernel_entry* vs_entry,
-												  const vulkan_kernel_entry* fs_entry,
-												  uint32_t shader_arg_idx,
-												  uint32_t binding_idx,
-												  T&& arg, Args&&... args) const {
-		auto entry = handle_shader_arg(vs_entry, fs_entry, num, shader_arg_idx, binding_idx);
-		set_kernel_argument(encoder, *entry, num, shader_arg_idx, binding_idx, forward<T>(arg));
-		set_shader_arguments<num + 1>(encoder, vs_entry, fs_entry, shader_arg_idx + 1,
-									  binding_idx + 1, forward<Args>(args)...);
-	}
-	
-	//! actual kernel argument setter
+	// actual argument setters
 	template <typename T, enable_if_t<!is_pointer<decay_t<T>>::value>* = nullptr>
-	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-												 const uint32_t num, const uint32_t arg_idx,
-												 const uint32_t binding_idx, T&& arg) const {
-		set_kernel_argument(encoder, entry, num, arg_idx, binding_idx, &arg, sizeof(T));
+	floor_inline_always void set_argument(vulkan_encoder* encoder,
+										  const vulkan_kernel_entry& entry,
+										  idx_handler& idx,
+										  T&& arg) const {
+		set_argument(encoder, entry, idx, &arg, sizeof(T));
 	}
 	
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
+	void set_argument(vulkan_encoder* encoder,
+							 const vulkan_kernel_entry& entry,
+							 idx_handler& idx,
 							 const void* ptr, const size_t& size) const;
 	
-	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-												 const uint32_t num, const uint32_t arg_idx,
-												 const uint32_t binding_idx,
-												 shared_ptr<compute_buffer> arg) const {
-		set_kernel_argument(encoder, entry, num, arg_idx, binding_idx, arg.get());
+	floor_inline_always void set_argument(vulkan_encoder* encoder,
+										  const vulkan_kernel_entry& entry,
+										  idx_handler& idx,
+										  shared_ptr<compute_buffer> arg) const {
+		set_argument(encoder, entry, idx, arg.get());
 	}
 	
-	floor_inline_always void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-												 const uint32_t num, const uint32_t arg_idx,
-												 const uint32_t binding_idx,
-												 shared_ptr<compute_image> arg) const {
-		set_kernel_argument(encoder, entry, num, arg_idx, binding_idx, arg.get());
+	floor_inline_always void set_argument(vulkan_encoder* encoder,
+										  const vulkan_kernel_entry& entry,
+										  idx_handler& idx,
+										  shared_ptr<compute_image> arg) const {
+		set_argument(encoder, entry, idx, arg.get());
 	}
 	
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-							 const compute_buffer* arg) const;
+	void set_argument(vulkan_encoder* encoder,
+					  const vulkan_kernel_entry& entry,
+					  idx_handler& idx,
+					  const compute_buffer* arg) const;
 	
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-							 const compute_image* arg) const;
+	void set_argument(vulkan_encoder* encoder,
+					  const vulkan_kernel_entry& entry,
+					  idx_handler& idx,
+					  const compute_image* arg) const;
 	
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-							 const vector<shared_ptr<compute_image>>& arg) const;
-	void set_kernel_argument(vulkan_encoder* encoder, const vulkan_kernel_entry& entry,
-							 const uint32_t num, const uint32_t arg_idx, const uint32_t binding_idx,
-							 const vector<compute_image*>& arg) const;
+	void set_argument(vulkan_encoder* encoder,
+					  const vulkan_kernel_entry& entry,
+					  idx_handler& idx,
+					  const vector<shared_ptr<compute_image>>& arg) const;
+	void set_argument(vulkan_encoder* encoder,
+					  const vulkan_kernel_entry& entry,
+					  idx_handler& idx,
+					  const vector<compute_image*>& arg) const;
 	
 };
 
