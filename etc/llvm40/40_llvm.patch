@@ -23518,10 +23518,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..200bcae
+index 0000000..2226843
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3306 @@
+@@ -0,0 +1,3319 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -25137,12 +25137,14 @@ index 0000000..200bcae
 +    BM->setMemoryModel(MemoryModelOpenCL);
 +  } else {
 +    BM->setAddressingModel(AddressingModelLogical);
-+    BM->addCapability(CapabilityShader);
-+    BM->addCapability(
-+        CapabilityUniformBufferArrayDynamicIndexing); // always add this for now
-+    BM->addCapability(
-+        CapabilityStorageBufferArrayDynamicIndexing); // always add this for now
 +    BM->setMemoryModel(MemoryModelGLSL450);
++    BM->addCapability(CapabilityShader);
++
++    // always add these for now
++    BM->addCapability(CapabilityUniformBufferArrayDynamicIndexing);
++    BM->addCapability(CapabilityStorageBufferArrayDynamicIndexing);
++    BM->addCapability(CapabilitySampledImageArrayDynamicIndexing);
++    BM->addCapability(CapabilityStorageImageArrayDynamicIndexing);
 +  }
 +  return true;
 +}
@@ -25522,8 +25524,8 @@ index 0000000..200bcae
 +  }
 +
 +  // automatically add the "flat" decoration on types that need it
-+  if ((storage_class == spv::StorageClassOutput ||
-+       storage_class == spv::StorageClassInput) &&
++  // NOTE: vulkan requires that this is only set on input variables
++  if (storage_class == spv::StorageClassInput &&
 +      !global_type.is_fbo && !global_type.is_builtin) {
 +    // I/O should always be a pointer type
 +    if (GV.getType()->isPointerTy()) {
@@ -25652,6 +25654,12 @@ index 0000000..200bcae
 +      break;
 +    default:
 +      return;
++    }
++
++    // always add this
++    if (stage == VULKAN_STAGE::FRAGMENT) {
++      spirv_func->addExecutionMode(
++          new SPIRVExecutionMode(spirv_func, ExecutionModeOriginUpperLeft));
 +    }
 +
 +    const std::string func_name = F->getName().str();
@@ -26523,24 +26531,29 @@ index 0000000..200bcae
 +        ((sampler_val.value &
 +          vulkan_sampling::sampler::COORD_MODE::__COORD_MODE_MASK) ==
 +         vulkan_sampling::sampler::COORD_MODE::PIXEL);
-+    std::vector<SPIRVValue *> indices{
-+        BM->getLiteralAsConstant(sampler_val.value, false)};
 +
-+    auto sampler_ptr = BM->addAccessChainInst(
-+        BM->addPointerType(spv::StorageClassUniformConstant,
-+                           BM->addSamplerType()),
-+        immutable_samplers, indices, BB, true);
-+    auto loaded_sampler = BM->addLoadInst(sampler_ptr, {}, BB);
++    // only load the sampler + create the sampled image if necessary
++    SPIRVValue *loaded_sampler = nullptr;
++    SPIRVValue *img = loaded_img;
++    if (!is_fetch) {
++      std::vector<SPIRVValue *> indices{
++          BM->getLiteralAsConstant(sampler_val.value, false)};
 +
-+    // create the sampled image
-+    std::vector<SPIRVWord> sampled_img_ops{
-+        loaded_img->getId(), loaded_sampler->getId(),
-+    };
-+    auto sampled_img =
-+        BM->addInstTemplate(OpSampledImage, sampled_img_ops, BB,
-+                            BM->addSampledImageType(spirv_img_type));
++      auto sampler_ptr = BM->addAccessChainInst(
++          BM->addPointerType(spv::StorageClassUniformConstant,
++                             BM->addSamplerType()),
++          immutable_samplers, indices, BB, true);
++      loaded_sampler = BM->addLoadInst(sampler_ptr, {}, BB);
 +
-+    std::vector<SPIRVWord> read_operands{sampled_img->getId()};
++      // create the sampled image
++      std::vector<SPIRVWord> sampled_img_ops{
++          loaded_img->getId(), loaded_sampler->getId(),
++      };
++      img = BM->addInstTemplate(OpSampledImage, sampled_img_ops, BB,
++                                BM->addSampledImageType(spirv_img_type));
++    }
++
++    std::vector<SPIRVWord> read_operands{img->getId()};
 +    spv::Op read_opcode = spv::OpNop;
 +
 +    // coords
@@ -38190,10 +38203,10 @@ index 0000000..228c206
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.h b/lib/SPIRV/libSPIRV/SPIRVType.h
 new file mode 100644
-index 0000000..bf8588b
+index 0000000..23a8c7f
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.h
-@@ -0,0 +1,790 @@
+@@ -0,0 +1,793 @@
 +//===- SPIRVType.h - Class to represent a SPIR-V Type -----------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -38665,9 +38678,12 @@ index 0000000..bf8588b
 +      if (Desc.MS)
 +        CV.push_back(CapabilityImageMSArray);
 +    }
-+    if (Desc.Dim == spv::Dim1D)
++    if (Desc.Dim == spv::Dim1D) {
 +      CV.push_back(CapabilitySampled1D);
-+    else if (Desc.Dim == spv::DimBuffer)
++      if (Desc.Sampled == 2) {
++        CV.push_back(CapabilityImage1D);
++      }
++    } else if (Desc.Dim == spv::DimBuffer)
 +      CV.push_back(CapabilitySampledBuffer);
 +    return CV;
 +  }
