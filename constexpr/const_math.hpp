@@ -454,7 +454,7 @@ namespace const_math {
 	}
 	
 	//! makes use of log(x * y) = log(x) + log(y) by decomposing val into a value in [1, 2) and its 2^x exponent,
-	//! then easily computing log(val in [1, 2)) which converges quickly, and log2(2^x) == x for its exponent
+	//! then easily computes log(val in [1, 2)) which converges quickly, and log2(2^x) == x for its exponent
 	//! NOTE: returns { false, error ret value, ... } if val is an invalid value, { true, ..., log(val in [1, 2)), exponent } if valid
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr auto partial_ln_and_log2(fp_type val) {

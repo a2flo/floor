@@ -1603,6 +1603,11 @@ public:
 	// misc
 #pragma mark misc
 	
+	//! returns the extent of this vector (components multiplied with each other)
+	constexpr decayed_scalar_type extent() const {
+		return FLOOR_VEC_EXPAND(*);
+	}
+	
 	//! assigns the minimum between each component of this vector and the corresponding component of another vector to this vector
 	constexpr vector_type& min(const vector_type& vec) {
 		*this = this->minned(vec);

@@ -82,7 +82,6 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										break;
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-										++write_image_desc;
 										if(is_image_array) {
 											write_image_desc += info.args[i].size;
 										}
@@ -91,6 +90,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
 										if(is_image_array) {
 											log_error("read/write image array not supported");
+											valid_desc = false;
 											return;
 										}
 										
