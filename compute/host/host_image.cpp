@@ -54,9 +54,6 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	program_info.runtime_image_type = image_type;
 	
 	const auto dim_count = image_dim_count(image_type);
-	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
-	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
-	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	uint4 mip_image_dim {
 		image_dim.x,
 		dim_count >= 2 ? image_dim.y : 0,
@@ -66,7 +63,7 @@ bool host_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	uint32_t level_offset = 0;
 	for(size_t level = 0; level < host_limits::max_mip_levels; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
-		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		const auto level_data_size = slice_data_size * layer_count;
 		program_info.level_info[level].offset = level_offset;
 		level_offset += level_data_size;
 		
@@ -177,7 +174,6 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 	
 	// copy gl image data to host memory (if read access is set)
 	const auto dim_count = image_dim_count(image_type);
-	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	int4 mip_image_dim {
@@ -191,7 +187,7 @@ bool host_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue floor_un
 		const uint8_t* level_data = image;
 		for(size_t level = 0; level < mip_level_count; ++level, mip_image_dim >>= 1) {
 			const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
-			const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+			const auto level_data_size = slice_data_size * layer_count;
 			
 			if(!is_cube ||
 			   // contrary to GL_TEXTURE_CUBE_MAP, GL_TEXTURE_CUBE_MAP_ARRAY can be copied directly

@@ -74,6 +74,7 @@ public:
 					  has_flag<COMPUTE_MEMORY_FLAG::GENERATE_MIP_MAPS>(flags_)),
 	image_data_size(image_data_size_from_types(image_dim, image_type, 1, generate_mip_maps)),
 	mip_level_count(is_mip_mapped ? (uint32_t)image_mip_level_count(image_dim, image_type) : 1u),
+	layer_count(image_layer_count(image_dim, image_type)),
 	gl_internal_format(gl_image_info != nullptr ? gl_image_info->gl_internal_format : 0),
 	gl_format(gl_image_info != nullptr ? gl_image_info->gl_format : 0),
 	gl_type(gl_image_info != nullptr ? gl_image_info->gl_type : 0),
@@ -151,6 +152,12 @@ public:
 		return image_dim;
 	}
 	
+	//! returns the amount of image layers with which this image has been created
+	//! NOTE: this count includes cube map sides (layers)
+	const uint32_t& get_layer_count() const {
+		return layer_count;
+	}
+	
 	//! returns the compute image type of this image
 	const COMPUTE_IMAGE_TYPE& get_image_type() const {
 		return image_type;
@@ -176,6 +183,7 @@ protected:
 	const bool generate_mip_maps;
 	const size_t image_data_size;
 	const uint32_t mip_level_count;
+	const uint32_t layer_count;
 	
 #if !defined(FLOOR_IOS)
 	// internal function to create/delete an opengl image if compute/opengl sharing is used
@@ -232,11 +240,8 @@ protected:
 		const COMPUTE_IMAGE_TYPE mip_image_type = (override_image_type != COMPUTE_IMAGE_TYPE::NONE ?
 												   override_image_type : image_type);
 		const auto dim_count = image_dim_count(mip_image_type);
-		const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
-		const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(mip_image_type);
-		const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(mip_image_type);
+		const auto slice_count = image_layer_count(image_dim, mip_image_type);
 		const auto handled_level_count = (generate_mip_maps && !all_levels ? 1 : mip_level_count);
-		const auto slice_count = (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
 		uint4 mip_image_dim {
 			image_dim.x,
 			dim_count >= 2 ? image_dim.y : 0,

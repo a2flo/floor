@@ -559,6 +559,20 @@ static constexpr uint32_t image_mip_level_count(const uint4& image_dim, const CO
 	return levels;
 }
 
+//! returns the amount of image layers specified by the image dim and type
+//! NOTE: this count includes cube map sides (layers)
+static constexpr uint32_t image_layer_count(const uint4& image_dim, const COMPUTE_IMAGE_TYPE image_type) {
+	const auto dim_count = image_dim_count(image_type);
+	const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
+	const bool is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
+	uint32_t layer_count = (!is_array ? 1 : (dim_count == 1 ? image_dim.y :
+											 (dim_count == 2 ? image_dim.z : image_dim.w)));
+	if(is_cube) {
+		layer_count *= 6;
+	}
+	return layer_count;
+}
+
 //! returns the total amount of bytes needed to store the image of the specified dimensions, types, sample count and mip-levels
 //! NOTE: each subsequent mip-level dim is computed as >>= 1, stopping at 1px for uncompressed images, or 8px for uncompressed ones
 static constexpr size_t image_data_size_from_types(const uint4& image_dim,

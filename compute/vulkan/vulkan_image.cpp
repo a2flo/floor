@@ -252,13 +252,11 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		.height = dim_count >= 2 ? image_dim.y : 1,
 		.depth = dim_count >= 3 ? image_dim.z : 1,
 	};
-	layer_count = (!is_array ? 1 : (dim_count == 1 ? image_dim.y : image_dim.z));
 	if(is_cube) {
 		if(extent.width != extent.height) {
 			log_error("cube map width and height must be equal");
 			return false;
 		}
-		layer_count *= 6;
 	}
 	
 	// TODO: when using linear memory, can also use VK_IMAGE_LAYOUT_PREINITIALIZED here

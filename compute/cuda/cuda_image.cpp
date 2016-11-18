@@ -210,6 +210,8 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 	//
 	const auto dim_count = image_dim_count(image_type);
 	const auto is_compressed = image_compressed(image_type);
+	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
+	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	auto channel_count = image_channel_count(image_type);
 	if(channel_count == 3 && !is_compressed) {
 		log_error("3-channel images are unsupported with cuda!");
@@ -223,31 +225,14 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		return false;
 	}
 	
-	fixed_depth = 1;
-	uint32_t depth = 0, layer_count = 1;
-	if(dim_count >= 3) {
-		depth = image_dim.z;
-	}
-	else {
-		// check array first ...
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type)) {
-			if(dim_count == 1) depth = image_dim.y;
-			else if(dim_count >= 2) depth = image_dim.z;
-			layer_count = max(1u, depth);
-			fixed_depth = layer_count;
-		}
-		// ... and check cube map second
-		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type)) {
-			// if FLAG_ARRAY is also present, .z/depth has been specified by the user -> multiply by 6,
-			// else, just specify 6 directly
-			fixed_depth *= 6;
-			depth = (depth != 0 ? depth * 6 : 6);
-			
-			// make sure width == height
-			if(image_dim.x != image_dim.y) {
-				log_error("cube map side width and height must be equal (%u != %u)!", image_dim.x, image_dim.y);
-				return false;
-			}
+	// 3D depth or #layers (including cube map faces)
+	const uint32_t depth = (dim_count >= 3 ? image_dim.z :
+							(is_array || is_cube ? layer_count : 0));
+	if(is_cube) {
+		// make sure width == height
+		if(image_dim.x != image_dim.y) {
+			log_error("cube map side width and height must be equal (%u != %u)!", image_dim.x, image_dim.y);
+			return false;
 		}
 	}
 	
@@ -355,8 +340,8 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			.format = format,
 			.channel_count = channel_count,
 			.flags = (
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ? CU_ARRAY_3D_FLAGS::LAYERED : CU_ARRAY_3D_FLAGS::NONE) |
-					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? CU_ARRAY_3D_FLAGS::CUBE_MAP : CU_ARRAY_3D_FLAGS::NONE) |
+					  (is_array ? CU_ARRAY_3D_FLAGS::LAYERED : CU_ARRAY_3D_FLAGS::NONE) |
+					  (is_cube ? CU_ARRAY_3D_FLAGS::CUBE_MAP : CU_ARRAY_3D_FLAGS::NONE) |
 					  // NOTE: depth flag is not supported and array creation will return INVALID_VALUE
 					  // (has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type) ? CU_ARRAY_3D_FLAGS::DEPTH_TEXTURE : CU_ARRAY_3D_FLAGS::NONE) |
 					  (has_flag<COMPUTE_IMAGE_TYPE::FLAG_GATHER>(image_type) ? CU_ARRAY_3D_FLAGS::TEXTURE_GATHER : CU_ARRAY_3D_FLAGS::NONE) |
@@ -394,7 +379,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 				if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
 																			 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																			 slice_data_size / max(mip_image_dim.y, 1u),
-																			 mip_image_dim.y, mip_image_dim.z * fixed_depth)) {
+																			 mip_image_dim.y, mip_image_dim.z * layer_count)) {
 					log_error("failed to copy initial host data to device");
 					return false;
 				}
@@ -459,8 +444,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 			// need a copy fbo when ARB_copy_image is not available
 			if(!floor::has_opengl_extension("GL_ARB_copy_image")) {
 				// check if depth 2D image, others are not supported (stencil should work by simply being dropped)
-				if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type) ||
-				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ||
+				if(is_array || is_cube ||
 				   has_flag<COMPUTE_IMAGE_TYPE::FLAG_MSAA>(image_type)) {
 					log_error("unsupported depth image format (%X), only 2D depth or depth+stencil is supported!",
 							  image_type);
@@ -542,7 +526,7 @@ bool cuda_image::create_internal(const bool copy_host_data, shared_ptr<compute_q
 		rsrc_view_desc.first_mip_map_level = 0;
 		rsrc_view_desc.last_mip_map_level = mip_level_count - 1;
 		rsrc_view_desc.first_layer = 0;
-		rsrc_view_desc.last_layer = layer_count - 1;
+		rsrc_view_desc.last_layer = (!is_cube ? layer_count : layer_count / 6) - 1;
 		
 		for(uint32_t i = 0, count = uint32_t(size(textures)); i < count; ++i) {
 			cu_texture_descriptor tex_desc;
@@ -718,7 +702,7 @@ void cuda_image::zero(shared_ptr<compute_queue> cqueue) {
 		if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(zero_data_ptr,
 																	 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																	 slice_data_size / max(mip_image_dim.y, 1u),
-																	 mip_image_dim.y, mip_image_dim.z * fixed_depth)) {
+																	 mip_image_dim.y, mip_image_dim.z * layer_count)) {
 			log_error("failed to zero image");
 			return false;
 		}
@@ -779,7 +763,7 @@ void* __attribute__((aligned(128))) cuda_image::map(shared_ptr<compute_queue> cq
 			if(!cuda_memcpy<CU_MEMORY_TYPE::ARRAY, CU_MEMORY_TYPE::HOST>(cpy_host_ptr,
 																		 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
-																		 mip_image_dim.y, mip_image_dim.z * fixed_depth,
+																		 mip_image_dim.y, mip_image_dim.z * layer_count,
 																		 !blocking_map, stream)) {
 				log_error("failed to copy device memory to host");
 				return false;
@@ -818,7 +802,7 @@ void cuda_image::unmap(shared_ptr<compute_queue> cqueue,
 			if(!cuda_memcpy<CU_MEMORY_TYPE::HOST, CU_MEMORY_TYPE::ARRAY>(cpy_host_ptr,
 																		 (is_mip_mapped ? image_mipmap_arrays[level] : image_array),
 																		 slice_data_size / max(mip_image_dim.y, 1u),
-																		 mip_image_dim.y, mip_image_dim.z * fixed_depth)) {
+																		 mip_image_dim.y, mip_image_dim.z * layer_count)) {
 				log_error("failed to copy host memory to device");
 				return false;
 			}

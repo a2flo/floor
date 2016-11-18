@@ -325,12 +325,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 	[desc setWidth:region.size.width];
 	[desc setHeight:region.size.height];
 	[desc setDepth:region.size.depth];
-	
-	if(is_array) {
-		// 1D or 2D array?
-		[desc setArrayLength:(dim_count == 1 ? image_dim.y : image_dim.z)];
-	}
-	else [desc setArrayLength:1];
+	[desc setArrayLength:(!is_cube ? layer_count : layer_count / 6)];
 	
 	// type + nD handling
 	MTLTextureType tex_type;
@@ -490,7 +485,7 @@ bool metal_image::create_internal(const bool copy_host_data, const metal_device*
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		
 		// NOTE: arrays/slices must be copied in per slice (for all else: there just is one slice)
-		const size_t slice_count = [desc arrayLength] * (is_cube ? 6u : 1u);
+		const size_t slice_count = layer_count;
 		
 		const uint8_t* cpy_host_ptr = (const uint8_t*)host_ptr;
 		apply_on_levels([this, &cpy_host_ptr, &slice_count,
@@ -579,9 +574,8 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 	memset(zero_data_ptr, 0, bytes_per_slice);
 	
 	const auto dim_count = image_dim_count(image_type);
-	const uint32_t slice_count = uint32_t([desc arrayLength]) * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
 	
-	apply_on_levels<true>([this, &zero_data_ptr, &slice_count,
+	apply_on_levels<true>([this, &zero_data_ptr,
 						   &dim_count, &is_compressed](const uint32_t& level,
 													   const uint4& mip_image_dim,
 													   const uint32_t& slice_data_size,
@@ -595,7 +589,7 @@ void metal_image::zero(shared_ptr<compute_queue> cqueue) {
 				dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 			}
 		};
-		for(size_t slice = 0; slice < slice_count; ++slice) {
+		for(size_t slice = 0; slice < layer_count; ++slice) {
 			[image replaceRegion:mipmap_region
 					 mipmapLevel:level
 						   slice:slice
@@ -617,7 +611,6 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 	
 	// TODO: parameter origin + region + layer
 	const auto dim_count = image_dim_count(image_type);
-	const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
 	
 	// TODO: image map check + move this check there:
 	if((options & MTLResourceStorageModeMask) == MTLResourceStorageModePrivate) {
@@ -673,7 +666,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 		}
 		
 		uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
-		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+		apply_on_levels([this, &cpy_host_ptr,
 						 &dim_count, &is_compressed](const uint32_t& level,
 													 const uint4& mip_image_dim,
 													 const uint32_t& slice_data_size,
@@ -687,7 +680,7 @@ void* __attribute__((aligned(128))) metal_image::map(shared_ptr<compute_queue> c
 					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 				}
 			};
-			for(size_t slice = 0; slice < slice_count; ++slice) {
+			for(size_t slice = 0; slice < layer_count; ++slice) {
 				[image getBytes:cpy_host_ptr
 					bytesPerRow:(is_compressed ? 0 : bytes_per_row)
 				  bytesPerImage:slice_data_size
@@ -737,7 +730,6 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		id <MTLCommandBuffer> cmd_buffer = ((metal_queue*)cqueue.get())->make_command_buffer();
 		id <MTLBlitCommandEncoder> blit_encoder = [cmd_buffer blitCommandEncoder];
 		const bool is_compressed = image_compressed(image_type);
-		const size_t slice_count = [desc arrayLength] * (has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type) ? 6u : 1u);
 		const auto dim_count = image_dim_count(image_type);
 		
 		// again, need to convert RGB to RGBA if necessary
@@ -748,7 +740,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 		}
 		
 		const uint8_t* cpy_host_ptr = (image_type != shim_image_type ? host_shim_buffer : host_buffer);
-		apply_on_levels([this, &cpy_host_ptr, &slice_count,
+		apply_on_levels([this, &cpy_host_ptr,
 						 &dim_count, &is_compressed](const uint32_t& level,
 													 const uint4& mip_image_dim,
 													 const uint32_t& slice_data_size,
@@ -762,7 +754,7 @@ void metal_image::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__((a
 					dim_count >= 3 ? max(mip_image_dim.z, 1u) : 1,
 				}
 			};
-			for(size_t slice = 0; slice < slice_count; ++slice) {
+			for(size_t slice = 0; slice < layer_count; ++slice) {
 				[image replaceRegion:mipmap_region
 						 mipmapLevel:level
 							   slice:slice

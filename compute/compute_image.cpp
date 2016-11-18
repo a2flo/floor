@@ -298,7 +298,6 @@ void compute_image::init_gl_image_data(const void* data) {
 	const bool fixed_sample_locations { false }; // TODO: support this properly
 	const auto dim_count = image_dim_count(image_type);
 	const auto storage_dim_count = image_storage_dim_count(image_type);
-	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
@@ -313,7 +312,7 @@ void compute_image::init_gl_image_data(const void* data) {
 	};
 	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, sample_count);
-		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		const auto level_data_size = slice_data_size * layer_count;
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
 			// TODO: how to init this?
@@ -342,7 +341,7 @@ void compute_image::init_gl_image_data(const void* data) {
 			}
 			else {
 				glTexImage3D(opengl_type, level, gl_internal_format,
-							 mip_image_dim.x, mip_image_dim.y, (int)array_dim_count * 6, 0, gl_format, gl_type, level_data);
+							 mip_image_dim.x, mip_image_dim.y, int(layer_count), 0, gl_format, gl_type, level_data);
 			}
 		}
 		else {
@@ -405,7 +404,6 @@ void compute_image::update_gl_image_data(const void* data) {
 	
 	const auto dim_count = image_dim_count(image_type);
 	const auto storage_dim_count = image_storage_dim_count(image_type);
-	const auto array_dim_count = (dim_count == 3 ? image_dim.w : (dim_count == 2 ? image_dim.z : image_dim.y));
 	const auto is_cube = has_flag<COMPUTE_IMAGE_TYPE::FLAG_CUBE>(image_type);
 	const auto is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type);
 	
@@ -420,7 +418,7 @@ void compute_image::update_gl_image_data(const void* data) {
 	};
 	for(GLint level = 0; level < upload_level_count; ++level, mip_image_dim >>= 1) {
 		const auto slice_data_size = image_slice_data_size_from_types(mip_image_dim, image_type, 1);
-		const auto level_data_size = slice_data_size * (is_array ? array_dim_count : 1) * (is_cube ? 6 : 1);
+		const auto level_data_size = slice_data_size * layer_count;
 		
 		if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
 			// TODO: how to init this?
@@ -446,7 +444,7 @@ void compute_image::update_gl_image_data(const void* data) {
 			}
 			else {
 				// can upload cube map array directly
-				glTexSubImage3D(opengl_type, level, 0, 0, 0, mip_image_dim.x, mip_image_dim.y, mip_image_dim.z * 6, gl_format, gl_type, level_data);
+				glTexSubImage3D(opengl_type, level, 0, 0, 0, mip_image_dim.x, mip_image_dim.y, int(layer_count), gl_format, gl_type, level_data);
 			}
 		}
 		else {
@@ -913,7 +911,6 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) con
 		
 		// run the kernel for this image
 		const auto dim_count = image_dim_count(image_type);
-		const auto layer_count = max(dim_count == 1 ? image_dim.y : image_dim.z, 1u);
 		uint3 lsize;
 		switch(dim_count) {
 			case 1: lsize = { dev->max_total_local_size, 1, 1 }; break;

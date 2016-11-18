@@ -85,7 +85,6 @@ protected:
 	cu_array image_array { nullptr };
 	cu_mip_mapped_array image_mipmap_array { nullptr };
 	cu_graphics_resource rsrc { nullptr };
-	uint32_t fixed_depth { 1 }; // max(1, #layers * #cube-faces)
 	
 	// contains the cu_array for each mip-level
 	vector<cu_array> image_mipmap_arrays;

@@ -91,7 +91,6 @@ protected:
 	VkImageView image_view { nullptr };
 	VkDescriptorImageInfo image_info { nullptr, nullptr, VK_IMAGE_LAYOUT_UNDEFINED };
 	VkAccessFlags cur_access_mask { 0 };
-	uint32_t layer_count { 1u };
 	VkImageUsageFlags usage { 0 };
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
 	

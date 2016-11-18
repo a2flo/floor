@@ -139,7 +139,7 @@ bool opencl_image::create_internal(const bool copy_host_data, shared_ptr<compute
 			return false;
 		}
 		cl_img_desc.image_type = (dim_count == 1 ? CL_MEM_OBJECT_IMAGE1D_ARRAY : CL_MEM_OBJECT_IMAGE2D_ARRAY);
-		cl_img_desc.image_array_size = (dim_count == 1 ? image_dim.y : image_dim.z);
+		cl_img_desc.image_array_size = layer_count;
 	}
 	else if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_BUFFER>(image_type)) {
 		if(dim_count != 1) {
