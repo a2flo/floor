@@ -23,15 +23,9 @@
 
 #if !defined(FLOOR_NO_OPENAL)
 
-#if defined(__APPLE__)
-#include <OpenALSoft/al.h>
-#include <OpenALSoft/alc.h>
-#include <OpenALSoft/efx.h>
-#else
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/efx.h>
-#endif
 
 extern LPALGENEFFECTS alGenEffects;
 extern LPALDELETEEFFECTS alDeleteEffects;

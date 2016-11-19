@@ -138,7 +138,6 @@
 		5C6008AF1AB6D6D200BC7012 /* cuda.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AC1AB6D6D200BC7012 /* cuda.hpp */; };
 		5C6008B01AB6D6D200BC7012 /* metal.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6008AD1AB6D6D200BC7012 /* metal.hpp */; };
 		5C6E10F71B8CD71D00D58BFB /* constants.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C6E10F61B8CD71D00D58BFB /* constants.hpp */; };
-		5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C7173A818D7144E00DDF097 /* OpenALSoft.framework */; };
 		5C7173AF18D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
 		5C7173B018D717EB00DDF097 /* audio_headers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173AB18D717EB00DDF097 /* audio_headers.cpp */; };
 		5C7173B118D717EB00DDF097 /* audio_headers.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173AC18D717EB00DDF097 /* audio_headers.hpp */; };
@@ -399,7 +398,6 @@
 		5C6008AC1AB6D6D200BC7012 /* cuda.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda.hpp; path = device/cuda.hpp; sourceTree = "<group>"; };
 		5C6008AD1AB6D6D200BC7012 /* metal.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal.hpp; path = device/metal.hpp; sourceTree = "<group>"; };
 		5C6E10F61B8CD71D00D58BFB /* constants.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = constants.hpp; sourceTree = "<group>"; };
-		5C7173A818D7144E00DDF097 /* OpenALSoft.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenALSoft.framework; path = /Library/Frameworks/OpenALSoft.framework; sourceTree = "<absolute>"; };
 		5C7173AB18D717EB00DDF097 /* audio_headers.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_headers.cpp; path = audio/audio_headers.cpp; sourceTree = "<group>"; };
 		5C7173AC18D717EB00DDF097 /* audio_headers.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_headers.hpp; path = audio/audio_headers.hpp; sourceTree = "<group>"; };
 		5C7173AD18D717EB00DDF097 /* audio_store.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_store.cpp; path = audio/audio_store.cpp; sourceTree = "<group>"; };
@@ -525,7 +523,6 @@
 			files = (
 				5CBE41DE1B31D34900AE0E5F /* QuartzCore.framework in Frameworks */,
 				5CE55CDF1B2754A6006C38E6 /* Metal.framework in Frameworks */,
-				5C7173A918D7144E00DDF097 /* OpenALSoft.framework in Frameworks */,
 				5C1091FB17D148D0007F536E /* ApplicationServices.framework in Frameworks */,
 				5C1091F917D148CB007F536E /* AppKit.framework in Frameworks */,
 				5C1091F717D148C5007F536E /* Cocoa.framework in Frameworks */,
@@ -692,7 +689,6 @@
 				5C1091F217D148B8007F536E /* OpenCL.framework */,
 				5C1091F317D148B8007F536E /* OpenGL.framework */,
 				5C02EE221A5B5EF800949E72 /* CUDA.framework */,
-				5C7173A818D7144E00DDF097 /* OpenALSoft.framework */,
 				5CC2F77718678AAD0031E08D /* Foundation.framework */,
 			);
 			name = libs;
@@ -1640,9 +1636,14 @@
 					"$(inherited)",
 					PLATFORM_X64,
 				);
+				HEADER_SEARCH_PATHS = (
+					../,
+					"/usr/local/opt/openal-soft/include",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,
 					/usr/local/opt/openssl/lib,
+					"/usr/local/opt/openal-soft/lib",
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -1656,6 +1657,10 @@
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lopenal",
+				);
 			};
 			name = Debug;
 		};
@@ -1671,9 +1676,14 @@
 					"$(inherited)",
 					PLATFORM_X64,
 				);
+				HEADER_SEARCH_PATHS = (
+					../,
+					"/usr/local/opt/openal-soft/include",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					/usr/X11/lib,
 					/usr/local/opt/openssl/lib,
+					"/usr/local/opt/openal-soft/lib",
 				);
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -1687,6 +1697,10 @@
 					/Library/Frameworks,
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(inherited)";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lopenal",
+				);
 			};
 			name = Release;
 		};

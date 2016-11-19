@@ -579,6 +579,9 @@ else
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openssl/include"
 	fi
+	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
+		INCLUDES="${INCLUDES} -isystem /usr/local/opt/openal-soft/include"
+	fi
 	INCLUDES="${INCLUDES} -iframework /Library/Frameworks"
 	
 	# build a shared/dynamic library
@@ -588,6 +591,9 @@ else
 	LDFLAGS="${LDFLAGS} -L/opt/X11/lib"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openssl/lib"
+	fi
+	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
+		LDFLAGS="${LDFLAGS} -L/usr/local/opt/openal-soft/lib"
 	fi
 
 	# rpath voodoo
@@ -606,9 +612,11 @@ else
 	LDFLAGS="${LDFLAGS} -framework SDL2"
 	if [ ${BUILD_CONF_NET} -gt 0 ]; then
 		LDFLAGS="${LDFLAGS} -lcrypto -lssl"
+		LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/opt/openssl/lib"
 	fi
 	if [ ${BUILD_CONF_OPENAL} -gt 0 ]; then
-		LDFLAGS="${LDFLAGS} -framework OpenALSoft"
+		LDFLAGS="${LDFLAGS} -lopenal"
+		LDFLAGS="${LDFLAGS} -Xlinker -rpath -Xlinker /usr/local/opt/openal-soft/lib"
 	fi
 	
 	# system frameworks
