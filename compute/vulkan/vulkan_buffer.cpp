@@ -62,7 +62,6 @@ bool vulkan_buffer::create_internal(const bool copy_host_data, shared_ptr<comput
 		.usage = (VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
 				  VK_BUFFER_USAGE_TRANSFER_DST_BIT |
 				  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-				  VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
 				  VK_BUFFER_USAGE_INDEX_BUFFER_BIT |
 				  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT),
 		// TODO: probably want a concurrent option later on
@@ -118,11 +117,15 @@ void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, const size_t size_, c
 	read(cqueue, host_ptr, size_, offset);
 }
 
-void vulkan_buffer::read(shared_ptr<compute_queue> cqueue floor_unused, void* dst floor_unused,
-						 const size_t size_ floor_unused, const size_t offset floor_unused) {
+void vulkan_buffer::read(shared_ptr<compute_queue> cqueue, void* dst,
+						 const size_t size_, const size_t offset) {
 	if(buffer == nullptr) return;
 	
-	// TODO: implement this
+	const size_t read_size = (size_ == 0 ? size : size_);
+	if(!read_check(size, read_size, offset)) return;
+	
+	GUARD(lock);
+	read_memory_data(cqueue, dst, read_size, offset, 0, "failed to read buffer");
 }
 
 void vulkan_buffer::write(shared_ptr<compute_queue> cqueue, const size_t size_, const size_t offset) {

@@ -71,6 +71,11 @@ protected:
 						   const void* data, const size_t& size, const size_t& offset,
 						   const size_t non_shim_input_size = 0,
 						   const char* error_msg_on_failure = nullptr);
+	//! reads memory from the device with the specified size/offset and writes it to the specified host pointer
+	bool read_memory_data(shared_ptr<compute_queue> cqueue,
+						  void* data, const size_t& size, const size_t& offset,
+						  const size_t non_shim_input_size = 0,
+						  const char* error_msg_on_failure = nullptr);
 	
 	void* __attribute__((aligned(128))) map(shared_ptr<compute_queue> cqueue,
 											const COMPUTE_MEMORY_MAP_FLAG flags,

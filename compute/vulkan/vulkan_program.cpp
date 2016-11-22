@@ -56,7 +56,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					// create function + device specific descriptor set layout
 					vector<VkDescriptorSetLayoutBinding> bindings(info.args.size());
 					vector<VkDescriptorType> descriptor_types(info.args.size());
-					uint32_t ssbo_desc = 0, uniform_desc = 0, read_image_desc = 0, write_image_desc = 0;
+					uint32_t ssbo_desc = 0, read_image_desc = 0, write_image_desc = 0;
 					bool valid_desc = true;
 					for(uint32_t i = 0, binding_idx = 0; i < (uint32_t)info.args.size(); ++i) {
 						bindings[binding_idx].binding = binding_idx;
@@ -122,15 +122,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 								// TODO/NOTE: for now, this is always a buffer, later on it might make sense to fit as much as possible
 								//            into push constants (will require compiler support of course + device specific binary)
 								// NOTE: min push constants size is at least 128 bytes
-								// alternatively: put it into a ubo
-								if(info.args[i].special_type == llvm_toolchain::function_info::SPECIAL_TYPE::SSBO) {
-									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-									++ssbo_desc;
-								}
-								else {
-									bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-									++uniform_desc;
-								}
+								// NOTE: uniforms/param and buffers are always SSBOs - uniforms/param could technically be
+								//       Block/uniform variables, but these have insane alignment/offset requirements,
+								//       so always make them SSBOs, which have less restrictions
+								bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+								++ssbo_desc;
 								break;
 							case llvm_toolchain::function_info::ARG_ADDRESS_SPACE::LOCAL:
 								log_error("arg with a local address space is not supported (#%u in %s)", i, func_name);
@@ -178,7 +174,6 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						//          then create new ones if allocation fails (due to fragmentation)
 						//          DO NOT use VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
 						const uint32_t pool_count = ((ssbo_desc > 0 ? 1 : 0) +
-													 (uniform_desc > 0 ? 1 : 0) +
 													 (read_image_desc > 0 ? 1 : 0) +
 													 (write_image_desc > 0 ? 1 : 0));
 						vector<VkDescriptorPoolSize> pool_sizes(pool_count);
@@ -186,11 +181,6 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						if(ssbo_desc > 0 || pool_count == 0) {
 							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
 							pool_sizes[pool_index].descriptorCount = (ssbo_desc > 0 ? ssbo_desc : 1);
-							++pool_index;
-						}
-						if(uniform_desc > 0) {
-							pool_sizes[pool_index].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-							pool_sizes[pool_index].descriptorCount = uniform_desc;
 							++pool_index;
 						}
 						if(read_image_desc > 0) {

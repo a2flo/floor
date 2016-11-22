@@ -60,6 +60,23 @@ bool vulkan_memory::write_memory_data(shared_ptr<compute_queue> cqueue, const vo
 	return true;
 }
 
+bool vulkan_memory::read_memory_data(shared_ptr<compute_queue> cqueue, void* data, const size_t& size, const size_t& offset,
+									 const size_t non_shim_input_size, const char* error_msg_on_failure) {
+	auto map_queue = queue_or_default_compute_queue(cqueue);
+	auto mapped_ptr = map(map_queue, COMPUTE_MEMORY_MAP_FLAG::READ | COMPUTE_MEMORY_MAP_FLAG::BLOCK, size, offset);
+	if(mapped_ptr != nullptr) {
+		memcpy(data, mapped_ptr, (non_shim_input_size == 0 ? size : non_shim_input_size));
+		unmap(map_queue, mapped_ptr);
+	}
+	else {
+		if(error_msg_on_failure == nullptr) {
+			log_error("failed to read vulkan memory data (map failed)");
+		}
+		else log_error("%s", error_msg_on_failure);
+		return false;
+	}
+	return true;
+}
 
 void* __attribute__((aligned(128))) vulkan_memory::map(shared_ptr<compute_queue> cqueue,
 													   const COMPUTE_MEMORY_MAP_FLAG flags,
