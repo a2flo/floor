@@ -53129,10 +53129,10 @@ index 0000000..05d5bdd
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..9589494
+index 0000000..c1f5136
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,734 @@
+@@ -0,0 +1,745 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53258,6 +53258,7 @@ index 0000000..9589494
 +							 llvm::Value* layer_arg,
 +							 const bool is_array,
 +							 const bool is_msaa,
++							 const bool is_non_cube_array_depth_compare,
 +							 // must have: true: int coords, false: float coords
 +							 const bool must_have_int_args,
 +							 std::string& vk_func_name,
@@ -53277,7 +53278,7 @@ index 0000000..9589494
 +				return;
 +			}
 +			
-+			auto vk_coord_dim = coord_dim + (is_array ? 1 : 0);
++			auto vk_coord_dim = coord_dim + (is_array ? 1 : 0) + (is_non_cube_array_depth_compare ? 1 : 0);
 +			assert(vk_coord_dim <= 4 && "can't have a coord vector type with dim > 4");
 +			const auto vk_coord_scalar_type = (must_have_int_args ? llvm::Type::getInt32Ty(*ctx) : llvm::Type::getFloatTy(*ctx));
 +			const auto vk_coord_type = (vk_coord_dim == 1 ?
@@ -53327,6 +53328,14 @@ index 0000000..9589494
 +							layer = builder->CreateUIToFP(layer_arg, vk_coord_scalar_type);
 +						}
 +						vk_coord_arg = builder->CreateInsertElement(vk_coord_arg, layer, builder->getInt32(coord_idx++));
++					}
++					
++					// workaround a bug in nvidia drivers where another coord component is expected when doing depth comparison
++					// (this seems to be a remnant of glsl where Dref was stored as the last component instead of an additional argument)
++					if(is_non_cube_array_depth_compare) {
++						vk_coord_arg = builder->CreateInsertElement(vk_coord_arg,
++																	ConstantFP::get(llvm::Type::getFloatTy(*ctx), 0.0f),
++																	builder->getInt32(coord_idx++));
 +					}
 +				}
 +			}
@@ -53448,6 +53457,7 @@ index 0000000..9589494
 +							layer_arg,
 +							is_array,
 +							is_msaa,
++							is_depth && is_compare && !(is_cube && is_array),
 +							// fetch: always int coords, sample: always float coords
 +							is_fetch,
 +							vk_func_name,
@@ -53743,6 +53753,7 @@ index 0000000..9589494
 +							layer_arg,
 +							is_array,
 +							is_msaa,
++							false,
 +							true, // must always have int coords for writes
 +							vk_func_name,
 +							func_arg_types,
