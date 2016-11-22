@@ -819,7 +819,7 @@ index 764e9bc..aab5e10 100644
  #undef COMPATIBLE_LANGOPT
  #undef BENIGN_LANGOPT
 diff --git a/include/clang/Basic/LangOptions.h b/include/clang/Basic/LangOptions.h
-index 6ec499f..40c55ef 100644
+index 6ec499f..e3b3c9a 100644
 --- a/include/clang/Basic/LangOptions.h
 +++ b/include/clang/Basic/LangOptions.h
 @@ -20,6 +20,7 @@
@@ -830,12 +830,13 @@ index 6ec499f..40c55ef 100644
  #include <string>
  #include <vector>
  
-@@ -82,6 +83,9 @@ public:
+@@ -82,6 +83,10 @@ public:
      MSVC2015 = 19
    };
  
 +  std::fstream* floor_function_info { nullptr };
 +  unsigned int floor_image_capabilities { 0 };
++  bool metal_no_array_image { false };
 +
  public:
    /// \brief Set of enabled sanitizers.
@@ -1132,7 +1133,7 @@ index cc38e24..8cabc1e 100644
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index f2cfc11..52aaf72 100644
+index f2cfc11..b31c95f 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
 @@ -465,6 +465,10 @@ def emit_pch : Flag<["-"], "emit-pch">,
@@ -1182,7 +1183,7 @@ index f2cfc11..52aaf72 100644
  // CUDA Options
  //===----------------------------------------------------------------------===//
  
-@@ -684,6 +717,19 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
+@@ -684,6 +717,21 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
    HelpText<"Don't treat unattributed constexpr functions as __host__ __device__.">;
  
  //===----------------------------------------------------------------------===//
@@ -1193,6 +1194,8 @@ index f2cfc11..52aaf72 100644
 +  HelpText<"Enable Intel GPU specific fixes and workarounds">;
 +def metal_nvidia_workarounds : Flag<["-"], "metal-nvidia-workarounds">,
 +  HelpText<"Enable Nvidia GPU specific fixes and workarounds">;
++def metal_no_array_image : Flag<["-"], "metal-no-array-image">,
++  HelpText<"Disables native support for array of images">;
 +
 +//===----------------------------------------------------------------------===//
 +// Vulkan Options
@@ -1260,20 +1263,21 @@ index f2ff194..4f3aba3 100644
 +TYPE("spirvc",                   SPIRVC,       INVALID,         "spvc",  "u")
  TYPE("none",                     Nothing,      INVALID,         nullptr, "u")
 diff --git a/include/clang/Frontend/CodeGenOptions.def b/include/clang/Frontend/CodeGenOptions.def
-index 4dd634c..c790515 100644
+index 4dd634c..35658f9 100644
 --- a/include/clang/Frontend/CodeGenOptions.def
 +++ b/include/clang/Frontend/CodeGenOptions.def
-@@ -65,6 +65,9 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
+@@ -65,6 +65,10 @@ CODEGENOPT(EmitDeclMetadata  , 1, 0) ///< Emit special metadata indicating what
  CODEGENOPT(EmitGcovArcs      , 1, 0) ///< Emit coverage data files, aka. GCDA.
  CODEGENOPT(EmitGcovNotes     , 1, 0) ///< Emit coverage "notes" files, aka GCNO.
  CODEGENOPT(EmitOpenCLArgMetadata , 1, 0) ///< Emit OpenCL kernel arg metadata.
 +CODEGENOPT(MetalIntelWorkarounds , 1, 0) ///< Enable Intel GPU specific fixes and workarounds.
 +CODEGENOPT(MetalNvidiaWorkarounds , 1, 0) ///< Enable Nvidia GPU specific fixes and workarounds.
++CODEGENOPT(MetalNoArrayImage , 1, 0) ///< Disable native array of images support.
 +CODEGENOPT(SPIRIntelWorkarounds , 1, 0) ///< Enable Intel SPIR specific fixes and workarounds.
  CODEGENOPT(EmulatedTLS       , 1, 0) ///< Set when -femulated-tls is enabled.
  /// \brief FP_CONTRACT mode (on/off/fast).
  ENUM_CODEGENOPT(FPContractMode, FPContractModeKind, 2, FPC_On)
-@@ -170,6 +173,11 @@ CODEGENOPT(VectorizeBB       , 1, 0) ///< Run basic block vectorizer.
+@@ -170,6 +174,11 @@ CODEGENOPT(VectorizeBB       , 1, 0) ///< Run basic block vectorizer.
  CODEGENOPT(VectorizeLoop     , 1, 0) ///< Run loop vectorizer.
  CODEGENOPT(VectorizeSLP      , 1, 0) ///< Run SLP vectorizer.
  
@@ -7768,7 +7772,7 @@ index 00df10d..5f59b88 100644
    /// IsZeroInitializable - Return whether a type can be
    /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 759e3d6..0496cf4 100644
+index 759e3d6..8829d99 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -69,11 +69,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -8120,7 +8124,7 @@ index 759e3d6..0496cf4 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -5782,6 +5845,195 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -5782,6 +5845,196 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -8183,6 +8187,7 @@ index 759e3d6..0496cf4 100644
 +}
 +
 +ABIArgInfo AIRABIInfo::classifyArgumentType(QualType Ty) const {
++  // CGT.getTarget() // TODO: native array image test
 +  if (Ty->isArrayImageType())
 +    return getNaturalAlignIndirect(Ty);
 +
@@ -8316,7 +8321,7 @@ index 759e3d6..0496cf4 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5852,7 +6104,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -5852,7 +6105,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
    return (Ty->isAnyComplexType() ||
            Ty->isVectorType() ||
@@ -8325,7 +8330,7 @@ index 759e3d6..0496cf4 100644
  }
  
  bool SystemZABIInfo::isVectorArgumentType(QualType Ty) const {
-@@ -6350,7 +6602,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -6350,7 +6603,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::alignTo(Offset, Align);
    Offset = CurrOffset + llvm::alignTo(TySize, Align * 8) / 8;
  
@@ -8334,7 +8339,7 @@ index 759e3d6..0496cf4 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -6435,7 +6687,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6435,7 +6688,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -8343,7 +8348,7 @@ index 759e3d6..0496cf4 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -6588,7 +6840,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
+@@ -6588,7 +6841,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
    llvm::Function *F = cast<llvm::Function>(GV);
  
    if (M.getLangOpts().OpenCL) {
@@ -8352,7 +8357,7 @@ index 759e3d6..0496cf4 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -6668,7 +6920,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -6668,7 +6921,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -8361,7 +8366,7 @@ index 759e3d6..0496cf4 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -6706,7 +6958,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6706,7 +6959,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return getNaturalAlignIndirect(RetTy);
  
@@ -8370,7 +8375,7 @@ index 759e3d6..0496cf4 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -6824,7 +7076,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
+@@ -6824,7 +7077,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
      }
    }
  
@@ -8379,7 +8384,7 @@ index 759e3d6..0496cf4 100644
      // Structures with flexible arrays are always indirect.
      if (RT && RT->getDecl()->hasFlexibleArrayMember())
        return getIndirectResult(Ty, /*ByVal=*/true, State);
-@@ -6927,7 +7179,21 @@ public:
+@@ -6927,7 +7180,21 @@ public:
  
  }
  
@@ -8402,7 +8407,7 @@ index 759e3d6..0496cf4 100644
  
  void AMDGPUTargetCodeGenInfo::setTargetAttributes(
    const Decl *D,
-@@ -6953,7 +7219,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
+@@ -6953,7 +7220,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
  
    appendOpenCLVersionMD(M);
  }
@@ -8411,7 +8416,7 @@ index 759e3d6..0496cf4 100644
  
  unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
    return llvm::CallingConv::AMDGPU_KERNEL;
-@@ -7168,7 +7434,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -7168,7 +7435,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend();
  
    // Other non-aggregates go in registers.
@@ -8420,7 +8425,7 @@ index 759e3d6..0496cf4 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -7596,58 +7862,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
+@@ -7596,58 +7863,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
    }
  }
  
@@ -8479,7 +8484,7 @@ index 759e3d6..0496cf4 100644
  static bool appendType(SmallStringEnc &Enc, QualType QType,
                         const CodeGen::CodeGenModule &CGM,
                         TypeStringCache &TSC);
-@@ -8145,6 +8359,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8145,6 +8360,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return SetCGInfo(new XCoreTargetCodeGenInfo(Types));
    case llvm::Triple::spir:
    case llvm::Triple::spir64:
@@ -8727,7 +8732,7 @@ index 89907f1..e6281f1 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 97c37de..bfee961 100644
+index 97c37de..e678fb3 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -45,6 +45,7 @@
@@ -8773,7 +8778,7 @@ index 97c37de..bfee961 100644
    Opts.DisableGCov = Args.hasArg(OPT_test_coverage);
    Opts.EmitGcovArcs = Args.hasArg(OPT_femit_coverage_data);
    Opts.EmitGcovNotes = Args.hasArg(OPT_femit_coverage_notes);
-@@ -700,7 +711,16 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -700,7 +711,17 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
    Opts.XRayInstructionThreshold =
        getLastArgIntValue(Args, OPT_fxray_instruction_threshold_, 200, Diags);
    Opts.InstrumentForProfiling = Args.hasArg(OPT_pg);
@@ -8787,11 +8792,12 @@ index 97c37de..bfee961 100644
 +  }
 +  Opts.MetalIntelWorkarounds = Args.hasArg(OPT_metal_intel_workarounds);
 +  Opts.MetalNvidiaWorkarounds = Args.hasArg(OPT_metal_nvidia_workarounds);
++  Opts.MetalNoArrayImage = Args.hasArg(OPT_metal_no_array_image);
 +  Opts.SPIRIntelWorkarounds = Args.hasArg(OPT_cl_spir_intel_workarounds);
    Opts.CompressDebugSections = Args.hasArg(OPT_compress_debug_sections);
    Opts.RelaxELFRelocations = Args.hasArg(OPT_mrelax_relocations);
    Opts.DebugCompilationDir = Args.getLastArgValue(OPT_fdebug_compilation_dir);
-@@ -780,6 +800,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
+@@ -780,6 +801,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
      }
    }
  
@@ -8799,7 +8805,7 @@ index 97c37de..bfee961 100644
    if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
      StringRef Val = A->getValue();
      if (Val == "fast")
-@@ -1099,6 +1120,14 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1099,6 +1121,14 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        Opts.ProgramAction = frontend::EmitAssembly; break;
      case OPT_emit_llvm_bc:
        Opts.ProgramAction = frontend::EmitBC; break;
@@ -8814,7 +8820,7 @@ index 97c37de..bfee961 100644
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1293,6 +1322,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1293,6 +1323,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -8823,7 +8829,7 @@ index 97c37de..bfee961 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -1307,6 +1338,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1307,6 +1339,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -8832,7 +8838,7 @@ index 97c37de..bfee961 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1507,6 +1540,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1507,6 +1541,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -8845,7 +8851,7 @@ index 97c37de..bfee961 100644
      case IK_CUDA:
      case IK_PreprocessedCuda:
        LangStd = LangStandard::lang_cuda;
-@@ -1558,6 +1597,24 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1558,6 +1598,24 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -8870,7 +8876,7 @@ index 97c37de..bfee961 100644
  
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
-@@ -1655,10 +1712,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1655,10 +1713,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -8892,7 +8898,7 @@ index 97c37de..bfee961 100644
        case IK_CUDA:
        case IK_PreprocessedCuda:
          if (!Std.isCPlusPlus())
-@@ -1676,10 +1743,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1676,10 +1744,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    if (const Arg *A = Args.getLastArg(OPT_cl_std_EQ)) {
      LangStandard::Kind OpenCLLangStd
      = llvm::StringSwitch<LangStandard::Kind>(A->getValue())
@@ -8909,7 +8915,7 @@ index 97c37de..bfee961 100644
      .Default(LangStandard::lang_unspecified);
  
      if (OpenCLLangStd == LangStandard::lang_unspecified) {
-@@ -1707,6 +1776,23 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1707,6 +1777,28 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
        << VerSpec << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -8930,10 +8936,15 @@ index 97c37de..bfee961 100644
 +    Opts.floor_image_capabilities = (unsigned int)std::stoul(image_caps);
 +  }
 +
++  // metal lang options
++  if (Args.hasArg(OPT_metal_no_array_image)) {
++    Opts.metal_no_array_image = true;
++  }
++
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2143,6 +2229,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2143,6 +2235,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -8954,7 +8965,7 @@ index 97c37de..bfee961 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -2252,6 +2352,10 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -2252,6 +2358,10 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:

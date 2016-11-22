@@ -23518,10 +23518,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..2226843
+index 0000000..14cb663
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3319 @@
+@@ -0,0 +1,3372 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23865,6 +23865,8 @@ index 0000000..2226843
 +    bool is_fbo{false};
 +    bool is_read_only{false};
 +    bool is_write_only{false};
++    bool set_location{false};
++    uint32_t location{0};
 +  };
 +
 +  GlobalVariable *emitShaderGlobal(
@@ -25415,7 +25417,7 @@ index 0000000..2226843
 +
 +        // deco
 +        spirv_elem_type->addDecorate(
-+            new SPIRVDecorate(DecorationBlock, spirv_elem_type));
++            new SPIRVDecorate(DecorationBufferBlock, spirv_elem_type));
 +      }
 +      decorateComposite(elem_type, spirv_elem_type);
 +    }
@@ -25508,10 +25510,12 @@ index 0000000..2226843
 +  }
 +
 +  // set non-readable/-writable deco on SSBOs
-+  if (global_type.is_uniform && !global_type.is_constant &&
-+      !global_type.is_image) {
-+    if (global_type.is_read_only) {
++  if (global_type.is_uniform && !global_type.is_image) {
++    if (global_type.is_read_only || global_type.is_constant) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonWritable, BVar));
++      if (global_type.is_constant) {
++        BVar->addDecorate(new SPIRVDecorate(DecorationUniform, BVar));
++      }
 +    } else if (global_type.is_write_only) {
 +      BVar->addDecorate(new SPIRVDecorate(DecorationNonReadable, BVar));
 +    }
@@ -25521,12 +25525,17 @@ index 0000000..2226843
 +  if (global_type.is_fbo) {
 +    BVar->addDecorate(
 +        new SPIRVDecorate(DecorationLocation, BVar, fbo_location));
++  } else if ((storage_class == spv::StorageClassOutput ||
++              storage_class == spv::StorageClassInput) &&
++             global_type.set_location) {
++    BVar->addDecorate(
++        new SPIRVDecorate(DecorationLocation, BVar, global_type.location));
 +  }
 +
 +  // automatically add the "flat" decoration on types that need it
 +  // NOTE: vulkan requires that this is only set on input variables
-+  if (storage_class == spv::StorageClassInput &&
-+      !global_type.is_fbo && !global_type.is_builtin) {
++  if (storage_class == spv::StorageClassInput && !global_type.is_fbo &&
++      !global_type.is_builtin) {
 +    // I/O should always be a pointer type
 +    if (GV.getType()->isPointerTy()) {
 +      auto elem_type = GV.getType()->getPointerElementType();
@@ -25892,7 +25901,11 @@ index 0000000..2226843
 +    };
 +
 +    // handle parameters (input or globals)
++    // TODO: proper input/output location handling: 1x - 4x 32-bit values can be
++    // packed into a single location, anything larger needs to be distributed
++    // over multiple locations
 +    uint32_t input_arg_idx = 0, uniform_arg_idx = 0;
++    uint32_t input_location = 0;
 +    uint32_t desc_set = 0;
 +    switch (stage) { // put each stage into a different set
 +    case VULKAN_STAGE::KERNEL:
@@ -25937,7 +25950,10 @@ index 0000000..2226843
 +        if (arg.onlyReadsMemory() &&
 +            (arg.hasAttribute(Attribute::Dereferenceable) ||
 +             arg.hasAttribute(Attribute::DereferenceableOrNull))) {
-+          // -> Block uniform
++          // -> uniform, use static/fixed SSBO
++          // NOTE: this could be made a Block variable, but that would have
++          // insane alignment/offset requirements, so always make it a SSBO,
++          // which has less restrictions
 +          // (TODO: could also make this a push constant later on)
 +          spirv_global_io_type global_type;
 +          global_type.is_constant = true;
@@ -25970,7 +25986,38 @@ index 0000000..2226843
 +            auto GV = emitShaderGlobal(*F, spirv_func, arg_name.str(),
 +                                       elem_type, SPIRAS_Uniform, global_type,
 +                                       md_info, &uniform_var);
-+            arg.replaceAllUsesWith(GV);
++            // any GEPs can be directly replaced with the new GV, all others can
++            // no longer access it directly, but must go through a new "GEP #0"
++            // access
++            while (!arg.user_empty()) {
++              auto user = *arg.user_begin();
++              // simple GEP ptr replacement
++              if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(user)) {
++                GEP->setOperand(0, GV);
++                continue;
++              }
++              // direct access
++              if (Instruction *instr = dyn_cast<Instruction>(user)) {
++                // create GEP to the first element
++                llvm::Value *idx_list[]{
++                    llvm::ConstantInt::get(llvm::Type::getInt32Ty(*Ctx), 0),
++                };
++                auto zero_gep =
++                    GetElementPtrInst::CreateInBounds(GV, idx_list, "", instr);
++                zero_gep->setDebugLoc(instr->getDebugLoc());
++
++                // replace all uses in the instruction
++                for (uint32_t op_idx = 0; op_idx < instr->getNumOperands();
++                     ++op_idx) {
++                  auto op = instr->getOperand(op_idx);
++                  if (op == &arg) {
++                    instr->setOperand(op_idx, zero_gep);
++                  }
++                }
++                continue;
++              }
++              assert(false && "should not be here - unknown arg user");
++            }
 +          }
 +        } else if (arg_type->getPointerAddressSpace() == SPIRAS_Private &&
 +                   arg_type->getPointerElementType()->isArrayTy()) {
@@ -26043,6 +26090,10 @@ index 0000000..2226843
 +          spirv_global_io_type global_type;
 +          global_type.is_input = true;
 +          global_type.is_read_only = true;
++          if (md_prefix != "stage") {
++            global_type.set_location = true;
++            global_type.location = input_location++;
++          }
 +          auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
 +                                           SPIRAS_Input, global_type, md_info);
 +          // only emit load if there actually is a user
@@ -26069,7 +26120,7 @@ index 0000000..2226843
 +    // -> create SPIRVVariable for outputs + add them to the entry point i/o set
 +    // in here
 +    const std::string output_var_name_stub = func_name + ".vulkan_output.";
-+    uint32_t output_arg_idx = 0;
++    uint32_t output_arg_idx = 0, output_location = 0;
 +    for (const auto &GV : M->globals()) {
 +      if (GV.hasName() &&
 +          GV.getName().find(output_var_name_stub) != std::string::npos) {
@@ -26128,6 +26179,8 @@ index 0000000..2226843
 +        else {
 +          spirv_global_io_type global_type;
 +          global_type.is_write_only = true;
++          global_type.set_location = true;
++          global_type.location = output_location++;
 +          emitShaderSPIRVGlobal(spirv_func, GV, output_name, SPIRAS_Output,
 +                                global_type, md_info);
 +        }
