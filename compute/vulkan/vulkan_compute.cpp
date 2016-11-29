@@ -342,6 +342,9 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device->max_image_1d_buffer_dim = limits.maxTexelBufferElements;
 		device->max_image_2d_dim = { limits.maxImageDimension2D, limits.maxImageDimension2D };
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
+		device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
+																					  device->max_image_3d_dim.max_element()),
+																			 device->max_image_1d_dim));;
 		
 		device->image_msaa_array_support = features.shaderStorageImageMultisample;
 		device->image_msaa_array_write_support = device->image_msaa_array_support;

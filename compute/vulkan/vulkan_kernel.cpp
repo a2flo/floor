@@ -321,13 +321,17 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	const auto img_access = entry.info->args[idx.arg].image_access;
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		vk_img->transition_write(encoder->cmd_buffer.cmd_buffer);
+		vk_img->transition_write(encoder->cmd_buffer.cmd_buffer,
+								 // also readable?
+								 img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 	}
 	else { // READ
 		vk_img->transition_read(encoder->cmd_buffer.cmd_buffer);
 	}
 	
-	{
+	// read image desc/obj
+	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ ||
+	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		auto& write_desc = encoder->write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		write_desc.pNext = nullptr;
@@ -341,10 +345,16 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 		write_desc.pTexelBufferView = nullptr;
 	}
 	
-	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
-		// next, but still the same arg
-		++idx.write_desc;
-		++idx.binding;
+	// write image descs/objs
+	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
+	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+		if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
+			// next, but still the same arg
+			++idx.write_desc;
+			++idx.binding;
+		}
+		
+		const auto& mip_info = vk_img->get_vulkan_mip_map_image_info();
 		
 		auto& write_desc = encoder->write_descs[idx.write_desc];
 		write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -352,9 +362,9 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 		write_desc.dstSet = entry.desc_set;
 		write_desc.dstBinding = idx.binding;
 		write_desc.dstArrayElement = 0;
-		write_desc.descriptorCount = 1;
+		write_desc.descriptorCount = uint32_t(mip_info.size());
 		write_desc.descriptorType = entry.desc_types[idx.binding];
-		write_desc.pImageInfo = vk_img->get_vulkan_image_info();
+		write_desc.pImageInfo = mip_info.data();
 		write_desc.pBufferInfo = nullptr;
 		write_desc.pTexelBufferView = nullptr;
 	}
@@ -367,12 +377,16 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 														 const vulkan_kernel::vulkan_kernel_entry& entry,
 														 vulkan_kernel::idx_handler& idx,
 														 const vector<T>& image_array, F&& image_accessor) {
+	// TODO: write/read-write array support
+	
 	// transition images to appropriate layout
 	const auto img_access = entry.info->args[idx.arg].image_access;
 	if(img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE ||
 	   img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE) {
 		for(auto& img : image_array) {
-			image_accessor(img)->transition_write(encoder->cmd_buffer.cmd_buffer);
+			image_accessor(img)->transition_write(encoder->cmd_buffer.cmd_buffer,
+												  // also readable?
+												  img_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE);
 		}
 	}
 	else { // READ

@@ -64,7 +64,8 @@ public:
 	//! transition for shader or attachment read (if not already in this mode)
 	void transition_read(VkCommandBuffer cmd_buffer);
 	//! transition for shader or attachment write (if not already in this mode)
-	void transition_write(VkCommandBuffer cmd_buffer);
+	//! if 'read_write' is set, will also make the image readable
+	void transition_write(VkCommandBuffer cmd_buffer, const bool read_write = false);
 	
 	//! returns the vulkan specific image object/pointer
 	const VkImage& get_vulkan_image() const {
@@ -81,6 +82,11 @@ public:
 		return &image_info;
 	}
 	
+	//! returns the mip-map image descriptor info array of this image
+	const vector<VkDescriptorImageInfo>& get_vulkan_mip_map_image_info() const {
+		return mip_map_image_info;
+	}
+	
 	//! returns the vulkan image format that is used for this image
 	VkFormat get_vulkan_format() const {
 		return vk_format;
@@ -93,6 +99,12 @@ protected:
 	VkAccessFlags cur_access_mask { 0 };
 	VkImageUsageFlags usage { 0 };
 	VkFormat vk_format { VK_FORMAT_UNDEFINED };
+	
+	// similar to image_info, but these contain per-level image views and infos
+	// NOTE: image views are only created/used when the image is writable
+	vector<VkImageView> mip_map_image_view;
+	vector<VkDescriptorImageInfo> mip_map_image_info;
+	void update_mip_map_info();
 	
 	//! separate create buffer function, b/c it's called by the constructor and resize
 	bool create_internal(const bool copy_host_data, shared_ptr<compute_queue> cqueue);

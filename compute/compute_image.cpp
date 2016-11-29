@@ -847,7 +847,9 @@ void compute_image::build_mip_map_minification_program() const {
 		
 		// drop depth image kernel (handling) if there is no depth image support
 		if(!dev->image_depth_support ||
-		   !dev->image_depth_write_support) {
+		   !dev->image_depth_write_support ||
+		   // TODO: vulkan support
+		   ctx->get_compute_type() == COMPUTE_TYPE::VULKAN) {
 			minify_kernels.erase(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH | COMPUTE_IMAGE_TYPE::FLOAT);
 			minify_kernels.erase(COMPUTE_IMAGE_TYPE::IMAGE_DEPTH_ARRAY | COMPUTE_IMAGE_TYPE::FLOAT);
 		}
@@ -917,6 +919,10 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) con
 			case 2: lsize = { (dev->max_total_local_size > 256 ? 32 : 16), (dev->max_total_local_size > 512 ? 32 : 16), 1 }; break;
 			default:
 			case 3: lsize = { (dev->max_total_local_size > 512 ? 32 : 16), (dev->max_total_local_size > 256 ? 16 : 8), 2 }; break;
+		}
+		// TODO: vulkan 2D kernel execution
+		if(dev->context->get_compute_type() == COMPUTE_TYPE::VULKAN) {
+			lsize = { dev->max_total_local_size, 1, 1 };
 		}
 		for(uint32_t layer = 0; layer < layer_count; ++layer) {
 			uint3 level_size {

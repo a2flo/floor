@@ -21,7 +21,8 @@
 
 // only add depth image types if these are supported (both read and write)
 #if defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_SUPPORT_1) && \
-	defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT_1)
+	defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_DEPTH_WRITE_SUPPORT_1) && \
+	!defined(FLOOR_COMPUTE_VULKAN) // TODO: vulkan support
 #define FLOOR_MINIFY_DEPTH_IMAGE_TYPES(F) \
 F(IMAGE_DEPTH, FLOAT) \
 F(IMAGE_DEPTH_ARRAY, FLOAT)

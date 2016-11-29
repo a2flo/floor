@@ -305,19 +305,24 @@ namespace floor_image {
 												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+#elif defined(FLOOR_COMPUTE_VULKAN)
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_lod_obj[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
+		floor_inline_always constexpr auto& w_img() const { return w_img_lod_obj[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		const uint64_t w_img_obj;
 		const uint64_t* w_img_lod_obj;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
+		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* w_img_obj;
-#endif
-		
 		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+#endif
 	};
 	//! read-write
 	template <COMPUTE_IMAGE_TYPE image_type>
@@ -325,7 +330,7 @@ namespace floor_image {
 												  has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))>> {
 		typedef typename to_sample_type<image_type>::type sample_type;
 		
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 #if !defined(FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT_1)
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
@@ -337,6 +342,12 @@ namespace floor_image {
 		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
 		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
 #endif
+#elif defined(FLOOR_COMPUTE_VULKAN)
+		typedef typename opaque_image_type<image_type>::type opaque_type;
+		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
+		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
+		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
+		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		const uint64_t w_img_obj;
@@ -894,7 +905,11 @@ namespace floor_image {
 		using typename image_base_type::sample_type;
 		using typename image_base_type::vector_sample_type;
 		using image_base_type::convert_coord;
+#if !defined(FLOOR_COMPUTE_VULKAN)
 		using image_storage_type::w_img;
+#else
+		using image_storage_type::w_img_lod_obj;
+#endif
 #if defined(FLOOR_COMPUTE_CUDA)
 		using image_storage_type::w_img_obj;
 		using image_storage_type::w_img_lod_obj;
@@ -920,15 +935,26 @@ namespace floor_image {
 			const auto converted_data = image_base_type::template convert_data<sample_type>(data);
 			
 			// NOTE: data casts are necessary because clang is doing sema checking for these even if they're not used
-#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
+#if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 			if constexpr(is_float) opaque_image::write_image_float(w_img(), image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
 			else if constexpr(is_int) opaque_image::write_image_int(w_img(), image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
 			else opaque_image::write_image_uint(w_img(), image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+#elif defined(FLOOR_COMPUTE_VULKAN)
+			if constexpr(!is_lod) {
+				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (float4)converted_data);
+				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (int4)converted_data);
+				else opaque_image::write_image_uint((*w_img_lod_obj)[0], image_type, converted_coord, layer, 0, false, (uint4)converted_data);
+			}
+			else {
+				if constexpr(is_float) opaque_image::write_image_float((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
+				else if constexpr(is_int) opaque_image::write_image_int((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
+				else opaque_image::write_image_uint((*w_img_lod_obj)[lod], image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+			}
 #elif defined(FLOOR_COMPUTE_CUDA)
 			if constexpr(!is_lod) {
-				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);
-				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (int4)converted_data);
-				else cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, lod, is_lod, (uint4)converted_data);
+				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (float4)converted_data);
+				else if constexpr(is_int) cuda_image::write_int<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (int4)converted_data);
+				else cuda_image::write_uint<image_type>(w_img_obj, runtime_image_type, converted_coord, layer, 0, false, (uint4)converted_data);
 			}
 			else {
 				if constexpr(is_float) cuda_image::write_float<image_type>(w_img_lod_obj[lod], runtime_image_type, converted_coord, layer, lod, is_lod, (float4)converted_data);

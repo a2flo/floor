@@ -53,6 +53,11 @@ vulkan_memory(device, &image) {
 		default: floor_unreachable();
 	}
 	
+	// must be able to write to the image when mip-map generation is enabled
+	if(generate_mip_maps) {
+		usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+	}
+	
 	if(has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
 		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
 			usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -377,6 +382,58 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	image_info.imageView = image_view;
 	image_info.imageLayout = final_layout; // TODO: need to keep track of this
 	
+	// if mip-mapping is enabled and the image is writable or mip-maps should be generated,
+	// we need to create a per-level image view, so that kernels/shaders can actually write to each mip-map level
+	// (Vulkan doesn't support this at this point, although SPIR-V does)
+	if(is_mip_mapped && (generate_mip_maps || has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))) {
+		mip_map_image_info.resize(device->max_mip_levels);
+		mip_map_image_view.resize(device->max_mip_levels);
+		const auto last_level = mip_level_count - 1;
+		for(uint32_t i = 0; i < device->max_mip_levels; ++i) {
+			mip_map_image_info[i].sampler = nullptr;
+			
+			// fill unused views with the last (1x1 level) view
+			if(i > last_level) {
+				mip_map_image_view[i] = mip_map_image_view[last_level];
+				mip_map_image_info[i].imageView = mip_map_image_view[last_level];
+				continue;
+			}
+			
+			// create a view of a single mip level
+			const VkImageSubresourceRange mip_sub_rsrc_range {
+				.aspectMask = aspect,
+				.baseMipLevel = i,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = layer_count,
+			};
+			
+			const VkImageViewCreateInfo mip_image_view_create_info {
+				.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				.pNext = nullptr,
+				.flags = 0,
+				.image = image,
+				.viewType = view_type,
+				.format = vk_format,
+				.components = {
+					VK_COMPONENT_SWIZZLE_IDENTITY,
+					VK_COMPONENT_SWIZZLE_IDENTITY,
+					VK_COMPONENT_SWIZZLE_IDENTITY,
+					VK_COMPONENT_SWIZZLE_IDENTITY
+				},
+				.subresourceRange = mip_sub_rsrc_range,
+			};
+			VK_CALL_RET(vkCreateImageView(vulkan_dev, &mip_image_view_create_info, nullptr, &mip_map_image_view[i]),
+						"mip-map image view creation failed", false);
+			mip_map_image_info[i].imageView = mip_map_image_view[i];
+		}
+	}
+	else {
+		mip_map_image_info.resize(device->max_mip_levels, image_info);
+		mip_map_image_view.resize(device->max_mip_levels, image_view);
+	}
+	update_mip_map_info();
+	
 	// buffer init from host data pointer
 	if(copy_host_data &&
 	   host_ptr != nullptr &&
@@ -404,10 +461,20 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 
 vulkan_image::~vulkan_image() {
 	auto vulkan_dev = ((const vulkan_device*)dev)->device;
+	
 	if(image_view != nullptr) {
 		vkDestroyImageView(vulkan_dev, image_view, nullptr);
 		image_view = nullptr;
 	}
+	
+	// mip-map image views
+	if(is_mip_mapped && (generate_mip_maps || has_flag<COMPUTE_IMAGE_TYPE::WRITE>(image_type))) {
+		// only need to destroy all created ones (not up to dev->max_mip_levels)
+		for(uint32_t i = 0; i < mip_level_count; ++i) {
+			vkDestroyImageView(vulkan_dev, mip_map_image_view[i], nullptr);
+		}
+	}
+	
 	if(image != nullptr) {
 		vkDestroyImage(vulkan_dev, image, nullptr);
 		image = nullptr;
@@ -594,15 +661,18 @@ void vulkan_image::transition(VkCommandBuffer cmd_buffer,
 	
 	cur_access_mask = dst_access;
 	image_info.imageLayout = new_layout;
+	update_mip_map_info();
 }
 
 void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
 	// normal images
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-		if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+		const VkAccessFlags access_flags = VK_ACCESS_SHADER_READ_BIT;
+		if(image_info.imageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL &&
+		   cur_access_mask == access_flags) {
 			return;
 		}
-		transition(cmd_buffer, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+		transition(cmd_buffer, access_flags, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 	// attachments / render-targets
@@ -627,17 +697,25 @@ void vulkan_image::transition_read(VkCommandBuffer cmd_buffer) {
 	}
 }
 
-void vulkan_image::transition_write(VkCommandBuffer cmd_buffer) {
+void vulkan_image::transition_write(VkCommandBuffer cmd_buffer, const bool read_write) {
 	// normal images
 	if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_RENDER_TARGET>(image_type)) {
-		if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL) {
+		VkAccessFlags access_flags = VK_ACCESS_SHADER_WRITE_BIT;
+		if(read_write) access_flags |= VK_ACCESS_SHADER_READ_BIT;
+		
+		if(image_info.imageLayout == VK_IMAGE_LAYOUT_GENERAL &&
+		   cur_access_mask == access_flags) {
 			return;
 		}
-		transition(cmd_buffer, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+		transition(cmd_buffer, access_flags, VK_IMAGE_LAYOUT_GENERAL,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
 	}
 	// attachments / render-targets
 	else {
+#if defined(FLOOR_DEBUG)
+		if(read_write) log_error("attachment / render-target can't be read-write");
+#endif
+		
 		VkImageLayout layout;
 		VkAccessFlags access_flags;
 		if(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(image_type)) {
@@ -652,6 +730,13 @@ void vulkan_image::transition_write(VkCommandBuffer cmd_buffer) {
 		
 		transition(cmd_buffer, access_flags, layout,
 				   VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT);
+	}
+}
+
+void vulkan_image::update_mip_map_info() {
+	// NOTE: sampler is always nullptr, imageView is always the same, so we only need to update the current layout here
+	for(auto& info : mip_map_image_info) {
+		info.imageLayout = image_info.imageLayout;
 	}
 }
 

@@ -37,6 +37,7 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 		for(const auto& prog : programs) {
 			if(!prog.second.valid) continue;
 			
+			const auto max_mip_levels = prog.first->max_mip_levels;
 			for(const auto& info : prog.second.functions) {
 				if(info.name == func_name) {
 					vulkan_kernel::vulkan_kernel_entry entry;
@@ -82,10 +83,13 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										break;
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::WRITE:
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+										bindings[binding_idx].descriptorCount *= max_mip_levels;
 										if(is_image_array) {
-											write_image_desc += info.args[i].size;
+											write_image_desc += info.args[i].size * max_mip_levels;
 										}
-										else ++write_image_desc;
+										else {
+											write_image_desc += max_mip_levels;
+										}
 										break;
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE: {
 										if(is_image_array) {
@@ -96,17 +100,19 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 										
 										// need to add both a sampled one and a storage one
 										bindings[binding_idx].descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+										descriptor_types.emplace(next(begin(descriptor_types), binding_idx),
+																 VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE);
 										++binding_idx;
 										bindings.emplace(next(begin(bindings), binding_idx),
 														 VkDescriptorSetLayoutBinding {
 															 .binding = binding_idx,
 															 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-															 .descriptorCount = 1,
+															 .descriptorCount = max_mip_levels,
 															 .stageFlags = stage,
 															 .pImmutableSamplers = nullptr,
 														 });
 										++read_image_desc;
-										++write_image_desc;
+										write_image_desc += max_mip_levels;
 										break;
 									}
 									case llvm_toolchain::function_info::ARG_IMAGE_ACCESS::NONE:
