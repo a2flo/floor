@@ -149,7 +149,7 @@ index 03a61e9..af2c02c 100644
  
  //===- Binary Operations  -------------------------------------------------===//
 diff --git a/include/clang/AST/Type.h b/include/clang/AST/Type.h
-index 6bbba48..0aa28df 100644
+index 6bbba48..50e1f8a 100644
 --- a/include/clang/AST/Type.h
 +++ b/include/clang/AST/Type.h
 @@ -429,10 +429,10 @@ public:
@@ -202,7 +202,7 @@ index 6bbba48..0aa28df 100644
    bool isImageType() const;                     // Any OpenCL image type
  
 +  bool isAggregateImageType() const;            // struct/class containing only image*_t members
-+  bool isArrayImageType() const;                // array of aggregate images
++  bool isArrayImageType(bool single_field_arr) const; // array of aggregate images
 +
    bool isSamplerT() const;                      // OpenCL sampler_t
    bool isEventT() const;                        // OpenCL event_t
@@ -1963,7 +1963,7 @@ index 479ac44..c1fee1c 100644
  #include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index 4c1d4ec..873b9f3 100644
+index 4c1d4ec..52c1ff7 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1788,6 +1788,13 @@ bool Type::isFloatingType() const {
@@ -2072,7 +2072,7 @@ index 4c1d4ec..873b9f3 100644
    case attr_inteloclbicc:
    case attr_preserve_most:
    case attr_preserve_all:
-@@ -3789,3 +3838,66 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -3789,3 +3838,101 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -2089,7 +2089,9 @@ index 4c1d4ec..873b9f3 100644
 +	// iterate over all fields/members and check if all are image types
 +	bool has_any_image = false;
 +	for(const auto& field : decl->fields()) {
-+		if(!field->getType()->isImageType()) {
++		// direct image type or array thereof
++		if(!field->getType()->isImageType() &&
++		   !field->getType()->isArrayImageType(false)) {
 +			return { false, false };
 +		}
 +		has_any_image = true;
@@ -2117,7 +2119,20 @@ index 4c1d4ec..873b9f3 100644
 +  return valid_and_has_image.first && valid_and_has_image.second;
 +}
 +
-+bool Type::isArrayImageType() const {
++bool Type::isArrayImageType(bool single_field_arr) const {
++  // only check/match this for C-style arrays of builtin images
++  if(!single_field_arr) {
++    if(isPointerType() && getPointeeType()->isArrayType()) {
++      return getPointeeType()->isArrayImageType(single_field_arr);
++    }
++
++    // simple C-style array that contains an image type
++    if(isArrayType()) {
++      return (getAsArrayTypeUnsafe()->getElementType()->isAggregateImageType() ||
++              getAsArrayTypeUnsafe()->getElementType()->isImageType());
++    }
++  }
++
 +  // must be struct or class, union is not allowed
 +  if(!isStructureOrClassType()) return false;
 +
@@ -2128,16 +2143,36 @@ index 4c1d4ec..873b9f3 100644
 +  // must have definition
 +  if(!decl->hasDefinition()) return false;
 +
-+  // must have exactly one field
++  // must have at least one field
 +  const auto field_count = std::distance(decl->field_begin(), decl->field_end());
-+  if(field_count != 1) return false;
++  if(field_count == 0) return false;
 +
-+  // field must be an array
-+  const QualType arr_field_type = decl->field_begin()->getType();
-+  if(!arr_field_type->isArrayType()) return false;
++  // handle "array of agg images" (single_field_arr == true) and "agg image with array of *images" (false)
++  if(single_field_arr) {
++    if(field_count != 1) return false;
 +
-+  // element type must be an aggregate image type
-+  return arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType();
++    // field must be an array
++    const QualType arr_field_type = decl->field_begin()->getType();
++    if(!arr_field_type->isArrayType()) return false;
++
++    // element type must be an aggregate image type
++    return arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType();
++  }
++  else {
++    // must have an array field
++    bool has_array = false;
++    QualType arr_field_type;
++    for(const auto& field : decl->fields()) {
++      arr_field_type = field->getType();
++      has_array = arr_field_type->isArrayType();
++      if(has_array) break;
++    }
++    if(!has_array) return false;
++
++    // either the enclosing/parent type or the array field type must be an aggregate image type
++    return (isAggregateType() ||
++            arr_field_type->getArrayElementTypeNoTypeQual()->isAggregateImageType());
++  }
 +}
 diff --git a/lib/AST/TypePrinter.cpp b/lib/AST/TypePrinter.cpp
 index 065a2db..cae9edd 100644
@@ -2988,7 +3023,7 @@ index c06fcf7..f0e6a75 100644
        }
        return RValue::get(nullptr);
 diff --git a/lib/CodeGen/CGCall.cpp b/lib/CodeGen/CGCall.cpp
-index 94261bf..78af38c 100644
+index 94261bf..f50b4a6 100644
 --- a/lib/CodeGen/CGCall.cpp
 +++ b/lib/CodeGen/CGCall.cpp
 @@ -57,8 +57,10 @@ unsigned CodeGenTypes::ClangCallConvToLLVMCallConv(CallingConv CC) {
@@ -3063,7 +3098,7 @@ index 94261bf..78af38c 100644
  struct NoExpansion : TypeExpansion {
    NoExpansion() : TypeExpansion(TEK_None) {}
    static bool classof(const TypeExpansion *TE) {
-@@ -829,12 +869,59 @@ struct NoExpansion : TypeExpansion {
+@@ -829,12 +869,61 @@ struct NoExpansion : TypeExpansion {
  }  // namespace
  
  static std::unique_ptr<TypeExpansion>
@@ -3117,7 +3152,9 @@ index 94261bf..78af38c 100644
 +        field_decls.push_back(FD);
 +      }
 +
-+      auto fields = CGT.get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, false, false);
++      auto fields = CGT.get_aggregate_scalar_fields(cxx_rdecl, cxx_rdecl, false, false,
++                                                    !(Context.getLangOpts().Vulkan ||
++                                                      Context.getLangOpts().Metal));
 +      return llvm::make_unique<FloorAggregateExpansion>(std::move(bases), std::move(field_decls), std::move(fields));
 +    }
 +  }
@@ -3125,7 +3162,7 @@ index 94261bf..78af38c 100644
      SmallVector<const CXXBaseSpecifier *, 1> Bases;
      SmallVector<const FieldDecl *, 1> Fields;
      const RecordDecl *RD = RT->getDecl();
-@@ -886,17 +973,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
+@@ -886,17 +975,24 @@ getTypeExpansion(QualType Ty, const ASTContext &Context) {
    return llvm::make_unique<NoExpansion>();
  }
  
@@ -3155,7 +3192,7 @@ index 94261bf..78af38c 100644
      return Res;
    }
    if (isa<ComplexExpansion>(Exp.get()))
-@@ -907,17 +1001,24 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
+@@ -907,17 +1003,30 @@ static int getExpansionSize(QualType Ty, const ASTContext &Context) {
  
  void
  CodeGenTypes::getExpandedTypes(QualType Ty,
@@ -3173,7 +3210,13 @@ index 94261bf..78af38c 100644
 +    *TI++ = ConvertType(FVCExp->vector_type);
 +  } else if (auto FAExp = dyn_cast<FloorAggregateExpansion>(Exp.get())) {
 +    for(const auto& field : FAExp->fields) {
-+      *TI++ = ConvertType(field.type);
++      auto conv_type = ConvertType(field.type);;
++      if (field.type->isArrayImageType(false)) {
++        *TI++ = (!conv_type->isPointerTy() ?
++                  llvm::PointerType::get(conv_type, 0) : conv_type);
++      } else {
++        *TI++ = conv_type;
++      }
      }
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      for (auto BS : RExp->Bases)
@@ -3185,7 +3228,7 @@ index 94261bf..78af38c 100644
    } else if (auto CExp = dyn_cast<ComplexExpansion>(Exp.get())) {
      llvm::Type *EltTy = ConvertType(CExp->EltTy);
      *TI++ = EltTy;
-@@ -943,18 +1044,42 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
+@@ -943,18 +1052,55 @@ static void forConstantArrayExpansion(CodeGenFunction &CGF,
    }
  }
  
@@ -3225,14 +3268,27 @@ index 94261bf..78af38c 100644
 +
 +    for(const auto& field : FAExp->fields) {
 +      if(field.is_in_base) continue; // already handled
-+      // TODO: arrays -> these have no FD
-+      LValue SubLV = EmitLValueForFieldInitialization(LV, field.field_decl);
-+      ExpandTypeFromArgs(SubLV.getType(), SubLV, AI, CC);
++      // TODO: non-image arrays -> these have no FD
++      if (field.field_decl) {
++        // array of images
++        if (field.type->isArrayImageType(false)) {
++          LValue SubLV = EmitLValueForField(LV, field.field_decl);
++          Builder.CreateStore(*AI++, SubLV.getAddress());
++        }
++        // all else
++        else {
++          LValue SubLV = EmitLValueForFieldInitialization(LV, field.field_decl);
++          ExpandTypeFromArgs(SubLV.getType(), SubLV, AI, CC);
++        }
++      } else {
++        // will probably fail, but still try -> TODO above
++        EmitStoreThroughLValue(RValue::get(*AI++), LV);
++      }
 +    }
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = LV.getAddress();
      for (const CXXBaseSpecifier *BS : RExp->Bases) {
-@@ -965,12 +1090,12 @@ void CodeGenFunction::ExpandTypeFromArgs(
+@@ -965,12 +1111,12 @@ void CodeGenFunction::ExpandTypeFromArgs(
        LValue SubLV = MakeAddrLValue(Base, BS->getType());
  
        // Recurse onto bases.
@@ -3247,7 +3303,7 @@ index 94261bf..78af38c 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      auto realValue = *AI++;
-@@ -984,15 +1109,44 @@ void CodeGenFunction::ExpandTypeFromArgs(
+@@ -984,15 +1130,44 @@ void CodeGenFunction::ExpandTypeFromArgs(
  
  void CodeGenFunction::ExpandTypeToArgs(
      QualType Ty, RValue RV, llvm::FunctionType *IRFuncTy,
@@ -3295,7 +3351,7 @@ index 94261bf..78af38c 100644
    } else if (auto RExp = dyn_cast<RecordExpansion>(Exp.get())) {
      Address This = RV.getAggregateAddress();
      for (const CXXBaseSpecifier *BS : RExp->Bases) {
-@@ -1004,14 +1158,14 @@ void CodeGenFunction::ExpandTypeToArgs(
+@@ -1004,14 +1179,14 @@ void CodeGenFunction::ExpandTypeToArgs(
  
        // Recurse onto bases.
        ExpandTypeToArgs(BS->getType(), BaseRV, IRFuncTy, IRCallArgs,
@@ -3312,7 +3368,7 @@ index 94261bf..78af38c 100644
      }
    } else if (isa<ComplexExpansion>(Exp.get())) {
      ComplexPairTy CV = RV.getComplexVal();
-@@ -1303,11 +1457,11 @@ class ClangToLLVMArgMapping {
+@@ -1303,11 +1478,11 @@ class ClangToLLVMArgMapping {
    SmallVector<IRArgs, 8> ArgInfo;
  
  public:
@@ -3326,7 +3382,7 @@ index 94261bf..78af38c 100644
    }
  
    bool hasInallocaArg() const { return InallocaArgNo != InvalidIndex; }
-@@ -1342,12 +1496,13 @@ public:
+@@ -1342,12 +1517,13 @@ public:
    }
  
  private:
@@ -3341,7 +3397,7 @@ index 94261bf..78af38c 100644
                                        bool OnlyRequiredArgs) {
    unsigned IRArgNo = 0;
    bool SwapThisWithSRet = false;
-@@ -1395,7 +1550,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
+@@ -1395,7 +1571,7 @@ void ClangToLLVMArgMapping::construct(const ASTContext &Context,
        IRArgs.NumberOfArgs = AI.getCoerceAndExpandTypeSequence().size();
        break;
      case ABIArgInfo::Expand:
@@ -3350,7 +3406,7 @@ index 94261bf..78af38c 100644
        break;
      }
  
-@@ -1502,7 +1657,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1502,7 +1678,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
      break;
    }
  
@@ -3359,7 +3415,7 @@ index 94261bf..78af38c 100644
    SmallVector<llvm::Type*, 8> ArgTypes(IRFunctionArgs.totalIRArgs());
  
    // Add type for sret argument.
-@@ -1578,7 +1733,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
+@@ -1578,7 +1754,7 @@ CodeGenTypes::GetFunctionType(const CGFunctionInfo &FI) {
  
      case ABIArgInfo::Expand:
        auto ArgTypesIter = ArgTypes.begin() + FirstIRArg;
@@ -3368,7 +3424,7 @@ index 94261bf..78af38c 100644
        assert(ArgTypesIter == ArgTypes.begin() + FirstIRArg + NumIRArgs);
        break;
      }
-@@ -1802,7 +1957,7 @@ void CodeGenModule::ConstructAttributeList(
+@@ -1802,7 +1978,7 @@ void CodeGenModule::ConstructAttributeList(
        FuncAttrs.addAttribute("nvptx-f32ftz", "true");
    }
  
@@ -3377,7 +3433,7 @@ index 94261bf..78af38c 100644
  
    QualType RetTy = FI.getReturnType();
    const ABIArgInfo &RetAI = FI.getReturnInfo();
-@@ -2095,7 +2250,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2095,7 +2271,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
    // FIXME: We no longer need the types from FunctionArgList; lift up and
    // simplify.
  
@@ -3386,7 +3442,7 @@ index 94261bf..78af38c 100644
    // Flattened function arguments.
    SmallVector<llvm::Value *, 16> FnArgs;
    FnArgs.reserve(IRFunctionArgs.totalIRArgs());
-@@ -2413,7 +2568,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
+@@ -2413,7 +2589,7 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
        ArgVals.push_back(ParamValue::forIndirect(Alloca));
  
        auto FnArgIter = FnArgs.begin() + FirstIRArg;
@@ -3395,7 +3451,7 @@ index 94261bf..78af38c 100644
        assert(FnArgIter == FnArgs.begin() + FirstIRArg + NumIRArgs);
        for (unsigned i = 0, e = NumIRArgs; i != e; ++i) {
          auto AI = FnArgs[FirstIRArg + i];
-@@ -3551,7 +3706,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3551,7 +3727,7 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      return Builder.CreateStructGEP(ArgMemory, FieldIndex, FieldOffset);
    };
  
@@ -3404,7 +3460,7 @@ index 94261bf..78af38c 100644
    SmallVector<llvm::Value *, 16> IRCallArgs(IRFunctionArgs.totalIRArgs());
  
    // If the call returns a temporary with struct return, create a temporary
-@@ -3714,9 +3869,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3714,9 +3890,14 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
          // If the argument doesn't match, perform a bitcast to coerce it.  This
          // can happen due to trivial type mismatches.
          if (FirstIRArg < IRFuncTy->getNumParams() &&
@@ -3422,7 +3478,7 @@ index 94261bf..78af38c 100644
          IRCallArgs[FirstIRArg] = V;
          break;
        }
-@@ -3822,7 +3982,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3822,7 +4003,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
  
      case ABIArgInfo::Expand:
        unsigned IRArgPos = FirstIRArg;
@@ -3432,7 +3488,7 @@ index 94261bf..78af38c 100644
        assert(IRArgPos == FirstIRArg + NumIRArgs);
        break;
      }
-@@ -3901,8 +4062,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -3901,8 +4083,17 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      if (IRFunctionArgs.hasInallocaArg() &&
          i == IRFunctionArgs.getInallocaArgNo())
        continue;
@@ -3451,7 +3507,7 @@ index 94261bf..78af38c 100644
    }
  
    unsigned CallingConv;
-@@ -4075,6 +4245,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4075,6 +4266,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
              DestPtr = CreateMemTemp(RetTy, "agg.tmp");
              DestIsVolatile = false;
            }
@@ -3465,7 +3521,7 @@ index 94261bf..78af38c 100644
            BuildAggStore(*this, CI, DestPtr, DestIsVolatile);
            return RValue::getAggregate(DestPtr);
          }
-@@ -4127,6 +4304,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
+@@ -4127,6 +4325,27 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
      }
    }
  
@@ -4823,7 +4879,7 @@ index dd80390..4e3b676 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12..8c2e911 100644
+index 183ee12..e8a651d 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -4836,7 +4892,7 @@ index 183ee12..8c2e911 100644
  using namespace clang;
  using namespace CodeGen;
  
-@@ -436,185 +439,1762 @@ void CodeGenFunction::EmitMCountInstrumentation() {
+@@ -436,185 +439,1783 @@ void CodeGenFunction::EmitMCountInstrumentation() {
    EmitNounwindRuntimeCall(MCountFn);
  }
  
@@ -4896,7 +4952,8 @@ index 183ee12..8c2e911 100644
 +	// extract all fields, then check if all are image types (if one isn't, fail)
 +	const auto ret = get_aggregate_fields(decl);
 +	for(const auto& iter : ret) {
-+		if(!iter->getType()->isImageType()) {
++		if(!iter->getType()->isImageType() &&
++		   !iter->getType()->isArrayImageType(false)) {
 +			return {};
 +		}
 +	}
@@ -5589,23 +5646,8 @@ index 183ee12..8c2e911 100644
 +		if(parm->hasAttr<GraphicsStageInputAttr>()) {
 +			handle_stage_input_output(clang_type, llvm_type, false, &arg_idx);
 +		}
-+		// aggregate image
-+		else if(clang_type->isAggregateImageType()) {
-+			const auto agg_images = get_aggregate_image_fields(clang_type->getAsCXXRecordDecl());
-+			for(const auto& img : agg_images) {
-+				add_image_arg(img->getType(),
-+							  img->getAttr<ImageAccessAttr>(),
-+							  img->getAttr<FloorImageDataTypeAttr>(),
-+							  parm->getName().str());
-+				
-+				// next llvm arg
-+				++arg_idx;
-+			}
-+			// fix up llvm arg count (will inc again after this)
-+			--arg_idx;
-+		}
 +		// image array
-+		else if(clang_type->isArrayImageType()) {
++		else if(clang_type->isArrayImageType(true)) {
 +			const auto array_image_info = get_array_image_info(cxx_rdecl, ASTCtx);
 +			if(array_image_info.first != nullptr &&
 +			   array_image_info.second > 0) {
@@ -5615,6 +5657,26 @@ index 183ee12..8c2e911 100644
 +							  parm->getName().str(),
 +							  array_image_info.second);
 +			}
++		}
++		// aggregate image
++		else if(clang_type->isAggregateImageType()) {
++			const auto agg_images = get_aggregate_image_fields(clang_type->getAsCXXRecordDecl());
++			for(const auto& img : agg_images) {
++				uint32_t elem_count = 1;
++				if(img->getType()->isPointerType()) {
++					elem_count = ASTCtx.getAsConstantArrayType(img->getType()->getPointeeType())->getSize().getZExtValue();
++				}
++				add_image_arg(img->getType(),
++							  img->getAttr<ImageAccessAttr>(),
++							  img->getAttr<FloorImageDataTypeAttr>(),
++							  parm->getName().str(),
++							  elem_count);
++				
++				// next llvm arg
++				++arg_idx;
++			}
++			// fix up llvm arg count (will inc again after this)
++			--arg_idx;
 +		}
 +		// anything else
 +		else {
@@ -5906,6 +5968,22 @@ index 183ee12..8c2e911 100644
 +			add_image_arg(clang_type, parm->getAttr<ImageAccessAttr>(),
 +						  parm->getAttr<FloorImageDataTypeAttr>(), parm->getName().str());
 +		}
++		// image array
++		else if(clang_type->isArrayImageType(true)) {
++			const auto array_image_info = get_array_image_info(cxx_rdecl, ASTCtx);
++			if(array_image_info.first != nullptr &&
++			   array_image_info.second > 0) {
++				add_image_arg(array_image_info.first->getType(),
++							  array_image_info.first->getAttr<ImageAccessAttr>(),
++							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
++							  parm->getName().str(),
++							  array_image_info.second);
++			}
++			else {
++				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
++				return;
++			}
++		}
 +		// aggregate image
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto agg_images = get_aggregate_image_fields(cxx_rdecl);
@@ -5924,22 +6002,6 @@ index 183ee12..8c2e911 100644
 +			}
 +			// fix up llvm arg count (will inc again after this)
 +			--arg_idx;
-+		}
-+		// image array
-+		else if(clang_type->isArrayImageType()) {
-+			const auto array_image_info = get_array_image_info(cxx_rdecl, ASTCtx);
-+			if(array_image_info.first != nullptr &&
-+			   array_image_info.second > 0) {
-+				add_image_arg(array_image_info.first->getType(),
-+							  array_image_info.first->getAttr<ImageAccessAttr>(),
-+							  array_image_info.first->getAttr<FloorImageDataTypeAttr>(),
-+							  parm->getName().str(),
-+							  array_image_info.second);
-+			}
-+			else {
-+				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
-+				return;
-+			}
 +		}
 +		// stage input
 +		else if(parm->hasAttr<GraphicsStageInputAttr>()) {
@@ -6467,7 +6529,27 @@ index 183ee12..8c2e911 100644
 +			add_image_arg(img_type_to_floor_type(clang_type.getTypePtr()),
 +						  get_image_access(parm->getAttr<ImageAccessAttr>()));
 +		}
-+		// aggregate of image types (used with opencl and metal)
++		// image array (std::array<*image_*<type>, extent>)
++		// NOTE: check before "isAggregateImageType()", because this is essentially a sub-type of it
++		else if(clang_type->isArrayImageType(true)) {
++			const auto array_image_info = get_array_image_info(cxx_rdecl, getContext());
++			if(array_image_info.first != nullptr &&
++			   array_image_info.second > 0) {
++				add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
++							  get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
++							  array_image_info.second);
++			}
++			else {
++				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
++				return;
++			}
++		}
++		// image array (image*_t[N])
++		else if(clang_type->isArrayImageType(false)) {
++			CGM.Error(parm->getSourceRange().getBegin(), StringRef("C array of images not supported yet"));
++			return;
++		}
++		// aggregate of image types (used with opencl/metal/vulkan)
 +		else if(clang_type->isAggregateImageType()) {
 +			const auto agg_images = get_aggregate_image_fields(cxx_rdecl);
 +			
@@ -6498,7 +6580,14 @@ index 183ee12..8c2e911 100644
 +				floor_img_access |= uint64_t(get_image_access(access_attr));
 +				
 +				// first field initializes this
-+				const auto img_type = img->getType();
++				auto img_type = img->getType();
++				if(img_type->isArrayImageType(false)) {
++					// get element image type if this is an array
++					if(img_type->isPointerType()) {
++						img_type = img_type->getPointeeType();
++					}
++					img_type = img_type->getAsArrayTypeUnsafe()->getElementType();
++				}
 +				if(floor_img_type == FLOOR_ARG_INFO::NONE) {
 +					floor_img_type = img_type_to_floor_type(img_type.getTypePtr());
 +				}
@@ -6520,24 +6609,12 @@ index 183ee12..8c2e911 100644
 +			}
 +			
 +			// everything works out, add this as a single kernel argument (floor backends will handle r/w images as necessary)
++			// NOTE: for aggregate images that contain an array of images we still only count this as one image,
++			//       since this is behind-the-scenes stuff and not part of the user interface!
 +			add_image_arg(floor_img_type, (FLOOR_ARG_INFO)floor_img_access);
 +			
 +			// 1 clang aggregate-image == 2 llvm image types -> inc index once more
 +			if(field_count == 2) ++arg_idx;
-+		}
-+		// image array
-+		else if(clang_type->isArrayImageType()) {
-+			const auto array_image_info = get_array_image_info(cxx_rdecl, getContext());
-+			if(array_image_info.first != nullptr &&
-+			   array_image_info.second > 0) {
-+				add_image_arg(img_type_to_floor_type(array_image_info.first->getType().getTypePtr()),
-+							  get_image_access(array_image_info.first->getAttr<ImageAccessAttr>()),
-+							  array_image_info.second);
-+			}
-+			else {
-+				CGM.Error(parm->getSourceRange().getBegin(), StringRef("invalid image array!"));
-+				return;
-+			}
 +		}
 +		// handle non-pointer parameters
 +		else if(getLangOpts().CUDA) {
@@ -6744,7 +6821,7 @@ index 183ee12..8c2e911 100644
    }
  
    if (const WorkGroupSizeHintAttr *A = FD->getAttr<WorkGroupSizeHintAttr>()) {
-@@ -632,6 +2212,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
+@@ -632,6 +2233,54 @@ void CodeGenFunction::EmitOpenCLKernelMetadata(const FunctionDecl *FD,
          llvm::ConstantAsMetadata::get(Builder.getInt32(A->getZDim()))};
      Fn->setMetadata("reqd_work_group_size", llvm::MDNode::get(Context, attrMDArgs));
    }
@@ -6799,7 +6876,7 @@ index 183ee12..8c2e911 100644
  }
  
  /// Determine whether the function F ends with a return stmt.
-@@ -661,6 +2289,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -661,6 +2310,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
           "Do not use a CodeGenFunction object for more than one function");
  
    const Decl *D = GD.getDecl();
@@ -6807,7 +6884,7 @@ index 183ee12..8c2e911 100644
  
    DidCallStackSave = false;
    CurCodeDecl = D;
-@@ -711,7 +2340,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -711,7 +2361,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // attribute to all functions that are not marked AlwaysInline, or
    // to all functions that are not marked inline or implicitly inline
    // in the case of -finline-hint-functions.
@@ -6816,7 +6893,7 @@ index 183ee12..8c2e911 100644
      const CodeGenOptions& CodeGenOpts = CGM.getCodeGenOpts();
      if (!CodeGenOpts.NoInline) {
        for (auto RI : FD->redecls())
-@@ -732,16 +2361,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -732,16 +2382,24 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    Fn->addFnAttr("no-jump-tables",
                  llvm::toStringRef(CGM.getCodeGenOpts().NoUseJumpTables));
  
@@ -6846,7 +6923,7 @@ index 183ee12..8c2e911 100644
        if (llvm::Constant *PrologueSig =
                CGM.getTargetCodeGenInfo().getUBSanFunctionSignature(CGM)) {
          llvm::Constant *FTRTTIConst =
-@@ -758,7 +2395,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -758,7 +2416,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
    // to be norecurse by the standard (3.6.1.3 "The function main shall not be
    // used within a program").
    if (getLangOpts().CPlusPlus)
@@ -6855,7 +6932,7 @@ index 183ee12..8c2e911 100644
        if (FD->isMain())
          Fn->addFnAttr(llvm::Attribute::NoRecurse);
    
-@@ -822,7 +2459,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -822,7 +2480,16 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
      Addr = Builder.CreateAlignedLoad(Addr, getPointerAlign(), "agg.result");
      ReturnValue = Address(Addr, getNaturalTypeAlignment(RetTy));
    } else {
@@ -6873,7 +6950,7 @@ index 183ee12..8c2e911 100644
  
      // Tell the epilog emitter to autorelease the result.  We do this
      // now so that various specialized functions can suppress it
-@@ -864,11 +2510,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
+@@ -864,11 +2531,11 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
                EmitLoadOfLValue(ThisFieldLValue, SourceLocation()).getScalarVal();
          }
        }
@@ -6889,7 +6966,7 @@ index 183ee12..8c2e911 100644
            VLASizeMap[VAT->getSizeExpr()] = ExprArg;
          }
        }
-@@ -1034,7 +2680,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
+@@ -1034,7 +2701,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
      EmitConstructorBody(Args);
    else if (getLangOpts().CUDA &&
             !getLangOpts().CUDAIsDevice &&
@@ -7394,7 +7471,7 @@ index ed18156..246a936 100644
  }  // end namespace CodeGen
  }  // end namespace clang
 diff --git a/lib/CodeGen/CodeGenTypes.cpp b/lib/CodeGen/CodeGenTypes.cpp
-index ebe55c7..36096c6 100644
+index ebe55c7..ca626e0 100644
 --- a/lib/CodeGen/CodeGenTypes.cpp
 +++ b/lib/CodeGen/CodeGenTypes.cpp
 @@ -381,6 +381,10 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
@@ -7402,7 +7479,7 @@ index ebe55c7..36096c6 100644
    const Type *Ty = T.getTypePtr();
  
 +  // intercept image arrays before RT conversion
-+  if (Ty->isArrayImageType())
++  if (Ty->isArrayImageType(true))
 +    return ConvertArrayImageType(Ty);
 +
    // RecordTypes are cached and processed specially.
@@ -7419,11 +7496,36 @@ index ebe55c7..36096c6 100644
      const QualType FTy = cast<BlockPointerType>(Ty)->getPointeeType();
      llvm::Type *PointeeType = ConvertTypeForMem(FTy);
      unsigned AS = Context.getTargetAddressSpace(FTy);
-@@ -718,9 +726,45 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
+@@ -718,9 +726,71 @@ llvm::StructType *CodeGenTypes::ConvertRecordDeclType(const RecordDecl *RD) {
    return Ty;
  }
  
-+llvm::ArrayType *CodeGenTypes::ConvertArrayImageType(const Type* Ty) {
++llvm::Type *CodeGenTypes::ConvertArrayImageType(const Type* Ty) {
++  // ptr to array of images
++  if(Ty->isPointerType() &&
++     Ty->getPointeeType()->isArrayType() &&
++     Ty->getPointeeType()->getArrayElementTypeNoTypeQual()->isImageType()) {
++    return llvm::PointerType::get(ConvertArrayImageType(Ty->getPointeeType().getTypePtr()), 0);
++  }
++	
++  // simple C-style array that contains an image type
++  if(Ty->isArrayType() &&
++     Ty->getArrayElementTypeNoTypeQual()->isImageType()) {
++    const ConstantArrayType *CAT = Context.getAsConstantArrayType(QualType(Ty, 0));
++    const auto elem_type = CAT->getElementType();
++    if(elem_type->isImageType()) {
++      return llvm::ArrayType::get(ConvertType(elem_type), CAT->getSize().getZExtValue());
++    } else if(elem_type->isAggregateImageType()) {
++      // must be an aggregate image with exactly one image
++      const auto agg_img_type = elem_type->getAsCXXRecordDecl();
++      auto agg_img_fields = get_aggregate_scalar_fields(agg_img_type, agg_img_type, false, false,
++                                                        true /* TODO */);
++      if(agg_img_fields.size() != 1) return nullptr;
++      return llvm::ArrayType::get(ConvertType(agg_img_fields[0].type), CAT->getSize().getZExtValue());
++    }
++    assert(false && "invalid array of images type");
++  }
++
 +  // must be struct or class, union is not allowed
 +  if(!Ty->isStructureOrClassType()) return nullptr;
 +
@@ -7445,7 +7547,8 @@ index ebe55c7..36096c6 100644
 +
 +  // must be an aggregate image with exactly one image
 +  const auto agg_img_type = CAT->getElementType()->getAsCXXRecordDecl();
-+  auto agg_img_fields = get_aggregate_scalar_fields(agg_img_type, agg_img_type, false, false);
++  auto agg_img_fields = get_aggregate_scalar_fields(agg_img_type, agg_img_type, false, false,
++                                                    true /* TODO */);
 +  if(agg_img_fields.size() != 1) return nullptr;
 +
 +  // got everything we need
@@ -7466,7 +7569,7 @@ index ebe55c7..36096c6 100644
    const Type *Key = Context.getTagDeclType(RD).getTypePtr();
  
    const CGRecordLayout *Layout = CGRecordLayouts.lookup(Key);
-@@ -768,3 +812,207 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
+@@ -768,3 +838,230 @@ bool CodeGenTypes::isZeroInitializable(QualType T) {
  bool CodeGenTypes::isZeroInitializable(const RecordDecl *RD) {
    return getCGRecordLayout(RD).isZeroInitializable();
  }
@@ -7483,7 +7586,7 @@ index ebe55c7..36096c6 100644
 +static std::string aggregate_scalar_fields_mangle(const CXXRecordDecl* root_decl,
 +												  MangleContext& MC,
 +												  const std::string& name,
-+												  const clang::QualType& type) {
++												  const clang::QualType type) {
 +	std::string gen_type_name = "";
 +	llvm::raw_string_ostream gen_type_name_stream(gen_type_name);
 +	MC.mangleMetalGeneric(name, type, root_decl, gen_type_name_stream);
@@ -7491,7 +7594,7 @@ index ebe55c7..36096c6 100644
 +}
 +
 +clang::QualType CodeGenTypes::get_compat_vector_type(const CXXRecordDecl* decl) const {
-+	const auto fields = get_aggregate_scalar_fields(decl, decl, true, false);
++	const auto fields = get_aggregate_scalar_fields(decl, decl, true, false, true);
 +	
 +	const auto vec_size = fields.size();
 +	if(vec_size < 1 || vec_size > 4) {
@@ -7514,45 +7617,65 @@ index ebe55c7..36096c6 100644
 +													 const CXXRecordDecl* parent_decl,
 +													 const ConstantArrayType* CAT,
 +													 const AttrVec* attrs,
++													 const FieldDecl* parent_field_decl,
 +													 const std::string& name,
++													 const bool expand_array_image,
 +													 std::vector<CodeGenTypes::aggregate_scalar_entry>& ret) const {
-+	const auto count = CAT->getSize().getZExtValue();
-+	const auto ET = CAT->getElementType();
-+	if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
-+		auto contained_ret = get_aggregate_scalar_fields(root_decl, arr_rdecl);
-+		for(auto& entry : contained_ret) {
-+			entry.parents.push_back(parent_decl);
-+		}
-+		for(uint64_t i = 0; i < count; ++i) {
-+			ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
-+		}
-+	}
-+	else if(ET->isArrayType()) {
-+		const auto aoa_decl = dyn_cast<ConstantArrayType>(ET->getAsArrayTypeUnsafe());
-+		if(aoa_decl) {
++	if(expand_array_image ||
++	   !(CAT->getElementType()->isAggregateImageType() ||
++		 CAT->getElementType()->isImageType())) {
++		const auto count = CAT->getSize().getZExtValue();
++		const auto ET = CAT->getElementType();
++		if(const auto arr_rdecl = ET->getAsCXXRecordDecl()) {
++			auto contained_ret = get_aggregate_scalar_fields(root_decl, arr_rdecl, false, false, expand_array_image);
++			for(auto& entry : contained_ret) {
++				entry.parents.push_back(parent_decl);
++			}
 +			for(uint64_t i = 0; i < count; ++i) {
-+				const auto idx_str = "_" + std::to_string(i);
-+				aggregate_scalar_fields_add_array(root_decl, parent_decl, aoa_decl, attrs, name + idx_str, ret);
++				ret.insert(ret.end(), contained_ret.begin(), contained_ret.end());
++			}
++		}
++		else if(ET->isArrayType()) {
++			const auto aoa_decl = dyn_cast<ConstantArrayType>(ET->getAsArrayTypeUnsafe());
++			if(aoa_decl) {
++				for(uint64_t i = 0; i < count; ++i) {
++					const auto idx_str = "_" + std::to_string(i);
++					aggregate_scalar_fields_add_array(root_decl, parent_decl, aoa_decl, attrs, parent_field_decl,
++													  name + idx_str, expand_array_image, ret);
++				}
++			}
++			else {
++				// TODO: error
 +			}
 +		}
 +		else {
-+			// TODO: error
++			for(uint64_t i = 0; i < count; ++i) {
++				const auto idx_str = "_" + std::to_string(i);
++				ret.push_back(aggregate_scalar_entry {
++					ET,
++					name + idx_str,
++					aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name + idx_str, ET),
++					attrs,
++					parent_field_decl,
++					{ parent_decl },
++					false,
++					false
++				});
++			}
 +		}
 +	}
 +	else {
-+		for(uint64_t i = 0; i < count; ++i) {
-+			const auto idx_str = "_" + std::to_string(i);
-+			ret.push_back(aggregate_scalar_entry {
-+				ET,
-+				name + idx_str,
-+				aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name + idx_str, ET),
-+				attrs,
-+				nullptr,
-+				{ parent_decl },
-+				false,
-+				false
-+			});
-+		}
++		// directly add an array entry
++		ret.push_back(aggregate_scalar_entry {
++			clang::QualType(CAT, 0),
++			name,
++			aggregate_scalar_fields_mangle(root_decl, TheCXXABI.getMangleContext(), name, clang::QualType(CAT, 0)),
++			attrs,
++			parent_field_decl,
++			{ parent_decl },
++			false,
++			false
++		});
 +	}
 +}
 +
@@ -7560,7 +7683,8 @@ index ebe55c7..36096c6 100644
 +CodeGenTypes::get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
 +										  const CXXRecordDecl* decl,
 +										  const bool ignore_root_vec_compat,
-+										  const bool ignore_bases) const {
++										  const bool ignore_bases,
++										  const bool expand_array_image) const {
 +	if(decl == nullptr) return {};
 +	
 +	// must have definition
@@ -7589,7 +7713,8 @@ index ebe55c7..36096c6 100644
 +	// iterate over / recurse into all bases
 +	if(!ignore_bases) {
 +		for(const auto& base : decl->bases()) {
-+			auto base_ret = get_aggregate_scalar_fields(root_decl, base.getType()->getAsCXXRecordDecl());
++			auto base_ret = get_aggregate_scalar_fields(root_decl, base.getType()->getAsCXXRecordDecl(),
++														false, false, expand_array_image);
 +			for(auto& elem : base_ret) {
 +				elem.is_in_base = true;
 +			}
@@ -7600,7 +7725,7 @@ index ebe55c7..36096c6 100644
 +	}
 +	
 +	// TODO/NOTE: make sure attrs are correctly forwarded/inherited/passed-through
-+	const auto add_field = [this, &root_decl, &decl, &ret](RecordDecl::field_iterator field_iter) {
++	const auto add_field = [this, &root_decl, &decl, &expand_array_image, &ret](RecordDecl::field_iterator field_iter) {
 +		if(const auto rdecl = field_iter->getType()->getAsCXXRecordDecl()) {
 +			if(rdecl->hasAttr<VectorCompatAttr>() ||
 +			   field_iter->hasAttr<GraphicsVertexPositionAttr>()) {
@@ -7627,7 +7752,8 @@ index ebe55c7..36096c6 100644
 +				});
 +			}
 +			else {
-+				auto contained_ret = get_aggregate_scalar_fields(root_decl, rdecl);
++				auto contained_ret = get_aggregate_scalar_fields(root_decl, rdecl,
++																 false, false, expand_array_image);
 +				for(auto& entry : contained_ret) {
 +					entry.parents.push_back(decl);
 +				}
@@ -7641,7 +7767,7 @@ index ebe55c7..36096c6 100644
 +			if(arr_decl) {
 +				aggregate_scalar_fields_add_array(root_decl, decl, arr_decl,
 +												  field_iter->hasAttrs() ? &field_iter->getAttrs() : nullptr,
-+												  field_iter->getName().str(), ret);
++												  *field_iter, field_iter->getName().str(), expand_array_image, ret);
 +			}
 +			else {
 +				// TODO: error
@@ -7675,7 +7801,7 @@ index ebe55c7..36096c6 100644
 +	return ret;
 +}
 diff --git a/lib/CodeGen/CodeGenTypes.h b/lib/CodeGen/CodeGenTypes.h
-index 00df10d..5f59b88 100644
+index 00df10d..4d591a2 100644
 --- a/lib/CodeGen/CodeGenTypes.h
 +++ b/lib/CodeGen/CodeGenTypes.h
 @@ -138,6 +138,10 @@ class CodeGenTypes {
@@ -7699,7 +7825,7 @@ index 00df10d..5f59b88 100644
  
    /// UpdateCompletedType - When we find the full definition for a TagDecl,
    /// replace the 'opaque' type we previously made for it if applicable.
-@@ -337,16 +342,69 @@ public:
+@@ -337,16 +342,72 @@ public:
    /// optional suffix and name the given LLVM type using it.
    void addRecordTypeName(const RecordDecl *RD, llvm::StructType *Ty,
                           StringRef suffix);
@@ -7738,7 +7864,8 @@ index 00df10d..5f59b88 100644
 +  std::vector<aggregate_scalar_entry> get_aggregate_scalar_fields(const CXXRecordDecl* root_decl,
 +                                                                  const CXXRecordDecl* decl,
 +																  const bool ignore_root_vec_compat = false,
-+																  const bool ignore_bases = false) const;
++																  const bool ignore_bases = false,
++																  const bool expand_array_image = true) const;
 +
 +  // returns the corresponding clang vector type for a [[vector_compat]] aggregate
 +  clang::QualType get_compat_vector_type(const CXXRecordDecl* decl) const;
@@ -7752,15 +7879,17 @@ index 00df10d..5f59b88 100644
 +  void aggregate_scalar_fields_add_array(const CXXRecordDecl* root_decl,
 +										 const CXXRecordDecl* parent_decl,
 +                                         const ConstantArrayType* CAT,
-+                                         const AttrVec* attrs,
-+                                         const std::string& name,
++										 const AttrVec* attrs,
++										 const FieldDecl* parent_field_decl,
++										 const std::string& name,
++										 const bool expand_array_image,
 +                                         std::vector<CodeGenTypes::aggregate_scalar_entry>& ret) const;
  
  public:  // These are internal details of CGT that shouldn't be used externally.
    /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.
    llvm::StructType *ConvertRecordDeclType(const RecordDecl *TD);
  
-+  llvm::ArrayType *ConvertArrayImageType(const Type* Ty);
++  llvm::Type *ConvertArrayImageType(const Type* Ty);
 +
    /// getExpandedTypes - Expand the type \arg Ty into the LLVM
    /// argument types it would be passed as. See ABIArgInfo::Expand.
@@ -7772,7 +7901,7 @@ index 00df10d..5f59b88 100644
    /// IsZeroInitializable - Return whether a type can be
    /// zero-initialized (in the C++ sense) with an LLVM zeroinitializer.
 diff --git a/lib/CodeGen/TargetInfo.cpp b/lib/CodeGen/TargetInfo.cpp
-index 759e3d6..8829d99 100644
+index 759e3d6..5209ced 100644
 --- a/lib/CodeGen/TargetInfo.cpp
 +++ b/lib/CodeGen/TargetInfo.cpp
 @@ -69,11 +69,15 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
@@ -8124,7 +8253,7 @@ index 759e3d6..8829d99 100644
        // Create !{<func-ref>, metadata !"kernel", i32 1} node
        addNVVMMetadata(F, "kernel", 1);
      }
-@@ -5782,6 +5845,196 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
+@@ -5782,6 +5845,198 @@ void NVPTXTargetCodeGenInfo::addNVVMMetadata(llvm::Function *F, StringRef Name,
  }
  
  //===----------------------------------------------------------------------===//
@@ -8188,7 +8317,8 @@ index 759e3d6..8829d99 100644
 +
 +ABIArgInfo AIRABIInfo::classifyArgumentType(QualType Ty) const {
 +  // CGT.getTarget() // TODO: native array image test
-+  if (Ty->isArrayImageType())
++  // direct array of images (not writable)
++  if (Ty->isArrayImageType(true))
 +    return getNaturalAlignIndirect(Ty);
 +
 +  if (CodeGenFunction::hasAggregateEvaluationKind(Ty) &&
@@ -8267,7 +8397,8 @@ index 759e3d6..8829d99 100644
 +}
 +
 +ABIArgInfo VulkanABIInfo::classifyArgumentType(QualType Ty, unsigned int CC) const {
-+  if (Ty->isArrayImageType())
++  // direct array of images (not writable)
++  if (Ty->isArrayImageType(true))
 +    return getNaturalAlignIndirect(Ty);
 +
 +  // all shader inputs must either be scalar or vector types, or arrays thereof
@@ -8321,7 +8452,7 @@ index 759e3d6..8829d99 100644
  // SystemZ ABI Implementation
  //===----------------------------------------------------------------------===//
  
-@@ -5852,7 +6105,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
+@@ -5852,7 +6107,7 @@ bool SystemZABIInfo::isPromotableIntegerType(QualType Ty) const {
  bool SystemZABIInfo::isCompoundType(QualType Ty) const {
    return (Ty->isAnyComplexType() ||
            Ty->isVectorType() ||
@@ -8330,7 +8461,7 @@ index 759e3d6..8829d99 100644
  }
  
  bool SystemZABIInfo::isVectorArgumentType(QualType Ty) const {
-@@ -6350,7 +6603,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
+@@ -6350,7 +6605,7 @@ MipsABIInfo::classifyArgumentType(QualType Ty, uint64_t &Offset) const {
    unsigned CurrOffset = llvm::alignTo(Offset, Align);
    Offset = CurrOffset + llvm::alignTo(TySize, Align * 8) / 8;
  
@@ -8339,7 +8470,7 @@ index 759e3d6..8829d99 100644
      // Ignore empty aggregates.
      if (TySize == 0)
        return ABIArgInfo::getIgnore();
-@@ -6435,7 +6688,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6435,7 +6690,7 @@ ABIArgInfo MipsABIInfo::classifyReturnType(QualType RetTy) const {
    if (!IsO32 && Size == 0)
      return ABIArgInfo::getIgnore();
  
@@ -8348,7 +8479,7 @@ index 759e3d6..8829d99 100644
      if (Size <= 128) {
        if (RetTy->isAnyComplexType())
          return ABIArgInfo::getDirect();
-@@ -6588,7 +6841,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
+@@ -6588,7 +6843,7 @@ void TCETargetCodeGenInfo::setTargetAttributes(
    llvm::Function *F = cast<llvm::Function>(GV);
  
    if (M.getLangOpts().OpenCL) {
@@ -8357,7 +8488,7 @@ index 759e3d6..8829d99 100644
        // OpenCL C Kernel functions are not subject to inlining
        F->addFnAttr(llvm::Attribute::NoInline);
        const ReqdWorkGroupSizeAttr *Attr = FD->getAttr<ReqdWorkGroupSizeAttr>();
-@@ -6668,7 +6921,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
+@@ -6668,7 +6923,7 @@ void HexagonABIInfo::computeInfo(CGFunctionInfo &FI) const {
  }
  
  ABIArgInfo HexagonABIInfo::classifyArgumentType(QualType Ty) const {
@@ -8366,7 +8497,7 @@ index 759e3d6..8829d99 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = Ty->getAs<EnumType>())
        Ty = EnumTy->getDecl()->getIntegerType();
-@@ -6706,7 +6959,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
+@@ -6706,7 +6961,7 @@ ABIArgInfo HexagonABIInfo::classifyReturnType(QualType RetTy) const {
    if (RetTy->isVectorType() && getContext().getTypeSize(RetTy) > 64)
      return getNaturalAlignIndirect(RetTy);
  
@@ -8375,7 +8506,7 @@ index 759e3d6..8829d99 100644
      // Treat an enum type as its underlying type.
      if (const EnumType *EnumTy = RetTy->getAs<EnumType>())
        RetTy = EnumTy->getDecl()->getIntegerType();
-@@ -6824,7 +7077,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
+@@ -6824,7 +7079,7 @@ ABIArgInfo LanaiABIInfo::classifyArgumentType(QualType Ty,
      }
    }
  
@@ -8384,7 +8515,7 @@ index 759e3d6..8829d99 100644
      // Structures with flexible arrays are always indirect.
      if (RT && RT->getDecl()->hasFlexibleArrayMember())
        return getIndirectResult(Ty, /*ByVal=*/true, State);
-@@ -6927,7 +7180,21 @@ public:
+@@ -6927,7 +7182,21 @@ public:
  
  }
  
@@ -8407,7 +8538,7 @@ index 759e3d6..8829d99 100644
  
  void AMDGPUTargetCodeGenInfo::setTargetAttributes(
    const Decl *D,
-@@ -6953,7 +7220,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
+@@ -6953,7 +7222,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
  
    appendOpenCLVersionMD(M);
  }
@@ -8416,7 +8547,7 @@ index 759e3d6..8829d99 100644
  
  unsigned AMDGPUTargetCodeGenInfo::getOpenCLKernelCallingConv() const {
    return llvm::CallingConv::AMDGPU_KERNEL;
-@@ -7168,7 +7435,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
+@@ -7168,7 +7437,7 @@ SparcV9ABIInfo::classifyType(QualType Ty, unsigned SizeLimit) const {
      return ABIArgInfo::getExtend();
  
    // Other non-aggregates go in registers.
@@ -8425,7 +8556,7 @@ index 759e3d6..8829d99 100644
      return ABIArgInfo::getDirect();
  
    // If a C++ object has either a non-trivial copy constructor or a non-trivial
-@@ -7596,58 +7863,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
+@@ -7596,58 +7865,6 @@ void XCoreTargetCodeGenInfo::emitTargetMD(const Decl *D, llvm::GlobalValue *GV,
    }
  }
  
@@ -8484,7 +8615,7 @@ index 759e3d6..8829d99 100644
  static bool appendType(SmallStringEnc &Enc, QualType QType,
                         const CodeGen::CodeGenModule &CGM,
                         TypeStringCache &TSC);
-@@ -8145,6 +8360,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
+@@ -8145,6 +8362,11 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
      return SetCGInfo(new XCoreTargetCodeGenInfo(Types));
    case llvm::Triple::spir:
    case llvm::Triple::spir64:
@@ -11646,7 +11777,7 @@ index 06afe87..ade60df 100644
      break;
    }
 diff --git a/lib/Sema/SemaType.cpp b/lib/Sema/SemaType.cpp
-index 8a49f61..2b5847a 100644
+index 8a49f61..1647008 100644
 --- a/lib/Sema/SemaType.cpp
 +++ b/lib/Sema/SemaType.cpp
 @@ -19,6 +19,7 @@
@@ -11791,7 +11922,17 @@ index 8a49f61..2b5847a 100644
  ///
  /// \returns A suitable pipe type, if there are no errors. Otherwise, returns a
  /// NULL type.
-@@ -2287,6 +2312,13 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
+@@ -2282,11 +2307,21 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
+     const QualType ArrType = Context.getBaseElementType(T);
+     if (ArrType->isBlockPointerType() || ArrType->isPipeType() ||
+         ArrType->isSamplerT() || ArrType->isImageType()) {
+-      Diag(Loc, diag::err_opencl_invalid_type_array) << ArrType;
+-      return QualType();
++      // allow C array of images for Vulkan and Metal
++      if (!((getLangOpts().Vulkan || getLangOpts().Metal) && ArrType->isImageType())) {
++        Diag(Loc, diag::err_opencl_invalid_type_array) << ArrType;
++        return QualType();
++      }
      }
    }
  
@@ -11805,7 +11946,7 @@ index 8a49f61..2b5847a 100644
    return T;
  }
  
-@@ -2348,7 +2380,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
+@@ -2348,7 +2383,7 @@ bool Sema::CheckFunctionReturnType(QualType T, SourceLocation Loc) {
    }
  
    // Functions cannot return half FP.
@@ -11814,7 +11955,7 @@ index 8a49f61..2b5847a 100644
      Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 1 <<
        FixItHint::CreateInsertion(Loc, "*");
      return true;
-@@ -2446,7 +2478,7 @@ QualType Sema::BuildFunctionType(QualType T,
+@@ -2446,7 +2481,7 @@ QualType Sema::BuildFunctionType(QualType T,
      if (ParamType->isVoidType()) {
        Diag(Loc, diag::err_param_with_void_type);
        Invalid = true;
@@ -11823,7 +11964,7 @@ index 8a49f61..2b5847a 100644
        // Disallow half FP arguments.
        Diag(Loc, diag::err_parameters_retval_cannot_have_fp16_type) << 0 <<
          FixItHint::CreateInsertion(Loc, "*");
-@@ -2815,7 +2847,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
+@@ -2815,7 +2850,8 @@ static QualType GetDeclSpecTypeForDeclarator(TypeProcessingState &state,
      // "void" instead.
      T = SemaRef.Context.VoidTy;
      processTypeAttrs(state, T, TAL_DeclSpec,
@@ -11833,7 +11974,7 @@ index 8a49f61..2b5847a 100644
      break;
  
    case UnqualifiedId::IK_ConversionFunctionId:
-@@ -3195,19 +3228,23 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
+@@ -3195,19 +3231,23 @@ getCCForDeclaratorChunk(Sema &S, Declarator &D,
    CallingConv CC = S.Context.getDefaultCallingConvention(FTI.isVariadic,
                                                           IsCXXInstanceMethod);
  
@@ -11868,7 +12009,7 @@ index 8a49f61..2b5847a 100644
          break;
        }
      }
-@@ -4048,7 +4085,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4048,7 +4088,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  << T << 0 /*pointer hint*/;
              D.setInvalidType(true);
            } 
@@ -11877,7 +12018,7 @@ index 8a49f61..2b5847a 100644
            S.Diag(D.getIdentifierLoc(),
              diag::err_parameters_retval_cannot_have_fp16_type) << 1;
            D.setInvalidType(true);
-@@ -4167,7 +4204,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4167,7 +4207,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
  
        FunctionType::ExtInfo EI(getCCForDeclaratorChunk(S, D, FTI, chunkIndex));
  
@@ -11886,7 +12027,7 @@ index 8a49f61..2b5847a 100644
          // Simple void foo(), where the incoming T is the result type.
          T = Context.getFunctionNoProtoType(T, EI);
        } else {
-@@ -4256,7 +4293,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4256,7 +4296,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                  D.setInvalidType();
                  Param->setInvalidDecl();
                }
@@ -11895,7 +12036,7 @@ index 8a49f61..2b5847a 100644
                S.Diag(Param->getLocation(),
                  diag::err_parameters_retval_cannot_have_fp16_type) << 0;
                D.setInvalidType();
-@@ -4385,7 +4422,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4385,7 +4425,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
      }
  
      case DeclaratorChunk::Pipe: {
@@ -11904,7 +12045,7 @@ index 8a49f61..2b5847a 100644
        break;
      }
      }
-@@ -4397,7 +4434,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4397,7 +4437,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
  
      // See if there are any attributes on this declarator chunk.
      processTypeAttrs(state, T, TAL_DeclChunk,
@@ -11914,7 +12055,7 @@ index 8a49f61..2b5847a 100644
    }
  
    assert(!T.isNull() && "T must not be null after this point");
-@@ -4490,7 +4528,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
+@@ -4490,7 +4531,8 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
    }
  
    // Apply any undistributed attributes from the declarator.
@@ -11924,7 +12065,7 @@ index 8a49f61..2b5847a 100644
  
    // Diagnose any ignored type attributes.
    state.diagnoseIgnoredTypeAttrs(T);
-@@ -4768,6 +4807,12 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
+@@ -4768,6 +4810,12 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
      return AttributeList::AT_PreserveMost;
    case AttributedType::attr_preserve_all:
      return AttributeList::AT_PreserveAll;
@@ -11937,7 +12078,7 @@ index 8a49f61..2b5847a 100644
    case AttributedType::attr_ptr32:
      return AttributeList::AT_Ptr32;
    case AttributedType::attr_ptr64:
-@@ -5324,16 +5369,16 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
+@@ -5324,16 +5372,16 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
    } else {
      // The keyword-based type attributes imply which address space to use.
      switch (Attr.getKind()) {
@@ -11959,7 +12100,7 @@ index 8a49f61..2b5847a 100644
        ASIdx = 0; break;
      }
    }
-@@ -6110,6 +6155,12 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
+@@ -6110,6 +6158,12 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
      return AttributedType::attr_preserve_most;
    case AttributeList::AT_PreserveAll:
      return AttributedType::attr_preserve_all;
@@ -11972,7 +12113,7 @@ index 8a49f61..2b5847a 100644
    }
    llvm_unreachable("unexpected attribute kind!");
  }
-@@ -6507,38 +6558,9 @@ static void HandleNeonVectorTypeAttr(QualType& CurType,
+@@ -6507,38 +6561,9 @@ static void HandleNeonVectorTypeAttr(QualType& CurType,
    CurType = S.Context.getVectorType(CurType, numElts, VecKind);
  }
  
@@ -12013,7 +12154,7 @@ index 8a49f61..2b5847a 100644
    // Scan through and apply attributes to this type where it makes sense.  Some
    // attributes (such as __address_space__, __vector_size__, etc) apply to the
    // type, but others can be present in the type specifiers even though they
-@@ -6599,11 +6621,11 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6599,11 +6624,11 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
        // it it breaks large amounts of Linux software.
        attr.setUsedAsTypeAttr();
        break;
@@ -12030,7 +12171,7 @@ index 8a49f61..2b5847a 100644
      case AttributeList::AT_AddressSpace:
        HandleAddressSpaceTypeAttribute(type, attr, state.getSema());
        attr.setUsedAsTypeAttr();
-@@ -6632,8 +6654,28 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6632,8 +6657,28 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
                                 VectorType::NeonPolyVector);
        attr.setUsedAsTypeAttr();
        break;
@@ -12061,7 +12202,7 @@ index 8a49f61..2b5847a 100644
        attr.setUsedAsTypeAttr();
        break;
  
-@@ -6712,7 +6754,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6712,7 +6757,8 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
    // (...)
    // Pointers that are declared without pointing to a named address space point
    // to the generic address space.
@@ -12071,7 +12212,7 @@ index 8a49f61..2b5847a 100644
        !hasOpenCLAddressSpace && type.getAddressSpace() == 0 &&
        (TAL == TAL_DeclSpec || TAL == TAL_DeclChunk)) {
      Declarator &D = state.getDeclarator();
-@@ -6733,7 +6776,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
+@@ -6733,7 +6779,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
               D.getDeclSpec().getStorageClassSpec() == DeclSpec::SCS_static)
        type = state.getSema().Context.getAddrSpaceQualType(
            type, LangAS::opencl_global);

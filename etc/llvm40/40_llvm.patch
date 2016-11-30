@@ -23518,10 +23518,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..14cb663
+index 0000000..9fd9690
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3372 @@
+@@ -0,0 +1,3375 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -25056,7 +25056,7 @@ index 0000000..14cb663
 +      // the llvm side, b/c it would badly break things)
 +      ignore_next_unreachable = true;
 +      return BM->addKillInst(BB);
-+    } else if (MangledName == "floor.image_array_load") {
++    } else if (MangledName.startswith("floor.image_array_load.")) {
 +      auto img = CI->getOperand(0);
 +      const auto img_type_iter = image_type_map.find(img);
 +      assert(img_type_iter != image_type_map.end() && "unknown image");
@@ -26721,8 +26721,11 @@ index 0000000..14cb663
 +      // nop
 +      break;
 +    case vulkan_sampling::LOD_TYPE::EXPLICIT_LOD:
-+      operands_mask |= spv::ImageOperandsLodMask;
-+      image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      // NOTE: SPIR-V supports this, but Vulkan doesn't
++      //       -> this is dealt with elsewhere
++      //operands_mask |= spv::ImageOperandsLodMask;
++      //image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      ++arg_idx;
 +      break;
 +    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD:
 +    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD_WITH_BIAS:
@@ -53129,10 +53132,10 @@ index 0000000..05d5bdd
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..c1f5136
+index 0000000..a47870a
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
-@@ -0,0 +1,745 @@
+@@ -0,0 +1,748 @@
 +//===- VulkanImage.cpp - Vulkan-specific floor image transformations ------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53858,8 +53861,11 @@ index 0000000..c1f5136
 +			};
 +			const auto func_type = llvm::FunctionType::get(img_type, param_types, false);
 +			
-+			auto CI = CallInst::Create(M->getOrInsertFunction("floor.image_array_load", func_type), params,
-+									   "imgarrld" , LI);
++			auto CI = CallInst::Create(M->getOrInsertFunction("floor.image_array_load." +
++															  img_type->getPointerElementType()->getStructName().str() +
++															  "." + std::to_string(src_array_type->getNumElements()),
++															  func_type),
++									   params, "imgarrld" , LI);
 +			
 +			// if dynamic access (bitcast), then bitcast has the debug location, use gep location otherwise
 +			CI->setDebugLoc(BC ? BC->getDebugLoc() : array_elem_gep->getDebugLoc());
