@@ -39,6 +39,9 @@
 #endif
 
 #if defined(__WINDOWS__) || defined(MINGW)
+#if defined(__c2__)
+struct IUnknown;
+#endif
 #include <windows.h>
 #endif
 

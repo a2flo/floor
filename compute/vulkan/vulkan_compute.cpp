@@ -981,7 +981,8 @@ shared_ptr<vulkan_program> vulkan_compute::add_program(vulkan_program::program_m
 
 shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_name,
 															 const string additional_options) {
-	return add_program_file(file_name, compile_options { .cli = additional_options });
+	compile_options options { .cli = additional_options };
+	return add_program_file(file_name, options);
 }
 
 shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_name,
@@ -999,7 +1000,8 @@ shared_ptr<compute_program> vulkan_compute::add_program_file(const string& file_
 
 shared_ptr<compute_program> vulkan_compute::add_program_source(const string& source_code,
 															   const string additional_options) {
-	return add_program_source(source_code, compile_options { .cli = additional_options });
+	compile_options options { .cli = additional_options };
+	return add_program_source(source_code, options);
 }
 
 shared_ptr<compute_program> vulkan_compute::add_program_source(const string& source_code,

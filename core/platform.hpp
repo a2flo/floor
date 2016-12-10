@@ -34,6 +34,9 @@
 #endif
 
 #if defined(_MSC_VER)
+#if defined(__c2__)
+struct IUnknown;
+#endif
 #include <windows.h>
 #include <winnt.h>
 #include <direct.h>

@@ -258,7 +258,9 @@ namespace rt_math {
 	//! count trailing zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
 	static floor_inline_always int32_t ctz(const uint_type& val) {
-#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if defined(__c2__) // __builtin_ctzs is broken in c2
+		return min(__builtin_ctz(uint32_t(val)), 16);
+#elif !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_ctzs(val);
 #else
 		return floor_rt_ctz(val);
