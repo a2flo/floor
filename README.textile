@@ -3,7 +3,7 @@
 
 *Requirements:*
 * OS:
-** Windows: NT 6.0+ (MSVC: x86/32-bit only, MinGW/MSYS2: x64/64-bit only)
+** Windows: NT 6.0+ (VS: x86/32-bit and x64/64-bit, MinGW/MSYS2: x64/64-bit only)
 ** OS X: 10.11+ (x64/64-bit only)
 ** iOS: 9.0+ (32-bit and 64-bit)
 ** Linux: any current x64 distribution
@@ -12,7 +12,7 @@
 * compiler/toolchain:
 ** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org / "libc++":http://libcxx.llvm.org 3.5+
 ** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 7.0+
-** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ / "VS2015":https://www.visualstudio.com/vs-2015-product-editions
+** Windows (VS): "Clang / LLVM for Windows":http://llvm.org/builds 3.7+ with "VS2015":https://www.visualstudio.com/vs-2015-product-editions (or higher), or Clang/C2 with "VS2017":https://www.visualstudio.com/vs/visual-studio-2017-rc
 ** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
@@ -61,7 +61,7 @@
 *Build Instructions (Visual Studio / Windows):*
 * open floor.sln and build (lib and include paths might need to be modified)
 * some notes:
-** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds must be installed
+** as mentionend in the requirements, "Clang/LLVM":http://llvm.org/builds or Clang/C2 must be installed (all *_c2 configurations use C2, all others use LLVM)
 ** SDL2 is a required dependency
 ** either the AMD or Intel OpenCL SDK must be installed
 ** the Vulkan SDK must be installed
@@ -78,7 +78,7 @@
 *Installation (Windows):*
 * create a "%%ProgramFiles%%/floor" folder (C:/Program Files/floor)
 * inside this folder:
-** create a "lib" folder and copy floor.lib/floord.lib (MSVC) / libfloor_static.a/libfloord_static.a (MinGW/MSYS2) there
+** create a "lib" folder and copy floor.lib/floord.lib/floor64.lib/floord64.lib (VS) / libfloor_static.a/libfloord_static.a (MinGW/MSYS2) there
 ** create an "include" folder and copy the original "floor" folder in there (containing all floor source code)
 
 *Misc Hints:*
