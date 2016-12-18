@@ -247,8 +247,12 @@ namespace rt_math {
 											  is_same<any_type, __int128_t>() ||
 											  sizeof(any_type) == 16)>* = nullptr>
 	static floor_inline_always int32_t clz(const any_type& val) {
-		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		union {
+			__uint128_t ui128;
+			any_type val;
+		} conv { .val = val };
+		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
@@ -308,8 +312,12 @@ namespace rt_math {
 											  is_same<any_type, __int128_t>() ||
 											  sizeof(any_type) == 16)>* = nullptr>
 	static floor_inline_always int32_t ctz(const any_type& val) {
-		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		union {
+			__uint128_t ui128;
+			any_type val;
+		} conv { .val = val };
+		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
@@ -367,8 +375,12 @@ namespace rt_math {
 											  is_same<any_type, __int128_t>() ||
 											  sizeof(any_type) == 16)>* = nullptr>
 	static floor_inline_always int32_t popcount(const any_type& val) {
-		const auto upper = uint64_t((*(__uint128_t*)&val) >> __uint128_t(64));
-		const auto lower = uint64_t((*(__uint128_t*)&val) & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		union {
+			__uint128_t ui128;
+			any_type val;
+		} conv { .val = val };
+		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
 		return popcount(upper) + popcount(lower);
 	}
 #endif

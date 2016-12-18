@@ -155,6 +155,10 @@ public: \
 	static constexpr const scalar_type scalar_one { (scalar_type)1 }; \
 	static constexpr const scalar_type scalar_nan { nan_helper<scalar_type>::scalar_nan }; \
 	static constexpr const scalar_type scalar_inf { inf_helper<scalar_type>::scalar_inf }; \
+	static constexpr auto integral_bitcast(const scalar_type& val) { \
+		union { const integral_type ival; scalar_type val; } conv { .val = val }; \
+		return conv.ival; \
+	} \
 	func_impl \
 \
 protected: \
@@ -291,11 +295,11 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs & rhs) \
-F2_INT(bit_or, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs | rhs) \
-F2_INT(bit_xor, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs ^ rhs) \
-F2_INT(bit_left_shift, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs << rhs) \
-F2_INT(bit_right_shift, , *(long double*)&ret, const auto ret = *(integral_type*)&lhs >> rhs) \
+F2_INT(bit_and, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) & rhs) \
+F2_INT(bit_or, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) | rhs) \
+F2_INT(bit_xor, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) ^ rhs) \
+F2_INT(bit_left_shift, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) << rhs) \
+F2_INT(bit_right_shift, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) >> rhs) \
 F1(unary_not, constexpr, (val == 0.0L ? 0.0L : 1.0L)) \
 F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (numeric_limits<long double>::max() - math::__abs(val))) \
 F1(clz, constexpr, math::__clz(val)) \

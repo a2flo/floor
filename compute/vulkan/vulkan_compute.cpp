@@ -32,14 +32,14 @@
 #include <floor/compute/device/sampler.hpp>
 
 #if defined(FLOOR_DEBUG)
-static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(const VkDebugReportFlagsEXT flags floor_unused,
-															const VkDebugReportObjectTypeEXT object_type floor_unused,
-															const uint64_t object floor_unused,
-															const size_t location floor_unused,
-															const int32_t message_code,
+static VKAPI_ATTR VkBool32 VKAPI_CALL vulkan_debug_callback(VkDebugReportFlagsEXT flags floor_unused,
+															VkDebugReportObjectTypeEXT object_type floor_unused,
+															uint64_t object floor_unused,
+															size_t location floor_unused,
+															int32_t message_code,
 															const char* layer_prefix,
 															const char* message,
-															vulkan_compute* ctx floor_unused) {
+															/* vulkan_compute* */ void* ctx floor_unused) {
 	log_error("vulkan error in layer %s: %u: %s", layer_prefix, message_code, message);
 	return VK_FALSE; // don't abort
 }
@@ -127,7 +127,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 				  //| VK_DEBUG_REPORT_DEBUG_BIT_EXT
 				  //| VK_DEBUG_REPORT_INFORMATION_BIT_EXT
 				  ),
-		.pfnCallback = (PFN_vkDebugReportCallbackEXT)&vulkan_debug_callback,
+		.pfnCallback = &vulkan_debug_callback,
 		.pUserData = this,
 	};
 	VK_CALL_RET(create_debug_report_callback(ctx, &debug_cb_info, nullptr, &debug_callback),
