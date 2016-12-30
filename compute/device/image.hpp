@@ -311,8 +311,8 @@ namespace floor_image {
 		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
-		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_lod_obj[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
-		floor_inline_always constexpr auto& w_img() const { return w_img_lod_obj[0]; }
+		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
+		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
 		const uint64_t w_img_obj;

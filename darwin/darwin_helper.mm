@@ -354,11 +354,16 @@ size_t darwin_helper::get_system_version() {
 	const size_t minor_dot = (major_dot != string::npos ? osrelease.find(".", major_dot + 1) : string::npos);
 	if(major_dot != string::npos && minor_dot != string::npos) {
 		const size_t major_version = stosize(osrelease.substr(0, major_dot));
-		const size_t os_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
+		size_t os_minor_version = stosize(osrelease.substr(major_dot + 1, major_dot - minor_dot - 1));
 		
 #if !defined(FLOOR_IOS)
 		// osrelease = kernel version, not os x version -> substract 4 (10.11 = 15 - 4, 10.10 = 14 - 4, 10.9 = 13 - 4, ...)
 		const size_t os_major_version = major_version - 4;
+		
+		// 10.12.2+ kernels have a minor version that is one higher than the OS minor version -> dec
+		if(os_major_version == 12 && os_minor_version > 1) {
+			--os_minor_version;
+		}
 #else
 		// osrelease = kernel version, not ios version -> substract 7 (NOTE: this won't run on anything < iOS 7.0,
 		// so any differentiation below doesn't matter (5.0: darwin 11, 6.0: darwin 13, 7.0: darwin 14)
