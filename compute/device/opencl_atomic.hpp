@@ -314,6 +314,7 @@ floor_inline_always int64_t atom_load(const local int64_t* addr) {
 #endif
 
 // fallback for non-natively supported float atomics
+// TODO: can't use any of this, since pointer bitcasts aren't allowed in Vulkan/SPIR-V -> need to introduce an atomic_float type that is actually an uint32_t/int32_t?
 floor_inline_always float atom_add(global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, global, p, val) }
 floor_inline_always float atom_add(local float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(+, local, p, val) }
 floor_inline_always float atom_sub(global float* p, float val) { FLOOR_ATOMIC_FALLBACK_OP_32(-, global, p, val) }

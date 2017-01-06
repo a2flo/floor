@@ -34,12 +34,76 @@ struct vulkan_kernel::vulkan_encoder {
 	const VkPipelineLayout pipeline_layout { nullptr };
 };
 
+uint64_t vulkan_kernel::vulkan_kernel_entry::make_spec_key(const uint3& work_group_size) {
+#if defined(FLOOR_DEBUG)
+	if((work_group_size >= 65536u).any()) {
+		log_error("work-group size is too big: %v", work_group_size);
+		return 0;
+	}
+#endif
+	return (uint64_t(work_group_size.z) << 32ull |
+			uint64_t(work_group_size.y) << 16ull |
+			uint64_t(work_group_size.x));
+}
+
+vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(vulkan_device* device,
+																							   const uint3& work_group_size) {
+	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
+	const auto iter = specializations.find(spec_key);
+	if(iter != specializations.end()) {
+		// already built this
+		return &iter->second;
+	}
+	
+	// work-group size specialization
+	static constexpr const uint32_t spec_entry_count = 3;
+	
+	vulkan_kernel::vulkan_kernel_entry::spec_entry spec_entry;
+	spec_entry.data.resize(spec_entry_count);
+	spec_entry.data[0] = work_group_size.x;
+	spec_entry.data[1] = work_group_size.y;
+	spec_entry.data[2] = work_group_size.z;
+	
+	spec_entry.map_entries = {
+		{ .constantID = 1, .offset = sizeof(uint32_t) * 0, .size = sizeof(uint32_t) },
+		{ .constantID = 2, .offset = sizeof(uint32_t) * 1, .size = sizeof(uint32_t) },
+		{ .constantID = 3, .offset = sizeof(uint32_t) * 2, .size = sizeof(uint32_t) },
+	};
+	
+	spec_entry.info = VkSpecializationInfo {
+		.mapEntryCount = uint32_t(spec_entry.map_entries.size()),
+		.pMapEntries = spec_entry.map_entries.data(),
+		.dataSize = spec_entry.data.size() * sizeof(decltype(spec_entry.data)::value_type),
+		.pData = spec_entry.data.data(),
+	};
+	stage_info.pSpecializationInfo = &spec_entry.info;
+	
+	// create the compute pipeline for this kernel + device + work-group size
+	const VkComputePipelineCreateInfo pipeline_info {
+		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+		.pNext = nullptr,
+		.flags = 0,
+		.stage = stage_info,
+		.layout = pipeline_layout,
+		.basePipelineHandle = nullptr,
+		.basePipelineIndex = 0,
+	};
+	VK_CALL_RET(vkCreateComputePipelines(device->device, nullptr, 1, &pipeline_info, nullptr,
+										 &spec_entry.pipeline),
+				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
+				nullptr);
+	
+	auto spec_iter = specializations.insert(spec_key, spec_entry);
+	if(!spec_iter.first) return nullptr;
+	return &spec_iter.second->second;
+}
+
 vulkan_kernel::vulkan_kernel(kernel_map_type&& kernels_) : kernels(move(kernels_)) {
 }
 
 vulkan_kernel::~vulkan_kernel() {}
 
-typename vulkan_kernel::kernel_map_type::const_iterator vulkan_kernel::get_kernel(const compute_queue* queue) const {
+typename vulkan_kernel::kernel_map_type::iterator vulkan_kernel::get_kernel(const compute_queue* queue) {
 	return kernels.find((vulkan_device*)queue->get_device().get());
 }
 
@@ -125,12 +189,30 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 	return encoder;
 }
 
+VkPipeline vulkan_kernel::get_pipeline_spec(vulkan_device* device, vulkan_kernel_entry& entry, const uint3& work_group_size) {
+	// try to find a pipeline that has already been built/specialized for this work-group size
+	const auto spec_key = vulkan_kernel_entry::make_spec_key(work_group_size);
+	const auto iter = entry.specializations.find(spec_key);
+	if(iter != entry.specializations.end()) {
+		return iter->second.pipeline;
+	}
+	
+	// not built/specialized yet, do so now
+	const auto spec_entry = entry.specialize(device, work_group_size);
+	if(spec_entry == nullptr) {
+		log_error("run-time specialization of kernel %s with work-group size %v failed",
+				  entry.info->name, work_group_size);
+		return entry.specializations.begin()->second.pipeline;
+	}
+	return spec_entry->pipeline;
+}
+
+
 void vulkan_kernel::execute_internal(shared_ptr<vulkan_encoder> encoder,
 									 compute_queue* queue,
 									 const vulkan_kernel_entry& entry,
 									 const uint32_t&,
-									 const uint3& grid_dim,
-									 const uint3& block_dim floor_unused /* unused for now, until dyn local size is possible */) const {
+									 const uint3& grid_dim) const {
 	auto vk_dev = (vulkan_device*)queue->get_device().get();
 	
 	// set/write/update descriptors

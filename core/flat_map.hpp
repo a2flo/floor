@@ -56,6 +56,18 @@ public:
 	//! copy construct from another flat_map
 	flat_map(const flat_map& fmap) : data(fmap.data) {}
 	
+	//! move assignment from another flat_map
+	flat_map& operator=(flat_map&& fmap) {
+		data = move(fmap.data);
+		return *this;
+	}
+	
+	//! copy assignment from another flat_map
+	flat_map& operator=(const flat_map& fmap) {
+		data = fmap.data;
+		return *this;
+	}
+	
 	//! construct through a initializer_list, note that all entries will be uniqued
 	flat_map(initializer_list<entry_type> ilist) : data(ilist) {
 		unique();

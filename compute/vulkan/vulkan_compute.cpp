@@ -327,13 +327,8 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device->constant_mem_size = limits.maxUniformBufferRange; // not an exact match, but usually the same
 		device->local_mem_size = limits.maxComputeSharedMemorySize;
 		
-#if 0 // TODO: enable this again once we can have "dynamic"/spec work sizes
 		device->max_total_local_size = limits.maxComputeWorkGroupInvocations;
 		device->max_local_size = { limits.maxComputeWorkGroupSize[0], limits.maxComputeWorkGroupSize[1], limits.maxComputeWorkGroupSize[2] };
-#else
-		device->max_total_local_size = 512;
-		device->max_local_size = { 512, 1, 1 };
-#endif
 		device->max_group_size = { limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2] };
 		device->max_global_size = device->max_local_size * device->max_group_size;
 		device->max_push_constants_size = limits.maxPushConstantsSize;

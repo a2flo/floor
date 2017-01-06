@@ -44,8 +44,8 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 					entry.info = &info;
 					entry.max_local_size = prog.first->max_local_size;
 					
-					// retrieve max possible work-group size for this device for this function
-					// TODO: retrieve this from the binary
+					// always assume that we can execute this with the max possible work-group size,
+					// i.e. use this as the initial default
 					entry.max_total_local_size = prog.first->max_total_local_size;
 					
 					// TODO: make sure that _all_ of this is synchronized
@@ -239,7 +239,6 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						.stage = stage,
 						.module = prog.second.programs[mod_iter->second],
 						.pName = func_name.c_str(),
-						// TODO: use this later on to set dynamic local / work-group sizes
 						.pSpecializationInfo = nullptr,
 					};
 					
@@ -263,18 +262,11 @@ vulkan_program::vulkan_program(program_map_type&& programs_) : programs(move(pro
 						VK_CALL_CONT(vkCreatePipelineLayout(prog.first->device, &pipeline_layout_info, nullptr, &entry.pipeline_layout),
 									 "failed to create pipeline layout (" + func_name + ")");
 						
-						// create the compute pipeline for this kernel + device
-						const VkComputePipelineCreateInfo pipeline_info {
-							.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-							.pNext = nullptr,
-							.flags = 0,
-							.stage = entry.stage_info,
-							.layout = entry.pipeline_layout,
-							.basePipelineHandle = nullptr,
-							.basePipelineIndex = 0,
-						};
-						VK_CALL_CONT(vkCreateComputePipelines(prog.first->device, nullptr, 1, &pipeline_info, nullptr, &entry.pipeline),
-									 "failed to create compute pipeline (" + func_name + ")");
+						const uint3 work_group_size { entry.max_total_local_size, 1, 1 };
+						if(entry.specialize(prog.first, work_group_size) == nullptr) {
+							// NOTE: if specialization failed, this will have already printed an error
+							continue;
+						}
 					}
 					
 					// success, insert into map

@@ -40,13 +40,29 @@ public:
 	struct vulkan_encoder;
 	
 	struct vulkan_kernel_entry : kernel_entry {
-		VkPipeline pipeline { nullptr };
 		VkPipelineLayout pipeline_layout { nullptr };
 		VkPipelineShaderStageCreateInfo stage_info;
 		VkDescriptorSetLayout desc_set_layout { nullptr };
 		VkDescriptorPool desc_pool { nullptr };
 		VkDescriptorSet desc_set { nullptr };
 		vector<VkDescriptorType> desc_types;
+		
+		struct spec_entry {
+			VkPipeline pipeline { nullptr };
+			VkSpecializationInfo info;
+			vector<VkSpecializationMapEntry> map_entries;
+			vector<uint32_t> data;
+		};
+		// work-group size -> spec entry
+		flat_map<uint64_t, spec_entry> specializations;
+		
+		//! creates a 64-bit key out of the specified uint3 work-group size
+		//! NOTE: components of the work-group size must fit into 16-bit
+		static uint64_t make_spec_key(const uint3& work_group_size);
+		
+		//! specializes/builds a compute pipeline for the speicified work-group size
+		vulkan_kernel_entry::spec_entry* specialize(vulkan_device* device,
+													const uint3& work_group_size);
 	};
 	typedef flat_map<vulkan_device*, vulkan_kernel_entry> kernel_map_type;
 	
@@ -87,13 +103,21 @@ public:
 		// check work size
 		const uint3 block_dim = check_local_work_size(kernel_iter->second, local_work_size_);
 		
+		const uint3 grid_dim_overflow {
+			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
+			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
+			global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
+		};
+		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
+		grid_dim.max(1u);
+		
 		// create command buffer ("encoder") for this kernel execution
 		const vector<const vulkan_kernel_entry*> shader_entries {
 			&kernel_iter->second
 		};
 		bool encoder_success = false;
 		auto encoder = create_encoder(queue, nullptr,
-									  kernel_iter->second.pipeline,
+									  get_pipeline_spec(kernel_iter->first, kernel_iter->second, block_dim),
 									  kernel_iter->second.pipeline_layout,
 									  shader_entries, encoder_success);
 		if(!encoder_success) {
@@ -106,15 +130,7 @@ public:
 		set_arguments(encoder.get(), shader_entries, idx, forward<Args>(args)...);
 		
 		// run
-		const uint3 grid_dim_overflow {
-			global_work_size.x > 0 ? std::min(uint32_t(global_work_size.x % block_dim.x), 1u) : 0u,
-			global_work_size.y > 0 ? std::min(uint32_t(global_work_size.y % block_dim.y), 1u) : 0u,
-			global_work_size.z > 0 ? std::min(uint32_t(global_work_size.z % block_dim.z), 1u) : 0u
-		};
-		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
-		grid_dim.max(1u);
-		
-		execute_internal(encoder, queue, kernel_iter->second, work_dim, grid_dim, block_dim);
+		execute_internal(encoder, queue, kernel_iter->second, work_dim, grid_dim);
 	}
 	
 	//! NOTE: very wip/temporary
@@ -221,10 +237,10 @@ public:
 	}
 	
 protected:
-	const kernel_map_type kernels;
+	mutable kernel_map_type kernels;
 	flat_map<const kernel_entry*, bool> warn_map;
 	
-	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	typename kernel_map_type::iterator get_kernel(const compute_queue* queue);
 	
 	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::VULKAN; }
 	
@@ -234,13 +250,15 @@ protected:
 											  const VkPipelineLayout pipeline_layout,
 											  const vector<const vulkan_kernel_entry*>& entries,
 											  bool& success);
+	VkPipeline get_pipeline_spec(vulkan_device* device,
+								 vulkan_kernel_entry& entry,
+								 const uint3& work_group_size);
 	
 	void execute_internal(shared_ptr<vulkan_encoder> encoder,
 						  compute_queue* queue,
 						  const vulkan_kernel_entry& entry,
 						  const uint32_t& work_dim,
-						  const uint3& grid_dim,
-						  const uint3& block_dim) const;
+						  const uint3& grid_dim) const;
 	
 	void draw_internal(shared_ptr<vulkan_encoder> encoder,
 					   compute_queue* queue,
