@@ -23518,10 +23518,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..9fd9690
+index 0000000..050d3ef
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3375 @@
+@@ -0,0 +1,3392 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -26192,32 +26192,42 @@ index 0000000..9fd9690
 +    if (F->getCallingConv() == llvm::CallingConv::FLOOR_KERNEL) {
 +      const auto global_name = func_name + ".vulkan_constant.workgroup_size";
 +      auto gv_wg_size = M->getNamedGlobal(global_name);
-+      const auto llvm_wg_size_init =
-+          ((llvm::ConstantVector *)gv_wg_size->getInitializer());
-+      const uint32_t llvm_wg_size_vals[3]{
-+          (uint32_t)(
-+              (llvm::ConstantInt *)llvm_wg_size_init->getAggregateElement(0u))
-+              ->getZExtValue(),
-+          (uint32_t)(
-+              (llvm::ConstantInt *)llvm_wg_size_init->getAggregateElement(1u))
-+              ->getZExtValue(),
-+          (uint32_t)(
-+              (llvm::ConstantInt *)llvm_wg_size_init->getAggregateElement(2u))
-+              ->getZExtValue(),
-+      };
++
++      // NOTE: 128 is the minimum value that has to be supported for x
++      const uint32_t default_wg_size_vals[3]{128, 1, 1};
 +      auto uint_type = BM->addIntegerType(32, false);
 +      auto uint3_type = BM->addVectorType(uint_type, 3);
 +      std::vector<SPIRVValue *> wg_size_vals{
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[0]),
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[1]),
-+          BM->addIntegerConstant(uint_type, llvm_wg_size_vals[2]),
++          BM->addSpecIntegerConstant(uint_type, default_wg_size_vals[0]),
++          BM->addSpecIntegerConstant(uint_type, default_wg_size_vals[1]),
++          BM->addSpecIntegerConstant(uint_type, default_wg_size_vals[2]),
 +      };
-+      auto wg_size = BM->addCompositeConstant(uint3_type, wg_size_vals);
++      auto wg_size = BM->addSpecCompositeConstant(uint3_type, wg_size_vals);
 +      wg_size->addDecorate(spv::DecorationBuiltIn, spv::BuiltInWorkgroupSize);
 +      BM->setName(wg_size, global_name);
 +      spirv_func->addExecutionMode(new SPIRVExecutionMode(
-+          spirv_func, spv::ExecutionModeLocalSize, llvm_wg_size_vals[0],
-+          llvm_wg_size_vals[1], llvm_wg_size_vals[2]));
++          spirv_func, spv::ExecutionModeLocalSize, default_wg_size_vals[0],
++          default_wg_size_vals[1], default_wg_size_vals[2]));
++
++      // set work-group size (x, y, z) spec ids to 1, 2 and 3
++      // NOTE: we're starting this at 1 instead of 0, b/c of nvidia driver bugs
++      for (uint32_t i = 0; i < 3; ++i) {
++        wg_size_vals[i]->addDecorate(spv::DecorationSpecId, i + 1);
++      }
++
++      // preempt loads of the "<i32 x 3>*" work-group size constant
++      // -> this has to be a constant composite in SPIR-V, not a variable
++      // -> replace (map) all loads with the constant
++      std::vector<Use *> uses;
++      uses.reserve(gv_wg_size->getNumUses());
++      for (auto &use : gv_wg_size->uses()) {
++        uses.emplace_back(&use);
++      }
++      for (auto &use : uses) {
++        if (const auto instr = dyn_cast<LoadInst>(use->getUser())) {
++          mapValue((const Value *)instr, wg_size);
++        }
++      }
 +    }
 +  }
 +
@@ -26234,6 +26244,13 @@ index 0000000..9fd9690
 +  for (auto &GV : M->globals()) {
 +    // don't want to handle the globals that we added in here
 +    if (added_globals.count(&GV) > 0)
++      continue;
++
++    // ignore external globals
++    if (GV.getLinkage() == GlobalValue::ExternalLinkage ||
++        GV.getLinkage() == GlobalValue::AvailableExternallyLinkage ||
++        GV.getLinkage() == GlobalValue::PrivateLinkage ||
++        GV.getLinkage() == GlobalValue::ExternalWeakLinkage)
 +      continue;
 +
 +    if (SPIRSPIRVAddrSpaceMap::map(static_cast<SPIRAddressSpace>(
@@ -26723,8 +26740,8 @@ index 0000000..9fd9690
 +    case vulkan_sampling::LOD_TYPE::EXPLICIT_LOD:
 +      // NOTE: SPIR-V supports this, but Vulkan doesn't
 +      //       -> this is dealt with elsewhere
-+      //operands_mask |= spv::ImageOperandsLodMask;
-+      //image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
++      // operands_mask |= spv::ImageOperandsLodMask;
++      // image_operands.emplace_back(transValue(args[arg_idx++], BB)->getId());
 +      ++arg_idx;
 +      break;
 +    case vulkan_sampling::LOD_TYPE::IMPLICIT_LOD:
@@ -29078,10 +29095,10 @@ index 0000000..256febb
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..cfa525d
+index 0000000..cbd66ef
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
-@@ -0,0 +1,715 @@
+@@ -0,0 +1,713 @@
 +//===- SPIRVEntry.h - Base Class for SPIR-V Entities ------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -29741,8 +29758,6 @@ index 0000000..cfa525d
 +_SPIRV_OP(TypeMatrix)
 +_SPIRV_OP(SpecConstantTrue)
 +_SPIRV_OP(SpecConstantFalse)
-+_SPIRV_OP(SpecConstant)
-+_SPIRV_OP(SpecConstantComposite)
 +_SPIRV_OP(Image)
 +_SPIRV_OP(ImageTexelPointer)
 +_SPIRV_OP(ImageSampleProjImplicitLod)
@@ -34408,10 +34423,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..950b360
+index 0000000..d0a7075
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1777 @@
+@@ -0,0 +1,1807 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -34668,6 +34683,13 @@ index 0000000..950b360
 +                                             SPIRVWord PacketAlign,
 +                                             SPIRVWord Capacity);
 +
++  // Specialization constants creation functions
++  virtual SPIRVValue *addSpecDoubleConstant(SPIRVTypeFloat *, double);
++  virtual SPIRVValue *addSpecFloatConstant(SPIRVTypeFloat *, float);
++  virtual SPIRVValue *addSpecIntegerConstant(SPIRVTypeInt *, uint64_t);
++  virtual SPIRVValue *
++  addSpecCompositeConstant(SPIRVType *, const std::vector<SPIRVValue *> &);
++
 +  // Instruction creation functions
 +  virtual SPIRVInstruction *addPtrAccessChainInst(SPIRVType *, SPIRVValue *,
 +                                                  std::vector<SPIRVValue *>,
@@ -34840,6 +34862,7 @@ index 0000000..950b360
 +      VectorTypeMap;
 +  std::unordered_map<std::pair<SPIRVType *, uint32_t>, SPIRVTypePointer *>
 +      PointerTypeMap;
++  SPIRVTypeSampler *SamplerType{nullptr};
 +
 +  void layoutEntry(SPIRVEntry *Entry);
 +};
@@ -35271,7 +35294,12 @@ index 0000000..950b360
 +}
 +
 +SPIRVTypeSampler *SPIRVModuleImpl::addSamplerType() {
-+  return addType(new SPIRVTypeSampler(this, getId()));
++  // only ever create one sampler type
++  if (SamplerType != nullptr) {
++    return SamplerType;
++  }
++  SamplerType = new SPIRVTypeSampler(this, getId());
++  return addType(SamplerType);
 +}
 +
 +SPIRVTypePipeStorage *SPIRVModuleImpl::addPipeStorageType() {
@@ -35444,6 +35472,23 @@ index 0000000..950b360
 +SPIRVValue *SPIRVModuleImpl::addUndefInst(SPIRVType *TheType,
 +                                          SPIRVBasicBlock *BB) {
 +  return BB->addInstruction(new SPIRVUndefInst(TheType, getId(), BB));
++}
++
++// Specialization constants creation functions
++SPIRVValue *SPIRVModuleImpl::addSpecDoubleConstant(SPIRVTypeFloat *Ty,
++                                                   double V) {
++  return add(new SPIRVSpecConstant(this, Ty, getId(), V));
++}
++SPIRVValue *SPIRVModuleImpl::addSpecFloatConstant(SPIRVTypeFloat *Ty, float V) {
++  return add(new SPIRVSpecConstant(this, Ty, getId(), V));
++}
++SPIRVValue *SPIRVModuleImpl::addSpecIntegerConstant(SPIRVTypeInt *Ty,
++                                                    uint64_t V) {
++  return add(new SPIRVSpecConstant(this, Ty, getId(), V));
++}
++SPIRVValue *SPIRVModuleImpl::addSpecCompositeConstant(
++    SPIRVType *Ty, const std::vector<SPIRVValue *> &Elements) {
++  return add(new SPIRVSpecConstantComposite(this, Ty, getId(), Elements));
 +}
 +
 +// Instruction creation functions
@@ -36191,10 +36236,10 @@ index 0000000..950b360
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..c81f1d5
+index 0000000..0ea2a32
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
-@@ -0,0 +1,408 @@
+@@ -0,0 +1,415 @@
 +//===- SPIRVModule.h - Class to represent a SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36446,6 +36491,13 @@ index 0000000..c81f1d5
 +                                             SPIRVWord PacketSize,
 +                                             SPIRVWord PacketAlign,
 +                                             SPIRVWord Capacity) = 0;
++
++  // Specialization constants creation functions
++  virtual SPIRVValue *addSpecDoubleConstant(SPIRVTypeFloat *, double) = 0;
++  virtual SPIRVValue *addSpecFloatConstant(SPIRVTypeFloat *, float) = 0;
++  virtual SPIRVValue *addSpecIntegerConstant(SPIRVTypeInt *, uint64_t) = 0;
++  virtual SPIRVValue *
++  addSpecCompositeConstant(SPIRVType *, const std::vector<SPIRVValue *> &) = 0;
 +
 +  // Instruction creation functions
 +  virtual SPIRVInstruction *addPtrAccessChainInst(SPIRVType *, SPIRVValue *,
@@ -39561,10 +39613,10 @@ index 0000000..29bbdfb
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVValue.h b/lib/SPIRV/libSPIRV/SPIRVValue.h
 new file mode 100644
-index 0000000..7f00280
+index 0000000..c3f19ee
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVValue.h
-@@ -0,0 +1,386 @@
+@@ -0,0 +1,421 @@
 +//===- SPIRVValue.h - Class to represent a SPIR-V Value ---------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -39694,30 +39746,32 @@ index 0000000..7f00280
 +public:
 +  // Complete constructor for integer constant
 +  SPIRVConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
-+                uint64_t TheValue)
-+      : SPIRVValue(M, 0, OpConstant, TheType, TheId) {
++                uint64_t TheValue, spv::Op op = OpConstant)
++      : SPIRVValue(M, 0, op, TheType, TheId) {
 +    Union.UInt64Val = TheValue;
 +    recalculateWordCount();
 +    validate();
 +  }
 +  // Complete constructor for float constant
 +  SPIRVConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
-+                float TheValue)
-+      : SPIRVValue(M, 0, OpConstant, TheType, TheId) {
++                float TheValue, spv::Op op = OpConstant)
++      : SPIRVValue(M, 0, op, TheType, TheId) {
 +    Union.FloatVal = TheValue;
 +    recalculateWordCount();
 +    validate();
 +  }
 +  // Complete constructor for double constant
 +  SPIRVConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
-+                double TheValue)
-+      : SPIRVValue(M, 0, OpConstant, TheType, TheId) {
++                double TheValue, spv::Op op = OpConstant)
++      : SPIRVValue(M, 0, op, TheType, TheId) {
 +    Union.DoubleVal = TheValue;
 +    recalculateWordCount();
 +    validate();
 +  }
 +  // Incomplete constructor
 +  SPIRVConstant() : SPIRVValue(OpConstant), NumWords(0) {}
++  SPIRVConstant(spv::Op op) : SPIRVValue(op), NumWords(0) {}
++
 +  uint64_t getZExtIntValue() const { return Union.UInt64Val; }
 +  float getFloatValue() const { return Union.FloatVal; }
 +  double getDoubleValue() const { return Union.DoubleVal; }
@@ -39756,6 +39810,25 @@ index 0000000..7f00280
 +    SPIRVWord Words[2];
 +    UnionType() { UInt64Val = 0; }
 +  } Union;
++};
++
++// identical to SPIRVConstant except for the opcode
++class SPIRVSpecConstant : public SPIRVConstant {
++public:
++  // Complete constructor for integer constant
++  SPIRVSpecConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
++                    uint64_t TheValue)
++      : SPIRVConstant(M, TheType, TheId, TheValue, OpSpecConstant) {}
++  // Complete constructor for float constant
++  SPIRVSpecConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
++                    float TheValue)
++      : SPIRVConstant(M, TheType, TheId, TheValue, OpSpecConstant) {}
++  // Complete constructor for double constant
++  SPIRVSpecConstant(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
++                    double TheValue)
++      : SPIRVConstant(M, TheType, TheId, TheValue, OpSpecConstant) {}
++  // Incomplete constructor
++  SPIRVSpecConstant() : SPIRVConstant(OpSpecConstant) {}
 +};
 +
 +template <Op OC> class SPIRVConstantEmpty : public SPIRVValue {
@@ -39829,14 +39902,15 @@ index 0000000..7f00280
 +public:
 +  // Complete constructor for composite constant
 +  SPIRVConstantComposite(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
-+                         const std::vector<SPIRVValue *> TheElements)
-+      : SPIRVValue(M, TheElements.size() + 3, OpConstantComposite, TheType,
-+                   TheId) {
++                         const std::vector<SPIRVValue *> TheElements,
++                         spv::Op op = OpConstantComposite)
++      : SPIRVValue(M, TheElements.size() + 3, op, TheType, TheId) {
 +    Elements = getIds(TheElements);
 +    validate();
 +  }
 +  // Incomplete constructor
 +  SPIRVConstantComposite() : SPIRVValue(OpConstantComposite) {}
++  SPIRVConstantComposite(spv::Op op) : SPIRVValue(op) {}
 +  std::vector<SPIRVValue *> getElements() const { return getValues(Elements); }
 +  std::vector<SPIRVEntry *> getNonLiteralOperands() const {
 +    std::vector<SPIRVValue *> Elements = getElements();
@@ -39853,6 +39927,19 @@ index 0000000..7f00280
 +  _SPIRV_DEF_ENCDEC3(Type, Id, Elements)
 +
 +  std::vector<SPIRVId> Elements;
++};
++
++// identical to SPIRVConstantComposite except for the opcode
++class SPIRVSpecConstantComposite : public SPIRVConstantComposite {
++public:
++  // Complete constructor for composite constant
++  SPIRVSpecConstantComposite(SPIRVModule *M, SPIRVType *TheType, SPIRVId TheId,
++                             const std::vector<SPIRVValue *> TheElements)
++      : SPIRVConstantComposite(M, TheType, TheId, TheElements,
++                               OpSpecConstantComposite) {}
++  // Incomplete constructor
++  SPIRVSpecConstantComposite()
++      : SPIRVConstantComposite(OpSpecConstantComposite) {}
 +};
 +
 +class SPIRVConstantSampler : public SPIRVValue {
@@ -52557,10 +52644,10 @@ index 0000000..cadb3f0
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..05d5bdd
+index 0000000..b571ebc
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,569 @@
+@@ -0,0 +1,564 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -52765,23 +52852,18 @@ index 0000000..05d5bdd
 +				// else: nothing/passthrough
 +			}
 +			else if(is_kernel_func) {
-+				// emit work-group size constant for this function
++				// emit work-group size variable for this function (initialized externally at "run-time" / SPIR-V spec)
 +				auto workgroup_size_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 3);
-+				std::vector<llvm::Constant*> workgroup_size_vals {
-+					llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 512),
-+					llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 1),
-+					llvm::ConstantInt::get(llvm::Type::getInt32Ty(*ctx), 1),
-+				};
-+				auto workgroup_size_init = llvm::ConstantVector::get(workgroup_size_vals);
 +				workgroup_size = new GlobalVariable(*M,
 +													workgroup_size_type,
 +													true,
-+													GlobalVariable::InternalLinkage,
-+													workgroup_size_init,
++													GlobalVariable::ExternalLinkage,
++													nullptr,
 +													F.getName().str() + ".vulkan_constant.workgroup_size",
 +													nullptr,
 +													GlobalValue::NotThreadLocal,
-+													0);
++													0,
++													true);
 +			}
 +			
 +			// visit everything in this function
