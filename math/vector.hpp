@@ -88,35 +88,7 @@ public:
 #endif
 		};
 		
-		// scalar accessors (.rgba)
-		struct {
-			scalar_type r;
-#if FLOOR_VECTOR_WIDTH >= 2
-			scalar_type g;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			scalar_type b;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			scalar_type a;
-#endif
-		};
-		
-		// scalar accessors (.stpq)
-		struct {
-			scalar_type s;
-#if FLOOR_VECTOR_WIDTH >= 2
-			scalar_type t;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 3
-			scalar_type p;
-#endif
-#if FLOOR_VECTOR_WIDTH >= 4
-			scalar_type q;
-#endif
-		};
-		
-		// accessors that are directly usable (.xy, .zw, .xyz)
+		// accessors that are directly usable (.xy, .zw, .yz, .xyz, .yzw)
 		// other kinds must be made via a function call
 #if FLOOR_VECTOR_WIDTH >= 3
 		struct {
@@ -127,9 +99,21 @@ public:
 		};
 #endif
 		
+#if FLOOR_VECTOR_WIDTH >= 3
+		struct {
+			scalar_type __dont_use_0;
+			vector2<scalar_type> yz;
+		};
+#endif
+		
 #if FLOOR_VECTOR_WIDTH >= 4
 		struct {
 			vector3<scalar_type> xyz;
+		};
+		
+		struct {
+			scalar_type __dont_use_1;
+			vector3<scalar_type> yzw;
 		};
 #endif
 		

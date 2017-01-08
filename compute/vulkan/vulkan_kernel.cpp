@@ -36,14 +36,14 @@ struct vulkan_kernel::vulkan_encoder {
 
 uint64_t vulkan_kernel::vulkan_kernel_entry::make_spec_key(const uint3& work_group_size) {
 #if defined(FLOOR_DEBUG)
-	if((work_group_size >= 65536u).any()) {
+	if((work_group_size.yz >= 65536u).any()) {
 		log_error("work-group size is too big: %v", work_group_size);
 		return 0;
 	}
 #endif
-	return (uint64_t(work_group_size.z) << 32ull |
+	return (uint64_t(work_group_size.x) << 32ull |
 			uint64_t(work_group_size.y) << 16ull |
-			uint64_t(work_group_size.x));
+			uint64_t(work_group_size.z));
 }
 
 vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_entry::specialize(vulkan_device* device,
