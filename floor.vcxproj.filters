@@ -40,6 +40,9 @@
     <Filter Include="compute\vulkan">
       <UniqueIdentifier>{6d2f6320-fcb0-4a14-a98a-0f6fd2b768f4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="audio">
+      <UniqueIdentifier>{cfe918de-6600-404a-bff2-7d12244064f8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="compute\compute_context.cpp">
@@ -232,16 +235,16 @@
       <Filter>compute\vulkan</Filter>
     </ClCompile>
     <ClCompile Include="audio\audio_controller.cpp">
-      <Filter>math</Filter>
+      <Filter>audio</Filter>
     </ClCompile>
     <ClCompile Include="audio\audio_headers.cpp">
-      <Filter>math</Filter>
+      <Filter>audio</Filter>
     </ClCompile>
     <ClCompile Include="audio\audio_source.cpp">
-      <Filter>math</Filter>
+      <Filter>audio</Filter>
     </ClCompile>
     <ClCompile Include="audio\audio_store.cpp">
-      <Filter>math</Filter>
+      <Filter>audio</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -572,20 +575,20 @@
     <ClInclude Include="core\flat_map.hpp">
       <Filter>core</Filter>
     </ClInclude>
-    <ClInclude Include="audio\audio_controller.hpp">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="audio\audio_headers.hpp">
-      <Filter>math</Filter>
-    </ClInclude>
-    <ClInclude Include="audio\audio_source.hpp">
+    <ClInclude Include="math\rt_math.hpp">
       <Filter>math</Filter>
     </ClInclude>
     <ClInclude Include="audio\audio_store.hpp">
-      <Filter>math</Filter>
+      <Filter>audio</Filter>
     </ClInclude>
-    <ClInclude Include="math\rt_math.hpp">
-      <Filter>math</Filter>
+    <ClInclude Include="audio\audio_controller.hpp">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_headers.hpp">
+      <Filter>audio</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_source.hpp">
+      <Filter>audio</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
