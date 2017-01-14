@@ -231,6 +231,18 @@
     <ClCompile Include="compute\vulkan\vulkan_queue.cpp">
       <Filter>compute\vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="audio\audio_controller.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\audio_headers.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\audio_source.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
+    <ClCompile Include="audio\audio_store.cpp">
+      <Filter>math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="compute\compute_context.hpp">
@@ -550,6 +562,30 @@
     </ClInclude>
     <ClInclude Include="compute\vulkan\vulkan_queue.hpp">
       <Filter>compute\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="constexpr\ext_traits.hpp">
+      <Filter>constexpr</Filter>
+    </ClInclude>
+    <ClInclude Include="compute\cuda\cuda_internal_api.hpp">
+      <Filter>compute\cuda</Filter>
+    </ClInclude>
+    <ClInclude Include="core\flat_map.hpp">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_controller.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_headers.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_source.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="audio\audio_store.hpp">
+      <Filter>math</Filter>
+    </ClInclude>
+    <ClInclude Include="math\rt_math.hpp">
+      <Filter>math</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

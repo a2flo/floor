@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug_c2|Win32">
       <Configuration>Debug_c2</Configuration>
@@ -381,6 +381,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -405,7 +406,7 @@
       <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OpenMPSupport>false</OpenMPSupport>
       <PrecompiledHeaderFile>
@@ -415,6 +416,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -521,6 +523,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -545,7 +548,7 @@
       <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <OpenMPSupport>false</OpenMPSupport>
       <PrecompiledHeaderFile>
@@ -555,6 +558,8 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <DebugInformationFormat>OldStyle</DebugInformationFormat>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat>
+      </DiagnosticsFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -663,6 +668,7 @@
       </PrecompiledHeaderOutputFile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -689,7 +695,7 @@
       <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OpenMPSupport>false</OpenMPSupport>
@@ -699,6 +705,7 @@
       </PrecompiledHeaderOutputFile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -811,6 +818,7 @@
       </PrecompiledHeaderOutputFile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -837,7 +845,7 @@
       <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OpenMPSupport>false</OpenMPSupport>
@@ -847,6 +855,7 @@
       </PrecompiledHeaderOutputFile>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <SDLCheck>false</SDLCheck>
+      <DiagnosticsFormat />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -940,6 +949,10 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="audio\audio_controller.cpp" />
+    <ClCompile Include="audio\audio_headers.cpp" />
+    <ClCompile Include="audio\audio_source.cpp" />
+    <ClCompile Include="audio\audio_store.cpp" />
     <ClCompile Include="compute\compute_context.cpp" />
     <ClCompile Include="compute\compute_buffer.cpp" />
     <ClCompile Include="compute\compute_device.cpp" />
@@ -1005,6 +1018,10 @@
     <ClCompile Include="threading\thread_base.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="audio\audio_controller.hpp" />
+    <ClInclude Include="audio\audio_headers.hpp" />
+    <ClInclude Include="audio\audio_source.hpp" />
+    <ClInclude Include="audio\audio_store.hpp" />
     <ClInclude Include="compute\compute_context.hpp" />
     <ClInclude Include="compute\compute_buffer.hpp" />
     <ClInclude Include="compute\compute_common.hpp" />
@@ -1020,6 +1037,7 @@
     <ClInclude Include="compute\cuda\cuda_compute.hpp" />
     <ClInclude Include="compute\cuda\cuda_device.hpp" />
     <ClInclude Include="compute\cuda\cuda_image.hpp" />
+    <ClInclude Include="compute\cuda\cuda_internal_api.hpp" />
     <ClInclude Include="compute\cuda\cuda_kernel.hpp" />
     <ClInclude Include="compute\cuda\cuda_program.hpp" />
     <ClInclude Include="compute\cuda\cuda_queue.hpp" />
@@ -1061,6 +1079,7 @@
     <ClInclude Include="constexpr\const_array.hpp" />
     <ClInclude Include="constexpr\const_math.hpp" />
     <ClInclude Include="constexpr\const_string.hpp" />
+    <ClInclude Include="constexpr\ext_traits.hpp" />
     <ClInclude Include="constexpr\soft_f16.hpp" />
     <ClInclude Include="constexpr\soft_i128.hpp" />
     <ClInclude Include="core\core.hpp" />
@@ -1071,6 +1090,7 @@
     <ClInclude Include="core\event.hpp" />
     <ClInclude Include="core\event_objects.hpp" />
     <ClInclude Include="core\file_io.hpp" />
+    <ClInclude Include="core\flat_map.hpp" />
     <ClInclude Include="core\gl_shader.hpp" />
     <ClInclude Include="core\gl_support.hpp" />
     <ClInclude Include="core\json.hpp" />
@@ -1094,6 +1114,7 @@
     <ClInclude Include="math\matrix4.hpp" />
     <ClInclude Include="math\quaternion.hpp" />
     <ClInclude Include="math\ray.hpp" />
+    <ClInclude Include="math\rt_math.hpp" />
     <ClInclude Include="math\vector.hpp" />
     <ClInclude Include="math\vector_helper.hpp" />
     <ClInclude Include="math\vector_lib.hpp" />
