@@ -60,14 +60,23 @@ public:
 	//! max push constants size
 	uint32_t max_push_constants_size { 0u };
 	
-	//! memory type index for device memory allocation
+	//! preferred memory type index for device memory allocation
 	uint32_t device_mem_index { ~0u };
 	
-	//! memory type index for (potentially cached) host + device-visible memory allocation
+	//! preferred memory type index for (potentially cached) host + device-visible memory allocation
 	uint32_t host_mem_cached_index { ~0u };
 	
-	//! memory type index for (potentially uncached) host + device-visible memory allocation
+	//! preferred memory type index for (potentially uncached) host + device-visible memory allocation
 	uint32_t host_mem_uncached_index { ~0u };
+	
+	//! all available memory type indices for device memory allocation
+	unordered_set<uint32_t> device_mem_indices;
+	
+	//! all available memory type indices for (potentially cached) host + device-visible memory allocation
+	unordered_set<uint32_t> host_mem_cached_indices;
+	
+	//! all available memory type indices for (potentially uncached) host + device-visible memory allocation
+	unordered_set<uint32_t> host_mem_uncached_indices;
 	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)

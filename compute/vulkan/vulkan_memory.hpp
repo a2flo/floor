@@ -86,6 +86,11 @@ protected:
 	virtual void image_copy_dev_to_host(VkCommandBuffer, VkBuffer) {}
 	virtual void image_copy_host_to_dev(VkCommandBuffer, VkBuffer, void*) {}
 	
+	//! based on the specified/supported memory type bits and "wants device memory" flag,
+	//! this tries to find the best matching memory type index (heap / location)
+	uint32_t find_memory_type_index(const uint32_t memory_type_bits,
+									const bool want_device_memory) const;
+	
 };
 
 #endif

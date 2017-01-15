@@ -364,6 +364,7 @@ compute_context(), enable_renderer(enable_renderer_) {
 			}
 		}
 		for(uint32_t i = 0; i < mem_props.memoryTypeCount; ++i) {
+			// preferred index handling
 			if(device->device_mem_index == ~0u &&
 			   mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
 				device->device_mem_index = i;
@@ -377,6 +378,20 @@ compute_context(), enable_renderer(enable_renderer_) {
 				}
 				else {
 					device->host_mem_uncached_index = i;
+				}
+			}
+			
+			// handling of all available indices
+			// NOTE: some drivers contain multiple entries of the same type and do actually require specific ones from that set
+			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) {
+				device->device_mem_indices.emplace(i);
+			}
+			if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) {
+				if(mem_props.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) {
+					device->host_mem_cached_indices.emplace(i);
+				}
+				else {
+					device->host_mem_uncached_indices.emplace(i);
 				}
 			}
 		}

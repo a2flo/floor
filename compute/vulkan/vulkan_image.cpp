@@ -308,13 +308,11 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 	VkMemoryRequirements mem_req;
 	vkGetImageMemoryRequirements(vulkan_dev, image, &mem_req);
 	
-	// TODO: handle host-memory backing
 	const VkMemoryAllocateInfo alloc_info {
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.pNext = nullptr,
 		.allocationSize = mem_req.size,
-		// TODO/NOTE: always use device memory for now
-		.memoryTypeIndex = ((const vulkan_device*)dev)->device_mem_index,
+		.memoryTypeIndex = find_memory_type_index(mem_req.memoryTypeBits, true /* prefer device memory */),
 	};
 	VK_CALL_RET(vkAllocateMemory(vulkan_dev, &alloc_info, nullptr, &mem), "image allocation failed", false);
 	VK_CALL_RET(vkBindImageMemory(vulkan_dev, image, mem, 0), "image allocation binding failed", false);

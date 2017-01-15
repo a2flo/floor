@@ -346,4 +346,47 @@ void vulkan_memory::unmap(shared_ptr<compute_queue> cqueue, void* __attribute__(
 	mappings.erase(mapped_ptr);
 }
 
+uint32_t vulkan_memory::find_memory_type_index(const uint32_t memory_type_bits,
+											   const bool want_device_memory) const {
+	const auto find_index = [](const unordered_set<uint32_t>& indices,
+							   const uint32_t& preferred_index,
+							   const uint32_t& type_bits) -> pair<bool, uint32_t> {
+		// check if preferred index is possible
+		const uint32_t preferred_mask = 1u << preferred_index;
+		if((type_bits & preferred_mask) == preferred_mask) {
+			return { true, preferred_index };
+		}
+		
+		// check all other supported indices
+		for(const auto& idx : indices) {
+			const uint32_t idx_mask = 1u << idx;
+			if((type_bits & idx_mask) == idx_mask) {
+				return { true, idx };
+			}
+		}
+		
+		// no match
+		return { false, 0 };
+	};
+	
+	// if device memory is wanted, try this first
+	if(want_device_memory) {
+		const auto ret = find_index(device->device_mem_indices, device->device_mem_index, memory_type_bits);
+		if(ret.first) return ret.second;
+	}
+	
+	// check cached first, then uncached
+	auto ret = find_index(device->host_mem_cached_indices, device->host_mem_cached_index, memory_type_bits);
+	if(ret.first) return ret.second;
+	
+	// check cached first, then uncached
+	ret = find_index(device->host_mem_uncached_indices, device->host_mem_uncached_index, memory_type_bits);
+	if(ret.first) return ret.second;
+	
+	// no memory found for this
+	log_error("could not find a memory type index for the request memory type bits %X (device memory wanted: %v)",
+			  memory_type_bits, want_device_memory);
+	return 0;
+}
+
 #endif
