@@ -22,6 +22,7 @@
 #include <floor/compute/vulkan/vulkan_common.hpp>
 #include <floor/compute/compute_device.hpp>
 #include <memory>
+#include <unordered_set>
 
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(weak-vtables)
