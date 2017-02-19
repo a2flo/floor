@@ -16363,10 +16363,10 @@ index 0000000..701588c
 +#endif
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..8781a5e
+index 0000000..e909842
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
-@@ -0,0 +1,938 @@
+@@ -0,0 +1,934 @@
 +//===- LLVMSPIRVInternal.h -  SPIR-V internal header file -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -17227,10 +17227,6 @@ index 0000000..8781a5e
 +Type *getSPIRVImageTypeFromGLSL(Module *M, Type *T, const char *sample_type,
 +                                const bool is_storage,
 +                                const spv::ImageFormat format);
-+
-+/// Get LLVM type for sampled type of SPIR-V image type by postfix.
-+Type *getLLVMTypeForSPIRVImageSampledTypePostfix(StringRef Postfix,
-+                                                 LLVMContext &Ctx);
 +
 +/// Map OpenCL opaque type name to SPIR-V type name.
 +std::string mapOCLTypeNameToSPIRV(StringRef Name, StringRef Acc = "");
@@ -22099,10 +22095,10 @@ index 0000000..fd1ee17
 +ModulePass *llvm::createSPIRVToOCL20() { return new SPIRVToOCL20(); }
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..4e57ba3
+index 0000000..507ed90
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
-@@ -0,0 +1,1413 @@
+@@ -0,0 +1,1397 @@
 +//===- SPIRVUtil.cpp - SPIR-V Utilities -------------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -23312,22 +23308,6 @@ index 0000000..4e57ba3
 +  llvm_unreachable("Invalid sampled type for image");
 +}
 +
-+// ToDo: Find a way to represent uint sampled type in LLVM, maybe an
-+//      opaque type.
-+Type *getLLVMTypeForSPIRVImageSampledTypePostfix(StringRef Postfix,
-+                                                 LLVMContext &Ctx) {
-+  if (Postfix == kSPIRVImageSampledTypeName::Void)
-+    return Type::getVoidTy(Ctx);
-+  if (Postfix == kSPIRVImageSampledTypeName::Float)
-+    return Type::getFloatTy(Ctx);
-+  if (Postfix == kSPIRVImageSampledTypeName::Half)
-+    return Type::getHalfTy(Ctx);
-+  if (Postfix == kSPIRVImageSampledTypeName::Int ||
-+      Postfix == kSPIRVImageSampledTypeName::UInt)
-+    return Type::getInt32Ty(Ctx);
-+  llvm_unreachable("Invalid sampled type postfix");
-+}
-+
 +std::string mapOCLTypeNameToSPIRV(StringRef Name, StringRef Acc) {
 +  std::string BaseTy;
 +  std::string Postfixes;
@@ -23518,10 +23498,10 @@ index 0000000..4e57ba3
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..050d3ef
+index 0000000..55c9dbe
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3392 @@
+@@ -0,0 +1,3439 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -23530,7 +23510,7 @@ index 0000000..050d3ef
 +// License. See LICENSE.TXT for details.
 +//
 +// Copyright (c) 2014 Advanced Micro Devices, Inc. All rights reserved.
-+// Copyright (c) 2016 Florian Ziesche Vulkan/SPIR-V support
++// Copyright (c) 2016 - 2017 Florian Ziesche Vulkan/SPIR-V support
 +//
 +// Permission is hereby granted, free of charge, to any person obtaining a
 +// copy of this software and associated documentation files (the "Software"),
@@ -24221,10 +24201,22 @@ index 0000000..050d3ef
 +    return mapType(T, PipeT);
 +  } else if (TN == kSPIRVTypeName::Image) {
 +    assert(AddrSpc == SPIRAS_Global);
-+    // The sampled type needs to be translated through LLVM type to guarantee
-+    // uniqueness.
-+    auto SampledT = transType(
-+        getLLVMTypeForSPIRVImageSampledTypePostfix(Postfixes[0], *Ctx));
++
++    SPIRVType *SampledT = nullptr;
++    if (Postfixes[0] == kSPIRVImageSampledTypeName::Void) {
++      SampledT = BM->addVoidType();
++    } else if (Postfixes[0] == kSPIRVImageSampledTypeName::Float) {
++      SampledT = BM->addFloatType(32);
++    } else if (Postfixes[0] == kSPIRVImageSampledTypeName::Half) {
++      SampledT = BM->addFloatType(16);
++    } else if (Postfixes[0] == kSPIRVImageSampledTypeName::UInt) {
++      SampledT = BM->addIntegerType(32, false);
++    } else if (Postfixes[0] == kSPIRVImageSampledTypeName::Int) {
++      SampledT = BM->addIntegerType(32, true);
++    } else {
++      assert(false && "Invalid sampled type postfix");
++    }
++
 +    SmallVector<int, 7> Ops;
 +    for (unsigned I = 1; I < 8; ++I)
 +      Ops.push_back(atoi(Postfixes[I].c_str()));
@@ -25109,8 +25101,23 @@ index 0000000..050d3ef
 +        ret_type = transType(CI->getType());
 +      }
 +
-+      return BM->addExtInst(ret_type, SPIRVEIS_GLSL, ext_op->second,
-+                            transArguments(CI, BB), BB);
++      auto args = transArguments(CI, BB);
++      if (args.size() != 1) {
++        errs() << "invalid arg count for pack/unpack call: " << MangledName
++               << "\n";
++        return nullptr;
++      }
++
++      // enforce 32-bit unsigned integer arg type
++      if (MangledName.startswith("floor.unpack_") &&
++          MangledName != "floor.unpack_double_2x32") {
++        if (((SPIRVTypeInt *)args[0]->getType())->isSigned()) {
++          args[0] = BM->addUnaryInst(
++              spv::OpBitcast, BM->addIntegerType(32, false), args[0], BB);
++        }
++      }
++
++      return BM->addExtInst(ret_type, SPIRVEIS_GLSL, ext_op->second, args, BB);
 +    }
 +    errs() << "unhandled floor func: " << MangledName << "\n";
 +  }
@@ -26688,7 +26695,9 @@ index 0000000..050d3ef
 +    }
 +
 +    // depth compare
++    bool is_depth_compare = false;
 +    if (arg_idx < args.size()) {
++      is_depth_compare = true;
 +      auto compare_arg = args[arg_idx++];
 +
 +      // must switch out the opcode
@@ -26712,8 +26721,25 @@ index 0000000..050d3ef
 +        read_operands.emplace_back(id);
 +      }
 +    }
-+    auto read_sample = BM->addInstTemplate(read_opcode, read_operands, BB,
-+                                           transType(CI->getType()));
++
++    SPIRVType *scalar_ret_type = nullptr;
++    if (DemangledName.find("read_imageui") == 0) {
++      scalar_ret_type = BM->addIntegerType(32, false);
++    } else if (DemangledName.find("read_imagei") == 0) {
++      scalar_ret_type = BM->addIntegerType(32, true);
++    } else if (DemangledName.find("read_imagef") == 0) {
++      scalar_ret_type = BM->addFloatType(32);
++    } else {
++      assert(false && "invalid image read function");
++    }
++
++    SPIRVType *ret_type = scalar_ret_type; // only depth compare is scalar
++    if (!is_depth_compare) {
++      ret_type = BM->addVectorType(scalar_ret_type, 4);
++    }
++
++    auto read_sample =
++        BM->addInstTemplate(read_opcode, read_operands, BB, ret_type);
 +    return {read_sample, read_sample->getOpCode()};
 +  } else if (DemangledName.find("write_image") == 0) {
 +    std::vector<SPIRVWord> write_operands{loaded_img->getId()};
@@ -26723,6 +26749,7 @@ index 0000000..050d3ef
 +    write_operands.emplace_back(coords_arg->getId());
 +
 +    // data
++    // TODO: proper uint/int data type?
 +    auto data_arg = transValue(args[2], BB);
 +    write_operands.emplace_back(data_arg->getId());
 +
@@ -48059,7 +48086,7 @@ index 0000000..588aada
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..0a3eeb1
+index 0000000..9e45254
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
 @@ -0,0 +1,507 @@
@@ -48157,27 +48184,27 @@ index 0000000..0a3eeb1
 +			// -> return data
 +			std::string dtype;
 +			llvm::Type* ret_type;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				dtype = "v4f32";
 +				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				dtype = "s.v4i32";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				dtype = "u.v4i32";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				dtype = "v4f16";
 +				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
 +			}
-+			else if(func_name.endswith("short")) {
++			else if(func_name.endswith(".short")) {
 +				dtype = "s.v4i16";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt16Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("ushort")) {
++			else if(func_name.endswith(".ushort")) {
 +				dtype = "u.v4i16";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt16Ty(*ctx), 4);
 +			}
@@ -48444,22 +48471,22 @@ index 0000000..0a3eeb1
 +			}
 +			
 +			std::string dtype;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				dtype = "v4f32";
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				dtype = "s.v4i32";
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				dtype = "u.v4i32";
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				dtype = "v4f16";
 +			}
-+			else if(func_name.endswith("short")) {
++			else if(func_name.endswith(".short")) {
 +				dtype = "s.v4i16";
 +			}
-+			else if(func_name.endswith("ushort")) {
++			else if(func_name.endswith(".ushort")) {
 +				dtype = "u.v4i16";
 +			}
 +			// unknown -> ignore
@@ -49108,7 +49135,7 @@ index 0000000..8377337
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..760bdc1
+index 0000000..5eec930
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,657 @@
@@ -49449,19 +49476,19 @@ index 0000000..760bdc1
 +			// (this is actually easy enough, since everything is very static)
 +			std::string cl_func_name;
 +			llvm::Type* ret_type;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				cl_func_name = "_Z11read_imagef";
 +				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				cl_func_name = "_Z11read_imagei";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				cl_func_name = "_Z12read_imageui";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				cl_func_name = "_Z11read_imageh";
 +				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
 +			}
@@ -49660,19 +49687,19 @@ index 0000000..760bdc1
 +			}
 +			
 +			std::string cl_func_name, dtype;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				cl_func_name = "_Z12write_imagef";
 +				dtype = "f";
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				cl_func_name = "_Z12write_imagei";
 +				dtype = "i";
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				cl_func_name = "_Z13write_imageui";
 +				dtype = "j";
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				cl_func_name = "_Z12write_imageh";
 +				dtype = "h";
 +			}
@@ -49842,15 +49869,14 @@ index b1d2420..4df7414 100644
  }
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.cpp b/lib/Transforms/Scalar/StructuralAnalysis.cpp
 new file mode 100644
-index 0000000..ff8406e
+index 0000000..21aa916
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.cpp
-@@ -0,0 +1,1813 @@
+@@ -0,0 +1,1812 @@
 +//===- StructuralAnalysis.cpp - -------------------------------------------===//
 +//
-+// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
-+// Tech
-+// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
++// Copyright (c) 2016 - 2017, Florian Ziesche (LLVM port + general fixes/cleanup)
 +// All rights reserved.
 +//
 +// Redistribution and use in source and binary forms, with or without
@@ -51661,15 +51687,14 @@ index 0000000..ff8406e
 +}
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.h b/lib/Transforms/Scalar/StructuralAnalysis.h
 new file mode 100644
-index 0000000..d2bbbee
+index 0000000..6cfc26d
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.h
-@@ -0,0 +1,306 @@
+@@ -0,0 +1,305 @@
 +//===- StructuralAnalysis.h - ---------------------------------------------===//
 +//
-+// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
-+// Tech
-+// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
++// Copyright (c) 2016 - 2017, Florian Ziesche (LLVM port + general fixes/cleanup)
 +// All rights reserved.
 +//
 +// Redistribution and use in source and binary forms, with or without
@@ -51973,15 +51998,14 @@ index 0000000..d2bbbee
 +#endif
 diff --git a/lib/Transforms/Scalar/StructuralTransform.cpp b/lib/Transforms/Scalar/StructuralTransform.cpp
 new file mode 100644
-index 0000000..8fdf806
+index 0000000..bd21618
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.cpp
-@@ -0,0 +1,535 @@
+@@ -0,0 +1,534 @@
 +//===- StructuralTransform.cpp - ------------------------------------------===//
 +//
-+// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
-+// Tech
-+// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
++// Copyright (c) 2016 - 2017, Florian Ziesche (LLVM port + general fixes/cleanup)
 +// All rights reserved.
 +//
 +// Redistribution and use in source and binary forms, with or without
@@ -52514,15 +52538,14 @@ index 0000000..8fdf806
 +}
 diff --git a/lib/Transforms/Scalar/StructuralTransform.h b/lib/Transforms/Scalar/StructuralTransform.h
 new file mode 100644
-index 0000000..cadb3f0
+index 0000000..ee0d2a3
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.h
-@@ -0,0 +1,124 @@
+@@ -0,0 +1,123 @@
 +//===- StructuralTransform.h - --------------------------------------------===//
 +//
-+// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia
-+// Tech
-+// Copyright (c) 2016, Florian Ziesche (LLVM port + general fixes/cleanup)
++// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
++// Copyright (c) 2016 - 2017, Florian Ziesche (LLVM port + general fixes/cleanup)
 +// All rights reserved.
 +//
 +// Redistribution and use in source and binary forms, with or without
@@ -53214,7 +53237,7 @@ index 0000000..b571ebc
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..a47870a
+index 0000000..1211f7b
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
 @@ -0,0 +1,748 @@
@@ -53507,19 +53530,19 @@ index 0000000..a47870a
 +			// (this is actually easy enough, since everything is very static)
 +			std::string vk_func_name;
 +			llvm::Type* ret_type;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				vk_func_name = "_Z11read_imagef";
 +				ret_type = llvm::VectorType::get(llvm::Type::getFloatTy(*ctx), 4);
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				vk_func_name = "_Z11read_imagei";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				vk_func_name = "_Z12read_imageui";
 +				ret_type = llvm::VectorType::get(llvm::Type::getInt32Ty(*ctx), 4);
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				vk_func_name = "_Z11read_imageh";
 +				ret_type = llvm::VectorType::get(llvm::Type::getHalfTy(*ctx), 4);
 +			}
@@ -53780,19 +53803,19 @@ index 0000000..a47870a
 +			}
 +			
 +			std::string vk_func_name, dtype;
-+			if(func_name.endswith("float")) {
++			if(func_name.endswith(".float")) {
 +				vk_func_name = "_Z12write_imagef";
 +				dtype = "f";
 +			}
-+			else if(func_name.endswith("int")) {
++			else if(func_name.endswith(".int")) {
 +				vk_func_name = "_Z12write_imagei";
 +				dtype = "i";
 +			}
-+			else if(func_name.endswith("uint")) {
++			else if(func_name.endswith(".uint")) {
 +				vk_func_name = "_Z13write_imageui";
 +				dtype = "j";
 +			}
-+			else if(func_name.endswith("half")) {
++			else if(func_name.endswith(".half")) {
 +				vk_func_name = "_Z12write_imageh";
 +				dtype = "h";
 +			}
