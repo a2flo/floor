@@ -339,7 +339,10 @@ compute_context(), enable_renderer(enable_renderer_) {
 		device->max_image_3d_dim = { limits.maxImageDimension3D, limits.maxImageDimension3D, limits.maxImageDimension3D };
 		device->max_mip_levels = image_mip_level_count_from_max_dim(std::max(std::max(device->max_image_2d_dim.max_element(),
 																					  device->max_image_3d_dim.max_element()),
-																			 device->max_image_1d_dim));;
+																			 device->max_image_1d_dim));
+		log_debug("max img / mip: %v, %v, %v -> %u",
+				  device->max_image_1d_dim, device->max_image_2d_dim, device->max_image_3d_dim,
+				  device->max_mip_levels);
 		
 		device->image_msaa_array_support = features.shaderStorageImageMultisample;
 		device->image_msaa_array_write_support = device->image_msaa_array_support;
@@ -1171,8 +1174,7 @@ void vulkan_compute::create_fixed_sampler_set() const {
 			// NOTE: this matches 1:1, we will filter out NEVER/NONE and ALWAYS read ops in the compiler
 			.compareOp = (VkCompareOp)smplr.compare_mode,
 			.minLod = 0.0f,
-			.maxLod = 32.0f,
-			// TODO: do we need to differentiate between float and int?
+			.maxLod = (smplr.filter != 0 ? 32.0f : 0.0f),
 			.borderColor = VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
 			.unnormalizedCoordinates = false,
 		};

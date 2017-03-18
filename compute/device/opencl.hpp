@@ -86,7 +86,7 @@ const_func float fmax(float x, float y);
 
 const_func half fmod(half x, half y);
 const_func half sqrt(half x);
-const_func half rsqrt(half x);;
+const_func half rsqrt(half x);
 const_func half fabs(half x);
 const_func half floor(half x);
 const_func half ceil(half x);
@@ -119,7 +119,7 @@ const_func half fmax(half x, half y);
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 const_func double fmod(double x, double y);
 const_func double sqrt(double x);
-const_func double rsqrt(double x);;
+const_func double rsqrt(double x);
 const_func double fabs(double x);
 const_func double floor(double x);
 const_func double ceil(double x);
@@ -192,6 +192,7 @@ const_func double floor_rt_max(double x, double y) { return fmax(x, y); }
 #endif
 
 // non-standard bit counting functions (don't use these directly, use math::func instead)
+#if !defined(FLOOR_COMPUTE_VULKAN) // -> opencl
 const_func uint16_t floor_rt_clz(uint16_t x) asm("_Z3clzt");
 const_func uint32_t floor_rt_clz(uint32_t x) asm("_Z3clzj");
 const_func uint64_t floor_rt_clz(uint64_t x) asm("_Z3clzm");
@@ -222,6 +223,56 @@ static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
 	const auto ctz_upper = floor_rt_ctz(upper);
 	return (ctz_lower < 32 ? ctz_lower : (ctz_upper + ctz_lower));
 }
+#endif
+#else // -> vulkan
+// we don't have direct clz/ctz support
+const_func int16_t floor_vulkan_find_int_lsb(uint16_t x) asm("floor.find_int_lsb.u16");
+const_func int16_t floor_vulkan_find_int_lsb(int16_t x) asm("floor.find_int_lsb.s16");
+const_func int32_t floor_vulkan_find_int_lsb(uint32_t x) asm("floor.find_int_lsb.u32");
+const_func int32_t floor_vulkan_find_int_lsb(int32_t x) asm("floor.find_int_lsb.s32");
+const_func int64_t floor_vulkan_find_int_lsb(uint64_t x) asm("floor.find_int_lsb.u64");
+const_func int64_t floor_vulkan_find_int_lsb(int64_t x) asm("floor.find_int_lsb.s64");
+
+const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb.u32"); // 32-bit only
+const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32"); // 32-bit only
+
+const_func uint16_t floor_vulkan_bit_reverse(uint16_t x) asm("floor.bit_reverse.u16");
+const_func uint32_t floor_vulkan_bit_reverse(uint32_t x) asm("floor.bit_reverse.u32");
+const_func uint64_t floor_vulkan_bit_reverse(uint64_t x) asm("floor.bit_reverse.u64");
+
+// -> forward to lsb/msb functions
+const_func uint16_t floor_rt_clz(uint16_t x) {
+	const auto msb_bit_idx = floor_vulkan_find_int_msb(uint32_t(x));
+	return (msb_bit_idx < 0 ? 16 : (15 - msb_bit_idx));
+}
+const_func uint32_t floor_rt_clz(uint32_t x) {
+	const auto msb_bit_idx = floor_vulkan_find_int_msb(x);
+	return (msb_bit_idx < 0 ? 32 : (31 - msb_bit_idx));
+}
+const_func uint64_t floor_rt_clz(uint64_t x) {
+	// can't use "find_int_msb", b/c it's 32-bit only
+	// -> reverse the bits and find the lsb instead
+	const auto rev_lsb_bit_idx = floor_vulkan_find_int_lsb(floor_vulkan_bit_reverse(x));
+	return (rev_lsb_bit_idx < 0 ? 64 : rev_lsb_bit_idx);
+}
+
+const_func uint16_t floor_rt_ctz(uint16_t x) {
+	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
+	return (lsb_bit_idx < 0 ? 16 : lsb_bit_idx);
+}
+const_func uint32_t floor_rt_ctz(uint32_t x) {
+	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
+	return (lsb_bit_idx < 0 ? 32 : lsb_bit_idx);
+}
+const_func uint64_t floor_rt_ctz(uint64_t x) {
+	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
+	return (lsb_bit_idx < 0 ? 64 : lsb_bit_idx);
+}
+
+// we have direct support for these
+const_func uint16_t floor_rt_popcount(uint16_t x) asm("floor.bit_count.u16");
+const_func uint32_t floor_rt_popcount(uint32_t x) asm("floor.bit_count.u32");
+const_func uint64_t floor_rt_popcount(uint64_t x) asm("floor.bit_count.u64");
 #endif
 
 // add them to std::

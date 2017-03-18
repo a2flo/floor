@@ -76,8 +76,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30600u
 #elif (__clang_major__ == 7 && __clang_minor__ < 3)
 #define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30700u
-#else // Xcode 7.3.0+ (7.3.0/8.0.0)
+#elif (__clang_major__ == 7 && __clang_minor__ >= 3) || (__clang_major__ == 8 && __clang_minor__ == 0)
 #define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30800u
+#else // Xcode 8.3.0+
+#define FLOOR_COMPUTE_TOOLCHAIN_VERSION 30900u
 #endif
 
 #endif

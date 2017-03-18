@@ -812,6 +812,16 @@ bool floor::init_internal(const init_state& state) {
 		fullscreen_mode.h = (int)config.height;
 #endif
 		
+#if 0 // for debugging purposes: dump all display modes
+		const auto disp_num = SDL_GetNumDisplayModes(0);
+		log_debug("#disp modes: %u", disp_num);
+		for(int32_t i = 0; i < disp_num; ++i) {
+			SDL_DisplayMode mode;
+			SDL_GetDisplayMode(0, i, &mode);
+			log_debug("disp mode #%i: %i x %i, %i Hz, format %X", i, mode.w, mode.h, mode.refresh_rate, mode.format);
+		}
+#endif
+		
 		// create screen
 #if !defined(FLOOR_IOS)
 		window = SDL_CreateWindow(app_name.c_str(), window_pos.x, window_pos.y, (int)config.width, (int)config.height, config.flags);
@@ -823,6 +833,11 @@ bool floor::init_internal(const init_state& state) {
 			return false;
 		}
 		else {
+#if defined(FLOOR_IOS)
+			// on iOS, be more insistent on the window size
+			SDL_SetWindowSize(window, (int)config.width, (int)config.height);
+#endif
+			
 			SDL_GetWindowSize(window, (int*)&config.width, (int*)&config.height);
 			log_debug("video mode set: w%u h%u", config.width, config.height);
 		}
