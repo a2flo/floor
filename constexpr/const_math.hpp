@@ -1504,6 +1504,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int32_t)
 	
+#if !defined(FLOOR_NO_INT64_SUPPORT)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, int64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, int64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, int64_t)
@@ -1514,6 +1515,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, int64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, int64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, int64_t)
+#endif
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint8_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint8_t)
@@ -1548,6 +1550,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint32_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint32_t)
 	
+#if !defined(FLOOR_NO_INT64_SUPPORT)
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, uint64_t)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, uint64_t)
 	FLOOR_CONST_SELECT_3(clamp, const_math::clamp, rt_math::clamp, uint64_t)
@@ -1558,6 +1561,7 @@ namespace math {
 	FLOOR_CONST_SELECT_1(popcount, const_math::popcount, rt_math::popcount, uint64_t)
 	FLOOR_CONST_SELECT_1(ffs, const_math::ffs, rt_math::ffs, uint64_t)
 	FLOOR_CONST_SELECT_1(parity, const_math::parity, rt_math::parity, uint64_t)
+#endif
 	
 	FLOOR_CONST_SELECT_2(min, const_math::min, rt_math::min, bool)
 	FLOOR_CONST_SELECT_2(max, const_math::max, rt_math::max, bool)

@@ -24,6 +24,7 @@
 #include <floor/compute/opencl/opencl_device.hpp>
 #include <floor/compute/cuda/cuda_device.hpp>
 #include <floor/compute/metal/metal_device.hpp>
+#include <floor/compute/vulkan/vulkan_device.hpp>
 
 #if defined(__APPLE__)
 #include <floor/darwin/darwin_helper.hpp>
@@ -503,11 +504,32 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	const auto function_info_file_name = core::create_tmp_file_name("ffi", ".txt");
 	clang_cmd += " -Xclang -floor-function-info=" + function_info_file_name;
 	
-	// set cuda sm version
-	if(options.target == TARGET::PTX) {
-		clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
+	// target specific compute info
+	switch(options.target) {
+		case TARGET::PTX:
+			// set cuda sm version
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
+			break;
+		case TARGET::SPIRV_VULKAN: {
+			const auto vk_device = (const vulkan_device*)device.get();
+			const auto has_int16_support = to_string(vk_device->int16_support);
+			const auto has_int64_support = to_string(vk_device->int64_support);
+			const auto has_float16_support = to_string(vk_device->float16_support);
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT="s + has_int16_support;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_"s + has_int16_support;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT="s + has_int64_support;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_"s + has_int64_support;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT="s + has_float16_support;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_VULKAN_HAS_FLOAT16_SUPPORT_"s + has_float16_support;
+
+			if(!vk_device->int64_support) {
+				clang_cmd += " -DFLOOR_NO_INT64_SUPPORT";
+			}
+			break;
+		}
+		default: break;
 	}
-	
+
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
 	if((floor::get_compute_debug() || options.emit_debug_line_info) &&
 		options.target != TARGET::SPIR) {

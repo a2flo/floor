@@ -56,6 +56,8 @@ F(bool, bool, vec_width)
 #elif defined(FLOOR_COMPUTE) && !defined(FLOOR_COMPUTE_HOST)
 // remove size_t, ssize_t and long double when compiling for compute platforms
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
+// remove *int64_t if not supported
+#if !defined(FLOOR_NO_INT64_SUPPORT)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(double, double, vec_width) \
@@ -68,8 +70,20 @@ F(uint32_t, uint, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
-#else
-// also disable double support
+#else // disable *int64_t support
+#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(float, float, vec_width) \
+F(double, double, vec_width) \
+F(int8_t, char, vec_width) \
+F(uint8_t, uchar, vec_width) \
+F(int16_t, short, vec_width) \
+F(uint16_t, ushort, vec_width) \
+F(int32_t, int, vec_width) \
+F(uint32_t, uint, vec_width) \
+F(bool, bool, vec_width)
+#endif
+#else // disable double support
+#if !defined(FLOOR_NO_INT64_SUPPORT)
 #define FLOOR_VECTOR_TYPES_F(F, vec_width) \
 F(float, float, vec_width) \
 F(int8_t, char, vec_width) \
@@ -81,6 +95,17 @@ F(uint32_t, uint, vec_width) \
 F(int64_t, long, vec_width) \
 F(uint64_t, ulong, vec_width) \
 F(bool, bool, vec_width)
+#else // disable *int64_t support
+#define FLOOR_VECTOR_TYPES_F(F, vec_width) \
+F(float, float, vec_width) \
+F(int8_t, char, vec_width) \
+F(uint8_t, uchar, vec_width) \
+F(int16_t, short, vec_width) \
+F(uint16_t, ushort, vec_width) \
+F(int32_t, int, vec_width) \
+F(uint32_t, uint, vec_width) \
+F(bool, bool, vec_width)
+#endif
 #endif
 #else
 // remove size_t and ssize_t when not compiling on osx/ios

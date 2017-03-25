@@ -150,6 +150,7 @@
 		5C7173CC18D8AE0700DDF097 /* audio_source.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7173CA18D8AE0700DDF097 /* audio_source.hpp */; };
 		5C7173CD18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
 		5C7173CE18D8AE0700DDF097 /* audio_source.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C7173CB18D8AE0700DDF097 /* audio_source.cpp */; };
+		5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */; };
 		5C8461481A914759004D4745 /* metal_queue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C84613B1A914758004D4745 /* metal_queue.mm */; };
 		5C8461491A914759004D4745 /* metal_compute.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461431A914758004D4745 /* metal_compute.mm */; };
 		5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
@@ -407,6 +408,7 @@
 		5C7173CA18D8AE0700DDF097 /* audio_source.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = audio_source.hpp; path = audio/audio_source.hpp; sourceTree = "<group>"; };
 		5C7173CB18D8AE0700DDF097 /* audio_source.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = audio_source.cpp; path = audio/audio_source.cpp; sourceTree = "<group>"; };
 		5C782595187226DA00725EAF /* floor_prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = floor_prefix.pch; sourceTree = "<group>"; };
+		5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = vulkan_pre.hpp; path = device/vulkan_pre.hpp; sourceTree = "<group>"; };
 		5C803E0F1A7CB159009B40DF /* sdl_pressure.patch */ = {isa = PBXFileReference; lastKnownFileType = text; name = sdl_pressure.patch; path = etc/sdl_pressure.patch; sourceTree = "<group>"; };
 		5C84613B1A914758004D4745 /* metal_queue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_queue.mm; path = metal/metal_queue.mm; sourceTree = "<group>"; };
 		5C84613C1A914758004D4745 /* metal_queue.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = metal_queue.hpp; path = metal/metal_queue.hpp; sourceTree = "<group>"; };
@@ -802,6 +804,7 @@
 				5C0E18C81B0946B900E63235 /* opencl_atomic.hpp */,
 				5C8FEF5C1AFE3BF4001D47BF /* opencl_image.hpp */,
 				5C3EA9D81D89632000EC932F /* vulkan_image.hpp */,
+				5C7A28C71E84894900FE0044 /* vulkan_pre.hpp */,
 				5CEBAB351D55B8F700F5076F /* vulkan_post.hpp */,
 				5C3B61D91C60FD4400358DAB /* opaque_image.hpp */,
 				5CB965C61B77FDD000A2C5EE /* opaque_image_map.hpp */,
@@ -1074,6 +1077,7 @@
 				5CD2176019EA9D620049D6AE /* compute_device.hpp in Headers */,
 				5C1091B417D1153E007F536E /* timer.hpp in Headers */,
 				5CEEA6CC1A4D4F2A005239DA /* sig_handler.hpp in Headers */,
+				5C7A28C81E84894900FE0044 /* vulkan_pre.hpp in Headers */,
 				5CD2175A19E985D80049D6AE /* cuda_compute.hpp in Headers */,
 				5CBFEFF81A52D49300915FDE /* opencl_buffer.hpp in Headers */,
 				5C1091CE17D1153E007F536E /* net_tcp.hpp in Headers */,

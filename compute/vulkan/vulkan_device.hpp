@@ -79,6 +79,15 @@ public:
 	//! all available memory type indices for (potentially uncached) host + device-visible memory allocation
 	unordered_set<uint32_t> host_mem_uncached_indices;
 	
+	//! feature support: can use 16-bit int types in SPIR-V
+	bool int16_support { false };
+	
+	//! feature support: can use 64-bit int types in SPIR-V
+	bool int64_support { false };
+	
+	//! feature support: can use 16-bit float types in SPIR-V
+	bool float16_support { false };
+	
 	// put these at the end, b/c they are rather large
 #if !defined(FLOOR_NO_VULKAN)
 	//! fixed sampler descriptor set

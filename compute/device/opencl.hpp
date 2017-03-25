@@ -226,53 +226,85 @@ static floor_inline_always const_func uint32_t floor_rt_ctz(uint64_t x) {
 #endif
 #else // -> vulkan
 // we don't have direct clz/ctz support
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
 const_func int16_t floor_vulkan_find_int_lsb(uint16_t x) asm("floor.find_int_lsb.u16");
 const_func int16_t floor_vulkan_find_int_lsb(int16_t x) asm("floor.find_int_lsb.s16");
+#endif
 const_func int32_t floor_vulkan_find_int_lsb(uint32_t x) asm("floor.find_int_lsb.u32");
 const_func int32_t floor_vulkan_find_int_lsb(int32_t x) asm("floor.find_int_lsb.s32");
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
 const_func int64_t floor_vulkan_find_int_lsb(uint64_t x) asm("floor.find_int_lsb.u64");
 const_func int64_t floor_vulkan_find_int_lsb(int64_t x) asm("floor.find_int_lsb.s64");
+#endif
 
 const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb.u32"); // 32-bit only
 const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32"); // 32-bit only
 
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
 const_func uint16_t floor_vulkan_bit_reverse(uint16_t x) asm("floor.bit_reverse.u16");
+#endif
 const_func uint32_t floor_vulkan_bit_reverse(uint32_t x) asm("floor.bit_reverse.u32");
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
 const_func uint64_t floor_vulkan_bit_reverse(uint64_t x) asm("floor.bit_reverse.u64");
+#endif
 
 // -> forward to lsb/msb functions
 const_func uint16_t floor_rt_clz(uint16_t x) {
+	// same if we do or do not have 16-bit support
 	const auto msb_bit_idx = floor_vulkan_find_int_msb(uint32_t(x));
-	return (msb_bit_idx < 0 ? 16 : (15 - msb_bit_idx));
+	return uint16_t(msb_bit_idx < 0 ? 16 : (15 - msb_bit_idx));
 }
 const_func uint32_t floor_rt_clz(uint32_t x) {
 	const auto msb_bit_idx = floor_vulkan_find_int_msb(x);
 	return (msb_bit_idx < 0 ? 32 : (31 - msb_bit_idx));
 }
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
 const_func uint64_t floor_rt_clz(uint64_t x) {
 	// can't use "find_int_msb", b/c it's 32-bit only
 	// -> reverse the bits and find the lsb instead
 	const auto rev_lsb_bit_idx = floor_vulkan_find_int_lsb(floor_vulkan_bit_reverse(x));
 	return (rev_lsb_bit_idx < 0 ? 64 : rev_lsb_bit_idx);
 }
+#endif
 
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
 const_func uint16_t floor_rt_ctz(uint16_t x) {
 	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
 	return (lsb_bit_idx < 0 ? 16 : lsb_bit_idx);
 }
+#endif
 const_func uint32_t floor_rt_ctz(uint32_t x) {
 	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
 	return (lsb_bit_idx < 0 ? 32 : lsb_bit_idx);
 }
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
 const_func uint64_t floor_rt_ctz(uint64_t x) {
 	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(x);
 	return (lsb_bit_idx < 0 ? 64 : lsb_bit_idx);
 }
+#endif
+
+#if !defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
+// can emulate this if no 16-bit support
+const_func uint16_t floor_rt_ctz(uint16_t x) {
+	const auto lsb_bit_idx = floor_vulkan_find_int_lsb(uint32_t(x));
+	return uint16_t(lsb_bit_idx < 0 ? 16 : lsb_bit_idx);
+}
+#endif
 
 // we have direct support for these
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
 const_func uint16_t floor_rt_popcount(uint16_t x) asm("floor.bit_count.u16");
+#endif
 const_func uint32_t floor_rt_popcount(uint32_t x) asm("floor.bit_count.u32");
+#if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
 const_func uint64_t floor_rt_popcount(uint64_t x) asm("floor.bit_count.u64");
+#endif
+
+#if !defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
+// can emulate this if no 16-bit support
+const_func uint16_t floor_rt_popcount(uint16_t x) { return uint16_t(floor_rt_popcount(uint32_t(x))); }
+#endif
 #endif
 
 // add them to std::

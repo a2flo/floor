@@ -351,6 +351,11 @@ compute_context(), enable_renderer(enable_renderer_) {
 		
 		device->anisotropic_support = features.samplerAnisotropy;
 		device->max_anisotropy = (device->anisotropic_support ? limits.maxSamplerAnisotropy : 0.0f);
+		
+		device->int16_support = features.shaderInt16;
+		device->int64_support = features.shaderInt64;
+		//device->float16_support = features.shaderFloat16; // TODO: cap doesn't exist, but extension(s) do?
+		device->double_support = features.shaderFloat64;
 
 		// retrieve memory info
 		device->mem_props = make_shared<VkPhysicalDeviceMemoryProperties>();
