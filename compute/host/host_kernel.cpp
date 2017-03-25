@@ -702,7 +702,7 @@ void host_kernel::execute_internal(compute_queue* queue,
 #endif
 	vector<unique_ptr<thread>> worker_threads(cpu_count);
 	for(uint32_t cpu_idx = 0; cpu_idx < cpu_count; ++cpu_idx) {
-		worker_threads[cpu_idx] = make_unique<thread>([this, cpu_idx, &kernel_func,
+		worker_threads[cpu_idx] = make_unique<thread>([this, cpu_idx,
 													   &group_idx, group_count, group_dim,
 													   local_size, local_dim] {
 			// set cpu affinity for this thread to a particular cpu to prevent this thread from being constantly moved/scheduled

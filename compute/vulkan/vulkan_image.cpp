@@ -540,7 +540,6 @@ void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer h
 void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer host_buffer, void* data) {
 	// TODO: depth/stencil support
 	const auto dim_count = image_dim_count(image_type);
-	const bool is_compressed = image_compressed(image_type);
 	
 	// transition to dst-optimal, b/c of perf
 	transition(cmd_buffer,
@@ -556,12 +555,10 @@ void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer h
 	vector<VkBufferImageCopy> regions;
 	regions.reserve(mip_level_count);
 	uint64_t buffer_offset = 0;
-	apply_on_levels([this, &regions, &buffer_offset,
-					 &cmd_buffer, &host_buffer,
-					 &is_compressed, &dim_count](const uint32_t& level,
-												 const uint4& mip_image_dim,
-												 const uint32_t&,
-												 const uint32_t& level_data_size) {
+	apply_on_levels([this, &regions, &buffer_offset, &dim_count](const uint32_t& level,
+																 const uint4& mip_image_dim,
+																 const uint32_t&,
+																 const uint32_t& level_data_size) {
 		const VkImageSubresourceLayers img_sub_rsrc_layers {
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 			.mipLevel = level,

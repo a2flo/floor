@@ -88,7 +88,6 @@ public:
 	
 protected:
 	const kernel_map_type kernels;
-	flat_map<const kernel_entry*, bool> warn_map;
 	
 	atomic_spin_lock args_lock;
 	

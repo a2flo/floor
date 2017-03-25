@@ -724,7 +724,7 @@ struct json_grammar {
 			}
 			return {};
 		});
-		value_matcher.on_match([this](auto& matches) -> parser_context::match_list {
+		value_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.empty()) {
 				log_error("value match list should not be empty!");
 				return { make_unique<value_node>(nullptr) };
@@ -813,7 +813,7 @@ struct json_grammar {
 				return { make_unique<value_node>(nullptr) }; // in case of an error
 			}
 		});
-		object_matcher.on_match([this](auto& matches) -> parser_context::match_list {
+		object_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.size() >= 3) {
 				// non-empty
 				vector<unique_ptr<ast_node_base>> nodes;
@@ -830,7 +830,7 @@ struct json_grammar {
 			return { make_unique<object_node>(nullptr) };
 		});
 		member_list.on_match(push_to_parent_even);
-		member.on_match([this](auto& matches) -> parser_context::match_list {
+		member.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.size() == 3) {
 				// remove " from front and back of key
 				auto key = matches[0].token->second.to_string();
@@ -841,7 +841,7 @@ struct json_grammar {
 			log_error("invalid member match size: %u!", matches.size());
 			return { make_unique<member_node>(nullptr) };
 		});
-		array_matcher.on_match([this](auto& matches) -> parser_context::match_list {
+		array_matcher.on_match([](auto& matches) -> parser_context::match_list {
 			if(matches.size() >= 3) {
 				// non-empty
 				vector<unique_ptr<ast_node_base>> nodes;

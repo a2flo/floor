@@ -238,7 +238,6 @@ public:
 	
 protected:
 	mutable kernel_map_type kernels;
-	flat_map<const kernel_entry*, bool> warn_map;
 	
 	typename kernel_map_type::iterator get_kernel(const compute_queue* queue);
 	

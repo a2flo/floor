@@ -54,7 +54,7 @@ public:
 		this->set_thread_delay(20); // lower to 20ms
 		this->start();
 	}
-	virtual ~logger_thread() {
+	virtual ~logger_thread() override {
 		// finish (kill the logger thread) and run once more to make sure everything has been saved/printed
 		finish();
 		run();
