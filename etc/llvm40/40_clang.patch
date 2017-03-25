@@ -842,7 +842,7 @@ index 6ec499f..e3b3c9a 100644
    /// \brief Set of enabled sanitizers.
    SanitizerSet Sanitize;
 diff --git a/include/clang/Basic/OpenCLExtensions.def b/include/clang/Basic/OpenCLExtensions.def
-index 360fec4..0658221 100644
+index 360fec4..9db39c4 100644
 --- a/include/clang/Basic/OpenCLExtensions.def
 +++ b/include/clang/Basic/OpenCLExtensions.def
 @@ -67,10 +67,12 @@ OPENCLEXT_INTERNAL(cl_khr_spir, 120, ~0U)
@@ -860,12 +860,18 @@ index 360fec4..0658221 100644
  
  // Clang Extensions.
  OPENCLEXT_INTERNAL(cl_clang_storage_class_specifiers, 100, ~0U)
-@@ -79,6 +81,9 @@ OPENCLEXT_INTERNAL(cl_clang_storage_class_specifiers, 100, ~0U)
+@@ -79,6 +81,15 @@ OPENCLEXT_INTERNAL(cl_clang_storage_class_specifiers, 100, ~0U)
  OPENCLEXT_INTERNAL(cl_amd_media_ops, 100, ~0U)
  OPENCLEXT_INTERNAL(cl_amd_media_ops2, 100, ~0U)
  
 +// Intel Vendor Extensions
 +OPENCLEXT_INTERNAL(cl_intel_subgroups, 120, ~0U)
++
++// Vulkan capabilities and extensions
++OPENCLEXT_INTERNAL(vk_capability_int16, 100, ~0U)
++OPENCLEXT_INTERNAL(vk_capability_int64, 100, ~0U)
++OPENCLEXT_INTERNAL(vk_capability_float16, 100, ~0U)
++OPENCLEXT_INTERNAL(vk_capability_float64, 100, ~0U)
 +
  #undef OPENCLEXT_INTERNAL
  

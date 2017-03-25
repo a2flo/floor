@@ -15464,10 +15464,10 @@ index 0000000..fad2177
 +}
 diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
 new file mode 100644
-index 0000000..b876bd1
+index 0000000..666c1e1
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.h
-@@ -0,0 +1,600 @@
+@@ -0,0 +1,612 @@
 +//===- OCLUtil.h - OCL Utilities declarations -------------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -15708,8 +15708,12 @@ index 0000000..b876bd1
 +                          _SPIRV_OP(cl_khr_gl_depth_images) _SPIRV_OP(
 +                              cl_khr_subgroups) _SPIRV_OP(cl_khr_mipmap_image)
 +                              _SPIRV_OP(cl_khr_mipmap_image_writes)
-+                                  _SPIRV_OP(cl_khr_egl_event)
-+                                      _SPIRV_OP(cl_khr_srgb_image_writes)
++                                  _SPIRV_OP(cl_khr_egl_event) _SPIRV_OP(
++                                      cl_khr_srgb_image_writes)
++                                      _SPIRV_OP(vk_capability_int16) _SPIRV_OP(
++                                          vk_capability_int64)
++                                          _SPIRV_OP(vk_capability_float16)
++                                              _SPIRV_OP(vk_capability_float64)
 +#undef _SPIRV_OP
 +};
 +}
@@ -15891,6 +15895,10 @@ index 0000000..b876bd1
 +  _SPIRV_OP(cl_khr_mipmap_image_writes)
 +  _SPIRV_OP(cl_khr_egl_event)
 +  _SPIRV_OP(cl_khr_srgb_image_writes)
++  _SPIRV_OP(vk_capability_int16)
++  _SPIRV_OP(vk_capability_int64)
++  _SPIRV_OP(vk_capability_float16)
++  _SPIRV_OP(vk_capability_float64)
 +#undef _SPIRV_OP
 +}
 +
@@ -15903,6 +15911,10 @@ index 0000000..b876bd1
 +  add(OclExt::cl_khr_subgroups, CapabilityGroups);
 +  add(OclExt::cl_khr_mipmap_image, CapabilityImageMipmap);
 +  add(OclExt::cl_khr_mipmap_image_writes, CapabilityImageMipmap);
++  add(OclExt::vk_capability_int16, CapabilityInt16);
++  add(OclExt::vk_capability_int64, CapabilityInt64);
++  add(OclExt::vk_capability_float16, CapabilityFloat16);
++  add(OclExt::vk_capability_float64, CapabilityFloat64);
 +}
 +
 +/// Map OpenCL work functions to SPIR-V builtin variables.
@@ -23498,10 +23510,10 @@ index 0000000..507ed90
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..6d3944c
+index 0000000..a0b2142
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3507 @@
+@@ -0,0 +1,3529 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -24036,9 +24048,30 @@ index 0000000..6d3944c
 +  if (T->isIntegerTy(1))
 +    return mapType(T, BM->addBoolType());
 +
-+  if (T->isIntegerTy())
-+    return mapType(T, BM->addIntegerType(T->getIntegerBitWidth(),
-+                                         SrcLang == spv::SourceLanguageGLSL));
++  if (T->isIntegerTy()) {
++    if (SrcLang == spv::SourceLanguageGLSL) {
++      // legalize int width
++      const bool is_int16_support =
++          BM->getCapability().count(spv::CapabilityInt16);
++      const bool is_int64_support =
++          BM->getCapability().count(spv::CapabilityInt64);
++      auto bit_width = T->getIntegerBitWidth();
++      if (bit_width <= 16 && is_int16_support) {
++        bit_width = 16;
++      } else if (bit_width <= 32) {
++        bit_width = 32;
++      } else if (bit_width <= 64 && is_int64_support) {
++        bit_width = 64;
++      } else {
++        assert(false && "bit-width is not supported (too large)");
++      }
++      // always signed (by default)
++      return mapType(T, BM->addIntegerType(bit_width, true));
++    } else { // OpenCL, or others
++      // always unsigned
++      return mapType(T, BM->addIntegerType(T->getIntegerBitWidth(), false));
++    }
++  }
 +
 +  if (T->isFloatingPointTy())
 +    return mapType(T, BM->addFloatType(T->getPrimitiveSizeInBits()));
@@ -26611,8 +26644,9 @@ index 0000000..6d3944c
 +    }
 +  }
 +  for (auto &I :
-+       map<SPIRVCapabilityKind>(rmap<OclExt::Kind>(BM->getExtension())))
++       map<SPIRVCapabilityKind>(rmap<OclExt::Kind>(BM->getExtension()))) {
 +    BM->addCapability(I);
++  }
 +
 +  return true;
 +}
@@ -34518,10 +34552,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..1b57eb7
+index 0000000..c589411
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1829 @@
+@@ -0,0 +1,1836 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36065,6 +36099,13 @@ index 0000000..1b57eb7
 +
 +  for (auto &I : M.getExtension()) {
 +    assert(!I.empty() && "Invalid extension");
++
++    // skip vk_capability_* "extensions"
++    // we only want these as caps, not extensions
++    if (I.find("vk_capability_") != std::string::npos) {
++      continue;
++    }
++
 +    O << SPIRVExtension(&M, I);
 +  }
 +
@@ -44584,10 +44625,10 @@ index 0000000..23be65f
 +}
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 0000000..a0a621f
+index 0000000..2d9c9af
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
-@@ -0,0 +1,532 @@
+@@ -0,0 +1,533 @@
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -45039,7 +45080,7 @@ index 0000000..a0a621f
 +							})
 +							
 +							child_merge_bbs.emplace_back(SplitBlockPredecessors(this_merge_block, preds_vec,
-+																				"merge", DT, nullptr, false));
++																				".merge", DT, nullptr, false));
 +						}
 +						
 +						uint32_t cidx = 0;
@@ -45102,6 +45143,7 @@ index 0000000..a0a621f
 +#if 0
 +			DBG(
 +				errs() << "#################### func after: " << F.getName() << " ####\n" << F << "\n";
++				//StructuralAnalysis::dumpCFGDot("func_after.dot", F);
 +			)
 +#endif
 +			
@@ -50005,10 +50047,10 @@ index b1d2420..4df7414 100644
  }
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.cpp b/lib/Transforms/Scalar/StructuralAnalysis.cpp
 new file mode 100644
-index 0000000..ddbce63
+index 0000000..73d99ac
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.cpp
-@@ -0,0 +1,1890 @@
+@@ -0,0 +1,1904 @@
 +//===- StructuralAnalysis.cpp - -------------------------------------------===//
 +//
 +// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
@@ -50074,6 +50116,14 @@ index 0000000..ddbce63
 +  for (auto n = childNode.begin(); n != childNode.end(); ++n) {
 +    delete *n;
 +  }
++}
++
++static StructuralAnalysis::NodeTy *
++get_first_node_or_null(const std::vector<StructuralAnalysis::NodeTy *> &nodes) {
++  if (nodes.empty()) {
++    return nullptr;
++  }
++  return nodes[0];
 +}
 +
 +// buildSimpleCFG - Build a Simple CFG out of the LLVM CFG
@@ -50399,7 +50449,7 @@ index 0000000..ddbce63
 +      return Nil;
 +    }
 +
-+    n = *(n->succNode.begin());
++    n = get_first_node_or_null(n->succNode);
 +    p = (n->predNode.size() == 1);
 +    s = (n->succNode.size() == 1);
 +  }
@@ -50425,7 +50475,7 @@ index 0000000..ddbce63
 +    } else {
 +      return Nil;
 +    }
-+    n = *(n->predNode.begin());
++    n = get_first_node_or_null(n->predNode);
 +    p = (n->predNode.size() == 1);
 +    s = (n->succNode.size() == 1);
 +  }
@@ -50482,8 +50532,9 @@ index 0000000..ddbce63
 +    // Check for a normal IfThenElse
 +    if (m->succNode.size() == 1 && n->succNode.size() == 1 &&
 +        m->predNode.size() == 1 && n->predNode.size() == 1 &&
-+        *(m->succNode.begin()) == *(n->succNode.begin()) &&
-+        *(m->succNode.begin()) != *entryNode) {
++        get_first_node_or_null(m->succNode) ==
++            get_first_node_or_null(n->succNode) &&
++        get_first_node_or_null(m->succNode) != *entryNode) {
 +
 +      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
 +        return Nil;
@@ -50493,7 +50544,7 @@ index 0000000..ddbce63
 +      insertNode(nset, *entryNode);
 +      insertNode(nset, m);
 +      insertNode(nset, n);
-+      *exitNode = *(m->succNode.begin());
++      *exitNode = get_first_node_or_null(m->succNode);
 +
 +      return IfThenElse;
 +    }
@@ -50510,7 +50561,7 @@ index 0000000..ddbce63
 +    // Check for an IfThen
 +    // n is the Then part
 +    else if (n->succNode.size() == 1 && n->predNode.size() == 1 &&
-+             m == *(n->succNode.begin())) {
++             m == get_first_node_or_null(n->succNode)) {
 +      if (edge2ClassMap[std::make_pair(n, m)] != BACK) {
 +        if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK) {
 +          return Nil;
@@ -50525,7 +50576,7 @@ index 0000000..ddbce63
 +    }
 +    // m is the Then part
 +    else if (m->succNode.size() == 1 && m->predNode.size() == 1 &&
-+             n == *(m->succNode.begin())) {
++             n == get_first_node_or_null(m->succNode)) {
 +      if (edge2ClassMap[std::make_pair(m, n)] != BACK) {
 +        if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK) {
 +          return Nil;
@@ -50564,19 +50615,20 @@ index 0000000..ddbce63
 +    }
 +    // Check for an IfThenElse with incoming edges
 +    else if (m->succNode.size() == 1 && n->succNode.size() == 1 &&
-+             *(m->succNode.begin()) == *(n->succNode.begin()) &&
-+             *(m->succNode.begin()) != *entryNode) {
++             get_first_node_or_null(m->succNode) ==
++                 get_first_node_or_null(n->succNode) &&
++             get_first_node_or_null(m->succNode) != *entryNode) {
 +
 +      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
 +        return Nil;
 +      if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
 +        return Nil;
 +
-+      if (!n->has_predecessor(*(n->succNode.begin())) &&
-+          !m->has_predecessor(*(m->succNode.begin()))) {
++      if (!n->has_predecessor(get_first_node_or_null(n->succNode)) &&
++          !m->has_predecessor(get_first_node_or_null(m->succNode))) {
 +
-+        if (m->has_predecessor(*(m->succNode.begin())) ||
-+            n->has_predecessor(*(n->succNode.begin()))) {
++        if (m->has_predecessor(get_first_node_or_null(m->succNode)) ||
++            n->has_predecessor(get_first_node_or_null(n->succNode))) {
 +          return Nil;
 +        }
 +
@@ -50613,7 +50665,7 @@ index 0000000..ddbce63
 +    // Check for an IfThen with incoming edges
 +    // n is the Then part
 +    else if (n->succNode.size() == 1 && n->predNode.size() > 1 &&
-+             m == *(n->succNode.begin())) {
++             m == get_first_node_or_null(n->succNode)) {
 +      if (edge2ClassMap[std::make_pair(n, *entryNode)] == BACK)
 +        return Nil;
 +
@@ -50639,7 +50691,7 @@ index 0000000..ddbce63
 +    }
 +    // m is the Then part
 +    else if (m->succNode.size() == 1 && m->predNode.size() > 1 &&
-+             n == *(m->succNode.begin())) {
++             n == get_first_node_or_null(m->succNode)) {
 +      if (edge2ClassMap[std::make_pair(m, *entryNode)] == BACK)
 +        return Nil;
 +
@@ -50791,7 +50843,7 @@ index 0000000..ddbce63
 +
 +    // If successor has only one predessor, it has to be the entry node
 +    if ((*i)->predNode.size() == 1) {
-+      if (entryNode != *((*i)->predNode.begin()))
++      if (entryNode != get_first_node_or_null((*i)->predNode))
 +        return false;
 +    }
 +    // If successor has two predessors, one has to be the entry node
@@ -50810,7 +50862,7 @@ index 0000000..ddbce63
 +    else
 +      return false;
 +
-+    NodeTy *succNode = *((*i)->succNode.begin());
++    NodeTy *succNode = get_first_node_or_null((*i)->succNode);
 +
 +    if (succNode == nullptr)
 +      continue;
@@ -50860,7 +50912,7 @@ index 0000000..ddbce63
 +    if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
 +      return false;
 +
-+    NodeTy *succNode = *((*i)->succNode.begin());
++    NodeTy *succNode = get_first_node_or_null((*i)->succNode);
 +
 +    if (succNode) {
 +      if (succNode == entryNode)
@@ -50882,7 +50934,7 @@ index 0000000..ddbce63
 +
 +    // If successor has only one predessor, it has to be the entry node
 +    if ((*i)->predNode.size() == 1) {
-+      if (entryNode != *((*i)->predNode.begin()))
++      if (entryNode != get_first_node_or_null((*i)->predNode))
 +        return false;
 +    }
 +    // If successor has two predessors, one has to be the entry node
@@ -51005,7 +51057,7 @@ index 0000000..ddbce63
 +    if ((*i)->succNode.size() > 1)
 +      return false;
 +
-+    NodeTy *succNode = *((*i)->succNode.begin());
++    NodeTy *succNode = get_first_node_or_null((*i)->succNode);
 +
 +    if (succNode) {
 +      if (succNode == nullptr)
@@ -51025,7 +51077,7 @@ index 0000000..ddbce63
 +
 +    // If successor has only one predessor, it has to be the entry node
 +    if ((*i)->predNode.size() == 1) {
-+      if (entryNode != *((*i)->predNode.begin()))
++      if (entryNode != get_first_node_or_null((*i)->predNode))
 +        return false;
 +    }
 +    // If successor has two predessors, one has to be the entry node
@@ -51126,7 +51178,7 @@ index 0000000..ddbce63
 +    if (edge2ClassMap[std::make_pair(entryNode, *i)] == BACK)
 +      return false;
 +
-+    NodeTy *succNode = *((*i)->succNode.begin());
++    NodeTy *succNode = get_first_node_or_null((*i)->succNode);
 +
 +    if (succNode) {
 +      if (succNode == nullptr)
@@ -51143,7 +51195,7 @@ index 0000000..ddbce63
 +
 +    // If successor has only one predessor, it has to be the entry node
 +    if ((*i)->predNode.size() == 1) {
-+      if (entryNode != *((*i)->predNode.begin()))
++      if (entryNode != get_first_node_or_null((*i)->predNode))
 +        return false;
 +    }
 +    // If successor has two predessors, one has to be the entry node
@@ -51218,7 +51270,7 @@ index 0000000..ddbce63
 +  // Check for a SelfLoop
 +  if (nset.size() == 1) {
 +    if (loopHeaderNode == backEdgeNode) {
-+      *exitNode = *(backEdgeNode->succNode.begin());
++      *exitNode = get_first_node_or_null(backEdgeNode->succNode);
 +
 +      return SelfLoop;
 +    } else
@@ -51846,7 +51898,9 @@ index 0000000..ddbce63
 +  // Follow the Fig 7.39 of Muchnick book
 +  structuralAnalysis(Net, entry);
 +
-+  cleanup(*(Net.begin()));
++  if (!Net.empty()) {
++    cleanup(*(Net.begin()));
++  }
 +
 +  reconstructUnreachable();
 +
@@ -51856,7 +51910,9 @@ index 0000000..ddbce63
 +void StructuralAnalysis::write(llvm::raw_ostream &stream) const {
 +  stream << _function->getName().str() << ":\n";
 +
-+  dumpCTNode(stream, *(Net.begin()));
++  if (!Net.empty()) {
++    dumpCTNode(stream, *(Net.begin()));
++  }
 +
 +  dumpUnstructuredBR(stream);
 +}
@@ -52225,10 +52281,10 @@ index 0000000..fb0d522
 +#endif
 diff --git a/lib/Transforms/Scalar/StructuralTransform.cpp b/lib/Transforms/Scalar/StructuralTransform.cpp
 new file mode 100644
-index 0000000..0bc70a3
+index 0000000..74d232c
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.cpp
-@@ -0,0 +1,640 @@
+@@ -0,0 +1,647 @@
 +//===- StructuralTransform.cpp - ------------------------------------------===//
 +//
 +// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
@@ -52382,11 +52438,18 @@ index 0000000..0bc70a3
 +        }
 +
 +        if (TopExitBB != nullptr) {
-+          // TODO: insert before branch?
-+          ICmpInst *cmp =
-+              new ICmpInst(NewCmpBB->getFirstNonPHI(), CmpInst::ICMP_EQ, fp,
-+                           ConstantInt::get(condition_type, 1), "fp_cmp");
-+
++          const auto insert_point = NewCmpBB->getFirstNonPHI();
++          auto rhs = ConstantInt::get(condition_type, 1);
++          Value *cmp = nullptr;
++          if (insert_point != nullptr) {
++            auto lhs = new LoadInst(fp, "fp_load", false, insert_point);
++            cmp = new ICmpInst(insert_point, CmpInst::ICMP_EQ, lhs, rhs,
++                               "fp_cmp");
++          } else {
++            // no instructions in bb yet -> insert at BB end
++            auto lhs = new LoadInst(fp, "fp_load", false, NewCmpBB);
++            cmp = new ICmpInst(*NewCmpBB, CmpInst::ICMP_EQ, lhs, rhs, "fp_cmp");
++          }
 +          BranchInst::Create(edge.second, TopExitBB, cmp, NewCmpBB);
 +        } else {
 +          BranchInst::Create(edge.second, NewCmpBB);
