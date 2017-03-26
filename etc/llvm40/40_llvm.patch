@@ -44625,10 +44625,10 @@ index 0000000..23be65f
 +}
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 0000000..2d9c9af
+index 0000000..d6e5c66
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
-@@ -0,0 +1,533 @@
+@@ -0,0 +1,538 @@
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44671,6 +44671,7 @@ index 0000000..2d9c9af
 +#include "llvm/IR/Metadata.h"
 +#include "llvm/IR/Module.h"
 +#include "llvm/IR/LegacyPassManager.h"
++#include "llvm/IR/Verifier.h"
 +#include "llvm/Pass.h"
 +#include "llvm/Support/CommandLine.h"
 +#include "llvm/Support/Debug.h"
@@ -45146,6 +45147,10 @@ index 0000000..2d9c9af
 +				//StructuralAnalysis::dumpCFGDot("func_after.dot", F);
 +			)
 +#endif
++				
++			DBG(errs() << "verifying ...\n";)
++			assert(!verifyFunction(F, &errs()) && "verification failed");
++			DBG(errs() << "verifying done\n";)
 +			
 +			DBG(errs() << "## " << F.getName() << " modified? " << was_modified << "\n";)
 +			return was_modified;
@@ -50047,10 +50052,10 @@ index b1d2420..4df7414 100644
  }
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.cpp b/lib/Transforms/Scalar/StructuralAnalysis.cpp
 new file mode 100644
-index 0000000..73d99ac
+index 0000000..617a614
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.cpp
-@@ -0,0 +1,1904 @@
+@@ -0,0 +1,1938 @@
 +//===- StructuralAnalysis.cpp - -------------------------------------------===//
 +//
 +// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
@@ -50110,6 +50115,17 @@ index 0000000..73d99ac
 +    WriteGraph(File, (const Function *)&F);
 +  else
 +    errs() << "failed to dump cfg!";
++}
++
++void StructuralAnalysis::dumpIR(const std::string &filename,
++                                const Function &F) {
++  std::error_code EC;
++  raw_fd_ostream File(filename, EC, sys::fs::F_Text);
++
++  if (!EC)
++    File << F;
++  else
++    errs() << "failed to dump IR!";
 +}
 +
 +StructuralAnalysis::NodeTy::~NodeTy() {
@@ -51741,6 +51757,28 @@ index 0000000..73d99ac
 +  stream << "\n";
 +}
 +
++void StructuralAnalysis::dumpForwardCopy(llvm::raw_ostream &stream) const {
++  stream << "\nneed forward copy:\n";
++
++  const std::function<void(const NodeTy *)> node_iter =
++      [&node_iter, &stream](const NodeTy *node) {
++        for (const auto &edge : node->incomingForwardBR) {
++          stream << "\t" << edge.first->getName().str() << "\t"
++                 << edge.second->getName().str() << "\n";
++        }
++
++        for (const auto &child : node->childNode) {
++          node_iter(child);
++        }
++      };
++
++  if (!Net.empty()) {
++    node_iter(Net.front());
++  }
++
++  stream << "\n";
++}
++
 +// True if after erasing edge src->dst, dst is still reachable from entry
 +bool StructuralAnalysis::isStillReachableFromEntry(const NodeVecTy &Nodes,
 +                                                   NodeTy *entry,
@@ -51915,6 +51953,7 @@ index 0000000..73d99ac
 +  }
 +
 +  dumpUnstructuredBR(stream);
++  dumpForwardCopy(stream);
 +}
 +
 +bool StructuralAnalysis::checkUnique(EdgeVecTy &edgeVec, BasicBlock *srcBB,
@@ -51957,10 +51996,10 @@ index 0000000..73d99ac
 +}
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.h b/lib/Transforms/Scalar/StructuralAnalysis.h
 new file mode 100644
-index 0000000..fb0d522
+index 0000000..31782c1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.h
-@@ -0,0 +1,318 @@
+@@ -0,0 +1,324 @@
 +//===- StructuralAnalysis.h - ---------------------------------------------===//
 +//
 +// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
@@ -52242,8 +52281,14 @@ index 0000000..fb0d522
 +  // dumpUnstructuredBR - Dump all found unstructured branches
 +  void dumpUnstructuredBR(llvm::raw_ostream &stream) const;
 +
++  // dump all nodes/edges that need a forward copy
++  void dumpForwardCopy(llvm::raw_ostream &stream) const;
++
 +  // dumps the CFG of the specified function as a .dot file
 +  static void dumpCFGDot(const std::string &filename, const Function &F);
++
++  // dumps the IR of the specified function as a .ll file
++  static void dumpIR(const std::string &filename, const Function &F);
 +
 +  // isStillReachableFrom entry -Return true if after erasing
 +  // edge src->dst, dst is still reachable from entry
@@ -52281,10 +52326,10 @@ index 0000000..fb0d522
 +#endif
 diff --git a/lib/Transforms/Scalar/StructuralTransform.cpp b/lib/Transforms/Scalar/StructuralTransform.cpp
 new file mode 100644
-index 0000000..74d232c
+index 0000000..9c69349
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.cpp
-@@ -0,0 +1,647 @@
+@@ -0,0 +1,676 @@
 +//===- StructuralTransform.cpp - ------------------------------------------===//
 +//
 +// Copyright (c) 2015, Computer Architecture and Systems Laboratory at Georgia Tech
@@ -52330,6 +52375,7 @@ index 0000000..74d232c
 +#include "StructuralTransform.h"
 +#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 +#include "llvm/Transforms/Utils/LoopUtils.h"
++#include "llvm/IR/Verifier.h"
 +
 +#if 1
 +#define DBG(x)
@@ -52483,17 +52529,18 @@ index 0000000..74d232c
 +}
 +
 +// Algorithm 4 of Zhang's paper -- elimination of Forward branches
-+bool StructuralTransform::ForwardCopy(NodeTy *N) {
-+  report("Applying forward copy");
-+  bool change = false;
-+
++bool StructuralTransform::ForwardCopy(NodeTy *N, uint32_t level) {
++  DBG(errs() << "Applying forward copy: " << std::string(level, ' ')
++             << SA.findEntryBB(N)->getName() << "\n";)
 +  for (auto *child : N->childNode) {
-+    change |= ForwardCopy(child);
++    // we can only safely apply one forward copy, so abort if this has happened
++    if (ForwardCopy(child, level + 1)) {
++      return true;
++    }
 +  }
 +
 +  if (!N->incomingForwardBR.empty()) {
-+    change = true;
-+
++    DBG(errs() << ">> @" << SA.findEntryBB(N)->getName() << ": needs forward copy\n";)
 +    for (auto &edge : N->incomingForwardBR) {
 +      BBMapper BBMap; // local
 +
@@ -52615,9 +52662,6 @@ index 0000000..74d232c
 +          }
 +          // not found in BBMap
 +          else {
-+            DBG(errs() << "did not find branch target for: "
-+                       << bb_entry.second->getName() << " ("
-+                       << branch->getSuccessor(0)->getName() << ")\n";)
 +            new_sec_branch_target = branch->getSuccessor(0);
 +          }
 +
@@ -52763,12 +52807,41 @@ index 0000000..74d232c
 +          }
 +        }
 +      }
++
++      // cleanup / optimize
++      for (auto &bb_entry : BBMap) {
++        DeleteDeadPHIs(bb_entry.first);
++        DeleteDeadPHIs(bb_entry.second);
++
++        if (bb_entry.first->getUniquePredecessor() != nullptr) {
++          FoldSingleEntryPHINodes(bb_entry.first);
++        }
++        if (bb_entry.second->getUniquePredecessor() != nullptr) {
++          FoldSingleEntryPHINodes(bb_entry.second);
++        }
++      }
++
++#if 0
++      static uint32_t transform_idx = 0;
++      errs() << "## dumping #" << transform_idx << " ...\n";
++      StructuralAnalysis::dumpIR("func_transform_" +
++                                     std::to_string(transform_idx) + ".ll",
++                                 *_function);
++      StructuralAnalysis::dumpCFGDot("func_transform_" +
++                                         std::to_string(transform_idx) + ".dot",
++                                     *_function);
++      ++transform_idx;
++
++      errs() << "verifying ...\n";
++      assert(!verifyFunction(*_function, &errs()) && "verification failed");
++      errs() << "verifying done\n";
++#endif
 +    }
 +
-+    return change;
++    return true; // applied forward copy
 +  }
 +
-+  return change;
++  return false; // nothing happened
 +}
 +
 +bool StructuralTransform::transform(Function &F) {
@@ -52819,6 +52892,7 @@ index 0000000..74d232c
 +    }
 +
 +  ANALYSIS:
++    DBG(errs() << "#### NEW ANALYSIS ####\n";)
 +    SA.unstructuredBRVec.clear();
 +    SA.unreachableNodeSet.clear();
 +    SA.Net.clear();
@@ -52934,7 +53008,7 @@ index 0000000..74d232c
 +}
 diff --git a/lib/Transforms/Scalar/StructuralTransform.h b/lib/Transforms/Scalar/StructuralTransform.h
 new file mode 100644
-index 0000000..b455bbe
+index 0000000..73ed894
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.h
 @@ -0,0 +1,165 @@
@@ -53078,7 +53152,7 @@ index 0000000..b455bbe
 +  bool BackwardCopy(NodeTy *N);
 +
 +  // Algorithm 4 of Zhang's paper -- elimination of Forward branches
-+  bool ForwardCopy(NodeTy *N);
++  bool ForwardCopy(NodeTy *N, uint32_t level = 0);
 +
 +  bool stopCut;
 +
