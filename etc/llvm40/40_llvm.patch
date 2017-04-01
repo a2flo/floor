@@ -1246,10 +1246,10 @@ index 3c28059..ba6ffa1 100644
  private:
    // Internal implementation details.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index a411273..7e6b442 100644
+index a411273..53ba765 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
-@@ -345,6 +345,25 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
+@@ -345,6 +345,26 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
  void initializeWinEHPreparePass(PassRegistry&);
  void initializeWriteBitcodePassPass(PassRegistry &);
  void initializeXRayInstrumentationPass(PassRegistry &);
@@ -1268,6 +1268,7 @@ index a411273..7e6b442 100644
 +void initializeCFGStructurizationPass(PassRegistry&);
 +void initializeVulkanImagePass(PassRegistry&);
 +void initializeVulkanFinalPass(PassRegistry&);
++void initializeVulkanPreFinalPass(PassRegistry&);
 +void initializeVulkanFinalModuleCleanupPass(PassRegistry&);
 +void initializePropagateRangeInfoPass(PassRegistry&);
 +void initializeFMACombinerPass(PassRegistry&);
@@ -1276,7 +1277,7 @@ index a411273..7e6b442 100644
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index 16c5f5c..fa7bf4f 100644
+index 16c5f5c..7acb94e 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -99,6 +99,7 @@ namespace {
@@ -1287,7 +1288,7 @@ index 16c5f5c..fa7bf4f 100644
        (void) llvm::createGlobalDCEPass();
        (void) llvm::createGlobalOptimizerPass();
        (void) llvm::createGlobalsAAWrapperPass();
-@@ -211,6 +212,23 @@ namespace {
+@@ -211,6 +212,24 @@ namespace {
        X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
        (void) llvm::AreStatisticsEnabled();
        (void) llvm::sys::RunningOnValgrind();
@@ -1305,6 +1306,7 @@ index 16c5f5c..fa7bf4f 100644
 +      (void) llvm::createCFGStructurizationPass();
 +      (void) llvm::createVulkanImagePass();
 +      (void) llvm::createVulkanFinalPass();
++      (void) llvm::createVulkanPreFinalPass();
 +      (void) llvm::createVulkanFinalModuleCleanupPass();
 +      (void) llvm::createPropagateRangeInfoPass();
 +      (void) llvm::createFMACombinerPass();
@@ -2465,10 +2467,10 @@ index adc4179..ad2a706 100644
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..de64957 100644
+index 167cc94..64f3eaa 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -32,6 +32,102 @@ class TargetMachine;
+@@ -32,6 +32,109 @@ class TargetMachine;
  
  //===----------------------------------------------------------------------===//
  //
@@ -2546,6 +2548,13 @@ index 167cc94..de64957 100644
 +// VulkanFinal - This pass fixes Vulkan/SPIR-V issues.
 +//
 +FunctionPass *createVulkanFinalPass();
++
++//===----------------------------------------------------------------------===//
++//
++// VulkanPreFinal - This pass fixes Vulkan/SPIR-V issues, prior to CFG
++// structurization and VulkanFinal.
++//
++FunctionPass *createVulkanPreFinalPass();
 +
 +//===----------------------------------------------------------------------===//
 +//
@@ -10703,10 +10712,10 @@ index 0000000..539b617
 +
 diff --git a/lib/SPIRV/LLVMToSPIRVTransformations.cpp b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
 new file mode 100644
-index 0000000..a6d1589
+index 0000000..2c80638
 --- /dev/null
 +++ b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
-@@ -0,0 +1,227 @@
+@@ -0,0 +1,237 @@
 +//===- LLVMToSPIRVTransformations.cpp -------------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -10921,6 +10930,16 @@ index 0000000..a6d1589
 +      I.setOperand(0, I.getOperand(1));
 +      was_modified = true;
 +      return;
++    }
++  }
++
++  // remove placeholder function calls
++  void visitCallInst(CallInst& CI) {
++    if (CI.getCalledFunction()->getName() == "floor.merge_block" ||
++        CI.getCalledFunction()->getName() == "floor.continue_block" ||
++        CI.getCalledFunction()->getName() == "floor.keep_block") {
++      CI.eraseFromParent();
++      was_modified = true;
 +    }
 +  }
 +
@@ -23510,10 +23529,10 @@ index 0000000..507ed90
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..a0b2142
+index 0000000..d478626
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3529 @@
+@@ -0,0 +1,3549 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -24860,16 +24879,24 @@ index 0000000..a0b2142
 +
 +  if (auto Ext = dyn_cast<ExtractElementInst>(V)) {
 +    auto Index = Ext->getIndexOperand();
-+    if (auto Const = dyn_cast<ConstantInt>(Index))
-+      return mapValue(V, BM->addCompositeExtractInst(
-+                             transType(Ext->getType()),
-+                             transValue(Ext->getVectorOperand(), BB),
-+                             std::vector<SPIRVWord>(1, Const->getZExtValue()),
-+                             BB));
-+    else
++    if (auto Const = dyn_cast<ConstantInt>(Index)) {
++      auto val = transValue(Ext->getVectorOperand(), BB);
++      SPIRVType *type = nullptr;
++      if (val->getType()->isTypeVector()) {
++        // assume component type that we've already mapped
++        type = val->getType()->getVectorComponentType();
++      } else {
++        type = transType(Ext->getType());
++      }
++      return mapValue(
++          V,
++          BM->addCompositeExtractInst(
++              type, val, std::vector<SPIRVWord>(1, Const->getZExtValue()), BB));
++    } else {
 +      return mapValue(V, BM->addVectorExtractDynamicInst(
 +                             transValue(Ext->getVectorOperand(), BB),
 +                             transValue(Index, BB), BB));
++    }
 +  }
 +
 +  if (auto Ins = dyn_cast<InsertElementInst>(V)) {
@@ -26296,6 +26323,11 @@ index 0000000..a0b2142
 +      }
 +    }
 +
++    // Create all basic blocks before creating any instruction.
++    for (Function::iterator FI = F->begin(), FE = F->end(); FI != FE; ++FI) {
++      transValue(&*FI, nullptr);
++    }
++
 +    // set compute shader constant work-group size
 +    if (F->getCallingConv() == llvm::CallingConv::FLOOR_KERNEL) {
 +      const auto global_name = func_name + ".vulkan_constant.workgroup_size";
@@ -26326,22 +26358,29 @@ index 0000000..a0b2142
 +      // preempt loads of the "<i32 x 3>*" work-group size constant
 +      // -> this has to be a constant composite in SPIR-V, not a variable
 +      // -> replace (map) all loads with the constant
-+      std::vector<Use *> uses;
-+      uses.reserve(gv_wg_size->getNumUses());
-+      for (auto &use : gv_wg_size->uses()) {
-+        uses.emplace_back(&use);
++      std::vector<User *> users;
++      for (auto user : gv_wg_size->users()) {
++        users.emplace_back(user);
 +      }
-+      for (auto &use : uses) {
-+        if (const auto instr = dyn_cast<LoadInst>(use->getUser())) {
-+          mapValue((const Value *)instr, wg_size);
++
++      if (!users.empty()) {
++        // bitcast uint3 -> int3 for all users
++        // NOTE/TODO: ideally, this should stay a uint3, but this would incur
++        // type mismatch problems later on (would need to do int type inference
++        // over the whole function to fix this properly)
++        auto int_type = BM->addIntegerType(32, true);
++        auto int3_type = BM->addVectorType(int_type, 3);
++        auto entry_bb = (SPIRVBasicBlock *)transValue(&*F->begin(), nullptr);
++        auto wg_size_int3 =
++            BM->addUnaryInst(spv::OpBitcast, int3_type, wg_size, entry_bb);
++
++        for (auto user : users) {
++          if (const auto instr = dyn_cast<LoadInst>(user)) {
++            mapValue((const Value *)instr, wg_size_int3);
++          }
 +        }
 +      }
 +    }
-+  }
-+
-+  // Create all basic blocks before creating any instruction.
-+  for (Function::iterator FI = F->begin(), FE = F->end(); FI != FE; ++FI) {
-+    transValue(&*FI, nullptr);
 +  }
 +
 +  // handle global constant variables, these need to be lowered to
@@ -43858,7 +43897,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..78c41ff 100644
+index 71e479a..237d7ac 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -43984,7 +44023,7 @@ index 71e479a..78c41ff 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -626,6 +700,47 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +700,50 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -43997,6 +44036,9 @@ index 71e479a..78c41ff 100644
 +	MPM.add(createLowerSwitchPass());
 +	MPM.add(createCFGSimplificationPass());
 +    MPM.add(createSinkingPass());
++	  
++    // "pre-final" vulkanization (prior to cfg structurization)
++    MPM.add(createVulkanPreFinalPass());
 +
 +    // structured control flow creation
 +    MPM.add(createCFGStructurizationPass());
@@ -44023,8 +44065,8 @@ index 71e479a..78c41ff 100644
 +	// want to change the CFG or introduce "invalid" instructions
 +    MPM.add(createFMACombinerPass());
 +    MPM.add(createTailCallEliminationPass());
-+    MPM.add(createInstructionCombiningPass(false));
-+    // MPM.add(createGVNPass()); // TODO: make this work w/o block merging
++    MPM.add(createInstructionCombiningPass(/*false TODO? */));
++    MPM.add(createGVNPass());
 +    MPM.add(createAggressiveDCEPass());
 +  }
 +
@@ -44625,10 +44667,10 @@ index 0000000..23be65f
 +}
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 0000000..d6e5c66
+index 0000000..8438df1
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,575 @@
 +//===-- CFGStructurization.cpp - CFG Structurizer -------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -44754,6 +44796,38 @@ index 0000000..d6e5c66
 +			return false;
 +		}
 +		
++		CallInst* insert_merge_block_marker(BasicBlock* merge_block) {
++			Function* merge_block_func = M->getFunction("floor.merge_block");
++			if(merge_block_func == nullptr) {
++				FunctionType* merge_block_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), false);
++				merge_block_func = (Function*)M->getOrInsertFunction("floor.merge_block", merge_block_type);
++				merge_block_func->setCallingConv(CallingConv::FLOOR_FUNC);
++				merge_block_func->setCannotDuplicate();
++				merge_block_func->setDoesNotThrow();
++				merge_block_func->setNotConvergent();
++				merge_block_func->setDoesNotRecurse();
++			}
++			CallInst* merge_block_call = CallInst::Create(merge_block_func, "", merge_block->getTerminator());
++			merge_block_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			return merge_block_call;
++		}
++		
++		CallInst* insert_continue_block_marker(BasicBlock* continue_block) {
++			Function* continue_block_func = M->getFunction("floor.continue_block");
++			if(continue_block_func == nullptr) {
++				FunctionType* continue_block_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), false);
++				continue_block_func = (Function*)M->getOrInsertFunction("floor.continue_block", continue_block_type);
++				continue_block_func->setCallingConv(CallingConv::FLOOR_FUNC);
++				continue_block_func->setCannotDuplicate();
++				continue_block_func->setDoesNotThrow();
++				continue_block_func->setNotConvergent();
++				continue_block_func->setDoesNotRecurse();
++			}
++			CallInst* continue_block_call = CallInst::Create(continue_block_func, "", continue_block->getTerminator());
++			continue_block_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			return continue_block_call;
++		}
++		
 +		void create_loop_merge(Instruction* insert_before, BasicBlock* bb_merge, BasicBlock* bb_continue) {
 +			Function* loop_merge_func = M->getFunction("floor.loop_merge");
 +			if(loop_merge_func == nullptr) {
@@ -44769,6 +44843,9 @@ index 0000000..d6e5c66
 +			llvm::Value* merge_vars[] { bb_merge, bb_continue };
 +			CallInst* loop_merge_call = CallInst::Create(loop_merge_func, merge_vars, "", insert_before);
 +			loop_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			
++			insert_merge_block_marker(bb_merge);
++			insert_continue_block_marker(bb_continue);
 +		}
 +		
 +		void create_selection_merge(Instruction* insert_before, BasicBlock* merge_block) {
@@ -44786,6 +44863,8 @@ index 0000000..d6e5c66
 +			llvm::Value* merge_vars[] { merge_block };
 +			CallInst* sel_merge_call = CallInst::Create(sel_merge_func, merge_vars, "", insert_before);
 +			sel_merge_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			
++			insert_merge_block_marker(merge_block);
 +		};
 +		
 +		// recursively traverses a StructuralAnalysis node tree, applying the specified handler function on each combined node
@@ -49980,10 +50059,10 @@ index 0000000..5eec930
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index b1d2420..4df7414 100644
+index b1d2420..1f943de 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
-@@ -96,6 +96,66 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
+@@ -96,6 +96,70 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
    initializeScalarOpts(*unwrap(R));
  }
  
@@ -50033,6 +50112,10 @@ index b1d2420..4df7414 100644
 +
 +void LLVMAddVulkanFinalPass(LLVMPassManagerRef PM) {
 +  unwrap(PM)->add(createVulkanFinalPass());
++}
++
++void LLVMAddVulkanPreFinalPass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createVulkanPreFinalPass());
 +}
 +
 +void LLVMAddVulkanFinalModuleCleanupPass(LLVMPassManagerRef PM) {
@@ -53179,10 +53262,10 @@ index 0000000..73ed894
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..b571ebc
+index 0000000..ff68c96
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,564 @@
+@@ -0,0 +1,690 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53695,6 +53778,125 @@ index 0000000..b571ebc
 +		}
 +	};
 +	
++	// VulkanPreFinal
++	struct VulkanPreFinal : public FunctionPass, InstVisitor<VulkanPreFinal> {
++		friend class InstVisitor<VulkanPreFinal>;
++		
++		static char ID; // Pass identification, replacement for typeid
++		
++		Module* M { nullptr };
++		LLVMContext* ctx { nullptr };
++		Function* func { nullptr };
++		bool is_kernel_func { false };
++		bool is_vertex_func { false };
++		bool is_fragment_func { false };
++		bool was_modified { false };
++		
++		// visitor will find all pointer selects, then these will be handled afterwards
++		std::vector<SelectInst*> pointer_selects;
++		
++		VulkanPreFinal() :
++		FunctionPass(ID) {
++			initializeVulkanPreFinalPass(*PassRegistry::getPassRegistry());
++		}
++		
++		void getAnalysisUsage(AnalysisUsage &AU) const override {
++		}
++		
++		bool runOnFunction(Function &F) override {
++			is_kernel_func = F.getCallingConv() == CallingConv::FLOOR_KERNEL;
++			is_vertex_func = F.getCallingConv() == CallingConv::FLOOR_VERTEX;
++			is_fragment_func = F.getCallingConv() == CallingConv::FLOOR_FRAGMENT;
++			if(!is_kernel_func && !is_vertex_func && !is_fragment_func) return false;
++			
++			//
++			M = F.getParent();
++			ctx = &M->getContext();
++			func = &F;
++			
++			was_modified = false;
++			visit(F);
++			
++			handle_pointer_selects();
++			
++			return was_modified;
++		}
++		
++		// InstVisitor overrides...
++		using InstVisitor<VulkanPreFinal>::visit;
++		void visit(Instruction& I) {
++			InstVisitor<VulkanPreFinal>::visit(I);
++		}
++		
++		void visitSelectInst(SelectInst& SI) {
++			// we're only interested in pointer selects, as these aren't supported in vulkan
++			if(!SI.getType()->isPointerTy()) {
++				return;
++			}
++			pointer_selects.emplace_back(&SI);
++		}
++		
++		CallInst* insert_keep_block_marker(BasicBlock* keep_block) {
++			Function* keep_block_func = M->getFunction("floor.keep_block");
++			if(keep_block_func == nullptr) {
++				FunctionType* keep_block_type = FunctionType::get(llvm::Type::getVoidTy(*ctx), false);
++				keep_block_func = (Function*)M->getOrInsertFunction("floor.keep_block", keep_block_type);
++				keep_block_func->setCallingConv(CallingConv::FLOOR_FUNC);
++				keep_block_func->setCannotDuplicate();
++				keep_block_func->setDoesNotThrow();
++				keep_block_func->setNotConvergent();
++				keep_block_func->setDoesNotRecurse();
++			}
++			CallInst* keep_block_call = CallInst::Create(keep_block_func, "", keep_block->getTerminator());
++			keep_block_call->setCallingConv(CallingConv::FLOOR_FUNC);
++			return keep_block_call;
++		}
++		
++		void handle_pointer_selects() {
++			if(pointer_selects.empty()) return;
++			
++			for(SelectInst* SI : pointer_selects) {
++				for(auto user : SI->users()) {
++					auto instr = cast<Instruction>(user);
++					// TODO: other instructions?
++					// TODO: load (would need phi afterwards)
++					if(isa<StoreInst>(instr)) {
++						TerminatorInst* true_term = nullptr;
++						TerminatorInst* false_term = nullptr;
++						SplitBlockAndInsertIfThenElse(SI->getCondition(), instr, &true_term, &false_term);
++						assert(true_term != nullptr && "failed to create true branch/term");
++						assert(false_term != nullptr && "failed to create false branch/term");
++						
++						true_term->getParent()->setName("sel.true");
++						false_term->getParent()->setName("sel.false");
++						
++						auto true_instr = instr->clone();
++						auto false_instr = instr->clone();
++						
++						true_instr->replaceUsesOfWith(SI, SI->getTrueValue());
++						false_instr->replaceUsesOfWith(SI, SI->getFalseValue());
++						
++						true_instr->insertBefore(true_term);
++						false_instr->insertBefore(false_term);
++						
++						instr->eraseFromParent();
++						
++						insert_keep_block_marker(true_term->getParent());
++						insert_keep_block_marker(false_instr->getParent());
++					}
++				}
++				
++				if(SI->getNumUses() > 0) {
++					ctx->emitError(SI, "use count of pointer select > 0 (could not replace all users)");
++					return;
++				}
++				SI->eraseFromParent();
++			}
++			
++			was_modified = true;
++		}
++	};
++	
 +	// VulkanFinalModuleCleanup:
 +	// * strip unused functions/prototypes/externs
 +	struct VulkanFinalModuleCleanup : public ModulePass {
@@ -53740,6 +53942,13 @@ index 0000000..b571ebc
 +INITIALIZE_PASS_BEGIN(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
 +INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 +INITIALIZE_PASS_END(VulkanFinal, "VulkanFinal", "VulkanFinal Pass", false, false)
++
++char VulkanPreFinal::ID = 0;
++FunctionPass *llvm::createVulkanPreFinalPass() {
++	return new VulkanPreFinal();
++}
++INITIALIZE_PASS_BEGIN(VulkanPreFinal, "VulkanPreFinal", "VulkanPreFinal Pass", false, false)
++INITIALIZE_PASS_END(VulkanPreFinal, "VulkanPreFinal", "VulkanPreFinal Pass", false, false)
 +
 +char VulkanFinalModuleCleanup::ID = 0;
 +ModulePass *llvm::createVulkanFinalModuleCleanupPass() {
