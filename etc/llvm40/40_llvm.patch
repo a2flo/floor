@@ -34591,10 +34591,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..c589411
+index 0000000..333254d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1836 @@
+@@ -0,0 +1,1890 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -35034,6 +35034,23 @@ index 0000000..c589411
 +      VectorTypeMap;
 +  std::unordered_map<std::pair<SPIRVType *, uint32_t>, SPIRVTypePointer *>
 +      PointerTypeMap;
++  std::unordered_map<SPIRVTypeImage *, SPIRVTypeSampledImage *>
++      SampledImageTypeMap;
++
++  struct image_type_info {
++    // -> info
++    SPIRVType *sampled_type{nullptr};
++    SPIRVTypeImageDescriptor desc;
++    SPIRVAccessQualifierKind access{
++        SPIRVAccessQualifierKind::AccessQualifierNone};
++
++    // -> created type
++    SPIRVTypeImage *image_type{nullptr};
++  };
++  std::vector<image_type_info> ImageTypeMap;
++
++  SPIRVTypeVoid *VoidType{nullptr};
++  SPIRVTypeBool *BoolType{nullptr};
 +  SPIRVTypeSampler *SamplerType{nullptr};
 +
 +  void layoutEntry(SPIRVEntry *Entry);
@@ -35346,7 +35363,12 @@ index 0000000..c589411
 +}
 +
 +SPIRVTypeVoid *SPIRVModuleImpl::addVoidType() {
-+  return addType(new SPIRVTypeVoid(this, getId()));
++  // only ever create one void type
++  if (VoidType != nullptr) {
++    return VoidType;
++  }
++  VoidType = new SPIRVTypeVoid(this, getId());
++  return addType(VoidType);
 +}
 +
 +SPIRVTypeArray *SPIRVModuleImpl::addArrayType(SPIRVType *ElementType,
@@ -35360,7 +35382,12 @@ index 0000000..c589411
 +}
 +
 +SPIRVTypeBool *SPIRVModuleImpl::addBoolType() {
-+  return addType(new SPIRVTypeBool(this, getId()));
++  // only ever create one bool type
++  if (BoolType != nullptr) {
++    return BoolType;
++  }
++  BoolType = new SPIRVTypeBool(this, getId());
++  return addType(BoolType);
 +}
 +
 +SPIRVTypeInt *SPIRVModuleImpl::addIntegerType(unsigned BitWidth,
@@ -35453,16 +35480,37 @@ index 0000000..c589411
 +SPIRVTypeImage *
 +SPIRVModuleImpl::addImageType(SPIRVType *SampledType,
 +                              const SPIRVTypeImageDescriptor &Desc) {
-+  return addType(new SPIRVTypeImage(
-+      this, getId(), SampledType ? SampledType->getId() : 0, Desc));
++  return addImageType(SampledType, Desc, spv::AccessQualifierNone);
 +}
 +
 +SPIRVTypeImage *
 +SPIRVModuleImpl::addImageType(SPIRVType *SampledType,
 +                              const SPIRVTypeImageDescriptor &Desc,
 +                              SPIRVAccessQualifierKind Acc) {
-+  return addType(new SPIRVTypeImage(
-+      this, getId(), SampledType ? SampledType->getId() : 0, Desc, Acc));
++  // only ever create one OpTypeImage with the same parameters
++  for (const auto &entry : ImageTypeMap) {
++    if (entry.sampled_type == SampledType &&
++        entry.desc.Arrayed == Desc.Arrayed && entry.desc.Depth == Desc.Depth &&
++        entry.desc.Dim == Desc.Dim && entry.desc.Format == Desc.Format &&
++        entry.desc.MS == Desc.MS && entry.desc.Sampled == Desc.Sampled &&
++        entry.access == Acc) {
++      return entry.image_type;
++    }
++  }
++
++  // doesn't exist yet, create it
++  image_type_info info{
++      .sampled_type = SampledType, .desc = Desc, .access = Acc,
++  };
++  if (Acc != spv::AccessQualifierNone) {
++    info.image_type = addType(new SPIRVTypeImage(
++        this, getId(), SampledType ? SampledType->getId() : 0, Desc, Acc));
++  } else {
++    info.image_type = addType(new SPIRVTypeImage(
++        this, getId(), SampledType ? SampledType->getId() : 0, Desc));
++  }
++  ImageTypeMap.emplace_back(info);
++  return info.image_type;
 +}
 +
 +SPIRVTypeSampler *SPIRVModuleImpl::addSamplerType() {
@@ -35479,7 +35527,13 @@ index 0000000..c589411
 +}
 +
 +SPIRVTypeSampledImage *SPIRVModuleImpl::addSampledImageType(SPIRVTypeImage *T) {
-+  return addType(new SPIRVTypeSampledImage(this, getId(), T));
++  const auto iter = SampledImageTypeMap.find(T);
++  if (iter != SampledImageTypeMap.end()) {
++    return iter->second;
++  }
++  auto ret = new SPIRVTypeSampledImage(this, getId(), T);
++  SampledImageTypeMap.emplace(T, ret);
++  return addType(ret);
 +}
 +
 +void SPIRVModuleImpl::createForwardPointers() {
@@ -53262,10 +53316,10 @@ index 0000000..73ed894
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..ff68c96
+index 0000000..f5ac093
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,690 @@
+@@ -0,0 +1,698 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53856,11 +53910,15 @@ index 0000000..ff68c96
 +			if(pointer_selects.empty()) return;
 +			
 +			for(SelectInst* SI : pointer_selects) {
++				DBG(errs() << "handling SI: " << *SI << "\n";)
 +				for(auto user : SI->users()) {
-+					auto instr = cast<Instruction>(user);
++					auto instr = dyn_cast<Instruction>(user);
++					if(instr == nullptr) continue;
++					
 +					// TODO: other instructions?
 +					// TODO: load (would need phi afterwards)
 +					if(isa<StoreInst>(instr)) {
++						DBG(errs() << "handling user: " << *instr << "\n";)
 +						TerminatorInst* true_term = nullptr;
 +						TerminatorInst* false_term = nullptr;
 +						SplitBlockAndInsertIfThenElse(SI->getCondition(), instr, &true_term, &false_term);
@@ -53883,12 +53941,16 @@ index 0000000..ff68c96
 +						
 +						insert_keep_block_marker(true_term->getParent());
 +						insert_keep_block_marker(false_instr->getParent());
++						continue;
 +					}
++					DBG(errs() << "unhandled user: " << *instr << "\n";)
 +				}
 +				
 +				if(SI->getNumUses() > 0) {
-+					ctx->emitError(SI, "use count of pointer select > 0 (could not replace all users)");
-+					return;
++					DBG(errs() << "se count of pointer select > 0 (could not replace all users)\n");
++					continue;
++					//ctx->emitError(SI, "use count of pointer select > 0 (could not replace all users)");
++					//return;
 +				}
 +				SI->eraseFromParent();
 +			}
