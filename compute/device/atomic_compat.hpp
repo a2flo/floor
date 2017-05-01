@@ -65,36 +65,36 @@ constexpr bool floor_atomic_is_lock_free(const size_t& size) {
 #define FLOOR_ATOMIC_POINTER_LOCK_FREE false
 #endif
 
-template <typename T> T floor_atomic_fetch_add(volatile global T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
-template <typename T> T floor_atomic_fetch_sub(volatile global T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
-template <typename T> T floor_atomic_fetch_inc(volatile global T* addr, memory_order) { return atomic_inc(addr); }
-template <typename T> T floor_atomic_fetch_dec(volatile global T* addr, memory_order) { return atomic_dec(addr); }
-template <typename T> T floor_atomic_fetch_and(volatile global T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
-template <typename T> T floor_atomic_fetch_or(volatile global T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
-template <typename T> T floor_atomic_fetch_xor(volatile global T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }
-template <typename T> T floor_atomic_exchange(volatile global T* addr, const T& val, memory_order) { return atomic_xchg(addr, val); }
-template <typename T> void floor_atomic_store(volatile global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
-template <typename T> void floor_atomic_init(volatile global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
-template <typename T> T floor_atomic_load(volatile global T* addr, memory_order) { return atomic_load(addr); }
-template <typename T> bool floor_atomic_compare_exchange_weak(volatile global T* addr, const T* expected, const T& desired,
+template <typename T> T floor_atomic_fetch_add(global T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
+template <typename T> T floor_atomic_fetch_sub(global T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
+template <typename T> T floor_atomic_fetch_inc(global T* addr, memory_order) { return atomic_inc(addr); }
+template <typename T> T floor_atomic_fetch_dec(global T* addr, memory_order) { return atomic_dec(addr); }
+template <typename T> T floor_atomic_fetch_and(global T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
+template <typename T> T floor_atomic_fetch_or(global T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
+template <typename T> T floor_atomic_fetch_xor(global T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }
+template <typename T> T floor_atomic_exchange(global T* addr, const T& val, memory_order) { return atomic_xchg(addr, val); }
+template <typename T> void floor_atomic_store(global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
+template <typename T> void floor_atomic_init(global T* addr, const T& val, memory_order) { atomic_store(addr, val); }
+template <typename T> T floor_atomic_load(global T* addr, memory_order) { return atomic_load(addr); }
+template <typename T> bool floor_atomic_compare_exchange_weak(global T* addr, const T* expected, const T& desired,
 															  memory_order, memory_order) {
 	const auto old = *expected;
 	return (atomic_cmpxchg(addr, *expected, desired) == old);
 }
 
 #if !defined(FLOOR_COMPUTE_CUDA) && !defined(FLOOR_COMPUTE_HOST) // cuda and host don't require address space specialization
-template <typename T> T floor_atomic_fetch_add(volatile local T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
-template <typename T> T floor_atomic_fetch_sub(volatile local T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
-template <typename T> T floor_atomic_fetch_inc(volatile local T* addr, memory_order) { return atomic_inc(addr); }
-template <typename T> T floor_atomic_fetch_dec(volatile local T* addr, memory_order) { return atomic_dec(addr); }
-template <typename T> T floor_atomic_fetch_and(volatile local T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
-template <typename T> T floor_atomic_fetch_or(volatile local T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
-template <typename T> T floor_atomic_fetch_xor(volatile local T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }
-template <typename T> T floor_atomic_exchange(volatile local T* addr, const T& val, memory_order) { return atomic_xchg(addr, val); }
-template <typename T> void floor_atomic_store(volatile local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
-template <typename T> void floor_atomic_init(volatile local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
-template <typename T> T floor_atomic_load(volatile local T* addr, memory_order) { return atomic_load(addr); }
-template <typename T> bool floor_atomic_compare_exchange_weak(volatile local T* addr, const T* expected, const T& desired,
+template <typename T> T floor_atomic_fetch_add(local T* addr, const T& val, memory_order) { return atomic_add(addr, val); }
+template <typename T> T floor_atomic_fetch_sub(local T* addr, const T& val, memory_order) { return atomic_sub(addr, val); }
+template <typename T> T floor_atomic_fetch_inc(local T* addr, memory_order) { return atomic_inc(addr); }
+template <typename T> T floor_atomic_fetch_dec(local T* addr, memory_order) { return atomic_dec(addr); }
+template <typename T> T floor_atomic_fetch_and(local T* addr, const T& val, memory_order) { return atomic_and(addr, val); }
+template <typename T> T floor_atomic_fetch_or(local T* addr, const T& val, memory_order) { return atomic_or(addr, val); }
+template <typename T> T floor_atomic_fetch_xor(local T* addr, const T& val, memory_order) { return atomic_xor(addr, val); }
+template <typename T> T floor_atomic_exchange(local T* addr, const T& val, memory_order) { return atomic_xchg(addr, val); }
+template <typename T> void floor_atomic_store(local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
+template <typename T> void floor_atomic_init(local T* addr, const T& val, memory_order) { atomic_store(addr, val); }
+template <typename T> T floor_atomic_load(local T* addr, memory_order) { return atomic_load(addr); }
+template <typename T> bool floor_atomic_compare_exchange_weak(local T* addr, const T* expected, const T& desired,
 															  memory_order, memory_order) {
 	const auto old = *expected;
 	return (atomic_cmpxchg(addr, *expected, desired) == old);

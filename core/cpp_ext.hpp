@@ -85,4 +85,11 @@ constexpr auto apply(F&& f, Tuple&& args) {
 }
 #endif
 
+// C++17 "if constexpr" (this is for cases where the constexpr is optional and we don't want to add an ifdef)
+#if defined(FLOOR_CXX17)
+#define if_constexpr if constexpr
+#else
+#define if_constexpr if
+#endif
+
 #endif

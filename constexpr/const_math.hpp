@@ -475,17 +475,16 @@ namespace const_math {
 		
 		// this converges quickly for [1, 2)
 		// ref: https://en.wikipedia.org/wiki/Logarithm#Power_series (more efficient series)
-		typedef long double max_fp_type;
-		const auto ldbl_val = (max_fp_type)decomp.first;
+		const auto ldbl_val = (long double)decomp.first;
 		const auto frac = (ldbl_val - 1.0_fp) / (ldbl_val + 1.0_fp);
 		const auto frac_sq = frac * frac;
 		auto frac_exp = frac;
 		auto res = frac;
 		for(uint32_t i = 1; i < 32; ++i) {
 			frac_exp *= frac_sq;
-			res += frac_exp / max_fp_type(i * 2 + 1);
+			res += frac_exp / (long double)(i * 2 + 1);
 		}
-		const auto decomp_res = res * 2.0_fp;
+		const auto decomp_res = max_fp_type(res * 2.0_fp);
 		
 		// compute log2(decomp exponent), which is == exponent in this case
 		const auto exp_log2_val = (max_fp_type)decomp.second;
