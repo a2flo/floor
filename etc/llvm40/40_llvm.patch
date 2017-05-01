@@ -2466,8 +2466,53 @@ index adc4179..ad2a706 100644
  private:
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
+diff --git a/include/llvm/Transforms/InstCombine/InstCombine.h b/include/llvm/Transforms/InstCombine/InstCombine.h
+index b89c1bd..6d2bad0 100644
+--- a/include/llvm/Transforms/InstCombine/InstCombine.h
++++ b/include/llvm/Transforms/InstCombine/InstCombine.h
+@@ -27,19 +27,21 @@ namespace llvm {
+ class InstCombinePass : public PassInfoMixin<InstCombinePass> {
+   InstCombineWorklist Worklist;
+   bool ExpensiveCombines;
++  bool isVulkan;
+ 
+ public:
+   static StringRef name() { return "InstCombinePass"; }
+ 
+   // Explicitly define constructors for MSVC.
+-  InstCombinePass(bool ExpensiveCombines = true)
+-      : ExpensiveCombines(ExpensiveCombines) {}
++  InstCombinePass(bool ExpensiveCombines = true, bool isVulkan = false)
++      : ExpensiveCombines(ExpensiveCombines), isVulkan(isVulkan) {}
+   InstCombinePass(InstCombinePass &&Arg)
+       : Worklist(std::move(Arg.Worklist)),
+-        ExpensiveCombines(Arg.ExpensiveCombines) {}
++        ExpensiveCombines(Arg.ExpensiveCombines), isVulkan(Arg.isVulkan) {}
+   InstCombinePass &operator=(InstCombinePass &&RHS) {
+     Worklist = std::move(RHS.Worklist);
+     ExpensiveCombines = RHS.ExpensiveCombines;
++    isVulkan = RHS.isVulkan;
+     return *this;
+   }
+ 
+@@ -53,12 +55,13 @@ public:
+ class InstructionCombiningPass : public FunctionPass {
+   InstCombineWorklist Worklist;
+   const bool ExpensiveCombines;
++  const bool isVulkan;
+ 
+ public:
+   static char ID; // Pass identification, replacement for typeid
+ 
+-  InstructionCombiningPass(bool ExpensiveCombines = true)
+-      : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines) {
++  InstructionCombiningPass(bool ExpensiveCombines = true, bool isVulkan = false)
++      : FunctionPass(ID), ExpensiveCombines(ExpensiveCombines), isVulkan(isVulkan) {
+     initializeInstructionCombiningPassPass(*PassRegistry::getPassRegistry());
+   }
+ 
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..64f3eaa 100644
+index 167cc94..f45f2ed 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
 @@ -32,6 +32,109 @@ class TargetMachine;
@@ -2580,6 +2625,19 @@ index 167cc94..64f3eaa 100644
  // ConstantPropagation - A worklist driven constant propagation pass
  //
  FunctionPass *createConstantPropagationPass();
+@@ -130,7 +233,11 @@ Pass *createIndVarSimplifyPass();
+ // into:
+ //    %Z = add int 2, %X
+ //
+-FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true);
++// "isVulkan" is necessary, because we want to prevent certain illegal
++// instruction combines when generating IR for Vulkan.
++//
++FunctionPass *createInstructionCombiningPass(bool ExpensiveCombines = true,
++                                             bool isVulkan = false);
+ 
+ //===----------------------------------------------------------------------===//
+ //
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
 index 0000000..a717de3
@@ -34591,10 +34649,10 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..333254d
+index 0000000..a81e169
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
-@@ -0,0 +1,1890 @@
+@@ -0,0 +1,1891 @@
 +//===- SPIRVModule.cpp - Class to represent SPIR-V module -------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIRV Translator
@@ -36025,9 +36083,10 @@ index 0000000..333254d
 +SPIRVInstruction *SPIRVModuleImpl::addSelectionMergeInst(SPIRVBasicBlock *merge,
 +                                                         SPIRVBasicBlock *BB) {
 +  // NOTE: not allowing any control hints, b/c llvm will have already optimized
-+  // everything
++  // everything - except for structured CFG insanity that we needed to create
++  // -> always mark as flatten and (hopefully) let vendor compilers deal with this
 +  return addInstruction(
-+      new SPIRVSelectionMerge(merge, spv::SelectionControlMaskNone, BB), BB);
++      new SPIRVSelectionMerge(merge, spv::SelectionControlFlattenMask, BB), BB);
 +}
 +
 +SPIRVInstruction *SPIRVModuleImpl::addDerivativeInst(Op op, SPIRVValue *p,
@@ -43951,7 +44010,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..237d7ac 100644
+index 71e479a..389a77e 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -43978,18 +44037,28 @@ index 71e479a..237d7ac 100644
  }
  
  PassManagerBuilder::~PassManagerBuilder() {
-@@ -222,7 +232,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
+@@ -222,8 +232,9 @@ void PassManagerBuilder::addInitialAliasAnalysisPasses(
  
  void PassManagerBuilder::addInstructionCombiningPass(
      legacy::PassManagerBase &PM) const {
 -  bool ExpensiveCombines = OptLevel > 2;
-+  // don't want this for vulkan (leads to illegal pointer bitcasts)
-+  // TODO: might only want to disable pointer combinations
-+  bool ExpensiveCombines = (OptLevel > 2 && !EnableVulkanPasses);
-   PM.add(createInstructionCombiningPass(ExpensiveCombines));
+-  PM.add(createInstructionCombiningPass(ExpensiveCombines));
++  // TODO: prevent illegal pointer bitcasts? no validation error for this?
++  bool ExpensiveCombines = (OptLevel > 2);
++  PM.add(createInstructionCombiningPass(ExpensiveCombines, EnableVulkanPasses));
  }
  
-@@ -373,9 +385,40 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
+ void PassManagerBuilder::populateFunctionPassManager(
+@@ -267,7 +278,7 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
+     MPM.add(createSROAPass());
+     MPM.add(createEarlyCSEPass());             // Catch trivial redundancies
+     MPM.add(createCFGSimplificationPass());    // Merge & remove BBs
+-    MPM.add(createInstructionCombiningPass()); // Combine silly seq's
++    MPM.add(createInstructionCombiningPass(true, EnableVulkanPasses)); // Combine silly seq's
+     addExtensionsToPM(EP_Peephole, MPM);
+   }
+   if (EnablePGOInstrGen) {
+@@ -373,9 +384,40 @@ void PassManagerBuilder::addFunctionSimplificationPasses(
  
  void PassManagerBuilder::populateModulePassManager(
      legacy::PassManagerBase &MPM) {
@@ -44030,7 +44099,7 @@ index 71e479a..237d7ac 100644
    // If all optimizations are disabled, just run the always-inline pass and,
    // if enabled, the function merging pass.
    if (OptLevel == 0) {
-@@ -403,7 +446,9 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -403,7 +445,9 @@ void PassManagerBuilder::populateModulePassManager(
    if (LibraryInfo)
      MPM.add(new TargetLibraryInfoWrapperPass(*LibraryInfo));
  
@@ -44041,7 +44110,7 @@ index 71e479a..237d7ac 100644
  
    if (!DisableUnitAtATime) {
      // Infer attributes about declarations if possible.
-@@ -458,6 +503,35 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -458,6 +502,35 @@ void PassManagerBuilder::populateModulePassManager(
    // we must insert a no-op module pass to reset the pass manager.
    MPM.add(createBarrierNoopPass());
  
@@ -44077,7 +44146,7 @@ index 71e479a..237d7ac 100644
    if (!DisableUnitAtATime && OptLevel > 1 && !PrepareForLTO &&
        !PrepareForThinLTO)
      // Remove avail extern fns and globals definitions if we aren't
-@@ -626,6 +700,50 @@ void PassManagerBuilder::populateModulePassManager(
+@@ -626,6 +699,59 @@ void PassManagerBuilder::populateModulePassManager(
      MPM.add(createMergeFunctionsPass());
  
    addExtensionsToPM(EP_OptimizerLast, MPM);
@@ -44090,7 +44159,16 @@ index 71e479a..237d7ac 100644
 +	MPM.add(createLowerSwitchPass());
 +	MPM.add(createCFGSimplificationPass());
 +    MPM.add(createSinkingPass());
-+	  
++
++#if 0 // enable for testing GEP handling (not all transforms are legal in Vulkan)
++    MPM.add(createSeparateConstOffsetFromGEPPass());
++    MPM.add(createSpeculativeExecutionPass());
++    MPM.add(createStraightLineStrengthReducePass());
++    MPM.add(createGVNPass());
++    MPM.add(createNaryReassociatePass());
++    MPM.add(createEarlyCSEPass());
++#endif
++
 +    // "pre-final" vulkanization (prior to cfg structurization)
 +    MPM.add(createVulkanPreFinalPass());
 +
@@ -44119,7 +44197,7 @@ index 71e479a..237d7ac 100644
 +	// want to change the CFG or introduce "invalid" instructions
 +    MPM.add(createFMACombinerPass());
 +    MPM.add(createTailCallEliminationPass());
-+    MPM.add(createInstructionCombiningPass(/*false TODO? */));
++    MPM.add(createInstructionCombiningPass(true, true /* vulkan */));
 +    MPM.add(createGVNPass());
 +    MPM.add(createAggressiveDCEPass());
 +  }
@@ -44128,6 +44206,33 @@ index 71e479a..237d7ac 100644
  }
  
  void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
+diff --git a/lib/Transforms/InstCombine/InstCombineInternal.h b/lib/Transforms/InstCombine/InstCombineInternal.h
+index 8f2a7f4..899bcc7 100644
+--- a/lib/Transforms/InstCombine/InstCombineInternal.h
++++ b/lib/Transforms/InstCombine/InstCombineInternal.h
+@@ -157,6 +157,8 @@ private:
+   const bool MinimizeSize;
+   /// Enable combines that trigger rarely but are costly in compiletime.
+   const bool ExpensiveCombines;
++  /// prevent certain illegal combines when generating IR for Vulkan.
++  const bool isVulkan;
+ 
+   AliasAnalysis *AA;
+ 
+@@ -174,11 +176,11 @@ private:
+ 
+ public:
+   InstCombiner(InstCombineWorklist &Worklist, BuilderTy *Builder,
+-               bool MinimizeSize, bool ExpensiveCombines, AliasAnalysis *AA,
++               bool MinimizeSize, bool ExpensiveCombines, bool isVulkan, AliasAnalysis *AA,
+                AssumptionCache &AC, TargetLibraryInfo &TLI,
+                DominatorTree &DT, const DataLayout &DL, LoopInfo *LI)
+       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
+-        ExpensiveCombines(ExpensiveCombines), AA(AA), AC(AC), TLI(TLI), DT(DT),
++        ExpensiveCombines(ExpensiveCombines), isVulkan(isVulkan), AA(AA), AC(AC), TLI(TLI), DT(DT),
+         DL(DL), LI(LI), MadeIRChange(false) {}
+ 
+   /// \brief Run the combiner over the entire worklist until it is empty.
 diff --git a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
 index 1603278..1279da1 100644
 --- a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
@@ -44158,6 +44263,70 @@ index 1603278..1279da1 100644
  
    // Fold away bit casts of the loaded value by loading the desired type.
    // We can do this for BitCastInsts as well as casts from and to pointer types,
+diff --git a/lib/Transforms/InstCombine/InstCombinePHI.cpp b/lib/Transforms/InstCombine/InstCombinePHI.cpp
+index 675a5d1..cd87fb9 100644
+--- a/lib/Transforms/InstCombine/InstCombinePHI.cpp
++++ b/lib/Transforms/InstCombine/InstCombinePHI.cpp
+@@ -274,6 +274,11 @@ static bool isSafeAndProfitableToSinkLoad(LoadInst *L) {
+ }
+ 
+ Instruction *InstCombiner::FoldPHIArgLoadIntoPHI(PHINode &PN) {
++  if (isVulkan) {
++    // pointer PHIs are illegal with Vulkan
++    return nullptr;
++  }
++
+   LoadInst *FirstLI = cast<LoadInst>(PN.getIncomingValue(0));
+ 
+   // FIXME: This is overconservative; this transform is allowed in some cases
+diff --git a/lib/Transforms/InstCombine/InstructionCombining.cpp b/lib/Transforms/InstCombine/InstructionCombining.cpp
+index 12c42ce..6246e58 100644
+--- a/lib/Transforms/InstCombine/InstructionCombining.cpp
++++ b/lib/Transforms/InstCombine/InstructionCombining.cpp
+@@ -3132,6 +3132,7 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
+                                 AliasAnalysis *AA, AssumptionCache &AC,
+                                 TargetLibraryInfo &TLI, DominatorTree &DT,
+                                 bool ExpensiveCombines = true,
++                                bool isVulkan = false,
+                                 LoopInfo *LI = nullptr) {
+   auto &DL = F.getParent()->getDataLayout();
+   ExpensiveCombines |= EnableExpensiveCombines;
+@@ -3162,7 +3163,7 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
+     bool Changed = prepareICWorklistFromFunction(F, DL, &TLI, Worklist);
+ 
+     InstCombiner IC(Worklist, &Builder, F.optForMinSize(), ExpensiveCombines,
+-                    AA, AC, TLI, DT, DL, LI);
++                    isVulkan, AA, AC, TLI, DT, DL, LI);
+     Changed |= IC.run();
+ 
+     if (!Changed)
+@@ -3182,7 +3183,7 @@ PreservedAnalyses InstCombinePass::run(Function &F,
+ 
+   // FIXME: The AliasAnalysis is not yet supported in the new pass manager
+   if (!combineInstructionsOverFunction(F, Worklist, nullptr, AC, TLI, DT,
+-                                       ExpensiveCombines, LI))
++                                       ExpensiveCombines, isVulkan, LI))
+     // No changes, all analyses are preserved.
+     return PreservedAnalyses::all();
+ 
+@@ -3220,7 +3221,7 @@ bool InstructionCombiningPass::runOnFunction(Function &F) {
+   auto *LI = LIWP ? &LIWP->getLoopInfo() : nullptr;
+ 
+   return combineInstructionsOverFunction(F, Worklist, AA, AC, TLI, DT,
+-                                         ExpensiveCombines, LI);
++                                         ExpensiveCombines, isVulkan, LI);
+ }
+ 
+ char InstructionCombiningPass::ID = 0;
+@@ -3243,6 +3244,6 @@ void LLVMInitializeInstCombine(LLVMPassRegistryRef R) {
+   initializeInstructionCombiningPassPass(*unwrap(R));
+ }
+ 
+-FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines) {
+-  return new InstructionCombiningPass(ExpensiveCombines);
++FunctionPass *llvm::createInstructionCombiningPass(bool ExpensiveCombines, bool isVulkan) {
++  return new InstructionCombiningPass(ExpensiveCombines, isVulkan);
+ }
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
 index 0000000..23be65f
@@ -53316,10 +53485,10 @@ index 0000000..73ed894
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..f5ac093
+index 0000000..5d89d85
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
-@@ -0,0 +1,698 @@
+@@ -0,0 +1,1331 @@
 +//===- VulkanFinal.cpp - Vulkan final pass --------------------------------===//
 +//
 +//                     The LLVM Compiler Infrastructure
@@ -53346,6 +53515,7 @@ index 0000000..f5ac093
 +#include "llvm/Analysis/GlobalsModRef.h"
 +#include "llvm/Analysis/PostDominators.h"
 +#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/Analysis/ValueTracking.h"
 +#include "llvm/IR/CFG.h"
 +#include "llvm/IR/CallSite.h"
 +#include "llvm/IR/CallingConv.h"
@@ -53427,8 +53597,6 @@ index 0000000..f5ac093
 +		// added fragment function args
 +		Argument* point_coord { nullptr };
 +		Argument* frag_coord { nullptr };
-+		
-+		std::unordered_set<Instruction*> unreachable_kill_list;
 +		
 +		VulkanFinal() :
 +		FunctionPass(ID) {
@@ -53737,49 +53905,8 @@ index 0000000..f5ac093
 +			}
 +		}
 +		
-+		void visitGetElementPtrInst(GetElementPtrInst &I) {
-+			// prefer i32 indices so that we don't need the Int64 capability
-+			for(auto& op : I.operands()) {
-+				if(op->getType()->isIntegerTy() &&
-+				   !op->getType()->isIntegerTy(32)) {
-+					if(const auto const_idx_op = dyn_cast_or_null<ConstantInt>(op)) {
-+						op.set(builder->getInt32((int32_t)const_idx_op->getValue().getZExtValue()));
-+					}
-+					else {
-+						builder->SetInsertPoint(&I);
-+						op.set(builder->CreateIntCast(op, builder->getInt32Ty(), false));
-+					}
-+				}
-+			}
-+			
-+			// GEP fusion, i.e. can't have GEPs into GEPs, so merge them together
-+			// TODO: loop / recurse
-+			if(GetElementPtrInst* GEP = dyn_cast<GetElementPtrInst>(I.getPointerOperand())) {
-+				// simple case: only need to swap out the base pointer + modify the first index
-+				if(GEP->getNumIndices() == 1) {
-+					I.setOperand(0, GEP->getPointerOperand());
-+					
-+					// is the first index 0?
-+					ConstantInt* first_const_idx = dyn_cast<ConstantInt>(I.getOperand(1));
-+					if(first_const_idx != nullptr && first_const_idx->getZExtValue() == 0) {
-+						// if so, just swap it out with the first index from the other GEP
-+						I.setOperand(1, GEP->getOperand(1));
-+					}
-+					else {
-+						// if not, then we need to add both
-+						auto added_idx = BinaryOperator::CreateAdd(GEP->getOperand(1), I.getOperand(1), "idxadd", &I);
-+						I.setOperand(1, added_idx);
-+					}
-+				}
-+				// else: need to create a new GEP and merge both indices lists
-+				else {
-+					// TODO: !
-+				}
-+			}
-+		}
-+		
 +		void visitAllocaInst(AllocaInst &AI) {
-+			// TODO: should do this, but can't (no pointers to pointers in vulkan, but also no phi/select of pointers ...)
++			// TODO: no pointers to pointers in vulkan
 +		}
 +		
 +		void visitReturnInst(ReturnInst &RI) {
@@ -53845,9 +53972,13 @@ index 0000000..f5ac093
 +		bool is_vertex_func { false };
 +		bool is_fragment_func { false };
 +		bool was_modified { false };
++		ConstantFolder folder;
 +		
-+		// visitor will find all pointer selects, then these will be handled afterwards
-+		std::vector<SelectInst*> pointer_selects;
++		// function input/originating pointers (i.e. parameters + allocas)
++		std::unordered_set<Value*> input_ptrs;
++		std::vector<GetElementPtrInst*> gep_ptrs;
++		std::vector<SelectInst*> select_ptrs;
++		std::vector<PHINode*> phi_ptrs;
 +		
 +		VulkanPreFinal() :
 +		FunctionPass(ID) {
@@ -53855,6 +53986,12 @@ index 0000000..f5ac093
 +		}
 +		
 +		void getAnalysisUsage(AnalysisUsage &AU) const override {
++			AU.addRequired<AAResultsWrapperPass>();
++			AU.addRequired<GlobalsAAWrapperPass>();
++			AU.addRequired<AssumptionCacheTracker>();
++			AU.addRequired<TargetLibraryInfoWrapperPass>();
++			AU.addRequired<AssumptionCacheTracker>();
++			AU.addRequired<DominatorTreeWrapperPass>();
 +		}
 +		
 +		bool runOnFunction(Function &F) override {
@@ -53867,11 +54004,35 @@ index 0000000..f5ac093
 +			M = F.getParent();
 +			ctx = &M->getContext();
 +			func = &F;
++			input_ptrs.clear();
++			gep_ptrs.clear();
++			select_ptrs.clear();
++			phi_ptrs.clear();
 +			
++			// store parameter pointers + globals used in this function
++			for(auto& arg : F.args()) {
++				if(arg.getType()->isPointerTy()) {
++					input_ptrs.emplace(&arg);
++				}
++			}
++			for (auto& GV : M->globals()) {
++				if(!GV.getType()->isPointerTy()) continue;
++				for(const auto& user : GV.users()) {
++					if(Instruction* instr = dyn_cast_or_null<Instruction>(user)) {
++						if(instr->getParent()->getParent() == &F) {
++							input_ptrs.emplace(&GV);
++							break;
++						}
++					}
++				}
++			}
++			
++			// gather all stuff
 +			was_modified = false;
 +			visit(F);
 +			
-+			handle_pointer_selects();
++			// handle everything
++			handle_pointers();
 +			
 +			return was_modified;
 +		}
@@ -53882,12 +54043,139 @@ index 0000000..f5ac093
 +			InstVisitor<VulkanPreFinal>::visit(I);
 +		}
 +		
++		void visitAllocaInst(AllocaInst& AI) {
++			// store allocas
++			input_ptrs.emplace(&AI);
++		}
++		
++		// fuses "base_gep" and "gep" to a single GEP, possibly replacing "gep" with the new GEP
++		// NOTE: for simple cases, the returned GEP can be the input "gep" (with indices replaced)
++		GetElementPtrInst* fuse_geps(GetElementPtrInst* base_gep, GetElementPtrInst* gep,
++									 const bool replace_old_gep) {
++			const auto fuse_index = [this](Value* lhs, Value* rhs, Instruction* insert_pos) -> Value* {
++				ConstantInt* lhs_const = dyn_cast_or_null<ConstantInt>(lhs);
++				ConstantInt* rhs_const = dyn_cast_or_null<ConstantInt>(rhs);
++				if(lhs_const != nullptr && rhs_const != nullptr) {
++					// both are constant -> simply fold them
++					return folder.CreateAdd(lhs_const, rhs_const);
++				}
++				else if(lhs_const != nullptr && lhs_const->getZExtValue() == 0) {
++					// lhs idx is 0
++					return rhs;
++				}
++				else if(rhs_const != nullptr && rhs_const->getZExtValue() == 0) {
++					// rhs idx is 0
++					return lhs;
++				}
++				else {
++					// need to create a proper addition
++					std::string name = ".gep.idx.add";
++					if(rhs->hasName()) name = rhs->getName().str() + name;
++					if(lhs->hasName()) name = lhs->getName().str() + name;
++					return BinaryOperator::CreateAdd(lhs, rhs, name, insert_pos);
++				}
++			};
++			
++			const auto base_idx_count = base_gep->getNumIndices();
++			const auto idx_count = gep->getNumIndices();
++			
++			DBG(errs() << ">>> fusing: " << *base_gep << " + " << *gep << "\n";)
++			
++			if(base_idx_count == 1 && replace_old_gep) {
++				// -> base is just an offset pointer, can simply fuse both GEPs
++				DBG(errs() << ">> fused (simple): " << *gep;)
++				
++				// replace pointer base
++				gep->setOperand(0, base_gep->getPointerOperand());
++				
++				// fuse first index
++				gep->setOperand(1, fuse_index(base_gep->getOperand(1), gep->getOperand(1), gep));
++				
++				DBG(errs() << ", with " << *gep << "\n";)
++				return gep;
++			}
++			else {
++				// -> need to create a new GEP so that it can contain all indices from both GEPs
++				// NOTE: last idx in base + first in current always matches -> -1
++				const auto fused_idx_count = base_idx_count + idx_count - 1;
++				
++				// create fused idx list
++				SmallVector<Value*, 4> idx_list;
++				
++				// add base indices
++				for(uint32_t i = 1, count = base_gep->getNumIndices() + 1; i < count; ++i) {
++					idx_list.push_back(base_gep->getOperand(i));
++				}
++				
++				// fust last (base) + first (current) idx
++				idx_list[idx_list.size() - 1] = fuse_index(idx_list.back(), gep->getOperand(1), gep);
++				
++				// add current indices
++				for(uint32_t i = 2, count = gep->getNumIndices() + 1; i < count; ++i) {
++					idx_list.push_back(gep->getOperand(i));
++				}
++				assert(idx_list.size() == fused_idx_count && "invalid idx list size");
++				
++				// create the new GEP
++				auto fused_gep = GetElementPtrInst::CreateInBounds(base_gep->getPointerOperand(), idx_list,
++																   gep->getName() + ".gep.fused", gep);
++				fused_gep->setDebugLoc(gep->getDebugLoc());
++				
++				// replace this with new fused one
++				DBG(errs() << ">> fused: replacing " << *gep << ", with " << *fused_gep << "\n";)
++				if(replace_old_gep) {
++					gep->replaceAllUsesWith(fused_gep);
++					gep->eraseFromParent();
++				}
++				return fused_gep;
++			}
++		}
++		
++		void visitGetElementPtrInst(GetElementPtrInst &I) {
++			// prefer i32 indices so that we don't need the Int64 capability
++			for(auto& op : I.operands()) {
++				if(op->getType()->isIntegerTy() &&
++				   !op->getType()->isIntegerTy(32)) {
++					if(const auto const_idx_op = dyn_cast_or_null<ConstantInt>(op)) {
++						op.set(ConstantInt::get(Type::getInt32Ty(*ctx),
++												(int32_t)const_idx_op->getValue().getZExtValue()));
++					}
++					else {
++						// TODO: does this make sense? would need Int64 cap either way
++						op.set(CastInst::CreateIntegerCast(op, Type::getInt32Ty(*ctx), false, "gep.idx.i32.cast", &I));
++					}
++				}
++			}
++			
++			// GEP fusion: we can't have GEPs into GEPs, so fuse them
++			// NOTE: this has to be done recursively of course
++			GetElementPtrInst* output_gep = &I;
++			bool did_fuse = false;
++			do {
++				did_fuse = false;
++				if(GetElementPtrInst* GEP = dyn_cast_or_null<GetElementPtrInst>(output_gep->getPointerOperand())) {
++					output_gep = fuse_geps(GEP, output_gep, true /* replace_old_gep */);
++					did_fuse = true;
++				}
++			} while(did_fuse);
++			
++			gep_ptrs.push_back(output_gep);
++		}
++		
 +		void visitSelectInst(SelectInst& SI) {
 +			// we're only interested in pointer selects, as these aren't supported in vulkan
 +			if(!SI.getType()->isPointerTy()) {
 +				return;
 +			}
-+			pointer_selects.emplace_back(&SI);
++			select_ptrs.emplace_back(&SI);
++		}
++		
++		void visitPHINode(PHINode& PHI) {
++			// we're only interested in pointer selects, as these aren't supported in vulkan
++			if(!PHI.getType()->isPointerTy()) {
++				return;
++			}
++			phi_ptrs.emplace_back(&PHI);
 +		}
 +		
 +		CallInst* insert_keep_block_marker(BasicBlock* keep_block) {
@@ -53906,56 +54194,564 @@ index 0000000..f5ac093
 +			return keep_block_call;
 +		}
 +		
-+		void handle_pointer_selects() {
-+			if(pointer_selects.empty()) return;
++		void handle_pointers() {
++			DBG(errs() << "####################\n## in " << func->getName() << "\n";
++				for(const auto& iptr : input_ptrs) {
++					errs() << "input: " << *iptr << "\n";
++				}
++				for(const auto& gep : gep_ptrs) {
++					errs() << "GEP: " << *gep << "\n";
++				}
++				for(const auto& sel : select_ptrs) {
++					errs() << "select: " << *sel << "\n";
++				}
++				for(const auto& phi : phi_ptrs) {
++					errs() << "phi: " << *phi << "\n";
++				}
++			)
++			was_modified = true; // TODO: do this properly
 +			
-+			for(SelectInst* SI : pointer_selects) {
-+				DBG(errs() << "handling SI: " << *SI << "\n";)
-+				for(auto user : SI->users()) {
-+					auto instr = dyn_cast<Instruction>(user);
-+					if(instr == nullptr) continue;
-+					
-+					// TODO: other instructions?
-+					// TODO: load (would need phi afterwards)
-+					if(isa<StoreInst>(instr)) {
-+						DBG(errs() << "handling user: " << *instr << "\n";)
-+						TerminatorInst* true_term = nullptr;
-+						TerminatorInst* false_term = nullptr;
-+						SplitBlockAndInsertIfThenElse(SI->getCondition(), instr, &true_term, &false_term);
-+						assert(true_term != nullptr && "failed to create true branch/term");
-+						assert(false_term != nullptr && "failed to create false branch/term");
-+						
-+						true_term->getParent()->setName("sel.true");
-+						false_term->getParent()->setName("sel.false");
-+						
-+						auto true_instr = instr->clone();
-+						auto false_instr = instr->clone();
-+						
-+						true_instr->replaceUsesOfWith(SI, SI->getTrueValue());
-+						false_instr->replaceUsesOfWith(SI, SI->getFalseValue());
-+						
-+						true_instr->insertBefore(true_term);
-+						false_instr->insertBefore(false_term);
-+						
-+						instr->eraseFromParent();
-+						
-+						insert_keep_block_marker(true_term->getParent());
-+						insert_keep_block_marker(false_instr->getParent());
-+						continue;
-+					}
-+					DBG(errs() << "unhandled user: " << *instr << "\n";)
++			//
++			std::vector<GetElementPtrInst*> problem_geps;
++			for(const auto& gep : gep_ptrs) {
++				if(input_ptrs.count(gep->getPointerOperand()) == 0) {
++					problem_geps.emplace_back(gep);
++					continue;
++				}
++			}
++			DBG(errs() << "\n";
++				for(const auto& gep : problem_geps) {
++					errs() << "PROBLEM GEP: " << *gep << "\n";
++				}
++			)
++			
++			// needed for finding the origin pointers
++			auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
++			DT->recalculate(*func);
++			LoopInfo LI(*DT);
++			
++			// find set of problem instructions and their pointer origin(s)
++			std::deque<Instruction*> problem_instrs;
++			problem_instrs.insert(begin(problem_instrs), begin(select_ptrs), end(select_ptrs));
++			problem_instrs.insert(begin(problem_instrs), begin(phi_ptrs), end(phi_ptrs));
++			problem_instrs.insert(begin(problem_instrs), begin(problem_geps), end(problem_geps));
++			
++			struct ptr_set {
++				// pointer origin(s)
++				std::unordered_set<Value*> src;
++				// pointer producers (PHIs, selects, GEPs)
++				// TODO: pointer bitcasts should be handled previously
++				std::unordered_set<Instruction*> producers;
++				// pointer consumers (loads, stores)
++				std::unordered_set<Instruction*> consumers;
++			};
++			std::vector<std::shared_ptr<ptr_set>> ptr_sets;
++			std::unordered_map<Instruction*, ptr_set*> ptr_set_map;
++			std::unordered_multimap<Value*, ptr_set*> origin_map;
++			
++			// create initial ptr_sets from our "problem" instructions
++			for(; !problem_instrs.empty(); problem_instrs.pop_front()) {
++				const auto& instr = problem_instrs[0];
++				
++				// already handled elsewhere?
++				if(ptr_set_map.count(instr) > 0) continue;
++				
++				// figure out which origin pointer(s) this comes from
++				SmallVector<Value*, 3> origins;
++				DBG(errs() << "\n-> " << *instr << "\n";)
++				GetUnderlyingObjects(instr, origins, M->getDataLayout(), &LI, 0);
++				DBG(for(const auto& orig : origins) {
++					errs() << "     origin: " << *orig << "\n";
++				})
++				if(origins.empty()) {
++					ctx->emitError(instr, "instruction has no origin");
++					return;
 +				}
 +				
-+				if(SI->getNumUses() > 0) {
-+					DBG(errs() << "se count of pointer select > 0 (could not replace all users)\n");
-+					continue;
-+					//ctx->emitError(SI, "use count of pointer select > 0 (could not replace all users)");
-+					//return;
++				// check if we have a ptr_set for this origin combination yet
++				ptr_set* pset = nullptr;
++				auto orig_range = origin_map.equal_range(origins[0]);
++				for(auto oiter = orig_range.first; oiter != orig_range.second; ++oiter) {
++					// same size?
++					if(oiter->second->src.size() != origins.size()) {
++						continue;
++					}
++					
++					// same content?
++					bool equal_set = true;
++					for(const auto& origin : origins) {
++						if(oiter->second->src.count(origin) == 0) {
++							equal_set = false;
++							break;
++						}
++					}
++					if(!equal_set) continue;
++					
++					// found a ptr_set that matches
++					pset = oiter->second;
++					break;
 +				}
-+				SI->eraseFromParent();
++				
++				// create a ptr_set if none exists yet
++				if(pset == nullptr) {
++					auto new_ptr_set = std::make_shared<ptr_set>();
++					ptr_sets.push_back(new_ptr_set);
++					pset = new_ptr_set.get();
++					
++					pset->src.insert(origins.begin(), origins.end());
++					for(const auto& origin : origins) {
++						origin_map.emplace(origin, pset);
++					}
++				}
++				
++				// add this instruction
++				pset->producers.emplace(instr);
++				ptr_set_map.emplace(instr, pset);
++				
++				// we must also handle the pointers contained within instructions
++				// -> this makes sure that we recursively get the complete net/graph of pointers
++				if(PHINode* phi = dyn_cast_or_null<PHINode>(instr)) {
++					for(const auto& phi_inc_val : phi->incoming_values()) {
++						// only add the value/instruction if we haven't handled it yet + if it isn't a input ptr
++						const auto phi_inc_instr = dyn_cast_or_null<Instruction>(&phi_inc_val);
++						if(phi_inc_instr != nullptr &&
++						   input_ptrs.count(phi_inc_instr) == 0 &&
++						   ptr_set_map.count(phi_inc_instr) == 0) {
++							problem_instrs.emplace_back(phi_inc_instr);
++						}
++					}
++				}
++				else if(SelectInst* sel = dyn_cast_or_null<SelectInst>(instr)) {
++					const auto true_instr = dyn_cast_or_null<Instruction>(sel->getTrueValue());
++					const auto false_instr = dyn_cast_or_null<Instruction>(sel->getFalseValue());
++					if(true_instr != nullptr &&
++					   input_ptrs.count(true_instr) == 0 &&
++					   ptr_set_map.count(true_instr) == 0) {
++						problem_instrs.emplace_back(true_instr);
++					}
++					if(false_instr != nullptr &&
++					   input_ptrs.count(false_instr) == 0 &&
++					   ptr_set_map.count(false_instr) == 0) {
++						problem_instrs.emplace_back(false_instr);
++					}
++				}
++				else if(GetElementPtrInst* GEP = dyn_cast_or_null<GetElementPtrInst>(instr)) {
++					const auto gep_instr = dyn_cast_or_null<Instruction>(GEP->getPointerOperand());
++					if(gep_instr != nullptr &&
++					   input_ptrs.count(gep_instr) == 0 &&
++					   ptr_set_map.count(gep_instr) == 0) {
++						problem_instrs.emplace_back(gep_instr);
++					}
++				}
 +			}
 +			
-+			was_modified = true;
++			// find all consumers of our producers
++			for(const auto& instr_pset : ptr_set_map) {
++				const auto& instr = instr_pset.first;
++				auto& pset = instr_pset.second;
++				
++				for(const auto& user : instr->users()) {
++					// only need to consider direct users this time
++					if(Instruction* user_instr = dyn_cast_or_null<Instruction>(user)) {
++						if(isa<GetElementPtrInst>(user_instr) ||
++						   isa<SelectInst>(user_instr) ||
++						   isa<PHINode>(user_instr)) {
++							// not interested in these, should already be handled elsewhere
++							const auto pset_iter = ptr_set_map.find(user_instr);
++							assert(pset_iter != ptr_set_map.end() && "unknown producer");
++							assert(pset_iter->second->producers.count(user_instr) > 0 && "unhandled producer");
++							continue;
++						}
++						// NOTE: we don't care about what kind of instructions consumers are, because
++						// we can simply iterate over all operands of the instruction and replace the
++						// producer(s) accordingly
++						pset->consumers.emplace(user_instr);
++					}
++				}
++			}
++			
++			// debug output
++			DBG(errs() << "\n\n## ptr sets:\n";
++				for(const auto& pset : ptr_sets) {
++					errs() << "# set\n";
++					errs() << "origins:\n";
++					for(const auto& origin : pset->src) {
++						errs() << "\t" << *origin << "\n";
++					}
++					errs() << "producers:\n";
++					for(const auto& prod : pset->producers) {
++						errs() << "\t" << *prod << "\n";
++					}
++					errs() << "consumers:\n";
++					for(const auto& cons : pset->consumers) {
++						errs() << "\t" << *cons << "\n";
++					}
++					
++					errs() << "\n";
++				}
++			)
++			
++			//
++			const auto idx_type = Type::getInt32Ty(*ctx);
++			const auto idx_zero = ConstantInt::get(idx_type, 0);
++			for(const auto& pset : ptr_sets) {
++				// ignore set if there are no consumers (that we need to handle)
++				if(pset->consumers.empty()) continue;
++				
++				if(pset->src.size() == 1) {
++					// simple case with a single origin ptr
++					// -> can replace everything with indices
++					
++					// ptr -> index map
++					std::unordered_map<Instruction*, Instruction*> index_map;
++					
++					// TODO: handle necessary index count (> 1)
++					// * check which op#s are constant (throughout?) -> no need to handle them
++					// * for non-constant -> use array? n-vector? multiple scalar indices?
++					
++					// create indices / replace pointers with integers - due to chain dependencies this is a bit tricky
++					const auto replace_with_idx = [&pset, &index_map, &idx_zero](Value* val) -> Value* {
++						// is this an origin pointer - if so, index is 0
++						if(pset->src.count(val) > 0) {
++							return idx_zero;
++						}
++						
++						// otherwise it must be an instruction
++						const auto instr = dyn_cast_or_null<Instruction>(val);
++						assert(instr != nullptr && "must be an instruction");
++						
++						const auto idx_iter = index_map.find(instr);
++						assert(idx_iter != index_map.end() && "no index for this instruction");
++						
++						return idx_iter->second;
++					};
++					
++					bool all_indices_created = false;
++					while(!all_indices_created) {
++						DBG(errs() << "... index round ...\n";)
++						all_indices_created = true;
++						for(const auto& prod : pset->producers) {
++							if(index_map.count(prod) > 0) continue;
++							
++							Instruction* idx = nullptr;
++							if(GetElementPtrInst* GEP = dyn_cast_or_null<GetElementPtrInst>(prod)) {
++								const auto base_ptr = GEP->getPointerOperand();
++								const auto base_ptr_instr = dyn_cast_or_null<Instruction>(base_ptr);
++								if(pset->src.count(base_ptr) > 0 ||
++								   (base_ptr_instr != nullptr && index_map.count(base_ptr_instr) > 0)) {
++									idx = BinaryOperator::CreateAdd(replace_with_idx(base_ptr), GEP->getOperand(1),
++																	GEP->getName() + ".idx", GEP);
++								}
++								else {
++									// can't handle this yet - do another round
++									DBG(errs() << " -- can't handle yet: " << *GEP << "\n";)
++									all_indices_created = false;
++									continue;
++								}
++							}
++							else if(PHINode* phi = dyn_cast_or_null<PHINode>(prod)) {
++								// NOTE: we will make sure this contains the proper incoming values later
++								idx = PHINode::Create(idx_type, phi->getNumIncomingValues(),
++													  phi->getName() + ".idx", phi);
++							}
++							else if(SelectInst* sel = dyn_cast_or_null<SelectInst>(prod)) {
++								// NOTE: we will make sure this contains the proper true/false values later
++								idx = SelectInst::Create(sel->getCondition(), idx_zero, idx_zero);
++							}
++							
++							idx->setDebugLoc(prod->getDebugLoc());
++							index_map.emplace(prod, idx);
++							DBG(errs() << "idx: " << *prod << " -> " << *idx << "\n";)
++						}
++					}
++					
++					// phi/select index fixup now that we have created all indices
++					for(const auto& prod : pset->producers) {
++						if(PHINode* phi = dyn_cast_or_null<PHINode>(prod)) {
++							auto idx_phi = dyn_cast<PHINode>(index_map[prod]);
++							for(uint32_t i = 0, count = phi->getNumIncomingValues(); i < count; ++i) {
++								idx_phi->addIncoming(replace_with_idx(phi->getIncomingValue(i)),
++													 phi->getIncomingBlock(i));
++							}
++							DBG(errs() << "updated phi: " << *idx_phi << "\n";)
++						}
++						else if(SelectInst* sel = dyn_cast_or_null<SelectInst>(prod)) {
++							auto idx_sel = dyn_cast<SelectInst>(index_map[prod]);
++							idx_sel->setTrueValue(replace_with_idx(sel->getTrueValue()));
++							idx_sel->setFalseValue(replace_with_idx(sel->getFalseValue()));
++							DBG(errs() << "updated sel: " << *idx_sel << "\n";)
++						}
++					}
++					
++					// materialize pointers/GEPs for users (from indices)
++					auto base_ptr = *pset->src.begin();
++					for(Instruction* cons : pset->consumers) {
++						DBG(errs() << ">> cons before: " << *cons << "\n";)
++						for(uint32_t i = 0, count = cons->getNumOperands(); i < count; ++i) {
++							const auto op = cons->getOperand(i);
++							const auto idx_iter = index_map.find((Instruction*)op);
++							if(idx_iter != index_map.end()) {
++								// replace with new materialized GEP
++								SmallVector<Value*, 3> idx_list;
++								idx_list.push_back(idx_zero);
++								idx_list.push_back(idx_iter->second);
++								auto mat_gep = GetElementPtrInst::CreateInBounds(base_ptr, idx_list,
++																				 op->getName() + ".idx.mat.gep", cons);
++								if(Instruction* op_instr = dyn_cast_or_null<Instruction>(op)) {
++									mat_gep->setDebugLoc(op_instr->getDebugLoc());
++								}
++								DBG(errs() << "> consumer op replace: " << *op << " -> " << *mat_gep << "\n";)
++								cons->setOperand(i, mat_gep);
++							}
++						}
++						DBG(errs() << ">> cons after: " << *cons << "\n";)
++					}
++				}
++				else if(pset->src.size() > 1) {
++					// complex case with 2 or more origin ptrs
++					
++					// go down the condition tree until we hit a leaf / origin pointer, in between:
++					//  * for GEPs: store them in a chain (in the same order as they were encountered) and pass/copy
++					//              them through to each tree branch (so that each branch has its individual chain)
++					//  * for SELs: create if/else branches for each SEL (using the same condition as the SEL),
++					//              then recursively go down each branch, meeting up again after the SEL instruction,
++					//              also insert a PHI if the consumer produces a value (replace consumer with that at the end)
++					//  * for PHIs: not handled yet - need to create a new integer condition, then use that for branching?
++					//  * for origin ptrs: fuse the GEP chain up to that point, replace pointer with the origin pointer (now
++					//                     unambiguous), replace use of producer pointer in the consumer with the new GEP
++					
++					// (upside-down) condition tree
++					struct condition_tree {
++						enum class TYPE : uint32_t {
++							COMPARE_BOOL,
++							COMPARE_PHI,
++							ORIGIN_PTR,
++							GEP,
++						};
++						TYPE type;
++						
++						// if COMPARE_BOOL: i1 compare value
++						// if COMPARE_PHI: i32 compare value
++						// if ORIGIN_PTR: actual origin ptr (+this is a leaf node)
++						// if GEP: intermediate GEP
++						Value* val;
++						
++						// pointers to the next condition node(s) or actual origin ptrs (if they are leaf nodes)
++						std::vector<condition_tree> nodes;
++					};
++					uint32_t leaf_count = 0;
++					const std::function<void(Value*, condition_tree&)> create_condition_tree =
++					[&create_condition_tree, &pset, &leaf_count, this](Value* prod, condition_tree& node) {
++						// origin ptr: attach as leaf node
++						if(pset->src.count(prod) > 0) {
++							node.type = condition_tree::TYPE::ORIGIN_PTR;
++							node.val = prod;
++							++leaf_count;
++							return;
++						}
++						
++						// intermediate GEP, continue with pointer op
++						if(GetElementPtrInst* GEP = dyn_cast_or_null<GetElementPtrInst>(prod)) {
++							node.type = condition_tree::TYPE::GEP;
++							node.val = GEP;
++							
++							condition_tree child;
++							create_condition_tree(GEP->getPointerOperand(), child);
++							node.nodes.push_back(child);
++						}
++						// select, store condition + continue traversal with true and false value
++						else if(SelectInst* sel = dyn_cast_or_null<SelectInst>(prod)) {
++							node.type = condition_tree::TYPE::COMPARE_BOOL;
++							node.val = sel->getCondition();
++							
++							// NOTE: must be in this order
++							condition_tree true_child, false_child;
++							create_condition_tree(sel->getTrueValue(), true_child);
++							create_condition_tree(sel->getFalseValue(), false_child);
++							node.nodes.push_back(true_child);
++							node.nodes.push_back(false_child);
++						}
++						else if(PHINode* phi = dyn_cast_or_null<PHINode>(prod)) {
++							// TODO: handle PHIs!
++							node.type = condition_tree::TYPE::COMPARE_PHI;
++							ctx->emitError(phi, "PHI nodes are not handled yet");
++							return;
++						}
++						else {
++							if(Instruction* instr = dyn_cast_or_null<Instruction>(prod)) {
++								ctx->emitError(instr, "unhandled producer while creating condition tree");
++							}
++							else {
++								ctx->emitError("unhandled non-instruction producer value while creating condition tree");
++							}
++						}
++					};
++					
++					// for debugging purposes
++					const std::function<void(const condition_tree&, const uint32_t)> dump_condition_tree =
++					[&dump_condition_tree](const condition_tree& node, const uint32_t level) {
++						errs() << std::string(level, '-') << "> ";
++						switch(node.type) {
++							case condition_tree::TYPE::COMPARE_BOOL:
++								errs() << "SELECT: " << *node.val << "\n";
++								dump_condition_tree(node.nodes[0], level + 1);
++								dump_condition_tree(node.nodes[1], level + 1);
++								break;
++							case condition_tree::TYPE::COMPARE_PHI:
++								errs() << "PHI: " << *node.val << "\n";
++								for(const auto& child : node.nodes) {
++									dump_condition_tree(child, level + 1);
++								}
++								break;
++							case condition_tree::TYPE::GEP:
++								errs() << "GEP: " << *node.val << "\n";
++								dump_condition_tree(node.nodes[0], level + 1);
++								break;
++							case condition_tree::TYPE::ORIGIN_PTR:
++								errs() << "LEAF: " << *node.val << "\n";
++								break;
++						}
++					};
++					
++					for(Instruction* cons : pset->consumers) {
++						// find producer
++						Instruction* producer = nullptr;
++						for(uint32_t i = 0, count = cons->getNumOperands(); i < count; ++i) {
++							const auto op = cons->getOperand(i);
++							const auto piter = pset->producers.find((Instruction*)op);
++							if(piter != pset->producers.end()) {
++								producer = *piter;
++								break;
++							}
++						}
++						assert(producer != nullptr && "consumer has no producer");
++						DBG(errs() << "-> cons/prod: " << *cons << " -> " << *producer << "\n";)
++						
++						// find the condition(s) on which we need to branch
++						condition_tree cond_tree;
++						create_condition_tree(producer, cond_tree);
++						DBG(dump_condition_tree(cond_tree, 0); errs() << "\n";)
++						
++						// TODO: once switches are supported, combine all conditions to a single large switch,
++						// instead of creating a condition tree
++						// TODO: try to merge multiple users to a single block per origin instead of per GEP/user
++						
++						BasicBlock* continue_block = nullptr; // code/block _after_ the consumer instruction
++						PHINode* continue_phi = nullptr;
++						const std::function<void(const condition_tree&, std::vector<GetElementPtrInst*>, TerminatorInst*)>
++						handle_condition_tree = [this, &handle_condition_tree, &continue_block, &continue_phi, &leaf_count,
++												 &cons, &producer](const condition_tree& node,
++																   std::vector<GetElementPtrInst*> gep_chain,
++																   TerminatorInst* branch_term) {
++							switch(node.type) {
++								case condition_tree::TYPE::COMPARE_BOOL: {
++									DBG(errs() << "@SEL: " << *node.val << "\n";)
++									// select: create an if-else branch
++									Value* cond = node.val;
++									
++									TerminatorInst* true_term = nullptr;
++									TerminatorInst* false_term = nullptr;
++									if(continue_block == nullptr) {
++										// create the first split and final continue block
++										SplitBlockAndInsertIfThenElse(cond, cons, &true_term, &false_term);
++										assert(true_term != nullptr && "failed to create true branch/term");
++										assert(false_term != nullptr && "failed to create false branch/term");
++										continue_block = cons->getParent();
++										continue_block->setName("continue.block");
++										
++										// insert continue phi if the consumer produces a value
++										if(!cons->getType()->isVoidTy()) {
++											continue_phi = PHINode::Create(cons->getType(), leaf_count, "continue.phi",
++																		   cons->getNextNode());
++										}
++									}
++									else {
++										// TODO: implement this
++										assert(false && "not implemented yet");
++										ctx->emitError("multi-select not implemented yet");
++										return;
++									}
++									
++									true_term->getParent()->setName("sel.true");
++									false_term->getParent()->setName("sel.false");
++									
++									// copy GEP chain into both branches
++									handle_condition_tree(node.nodes[0], gep_chain, true_term);
++									handle_condition_tree(node.nodes[1], gep_chain, false_term);
++									break;
++								}
++								case condition_tree::TYPE::COMPARE_PHI: {
++									DBG(errs() << "@PHI: " << *node.val << "\n";)
++									ctx->emitError("PHI nodes are not handled yet");
++									break;
++								}
++								case condition_tree::TYPE::GEP: {
++									DBG(errs() << "@GEP: " << *node.val << "\n";)
++									// add GEP to chain and continue
++									gep_chain.emplace_back(dyn_cast<GetElementPtrInst>(node.val));
++									handle_condition_tree(node.nodes[0], std::move(gep_chain), branch_term);
++									break;
++								}
++								case condition_tree::TYPE::ORIGIN_PTR: {
++									DBG(errs() << "@PTR: " << *node.val << "\n";)
++									// leaf: finally reached an origin pointer
++									assert(branch_term != nullptr && "must have a branch terminator");
++									
++									// fuse GEPs with origin ptr
++									GetElementPtrInst* mat_gep = (GetElementPtrInst*)gep_chain[0]->clone();
++									mat_gep->setOperand(0, node.val);
++									mat_gep->setName(gep_chain.back()->getName());
++									mat_gep->setDebugLoc(gep_chain.back()->getDebugLoc());
++									for(size_t i = 1, count = gep_chain.size(); i < count; ++i) {
++										mat_gep = fuse_geps(mat_gep, gep_chain[i], false); // TODO
++									}
++									mat_gep->insertBefore(branch_term);
++									DBG(errs() << ">> mat_gep: " << *mat_gep << "\n";)
++									
++									// copy consumer
++									auto cons_clone = cons->clone();
++									if(cons->hasName()) {
++										cons_clone->setName(cons->getName());
++									}
++									cons_clone->setDebugLoc(cons->getDebugLoc());
++									cons_clone->insertBefore(branch_term);
++									
++									// replace consumer ptr
++									DBG(errs() << ">> cons before: " << *cons_clone << "\n";)
++									for(uint32_t i = 0, count = cons_clone->getNumOperands(); i < count; ++i) {
++										const auto op = cons_clone->getOperand(i);
++										if(op == producer) {
++											cons_clone->setOperand(i, mat_gep);
++										}
++									}
++									DBG(errs() << ">> cons after: " << *cons_clone << "\n";)
++									
++									// branch to continue block
++									auto br_inst = dyn_cast_or_null<BranchInst>(branch_term);
++									assert(br_inst != nullptr && "invalid terminator");
++									assert(br_inst->isUnconditional() && "branch must be unconditional");
++									br_inst->setSuccessor(0, continue_block);
++									
++									// update continue phi (if there is one)
++									if(continue_phi != nullptr) {
++										continue_phi->addIncoming(cons_clone, cons_clone->getParent());
++										DBG(errs() << ">> updated phi: " << *continue_phi << "\n";)
++									}
++									break;
++								}
++							}
++						};
++						handle_condition_tree(cond_tree, {}, nullptr);
++						
++						if(continue_phi != nullptr) {
++							cons->replaceAllUsesWith(continue_phi);
++						}
++						cons->eraseFromParent();
++					}
++				}
++			}
++			
++			// TODO: cleanup / DCE (will be done at the end anyways, but might be better to do here already)
 +		}
 +	};
 +	
@@ -54010,6 +54806,12 @@ index 0000000..f5ac093
 +	return new VulkanPreFinal();
 +}
 +INITIALIZE_PASS_BEGIN(VulkanPreFinal, "VulkanPreFinal", "VulkanPreFinal Pass", false, false)
++INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
++INITIALIZE_PASS_DEPENDENCY(CallGraphWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 +INITIALIZE_PASS_END(VulkanPreFinal, "VulkanPreFinal", "VulkanPreFinal Pass", false, false)
 +
 +char VulkanFinalModuleCleanup::ID = 0;
