@@ -271,7 +271,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	floor_path += "\"";
 	
 	// set toolchain version define
-	clang_cmd += " -DFLOOR_COMPUTE_TOOLCHAIN_VERSION=" + to_string(toolchain_version) + "u";
+	clang_cmd += " -DFLOOR_TOOLCHAIN_VERSION=" + to_string(toolchain_version) + "u";
 	
 	// add device information
 	// -> this adds both a "=" value definiton (that is used for enums in device_info.hpp) and a non-valued "_" defintion (used for #ifdef's)
@@ -531,7 +531,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	}
 
 	// emit line info if debug mode is enabled (unless this is spir where we'd better not emit this)
-	if((floor::get_compute_debug() || options.emit_debug_line_info) &&
+	if((floor::get_toolchain_debug() || options.emit_debug_line_info) &&
 		options.target != TARGET::SPIR) {
 		clang_cmd += " -gline-tables-only";
 	}
@@ -598,7 +598,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	   !options.silence_debug_output) {
 		log_debug("compilation output:\n%s", compilation_output);
 	}
-	if(floor::get_compute_log_commands() &&
+	if(floor::get_toolchain_log_commands() &&
 	   !options.silence_debug_output) {
 		log_debug("clang cmd: %s", clang_cmd);
 	}
@@ -609,7 +609,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		log_error("failed to create internal floor function info");
 		return {};
 	}
-	if(!floor::get_compute_keep_temp()) {
+	if(!floor::get_toolchain_keep_temp()) {
 		core::system("rm " + function_info_file_name);
 	}
 	
@@ -622,7 +622,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		}
 		
 		// cleanup
-		if(!floor::get_compute_keep_temp()) {
+		if(!floor::get_toolchain_keep_temp()) {
 			core::system("rm " + compiled_file_or_code);
 		}
 		
@@ -652,7 +652,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			+ " 2>&1"
 #endif
 		};
-		if(floor::get_compute_log_commands() &&
+		if(floor::get_toolchain_log_commands() &&
 		   !options.silence_debug_output) {
 			log_debug("llc cmd: %s", llc_cmd);
 		}
@@ -661,7 +661,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		
 		// only output the compiled ptx code if this was specified in the config
 		// NOTE: explicitly create this in the working directory (not in tmp)
-		if(floor::get_compute_keep_temp()) {
+		if(floor::get_toolchain_keep_temp()) {
 			file_io::string_to_file("cuda.ptx", ptx_code);
 		}
 		
@@ -672,7 +672,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		}
 		
 		// cleanup
-		if(!floor::get_compute_keep_temp()) {
+		if(!floor::get_toolchain_keep_temp()) {
 			core::system("rm " + compiled_file_or_code);
 		}
 		

@@ -97,12 +97,12 @@
 ** if successful, package it (in addition to a .zip file, this also creates a folder with all necessary binaries and include files): ./pkg.sh
 * install the toolchain:
 ** Unix:
-*** copy the toolchain folder as "compute" to /opt/floor/ (should then be /opt/floor/compute/{bin,clang,libcxx})
-*** inside /opt/floor/compute, add a symlink to the floor include folder: sudo ln -sf ../include floor
+*** copy the toolchain folder as "toolchain" to /opt/floor/ (should then be /opt/floor/toolchain/{bin,clang,libcxx})
+*** inside /opt/floor/toolchain, add a symlink to the floor include folder: sudo ln -sf ../include floor
 ** Windows:
-*** copy the toolchain folder as "compute" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/compute/{bin,clang,libcxx}")
-*** inside "%%ProgramFiles%%/floor/compute", copy the "floor" folder from the "include" folder above it into this folder
-* NOTE: this is the expected default setup - paths can be changed inside config.json (compute.toolchain.paths)
+*** copy the toolchain folder as "toolchain" to "%%ProgramFiles%%/floor" (should then be "%%ProgramFiles%%/floor/toolchain/{bin,clang,libcxx}")
+*** inside "%%ProgramFiles%%/floor/toolchain", copy the "floor" folder from the "include" folder above it into this folder
+* NOTE: this is the expected default setup - paths can be changed inside config.json (toolchain.generic.paths)
 
 *Projects and Examples using floor*:
 * "floor_examples":https://github.com/a2flo/floor_examples

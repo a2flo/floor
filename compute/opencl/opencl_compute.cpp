@@ -948,7 +948,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	else {
 		size_t code_size = 0;
 		auto code = spirv_handler::load_binary(program.data_or_filename, code_size);
-		if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
+		if(!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
 			// cleanup if file exists
 			core::system("rm " + program.data_or_filename);
 		}
@@ -980,7 +980,7 @@ opencl_program::opencl_program_entry opencl_compute::create_opencl_program(share
 	}
 	
 	// for testing purposes (if enabled in the config): retrieve the compiled binaries again
-	if(floor::get_compute_log_binaries()) {
+	if(floor::get_toolchain_log_binaries()) {
 		const auto binaries = cl_get_info<CL_PROGRAM_BINARIES>(ret.program);
 		if(binaries.size() > 0 && !binaries[0].empty()) {
 			file_io::string_to_file("binary_" + core::to_file_name(device->name) + ".bin", binaries[0]);

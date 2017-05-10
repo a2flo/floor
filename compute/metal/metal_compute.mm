@@ -531,7 +531,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	}});
 	
 	//
-	if(!floor::get_compute_debug()) {
+	if(!floor::get_toolchain_debug()) {
 		core::system(metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {
@@ -542,7 +542,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	
 	const auto cleanup = [&tmp_files, unopt_file = program.data_or_filename]() {
 		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);
-		if(!floor::get_compute_debug()) {
+		if(!floor::get_toolchain_debug()) {
 			core::system("rm "s + unopt_file);
 		}
 		core::system("rm "s + tmp_files[METAL_ARCHIVE_FILE]);
@@ -554,7 +554,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	const auto lib_file_name = [NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()];
 	ret.program = [device->device newLibraryWithFile:lib_file_name
 											   error:&err];
-	if(!floor::get_compute_keep_temp()) cleanup();
+	if(!floor::get_toolchain_keep_temp()) cleanup();
 	if(!ret.program) {
 		log_error("failed to create metal program/library for device %s: %s",
 				  device->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));

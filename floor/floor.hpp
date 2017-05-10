@@ -215,22 +215,22 @@ public:
 	static uint32_t get_mdouble_click_time();
 	static uint32_t get_rdouble_click_time();
 	
-	// compute
-	static const string& get_compute_backend();
-	static bool get_compute_gl_sharing();
-	static bool get_compute_debug();
-	static bool get_compute_profiling();
-	static bool get_compute_log_binaries();
-	static bool get_compute_keep_temp();
-	static bool get_compute_keep_binaries();
-	static bool get_compute_use_cache();
-	static bool get_compute_log_commands();
+	// toolchain
+	static const string& get_toolchain_backend();
+	static bool get_toolchain_gl_sharing();
+	static bool get_toolchain_debug();
+	static bool get_toolchain_profiling();
+	static bool get_toolchain_log_binaries();
+	static bool get_toolchain_keep_temp();
+	static bool get_toolchain_keep_binaries();
+	static bool get_toolchain_use_cache();
+	static bool get_toolchain_log_commands();
 	
-	// compute toolchain
-	static const string& get_compute_default_compiler();
-	static const string& get_compute_default_llc();
-	static const string& get_compute_default_as();
-	static const string& get_compute_default_dis();
+	// generic toolchain
+	static const string& get_toolchain_default_compiler();
+	static const string& get_toolchain_default_llc();
+	static const string& get_toolchain_default_as();
+	static const string& get_toolchain_default_dis();
 	
 	// opencl
 	static const string& get_opencl_base_path();

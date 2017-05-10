@@ -1046,7 +1046,7 @@ vulkan_program::vulkan_program_entry vulkan_compute::create_vulkan_program(share
 	}
 	
 	auto container = spirv_handler::load_container(program.data_or_filename);
-	if(!floor::get_compute_keep_temp() && file_io::is_file(program.data_or_filename)) {
+	if(!floor::get_toolchain_keep_temp() && file_io::is_file(program.data_or_filename)) {
 		// cleanup if file exists
 		core::system("rm " + program.data_or_filename);
 	}

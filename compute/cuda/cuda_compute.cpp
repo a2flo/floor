@@ -207,18 +207,25 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 			unsigned int multiplier = 1;
 			switch(dev->sm.x) {
 				case 2:
+					// sm_20: 32 cores/sm, sm_21: 48 cores/sm
 					multiplier = (dev->sm.y == 0 ? 32 : 48);
 					break;
 				case 3:
+					// sm_3x: 192 cores/sm
 					multiplier = 192;
 					break;
 				case 5:
+					// sm_5x: 128 cores/sm
 					multiplier = 128;
 					break;
 				case 6:
-				default:
 					// sm_60: 64 cores/sm, sm_61/sm_62: 128 cores/sm
 					multiplier = (dev->sm.y == 0 ? 64 : 128);
+					break;
+				case 7:
+				default:
+					// sm_70: 64 cores/sm (things are more complicated than that though)
+					multiplier = 64;
 					break;
 			}
 			return multiplier * (dev->units * dev->clock);
@@ -464,7 +471,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 	CU_CALL_RET(cu_ctx_set_current(device->ctx),
 				"failed to make cuda context current", {});
 	
-	if(!floor::get_cuda_jit_verbose() && !floor::get_compute_debug()) {
+	if(!floor::get_cuda_jit_verbose() && !floor::get_toolchain_debug()) {
 		const CU_JIT_OPTION jit_options[] {
 			CU_JIT_OPTION::TARGET,
 			CU_JIT_OPTION::GENERATE_LINE_INFO,
@@ -479,7 +486,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			size_t ui;
 		} jit_option_values[] {
 			{ .ui = sm_version },
-			{ .ui = floor::get_compute_profiling() ? 1u : 0u },
+			{ .ui = floor::get_toolchain_profiling() ? 1u : 0u },
 			{ .ui = 0u },
 			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
 			{ .ui = floor::get_cuda_jit_opt_level() },
@@ -524,11 +531,11 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			size_t ui;
 		} jit_option_values[] {
 			{ .ui = sm_version },
-			{ .ui = (floor::get_compute_profiling() || floor::get_compute_debug()) ? 1u : 0u },
-			{ .ui = floor::get_compute_debug() ? 1u : 0u },
+			{ .ui = (floor::get_toolchain_profiling() || floor::get_toolchain_debug()) ? 1u : 0u },
+			{ .ui = floor::get_toolchain_debug() ? 1u : 0u },
 			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
 			// opt level must be 0 when debug info is generated
-			{ .ui = (floor::get_compute_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
+			{ .ui = (floor::get_toolchain_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },
 			{ .ptr = error_log },
 			{ .ptr = info_log },
@@ -579,7 +586,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			log_debug("ptx build info: %s", info_log);
 		}
 	
-		if(floor::get_compute_log_binaries()) {
+		if(floor::get_toolchain_log_binaries()) {
 			// for testing purposes: dump the compiled binaries again
 			file_io::buffer_to_file("binary_" + to_string(sm_version) + ".cubin", (const char*)cubin_ptr, cubin_size);
 		}

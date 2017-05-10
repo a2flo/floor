@@ -253,10 +253,10 @@ bool floor::init(const init_state& state) {
 	config_doc = json::create_document(config_filename);
 	
 	json::json_array default_toolchain_paths {
-		json::json_value("/opt/floor/compute"),
-		json::json_value("/c/msys/opt/floor/compute"),
-		json::json_value("%ProgramW6432%/floor/compute"),
-		json::json_value("%ProgramFiles%/floor/compute")
+		json::json_value("/opt/floor/toolchain"),
+		json::json_value("/c/msys/opt/floor/toolchain"),
+		json::json_value("%ProgramW6432%/floor/toolchain"),
+		json::json_value("%ProgramFiles%/floor/toolchain")
 	};
 	json::json_array opencl_toolchain_paths, cuda_toolchain_paths, metal_toolchain_paths, vulkan_toolchain_paths;
 	if(config_doc.valid) {
@@ -293,15 +293,15 @@ bool floor::init(const init_state& state) {
 		config.mdouble_click_time = config_doc.get<uint32_t>("input.mdouble_click_time", 200);
 		config.rdouble_click_time = config_doc.get<uint32_t>("input.rdouble_click_time", 200);
 		
-		config.backend = config_doc.get<string>("compute.backend", "");
-		config.gl_sharing = config_doc.get<bool>("compute.gl_sharing", false);
-		config.debug = config_doc.get<bool>("compute.debug", false);
-		config.profiling = config_doc.get<bool>("compute.profiling", false);
-		config.log_binaries = config_doc.get<bool>("compute.log_binaries", false);
-		config.keep_temp = config_doc.get<bool>("compute.keep_temp", false);
-		config.keep_binaries = config_doc.get<bool>("compute.keep_binaries", true);
-		config.use_cache = config_doc.get<bool>("compute.use_cache", true);
-		config.log_commands = config_doc.get<bool>("compute.log_commands", false);
+		config.backend = config_doc.get<string>("toolchain.backend", "");
+		config.gl_sharing = config_doc.get<bool>("toolchain.gl_sharing", false);
+		config.debug = config_doc.get<bool>("toolchain.debug", false);
+		config.profiling = config_doc.get<bool>("toolchain.profiling", false);
+		config.log_binaries = config_doc.get<bool>("toolchain.log_binaries", false);
+		config.keep_temp = config_doc.get<bool>("toolchain.keep_temp", false);
+		config.keep_binaries = config_doc.get<bool>("toolchain.keep_binaries", true);
+		config.use_cache = config_doc.get<bool>("toolchain.use_cache", true);
+		config.log_commands = config_doc.get<bool>("toolchain.log_commands", false);
 		
 		//
 		const auto extract_whitelist = [](vector<string>& ret, const string& config_entry_name) {
@@ -321,68 +321,68 @@ bool floor::init(const init_state& state) {
 			}
 		};
 		
-		config.default_compiler = config_doc.get<string>("compute.toolchain.compiler", "clang");
-		config.default_llc = config_doc.get<string>("compute.toolchain.llc", "llc");
-		config.default_as = config_doc.get<string>("compute.toolchain.as", "llvm-as");
-		config.default_dis = config_doc.get<string>("compute.toolchain.dis", "llvm-dis");
+		config.default_compiler = config_doc.get<string>("toolchain.generic.compiler", "clang");
+		config.default_llc = config_doc.get<string>("toolchain.generic.llc", "llc");
+		config.default_as = config_doc.get<string>("toolchain.generic.as", "llvm-as");
+		config.default_dis = config_doc.get<string>("toolchain.generic.dis", "llvm-dis");
 		
-		const auto config_toolchain_paths = config_doc.get<json::json_array>("compute.toolchain.paths");
+		const auto config_toolchain_paths = config_doc.get<json::json_array>("toolchain.generic.paths");
 		if(!config_toolchain_paths.empty()) default_toolchain_paths = config_toolchain_paths;
 		
-		opencl_toolchain_paths = config_doc.get<json::json_array>("compute.opencl.paths", default_toolchain_paths);
-		config.opencl_platform = config_doc.get<uint32_t>("compute.opencl.platform", 0);
-		config.opencl_verify_spir = config_doc.get<bool>("compute.opencl.verify_spir", false);
-		config.opencl_validate_spirv = config_doc.get<bool>("compute.opencl.validate_spirv", false);
-		config.opencl_force_spirv_check = config_doc.get<bool>("compute.opencl.force_spirv", false);
-		config.opencl_disable_spirv = config_doc.get<bool>("compute.opencl.disable_spirv", false);
-		config.opencl_spirv_param_workaround = config_doc.get<bool>("compute.opencl.spirv_param_workaround", false);
-		extract_whitelist(config.opencl_whitelist, "compute.opencl.whitelist");
-		config.opencl_compiler = config_doc.get<string>("compute.opencl.compiler", config.default_compiler);
-		config.opencl_llc = config_doc.get<string>("compute.opencl.llc", config.default_llc);
-		config.opencl_as = config_doc.get<string>("compute.opencl.as", config.default_as);
-		config.opencl_dis = config_doc.get<string>("compute.opencl.dis", config.default_dis);
-		config.opencl_spirv_encoder = config_doc.get<string>("compute.opencl.spirv-encoder", config.opencl_spirv_encoder);
-		config.opencl_spirv_as= config_doc.get<string>("compute.opencl.spirv-as", config.opencl_spirv_as);
-		config.opencl_spirv_dis = config_doc.get<string>("compute.opencl.spirv-dis", config.opencl_spirv_dis);
-		config.opencl_spirv_validator = config_doc.get<string>("compute.opencl.spirv-validator", config.opencl_spirv_validator);
+		opencl_toolchain_paths = config_doc.get<json::json_array>("toolchain.opencl.paths", default_toolchain_paths);
+		config.opencl_platform = config_doc.get<uint32_t>("toolchain.opencl.platform", 0);
+		config.opencl_verify_spir = config_doc.get<bool>("toolchain.opencl.verify_spir", false);
+		config.opencl_validate_spirv = config_doc.get<bool>("toolchain.opencl.validate_spirv", false);
+		config.opencl_force_spirv_check = config_doc.get<bool>("toolchain.opencl.force_spirv", false);
+		config.opencl_disable_spirv = config_doc.get<bool>("toolchain.opencl.disable_spirv", false);
+		config.opencl_spirv_param_workaround = config_doc.get<bool>("toolchain.opencl.spirv_param_workaround", false);
+		extract_whitelist(config.opencl_whitelist, "toolchain.opencl.whitelist");
+		config.opencl_compiler = config_doc.get<string>("toolchain.opencl.compiler", config.default_compiler);
+		config.opencl_llc = config_doc.get<string>("toolchain.opencl.llc", config.default_llc);
+		config.opencl_as = config_doc.get<string>("toolchain.opencl.as", config.default_as);
+		config.opencl_dis = config_doc.get<string>("toolchain.opencl.dis", config.default_dis);
+		config.opencl_spirv_encoder = config_doc.get<string>("toolchain.opencl.spirv-encoder", config.opencl_spirv_encoder);
+		config.opencl_spirv_as= config_doc.get<string>("toolchain.opencl.spirv-as", config.opencl_spirv_as);
+		config.opencl_spirv_dis = config_doc.get<string>("toolchain.opencl.spirv-dis", config.opencl_spirv_dis);
+		config.opencl_spirv_validator = config_doc.get<string>("toolchain.opencl.spirv-validator", config.opencl_spirv_validator);
 		
-		cuda_toolchain_paths = config_doc.get<json::json_array>("compute.cuda.paths", default_toolchain_paths);
-		config.cuda_force_driver_sm = config_doc.get<string>("compute.cuda.force_driver_sm", "");
-		config.cuda_force_compile_sm = config_doc.get<string>("compute.cuda.force_compile_sm", "");
-		config.cuda_force_ptx = config_doc.get<string>("compute.cuda.force_ptx", "");
-		config.cuda_max_registers = config_doc.get<uint32_t>("compute.cuda.max_registers", 32);
-		config.cuda_jit_verbose = config_doc.get<bool>("compute.cuda.jit_verbose", false);
-		config.cuda_jit_opt_level = config_doc.get<uint32_t>("compute.cuda.jit_opt_level", 4);
-		config.cuda_use_internal_api = config_doc.get<bool>("compute.cuda.use_internal_api", true);
-		extract_whitelist(config.cuda_whitelist, "compute.cuda.whitelist");
-		config.cuda_compiler = config_doc.get<string>("compute.cuda.compiler", config.default_compiler);
-		config.cuda_llc = config_doc.get<string>("compute.cuda.llc", config.default_llc);
-		config.cuda_as = config_doc.get<string>("compute.cuda.as", config.default_as);
-		config.cuda_dis = config_doc.get<string>("compute.cuda.dis", config.default_dis);
+		cuda_toolchain_paths = config_doc.get<json::json_array>("toolchain.cuda.paths", default_toolchain_paths);
+		config.cuda_force_driver_sm = config_doc.get<string>("toolchain.cuda.force_driver_sm", "");
+		config.cuda_force_compile_sm = config_doc.get<string>("toolchain.cuda.force_compile_sm", "");
+		config.cuda_force_ptx = config_doc.get<string>("toolchain.cuda.force_ptx", "");
+		config.cuda_max_registers = config_doc.get<uint32_t>("toolchain.cuda.max_registers", 32);
+		config.cuda_jit_verbose = config_doc.get<bool>("toolchain.cuda.jit_verbose", false);
+		config.cuda_jit_opt_level = config_doc.get<uint32_t>("toolchain.cuda.jit_opt_level", 4);
+		config.cuda_use_internal_api = config_doc.get<bool>("toolchain.cuda.use_internal_api", true);
+		extract_whitelist(config.cuda_whitelist, "toolchain.cuda.whitelist");
+		config.cuda_compiler = config_doc.get<string>("toolchain.cuda.compiler", config.default_compiler);
+		config.cuda_llc = config_doc.get<string>("toolchain.cuda.llc", config.default_llc);
+		config.cuda_as = config_doc.get<string>("toolchain.cuda.as", config.default_as);
+		config.cuda_dis = config_doc.get<string>("toolchain.cuda.dis", config.default_dis);
 		
-		metal_toolchain_paths = config_doc.get<json::json_array>("compute.metal.paths", default_toolchain_paths);
-		extract_whitelist(config.metal_whitelist, "compute.metal.whitelist");
-		config.metal_compiler = config_doc.get<string>("compute.metal.compiler", config.default_compiler);
-		config.metal_llc = config_doc.get<string>("compute.metal.llc", config.default_llc);
-		config.metal_as = config_doc.get<string>("compute.metal.as", config.default_as);
-		config.metal_dis = config_doc.get<string>("compute.metal.dis", config.default_dis);
+		metal_toolchain_paths = config_doc.get<json::json_array>("toolchain.metal.paths", default_toolchain_paths);
+		extract_whitelist(config.metal_whitelist, "toolchain.metal.whitelist");
+		config.metal_compiler = config_doc.get<string>("toolchain.metal.compiler", config.default_compiler);
+		config.metal_llc = config_doc.get<string>("toolchain.metal.llc", config.default_llc);
+		config.metal_as = config_doc.get<string>("toolchain.metal.as", config.default_as);
+		config.metal_dis = config_doc.get<string>("toolchain.metal.dis", config.default_dis);
 		
-		vulkan_toolchain_paths = config_doc.get<json::json_array>("compute.vulkan.paths", default_toolchain_paths);
-		config.vulkan_validate_spirv = config_doc.get<bool>("compute.vulkan.validate_spirv", false);
-		extract_whitelist(config.vulkan_whitelist, "compute.vulkan.whitelist");
-		config.vulkan_compiler = config_doc.get<string>("compute.vulkan.compiler", config.default_compiler);
-		config.vulkan_llc = config_doc.get<string>("compute.vulkan.llc", config.default_llc);
-		config.vulkan_as = config_doc.get<string>("compute.vulkan.as", config.default_as);
-		config.vulkan_dis = config_doc.get<string>("compute.vulkan.dis", config.default_dis);
-		config.vulkan_spirv_encoder = config_doc.get<string>("compute.vulkan.spirv-encoder", config.vulkan_spirv_encoder);
-		config.vulkan_spirv_as= config_doc.get<string>("compute.vulkan.spirv-as", config.vulkan_spirv_as);
-		config.vulkan_spirv_dis = config_doc.get<string>("compute.vulkan.spirv-dis", config.vulkan_spirv_dis);
-		config.vulkan_spirv_validator = config_doc.get<string>("compute.vulkan.spirv-validator", config.vulkan_spirv_validator);
+		vulkan_toolchain_paths = config_doc.get<json::json_array>("toolchain.vulkan.paths", default_toolchain_paths);
+		config.vulkan_validate_spirv = config_doc.get<bool>("toolchain.vulkan.validate_spirv", false);
+		extract_whitelist(config.vulkan_whitelist, "toolchain.vulkan.whitelist");
+		config.vulkan_compiler = config_doc.get<string>("toolchain.vulkan.compiler", config.default_compiler);
+		config.vulkan_llc = config_doc.get<string>("toolchain.vulkan.llc", config.default_llc);
+		config.vulkan_as = config_doc.get<string>("toolchain.vulkan.as", config.default_as);
+		config.vulkan_dis = config_doc.get<string>("toolchain.vulkan.dis", config.default_dis);
+		config.vulkan_spirv_encoder = config_doc.get<string>("toolchain.vulkan.spirv-encoder", config.vulkan_spirv_encoder);
+		config.vulkan_spirv_as= config_doc.get<string>("toolchain.vulkan.spirv-as", config.vulkan_spirv_as);
+		config.vulkan_spirv_dis = config_doc.get<string>("toolchain.vulkan.spirv-dis", config.vulkan_spirv_dis);
+		config.vulkan_spirv_validator = config_doc.get<string>("toolchain.vulkan.spirv-validator", config.vulkan_spirv_validator);
 		
-		config.execution_model = config_doc.get<string>("compute.host.exec_model", "mt-group");
+		config.execution_model = config_doc.get<string>("toolchain.host.exec_model", "mt-group");
 	}
 	
-	// handle compute toolchain paths
+	// handle toolchain paths
 	if(opencl_toolchain_paths.empty()) opencl_toolchain_paths = default_toolchain_paths;
 	if(cuda_toolchain_paths.empty()) cuda_toolchain_paths = default_toolchain_paths;
 	if(metal_toolchain_paths.empty()) metal_toolchain_paths = default_toolchain_paths;
@@ -520,9 +520,9 @@ bool floor::init(const init_state& state) {
 														   config.metal_compiler, config.metal_llc,
 														   config.metal_as, config.metal_dis);
 #if defined(FLOOR_IOS)
-		// compute toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
+		// toolchain doesn't exist on an ios device (usually), so just pretend and don't fail
 		if(config.metal_base_path == "") {
-			config.metal_base_path = "/opt/floor/compute";
+			config.metal_base_path = "/opt/floor/toolchain";
 		}
 #else
 		if(config.metal_base_path == "") {
@@ -575,7 +575,7 @@ bool floor::init(const init_state& state) {
 	
 	// choose the renderer
 	if(state.renderer == RENDERER::DEFAULT) {
-		// try to use Vulkan if the compute backend is Vulkan and the toolchain exists
+		// try to use Vulkan if the backend is Vulkan and the toolchain exists
 #if !defined(__APPLE__)
 		if(config.backend == "vulkan") {
 			if(!config.vulkan_toolchain_exists) {
@@ -1588,44 +1588,44 @@ const string& floor::get_audio_device_name() {
 	return config.audio_device_name;
 }
 
-const string& floor::get_compute_backend() {
+const string& floor::get_toolchain_backend() {
 	return config.backend;
 }
-bool floor::get_compute_gl_sharing() {
+bool floor::get_toolchain_gl_sharing() {
 	return config.gl_sharing;
 }
-bool floor::get_compute_debug() {
+bool floor::get_toolchain_debug() {
 	return config.debug;
 }
-bool floor::get_compute_profiling() {
+bool floor::get_toolchain_profiling() {
 	return config.profiling;
 }
-bool floor::get_compute_log_binaries() {
+bool floor::get_toolchain_log_binaries() {
 	return config.log_binaries;
 }
-bool floor::get_compute_keep_temp() {
+bool floor::get_toolchain_keep_temp() {
 	return config.keep_temp;
 }
-bool floor::get_compute_keep_binaries() {
+bool floor::get_toolchain_keep_binaries() {
 	return config.keep_binaries;
 }
-bool floor::get_compute_use_cache() {
+bool floor::get_toolchain_use_cache() {
 	return config.use_cache;
 }
-bool floor::get_compute_log_commands() {
+bool floor::get_toolchain_log_commands() {
 	return config.log_commands;
 }
 
-const string& floor::get_compute_default_compiler() {
+const string& floor::get_toolchain_default_compiler() {
 	return config.default_compiler;
 }
-const string& floor::get_compute_default_llc() {
+const string& floor::get_toolchain_default_llc() {
 	return config.default_llc;
 }
-const string& floor::get_compute_default_as() {
+const string& floor::get_toolchain_default_as() {
 	return config.default_as;
 }
-const string& floor::get_compute_default_dis() {
+const string& floor::get_toolchain_default_dis() {
 	return config.default_dis;
 }
 
