@@ -541,7 +541,11 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		// let's start with everything
 		" -Weverything"
 		// remove compat warnings
-		" -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c99-extensions -Wno-c11-extensions -Wno-gnu"
+		" -Wno-c++98-compat -Wno-c++98-compat-pedantic"
+		" -Wno-c++11-compat -Wno-c++11-compat-pedantic"
+		" -Wno-c++14-compat -Wno-c++14-compat-pedantic"
+		" -Wno-c99-extensions -Wno-c11-extensions"
+		" -Wno-gcc-compat -Wno-gnu"
 		// in case we're using warning options that aren't supported by other clang versions
 		" -Wno-unknown-warning-option"
 		// really don't want to be too pedantic
@@ -552,8 +556,6 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		" -Wno-switch-enum"
 		// don't warn when using macros prefixed with "__" or "_"
 		" -Wno-reserved-id-macro"
-		// not intended to be compatible
-		" -Wno-gcc-compat"
 		// end
 		" "
 	};

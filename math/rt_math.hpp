@@ -48,7 +48,6 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return std::min(a, b);
 #else
-#if defined(FLOOR_CXX17)
 		if constexpr(is_same<rt_type, int8_t>() ||
 					 is_same<rt_type, int16_t>() ||
 					 is_same<rt_type, int32_t>() ||
@@ -70,25 +69,6 @@ namespace rt_math {
 		else {
 			return std::min(a, b);
 		}
-#else
-		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||
-									  is_same<rt_type, int16_t>() ||
-									  is_same<rt_type, int32_t>() ||
-									  is_same<rt_type, int64_t>() ||
-									  is_same<rt_type, uint8_t>() ||
-									  is_same<rt_type, uint16_t>() ||
-									  is_same<rt_type, uint32_t>() ||
-									  is_same<rt_type, uint64_t>() ||
-									  is_same<rt_type, float>()
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-									  || is_same<rt_type, double>()
-#endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
-									  || is_same<rt_type, half>()
-#endif
-									  ),
-									 floor_rt_min(a, b), std::min(a, b));
-#endif
 #endif
 	}
 	
@@ -98,7 +78,6 @@ namespace rt_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return std::max(a, b);
 #else
-#if defined(FLOOR_CXX17)
 		if constexpr(is_same<rt_type, int8_t>() ||
 					 is_same<rt_type, int16_t>() ||
 					 is_same<rt_type, int32_t>() ||
@@ -120,25 +99,6 @@ namespace rt_math {
 		else {
 			return std::max(a, b);
 		}
-#else
-		return __builtin_choose_expr((is_same<rt_type, int8_t>() ||
-									  is_same<rt_type, int16_t>() ||
-									  is_same<rt_type, int32_t>() ||
-									  is_same<rt_type, int64_t>() ||
-									  is_same<rt_type, uint8_t>() ||
-									  is_same<rt_type, uint16_t>() ||
-									  is_same<rt_type, uint32_t>() ||
-									  is_same<rt_type, uint64_t>() ||
-									  is_same<rt_type, float>()
-#if !defined(FLOOR_COMPUTE_NO_DOUBLE)
-									  || is_same<rt_type, double>()
-#endif
-#if defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN) || defined(FLOOR_GRAPHICS_HOST)
-									  || is_same<rt_type, half>()
-#endif
-									  ),
-									 floor_rt_max(a, b), std::max(a, b));
-#endif
 #endif
 	}
 	

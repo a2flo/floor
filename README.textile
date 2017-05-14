@@ -10,10 +10,10 @@
 ** FreeBSD: 10.0+ (x64/64-bit only)
 ** other Unix: if x64 and other requirements are met
 * compiler/toolchain:
-** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org / "libc++":http://libcxx.llvm.org 3.5+
-** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 7.0+
+** Generic: "Clang":http://clang.llvm.org / "LLVM":http://llvm.org 4.0+ and "libc++":http://libcxx.llvm.org 3.7+
+** OS X/iOS: "Xcode":https://developer.apple.com/xcode/downloads 8.3+
 ** Windows (VS): "VS2017":https://www.visualstudio.com/vs/visual-studio-2017-rc with either C2 or "Clang / LLVM for Windows":http://llvm.org/builds
-** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM/libc++ 3.5+
+** Windows (MinGW): "MSYS2":http://sourceforge.net/projects/msys2 with Clang/LLVM 4.0+ and libc++ 3.7+
 * libraries and optional requirements:
 ** "SDL2":http://www.libsdl.org 2.0.4+
 ** "OpenGL 4.1+ Core headers":https://www.opengl.org/registry/#headers
@@ -46,8 +46,6 @@
    define "FLOOR_NO_EXCEPTIONS" or "./build.sh no-exceptions"
 ** to build with libstdc++ instead of libc++:
    "./build.sh libstdc++"
-** to build with C++17 support (requires Clang 3.9+):
-   "./build.sh c++17"
 
 *Build Instructions (Xcode / OS X / iOS):*
 * open floor.xcodeproj and build

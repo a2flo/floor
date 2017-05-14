@@ -20,10 +20,6 @@
 #include <floor/core/logger.hpp>
 #include <floor/core/file_io.hpp>
 
-#if !defined(FLOOR_CXX17)
-const uint32_t spirv_handler::container_version; // need linkage (< c++17)
-#endif
-
 unique_ptr<uint32_t[]> spirv_handler::load_binary(const string& file_name, size_t& code_size) {
 	unique_ptr<uint32_t[]> code;
 	

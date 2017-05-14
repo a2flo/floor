@@ -68,16 +68,12 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #if !defined(__apple_build_version__)
 #define FLOOR_TOOLCHAIN_VERSION (__clang_major__ * 10000u + __clang_minor__ * 100u + __clang_patchlevel__)
 #else // map apple version scheme ... (*sigh*)
-#if (__clang_major__ < 6) || (__clang_major__ == 6 && __clang_minor__ < 1) // Xcode 6.3 with clang 3.6.0 is the min req.
+#if (__clang_major__ < 8) || (__clang_major__ == 8 && __clang_minor__ < 1) // Xcode 8.3 with clang 3.9.0/4.0.0-ish is the min req.
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ == 6)
-#define FLOOR_TOOLCHAIN_VERSION 30600u
-#elif (__clang_major__ == 7 && __clang_minor__ < 3)
-#define FLOOR_TOOLCHAIN_VERSION 30700u
-#elif (__clang_major__ == 7 && __clang_minor__ >= 3) || (__clang_major__ == 8 && __clang_minor__ == 0)
-#define FLOOR_TOOLCHAIN_VERSION 30800u
+#if (__clang_major__ == 8 && __clang_minor__ == 1)
+#define FLOOR_TOOLCHAIN_VERSION 30900u
 #else // Xcode 8.3.0+
 #define FLOOR_TOOLCHAIN_VERSION 30900u
 #endif
@@ -220,13 +216,6 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_IMAGE_READ_WRITE_SUPPORT_1
 
 #define FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS 16u
-
-// for use with "#pragma clang loop unroll(x)", this is named "full" after clang 3.5, and "enable" for 3.5
-#if (__clang_major__ == 3 && __clang_minor__ == 5)
-#define FLOOR_CLANG_UNROLL_FULL enable
-#else
-#define FLOOR_CLANG_UNROLL_FULL full
-#endif
 
 // other required c++ headers
 #include <vector>

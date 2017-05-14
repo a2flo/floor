@@ -22,16 +22,6 @@
 // NOTE: this header adds misc base c++ functionality that either will be part of a future c++ standard, or should be part of it
 // NOTE: also don't include this header on its own, this is either included through core/cpp_headers.hpp or device/common.hpp
 
-// non-member size (N4280, also provided by libc++ 3.6+ in c++1z mode and VS2015)
-#if ((__cplusplus <= 201402L) || (_LIBCPP_STD_VER <= 14)) && !defined(_MSC_VER)
-template <class C> floor_inline_always constexpr auto size(const C& c) noexcept -> decltype(c.size()) {
-	return c.size();
-}
-template <class T, size_t N> floor_inline_always constexpr size_t size(const T (&)[N]) noexcept {
-	return N;
-}
-#endif
-
 // string is not supported on compute
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 
@@ -83,13 +73,6 @@ template<typename F, typename Tuple, typename Indices = make_index_sequence<tupl
 constexpr auto apply(F&& f, Tuple&& args) {
 	return apply_impl(forward<F>(f), forward<Tuple>(args), Indices());
 }
-#endif
-
-// C++17 "if constexpr" (this is for cases where the constexpr is optional and we don't want to add an ifdef)
-#if defined(FLOOR_CXX17)
-#define if_constexpr if constexpr
-#else
-#define if_constexpr if
 #endif
 
 #endif

@@ -1388,7 +1388,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -1468,6 +1468,7 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
+					"-std=gnu++1z",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 				);
@@ -1490,9 +1491,14 @@
 					"-Wthread-safety-verbose",
 					"-Wno-c++98-compat",
 					"-Wno-c++98-compat-pedantic",
+					"-Wno-c++11-compat",
+					"-Wno-c++11-compat-pedantic",
+					"-Wno-c++14-compat",
+					"-Wno-c++14-compat-pedantic",
+					"-Wno-gcc-compat",
+					"-Wno-gnu",
 					"-Wno-c99-extensions",
 					"-Wno-header-hygiene",
-					"-Wno-gnu",
 					"-Wno-documentation",
 					"-Wno-system-headers",
 					"-Wno-global-constructors",
@@ -1507,7 +1513,6 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
-					"-Wno-gcc-compat",
 				);
 			};
 			name = Debug;
@@ -1520,7 +1525,7 @@
 				CLANG_ANALYZER_SECURITY_FLOATLOOPCOUNTER = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_RAND = YES;
 				CLANG_ANALYZER_SECURITY_INSECUREAPI_STRCPY = YES;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LANGUAGE_STANDARD = "compiler-default";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = NO;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -1594,6 +1599,7 @@
 				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
+					"-std=gnu++1z",
 					"-fno-elide-type",
 					"-fdiagnostics-show-template-tree",
 				);
@@ -1616,9 +1622,14 @@
 					"-Wthread-safety-verbose",
 					"-Wno-c++98-compat",
 					"-Wno-c++98-compat-pedantic",
+					"-Wno-c++11-compat",
+					"-Wno-c++11-compat-pedantic",
+					"-Wno-c++14-compat",
+					"-Wno-c++14-compat-pedantic",
+					"-Wno-gcc-compat",
+					"-Wno-gnu",
 					"-Wno-c99-extensions",
 					"-Wno-header-hygiene",
-					"-Wno-gnu",
 					"-Wno-documentation",
 					"-Wno-system-headers",
 					"-Wno-global-constructors",
@@ -1633,7 +1644,6 @@
 					"-Wno-reserved-id-macro",
 					"-Wno-documentation-unknown-command",
 					"-Wno-partial-availability",
-					"-Wno-gcc-compat",
 				);
 			};
 			name = Release;

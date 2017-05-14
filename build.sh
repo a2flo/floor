@@ -35,33 +35,43 @@ verbose() {
 
 # if no CXX/CC are specified, try using clang++/clang
 if [ -z "${CXX}" ]; then
-	CXX=clang++
+	# try using clang++ directly (avoid any nasty wrappers)
+	if [ command -v /usr/bin/clang++ ]; then
+		CXX=/usr/bin/clang++
+	elif [ command -v /usr/local/bin/clang++ ]; then
+		CXX=/usr/local/bin/clang++
+	else
+		CXX=clang++
+	fi
 fi
 command -v ${CXX} >/dev/null 2>&1 || error "clang++ binary not found, please set CXX to a valid clang++ binary"
 
 if [ -z "${CC}" ]; then
-	CC=clang
+	# try using clang directly (avoid any nasty wrappers)
+	if [ command -v /usr/bin/clang ]; then
+		CC=/usr/bin/clang++
+	elif [ command -v /usr/local/bin/clang ]; then
+		CC=/usr/local/bin/clang
+	else
+		CC=clang
+	fi
 fi
 command -v ${CC} >/dev/null 2>&1 || error "clang binary not found, please set CC to a valid clang binary"
 
 # check if clang is the compiler, fail if not
 CXX_VERSION=$(${CXX} -v 2>&1)
-CXX17_CAPABLE=0
 if expr "${CXX_VERSION}" : ".*clang" >/dev/null; then
 	# also check the clang version
 	eval $(${CXX} -E -dM - < /dev/null 2>&1 | grep -E "clang_major|clang_minor" | tr [:lower:] [:upper:] | sed -E "s/.*DEFINE __(.*)__ [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 	if expr "${CXX_VERSION}" : "Apple.*" >/dev/null; then
-		# apple xcode/llvm/clang versioning scheme -> at least 6.1.0 is required (ships with Xcode 6.3)
-		if [ $CLANG_MAJOR -lt 6 ] || [ $CLANG_MAJOR -eq 6 -a $CLANG_MINOR -lt 1 ]; then
-			error "at least Xcode 6.3 / clang/LLVM 6.1.0 is required to compile this project!"
+		# apple xcode/llvm/clang versioning scheme -> at least 8.1.0 is required (ships with Xcode 8.3)
+		if [ $CLANG_MAJOR -lt 8 ] || [ $CLANG_MAJOR -eq 8 -a $CLANG_MINOR -lt 1 ]; then
+			error "at least Xcode 8.3 / clang/LLVM 8.1.0 is required to compile this project!"
 		fi
 	else
-		# standard clang versioning scheme -> at least 3.5.0 is required
-		if [ $CLANG_MAJOR -lt 3 ] || [ $CLANG_MAJOR -eq 3 -a $CLANG_MINOR -lt 5 ]; then
-			error "at least clang 3.5.0 is required to compile this project!"
-		fi
-		if [ $CLANG_MAJOR -gt 3 ] || [ $CLANG_MAJOR -eq 3 -a $CLANG_MINOR -ge 9 ]; then
-			CXX17_CAPABLE=1
+		# standard clang versioning scheme -> at least 4.0 is required
+		if [ $CLANG_MAJOR -lt 4 ] || [ $CLANG_MAJOR -eq 4 -a $CLANG_MINOR -lt 0 ]; then
+			error "at least clang 4.0 is required to compile this project!"
 		fi
 	fi
 else
@@ -86,7 +96,6 @@ BUILD_CONF_NET=1
 BUILD_CONF_EXCEPTIONS=1
 BUILD_CONF_POCL=0
 BUILD_CONF_LIBSTDCXX=0
-BUILD_CONF_CXX17=0
 BUILD_CONF_NATIVE=0
 
 BUILD_CONF_SANITIZERS=0
@@ -132,7 +141,6 @@ for arg in "$@"; do
 			echo "	no-exceptions      disables building with c++ exceptions"
 			echo "	pocl               use the pocl library instead of the systems OpenCL library"
 			echo "	libstdc++          use libstdc++ instead of libc++ (highly discouraged unless building on mingw)"
-			echo "	c++17              enable C++17 support"
 			echo "	x32                build a 32-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x32" ]; then printf "(default on this platform)"; fi)
 			echo "	x64                build a 64-bit binary "$(if [ "${BUILD_ARCH_SIZE}" == "x64" ]; then printf "(default on this platform)"; fi)
 			echo "	native             optimize and specifically build for the host cpu"
@@ -207,13 +215,6 @@ for arg in "$@"; do
 			;;
 		"libstdc++")
 			BUILD_CONF_LIBSTDCXX=1
-			;;
-		"c++17")
-			if [ ${CXX17_CAPABLE} -gt 0 ]; then
-				BUILD_CONF_CXX17=1
-			else
-				error "compiler is not C++17 capable"
-			fi
 			;;
 		"x32")
 			BUILD_ARCH_SIZE="x32"
@@ -657,7 +658,6 @@ if [ ${BUILD_CLEAN} -eq 0 ]; then
 	set_conf_val "###FLOOR_OPENAL###" "FLOOR_NO_OPENAL" ${BUILD_CONF_OPENAL}
 	set_conf_val "###FLOOR_NET###" "FLOOR_NO_NET" ${BUILD_CONF_NET}
 	set_conf_val "###FLOOR_EXCEPTIONS###" "FLOOR_NO_EXCEPTIONS" ${BUILD_CONF_EXCEPTIONS}
-	set_conf_val "###FLOOR_CXX17###" "FLOOR_CXX17" $((1 - $((${BUILD_CONF_CXX17}))))
 	echo "${CONF}" > floor/floor_conf.hpp.tmp
 
 	# check if this is an entirely new conf or if it differs from the existing conf
@@ -689,11 +689,7 @@ fi
 # flags
 
 # set up initial c++ and c flags
-if [ ${BUILD_CONF_CXX17} -eq 0 ]; then
-	CXXFLAGS="${CXXFLAGS} -std=gnu++14"
-else
-	CXXFLAGS="${CXXFLAGS} -std=gnu++1z"
-fi
+CXXFLAGS="${CXXFLAGS} -std=gnu++1z"
 if [ ${BUILD_CONF_LIBSTDCXX} -gt 0 ]; then
 	CXXFLAGS="${CXXFLAGS} -stdlib=libstdc++"
 else
@@ -818,8 +814,11 @@ fi
 WARNINGS="-Weverything ${WARNINGS}"
 # in case we're using warning options that aren't supported by other clang versions
 WARNINGS="${WARNINGS} -Wno-unknown-warning-option"
-# remove std compat warnings (c++14 with gnu and clang extensions is required)
-WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-c++11-compat -Wno-c99-extensions -Wno-c11-extensions"
+# remove std compat warnings (c++17 with gnu and clang extensions is required)
+WARNINGS="${WARNINGS} -Wno-c++98-compat -Wno-c++98-compat-pedantic"
+WARNINGS="${WARNINGS} -Wno-c++11-compat -Wno-c++11-compat-pedantic"
+WARNINGS="${WARNINGS} -Wno-c++14-compat -Wno-c++14-compat-pedantic"
+WARNINGS="${WARNINGS} -Wno-c99-extensions -Wno-c11-extensions"
 WARNINGS="${WARNINGS} -Wno-gnu -Wno-gcc-compat"
 # don't be too pedantic
 WARNINGS="${WARNINGS} -Wno-header-hygiene -Wno-documentation -Wno-documentation-unknown-command -Wno-old-style-cast"

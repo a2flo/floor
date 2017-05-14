@@ -397,21 +397,12 @@ namespace floor_image {
 		//! convert any coordinate vector type to floor int{1,2,3,4} or float{1,2,3,4} vectors
 		template <typename coord_type>
 		static auto convert_coord(const coord_type& coord) {
-#if defined(FLOOR_CXX17)
 			if constexpr(!ext::is_fundamental_v<coord_type>) {
 				return vector_n<conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>, coord_type::dim()> { coord };
 			}
 			else {
 				return vector_n<conditional_t<ext::is_integral_v<coord_type>, int, float>, 1> { coord };
 			}
-#else
-			typedef conditional_t<ext::is_fundamental_v<coord_type>,
-								  conditional_t<ext::is_integral_v<coord_type>, int, float>,
-								  conditional_t<ext::is_integral_v<typename coord_type::decayed_scalar_type>, int, float>> scalar_type;
-			return vector_n<scalar_type, __builtin_choose_expr(ext::is_fundamental_v<coord_type>, 1, coord_type::dim())> {
-				coord
-			};
-#endif
 		}
 #endif
 		
@@ -500,7 +491,6 @@ namespace floor_image {
 			// backend specific coordinate conversion (also: any input -> float or int)
 			const auto converted_coord = convert_coord(coord);
 			
-#if defined(FLOOR_CXX17)
 			const auto fit_output = [](const auto& color) {
 				typedef image_vec_ret_type<image_type, sample_type> output_type;
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_VULKAN)
@@ -591,33 +581,6 @@ namespace floor_image {
 																														 compare_function, compare_value));
 				}
 			}
-#endif
-#else // non-c++17
-#if !defined(FLOOR_COMPUTE_HOST)
-#error "pre-c++17 code only support on host-compute"
-#endif
-			const auto color = __builtin_choose_expr(!is_compare,
-													 __builtin_choose_expr(!sample_linear,
-																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::read((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																																			  converted_coord, offset, layer,
-																																			  (!is_lod_float ? int32_t(lod) : 0),
-																																			  (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias)),
-																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::read_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																																					 converted_coord, offset, layer,
-																																					 (!is_lod_float ? int32_t(lod) : 0),
-																																					 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias))),
-													 __builtin_choose_expr(!sample_linear,
-																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																																				 converted_coord, offset, layer,
-																																				 (!is_lod_float ? int32_t(lod) : 0),
-																																				 (!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																																				 compare_function, compare_value),
-																		   host_device_image<image_type, is_lod, is_lod_float, is_bias>::compare_linear((const host_device_image<image_type, is_lod, is_lod_float, is_bias>*)r_img(),
-																																						converted_coord, offset, layer,
-																																						(!is_lod_float ? int32_t(lod) : 0),
-																																						(!is_bias ? (is_lod_float ? float(lod) : 0.0f) : bias),
-																																						compare_function, compare_value)));
-			return image_vec_ret_type<image_type, sample_type>::fit(color);
 #endif
 		}
 		

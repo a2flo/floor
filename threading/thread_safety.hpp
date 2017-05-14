@@ -23,7 +23,7 @@
 
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
-#if defined(__clang__) && !defined(_MSC_VER) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5)) && (!defined(SWIG))
+#if defined(__clang__) && !defined(_MSC_VER)
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) __attribute__((x))
 #else
 #define THREAD_ANNOTATION_ATTRIBUTE__(x) // no-op
@@ -65,10 +65,6 @@
 #define RELEASE_SHARED(...) \
 	THREAD_ANNOTATION_ATTRIBUTE__(release_shared_capability(__VA_ARGS__))
 
-// there appear to be some problems with this in clang 3.5 (release version)
-//#define TRY_ACQUIRE(...)
-//	THREAD_ANNOTATION_ATTRIBUTE__(try_acquire_capability(__VA_ARGS__))
-// -> use old syntax instead
 #define TRY_ACQUIRE(...) \
 	THREAD_ANNOTATION_ATTRIBUTE__(exclusive_trylock_function(__VA_ARGS__))
 
@@ -104,7 +100,7 @@
 // wrappers / replacements
 #include <mutex>
 
-#if defined(__clang__) && !defined(_MSC_VER) && ((__clang_major__ > 3) || (__clang_major__ == 3 && __clang_minor__ >= 5))
+#if defined(__clang__) && !defined(_MSC_VER)
 // wrapper around std::mutex, based on libc++
 class CAPABILITY("mutex") safe_mutex {
 protected:

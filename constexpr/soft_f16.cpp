@@ -20,11 +20,3 @@
 
 // just to make sure this is correct
 static_assert(sizeof(soft_f16) == 2, "invalid soft 16-bit half floating point type size");
-
-// need linkage for constexpr tables (if < c++17)
-#if !defined(FLOOR_CXX17)
-alignas(128) const uint32_t soft_f16::htof_mantissa_table[1024];
-alignas(128) const uint32_t soft_f16::htof_exponent_table[64];
-alignas(128) const uint16_t soft_f16::ftoh_base_table[512];
-alignas(128) const uint8_t soft_f16::ftoh_shift_table[512];
-#endif

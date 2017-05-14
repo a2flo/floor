@@ -409,9 +409,6 @@ struct fiber_context {
 	uint32_t init_arg { 0 };
 	
 };
-#if !defined(FLOOR_CXX17)
-const size_t fiber_context::min_stack_size; // need linkage (< c++17)
-#endif
 
 // thread affinity handling
 static void floor_set_thread_affinity(const uint32_t& affinity) {

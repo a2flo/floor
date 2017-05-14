@@ -624,7 +624,6 @@ public:
 	floor_inline_always constexpr auto trim() const {
 		static_assert(target_dim != 0, "target dim can't be 0");
 		static_assert(target_dim <= FLOOR_VECTOR_WIDTH, "specified target dim must be <= dim of this vector");
-#if defined(FLOOR_CXX17)
 		if constexpr(target_dim == 1) {
 			return vector1<scalar_type> { x };
 		}
@@ -642,27 +641,6 @@ public:
 		}
 #endif
 #endif
-#endif
-#else
-		return __builtin_choose_expr(target_dim == 1, vector1<scalar_type> { x },
-#if FLOOR_VECTOR_WIDTH < 2
-									 vector1<scalar_type> { decayed_scalar_type(0) }
-#else
-									 __builtin_choose_expr(target_dim == 2, vector2<scalar_type> { x, y },
-#if FLOOR_VECTOR_WIDTH < 3
-														   vector2<scalar_type> { decayed_scalar_type(0) }
-#else
-														   __builtin_choose_expr(target_dim == 3, vector3<scalar_type> { x, y, z },
-#if FLOOR_VECTOR_WIDTH < 4
-																				 vector3<scalar_type> { decayed_scalar_type(0) }
-#else
-																				 vector4<scalar_type> { x, y, z, w }
-#endif
-																				 )
-#endif
-														   )
-#endif
-									 );
 #endif
 	}
 	

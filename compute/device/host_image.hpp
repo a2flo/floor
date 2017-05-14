@@ -324,7 +324,7 @@ namespace host_image_impl {
 			typedef typename image_sized_data_type<COMPUTE_IMAGE_TYPE::UINT, max_bpc>::type uchannel_type;
 			typedef conditional_t<max_bpc <= 8u, float, conditional_t<max_bpc <= 16u, double, long double>> fp_scale_type;
 			vector_n<channel_type, channel_count> scaled_color;
-#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 			for(uint32_t i = 0; i < channel_count; ++i) {
 				// scale with 2^(bpc (- 1 if signed)) - 1 (e.g. 255 for unsigned 8-bit, 127 for signed 8-bit)
 				scaled_color[i] = channel_type(fp_scale_type(color[i]) * fp_scale_type((uchannel_type(1)
@@ -429,15 +429,9 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
-#endif
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -484,14 +478,14 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 				}};
 				if(data_type == COMPUTE_IMAGE_TYPE::UINT) {
 					// normalized unsigned-integer formats, normalized to [0, 1]
-#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						ret[i] = float(channels[i]) * unsigned_factors[i];
 					}
 				}
 				else if(data_type == COMPUTE_IMAGE_TYPE::INT) {
 					// normalized integer formats, normalized to [-1, 1]
-#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						ret[i] = float(channels[i]) * signed_factors[i];
 					}
@@ -523,15 +517,9 @@ FLOOR_POP_WARNINGS()
 			typedef conditional_t<!has_stencil, float1, pair<float1, uint8_t>> ret_type;
 			ret_type ret;
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
-#endif
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
@@ -596,15 +584,9 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const bool is_array = has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(type);
 			constexpr const size_t bpp = image_bytes_per_pixel(type);
 			const auto lod = select_lod(lod_i, lod_or_bias_f);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer));
-#endif
 			typedef uint8_t raw_data_type[bpp];
 			const raw_data_type& raw_data = *(const raw_data_type*)&img->data[offset];
 			
@@ -635,15 +617,9 @@ FLOOR_POP_WARNINGS()
 			constexpr const auto data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
 			constexpr const auto image_format = (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK);
 			const auto lod = select_lod(lod_input);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
-#endif
 			
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				constexpr const auto channel_count = image_channel_count(type);
@@ -660,7 +636,7 @@ FLOOR_POP_WARNINGS()
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// for 16-bit half float formats, data must be converted to 32-bit float data
 					soft_f16 half_vals[4];
-#pragma clang loop unroll(FLOOR_CLANG_UNROLL_FULL) vectorize(enable) interleave(enable)
+#pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						half_vals[i] = (soft_f16)color[i];
 					}
@@ -696,15 +672,9 @@ FLOOR_POP_WARNINGS()
 			
 			// depth value input is always a float -> convert it to the correct output format
 			const auto lod = select_lod(lod_input);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
-#endif
 			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
@@ -778,15 +748,9 @@ FLOOR_POP_WARNINGS()
 			// cast down to storage scalar type, then trim the vector to the image channel count
 			const storage_type raw_data = color.template cast<storage_scalar_type>().template trim<channel_count>();
 			const auto lod = select_lod(lod_input);
-#if defined(FLOOR_CXX17)
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
-#else
-			const auto offset = __builtin_choose_expr(!is_array,
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord)),
-													  coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer));
-#endif
 			memcpy(&img->data[offset], &raw_data, sizeof(raw_data));
 		}
 	};

@@ -19,11 +19,6 @@
 #ifndef __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
 #define __FLOOR_COMPUTE_DEVICE_COMMON_HPP__
 
-// hard-enable c++17 support for all backends except host-compute (for which this is handled in the usual libfloor conf)
-#if defined(FLOOR_COMPUTE_CUDA) || defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL) || defined(FLOOR_COMPUTE_VULKAN)
-#define FLOOR_CXX17 1
-#endif
-
 // basic floor macros + misc
 #include <floor/core/essentials.hpp>
 

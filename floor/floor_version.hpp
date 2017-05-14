@@ -30,8 +30,8 @@
 #define FLOOR_MAJOR_VERSION 0
 #define FLOOR_MINOR_VERSION 3
 #define FLOOR_REVISION_VERSION 0
-#define FLOOR_DEV_STAGE_VERSION 0xa5
-#define FLOOR_DEV_STAGE_VERSION_STR "a5"
+#define FLOOR_DEV_STAGE_VERSION 0xa6
+#define FLOOR_DEV_STAGE_VERSION_STR "a6"
 // FLOOR_BUILD_VERSION defined in build_version.hpp
 
 #define FLOOR_MAJOR_VERSION_STR FLOOR_VERSION_EVAL(FLOOR_MAJOR_VERSION)
@@ -55,27 +55,27 @@
 
 #if defined(_MSC_VER)
 #if defined(__clang__) && !defined(__c2__)
-#define FLOOR_COMPILER string("Clang ")+__clang_version__+string(" / VS ")+to_string(_MSC_VER)
+#define FLOOR_COMPILER "Clang " __clang_version__ " / VS " _MSC_VER
 #elif defined(__clang__) && defined(__c2__)
-#define FLOOR_COMPILER string("Clang ")+__clang_version__+string(" / C2 ")+to_string(__c2_version__)+string(" / VS ")+to_string(_MSC_VER)
+#define FLOOR_COMPILER "Clang " __clang_version__ " / C2 " __c2_version__ " / VS " _MSC_VER
 #else
-#define FLOOR_COMPILER "VC++ "+to_string(_MSC_VER)
+#define FLOOR_COMPILER "VC++ " _MSC_VER
 #endif
 #elif (defined(__GNUC__) && !defined(__llvm__) && !defined(__clang__))
-#define FLOOR_COMPILER string("GCC ")+__VERSION__
+#define FLOOR_COMPILER "GCC " __VERSION__
 #elif (defined(__GNUC__) && defined(__llvm__) && !defined(__clang__))
-#define FLOOR_COMPILER string("LLVM-GCC ")+__VERSION__
+#define FLOOR_COMPILER "LLVM-GCC " __VERSION__
 #elif defined(__clang__)
-#define FLOOR_COMPILER string("Clang ")+__clang_version__
+#define FLOOR_COMPILER "Clang " __clang_version__
 #else
 #define FLOOR_COMPILER "unknown compiler"
 #endif
 
 #define FLOOR_LIBCXX_PREFIX " and "
 #if defined(_LIBCPP_VERSION)
-#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libc++ "+to_string(_LIBCPP_VERSION)
+#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX "libc++ " FLOOR_VERSION_EVAL(_LIBCPP_VERSION)
 #elif defined(__GLIBCXX__)
-#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX+"libstdc++ "+to_string(__GLIBCXX__)
+#define FLOOR_LIBCXX FLOOR_LIBCXX_PREFIX "libstdc++ " FLOOR_VERSION_EVAL(__GLIBCXX__)
 #else
 #define FLOOR_LIBCXX ""
 #endif
@@ -88,7 +88,7 @@
 
 #define FLOOR_VERSION_STRING (string("floor ")+FLOOR_PLATFORM+FLOOR_DEBUG_STR \
 " v"+(FLOOR_FULL_VERSION)+\
-" ("+FLOOR_BUILD_DATE+" "+FLOOR_BUILD_TIME+") built with "+string(FLOOR_COMPILER+FLOOR_LIBCXX))
+" ("+FLOOR_BUILD_DATE+" "+FLOOR_BUILD_TIME+") built with " FLOOR_COMPILER FLOOR_LIBCXX)
 
 #define FLOOR_SOURCE_URL "https://github.com/a2flo/floor"
 
@@ -104,8 +104,8 @@
 
 // clang check
 #elif defined(__clang__)
-#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 3) || (__clang_major__ == 3 && __clang_minor__ < 5)
-#error "Sorry, but you need Clang 3.5+ to compile floor"
+#if !defined(__clang_major__) || !defined(__clang_minor__) || (__clang_major__ < 4) || (__clang_major__ == 4 && __clang_minor__ < 0)
+#error "Sorry, but you need Clang 4.0+ to compile floor"
 #endif
 
 // gcc check
@@ -116,8 +116,8 @@
 // library checks:
 #include <floor/core/platform.hpp>
 
-#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 1101)
-#error "You need to install libc++ 1101+ to compile floor"
+#if (defined(_LIBCPP_VERSION) && _LIBCPP_VERSION < 3700)
+#error "You need to install libc++ 3.7+ to compile floor"
 #endif
 
 #if !SDL_VERSION_ATLEAST(2, 0, 2)
