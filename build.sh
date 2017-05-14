@@ -36,9 +36,9 @@ verbose() {
 # if no CXX/CC are specified, try using clang++/clang
 if [ -z "${CXX}" ]; then
 	# try using clang++ directly (avoid any nasty wrappers)
-	if [ -z $(command -v /usr/bin/clang++) ]; then
+	if [ -n $(command -v /usr/bin/clang++) ]; then
 		CXX=/usr/bin/clang++
-	elif [ -z $(command -v /usr/local/bin/clang++) ]; then
+	elif [ -n $(command -v /usr/local/bin/clang++) ]; then
 		CXX=/usr/local/bin/clang++
 	else
 		CXX=clang++
@@ -48,9 +48,9 @@ command -v ${CXX} >/dev/null 2>&1 || error "clang++ binary not found, please set
 
 if [ -z "${CC}" ]; then
 	# try using clang directly (avoid any nasty wrappers)
-	if [ -z $(command -v /usr/bin/clang) ]; then
+	if [ -n $(command -v /usr/bin/clang) ]; then
 		CC=/usr/bin/clang++
-	elif [ -z $(command -v /usr/local/bin/clang) ]; then
+	elif [ -n $(command -v /usr/local/bin/clang) ]; then
 		CC=/usr/local/bin/clang
 	else
 		CC=clang
