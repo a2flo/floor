@@ -282,7 +282,7 @@ namespace std {
 	}
 	const_func floor_inline_always int32_t floor_rt_clz(uint64_t a) {
 		int32_t ret;
-		asm("clz.b64 %0, %1;" : "=l"(ret) : "l"(a));
+		asm("clz.b64 %0, %1;" : "=r"(ret) : "l"(a));
 		return ret;
 	}
 	const_func floor_inline_always int32_t floor_rt_ctz(uint16_t a) {
@@ -299,7 +299,7 @@ namespace std {
 		int32_t ret;
 		uint64_t tmp;
 		asm("brev.b64 %0, %1;" : "=l"(tmp) : "l"(a));
-		asm("clz.b64 %0, %1;" : "=l"(ret) : "l"(tmp));
+		asm("clz.b64 %0, %1;" : "=r"(ret) : "l"(tmp));
 		return ret;
 	}
 	const_func floor_inline_always int32_t floor_rt_popcount(uint16_t a) {
@@ -312,7 +312,7 @@ namespace std {
 	}
 	const_func floor_inline_always int32_t floor_rt_popcount(uint64_t a) {
 		int32_t ret;
-		asm("popc.b64 %0, %1;" : "=l"(ret) : "l"(a));
+		asm("popc.b64 %0, %1;" : "=r"(ret) : "l"(a));
 		return ret;
 	}
 	

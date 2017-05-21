@@ -483,9 +483,12 @@ opencl_compute::opencl_compute(const uint32_t platform_index_,
 									case 0:
 										spirv_version = SPIRV_VERSION::SPIRV_1_0;
 										break;
-									default:
 									case 1:
 										spirv_version = SPIRV_VERSION::SPIRV_1_1;
+										break;
+									default:
+									case 2:
+										spirv_version = SPIRV_VERSION::SPIRV_1_2;
 										break;
 								}
 								break;

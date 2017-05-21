@@ -73,6 +73,7 @@ enum class SPIRV_VERSION : uint32_t {
 	NONE,
 	SPIRV_1_0,
 	SPIRV_1_1,
+	SPIRV_1_2,
 };
 
 constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
@@ -80,6 +81,7 @@ constexpr const char* spirv_version_to_string(const SPIRV_VERSION& version) {
 		case SPIRV_VERSION::NONE: return "";
 		case SPIRV_VERSION::SPIRV_1_0: return "1.0";
 		case SPIRV_VERSION::SPIRV_1_1: return "1.1";
+		case SPIRV_VERSION::SPIRV_1_2: return "1.2";
 	}
 }
 

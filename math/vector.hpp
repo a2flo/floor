@@ -1481,6 +1481,24 @@ public:
 		return *this;
 	}
 	
+	//! ternary / component-wise select between "true_vec" and "false_vec" based on the value of "cond_vec"
+	static constexpr vector_type select(const FLOOR_VECNAME<bool>& cond_vec,
+										const vector_type& true_vec,
+										const vector_type& false_vec) {
+		return {
+			cond_vec.x ? true_vec.x : false_vec.x,
+#if FLOOR_VECTOR_WIDTH >= 2
+			cond_vec.y ? true_vec.y : false_vec.y,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 3
+			cond_vec.z ? true_vec.z : false_vec.z,
+#endif
+#if FLOOR_VECTOR_WIDTH >= 4
+			cond_vec.w ? true_vec.w : false_vec.w,
+#endif
+		};
+	}
+	
 	//! returns the number of components that are equal to value
 	constexpr size_t count(const scalar_type& value) const {
 		size_t ret = 0;
