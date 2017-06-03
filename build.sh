@@ -324,6 +324,7 @@ fi
 
 # set the target binary name (depends on the platform)
 TARGET_BIN_NAME=lib${TARGET_NAME}
+PCH_FILE_NAME="floor_prefix.pch"
 PCH_BIN_NAME=${TARGET_NAME}.pch
 # append 'd' for debug builds
 if [ $BUILD_MODE == "debug" ]; then
@@ -950,7 +951,7 @@ needs_rebuild() {
 	source_file=$1
 
 	bin_file_name="${BUILD_DIR}/${source_file}.o"
-	if [ ${source_file} == "floor_prefix.pch" ]; then
+	if [ ${source_file} == ${PCH_FILE_NAME} ]; then
 		bin_file_name="${PCH_BIN_NAME}"
 	fi
 
@@ -978,7 +979,7 @@ needs_rebuild() {
 
 # build the precompiled header
 rebuild_pch=0
-rebuild_pch_info=$(needs_rebuild floor_prefix.pch)
+rebuild_pch_info=$(needs_rebuild ${PCH_FILE_NAME})
 if [ ! -f "${PCH_BIN_NAME}" ]; then
 	info "building precompiled header ..."
 	rebuild_pch=1
@@ -992,7 +993,7 @@ elif [ "${rebuild_pch_info}" ]; then
 fi
 
 if [ $rebuild_pch -gt 0 ]; then
-	precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header floor_prefix.pch -Xclang -emit-pch -o ${PCH_BIN_NAME} -MD -MT deps -MF ${BUILD_DIR}/floor_prefix.pch.d"
+	precomp_header_cmd="${CXX} ${CXXFLAGS} -x c++-header ${PCH_FILE_NAME} -Xclang -emit-pch -o ${PCH_BIN_NAME} -MD -MT deps -MF ${BUILD_DIR}/${PCH_FILE_NAME}.d"
 	verbose "${precomp_header_cmd}"
 	eval ${precomp_header_cmd}
 
