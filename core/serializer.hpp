@@ -95,19 +95,18 @@ public:
 	template <typename obj_type, typename tupled_arg_types, size_t... indices>
 	obj_type deserialize(index_sequence<indices...>) {
 		typedef decltype(constructible_helper<obj_type>::template constructor_type<tuple_element_t<indices, tupled_arg_types>...>()) constructor_type;
-		if constexpr(is_same<constructor_type, typename constructible_helper<>::direct_constructor>()) {
+		constexpr const auto is_direct = is_same<constructor_type, typename constructible_helper<obj_type>::direct_constructor>();
+		constexpr const auto is_empty_base = is_same<constructor_type, typename constructible_helper<obj_type>::empty_base_constructor>();
+		static_assert(is_direct || is_empty_base,
+					  "obj_type must be directly constructible or directly constructible with an empty base");
+		
+		if constexpr(is_direct) {
 			return { serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(storage)... };
 		}
-		else if constexpr(is_same<constructor_type, typename constructible_helper<>::empty_base_constructor>()) {
+		else if constexpr(is_empty_base) {
 			return { {}, serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(storage)... };
 		}
-		else {
-			// fallback (TODO: how to error here?)
-			floor_unused const tupled_arg_types fallback {
-				serialization<tuple_element_t<indices, tupled_arg_types>>::deserialize(storage)...
-			};
-			return {};
-		}
+		return {};
 	}
 	
 	//! returns true if all specified types have a statically known size
