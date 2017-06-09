@@ -219,11 +219,13 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				return;
 				
 			// A7/A7X
+			case 9:
 			case 6:
 			case 3:
 			case 1:
 				device->family_version = (device->family == 1 ? 1 :
-										  (device->family == 3 ? 2 : 3));
+										  (device->family == 3 ? 2 :
+										   (device->family == 6 ? 3 : 4)));
 				device->family = 1;
 				device->units = 4; // G6430
 				device->mem_clock = 1600; // ram clock
@@ -232,11 +234,13 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				break;
 			
 			// A8/A8X
+			case 10:
 			case 7:
 			case 4:
 			case 2:
 				device->family_version = (device->family == 2 ? 1 :
-										  (device->family == 4 ? 2 : 3));
+										  (device->family == 4 ? 2 :
+										   (device->family == 7 ? 3 : 4)));
 				device->family = 2;
 				if(device->name.find("A8X") != string::npos) {
 					device->units = 8; // GXA6850
@@ -249,20 +253,22 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 				device->max_image_2d_dim = { 8192, 8192 };
 				break;
 			
-			// A9/A9X and A10
+			// A9/A9X and A10/A10X
 			default:
 				log_warn("unknown device family (%u), defaulting to family 3 (A9/A10)", device->family);
 				floor_fallthrough;
+			case 11:
 			case 8:
 			case 5:
-				device->family_version = (device->family == 5 ? 1 : 2);
+				device->family_version = (device->family == 5 ? 1 :
+										  (device->family == 8 : 2 : 3));
 				device->family = 3;
 				if(device->name.find("A9X") != string::npos ||
-				   device->name.find("A10") != string::npos) {
+				   device->name.find("A10X") != string::npos) {
 					device->units = 12; // GT7800/7900?
 				}
 				else {
-					device->units = 6; // GT7600
+					device->units = 6; // GT7600 / GT7600 Plus
 				}
 				device->mem_clock = 1600; // TODO: ram clock
 				device->max_image_1d_dim = { 16384 };
@@ -304,9 +310,10 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->global_mem_size = 1024ull * 1024ull * 1024ull; // assume 1GiB for now (TODO: any way to fix this?)
 		device->constant_mem_size = 65536; // can't query this, so assume opencl minimum
 		device->family = (uint32_t)[dev_spi featureProfile];
-		if(device->family == 10002) {
-			// MTLFeatureSet_OSX_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
-			device->family_version = 2;
+		if(device->family >= 10002) {
+			// NOTE: MTLFeatureSet_OSX_ReadWriteTextureTier2 is also v2, but with h/w image r/w support
+			// MTLFeatureSet_macOS_GPUFamily1_v3 and so on are offset as well
+			device->family_version = device->family - 10000;
 			//device->image_read_write_support = true; // TODO: enable this when supported by the compiler
 		}
 		else {
@@ -510,10 +517,26 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	}
 	
 #if !defined(FLOOR_IOS) // can only do this on os x
-#define FLOOR_METAL_TOOLS_PATH "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
-	static constexpr const char* metal_ar { FLOOR_METAL_TOOLS_PATH "metal-ar" };
-	static constexpr const char* metal_opt { FLOOR_METAL_TOOLS_PATH "metal-opt" };
-	static constexpr const char* metallib { FLOOR_METAL_TOOLS_PATH "metallib" };
+	// TODO: properly fix this
+#define FLOOR_METAL_TOOLS_PATH_PRE1013 "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
+#define FLOOR_METAL_TOOLS_PATH_1013 "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/usr/bin/"
+	static constexpr struct {
+		const char* metal_ar;
+		const char* metal_opt;
+		const char* metallib;
+	} metal_tools_paths[2] {
+		{
+			.metal_ar = FLOOR_METAL_TOOLS_PATH_PRE1013 "metal-ar",
+			.metal_opt = FLOOR_METAL_TOOLS_PATH_PRE1013 "metal-opt",
+			.metallib = FLOOR_METAL_TOOLS_PATH_PRE1013 "metallib",
+		},
+		{
+			.metal_ar = FLOOR_METAL_TOOLS_PATH_1013 "metal-ar",
+			.metal_opt = FLOOR_METAL_TOOLS_PATH_1013 "metal-opt",
+			.metallib = FLOOR_METAL_TOOLS_PATH_1013 "metallib",
+		},
+	};
+	const auto& metal_tools = metal_tools_paths[darwin_helper::get_system_version() < 101300 ? 0 : 1];
 	enum : uint32_t {
 		METAL_OPT_AIR_FILE = 0,
 		METAL_ARCHIVE_FILE,
@@ -532,13 +555,13 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	
 	//
 	if(!floor::get_toolchain_debug()) {
-		core::system(metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
+		core::system(metal_tools.metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {
 		tmp_files[METAL_OPT_AIR_FILE] = program.data_or_filename;
 	}
-	core::system(metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
-	core::system(metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
+	core::system(metal_tools.metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
+	core::system(metal_tools.metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
 	
 	const auto cleanup = [&tmp_files, unopt_file = program.data_or_filename]() {
 		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);

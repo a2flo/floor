@@ -72,10 +72,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #error "unsupported toolchain"
 #endif
 
-#if (__clang_major__ == 8 && __clang_minor__ == 1)
+#if (__clang_major__ == 8 && __clang_minor__ >= 1)
 #define FLOOR_TOOLCHAIN_VERSION 30900u
-#else // Xcode 8.3.0+
-#define FLOOR_TOOLCHAIN_VERSION 30900u
+#else // Xcode 9.0.0+
+#define FLOOR_TOOLCHAIN_VERSION 40000u
 #endif
 
 #endif
@@ -122,8 +122,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101100 && FLOOR_COMPUTE_INFO_OS_VERSION < 101200
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101100
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101200
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101200 && FLOOR_COMPUTE_INFO_OS_VERSION < 101300
 #define FLOOR_COMPUTE_INFO_OS_VERSION_101200
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 101300
+#define FLOOR_COMPUTE_INFO_OS_VERSION_101300
 #endif
 
 #elif defined(__APPLE__) && defined(FLOOR_IOS) // ios
@@ -136,8 +138,10 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_OS_VERSION_80000
 #elif FLOOR_COMPUTE_INFO_OS_VERSION >= 90000 && FLOOR_COMPUTE_INFO_OS_VERSION < 100000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_90000
-#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 100000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 100000 && FLOOR_COMPUTE_INFO_OS_VERSION < 110000
 #define FLOOR_COMPUTE_INFO_OS_VERSION_100000
+#elif FLOOR_COMPUTE_INFO_OS_VERSION >= 110000
+#define FLOOR_COMPUTE_INFO_OS_VERSION_110000
 #endif
 
 #else // all else
