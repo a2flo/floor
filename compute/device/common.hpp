@@ -278,7 +278,11 @@ floor_inline_always static uint32_t get_num_sub_groups() __attribute__((unavaila
 #include <floor/compute/device/logger.hpp>
 
 //! global memory buffer
+#if !defined(FLOOR_COMPUTE_METAL)
 #define buffer __attribute__((align_value(1024))) compute_global_buffer
+#else // align is not supported with metal
+#define buffer compute_global_buffer
+#endif
 template <typename T> using compute_global_buffer = global T*;
 
 //! local memory buffer:
@@ -353,7 +357,11 @@ public:
 
 //! constant memory buffer
 // NOTE: again: need to workaround the issue that "constant" is not part of the type in cuda
+#if !defined(FLOOR_COMPUTE_METAL)
 #define constant_buffer __restrict __attribute__((align_value(1024))) constant compute_constant_buffer
+#else // align is not supported with metal
+#define constant_buffer __restrict constant compute_constant_buffer
+#endif
 template <typename T> using compute_constant_buffer = const T* const;
 
 //! array for use with static constant memory
