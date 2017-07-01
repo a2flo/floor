@@ -102,7 +102,7 @@
 #endif
 
 // compat with compute device code
-#if !defined(constant) && !defined(FLOOR_COMPUTE)
+#if !defined(constant) && defined(FLOOR_HOST_COMPUTE)
 #define constant
 #endif
 
