@@ -1969,7 +1969,7 @@ index 479ac44..c1fee1c 100644
  #include "clang/Basic/OpenCLImageTypes.def"
    case BuiltinType::OCLSampler:
 diff --git a/lib/AST/Type.cpp b/lib/AST/Type.cpp
-index 4c1d4ec..52c1ff7 100644
+index 4c1d4ec..dba0de2 100644
 --- a/lib/AST/Type.cpp
 +++ b/lib/AST/Type.cpp
 @@ -1788,6 +1788,13 @@ bool Type::isFloatingType() const {
@@ -2078,7 +2078,7 @@ index 4c1d4ec..52c1ff7 100644
    case attr_inteloclbicc:
    case attr_preserve_most:
    case attr_preserve_all:
-@@ -3789,3 +3838,101 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
+@@ -3789,3 +3838,102 @@ QualType::DestructionKind QualType::isDestructedTypeImpl(QualType type) {
  CXXRecordDecl *MemberPointerType::getMostRecentCXXRecordDecl() const {
    return getClass()->getAsCXXRecordDecl()->getMostRecentDecl();
  }
@@ -2125,6 +2125,7 @@ index 4c1d4ec..52c1ff7 100644
 +  return valid_and_has_image.first && valid_and_has_image.second;
 +}
 +
++// TODO: this probably isn't right (also detects other arrays)
 +bool Type::isArrayImageType(bool single_field_arr) const {
 +  // only check/match this for C-style arrays of builtin images
 +  if(!single_field_arr) {
@@ -4885,7 +4886,7 @@ index dd80390..4e3b676 100644
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitLL, _VMContext) {}
 diff --git a/lib/CodeGen/CodeGenFunction.cpp b/lib/CodeGen/CodeGenFunction.cpp
-index 183ee12..e8a651d 100644
+index 183ee12..e82c4f8 100644
 --- a/lib/CodeGen/CodeGenFunction.cpp
 +++ b/lib/CodeGen/CodeGenFunction.cpp
 @@ -34,6 +34,9 @@
@@ -6551,7 +6552,7 @@ index 183ee12..e8a651d 100644
 +			}
 +		}
 +		// image array (image*_t[N])
-+		else if(clang_type->isArrayImageType(false)) {
++		else if(!getLangOpts().CUDA && clang_type->isArrayImageType(false)) {
 +			CGM.Error(parm->getSourceRange().getBegin(), StringRef("C array of images not supported yet"));
 +			return;
 +		}

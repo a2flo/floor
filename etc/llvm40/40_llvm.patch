@@ -10651,7 +10651,7 @@ index be704a7..3963d1e 100644
    // Get the linked list base, which is guaranteed to exist since the
    // HasValueHandle flag is set.
 diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
-index 189450d..c23675b 100644
+index 189450d..63202ac 100644
 --- a/lib/IR/Verifier.cpp
 +++ b/lib/IR/Verifier.cpp
 @@ -2566,10 +2566,17 @@ void Verifier::verifyCallSite(CallSite CS) {
@@ -10673,6 +10673,18 @@ index 189450d..c23675b 100644
 +  }
  
    AttributeSet Attrs = CS.getAttributes();
+ 
+@@ -3770,8 +3777,9 @@ void Verifier::visitInstruction(Instruction &I) {
+   }
+ 
+   if (MDNode *Range = I.getMetadata(LLVMContext::MD_range)) {
+-    Assert(isa<LoadInst>(I) || isa<CallInst>(I) || isa<InvokeInst>(I),
+-           "Ranges are only for loads, calls and invokes!", &I);
++    // NOTE: we want range info to be propagated and used everywhere, so ignore this
++    //Assert(isa<LoadInst>(I) || isa<CallInst>(I) || isa<InvokeInst>(I),
++    //       "Ranges are only for loads, calls and invokes!", &I);
+     visitRangeMetadata(I, Range, I.getType());
+   }
  
 diff --git a/lib/LLVMBuild.txt b/lib/LLVMBuild.txt
 index 50bf690..8091ca1 100644
@@ -43650,7 +43662,7 @@ index 40c3327..566dd96 100644
    // except reserved size is not correctly aligned.
  }
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 032991a..933c328 100644
+index 032991a..95eec26 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -43694,11 +43706,20 @@ index 032991a..933c328 100644
  
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
-@@ -84,6 +92,7 @@ def : Proc<"sm_53", [SM53, PTX42]>;
+@@ -64,6 +72,8 @@ def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
+                              "Use PTX version 4.3">;
+ def PTX50 : SubtargetFeature<"ptx50", "PTXVersion", "50",
+                              "Use PTX version 5.0">;
++def PTX51 : SubtargetFeature<"ptx51", "PTXVersion", "51",
++                             "Use PTX version 5.1">;
+ 
+ //===----------------------------------------------------------------------===//
+ // NVPTX supported processors.
+@@ -84,6 +94,7 @@ def : Proc<"sm_53", [SM53, PTX42]>;
  def : Proc<"sm_60", [SM60, PTX50]>;
  def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
-+def : Proc<"sm_70", [SM70, PTX50]>;
++def : Proc<"sm_70", [SM70, PTX51]>;
  
  def NVPTXInstrInfo : InstrInfo {
  }
