@@ -434,7 +434,7 @@ bool opencl_image::acquire_opengl_object(shared_ptr<compute_queue> cqueue) {
 
 bool opencl_image::release_opengl_object(shared_ptr<compute_queue> cqueue) {
 	if(gl_object == 0) return false;
-	if(image == 0) return false;
+	if(image == nullptr) return false;
 	if(gl_object_state) {
 #if defined(FLOOR_DEBUG) && 0
 		log_warn("opengl image has already been released for opengl use!");

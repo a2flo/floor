@@ -270,7 +270,7 @@ map<string, file_io::FILE_TYPE> core::get_file_list(const string& directory,
 	struct dirent** namelist = nullptr;
 	
 	dir_str += ".";
-	int n = scandir(dir_str.c_str(), &namelist, 0, alphasort);
+	int n = scandir(dir_str.c_str(), &namelist, nullptr, alphasort);
 	
 	for(int j = 1; j < n; j++) {
 #if !defined(__APPLE__)

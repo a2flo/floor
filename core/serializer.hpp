@@ -246,7 +246,6 @@ protected:
 			storage.insert(storage.end(), begin(bytes), end(bytes));
 		}
 		static vec_type deserialize(storage_type& storage) {
-			typedef typename vec_type::this_scalar_type scalar_type;
 			vec_type ret;
 #pragma unroll
 			for(uint32_t i = 0; i < vec_type::dim(); ++i) {

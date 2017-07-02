@@ -33,7 +33,10 @@ host_program::host_program(shared_ptr<compute_device> device_) : device(device_)
 
 shared_ptr<compute_kernel> host_program::get_kernel(const string& func_name) const {
 #if !defined(__WINDOWS__)
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(zero-as-null-pointer-constant) // RTLD_DEFAULT is implementation-defined, but cast from int to void*
 	auto func_ptr = dlsym(RTLD_DEFAULT, func_name.c_str());
+FLOOR_POP_WARNINGS()
 #else
 	// get a handle to the main program / exe if it hasn't been created yet
 	if(exe_module == nullptr) {
