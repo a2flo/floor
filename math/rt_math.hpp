@@ -216,7 +216,7 @@ namespace rt_math {
 			any_type val;
 		} conv { .val = val };
 		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
 		const auto clz_upper = clz(upper);
 		const auto clz_lower = clz(lower);
 		return (clz_upper < 64 ? clz_upper : (clz_upper + clz_lower));
@@ -285,7 +285,7 @@ namespace rt_math {
 			any_type val;
 		} conv { .val = val };
 		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
 		const auto ctz_upper = ctz(upper);
 		const auto ctz_lower = ctz(lower);
 		return (ctz_lower < 64 ? ctz_lower : (ctz_upper + ctz_lower));
@@ -352,7 +352,7 @@ namespace rt_math {
 			any_type val;
 		} conv { .val = val };
 		const auto upper = uint64_t(conv.ui128 >> __uint128_t(64));
-		const auto lower = uint64_t(conv.ui128 & __uint128_t(0xFFFF'FFFF'FFFF'FFFFull));
+		const auto lower = uint64_t(conv.ui128 & __uint128_t(~0ull));
 		return popcount(upper) + popcount(lower);
 	}
 #endif
@@ -367,6 +367,98 @@ namespace rt_math {
 	template <typename any_type>
 	static floor_inline_always int32_t parity(const any_type& val) {
 		return popcount(val) & 1;
+	}
+
+	//! combines "low" and "high" to a 64-bit source uint (consisting of 8x 8-bit values), then uses the 4x 4-bit values
+	//! of the lower 16-bit of "select" to select/recombine a 32-bit uint from these 8x 8-bit source values.
+	//! the lower 3-bit of each 4-bit select value decide which source byte should be used, the upper 1-bit/msb decides
+	//! whether the sign of the selected byte should be used instead (filling the full 8-bit, i.e. sign-extended)
+	static floor_inline_always uint32_t permute(const uint32_t low, const uint32_t high, const uint32_t select) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_PERMUTE) && FLOOR_COMPUTE_INFO_HAS_PERMUTE == 1
+		return floor_rt_permute(low, high, select);
+#else
+		// 64-bit source value (consisting of 8x 8-bit values we'll select from)
+		const uint64_t src = (uint64_t(high) << 32ull) | uint64_t(low);
+		
+		// 4x 4-bit control nibbles
+		uint32_t ctrl[] {
+			select & 0xFu,
+			(select >> 4u) & 0xFu,
+			(select >> 8u) & 0xFu,
+			(select >> 12u) & 0xFu
+		};
+		
+		// if msb of control is set, selected byte is sign-extended
+		const bool sext[] {
+			ctrl[0] > 0x7u,
+			ctrl[1] > 0x7u,
+			ctrl[2] > 0x7u,
+			ctrl[3] > 0x7u,
+		};
+		
+		// mask msb
+		ctrl[0] &= 0x7u;
+		ctrl[1] &= 0x7u;
+		ctrl[2] &= 0x7u;
+		ctrl[3] &= 0x7u;
+		
+		// extract bytes
+		uint32_t selected_bytes[] {
+			uint32_t(src >> (ctrl[0] * 8u)) & 0xFFu,
+			uint32_t(src >> (ctrl[1] * 8u)) & 0xFFu,
+			uint32_t(src >> (ctrl[2] * 8u)) & 0xFFu,
+			uint32_t(src >> (ctrl[3] * 8u)) & 0xFFu,
+		};
+		
+		// replicate or sign-extend?
+		selected_bytes[0] = (!sext[0] ? selected_bytes[0] : (selected_bytes[0] & 0x8u ? 0xFFu : 0u));
+		selected_bytes[1] = (!sext[1] ? selected_bytes[1] : (selected_bytes[1] & 0x8u ? 0xFFu : 0u));
+		selected_bytes[2] = (!sext[2] ? selected_bytes[2] : (selected_bytes[2] & 0x8u ? 0xFFu : 0u));
+		selected_bytes[3] = (!sext[3] ? selected_bytes[3] : (selected_bytes[3] & 0x8u ? 0xFFu : 0u));
+		
+		// finally: combine processed bytes
+		return selected_bytes[0] | (selected_bytes[1] << 8u) | (selected_bytes[2] << 16u) | (selected_bytes[3] << 24u);
+#endif
+	}
+	
+	//! combines "low" and "high" to a 64-bit uint, then shifts it left by "shift" amount of bits (modulo 32)
+	static floor_inline_always uint32_t funnel_shift_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
+		return floor_rt_funnel_shift_left(low, high, shift);
+#else
+		const uint32_t shift_amount = shift & 0x1Fu;
+		return (high << shift_amount) | (low >> (32u - shift_amount));
+#endif
+	}
+	
+	//! combines "low" and "high" to a 64-bit uint, then shifts it right by "shift" amount of bits (modulo 32)
+	static floor_inline_always uint32_t funnel_shift_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
+		return floor_rt_funnel_shift_right(low, high, shift);
+#else
+		const uint32_t shift_amount = shift & 0x1Fu;
+		return (high << (32u - shift_amount)) | (low >> shift_amount);
+#endif
+	}
+	
+	//! combines "low" and "high" to a 64-bit uint, then shifts it left by "shift" amount of bits (clamped by 32)
+	static floor_inline_always uint32_t funnel_shift_clamp_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
+		return floor_rt_funnel_shift_clamp_left(low, high, shift);
+#else
+		const uint32_t shift_amount = rt_math::min(shift, 32u);
+		return (high << shift_amount) | (low >> (32u - shift_amount));
+#endif
+	}
+	
+	//! combines "low" and "high" to a 64-bit uint, then shifts it right by "shift" amount of bits (clamped by 32)
+	static floor_inline_always uint32_t funnel_shift_clamp_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT) && FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
+		return floor_rt_funnel_shift_clamp_right(low, high, shift);
+#else
+		const uint32_t shift_amount = rt_math::min(shift, 32u);
+		return (high << (32u - shift_amount)) | (low >> shift_amount);
+#endif
 	}
 	
 }

@@ -37,6 +37,16 @@
 #define cuda_clock __builtin_ptx_read_clock()
 #define cuda_clock64 __builtin_ptx_read_clock64()
 
+// sm_32+ has funnel shift instructions
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 32
+#define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 1
+#else
+#define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 0
+#endif
+
+// we always have permute instructions
+#define FLOOR_COMPUTE_INFO_HAS_PERMUTE 1
+
 namespace std {
 	// float math functions
 	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
@@ -177,6 +187,49 @@ namespace std {
 	}
 	const_func floor_inline_always size_t floor_rt_max(size_t a, size_t b) {
 		return (size_t)floor_rt_max(uint64_t(a), uint64_t(b));
+	}
+#endif
+	
+	const_func floor_inline_always uint32_t floor_rt_permute(const uint32_t low, const uint32_t high, const uint32_t select) {
+		return __nvvm_prmt(low, high, select);
+	}
+	
+#if FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT == 1
+	const_func floor_inline_always uint32_t floor_rt_funnel_shift_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
+		uint32_t ret;
+		asm("shf.l.wrap.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
+		return ret;
+	}
+	
+	const_func floor_inline_always uint32_t floor_rt_funnel_shift_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
+		uint32_t ret;
+		asm("shf.r.wrap.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
+		return ret;
+	}
+	
+	const_func floor_inline_always uint32_t floor_rt_funnel_shift_clamp_left(const uint32_t low, const uint32_t high, const uint32_t shift) {
+		uint32_t ret;
+		asm("shf.l.clamp.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
+		return ret;
+	}
+	
+	const_func floor_inline_always uint32_t floor_rt_funnel_shift_clamp_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
+		uint32_t ret;
+		asm("shf.r.clamp.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
+		return ret;
+	}
+#endif
+	
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30
+	template <uint32_t width, typename any_type, typename = enable_if_t<sizeof(any_type) == 4>>
+	volatile floor_inline_always any_type sub_group_shuffle_index(const any_type lane_var, const uint32_t src_lane_idx) {
+		constexpr const auto mask = ((device_info::simd_width() - width) << 8u) | 0x1Fu;
+		if constexpr(is_floating_point_v<any_type>) {
+			return __nvvm_shfl_idx_f32(lane_var, src_lane_idx, mask);
+		}
+		else {
+			return __nvvm_shfl_idx_i32(lane_var, src_lane_idx, mask);
+		}
 	}
 #endif
 	
