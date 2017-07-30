@@ -224,7 +224,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 					break;
 				case 7:
 				default:
-					// sm_70: 64 cores/sm (things are more complicated than that though)
+					// sm_70/sm_72: 64 cores/sm
 					multiplier = 64;
 					break;
 			}

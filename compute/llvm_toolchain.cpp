@@ -635,7 +635,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		// nop, final processing will be done in metal_compute
 	}
 	else if(options.target == TARGET::PTX) {
-		// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 5.1 for sm_70+)
+		// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_70+)
 		uint32_t ptx_version = 43;
 		switch(((cuda_device*)device.get())->sm.x) {
 			case 2:
@@ -648,7 +648,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				break;
 			case 7:
 			default:
-				ptx_version = 51;
+				ptx_version = 60;
 				break;
 		}
 		if(!floor::get_cuda_force_ptx().empty()) {
