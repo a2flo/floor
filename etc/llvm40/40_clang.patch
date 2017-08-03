@@ -541,7 +541,7 @@ index 96bb359..37c9c4e 100644
  BUILTIN(__builtin_powif, "ffi"  , "Fnc")
  BUILTIN(__builtin_powil, "LdLdi", "Fnc")
 diff --git a/include/clang/Basic/Cuda.h b/include/clang/Basic/Cuda.h
-index ad1139b..c0a514a 100644
+index ad1139b..1d73572 100644
 --- a/include/clang/Basic/Cuda.h
 +++ b/include/clang/Basic/Cuda.h
 @@ -21,6 +21,7 @@ enum class CudaVersion {
@@ -552,21 +552,25 @@ index ad1139b..c0a514a 100644
  };
  const char *CudaVersionToString(CudaVersion V);
  
-@@ -41,6 +42,8 @@ enum class CudaArch {
+@@ -41,6 +42,10 @@ enum class CudaArch {
    SM_60,
    SM_61,
    SM_62,
 +  SM_70,
 +  SM_72,
++  SM_73,
++  SM_75,
  };
  const char *CudaArchToString(CudaArch A);
  
-@@ -60,6 +63,8 @@ enum class CudaVirtualArch {
+@@ -60,6 +65,10 @@ enum class CudaVirtualArch {
    COMPUTE_60,
    COMPUTE_61,
    COMPUTE_62,
 +  COMPUTE_70,
 +  COMPUTE_72,
++  COMPUTE_73,
++  COMPUTE_75,
  };
  const char *CudaVirtualArchToString(CudaVirtualArch A);
  
@@ -2227,7 +2231,7 @@ index 065a2db..cae9edd 100644
    case AttributedType::attr_pcs_vfp: {
      OS << "pcs(";
 diff --git a/lib/Basic/Cuda.cpp b/lib/Basic/Cuda.cpp
-index 3264078..e09938d 100644
+index 3264078..cab3eb6 100644
 --- a/lib/Basic/Cuda.cpp
 +++ b/lib/Basic/Cuda.cpp
 @@ -16,6 +16,8 @@ const char *CudaVersionToString(CudaVersion V) {
@@ -2239,7 +2243,7 @@ index 3264078..e09938d 100644
    }
    llvm_unreachable("invalid enum");
  }
-@@ -48,6 +50,10 @@ const char *CudaArchToString(CudaArch A) {
+@@ -48,6 +50,14 @@ const char *CudaArchToString(CudaArch A) {
      return "sm_61";
    case CudaArch::SM_62:
      return "sm_62";
@@ -2247,19 +2251,25 @@ index 3264078..e09938d 100644
 +    return "sm_70";
 +  case CudaArch::SM_72:
 +    return "sm_72";
++  case CudaArch::SM_73:
++    return "sm_73";
++  case CudaArch::SM_75:
++    return "sm_75";
    }
    llvm_unreachable("invalid enum");
  }
-@@ -66,6 +72,8 @@ CudaArch StringToCudaArch(llvm::StringRef S) {
+@@ -66,6 +76,10 @@ CudaArch StringToCudaArch(llvm::StringRef S) {
        .Case("sm_60", CudaArch::SM_60)
        .Case("sm_61", CudaArch::SM_61)
        .Case("sm_62", CudaArch::SM_62)
 +      .Case("sm_70", CudaArch::SM_70)
 +      .Case("sm_72", CudaArch::SM_72)
++      .Case("sm_73", CudaArch::SM_73)
++      .Case("sm_75", CudaArch::SM_75)
        .Default(CudaArch::UNKNOWN);
  }
  
-@@ -95,6 +103,10 @@ const char *CudaVirtualArchToString(CudaVirtualArch A) {
+@@ -95,6 +109,14 @@ const char *CudaVirtualArchToString(CudaVirtualArch A) {
      return "compute_61";
    case CudaVirtualArch::COMPUTE_62:
      return "compute_62";
@@ -2267,19 +2277,25 @@ index 3264078..e09938d 100644
 +    return "compute_70";
 +  case CudaVirtualArch::COMPUTE_72:
 +    return "compute_72";
++  case CudaVirtualArch::COMPUTE_73:
++    return "compute_73";
++  case CudaVirtualArch::COMPUTE_75:
++    return "compute_75";
    }
    llvm_unreachable("invalid enum");
  }
-@@ -112,6 +124,8 @@ CudaVirtualArch StringToCudaVirtualArch(llvm::StringRef S) {
+@@ -112,6 +134,10 @@ CudaVirtualArch StringToCudaVirtualArch(llvm::StringRef S) {
        .Case("compute_60", CudaVirtualArch::COMPUTE_60)
        .Case("compute_61", CudaVirtualArch::COMPUTE_61)
        .Case("compute_62", CudaVirtualArch::COMPUTE_62)
 +      .Case("compute_70", CudaVirtualArch::COMPUTE_70)
 +      .Case("compute_72", CudaVirtualArch::COMPUTE_72)
++      .Case("compute_73", CudaVirtualArch::COMPUTE_73)
++      .Case("compute_75", CudaVirtualArch::COMPUTE_75)
        .Default(CudaVirtualArch::UNKNOWN);
  }
  
-@@ -142,6 +156,10 @@ CudaVirtualArch VirtualArchForCudaArch(CudaArch A) {
+@@ -142,6 +168,14 @@ CudaVirtualArch VirtualArchForCudaArch(CudaArch A) {
      return CudaVirtualArch::COMPUTE_61;
    case CudaArch::SM_62:
      return CudaVirtualArch::COMPUTE_62;
@@ -2287,10 +2303,14 @@ index 3264078..e09938d 100644
 +    return CudaVirtualArch::COMPUTE_70;
 +  case CudaArch::SM_72:
 +    return CudaVirtualArch::COMPUTE_72;
++  case CudaArch::SM_73:
++    return CudaVirtualArch::COMPUTE_73;
++  case CudaArch::SM_75:
++    return CudaVirtualArch::COMPUTE_75;
    }
    llvm_unreachable("invalid enum");
  }
-@@ -159,11 +177,14 @@ CudaVersion MinVersionForCudaArch(CudaArch A) {
+@@ -159,11 +193,16 @@ CudaVersion MinVersionForCudaArch(CudaArch A) {
    case CudaArch::SM_50:
    case CudaArch::SM_52:
    case CudaArch::SM_53:
@@ -2302,6 +2322,8 @@ index 3264078..e09938d 100644
      return CudaVersion::CUDA_80;
 +  case CudaArch::SM_70:
 +  case CudaArch::SM_72:
++  case CudaArch::SM_73:
++  case CudaArch::SM_75:
 +    return CudaVersion::CUDA_90;
    }
    llvm_unreachable("invalid enum");
@@ -2331,10 +2353,10 @@ index 592b877..510fa46 100644
      unsigned MaxPointerWidth = getMaxPointerWidth();
      assert(MaxPointerWidth == 32 || MaxPointerWidth == 64);
 diff --git a/lib/Basic/Targets.cpp b/lib/Basic/Targets.cpp
-index 36e6d45..633c29b 100644
+index 36e6d45..3c076c7 100644
 --- a/lib/Basic/Targets.cpp
 +++ b/lib/Basic/Targets.cpp
-@@ -1816,6 +1816,10 @@ public:
+@@ -1816,6 +1816,14 @@ public:
            return "610";
          case CudaArch::SM_62:
            return "620";
@@ -2342,10 +2364,14 @@ index 36e6d45..633c29b 100644
 +          return "700";
 +        case CudaArch::SM_72:
 +          return "720";
++        case CudaArch::SM_73:
++          return "730";
++        case CudaArch::SM_75:
++          return "750";
          }
          llvm_unreachable("unhandled CudaArch");
        }();
-@@ -1846,6 +1850,7 @@ public:
+@@ -1846,6 +1854,7 @@ public:
      case 'l':
      case 'f':
      case 'd':
@@ -2353,7 +2379,7 @@ index 36e6d45..633c29b 100644
        Info.setAllowsRegister();
        return true;
      }
-@@ -1875,6 +1880,20 @@ public:
+@@ -1875,6 +1884,20 @@ public:
      Opts.cl_khr_local_int32_base_atomics = 1;
      Opts.cl_khr_local_int32_extended_atomics = 1;
    }
@@ -2374,7 +2400,7 @@ index 36e6d45..633c29b 100644
  };
  
  const Builtin::Info NVPTXTargetInfo::BuiltinInfo[] = {
-@@ -2172,7 +2191,7 @@ public:
+@@ -2172,7 +2195,7 @@ public:
        default:
          return CCCR_Warning;
        case CC_C:
@@ -2383,7 +2409,7 @@ index 36e6d45..633c29b 100644
          return CCCR_OK;
      }
    }
-@@ -7959,18 +7978,29 @@ static const unsigned SPIRAddrSpaceMap[] = {
+@@ -7959,18 +7982,29 @@ static const unsigned SPIRAddrSpaceMap[] = {
      0, // cuda_constant
      0  // cuda_shared
  };
@@ -2419,7 +2445,7 @@ index 36e6d45..633c29b 100644
      UseAddrSpaceMapMangling = true;
      // Define available target features
      // These must be defined in sorted order!
-@@ -7984,6 +8014,9 @@ public:
+@@ -7984,6 +8018,9 @@ public:
      return Feature == "spir";
    }
  
@@ -2429,7 +2455,7 @@ index 36e6d45..633c29b 100644
    ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
    const char *getClobbers() const override { return ""; }
    ArrayRef<const char *> getGCCRegNames() const override { return None; }
-@@ -7999,12 +8032,18 @@ public:
+@@ -7999,12 +8036,18 @@ public:
    }
  
    CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
@@ -2451,7 +2477,7 @@ index 36e6d45..633c29b 100644
    }
  
    void setSupportedOpenCLOpts() override {
-@@ -8022,7 +8061,8 @@ public:
+@@ -8022,7 +8065,8 @@ public:
      SizeType = TargetInfo::UnsignedInt;
      PtrDiffType = IntPtrType = TargetInfo::SignedInt;
      resetDataLayout("e-p:32:32-i64:64-v16:16-v24:32-v32:32-v48:64-"
@@ -2461,7 +2487,7 @@ index 36e6d45..633c29b 100644
    }
    void getTargetDefines(const LangOptions &Opts,
                          MacroBuilder &Builder) const override {
-@@ -8038,7 +8078,8 @@ public:
+@@ -8038,7 +8082,8 @@ public:
      SizeType = TargetInfo::UnsignedLong;
      PtrDiffType = IntPtrType = TargetInfo::SignedLong;
      resetDataLayout("e-i64:64-v16:16-v24:32-v32:32-v48:64-"
@@ -2471,7 +2497,7 @@ index 36e6d45..633c29b 100644
    }
    void getTargetDefines(const LangOptions &Opts,
                          MacroBuilder &Builder) const override {
-@@ -8046,6 +8087,40 @@ public:
+@@ -8046,6 +8091,40 @@ public:
    }
  };
  
@@ -2512,7 +2538,7 @@ index 36e6d45..633c29b 100644
  class XCoreTargetInfo : public TargetInfo {
    static const Builtin::Info BuiltinInfo[];
  public:
-@@ -8580,18 +8655,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
+@@ -8580,18 +8659,12 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple,
        return new X86_64TargetInfo(Triple, Opts);
      }
  
@@ -8734,7 +8760,7 @@ index 9871f29..c895374 100644
      Suffixed += Suffix;
      NamedOutput = C.getArgs().MakeArgString(Suffixed.c_str());
 diff --git a/lib/Driver/ToolChains.cpp b/lib/Driver/ToolChains.cpp
-index 4b8182e..b99b571 100644
+index 4b8182e..0e666db 100644
 --- a/lib/Driver/ToolChains.cpp
 +++ b/lib/Driver/ToolChains.cpp
 @@ -78,6 +78,8 @@ ToolChain::CXXStdlibType Darwin::GetDefaultCXXStdlibType() const {
@@ -8799,16 +8825,18 @@ index 4b8182e..b99b571 100644
      CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-7.5");
      CudaPathCandidates.push_back(D.SysRoot + "/usr/local/cuda-7.0");
    }
-@@ -1828,6 +1844,8 @@ void Generic_GCC::CudaInstallationDetector::init(
+@@ -1828,6 +1844,10 @@ void Generic_GCC::CudaInstallationDetector::init(
          LibDeviceMap["sm_60"] = FilePath;
          LibDeviceMap["sm_61"] = FilePath;
          LibDeviceMap["sm_62"] = FilePath;
 +        LibDeviceMap["sm_70"] = FilePath;
 +        LibDeviceMap["sm_72"] = FilePath;
++        LibDeviceMap["sm_73"] = FilePath;
++        LibDeviceMap["sm_75"] = FilePath;
        } else if (GpuArch == "compute_35") {
          LibDeviceMap["sm_35"] = FilePath;
          LibDeviceMap["sm_37"] = FilePath;
-@@ -4820,11 +4838,11 @@ CudaToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+@@ -4820,11 +4840,11 @@ CudaToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
    CC1Args.push_back("-mlink-cuda-bitcode");
    CC1Args.push_back(DriverArgs.MakeArgString(LibDeviceFile));
  
