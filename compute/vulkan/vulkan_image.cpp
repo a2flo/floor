@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_image::vulkan_image(const vulkan_device* device,
+vulkan_image::vulkan_image(vulkan_device* device,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,
@@ -115,7 +115,7 @@ bool vulkan_image::create_internal(const bool copy_host_data, shared_ptr<compute
 		{ COMPUTE_IMAGE_TYPE::RG32I, VK_FORMAT_R32G32_SINT },
 		{ COMPUTE_IMAGE_TYPE::RG32F, VK_FORMAT_R32G32_SFLOAT },
 #if 0 // 3-channel formats are not supported by AMD and NVIDIA, so always use 4-channel formats instead
-      // TODO: do this dynamically
+		// TODO: do this dynamically
 		// RGB
 		{ COMPUTE_IMAGE_TYPE::RGB8UI_NORM, VK_FORMAT_R8G8B8_UNORM },
 		{ COMPUTE_IMAGE_TYPE::RGB8I_NORM, VK_FORMAT_R8G8B8_SNORM },

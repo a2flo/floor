@@ -208,7 +208,16 @@ namespace device_info {
 	
 	//! returns true if the device supports sub-groups (opencl with extension; always true with cuda)
 	constexpr bool has_sub_groups() {
-#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
+		return true;
+#else
+		return false;
+#endif
+	}
+	
+	//! returns true if the device supports cooperative kernel launchs (currently cuda 9.0+ with sm_60+)
+	constexpr bool has_cooperative_kernel_support() {
+#if FLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL != 0
 		return true;
 #else
 		return false;

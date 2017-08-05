@@ -26,7 +26,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-cuda_buffer::cuda_buffer(const cuda_device* device,
+cuda_buffer::cuda_buffer(cuda_device* device,
 						 const size_t& size_,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
@@ -219,15 +219,15 @@ void cuda_buffer::fill(shared_ptr<compute_queue> cqueue,
 	const size_t pattern_count = fill_size / pattern_size;
 	switch(pattern_size) {
 		case 1:
-			CU_CALL_RET(cu_memset_d8_async(buffer + offset, *(uint8_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d8_async(buffer + offset, *(const uint8_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
 						"failed to fill device memory (8-bit memset)");
 			break;
 		case 2:
-			CU_CALL_RET(cu_memset_d16_async(buffer + offset, *(uint16_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d16_async(buffer + offset, *(const uint16_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
 						"failed to fill device memory (16-bit memset)");
 			break;
 		case 4:
-			CU_CALL_RET(cu_memset_d32_async(buffer + offset, *(uint32_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
+			CU_CALL_RET(cu_memset_d32_async(buffer + offset, *(const uint32_t*)pattern, pattern_count, (cu_stream)cqueue->get_queue_ptr()),
 						"failed to fill device memory (32-bit memset)");
 			break;
 		default:

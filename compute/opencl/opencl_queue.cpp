@@ -37,4 +37,8 @@ const void* opencl_queue::get_queue_ptr() const {
 	return queue;
 }
 
+void* opencl_queue::get_queue_ptr() {
+	return queue;
+}
+
 #endif

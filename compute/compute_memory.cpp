@@ -51,7 +51,7 @@ static constexpr COMPUTE_MEMORY_FLAG handle_memory_flags(COMPUTE_MEMORY_FLAG fla
 	return flags;
 }
 
-compute_memory::compute_memory(const compute_device* device,
+compute_memory::compute_memory(compute_device* device,
 							   void* host_ptr_,
 							   const COMPUTE_MEMORY_FLAG flags_,
 							   const uint32_t opengl_type_,

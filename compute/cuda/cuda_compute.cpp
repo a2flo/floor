@@ -177,7 +177,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->clock /= 1000; // to MHz
 		device->mem_clock /= 1000;
 		
-		int exec_timeout, overlap, map_host_memory, integrated, concurrent, ecc, tcc, unified_memory;
+		int exec_timeout, overlap, map_host_memory, integrated, concurrent, ecc, tcc, unified_memory, coop_launch;
 		CU_CALL_IGNORE(cu_device_get_attribute(&exec_timeout, CU_DEVICE_ATTRIBUTE::KERNEL_EXEC_TIMEOUT, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&overlap, CU_DEVICE_ATTRIBUTE::GPU_OVERLAP, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&map_host_memory, CU_DEVICE_ATTRIBUTE::CAN_MAP_HOST_MEMORY, cuda_dev));
@@ -186,7 +186,9 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		CU_CALL_IGNORE(cu_device_get_attribute(&ecc, CU_DEVICE_ATTRIBUTE::ECC_ENABLED, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&tcc, CU_DEVICE_ATTRIBUTE::TCC_DRIVER, cuda_dev));
 		CU_CALL_IGNORE(cu_device_get_attribute(&unified_memory, CU_DEVICE_ATTRIBUTE::UNIFIED_ADDRESSING, cuda_dev));
+		CU_CALL_IGNORE(cu_device_get_attribute(&coop_launch, CU_DEVICE_ATTRIBUTE::COOPERATIVE_LAUNCH_SUPPORTED, cuda_dev));
 		device->unified_memory = (unified_memory != 0);
+		device->cooperative_kernel_support = (coop_launch != 0);
 		
 		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
 		
@@ -249,6 +251,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 				device->local_mem_size / 1024ULL,
 				device->constant_mem_size / 1024ULL);
 		log_msg("host unified memory: %u", device->unified_memory);
+		log_msg("coop kernels: %u", device->cooperative_kernel_support);
 		log_msg("max total local size: %u", device->max_total_local_size);
 		log_msg("max local size: %v", device->max_local_size);
 		log_msg("max global size: %v", device->max_global_size);
@@ -496,8 +499,8 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		CU_CALL_RET(cu_module_load_data_ex(&ret.program,
 										   program.data_or_filename.c_str(),
 										   option_count,
-										   (CU_JIT_OPTION*)&jit_options[0],
-										   (void**)&jit_option_values[0]),
+										   (const CU_JIT_OPTION*)&jit_options[0],
+										   (const void* const*)&jit_option_values[0]),
 					"failed to load/jit cuda module", {});
 	}
 	else {
@@ -549,8 +552,8 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 		void* cubin_ptr = nullptr;
 		size_t cubin_size = 0;
 		CU_CALL_RET(cu_link_create(option_count,
-								   (CU_JIT_OPTION*)&jit_options[0],
-								   (void**)&jit_option_values[0],
+								   (const CU_JIT_OPTION*)&jit_options[0],
+								   (const void* const*)&jit_option_values[0],
 								   &link_state),
 					"failed to create link state", {});
 		CU_CALL_ERROR_EXEC(cu_link_add_data(link_state, CU_JIT_INPUT_TYPE::PTX,

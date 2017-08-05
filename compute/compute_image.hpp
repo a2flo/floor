@@ -59,7 +59,7 @@ public:
 	}
 	
 	// TODO: anisotropic value (must be present at init, or need to recreate image later)
-	compute_image(const compute_device* device,
+	compute_image(compute_device* device,
 				  const uint4 image_dim_,
 				  const COMPUTE_IMAGE_TYPE image_type_,
 				  void* host_ptr_ = nullptr,
@@ -271,7 +271,7 @@ protected:
 	void build_mip_map_minification_program() const;
 	
 	//! creates the mip-map chain for this image (if not using opengl and not manually generating mip-maps)
-	virtual void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const;
+	virtual void generate_mip_map_chain(shared_ptr<compute_queue> cqueue);
 	
 };
 

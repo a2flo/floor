@@ -403,7 +403,7 @@ floor_inline_always static void image_write_mem_fence() {
 }
 
 // sub-group functionality (opencl 2.1+, cl_khr_subgroups, cl_intel_subgroups)
-#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 const_func uint32_t get_sub_group_id();
 const_func uint32_t get_sub_group_local_id();
 const_func uint32_t get_sub_group_size();

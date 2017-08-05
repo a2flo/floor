@@ -25,7 +25,7 @@
 #include <floor/compute/host/host_device.hpp>
 #include <floor/compute/host/host_compute.hpp>
 
-host_buffer::host_buffer(const host_device* device,
+host_buffer::host_buffer(host_device* device,
 						 const size_t& size_,
 						 void* host_ptr_,
 						 const COMPUTE_MEMORY_FLAG flags_,
@@ -139,7 +139,7 @@ void host_buffer::fill(shared_ptr<compute_queue> cqueue floor_unused,
 	
 	switch(pattern_size) {
 		case 1:
-			memset(buffer + offset, *(uint8_t*)pattern, fill_size);
+			memset(buffer + offset, *(const uint8_t*)pattern, fill_size);
 			break;
 #if defined(__APPLE__) // TODO: check for availability on linux, *bsd, windows
 		// NOTE: memset_pattern* will simple truncate any overspill, so size checking is not necessary

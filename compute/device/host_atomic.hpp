@@ -157,7 +157,7 @@ floor_inline_always uint32_t atomic_cmpxchg(volatile uint32_t* p, uint32_t cmp, 
 }
 floor_inline_always float atomic_cmpxchg(volatile float* p, float cmp, float val) {
 	const auto ret = atomic_cmpxchg((volatile uint32_t*)p, *(uint32_t*)&cmp, *(uint32_t*)&val);
-	return *(float*)&ret;
+	return *(const float*)&ret;
 }
 floor_inline_always int64_t atomic_cmpxchg(volatile int64_t* p, int64_t cmp, int64_t val) {
 	return floor_host_atomic_compare_exchange_weak((volatile _Atomic(int64_t)*)p, &cmp, val,
@@ -169,7 +169,7 @@ floor_inline_always uint64_t atomic_cmpxchg(volatile uint64_t* p, uint64_t cmp, 
 }
 floor_inline_always double atomic_cmpxchg(volatile double* p, double cmp, double val) {
 	const auto ret = atomic_cmpxchg((volatile uint64_t*)p, *(uint64_t*)&cmp, *(uint64_t*)&val);
-	return *(double*)&ret;
+	return *(const double*)&ret;
 }
 
 // 32-bit windows/c2 fallbacks (remaining ones, must be here, because they require atomic_cmpxchg)
@@ -298,7 +298,7 @@ floor_inline_always uint32_t atomic_xchg(volatile uint32_t* p, uint32_t val) {
 }
 floor_inline_always float atomic_xchg(volatile float* p, float val) {
 	const uint32_t ret = floor_host_atomic_exchange((volatile _Atomic(uint32_t)*)p, *(uint32_t*)&val, memory_order_relaxed);
-	return *(float*)&ret;
+	return *(const float*)&ret;
 }
 floor_inline_always int64_t atomic_xchg(volatile int64_t* p, int64_t val) {
 	return floor_host_atomic_exchange((volatile _Atomic(int64_t)*)p, val, memory_order_relaxed);
@@ -308,7 +308,7 @@ floor_inline_always uint64_t atomic_xchg(volatile uint64_t* p, uint64_t val) {
 }
 floor_inline_always double atomic_xchg(volatile double* p, double val) {
 	const uint64_t ret = floor_host_atomic_exchange((volatile _Atomic(uint64_t)*)p, *(uint64_t*)&val, memory_order_relaxed);
-	return *(double*)&ret;
+	return *(const double*)&ret;
 }
 
 // min (not natively supported)
@@ -414,6 +414,8 @@ floor_inline_always void atomic_store(volatile double* p, double val) {
 }
 
 // load
+FLOOR_PUSH_WARNINGS()
+FLOOR_IGNORE_WARNING(cast-qual) // ignored const -> non-const casts here (no other way of doing this)
 floor_inline_always int32_t atomic_load(const volatile int32_t* p) {
 	return floor_host_atomic_load((volatile _Atomic(int32_t)*)p, memory_order_relaxed);
 }
@@ -422,7 +424,7 @@ floor_inline_always uint32_t atomic_load(const volatile uint32_t* p) {
 }
 floor_inline_always float atomic_load(const volatile float* p) {
 	const uint32_t ret = floor_host_atomic_load((volatile _Atomic(uint32_t)*)p, memory_order_relaxed);
-	return *(float*)&ret;
+	return *(const float*)&ret;
 }
 floor_inline_always int64_t atomic_load(const volatile int64_t* p) {
 	return floor_host_atomic_load((volatile _Atomic(int64_t)*)p, memory_order_relaxed);
@@ -432,8 +434,9 @@ floor_inline_always uint64_t atomic_load(const volatile uint64_t* p) {
 }
 floor_inline_always double atomic_load(const volatile double* p) {
 	const uint64_t ret = floor_host_atomic_load((volatile _Atomic(uint64_t)*)p, memory_order_relaxed);
-	return *(double*)&ret;
+	return *(const double*)&ret;
 }
+FLOOR_POP_WARNINGS()
 
 #endif
 

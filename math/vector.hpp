@@ -371,7 +371,7 @@ public:
 	//! NOTE: not constexpr if index is not const due to the reinterpret_cast
 	const scalar_type& operator[](const size_t& index) const {
 		__builtin_assume(index < FLOOR_VECTOR_WIDTH);
-		return ((scalar_type*)this)[index];
+		return ((const scalar_type*)this)[index];
 	}
 	
 	//! subscript access, with index in [0, #components - 1]
@@ -440,7 +440,7 @@ public:
 	//! c array style access (not enabled if scalar_type is a reference)
 	template <typename ptr_base_type = scalar_type, enable_if_t<!is_reference<ptr_base_type>::value>* = nullptr>
 	const ptr_base_type* data() const {
-		return (ptr_base_type*)this;
+		return (const ptr_base_type*)this;
 	}
 	
 	//! c array style access (not enabled if scalar_type is a reference)

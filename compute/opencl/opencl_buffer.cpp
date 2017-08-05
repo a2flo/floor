@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-opencl_buffer::opencl_buffer(const opencl_device* device,
+opencl_buffer::opencl_buffer(opencl_device* device,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,

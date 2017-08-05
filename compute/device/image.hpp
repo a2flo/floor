@@ -290,8 +290,8 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
-		const uint64_t w_img_obj;
-		const uint64_t* w_img_lod_obj;
+		uint64_t w_img_obj;
+		uint64_t* w_img_lod_obj;
 		const __attribute__((image_read_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
 #elif defined(FLOOR_COMPUTE_HOST)
 		const host_device_image<image_type>* r_img_obj;
@@ -308,20 +308,20 @@ namespace floor_image {
 #if defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_METAL)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
-		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
+		floor_inline_always constexpr auto& w_img() { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
-		const uint64_t w_img_obj;
-		const uint64_t* w_img_lod_obj;
+		uint64_t w_img_obj;
+		uint64_t* w_img_lod_obj;
 		const __attribute__((image_write_only)) COMPUTE_IMAGE_TYPE runtime_image_type;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_HOST)
-		const host_device_image<image_type>* w_img_obj;
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		host_device_image<image_type>* w_img_obj;
+		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
 #endif
 	};
 	//! read-write
@@ -336,29 +336,29 @@ namespace floor_image {
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type w_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
 #else
 		__attribute__((floor_image(sample_type), image_read_write)) opaque_type rw_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return rw_img_obj; }
 #endif
 #elif defined(FLOOR_COMPUTE_VULKAN)
 		typedef typename opaque_image_type<image_type>::type opaque_type;
 		__attribute__((floor_image(sample_type), image_read_only)) opaque_type r_img_obj;
 		__attribute__((floor_image(sample_type), image_write_only)) opaque_type (*w_img_lod_obj)[FLOOR_COMPUTE_INFO_MAX_MIP_LEVELS];
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return (*w_img_lod_obj)[0]; }
+		floor_inline_always constexpr auto& w_img() { return (*w_img_lod_obj)[0]; }
 #elif defined(FLOOR_COMPUTE_CUDA)
 		const uint32_t r_img_obj[cuda_sampler::max_sampler_count];
-		const uint64_t w_img_obj;
-		const uint64_t* w_img_lod_obj;
+		uint64_t w_img_obj;
+		uint64_t* w_img_lod_obj;
 		const __attribute__((image_read_write)) COMPUTE_IMAGE_TYPE runtime_image_type;
 		floor_inline_always constexpr auto& r_img() const { return r_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return w_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return w_img_obj; }
 #elif defined(FLOOR_COMPUTE_HOST)
-		const host_device_image<image_type>* rw_img_obj;
+		host_device_image<image_type>* rw_img_obj;
 		floor_inline_always constexpr auto& r_img() const { return rw_img_obj; }
-		floor_inline_always constexpr auto& w_img() const { return rw_img_obj; }
+		floor_inline_always constexpr auto& w_img() { return rw_img_obj; }
 #endif
 	};
 	
@@ -885,7 +885,7 @@ namespace floor_image {
 		floor_inline_always void write_internal(const coord_type& coord,
 												const uint32_t layer,
 												const uint32_t lod,
-												const vector_sample_type& data) const {
+												const vector_sample_type& data) {
 			// sample type must be 32-bit float, int or uint
 			constexpr const bool is_float = is_sample_float(image_type);
 			constexpr const bool is_int = is_sample_int(image_type);
@@ -933,7 +933,7 @@ namespace floor_image {
 		template <typename coord_type, COMPUTE_IMAGE_TYPE image_type_ = image_type,
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		floor_inline_always auto write(const coord_type& coord,
-									   const vector_sample_type& data) const {
+									   const vector_sample_type& data) {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal<false>(coord, 0, 0, data);
 		}
@@ -943,7 +943,7 @@ namespace floor_image {
 				  enable_if_t<has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		floor_inline_always auto write(const coord_type& coord,
 									   const uint32_t layer,
-									   const vector_sample_type& data) const {
+									   const vector_sample_type& data) {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal<false>(coord, layer, 0, data);
 		}
@@ -953,7 +953,7 @@ namespace floor_image {
 				  enable_if_t<!has_flag<COMPUTE_IMAGE_TYPE::FLAG_ARRAY>(image_type_)>* = nullptr>
 		floor_inline_always auto write_lod(const coord_type& coord,
 										   const uint32_t lod,
-										   const vector_sample_type& data) const {
+										   const vector_sample_type& data) {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal<true>(coord, 0, lod, data);
 		}
@@ -964,7 +964,7 @@ namespace floor_image {
 		floor_inline_always auto write_lod(const coord_type& coord,
 										   const uint32_t layer,
 										   const uint32_t lod,
-										   const vector_sample_type& data) const {
+										   const vector_sample_type& data) {
 			static_assert(is_int_coord<coord_type>(), "image write coordinates must be of integer type");
 			return write_internal<true>(coord, layer, lod, data);
 		}

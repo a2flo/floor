@@ -492,7 +492,7 @@ static void floor_alloc_host_memory() {
 
 //
 host_kernel::host_kernel(const void* kernel_, const string& func_name_, compute_kernel::kernel_entry&& entry_) :
-kernel((kernel_func_type)kernel_), func_name(func_name_), entry(move(entry_)) {
+kernel((const kernel_func_type)const_cast<void*>(kernel_)), func_name(func_name_), entry(move(entry_)) {
 }
 
 host_kernel::~host_kernel() {}

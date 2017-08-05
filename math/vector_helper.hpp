@@ -203,11 +203,11 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs & rhs) \
-F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs | rhs) \
-F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs ^ rhs) \
-F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs << rhs) \
-F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint32_t*)&lhs >> rhs) \
+F2_INT(bit_and, , *(const float*)&ret, const auto ret = *(const uint32_t*)&lhs & rhs) \
+F2_INT(bit_or, , *(const float*)&ret, const auto ret = *(const uint32_t*)&lhs | rhs) \
+F2_INT(bit_xor, , *(const float*)&ret, const auto ret = *(const uint32_t*)&lhs ^ rhs) \
+F2_INT(bit_left_shift, , *(const float*)&ret, const auto ret = *(const uint32_t*)&lhs << rhs) \
+F2_INT(bit_right_shift, , *(const float*)&ret, const auto ret = *(const uint32_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0f ? 0.0f : 1.0f)) \
 F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - math::__abs(val))) \
 F1(clz, constexpr, math::__clz(val)) \
@@ -249,11 +249,11 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs & rhs) \
-F2_INT(bit_or, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs | rhs) \
-F2_INT(bit_xor, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs ^ rhs) \
-F2_INT(bit_left_shift, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs << rhs) \
-F2_INT(bit_right_shift, , *(double*)&ret, const auto ret = *(uint64_t*)&lhs >> rhs) \
+F2_INT(bit_and, , *(const double*)&ret, const auto ret = *(const uint64_t*)&lhs & rhs) \
+F2_INT(bit_or, , *(const double*)&ret, const auto ret = *(const uint64_t*)&lhs | rhs) \
+F2_INT(bit_xor, , *(const double*)&ret, const auto ret = *(const uint64_t*)&lhs ^ rhs) \
+F2_INT(bit_left_shift, , *(const double*)&ret, const auto ret = *(const uint64_t*)&lhs << rhs) \
+F2_INT(bit_right_shift, , *(const double*)&ret, const auto ret = *(const uint64_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0 ? 0.0 : 1.0)) \
 F1(unary_complement, constexpr, (val < 0.0 ? 1.0 : -1.0) * (numeric_limits<double>::max() - math::__abs(val))) \
 F1(clz, constexpr, math::__clz(val)) \
@@ -295,11 +295,11 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) & rhs) \
-F2_INT(bit_or, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) | rhs) \
-F2_INT(bit_xor, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) ^ rhs) \
-F2_INT(bit_left_shift, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) << rhs) \
-F2_INT(bit_right_shift, , *(long double*)&ret, const auto ret = integral_bitcast(lhs) >> rhs) \
+F2_INT(bit_and, , *(const long double*)&ret, const auto ret = integral_bitcast(lhs) & rhs) \
+F2_INT(bit_or, , *(const long double*)&ret, const auto ret = integral_bitcast(lhs) | rhs) \
+F2_INT(bit_xor, , *(const long double*)&ret, const auto ret = integral_bitcast(lhs) ^ rhs) \
+F2_INT(bit_left_shift, , *(const long double*)&ret, const auto ret = integral_bitcast(lhs) << rhs) \
+F2_INT(bit_right_shift, , *(const long double*)&ret, const auto ret = integral_bitcast(lhs) >> rhs) \
 F1(unary_not, constexpr, (val == 0.0L ? 0.0L : 1.0L)) \
 F1(unary_complement, constexpr, (val < 0.0L ? 1.0L : -1.0L) * (numeric_limits<long double>::max() - math::__abs(val))) \
 F1(clz, constexpr, math::__clz(val)) \
@@ -341,11 +341,11 @@ F1(log, constexpr, math::__log(val)) \
 F1(log2, constexpr, math::__log2(val)) \
 F2(pow, constexpr, math::__pow(lhs, rhs)) \
 F3(fma, constexpr, math::__fma(a, b, c)) \
-F2_INT(bit_and, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs & rhs) \
-F2_INT(bit_or, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs | rhs) \
-F2_INT(bit_xor, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs ^ rhs) \
-F2_INT(bit_left_shift, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs << rhs) \
-F2_INT(bit_right_shift, , *(float*)&ret, const auto ret = *(uint16_t*)&lhs >> rhs) \
+F2_INT(bit_and, , *(const float*)&ret, const auto ret = *(const uint16_t*)&lhs & rhs) \
+F2_INT(bit_or, , *(const float*)&ret, const auto ret = *(const uint16_t*)&lhs | rhs) \
+F2_INT(bit_xor, , *(const float*)&ret, const auto ret = *(const uint16_t*)&lhs ^ rhs) \
+F2_INT(bit_left_shift, , *(const float*)&ret, const auto ret = *(const uint16_t*)&lhs << rhs) \
+F2_INT(bit_right_shift, , *(const float*)&ret, const auto ret = *(const uint16_t*)&lhs >> rhs) \
 F1(unary_not, constexpr, (val == 0.0f ? 0.0f : 1.0f)) \
 F1(unary_complement, constexpr, (val < 0.0f ? 1.0f : -1.0f) * (numeric_limits<float>::max() - float(math::__abs(val)))) \
 F1(clz, constexpr, math::__clz(val)) \

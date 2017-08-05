@@ -55,7 +55,7 @@ namespace compute_algorithm {
 	}
 	
 #elif defined(FLOOR_COMPUTE_OPENCL) || defined(FLOOR_COMPUTE_VULKAN)
-#if defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS != 0
 	// just forward to global functions for opencl
 	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
 		return ::sub_group_reduce_add(lane_var);

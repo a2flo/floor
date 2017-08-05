@@ -28,7 +28,7 @@
 class host_device;
 class host_buffer final : public compute_buffer {
 public:
-	host_buffer(const host_device* device,
+	host_buffer(host_device* device,
 				const size_t& size_,
 				void* host_ptr,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
@@ -36,7 +36,7 @@ public:
 				const uint32_t opengl_type_ = 0,
 				const uint32_t external_gl_object_ = 0);
 	
-	host_buffer(const host_device* device,
+	host_buffer(host_device* device,
 				const size_t& size_,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -44,7 +44,7 @@ public:
 	host_buffer(device, size_, nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
-	host_buffer(const host_device* device,
+	host_buffer(host_device* device,
 				const vector<data_type>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -52,7 +52,7 @@ public:
 	host_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
-	host_buffer(const host_device* device,
+	host_buffer(host_device* device,
 				const array<data_type, n>& data,
 				const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),

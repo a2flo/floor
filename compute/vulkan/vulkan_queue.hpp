@@ -38,6 +38,9 @@ public:
 	const void* get_queue_ptr() const override NO_THREAD_SAFETY_ANALYSIS {
 		return queue;
 	}
+	void* get_queue_ptr() override NO_THREAD_SAFETY_ANALYSIS {
+		return queue;
+	}
 	
 	uint32_t get_family_index() const {
 		return family_index;
@@ -63,7 +66,7 @@ public:
 							   const VkPipelineStageFlags wait_stage_flags = 0) REQUIRES(!cmd_buffers_lock, !queue_lock);
 	
 protected:
-	const VkQueue queue GUARDED_BY(queue_lock);
+	VkQueue queue GUARDED_BY(queue_lock);
 	mutable safe_mutex queue_lock;
 	const uint32_t family_index;
 	VkCommandPool cmd_pool;

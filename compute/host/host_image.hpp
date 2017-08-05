@@ -29,7 +29,7 @@
 class host_device;
 class host_image final : public compute_image {
 public:
-	host_image(const host_device* device,
+	host_image(host_device* device,
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   void* host_ptr = nullptr,

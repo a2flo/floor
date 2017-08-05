@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-metal_image::metal_image(const metal_device* device,
+metal_image::metal_image(metal_device* device,
 						 const uint4 image_dim_,
 						 const COMPUTE_IMAGE_TYPE image_type_,
 						 void* host_ptr_,
@@ -810,7 +810,7 @@ bool metal_image::release_opengl_object(shared_ptr<compute_queue> cqueue floor_u
 	return true;
 }
 
-void metal_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const {
+void metal_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	// nothing to do here
 	if([image mipmapLevelCount] == 1) return;
 	

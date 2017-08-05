@@ -149,6 +149,12 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.launch_kernel = load_symbol(cuda_lib, "cuLaunchKernel");
 	if(cuda_api.launch_kernel == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchKernel\"");
 	
+	(void*&)cuda_api.launch_cooperative_kernel = load_symbol(cuda_lib, "cuLaunchCooperativeKernel");
+	if(cuda_api.launch_cooperative_kernel == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchCooperativeKernel\"");
+	
+	(void*&)cuda_api.launch_cooperative_kernel_multi_device = load_symbol(cuda_lib, "cuLaunchCooperativeKernelMultiDevice");
+	if(cuda_api.launch_cooperative_kernel_multi_device == nullptr) log_error("failed to retrieve function pointer for \"cuLaunchCooperativeKernelMultiDevice\"");
+	
 	(void*&)cuda_api.link_add_data = load_symbol(cuda_lib, "cuLinkAddData_v2");
 	if(cuda_api.link_add_data == nullptr) log_error("failed to retrieve function pointer for \"cuLinkAddData_v2\"");
 	

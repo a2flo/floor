@@ -364,7 +364,7 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const void* ptr, const size_t& size) const {
 	// TODO: it would probably be better to allocate just one buffer, then use an offset/range for each argument
 	// TODO: current limitation of this is that size must be a multiple of 4
-	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->device, size, (void*)ptr,
+	shared_ptr<compute_buffer> constant_buffer = make_shared<vulkan_buffer>(encoder->device, size, ptr,
 																			COMPUTE_MEMORY_FLAG::READ |
 																			COMPUTE_MEMORY_FLAG::HOST_WRITE);
 	encoder->constant_buffers.push_back(constant_buffer);
@@ -374,7 +374,7 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 const compute_buffer* arg) const {
+								 compute_buffer* arg) const {
 	auto& write_desc = encoder->write_descs[idx.write_desc];
 	write_desc.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write_desc.pNext = nullptr;
@@ -384,7 +384,7 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 	write_desc.descriptorCount = 1;
 	write_desc.descriptorType = entry.desc_types[idx.binding];
 	write_desc.pImageInfo = nullptr;
-	write_desc.pBufferInfo = ((vulkan_buffer*)arg)->get_vulkan_buffer_info();
+	write_desc.pBufferInfo = ((const vulkan_buffer*)arg)->get_vulkan_buffer_info();
 	write_desc.pTexelBufferView = nullptr;
 	
 	// always offset 0 for now
@@ -396,7 +396,7 @@ void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 const compute_image* arg) const {
+								 compute_image* arg) const {
 	auto vk_img = (vulkan_image*)arg;
 	
 	// transition image to appropriate layout
@@ -458,7 +458,7 @@ template <typename T, typename F>
 floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_encoder* encoder,
 														 const vulkan_kernel::vulkan_kernel_entry& entry,
 														 vulkan_kernel::idx_handler& idx,
-														 const vector<T>& image_array, F&& image_accessor) {
+														 vector<T>& image_array, F&& image_accessor) {
 	// TODO: write/read-write array support
 	
 	// transition images to appropriate layout
@@ -511,15 +511,15 @@ floor_inline_always static void set_image_array_argument(vulkan_kernel::vulkan_e
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 const vector<shared_ptr<compute_image>>& arg) const {
-	set_image_array_argument(encoder, entry, idx, arg, [](const shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
+								 vector<shared_ptr<compute_image>>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](shared_ptr<compute_image>& img) { return (vulkan_image*)img.get(); });
 }
 
 void vulkan_kernel::set_argument(vulkan_encoder* encoder,
 								 const vulkan_kernel_entry& entry,
 								 idx_handler& idx,
-								 const vector<compute_image*>& arg) const {
-	set_image_array_argument(encoder, entry, idx, arg, [](const compute_image* img) { return (vulkan_image*)img; });
+								 vector<compute_image*>& arg) const {
+	set_image_array_argument(encoder, entry, idx, arg, [](compute_image* img) { return (vulkan_image*)img; });
 }
 
 #endif

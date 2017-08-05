@@ -35,6 +35,7 @@ public:
 	void flush() const override;
 	
 	const void* get_queue_ptr() const override;
+	void* get_queue_ptr() override;
 	
 };
 

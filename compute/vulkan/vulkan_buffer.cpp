@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-vulkan_buffer::vulkan_buffer(const vulkan_device* device,
+vulkan_buffer::vulkan_buffer(vulkan_device* device,
 							 const size_t& size_,
 							 void* host_ptr_,
 							 const COMPUTE_MEMORY_FLAG flags_,

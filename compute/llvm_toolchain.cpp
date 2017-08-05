@@ -413,7 +413,16 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	
 	// handle sub-group support
 	if(device->sub_group_support) {
-		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=1";
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=1 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_1";
+	} else {
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS=0 -DFLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_0";
+	}
+	
+	// handle cooperative kernel support
+	if(device->cooperative_kernel_support) {
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL=1 -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL_1";
+	} else {
+		clang_cmd += " -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL=0 -DFLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL_0";
 	}
 	
 	// handle image support

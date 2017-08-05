@@ -353,7 +353,7 @@ void file_io::write_block(const void* data, size_t size, bool check_size) {
 }
 
 void file_io::write_char(const uint8_t& ch) {
-	filestream.put((char&)ch);
+	filestream.put((const char&)ch);
 }
 
 void file_io::write_usint(const uint16_t& usi) {
@@ -389,7 +389,7 @@ void file_io::write_ullint(const uint64_t& ulli) {
 }
 
 void file_io::write_float(const float& f) {
-	filestream.write((char*)&f, 4);
+	filestream.write((const char*)&f, 4);
 }
 
 /*! returns true if the file specified by filename exists
@@ -473,7 +473,7 @@ string file_io::get_terminated_block(const uint8_t terminator) {
 
 void file_io::write_terminated_block(const string& str, const uint8_t terminator) {
 	write_block(str.c_str(), (unsigned int)str.length());
-	filestream.put((char&)terminator);
+	filestream.put((const char&)terminator);
 }
 
 fstream* file_io::get_filestream() {

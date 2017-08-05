@@ -445,13 +445,13 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 				if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ||
 				   image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// for 32-bit/64-bit float formats, just pass-through raw data
-					ret = *(decltype(ret)*)raw_data;
+					ret = *(const decltype(ret)*)raw_data;
 				}
 				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
-						ret[i] = (float)*(soft_f16*)(raw_data + i * 2);
+						ret[i] = (float)*(const soft_f16*)(raw_data + i * 2);
 					}
 				}
 				else floor_unreachable();
@@ -597,7 +597,7 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 								  conditional_t<is_signed_format, int64_t, uint64_t>> ret_type;
 			constexpr const auto channel_count = image_channel_count(type);
 			const vector_n<ret_type, channel_count> ret_widened =
-				*(vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count>*)raw_data;
+				*(const vector_n<typename image_sized_data_type<type, image_bits_of_channel(type, 0)>::type, channel_count>*)raw_data;
 			return vector4<ret_type> { ret_widened };
 		}
 
@@ -679,7 +679,7 @@ FLOOR_POP_WARNINGS()
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
 				if(has_stencil) {
-					memcpy(&img->data[offset + sizeof(float)], ((uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					memcpy(&img->data[offset + sizeof(float)], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}
 			else { // UINT
@@ -694,7 +694,7 @@ FLOOR_POP_WARNINGS()
 														depth_bytes == 3 ? 0xFFFFFFu : 0xFFFFFFFFu);
 				// always use long double for better precision
 				constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
-				auto depth_val = uint32_t(scale_factor * ((long double)*(float*)&color));
+				auto depth_val = uint32_t(scale_factor * ((long double)*(const float*)&color));
 				if(depth_bytes != 4) {
 					// clamp non-32-bit values to their correct range
 					depth_val = const_math::clamp(depth_val, 0u, clamp_value);
@@ -721,7 +721,7 @@ FLOOR_POP_WARNINGS()
 				
 				// finally, copy stencil
 				if(has_stencil) {
-					memcpy(&img->data[offset + depth_bytes], ((uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
+					memcpy(&img->data[offset + depth_bytes], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}
 		}

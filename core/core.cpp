@@ -451,7 +451,7 @@ string core::str_hex_escape(const string& str) {
 	for(const auto& ch : str) {
 		ret.push_back('\\');
 		ret.push_back('x');
-		const uint8_t& uch = *(uint8_t*)&ch;
+		const uint8_t& uch = *(const uint8_t*)&ch;
 		ret.push_back(bits_to_hex((uch >> 4) & 0xF));
 		ret.push_back(bits_to_hex(uch & 0xF));
 	}

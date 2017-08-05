@@ -85,6 +85,7 @@ public:
 	
 	//! implementation specific queue object ptr (cl_command_queue or CUStream, both "struct _ *")
 	virtual const void* get_queue_ptr() const = 0;
+	virtual void* get_queue_ptr() = 0;
 	
 	//! enqueues (and executes) the specified kernel into this queue
 	template <typename... Args, class work_size_type_global, class work_size_type_local,

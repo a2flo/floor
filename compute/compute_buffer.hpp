@@ -27,7 +27,7 @@ FLOOR_IGNORE_WARNING(weak-vtables)
 class compute_buffer : public compute_memory {
 public:
 	//! constructs a buffer of the specified size, using the host pointer as specified by the flags
-	compute_buffer(const compute_device* device,
+	compute_buffer(compute_device* device,
 				   const size_t& size_,
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
@@ -36,7 +36,7 @@ public:
 				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an uninitialized buffer of the specified size
-	compute_buffer(const compute_device* device,
+	compute_buffer(compute_device* device,
 				   const size_t& size_,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -45,7 +45,7 @@ public:
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type>
-	compute_buffer(const compute_device* device,
+	compute_buffer(compute_device* device,
 				   const vector<data_type>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -54,7 +54,7 @@ public:
 	
 	//! constructs a buffer of the specified data (under consideration of the specified flags)
 	template <typename data_type, size_t n>
-	compute_buffer(const compute_device* device,
+	compute_buffer(compute_device* device,
 				   const array<data_type, n>& data,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),

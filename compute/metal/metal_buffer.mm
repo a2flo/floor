@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-metal_buffer::metal_buffer(const metal_device* device,
+metal_buffer::metal_buffer(metal_device* device,
 						   const size_t& size_,
 						   void* host_ptr_,
 						   const COMPUTE_MEMORY_FLAG flags_,

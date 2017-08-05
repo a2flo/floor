@@ -145,7 +145,7 @@ protected:
 												 const opencl_kernel_entry& entry,
 												 const compute_buffer* arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
-								   &((opencl_buffer*)arg)->get_cl_buffer()),
+								   &((const opencl_buffer*)arg)->get_cl_buffer()),
 					"failed to set buffer kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
 		++arg_idx;
 	}
@@ -154,7 +154,7 @@ protected:
 												 const opencl_kernel_entry& entry,
 												 const compute_image* arg) const {
 		CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
-								   &((opencl_image*)arg)->get_cl_image()),
+								   &((const opencl_image*)arg)->get_cl_image()),
 					"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
 		++arg_idx;
 		
@@ -162,7 +162,7 @@ protected:
 		if(entry.info->args[total_idx].image_access == llvm_toolchain::function_info::ARG_IMAGE_ACCESS::READ_WRITE &&
 		   !handler->device->image_read_write_support) {
 			CL_CALL_RET(clSetKernelArg(entry.kernel, arg_idx, sizeof(cl_mem),
-									   &((opencl_image*)arg)->get_cl_image()),
+									   &((const opencl_image*)arg)->get_cl_image()),
 						"failed to set image kernel argument #" + to_string(total_idx) + " (in kernel " + entry.info->name + ")");
 			++arg_idx;
 		}

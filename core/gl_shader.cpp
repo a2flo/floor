@@ -165,7 +165,7 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	
 	// create the vertex shader object
 	shd_obj.vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(shd_obj.vertex_shader, 1, (GLchar const**)&vs_code_ptr, nullptr);
+	glShaderSource(shd_obj.vertex_shader, 1, (const GLchar* const*)&vs_code_ptr, nullptr);
 	glCompileShader(shd_obj.vertex_shader);
 	glGetShaderiv(shd_obj.vertex_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {
@@ -179,7 +179,7 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	if(gs_text != nullptr) {
 #if !defined(FLOOR_IOS)
 		shd_obj.geometry_shader = glCreateShader(GL_GEOMETRY_SHADER);
-		glShaderSource(shd_obj.geometry_shader, 1, (GLchar const**)&gs_code_ptr, nullptr);
+		glShaderSource(shd_obj.geometry_shader, 1, (const GLchar* const*)&gs_code_ptr, nullptr);
 		glCompileShader(shd_obj.geometry_shader);
 		glGetShaderiv(shd_obj.geometry_shader, GL_COMPILE_STATUS, &success);
 		if(!success) {
@@ -195,7 +195,7 @@ pair<bool, floor_shader_object> floor_compile_shader(const char* name,
 	
 	// create the fragment shader object
 	shd_obj.fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(shd_obj.fragment_shader, 1, (GLchar const**)&fs_code_ptr, nullptr);
+	glShaderSource(shd_obj.fragment_shader, 1, (const GLchar* const*)&fs_code_ptr, nullptr);
 	glCompileShader(shd_obj.fragment_shader);
 	glGetShaderiv(shd_obj.fragment_shader, GL_COMPILE_STATUS, &success);
 	if(!success) {

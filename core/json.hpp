@@ -89,7 +89,7 @@ public:
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
 			}
-			return { true, *(uint64_t*)&int_number };
+			return { true, *(const uint64_t*)&int_number };
 		}
 		template <typename T, enable_if_t<is_same<T, int32_t>::value>* = nullptr>
 		pair<bool, int32_t> get() const {
@@ -105,7 +105,7 @@ public:
 			if(type != VALUE_TYPE::INT_NUMBER) {
 				return { false, 0 };
 			}
-			return { true, uint32_t(std::min(*(uint64_t*)&int_number, uint64_t(UINT32_MAX))) };
+			return { true, uint32_t(std::min(*(const uint64_t*)&int_number, uint64_t(UINT32_MAX))) };
 		}
 		template <typename T, enable_if_t<is_same<T, float>::value>* = nullptr>
 		pair<bool, float> get() const {
@@ -157,7 +157,7 @@ public:
 		// init as signed integer
 		json_value(const int64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = val; }
 		// init as unsigned integer
-		json_value(const uint64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = *(int64_t*)&val; }
+		json_value(const uint64_t& val) : json_value(VALUE_TYPE::INT_NUMBER) { int_number = *(const int64_t*)&val; }
 		// init as single precision floating point
 		json_value(const float& val) : json_value(VALUE_TYPE::FP_NUMBER) { fp_number = (double)val; }
 		// init as double precision floating point

@@ -28,7 +28,7 @@
 class opencl_device;
 class opencl_image final : public compute_image {
 public:
-	opencl_image(const opencl_device* device,
+	opencl_image(opencl_device* device,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 void* host_ptr = nullptr,

@@ -328,14 +328,14 @@ void compute_image::init_gl_image_data(const void* data) {
 					GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
 				};
 				
-				auto cube_data = (data != nullptr ? level_data : nullptr);
+				const void* cube_data = (data != nullptr ? level_data : nullptr);
 				for(const auto& target : cube_targets) {
 					glTexImage2D(target, level, gl_internal_format, mip_image_dim.x, mip_image_dim.y, 0,
 								 gl_format, gl_type, cube_data);
 					
 					// advance to next side (if not nullptr init)
 					if(data != nullptr) {
-						cube_data = (uint8_t*)cube_data + slice_data_size;
+						cube_data = (const uint8_t*)cube_data + slice_data_size;
 					}
 				}
 			}
@@ -386,7 +386,7 @@ void compute_image::init_gl_image_data(const void* data) {
 		
 		// mip-level image data provided by user, advance pointer
 		if(!generate_mip_maps && data != nullptr) {
-			level_data = (uint8_t*)level_data + level_data_size;
+			level_data = (const uint8_t*)level_data + level_data_size;
 		}
 	}
 	
@@ -439,7 +439,7 @@ void compute_image::update_gl_image_data(const void* data) {
 					glTexSubImage2D(target, level, 0, 0, mip_image_dim.x, mip_image_dim.y, gl_format, gl_type, cube_data);
 					
 					// advance to next side
-					cube_data = (uint8_t*)cube_data + slice_data_size;
+					cube_data = (const uint8_t*)cube_data + slice_data_size;
 				}
 			}
 			else {
@@ -464,7 +464,7 @@ void compute_image::update_gl_image_data(const void* data) {
 		}
 		
 		// mip-level image data, advance pointer
-		level_data = (uint8_t*)level_data + level_data_size;
+		level_data = (const uint8_t*)level_data + level_data_size;
 	}
 	
 	// generate mip-map chain if requested
@@ -871,7 +871,7 @@ void compute_image::build_mip_map_minification_program() const {
 	}, "minify build");
 }
 
-void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const {
+void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) {
 	if(cqueue == nullptr) return;
 	
 	for(uint32_t try_out = 0; ; ++try_out) {
@@ -931,7 +931,7 @@ void compute_image::generate_mip_map_chain(shared_ptr<compute_queue> cqueue) con
 				++level, inv_prev_level_size = 1.0f / float3(level_size), level_size >>= 1) {
 				if(level == 0) continue;
 				cqueue->execute(minify_kernel, level_size.rounded_next_multiple(lsize), lsize,
-								(const compute_image*)this, level_size, inv_prev_level_size, level, layer);
+								(compute_image*)this, level_size, inv_prev_level_size, level, layer);
 			}
 		}
 		

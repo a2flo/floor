@@ -485,6 +485,20 @@ struct cu_texture_descriptor {
 	int32_t _reserved[12];
 };
 
+// cuda 9.0+
+struct cu_launch_params {
+	cu_function function;
+	uint32_t grid_dim_x;
+	uint32_t grid_dim_y;
+	uint32_t grid_dim_z;
+	uint32_t block_dim_x;
+	uint32_t block_dim_y;
+	uint32_t block_dim_z;
+	uint32_t shared_mem_bytes;
+	cu_stream stream;
+	void** kernel_params;
+};
+
 // internal api structs
 #include <floor/compute/cuda/cuda_internal_api.hpp>
 
@@ -515,9 +529,11 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*graphics_unmap_resources)(uint32_t count, cu_graphics_resource* resources, cu_stream h_stream);
 	CU_API CU_RESULT (*init)(uint32_t flags);
 	CU_API CU_RESULT (*launch_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params, void** extra);
-	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, void* data, size_t size, const char* name, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
+	CU_API CU_RESULT (*launch_cooperative_kernel)(cu_function f, uint32_t grid_dim_x, uint32_t grid_dim_y, uint32_t grid_dim_z, uint32_t block_dim_x, uint32_t block_dim_y, uint32_t block_dim_z, uint32_t shared_mem_bytes, cu_stream h_stream, void** kernel_params);
+	CU_API CU_RESULT (*launch_cooperative_kernel_multi_device)(cu_launch_params* launch_params, uint32_t num_devices, uint32_t flags);
+	CU_API CU_RESULT (*link_add_data)(cu_link_state state, CU_JIT_INPUT_TYPE type, void* data, size_t size, const char* name, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
 	CU_API CU_RESULT (*link_complete)(cu_link_state state, void** cubin_out, size_t* size_out);
-	CU_API CU_RESULT (*link_create)(uint32_t num_options, CU_JIT_OPTION* options, void** option_values, cu_link_state* state_out);
+	CU_API CU_RESULT (*link_create)(uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values, cu_link_state* state_out);
 	CU_API CU_RESULT (*link_destroy)(cu_link_state state);
 	CU_API CU_RESULT (*mem_alloc)(cu_device_ptr* dptr, size_t bytesize);
 	CU_API CU_RESULT (*mem_free)(cu_device_ptr dptr);
@@ -543,7 +559,7 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*mipmapped_array_get_level)(cu_array* level_array, cu_mip_mapped_array mipmapped_array, uint32_t level);
 	CU_API CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
 	CU_API CU_RESULT (*module_load_data)(cu_module* module, const void* image);
-	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, CU_JIT_OPTION* options, void** option_values);
+	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
 	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
 	CU_API CU_RESULT (*stream_synchronize)(cu_stream h_stream);
@@ -585,6 +601,8 @@ extern bool cuda_can_use_internal_api();
 #define cu_graphics_unmap_resources cuda_api.graphics_unmap_resources
 #define cu_init cuda_api.init
 #define cu_launch_kernel cuda_api.launch_kernel
+#define cu_launch_cooperative_kernel cuda_api.launch_cooperative_kernel
+#define cu_launch_cooperative_kernel_multi_device cuda_api.launch_cooperative_kernel_multi_device
 #define cu_link_add_data cuda_api.link_add_data
 #define cu_link_complete cuda_api.link_complete
 #define cu_link_create cuda_api.link_create

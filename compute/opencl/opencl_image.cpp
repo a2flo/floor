@@ -27,7 +27,7 @@
 
 // TODO: proper error (return) value handling everywhere
 
-opencl_image::opencl_image(const opencl_device* device,
+opencl_image::opencl_image(opencl_device* device,
 						   const uint4 image_dim_,
 						   const COMPUTE_IMAGE_TYPE image_type_,
 						   void* host_ptr_,

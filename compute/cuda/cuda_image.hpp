@@ -31,7 +31,7 @@ class cuda_compute;
 class cuda_buffer;
 class cuda_image final : public compute_image {
 public:
-	cuda_image(const cuda_device* device,
+	cuda_image(cuda_device* device,
 			   const uint4 image_dim,
 			   const COMPUTE_IMAGE_TYPE image_type,
 			   void* host_ptr = nullptr,

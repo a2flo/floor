@@ -32,7 +32,7 @@ static constexpr const uint8_t protection_byte { 0xA5 };
 static constexpr const size_t protection_size { 0u };
 #endif
 
-host_image::host_image(const host_device* device,
+host_image::host_image(host_device* device,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   void* host_ptr_,

@@ -146,7 +146,7 @@ protected:
 	floor_inline_always void set_kernel_argument(const uint8_t, const kernel_entry&, void** param, uint8_t*& data,
 												 const compute_buffer* arg) const {
 		*param = data;
-		memcpy(data, &((cuda_buffer*)arg)->get_cuda_buffer(), sizeof(cu_device_ptr));
+		memcpy(data, &((const cuda_buffer*)arg)->get_cuda_buffer(), sizeof(cu_device_ptr));
 		data += sizeof(cu_device_ptr);
 	}
 	
@@ -157,7 +157,7 @@ protected:
 												 const uint8_t, const kernel_entry&,
 #endif
 												 void** param, uint8_t*& data, const compute_image* arg) const {
-		auto cu_img = (cuda_image*)arg;
+		auto cu_img = (const cuda_image*)arg;
 		
 #if defined(FLOOR_DEBUG)
 		// sanity checks

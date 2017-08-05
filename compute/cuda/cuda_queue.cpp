@@ -36,4 +36,8 @@ const void* cuda_queue::get_queue_ptr() const {
 	return queue;
 }
 
+void* cuda_queue::get_queue_ptr() {
+	return queue;
+}
+
 #endif

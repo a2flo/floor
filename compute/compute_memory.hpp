@@ -105,7 +105,7 @@ public:
 	// TODO: memory migration: copy / move
 	
 	//! constructs an incomplete memory object
-	compute_memory(const compute_device* device,
+	compute_memory(compute_device* device,
 				   void* host_ptr,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -113,7 +113,7 @@ public:
 				   const uint32_t external_gl_object_ = 0);
 	
 	//! constructs an incomplete memory object
-	compute_memory(const compute_device* device,
+	compute_memory(compute_device* device,
 				   const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													   COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
 				   const uint32_t opengl_type_ = 0,
@@ -159,7 +159,7 @@ public:
 	void _unlock() RELEASE(lock);
 	
 protected:
-	const compute_device* dev { nullptr };
+	compute_device* dev { nullptr };
 	void* host_ptr { nullptr };
 	const COMPUTE_MEMORY_FLAG flags { COMPUTE_MEMORY_FLAG::NONE };
 	

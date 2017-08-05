@@ -31,7 +31,7 @@ class metal_device;
 class compute_device;
 class metal_image final : public compute_image {
 public:
-	metal_image(const metal_device* device,
+	metal_image(metal_device* device,
 				const uint4 image_dim,
 				const COMPUTE_IMAGE_TYPE image_type,
 				void* host_ptr = nullptr,
@@ -65,7 +65,7 @@ public:
 	id <MTLTexture> get_metal_image() const { return image; }
 	
 	//! creates the mip-map chain for this metal image
-	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) const override;
+	void generate_mip_map_chain(shared_ptr<compute_queue> cqueue) override;
 	
 protected:
 	id <MTLTexture> image { nil };

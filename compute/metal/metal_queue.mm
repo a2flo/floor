@@ -48,6 +48,10 @@ void metal_queue::flush() const {
 }
 
 const void* metal_queue::get_queue_ptr() const {
+	return (__bridge const void*)queue;
+}
+
+void* metal_queue::get_queue_ptr() {
 	return (__bridge void*)queue;
 }
 

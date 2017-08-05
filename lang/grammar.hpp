@@ -261,7 +261,7 @@ template <typename T> struct parser_node_base {
 	typedef const T storage_type;
 	
 	//! use this to access the enclosed object
-	const T& get_enclosed() const { return *(enclosed_type*)this; }
+	const T& get_enclosed() const { return *(const enclosed_type*)this; }
 	
 	//! NOTE: only for demonstration purposes - any derived class should implement this
 	match_return_type match(parser_context&) const {

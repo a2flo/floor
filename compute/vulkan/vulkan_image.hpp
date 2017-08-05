@@ -29,7 +29,7 @@
 class vulkan_device;
 class vulkan_image final : public compute_image, vulkan_memory {
 public:
-	vulkan_image(const vulkan_device* device,
+	vulkan_image(vulkan_device* device,
 				 const uint4 image_dim,
 				 const COMPUTE_IMAGE_TYPE image_type,
 				 void* host_ptr = nullptr,

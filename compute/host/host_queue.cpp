@@ -35,4 +35,8 @@ const void* host_queue::get_queue_ptr() const {
 	return this;
 }
 
+void* host_queue::get_queue_ptr() {
+	return this;
+}
+
 #endif

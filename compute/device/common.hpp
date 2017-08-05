@@ -253,7 +253,7 @@ _LIBCPP_END_NAMESPACE_STD
 #define sub_group_count get_num_sub_groups()
 #endif
 // signal that these functions are unavailable
-#if !defined(FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS)
+#if FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS == 0
 floor_inline_always static uint32_t get_sub_group_id() __attribute__((unavailable("sub-group functionality not available")));
 floor_inline_always static uint32_t get_sub_group_local_id() __attribute__((unavailable("sub-group functionality not available")));
 floor_inline_always static uint32_t get_sub_group_size() __attribute__((unavailable("sub-group functionality not available")));

@@ -170,7 +170,7 @@ CU_RESULT cuda_image::internal_device_sampler_init(cu_texture_ref tex_ref) {
 
 // TODO: proper error (return) value handling everywhere
 
-cuda_image::cuda_image(const cuda_device* device,
+cuda_image::cuda_image(cuda_device* device,
 					   const uint4 image_dim_,
 					   const COMPUTE_IMAGE_TYPE image_type_,
 					   void* host_ptr_,

@@ -35,6 +35,7 @@ public:
 	void flush() const override REQUIRES(!cmd_buffers_lock);
 	
 	const void* get_queue_ptr() const override;
+	void* get_queue_ptr() override;
 	
 	id <MTLCommandQueue> get_queue();
 	id <MTLCommandBuffer> make_command_buffer() REQUIRES(!cmd_buffers_lock);

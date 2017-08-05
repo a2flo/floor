@@ -80,10 +80,10 @@ public:
 					  const vector4<scalar_type>& col_2,
 					  const vector4<scalar_type>& col_3) noexcept :
 	data {{
-		((scalar_type*)&col_0)[0], ((scalar_type*)&col_0)[1], ((scalar_type*)&col_0)[2], ((scalar_type*)&col_0)[3],
-		((scalar_type*)&col_1)[0], ((scalar_type*)&col_1)[1], ((scalar_type*)&col_1)[2], ((scalar_type*)&col_1)[3],
-		((scalar_type*)&col_2)[0], ((scalar_type*)&col_2)[1], ((scalar_type*)&col_2)[2], ((scalar_type*)&col_2)[3],
-		((scalar_type*)&col_3)[0], ((scalar_type*)&col_3)[1], ((scalar_type*)&col_3)[2], ((scalar_type*)&col_3)[3] }} {}
+		((const scalar_type*)&col_0)[0], ((const scalar_type*)&col_0)[1], ((const scalar_type*)&col_0)[2], ((const scalar_type*)&col_0)[3],
+		((const scalar_type*)&col_1)[0], ((const scalar_type*)&col_1)[1], ((const scalar_type*)&col_1)[2], ((const scalar_type*)&col_1)[3],
+		((const scalar_type*)&col_2)[0], ((const scalar_type*)&col_2)[1], ((const scalar_type*)&col_2)[2], ((const scalar_type*)&col_2)[3],
+		((const scalar_type*)&col_3)[0], ((const scalar_type*)&col_3)[1], ((const scalar_type*)&col_3)[2], ((const scalar_type*)&col_3)[3] }} {}
 	
 	//! copy-construct from same matrix type
 	constexpr matrix4(const matrix4<scalar_type>& m4) noexcept : data(m4.data) {}

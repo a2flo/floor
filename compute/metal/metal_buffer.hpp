@@ -31,7 +31,7 @@ class metal_device;
 class compute_device;
 class metal_buffer final : public compute_buffer {
 public:
-	metal_buffer(const metal_device* device,
+	metal_buffer(metal_device* device,
 				 const size_t& size_,
 				 void* host_ptr,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
@@ -39,7 +39,7 @@ public:
 				 const uint32_t opengl_type_ = 0,
 				 const uint32_t external_gl_object_ = 0);
 	
-	metal_buffer(const metal_device* device,
+	metal_buffer(metal_device* device,
 				 const size_t& size_,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -47,7 +47,7 @@ public:
 	metal_buffer(device, size_, nullptr, flags_, opengl_type_) {}
 	
 	template <typename data_type>
-	metal_buffer(const metal_device* device,
+	metal_buffer(metal_device* device,
 				 const vector<data_type>& data,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
@@ -55,7 +55,7 @@ public:
 	metal_buffer(device, sizeof(data_type) * data.size(), (void*)&data[0], flags_, opengl_type_) {}
 	
 	template <typename data_type, size_t n>
-	metal_buffer(const metal_device* device,
+	metal_buffer(metal_device* device,
 				 const array<data_type, n>& data,
 				 const COMPUTE_MEMORY_FLAG flags_ = (COMPUTE_MEMORY_FLAG::READ_WRITE |
 													 COMPUTE_MEMORY_FLAG::HOST_READ_WRITE),
