@@ -21,40 +21,40 @@
 
 // 32-bit: <operation, address space, pointer, value>, use with binary op
 #define FLOOR_ATOMIC_FALLBACK_OP_32(op, as, ptr, val) for(;;) { \
-	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, volatile uint32_t*, uint32_t*> u32_ptr_type; \
+	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, as volatile uint32_t*, as uint32_t*> u32_ptr_type; \
 	const auto expected = *ptr; \
 	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((as u32_ptr_type)ptr, *(const uint32_t*)&expected, *(const uint32_t*)&wanted) == *(const uint32_t*)&expected) { \
+	if(atomic_cmpxchg((u32_ptr_type)ptr, *(const uint32_t*)&expected, *(const uint32_t*)&wanted) == *(const uint32_t*)&expected) { \
 		return expected; \
 	} \
 }
 
 // 64-bit: <operation, address space, pointer, value>, use with binary op
 #define FLOOR_ATOMIC_FALLBACK_OP_64(op, as, ptr, val) for(;;) { \
-	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, volatile uint64_t*, uint64_t*> u64_ptr_type; \
+	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, as volatile uint64_t*, as uint64_t*> u64_ptr_type; \
 	const auto expected = *ptr; \
 	const auto wanted = expected op val; \
-	if(atomic_cmpxchg((as u64_ptr_type)ptr, *(const uint64_t*)&expected, *(const uint64_t*)&wanted) == *(const uint64_t*)&expected) { \
+	if(atomic_cmpxchg((u64_ptr_type)ptr, *(const uint64_t*)&expected, *(const uint64_t*)&wanted) == *(const uint64_t*)&expected) { \
 		return expected; \
 	} \
 }
 
 // 32-bit: <function, address space, pointer, value>, use with a binary function
 #define FLOOR_ATOMIC_FALLBACK_FUNC_OP_32(func, as, ptr, val) for(;;) { \
-	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, volatile uint32_t*, uint32_t*> u32_ptr_type; \
+	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, as volatile uint32_t*, as uint32_t*> u32_ptr_type; \
 	const auto expected = *ptr; \
 	const auto wanted = func(expected, val); \
-	if(atomic_cmpxchg((as u32_ptr_type)ptr, *(const uint32_t*)&expected, *(const uint32_t*)&wanted) == *(const uint32_t*)&expected) { \
+	if(atomic_cmpxchg((u32_ptr_type)ptr, *(const uint32_t*)&expected, *(const uint32_t*)&wanted) == *(const uint32_t*)&expected) { \
 		return expected; \
 	} \
 }
 
 // 64-bit: <function, address space, pointer, value>, use with a binary function
 #define FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(func, as, ptr, val) for(;;) { \
-	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, volatile uint64_t*, uint64_t*> u64_ptr_type; \
+	typedef conditional_t<is_volatile_v<remove_pointer_t<decltype(ptr)>>, as volatile uint64_t*, as uint64_t*> u64_ptr_type; \
 	const auto expected = *ptr; \
 	const auto wanted = func(expected, val); \
-	if(atomic_cmpxchg((as u64_ptr_type)ptr, *(const uint64_t*)&expected, *(const uint64_t*)&wanted) == *(const uint64_t*)&expected) { \
+	if(atomic_cmpxchg((u64_ptr_type)ptr, *(const uint64_t*)&expected, *(const uint64_t*)&wanted) == *(const uint64_t*)&expected) { \
 		return expected; \
 	} \
 }

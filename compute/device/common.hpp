@@ -120,6 +120,18 @@ typedef double clang_double4 __attribute__((ext_vector_type(4)));
 
 using namespace std;
 
+
+// libc++ stl functionality without (most of) the baggage
+#if !defined(FLOOR_COMPUTE_HOST)
+#define _LIBCPP_NO_RTTI 1
+#define _LIBCPP_BUILD_STATIC 1
+#define _LIBCPP_NO_EXCEPTIONS 1
+#define _LIBCPP_HAS_NO_THREADS 1
+#define assert(...)
+#endif
+// stl headers that can be included before atomic functions
+#include <type_traits>
+
 // atomics (needed before c++ headers)
 #include <floor/compute/device/atomic_fallback.hpp>
 // ring dependencies ftw
@@ -141,16 +153,8 @@ using namespace std;
 // *_atomic.hpp headers included above, now add compat/forwarder/alias functions
 #include <floor/compute/device/atomic_compat.hpp>
 
-// libc++ stl functionality without (most of) the baggage
-#if !defined(FLOOR_COMPUTE_HOST)
-#define _LIBCPP_NO_RTTI 1
-#define _LIBCPP_BUILD_STATIC 1
-#define _LIBCPP_NO_EXCEPTIONS 1
-#define _LIBCPP_HAS_NO_THREADS 1
-#define assert(...)
-#endif
+// stl headers that must be included after atomic functions
 #include <utility>
-#include <type_traits>
 #include <initializer_list>
 #include <functional>
 #include <algorithm>

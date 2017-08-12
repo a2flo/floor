@@ -491,7 +491,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			{ .ui = sm_version },
 			{ .ui = floor::get_toolchain_profiling() ? 1u : 0u },
 			{ .ui = 0u },
-			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
+			{ .ui = program.options.cuda.max_registers != 0 ? program.options.cuda.max_registers : floor::get_cuda_max_registers() },
 			{ .ui = floor::get_cuda_jit_opt_level() },
 		};
 		static_assert(option_count == size(jit_option_values), "mismatching option count");
@@ -536,7 +536,7 @@ cuda_program::cuda_program_entry cuda_compute::create_cuda_program(const cuda_de
 			{ .ui = sm_version },
 			{ .ui = (floor::get_toolchain_profiling() || floor::get_toolchain_debug()) ? 1u : 0u },
 			{ .ui = floor::get_toolchain_debug() ? 1u : 0u },
-			{ .ui = program.options.cuda_max_registers != 0 ? program.options.cuda_max_registers : floor::get_cuda_max_registers() },
+			{ .ui = program.options.cuda.max_registers != 0 ? program.options.cuda.max_registers : floor::get_cuda_max_registers() },
 			// opt level must be 0 when debug info is generated
 			{ .ui = (floor::get_toolchain_debug() ? 0u : floor::get_cuda_jit_opt_level()) },
 			{ .ui = 1u },

@@ -179,9 +179,15 @@ public:
 		//! if true, overrides the config compute.log_commands option and silences other debug output
 		bool silence_debug_output { false };
 		
-		//! cuda: sets the maximum amount of registers that may be used
-		//!       if 0, the global config setting is used
-		uint32_t cuda_max_registers { 0u };
+		//! cuda specific options
+		struct {
+			//! sets the PTX version that should be used (4.3 by default)
+			uint32_t ptx_version { 43 };
+			
+			//! sets the maximum amount of registers that may be used
+			//! if 0, the global config setting is used
+			uint32_t max_registers { 0u };
+		} cuda;
 	};
 	
 	//! contains all information about a compiled compute/graphics program

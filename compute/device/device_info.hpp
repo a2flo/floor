@@ -233,6 +233,15 @@ namespace device_info {
 #endif
 	}
 	
+	//! when using cuda, this returns the ptx version this is compiled for, returns 0 otherwise
+	constexpr uint32_t cuda_ptx() {
+#if defined(FLOOR_COMPUTE_CUDA)
+		return FLOOR_COMPUTE_INFO_CUDA_PTX;
+#else
+		return 0;
+#endif
+	}
+	
 	//! returns true if images are supported by the device
 	constexpr bool has_image_support() {
 		return (FLOOR_COMPUTE_INFO_HAS_IMAGE_SUPPORT != 0);

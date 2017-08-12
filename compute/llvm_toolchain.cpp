@@ -121,6 +121,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	string clang_cmd = cmd_prefix;
 	string libcxx_path = " -isystem \"", clang_path = " -isystem \"", floor_path = " -isystem \"";
 	string sm_version = "20"; // handle cuda sm version (default to fermi/sm_20)
+	uint32_t ptx_version = max(43u, options.cuda.ptx_version); // handle cuda ptx version (default to at least ptx 4.3)
 	uint32_t bitness = device->bitness; // can be overwritten by target
 	string output_file_type = "bc"; // can be overwritten by target
 	uint32_t toolchain_version = 0;
@@ -188,6 +189,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			floor_path += floor::get_metal_base_path() + "floor";
 		} break;
 		case TARGET::PTX: {
+			// handle sm version
 			const auto& force_sm = floor::get_cuda_force_compile_sm();
 #if !defined(FLOOR_NO_CUDA)
 			const auto& sm = ((cuda_device*)device.get())->sm;
@@ -195,6 +197,28 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 #else
 			if(!force_sm.empty()) sm_version = force_sm;
 #endif
+
+			// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_70+)
+			switch(((cuda_device*)device.get())->sm.x) {
+				case 2:
+				case 3:
+				case 5:
+					// already 43
+					break;
+				case 6:
+					ptx_version = max(50u, ptx_version);
+					break;
+				case 7:
+				default:
+					ptx_version = max(60u, ptx_version);
+					break;
+			}
+			if(!floor::get_cuda_force_ptx().empty()) {
+				const auto forced_version = stou(floor::get_cuda_force_ptx());
+				if(forced_version >= 43 && forced_version < numeric_limits<uint32_t>::max()) {
+					ptx_version = forced_version;
+				}
+			}
 			
 			toolchain_version = floor::get_cuda_toolchain_version();
 			clang_cmd += {
@@ -516,8 +540,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 	// target specific compute info
 	switch(options.target) {
 		case TARGET::PTX:
-			// set cuda sm version
+			// set cuda sm and ptx version
 			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_SM=" + sm_version;
+			clang_cmd += " -DFLOOR_COMPUTE_INFO_CUDA_PTX=" + to_string(ptx_version);
 			break;
 		case TARGET::SPIRV_VULKAN: {
 			const auto vk_device = (const vulkan_device*)device.get();
@@ -644,29 +669,6 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 		// nop, final processing will be done in metal_compute
 	}
 	else if(options.target == TARGET::PTX) {
-		// handle ptx version (note that 4.3 is the minimum requirement for floor, 5.0 for sm_6x, 6.0 for sm_70+)
-		uint32_t ptx_version = 43;
-		switch(((cuda_device*)device.get())->sm.x) {
-			case 2:
-			case 3:
-			case 5:
-				// already 43
-				break;
-			case 6:
-				ptx_version = 50;
-				break;
-			case 7:
-			default:
-				ptx_version = 60;
-				break;
-		}
-		if(!floor::get_cuda_force_ptx().empty()) {
-			const auto forced_version = stou(floor::get_cuda_force_ptx());
-			if(forced_version >= 43 && forced_version < numeric_limits<uint32_t>::max()) {
-				ptx_version = forced_version;
-			}
-		}
-		
 		// compile llvm ir to ptx
 		const string llc_cmd {
 			"\"" + floor::get_cuda_llc() + "\"" +

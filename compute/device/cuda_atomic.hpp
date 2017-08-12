@@ -21,6 +21,39 @@
 
 #if defined(FLOOR_COMPUTE_CUDA)
 
+// cmpxchg
+// NOTE: must be defined before all other atomic functions, b/c we might need them as a fallback
+floor_inline_always int32_t atomic_cmpxchg(volatile int32_t* addr, const int32_t& cmp, const int32_t& val) {
+	int32_t ret;
+	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=r"(ret) : "l"(addr), "r"(cmp), "r"(val));
+	return ret;
+}
+floor_inline_always uint32_t atomic_cmpxchg(volatile uint32_t* addr, const uint32_t& cmp, const uint32_t& val) {
+	uint32_t ret;
+	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=r"(ret) : "l"(addr), "r"(cmp), "r"(val));
+	return ret;
+}
+floor_inline_always float atomic_cmpxchg(volatile float* addr, const float& cmp, const float& val) {
+	float ret;
+	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=f"(ret) : "l"(addr), "f"(cmp), "f"(val));
+	return ret;
+}
+floor_inline_always int64_t atomic_cmpxchg(volatile int64_t* addr, const int64_t& cmp, const int64_t& val) {
+	int64_t ret;
+	asm volatile("atom.cas.b64 %0, [%1], %2, %3;" : "=l"(ret) : "l"(addr), "l"(cmp), "l"(val));
+	return ret;
+}
+floor_inline_always uint64_t atomic_cmpxchg(volatile uint64_t* addr, const uint64_t& cmp, const uint64_t& val) {
+	uint64_t ret;
+	asm volatile("atom.cas.b64 %0, [%1], %2, %3;" : "=l"(ret) : "l"(addr), "l"(cmp), "l"(val));
+	return ret;
+}
+floor_inline_always double atomic_cmpxchg(volatile double* addr, const double& cmp, const double& val) {
+	double ret;
+	asm volatile("atom.cas.b64 %0, [%1], %2, %3;" : "=d"(ret) : "l"(addr), "d"(cmp), "d"(val));
+	return ret;
+}
+
 // add
 floor_inline_always int32_t atomic_add(volatile int32_t* addr, const int32_t& val) {
 	int32_t ret;
@@ -46,6 +79,15 @@ floor_inline_always uint64_t atomic_add(volatile uint64_t* addr, const uint64_t&
 	uint64_t ret;
 	asm volatile("atom.add.u64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
+}
+floor_inline_always double atomic_add(volatile double* addr, const double& val) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 60
+	double ret;
+	asm volatile("atom.add.f64 %0, [%1], %2;" : "=d"(ret) : "l"(addr), "d"(val));
+	return ret;
+#else
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(+, , addr, val)
+#endif
 }
 
 // sub
@@ -74,6 +116,15 @@ floor_inline_always uint64_t atomic_sub(volatile uint64_t* addr, const uint64_t&
 	asm volatile("atom.add.u64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(-int64_t(val)));
 	return ret;
 }
+floor_inline_always double atomic_sub(volatile double* addr, const double& val) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 60
+	double ret;
+	asm volatile("atom.add.f64 %0, [%1], %2;" : "=d"(ret) : "l"(addr), "d"(-val));
+	return ret;
+#else
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(-, , addr, val)
+#endif
+}
 
 // inc
 floor_inline_always int32_t atomic_inc(volatile int32_t* addr) {
@@ -100,6 +151,9 @@ floor_inline_always uint64_t atomic_inc(volatile uint64_t* addr) {
 	uint64_t ret;
 	asm volatile("atom.add.u64 %0, [%1], 1U;" : "=l"(ret) : "l"(addr));
 	return ret;
+}
+floor_inline_always double atomic_inc(volatile double* addr) {
+	return atomic_add(addr, 1.0);
 }
 
 // dec
@@ -128,6 +182,9 @@ floor_inline_always uint64_t atomic_dec(volatile uint64_t* addr) {
 	asm volatile("atom.add.u64 %0, [%1], -1;" : "=l"(ret) : "l"(addr));
 	return ret;
 }
+floor_inline_always double atomic_dec(volatile double* addr) {
+	return atomic_add(addr, -1.0);
+}
 
 // xchg
 floor_inline_always int32_t atomic_xchg(volatile int32_t* addr, const int32_t& val) {
@@ -155,31 +212,9 @@ floor_inline_always uint64_t atomic_xchg(volatile uint64_t* addr, const uint64_t
 	asm volatile("atom.exch.b64 %0, [%1], %2;" : "=l"(ret) : "l"(addr), "l"(val));
 	return ret;
 }
-
-// cmpxchg
-floor_inline_always int32_t atomic_cmpxchg(volatile int32_t* addr, const int32_t& cmp, const int32_t& val) {
-	int32_t ret;
-	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=r"(ret) : "l"(addr), "r"(cmp), "r"(val));
-	return ret;
-}
-floor_inline_always uint32_t atomic_cmpxchg(volatile uint32_t* addr, const uint32_t& cmp, const uint32_t& val) {
-	uint32_t ret;
-	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=r"(ret) : "l"(addr), "r"(cmp), "r"(val));
-	return ret;
-}
-floor_inline_always float atomic_cmpxchg(volatile float* addr, const float& cmp, const float& val) {
-	float ret;
-	asm volatile("atom.cas.b32 %0, [%1], %2, %3;" : "=f"(ret) : "l"(addr), "f"(cmp), "f"(val));
-	return ret;
-}
-floor_inline_always int64_t atomic_cmpxchg(volatile int64_t* addr, const int64_t& cmp, const int64_t& val) {
-	int64_t ret;
-	asm volatile("atom.cas.b64 %0, [%1], %2, %3;" : "=l"(ret) : "l"(addr), "l"(cmp), "l"(val));
-	return ret;
-}
-floor_inline_always uint64_t atomic_cmpxchg(volatile uint64_t* addr, const uint64_t& cmp, const uint64_t& val) {
-	uint64_t ret;
-	asm volatile("atom.cas.b64 %0, [%1], %2, %3;" : "=l"(ret) : "l"(addr), "l"(cmp), "l"(val));
+floor_inline_always double atomic_xchg(volatile double* addr, const double& val) {
+	double ret;
+	asm volatile("atom.exch.b64 %0, [%1], %2;" : "=d"(ret) : "l"(addr), "d"(val));
 	return ret;
 }
 
@@ -245,7 +280,7 @@ floor_inline_always uint64_t atomic_max(volatile uint64_t* addr, const uint64_t&
 }
 #endif
 
-// NOTE: not natively supported, but can be efficiently emulated through 32-bit min/max
+// NOTE: not natively supported, but can be efficiently emulated through 32-bit/64-bit min/max
 floor_inline_always float atomic_min(volatile float* addr, const float& val) {
 	if(val < 0.0f) {
 		return atomic_max((volatile uint32_t*)addr, *(uint32_t*)&val);
@@ -257,6 +292,26 @@ floor_inline_always float atomic_max(volatile float* addr, const float& val) {
 		return atomic_min((volatile uint32_t*)addr, *(uint32_t*)&val);
 	}
 	return atomic_max((volatile int32_t*)addr, *(int32_t*)&val);
+}
+floor_inline_always double atomic_min(volatile double* addr, const double& val) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
+	if(val < 0.0) {
+		return atomic_max((volatile uint64_t*)addr, *(uint64_t*)&val);
+	}
+	return atomic_min((volatile int64_t*)addr, *(int64_t*)&val);
+#else
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(min, , addr, val)
+#endif
+}
+floor_inline_always double atomic_max(volatile double* addr, const double& val) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_NATIVE_EXTENDED_64_BIT_ATOMICS_1)
+	if(val < 0.0) {
+		return atomic_min((volatile uint64_t*)addr, *(uint64_t*)&val);
+	}
+	return atomic_max((volatile int64_t*)addr, *(int64_t*)&val);
+#else
+	FLOOR_ATOMIC_FALLBACK_FUNC_OP_64(max, , addr, val)
+#endif
 }
 
 // and
@@ -368,6 +423,9 @@ floor_inline_always void atomic_store(volatile int64_t* addr, const int64_t& val
 floor_inline_always void atomic_store(volatile uint64_t* addr, const uint64_t& val) {
 	atomic_xchg(addr, val);
 }
+floor_inline_always void atomic_store(volatile double* addr, const double& val) {
+	atomic_xchg(addr, val);
+}
 
 // load (no proper instruction for this, so just perform a "+ 0")
 floor_inline_always int32_t atomic_load(const volatile int32_t* addr) {
@@ -384,6 +442,16 @@ floor_inline_always int64_t atomic_load(const volatile int64_t* addr) {
 }
 floor_inline_always uint64_t atomic_load(const volatile uint64_t* addr) {
 	return atomic_add((volatile uint64_t*)addr, 0ull);
+}
+floor_inline_always double atomic_load(const volatile double* addr) {
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 60
+	return atomic_add((volatile double*)addr, 0.0);
+#else
+	// can just use uint64_t add with 0 (same as 0.0)
+	uint64_t u64;
+	asm volatile("atom.add.u64 %0, [%1], %2;" : "=l"(u64) : "l"(addr), "l"(0ull));
+	return *(double*)&u64;
+#endif
 }
 
 #endif

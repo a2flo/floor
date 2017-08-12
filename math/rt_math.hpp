@@ -461,6 +461,45 @@ namespace rt_math {
 #endif
 	}
 	
+	//! finds the n-th set bit (specified by "offset") in "value", starting at bit #"base",
+	//! returns ~0u if the n-th set bit is not found
+	//! NOTE: base must be >= 0 and < 32
+	static floor_inline_always uint32_t find_nth_set(const uint32_t value,
+													 const uint32_t base,
+													 const int32_t offset_) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET) && FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET == 1
+		return floor_rt_find_nth_set(value, base, offset_);
+#else
+		static constexpr const uint32_t failure_ret { ~0u };
+		if(offset_ == 0) {
+			return ((value & (1u << base)) != 0u ? base : failure_ret);
+		}
+		else if(offset_ > 0) {
+			auto offset = uint32_t(offset_);
+			for(uint32_t cur_pos = base; cur_pos < 32; ++cur_pos) {
+				if((value & (1u << cur_pos)) != 0u) {
+					if(offset == 0u) {
+						return cur_pos;
+					}
+					--offset;
+				}
+			}
+		}
+		else if(offset_ < 0) {
+			auto offset = uint32_t(-offset_);
+			for(int32_t cur_pos = int32_t(base); cur_pos >= 0; --cur_pos) {
+				if((value & (1u << uint32_t(cur_pos))) != 0u) {
+					if(offset == 0u) {
+						return uint32_t(cur_pos);
+					}
+					--offset;
+				}
+			}
+		}
+		return failure_ret;
+#endif
+	}
+	
 }
 
 // -> "std::" s/w half/fp16 math functions (simply forward to float functions)

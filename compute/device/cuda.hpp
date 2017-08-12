@@ -47,6 +47,13 @@
 // we always have permute instructions
 #define FLOOR_COMPUTE_INFO_HAS_PERMUTE 1
 
+// sm_30+ with ptx 6.0+ has a "find nth set" instruction
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30 && FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
+#define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 1
+#else
+#define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 0
+#endif
+
 namespace std {
 	// float math functions
 	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
@@ -216,6 +223,14 @@ namespace std {
 	const_func floor_inline_always uint32_t floor_rt_funnel_shift_clamp_right(const uint32_t low, const uint32_t high, const uint32_t shift) {
 		uint32_t ret;
 		asm("shf.r.clamp.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(low), "r"(high), "r"(shift));
+		return ret;
+	}
+#endif
+	
+#if FLOOR_COMPUTE_INFO_CUDA_SM >= 30 && FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
+	const_func floor_inline_always uint32_t floor_rt_find_nth_set(const uint32_t value, const uint32_t base, const int32_t offset) {
+		uint32_t ret = 0;
+		asm("fns.b32 %0, %1, %2, %3;" : "=r"(ret) : "r"(value), "r"(base), "r"(offset));
 		return ret;
 	}
 #endif
