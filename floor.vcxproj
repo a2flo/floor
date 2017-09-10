@@ -1,22 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug_c2|Win32">
-      <Configuration>Debug_c2</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug_c2|x64">
-      <Configuration>Debug_c2</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug_net_c2|Win32">
-      <Configuration>Debug_net_c2</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Debug_net_c2|x64">
-      <Configuration>Debug_net_c2</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug_net|Win32">
       <Configuration>Debug_net</Configuration>
       <Platform>Win32</Platform>
@@ -31,22 +15,6 @@
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release_c2|Win32">
-      <Configuration>Release_c2</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release_c2|x64">
-      <Configuration>Release_c2</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release_net_c2|Win32">
-      <Configuration>Release_net_c2</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Release_net_c2|x64">
-      <Configuration>Release_net_c2</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release_net|Win32">
@@ -85,18 +53,6 @@
     <PlatformToolset>LLVM-vs2014</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -107,18 +63,6 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>LLVM-vs2014</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -132,20 +76,6 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>LLVM-vs2014</PlatformToolset>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -163,20 +93,6 @@
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141_clang_c2</PlatformToolset>
-    <WholeProgramOptimization>false</WholeProgramOptimization>
-    <CharacterSet>MultiByte</CharacterSet>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -188,22 +104,10 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -212,22 +116,10 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|x64'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|Win32'" Label="PropertySheets">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -240,24 +132,6 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d64</TargetName>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d</TargetName>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|x64'">
-    <UseMultiToolTask>true</UseMultiToolTask>
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
     <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
@@ -281,24 +155,6 @@
     <OutDir>$(SolutionDir)bin\</OutDir>
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d</TargetName>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|x64'">
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <TargetName>$(ProjectName)d64</TargetName>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
@@ -314,23 +170,6 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
     <TargetName>$(ProjectName)64</TargetName>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|Win32'">
-    <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|x64'">
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-    <TargetName>$(ProjectName)64</TargetName>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
@@ -339,23 +178,6 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|x64'">
-    <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-    <TargetName>$(ProjectName)64</TargetName>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|Win32'">
-    <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
-    <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
-    <OutDir>$(SolutionDir)bin\</OutDir>
-    <UseMultiToolTask>true</UseMultiToolTask>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|x64'">
-    <UseMultiToolTask>true</UseMultiToolTask>
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(ProgramW6432)\floor\include;C:\deps\include;$(VK_SDK_PATH)\Include;$(AMDAPPSDKROOT)include;$(INTELOCLSDKROOT)include;$(VC_IncludePath);$(UniversalCRT_IncludePath);$(WindowsSDK_IncludePath);$(IncludePath)</IncludePath>
     <LibraryPath>C:\deps\lib\x86;$(VK_SDK_PATH)\Bin32;$(AMDAPPSDKROOT)lib\x86;$(INTELOCLSDKROOT)lib\x86;$(UniversalCRT_LibraryPath_x86);$(LibraryPath)</LibraryPath>
@@ -433,78 +255,6 @@
       <ErrorReporting>NoErrorReport</ErrorReporting>
     </Lib>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <DebugInformationFormat>FullDebug</DebugInformationFormat>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <Version>0.2</Version>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX86</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_c2|x64'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <DebugInformationFormat>FullDebug</DebugInformationFormat>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <Version>0.2</Version>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX64</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net|Win32'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -560,78 +310,6 @@
       <SDLCheck>false</SDLCheck>
       <DiagnosticsFormat>
       </DiagnosticsFormat>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <Version>0.2</Version>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX64</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <DebugInformationFormat>FullDebug</DebugInformationFormat>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <Version>0.2</Version>
-      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)$(TargetName).lib</ImportLibrary>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX86</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug_net_c2|x64'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;FLOOR_DEBUG;_DEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <DebugInformationFormat>FullDebug</DebugInformationFormat>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -722,82 +400,6 @@
       <ErrorReporting>NoErrorReport</ErrorReporting>
     </Lib>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <Version>0.2</Version>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX86</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_c2|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <Version>0.2</Version>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX64</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_net|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -856,82 +458,6 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <SDLCheck>false</SDLCheck>
       <DiagnosticsFormat />
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <Version>0.2</Version>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX64</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|Win32'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;PLATFORM_X32;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m32 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <Version>0.2</Version>
-      <GenerateMapFile>true</GenerateMapFile>
-      <MapExports>true</MapExports>
-    </Link>
-    <Lib>
-      <SubSystem>Console</SubSystem>
-      <TargetMachine>MachineX86</TargetMachine>
-      <ErrorReporting>NoErrorReport</ErrorReporting>
-    </Lib>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release_net_c2|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN64;PLATFORM_X64;__WINDOWS__;FLOOR_NO_METAL;FLOOR_NO_EXCEPTIONS;FLOOR_EXPORTS;FLOOR_MSVC_NET;NDEBUG;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>-Xclang -std=gnu++14 -m64 -fmsc-version=1900 -Xclang -fno-elide-type -Xclang -fdiagnostics-show-template-tree %(AdditionalOptions)</AdditionalOptions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Fast</FloatingPointModel>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <OpenMPSupport>false</OpenMPSupport>
-      <PrecompiledHeaderFile>
-      </PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <BufferSecurityCheck>false</BufferSecurityCheck>
-      <SDLCheck>false</SDLCheck>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <MSCompatibility>true</MSCompatibility>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

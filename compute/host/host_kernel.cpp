@@ -222,7 +222,7 @@ struct fiber_context {
 		rip = (uint64_t)floor_enter_context;
 		*(uint64_t*)(rsp + 8u) = (uint64_t)this;
 #if defined(FLOOR_DEBUG)
-		*(uint64_t*)(rsp) = 0x0123456789ABCDEF;
+		*(uint64_t*)(rsp) = 0x0123456789ABCDEFull;
 #endif
 	}
 

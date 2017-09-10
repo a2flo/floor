@@ -226,9 +226,7 @@ namespace rt_math {
 	//! count trailing zeros
 	template <typename uint_type, enable_if_t<(is_same<uint_type, uint16_t>())>* = nullptr>
 	static floor_inline_always int32_t ctz(const uint_type& val) {
-#if defined(__c2__) // __builtin_ctzs is broken in c2
-		return min(__builtin_ctz(uint32_t(val)), 16);
-#elif !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
+#if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 		return __builtin_ctzs(val);
 #else
 		return floor_rt_ctz(val);
@@ -498,6 +496,38 @@ namespace rt_math {
 		}
 		return failure_ret;
 #endif
+	}
+	
+	//! reverses the bits of the specified 32-bit or 64-bit input value
+	template <typename any_type, enable_if_t<sizeof(any_type) == 4 || sizeof(any_type) == 8>* = nullptr>
+	static floor_inline_always any_type reverse_bits(const any_type& value) {
+		if constexpr(sizeof(any_type) == 4) {
+#if defined(FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32) && FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32 == 1
+			return (any_type)floor_rt_reverse_bits(*(const uint32_t*)&value);
+#else
+			uint32_t u32_val = *(const uint32_t*)&value;
+			u32_val = ((u32_val >> 1u) & 0x55555555u) | ((u32_val & 0x55555555u) << 1u);
+			u32_val = ((u32_val >> 2u) & 0x33333333u) | ((u32_val & 0x33333333u) << 2u);
+			u32_val = ((u32_val >> 4u) & 0x0F0F0F0Fu) | ((u32_val & 0x0F0F0F0Fu) << 4u);
+			u32_val = ((u32_val >> 8u) & 0x00FF00FFu) | ((u32_val & 0x00FF00FFu) << 8u);
+			u32_val = (u32_val >> 16u) | (u32_val << 16u);
+			return *(any_type*)&u32_val;
+#endif
+		}
+		else {
+#if defined(FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_64) && FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_64 == 1
+			return (any_type)floor_rt_reverse_bits(*(const uint64_t*)&value);
+#else
+			uint64_t u64_val = *(const uint64_t*)&value;
+			u64_val = ((u64_val >> 1ull) & 0x5555555555555555ull) | ((u64_val & 0x5555555555555555ull) << 1ull);
+			u64_val = ((u64_val >> 2ull) & 0x3333333333333333ull) | ((u64_val & 0x3333333333333333ull) << 2ull);
+			u64_val = ((u64_val >> 4ull) & 0x0F0F0F0F0F0F0F0Full) | ((u64_val & 0x0F0F0F0F0F0F0F0Full) << 4ull);
+			u64_val = ((u64_val >> 8ull) & 0x00FF00FF00FF00FFull) | ((u64_val & 0x00FF00FF00FF00FFull) << 8ull);
+			u64_val = ((u64_val >> 16ull) & 0x0000FFFF0000FFFFull) | ((u64_val & 0x0000FFFF0000FFFFull) << 16ull);
+			u64_val = (u64_val >> 32ull) | (u64_val << 32ull);
+			return *(any_type*)&u64_val;
+#endif
+		}
 	}
 	
 }

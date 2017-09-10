@@ -51,6 +51,34 @@ public:
 											 const uint3 global_work_size,
 											 const uint3 local_work_size,
 											 Args&&... args) {
+		handle_execute<false>(queue, global_work_size, local_work_size, forward<Args>(args)...);
+	}
+	
+	template <typename... Args> void execute_cooperative(compute_queue* queue,
+														 const uint32_t work_dim floor_unused,
+														 const uint3 global_work_size,
+														 const uint3 local_work_size,
+														 Args&&... args) {
+		handle_execute<true>(queue, global_work_size, local_work_size, forward<Args>(args)...);
+	}
+	
+	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
+		const auto ret = kernels.get((cuda_device*)dev.get());
+		return !ret.first ? nullptr : &ret.second->second;
+	}
+	
+protected:
+	const kernel_map_type kernels;
+	
+	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
+	
+	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
+	
+	template <bool cooperative = false, typename... Args>
+	void handle_execute(compute_queue* queue,
+						const uint3 global_work_size,
+						const uint3 local_work_size,
+						Args&&... args) {
 		// find entry for queue device
 		const auto kernel_iter = get_kernel(queue);
 		if(kernel_iter == kernels.cend()) {
@@ -91,26 +119,25 @@ public:
 		uint3 grid_dim { (global_work_size / block_dim) + grid_dim_overflow };
 		grid_dim.max(1u);
 		
-		execute_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		if constexpr(!cooperative) {
+			execute_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		}
+		else {
+			execute_cooperative_internal(queue, kernel_iter->second, grid_dim, block_dim, &kernel_params[0]);
+		}
 	}
-	
-	const kernel_entry* get_kernel_entry(shared_ptr<compute_device> dev) const override {
-		const auto ret = kernels.get((cuda_device*)dev.get());
-		return !ret.first ? nullptr : &ret.second->second;
-	}
-	
-protected:
-	const kernel_map_type kernels;
-	
-	COMPUTE_TYPE get_compute_type() const override { return COMPUTE_TYPE::CUDA; }
-	
-	typename kernel_map_type::const_iterator get_kernel(const compute_queue* queue) const;
 	
 	void execute_internal(compute_queue* queue,
 						  const cuda_kernel_entry& entry,
 						  const uint3& grid_dim,
 						  const uint3& block_dim,
 						  void** kernel_params);
+	
+	void execute_cooperative_internal(compute_queue* queue,
+									  const cuda_kernel_entry& entry,
+									  const uint3& grid_dim,
+									  const uint3& block_dim,
+									  void** kernel_params);
 	
 	//! set kernel argument and recurse
 	template <typename T, typename... Args>

@@ -21,6 +21,12 @@
 
 #if defined(FLOOR_COMPUTE_METAL)
 
+// we always have reverse bits instructions on iOS
+#if defined(FLOOR_COMPUTE_INFO_OS_IOS)
+#define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32 1
+#define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_64 1
+#endif
+
 namespace std {
 	// straightforward wrapping, use the fast_* version when possible
 	const_func metal_func float sqrt(float) asm("air.fast_sqrt.f32");
@@ -155,6 +161,14 @@ namespace std {
 		const auto lower = uint32_t(x & 0xFFFFFFFFull);
 		return floor_rt_popcount(upper) + floor_rt_popcount(lower);
 	}
+#if defined(FLOOR_COMPUTE_INFO_OS_IOS) // only available on iOS
+	const_func metal_func uint32_t floor_rt_reverse_bits(uint32_t) asm("air.reverse_bits.i32");
+	const_func metal_func uint64_t floor_rt_reverse_bits(uint64_t value) {
+		const auto low_rev = floor_rt_reverse_bits(uint32_t(value));
+		const auto high_rev = floor_rt_reverse_bits(uint32_t(value >> 32ull));
+		return (uint64_t(low_rev) << 32ull) | uint64_t(high_rev);
+	}
+#endif
 	
 }
 

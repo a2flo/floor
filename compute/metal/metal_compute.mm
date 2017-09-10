@@ -554,7 +554,7 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	}});
 	
 	//
-	if(!floor::get_toolchain_debug()) {
+	if(!floor::get_toolchain_debug() && darwin_helper::get_system_version() < 101300) {
 		core::system(metal_tools.metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
 	}
 	else {

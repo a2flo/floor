@@ -44,6 +44,31 @@ namespace compute_algorithm {
 		}
 		return lane_var;
 	}
+	template <typename T, typename F, enable_if_t<device_info::cuda_sm() >= 30 && sizeof(T) == 8>* = nullptr>
+	floor_inline_always static T sub_group_reduce(T lane_var, F&& op) {
+		T shfled_var;
+#pragma unroll
+		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
+			uint32_t shfled_hi, shfled_lo, hi, lo;
+			if constexpr(is_floating_point_v<T>) {
+				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "d"(lane_var));
+			}
+			else {
+				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "l"(lane_var));
+			}
+			asm volatile("shfl.bfly.b32 %0, %2, %4, %5;\n\tshfl.bfly.b32 %1, %3, %4, %5;"
+						 : "=r"(shfled_lo), "=r"(shfled_hi)
+						 : "r"(lo), "r"(hi), "i"(lane), "i"(device_info::simd_width() - 1));
+			if constexpr(is_floating_point_v<T>) {
+				asm volatile("mov.b64 %0, { %1, %2 };" : "=d"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
+			}
+			else {
+				asm volatile("mov.b64 %0, { %1, %2 };" : "=l"(shfled_var) : "r"(shfled_lo), "r"(shfled_hi));
+			}
+			lane_var = op(lane_var, shfled_var);
+		}
+		return lane_var;
+	}
 	template <typename T> floor_inline_always static T sub_group_reduce_add(T lane_var) {
 		return sub_group_reduce(lane_var, plus<> {});
 	}

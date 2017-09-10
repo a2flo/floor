@@ -242,8 +242,17 @@ bool cuda_api_init(const bool use_internal_api) {
 	(void*&)cuda_api.module_load_data_ex = load_symbol(cuda_lib, "cuModuleLoadDataEx");
 	if(cuda_api.module_load_data_ex == nullptr) log_error("failed to retrieve function pointer for \"cuModuleLoadDataEx\"");
 	
+	(void*&)cuda_api.occupancy_max_active_blocks_per_multiprocessor = load_symbol(cuda_lib, "cuOccupancyMaxActiveBlocksPerMultiprocessor");
+	if(cuda_api.occupancy_max_active_blocks_per_multiprocessor == nullptr) log_error("failed to retrieve function pointer for \"cuOccupancyMaxActiveBlocksPerMultiprocessor\"");
+	
+	(void*&)cuda_api.occupancy_max_active_blocks_per_multiprocessor_with_flags = load_symbol(cuda_lib, "cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags");
+	if(cuda_api.occupancy_max_active_blocks_per_multiprocessor_with_flags == nullptr) log_error("failed to retrieve function pointer for \"cuOccupancyMaxActiveBlocksPerMultiprocessorWithFlags\"");
+	
 	(void*&)cuda_api.occupancy_max_potential_block_size = load_symbol(cuda_lib, "cuOccupancyMaxPotentialBlockSize");
 	if(cuda_api.occupancy_max_potential_block_size == nullptr) log_error("failed to retrieve function pointer for \"cuOccupancyMaxPotentialBlockSize\"");
+	
+	(void*&)cuda_api.occupancy_max_potential_block_size_with_flags = load_symbol(cuda_lib, "cuOccupancyMaxPotentialBlockSizeWithFlags");
+	if(cuda_api.occupancy_max_potential_block_size_with_flags == nullptr) log_error("failed to retrieve function pointer for \"cuOccupancyMaxPotentialBlockSizeWithFlags\"");
 	
 	(void*&)cuda_api.stream_create = load_symbol(cuda_lib, "cuStreamCreate");
 	if(cuda_api.stream_create == nullptr) log_error("failed to retrieve function pointer for \"cuStreamCreate\"");

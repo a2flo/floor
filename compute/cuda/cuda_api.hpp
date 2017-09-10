@@ -560,7 +560,10 @@ struct cuda_api_ptrs {
 	CU_API CU_RESULT (*module_get_function)(cu_function* hfunc, cu_module hmod, const char* name);
 	CU_API CU_RESULT (*module_load_data)(cu_module* module, const void* image);
 	CU_API CU_RESULT (*module_load_data_ex)(cu_module* module, const void* image, uint32_t num_options, const CU_JIT_OPTION* options, const void* const* option_values);
+	CU_API CU_RESULT (*occupancy_max_active_blocks_per_multiprocessor)(int32_t* num_blocks, cu_function func, int32_t block_size, size_t dynamic_s_mem_size);
+	CU_API CU_RESULT (*occupancy_max_active_blocks_per_multiprocessor_with_flags)(int32_t* num_blocks, cu_function func, int32_t block_size, size_t dynamic_s_mem_size, uint32_t flags);
 	CU_API CU_RESULT (*occupancy_max_potential_block_size)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit);
+	CU_API CU_RESULT (*occupancy_max_potential_block_size_with_flags)(int32_t* min_grid_size, int32_t* block_size, cu_function func, cu_occupancy_b2d_size block_size_to_dynamic_s_mem_size, size_t dynamic_s_mem_size, int32_t block_size_limit, uint32_t flags);
 	CU_API CU_RESULT (*stream_create)(cu_stream* ph_stream, CU_STREAM_FLAGS flags);
 	CU_API CU_RESULT (*stream_synchronize)(cu_stream h_stream);
 	CU_API CU_RESULT (*surf_object_create)(cu_surf_object* p_surf_object, const cu_resource_descriptor* p_res_desc);
@@ -632,7 +635,10 @@ extern bool cuda_can_use_internal_api();
 #define cu_module_get_function cuda_api.module_get_function
 #define cu_module_load_data cuda_api.module_load_data
 #define cu_module_load_data_ex cuda_api.module_load_data_ex
+#define cu_occupancy_max_active_blocks_per_multiprocessor cuda_api.occupancy_max_active_blocks_per_multiprocessor
+#define cu_occupancy_max_active_blocks_per_multiprocessor_with_flags cuda_api.occupancy_max_active_blocks_per_multiprocessor_with_flags
 #define cu_occupancy_max_potential_block_size cuda_api.occupancy_max_potential_block_size
+#define cu_occupancy_max_potential_block_size_with_flags cuda_api.occupancy_max_potential_block_size_with_flags
 #define cu_stream_create cuda_api.stream_create
 #define cu_stream_synchronize cuda_api.stream_synchronize
 #define cu_surf_object_create cuda_api.surf_object_create

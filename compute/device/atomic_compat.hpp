@@ -107,10 +107,6 @@ __attribute__((deprecated("not supported"))) floor_inline_always static void flo
 }
 
 // this is a compiler instruction, try using it (no guarantees though)
-#if !defined(__c2__)
 #define floor_atomic_signal_fence(mem_order) __c11_atomic_signal_fence(mem_order)
-#else
-#define floor_atomic_signal_fence(mem_order) _ReadWriteBarrier()
-#endif
 
 #endif

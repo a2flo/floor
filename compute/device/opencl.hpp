@@ -241,11 +241,11 @@ const_func int32_t floor_vulkan_find_int_msb(uint32_t x) asm("floor.find_int_msb
 const_func int32_t floor_vulkan_find_int_msb(int32_t x) asm("floor.find_int_msb.s32"); // 32-bit only
 
 #if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT16_SUPPORT_1)
-const_func uint16_t floor_vulkan_bit_reverse(uint16_t x) asm("floor.bit_reverse.u16");
+const_func uint16_t floor_rt_reverse_bits(uint16_t x) asm("floor.bit_reverse.u16");
 #endif
-const_func uint32_t floor_vulkan_bit_reverse(uint32_t x) asm("floor.bit_reverse.u32");
+const_func uint32_t floor_rt_reverse_bits(uint32_t x) asm("floor.bit_reverse.u32");
 #if defined(FLOOR_COMPUTE_INFO_VULKAN_HAS_INT64_SUPPORT_1)
-const_func uint64_t floor_vulkan_bit_reverse(uint64_t x) asm("floor.bit_reverse.u64");
+const_func uint64_t floor_rt_reverse_bits(uint64_t x) asm("floor.bit_reverse.u64");
 #endif
 
 // -> forward to lsb/msb functions
@@ -262,7 +262,7 @@ const_func uint32_t floor_rt_clz(uint32_t x) {
 const_func uint64_t floor_rt_clz(uint64_t x) {
 	// can't use "find_int_msb", b/c it's 32-bit only
 	// -> reverse the bits and find the lsb instead
-	const auto rev_lsb_bit_idx = floor_vulkan_find_int_lsb(floor_vulkan_bit_reverse(x));
+	const auto rev_lsb_bit_idx = floor_vulkan_find_int_lsb(floor_rt_reverse_bits(x));
 	return (rev_lsb_bit_idx < 0 ? 64 : rev_lsb_bit_idx);
 }
 #endif

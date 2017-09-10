@@ -53,7 +53,7 @@ spirv_handler::container spirv_handler::load_container(const string& file_name) 
 		return {};
 	}
 	
-	// reasonable size asumption
+	// reasonable size assumption
 	if(data.size() >= 0x80000000) {
 		log_error("container too large");
 		return {};

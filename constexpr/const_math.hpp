@@ -503,7 +503,7 @@ namespace const_math {
 	
 	//! computes lb(val) / ld(val) / log2(val), the base-2/binary logarithm of val
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
-	constexpr fp_type log2(fp_type val) {
+	constexpr fp_type log2(const fp_type val) {
 		const auto ret = partial_ln_and_log2(val);
 		if(!ret.valid) return ret.invalid_ret;
 		// "log_2(x) = ln(x) / ln(2)" for the decomposed value, log2(2^x) == x is already correct
@@ -514,6 +514,33 @@ namespace const_math {
 	template <typename fp_type, enable_if_t<ext::is_floating_point_v<fp_type>>* = nullptr>
 	constexpr fp_type pow(const fp_type base, const fp_type exponent) {
 		return (base != fp_type(0) ? const_math::exp(exponent * const_math::log(base)) : fp_type(0));
+	}
+	
+	//! computes log2(val), the integral base-2/binary logarithm of val
+	//! NOTE: results are floored
+	template <typename int_type, enable_if_t<ext::is_integral_v<int_type>>* = nullptr>
+	constexpr int_type log2(const int_type val) {
+		if(val <= int_type(1)) return int_type(0);
+		
+		int_type cur_pot = int_type(2);
+		int_type last_pot = cur_pot;
+		int_type pot_num = int_type(1);
+		do {
+			if(val == cur_pot) {
+				return pot_num;
+			}
+			else if(val < cur_pot) {
+				return pot_num - int_type(1);
+			}
+			else {
+				last_pot = cur_pot;
+				cur_pot <<= int_type(1);
+				if(cur_pot < last_pot) {
+					return pot_num; // overflow
+				}
+				++pot_num;
+			}
+		} while(true);
 	}
 	
 	//! returns the amount of halley iterations needed for a certain precision (type)
@@ -1015,27 +1042,15 @@ namespace const_math {
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static float native_fma(float a, float b, float c) {
-#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fmaf(a, b, c);
-#else
-		return (a * b) + c;
-#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static double native_fma(double a, double b, double c) {
-#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fma(a, b, c);
-#else
-		return (a * b) + c;
-#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin fma intrinsics
 	floor_inline_always floor_used static long double native_fma(long double a, long double b, long double c) {
-#if !defined(__c2__) // "Intrinsic not yet implemented"
 		return __builtin_fmal(a, b, c);
-#else
-		return (a * b) + c;
-#endif
 	}
 	//! not actually constexpr, but necessary to properly wrap native/builtin rsqrt intrinsics
 	template <typename fp_type, enable_if_t<(ext::is_floating_point_v<fp_type> && !is_same<fp_type, half>())>* = nullptr>

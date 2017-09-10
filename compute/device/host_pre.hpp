@@ -164,9 +164,11 @@ floor_inline_always static std::locale locale_global(const std::locale& loc) {
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY 0
 #define FLOOR_COMPUTE_INFO_HAS_DEDICATED_LOCAL_MEMORY_0
 
-// host-compute doesn't support sub-groups right now
+// host-compute doesn't support sub-groups or sub-group shuffle right now
 #define FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS 0
 #define FLOOR_COMPUTE_INFO_HAS_SUB_GROUPS_0
+#define FLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE 0
+#define FLOOR_COMPUTE_INFO_HAS_SUB_GROUP_SHUFFLE_0
 
 // host-compute doesn't support cooperative kernels right now
 #define FLOOR_COMPUTE_INFO_HAS_COOPERATIVE_KERNEL 0

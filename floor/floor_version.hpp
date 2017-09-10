@@ -54,10 +54,8 @@
 #endif
 
 #if defined(_MSC_VER)
-#if defined(__clang__) && !defined(__c2__)
+#if defined(__clang__)
 #define FLOOR_COMPILER "Clang " __clang_version__ " / VS " _MSC_VER
-#elif defined(__clang__) && defined(__c2__)
-#define FLOOR_COMPILER "Clang " __clang_version__ " / C2 " __c2_version__ " / VS " _MSC_VER
 #else
 #define FLOOR_COMPILER "VC++ " _MSC_VER
 #endif

@@ -159,6 +159,7 @@
 		5C84614A1A914759004D4745 /* metal_buffer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461441A914758004D4745 /* metal_buffer.mm */; };
 		5C84614B1A914759004D4745 /* metal_program.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461451A914758004D4745 /* metal_program.mm */; };
 		5C84614C1A914759004D4745 /* metal_kernel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5C8461461A914758004D4745 /* metal_kernel.mm */; };
+		5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8642CD1F411254009D132C /* cuda_coop.hpp */; };
 		5C8B4A6B1BE603C000987CAD /* flat_map.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 5C8B4A6A1BE603C000987CAD /* flat_map.hpp */; };
 		5C8FD0C21AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
 		5C8FD0C31AD38F8B00215230 /* compute_image.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C8FD0C01AD38F8B00215230 /* compute_image.cpp */; };
@@ -427,6 +428,7 @@
 		5C8461441A914758004D4745 /* metal_buffer.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_buffer.mm; path = metal/metal_buffer.mm; sourceTree = "<group>"; };
 		5C8461451A914758004D4745 /* metal_program.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_program.mm; path = metal/metal_program.mm; sourceTree = "<group>"; };
 		5C8461461A914758004D4745 /* metal_kernel.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = metal_kernel.mm; path = metal/metal_kernel.mm; sourceTree = "<group>"; };
+		5C8642CD1F411254009D132C /* cuda_coop.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; name = cuda_coop.hpp; path = device/cuda_coop.hpp; sourceTree = "<group>"; };
 		5C8B4A6A1BE603C000987CAD /* flat_map.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = flat_map.hpp; sourceTree = "<group>"; };
 		5C8FD0C01AD38F8B00215230 /* compute_image.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = compute_image.cpp; sourceTree = "<group>"; };
 		5C8FD0C11AD38F8B00215230 /* compute_image.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = compute_image.hpp; sourceTree = "<group>"; };
@@ -791,6 +793,7 @@
 				5C92FC591CEC16FB00644959 /* mip_map_minify.hpp */,
 				5C13A3EA1AC1BE590002FF87 /* cuda_pre.hpp */,
 				5C6008AC1AB6D6D200BC7012 /* cuda.hpp */,
+				5C8642CD1F411254009D132C /* cuda_coop.hpp */,
 				5CE843AF1B28C8BE00D8B961 /* cuda_id.hpp */,
 				5C0E18C71B070D8700E63235 /* cuda_atomic.hpp */,
 				5CD5AEB11AE0107A00E1891C /* cuda_image.hpp */,
@@ -1053,6 +1056,7 @@
 				5C4A85B418F953590039BFD4 /* source_types.hpp in Headers */,
 				5C7173C518D7288900DDF097 /* audio_controller.hpp in Headers */,
 				5C4E30EA1B428B120034E536 /* host_atomic.hpp in Headers */,
+				5C8642CE1F411256009D132C /* cuda_coop.hpp in Headers */,
 				5C4A85AE18F953590039BFD4 /* lang_context.hpp in Headers */,
 				5C02C8601B82962C00569270 /* cuda_api.hpp in Headers */,
 				5C3A73F21AD921FA00AB2F13 /* image_types.hpp in Headers */,

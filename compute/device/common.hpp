@@ -337,20 +337,36 @@ public:
 	T& operator[](const size_t& index) {
 		return ((type_1d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 1>* = nullptr>
+	const T& operator[](const size_t& index) const {
+		return ((const type_1d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
+	}
 	
 	template <size_t dim_access = dim(), enable_if_t<dim_access == 2>* = nullptr>
 	T (&operator[](const size_t& index)) [count_2] {
 		return ((type_2d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
+	}
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 2>* = nullptr>
+	const T (&operator[](const size_t& index) const) [count_2] {
+		return ((const type_2d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
 	
 	template <size_t dim_access = dim(), enable_if_t<dim_access == 3>* = nullptr>
 	T (&operator[](const size_t& index)) [count_2][count_3] {
 		return ((type_3d*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
 	}
+	template <size_t dim_access = dim(), enable_if_t<dim_access == 3>* = nullptr>
+	const T (&operator[](const size_t& index) const) [count_2][count_3] {
+		return ((const type_3d*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128))[index];
+	}
 	
 	floor_inline_always T (&as_array()) [count_1] {
 		typedef T array_1d_type[count_1];
 		return *(array_1d_type*)__builtin_assume_aligned((uint8_t*)data + floor_thread_local_memory_offset + offset, 128);
+	}
+	floor_inline_always const T (&as_array() const) [count_1] {
+		typedef T array_1d_type[count_1];
+		return *(const array_1d_type*)__builtin_assume_aligned((const uint8_t*)data + floor_thread_local_memory_offset + offset, 128);
 	}
 	
 	compute_local_buffer() : data((T*)__builtin_assume_aligned(floor_requisition_local_memory(data_size(), offset), 128)) {}

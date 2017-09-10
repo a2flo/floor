@@ -190,6 +190,7 @@ cuda_compute::cuda_compute(const vector<string> whitelist) : compute_context() {
 		device->unified_memory = (unified_memory != 0);
 		device->cooperative_kernel_support = (coop_launch != 0);
 		
+		device->sub_group_shuffle_support = (device->sm.x >= 3); // supported with sm_30+
 		device->extended_64_bit_atomics_support = (device->sm.x > 3 || (device->sm.x == 3 && device->sm.y >= 2)); // supported since sm_32
 		
 		// enable h/w depth compare when using the internal api and everything is alright

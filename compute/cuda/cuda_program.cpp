@@ -76,12 +76,24 @@ cuda_program::cuda_program(program_map_type&& programs_) : programs(move(program
 															 CU_FUNCTION_ATTRIBUTE::MAX_THREADS_PER_BLOCK, entry.kernel));
 					entry.max_total_local_size = (max_total_local_size < 0 ? 0 : (uint32_t)max_total_local_size);
 					
-#if 0
+#if 0 // WIP
 					// use this to compute max occupancy
 					int min_grid_size = 0, block_size = 0;
-					CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, &entry.kernel, 0, 0, 0),
+					CU_CALL_NO_ACTION(cu_occupancy_max_potential_block_size(&min_grid_size, &block_size, entry.kernel, nullptr, 0, 0),
 									  "failed to compute max potential occupancy");
 					log_debug("%s max occupancy: grid size >= %u with block size %u", kernel_name, min_grid_size, block_size);
+					
+					//
+					static const array<uint32_t, 6> check_local_sizes {{
+						32, 64, 128, 256, 512, 1024
+					}};
+					for(const auto& local_size : check_local_sizes) {
+						int block_count = 0;
+						CU_CALL_NO_ACTION(cu_occupancy_max_active_blocks_per_multiprocessor(&block_count, entry.kernel,
+																							int(local_size), 0),
+										  "failed to compute max active blocks per mp");
+						log_debug("%s: #blocks: %u for local-size %u", kernel_name, block_count, local_size);
+					}
 #endif
 					
 					// success, insert into map

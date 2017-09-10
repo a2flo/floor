@@ -141,6 +141,8 @@ public:
 	bool extended_64_bit_atomics_support { false };
 	//! true if the device supports sub-groups (opencl with extension; aka warp in cuda)
 	bool sub_group_support { false };
+	//! true if the device supports sub-group shuffle/swizzle
+	bool sub_group_shuffle_support { false };
 	//! true if the device supports cooperative kernel launchs
 	bool cooperative_kernel_support { false };
 	

@@ -51,6 +51,13 @@ public:
 				 work_size_type_local&& local_work_size,
 				 Args&&... args);
 	
+	//! don't call this directly, call the execute_cooperative function in a compute_queue object instead!
+	template <typename... Args, class work_size_type_global, class work_size_type_local>
+	void execute_cooperative(compute_queue* queue_ptr,
+							 work_size_type_global&& global_work_size,
+							 work_size_type_local&& local_work_size,
+							 Args&&... args);
+	
 protected:
 	//! same as the one in compute_context, but this way we don't need access to that object
 	virtual COMPUTE_TYPE get_compute_type() const = 0;
@@ -132,6 +139,32 @@ void compute_kernel::execute(compute_queue* queue_ptr,
 #endif // else: nop
 			break;
 		default: break;
+	}
+}
+
+template <typename... Args, class work_size_type_global, class work_size_type_local>
+void compute_kernel::execute_cooperative(compute_queue* queue_ptr,
+										 work_size_type_global&& global_work_size,
+										 work_size_type_local&& local_work_size,
+										 Args&&... args) {
+	// get around the nightmare of the non-existence of virtual (variadic) template member functions ...
+	switch(get_compute_type()) {
+		case COMPUTE_TYPE::CUDA:
+#if !defined(FLOOR_NO_CUDA)
+			static_cast<cuda_kernel*>(this)->execute_cooperative(queue_ptr,
+																 decay_t<work_size_type_global>::dim(),
+																 uint3 { global_work_size },
+																 uint3 { local_work_size },
+																 forward<Args>(args)...);
+#endif // else: nop
+			break;
+		case COMPUTE_TYPE::HOST:
+		case COMPUTE_TYPE::METAL:
+		case COMPUTE_TYPE::OPENCL:
+		case COMPUTE_TYPE::VULKAN:
+		default:
+			// not available or not implemented on these backends
+			break;
 	}
 }
 #endif

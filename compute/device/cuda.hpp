@@ -37,15 +37,19 @@
 #define cuda_clock __builtin_ptx_read_clock()
 #define cuda_clock64 __builtin_ptx_read_clock64()
 
+// we always have permute instructions
+#define FLOOR_COMPUTE_INFO_HAS_PERMUTE 1
+
+// we always have reverse bits instructions
+#define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_32 1
+#define FLOOR_COMPUTE_INFO_HAS_REVERSE_BITS_64 1
+
 // sm_32+ has funnel shift instructions
 #if FLOOR_COMPUTE_INFO_CUDA_SM >= 32
 #define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 1
 #else
 #define FLOOR_COMPUTE_INFO_HAS_FUNNEL_SHIFT 0
 #endif
-
-// we always have permute instructions
-#define FLOOR_COMPUTE_INFO_HAS_PERMUTE 1
 
 // sm_30+ with ptx 6.0+ has a "find nth set" instruction
 #if FLOOR_COMPUTE_INFO_CUDA_SM >= 30 && FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
@@ -381,6 +385,16 @@ namespace std {
 	const_func floor_inline_always int32_t floor_rt_popcount(uint64_t a) {
 		int32_t ret;
 		asm("popc.b64 %0, %1;" : "=r"(ret) : "l"(a));
+		return ret;
+	}
+	const_func floor_inline_always uint32_t floor_rt_reverse_bits(const uint32_t& value) {
+		uint32_t ret;
+		asm("brev.b32 %0, %1;" : "=r"(ret) : "r"(value));
+		return ret;
+	}
+	const_func floor_inline_always uint64_t floor_rt_reverse_bits(const uint64_t& value) {
+		uint64_t ret;
+		asm("brev.b64 %0, %1;" : "=l"(ret) : "l"(value));
 		return ret;
 	}
 	
