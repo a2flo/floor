@@ -127,24 +127,24 @@ vector<string> core::tokenize(const string& src, const string& delim) {
 }
 
 void core::str_to_lower_inplace(string& str) {
-	transform(str.begin(), str.end(), str.begin(), ref(::tolower));
+	transform(str.begin(), str.end(), str.begin(), ::tolower);
 }
 
 void core::str_to_upper_inplace(string& str) {
-	transform(str.begin(), str.end(), str.begin(), ref(::toupper));
+	transform(str.begin(), str.end(), str.begin(), ::toupper);
 }
 
 string core::str_to_lower(const string& str) {
 	string ret;
 	ret.resize(str.length());
-	transform(str.begin(), str.end(), ret.begin(), ref(::tolower));
+	transform(str.begin(), str.end(), ret.begin(), ::tolower);
 	return ret;
 }
 
 string core::str_to_upper(const string& str) {
 	string ret;
 	ret.resize(str.length());
-	transform(str.begin(), str.end(), ret.begin(), ref(::toupper));
+	transform(str.begin(), str.end(), ret.begin(), ::toupper);
 	return ret;
 }
 
