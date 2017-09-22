@@ -20,8 +20,7 @@
 #define __FLOOR_METAL_COMMON_HPP__
 
 #include <floor/core/essentials.hpp>
-
-#if !defined(FLOOR_NO_METAL)
+#include <cstdint>
 
 //! metal version of the platform/driver/device
 enum class METAL_VERSION : uint32_t {
@@ -56,6 +55,8 @@ constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version
 		case METAL_VERSION::METAL_2_0: return "0";
 	}
 }
+
+#if !defined(FLOOR_NO_METAL)
 
 #endif // FLOOR_NO_METAL
 
