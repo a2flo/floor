@@ -23,6 +23,40 @@
 
 #if !defined(FLOOR_NO_METAL)
 
+//! metal version of the platform/driver/device
+enum class METAL_VERSION : uint32_t {
+	NONE,
+	// NOTE: Metal 1.1 is the min supported version right now
+	METAL_1_1,
+	METAL_1_2,
+	METAL_2_0,
+};
+
+constexpr const char* metal_version_to_string(const METAL_VERSION& version) {
+	switch(version) {
+		case METAL_VERSION::NONE: return "";
+		case METAL_VERSION::METAL_1_1: return "1.1";
+		case METAL_VERSION::METAL_1_2: return "1.2";
+		case METAL_VERSION::METAL_2_0: return "2.0";
+	}
+}
+constexpr const char* metal_major_version_to_string(const METAL_VERSION& version) {
+	switch(version) {
+		case METAL_VERSION::NONE: return "";
+		case METAL_VERSION::METAL_1_1:
+		case METAL_VERSION::METAL_1_2: return "1";
+		case METAL_VERSION::METAL_2_0: return "2";
+	}
+}
+constexpr const char* metal_minor_version_to_string(const METAL_VERSION& version) {
+	switch(version) {
+		case METAL_VERSION::NONE: return "";
+		case METAL_VERSION::METAL_1_1: return "1";
+		case METAL_VERSION::METAL_1_2: return "2";
+		case METAL_VERSION::METAL_2_0: return "0";
+	}
+}
+
 #endif // FLOOR_NO_METAL
 
 #endif

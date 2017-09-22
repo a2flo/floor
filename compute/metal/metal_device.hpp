@@ -21,9 +21,11 @@
 
 #include <floor/compute/compute_device.hpp>
 
-#if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
+#if !defined(FLOOR_NO_METAL)
 #include <floor/compute/metal/metal_common.hpp>
+#if defined(__OBJC__)
 #include <Metal/Metal.h>
+#endif
 #endif
 
 FLOOR_PUSH_WARNINGS()
@@ -34,6 +36,9 @@ class metal_device final : public compute_device {
 public:
 	metal_device();
 	~metal_device() override {}
+	
+	// metal version which this device supports
+	METAL_VERSION metal_version;
 	
 	// device family, currently 1 (A7), 2 (A8/A8X), 3 (A9/A9X/A10/A10X) and 10000 (anything on OS X)
 	uint32_t family { 0u };

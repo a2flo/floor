@@ -31,7 +31,7 @@ public:
 		SPIR,
 		//! Nvidia CUDA PTX 4.3+
 		PTX,
-		//! Metal Apple-IR 1.1
+		//! Metal Apple-IR 1.1+
 		AIR,
 		//! Vulkan SPIR-V 1.0
 		SPIRV_VULKAN,

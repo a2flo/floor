@@ -212,6 +212,17 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->family_version = 1;
 		device->version_str = to_string(device->family);
 		
+		// figure out which metal version we can use
+		if(darwin_helper::get_system_version() >= 110000) {
+			device->metal_version = METAL_VERSION::METAL_2_0;
+		}
+		else if(darwin_helper::get_system_version() >= 100000) {
+			device->metal_version = METAL_VERSION::METAL_1_2;
+		}
+		else {
+			device->metal_version = METAL_VERSION::METAL_1_1;
+		}
+		
 		// init statically known device information (pulled from AGXMetal/AGXG*Device and apples doc)
 		switch(device->family) {
 			case 0:
@@ -334,6 +345,17 @@ metal_compute::metal_compute(const vector<string> whitelist) : compute_context()
 		device->image_cube_write_support = true;
 		device->image_cube_array_support = true;
 		device->image_cube_array_write_support = true;
+		
+		// figure out which metal version we can use
+		if(darwin_helper::get_system_version() >= 101300) {
+			device->metal_version = METAL_VERSION::METAL_2_0;
+		}
+		else if(darwin_helper::get_system_version() >= 101200) {
+			device->metal_version = METAL_VERSION::METAL_1_2;
+		}
+		else {
+			device->metal_version = METAL_VERSION::METAL_1_1;
+		}
 #endif
 		device->max_mem_alloc = 256ull * 1024ull * 1024ull; // fixed 256MiB for all
 		device->max_group_size = { 0xFFFFFFFFu };

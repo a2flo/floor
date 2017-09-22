@@ -158,17 +158,48 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			string os_target;
 			if(mtl_dev->family < 10000) {
 				// -> iOS 9.0+
-				os_target = "ios9.0.0";
+				switch(mtl_dev->metal_version) {
+					default:
+						os_target = "ios9.0.0";
+						break;
+					case METAL_VERSION::METAL_1_2:
+						os_target = "ios10.0.0";
+						break;
+					case METAL_VERSION::METAL_2_0:
+						os_target = "ios11.0.0";
+						break;
+				}
 			}
 			else {
 				// -> OS X 10.11+
-				os_target = "macosx10.11.0";
+				switch(mtl_dev->metal_version) {
+					default:
+						os_target = "macosx10.11.0";
+						break;
+					case METAL_VERSION::METAL_1_2:
+						os_target = "macosx10.12.0";
+						break;
+					case METAL_VERSION::METAL_2_0:
+						os_target = "macosx10.13.0";
+						break;
+				}
+			}
+			
+			string metal_std = "metal1.1";
+			switch(mtl_dev->metal_version) {
+				case METAL_VERSION::METAL_1_2:
+					metal_std = "metal1.2";
+					break;
+				case METAL_VERSION::METAL_2_0:
+					metal_std = "metal2.0";
+					break;
+				default: break;
 			}
 			
 			clang_cmd += {
 				"\"" + floor::get_metal_compiler() + "\"" +
 				// NOTE: always compiling to 64-bit here, because 32-bit never existed
-				" -x metal -std=metal1.1 -target air64-apple-" + os_target +
+				" -x metal -std=" + metal_std + " -target air64-apple-" + os_target +
 #if defined(__APPLE__)
 				// always enable intel workarounds (conversion problems)
 				(device->vendor == COMPUTE_VENDOR::INTEL ? " -Xclang -metal-intel-workarounds" : "") +
@@ -182,7 +213,9 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" \
-				" -llvm-bc-35"
+				" -llvm-bc-35" +
+				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(mtl_dev->metal_version) +
+				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(mtl_dev->metal_version)
 			};
 			libcxx_path += floor::get_metal_base_path() + "libcxx";
 			clang_path += floor::get_metal_base_path() + "clang";
