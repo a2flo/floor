@@ -20,12 +20,10 @@
 #define __FLOOR_METAL_DEVICE_HPP__
 
 #include <floor/compute/compute_device.hpp>
-
-#if !defined(FLOOR_NO_METAL)
 #include <floor/compute/metal/metal_common.hpp>
-#if defined(__OBJC__)
+
+#if !defined(FLOOR_NO_METAL) && defined(__OBJC__)
 #include <Metal/Metal.h>
-#endif
 #endif
 
 FLOOR_PUSH_WARNINGS()
