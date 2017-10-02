@@ -1092,10 +1092,10 @@ index 82cb6c2..5de1179 100644
  KEYWORD(__pascal                    , KEYALL)
  
 diff --git a/include/clang/CodeGen/BackendUtil.h b/include/clang/CodeGen/BackendUtil.h
-index 01721d3..8681cd5 100644
+index 01721d3..c5dfa23 100644
 --- a/include/clang/CodeGen/BackendUtil.h
 +++ b/include/clang/CodeGen/BackendUtil.h
-@@ -26,12 +26,16 @@ namespace clang {
+@@ -26,12 +26,17 @@ namespace clang {
    class LangOptions;
  
    enum BackendAction {
@@ -1111,6 +1111,7 @@ index 01721d3..8681cd5 100644
 +    Backend_EmitBC35,              ///< Emit LLVM 3.5 bitcode files
 +    Backend_EmitSPIRV,             ///< Emit SPIR-V bitcode files
 +    Backend_EmitSPIRVContainer,    ///< Emit container with SPIR-V bitcode files
++    Backend_EmitMetalLib,          ///< Emit Metal Library
 +    Backend_EmitLL,                ///< Emit human-readable LLVM assembly
 +    Backend_EmitNothing,           ///< Don't emit anything (benchmarking mode)
 +    Backend_EmitMCNull,            ///< Run CodeGen, but don't emit anything
@@ -1119,10 +1120,10 @@ index 01721d3..8681cd5 100644
  
    void EmitBackendOutput(DiagnosticsEngine &Diags, const CodeGenOptions &CGOpts,
 diff --git a/include/clang/CodeGen/CodeGenAction.h b/include/clang/CodeGen/CodeGenAction.h
-index cc38e24..8cabc1e 100644
+index cc38e24..c9cd4b9 100644
 --- a/include/clang/CodeGen/CodeGenAction.h
 +++ b/include/clang/CodeGen/CodeGenAction.h
-@@ -78,6 +78,30 @@ public:
+@@ -78,6 +78,36 @@ public:
    EmitBCAction(llvm::LLVMContext *_VMContext = nullptr);
  };
  
@@ -1150,14 +1151,20 @@ index cc38e24..8cabc1e 100644
 +  EmitSPIRVContainerAction(llvm::LLVMContext *_VMContext = nullptr);
 +};
 +
++class EmitMetalLibAction : public CodeGenAction {
++  virtual void anchor();
++public:
++  EmitMetalLibAction(llvm::LLVMContext *_VMContext = nullptr);
++};
++
  class EmitLLVMAction : public CodeGenAction {
    virtual void anchor();
  public:
 diff --git a/include/clang/Driver/CC1Options.td b/include/clang/Driver/CC1Options.td
-index f2cfc11..b31c95f 100644
+index f2cfc11..9b1c4a0 100644
 --- a/include/clang/Driver/CC1Options.td
 +++ b/include/clang/Driver/CC1Options.td
-@@ -465,6 +465,10 @@ def emit_pch : Flag<["-"], "emit-pch">,
+@@ -465,6 +465,12 @@ def emit_pch : Flag<["-"], "emit-pch">,
    HelpText<"Generate pre-compiled header file">;
  def emit_llvm_bc : Flag<["-"], "emit-llvm-bc">,
    HelpText<"Build ASTs then convert to LLVM, emit .bc file">;
@@ -1165,10 +1172,12 @@ index f2cfc11..b31c95f 100644
 +  HelpText<"Build ASTs then convert to LLVM, then convert to SPIR-V, emit .spv file">;
 +def emit_spirv_container : Flag<["-"], "emit-spirv-container">,
 +  HelpText<"Build ASTs then convert to LLVM, then convert to multiple SPIR-V modules, emit .spvc file">;
++def emit_metallib : Flag<["-"], "emit-metallib">,
++  HelpText<"Builds Metal/AIR bitcode and puts it in a .metallib file">;
  def emit_llvm_only : Flag<["-"], "emit-llvm-only">,
    HelpText<"Build ASTs and convert to LLVM, discarding output">;
  def emit_codegen_only : Flag<["-"], "emit-codegen-only">,
-@@ -671,6 +675,35 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
+@@ -671,6 +677,35 @@ def detailed_preprocessing_record : Flag<["-"], "detailed-preprocessing-record">
    HelpText<"include a detailed record of preprocessing actions">;
  
  //===----------------------------------------------------------------------===//
@@ -1204,7 +1213,7 @@ index f2cfc11..b31c95f 100644
  // CUDA Options
  //===----------------------------------------------------------------------===//
  
-@@ -684,6 +717,21 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
+@@ -684,6 +719,21 @@ def fno_cuda_host_device_constexpr : Flag<["-"], "fno-cuda-host-device-constexpr
    HelpText<"Don't treat unattributed constexpr functions as __host__ __device__.">;
  
  //===----------------------------------------------------------------------===//
@@ -1227,10 +1236,10 @@ index f2cfc11..b31c95f 100644
  //===----------------------------------------------------------------------===//
  
 diff --git a/include/clang/Driver/Options.td b/include/clang/Driver/Options.td
-index 44e588d..a4d6a72 100644
+index 44e588d..d60d017 100644
 --- a/include/clang/Driver/Options.td
 +++ b/include/clang/Driver/Options.td
-@@ -452,6 +452,14 @@ def emit_ast : Flag<["-"], "emit-ast">,
+@@ -452,6 +452,16 @@ def emit_ast : Flag<["-"], "emit-ast">,
    HelpText<"Emit Clang AST files for source inputs">;
  def emit_llvm : Flag<["-"], "emit-llvm">, Flags<[CC1Option]>, Group<Action_Group>,
    HelpText<"Use the LLVM representation for assembler and object files">;
@@ -1242,11 +1251,13 @@ index 44e588d..a4d6a72 100644
 +  HelpText<"Output SPIR-V compatible bitcode">;
 +def llvm_spirv_container : Flag<["-"], "llvm-spirv-container">, Flags<[CC1Option]>, Group<Action_Group>,
 +  HelpText<"Output a container with SPIR-V compatible bitcode modules">;
++def llvm_metallib : Flag<["-"], "llvm-metallib">, Flags<[CC1Option]>, Group<Action_Group>,
++  HelpText<"Output a Metal Library container">;
  def exported__symbols__list : Separate<["-"], "exported_symbols_list">;
  def e : JoinedOrSeparate<["-"], "e">;
  def fPIC : Flag<["-"], "fPIC">, Group<f_Group>;
 diff --git a/include/clang/Driver/Types.def b/include/clang/Driver/Types.def
-index f2ff194..4f3aba3 100644
+index f2ff194..ab8573e 100644
 --- a/include/clang/Driver/Types.def
 +++ b/include/clang/Driver/Types.def
 @@ -42,6 +42,8 @@
@@ -1276,12 +1287,13 @@ index f2ff194..4f3aba3 100644
  TYPE("lto-ir",                   LTO_IR,       INVALID,         "s",     "")
  TYPE("lto-bc",                   LTO_BC,       INVALID,         "o",     "")
  
-@@ -95,4 +101,6 @@ TYPE("image",                    Image,        INVALID,         "out",   "")
+@@ -95,4 +101,7 @@ TYPE("image",                    Image,        INVALID,         "out",   "")
  TYPE("dSYM",                     dSYM,         INVALID,         "dSYM",  "A")
  TYPE("dependencies",             Dependencies, INVALID,         "d",     "")
  TYPE("cuda-fatbin",              CUDA_FATBIN,  INVALID,         "fatbin","A")
 +TYPE("spirv",                    SPIRV,        INVALID,         "spv",   "u")
 +TYPE("spirvc",                   SPIRVC,       INVALID,         "spvc",  "u")
++TYPE("metallib",                 METALLIB,     INVALID,         "metallib", "u")
  TYPE("none",                     Nothing,      INVALID,         nullptr, "u")
 diff --git a/include/clang/Frontend/CodeGenOptions.def b/include/clang/Frontend/CodeGenOptions.def
 index 4dd634c..35658f9 100644
@@ -1325,10 +1337,10 @@ index 0bdc1ef..23b9014 100644
    std::vector<std::string> DependentLibraries;
  
 diff --git a/include/clang/Frontend/FrontendOptions.h b/include/clang/Frontend/FrontendOptions.h
-index a75523f..1057410 100644
+index a75523f..8ff9798 100644
 --- a/include/clang/Frontend/FrontendOptions.h
 +++ b/include/clang/Frontend/FrontendOptions.h
-@@ -34,6 +34,10 @@ namespace frontend {
+@@ -34,6 +34,11 @@ namespace frontend {
      DumpTokens,             ///< Dump out preprocessed tokens.
      EmitAssembly,           ///< Emit a .s file.
      EmitBC,                 ///< Emit a .bc file.
@@ -1336,10 +1348,11 @@ index a75523f..1057410 100644
 +    EmitBC35,               ///< Emit a LLVM 3.5 .bc file.
 +    EmitSPIRV,              ///< Emit a .spv file.
 +    EmitSPIRVContainer,     ///< Emit a .spvc container file.
++    EmitMetalLib,           ///< Emit a .metallib file.
      EmitHTML,               ///< Translate input source into HTML.
      EmitLLVM,               ///< Emit a .ll file.
      EmitLLVMOnly,           ///< Generate LLVM IR, but do not emit anything.
-@@ -72,6 +76,8 @@ enum InputKind {
+@@ -72,6 +77,8 @@ enum InputKind {
    IK_PreprocessedObjC,
    IK_PreprocessedObjCXX,
    IK_OpenCL,
@@ -2569,7 +2582,7 @@ index 36e6d45..3c076c7 100644
      if (!(Triple == llvm::Triple("wasm32-unknown-unknown")))
        return nullptr;
 diff --git a/lib/CodeGen/BackendUtil.cpp b/lib/CodeGen/BackendUtil.cpp
-index 06f2136..4fe56f7 100644
+index 06f2136..c55b6f3 100644
 --- a/lib/CodeGen/BackendUtil.cpp
 +++ b/lib/CodeGen/BackendUtil.cpp
 @@ -35,6 +35,7 @@
@@ -2663,7 +2676,7 @@ index 06f2136..4fe56f7 100644
    if (!CodeGenOpts.DisableGCov &&
        (CodeGenOpts.EmitGcovArcs || CodeGenOpts.EmitGcovNotes)) {
      // Not using 'GCOVOptions::getDefault' allows us to avoid exiting if
-@@ -655,6 +707,10 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -655,6 +707,11 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
  
    bool UsesCodeGen = (Action != Backend_EmitNothing &&
                        Action != Backend_EmitBC &&
@@ -2671,10 +2684,11 @@ index 06f2136..4fe56f7 100644
 +                      Action != Backend_EmitBC35 &&
 +                      Action != Backend_EmitSPIRV &&
 +                      Action != Backend_EmitSPIRVContainer &&
++                      Action != Backend_EmitMetalLib &&
                        Action != Backend_EmitLL);
    CreateTargetMachine(UsesCodeGen);
  
-@@ -687,6 +743,22 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
+@@ -687,6 +744,26 @@ void EmitAssemblyHelper::EmitAssembly(BackendAction Action,
          CodeGenOpts.EmitSummaryIndex));
      break;
  
@@ -2692,6 +2706,10 @@ index 06f2136..4fe56f7 100644
 +
 +  case Backend_EmitSPIRVContainer:
 +    PerModulePasses.add(createSPIRVContainerWriterPass(*OS));
++    break;
++
++  case Backend_EmitMetalLib:
++    PerModulePasses.add(createMetalLibWriterPass(*OS));
 +    break;
 +
    case Backend_EmitLL:
@@ -4881,19 +4899,20 @@ index aa457ad..aa2885f 100644
    // Extract all of the register value results from the asm.
    std::vector<llvm::Value*> RegResults;
 diff --git a/lib/CodeGen/CMakeLists.txt b/lib/CodeGen/CMakeLists.txt
-index 175d9ae..951fe82 100644
+index 175d9ae..bc1c00e 100644
 --- a/lib/CodeGen/CMakeLists.txt
 +++ b/lib/CodeGen/CMakeLists.txt
-@@ -2,6 +2,8 @@ set(LLVM_LINK_COMPONENTS
+@@ -2,6 +2,9 @@ set(LLVM_LINK_COMPONENTS
    Analysis
    BitReader
    BitWriter
 +  BitWriter32
 +  BitWriter35
++  MetalLib
    Core
    Coverage
    IPO
-@@ -15,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
+@@ -15,6 +18,7 @@ set(LLVM_LINK_COMPONENTS
    Object
    ProfileData
    ScalarOpts
@@ -4901,7 +4920,7 @@ index 175d9ae..951fe82 100644
    Support
    Target
    TransformUtils
-@@ -61,6 +64,7 @@ add_clang_library(clangCodeGen
+@@ -61,6 +65,7 @@ add_clang_library(clangCodeGen
    CGOpenMPRuntime.cpp
    CGOpenMPRuntimeNVPTX.cpp
    CGRecordLayoutBuilder.cpp
@@ -4910,10 +4929,10 @@ index 175d9ae..951fe82 100644
    CGStmtOpenMP.cpp
    CGVTT.cpp
 diff --git a/lib/CodeGen/CodeGenAction.cpp b/lib/CodeGen/CodeGenAction.cpp
-index dd80390..4e3b676 100644
+index dd80390..2f81dd3 100644
 --- a/lib/CodeGen/CodeGenAction.cpp
 +++ b/lib/CodeGen/CodeGenAction.cpp
-@@ -714,7 +714,13 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
+@@ -714,7 +714,15 @@ GetOutputStream(CompilerInstance &CI, StringRef InFile, BackendAction Action) {
    case Backend_EmitLL:
      return CI.createDefaultOutputFile(false, InFile, "ll");
    case Backend_EmitBC:
@@ -4924,10 +4943,12 @@ index dd80390..4e3b676 100644
 +    return CI.createDefaultOutputFile(true, InFile, "spv");
 +  case Backend_EmitSPIRVContainer:
 +    return CI.createDefaultOutputFile(true, InFile, "spvc");
++  case Backend_EmitMetalLib:
++    return CI.createDefaultOutputFile(true, InFile, "metallib");
    case Backend_EmitNothing:
      return nullptr;
    case Backend_EmitMCNull:
-@@ -877,6 +883,22 @@ void EmitBCAction::anchor() { }
+@@ -877,6 +885,26 @@ void EmitBCAction::anchor() { }
  EmitBCAction::EmitBCAction(llvm::LLVMContext *_VMContext)
    : CodeGenAction(Backend_EmitBC, _VMContext) {}
  
@@ -4946,6 +4967,10 @@ index dd80390..4e3b676 100644
 +void EmitSPIRVContainerAction::anchor() { }
 +EmitSPIRVContainerAction::EmitSPIRVContainerAction(llvm::LLVMContext *_VMContext)
 +  : CodeGenAction(Backend_EmitSPIRVContainer, _VMContext) {}
++
++void EmitMetalLibAction::anchor() { }
++EmitMetalLibAction::EmitMetalLibAction(llvm::LLVMContext *_VMContext)
++  : CodeGenAction(Backend_EmitMetalLib, _VMContext) {}
 +
  void EmitLLVMAction::anchor() { }
  EmitLLVMAction::EmitLLVMAction(llvm::LLVMContext *_VMContext)
@@ -8731,10 +8756,10 @@ index e463825..5700c24 100644
  
  } // namespace CodeGen
 diff --git a/lib/Driver/Driver.cpp b/lib/Driver/Driver.cpp
-index 9871f29..c895374 100644
+index 9871f29..a385d14 100644
 --- a/lib/Driver/Driver.cpp
 +++ b/lib/Driver/Driver.cpp
-@@ -1837,6 +1837,14 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ArgList &Args,
+@@ -1837,6 +1837,16 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ArgList &Args,
        return C.MakeAction<CompileJobAction>(Input, types::TY_ModuleFile);
      if (Args.hasArg(options::OPT_verify_pch))
        return C.MakeAction<VerifyPCHJobAction>(Input, types::TY_Nothing);
@@ -8746,10 +8771,12 @@ index 9871f29..c895374 100644
 +      return C.MakeAction<CompileJobAction>(Input, types::TY_SPIRV);
 +    if (Args.hasArg(options::OPT_llvm_spirv_container))
 +      return C.MakeAction<CompileJobAction>(Input, types::TY_SPIRVC);
++    if (Args.hasArg(options::OPT_llvm_metallib))
++      return C.MakeAction<CompileJobAction>(Input, types::TY_METALLIB);
      return C.MakeAction<CompileJobAction>(Input, types::TY_LLVM_BC);
    }
    case phases::Backend: {
-@@ -1846,8 +1854,16 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ArgList &Args,
+@@ -1846,8 +1856,17 @@ Action *Driver::ConstructPhaseAction(Compilation &C, const ArgList &Args,
        return C.MakeAction<BackendJobAction>(Input, Output);
      }
      if (Args.hasArg(options::OPT_emit_llvm)) {
@@ -8764,11 +8791,12 @@ index 9871f29..c895374 100644
 +        if (Args.hasArg(options::OPT_llvm_bc_35)) Output = types::TY_LLVM_BC_35;
 +        if (Args.hasArg(options::OPT_llvm_spirv)) Output = types::TY_SPIRV;
 +        if (Args.hasArg(options::OPT_llvm_spirv_container)) Output = types::TY_SPIRVC;
++        if (Args.hasArg(options::OPT_llvm_metallib)) Output = types::TY_METALLIB;
 +      }
        return C.MakeAction<BackendJobAction>(Input, Output);
      }
      return C.MakeAction<BackendJobAction>(Input, types::TY_PP_Asm);
-@@ -2455,8 +2471,13 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
+@@ -2455,8 +2474,14 @@ const char *Driver::GetNamedOutputPath(Compilation &C, const JobAction &JA,
      // the unoptimized bitcode so that it does not get overwritten by the ".bc"
      // optimized bitcode output.
      if (!AtTopLevel && C.getArgs().hasArg(options::OPT_emit_llvm) &&
@@ -8777,7 +8805,8 @@ index 9871f29..c895374 100644
 +         JA.getType() == types::TY_LLVM_BC_32 ||
 +         JA.getType() == types::TY_LLVM_BC_35 ||
 +         JA.getType() == types::TY_SPIRV ||
-+         JA.getType() == types::TY_SPIRVC)) {
++         JA.getType() == types::TY_SPIRVC ||
++         JA.getType() == types::TY_METALLIB)) {
        Suffixed += ".tmp";
 +    }
      Suffixed += '.';
@@ -8892,10 +8921,10 @@ index 61c559c..6bec807 100644
      // and for everything in 10.6 and beyond
      if (isTargetIOSBased() || isTargetWatchOSBased())
 diff --git a/lib/Driver/Tools.cpp b/lib/Driver/Tools.cpp
-index c1d68bc..b492d66 100644
+index c1d68bc..ff40aac 100644
 --- a/lib/Driver/Tools.cpp
 +++ b/lib/Driver/Tools.cpp
-@@ -3993,6 +3993,16 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -3993,6 +3993,18 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
      } else if (JA.getType() == types::TY_LLVM_BC ||
                 JA.getType() == types::TY_LTO_BC) {
        CmdArgs.push_back("-emit-llvm-bc");
@@ -8909,10 +8938,12 @@ index c1d68bc..b492d66 100644
 +      CmdArgs.push_back("-emit-spirv");
 +    } else if (JA.getType() == types::TY_SPIRVC) {
 +      CmdArgs.push_back("-emit-spirv-container");
++    } else if (JA.getType() == types::TY_METALLIB) {
++      CmdArgs.push_back("-emit-metallib");
      } else if (JA.getType() == types::TY_PP_Asm) {
        CmdArgs.push_back("-S");
      } else if (JA.getType() == types::TY_AST) {
-@@ -4013,7 +4023,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
+@@ -4013,7 +4025,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
      // loading the bitcode up in 'opt' or 'llc' and running passes gives the
      // same result as running passes here.  For LTO, we don't need to preserve
      // the use-list order, since serialization to bitcode is part of the flow.
@@ -8921,16 +8952,17 @@ index c1d68bc..b492d66 100644
        CmdArgs.push_back("-emit-llvm-uselists");
  
      if (D.isUsingLTO())
-@@ -6879,6 +6889,8 @@ void gcc::Compiler::RenderExtraToolArgs(const JobAction &JA,
+@@ -6879,6 +6891,9 @@ void gcc::Compiler::RenderExtraToolArgs(const JobAction &JA,
    case types::TY_LLVM_IR:
    case types::TY_LTO_IR:
    case types::TY_LLVM_BC:
 +  case types::TY_LLVM_BC_32:
 +  case types::TY_LLVM_BC_35:
++  case types::TY_METALLIB:
    case types::TY_LTO_BC:
      CmdArgs.push_back("-c");
      break;
-@@ -7487,6 +7499,8 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
+@@ -7487,6 +7502,8 @@ llvm::Triple::ArchType darwin::getArchTypeForMachOArchName(StringRef Str) {
        .Case("nvptx64", llvm::Triple::nvptx64)
        .Case("amdil", llvm::Triple::amdil)
        .Case("spir", llvm::Triple::spir)
@@ -8940,19 +8972,20 @@ index c1d68bc..b492d66 100644
  }
  
 diff --git a/lib/Driver/Types.cpp b/lib/Driver/Types.cpp
-index f8e1e40..fff00d4 100644
+index f8e1e40..bd84b82 100644
 --- a/lib/Driver/Types.cpp
 +++ b/lib/Driver/Types.cpp
-@@ -97,6 +97,8 @@ bool types::isAcceptedByClang(ID Id) {
+@@ -97,6 +97,9 @@ bool types::isAcceptedByClang(ID Id) {
    case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
    case TY_AST: case TY_ModuleFile:
    case TY_LLVM_IR: case TY_LLVM_BC:
 +  case TY_LLVM_BC_32: case TY_LLVM_BC_35:
 +  case TY_SPIRV: case TY_SPIRVC:
++  case TY_METALLIB:
      return true;
    }
  }
-@@ -135,6 +137,8 @@ bool types::isLLVMIR(ID Id) {
+@@ -135,6 +138,8 @@ bool types::isLLVMIR(ID Id) {
  
    case TY_LLVM_IR:
    case TY_LLVM_BC:
@@ -8961,7 +8994,7 @@ index f8e1e40..fff00d4 100644
    case TY_LTO_IR:
    case TY_LTO_BC:
      return true;
-@@ -174,6 +178,10 @@ types::ID types::lookupTypeForExtension(const char *Ext) {
+@@ -174,6 +179,11 @@ types::ID types::lookupTypeForExtension(const char *Ext) {
             .Case("mi", TY_PP_ObjC)
             .Case("mm", TY_ObjCXX)
             .Case("bc", TY_LLVM_BC)
@@ -8969,6 +9002,7 @@ index f8e1e40..fff00d4 100644
 +           .Case("bc35", TY_LLVM_BC_35) // not ideal
 +           .Case("spv", TY_SPIRV)
 +           .Case("spvc", TY_SPIRVC)
++           .Case("metallib", TY_METALLIB)
             .Case("cc", TY_CXX)
             .Case("CC", TY_CXX)
             .Case("cl", TY_CL)
@@ -9000,7 +9034,7 @@ index 89907f1..e6281f1 100644
      return IK_OpenCL;
    if (LangOpts.CUDA)
 diff --git a/lib/Frontend/CompilerInvocation.cpp b/lib/Frontend/CompilerInvocation.cpp
-index 97c37de..ede7c79 100644
+index 97c37de..f258ddb 100644
 --- a/lib/Frontend/CompilerInvocation.cpp
 +++ b/lib/Frontend/CompilerInvocation.cpp
 @@ -45,6 +45,7 @@
@@ -9073,7 +9107,7 @@ index 97c37de..ede7c79 100644
    if (Arg *A = Args.getLastArg(OPT_ffp_contract)) {
      StringRef Val = A->getValue();
      if (Val == "fast")
-@@ -1099,6 +1121,14 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1099,6 +1121,16 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        Opts.ProgramAction = frontend::EmitAssembly; break;
      case OPT_emit_llvm_bc:
        Opts.ProgramAction = frontend::EmitBC; break;
@@ -9085,10 +9119,12 @@ index 97c37de..ede7c79 100644
 +      Opts.ProgramAction = frontend::EmitSPIRV; break;
 +    case OPT_emit_spirv_container:
 +      Opts.ProgramAction = frontend::EmitSPIRVContainer; break;
++    case OPT_emit_metallib:
++      Opts.ProgramAction = frontend::EmitMetalLib; break;
      case OPT_emit_html:
        Opts.ProgramAction = frontend::EmitHTML; break;
      case OPT_emit_llvm:
-@@ -1293,6 +1323,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1293,6 +1325,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
      DashX = llvm::StringSwitch<InputKind>(A->getValue())
        .Case("c", IK_C)
        .Case("cl", IK_OpenCL)
@@ -9097,7 +9133,7 @@ index 97c37de..ede7c79 100644
        .Case("cuda", IK_CUDA)
        .Case("c++", IK_CXX)
        .Case("objective-c", IK_ObjC)
-@@ -1307,6 +1339,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
+@@ -1307,6 +1341,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
        .Case("objc++-cpp-output", IK_PreprocessedObjCXX)
        .Case("c-header", IK_C)
        .Case("cl-header", IK_OpenCL)
@@ -9106,7 +9142,7 @@ index 97c37de..ede7c79 100644
        .Case("objective-c-header", IK_ObjC)
        .Case("c++-header", IK_CXX)
        .Case("objective-c++-header", IK_ObjCXX)
-@@ -1507,6 +1541,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1507,6 +1543,12 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      case IK_OpenCL:
        LangStd = LangStandard::lang_opencl;
        break;
@@ -9119,7 +9155,7 @@ index 97c37de..ede7c79 100644
      case IK_CUDA:
      case IK_PreprocessedCuda:
        LangStd = LangStandard::lang_cuda;
-@@ -1558,6 +1598,34 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
+@@ -1558,6 +1600,34 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
      Opts.OpenCLVersion = 120;
    else if (LangStd == LangStandard::lang_opencl20)
      Opts.OpenCLVersion = 200;
@@ -9154,7 +9190,7 @@ index 97c37de..ede7c79 100644
  
    // OpenCL has some additional defaults.
    if (Opts.OpenCL) {
-@@ -1655,10 +1723,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1655,10 +1725,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
              << A->getAsString(Args) << "C++/ObjC++";
          break;
        case IK_OpenCL:
@@ -9176,7 +9212,7 @@ index 97c37de..ede7c79 100644
        case IK_CUDA:
        case IK_PreprocessedCuda:
          if (!Std.isCPlusPlus())
-@@ -1676,10 +1754,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1676,10 +1756,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    if (const Arg *A = Args.getLastArg(OPT_cl_std_EQ)) {
      LangStandard::Kind OpenCLLangStd
      = llvm::StringSwitch<LangStandard::Kind>(A->getValue())
@@ -9193,7 +9229,7 @@ index 97c37de..ede7c79 100644
      .Default(LangStandard::lang_unspecified);
  
      if (OpenCLLangStd == LangStandard::lang_unspecified) {
-@@ -1707,6 +1787,28 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -1707,6 +1789,28 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
        << VerSpec << Args.getLastArg(OPT_cl_strict_aliasing)->getAsString(Args);
    }
  
@@ -9222,7 +9258,7 @@ index 97c37de..ede7c79 100644
    // We abuse '-f[no-]gnu-keywords' to force overriding all GNU-extension
    // keywords. This behavior is provided by GCC's poorly named '-fasm' flag,
    // while a subset (the non-C++ GNU keywords) is provided by GCC's
-@@ -2143,6 +2245,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
+@@ -2143,6 +2247,20 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
    Opts.RetainCommentsFromSystemHeaders =
        Args.hasArg(OPT_fretain_comments_from_system_headers);
  
@@ -9243,7 +9279,7 @@ index 97c37de..ede7c79 100644
    unsigned SSP = getLastArgIntValue(Args, OPT_stack_protector, 0, Diags);
    switch (SSP) {
    default:
-@@ -2252,6 +2368,10 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
+@@ -2252,6 +2370,11 @@ static void ParsePreprocessorOutputArgs(PreprocessorOutputOptions &Opts,
    case frontend::ASTView:
    case frontend::EmitAssembly:
    case frontend::EmitBC:
@@ -9251,6 +9287,7 @@ index 97c37de..ede7c79 100644
 +  case frontend::EmitBC35:
 +  case frontend::EmitSPIRV:
 +  case frontend::EmitSPIRVContainer:
++  case frontend::EmitMetalLib:
    case frontend::EmitHTML:
    case frontend::EmitLLVM:
    case frontend::EmitLLVMOnly:
@@ -9353,10 +9390,10 @@ index f8b912e..2598023 100644
    // this in asm preprocessor mode, because "# 4" is not a line marker directive
    // in this mode.
 diff --git a/lib/FrontendTool/ExecuteCompilerInvocation.cpp b/lib/FrontendTool/ExecuteCompilerInvocation.cpp
-index 13cb52a..9c6cbc9 100644
+index 13cb52a..1b38043 100644
 --- a/lib/FrontendTool/ExecuteCompilerInvocation.cpp
 +++ b/lib/FrontendTool/ExecuteCompilerInvocation.cpp
-@@ -46,6 +46,10 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
+@@ -46,6 +46,11 @@ CreateFrontendBaseAction(CompilerInstance &CI) {
    case DumpTokens:             return llvm::make_unique<DumpTokensAction>();
    case EmitAssembly:           return llvm::make_unique<EmitAssemblyAction>();
    case EmitBC:                 return llvm::make_unique<EmitBCAction>();
@@ -9364,6 +9401,7 @@ index 13cb52a..9c6cbc9 100644
 +  case EmitBC35:               return llvm::make_unique<EmitBC35Action>();
 +  case EmitSPIRV:              return llvm::make_unique<EmitSPIRVAction>();
 +  case EmitSPIRVContainer:     return llvm::make_unique<EmitSPIRVContainerAction>();
++  case EmitMetalLib:           return llvm::make_unique<EmitMetalLibAction>();
    case EmitHTML:               return llvm::make_unique<HTMLPrintAction>();
    case EmitLLVM:               return llvm::make_unique<EmitLLVMAction>();
    case EmitLLVMOnly:           return llvm::make_unique<EmitLLVMOnlyAction>();
