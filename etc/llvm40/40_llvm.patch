@@ -440,10 +440,10 @@ index 9e861ac..636fb32 100644
    /// \brief Collect a loop's ephemeral values (those used only by an assume
    /// or similar intrinsics in the loop).
 diff --git a/include/llvm/Bitcode/BitcodeWriterPass.h b/include/llvm/Bitcode/BitcodeWriterPass.h
-index 9ac6fba..a546c1c 100644
+index 9ac6fba..d019884 100644
 --- a/include/llvm/Bitcode/BitcodeWriterPass.h
 +++ b/include/llvm/Bitcode/BitcodeWriterPass.h
-@@ -40,6 +40,10 @@ ModulePass *createBitcodeWriterPass(raw_ostream &Str,
+@@ -40,6 +40,12 @@ ModulePass *createBitcodeWriterPass(raw_ostream &Str,
                                      bool EmitSummaryIndex = false,
                                      bool EmitModuleHash = false);
  
@@ -451,10 +451,12 @@ index 9ac6fba..a546c1c 100644
 +
 +ModulePass *createBitcode35WriterPass(raw_ostream &Str);
 +
++ModulePass *createMetalLibWriterPass(raw_ostream &Str);
++
  /// \brief Pass for writing a module of IR out to a bitcode file.
  ///
  /// Note that this is intended for use with the new pass manager. To construct
-@@ -70,6 +74,34 @@ public:
+@@ -70,6 +76,48 @@ public:
    PreservedAnalyses run(Module &M, ModuleAnalysisManager &);
  };
  
@@ -484,6 +486,20 @@ index 9ac6fba..a546c1c 100644
 +  PreservedAnalyses run(Module &M);
 +
 +  static StringRef name() { return "Bitcode35WriterPass"; }
++};
++
++class MetalLibWriterPass {
++  raw_ostream &OS;
++
++public:
++  /// \brief Construct a bitcode writer pass around a particular output stream.
++  explicit MetalLibWriterPass(raw_ostream &OS) : OS(OS) {}
++
++  /// \brief Run the bitcode writer pass, and output the module to the selected
++  /// output stream.
++  PreservedAnalyses run(Module &M);
++
++  static StringRef name() { return "MetalLibWriterPass"; }
 +};
 +
  }
@@ -876,16 +892,18 @@ index 52d4f01..37652a5 100644
  
  } // End bitc namespace
 diff --git a/include/llvm/Bitcode/ReaderWriter.h b/include/llvm/Bitcode/ReaderWriter.h
-index 0ff32d8..fa8ae77 100644
+index 0ff32d8..49ca1ce 100644
 --- a/include/llvm/Bitcode/ReaderWriter.h
 +++ b/include/llvm/Bitcode/ReaderWriter.h
-@@ -104,6 +104,10 @@ namespace llvm {
+@@ -104,6 +104,12 @@ namespace llvm {
                            const ModuleSummaryIndex *Index = nullptr,
                            bool GenerateHash = false);
  
 +  void WriteBitcode32ToFile(const Module *M, raw_ostream &Out);
 +
 +  void WriteBitcode35ToFile(const Module *M, raw_ostream &Out);
++
++  void WriteMetalLibToFile(Module &M, raw_ostream &OS);
 +
    /// Write the specified module summary index to the given raw output stream,
    /// where it will be written in a new bitcode block. This is used when
@@ -3183,16 +3201,17 @@ index 37998e8..72408bb 100644
    kw_x86_64_win64cc,
    kw_webkit_jscc,
 diff --git a/lib/Bitcode/CMakeLists.txt b/lib/Bitcode/CMakeLists.txt
-index ff7e290..9e90072 100644
+index ff7e290..5e44cdd 100644
 --- a/lib/Bitcode/CMakeLists.txt
 +++ b/lib/Bitcode/CMakeLists.txt
-@@ -1,2 +1,4 @@
+@@ -1,2 +1,5 @@
  add_subdirectory(Reader)
  add_subdirectory(Writer)
 +add_subdirectory(Writer32)
 +add_subdirectory(Writer35)
++add_subdirectory(MetalLib)
 diff --git a/lib/Bitcode/LLVMBuild.txt b/lib/Bitcode/LLVMBuild.txt
-index af9936b..017dbe5 100644
+index af9936b..15e50e1 100644
 --- a/lib/Bitcode/LLVMBuild.txt
 +++ b/lib/Bitcode/LLVMBuild.txt
 @@ -16,7 +16,7 @@
@@ -3200,10 +3219,828 @@ index af9936b..017dbe5 100644
  
  [common]
 -subdirectories = Reader Writer
-+subdirectories = Reader Writer Writer32 Writer35
++subdirectories = Reader Writer Writer32 Writer35 MetalLib
  
  [component_0]
  type = Group
+diff --git a/lib/Bitcode/MetalLib/CMakeLists.txt b/lib/Bitcode/MetalLib/CMakeLists.txt
+new file mode 100644
+index 0000000..bdca4ae
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/CMakeLists.txt
+@@ -0,0 +1,8 @@
++add_llvm_library(LLVMMetalLib
++  MetalLibWriter.cpp
++  MetalLibWriterPass.cpp
++
++  DEPENDS
++  intrinsics_gen
++  LLVMBitWriter35
++  )
+diff --git a/lib/Bitcode/MetalLib/LLVMBuild.txt b/lib/Bitcode/MetalLib/LLVMBuild.txt
+new file mode 100644
+index 0000000..d945018
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/LLVMBuild.txt
+@@ -0,0 +1,22 @@
++;===- ./lib/Bitcode/MetalLib/LLVMBuild.txt ---------------------*- Conf -*--===;
++;
++;                     The LLVM Compiler Infrastructure
++;
++; This file is distributed under the University of Illinois Open Source
++; License. See LICENSE.TXT for details.
++;
++;===------------------------------------------------------------------------===;
++;
++; This is an LLVMBuild description file for the components in this subdirectory.
++;
++; For more information on the LLVMBuild system, please see:
++;
++;   http://llvm.org/docs/LLVMBuild.html
++;
++;===------------------------------------------------------------------------===;
++
++[component_0]
++type = Library
++name = MetalLib
++parent = Bitcode
++required_libraries = Core Support BitWriter35
+diff --git a/lib/Bitcode/MetalLib/Makefile b/lib/Bitcode/MetalLib/Makefile
+new file mode 100644
+index 0000000..c390ea9
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/Makefile
+@@ -0,0 +1,15 @@
++##===- lib/Bitcode/MetalLib/Makefile -----------------------*- Makefile -*-===##
++#
++#                     The LLVM Compiler Infrastructure
++#
++# This file is distributed under the University of Illinois Open Source
++# License. See LICENSE.TXT for details.
++#
++##===----------------------------------------------------------------------===##
++
++LEVEL = ../../..
++LIBRARYNAME = LLVMMetalLib
++BUILD_ARCHIVE = 1
++
++include $(LEVEL)/Makefile.common
++
+diff --git a/lib/Bitcode/MetalLib/MetalLibWriter.cpp b/lib/Bitcode/MetalLib/MetalLibWriter.cpp
+new file mode 100644
+index 0000000..f7b6db4
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/MetalLibWriter.cpp
+@@ -0,0 +1,48 @@
++//===-- MetalLibWriter.cpp ------------------------------------------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm-c/BitWriter.h"
++#include "llvm/Bitcode/ReaderWriter.h"
++#include "llvm/IR/Module.h"
++#include "llvm/Support/FileSystem.h"
++#include "llvm/Support/raw_ostream.h"
++using namespace llvm;
++
++/*===-- Operations on modules ---------------------------------------------===*/
++
++int LLVMWriteMetalLibToFile(LLVMModuleRef M, const char *Path) {
++  std::error_code EC;
++  raw_fd_ostream OS(Path, EC, sys::fs::F_None);
++
++  if (EC)
++    return -1;
++
++  WriteMetalLibToFile(*unwrap(M), OS);
++  return 0;
++}
++
++int LLVMWriteMetalLibToFD(LLVMModuleRef M, int FD, int ShouldClose,
++                          int Unbuffered) {
++  raw_fd_ostream OS(FD, ShouldClose, Unbuffered);
++
++  WriteMetalLibToFile(*unwrap(M), OS);
++  return 0;
++}
++
++int LLVMWriteMetalLibToFileHandle(LLVMModuleRef M, int FileHandle) {
++  return LLVMWriteMetalLibToFD(M, FileHandle, true, false);
++}
++
++LLVMMemoryBufferRef LLVMWriteMetalLibToMemoryBuffer(LLVMModuleRef M) {
++  std::string Data;
++  raw_string_ostream OS(Data);
++
++  WriteMetalLibToFile(*unwrap(M), OS);
++  return wrap(MemoryBuffer::getMemBufferCopy(OS.str()).release());
++}
+diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
+new file mode 100644
+index 0000000..fca8491
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
+@@ -0,0 +1,495 @@
++//===- MetalLibWriterPass.cpp - Metal Library writing pass ----------------===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// MetalLibWriterPass implementation.
++//
++//===----------------------------------------------------------------------===//
++
++#include "llvm/ADT/Triple.h"
++#include "llvm/Bitcode/BitcodeWriterPass.h"
++#include "llvm/Bitcode/ReaderWriter.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/PassManager.h"
++#include "llvm/Pass.h"
++#include "llvm/Support/Casting.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++#include "sha256.hpp"
++#include <string>
++#include <unordered_set>
++#include <unordered_map>
++using namespace llvm;
++using namespace std;
++
++PreservedAnalyses MetalLibWriterPass::run(Module &M) {
++  WriteMetalLibToFile(M, OS);
++  return PreservedAnalyses::all();
++}
++
++namespace {
++class WriteMetalLibPass : public ModulePass {
++  raw_ostream &OS; // raw_ostream to print on
++
++public:
++  static char ID; // Pass identification, replacement for typeid
++  explicit WriteMetalLibPass(raw_ostream &o) : ModulePass(ID), OS(o) {}
++
++  const char *getPassName() const override { return "Metal Library Writer"; }
++
++  bool runOnModule(Module &M) override {
++    WriteMetalLibToFile(M, OS);
++    return false;
++  }
++};
++}
++
++char WriteMetalLibPass::ID = 0;
++
++ModulePass *llvm::createMetalLibWriterPass(raw_ostream &Str) {
++  return new WriteMetalLibPass(Str);
++}
++
++//
++struct __attribute__((packed)) metallib_version {
++  // version of the container (NOTE: per-program Metal/AIR version info is
++  // extra)
++  uint32_t container_version_major : 8;
++  uint32_t container_version_rev : 4;   // lo
++  uint32_t container_version_minor : 4; // hi
++
++  // unknown: always 2, 0, 0
++  // TODO: might be dwarf version?
++  uint32_t unknown_version_major : 8;
++  uint32_t unknown_version_rev : 4;   // lo
++  uint32_t unknown_version_minor : 4; // hi
++
++  // unknown: always 2
++  uint32_t unkown_version;
++
++  // unknown: always 0
++  uint32_t zero;
++};
++static_assert(sizeof(metallib_version) == 12, "invalid version header length");
++
++struct __attribute__((packed)) metallib_header_control {
++  uint64_t programs_offset;
++  uint64_t programs_length;
++  uint64_t reflection_offset;
++  uint64_t reflection_length;
++  uint64_t debug_offset;
++  uint64_t debug_length;
++  uint64_t bitcode_offset;
++  uint64_t bitcode_length;
++  uint32_t program_count;
++};
++static_assert(sizeof(metallib_header_control) == 68,
++              "invalid program info length");
++
++struct __attribute__((packed)) metallib_header {
++  const char magic[4]; // == metallib_magic
++  const metallib_version version;
++  const uint64_t file_length;
++  const metallib_header_control header_control;
++};
++static_assert(sizeof(metallib_header) ==
++                  4 + sizeof(metallib_version) + sizeof(uint64_t) +
++                      sizeof(metallib_header_control),
++              "invalid metallib header size");
++
++struct metallib_program_info {
++// NOTE: tag types are always 32-bit
++// NOTE: tag types are always followed by a uint16_t that specifies the length
++// of the tag data
++#define make_tag_type(a, b, c, d)                                              \
++  ((uint32_t(d) << 24u) | (uint32_t(c) << 16u) | (uint32_t(b) << 8u) |         \
++   uint32_t(a))
++  enum TAG_TYPE : uint32_t {
++    // used in initial header section
++    NAME = make_tag_type('N', 'A', 'M', 'E'),
++    TYPE = make_tag_type('T', 'Y', 'P', 'E'),
++    HASH = make_tag_type('H', 'A', 'S', 'H'),
++    MD_SIZE = make_tag_type('M', 'D', 'S', 'Z'),
++    OFFSET = make_tag_type('O', 'F', 'F', 'T'),
++    VERSION = make_tag_type('V', 'E', 'R', 'S'),
++    // used in reflection section
++    CNST = make_tag_type('C', 'N', 'S', 'T'),
++    VATT = make_tag_type('V', 'A', 'T', 'T'),
++    VATY = make_tag_type('V', 'A', 'T', 'Y'),
++    RETR = make_tag_type('R', 'E', 'T', 'R'),
++    ARGR = make_tag_type('A', 'R', 'G', 'R'),
++    // used in debug section
++    DEBI = make_tag_type('D', 'E', 'B', 'I'),
++    // TODO/TBD
++    LAYR = make_tag_type('L', 'A', 'Y', 'R'),
++    TESS = make_tag_type('T', 'E', 'S', 'S'),
++    // generic end tag
++    END = make_tag_type('E', 'N', 'D', 'T'),
++  };
++#undef make_tag_type
++
++  enum class PROGRAM_TYPE : uint8_t {
++    VERTEX = 0,
++    FRAGMENT = 1,
++    KERNEL = 2,
++    // TODO: tessellation?
++    NONE = 255
++  };
++
++  struct version_info {
++    uint32_t major : 16;
++    uint32_t minor : 8;
++    uint32_t rev : 8;
++  };
++  static_assert(sizeof(version_info) == sizeof(uint32_t),
++                "invalid offset_info size");
++
++  struct offset_info {
++    // NOTE: these are all relative offsets -> add to metallib_header_control
++    // offsets to get absolute offsets
++    uint64_t reflection_offset;
++    uint64_t debug_offset;
++    uint64_t bitcode_offset;
++  };
++  static_assert(sizeof(offset_info) == 3 * sizeof(uint64_t),
++                "invalid offset_info size");
++
++  struct entry {
++    uint32_t length{0};
++
++    string name; // NOTE: limited to 65536 - 1 ('\0')
++
++    PROGRAM_TYPE type{PROGRAM_TYPE::NONE};
++
++    sha256_hash hash;
++
++    offset_info offset{0, 0, 0};
++
++    // we need a separate stream for the actual bitcode data, since we need to
++    // know
++    // the size of each module/file (no way to know this beforehand)
++    string bitcode_data{""}; // -> used via raw_string_ostream later on
++    uint64_t bitcode_size{0};
++
++    // same for reflection and debug data
++    string reflection_data{""};
++    uint64_t reflection_size{0};
++    string debug_data{""};
++    uint64_t debug_size{0};
++
++    version_info metal_version;
++    version_info metal_language_version;
++
++    // output in same order as Apple:
++    //  * NAME
++    //  * TYPE
++    //  * HASH
++    //  * MDSZ
++    //  * OFFT
++    //  * VERS
++    //  * ENDT
++    void update_length() {
++      length = 4;                     // length info itself
++      length += 7 * sizeof(TAG_TYPE); // 7 tags
++      length += 6 * sizeof(uint16_t); // tag lengths (except ENDT)
++
++      length += name.size() + 1;          // name length + \0
++      length += 1;                        // type
++      length += sizeof(sha256_hash);      // hash
++      length += sizeof(uint64_t);         // module size, always 8 bytes
++      length += sizeof(offset_info);      // offset
++      length += sizeof(version_info) * 2; // both versions
++
++      bitcode_size = bitcode_data.size();
++      reflection_size = reflection_data.size();
++      debug_size = debug_data.size();
++    }
++    void update_offsets(uint64_t &running_refl_size, uint64_t &running_dbg_size,
++                        uint64_t &running_bc_size) {
++      offset.reflection_offset = running_refl_size;
++      offset.debug_offset = running_dbg_size;
++      offset.bitcode_offset = running_bc_size;
++
++      running_refl_size += reflection_size;
++      running_dbg_size += debug_size;
++      running_bc_size += bitcode_size;
++    }
++
++    template <typename data_type>
++    static inline void write_value(raw_ostream &OS, const data_type &value) {
++      OS.write((const char *)&value, sizeof(data_type));
++    }
++
++    void write_header(raw_ostream &OS) const {
++      write_value(OS, length);
++
++      // NAME
++      write_value(OS, TAG_TYPE::NAME);
++      write_value(OS, uint16_t(name.size() + 1));
++      OS << name << '\0';
++
++      // TYPE
++      write_value(OS, TAG_TYPE::TYPE);
++      write_value(OS, uint16_t(sizeof(uint8_t)));
++      write_value(OS, uint8_t(type));
++
++      // HASH
++      write_value(OS, TAG_TYPE::HASH);
++      write_value(OS, uint16_t(sizeof(sha256_hash)));
++      OS.write((const char *)&hash, sizeof(sha256_hash));
++
++      // MDSZ
++      write_value(OS, TAG_TYPE::MD_SIZE);
++      write_value(OS, uint16_t(sizeof(uint64_t)));
++      write_value(OS, uint64_t(bitcode_data.size()));
++
++      // OFFT
++      write_value(OS, TAG_TYPE::OFFSET);
++      write_value(OS, uint16_t(sizeof(offset_info)));
++      write_value(OS, offset.reflection_offset);
++      write_value(OS, offset.debug_offset);
++      write_value(OS, offset.bitcode_offset);
++
++      // VERS
++      write_value(OS, TAG_TYPE::VERSION);
++      write_value(OS, uint16_t(2 * sizeof(version_info)));
++      write_value(OS, *(const uint32_t *)&metal_version);
++      write_value(OS, *(const uint32_t *)&metal_language_version);
++
++      // ENDT
++      write_value(OS, TAG_TYPE::END);
++    }
++
++    void write_module(raw_ostream &OS) const {
++      OS.write(bitcode_data.data(), bitcode_data.size());
++    }
++
++    void write_reflection(raw_ostream &OS) const {
++      OS.write(reflection_data.data(), reflection_data.size());
++    }
++
++    void write_debug(raw_ostream &OS) const {
++      OS.write(debug_data.data(), debug_data.size());
++    }
++  };
++  vector<entry> entries;
++};
++
++//
++static bool is_used_in_function(const Function *F, const GlobalVariable *GV) {
++  for (const auto &user : GV->users()) {
++    if (const auto instr = dyn_cast<Instruction>(user)) {
++      if (instr->getParent()->getParent() == F) {
++        return true;
++      }
++    }
++  }
++  return false;
++}
++
++// version -> { AIR version, language version }
++static const unordered_map<uint32_t,
++                           pair<array<uint32_t, 3>, array<uint32_t, 3>>>
++    metal_versions{
++        {110, {{{1, 8, 0}}, {{1, 1, 0}}}},
++        {120, {{{1, 11, 0}}, {{1, 2, 0}}}},
++        {200, {{{2, 0, 0}}, {{2, 0, 0}}}},
++    };
++
++//
++void llvm::WriteMetalLibToFile(Module &M, raw_ostream &OS) {
++  // get metal version
++  Triple TT(M.getTargetTriple());
++  uint32_t target_air_version = 110;
++  if (TT.isiOS()) {
++    uint32_t ios_major, ios_minor, ios_micro;
++    TT.getiOSVersion(ios_major, ios_minor, ios_micro);
++    if (ios_major <= 9) {
++      target_air_version = 110;
++    } else if (ios_major == 10) {
++      target_air_version = 120;
++    } else if (ios_major >= 11) {
++      target_air_version = 200;
++    }
++  } else {
++    uint32_t osx_major, osx_minor, osx_micro;
++    TT.getMacOSXVersion(osx_major, osx_minor, osx_micro);
++    if (osx_minor <= 11) {
++      target_air_version = 110;
++    } else if (osx_minor == 12) {
++      target_air_version = 120;
++    } else if (osx_minor >= 13 || osx_major > 10) {
++      target_air_version = 200;
++    }
++  }
++  const auto &metal_version = *metal_versions.find(target_air_version);
++
++  // gather entry point functions that we want to clone/emit
++  vector<pair<const Function *, metallib_program_info::PROGRAM_TYPE>>
++      functions;
++  for (uint32_t i = 0; i < 3; ++i) {
++    const auto func_type = (metallib_program_info::PROGRAM_TYPE)i;
++    const NamedMDNode *func_list = nullptr;
++    switch (func_type) {
++    case metallib_program_info::PROGRAM_TYPE::KERNEL:
++      func_list = M.getNamedMetadata("air.kernel");
++      break;
++    case metallib_program_info::PROGRAM_TYPE::VERTEX:
++      func_list = M.getNamedMetadata("air.vertex");
++      break;
++    case metallib_program_info::PROGRAM_TYPE::FRAGMENT:
++      func_list = M.getNamedMetadata("air.fragment");
++      break;
++    case metallib_program_info::PROGRAM_TYPE::NONE:
++      llvm_unreachable("invalid type");
++    }
++    if (func_list == nullptr) {
++      // no functions of this type
++      continue;
++    }
++
++    for (const auto &op : func_list->operands()) {
++      const auto &op_0 = op->getOperand(0);
++      if (auto const_md = dyn_cast<ConstantAsMetadata>(op_0)) {
++        if (auto func = dyn_cast<Function>(const_md->getValue())) {
++          functions.emplace_back(func, func_type);
++        }
++      }
++    }
++  }
++  const uint32_t function_count = uint32_t(functions.size());
++
++  // program info
++  metallib_header_control ctrl;
++  metallib_program_info prog_info;
++  ctrl.program_count = function_count;
++  prog_info.entries.resize(function_count);
++
++  // create per-function modules and fill entries
++  uint64_t entries_size = 0;
++  uint64_t reflection_data_size = 0;
++  uint64_t debug_data_size = 0;
++  uint64_t bitcode_data_size = 0;
++  for (uint32_t i = 0; i < function_count; ++i) {
++    auto &entry = prog_info.entries[i];
++    auto &func = functions[i].first;
++
++    entry.type = functions[i].second;
++    entry.name = func->getName().str();
++    entry.metal_version.major = metal_version.second.first[0];
++    entry.metal_version.minor = metal_version.second.first[1];
++    entry.metal_version.rev = metal_version.second.first[2];
++    entry.metal_language_version.major = metal_version.second.second[0];
++    entry.metal_language_version.minor = metal_version.second.second[1];
++    entry.metal_language_version.rev = metal_version.second.second[2];
++
++    // clone the module with the current entry point function and any global
++    // vars that we need
++    ValueToValueMapTy VMap;
++    auto cloned_mod = CloneModule(&M, VMap, [&func](const GlobalValue *GV) {
++      if (GV == func) {
++        return true;
++      }
++      // only clone global vars if they are needed in a specific function
++      if (const GlobalVariable *GVar = dyn_cast<GlobalVariable>(GV)) {
++        return is_used_in_function(func, GVar);
++      }
++      return false;
++    });
++
++    // write module / bitcode
++    raw_string_ostream bitcode_stream{entry.bitcode_data};
++    WriteBitcode35ToFile(cloned_mod.get(), bitcode_stream);
++    bitcode_stream.flush();
++
++    // hash module
++    entry.hash = compute_sha256_hash((const uint8_t *)entry.bitcode_data.data(),
++                                     entry.bitcode_data.size());
++
++    // write reflection and debug data (just ENDT right now)
++    static const auto end_tag = metallib_program_info::TAG_TYPE::END;
++    static const uint32_t tag_length = sizeof(metallib_program_info::TAG_TYPE);
++
++    raw_string_ostream refl_stream{entry.reflection_data};
++    refl_stream.write((const char *)&tag_length, sizeof(uint32_t));
++    refl_stream.write((const char *)&end_tag, tag_length);
++    refl_stream.flush();
++
++    raw_string_ostream dbg_stream{entry.debug_data};
++    dbg_stream.write((const char *)&tag_length, sizeof(uint32_t));
++    dbg_stream.write((const char *)&end_tag, tag_length);
++    dbg_stream.flush();
++
++    // finish
++    entry.update_length();
++    entries_size += entry.length;
++    reflection_data_size += entry.reflection_size;
++    debug_data_size += entry.debug_size;
++    bitcode_data_size += entry.bitcode_size;
++  }
++
++  // now that we have created all data/info, update all offsets
++  uint64_t running_refl_size = 0, running_dbg_size = 0, running_bc_size = 0;
++  for (uint32_t i = 0; i < function_count; ++i) {
++    auto &entry = prog_info.entries[i];
++    entry.update_offsets(running_refl_size, running_dbg_size, running_bc_size);
++  }
++
++  //// start writing
++  // header
++  OS.write("MTLB", 4);
++
++  metallib_version header;
++  header.container_version_major = 1; // always 1.8.0 right now
++  header.container_version_minor = 8;
++  header.container_version_rev = 0;
++  header.unknown_version_major = 2;
++  header.unknown_version_minor = 0;
++  header.unknown_version_rev = 0;
++  header.unkown_version = 2;
++  header.zero = 0;
++
++  OS.write((const char *)&header, sizeof(metallib_version));
++
++  // file length
++  static const uint64_t header_size = sizeof(metallib_header);
++  static const uint64_t initial_offset = header_size + entries_size;
++  const uint64_t file_length = initial_offset + reflection_data_size +
++                               debug_data_size + bitcode_data_size;
++  OS.write((const char *)&file_length, sizeof(uint64_t));
++
++  // header control
++  ctrl.programs_offset = sizeof(metallib_header) - 4 /* header or count? */;
++  ctrl.programs_length = entries_size;
++  ctrl.reflection_offset = initial_offset;
++  ctrl.reflection_length = reflection_data_size;
++  ctrl.debug_offset = initial_offset + reflection_data_size;
++  ctrl.debug_length = debug_data_size;
++  ctrl.bitcode_offset = initial_offset + reflection_data_size + debug_data_size;
++  ctrl.bitcode_length = bitcode_data_size;
++  OS.write((const char *)&ctrl, sizeof(metallib_header_control));
++
++  // write entry headers/info
++  for (const auto &entry : prog_info.entries) {
++    entry.write_header(OS);
++  }
++
++  // write reflection data
++  for (const auto &entry : prog_info.entries) {
++    entry.write_reflection(OS);
++  }
++
++  // write debug data
++  for (const auto &entry : prog_info.entries) {
++    entry.write_debug(OS);
++  }
++
++  // write bitcode data
++  for (const auto &entry : prog_info.entries) {
++    entry.write_module(OS);
++  }
++}
+diff --git a/lib/Bitcode/MetalLib/sha256.hpp b/lib/Bitcode/MetalLib/sha256.hpp
+new file mode 100644
+index 0000000..286db03
+--- /dev/null
++++ b/lib/Bitcode/MetalLib/sha256.hpp
+@@ -0,0 +1,194 @@
++/*********************************************************************
++* Authors:    Brad Conte (original code, brad AT bradconte.com)
++*             Florian Ziesche (C++, LLVM/MetalLib integration)
++* Copyright:
++* Disclaimer: This code is presented "as is" without any guarantees.
++* Details:    Implementation of the SHA-256 hashing algorithm.
++              SHA-256 is one of the three algorithms in the SHA2
++              specification. The others, SHA-384 and SHA-512, are not
++              offered in this implementation.
++              Algorithm specification can be found here:
++               *
++http://csrc.nist.gov/publications/fips/fips180-2/fips180-2withchangenotice.pdf
++              This implementation uses little endian byte order.
++ * Original:  https://github.com/B-Con/crypto-algorithms
++*********************************************************************/
++
++#ifndef __METALLIB_SHA256_HPP__
++#define __METALLIB_SHA256_HPP__
++
++/*************************** HEADER FILES ***************************/
++#include <stddef.h>
++#include <stdlib.h>
++#include <memory.h>
++
++/****************************** MACROS ******************************/
++#define SHA256_BLOCK_SIZE 32 // SHA256 outputs a 32 byte digest
++
++/**************************** DATA TYPES ****************************/
++
++struct sha256_hash {
++  uint8_t hash[SHA256_BLOCK_SIZE]{
++      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
++  };
++};
++static_assert(sizeof(sha256_hash) == SHA256_BLOCK_SIZE, "invalid hash size");
++
++/****************************** MACROS ******************************/
++#define SHA256_ROTLEFT(a, b) (((a) << (b)) | ((a) >> (32 - (b))))
++#define SHA256_ROTRIGHT(a, b) (((a) >> (b)) | ((a) << (32 - (b))))
++
++#define SHA256_CH(x, y, z) (((x) & (y)) ^ (~(x) & (z)))
++#define SHA256_MAJ(x, y, z) (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
++#define SHA256_EP0(x)                                                          \
++  (SHA256_ROTRIGHT(x, 2) ^ SHA256_ROTRIGHT(x, 13) ^ SHA256_ROTRIGHT(x, 22))
++#define SHA256_EP1(x)                                                          \
++  (SHA256_ROTRIGHT(x, 6) ^ SHA256_ROTRIGHT(x, 11) ^ SHA256_ROTRIGHT(x, 25))
++#define SHA256_SIG0(x)                                                         \
++  (SHA256_ROTRIGHT(x, 7) ^ SHA256_ROTRIGHT(x, 18) ^ ((x) >> 3))
++#define SHA256_SIG1(x)                                                         \
++  (SHA256_ROTRIGHT(x, 17) ^ SHA256_ROTRIGHT(x, 19) ^ ((x) >> 10))
++
++/**************************** VARIABLES *****************************/
++static constexpr const uint32_t k[64]{
++    0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1,
++    0x923F82A4, 0xAB1C5ED5, 0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3,
++    0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174, 0xE49B69C1, 0xEFBE4786,
++    0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA,
++    0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7, 0xC6E00BF3, 0xD5A79147,
++    0x06CA6351, 0x14292967, 0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13,
++    0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85, 0xA2BFE8A1, 0xA81A664B,
++    0xC24B8B70, 0xC76C51A3, 0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070,
++    0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5, 0x391C0CB3, 0x4ED8AA4A,
++    0x5B9CCA4F, 0x682E6FF3, 0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208,
++    0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2};
++
++/*********************** FUNCTION DEFINITIONS ***********************/
++static inline sha256_hash compute_sha256_hash(const uint8_t *data,
++                                              const size_t size) {
++  // init
++  struct {
++    uint8_t data[64];
++    uint32_t datalen{0};
++    uint64_t bitlen{0};
++    uint32_t state[8]{0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
++                      0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19};
++  } ctx;
++
++  // transform
++  const auto sha256_transform = [&ctx]() {
++    uint32_t a, b, c, d, e, f, g, h, i, j, t1, t2, m[64];
++
++    for (i = 0, j = 0; i < 16; ++i, j += 4) {
++      m[i] = (uint32_t(ctx.data[j]) << 24u) |
++             (uint32_t(ctx.data[j + 1]) << 16u) |
++             (uint32_t(ctx.data[j + 2]) << 8u) | uint32_t(ctx.data[j + 3]);
++    }
++    for (; i < 64; ++i) {
++      m[i] =
++          SHA256_SIG1(m[i - 2]) + m[i - 7] + SHA256_SIG0(m[i - 15]) + m[i - 16];
++    }
++
++    a = ctx.state[0];
++    b = ctx.state[1];
++    c = ctx.state[2];
++    d = ctx.state[3];
++    e = ctx.state[4];
++    f = ctx.state[5];
++    g = ctx.state[6];
++    h = ctx.state[7];
++
++    for (i = 0; i < 64; ++i) {
++      t1 = h + SHA256_EP1(e) + SHA256_CH(e, f, g) + k[i] + m[i];
++      t2 = SHA256_EP0(a) + SHA256_MAJ(a, b, c);
++      h = g;
++      g = f;
++      f = e;
++      e = d + t1;
++      d = c;
++      c = b;
++      b = a;
++      a = t1 + t2;
++    }
++
++    ctx.state[0] += a;
++    ctx.state[1] += b;
++    ctx.state[2] += c;
++    ctx.state[3] += d;
++    ctx.state[4] += e;
++    ctx.state[5] += f;
++    ctx.state[6] += g;
++    ctx.state[7] += h;
++  };
++
++  // update
++  for (size_t i = 0; i < size; ++i) {
++    ctx.data[ctx.datalen] = data[i];
++    ++ctx.datalen;
++    if (ctx.datalen == 64) {
++      sha256_transform();
++      ctx.bitlen += 512;
++      ctx.datalen = 0;
++    }
++  }
++
++  // final
++  auto pad_idx = ctx.datalen;
++
++  // Pad whatever data is left in the buffer.
++  if (ctx.datalen < 56) {
++    ctx.data[pad_idx++] = 0x80;
++    while (pad_idx < 56) {
++      ctx.data[pad_idx++] = 0x00;
++    }
++  } else {
++    ctx.data[pad_idx++] = 0x80;
++    while (pad_idx < 64) {
++      ctx.data[pad_idx++] = 0x00;
++    }
++    sha256_transform();
++    memset(ctx.data, 0, 56);
++  }
++
++  // Append to the padding the total message's length in bits and transform.
++  ctx.bitlen += ctx.datalen * 8;
++  ctx.data[63] = uint8_t(ctx.bitlen & 0xFFull);
++  ctx.data[62] = uint8_t((ctx.bitlen >> 8ull) & 0xFFull);
++  ctx.data[61] = uint8_t((ctx.bitlen >> 16ull) & 0xFFull);
++  ctx.data[60] = uint8_t((ctx.bitlen >> 24ull) & 0xFFull);
++  ctx.data[59] = uint8_t((ctx.bitlen >> 32ull) & 0xFFull);
++  ctx.data[58] = uint8_t((ctx.bitlen >> 40ull) & 0xFFull);
++  ctx.data[57] = uint8_t((ctx.bitlen >> 48ull) & 0xFFull);
++  ctx.data[56] = uint8_t((ctx.bitlen >> 56ull) & 0xFFull);
++  sha256_transform();
++
++  // Since this implementation uses little endian byte ordering and SHA uses
++  // big endian, reverse all the bytes when copying the final state to the
++  // output hash.
++  sha256_hash ret;
++  for (uint32_t i = 0; i < 4; ++i) {
++    ret.hash[i] = (ctx.state[0] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 4] = (ctx.state[1] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 8] = (ctx.state[2] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 12] = (ctx.state[3] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 16] = (ctx.state[4] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 20] = (ctx.state[5] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 24] = (ctx.state[6] >> (24 - i * 8)) & 0x000000FF;
++    ret.hash[i + 28] = (ctx.state[7] >> (24 - i * 8)) & 0x000000FF;
++  }
++
++  return ret;
++}
++
++// cleanup
++#undef SHA256_ROTLEFT
++#undef SHA256_ROTRIGHT
++#undef SHA256_CH
++#undef SHA256_MAJ
++#undef SHA256_EP0
++#undef SHA256_EP1
++#undef SHA256_SIG0
++#undef SHA256_SIG1
++
++#endif
 diff --git a/lib/Bitcode/Writer32/BitWriter32.cpp b/lib/Bitcode/Writer32/BitWriter32.cpp
 new file mode 100644
 index 0000000..31f7de4
