@@ -154,6 +154,8 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 			break;
 		case TARGET::AIR: {
 			toolchain_version = floor::get_metal_toolchain_version();
+			output_file_type = "metallib";
+			
 			const auto mtl_dev = (metal_device*)device.get();
 			string os_target;
 			if(mtl_dev->family < 10000) {
@@ -213,7 +215,7 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_NO_DOUBLE" \
 				" -DFLOOR_COMPUTE_METAL" \
-				" -llvm-bc-35" +
+				" -llvm-metallib" +
 				" -DFLOOR_COMPUTE_METAL_MAJOR=" + metal_major_version_to_string(mtl_dev->metal_version) +
 				" -DFLOOR_COMPUTE_METAL_MINOR=" + metal_minor_version_to_string(mtl_dev->metal_version)
 			};

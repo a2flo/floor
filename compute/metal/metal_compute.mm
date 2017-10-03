@@ -539,67 +539,17 @@ static metal_program::metal_program_entry create_metal_program(const metal_devic
 	}
 	
 #if !defined(FLOOR_IOS) // can only do this on os x
-	// TODO: properly fix this
-#define FLOOR_METAL_TOOLS_PATH_PRE1013 "/System/Library/PrivateFrameworks/GPUCompiler.framework/Versions/A/Libraries/"
-#define FLOOR_METAL_TOOLS_PATH_1013 "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/usr/bin/"
-	static constexpr struct {
-		const char* metal_ar;
-		const char* metal_opt;
-		const char* metallib;
-	} metal_tools_paths[2] {
-		{
-			.metal_ar = FLOOR_METAL_TOOLS_PATH_PRE1013 "metal-ar",
-			.metal_opt = FLOOR_METAL_TOOLS_PATH_PRE1013 "metal-opt",
-			.metallib = FLOOR_METAL_TOOLS_PATH_PRE1013 "metallib",
-		},
-		{
-			.metal_ar = FLOOR_METAL_TOOLS_PATH_1013 "metal-ar",
-			.metal_opt = FLOOR_METAL_TOOLS_PATH_1013 "metal-opt",
-			.metallib = FLOOR_METAL_TOOLS_PATH_1013 "metallib",
-		},
-	};
-	const auto& metal_tools = metal_tools_paths[darwin_helper::get_system_version() < 101300 ? 0 : 1];
-	enum : uint32_t {
-		METAL_OPT_AIR_FILE = 0,
-		METAL_ARCHIVE_FILE,
-		METAL_LIB_FILE,
-		__MAX_METAL_FILE
-	};
-	auto tmp_files = core::create_tmp_file_names(array<const char*, __MAX_METAL_FILE> {{
-		"metal_opt_air_",
-		"metal_ar_",
-		"metal_lib_",
-	}}, array<const char*, __MAX_METAL_FILE> {{
-		".air",
-		".a",
-		".metallib",
-	}});
-	
-	//
-	if(!floor::get_toolchain_debug() && darwin_helper::get_system_version() < 101300) {
-		core::system(metal_tools.metal_opt + " -Oz "s + program.data_or_filename + " -o " + tmp_files[METAL_OPT_AIR_FILE]);
-	}
-	else {
-		tmp_files[METAL_OPT_AIR_FILE] = program.data_or_filename;
-	}
-	core::system(metal_tools.metal_ar + " r "s + tmp_files[METAL_ARCHIVE_FILE] + " " + tmp_files[METAL_OPT_AIR_FILE]);
-	core::system(metal_tools.metallib + " -o "s + tmp_files[METAL_LIB_FILE] + " " + tmp_files[METAL_ARCHIVE_FILE]);
-	
-	const auto cleanup = [&tmp_files, unopt_file = program.data_or_filename]() {
-		core::system("rm "s + tmp_files[METAL_OPT_AIR_FILE]);
-		if(!floor::get_toolchain_debug()) {
-			core::system("rm "s + unopt_file);
-		}
-		core::system("rm "s + tmp_files[METAL_ARCHIVE_FILE]);
-		core::system("rm "s + tmp_files[METAL_LIB_FILE]);
-	};
-	
 	// create the program/library object and build it (note: also need to create an dispatcht_data_t object ...)
 	NSError* err { nil };
-	const auto lib_file_name = [NSString stringWithUTF8String:tmp_files[METAL_LIB_FILE].c_str()];
+	const auto lib_file_name = [NSString stringWithUTF8String:program.data_or_filename.c_str()];
 	ret.program = [device->device newLibraryWithFile:lib_file_name
 											   error:&err];
-	if(!floor::get_toolchain_keep_temp()) cleanup();
+	if(!floor::get_toolchain_keep_temp()) {
+		// cleanup
+		if(!floor::get_toolchain_debug()) {
+			core::system("rm "s + program.data_or_filename);
+		}
+	}
 	if(!ret.program) {
 		log_error("failed to create metal program/library for device %s: %s",
 				  device->name, (err != nil ? [[err localizedDescription] UTF8String] : "unknown error"));
