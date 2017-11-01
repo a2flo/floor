@@ -41,6 +41,12 @@ using namespace std;
 #define FLOOR_HAS_NATIVE_FP16 0
 #endif
 
+#if FLOOR_HAS_NATIVE_FP16 == 1
+#define FLOOR_FP16_CONSTEXPR constexpr
+#else
+#define FLOOR_FP16_CONSTEXPR
+#endif
+
 //! storage-only 16-bit half-precision floating point type
 //! NOTE: this implementation is incomplete and not always constexpr at this point
 struct soft_f16 {
@@ -270,8 +276,7 @@ struct soft_f16 {
 	};
 	
 	//! conversion to/from other types
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	constexpr float to_float() const {
+	FLOOR_FP16_CONSTEXPR float to_float() const {
 #if FLOOR_HAS_NATIVE_FP16 == 2
 		return _mm_cvtss_f32(_mm_cvtph_ps(_mm_cvtsi32_si128(value)));
 #elif FLOOR_HAS_NATIVE_FP16 == 1
@@ -306,33 +311,28 @@ struct soft_f16 {
 #endif
 	
 	//! explicitly converts to float
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	explicit constexpr operator float() const {
+	explicit FLOOR_FP16_CONSTEXPR operator float() const {
 		return to_float();
 	}
 #if !defined(FLOOR_COMPUTE_NO_DOUBLE)
 	//! explicitly converts to double
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	explicit constexpr operator double() const {
+	explicit FLOOR_FP16_CONSTEXPR operator double() const {
 		return (double)to_float();
 	}
 #endif
 #if !defined(FLOOR_COMPUTE) || defined(FLOOR_COMPUTE_HOST)
 	//! explicitly converts to long double
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	explicit constexpr operator long double() const {
+	explicit FLOOR_FP16_CONSTEXPR operator long double() const {
 		return (long double)to_float();
 	}
 #endif
 	
 	//! explicitly converts to int32_t
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	explicit constexpr operator int32_t() const {
+	explicit FLOOR_FP16_CONSTEXPR operator int32_t() const {
 		return (int32_t)to_float();
 	}
 	//! explicitly converts to int64_t
-	//! NOTE: not constexpr if FLOOR_HAS_NATIVE_FP16 != 1
-	explicit constexpr operator int64_t() const {
+	explicit FLOOR_FP16_CONSTEXPR operator int64_t() const {
 		return (int64_t)to_float();
 	}
 	
