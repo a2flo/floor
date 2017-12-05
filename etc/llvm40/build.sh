@@ -62,13 +62,13 @@ if [ ! -d llvm ]; then
 	cd llvm
 	git init
 	git remote add origin https://github.com/llvm-mirror/llvm.git
-	git fetch --depth=2500 origin master
+	git fetch --depth=25000 origin master
 	git reset --hard ${LLVM_COMMIT}
 
 	cd tools/clang
 	git init
 	git remote add origin https://github.com/llvm-mirror/clang.git
-	git fetch --depth=2500 origin master
+	git fetch --depth=25000 origin master
 	git reset --hard ${CLANG_COMMIT}
 else
 	# already exists, just need to clean+reset and possibly update/fetch if head revision changed
@@ -77,7 +77,7 @@ else
 	CURRENT_LLVM_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_LLVM_COMMIT} != ${LLVM_COMMIT} ]; then
 		git reset --hard ${CURRENT_LLVM_COMMIT}
-		git fetch --depth=2500 origin master
+		git fetch --depth=25000 origin master
 	fi
 	git reset --hard ${LLVM_COMMIT}
 
@@ -86,7 +86,7 @@ else
 	CURRENT_CLANG_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_CLANG_COMMIT} != ${CLANG_COMMIT} ]; then
 		git reset --hard ${CURRENT_CLANG_COMMIT}
-		git fetch --depth=2500 origin master
+		git fetch --depth=25000 origin master
 	fi
 	git reset --hard ${CLANG_COMMIT}
 fi
@@ -97,7 +97,7 @@ if [ ! -d libcxx ]; then
 	cd libcxx
 	git init
 	git remote add origin https://github.com/llvm-mirror/libcxx.git
-	git fetch --depth=1000 origin master
+	git fetch --depth=5000 origin master
 	git reset --hard ${LIBCXX_COMMIT}
 else
 	cd libcxx
@@ -105,7 +105,7 @@ else
 	CURRENT_LIBCXX_COMMIT=$(git rev-parse HEAD)
 	if [ ${CURRENT_LIBCXX_COMMIT} != ${LIBCXX_COMMIT} ]; then
 		git reset --hard ${CURRENT_LIBCXX_COMMIT}
-		git fetch --depth=1000 origin master
+		git fetch --depth=5000 origin master
 	fi
 	git reset --hard ${LIBCXX_COMMIT}
 fi
@@ -132,6 +132,8 @@ cd ..
 BUILD_PLATFORM=$(uname | tr [:upper:] [:lower:])
 BUILD_OS="unknown"
 BUILD_CPU_COUNT=1
+BUILD_CXX=
+BUILD_CC=
 case ${BUILD_PLATFORM} in
 	"darwin")
 		if expr `uname -p` : "arm.*" >/dev/null; then
@@ -140,38 +142,44 @@ case ${BUILD_PLATFORM} in
 			BUILD_OS="osx"
 		fi
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
-		export CXX=clang++
-		export CC=clang
+		BUILD_CXX=clang++
+		BUILD_CC=clang
 		;;
 	"linux")
 		BUILD_OS="linux"
 		# note that this includes hyper-threading and multi-socket systems
 		BUILD_CPU_COUNT=$(cat /proc/cpuinfo | grep "processor" | wc -l)
-		export CXX=g++
-		export CC=gcc
+		BUILD_CXX=g++
+		BUILD_CC=gcc
 		;;
 	"freebsd")
 		BUILD_OS="freebsd"
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
-		export CXX=clang++
-		export CC=clang
+		BUILD_CXX=clang++
+		BUILD_CC=clang
 		;;
 	"openbsd")
 		BUILD_OS="openbsd"
 		BUILD_CPU_COUNT=$(sysctl -n hw.ncpu)
-		export CXX=eg++
-		export CC=egcc
+		BUILD_CXX=eg++
+		BUILD_CC=egcc
 		;;
 	"mingw"*)
 		BUILD_OS="mingw"
 		BUILD_CPU_COUNT=$(env | grep 'NUMBER_OF_PROCESSORS' | sed -E 's/.*=([:digit:]*)/\1/g')
-		export CXX=g++
-		export CC=gcc
+		BUILD_CXX=g++
+		BUILD_CC=gcc
 		;;
 	*)
 		warning "unknown build platform - trying to continue! ${BUILD_PLATFORM}"
 		;;
 esac
+
+# if no CXX is set, use a platform specific default (determined above)
+if [ -z "${CXX}" ]; then
+	export CXX=${BUILD_CXX}
+	export CC=${BUILD_CC}
+fi
 
 # if job count is unspecified (0), set it to #cpus
 if [ ${BUILD_JOB_COUNT} -eq 0 ]; then
@@ -208,8 +216,8 @@ fi
 CONFIG_OPTIONS=
 CLANG_OPTIONS=
 if [ $CXX == "clang++" ]; then
-	# TODO: cmake!
 	# LLVM_ENABLE_LIBCXX LLVM_ENABLE_LIBCXXABI
+	info "using clang"
 	CONFIG_OPTIONS="--enable-libcpp"
 	CLANG_OPTIONS="-fvectorize"
 	if [ $ENABLE_LTO -gt 0 ]; then

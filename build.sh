@@ -960,7 +960,7 @@ needs_rebuild() {
 		info "rebuild because >${BUILD_DIR}/${source_file}.d< doesn't exist or BUILD_REBUILD $BUILD_REBUILD"
 		rebuild_file=1
 	else
-		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
+		dep_list=$(cat ${BUILD_DIR}/${source_file}.d | sed -E "s/deps://" | sed -E "s/ \\\\//"  | sed -E "s/${ESC_CUR_DIR}\/\.\.\/floor\//${ESC_CUR_DIR}\//g" | sed -E "s/\.\.\/floor\//${ESC_CUR_DIR}\//g")
 		if [ "${dep_list}" ]; then
 			file_time=$(file_mod_time "${bin_file_name}")
 			dep_times=$(file_mod_time ${dep_list})
@@ -1003,6 +1003,7 @@ fi
 
 if [ ! -f "${PCH_BIN_NAME}" ]; then
 	error "precompiled header compilation failed"
+	exit -1
 fi
 
 # build the target
@@ -1050,6 +1051,14 @@ build_file() {
 job_count() {
 	echo $(jobs -p | wc -l)
 }
+handle_build_errors() {
+	# abort on build errors
+	if [ ${build_error} == "true" ]; then
+		# wait until all build jobs have finished (all error output has been written)
+		wait
+		exit -1
+	fi
+}
 
 # get the amount of source files and create a counter (this is used for some info/debug output)
 file_count=$(echo "${SRC_FILES}" | wc -w | tr -d [:space:])
@@ -1075,17 +1084,16 @@ for source_file in ${SRC_FILES}; do
 		build_file $source_file $file_counter $file_count $$
 	fi
 
-	# abort on build errors
-	if [ ${build_error} == "true" ]; then
-		# wait until all build jobs have finished (all error output has been written)
-		wait
-		exit -1
-	fi
+	# early build error test
+	handle_build_errors
 done
 # all jobs were started, now we just have to wait until all are done
 sleep 0.1
 info "waiting for build jobs to finish ..."
 wait
+
+# check for build errors again after everything has completed
+handle_build_errors
 
 # link
 mkdir -p ${BIN_DIR}

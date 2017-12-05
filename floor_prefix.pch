@@ -13,10 +13,10 @@
 #if defined(__cplusplus) && !defined(__OBJC__)
 #include <random>
 #include <thread>
-#include "core/platform.hpp"
-#include "core/core.hpp"
-#include "threading/thread_base.hpp"
-#include "threading/task.hpp"
+#include <floor/core/platform.hpp>
+#include <floor/core/core.hpp>
+#include <floor/threading/thread_base.hpp>
+#include <floor/threading/task.hpp>
 #elif !defined(__OBJC__)
 #include <stdlib.h>
 #include <stdio.h>
