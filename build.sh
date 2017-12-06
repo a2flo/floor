@@ -83,6 +83,7 @@ fi
 BUILD_MODE="release"
 BUILD_CLEAN=0
 BUILD_REBUILD=0
+BUILD_JSON=0
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
 
@@ -129,6 +130,7 @@ for arg in "$@"; do
 			echo "	debug              builds this project in debug mode"
 			echo "	rebuild            rebuild all source files of this project"
 			echo "	clean              cleans all build binaries and intermediate build files"
+			echo "	json               creates a compile_commands.json file for use with clang tools"
 			echo ""
 			echo "build configuration:"
 			echo "	no-opencl          disables opencl support"
@@ -170,6 +172,9 @@ for arg in "$@"; do
 			;;
 		"rebuild")
 			BUILD_REBUILD=1
+			;;
+		"json")
+			BUILD_JSON=1
 			;;
 		"clean")
 			BUILD_CLEAN=1
@@ -386,7 +391,7 @@ CUR_DIR=$(pwd)
 ESC_CUR_DIR=$(echo ${CUR_DIR} | sed -E "s/\//\\\\\//g")
 
 # trigger full rebuild if build.sh is newer than the target bin or the target bin doesn't exist
-if [ ${BUILD_CLEAN} -eq 0 ]; then
+if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	if [ ! -f ${BIN_DIR}/${TARGET_BIN_NAME} ]; then
 		info "rebuilding because the target bin doesn't exist ..."
 		BUILD_REBUILD=1
@@ -633,7 +638,7 @@ fi
 LDFLAGS="${LDFLAGS} -L/usr/lib -L/usr/local/lib -L/opt/floor/lib"
 
 # create the floor_conf.hpp file
-if [ ${BUILD_CLEAN} -eq 0 ]; then
+if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	CONF=$(cat floor/floor_conf.hpp.in)
 	set_conf_val() {
 		repl_text="$1"
@@ -682,7 +687,7 @@ fi
 eval $(${CXX} -E -dM -I../ floor/floor_version.hpp 2>&1 | grep -E "define (FLOOR_(MAJOR|MINOR|REVISION|DEV_STAGE|BUILD)_VERSION|FLOOR_DEV_STAGE_VERSION_STR) " | sed -E "s/.*define (.*) [\"]*([^ \"]*)[\"]*/export \1=\2/g")
 TARGET_VERSION="${FLOOR_MAJOR_VERSION}.${FLOOR_MINOR_VERSION}.${FLOOR_REVISION_VERSION}"
 TARGET_FULL_VERSION="${TARGET_VERSION}${FLOOR_DEV_STAGE_VERSION_STR}-${FLOOR_BUILD_VERSION}"
-if [ ${BUILD_CLEAN} -eq 0 ]; then
+if [ ${BUILD_CLEAN} -eq 0 -a ${BUILD_JSON} -eq 0 ]; then
 	info "building ${TARGET_NAME} v${TARGET_FULL_VERSION} (${BUILD_MODE})"
 fi
 
@@ -928,6 +933,48 @@ else
 	esac
 fi
 
+# build the compile_commands.json file if specified
+if [ ${BUILD_JSON} -gt 0 ]; then
+	file_count=$(echo "${SRC_FILES}" | wc -w | tr -d [:space:])
+	file_counter=0
+	
+	cmds="[\n"
+	for source_file in ${SRC_FILES}; do
+		file_counter=$(expr $file_counter + 1)
+		case ${source_file} in
+			*".cpp")
+				build_cmd="${CXX} -include-pch ${PCH_BIN_NAME} ${CXXFLAGS}"
+				;;
+			*".c")
+				build_cmd="${CC} ${CFLAGS}"
+				;;
+			*".mm")
+				build_cmd="${CXX} -x objective-c++ ${OBJCFLAGS} ${CXXFLAGS}"
+				;;
+			*".m")
+				build_cmd="${CC} -x objective-c ${OBJCFLAGS} ${CFLAGS}"
+				;;
+			*)
+				error "unknown source file ending: ${source_file}"
+				;;
+		esac
+		# NOTE: we're not adding the header dependency list creation flags here
+		build_cmd="${build_cmd} -c ${source_file} -o ${BUILD_DIR}/${source_file}.o"
+		cmds="${cmds}\t{\n\t\t\"directory\": \"${CUR_DIR}\",\n\t\t\"command\": \"${build_cmd}\",\n\t\t\"file\": \"${source_file}\"\n\t}"
+		if [ $file_counter -lt $file_count ]; then
+			cmds="${cmds},\n"
+		else
+			cmds="${cmds}\n"
+		fi
+	done
+	cmds="${cmds}]\n"
+	
+	printf "${cmds}" > compile_commands.json
+	
+	exit 0
+fi
+
+#
 if [ ${BUILD_VERBOSE} -gt 1 ]; then
 	CXXFLAGS="${CXXFLAGS} -v"
 	CFLAGS="${CFLAGS} -v"
