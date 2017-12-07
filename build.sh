@@ -78,11 +78,19 @@ else
 	error "only clang is currently supported - please set CXX/CC to clang++/clang and try again!"
 fi
 
+# try using lld if it is available, otherwise fall back to using clangs default
+if [ -z "${LD}" ]; then
+	if [ -n $(command -v ld.lld) ]; then
+		LDFLAGS="${LDFLAGS} -fuse-ld=lld"
+	fi
+fi
+
 ##########################################
 # arg handling
 BUILD_MODE="release"
 BUILD_CLEAN=0
 BUILD_REBUILD=0
+BUILD_STATIC=0
 BUILD_JSON=0
 BUILD_VERBOSE=0
 BUILD_JOB_COUNT=0
@@ -130,6 +138,7 @@ for arg in "$@"; do
 			echo "	debug              builds this project in debug mode"
 			echo "	rebuild            rebuild all source files of this project"
 			echo "	clean              cleans all build binaries and intermediate build files"
+			echo "	static             also build a static library next to the dynamic library that is being build"
 			echo "	json               creates a compile_commands.json file for use with clang tools"
 			echo ""
 			echo "build configuration:"
@@ -172,6 +181,9 @@ for arg in "$@"; do
 			;;
 		"rebuild")
 			BUILD_REBUILD=1
+			;;
+		"static")
+			BUILD_STATIC=1
 			;;
 		"json")
 			BUILD_JSON=1
@@ -814,6 +826,8 @@ if [ $BUILD_OS == "mingw" -o $BUILD_OS == "cygwin" ]; then
 		COMMON_FLAGS="${COMMON_FLAGS} -DCYGWIN"
 	fi
 fi
+# always use extern templates
+COMMON_FLAGS="${COMMON_FLAGS} -DFLOOR_EXPORT=1"
 
 # hard-mode c++ ;)
 # let's start with everything
@@ -889,11 +903,14 @@ done
 
 # total hack, but it makes building faster: reverse the source file order, so that math and net files
 # are compiled first (these take longest to compile, so pipeline them properly)
+# also: put compute/compute_image.cpp at the front, because it takes the longest to compile
 REV_SRC_FILES=""
 for source_file in ${SRC_FILES}; do
-	REV_SRC_FILES="${source_file} ${REV_SRC_FILES}"
+	if [ $source_file != "compute/compute_image.cpp" ]; then
+		REV_SRC_FILES="${source_file} ${REV_SRC_FILES}"
+	fi
 done
-SRC_FILES=${REV_SRC_FILES}
+SRC_FILES="compute/compute_image.cpp ${REV_SRC_FILES}"
 
 # make a list of all object files
 for source_file in ${SRC_FILES}; do
@@ -1181,7 +1198,7 @@ if [ $BUILD_OS != "mingw" ]; then
 	fi
 fi
 
-if [ $relink_static_target -gt 0 ]; then
+if [ $relink_static_target -gt 0 -a $BUILD_STATIC -gt 0 ]; then
 	info "linking static ..."
 	verbose "${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}"
 	${AR} rs ${TARGET_STATIC_BIN} ${OBJ_FILES}

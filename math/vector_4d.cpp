@@ -16,13 +16,14 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+// NOTE: this file only exists to instantiate the vector class (split across multiple files to speed up compilation)
+
 #include <floor/math/vector_lib.hpp>
 
-// sizeof check
-#define FLOOR_VECTOR_SIZEOF_CHECK(pod_type, prefix, vec_width) \
-static_assert(sizeof(prefix##vec_width) == sizeof(pod_type) * vec_width, "invalid vector size");
+// extern template instantiation
+#if defined(FLOOR_EXPORT)
+#define FLOOR_VECTOR_TMPL_INST(pod_type, prefix, vec_width) \
+template class vector##vec_width<pod_type>;
 
-FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 1)
-FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 2)
-FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 3)
-FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_SIZEOF_CHECK, 4)
+FLOOR_VECTOR_TYPES_F(FLOOR_VECTOR_TMPL_INST, 4)
+#endif

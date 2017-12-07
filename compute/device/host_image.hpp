@@ -279,7 +279,7 @@ namespace host_image_impl {
 			}
 			
 			// need to fix up the sign bit for non-8/16/32/64-bit signed formats
-			if((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT) {
+			if constexpr((type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::INT) {
 				constexpr const const_array<uchannel_type, 4> high_bits {{
 					uchannel_type(1) << (max(bpc[0], uint64_t(1)) - 1u),
 					uchannel_type(1) << (max(bpc[1], uint64_t(1)) - 1u),
@@ -337,11 +337,11 @@ namespace host_image_impl {
 			switch(image_format) {
 FLOOR_PUSH_WARNINGS()
 FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsigned code path is never taken for signed formats
-					
+				
 				// uniform formats
 				case COMPUTE_IMAGE_TYPE::FORMAT_2:
 					memset(&raw_data[0], 0, bpp);
-					if(!is_signed_format) {
+					if constexpr(!is_signed_format) {
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[0] |= (scaled_color[i] & 0b11u) << (6u - 2u * i);
 						}
@@ -355,7 +355,7 @@ FLOOR_IGNORE_WARNING(sign-conversion) // ignore sign conversion warnings, unsign
 					break;
 				case COMPUTE_IMAGE_TYPE::FORMAT_4:
 					memset(&raw_data[0], 0, bpp);
-					if(!is_signed_format) {
+					if constexpr(!is_signed_format) {
 						for(uint32_t i = 0; i < channel_count; ++i) {
 							raw_data[i / 2u] |= (scaled_color[i] & 0b1111u) << (i % 2u == 0 ? 4u : 0u);
 						}
@@ -441,13 +441,13 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 			constexpr const auto channel_count = image_channel_count(type);
 			vector4<conditional_t<(image_bits_of_channel(type, 0) <= 32 ||
 								   data_type != COMPUTE_IMAGE_TYPE::FLOAT), float, double>> ret;
-			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
-				if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ||
-				   image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
+			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
+				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32 ||
+				   			 image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// for 32-bit/64-bit float formats, just pass-through raw data
 					ret = *(const decltype(ret)*)raw_data;
 				}
-				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
+				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// 16-bit half float data must be converted to 32-bit float data
 #pragma unroll
 					for(uint32_t i = 0; i < channel_count; ++i) {
@@ -476,14 +476,14 @@ FLOOR_IGNORE_WARNING(cast-align) // kill "cast needs 4 byte alignment" warning i
 					float(1.0 / max(1.0, double(const_math::bit_mask(max(uint64_t(1), bpc[2])) >> 1ull))),
 					float(1.0 / max(1.0, double(const_math::bit_mask(max(uint64_t(1), bpc[3])) >> 1ull)))
 				}};
-				if(data_type == COMPUTE_IMAGE_TYPE::UINT) {
+				if constexpr(data_type == COMPUTE_IMAGE_TYPE::UINT) {
 					// normalized unsigned-integer formats, normalized to [0, 1]
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
 						ret[i] = float(channels[i]) * unsigned_factors[i];
 					}
 				}
-				else if(data_type == COMPUTE_IMAGE_TYPE::INT) {
+				else if constexpr(data_type == COMPUTE_IMAGE_TYPE::INT) {
 					// normalized integer formats, normalized to [-1, 1]
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
 					for(uint32_t i = 0; i < channel_count; ++i) {
@@ -520,7 +520,7 @@ FLOOR_POP_WARNINGS()
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord, coord_offset), layer);
-			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
+			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
 				if(has_stencil) {
@@ -559,7 +559,7 @@ FLOOR_POP_WARNINGS()
 				*(float*)&ret = float(double(depth_val) * norm_factor);
 				
 				// finally, copy stencil
-				if(has_stencil) {
+				if constexpr(has_stencil) {
 					memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + depth_bytes], sizeof(uint8_t));
 				}
 			}
@@ -621,19 +621,19 @@ FLOOR_POP_WARNINGS()
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
 			
-			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
+			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				constexpr const auto channel_count = image_channel_count(type);
 				
 				// for 32-bit/64-bit float formats, just pass-through
-				if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32) {
+				if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_32) {
 					memcpy(&img->data[offset], &color, sizeof(float) * channel_count);
 				}
-				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
+				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_64) {
 					// TODO: should have a write function that accepts double4
 					const double4 double_color = color;
 					memcpy(&img->data[offset], &double_color, sizeof(double) * channel_count);
 				}
-				else if(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
+				else if constexpr(image_format == COMPUTE_IMAGE_TYPE::FORMAT_16) {
 					// for 16-bit half float formats, data must be converted to 32-bit float data
 					soft_f16 half_vals[4];
 #pragma clang loop unroll(full) vectorize(enable) interleave(enable)
@@ -675,7 +675,7 @@ FLOOR_POP_WARNINGS()
 			size_t offset;
 			if constexpr(!is_array) offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord));
 			else offset = coord_to_offset(img->level_info[lod], process_coord(img->level_info[lod], coord), layer);
-			if(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
+			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
 				if(has_stencil) {
@@ -695,7 +695,7 @@ FLOOR_POP_WARNINGS()
 				// always use long double for better precision
 				constexpr const auto scale_factor = (long double)((1ull << (8ull * depth_bytes)) - 1ull);
 				auto depth_val = uint32_t(scale_factor * ((long double)*(const float*)&color));
-				if(depth_bytes != 4) {
+				if constexpr(depth_bytes != 4) {
 					// clamp non-32-bit values to their correct range
 					depth_val = const_math::clamp(depth_val, 0u, clamp_value);
 				}
@@ -720,7 +720,7 @@ FLOOR_POP_WARNINGS()
 				}
 				
 				// finally, copy stencil
-				if(has_stencil) {
+				if constexpr(has_stencil) {
 					memcpy(&img->data[offset + depth_bytes], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}
@@ -1091,9 +1091,6 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 			  enable_if_t<(// float or normalized int/uint
 						   (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 							(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-						   // !double format, TODO: support this
-						   /*!((type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64 &&
-							 (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&*/
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
 	static auto read(const host_device_image_type* img, Args&&... args) {
@@ -1179,31 +1176,6 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 		}
 	}
 	
-#if 0 // TODO/NOTE: not supported yet
-	// double data
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(// dobule
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64 &&
-						   (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
-						   // !normalized
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   // !depth
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	auto read(const host_device_image_type* img, Args&&... args) {
-		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
-																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
-																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-		switch(runtime_base_type) {
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | COMPUTE_IMAGE_TYPE::FLOAT)
-			
-			default: floor_unreachable();
-		}
-	}
-#endif
-	
 	// depth float
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
@@ -1245,8 +1217,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
 			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) /*&&
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) != COMPUTE_IMAGE_TYPE::FORMAT_64*/)>* = nullptr>
+							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
 	static auto read(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1281,37 +1252,11 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 		}
 	}
 	
-#if 0 // TODO/NOTE: not supported yet
-	// non-normalized int/uint data (== 64-bit)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) &&
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64)>* = nullptr>
-	auto read(const host_device_image_type* img, Args&&... args) {
-		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
-																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
-																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-		switch(runtime_base_type) {
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | fixed_data_type)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | fixed_data_type)
-			FLOOR_RT_READ_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | fixed_data_type)
-			
-			default: floor_unreachable();
-		}
-	}
-#endif
-	
 	// normalized or float data (not double)
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(// float or normalized int/uint
 						   (has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) ||
 							(type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&
-						   // !double format
-						   /*!((type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64 &&
-							 (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT) &&*/
 						   // !depth
 						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
 	static void write(const host_device_image_type* img, Args&&... args) {
@@ -1397,31 +1342,6 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 		}
 	}
 	
-#if 0 // TODO/NOTE: not supported yet
-	// double data
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  enable_if_t<(// dobule
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64 &&
-						   (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK) == COMPUTE_IMAGE_TYPE::FLOAT &&
-						   // !normalized
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   // !depth
-						   !has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type))>* = nullptr>
-	static void write(const host_device_image_type* img, Args&&... args) {
-		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
-																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
-																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-		switch(runtime_base_type) {
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | COMPUTE_IMAGE_TYPE::FLOAT)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | COMPUTE_IMAGE_TYPE::FLOAT)
-			
-			default: floor_unreachable();
-		}
-	}
-#endif
-	
 	// depth float
 	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
 			  enable_if_t<(has_flag<COMPUTE_IMAGE_TYPE::FLAG_DEPTH>(type) &&
@@ -1463,8 +1383,7 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
 			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
 						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) /*&&
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) != COMPUTE_IMAGE_TYPE::FORMAT_64*/)>* = nullptr>
+							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT))>* = nullptr>
 	static void write(const host_device_image_type* img, Args&&... args) {
 		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
 																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
@@ -1499,29 +1418,6 @@ FLOOR_IGNORE_WARNING(switch) // ignore "case value not in enumerated type 'COMPU
 			default: floor_unreachable();
 		}
 	}
-	
-#if 0 // TODO/NOTE: not supported yet
-	// non-normalized int/uint data (== 64-bit)
-	template <COMPUTE_IMAGE_TYPE type = sample_image_type, typename... Args,
-			  COMPUTE_IMAGE_TYPE fixed_data_type = (type & COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK),
-			  enable_if_t<(!has_flag<COMPUTE_IMAGE_TYPE::FLAG_NORMALIZED>(type) &&
-						   (fixed_data_type == COMPUTE_IMAGE_TYPE::INT ||
-							fixed_data_type == COMPUTE_IMAGE_TYPE::UINT) &&
-						   (type & COMPUTE_IMAGE_TYPE::__FORMAT_MASK) == COMPUTE_IMAGE_TYPE::FORMAT_64)>* = nullptr>
-	static void write(const host_device_image_type* img, Args&&... args) {
-		const auto runtime_base_type = img->runtime_image_type & (COMPUTE_IMAGE_TYPE::__FORMAT_MASK |
-																  COMPUTE_IMAGE_TYPE::__CHANNELS_MASK |
-																  COMPUTE_IMAGE_TYPE::__DATA_TYPE_MASK);
-		switch(runtime_base_type) {
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_1 | fixed_data_type)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_2 | fixed_data_type)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_3 | fixed_data_type)
-			FLOOR_RT_WRITE_IMAGE_CASE(COMPUTE_IMAGE_TYPE::FORMAT_64 | COMPUTE_IMAGE_TYPE::CHANNELS_4 | fixed_data_type)
-			
-			default: floor_unreachable();
-		}
-	}
-#endif
 
 FLOOR_POP_WARNINGS()
 #undef FLOOR_RT_READ_IMAGE_CASE
