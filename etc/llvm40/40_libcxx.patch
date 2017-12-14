@@ -1,5 +1,5 @@
 diff --git a/include/__bit_reference b/include/__bit_reference
-index 5659ed0..4c192be 100644
+index 5659ed06..4c192bed 100644
 --- a/include/__bit_reference
 +++ b/include/__bit_reference
 @@ -337,7 +337,7 @@ __fill_n_false(__bit_iterator<_Cp, false> __first, typename _Cp::size_type __n)
@@ -47,7 +47,7 @@ index 5659ed0..4c192be 100644
          // do last word
          if (__n > 0)
 diff --git a/include/__config b/include/__config
-index 353ca10..006ea8b 100644
+index 353ca10e..006ea8b5 100644
 --- a/include/__config
 +++ b/include/__config
 @@ -875,8 +875,6 @@ extern "C" void __sanitizer_annotate_contiguous_container(
@@ -60,7 +60,7 @@ index 353ca10..006ea8b 100644
  
  #if (!defined(_LIBCPP_HAS_C_ATOMIC_IMP) && !defined(_LIBCPP_HAS_GCC_ATOMIC_IMP)) \
 diff --git a/include/__functional_base b/include/__functional_base
-index 1a08ea2..90a9e4a 100644
+index 1a08ea29..90a9e4ad 100644
 --- a/include/__functional_base
 +++ b/include/__functional_base
 @@ -13,9 +13,11 @@
@@ -76,7 +76,7 @@ index 1a08ea2..90a9e4a 100644
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
 diff --git a/include/algorithm b/include/algorithm
-index cf03d66..da25c8f 100644
+index cf03d66d..da25c8fa 100644
 --- a/include/algorithm
 +++ b/include/algorithm
 @@ -629,7 +629,9 @@ template <class BidirectionalIterator, class Compare>
@@ -434,7 +434,7 @@ index cf03d66..da25c8f 100644
  template <class _RandomAccessIterator>
  inline _LIBCPP_INLINE_VISIBILITY
 diff --git a/include/array b/include/array
-index 719286d..e2dfc36 100644
+index 719286d5..e2dfc36e 100644
 --- a/include/array
 +++ b/include/array
 @@ -108,9 +108,11 @@ template <size_t I, class T, size_t N> const T&& get(const array<T, N>&&) noexce
@@ -525,7 +525,7 @@ index 719286d..e2dfc36 100644
  array<_Tp, _Size>::at(size_type __n)
  {
 diff --git a/include/atomic b/include/atomic
-index a25b5bf..05dec41 100644
+index a25b5bf8..05dec413 100644
 --- a/include/atomic
 +++ b/include/atomic
 @@ -542,17 +542,21 @@ void atomic_signal_fence(memory_order m) noexcept;
@@ -1928,7 +1928,7 @@ index a25b5bf..05dec41 100644
  
  _LIBCPP_END_NAMESPACE_STD
 diff --git a/include/cstddef b/include/cstddef
-index edd106c..2a6df0c 100644
+index edd106c0..2a6df0c0 100644
 --- a/include/cstddef
 +++ b/include/cstddef
 @@ -39,8 +39,7 @@ Types:
@@ -1942,7 +1942,7 @@ index edd106c..2a6df0c 100644
  
  _LIBCPP_BEGIN_NAMESPACE_STD
 diff --git a/include/exception b/include/exception
-index 186d379..d4efd74 100644
+index 186d379f..d4efd740 100644
 --- a/include/exception
 +++ b/include/exception
 @@ -80,10 +80,12 @@ template <class E> void rethrow_if_nested(const E& e);
@@ -1972,7 +1972,7 @@ index 186d379..d4efd74 100644
  _LIBCPP_END_NAMESPACE_STD
 diff --git a/include/float.h b/include/float.h
 deleted file mode 100644
-index 1acfdc6..0000000
+index 1acfdc61..00000000
 --- a/include/float.h
 +++ /dev/null
 @@ -1,83 +0,0 @@
@@ -2060,7 +2060,7 @@ index 1acfdc6..0000000
 -
 -#endif  // _LIBCPP_FLOAT_H
 diff --git a/include/functional b/include/functional
-index 2056ffe..ad5f592 100644
+index 2056ffe9..ad5f5926 100644
 --- a/include/functional
 +++ b/include/functional
 @@ -474,8 +474,10 @@ POLICY:  For non-variadic implementations, the number of arguments is limited
@@ -2103,7 +2103,7 @@ index 2056ffe..ad5f592 100644
  constexpr __ph<2>   _2{};
 diff --git a/include/inttypes.h b/include/inttypes.h
 deleted file mode 100644
-index 5c5618b..0000000
+index 5c5618be..00000000
 --- a/include/inttypes.h
 +++ /dev/null
 @@ -1,251 +0,0 @@
@@ -2359,7 +2359,7 @@ index 5c5618b..0000000
 -
 -#endif  // _LIBCPP_INTTYPES_H
 diff --git a/include/iosfwd b/include/iosfwd
-index e4149ef..d621ecd 100644
+index e4149ef2..d621ecda 100644
 --- a/include/iosfwd
 +++ b/include/iosfwd
 @@ -87,7 +87,12 @@ typedef fpos<char_traits<wchar_t>::state_type> wstreampos;
@@ -2376,7 +2376,7 @@ index e4149ef..d621ecd 100644
  #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
  #pragma GCC system_header
 diff --git a/include/limits b/include/limits
-index 80a1be4..8f8a657 100644
+index 80a1be40..8f8a6576 100644
 --- a/include/limits
 +++ b/include/limits
 @@ -328,8 +328,8 @@ protected:
@@ -2532,7 +2532,7 @@ index 80a1be4..8f8a657 100644
  _LIBCPP_END_NAMESPACE_STD
  
 diff --git a/include/memory b/include/memory
-index 5cdb60f..d56fc3d 100644
+index 5cdb60f5..d56fc3de 100644
 --- a/include/memory
 +++ b/include/memory
 @@ -625,9 +625,13 @@ void* align(size_t alignment, size_t size, void*& ptr, size_t& space);
@@ -2615,7 +2615,7 @@ index 5cdb60f..d56fc3d 100644
  }
  
 diff --git a/include/new b/include/new
-index d2b2ae6..6e59f21 100644
+index d2b2ae64..6e59f21e 100644
 --- a/include/new
 +++ b/include/new
 @@ -115,7 +115,7 @@ public:
@@ -2629,7 +2629,7 @@ index d2b2ae6..6e59f21 100644
  _LIBCPP_FUNC_VIS new_handler get_new_handler() _NOEXCEPT;
 diff --git a/include/stddef.h b/include/stddef.h
 deleted file mode 100644
-index 8841bbe..0000000
+index 8841bbea..00000000
 --- a/include/stddef.h
 +++ /dev/null
 @@ -1,62 +0,0 @@
@@ -2696,7 +2696,7 @@ index 8841bbe..0000000
 -
 -#endif  // _LIBCPP_STDDEF_H
 diff --git a/include/stdexcept b/include/stdexcept
-index 4218b13..fe44b95 100644
+index 4218b139..fe44b951 100644
 --- a/include/stdexcept
 +++ b/include/stdexcept
 @@ -54,9 +54,9 @@ public:
@@ -2793,7 +2793,7 @@ index 4218b13..fe44b95 100644
      virtual ~underflow_error() _NOEXCEPT;
  };
 diff --git a/include/type_traits b/include/type_traits
-index 0d578bb..85f75a5 100644
+index 0d578bbe..85f75a5c 100644
 --- a/include/type_traits
 +++ b/include/type_traits
 @@ -506,8 +506,8 @@ struct _LIBCPP_TYPE_VIS_ONLY integral_constant

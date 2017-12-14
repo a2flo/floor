@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 52a0927..ea04c47 100644
+index 52a092734f0..ea04c47a877 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -280,7 +280,8 @@ set(LLVM_ALL_TARGETS
@@ -14,7 +14,7 @@ index 52a0927..ea04c47 100644
      CACHE STRING "Semicolon-separated list of targets to build, or \"all\".")
 diff --git a/configure b/configure
 deleted file mode 100755
-index bab3a0d..0000000
+index bab3a0dd97f..00000000000
 --- a/configure
 +++ /dev/null
 @@ -1,10 +0,0 @@
@@ -30,7 +30,7 @@ index bab3a0d..0000000
 -exit 1
 diff --git a/docs/SPIRVRepresentationInLLVM.rst b/docs/SPIRVRepresentationInLLVM.rst
 new file mode 100644
-index 0000000..c0b8761
+index 00000000000..c0b87614c26
 --- /dev/null
 +++ b/docs/SPIRVRepresentationInLLVM.rst
 @@ -0,0 +1,241 @@
@@ -277,7 +277,7 @@ index 0000000..c0b8761
 +
 diff --git a/include/llvm-c/BitWriter32.h b/include/llvm-c/BitWriter32.h
 new file mode 100644
-index 0000000..9095668
+index 00000000000..9095668b11f
 --- /dev/null
 +++ b/include/llvm-c/BitWriter32.h
 @@ -0,0 +1,59 @@
@@ -342,7 +342,7 @@ index 0000000..9095668
 +#endif
 diff --git a/include/llvm-c/BitWriter35.h b/include/llvm-c/BitWriter35.h
 new file mode 100644
-index 0000000..c92b357
+index 00000000000..c92b35793bc
 --- /dev/null
 +++ b/include/llvm-c/BitWriter35.h
 @@ -0,0 +1,59 @@
@@ -406,7 +406,7 @@ index 0000000..c92b357
 +
 +#endif
 diff --git a/include/llvm/ADT/Triple.h b/include/llvm/ADT/Triple.h
-index b98f840..d7bc2ec 100644
+index b98f8407d07..d7bc2ec98ac 100644
 --- a/include/llvm/ADT/Triple.h
 +++ b/include/llvm/ADT/Triple.h
 @@ -84,6 +84,7 @@ public:
@@ -426,7 +426,7 @@ index b98f840..d7bc2ec 100644
      LastEnvironmentType = CoreCLR
    };
 diff --git a/include/llvm/Analysis/CodeMetrics.h b/include/llvm/Analysis/CodeMetrics.h
-index 9e861ac..636fb32 100644
+index 9e861ac1882..636fb3207f8 100644
 --- a/include/llvm/Analysis/CodeMetrics.h
 +++ b/include/llvm/Analysis/CodeMetrics.h
 @@ -87,7 +87,8 @@ struct CodeMetrics {
@@ -440,7 +440,7 @@ index 9e861ac..636fb32 100644
    /// \brief Collect a loop's ephemeral values (those used only by an assume
    /// or similar intrinsics in the loop).
 diff --git a/include/llvm/Bitcode/BitcodeWriterPass.h b/include/llvm/Bitcode/BitcodeWriterPass.h
-index 9ac6fba..d019884 100644
+index 9ac6fba16b9..d019884106b 100644
 --- a/include/llvm/Bitcode/BitcodeWriterPass.h
 +++ b/include/llvm/Bitcode/BitcodeWriterPass.h
 @@ -40,6 +40,12 @@ ModulePass *createBitcodeWriterPass(raw_ostream &Str,
@@ -506,7 +506,7 @@ index 9ac6fba..d019884 100644
  
  #endif
 diff --git a/include/llvm/Bitcode/LLVMBitCodes.h b/include/llvm/Bitcode/LLVMBitCodes.h
-index 52d4f01..37652a5 100644
+index 52d4f01b798..37652a5f9fd 100644
 --- a/include/llvm/Bitcode/LLVMBitCodes.h
 +++ b/include/llvm/Bitcode/LLVMBitCodes.h
 @@ -20,6 +20,23 @@
@@ -892,7 +892,7 @@ index 52d4f01..37652a5 100644
  
  } // End bitc namespace
 diff --git a/include/llvm/Bitcode/ReaderWriter.h b/include/llvm/Bitcode/ReaderWriter.h
-index 0ff32d8..49ca1ce 100644
+index 0ff32d86956..49ca1ce17e1 100644
 --- a/include/llvm/Bitcode/ReaderWriter.h
 +++ b/include/llvm/Bitcode/ReaderWriter.h
 @@ -104,6 +104,12 @@ namespace llvm {
@@ -909,7 +909,7 @@ index 0ff32d8..49ca1ce 100644
    /// where it will be written in a new bitcode block. This is used when
    /// writing the combined index file for ThinLTO. When writing a subset of the
 diff --git a/include/llvm/CodeGen/AsmPrinter.h b/include/llvm/CodeGen/AsmPrinter.h
-index de618d1..d1e3957 100644
+index de618d17357..d1e39575bc6 100644
 --- a/include/llvm/CodeGen/AsmPrinter.h
 +++ b/include/llvm/CodeGen/AsmPrinter.h
 @@ -254,7 +254,7 @@ public:
@@ -931,7 +931,7 @@ index de618d1..d1e3957 100644
    void EmitJumpTableEntry(const MachineJumpTableInfo *MJTI,
                            const MachineBasicBlock *MBB, unsigned uid) const;
 diff --git a/include/llvm/IR/BasicBlock.h b/include/llvm/IR/BasicBlock.h
-index 50eedec..900a098 100644
+index 50eedecc4af..900a0983c2c 100644
 --- a/include/llvm/IR/BasicBlock.h
 +++ b/include/llvm/IR/BasicBlock.h
 @@ -17,6 +17,7 @@
@@ -1082,7 +1082,7 @@ index 50eedec..900a098 100644
    /// \brief Increment the internal refcount of the number of BlockAddresses
    /// referencing this BasicBlock by \p Amt.
 diff --git a/include/llvm/IR/CallingConv.h b/include/llvm/IR/CallingConv.h
-index 4987b7e..97d8e69 100644
+index 4987b7e943f..97d8e69730e 100644
 --- a/include/llvm/IR/CallingConv.h
 +++ b/include/llvm/IR/CallingConv.h
 @@ -117,23 +117,20 @@ namespace CallingConv {
@@ -1124,7 +1124,7 @@ index 4987b7e..97d8e69 100644
      /// Intel_OCL_BI - Calling conventions for Intel OpenCL built-ins
      Intel_OCL_BI = 77,
 diff --git a/include/llvm/IR/DebugInfoMetadata.h b/include/llvm/IR/DebugInfoMetadata.h
-index a9caf79..b068353 100644
+index a9caf79656e..b068353c684 100644
 --- a/include/llvm/IR/DebugInfoMetadata.h
 +++ b/include/llvm/IR/DebugInfoMetadata.h
 @@ -216,6 +216,9 @@ public:
@@ -1164,7 +1164,7 @@ index a9caf79..b068353 100644
    DISubprogram(LLVMContext &C, StorageType Storage, unsigned Line,
                 unsigned ScopeLine, unsigned Virtuality, unsigned VirtualIndex,
 diff --git a/include/llvm/IR/DerivedTypes.h b/include/llvm/IR/DerivedTypes.h
-index efd0d07..3d949cd 100644
+index efd0d07366e..3d949cd9f79 100644
 --- a/include/llvm/IR/DerivedTypes.h
 +++ b/include/llvm/IR/DerivedTypes.h
 @@ -203,7 +203,8 @@ class StructType : public CompositeType {
@@ -1194,7 +1194,7 @@ index efd0d07..3d949cd 100644
    bool isSized(SmallPtrSetImpl<Type *> *Visited = nullptr) const;
  
 diff --git a/include/llvm/IR/Function.h b/include/llvm/IR/Function.h
-index ff55fcb..6720241 100644
+index ff55fcbf7fe..6720241fbf2 100644
 --- a/include/llvm/IR/Function.h
 +++ b/include/llvm/IR/Function.h
 @@ -112,6 +112,13 @@ public:
@@ -1212,7 +1212,7 @@ index ff55fcb..6720241 100644
    FunctionType *getFunctionType() const; // Return the FunctionType for me
  
 diff --git a/include/llvm/IR/Metadata.h b/include/llvm/IR/Metadata.h
-index 91f43d3..064acaa 100644
+index 91f43d342d2..064acaa052c 100644
 --- a/include/llvm/IR/Metadata.h
 +++ b/include/llvm/IR/Metadata.h
 @@ -35,7 +35,10 @@ class Module;
@@ -1237,7 +1237,7 @@ index 91f43d3..064acaa 100644
  protected:
    /// \brief Handle collisions after \a Value::replaceAllUsesWith().
 diff --git a/include/llvm/IR/Value.h b/include/llvm/IR/Value.h
-index f3a342d..5d82b75 100644
+index f3a342dadf7..5d82b75a3f3 100644
 --- a/include/llvm/IR/Value.h
 +++ b/include/llvm/IR/Value.h
 @@ -265,7 +265,8 @@ public:
@@ -1251,7 +1251,7 @@ index f3a342d..5d82b75 100644
    /// replaceUsesOutsideBlock - Go through the uses list for this definition and
    /// make each use point to "V" instead of "this" when the use is outside the
 diff --git a/include/llvm/IR/ValueHandle.h b/include/llvm/IR/ValueHandle.h
-index 3c28059..ba6ffa1 100644
+index 3c2805913ef..ba6ffa10e0f 100644
 --- a/include/llvm/IR/ValueHandle.h
 +++ b/include/llvm/IR/ValueHandle.h
 @@ -112,7 +112,7 @@ protected:
@@ -1264,7 +1264,7 @@ index 3c28059..ba6ffa1 100644
  private:
    // Internal implementation details.
 diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
-index a411273..53ba765 100644
+index a4112739e96..53ba7656a3b 100644
 --- a/include/llvm/InitializePasses.h
 +++ b/include/llvm/InitializePasses.h
 @@ -345,6 +345,26 @@ void initializeWholeProgramDevirtPass(PassRegistry &);
@@ -1295,7 +1295,7 @@ index a411273..53ba765 100644
  
  #endif
 diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
-index 16c5f5c..7acb94e 100644
+index 16c5f5c5c7c..7acb94e95f8 100644
 --- a/include/llvm/LinkAllPasses.h
 +++ b/include/llvm/LinkAllPasses.h
 @@ -99,6 +99,7 @@ namespace {
@@ -1333,7 +1333,7 @@ index 16c5f5c..7acb94e 100644
  }
 diff --git a/include/llvm/SPIRV/VulkanSampling.h b/include/llvm/SPIRV/VulkanSampling.h
 new file mode 100644
-index 0000000..524c41c
+index 00000000000..524c41c21f8
 --- /dev/null
 +++ b/include/llvm/SPIRV/VulkanSampling.h
 @@ -0,0 +1,68 @@
@@ -1407,7 +1407,7 @@ index 0000000..524c41c
 +#endif
 diff --git a/include/llvm/SPIRVerifier/SpirErrors.h b/include/llvm/SPIRVerifier/SpirErrors.h
 new file mode 100644
-index 0000000..88bd695
+index 00000000000..88bd695cae8
 --- /dev/null
 +++ b/include/llvm/SPIRVerifier/SpirErrors.h
 @@ -0,0 +1,146 @@
@@ -1559,7 +1559,7 @@ index 0000000..88bd695
 +#endif // __SPIR_ERRORS_H__
 diff --git a/include/llvm/SPIRVerifier/SpirIterators.h b/include/llvm/SPIRVerifier/SpirIterators.h
 new file mode 100644
-index 0000000..33a660a
+index 00000000000..33a660aec47
 --- /dev/null
 +++ b/include/llvm/SPIRVerifier/SpirIterators.h
 @@ -0,0 +1,461 @@
@@ -2026,7 +2026,7 @@ index 0000000..33a660a
 +#endif // __SPIR_ITERATORS_H__
 diff --git a/include/llvm/SPIRVerifier/SpirTables.h b/include/llvm/SPIRVerifier/SpirTables.h
 new file mode 100644
-index 0000000..e14e306
+index 00000000000..e14e3062395
 --- /dev/null
 +++ b/include/llvm/SPIRVerifier/SpirTables.h
 @@ -0,0 +1,171 @@
@@ -2203,7 +2203,7 @@ index 0000000..e14e306
 +#endif // __SPIR_TABLES_H__
 diff --git a/include/llvm/SPIRVerifier/SpirValidation.h b/include/llvm/SPIRVerifier/SpirValidation.h
 new file mode 100644
-index 0000000..3a51e3a
+index 00000000000..3a51e3a8771
 --- /dev/null
 +++ b/include/llvm/SPIRVerifier/SpirValidation.h
 @@ -0,0 +1,59 @@
@@ -2268,7 +2268,7 @@ index 0000000..3a51e3a
 +#endif // __SPIR_VALIDATION_H__
 diff --git a/include/llvm/Support/SPIRV.h b/include/llvm/Support/SPIRV.h
 new file mode 100644
-index 0000000..ab44e32
+index 00000000000..ab44e320b4a
 --- /dev/null
 +++ b/include/llvm/Support/SPIRV.h
 @@ -0,0 +1,171 @@
@@ -2444,24 +2444,24 @@ index 0000000..ab44e32
 +
 +#endif
 diff --git a/include/llvm/Transforms/IPO.h b/include/llvm/Transforms/IPO.h
-index 9ef3881..2acf5b9 100644
+index 9ef38817117..2acf5b9d395 100644
 --- a/include/llvm/Transforms/IPO.h
 +++ b/include/llvm/Transforms/IPO.h
-@@ -107,6 +107,12 @@ Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel);
+@@ -106,6 +106,12 @@ Pass *createFunctionInliningPass(int Threshold);
+ Pass *createFunctionInliningPass(unsigned OptLevel, unsigned SizeOptLevel);
  Pass *createFunctionInliningPass(InlineParams &Params);
  
- //===----------------------------------------------------------------------===//
++//===----------------------------------------------------------------------===//
 +/// createEverythingInlinerPass - Return a new pass object that inlines
 +/// everything, unless it was marked "noinline".
 +Pass *createEverythingInlinerPass();
 +Pass *createEverythingInlinerPass(bool InsertLifetime);
 +
-+//===----------------------------------------------------------------------===//
+ //===----------------------------------------------------------------------===//
  /// createPruneEHPass - Return a new pass object which transforms invoke
  /// instructions into calls, if the callee can _not_ unwind the stack.
- ///
 diff --git a/include/llvm/Transforms/IPO/PassManagerBuilder.h b/include/llvm/Transforms/IPO/PassManagerBuilder.h
-index adc4179..ad2a706 100644
+index adc41793cbf..ad2a7069611 100644
 --- a/include/llvm/Transforms/IPO/PassManagerBuilder.h
 +++ b/include/llvm/Transforms/IPO/PassManagerBuilder.h
 @@ -150,6 +150,19 @@ public:
@@ -2485,7 +2485,7 @@ index adc4179..ad2a706 100644
    /// ExtensionList - This is list of all of the extensions that are registered.
    std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 diff --git a/include/llvm/Transforms/InstCombine/InstCombine.h b/include/llvm/Transforms/InstCombine/InstCombine.h
-index b89c1bd..6d2bad0 100644
+index b89c1bdaf10..6d2bad0bb92 100644
 --- a/include/llvm/Transforms/InstCombine/InstCombine.h
 +++ b/include/llvm/Transforms/InstCombine/InstCombine.h
 @@ -27,19 +27,21 @@ namespace llvm {
@@ -2530,13 +2530,15 @@ index b89c1bd..6d2bad0 100644
    }
  
 diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
-index 167cc94..f45f2ed 100644
+index 167cc94ec81..f45f2edf028 100644
 --- a/include/llvm/Transforms/Scalar.h
 +++ b/include/llvm/Transforms/Scalar.h
-@@ -32,6 +32,109 @@ class TargetMachine;
+@@ -30,6 +30,109 @@ class TerminatorInst;
+ class TargetLowering;
+ class TargetMachine;
  
- //===----------------------------------------------------------------------===//
- //
++//===----------------------------------------------------------------------===//
++//
 +// AddressSpaceFix - This pass fixes (intentionally) broken uses of addrspace
 +// pointers that should be non-addrspace pointers.
 +//
@@ -2638,11 +2640,9 @@ index 167cc94..f45f2ed 100644
 +//
 +FunctionPass *createFMACombinerPass();
 +
-+//===----------------------------------------------------------------------===//
-+//
- // ConstantPropagation - A worklist driven constant propagation pass
+ //===----------------------------------------------------------------------===//
  //
- FunctionPass *createConstantPropagationPass();
+ // ConstantPropagation - A worklist driven constant propagation pass
 @@ -130,7 +233,11 @@ Pass *createIndVarSimplifyPass();
  // into:
  //    %Z = add int 2, %X
@@ -2658,7 +2658,7 @@ index 167cc94..f45f2ed 100644
  //
 diff --git a/include/llvm/Transforms/Scalar/FloorImage.h b/include/llvm/Transforms/Scalar/FloorImage.h
 new file mode 100644
-index 0000000..a717de3
+index 00000000000..a717de3f14f
 --- /dev/null
 +++ b/include/llvm/Transforms/Scalar/FloorImage.h
 @@ -0,0 +1,390 @@
@@ -3053,7 +3053,7 @@ index 0000000..a717de3
 +
 +#endif
 diff --git a/lib/Analysis/CodeMetrics.cpp b/lib/Analysis/CodeMetrics.cpp
-index bdffdd8..30a3805 100644
+index bdffdd8eb27..30a38055ae0 100644
 --- a/lib/Analysis/CodeMetrics.cpp
 +++ b/lib/Analysis/CodeMetrics.cpp
 @@ -118,7 +118,8 @@ void CodeMetrics::collectEphemeralValues(
@@ -3089,7 +3089,7 @@ index bdffdd8..30a3805 100644
  
      NumInsts += TTI.getUserCost(&I);
 diff --git a/lib/Analysis/LoopInfo.cpp b/lib/Analysis/LoopInfo.cpp
-index 9d2e38e..019c03f 100644
+index 9d2e38e19da..019c03f4abd 100644
 --- a/lib/Analysis/LoopInfo.cpp
 +++ b/lib/Analysis/LoopInfo.cpp
 @@ -195,10 +195,11 @@ bool Loop::isSafeToClone() const {
@@ -3109,7 +3109,7 @@ index 9d2e38e..019c03f 100644
    return true;
  }
 diff --git a/lib/AsmParser/LLLexer.cpp b/lib/AsmParser/LLLexer.cpp
-index 58fe13e..416c3ce 100644
+index 58fe13e0249..416c3cec945 100644
 --- a/lib/AsmParser/LLLexer.cpp
 +++ b/lib/AsmParser/LLLexer.cpp
 @@ -580,8 +580,10 @@ lltok::Kind LLLexer::LexIdentifier() {
@@ -3126,7 +3126,7 @@ index 58fe13e..416c3ce 100644
    KEYWORD(x86_64_sysvcc);
    KEYWORD(x86_64_win64cc);
 diff --git a/lib/AsmParser/LLParser.cpp b/lib/AsmParser/LLParser.cpp
-index e97202d..f0403f7 100644
+index e97202dd989..f0403f706bb 100644
 --- a/lib/AsmParser/LLParser.cpp
 +++ b/lib/AsmParser/LLParser.cpp
 @@ -1645,8 +1645,10 @@ void LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
@@ -3184,7 +3184,7 @@ index e97202d..f0403f7 100644
    return false;
  }
 diff --git a/lib/AsmParser/LLToken.h b/lib/AsmParser/LLToken.h
-index 37998e8..72408bb 100644
+index 37998e87950..72408bbd268 100644
 --- a/lib/AsmParser/LLToken.h
 +++ b/lib/AsmParser/LLToken.h
 @@ -135,8 +135,10 @@ enum Kind {
@@ -3201,7 +3201,7 @@ index 37998e8..72408bb 100644
    kw_x86_64_win64cc,
    kw_webkit_jscc,
 diff --git a/lib/Bitcode/CMakeLists.txt b/lib/Bitcode/CMakeLists.txt
-index ff7e290..5e44cdd 100644
+index ff7e290cad1..5e44cdde01c 100644
 --- a/lib/Bitcode/CMakeLists.txt
 +++ b/lib/Bitcode/CMakeLists.txt
 @@ -1,2 +1,5 @@
@@ -3211,7 +3211,7 @@ index ff7e290..5e44cdd 100644
 +add_subdirectory(Writer35)
 +add_subdirectory(MetalLib)
 diff --git a/lib/Bitcode/LLVMBuild.txt b/lib/Bitcode/LLVMBuild.txt
-index af9936b..15e50e1 100644
+index af9936bbe82..15e50e14d0f 100644
 --- a/lib/Bitcode/LLVMBuild.txt
 +++ b/lib/Bitcode/LLVMBuild.txt
 @@ -16,7 +16,7 @@
@@ -3225,7 +3225,7 @@ index af9936b..15e50e1 100644
  type = Group
 diff --git a/lib/Bitcode/MetalLib/CMakeLists.txt b/lib/Bitcode/MetalLib/CMakeLists.txt
 new file mode 100644
-index 0000000..bdca4ae
+index 00000000000..bdca4aee56f
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/CMakeLists.txt
 @@ -0,0 +1,8 @@
@@ -3239,7 +3239,7 @@ index 0000000..bdca4ae
 +  )
 diff --git a/lib/Bitcode/MetalLib/LLVMBuild.txt b/lib/Bitcode/MetalLib/LLVMBuild.txt
 new file mode 100644
-index 0000000..d945018
+index 00000000000..d9450186089
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/LLVMBuild.txt
 @@ -0,0 +1,22 @@
@@ -3267,7 +3267,7 @@ index 0000000..d945018
 +required_libraries = Core Support BitWriter35
 diff --git a/lib/Bitcode/MetalLib/Makefile b/lib/Bitcode/MetalLib/Makefile
 new file mode 100644
-index 0000000..c390ea9
+index 00000000000..c390ea9f11d
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/Makefile
 @@ -0,0 +1,15 @@
@@ -3288,7 +3288,7 @@ index 0000000..c390ea9
 +
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriter.cpp b/lib/Bitcode/MetalLib/MetalLibWriter.cpp
 new file mode 100644
-index 0000000..f7b6db4
+index 00000000000..f7b6db49209
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriter.cpp
 @@ -0,0 +1,48 @@
@@ -3342,7 +3342,7 @@ index 0000000..f7b6db4
 +}
 diff --git a/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 new file mode 100644
-index 0000000..fca8491
+index 00000000000..fca84915b54
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/MetalLibWriterPass.cpp
 @@ -0,0 +1,495 @@
@@ -3843,7 +3843,7 @@ index 0000000..fca8491
 +}
 diff --git a/lib/Bitcode/MetalLib/sha256.hpp b/lib/Bitcode/MetalLib/sha256.hpp
 new file mode 100644
-index 0000000..286db03
+index 00000000000..286db031573
 --- /dev/null
 +++ b/lib/Bitcode/MetalLib/sha256.hpp
 @@ -0,0 +1,194 @@
@@ -4043,7 +4043,7 @@ index 0000000..286db03
 +#endif
 diff --git a/lib/Bitcode/Writer32/BitWriter32.cpp b/lib/Bitcode/Writer32/BitWriter32.cpp
 new file mode 100644
-index 0000000..31f7de4
+index 00000000000..31f7de43872
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/BitWriter32.cpp
 @@ -0,0 +1,49 @@
@@ -4098,7 +4098,7 @@ index 0000000..31f7de4
 +}
 diff --git a/lib/Bitcode/Writer32/BitcodeWriter32.cpp b/lib/Bitcode/Writer32/BitcodeWriter32.cpp
 new file mode 100644
-index 0000000..1cd27a9
+index 00000000000..1cd27a9a53d
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/BitcodeWriter32.cpp
 @@ -0,0 +1,2448 @@
@@ -6552,7 +6552,7 @@ index 0000000..1cd27a9
 +}
 diff --git a/lib/Bitcode/Writer32/BitcodeWriterPass32.cpp b/lib/Bitcode/Writer32/BitcodeWriterPass32.cpp
 new file mode 100644
-index 0000000..6d7ee26
+index 00000000000..6d7ee263b3d
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/BitcodeWriterPass32.cpp
 @@ -0,0 +1,48 @@
@@ -6606,7 +6606,7 @@ index 0000000..6d7ee26
 +}
 diff --git a/lib/Bitcode/Writer32/CMakeLists.txt b/lib/Bitcode/Writer32/CMakeLists.txt
 new file mode 100644
-index 0000000..c427bb3
+index 00000000000..c427bb36b30
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/CMakeLists.txt
 @@ -0,0 +1,9 @@
@@ -6621,7 +6621,7 @@ index 0000000..c427bb3
 +  )
 diff --git a/lib/Bitcode/Writer32/LLVMBuild.txt b/lib/Bitcode/Writer32/LLVMBuild.txt
 new file mode 100644
-index 0000000..c1d3f27
+index 00000000000..c1d3f274858
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/LLVMBuild.txt
 @@ -0,0 +1,22 @@
@@ -6649,7 +6649,7 @@ index 0000000..c1d3f27
 +required_libraries = Core Support
 diff --git a/lib/Bitcode/Writer32/Makefile b/lib/Bitcode/Writer32/Makefile
 new file mode 100644
-index 0000000..d8135de
+index 00000000000..d8135de59d9
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/Makefile
 @@ -0,0 +1,15 @@
@@ -6670,7 +6670,7 @@ index 0000000..d8135de
 +
 diff --git a/lib/Bitcode/Writer32/ValueEnumerator32.cpp b/lib/Bitcode/Writer32/ValueEnumerator32.cpp
 new file mode 100644
-index 0000000..2524d2d
+index 00000000000..2524d2d4196
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/ValueEnumerator32.cpp
 @@ -0,0 +1,645 @@
@@ -7321,7 +7321,7 @@ index 0000000..2524d2d
 +}
 diff --git a/lib/Bitcode/Writer32/ValueEnumerator32.h b/lib/Bitcode/Writer32/ValueEnumerator32.h
 new file mode 100644
-index 0000000..89a50b9
+index 00000000000..89a50b93a5c
 --- /dev/null
 +++ b/lib/Bitcode/Writer32/ValueEnumerator32.h
 @@ -0,0 +1,202 @@
@@ -7529,7 +7529,7 @@ index 0000000..89a50b9
 +#endif
 diff --git a/lib/Bitcode/Writer35/BitWriter35.cpp b/lib/Bitcode/Writer35/BitWriter35.cpp
 new file mode 100644
-index 0000000..7b330f7
+index 00000000000..7b330f7caa6
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/BitWriter35.cpp
 @@ -0,0 +1,49 @@
@@ -7584,7 +7584,7 @@ index 0000000..7b330f7
 +}
 diff --git a/lib/Bitcode/Writer35/BitcodeWriter35.cpp b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
 new file mode 100644
-index 0000000..d3407b4
+index 00000000000..d3407b4ba49
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/BitcodeWriter35.cpp
 @@ -0,0 +1,2628 @@
@@ -10218,7 +10218,7 @@ index 0000000..d3407b4
 +}
 diff --git a/lib/Bitcode/Writer35/BitcodeWriterPass35.cpp b/lib/Bitcode/Writer35/BitcodeWriterPass35.cpp
 new file mode 100644
-index 0000000..cd443e8
+index 00000000000..cd443e8a091
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/BitcodeWriterPass35.cpp
 @@ -0,0 +1,48 @@
@@ -10272,7 +10272,7 @@ index 0000000..cd443e8
 +}
 diff --git a/lib/Bitcode/Writer35/CMakeLists.txt b/lib/Bitcode/Writer35/CMakeLists.txt
 new file mode 100644
-index 0000000..0cbd182
+index 00000000000..0cbd182bcbf
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/CMakeLists.txt
 @@ -0,0 +1,9 @@
@@ -10287,7 +10287,7 @@ index 0000000..0cbd182
 +  )
 diff --git a/lib/Bitcode/Writer35/LLVMBuild.txt b/lib/Bitcode/Writer35/LLVMBuild.txt
 new file mode 100644
-index 0000000..626e76a
+index 00000000000..626e76aad2a
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/LLVMBuild.txt
 @@ -0,0 +1,22 @@
@@ -10315,7 +10315,7 @@ index 0000000..626e76a
 +required_libraries = Core Support
 diff --git a/lib/Bitcode/Writer35/Makefile b/lib/Bitcode/Writer35/Makefile
 new file mode 100644
-index 0000000..a984073
+index 00000000000..a984073c400
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/Makefile
 @@ -0,0 +1,15 @@
@@ -10336,7 +10336,7 @@ index 0000000..a984073
 +
 diff --git a/lib/Bitcode/Writer35/ValueEnumerator35.cpp b/lib/Bitcode/Writer35/ValueEnumerator35.cpp
 new file mode 100644
-index 0000000..ff273c9
+index 00000000000..ff273c99a19
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/ValueEnumerator35.cpp
 @@ -0,0 +1,645 @@
@@ -10987,7 +10987,7 @@ index 0000000..ff273c9
 +}
 diff --git a/lib/Bitcode/Writer35/ValueEnumerator35.h b/lib/Bitcode/Writer35/ValueEnumerator35.h
 new file mode 100644
-index 0000000..d2a1cca
+index 00000000000..d2a1cca9d3f
 --- /dev/null
 +++ b/lib/Bitcode/Writer35/ValueEnumerator35.h
 @@ -0,0 +1,202 @@
@@ -11194,7 +11194,7 @@ index 0000000..d2a1cca
 +
 +#endif
 diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
-index 9449421..e87da39 100644
+index 9449421ef7a..e87da39cfda 100644
 --- a/lib/CMakeLists.txt
 +++ b/lib/CMakeLists.txt
 @@ -21,3 +21,5 @@ add_subdirectory(ProfileData)
@@ -11204,7 +11204,7 @@ index 9449421..e87da39 100644
 +add_subdirectory(SPIRV)
 +add_subdirectory(SPIRVerifier)
 diff --git a/lib/IR/AsmWriter.cpp b/lib/IR/AsmWriter.cpp
-index 828767e..ebc7ee1 100644
+index 828767e0736..ebc7ee1f516 100644
 --- a/lib/IR/AsmWriter.cpp
 +++ b/lib/IR/AsmWriter.cpp
 @@ -20,6 +20,7 @@
@@ -11254,7 +11254,7 @@ index 828767e..ebc7ee1 100644
    TypePrinter.print(GV->getValueType(), Out);
  
 diff --git a/lib/IR/AutoUpgrade.cpp b/lib/IR/AutoUpgrade.cpp
-index 883cf29..b2f73dc 100644
+index 883cf29497c..b2f73dcf127 100644
 --- a/lib/IR/AutoUpgrade.cpp
 +++ b/lib/IR/AutoUpgrade.cpp
 @@ -1464,7 +1464,8 @@ Value *llvm::UpgradeBitCastExpr(unsigned Opc, Constant *C, Type *DestTy) {
@@ -11268,7 +11268,7 @@ index 883cf29..b2f73dc 100644
  
    bool RetCode = StripDebugInfo(M);
 diff --git a/lib/IR/BasicBlock.cpp b/lib/IR/BasicBlock.cpp
-index 4640b4f..b5f9a0d 100644
+index 4640b4f9d41..b5f9a0d8272 100644
 --- a/lib/IR/BasicBlock.cpp
 +++ b/lib/IR/BasicBlock.cpp
 @@ -224,7 +224,7 @@ void BasicBlock::dropAllReferences() {
@@ -11326,7 +11326,7 @@ index 4640b4f..b5f9a0d 100644
      // incoming values...
      BasicBlock *Successor = *I;
 diff --git a/lib/IR/Constants.cpp b/lib/IR/Constants.cpp
-index d8d55b4..43f215e 100644
+index d8d55b472f3..43f215e4816 100644
 --- a/lib/IR/Constants.cpp
 +++ b/lib/IR/Constants.cpp
 @@ -1459,7 +1459,8 @@ Constant *ConstantExpr::getCast(unsigned oc, Constant *C, Type *Ty,
@@ -11340,7 +11340,7 @@ index d8d55b4..43f215e 100644
    switch (opc) {
    default:
 diff --git a/lib/IR/DataLayout.cpp b/lib/IR/DataLayout.cpp
-index d7ed730..1f45bfd 100644
+index d7ed73015ee..1f45bfdaead 100644
 --- a/lib/IR/DataLayout.cpp
 +++ b/lib/IR/DataLayout.cpp
 @@ -71,6 +71,19 @@ StructLayout::StructLayout(StructType *ST, const DataLayout &DL) {
@@ -11364,10 +11364,10 @@ index d7ed730..1f45bfd 100644
  
  
 diff --git a/lib/IR/Instructions.cpp b/lib/IR/Instructions.cpp
-index 5355f1a..90ca87e 100644
+index 5355f1a617a..90ca87ea1cf 100644
 --- a/lib/IR/Instructions.cpp
 +++ b/lib/IR/Instructions.cpp
-@@ -257,11 +257,13 @@ void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
+@@ -257,10 +257,12 @@ void CallInst::init(FunctionType *FTy, Value *Func, ArrayRef<Value *> Args,
            (FTy->isVarArg() && Args.size() > FTy->getNumParams())) &&
           "Calling a function with bad signature!");
  
@@ -11376,13 +11376,12 @@ index 5355f1a..90ca87e 100644
      assert((i >= FTy->getNumParams() || 
              FTy->getParamType(i) == Args[i]->getType()) &&
             "Calling a function with a bad signature!");
- #endif
 +#endif
+ #endif
  
    std::copy(Args.begin(), Args.end(), op_begin());
- 
 diff --git a/lib/IR/Metadata.cpp b/lib/IR/Metadata.cpp
-index ad95bff..67e7258 100644
+index ad95bff9e83..67e72586a5b 100644
 --- a/lib/IR/Metadata.cpp
 +++ b/lib/IR/Metadata.cpp
 @@ -350,11 +350,20 @@ void ValueAsMetadata::handleDeletion(Value *V) {
@@ -11429,7 +11428,7 @@ index ad95bff..67e7258 100644
  
  DISubprogram *Function::getSubprogram() const {
 diff --git a/lib/IR/Value.cpp b/lib/IR/Value.cpp
-index be704a7..3963d1e 100644
+index be704a778a8..3963d1ebb43 100644
 --- a/lib/IR/Value.cpp
 +++ b/lib/IR/Value.cpp
 @@ -367,18 +367,26 @@ static bool contains(Value *Expr, Value *V) {
@@ -11488,7 +11487,7 @@ index be704a7..3963d1e 100644
    // Get the linked list base, which is guaranteed to exist since the
    // HasValueHandle flag is set.
 diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
-index 189450d..63202ac 100644
+index 189450ddde0..63202acbe02 100644
 --- a/lib/IR/Verifier.cpp
 +++ b/lib/IR/Verifier.cpp
 @@ -2566,10 +2566,17 @@ void Verifier::verifyCallSite(CallSite CS) {
@@ -11524,7 +11523,7 @@ index 189450d..63202ac 100644
    }
  
 diff --git a/lib/LLVMBuild.txt b/lib/LLVMBuild.txt
-index 50bf690..8091ca1 100644
+index 50bf69089ed..8091ca1af47 100644
 --- a/lib/LLVMBuild.txt
 +++ b/lib/LLVMBuild.txt
 @@ -35,6 +35,8 @@ subdirectories =
@@ -11538,7 +11537,7 @@ index 50bf690..8091ca1 100644
   Target
 diff --git a/lib/SPIRV/CMakeLists.txt b/lib/SPIRV/CMakeLists.txt
 new file mode 100644
-index 0000000..fa9b2dd
+index 00000000000..fa9b2dda767
 --- /dev/null
 +++ b/lib/SPIRV/CMakeLists.txt
 @@ -0,0 +1,46 @@
@@ -11590,7 +11589,7 @@ index 0000000..fa9b2dd
 +add_dependencies(LLVMSPIRVLib intrinsics_gen)
 diff --git a/lib/SPIRV/LLVMBuild.txt b/lib/SPIRV/LLVMBuild.txt
 new file mode 100644
-index 0000000..539b617
+index 00000000000..539b617850b
 --- /dev/null
 +++ b/lib/SPIRV/LLVMBuild.txt
 @@ -0,0 +1,23 @@
@@ -11619,7 +11618,7 @@ index 0000000..539b617
 +
 diff --git a/lib/SPIRV/LLVMToSPIRVTransformations.cpp b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
 new file mode 100644
-index 0000000..2c80638
+index 00000000000..2c806389953
 --- /dev/null
 +++ b/lib/SPIRV/LLVMToSPIRVTransformations.cpp
 @@ -0,0 +1,237 @@
@@ -11862,7 +11861,7 @@ index 0000000..2c80638
 +                "LLVM to SPIR-V transformations", false, false)
 diff --git a/lib/SPIRV/Makefile b/lib/SPIRV/Makefile
 new file mode 100644
-index 0000000..4bd2edd
+index 00000000000..4bd2edd6860
 --- /dev/null
 +++ b/lib/SPIRV/Makefile
 @@ -0,0 +1,49 @@
@@ -11917,7 +11916,7 @@ index 0000000..4bd2edd
 +include $(LEVEL)/Makefile.common
 diff --git a/lib/SPIRV/Mangler/FunctionDescriptor.cpp b/lib/SPIRV/Mangler/FunctionDescriptor.cpp
 new file mode 100644
-index 0000000..24d1b25
+index 00000000000..24d1b25207b
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/FunctionDescriptor.cpp
 @@ -0,0 +1,95 @@
@@ -12018,7 +12017,7 @@ index 0000000..24d1b25
 +} // End SPIR namespace
 diff --git a/lib/SPIRV/Mangler/FunctionDescriptor.h b/lib/SPIRV/Mangler/FunctionDescriptor.h
 new file mode 100644
-index 0000000..d3acff9
+index 00000000000..d3acff99738
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/FunctionDescriptor.h
 @@ -0,0 +1,55 @@
@@ -12079,7 +12078,7 @@ index 0000000..d3acff9
 +#endif //__FUNCTION_DESCRIPTOR_H__
 diff --git a/lib/SPIRV/Mangler/Mangler.cpp b/lib/SPIRV/Mangler/Mangler.cpp
 new file mode 100644
-index 0000000..563768e
+index 00000000000..563768e98b4
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/Mangler.cpp
 @@ -0,0 +1,201 @@
@@ -12286,7 +12285,7 @@ index 0000000..563768e
 +} // End SPIR namespace
 diff --git a/lib/SPIRV/Mangler/ManglingUtils.cpp b/lib/SPIRV/Mangler/ManglingUtils.cpp
 new file mode 100644
-index 0000000..ab84e4c
+index 00000000000..ab84e4cf5a7
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/ManglingUtils.cpp
 @@ -0,0 +1,197 @@
@@ -12489,7 +12488,7 @@ index 0000000..ab84e4c
 +} // End SPIR namespace
 diff --git a/lib/SPIRV/Mangler/ManglingUtils.h b/lib/SPIRV/Mangler/ManglingUtils.h
 new file mode 100644
-index 0000000..0e89f40
+index 00000000000..0e89f404938
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/ManglingUtils.h
 @@ -0,0 +1,32 @@
@@ -12527,7 +12526,7 @@ index 0000000..0e89f40
 +#endif //__MANGLING_UTILS_H__
 diff --git a/lib/SPIRV/Mangler/NameMangleAPI.h b/lib/SPIRV/Mangler/NameMangleAPI.h
 new file mode 100644
-index 0000000..9615ceb
+index 00000000000..9615cebc5ee
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/NameMangleAPI.h
 @@ -0,0 +1,41 @@
@@ -12574,7 +12573,7 @@ index 0000000..9615ceb
 +#endif //__NAME_MANGLE_API_H__
 diff --git a/lib/SPIRV/Mangler/ParameterType.cpp b/lib/SPIRV/Mangler/ParameterType.cpp
 new file mode 100644
-index 0000000..6cb2427
+index 00000000000..6cb24271d05
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/ParameterType.cpp
 @@ -0,0 +1,236 @@
@@ -12816,7 +12815,7 @@ index 0000000..6cb2427
 +} // End SPIR namespace
 diff --git a/lib/SPIRV/Mangler/ParameterType.h b/lib/SPIRV/Mangler/ParameterType.h
 new file mode 100644
-index 0000000..cd787c19
+index 00000000000..cd787c198ff
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/ParameterType.h
 @@ -0,0 +1,454 @@
@@ -13276,7 +13275,7 @@ index 0000000..cd787c19
 +#endif //__PARAMETER_TYPE_H__
 diff --git a/lib/SPIRV/Mangler/README.md b/lib/SPIRV/Mangler/README.md
 new file mode 100644
-index 0000000..917c355
+index 00000000000..917c3556c85
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/README.md
 @@ -0,0 +1,16 @@
@@ -13298,7 +13297,7 @@ index 0000000..917c355
 +For usage examples see unittest/spir_name_mangler.
 diff --git a/lib/SPIRV/Mangler/Refcount.h b/lib/SPIRV/Mangler/Refcount.h
 new file mode 100644
-index 0000000..e8995b7
+index 00000000000..e8995b7dbf1
 --- /dev/null
 +++ b/lib/SPIRV/Mangler/Refcount.h
 @@ -0,0 +1,100 @@
@@ -13404,7 +13403,7 @@ index 0000000..e8995b7
 +#endif //__REF_COUNT_H__
 diff --git a/lib/SPIRV/OCL20To12.cpp b/lib/SPIRV/OCL20To12.cpp
 new file mode 100644
-index 0000000..08dc3a1
+index 00000000000..08dc3a1cf33
 --- /dev/null
 +++ b/lib/SPIRV/OCL20To12.cpp
 @@ -0,0 +1,137 @@
@@ -13547,7 +13546,7 @@ index 0000000..08dc3a1
 +ModulePass *llvm::createOCL20To12() { return new OCL20To12(); }
 diff --git a/lib/SPIRV/OCL20ToSPIRV.cpp b/lib/SPIRV/OCL20ToSPIRV.cpp
 new file mode 100644
-index 0000000..a6966f1
+index 00000000000..a6966f10b10
 --- /dev/null
 +++ b/lib/SPIRV/OCL20ToSPIRV.cpp
 @@ -0,0 +1,1530 @@
@@ -15083,7 +15082,7 @@ index 0000000..a6966f1
 +ModulePass *llvm::createOCL20ToSPIRV() { return new OCL20ToSPIRV(); }
 diff --git a/lib/SPIRV/OCL21ToSPIRV.cpp b/lib/SPIRV/OCL21ToSPIRV.cpp
 new file mode 100644
-index 0000000..bb78cc8
+index 00000000000..bb78cc8ba0b
 --- /dev/null
 +++ b/lib/SPIRV/OCL21ToSPIRV.cpp
 @@ -0,0 +1,241 @@
@@ -15330,7 +15329,7 @@ index 0000000..bb78cc8
 +ModulePass *llvm::createOCL21ToSPIRV() { return new OCL21ToSPIRV(); }
 diff --git a/lib/SPIRV/OCLTypeToSPIRV.cpp b/lib/SPIRV/OCLTypeToSPIRV.cpp
 new file mode 100644
-index 0000000..f438ce5
+index 00000000000..f438ce5face
 --- /dev/null
 +++ b/lib/SPIRV/OCLTypeToSPIRV.cpp
 @@ -0,0 +1,341 @@
@@ -15677,7 +15676,7 @@ index 0000000..f438ce5
 +ModulePass *llvm::createOCLTypeToSPIRV() { return new OCLTypeToSPIRV(); }
 diff --git a/lib/SPIRV/OCLTypeToSPIRV.h b/lib/SPIRV/OCLTypeToSPIRV.h
 new file mode 100644
-index 0000000..1db09b4
+index 00000000000..1db09b4e7dc
 --- /dev/null
 +++ b/lib/SPIRV/OCLTypeToSPIRV.h
 @@ -0,0 +1,84 @@
@@ -15767,7 +15766,7 @@ index 0000000..1db09b4
 +}
 diff --git a/lib/SPIRV/OCLUtil.cpp b/lib/SPIRV/OCLUtil.cpp
 new file mode 100644
-index 0000000..fad2177
+index 00000000000..fad217744f9
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.cpp
 @@ -0,0 +1,617 @@
@@ -16390,7 +16389,7 @@ index 0000000..fad2177
 +}
 diff --git a/lib/SPIRV/OCLUtil.h b/lib/SPIRV/OCLUtil.h
 new file mode 100644
-index 0000000..666c1e1
+index 00000000000..666c1e19900
 --- /dev/null
 +++ b/lib/SPIRV/OCLUtil.h
 @@ -0,0 +1,612 @@
@@ -17008,7 +17007,7 @@ index 0000000..666c1e1
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.cpp b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 new file mode 100644
-index 0000000..183e0b2
+index 00000000000..183e0b25439
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.cpp
 @@ -0,0 +1,231 @@
@@ -17245,7 +17244,7 @@ index 0000000..183e0b2
 +}
 diff --git a/lib/SPIRV/SPIRVContainerWriterPass.h b/lib/SPIRV/SPIRVContainerWriterPass.h
 new file mode 100644
-index 0000000..701588c
+index 00000000000..701588c0aa4
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVContainerWriterPass.h
 @@ -0,0 +1,50 @@
@@ -17301,7 +17300,7 @@ index 0000000..701588c
 +#endif
 diff --git a/lib/SPIRV/SPIRVInternal.h b/lib/SPIRV/SPIRVInternal.h
 new file mode 100644
-index 0000000..e909842
+index 00000000000..e9098420561
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVInternal.h
 @@ -0,0 +1,934 @@
@@ -18241,7 +18240,7 @@ index 0000000..e909842
 +#endif
 diff --git a/lib/SPIRV/SPIRVLowerBool.cpp b/lib/SPIRV/SPIRVLowerBool.cpp
 new file mode 100644
-index 0000000..255a227
+index 00000000000..255a2277acf
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerBool.cpp
 @@ -0,0 +1,133 @@
@@ -18380,7 +18379,7 @@ index 0000000..255a227
 +ModulePass *llvm::createSPIRVLowerBool() { return new SPIRVLowerBool(); }
 diff --git a/lib/SPIRV/SPIRVLowerConstExpr.cpp b/lib/SPIRV/SPIRVLowerConstExpr.cpp
 new file mode 100644
-index 0000000..f337b0b
+index 00000000000..f337b0b6a44
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerConstExpr.cpp
 @@ -0,0 +1,163 @@
@@ -18549,7 +18548,7 @@ index 0000000..f337b0b
 +}
 diff --git a/lib/SPIRV/SPIRVLowerOCLBlocks.cpp b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
 new file mode 100644
-index 0000000..e7025dc
+index 00000000000..e7025dcb161
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVLowerOCLBlocks.cpp
 @@ -0,0 +1,590 @@
@@ -19145,7 +19144,7 @@ index 0000000..e7025dc
 +#endif /* OCLLOWERBLOCKS_H_ */
 diff --git a/lib/SPIRV/SPIRVMDBuilder.h b/lib/SPIRV/SPIRVMDBuilder.h
 new file mode 100644
-index 0000000..7497d60
+index 00000000000..7497d603606
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVMDBuilder.h
 @@ -0,0 +1,131 @@
@@ -19282,7 +19281,7 @@ index 0000000..7497d60
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVMDWalker.h b/lib/SPIRV/SPIRVMDWalker.h
 new file mode 100644
-index 0000000..6ca20f3
+index 00000000000..6ca20f39a5c
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVMDWalker.h
 @@ -0,0 +1,177 @@
@@ -19465,7 +19464,7 @@ index 0000000..6ca20f3
 +#endif /* LIB_SPIRV_SPIRVMDBUILDER_H_ */
 diff --git a/lib/SPIRV/SPIRVReader.cpp b/lib/SPIRV/SPIRVReader.cpp
 new file mode 100644
-index 0000000..d09a121
+index 00000000000..d09a12101ba
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVReader.cpp
 @@ -0,0 +1,2732 @@
@@ -22203,7 +22202,7 @@ index 0000000..d09a121
 +}
 diff --git a/lib/SPIRV/SPIRVRegularizeLLVM.cpp b/lib/SPIRV/SPIRVRegularizeLLVM.cpp
 new file mode 100644
-index 0000000..1d2b6d6
+index 00000000000..1d2b6d6dc5b
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVRegularizeLLVM.cpp
 @@ -0,0 +1,249 @@
@@ -22458,7 +22457,7 @@ index 0000000..1d2b6d6
 +}
 diff --git a/lib/SPIRV/SPIRVToOCL20.cpp b/lib/SPIRV/SPIRVToOCL20.cpp
 new file mode 100644
-index 0000000..fd1ee17
+index 00000000000..fd1ee17ba8a
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVToOCL20.cpp
 @@ -0,0 +1,569 @@
@@ -23033,7 +23032,7 @@ index 0000000..fd1ee17
 +ModulePass *llvm::createSPIRVToOCL20() { return new SPIRVToOCL20(); }
 diff --git a/lib/SPIRV/SPIRVUtil.cpp b/lib/SPIRV/SPIRVUtil.cpp
 new file mode 100644
-index 0000000..507ed90
+index 00000000000..507ed900f02
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVUtil.cpp
 @@ -0,0 +1,1397 @@
@@ -24436,7 +24435,7 @@ index 0000000..507ed90
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 0000000..d478626
+index 00000000000..d478626efc3
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
 @@ -0,0 +1,3549 @@
@@ -27991,7 +27990,7 @@ index 0000000..d478626
 +}
 diff --git a/lib/SPIRV/SPIRVWriterPass.cpp b/lib/SPIRV/SPIRVWriterPass.cpp
 new file mode 100644
-index 0000000..8d9db7e
+index 00000000000..8d9db7e6c2e
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriterPass.cpp
 @@ -0,0 +1,50 @@
@@ -28047,7 +28046,7 @@ index 0000000..8d9db7e
 +}
 diff --git a/lib/SPIRV/SPIRVWriterPass.h b/lib/SPIRV/SPIRVWriterPass.h
 new file mode 100644
-index 0000000..b7fe021
+index 00000000000..b7fe0211c8a
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriterPass.h
 @@ -0,0 +1,50 @@
@@ -28103,7 +28102,7 @@ index 0000000..b7fe021
 +#endif
 diff --git a/lib/SPIRV/TransOCLMD.cpp b/lib/SPIRV/TransOCLMD.cpp
 new file mode 100644
-index 0000000..f5fe175
+index 00000000000..f5fe1759bb4
 --- /dev/null
 +++ b/lib/SPIRV/TransOCLMD.cpp
 @@ -0,0 +1,252 @@
@@ -28361,7 +28360,7 @@ index 0000000..f5fe175
 +ModulePass *llvm::createTransOCLMD() { return new TransOCLMD(); }
 diff --git a/lib/SPIRV/libSPIRV/GLSL.std.450.h b/lib/SPIRV/libSPIRV/GLSL.std.450.h
 new file mode 100644
-index 0000000..7cb1542
+index 00000000000..7cb1542945a
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/GLSL.std.450.h
 @@ -0,0 +1,135 @@
@@ -28502,7 +28501,7 @@ index 0000000..7cb1542
 +#endif  // #ifndef GLSLstd450_H
 diff --git a/lib/SPIRV/libSPIRV/OpenCL.std.h b/lib/SPIRV/libSPIRV/OpenCL.std.h
 new file mode 100644
-index 0000000..620debfc
+index 00000000000..620debfc1ef
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/OpenCL.std.h
 @@ -0,0 +1,269 @@
@@ -28777,7 +28776,7 @@ index 0000000..620debfc
 +} // end namespace OpenCL20
 diff --git a/lib/SPIRV/libSPIRV/SPIRVBasicBlock.cpp b/lib/SPIRV/libSPIRV/SPIRVBasicBlock.cpp
 new file mode 100644
-index 0000000..67f0f46
+index 00000000000..67f0f46659e
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVBasicBlock.cpp
 @@ -0,0 +1,81 @@
@@ -28864,7 +28863,7 @@ index 0000000..67f0f46
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVBasicBlock.h b/lib/SPIRV/libSPIRV/SPIRVBasicBlock.h
 new file mode 100644
-index 0000000..dce0a34
+index 00000000000..dce0a34817f
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVBasicBlock.h
 @@ -0,0 +1,103 @@
@@ -28973,7 +28972,7 @@ index 0000000..dce0a34
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDebug.cpp b/lib/SPIRV/libSPIRV/SPIRVDebug.cpp
 new file mode 100644
-index 0000000..acace61
+index 00000000000..acace61d82e
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDebug.cpp
 @@ -0,0 +1,46 @@
@@ -29025,7 +29024,7 @@ index 0000000..acace61
 +bool SPIRV::SPIRVDbgErrorMsgIncludesSourceInfo = true;
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDebug.h b/lib/SPIRV/libSPIRV/SPIRVDebug.h
 new file mode 100644
-index 0000000..cf24bb9
+index 00000000000..cf24bb9e96a
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDebug.h
 @@ -0,0 +1,83 @@
@@ -29114,7 +29113,7 @@ index 0000000..cf24bb9
 +#endif /* SPIRVDEBUG_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp b/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp
 new file mode 100644
-index 0000000..b82d5ac
+index 00000000000..b82d5ac4a12
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDecorate.cpp
 @@ -0,0 +1,212 @@
@@ -29332,7 +29331,7 @@ index 0000000..b82d5ac
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVDecorate.h b/lib/SPIRV/libSPIRV/SPIRVDecorate.h
 new file mode 100644
-index 0000000..151779f
+index 00000000000..151779f2cba
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVDecorate.h
 @@ -0,0 +1,312 @@
@@ -29650,7 +29649,7 @@ index 0000000..151779f
 +#endif /* SPIRVDECORATE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.cpp b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
 new file mode 100644
-index 0000000..256febb
+index 00000000000..256febbb272
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.cpp
 @@ -0,0 +1,514 @@
@@ -30170,7 +30169,7 @@ index 0000000..256febb
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEntry.h b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 new file mode 100644
-index 0000000..eaf98d5
+index 00000000000..eaf98d52056
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEntry.h
 @@ -0,0 +1,711 @@
@@ -30887,7 +30886,7 @@ index 0000000..eaf98d5
 +#endif /* SPIRVENTRY_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVEnum.h b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 new file mode 100644
-index 0000000..73503e6
+index 00000000000..73503e69ac5
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVEnum.h
 @@ -0,0 +1,414 @@
@@ -31307,7 +31306,7 @@ index 0000000..73503e6
 +#endif /* SPIRVENUM_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVError.h b/lib/SPIRV/libSPIRV/SPIRVError.h
 new file mode 100644
-index 0000000..324eb70
+index 00000000000..324eb703417
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVError.h
 @@ -0,0 +1,125 @@
@@ -31438,7 +31437,7 @@ index 0000000..324eb70
 +#endif /* SPIRVERROR_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVErrorEnum.h b/lib/SPIRV/libSPIRV/SPIRVErrorEnum.h
 new file mode 100644
-index 0000000..8a348f7
+index 00000000000..8a348f7ec8f
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVErrorEnum.h
 @@ -0,0 +1,8 @@
@@ -31452,7 +31451,7 @@ index 0000000..8a348f7
 +_SPIRV_OP(InvalidBuiltinSetName, "Expects OpenCL.std.")
 diff --git a/lib/SPIRV/libSPIRV/SPIRVExtInst.h b/lib/SPIRV/libSPIRV/SPIRVExtInst.h
 new file mode 100644
-index 0000000..2457b05
+index 00000000000..2457b055f49
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVExtInst.h
 @@ -0,0 +1,344 @@
@@ -31802,7 +31801,7 @@ index 0000000..2457b05
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/SPIRVFunction.cpp b/lib/SPIRV/libSPIRV/SPIRVFunction.cpp
 new file mode 100644
-index 0000000..2e932b0
+index 00000000000..2e932b023c9
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVFunction.cpp
 @@ -0,0 +1,158 @@
@@ -31966,7 +31965,7 @@ index 0000000..2e932b0
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVFunction.h b/lib/SPIRV/libSPIRV/SPIRVFunction.h
 new file mode 100644
-index 0000000..014f398
+index 00000000000..014f3985f46
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVFunction.h
 @@ -0,0 +1,164 @@
@@ -32136,7 +32135,7 @@ index 0000000..014f398
 +#endif /* SPIRVFUNCTION_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp b/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp
 new file mode 100644
-index 0000000..dcffc52
+index 00000000000..dcffc520cd3
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.cpp
 @@ -0,0 +1,224 @@
@@ -32366,7 +32365,7 @@ index 0000000..dcffc52
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVInstruction.h b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 new file mode 100644
-index 0000000..f3a8e73
+index 00000000000..f3a8e735d94
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVInstruction.h
 @@ -0,0 +1,2153 @@
@@ -34525,7 +34524,7 @@ index 0000000..f3a8e73
 +#endif // SPIRVINSTRUCTION_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 new file mode 100644
-index 0000000..b77bcc1
+index 00000000000..b77bcc159ee
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVIsValidEnum.h
 @@ -0,0 +1,967 @@
@@ -35498,7 +35497,7 @@ index 0000000..b77bcc1
 +#endif /* SPIRVISVALIDENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.cpp b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 new file mode 100644
-index 0000000..a81e169
+index 00000000000..a81e1693335
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.cpp
 @@ -0,0 +1,1891 @@
@@ -37395,7 +37394,7 @@ index 0000000..a81e169
 +} // namespace SPIRV
 diff --git a/lib/SPIRV/libSPIRV/SPIRVModule.h b/lib/SPIRV/libSPIRV/SPIRVModule.h
 new file mode 100644
-index 0000000..ec894ba
+index 00000000000..ec894ba2202
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVModule.h
 @@ -0,0 +1,420 @@
@@ -37821,7 +37820,7 @@ index 0000000..ec894ba
 +#endif /* SPIRVMODULE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
 new file mode 100644
-index 0000000..d6c1b6d
+index 00000000000..d6c1b6de98c
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVNameMapEnum.h
 @@ -0,0 +1,471 @@
@@ -38298,7 +38297,7 @@ index 0000000..d6c1b6d
 +#endif /* SPIRVNAMEMAPENUM_H_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCode.h b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 new file mode 100644
-index 0000000..9b58666
+index 00000000000..9b58666a38c
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVOpCode.h
 @@ -0,0 +1,165 @@
@@ -38469,7 +38468,7 @@ index 0000000..9b58666
 +#endif /* SPIRVOPCODE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h b/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h
 new file mode 100644
-index 0000000..e4a1b23
+index 00000000000..e4a1b239b4a
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVOpCodeEnum.h
 @@ -0,0 +1,297 @@
@@ -38772,7 +38771,7 @@ index 0000000..e4a1b23
 +_SPIRV_OP(Forward, 1024)
 diff --git a/lib/SPIRV/libSPIRV/SPIRVStream.cpp b/lib/SPIRV/libSPIRV/SPIRVStream.cpp
 new file mode 100644
-index 0000000..6840893
+index 00000000000..6840893ba3b
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVStream.cpp
 @@ -0,0 +1,253 @@
@@ -39031,7 +39030,7 @@ index 0000000..6840893
 +} // end of SPIRV namespace
 diff --git a/lib/SPIRV/libSPIRV/SPIRVStream.h b/lib/SPIRV/libSPIRV/SPIRVStream.h
 new file mode 100644
-index 0000000..a0f1fd4
+index 00000000000..a0f1fd45705
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVStream.h
 @@ -0,0 +1,191 @@
@@ -39228,7 +39227,7 @@ index 0000000..a0f1fd4
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.cpp b/lib/SPIRV/libSPIRV/SPIRVType.cpp
 new file mode 100644
-index 0000000..228c206
+index 00000000000..228c206c392
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.cpp
 @@ -0,0 +1,241 @@
@@ -39475,7 +39474,7 @@ index 0000000..228c206
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVType.h b/lib/SPIRV/libSPIRV/SPIRVType.h
 new file mode 100644
-index 0000000..c46fecc
+index 00000000000..c46fecc5e66
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVType.h
 @@ -0,0 +1,803 @@
@@ -40284,7 +40283,7 @@ index 0000000..c46fecc
 +#endif // SPIRVTYPE_HPP_
 diff --git a/lib/SPIRV/libSPIRV/SPIRVUtil.h b/lib/SPIRV/libSPIRV/SPIRVUtil.h
 new file mode 100644
-index 0000000..1c13280
+index 00000000000..1c13280209d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVUtil.h
 @@ -0,0 +1,421 @@
@@ -40711,7 +40710,7 @@ index 0000000..1c13280
 +#endif /* SPIRVUTIL_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/SPIRVValue.cpp b/lib/SPIRV/libSPIRV/SPIRVValue.cpp
 new file mode 100644
-index 0000000..29bbdfb
+index 00000000000..29bbdfbf686
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVValue.cpp
 @@ -0,0 +1,70 @@
@@ -40787,7 +40786,7 @@ index 0000000..29bbdfb
 +}
 diff --git a/lib/SPIRV/libSPIRV/SPIRVValue.h b/lib/SPIRV/libSPIRV/SPIRVValue.h
 new file mode 100644
-index 0000000..c3f19ee
+index 00000000000..c3f19eed86d
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/SPIRVValue.h
 @@ -0,0 +1,421 @@
@@ -41214,7 +41213,7 @@ index 0000000..c3f19ee
 +#endif /* SPIRVVALUE_HPP_ */
 diff --git a/lib/SPIRV/libSPIRV/libSPIRV.h b/lib/SPIRV/libSPIRV/libSPIRV.h
 new file mode 100644
-index 0000000..a51d843
+index 00000000000..a51d8432bac
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/libSPIRV.h
 @@ -0,0 +1,52 @@
@@ -41272,7 +41271,7 @@ index 0000000..a51d843
 +#endif
 diff --git a/lib/SPIRV/libSPIRV/spirv.hpp b/lib/SPIRV/libSPIRV/spirv.hpp
 new file mode 100644
-index 0000000..843a5a3
+index 00000000000..843a5a330d0
 --- /dev/null
 +++ b/lib/SPIRV/libSPIRV/spirv.hpp
 @@ -0,0 +1,911 @@
@@ -42189,7 +42188,7 @@ index 0000000..843a5a3
 +
 diff --git a/lib/SPIRVerifier/CMakeLists.txt b/lib/SPIRVerifier/CMakeLists.txt
 new file mode 100644
-index 0000000..0b392e7
+index 00000000000..0b392e75b2e
 --- /dev/null
 +++ b/lib/SPIRVerifier/CMakeLists.txt
 @@ -0,0 +1,8 @@
@@ -42203,7 +42202,7 @@ index 0000000..0b392e7
 +add_dependencies(LLVMSPIRVerifier intrinsics_gen)
 diff --git a/lib/SPIRVerifier/LLVMBuild.txt b/lib/SPIRVerifier/LLVMBuild.txt
 new file mode 100644
-index 0000000..7203f96
+index 00000000000..7203f96a403
 --- /dev/null
 +++ b/lib/SPIRVerifier/LLVMBuild.txt
 @@ -0,0 +1,23 @@
@@ -42232,7 +42231,7 @@ index 0000000..7203f96
 +required_libraries = Core Support Analysis
 diff --git a/lib/SPIRVerifier/Makefile b/lib/SPIRVerifier/Makefile
 new file mode 100644
-index 0000000..5885e2b
+index 00000000000..5885e2b6b78
 --- /dev/null
 +++ b/lib/SPIRVerifier/Makefile
 @@ -0,0 +1,14 @@
@@ -42252,7 +42251,7 @@ index 0000000..5885e2b
 +include $(LEVEL)/Makefile.common
 diff --git a/lib/SPIRVerifier/README.md b/lib/SPIRVerifier/README.md
 new file mode 100644
-index 0000000..d845066
+index 00000000000..d845066b6f9
 --- /dev/null
 +++ b/lib/SPIRVerifier/README.md
 @@ -0,0 +1,8 @@
@@ -42266,7 +42265,7 @@ index 0000000..d845066
 +SPIR 1.2 Specification can be found under: http://www.khronos.org/files/opencl-spir-12-provisional.pdf
 diff --git a/lib/SPIRVerifier/SpirErrors.cpp b/lib/SPIRVerifier/SpirErrors.cpp
 new file mode 100644
-index 0000000..1256e5d
+index 00000000000..1256e5dddce
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirErrors.cpp
 @@ -0,0 +1,376 @@
@@ -42648,7 +42647,7 @@ index 0000000..1256e5d
 +} // End SPIR namespace
 diff --git a/lib/SPIRVerifier/SpirIterators.cpp b/lib/SPIRVerifier/SpirIterators.cpp
 new file mode 100644
-index 0000000..e478e12
+index 00000000000..e478e12a9cf
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirIterators.cpp
 @@ -0,0 +1,1029 @@
@@ -43683,7 +43682,7 @@ index 0000000..e478e12
 +
 diff --git a/lib/SPIRVerifier/SpirTables.cpp b/lib/SPIRVerifier/SpirTables.cpp
 new file mode 100644
-index 0000000..1df07e7
+index 00000000000..1df07e70f26
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirTables.cpp
 @@ -0,0 +1,567 @@
@@ -44256,7 +44255,7 @@ index 0000000..1df07e7
 +
 diff --git a/lib/SPIRVerifier/SpirValidation.cpp b/lib/SPIRVerifier/SpirValidation.cpp
 new file mode 100644
-index 0000000..38053e5
+index 00000000000..38053e577c1
 --- /dev/null
 +++ b/lib/SPIRVerifier/SpirValidation.cpp
 @@ -0,0 +1,125 @@
@@ -44386,7 +44385,7 @@ index 0000000..38053e5
 +  }
 +}
 diff --git a/lib/Support/Triple.cpp b/lib/Support/Triple.cpp
-index 2bac2a3..9d66369 100644
+index 2bac2a31067..9d663694103 100644
 --- a/lib/Support/Triple.cpp
 +++ b/lib/Support/Triple.cpp
 @@ -59,6 +59,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
@@ -44486,7 +44485,7 @@ index 2bac2a3..9d66369 100644
    case Triple::wasm32:
    case Triple::wasm64:
 diff --git a/lib/Target/AMDGPU/AMDGPUMachineFunction.cpp b/lib/Target/AMDGPU/AMDGPUMachineFunction.cpp
-index 40c3327..566dd96 100644
+index 40c3327a98d..566dd96eaa3 100644
 --- a/lib/Target/AMDGPU/AMDGPUMachineFunction.cpp
 +++ b/lib/Target/AMDGPU/AMDGPUMachineFunction.cpp
 @@ -20,7 +20,7 @@ AMDGPUMachineFunction::AMDGPUMachineFunction(const MachineFunction &MF) :
@@ -44499,7 +44498,7 @@ index 40c3327..566dd96 100644
    // except reserved size is not correctly aligned.
  }
 diff --git a/lib/Target/NVPTX/NVPTX.td b/lib/Target/NVPTX/NVPTX.td
-index 032991a..bc96ab5 100644
+index 032991a20cc..c1cd150908e 100644
 --- a/lib/Target/NVPTX/NVPTX.td
 +++ b/lib/Target/NVPTX/NVPTX.td
 @@ -26,10 +26,12 @@ include "NVPTXInstrInfo.td"
@@ -44549,16 +44548,18 @@ index 032991a..bc96ab5 100644
  
  // PTX Versions
  def PTX32 : SubtargetFeature<"ptx32", "PTXVersion", "32",
-@@ -64,6 +78,8 @@ def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
+@@ -64,6 +78,10 @@ def PTX43 : SubtargetFeature<"ptx43", "PTXVersion", "43",
                               "Use PTX version 4.3">;
  def PTX50 : SubtargetFeature<"ptx50", "PTXVersion", "50",
                               "Use PTX version 5.0">;
 +def PTX60 : SubtargetFeature<"ptx60", "PTXVersion", "60",
 +                             "Use PTX version 6.0">;
++def PTX61 : SubtargetFeature<"ptx61", "PTXVersion", "61",
++                             "Use PTX version 6.1">;
  
  //===----------------------------------------------------------------------===//
  // NVPTX supported processors.
-@@ -84,6 +100,10 @@ def : Proc<"sm_53", [SM53, PTX42]>;
+@@ -84,6 +102,10 @@ def : Proc<"sm_53", [SM53, PTX42]>;
  def : Proc<"sm_60", [SM60, PTX50]>;
  def : Proc<"sm_61", [SM61, PTX50]>;
  def : Proc<"sm_62", [SM62, PTX50]>;
@@ -44570,7 +44571,7 @@ index 032991a..bc96ab5 100644
  def NVPTXInstrInfo : InstrInfo {
  }
 diff --git a/lib/Target/NVPTX/NVPTXAsmPrinter.h b/lib/Target/NVPTX/NVPTXAsmPrinter.h
-index 85660fb..806e536 100644
+index 85660fbdb26..806e5361a0c 100644
 --- a/lib/Target/NVPTX/NVPTXAsmPrinter.h
 +++ b/lib/Target/NVPTX/NVPTXAsmPrinter.h
 @@ -206,6 +206,12 @@ private:
@@ -44587,7 +44588,7 @@ index 85660fb..806e536 100644
    void lowerToMCInst(const MachineInstr *MI, MCInst &OutMI);
    bool lowerOperand(const MachineOperand &MO, MCOperand &MCOp);
 diff --git a/lib/Target/NVPTX/NVPTXSubtarget.cpp b/lib/Target/NVPTX/NVPTXSubtarget.cpp
-index bd2509a..55c1aca 100644
+index bd2509a3c8c..55c1aca8af8 100644
 --- a/lib/Target/NVPTX/NVPTXSubtarget.cpp
 +++ b/lib/Target/NVPTX/NVPTXSubtarget.cpp
 @@ -35,9 +35,9 @@ NVPTXSubtarget &NVPTXSubtarget::initializeSubtargetDependencies(StringRef CPU,
@@ -44603,7 +44604,7 @@ index bd2509a..55c1aca 100644
  
    return *this;
 diff --git a/lib/Target/NVPTX/NVPTXTargetMachine.cpp b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
-index 05df3e4c..822bcac 100644
+index 05df3e4ccc2..822bcac0546 100644
 --- a/lib/Target/NVPTX/NVPTXTargetMachine.cpp
 +++ b/lib/Target/NVPTX/NVPTXTargetMachine.cpp
 @@ -56,10 +56,11 @@ static cl::opt<bool> UseInferAddressSpaces(
@@ -44620,7 +44621,7 @@ index 05df3e4c..822bcac 100644
  namespace llvm {
  void initializeNVVMIntrRangePass(PassRegistry&);
 diff --git a/lib/Target/NVPTX/NVPTXUtilities.cpp b/lib/Target/NVPTX/NVPTXUtilities.cpp
-index 8c980a6..63654c4 100644
+index 8c980a60ebd..63654c4ca43 100644
 --- a/lib/Target/NVPTX/NVPTXUtilities.cpp
 +++ b/lib/Target/NVPTX/NVPTXUtilities.cpp
 @@ -295,7 +295,8 @@ bool llvm::isKernelFunction(const Function &F) {
@@ -44634,7 +44635,7 @@ index 8c980a6..63654c4 100644
    return (x == 1);
  }
 diff --git a/lib/Transforms/IPO/CMakeLists.txt b/lib/Transforms/IPO/CMakeLists.txt
-index 341ce55..259bdef 100644
+index 341ce55f2dd..259bdefd59a 100644
 --- a/lib/Transforms/IPO/CMakeLists.txt
 +++ b/lib/Transforms/IPO/CMakeLists.txt
 @@ -15,6 +15,7 @@ add_llvm_library(LLVMipo
@@ -44646,7 +44647,7 @@ index 341ce55..259bdef 100644
    Inliner.cpp
    Internalize.cpp
 diff --git a/lib/Transforms/IPO/FunctionAttrs.cpp b/lib/Transforms/IPO/FunctionAttrs.cpp
-index 2d897b5..3c2e483 100644
+index 2d897b5cab6..3c2e4836a7d 100644
 --- a/lib/Transforms/IPO/FunctionAttrs.cpp
 +++ b/lib/Transforms/IPO/FunctionAttrs.cpp
 @@ -1013,6 +1013,13 @@ static bool addNoRecurseAttrs(const SCCNodeSet &SCCNodes) {
@@ -44664,7 +44665,7 @@ index 2d897b5..3c2e483 100644
    // is norecurse. This check also detects self-recursion as F is not currently
    // marked norecurse, so any called from F to F will not be marked norecurse.
 diff --git a/lib/Transforms/IPO/GlobalOpt.cpp b/lib/Transforms/IPO/GlobalOpt.cpp
-index 52c1cc5..59d1713 100644
+index 52c1cc5d279..59d171330ee 100644
 --- a/lib/Transforms/IPO/GlobalOpt.cpp
 +++ b/lib/Transforms/IPO/GlobalOpt.cpp
 @@ -20,6 +20,7 @@
@@ -44716,7 +44717,7 @@ index 52c1cc5..59d1713 100644
        Changed = true;
      }
 diff --git a/lib/Transforms/IPO/IPO.cpp b/lib/Transforms/IPO/IPO.cpp
-index 58b89b2..3409389 100644
+index 58b89b2007c..3409389492c 100644
 --- a/lib/Transforms/IPO/IPO.cpp
 +++ b/lib/Transforms/IPO/IPO.cpp
 @@ -34,6 +34,7 @@ void llvm::initializeIPO(PassRegistry &Registry) {
@@ -44740,7 +44741,7 @@ index 58b89b2..3409389 100644
  }
 diff --git a/lib/Transforms/IPO/InlineEverything.cpp b/lib/Transforms/IPO/InlineEverything.cpp
 new file mode 100644
-index 0000000..48595e0
+index 00000000000..48595e0f173
 --- /dev/null
 +++ b/lib/Transforms/IPO/InlineEverything.cpp
 @@ -0,0 +1,92 @@
@@ -44837,7 +44838,7 @@ index 0000000..48595e0
 +}
 +
 diff --git a/lib/Transforms/IPO/Internalize.cpp b/lib/Transforms/IPO/Internalize.cpp
-index 26db146..5e91105 100644
+index 26db1465bb2..5e911052166 100644
 --- a/lib/Transforms/IPO/Internalize.cpp
 +++ b/lib/Transforms/IPO/Internalize.cpp
 @@ -24,6 +24,7 @@
@@ -44867,7 +44868,7 @@ index 26db146..5e91105 100644
  }
  
 diff --git a/lib/Transforms/IPO/LLVMBuild.txt b/lib/Transforms/IPO/LLVMBuild.txt
-index bc3df98..ad5dbb0 100644
+index bc3df98d504..ad5dbb0f7c6 100644
 --- a/lib/Transforms/IPO/LLVMBuild.txt
 +++ b/lib/Transforms/IPO/LLVMBuild.txt
 @@ -20,4 +20,4 @@ type = Library
@@ -44877,7 +44878,7 @@ index bc3df98..ad5dbb0 100644
 -required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation
 +required_libraries = Analysis Core InstCombine IRReader Linker Object ProfileData Scalar Support TransformUtils Vectorize Instrumentation SPIRVerifier
 diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
-index 71e479a..389a77e 100644
+index 71e479aac55..389a77e060f 100644
 --- a/lib/Transforms/IPO/PassManagerBuilder.cpp
 +++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
 @@ -39,6 +39,7 @@
@@ -45074,7 +45075,7 @@ index 71e479a..389a77e 100644
  
  void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
 diff --git a/lib/Transforms/InstCombine/InstCombineInternal.h b/lib/Transforms/InstCombine/InstCombineInternal.h
-index 8f2a7f4..899bcc7 100644
+index 8f2a7f45dc8..899bcc71048 100644
 --- a/lib/Transforms/InstCombine/InstCombineInternal.h
 +++ b/lib/Transforms/InstCombine/InstCombineInternal.h
 @@ -157,6 +157,8 @@ private:
@@ -45101,7 +45102,7 @@ index 8f2a7f4..899bcc7 100644
  
    /// \brief Run the combiner over the entire worklist until it is empty.
 diff --git a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
-index 1603278..1279da1 100644
+index 16032780142..1279da16f75 100644
 --- a/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
 +++ b/lib/Transforms/InstCombine/InstCombineLoadStoreAlloca.cpp
 @@ -465,13 +465,16 @@ static Instruction *combineLoadToOperationType(InstCombiner &IC, LoadInst &LI) {
@@ -45131,7 +45132,7 @@ index 1603278..1279da1 100644
    // Fold away bit casts of the loaded value by loading the desired type.
    // We can do this for BitCastInsts as well as casts from and to pointer types,
 diff --git a/lib/Transforms/InstCombine/InstCombinePHI.cpp b/lib/Transforms/InstCombine/InstCombinePHI.cpp
-index 675a5d1..cd87fb9 100644
+index 675a5d17ad9..cd87fb9199b 100644
 --- a/lib/Transforms/InstCombine/InstCombinePHI.cpp
 +++ b/lib/Transforms/InstCombine/InstCombinePHI.cpp
 @@ -274,6 +274,11 @@ static bool isSafeAndProfitableToSinkLoad(LoadInst *L) {
@@ -45147,7 +45148,7 @@ index 675a5d1..cd87fb9 100644
  
    // FIXME: This is overconservative; this transform is allowed in some cases
 diff --git a/lib/Transforms/InstCombine/InstructionCombining.cpp b/lib/Transforms/InstCombine/InstructionCombining.cpp
-index 12c42ce..6246e58 100644
+index 12c42ce6472..6246e586100 100644
 --- a/lib/Transforms/InstCombine/InstructionCombining.cpp
 +++ b/lib/Transforms/InstCombine/InstructionCombining.cpp
 @@ -3132,6 +3132,7 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
@@ -45196,7 +45197,7 @@ index 12c42ce..6246e58 100644
  }
 diff --git a/lib/Transforms/Scalar/AddressSpaceFix.cpp b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 new file mode 100644
-index 0000000..23be65f
+index 00000000000..23be65f0e19
 --- /dev/null
 +++ b/lib/Transforms/Scalar/AddressSpaceFix.cpp
 @@ -0,0 +1,555 @@
@@ -45757,7 +45758,7 @@ index 0000000..23be65f
 +}
 diff --git a/lib/Transforms/Scalar/CFGStructurization.cpp b/lib/Transforms/Scalar/CFGStructurization.cpp
 new file mode 100644
-index 0000000..8438df1
+index 00000000000..8438df11b7f
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CFGStructurization.cpp
 @@ -0,0 +1,575 @@
@@ -46337,7 +46338,7 @@ index 0000000..8438df1
 +INITIALIZE_PASS_END(CFGStructurization, "CFGStructurization", "CFGStructurization Pass", false, false)
 +
 diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
-index 9f04344..32c0ef3 100644
+index 9f04344b8b0..32c0ef36401 100644
 --- a/lib/Transforms/Scalar/CMakeLists.txt
 +++ b/lib/Transforms/Scalar/CMakeLists.txt
 @@ -1,4 +1,19 @@
@@ -46362,7 +46363,7 @@ index 9f04344..32c0ef3 100644
    BDCE.cpp
 diff --git a/lib/Transforms/Scalar/CUDAFinal.cpp b/lib/Transforms/Scalar/CUDAFinal.cpp
 new file mode 100644
-index 0000000..9f08fe5
+index 00000000000..9f08fe5ca43
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAFinal.cpp
 @@ -0,0 +1,116 @@
@@ -46484,7 +46485,7 @@ index 0000000..9f08fe5
 +}
 diff --git a/lib/Transforms/Scalar/CUDAImage.cpp b/lib/Transforms/Scalar/CUDAImage.cpp
 new file mode 100644
-index 0000000..a31359d
+index 00000000000..a31359db0c0
 --- /dev/null
 +++ b/lib/Transforms/Scalar/CUDAImage.cpp
 @@ -0,0 +1,642 @@
@@ -47132,7 +47133,7 @@ index 0000000..a31359d
 +}
 diff --git a/lib/Transforms/Scalar/FMACombiner.cpp b/lib/Transforms/Scalar/FMACombiner.cpp
 new file mode 100644
-index 0000000..291c14f
+index 00000000000..291c14fd759
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FMACombiner.cpp
 @@ -0,0 +1,772 @@
@@ -47910,7 +47911,7 @@ index 0000000..291c14f
 +INITIALIZE_PASS_END(FMACombiner, "FMACombiner", "FMACombiner Pass", false, false)
 diff --git a/lib/Transforms/Scalar/FloorImage.cpp b/lib/Transforms/Scalar/FloorImage.cpp
 new file mode 100644
-index 0000000..42b30a3
+index 00000000000..42b30a3c915
 --- /dev/null
 +++ b/lib/Transforms/Scalar/FloorImage.cpp
 @@ -0,0 +1,450 @@
@@ -48365,7 +48366,7 @@ index 0000000..42b30a3
 +	dst_vec = builder->CreateInsertElement(dst_vec, insert_value, builder->getInt32(0));
 +}
 diff --git a/lib/Transforms/Scalar/LoopRotation.cpp b/lib/Transforms/Scalar/LoopRotation.cpp
-index 4498e1d..5600e22 100644
+index 4498e1db521..5600e227bd2 100644
 --- a/lib/Transforms/Scalar/LoopRotation.cpp
 +++ b/lib/Transforms/Scalar/LoopRotation.cpp
 @@ -220,7 +220,8 @@ bool LoopRotate::rotateLoop(Loop *L, bool SimplifiedLatch) {
@@ -48388,7 +48389,7 @@ index 4498e1d..5600e22 100644
        return false;
    }
 diff --git a/lib/Transforms/Scalar/LoopUnrollPass.cpp b/lib/Transforms/Scalar/LoopUnrollPass.cpp
-index 1018b61..7cbd34a 100644
+index 1018b61b330..7cbd34a6267 100644
 --- a/lib/Transforms/Scalar/LoopUnrollPass.cpp
 +++ b/lib/Transforms/Scalar/LoopUnrollPass.cpp
 @@ -44,22 +44,22 @@ using namespace llvm;
@@ -48504,7 +48505,7 @@ index 1018b61..7cbd34a 100644
      return false;
 diff --git a/lib/Transforms/Scalar/MetalFinal.cpp b/lib/Transforms/Scalar/MetalFinal.cpp
 new file mode 100644
-index 0000000..588aada
+index 00000000000..588aadadf55
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalFinal.cpp
 @@ -0,0 +1,928 @@
@@ -49438,7 +49439,7 @@ index 0000000..588aada
 +INITIALIZE_PASS_END(MetalFinalModuleCleanup, "MetalFinal module cleanup", "MetalFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/MetalImage.cpp b/lib/Transforms/Scalar/MetalImage.cpp
 new file mode 100644
-index 0000000..9e45254
+index 00000000000..9e452542712
 --- /dev/null
 +++ b/lib/Transforms/Scalar/MetalImage.cpp
 @@ -0,0 +1,507 @@
@@ -49951,7 +49952,7 @@ index 0000000..9e45254
 +}
 diff --git a/lib/Transforms/Scalar/PropagateRangeInfo.cpp b/lib/Transforms/Scalar/PropagateRangeInfo.cpp
 new file mode 100644
-index 0000000..9366898
+index 00000000000..936689853dc
 --- /dev/null
 +++ b/lib/Transforms/Scalar/PropagateRangeInfo.cpp
 @@ -0,0 +1,207 @@
@@ -50164,7 +50165,7 @@ index 0000000..9366898
 +
 diff --git a/lib/Transforms/Scalar/SPIRFinal.cpp b/lib/Transforms/Scalar/SPIRFinal.cpp
 new file mode 100644
-index 0000000..8377337
+index 00000000000..837733755d8
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRFinal.cpp
 @@ -0,0 +1,317 @@
@@ -50487,7 +50488,7 @@ index 0000000..8377337
 +}
 diff --git a/lib/Transforms/Scalar/SPIRImage.cpp b/lib/Transforms/Scalar/SPIRImage.cpp
 new file mode 100644
-index 0000000..5eec930
+index 00000000000..5eec930f074
 --- /dev/null
 +++ b/lib/Transforms/Scalar/SPIRImage.cpp
 @@ -0,0 +1,657 @@
@@ -51149,7 +51150,7 @@ index 0000000..5eec930
 +	return new SPIRImage(image_capabilities, intel_workarounds);
 +}
 diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
-index b1d2420..1f943de 100644
+index b1d2420be89..1f943de40a6 100644
 --- a/lib/Transforms/Scalar/Scalar.cpp
 +++ b/lib/Transforms/Scalar/Scalar.cpp
 @@ -96,6 +96,70 @@ void LLVMInitializeScalarOpts(LLVMPassRegistryRef R) {
@@ -51225,7 +51226,7 @@ index b1d2420..1f943de 100644
  }
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.cpp b/lib/Transforms/Scalar/StructuralAnalysis.cpp
 new file mode 100644
-index 0000000..617a614
+index 00000000000..617a6146008
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.cpp
 @@ -0,0 +1,1938 @@
@@ -53169,7 +53170,7 @@ index 0000000..617a614
 +}
 diff --git a/lib/Transforms/Scalar/StructuralAnalysis.h b/lib/Transforms/Scalar/StructuralAnalysis.h
 new file mode 100644
-index 0000000..31782c1
+index 00000000000..31782c10847
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralAnalysis.h
 @@ -0,0 +1,324 @@
@@ -53499,7 +53500,7 @@ index 0000000..31782c1
 +#endif
 diff --git a/lib/Transforms/Scalar/StructuralTransform.cpp b/lib/Transforms/Scalar/StructuralTransform.cpp
 new file mode 100644
-index 0000000..9c69349
+index 00000000000..9c693490f43
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.cpp
 @@ -0,0 +1,676 @@
@@ -54181,7 +54182,7 @@ index 0000000..9c69349
 +}
 diff --git a/lib/Transforms/Scalar/StructuralTransform.h b/lib/Transforms/Scalar/StructuralTransform.h
 new file mode 100644
-index 0000000..73ed894
+index 00000000000..73ed89463b8
 --- /dev/null
 +++ b/lib/Transforms/Scalar/StructuralTransform.h
 @@ -0,0 +1,165 @@
@@ -54352,7 +54353,7 @@ index 0000000..73ed894
 +#endif
 diff --git a/lib/Transforms/Scalar/VulkanFinal.cpp b/lib/Transforms/Scalar/VulkanFinal.cpp
 new file mode 100644
-index 0000000..5d89d85
+index 00000000000..5d89d85b917
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanFinal.cpp
 @@ -0,0 +1,1331 @@
@@ -55689,7 +55690,7 @@ index 0000000..5d89d85
 +INITIALIZE_PASS_END(VulkanFinalModuleCleanup, "VulkanFinal module cleanup", "VulkanFinal module cleanup Pass", false, false)
 diff --git a/lib/Transforms/Scalar/VulkanImage.cpp b/lib/Transforms/Scalar/VulkanImage.cpp
 new file mode 100644
-index 0000000..1211f7b
+index 00000000000..1211f7be098
 --- /dev/null
 +++ b/lib/Transforms/Scalar/VulkanImage.cpp
 @@ -0,0 +1,748 @@
@@ -56442,7 +56443,7 @@ index 0000000..1211f7b
 +	return new VulkanImage(image_capabilities);
 +}
 diff --git a/tools/CMakeLists.txt b/tools/CMakeLists.txt
-index b654b8c..56c4ad3 100644
+index b654b8c5cb8..56c4ad30246 100644
 --- a/tools/CMakeLists.txt
 +++ b/tools/CMakeLists.txt
 @@ -39,6 +39,7 @@ add_llvm_tool_subdirectory(llvm-ar)
@@ -56454,7 +56455,7 @@ index b654b8c..56c4ad3 100644
  # Projects supported via LLVM_EXTERNAL_*_SOURCE_DIR need to be explicitly
  # specified.
 diff --git a/tools/LLVMBuild.txt b/tools/LLVMBuild.txt
-index d4b0147..32bc9a7 100644
+index d4b01477185..32bc9a754cb 100644
 --- a/tools/LLVMBuild.txt
 +++ b/tools/LLVMBuild.txt
 @@ -41,6 +41,7 @@ subdirectories =
@@ -56467,7 +56468,7 @@ index d4b0147..32bc9a7 100644
   verify-uselistorder
 diff --git a/tools/llvm-spirv/CMakeLists.txt b/tools/llvm-spirv/CMakeLists.txt
 new file mode 100644
-index 0000000..88e3178
+index 00000000000..88e317844cb
 --- /dev/null
 +++ b/tools/llvm-spirv/CMakeLists.txt
 @@ -0,0 +1,14 @@
@@ -56487,7 +56488,7 @@ index 0000000..88e3178
 +  )
 diff --git a/tools/llvm-spirv/LLVMBuild.txt b/tools/llvm-spirv/LLVMBuild.txt
 new file mode 100644
-index 0000000..4accaea
+index 00000000000..4accaeaf241
 --- /dev/null
 +++ b/tools/llvm-spirv/LLVMBuild.txt
 @@ -0,0 +1,22 @@
@@ -56515,7 +56516,7 @@ index 0000000..4accaea
 +required_libraries = Analysis BitReader BitWriter SPIRVLib IPO
 diff --git a/tools/llvm-spirv/Makefile b/tools/llvm-spirv/Makefile
 new file mode 100644
-index 0000000..9d4edc3
+index 00000000000..9d4edc3d0f1
 --- /dev/null
 +++ b/tools/llvm-spirv/Makefile
 @@ -0,0 +1,17 @@
@@ -56538,7 +56539,7 @@ index 0000000..9d4edc3
 +include $(LEVEL)/Makefile.common
 diff --git a/tools/llvm-spirv/llvm-spirv.cpp b/tools/llvm-spirv/llvm-spirv.cpp
 new file mode 100644
-index 0000000..4ffe7df
+index 00000000000..4ffe7dfd8d8
 --- /dev/null
 +++ b/tools/llvm-spirv/llvm-spirv.cpp
 @@ -0,0 +1,325 @@
@@ -56869,7 +56870,7 @@ index 0000000..4ffe7df
 +}
 diff --git a/tools/spirv-tool/gen_spirv.bash b/tools/spirv-tool/gen_spirv.bash
 new file mode 100644
-index 0000000..e948ba8
+index 00000000000..e948ba8c6ab
 --- /dev/null
 +++ b/tools/spirv-tool/gen_spirv.bash
 @@ -0,0 +1,206 @@
