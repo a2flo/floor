@@ -533,7 +533,7 @@ void vulkan_image::image_copy_dev_to_host(VkCommandBuffer cmd_buffer, VkBuffer h
 	transition(cmd_buffer,
 			   VK_ACCESS_TRANSFER_READ_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	vkCmdCopyImageToBuffer(cmd_buffer, image, image_info.imageLayout, host_buffer, 1, &region);
 }
 
@@ -545,7 +545,7 @@ void vulkan_image::image_copy_host_to_dev(VkCommandBuffer cmd_buffer, VkBuffer h
 	transition(cmd_buffer,
 			   VK_ACCESS_TRANSFER_WRITE_BIT,
 			   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_HOST_BIT);
+			   VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	
 	// RGB -> RGBA data conversion if necessary
 	if(image_type != shim_image_type) {

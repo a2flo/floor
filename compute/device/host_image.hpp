@@ -523,7 +523,7 @@ FLOOR_POP_WARNINGS()
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&ret, &img->data[offset], sizeof(float));
-				if(has_stencil) {
+				if constexpr(has_stencil) {
 					memcpy(((uint8_t*)&ret) + sizeof(float), &img->data[offset + sizeof(float)], sizeof(uint8_t));
 				}
 			}
@@ -678,7 +678,7 @@ FLOOR_POP_WARNINGS()
 			if constexpr(data_type == COMPUTE_IMAGE_TYPE::FLOAT) {
 				// can just pass-through the float value
 				memcpy(&img->data[offset], &color, sizeof(float));
-				if(has_stencil) {
+				if constexpr(has_stencil) {
 					memcpy(&img->data[offset + sizeof(float)], ((const uint8_t*)&color) + sizeof(float), sizeof(uint8_t));
 				}
 			}

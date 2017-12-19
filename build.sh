@@ -49,7 +49,7 @@ command -v ${CXX} >/dev/null 2>&1 || error "clang++ binary not found, please set
 if [ -z "${CC}" ]; then
 	# try using clang directly (avoid any nasty wrappers)
 	if [ -n $(command -v /usr/bin/clang) ]; then
-		CC=/usr/bin/clang++
+		CC=/usr/bin/clang
 	elif [ -n $(command -v /usr/local/bin/clang) ]; then
 		CC=/usr/local/bin/clang
 	else
