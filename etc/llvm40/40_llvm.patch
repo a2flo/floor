@@ -24435,10 +24435,10 @@ index 00000000000..507ed900f02
 +}
 diff --git a/lib/SPIRV/SPIRVWriter.cpp b/lib/SPIRV/SPIRVWriter.cpp
 new file mode 100644
-index 00000000000..d478626efc3
+index 00000000000..bcadc2ab6ae
 --- /dev/null
 +++ b/lib/SPIRV/SPIRVWriter.cpp
-@@ -0,0 +1,3549 @@
+@@ -0,0 +1,3557 @@
 +//===- SPIRVWriter.cpp - Converts LLVM to SPIR-V ----------------*- C++ -*-===//
 +//
 +//                     The LLVM/SPIR-V Translator
@@ -27132,16 +27132,24 @@ index 00000000000..d478626efc3
 +          global_type.is_input = true;
 +          global_type.is_read_only = true;
 +          if (md_prefix != "stage") {
++            // only emit this input if it is an actual input (not a builtin)
 +            global_type.set_location = true;
 +            global_type.location = input_location++;
-+          }
-+          auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
-+                                           SPIRAS_Input, global_type, md_info);
-+          // only emit load if there actually is a user
-+          if (arg.getNumUses() > 0) {
-+            LoadInst *load_repl_var =
-+                new LoadInst(repl_var, arg_name, false, &*(F->front().begin()));
-+            arg.replaceAllUsesWith(load_repl_var);
++
++            auto repl_var = emitShaderGlobal(*F, spirv_func, arg_name, arg_type,
++                                             SPIRAS_Input, global_type, md_info);
++            // only emit load if there actually is a user
++            if (arg.getNumUses() > 0) {
++              LoadInst *load_repl_var =
++                  new LoadInst(repl_var, arg_name, false, &*(F->front().begin()));
++              arg.replaceAllUsesWith(load_repl_var);
++            }
++          } else {
++            // builtin input -> must be ignored
++            if (arg.getNumUses() != 0) {
++              errs() << "stage input should not have any users (must use built-ins)\n";
++			  assert(false && "stage input should not have any users (must use built-ins)");
++            }
 +          }
 +        } else {
 +          assert(false && "unknown or unhandled input");
