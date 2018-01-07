@@ -60,7 +60,7 @@ public:
 		//! NOTE: components of the work-group size must fit into 16-bit
 		static uint64_t make_spec_key(const uint3& work_group_size);
 		
-		//! specializes/builds a compute pipeline for the speicified work-group size
+		//! specializes/builds a compute pipeline for the specified work-group size
 		vulkan_kernel_entry::spec_entry* specialize(vulkan_device* device,
 													const uint3& work_group_size);
 	};

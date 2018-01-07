@@ -88,6 +88,7 @@ vulkan_kernel::vulkan_kernel_entry::spec_entry* vulkan_kernel::vulkan_kernel_ent
 		.basePipelineHandle = nullptr,
 		.basePipelineIndex = 0,
 	};
+	log_debug("specializing %s for %v ...", info->name, work_group_size); logger::flush();
 	VK_CALL_RET(vkCreateComputePipelines(device->device, nullptr, 1, &pipeline_info, nullptr,
 										 &spec_entry.pipeline),
 				"failed to create compute pipeline (" + info->name + ", " + work_group_size.to_string() + ")",
@@ -131,15 +132,15 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 		};
 		VK_CALL_RET(vkBeginCommandBuffer(cmd_buffer.cmd_buffer, &begin_info),
 					"failed to begin command buffer", {});
-		
-		vkCmdBindPipeline(cmd_buffer.cmd_buffer,
-						  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
-						  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
-						  pipeline);
 	}
 	else {
 		cmd_buffer = *(vulkan_queue::command_buffer*)cmd_buffer_;
 	}
+	
+	vkCmdBindPipeline(cmd_buffer.cmd_buffer,
+					  entries[0]->stage_info.stage == VK_SHADER_STAGE_COMPUTE_BIT ?
+					  VK_PIPELINE_BIND_POINT_COMPUTE : VK_PIPELINE_BIND_POINT_GRAPHICS,
+					  pipeline);
 	
 	auto vk_dev = (vulkan_device*)queue->get_device().get();
 	auto encoder = make_shared<vulkan_encoder>(vulkan_encoder {
@@ -148,8 +149,6 @@ shared_ptr<vulkan_kernel::vulkan_encoder> vulkan_kernel::create_encoder(compute_
 		.pipeline = pipeline,
 		.pipeline_layout = pipeline_layout,
 	});
-	
-	vkCmdBindPipeline(encoder->cmd_buffer.cmd_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 	
 	// allocate #args write descriptor sets + 1 for the fixed sampler set
 	// NOTE: any stage_input arguments have to be ignored

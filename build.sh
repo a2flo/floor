@@ -36,9 +36,9 @@ verbose() {
 # if no CXX/CC are specified, try using clang++/clang
 if [ -z "${CXX}" ]; then
 	# try using clang++ directly (avoid any nasty wrappers)
-	if [ -n $(command -v /usr/bin/clang++) ]; then
+	if [[ -n $(command -v /usr/bin/clang++) ]]; then
 		CXX=/usr/bin/clang++
-	elif [ -n $(command -v /usr/local/bin/clang++) ]; then
+	elif [[ -n $(command -v /usr/local/bin/clang++) ]]; then
 		CXX=/usr/local/bin/clang++
 	else
 		CXX=clang++
@@ -48,9 +48,9 @@ command -v ${CXX} >/dev/null 2>&1 || error "clang++ binary not found, please set
 
 if [ -z "${CC}" ]; then
 	# try using clang directly (avoid any nasty wrappers)
-	if [ -n $(command -v /usr/bin/clang) ]; then
+	if [[ -n $(command -v /usr/bin/clang) ]]; then
 		CC=/usr/bin/clang
-	elif [ -n $(command -v /usr/local/bin/clang) ]; then
+	elif [[ -n $(command -v /usr/local/bin/clang) ]]; then
 		CC=/usr/local/bin/clang
 	else
 		CC=clang
@@ -80,7 +80,7 @@ fi
 
 # try using lld if it is available, otherwise fall back to using clangs default
 if [ -z "${LD}" ]; then
-	if [ -n $(command -v ld.lld) ]; then
+	if [[ -n $(command -v ld.lld) ]]; then
 		LDFLAGS="${LDFLAGS} -fuse-ld=lld"
 	fi
 fi
@@ -326,9 +326,9 @@ file_mod_time() {
 
 # figure out which md5 cmd/binary can be used
 MD5_CMD=
-if [ $(command -v md5sum) ]; then
+if [[ $(command -v md5sum) ]]; then
 	MD5_CMD=md5sum
-elif [ $(command -v md5) ]; then
+elif [[ $(command -v md5) ]]; then
 	MD5_CMD=md5
 else
 	error "neither md5 nor md5sum was found"
@@ -470,8 +470,9 @@ if [ $BUILD_OS != "osx" -a $BUILD_OS != "ios" ]; then
 	fi
 	
 	# use PIC
+	# NOTE: -fno-pic -fno-pie is used at the front to disable/reset any defaults
 	LDFLAGS="${LDFLAGS} -fPIC"
-	COMMON_FLAGS="${COMMON_FLAGS} -Xclang -mrelocation-model -Xclang pic -Xclang -pic-level -Xclang 2"
+	COMMON_FLAGS="${COMMON_FLAGS} -fno-pic -fno-pie -Xclang -mrelocation-model -Xclang pic -Xclang -pic-level -Xclang 2"
 	
 	# pkg-config: required libraries/packages and optional libraries/packages
 	PACKAGES="sdl2"
@@ -776,7 +777,7 @@ if [ $BUILD_CONF_NATIVE -gt 0 ]; then
 fi
 
 # debug flags, only used in the debug target
-DEBUG_FLAGS="-O0 -DFLOOR_DEBUG=1 -DDEBUG"
+DEBUG_FLAGS="-O0 -DFLOOR_DEBUG=1 -DDEBUG -fno-limit-debug-info"
 if [ $BUILD_OS != "mingw" ]; then
 	DEBUG_FLAGS="${DEBUG_FLAGS} -gdwarf-2"
 else

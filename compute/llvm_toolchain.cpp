@@ -286,8 +286,10 @@ llvm_toolchain::program_data llvm_toolchain::compile_input(const string& input,
 				" -Xclang -cl-unsafe-math-optimizations" \
 				" -Xclang -cl-finite-math-only" \
 				" -DFLOOR_COMPUTE_VULKAN" \
-				" -DFLOOR_COMPUTE_SPIRV" +
-				(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
+				" -DFLOOR_COMPUTE_SPIRV" \
+				" -DFLOOR_COMPUTE_NO_DOUBLE"
+				// TODO: fix Vulkan double support
+				//(!device->double_support ? " -DFLOOR_COMPUTE_NO_DOUBLE" : "")
 			};
 			libcxx_path += floor::get_vulkan_base_path() + "libcxx";
 			clang_path += floor::get_vulkan_base_path() + "clang";
