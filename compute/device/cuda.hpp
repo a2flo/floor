@@ -58,6 +58,16 @@
 #define FLOOR_COMPUTE_INFO_HAS_FIND_NTH_SET 0
 #endif
 
+// shfl.sync was introduced with PTX 6.0 and is required for Volta
+// -> for backwards compat, use the non-sync version when targeting PTX < 6.0
+#if FLOOR_COMPUTE_INFO_CUDA_PTX >= 60
+#define FLOOR_CUDA_SHFL "shfl.sync"
+#define FLOOR_CUDA_SHFL_MASK ", 0xFFFFFFFF"
+#else
+#define FLOOR_CUDA_SHFL "shfl"
+#define FLOOR_CUDA_SHFL_MASK
+#endif
+
 namespace std {
 	// float math functions
 	const_func floor_inline_always float sqrt(float a) { return __nvvm_sqrt_rz_ftz_f(a); }
@@ -243,12 +253,16 @@ namespace std {
 	template <uint32_t width, typename any_type, typename = enable_if_t<sizeof(any_type) == 4>>
 	volatile floor_inline_always any_type sub_group_shuffle_index(const any_type lane_var, const uint32_t src_lane_idx) {
 		constexpr const auto mask = ((device_info::simd_width() - width) << 8u) | 0x1Fu;
+		any_type ret;
 		if constexpr(is_floating_point_v<any_type>) {
-			return __nvvm_shfl_idx_f32(lane_var, src_lane_idx, mask);
+			asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+						 : "=f"(ret) : "f"(lane_var), "r"(src_lane_idx), "i"(mask));
 		}
 		else {
-			return __nvvm_shfl_idx_i32(lane_var, src_lane_idx, mask);
+			asm volatile(FLOOR_CUDA_SHFL ".idx.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+						  : "=r"(ret) : "r"(lane_var), "r"(src_lane_idx), "i"(mask));
 		}
+		return ret;
 	}
 #endif
 	

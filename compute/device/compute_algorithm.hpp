@@ -35,11 +35,13 @@ namespace compute_algorithm {
 #pragma unroll
 		for(uint32_t lane = device_info::simd_width() / 2; lane > 0; lane >>= 1) {
 			if constexpr(is_floating_point_v<T>) {
-				asm volatile("shfl.bfly.b32 %0, %1, %2, %3;"
+				asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
 							 : "=f"(shfled_var) : "f"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
 			}
-			else asm volatile("shfl.bfly.b32 %0, %1, %2, %3;"
-							  : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
+			else {
+				asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %1, %2, %3" FLOOR_CUDA_SHFL_MASK ";"
+							 : "=r"(shfled_var) : "r"(lane_var), "i"(lane), "i"(device_info::simd_width() - 1));
+			}
 			lane_var = op(lane_var, shfled_var);
 		}
 		return lane_var;
@@ -56,7 +58,8 @@ namespace compute_algorithm {
 			else {
 				asm volatile("mov.b64 { %0, %1 }, %2;" : "=r"(lo), "=r"(hi) : "l"(lane_var));
 			}
-			asm volatile("shfl.bfly.b32 %0, %2, %4, %5;\n\tshfl.bfly.b32 %1, %3, %4, %5;"
+			asm volatile(FLOOR_CUDA_SHFL ".bfly.b32 %0, %2, %4, %5" FLOOR_CUDA_SHFL_MASK ";\n"
+						 "\t" FLOOR_CUDA_SHFL ".bfly.b32 %1, %3, %4, %5" FLOOR_CUDA_SHFL_MASK ";"
 						 : "=r"(shfled_lo), "=r"(shfled_hi)
 						 : "r"(lo), "r"(hi), "i"(lane), "i"(device_info::simd_width() - 1));
 			if constexpr(is_floating_point_v<T>) {

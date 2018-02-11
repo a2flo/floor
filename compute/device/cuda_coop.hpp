@@ -40,9 +40,9 @@ namespace coop {
 	
 #if FLOOR_COMPUTE_INFO_CUDA_SM >= 60
 	struct global_group : group_base {
-        void barrier() {
+		void barrier() {
 			__cuda_syscall_CGS_sync(__cuda_syscall_CGS_get_intrinsic_handle(1 /* cudaCGScopeGrid */), 0);
-        }
+		}
 		
 		static uint32_t size() {
 			// product of global_size dims
